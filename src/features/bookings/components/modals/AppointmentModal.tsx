@@ -1290,10 +1290,15 @@ export const AppointmentModal: React.FC<Props> = ({
 
   const isCancelledBooking = existingBooking?.status?.toLowerCase() === "cancelled";
   const isPartialBooking   = existingBooking?.status === "partial";
-  const isPaymentFrozen = existingBooking?.status === "paid"
-    || (existingBooking?.status !== "partial"
+  // A Paid booking whose edited total hasn't changed stays frozen (nothing
+  // to collect) — but editing it to raise the total un-freezes it the moment
+  // the live preview shows more is owed than what's already been paid,
+  // exactly like a genuinely-partial booking already does. No separate
+  // "paid" case needed anymore; this one condition covers both.
+  const isPaymentFrozen =
+    existingBooking?.status !== "partial"
         && alreadyPaidAmount > 0
-        && alreadyPaidAmount >= totals.effectiveTotal);
+        && alreadyPaidAmount >= totals.effectiveTotal;
 
   // Disable pay button when no method selected in single mode
   const isPayDisabled = isPaymentFrozen
@@ -1340,7 +1345,7 @@ export const AppointmentModal: React.FC<Props> = ({
     <>
       <div
         className="appt-section"
-        style={isPartialBooking ? { pointerEvents: "none", opacity: 0.7 } : undefined}
+        style={isPartialBooking && !existingBooking?.reopenedFromPaid ? { pointerEvents: "none", opacity: 0.7 } : undefined}
         ref={servicesSectionRef}
       >
         <div className="appt-section__title"><Scissors size={15} /> Services &amp; Items</div>
@@ -2137,7 +2142,7 @@ export const AppointmentModal: React.FC<Props> = ({
             </>
           ) : (
             <>
-              {!isPartialBooking && (
+              {(!isPartialBooking || existingBooking?.reopenedFromPaid) && (
                 <button className="btn btn-outline-secondary" onClick={() => setShowPaymentSection(false)}>
                   <PencilFill size={13} /> Update Appointment
                 </button>

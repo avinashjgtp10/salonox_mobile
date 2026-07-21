@@ -396,6 +396,7 @@ export function mapApiBooking(
     memberships: membershipItems,
     grandTotal: grandTotalVal,
     isDeleted: !!(appt.deleted_at ?? appt.deletedAt),
+    reopenedFromPaid: !!(appt.reopened_from_paid ?? appt.reopenedFromPaid),
     // When package-covered items bring our recomputed due to 0, the backend may still
     // have sent "partial" (it used the old grand_total that included catalog prices). Override to "paid".
     // Gated on rawStatus === "partial" specifically — without this, a cancelled/
