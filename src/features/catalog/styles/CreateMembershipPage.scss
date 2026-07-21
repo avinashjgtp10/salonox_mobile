@@ -35,6 +35,23 @@
     gap: 10px;
   }
 
+  &__close-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    background: #fff;
+    color: #64748b;
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: all 0.15s;
+
+    &:hover { background: #f8fafc; border-color: #cbd5e1; color: #0f172a; }
+  }
+
   /* ── Buttons ─────────────────────────────────────────────────── */
   &__btn {
     display: inline-flex;
@@ -512,29 +529,71 @@
   /* ── Client card (passed from memberships list) ──────────────── */
   &__client-card {
     background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    overflow: hidden;
+    border: 1px solid #e5e7eb;
+    border-radius: 16px;
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.06);
+    padding: 24px;
     margin-bottom: 20px;
+
+    /* The search input caps itself at 420px by default (fine in narrow
+       toolbars) — stretch it to fill this wider card so it doesn't leave
+       a big gap before the Add Client button. */
+    .client-search-wrapper { max-width: none; }
+
+    .qs-client-row { gap: 16px; }
+
+    .client-search-wrapper .client-search-input-box {
+      height: 50px;
+      border-radius: 12px;
+      border: 1px solid #d1d5db;
+
+      &.focused {
+        border-color: #7c3aed;
+        box-shadow: 0 0 0 4px rgba(124, 58, 237, 0.12);
+      }
+    }
+
+    .qs-pill-btn {
+      height: 50px;
+      padding: 0 22px;
+      border-radius: 999px;
+      background: #f5f3ff;
+      border: 1px solid #c4b5fd;
+      color: #6d28d9;
+      font-weight: 600;
+      transition: all 0.25s ease;
+
+      &:hover {
+        background: #7c3aed;
+        border-color: #7c3aed;
+        color: #fff;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .qs-client-row { flex-direction: column; align-items: stretch; }
+      .qs-pill-btn { width: 100%; justify-content: center; }
+    }
   }
 
   &__client-card-head {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 20px;
-    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 20px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eef2f7;
   }
 
   &__client-card-label {
     display: flex;
     align-items: center;
-    gap: 7px;
-    font-size: 12px;
+    gap: 8px;
+    font-size: 13px;
     font-weight: 700;
-    color: #64748b;
+    color: #475569;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: 0.08em;
   }
 
   &__btn--sm {
@@ -546,7 +605,6 @@
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 16px 20px;
   }
 
   &__client-avatar {

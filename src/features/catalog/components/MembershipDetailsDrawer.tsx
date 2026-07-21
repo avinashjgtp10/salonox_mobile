@@ -80,7 +80,6 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
       <div className="mdd" onClick={e => e.stopPropagation()}>
 
         <header className="mdd__header">
-          <button className="close-btn" onClick={onClose}><XLg size={20} /></button>
           <div className="header-content">
             <div
               className="membership-icon"
@@ -105,12 +104,15 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
               </div>
             </div>
           </div>
-          <button
-            className="edit-btn"
-            onClick={() => { navigate(`/dashboard/catalog/memberships/edit/${membershipId}`); onClose(); }}
-          >
-            <Pencil size={14} /> Edit
-          </button>
+          <div className="mdd__header-actions">
+            <button
+              className="edit-btn"
+              onClick={() => { navigate(`/dashboard/catalog/memberships/edit/${membershipId}`); onClose(); }}
+            >
+              <Pencil size={14} /> Edit
+            </button>
+            <button className="close-btn" onClick={onClose}><XLg size={20} /></button>
+          </div>
         </header>
 
         {loading ? (
