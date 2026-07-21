@@ -204,11 +204,38 @@
             &.price-cell {
               font-weight: 600;
             }
+
+            &.actions-cell {
+              text-align: right;
+            }
           }
 
           &:last-child td {
             border-bottom: none;
           }
+        }
+      }
+
+      .row-actions-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        color: #667085;
+
+        &::after {
+          display: none;
+        }
+
+        &:hover,
+        &:focus {
+          background: #f2f4f7;
+          color: #101828;
         }
       }
     }
