@@ -195,7 +195,6 @@ const ClientSelectorWithAdd: React.FC<Props> = ({
         onCountryChange={setCountry}
         onPhoneBlur={() => { if (phoneValid(phone)) checkPhoneExists(phone); }}
         onSave={handleSave}
-        onCancel={closeForm}
       />
     </>
   );
@@ -238,8 +237,13 @@ const ClientSelectorWithAdd: React.FC<Props> = ({
                   setFormErrors(prev => prev.filter(x => x !== "phone"));
                 }
               } else if (!formAtTop) {
-                setFirstName("");
-                setLastName("");
+                // Mirror the typed name into the add-client form fields, same
+                // as a phone-looking query auto-fills the Mobile field above.
+                const cleaned = val.replace(/[^a-zA-Z\s]/g, "");
+                const [first, ...rest] = cleaned.trim().split(/\s+/).filter(Boolean);
+                setFirstName(first ?? "");
+                setLastName(rest.join(" "));
+                setFormErrors(prev => prev.filter(x => x !== "first_name_required" && x !== "first_name_length"));
               }
             }}
             onSelect={client => {
@@ -251,14 +255,19 @@ const ClientSelectorWithAdd: React.FC<Props> = ({
               onSelect(client);
             }}
             onNoResults={term => {
+              if (formAtTop || !term.trim()) return;
               const digits = term.replace(/\D/g, "");
-              if (!formAtTop && digits.length > 0 && digits === term.trim()) {
+              if (digits.length > 0 && digits === term.trim()) {
                 const local = extractLocalPhone(term);
                 setPhone(local);
                 setPhoneDuplicate(false);
                 setFormErrors(prev => prev.filter(x => x !== "phone"));
                 openForm();
                 if (local.length === 10) checkPhoneExists(local);
+              } else {
+                // Name search came up empty — open the add-client form with
+                // the typed name already carried over (set by onChange above).
+                openForm();
               }
             }}
             placeholder={placeholder ?? "Search client by name or phone…"}

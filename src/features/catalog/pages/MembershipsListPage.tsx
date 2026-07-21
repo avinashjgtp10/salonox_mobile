@@ -6,7 +6,11 @@ import {
   PencilSquare, Trash3, FileEarmarkPdf,
   FileEarmarkExcel, FiletypeCsv, CardList,
   Award, CurrencyRupee, CheckCircleFill,
+  ThreeDotsVertical,
 } from "react-bootstrap-icons";
+import Modal from "../../../components/ui/Modal";
+import Input from "../../../components/ui/Input";
+import Button from "../../../components/ui/Button";
 import type { AppDispatch } from "../../../store/store";
 import type { Membership } from "../../../services/api/endpoints/memberships.endpoints";
 import {
@@ -75,6 +79,11 @@ const MembershipsListPage: React.FC = () => {
   const [drawerId,   setDrawerId]   = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
+  const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
+  const [deletingMembership, setDeletingMembership] = useState<{ id: string; name: string } | null>(null);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [isDeleting,  setIsDeleting]  = useState(false);
+
   const optDropRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!optOpen) return;
@@ -86,6 +95,19 @@ const MembershipsListPage: React.FC = () => {
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [optOpen]);
+
+  useEffect(() => {
+    if (!openRowMenuId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (!(e.target as HTMLElement).closest(".msp__dd-wrap")) {
+        setOpenRowMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openRowMenuId]);
+
+  useEffect(() => { setDeleteInput(""); }, [deletingMembership]);
 
   // ── plans list ────────────────────────────────────────────────────────────
   const buildQuery = useCallback(() => ({
@@ -99,11 +121,21 @@ const MembershipsListPage: React.FC = () => {
   useEffect(() => { dispatch(fetchMembershipsThunk(buildQuery())); }, [dispatch, buildQuery]);
   useEffect(() => { setPage(1); }, [search, filters]);
 
-  const handleDelete = async (e: React.MouseEvent, id: string) => {
-    e.stopPropagation();
-    if (!window.confirm("Delete this membership?")) return;
-    await dispatch(deleteMembershipThunk(id));
-    dispatch(fetchMembershipsThunk(buildQuery()));
+  const openDeleteModal = (m: Membership) => {
+    setOpenRowMenuId(null);
+    setDeletingMembership({ id: String(m.id), name: m.name });
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deletingMembership) return;
+    setIsDeleting(true);
+    try {
+      await dispatch(deleteMembershipThunk(deletingMembership.id));
+      dispatch(fetchMembershipsThunk(buildQuery()));
+    } finally {
+      setIsDeleting(false);
+      setDeletingMembership(null);
+    }
   };
 
   const handleExport = async (type: "csv" | "excel" | "pdf") => {
@@ -243,7 +275,6 @@ const MembershipsListPage: React.FC = () => {
                 <th>Membership name</th>
                 <th>Tier</th>
                 <th>Valid for</th>
-                <th>Visit Limit</th>
                 <th>Price</th>
                 <th className="msp__td-actions" />
               </tr>
@@ -273,9 +304,6 @@ const MembershipsListPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="msp__td-muted">{m.validFor}</td>
-                    <td className="msp__td-muted">
-                      {m.sessionType === "unlimited" ? "No cap" : `${m.numberOfSessions ?? "–"} visits`}
-                    </td>
                     <td className="msp__price">{(() => {
                         let bonus = 0;
                         try { bonus = Number(JSON.parse(m.description ?? "{}").bonusCredit) || 0; } catch {}
@@ -283,28 +311,41 @@ const MembershipsListPage: React.FC = () => {
                         return <>₹{wallet.toLocaleString("en-IN")}</>;
                       })()}</td>
                     <td className="msp__td-actions" onClick={e => e.stopPropagation()}>
-                      <div className="msp__row-actions">
+                      <div className="msp__dd-wrap">
                         <button
-                          className="msp__act-btn"
-                          title="Edit"
-                          onClick={() => navigate(`/dashboard/catalog/memberships/edit/${m.id}`)}
+                          className="msp__kebab"
+                          title="Actions"
+                          onClick={() => setOpenRowMenuId(openRowMenuId === String(m.id) ? null : String(m.id))}
                         >
-                          <PencilSquare size={14} /> Edit
+                          <ThreeDotsVertical size={16} />
                         </button>
-                        <button
-                          className="msp__act-btn msp__act-btn--danger"
-                          title="Delete"
-                          onClick={e => handleDelete(e, m.id)}
-                        >
-                          <Trash3 size={13} /> Delete
-                        </button>
+                        {openRowMenuId === String(m.id) && (
+                          <ul className="msp__dd-menu msp__dd-menu--right">
+                            <li>
+                              <button
+                                className="msp__dd-item"
+                                onClick={() => { setOpenRowMenuId(null); navigate(`/dashboard/catalog/memberships/edit/${m.id}`); }}
+                              >
+                                <PencilSquare size={14} /> Edit
+                              </button>
+                            </li>
+                            <li>
+                              <button
+                                className="msp__dd-item msp__dd-item--danger"
+                                onClick={() => openDeleteModal(m)}
+                              >
+                                <Trash3 size={13} /> Delete
+                              </button>
+                            </li>
+                          </ul>
+                        )}
                       </div>
                     </td>
                   </tr>
                 );
               }) : (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={5}>
                     <div className="msp__empty-state">
                       <Award size={48} className="msp__empty-icon" />
                       <p className="msp__empty-msg">No memberships found.</p>
@@ -354,6 +395,43 @@ const MembershipsListPage: React.FC = () => {
         onClose={() => setDrawerOpen(false)}
       />
 
+      {/* ── Delete confirmation ─────────────────────────────────────────── */}
+      <Modal
+        show={!!deletingMembership}
+        onClose={() => setDeletingMembership(null)}
+        title="Delete membership?"
+        footer={
+          <div className="d-flex flex-column gap-2 w-100">
+            <Button
+              variant="danger"
+              fullWidth
+              disabled={deleteInput !== "DELETE" || isDeleting}
+              loading={isDeleting}
+              onClick={handleConfirmDelete}
+            >
+              Delete
+            </Button>
+            <Button
+              variant="outline-dark"
+              fullWidth
+              onClick={() => setDeletingMembership(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-muted small mb-4">
+          Are you sure you want to delete <strong>{deletingMembership?.name}</strong>?
+          This operation can't be undone.
+        </p>
+        <Input
+          label="Type DELETE to confirm"
+          placeholder="DELETE"
+          value={deleteInput}
+          onChange={(e) => setDeleteInput(e.target.value)}
+        />
+      </Modal>
 
     </div>
   );

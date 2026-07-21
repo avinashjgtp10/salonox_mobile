@@ -296,6 +296,31 @@
 
     &:hover { background: #f1f5f9; }
     &:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    &--danger {
+      color: #ef4444;
+      &:hover { background: #fef2f2; }
+    }
+  }
+
+  &__kebab {
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    color: #94a3b8;
+    cursor: pointer;
+    transition: all 0.15s;
+
+    &:hover {
+      background: #f1f5f9;
+      border-color: #e2e8f0;
+      color: #475569;
+    }
   }
 
   &__dd-divider {
@@ -408,13 +433,23 @@
     background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 14px;
-    overflow-x: auto;
-    overflow-y: hidden;
+    // No overflow set here on purpose: CSS forces overflow-y to compute as
+    // "auto" (clipping) as soon as overflow-x isn't "visible", and either
+    // would clip the row kebab menu's dropdown, which is an absolutely
+    // positioned descendant that intentionally escapes the row's bounds.
   }
 
   &__table {
     width: 100%;
     border-collapse: collapse;
+
+    // The wrapper no longer clips overflow (that broke the row dropdown menu),
+    // so the rounded corners are applied directly to the table's own corner
+    // cells instead of relying on `overflow: hidden` on an ancestor.
+    thead tr:first-child th:first-child { border-top-left-radius: 14px; }
+    thead tr:first-child th:last-child  { border-top-right-radius: 14px; }
+    tbody tr:last-child td:first-child  { border-bottom-left-radius: 14px; }
+    tbody tr:last-child td:last-child   { border-bottom-right-radius: 14px; }
 
     thead tr {
       background: #f8fafc;
@@ -524,48 +559,6 @@
     padding-left: 40px !important;
     padding-right: 20px !important;
     white-space: nowrap;
-  }
-
-  &__row-actions {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    justify-content: flex-end;
-  }
-
-  &__act-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: #f1f5f9;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 6px 12px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #334155;
-    cursor: pointer;
-    transition: all 0.1s;
-    white-space: nowrap;
-
-    &:hover { background: #e2e8f0; border-color: #cbd5e1; }
-
-    &--danger {
-      color: #ef4444;
-      background: #fef2f2;
-      border-color: #fecaca;
-      padding: 6px 10px;
-
-      &:hover { background: #fee2e2; border-color: #f87171; }
-    }
-
-    &--sell {
-      color: #6366f1;
-      background: #eef2ff;
-      border-color: #c7d2fe;
-
-      &:hover { background: #e0e7ff; border-color: #a5b4fc; }
-    }
   }
 
 

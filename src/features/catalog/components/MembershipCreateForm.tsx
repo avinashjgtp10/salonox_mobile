@@ -6,7 +6,7 @@
 // Catalog page, mirroring PackageCreateForm.tsx's shape exactly.
 import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { Check2, ChevronDown, PersonFill } from "react-bootstrap-icons";
+import { Check2, ChevronDown, PersonFill, X } from "react-bootstrap-icons";
 import type { AppDispatch } from "../../../store/store";
 import { createMembershipThunk, updateMembershipThunk } from "../../../middleware/membership/membership.thunk";
 import { selectMembershipsSubmitting, selectMembershipsError } from "../../../store/selectors/membership.selectors";
@@ -58,14 +58,8 @@ const MembershipCreateForm: React.FC<Props> = ({
   const [validity,     setValidity]     = useState("1 year");
   const [status,       setStatus]       = useState<"active" | "inactive">("active");
   const [bonusCredit,  setBonusCredit]  = useState("");
-  const [serviceDisc,  setServiceDisc]  = useState("");
-  const [productDisc,  setProductDisc]  = useState("");
   const [tierColor,    setTierColor]    = useState(TIER_COLORS[0]);
   const [description,  setDescription]  = useState("");
-  // Wallet redemption is services-only by default — this opts the membership's
-  // pooled wallet balance into also covering products at checkout, the same
-  // generic pooled-credit mechanism already used for services.
-  const [appliesToProducts, setAppliesToProducts] = useState(false);
   const [errors,       setErrors]       = useState<Record<string, string>>({});
 
   // Only relevant for the immediate-purchase flow (selectedClient set, creating not editing).
@@ -102,12 +96,9 @@ const MembershipCreateForm: React.FC<Props> = ({
       setDescription(d.description ?? "");
       const matchedColor = TIER_COLORS.includes(d.colour) ? d.colour : TIER_COLORS[1];
       setTierColor(matchedColor);
-      setAppliesToProducts(!!d.appliesToProducts);
       try {
         const meta = JSON.parse(d.description ?? "{}");
         if (meta.bonusCredit)  setBonusCredit(String(meta.bonusCredit));
-        if (meta.serviceDisc)  setServiceDisc(String(meta.serviceDisc));
-        if (meta.productDisc)  setProductDisc(String(meta.productDisc));
         if (meta.description)  setDescription(meta.description);
       } catch { /* plain text */ }
     }).catch(() => {});
@@ -142,8 +133,6 @@ const MembershipCreateForm: React.FC<Props> = ({
     const metaDescription = JSON.stringify({
       description,
       bonusCredit: bonusCreditNum,
-      serviceDisc: parseFloat(serviceDisc) || 0,
-      productDisc: parseFloat(productDisc) || 0,
     });
     const payload = {
       name: name.trim(),
@@ -157,7 +146,7 @@ const MembershipCreateForm: React.FC<Props> = ({
       enableOnlineSales: true,
       enableOnlineRedemption: true,
       termsAndConditions: undefined,
-      appliesToProducts,
+      appliesToProducts: false,
       // Persist client association so the drawer can display who this was created for
       ...(selectedClient ? {
         clientId:    String(selectedClient.id),
@@ -244,6 +233,9 @@ const MembershipCreateForm: React.FC<Props> = ({
             {editId ? "Update the details of this membership plan" : "Set up a new membership plan for your clients"}
           </p>
         </div>
+        <button className="cmp__close-btn" onClick={onCancel} aria-label="Close" type="button">
+          <X size={20} />
+        </button>
       </div>
 
       {apiError && <div className="cmp__error-banner">{apiError}</div>}
@@ -279,9 +271,7 @@ const MembershipCreateForm: React.FC<Props> = ({
               </div>
             </div>
           ) : (
-            <div style={{ padding: "4px 0" }}>
-              <ClientSelectorWithAdd onSelect={c => onClientChange(c)} placeholder="Search client by name or mobile…" />
-            </div>
+            <ClientSelectorWithAdd onSelect={c => onClientChange(c)} placeholder="Search client by name or mobile…" />
           )}
         </div>
       )}
@@ -323,6 +313,7 @@ const MembershipCreateForm: React.FC<Props> = ({
                         value={price}
                         onChange={e => { setPrice(e.target.value); setErrors(p => ({ ...p, price: "" })); }}
                         onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
+                        onWheel={(e) => e.currentTarget.blur()}
                       />
                     </div>
                     {errors.price && <p className="cmp__err">{errors.price}</p>}
@@ -391,6 +382,7 @@ const MembershipCreateForm: React.FC<Props> = ({
                         placeholder="0"
                         value={bonusCredit}
                         onChange={e => setBonusCredit(e.target.value)}
+                        onWheel={(e) => e.currentTarget.blur()}
                       />
                     </div>
                     <p className="cmp__hint">Extra wallet credit on purchase</p>
@@ -403,46 +395,6 @@ const MembershipCreateForm: React.FC<Props> = ({
                       <span className="cmp__computed-val">{walletValue.toLocaleString("en-IN")}</span>
                       <span className="cmp__computed-tag">Auto</span>
                     </div>
-                  </div>
-
-                  <div className="cmp__field">
-                    <label className="cmp__label">Service Discount</label>
-                    <div className="cmp__sfx-wrap">
-                      <input
-                        type="number" min={0} max={100} step={1}
-                        className="cmp__input cmp__input--sfx"
-                        placeholder="0"
-                        value={serviceDisc}
-                        onChange={e => setServiceDisc(e.target.value)}
-                      />
-                      <span className="cmp__sfx">%</span>
-                    </div>
-                  </div>
-
-                  <div className="cmp__field">
-                    <label className="cmp__label">Product Discount</label>
-                    <div className="cmp__sfx-wrap">
-                      <input
-                        type="number" min={0} max={100} step={1}
-                        className="cmp__input cmp__input--sfx"
-                        placeholder="0"
-                        value={productDisc}
-                        onChange={e => setProductDisc(e.target.value)}
-                      />
-                      <span className="cmp__sfx">%</span>
-                    </div>
-                  </div>
-
-                  <div className="cmp__field">
-                    <label className="cmp__label" style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
-                      <input
-                        type="checkbox"
-                        checked={appliesToProducts}
-                        onChange={e => setAppliesToProducts(e.target.checked)}
-                      />
-                      Redeem Wallet on Products
-                    </label>
-                    <p className="cmp__hint">Allow this membership's wallet balance to also be used for product purchases, not just services</p>
                   </div>
 
                 </div>
@@ -513,21 +465,10 @@ const MembershipCreateForm: React.FC<Props> = ({
                   <div className="cmp__mc-row cmp__mc-row--hi">
                     <span>Balance</span>      <span>₹{walletValue.toLocaleString("en-IN")}</span>
                   </div>
-                  {parseFloat(serviceDisc) > 0 && (
-                    <div className="cmp__mc-row">
-                      <span>Service Discount</span>   <span>{serviceDisc}%</span>
-                    </div>
-                  )}
-                  {parseFloat(productDisc) > 0 && (
-                    <div className="cmp__mc-row">
-                      <span>Product Discount</span>   <span>{productDisc}%</span>
-                    </div>
-                  )}
                   <div className="cmp__mc-row">
                     <span>Valid Till</span>   <span>{validTillDate}</span>
                   </div>
                 </div>
-                <button className="cmp__mc-renew">Renew Membership</button>
               </div>
 
             </div>
