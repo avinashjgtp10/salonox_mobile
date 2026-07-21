@@ -375,7 +375,7 @@ const AddClientPage: React.FC = () => {
                   <option value="">Select gender*</option>
                   <option value="Female">Female</option>
                   <option value="Male">Male</option>
-                  <option value="Non-binary">Non-binary</option>
+                  <option value="Other">Other</option>
                 </select>
                 {isGenderInvalid && <span className="cli-field__error">Gender is required</span>}
               </div>

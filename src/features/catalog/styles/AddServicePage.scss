@@ -544,6 +544,44 @@
         color: #6b7280;
         font-size: 13px;
       }
+
+      &.category-select {
+        button.form-select {
+          width: 100%;
+          background-color: #fff;
+        }
+
+        .category-dropdown-menu {
+          position: absolute;
+          top: calc(100% + 6px);
+          left: 0;
+          right: 0;
+          z-index: 20;
+          max-height: 260px;
+          overflow-y: auto;
+          background: #fff;
+          border: 1px solid #e5e7eb;
+
+          .dropdown-item {
+            display: block;
+            width: 100%;
+            text-align: left;
+            background: none;
+            border: none;
+            font-size: 14px;
+
+            &:hover {
+              background-color: #f3f4f6;
+            }
+
+            &.active {
+              background-color: #ede9fe;
+              color: #6d28d9;
+              font-weight: 600;
+            }
+          }
+        }
+      }
     }
 
     .premium-group {

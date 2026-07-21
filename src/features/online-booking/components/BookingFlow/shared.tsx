@@ -250,9 +250,19 @@ export function ServiceCard({ svc, popular, selected, onPick }:
           {svc.name}
         </p>
         {svc.description && (
-          <p style={{ margin:"0 0 12px", fontSize:12.5, color:C.muted, lineHeight:1.55 }}>
-            {svc.description.length > 75 ? svc.description.slice(0, 75) + "…" : svc.description}
-          </p>
+          svc.description.length <= 20 && !svc.description.includes(" ", 12) ? (
+            // Short one/two-word descriptions in this data are typically a gender
+            // tag ("Female", "Unisex") rather than real prose — render as a subtle pill.
+            <span style={{ display:"inline-block", margin:"0 0 10px", fontSize:10.5, fontWeight:700,
+              color:C.muted, background:C.light, border:`1px solid ${C.border}`,
+              borderRadius:999, padding:"2px 9px" }}>
+              {svc.description}
+            </span>
+          ) : (
+            <p style={{ margin:"0 0 12px", fontSize:12.5, color:C.muted, lineHeight:1.55 }}>
+              {svc.description.length > 75 ? svc.description.slice(0, 75) + "…" : svc.description}
+            </p>
+          )
         )}
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ fontSize:17, fontWeight:900, color:C.accent }}>
@@ -279,28 +289,42 @@ export function ServiceCard({ svc, popular, selected, onPick }:
 
 export function StaffCard({ name, subtitle, initials: init, bg, selected, onClick }:
   { name:string; subtitle:string; initials:string; bg:string; selected:boolean; onClick:()=>void }) {
+  const [hover, setHover] = useState(false);
   return (
     <div onClick={onClick}
+      onMouseEnter={() => setHover(true)}
+      onMouseLeave={() => setHover(false)}
       style={{ background: selected ? C.light : C.white,
-        border:`2px solid ${selected ? C.accent : C.border}`,
-        borderRadius:18, padding:"16px 14px", cursor:"pointer", transition:"all 0.15s",
-        textAlign:"center", boxShadow: selected ? `0 4px 16px ${C.accent}25` : "none" }}>
-      <div style={{ display:"flex", justifyContent:"center", marginBottom:10 }}>
-        <div style={{ width:52, height:52, borderRadius:"50%",
+        border:`2px solid ${selected ? C.accent : hover ? `${C.accent}70` : C.border}`,
+        borderRadius:20, padding:"20px 16px", cursor:"pointer", transition:"all 0.2s ease",
+        textAlign:"center", transform: hover && !selected ? "translateY(-3px)" : "none",
+        boxShadow: selected ? `0 8px 22px ${C.accent}30`
+          : hover ? "0 10px 24px rgba(46,16,101,0.14)" : "0 1px 4px rgba(46,16,101,0.05)" }}>
+      <div style={{ position:"relative", width:68, margin:"0 auto 12px" }}>
+        <div style={{ width:68, height:68, borderRadius:"50%",
           background: selected ? C.accent : bg,
           color:C.white, display:"flex", alignItems:"center", justifyContent:"center",
-          fontWeight:800, fontSize:18, boxShadow:`0 4px 12px rgba(0,0,0,0.15)`,
-          transition:"background 0.15s" }}>
+          fontWeight:800, fontSize:22, border:`3px solid ${C.white}`,
+          boxShadow: selected ? `0 6px 16px ${C.accent}45` : "0 4px 14px rgba(0,0,0,0.16)",
+          transition:"all 0.2s ease" }}>
           {init}
         </div>
+        {selected && (
+          <div style={{ position:"absolute", bottom:-2, right:-2, width:22, height:22,
+            borderRadius:"50%", background:C.accent, border:`2px solid ${C.white}`,
+            display:"flex", alignItems:"center", justifyContent:"center",
+            boxShadow:`0 2px 6px ${C.accent}50` }}>
+            <CheckCircleFill size={11} color={C.white} />
+          </div>
+        )}
       </div>
-      <p style={{ margin:"0 0 3px", fontSize:13, fontWeight:700,
+      <p style={{ margin:"0 0 3px", fontSize:14, fontWeight:700,
         color: selected ? C.accent : C.text }}>
         {name}
       </p>
-      <p style={{ margin:0, fontSize:11, color:C.muted }}>{subtitle}</p>
+      <p style={{ margin:0, fontSize:11.5, color:C.muted }}>{subtitle}</p>
       {selected && (
-        <div style={{ marginTop:8, display:"inline-flex", alignItems:"center", gap:4,
+        <div style={{ marginTop:10, display:"inline-flex", alignItems:"center", gap:4,
           background:`${C.accent}15`, color:C.accent, fontSize:10.5,
           fontWeight:700, padding:"3px 10px", borderRadius:999 }}>
           <CheckCircleFill size={10}/> Selected

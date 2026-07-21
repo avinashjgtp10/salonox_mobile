@@ -18,6 +18,18 @@ import "../../styles/ViewBillModal.scss";
 
 interface Props { booking: Booking; onClose: () => void; onEdit?: (booking: Booking) => void; onCollectDue?: (booking: Booking) => void }
 
+// Mirrors the rp-status-* badge palette in analytics/styles/_reportDetailBase.scss
+// so this panel's status pill always matches the color/label shown for the same
+// status in the Sales Summary report table.
+const STATUS_PILL_STYLES: Record<string, { label: string; text: string; bg: string; color: string }> = {
+  paid:      { label: "✓ Paid",      text: "Paid",      bg: "#22c55e", color: "#fff" },
+  partial:   { label: "⏳ Partial",   text: "Partial",   bg: "#f59e0b", color: "#fff" },
+  booked:    { label: "Booked",      text: "Booked",    bg: "#1d4ed8", color: "#fff" },
+  cancelled: { label: "Cancelled",   text: "Cancelled", bg: "#991b1b", color: "#fff" },
+  "no-show": { label: "No-show",     text: "No-show",   bg: "#6b7280", color: "#fff" },
+  deleted:   { label: "Deleted",     text: "Deleted",   bg: "#9ca3af", color: "#fff" },
+};
+
 const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue }) => {
   const { staffList, clientsList } = useSchedulerContext();
   const currentSalon = useAppSelector((s) => s.salon.currentSalon);
@@ -29,9 +41,6 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   const [tab, setTab] = useState<"Booking Details" | "Activity Log">("Booking Details");
   const [showDotMenu, setShowDotMenu] = useState(false);
 
-  const isPaid    = booking.status === "paid";
-  const isPartial = booking.status === "partial" || (booking.dueAmount ?? 0) > 0;
-  const bookingStatus: "Completed" | "Due" = isPaid && !isPartial ? "Completed" : "Due";
   const dotMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -207,19 +216,28 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
 
           <div className="vbm-status-section">
             <div className="vbm-section-label">Status</div>
-            <span
-              style={{
-                display: "inline-block",
-                padding: "5px 16px",
-                borderRadius: 20,
-                fontSize: 13,
-                fontWeight: 700,
+            {(() => {
+              const pill = STATUS_PILL_STYLES[booking.status] ?? {
+                label: booking.status,
+                bg: "#7c3aed",
                 color: "#fff",
-                background: bookingStatus === "Completed" ? "#22c55e" : "#7c3aed",
-              }}
-            >
-              {bookingStatus === "Completed" ? "✓ Completed" : "⏳ Partial"}
-            </span>
+              };
+              return (
+                <span
+                  style={{
+                    display: "inline-block",
+                    padding: "5px 16px",
+                    borderRadius: 20,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: pill.color,
+                    background: pill.bg,
+                  }}
+                >
+                  {pill.label}
+                </span>
+              );
+            })()}
           </div>
         </div>
 
@@ -447,7 +465,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   { icon: "👤", label: "Client", detail: [booking.clientName, booking.clientPhone, (booking as any).clientEmail].filter(Boolean).join(" · ") },
                   { icon: "💼", label: "Staff", detail: staffName },
                   { icon: "💳", label: "Payment Status", detail: normalizePaymentStatus(booking.status) },
-                  { icon: "📋", label: "Booking Status", detail: bookingStatus },
+                  { icon: "📋", label: "Booking Status", detail: STATUS_PILL_STYLES[booking.status]?.text ?? booking.status },
                   { icon: "💰", label: "Grand Total", detail: `${currencySymbol}${(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}` },
                   ...(booking.payingNow ? [{ icon: "✅", label: "Amount Paid", detail: `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}` }] : []),
                   ...(booking.dueAmount ? [{ icon: "⏳", label: "Balance Due", detail: `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}` }] : []),

@@ -761,30 +761,6 @@
     }
   }
 
-  /* Inline Edit button on service card */
-  &__svc-edit-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    padding: 5px 13px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #4f46e5;
-    background: #eef2ff;
-    border: 1px solid #c7d2fe;
-    border-radius: 8px;
-    cursor: pointer;
-    opacity: 0;
-    transition: opacity 0.15s, background 0.15s;
-
-    &:hover { background: #e0e7ff; }
-  }
-
-  /* Show edit button only when hovering the card */
-  &__service-card:hover &__svc-edit-btn {
-    opacity: 1;
-  }
-
   /* ── Add Category Modal ──────────────────────────────────────── */
   &__overlay {
     position: fixed;
@@ -902,66 +878,6 @@
       outline: none;
       border-color: #6366f1;
       box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
-    }
-  }
-
-  &__color-toggle {
-    height: 42px;
-    padding: 0 14px;
-    border: 1px solid #d1d5db;
-    border-radius: 10px;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    cursor: pointer;
-    background: #fff;
-    font-size: 14px;
-    color: #0f172a;
-    font-weight: 500;
-    transition: border-color 0.15s;
-    user-select: none;
-
-    &:hover { border-color: #9ca3af; background: #f9fafb; }
-  }
-
-  &__color-swatch {
-    width: 18px;
-    height: 18px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-
-  &__color-menu {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    right: 0;
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
-    padding: 6px;
-    z-index: 200;
-    animation: slp-fade-in 0.12s ease;
-  }
-
-  &__color-opt {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 9px 12px;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 13.5px;
-    color: #374151;
-    transition: background 0.1s;
-
-    &:hover { background: #f8fafc; }
-
-    &--sel {
-      background: #eef2ff;
-      font-weight: 700;
-      color: #4f46e5;
     }
   }
 

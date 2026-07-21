@@ -20,6 +20,11 @@ import type { Service } from "../../features/catalog/types/catalog.types";
 
 interface SvcRow {
   id:              number;
+  /** Real catalog services.id, when picked from the search dropdown — lets
+   *  duplicate detection match this exact service even if another catalog
+   *  entry shares its display name. Null when hand-typed or template-loaded
+   *  (older templates don't carry a catalog service id). */
+  serviceId:       string | null;
   serviceName:     string;
   totalSessions:   string;
   price:           string;
@@ -37,8 +42,6 @@ interface FormState {
   services:       SvcRow[];
 }
 
-const PAYMENT_METHODS = ["cash", "card", "upi", "net_banking", "other"];
-
 const CARD_GRADIENTS = [
   "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
   "linear-gradient(135deg, #f093fb 0%, #f5576c 100%)",
@@ -55,7 +58,7 @@ function emptyForm(): FormState {
     name: "", neverExpires: true, expiryDate: "",
     basePrice: "", gstPercentage: "0", discount: "0",
     paymentMethod: "cash",
-    services: [{ id: Date.now(), serviceName: "", totalSessions: "1", price: "", perSessionPrice: "" }],
+    services: [{ id: Date.now(), serviceId: null, serviceName: "", totalSessions: "1", price: "", perSessionPrice: "" }],
   };
 }
 
@@ -117,6 +120,9 @@ function templateToForm(t: PackageTemplate): FormState {
     paymentMethod: t.paymentMethod,
     services:      t.services.map((s, i) => ({
       id:              i,
+      // Stored template services don't carry a catalog service id, so
+      // duplicate detection on these legacy rows falls back to name matching.
+      serviceId:       null,
       serviceName:     s.serviceName,
       totalSessions:   String(s.totalSessions),
       price:           String(s.price),
@@ -409,7 +415,7 @@ function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoadi
   };
 
   const addService = () =>
-    pushWithBase([...form.services, { id: Date.now(), serviceName: "", totalSessions: "1", price: "", perSessionPrice: "" }]);
+    pushWithBase([...form.services, { id: Date.now(), serviceId: null, serviceName: "", totalSessions: "1", price: "", perSessionPrice: "" }]);
 
   const removeService = (id: number) =>
     pushWithBase(form.services.filter(s => s.id !== id));
@@ -444,10 +450,39 @@ function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoadi
   };
 
   const pickService = (rowId: number, svc: Service) => {
+    const pickedId = svc.id != null ? String(svc.id) : null;
     const svcPrice = svc.price != null ? String(parseFloat(String(svc.price)) || 0) : "";
+
+    // Same catalog ID picked twice is always a duplicate. Two different
+    // catalog entries sharing a display name are NOT duplicates — that's why
+    // ID is checked first and name is only a fallback for legacy rows that
+    // don't carry a catalog service id.
+    const existing = form.services.find(s => {
+      if (s.id === rowId) return false;
+      if (pickedId && s.serviceId) return s.serviceId === pickedId;
+      return s.serviceName.trim().toLowerCase() === String(svc.name).trim().toLowerCase();
+    });
+
+    if (existing) {
+      // Merge into the existing row: bump its session count by one (scaled by
+      // its own per-session rate) and drop the row that was being edited, so
+      // the service still ends up with a single row showing the new quantity.
+      const sessions   = Math.max(1, parseInt(existing.totalSessions) || 1) + 1;
+      const perSession = parseFloat(existing.perSessionPrice) || parseFloat(existing.price) || 0;
+      const newPrice   = Math.round(perSession * sessions * 100) / 100;
+      const svcs = form.services
+        .filter(s => s.id !== rowId)
+        .map(s => s.id === existing.id
+          ? { ...s, totalSessions: String(sessions), price: newPrice > 0 ? String(newPrice) : "" }
+          : s
+        );
+      pushWithBase(svcs);
+      return;
+    }
+
     const svcs = form.services.map(s =>
       s.id === rowId
-        ? { ...s, serviceName: String(svc.name), price: svcPrice, totalSessions: "1", perSessionPrice: svcPrice }
+        ? { ...s, serviceId: pickedId, serviceName: String(svc.name), price: svcPrice, totalSessions: "1", perSessionPrice: svcPrice }
         : s
     );
     pushWithBase(svcs);
@@ -688,7 +723,7 @@ function TemplateCard({ template: t, index, deleting, onEdit, onDelete }: Templa
           {t.services.length} Service{t.services.length !== 1 ? "s" : ""}
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 7 }}>
-          {t.services.map((s, si) => (
+          {t.services.map((s) => (
             <div key={s.id} style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <div style={{ width: 24, height: 24, borderRadius: 8, background: "#f5f3ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                 <TagFill size={10} color="#7c3aed" />

@@ -3,7 +3,7 @@ import api from "../../services/api/axios";
 import { PRODUCTS, CATEGORIES } from "../../services/api/endpoints";
 import { ApiError } from "../../services/api/interceptors";
 
-const downloadFile = (blob: Blob, filename: string) => {
+const downloadFile = (blob: Blob, filename: string): void => {
   const url = window.URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
@@ -130,11 +130,13 @@ export const deleteBrandThunk = createAsyncThunk<
   }
 });
 
+export type ExportProductsParams = Omit<FetchProductsParams, "page" | "pageSize">;
+
 export const exportProductsCSVThunk = createAsyncThunk<
-  void, void, { rejectValue: string }
->("products/exportCSV", async (_, { rejectWithValue }) => {
+  void, ExportProductsParams | void, { rejectValue: string }
+>("products/exportCSV", async (params, { rejectWithValue }) => {
   try {
-    const res = await api.get(PRODUCTS.EXPORT_CSV, { responseType: "blob" });
+    const res = await api.get(PRODUCTS.EXPORT_CSV, { params: params ?? {}, responseType: "blob" });
     downloadFile(res.data, "products.csv");
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
@@ -143,10 +145,10 @@ export const exportProductsCSVThunk = createAsyncThunk<
 });
 
 export const exportProductsExcelThunk = createAsyncThunk<
-  void, void, { rejectValue: string }
->("products/exportExcel", async (_, { rejectWithValue }) => {
+  void, ExportProductsParams | void, { rejectValue: string }
+>("products/exportExcel", async (params, { rejectWithValue }) => {
   try {
-    const res = await api.get(PRODUCTS.EXPORT_EXCEL, { responseType: "blob" });
+    const res = await api.get(PRODUCTS.EXPORT_EXCEL, { params: params ?? {}, responseType: "blob" });
     downloadFile(res.data, "products.xlsx");
   } catch (err: any) {
     const msg = err instanceof ApiError ? err.message : "Failed to export Excel.";
@@ -156,10 +158,10 @@ export const exportProductsExcelThunk = createAsyncThunk<
 });
 
 export const exportProductsPDFThunk = createAsyncThunk<
-  void, void, { rejectValue: string }
->("products/exportPDF", async (_, { rejectWithValue }) => {
+  void, ExportProductsParams | void, { rejectValue: string }
+>("products/exportPDF", async (params, { rejectWithValue }) => {
   try {
-    const res = await api.get(PRODUCTS.EXPORT_PDF, { responseType: "blob" });
+    const res = await api.get(PRODUCTS.EXPORT_PDF, { params: params ?? {}, responseType: "blob" });
     downloadFile(res.data, "products.pdf");
   } catch (err: any) {
     const msg = err instanceof ApiError ? err.message : "Failed to export PDF.";

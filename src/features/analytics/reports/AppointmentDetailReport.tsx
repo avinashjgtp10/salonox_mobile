@@ -26,8 +26,7 @@ interface AppointmentRow {
   paymentStatus: string;
 }
 
-const DATE_TYPE_OPTIONS = ["Appointment Date", "Booking Date"];
-const APPT_STATUSES     = ["All", "booked", "paid", "partial", "cancelled", "no-show", "deleted"];
+const APPT_STATUSES = ["All", "booked", "paid", "partial", "cancelled", "no-show", "deleted"];
 const fmtStatusLabel = (s: string) =>
   s === "All" ? "All" : s.replace(/[_-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
@@ -35,8 +34,6 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
   const today     = new Date().toISOString().slice(0, 10);
   const monthAgo  = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const abortRef = useRef<AbortController | null>(null);
-  const [dateType,          setDateType]          = useState(DATE_TYPE_OPTIONS[0]);
-  const [showDtDrop,        setShowDtDrop]        = useState(false);
   const [dateFrom,          setDateFrom]          = useState(monthAgo);
   const [dateTo,            setDateTo]            = useState(today);
   const [selectedStatuses,  setSelectedStatuses]  = useState<string[]>(APPT_STATUSES);
@@ -56,7 +53,7 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
     setLoading(true);
     try {
       const params = new URLSearchParams({
-        dateType: dateType === "Appointment Date" ? "appointment" : "booking",
+        dateType: "appointment",
         from: dateFrom,
         to: dateTo,
         statuses: selectedStatuses.filter(s => s !== "All").join(","),
@@ -71,15 +68,12 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateType, dateFrom, dateTo, selectedStatuses]);
+  }, [dateFrom, dateTo, selectedStatuses]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
-    const close = () => {
-      setShowDtDrop(false);
-      setShowStatusDrop(false);
-    };
+    const close = () => setShowStatusDrop(false);
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -121,24 +115,6 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
 
       <div className="rp-detail-filters">
         <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Date Type</label>
-          <button className="rp-detail-select" onClick={() => { setShowDtDrop(v => !v); setShowStatusDrop(false); }}>
-            {dateType.length > 14 ? dateType.slice(0, 14) + "..." : dateType}
-            <span className="rp-detail-caret">▼</span>
-          </button>
-          {showDtDrop && (
-            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {DATE_TYPE_OPTIONS.map(opt => (
-                <div key={opt} className={`rp-detail-dropdown-item ${opt === dateType ? "active" : ""}`}
-                  onClick={() => { setDateType(opt); setShowDtDrop(false); }}>
-                  {opt}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Date</label>
           <div className="rp-detail-date-range">
             <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
@@ -149,7 +125,7 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
 
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Appointment Status</label>
-          <button className="rp-detail-select" onClick={() => { setShowStatusDrop(v => !v); setShowDtDrop(false); }}>
+          <button className="rp-detail-select" onClick={() => setShowStatusDrop(v => !v)}>
             {statusLabel} <span className="rp-detail-caret">▼</span>
           </button>
           {showStatusDrop && (
@@ -222,7 +198,7 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
                   <td>{row.time}</td>
                   <td>{row.bookedDate}</td>
                   <td>{row.clientName || "—"}</td>
-                  <td>{row.serviceName}</td>
+                  <td className="rp-adr-service" title={row.serviceName}>{row.serviceName}</td>
                   <td>{row.staffName || "—"}</td>
                   <td>{row.duration ? `${row.duration} min` : "—"}</td>
                   <td>{row.amount > 0 ? `₹${Number(row.amount).toLocaleString("en-IN")}` : "—"}</td>

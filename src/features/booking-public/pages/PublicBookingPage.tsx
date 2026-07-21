@@ -2,9 +2,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
-  ChevronRight, StarFill, GeoAltFill, TelephoneFill, ShareFill,
+  ChevronRight, ChevronLeft, ChevronDown, StarFill, GeoAltFill, TelephoneFill, ShareFill, XLg,
   Wifi, CarFrontFill, CreditCard2FrontFill, PeopleFill, Scissors,
-  Snow, ShieldCheck, PinMapFill, CashCoin,
+  Snow, ShieldCheck, PinMapFill, CashCoin, Search as SearchIcon,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
@@ -12,12 +12,15 @@ import {
   createPublicBookingThunk,
 } from "../../../middleware/onlineBooking/onlineBooking.thunk";
 import {
-  C, GRADIENT, DAYS, MONTHS, staffName, initials, fmtDur, fmtPrice, nextDays, buildSlots,
+  C, GRADIENT, DAYS, MONTHS, staffName, initials, fmtDur, fmtPrice, nextDays, buildSlots, catMeta,
   StepBar, SectionHead, BackBtn, ServicesSummary, ServiceCard, StaffCard, TimeChip, SuccessScreen,
   type ServiceItem, type StaffMember,
 } from "../../online-booking/components/BookingFlow/shared";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Shown as the hero background when a salon hasn't set a cover image yet.
+const DEFAULT_COVER_IMAGE = "https://images.unsplash.com/photo-1600948836101-f9ffda59d250?w=1600";
 
 // Staff ids are UUID strings — Number(id) is NaN, so hash the string into a hue instead.
 function hashHue(id: string): number {
@@ -62,7 +65,14 @@ const DEMO_REVIEWS = [
     text: "Best salon in town. Clean, punctual, and great attention to detail every single time." },
   { name: "Ananya Iyer", rating: 4, date: "1 month ago",
     text: "Loved the ambience and the service quality. Will definitely be booking again soon." },
+  { name: "Karan Mehta", rating: 5, date: "6 weeks ago",
+    text: "Booked a last-minute appointment and they still gave me their full attention. Highly recommend." },
+  { name: "Sneha Kulkarni", rating: 4, date: "2 months ago",
+    text: "Great value for the price. The facial left my skin glowing for days." },
+  { name: "Vikram Rao", rating: 5, date: "2 months ago",
+    text: "Consistent quality every visit. My go-to salon for the last year." },
 ];
+const REVIEW_PREVIEW_COUNT = 3;
 const RATING_BREAKDOWN = [
   { star: 5, pct: 78 }, { star: 4, pct: 15 }, { star: 3, pct: 5 }, { star: 2, pct: 1 }, { star: 1, pct: 1 },
 ];
@@ -105,19 +115,47 @@ export default function PublicBookingPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [preselected, setPreselected] = useState(false);
   const [createdAppointment, setCreatedAppointment] = useState<any>(null);
+  const [heroSlide, setHeroSlide] = useState(0);
+  const [reviewSlide, setReviewSlide] = useState(0);
+  const [catMenuOpen, setCatMenuOpen] = useState(false);
+  const [showAllReviews, setShowAllReviews] = useState(false);
+  const [reviewsList, setReviewsList] = useState(DEMO_REVIEWS);
+  const [showReviewForm, setShowReviewForm] = useState(false);
+  const [reviewForm, setReviewForm] = useState({ name: "", rating: 5, text: "" });
 
   const serviceSectionRef = useRef<HTMLDivElement>(null);
   const pageRootRef = useRef<HTMLDivElement>(null);
+  const catMenuRef = useRef<HTMLDivElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const prevStepRef = useRef(step);
+
+  useEffect(() => {
+    if (!catMenuOpen) return;
+    function handleOutsideClick(e: MouseEvent) {
+      if (catMenuRef.current && !catMenuRef.current.contains(e.target as Node)) {
+        setCatMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleOutsideClick);
+    return () => document.removeEventListener("mousedown", handleOutsideClick);
+  }, [catMenuOpen]);
 
   useEffect(() => {
     if (slug) dispatch(fetchPublicSalonBySlugThunk(slug));
   }, [slug, dispatch]);
 
-  // Each step starts from the top (past the hero) instead of keeping the
-  // previous step's scroll offset, which otherwise made the hero look
-  // like it never rendered once the user had scrolled down once.
+  // Advancing a step (via a "Continue" button) jumps straight to the new
+  // step's content instead of the page top — the hero would otherwise sit
+  // between the user and content they already scrolled past to get here.
+  // Going back a step is left alone since the user is already scrolled to
+  // roughly the right place, and resetting to step 1 has its own explicit
+  // scroll handling (handleBackHome / handleBookAnother).
   useEffect(() => {
-    pageRootRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+    const prevStep = prevStepRef.current;
+    prevStepRef.current = step;
+    if (step > prevStep) {
+      bodyRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }, [step]);
 
   const services: ServiceItem[] = salonDetails?.services ?? [];
@@ -125,19 +163,83 @@ export default function PublicBookingPage() {
   const salon = salonDetails?.salon ?? null;
   const salonName = salon?.business_name || salon?.display_name || salon?.name || "This salon";
 
-  // Hero / sidebar derived fields (defensive — backend salon shape is loosely typed)
+  // Hero / sidebar derived fields (defensive — backend salon shape is loosely typed;
+  // banner_url is the real column, the rest are aliases some callers may send instead)
   const logoUrl   = salon?.logo_url || salon?.logoUrl || "";
-  const coverUrl  = salon?.banner_url || salon?.cover_url || salon?.bannerUrl || "";
+  const coverUrl  = (
+    salon?.banner_url ||
+    salon?.cover_image ||
+    salon?.image_url ||
+    salon?.cover_url ||
+    salon?.bannerUrl ||
+    salon?.coverUrl ||
+    DEFAULT_COVER_IMAGE
+  ).trim();
   const address   = buildAddress(salon);
   const phone     = salon?.phone || salon?.business_phone || salon?.contact_number || "";
   const rating    = typeof salon?.rating === "number" ? salon.rating : 4.8;
   const reviewCount = salon?.review_count ?? salon?.reviews_count ?? 120;
-  const servicesCount = services.length;
-  const staffCount    = staffList.length;
   const todayHours = getTodayHours(salon?.working_hours ?? salon?.hours);
   const amenities: string[] = Array.isArray(salon?.amenities) && salon.amenities.length
     ? salon.amenities
     : ["wifi", "ac", "parking", "card_payment"];
+  const heroSlides = useMemo(() => [
+    {
+      eyebrow: "Hair Styling",
+      title: "Premium Hair Styling Experience",
+      copy: "Book certified stylists for the perfect haircut and styling.",
+      cta: "Book Now",
+      image: coverUrl,
+      badge: "4.9 (12,000 Reviews)",
+    },
+    {
+      eyebrow: "Professional Makeup",
+      title: "Look Gorgeous For Every Occasion",
+      copy: "Luxury artists, event-ready looks, and effortless booking.",
+      cta: "Explore Makeup",
+      image: "https://images.unsplash.com/photo-1522337660859-02fbefca4702?w=1800&auto=format&fit=crop",
+      badge: "20% OFF",
+    },
+    {
+      eyebrow: "Facial & Skin Care",
+      title: "Healthy Skin Starts Here",
+      copy: "Relax with premium facial treatments and skin-care experts.",
+      cta: "Book Facial",
+      image: "https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?w=1800&auto=format&fit=crop",
+      badge: "Glow Packages",
+    },
+    {
+      eyebrow: "Nail Art",
+      title: "Creative Nail Designs",
+      copy: "Discover luxury nail studios, nail extensions, and nail art.",
+      cta: "Explore Nails",
+      image: "https://images.unsplash.com/photo-1604654894610-df63bc536371?w=1800&auto=format&fit=crop",
+      badge: "Trending Now",
+    },
+    {
+      eyebrow: "Special Offers",
+      title: "Flat 30% OFF",
+      copy: "First Booking Special Offer on selected beauty services.",
+      cta: "Claim Offer",
+      image: "https://images.unsplash.com/photo-1516975080664-ed2fc6a32937?w=1800&auto=format&fit=crop",
+      badge: "First Booking",
+    },
+  ], [coverUrl]);
+  const reviewCards = [
+    { title: "Amazing Experience!", text: "Very professional staff and premium ambience.", name: "Priya, Pune" },
+    { title: "Booked instantly.", text: "Loved the service.", name: "Rahul, Mumbai" },
+    { title: "Best salon booking app.", text: "The whole booking felt effortless.", name: "Sneha, Baramati" },
+  ];
+
+  useEffect(() => {
+    const id = window.setInterval(() => setHeroSlide((s) => (s + 1) % heroSlides.length), 5000);
+    return () => window.clearInterval(id);
+  }, [heroSlides.length]);
+
+  useEffect(() => {
+    const id = window.setInterval(() => setReviewSlide((s) => (s + 1) % reviewCards.length), 4200);
+    return () => window.clearInterval(id);
+  }, [reviewCards.length]);
 
   // Pre-select service/staff from the query params once data has loaded
   useEffect(() => {
@@ -174,6 +276,9 @@ export default function PublicBookingPage() {
   );
 
   const categories = ["All", ...Array.from(new Set(services.map((s) => s.category_name ?? "Other")))];
+  const VISIBLE_CAT_COUNT = 6;
+  const visibleCategories = categories.slice(0, VISIBLE_CAT_COUNT);
+  const moreCategories = categories.slice(VISIBLE_CAT_COUNT);
   const filtered = services.filter((s) => {
     const catOk  = activeCat === "All" || s.category_name === activeCat;
     const srchOk = !search || s.name.toLowerCase().includes(search.toLowerCase());
@@ -184,6 +289,21 @@ export default function PublicBookingPage() {
     setSelServices((prev) =>
       prev.some((s) => s.id === svc.id) ? prev.filter((s) => s.id !== svc.id) : [...prev, svc]
     );
+  }
+
+  function handleAddReview() {
+    if (!reviewForm.name.trim() || !reviewForm.text.trim()) return;
+    setReviewsList((prev) => [
+      { name: reviewForm.name.trim(), rating: reviewForm.rating, date: "Just now", text: reviewForm.text.trim() },
+      ...prev,
+    ]);
+    setReviewForm({ name: "", rating: 5, text: "" });
+    setShowReviewForm(false);
+    setShowAllReviews(true);
+  }
+
+  function handleRemoveReview(index: number) {
+    setReviewsList((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleSubmit() {
@@ -266,96 +386,152 @@ export default function PublicBookingPage() {
   // it would otherwise flash "Salon Not Found" for a frame.
   if (!salonDetails && !error) {
     return (
-      <div style={{ display:"flex", alignItems:"center", justifyContent:"center", minHeight:"100vh",
-        fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif", background:C.light }}>
-        <div style={{ width:40, height:40, borderRadius:"50%",
-          border:`3px solid ${C.med}`, borderTopColor:C.accent,
-          animation:"spin 0.7s linear infinite" }}/>
-        <style>{`@keyframes spin{to{transform:rotate(360deg)}}`}</style>
+      <div className="pb-loading">
+        <div className="pb-spinner" />
+        <style>{`
+          .pb-loading {
+            display:flex; align-items:center; justify-content:center; min-height:100vh;
+            font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:${C.light};
+          }
+          .pb-spinner {
+            width:40px; height:40px; border-radius:50%;
+            border:3px solid ${C.med}; border-top-color:${C.accent};
+            animation:spin 0.7s linear infinite;
+          }
+          @keyframes spin { to { transform:rotate(360deg); } }
+        `}</style>
       </div>
     );
   }
 
   if (error || !salon) {
     return (
-      <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center",
-        minHeight:"100vh", gap:12, fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif",
-        padding:24, textAlign:"center", background:C.light }}>
-        <h2 style={{ margin:0, fontSize:20, color:C.text }}>Booking page not found</h2>
-        <p style={{ margin:0, color:C.muted, fontSize:14 }}>
+      <div className="pb-notfound">
+        <h2 className="pb-notfound-title">Booking page not found</h2>
+        <p className="pb-notfound-sub">
           {error || "This salon doesn't have a public booking page yet."}
         </p>
+        <style>{`
+          .pb-notfound {
+            display:flex; flex-direction:column; align-items:center; justify-content:center;
+            min-height:100vh; gap:12px; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+            padding:24px; text-align:center; background:${C.light};
+          }
+          .pb-notfound-title { margin:0; font-size:20px; color:${C.text}; }
+          .pb-notfound-sub { margin:0; color:${C.muted}; font-size:14px; }
+        `}</style>
       </div>
     );
   }
 
   return (
-    <div ref={pageRootRef} data-testid="pb-page-root" style={{ height:"100vh", overflowY:"auto", display:"flex", flexDirection:"column",
-      fontFamily:"-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif", background:C.light }}>
+    <div ref={pageRootRef} data-testid="pb-page-root" className="pb-root">
 
       <style>{`
         .pb-hero {
           position: relative;
           min-height: 340px;
           flex-shrink: 0;
-          background-size: cover;
-          background-position: center;
-          background-image: linear-gradient(135deg, ${C.dark} 0%, ${C.accentDark} 55%, ${C.accent} 100%);
+          background-color: #111827;
           display: flex;
           align-items: flex-end;
           overflow: hidden;
         }
-        .pb-hero-overlay {
-          position: absolute; inset: 0;
-          background: linear-gradient(180deg, rgba(46,16,101,0.30) 0%, rgba(35,12,80,0.55) 55%, rgba(20,6,48,0.94) 100%);
+        .pb-hero {
+          min-height:650px; height:auto; align-items:stretch; background:#0b0618;
+          font-family:Poppins,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
         }
-        .pb-hero-inner {
-          position: relative; z-index: 1; width: 100%;
-          max-width: 1180px; margin: 0 auto;
-          padding: 84px 28px 28px;
-          display: flex; flex-direction: column; gap: 20px;
+        .pb-lux-hero { position:relative; width:100%; min-height:650px; overflow:hidden; }
+        .pb-lux-slide {
+          position:absolute; inset:0; opacity:0; transform:scale(1.04);
+          transition:opacity 900ms ease, transform 5200ms ease; pointer-events:none;
         }
-        .pb-hero-top { display:flex; align-items:flex-end; gap:18px; flex-wrap:wrap; }
-        .pb-hero-avatar {
-          width:88px; height:88px; border-radius:50%;
-          border:4px solid #fff; flex-shrink:0; overflow:hidden;
-          background: linear-gradient(135deg,#a78bfa,#7c3aed);
-          display:flex; align-items:center; justify-content:center;
-          color:#fff; font-weight:900; font-size:26px;
-          box-shadow: 0 8px 24px rgba(0,0,0,0.35);
+        .pb-lux-slide.active { opacity:1; transform:scale(1); }
+        .pb-lux-slide img { width:100%; height:100%; object-fit:cover; display:block; }
+        .pb-lux-overlay {
+          position:absolute; inset:0; z-index:2;
+          background:
+            radial-gradient(circle at 76% 20%, rgba(236,72,153,0.28), transparent 32%),
+            radial-gradient(circle at 16% 82%, rgba(16,185,129,0.20), transparent 34%),
+            linear-gradient(90deg, rgba(0,0,0,0.42), rgba(37,18,70,0.30) 48%, rgba(0,0,0,0.10));
+          backdrop-filter:blur(1.5px); -webkit-backdrop-filter:blur(1.5px);
         }
-        .pb-hero-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
-        .pb-hero-info h1 { margin:0 0 8px; font-size:27px; font-weight:900; color:#fff; letter-spacing:-0.01em; }
-        .pb-hero-rating { display:flex; align-items:center; gap:3px; font-size:13px; color:rgba(255,255,255,0.85); flex-wrap:wrap; }
-        .pb-hero-rating b { color:#fff; margin:0 4px 0 6px; }
-        .pb-hero-line { display:flex; align-items:center; gap:6px; font-size:12.5px; color:rgba(255,255,255,0.82); margin-top:6px; }
-        .pb-hero-line-group { display:flex; align-items:center; gap:14px; flex-wrap:wrap; margin-top:8px; }
-        .pb-status-badge { display:flex; align-items:center; gap:6px; font-size:12px; font-weight:700; padding:5px 11px; border-radius:999px; background:rgba(255,255,255,0.14); color:#fff; }
-        .pb-status-badge .dot { width:7px; height:7px; border-radius:50%; }
-        .pb-status-badge.open .dot { background:#22c55e; }
-        .pb-status-badge.closed .dot { background:#f87171; }
-
-        .pb-hero-badges { display:flex; gap:10px; flex-wrap:wrap; }
-        .pb-glass-badge {
-          display:flex; align-items:center; gap:8px; font-size:12.5px; font-weight:600;
-          color:#fff; background:rgba(255,255,255,0.14); border:1px solid rgba(255,255,255,0.25);
-          backdrop-filter: blur(10px); border-radius:12px; padding:9px 15px;
+        .pb-lux-inner {
+          position:relative; z-index:3; min-height:650px; max-width:1180px; margin:0 auto;
+          padding:70px 28px 70px; display:grid; grid-template-columns:minmax(0,1fr) 380px;
+          gap:48px; align-items:center; animation:pbHeroFade 700ms ease both;
         }
-        .pb-glass-badge b { font-weight:800; }
-
-        .pb-hero-actions { display:flex; gap:10px; flex-wrap:wrap; }
-        .pb-action {
-          display:inline-flex; align-items:center; gap:7px; font-size:13px; font-weight:700;
-          padding:11px 20px; border-radius:12px; border:1px solid rgba(255,255,255,0.3);
-          background:rgba(255,255,255,0.12); color:#fff; cursor:pointer; text-decoration:none;
-          backdrop-filter: blur(10px); transition: all 0.2s;
+        .pb-lux-copy { max-width:640px; color:#fff; }
+        .pb-lux-brand { display:flex; align-items:center; gap:16px; margin-bottom:14px; }
+        .pb-lux-avatar {
+          width:60px; height:60px; border-radius:50%; flex-shrink:0; overflow:hidden;
+          border:3px solid rgba(255,255,255,0.85); background:linear-gradient(135deg,#a78bfa,#7c3aed);
+          display:flex; align-items:center; justify-content:center; color:#fff; font-weight:900; font-size:18px;
+          box-shadow:0 10px 24px rgba(0,0,0,0.32);
         }
-        .pb-action:hover { background:rgba(255,255,255,0.22); transform: translateY(-1px); }
-        .pb-action--primary {
-          background: ${GRADIENT}; border-color: transparent;
-          box-shadow: 0 8px 24px rgba(124,58,237,0.5);
+        .pb-lux-avatar img { width:100%; height:100%; object-fit:cover; display:block; }
+        .pb-lux-copy h1 { margin:0; font-size:clamp(34px,4.2vw,50px); line-height:1.04; letter-spacing:-0.01em; font-weight:900; text-shadow:0 20px 50px rgba(0,0,0,0.34); }
+        .pb-lux-copy p { margin:14px 0 0; max-width:560px; color:rgba(255,255,255,0.86); font-size:17px; line-height:1.6; }
+        .pb-lux-rating { display:flex; align-items:center; gap:8px; color:#fff; font-size:14px; font-weight:800; }
+        .pb-lux-meta { display:flex; flex-wrap:wrap; gap:16px; margin-top:10px; }
+        .pb-lux-meta span { display:flex; align-items:center; gap:6px; color:rgba(255,255,255,0.85); font-size:13px; font-weight:600; }
+        .pb-lux-badges { display:flex; flex-wrap:wrap; gap:10px; margin-top:20px; }
+        .pb-lux-badge {
+          display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:#fff;
+          background:rgba(76,29,149,0.38); border:1px solid rgba(255,255,255,0.3); border-radius:999px;
+          padding:8px 14px; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
         }
-        .pb-action--primary:hover { filter: brightness(1.08); }
+        .pb-lux-quick-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+        .pb-lux-quick-action {
+          display:inline-flex; align-items:center; gap:7px; font-size:12.5px; font-weight:700; color:#fff;
+          background:rgba(76,29,149,0.34); border:1px solid rgba(255,255,255,0.3); border-radius:999px;
+          padding:9px 16px; cursor:pointer; text-decoration:none; backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px);
+          transition:background 0.2s, transform 0.2s;
+        }
+        .pb-lux-quick-action:hover { background:rgba(124,58,237,0.5); transform:translateY(-1px); }
+        .pb-lux-cta-primary {
+          border:0; border-radius:999px; color:#fff; font-weight:900; cursor:pointer;
+          background:linear-gradient(135deg,#7C3AED,#9333EA,#EC4899); background-size:180% 180%;
+          box-shadow:0 16px 32px rgba(124,58,237,0.35); animation:pbGradientMove 5s ease infinite;
+          transition:transform 0.2s, box-shadow 0.2s;
+        }
+        .pb-lux-cta-primary:hover { transform:translateY(-2px); }
+        .pb-lux-ctas { display:flex; flex-wrap:wrap; gap:10px; margin-top:26px; }
+        .pb-lux-cta-primary {
+          min-height:54px; padding:0 24px; font-size:16px; display:inline-flex; align-items:center; gap:8px;
+        }
+        .pb-lux-side { position:relative; min-height:380px; }
+        .pb-lux-image-card {
+          position:relative; width:100%; height:380px; border-radius:28px; overflow:hidden;
+          box-shadow:0 30px 70px rgba(0,0,0,0.4); border:1px solid rgba(255,255,255,0.18);
+        }
+        .pb-lux-image-card img { width:100%; height:100%; object-fit:cover; display:block; }
+        .pb-lux-image-badge {
+          position:absolute; top:16px; right:16px; padding:9px 16px; border-radius:999px;
+          background:rgba(255,255,255,0.92); color:#7c3aed; font-weight:900; font-size:12.5px;
+          box-shadow:0 8px 20px rgba(0,0,0,0.25); backdrop-filter:blur(8px);
+        }
+        .pb-review-float {
+          position:absolute; left:-24px; bottom:-30px; width:280px; padding:18px; border-radius:24px;
+          background:rgba(255,255,255,0.92); border:1px solid rgba(255,255,255,0.9);
+          box-shadow:0 24px 60px rgba(15,23,42,0.24); backdrop-filter:blur(18px);
+          animation:pbFloatCard 4.6s ease-in-out infinite;
+        }
+        .pb-review-float b { display:block; margin:8px 0 5px; color:#0f172a; font-size:16px; }
+        .pb-review-float p { margin:0; color:#475569; font-size:13px; line-height:1.5; }
+        .pb-review-float span { display:block; margin-top:10px; color:#7C3AED; font-size:12px; font-weight:900; }
+        .pb-hero-arrow {
+          position:absolute; z-index:5; top:50%; transform:translateY(-50%); width:44px; height:44px;
+          border:1px solid rgba(255,255,255,0.34); border-radius:50%; background:rgba(255,255,255,0.16);
+          color:#fff; display:flex; align-items:center; justify-content:center; cursor:pointer; backdrop-filter:blur(12px);
+        }
+        .pb-hero-arrow.left { left:22px; } .pb-hero-arrow.right { right:22px; }
+        .pb-hero-dots { position:absolute; z-index:5; left:50%; bottom:26px; transform:translateX(-50%); display:flex; gap:8px; }
+        .pb-hero-dot { width:9px; height:9px; border-radius:999px; border:0; background:rgba(255,255,255,0.42); cursor:pointer; transition:all 0.2s; }
+        .pb-hero-dot.active { width:30px; background:#fff; }
+        @keyframes pbHeroFade { from { opacity:0; transform:translateY(14px); } to { opacity:1; transform:none; } }
+        @keyframes pbGradientMove { 0%,100% { background-position:0% 50%; } 50% { background-position:100% 50%; } }
+        @keyframes pbFloatCard { 0%,100% { transform:translateY(0); } 50% { transform:translateY(-10px); } }
 
         .pb-container { padding: 28px 24px 64px; max-width: 1180px; margin: 0 auto; }
         .pb-layout { display:grid; grid-template-columns: 1fr 320px; gap: 28px; align-items:start; }
@@ -366,26 +542,157 @@ export default function PublicBookingPage() {
         .pb-sidebar-row { display:flex; justify-content:space-between; align-items:center; padding:7px 0; font-size:12.5px; gap:10px; }
         .pb-sidebar-row span:first-child { color:${C.muted}; }
         .pb-sidebar-row span:last-child { color:${C.text}; font-weight:700; text-align:right; }
-        .pb-map-preview { height:112px; border-radius:14px; background:linear-gradient(135deg,${C.light},${C.med}); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; text-decoration:none; border:1.5px dashed ${C.border}; transition: all 0.2s; color:${C.accent}; }
+        .pb-map-preview { height:112px; margin-top:12px; border-radius:14px; background:linear-gradient(135deg,${C.light},${C.med}); display:flex; flex-direction:column; align-items:center; justify-content:center; gap:6px; cursor:pointer; text-decoration:none; border:1.5px dashed ${C.border}; transition: all 0.2s; color:${C.accent}; }
+        .pb-map-preview-label { font-size:11.5px; font-weight:700; }
+        .pb-cancellation-text { margin:0; font-size:12.5px; color:${C.muted}; line-height:1.6; }
         .pb-map-preview:hover { background:linear-gradient(135deg,${C.med},${C.light}); border-color:${C.accent}; }
         .pb-amenity-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
         .pb-amenity { display:flex; align-items:center; gap:8px; font-size:11.5px; color:${C.text}; font-weight:600; background:${C.light}; border-radius:10px; padding:9px 10px; }
         .pb-payment-row { display:flex; gap:8px; flex-wrap:wrap; }
         .pb-payment-chip { display:flex; align-items:center; gap:6px; font-size:11.5px; font-weight:700; color:${C.accent}; background:${C.med}; border-radius:8px; padding:6px 10px; }
 
+        .pb-staff-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(168px,1fr)); gap:14px; margin-bottom:28px; }
+
+        .pb-date-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:28px; }
+        .pb-date-btn {
+          background:${C.white}; border:1.5px solid ${C.border}; border-radius:14px; padding:10px 14px;
+          cursor:pointer; text-align:center; color:${C.text}; min-width:58px; box-shadow:none;
+          transition:all 0.18s;
+        }
+        .pb-date-btn.active { background:${GRADIENT}; border-color:${C.accent}; color:${C.white}; box-shadow:0 4px 14px ${C.accent}40; }
+        .pb-date-day { font-size:9.5px; font-weight:700; opacity:0.55; margin-bottom:3px; letter-spacing:0.06em; }
+        .pb-date-btn.active .pb-date-day { opacity:0.85; }
+        .pb-date-num { font-size:20px; font-weight:900; line-height:1; }
+        .pb-date-month { font-size:9.5px; opacity:0.45; margin-top:3px; }
+        .pb-date-btn.active .pb-date-month { opacity:0.8; }
+
+        .pb-slot-label { font-size:11px; font-weight:700; color:${C.muted}; text-transform:uppercase; letter-spacing:0.07em; margin:0 0 10px; }
+        .pb-slot-row { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:18px; }
+        .pb-slot-row--last { margin-bottom:28px; }
+
+        .pb-step2-continue {
+          background:${GRADIENT}; color:${C.white}; border:none; border-radius:12px; padding:13px 28px;
+          font-size:14px; font-weight:700; cursor:pointer; display:flex; align-items:center; gap:8px;
+          box-shadow:0 4px 18px ${C.accent}40;
+        }
+        .pb-step2-continue:disabled {
+          background:${C.med}; color:${C.muted}; cursor:not-allowed; box-shadow:none;
+        }
+
+        .pb-form-grid { display:grid; grid-template-columns:1fr 300px; gap:24px; align-items:start; }
+        .pb-form-card { background:${C.white}; border-radius:20px; padding:24px; border:1px solid ${C.border}; box-shadow:0 2px 12px rgba(46,16,101,0.05); }
+        .pb-field { margin-bottom:18px; }
+        .pb-field-label { display:block; font-size:13px; font-weight:600; color:#374151; margin-bottom:6px; }
+        .pb-field-required { color:#dc2626; margin-left:2px; }
+        .pb-field-optional { font-weight:400; color:${C.muted}; }
+        .pb-field-input {
+          width:100%; padding:10px 14px; border:1.5px solid ${C.border}; border-radius:10px;
+          font-size:13.5px; outline:none; box-sizing:border-box; color:${C.text}; background:${C.white};
+          font-family:inherit;
+        }
+        .pb-field-select-empty { color:#9ca3af; }
+        .pb-field-textarea { resize:vertical; }
+
+        .pb-summary-title { font-size:14px; font-weight:700; color:${C.text}; margin:0 0 14px; }
+        .pb-summary-card { background:${C.white}; border-radius:20px; border:1.5px solid ${C.border}; overflow:hidden; box-shadow:0 4px 24px ${C.accent}18; }
+        .pb-summary-head { background:${GRADIENT}; padding:18px 20px; color:${C.white}; }
+        .pb-summary-service { margin:0 0 3px; font-weight:800; font-size:15px; }
+        .pb-summary-meta { margin:0; font-size:12.5px; opacity:0.85; }
+        .pb-summary-body { padding:16px 20px; display:flex; flex-direction:column; gap:10px; }
+        .pb-summary-row {
+          display:flex; justify-content:space-between; align-items:center; padding:8px 12px;
+          background:${C.light}; border-radius:9px; border:1px solid ${C.border};
+        }
+        .pb-summary-row-label { font-size:11px; font-weight:700; color:#94a3b8; text-transform:uppercase; letter-spacing:0.07em; }
+        .pb-summary-row-value { font-size:13px; color:#1e293b; font-weight:600; }
+        .pb-summary-total { border-top:1px solid ${C.med}; padding:14px 20px; display:flex; justify-content:space-between; align-items:center; }
+        .pb-summary-total-label { font-size:13px; font-weight:600; color:${C.muted}; }
+        .pb-summary-total-value { font-size:20px; font-weight:900; color:${C.accent}; }
+
+        .pb-submit-error { font-size:12.5px; color:#dc2626; margin-top:10px; }
+        .pb-confirm-btn {
+          margin-top:14px; width:100%; background:${GRADIENT}; color:${C.white}; border:none;
+          border-radius:12px; padding:13px; font-size:14px; font-weight:700; cursor:pointer;
+          box-shadow:0 4px 18px ${C.accent}40;
+        }
+        .pb-confirm-btn:disabled { background:${C.med}; color:${C.muted}; cursor:not-allowed; box-shadow:none; }
+        .pb-cancel-note { font-size:11.5px; color:${C.muted}; text-align:center; margin-top:10px; }
+
         .pb-search-sticky { position:sticky; top:0; z-index:5; background:${C.light}; padding:10px 0 14px; margin-bottom:4px; }
-        .pb-search-input { width:100%; padding:13px 18px; border:1.5px solid ${C.border}; border-radius:14px; font-size:13.5px; outline:none; box-sizing:border-box; color:${C.text}; background:#fff; transition:border-color 0.2s, box-shadow 0.2s; }
-        .pb-search-input:focus { border-color:${C.accent}; box-shadow:0 0 0 4px ${C.accent}18; }
+        .pb-search-wrap { position:relative; }
+        .pb-search-icon { position:absolute; left:18px; top:50%; transform:translateY(-50%); color:${C.muted}; pointer-events:none; }
+        .pb-search-input {
+          width:100%; padding:14px 18px 14px 44px; border:1.5px solid ${C.border}; border-radius:999px;
+          font-size:13.5px; outline:none; box-sizing:border-box; color:${C.text}; background:#fff;
+          box-shadow:0 4px 16px rgba(46,16,101,0.06);
+          transition:border-color 0.2s, box-shadow 0.2s;
+        }
+        .pb-search-input:focus { border-color:${C.accent}; box-shadow:0 0 0 4px ${C.accent}18, 0 4px 16px rgba(46,16,101,0.06); }
 
-        .pb-cat-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px; }
-        .pb-cat-chip { display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:999px; border:1.5px solid ${C.border}; background:#fff; color:${C.text}; font-size:12.5px; font-weight:600; cursor:pointer; transition: all 0.18s; }
-        .pb-cat-chip:hover { border-color:${C.accent}; transform: translateY(-1px); }
-        .pb-cat-chip.active { background:${GRADIENT}; border-color:transparent; color:#fff; box-shadow:0 4px 14px ${C.accent}45; }
+        .pb-cat-row {
+          display:flex; gap:8px; flex-wrap:wrap; margin-bottom:24px;
+        }
+        .pb-cat-chip {
+          display:inline-flex; align-items:center; gap:6px; padding:8px 16px; border-radius:999px;
+          border:1.5px solid ${C.border}; background:${C.light}; color:${C.text}; font-size:12.5px;
+          font-weight:600; cursor:pointer; transition: all 0.18s; white-space:nowrap; flex-shrink:0;
+        }
+        .pb-cat-chip:hover { border-color:${C.accent}; transform: translateY(-1px); box-shadow:0 4px 12px rgba(124,58,237,0.15); }
+        .pb-cat-chip.active {
+          background:linear-gradient(135deg, #7c3aed, #ec4899); border-color:transparent; color:#fff;
+          box-shadow:0 4px 14px rgba(124,58,237,0.4);
+        }
+        .pb-cat-more-btn { display:inline-flex; align-items:center; gap:5px; }
+        .pb-cat-more-btn svg { transition:transform 0.2s; }
+        .pb-cat-more-btn.open svg { transform:rotate(180deg); }
 
-        .pb-services-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(280px,1fr)); gap:18px; }
+        .pb-cat-panel {
+          width:100%; margin:8px 0 24px; padding:18px; border-radius:20px;
+          background:#fff; border:1.5px solid ${C.border}; box-shadow:0 16px 40px rgba(46,16,101,0.14);
+          display:flex; flex-wrap:wrap; gap:10px;
+          animation:pbPanelIn 0.2s ease both;
+        }
+        @keyframes pbPanelIn { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+        .pb-cat-panel-item {
+          display:inline-flex; align-items:center; gap:8px; padding:8px 16px 8px 8px; border-radius:999px;
+          background:${C.light}; border:1.5px solid transparent; color:${C.text}; font-size:13px; font-weight:700;
+          cursor:pointer; transition:all 0.2s ease;
+        }
+        .pb-cat-panel-item:hover { border-color:${C.accent}; transform:translateY(-1px); box-shadow:0 4px 12px rgba(124,58,237,0.15); }
+        .pb-cat-panel-item.active {
+          background:linear-gradient(135deg, #7c3aed, #ec4899); color:#fff;
+          box-shadow:0 4px 14px rgba(124,58,237,0.4);
+        }
+        .pb-cat-panel-icon {
+          width:26px; height:26px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+          background:rgba(124,58,237,0.12); color:${C.accent}; flex-shrink:0; transition:all 0.2s ease;
+        }
+        .pb-cat-panel-item.active .pb-cat-panel-icon { background:rgba(255,255,255,0.25); color:#fff; }
+
+        .pb-services-grid { display:grid; grid-template-columns:repeat(2, 1fr); gap:18px; }
 
         .pb-reviews { margin-top:48px; padding-top:32px; border-top:1px solid ${C.border}; }
         .pb-reviews-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:24px; flex-wrap:wrap; gap:18px; }
+        .pb-reviews-head-title { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex:1; min-width:240px; }
+        .pb-write-review-btn {
+          flex-shrink:0; margin-top:2px; padding:10px 18px; border-radius:12px; border:1.5px solid ${C.accent};
+          background:#fff; color:${C.accent}; font-weight:700; font-size:13px; cursor:pointer; transition:all 0.18s;
+        }
+        .pb-write-review-btn:hover { background:${C.light}; }
+
+        .pb-review-form {
+          background:#fff; border:1.5px solid ${C.border}; border-radius:20px; padding:20px;
+          margin-bottom:24px; display:flex; flex-direction:column; gap:16px;
+          box-shadow:0 2px 12px rgba(46,16,101,0.05);
+        }
+        .pb-review-form-row { display:flex; flex-direction:column; }
+        .pb-review-form-stars { display:flex; gap:6px; margin-top:2px; }
+        .pb-review-star-btn { background:none; border:none; padding:2px; cursor:pointer; line-height:0; }
+        .pb-review-submit-btn {
+          align-self:flex-start; background:${GRADIENT}; color:${C.white}; border:none; border-radius:12px;
+          padding:11px 24px; font-size:13.5px; font-weight:700; cursor:pointer; box-shadow:0 4px 18px ${C.accent}40;
+        }
+        .pb-review-submit-btn:disabled { background:${C.med}; color:${C.muted}; cursor:not-allowed; box-shadow:none; }
         .pb-rating-summary { display:flex; align-items:center; gap:22px; }
         .pb-rating-big { font-size:42px; font-weight:900; color:${C.text}; line-height:1; }
         .pb-rating-bars { display:flex; flex-direction:column; gap:4px; min-width:150px; }
@@ -393,21 +700,72 @@ export default function PublicBookingPage() {
         .pb-rating-bar-track { flex:1; height:6px; border-radius:4px; background:${C.med}; overflow:hidden; }
         .pb-rating-bar-fill { height:100%; background:${GRADIENT}; border-radius:4px; }
         .pb-review-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(260px,1fr)); gap:16px; }
-        .pb-review-card { background:#fff; border:1px solid ${C.border}; border-radius:20px; padding:18px; box-shadow:0 2px 10px rgba(46,16,101,0.04); }
+        .pb-review-card { position:relative; background:#fff; border:1px solid ${C.border}; border-radius:20px; padding:18px 38px 18px 18px; box-shadow:0 2px 10px rgba(46,16,101,0.04); }
+        .pb-review-remove-btn {
+          position:absolute; top:14px; right:14px; width:24px; height:24px; border-radius:50%;
+          border:1px solid ${C.border}; background:${C.light}; color:${C.muted};
+          display:flex; align-items:center; justify-content:center; cursor:pointer; transition:all 0.18s;
+        }
+        .pb-review-remove-btn:hover { background:#fee2e2; border-color:#fca5a5; color:#dc2626; }
         .pb-view-all-btn { display:inline-flex; align-items:center; gap:6px; margin-top:22px; padding:11px 22px; border-radius:12px; border:1.5px solid ${C.border}; background:#fff; color:${C.accent}; font-weight:700; font-size:13px; cursor:pointer; }
         .pb-view-all-btn:hover { border-color:${C.accent}; background:${C.light}; }
+        .pb-view-all-btn svg { transition:transform 0.2s; }
+        .pb-view-all-icon-up { transform:rotate(-90deg); }
+
+        .pb-root { height:100vh; overflow-y:auto; display:flex; flex-direction:column;
+          font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif; background:${C.light}; }
+        .pb-body { flex:1; }
+
+        .pb-empty-state { text-align:center; padding:48px 24px; background:#fff; border-radius:20px; border:1.5px dashed ${C.border}; }
+        .pb-empty-title { font-weight:700; color:${C.text}; margin:0 0 4px; }
+        .pb-empty-sub { font-size:13px; color:${C.muted}; margin:0; }
+
+        .pb-continue-bar {
+          position:sticky; bottom:16px; margin-top:24px; display:flex; align-items:center;
+          justify-content:space-between; gap:16px; background:rgba(255,255,255,0.75);
+          backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px);
+          border:1px solid rgba(255,255,255,0.6); border-radius:18px;
+          padding:14px 20px; box-shadow:0 12px 36px rgba(46,16,101,0.18);
+        }
+        .pb-continue-count { margin:0 0 2px; font-size:13px; font-weight:700; color:${C.text}; }
+        .pb-continue-meta { margin:0; font-size:12px; color:${C.muted}; }
+        .pb-continue-btn {
+          background:${GRADIENT}; color:#fff; border:none; border-radius:12px;
+          padding:12px 24px; font-size:14px; font-weight:700; cursor:pointer;
+          display:flex; align-items:center; gap:8px; box-shadow:0 4px 18px ${C.accent}40;
+        }
+
+        .pb-rating-stars { display:flex; gap:2px; margin-top:4px; }
+        .pb-rating-count { font-size:11.5px; color:${C.muted}; margin-top:4px; }
+        .pb-review-head { display:flex; align-items:center; gap:10px; margin-bottom:10px; }
+        .pb-review-avatar {
+          width:36px; height:36px; border-radius:50%; background:${GRADIENT}; color:#fff;
+          display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px; flex-shrink:0;
+        }
+        .pb-review-who { min-width:0; }
+        .pb-review-name { margin:0; font-size:13px; font-weight:700; color:${C.text}; }
+        .pb-review-date { margin:0; font-size:11px; color:${C.muted}; }
+        .pb-review-stars { display:flex; gap:2px; margin-bottom:8px; }
+        .pb-review-text { margin:0; font-size:12.5px; color:#4b5563; line-height:1.6; }
 
         @media (max-width: 1024px) {
+          .pb-hero, .pb-lux-hero { min-height:0; }
+          .pb-lux-inner { min-height:0; grid-template-columns:1fr; padding:58px 22px 60px; gap:36px; }
+          .pb-lux-side { min-height:0; }
+          .pb-lux-image-card { height:320px; }
+          .pb-review-float { left:16px; bottom:16px; }
           .pb-layout { grid-template-columns: 1fr; }
           .pb-sidebar { display:none; }
         }
         @media (max-width: 640px) {
-          .pb-hero { min-height:auto; }
-          .pb-hero-inner { padding:64px 18px 22px; gap:16px; }
-          .pb-hero-avatar { width:68px; height:68px; font-size:20px; }
-          .pb-hero-info h1 { font-size:21px; }
-          .pb-hero-actions { flex-direction:column; }
-          .pb-action { width:100%; justify-content:center; }
+          .pb-hero, .pb-lux-hero { min-height:0; }
+          .pb-lux-inner { padding:48px 16px 48px; }
+          .pb-lux-copy h1 { font-size:34px; }
+          .pb-lux-copy p { font-size:15px; }
+          .pb-lux-cta-primary { width:100%; justify-content:center; font-size:16px; }
+          .pb-lux-image-card { height:240px; }
+          .pb-review-float { position:static; width:auto; margin-top:14px; }
+          .pb-hero-arrow { display:none; }
           .pb-services-grid { grid-template-columns:1fr; }
           .pb-review-grid { grid-template-columns:1fr; }
           .pb-rating-summary { flex-direction:column; align-items:flex-start; gap:12px; }
@@ -415,65 +773,97 @@ export default function PublicBookingPage() {
       `}</style>
 
       {/* ── Premium Hero ── */}
-      <div className="pb-hero" style={coverUrl ? { backgroundImage:`url(${coverUrl})` } : undefined}>
-        <div className="pb-hero-overlay" />
-        <div className="pb-hero-inner">
-          <div className="pb-hero-top">
-            <div className="pb-hero-avatar">
-              {logoUrl ? <img src={logoUrl} alt={salonName} /> : salonName.slice(0, 2).toUpperCase()}
+      <div className="pb-hero">
+        <div className="pb-lux-hero">
+          {heroSlides.map((slide, i) => (
+            <div key={slide.title} className={`pb-lux-slide ${i === heroSlide ? "active" : ""}`}>
+              <img src={slide.image} alt={slide.title} />
             </div>
-            <div className="pb-hero-info">
-              <h1>{salonName}</h1>
-              <div className="pb-hero-rating">
+          ))}
+          <div className="pb-lux-overlay" />
+
+          <button className="pb-hero-arrow left" onClick={() => setHeroSlide((s) => (s - 1 + heroSlides.length) % heroSlides.length)} aria-label="Previous hero slide">
+            <ChevronLeft size={20} />
+          </button>
+          <button className="pb-hero-arrow right" onClick={() => setHeroSlide((s) => (s + 1) % heroSlides.length)} aria-label="Next hero slide">
+            <ChevronRight size={20} />
+          </button>
+
+          <div className="pb-lux-inner">
+            <div className="pb-lux-copy">
+              <div className="pb-lux-brand">
+                <div className="pb-lux-avatar">
+                  {logoUrl ? <img src={logoUrl} alt={salonName} /> : salonName.slice(0, 2).toUpperCase()}
+                </div>
+                <h1>{salonName}</h1>
+              </div>
+              <div className="pb-lux-rating">
                 {[1,2,3,4,5].map((i) => (
-                  <StarFill key={i} size={13} color={i <= Math.round(rating) ? "#fbbf24" : "rgba(255,255,255,0.25)"} />
+                  <StarFill key={i} size={15} color={i <= Math.round(rating) ? "#F59E0B" : "rgba(255,255,255,0.35)"} />
                 ))}
-                <b>{rating.toFixed(1)}</b> · {reviewCount} reviews
+                <span>{rating.toFixed(1)} · {reviewCount} reviews</span>
               </div>
-              {address && <div className="pb-hero-line"><GeoAltFill size={12} /> {address}</div>}
-              <div className="pb-hero-line-group">
-                {todayHours && (
-                  <span className={`pb-status-badge ${todayHours.open ? "open" : "closed"}`}>
-                    <span className="dot" />
-                    {todayHours.open
-                      ? `Open · Closes ${fmtClock(todayHours.to)}`
-                      : "Closed today"}
-                  </span>
+              {(address || phone) && (
+                <div className="pb-lux-meta">
+                  {address && <span><GeoAltFill size={13} /> {address}</span>}
+                  {phone && <span><TelephoneFill size={13} /> {phone}</span>}
+                </div>
+              )}
+              <p>{heroSlides[heroSlide].copy}</p>
+
+              <div className="pb-lux-badges">
+                <span className="pb-lux-badge"><Scissors size={13} /> {services.length} Services</span>
+                <span className="pb-lux-badge"><PeopleFill size={13} /> {staffList.length} Staff</span>
+              </div>
+
+              <div className="pb-lux-ctas">
+                <button className="pb-lux-cta-primary" onClick={scrollToServices}>
+                  Book Appointment <ChevronRight size={18} />
+                </button>
+              </div>
+
+              <div className="pb-lux-quick-actions">
+                {phone && (
+                  <a className="pb-lux-quick-action" href={`tel:${phone}`}>
+                    <TelephoneFill size={13} /> Call Salon
+                  </a>
                 )}
-                {phone && <span className="pb-hero-line" style={{ marginTop:0 }}><TelephoneFill size={11} /> {phone}</span>}
+                {(address || salonName) && (
+                  <a className="pb-lux-quick-action" target="_blank" rel="noopener noreferrer"
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || salonName)}`}>
+                    <GeoAltFill size={13} /> Get Directions
+                  </a>
+                )}
+                <button className="pb-lux-quick-action" onClick={handleShare}>
+                  <ShareFill size={13} /> Share
+                </button>
+              </div>
+            </div>
+
+            <div className="pb-lux-side">
+              <div className="pb-lux-image-card">
+                <img src={heroSlides[heroSlide].image} alt={salonName} />
+                <div className="pb-lux-image-badge">{heroSlides[heroSlide].badge}</div>
+              </div>
+              <div className="pb-review-float">
+                <div>{[1,2,3,4,5].map((i) => <StarFill key={i} size={13} color="#F59E0B" />)}</div>
+                <b>{reviewCards[reviewSlide].title}</b>
+                <p>{reviewCards[reviewSlide].text}</p>
+                <span>- {reviewCards[reviewSlide].name}</span>
               </div>
             </div>
           </div>
 
-          <div className="pb-hero-badges">
-            <div className="pb-glass-badge"><Scissors size={13} /> <b>{servicesCount}</b> Services</div>
-            <div className="pb-glass-badge"><PeopleFill size={13} /> <b>{staffCount}</b> Staff</div>
-          </div>
-
-          <div className="pb-hero-actions">
-            <button className="pb-action pb-action--primary" onClick={scrollToServices}>
-              Book Now <ChevronRight size={13} />
-            </button>
-            {phone && (
-              <a className="pb-action" href={`tel:${phone}`}>
-                <TelephoneFill size={13} /> Call Salon
-              </a>
-            )}
-            {(address || salonName) && (
-              <a className="pb-action" target="_blank" rel="noopener noreferrer"
-                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || salonName)}`}>
-                <GeoAltFill size={13} /> Get Directions
-              </a>
-            )}
-            <button className="pb-action" onClick={handleShare}>
-              <ShareFill size={13} /> Share
-            </button>
+          <div className="pb-hero-dots">
+            {heroSlides.map((slide, i) => (
+              <button key={slide.title} className={`pb-hero-dot ${i === heroSlide ? "active" : ""}`} onClick={() => setHeroSlide(i)} aria-label={`Show ${slide.title}`} />
+            ))}
           </div>
         </div>
       </div>
 
       {/* ── Body ── */}
-      <div style={{ flex:1 }}>
+      <div className="pb-body" ref={bodyRef}>
         {step === 4 ? (
           <SuccessScreen
             salonName={salonName}
@@ -501,33 +891,62 @@ export default function PublicBookingPage() {
                   <SectionHead title="Choose a Service" sub="Select what you'd like to book today" />
 
                   <div className="pb-search-sticky">
-                    <input
-                      className="pb-search-input"
-                      placeholder="Search services…"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
+                    <div className="pb-search-wrap">
+                      <SearchIcon className="pb-search-icon" size={15} />
+                      <input
+                        className="pb-search-input"
+                        placeholder="Search for services..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                      />
+                    </div>
                   </div>
 
                   {categories.length > 2 && (
-                    <div className="pb-cat-row">
-                      {categories.map((cat) => {
-                        const act = activeCat === cat;
-                        return (
-                          <button key={cat} className={`pb-cat-chip ${act ? "active" : ""}`}
-                            onClick={() => setActiveCat(cat)}>
-                            {cat}
+                    <div ref={catMenuRef}>
+                      <div className="pb-cat-row">
+                        {visibleCategories.map((cat) => {
+                          const act = activeCat === cat;
+                          return (
+                            <button key={cat} className={`pb-cat-chip ${act ? "active" : ""}`}
+                              onClick={() => setActiveCat(cat)}>
+                              {cat}
+                            </button>
+                          );
+                        })}
+                        {moreCategories.length > 0 && (
+                          <button
+                            className={`pb-cat-chip pb-cat-more-btn ${moreCategories.includes(activeCat) ? "active" : ""} ${catMenuOpen ? "open" : ""}`}
+                            onClick={() => setCatMenuOpen((o) => !o)}>
+                            {moreCategories.includes(activeCat) ? activeCat : "More"}
+                            <ChevronDown size={12} />
                           </button>
-                        );
-                      })}
+                        )}
+                      </div>
+
+                      {catMenuOpen && moreCategories.length > 0 && (
+                        <div className="pb-cat-panel">
+                          {moreCategories.map((cat) => {
+                            const meta = catMeta(cat);
+                            const isActive = activeCat === cat;
+                            return (
+                              <button key={cat}
+                                className={`pb-cat-panel-item ${isActive ? "active" : ""}`}
+                                onClick={() => { setActiveCat(cat); setCatMenuOpen(false); }}>
+                                <span className="pb-cat-panel-icon"><meta.icon size={13} /></span>
+                                {cat}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
 
                   {filtered.length === 0 ? (
-                    <div style={{ textAlign:"center", padding:"48px 24px",
-                      background:C.white, borderRadius:20, border:`1.5px dashed ${C.border}` }}>
-                      <p style={{ fontWeight:700, color:C.text, margin:"0 0 4px" }}>No services available</p>
-                      <p style={{ fontSize:13, color:C.muted, margin:0 }}>Please check back later.</p>
+                    <div className="pb-empty-state">
+                      <p className="pb-empty-title">No services available</p>
+                      <p className="pb-empty-sub">Please check back later.</p>
                     </div>
                   ) : (
                     <div className="pb-services-grid">
@@ -540,23 +959,16 @@ export default function PublicBookingPage() {
                   )}
 
                   {selServices.length > 0 && (
-                    <div style={{ position:"sticky", bottom:0, marginTop:24, display:"flex",
-                      alignItems:"center", justifyContent:"space-between", gap:16,
-                      background:C.white, border:`1.5px solid ${C.border}`, borderRadius:16,
-                      padding:"14px 20px", boxShadow:`0 -8px 24px rgba(46,16,101,0.08)` }}>
+                    <div className="pb-continue-bar">
                       <div>
-                        <p style={{ margin:"0 0 2px", fontSize:13, fontWeight:700, color:C.text }}>
+                        <p className="pb-continue-count">
                           {selServices.length} service{selServices.length > 1 ? "s" : ""} selected
                         </p>
-                        <p style={{ margin:0, fontSize:12, color:C.muted }}>
+                        <p className="pb-continue-meta">
                           {fmtDur(totalDuration)} · {fmtPrice(totalPrice)}
                         </p>
                       </div>
-                      <button onClick={() => setStep(2)}
-                        style={{ background:GRADIENT, color:C.white, border:"none", borderRadius:12,
-                          padding:"12px 24px", fontSize:14, fontWeight:700, cursor:"pointer",
-                          display:"flex", alignItems:"center", gap:8,
-                          boxShadow:`0 4px 18px ${C.accent}40` }}>
+                      <button className="pb-continue-btn" onClick={() => setStep(2)}>
                         Continue <ChevronRight size={15} />
                       </button>
                     </div>
@@ -565,16 +977,21 @@ export default function PublicBookingPage() {
                   {/* ── Reviews ── */}
                   <div className="pb-reviews">
                     <div className="pb-reviews-head">
-                      <SectionHead title="Customer Reviews" sub="What clients are saying" />
+                      <div className="pb-reviews-head-title">
+                        <SectionHead title="Customer Reviews" sub="What clients are saying" />
+                        <button className="pb-write-review-btn" onClick={() => setShowReviewForm((v) => !v)}>
+                          {showReviewForm ? "Cancel" : "Write a Review"}
+                        </button>
+                      </div>
                       <div className="pb-rating-summary">
                         <div>
                           <div className="pb-rating-big">{rating.toFixed(1)}</div>
-                          <div style={{ display:"flex", gap:2, marginTop:4 }}>
+                          <div className="pb-rating-stars">
                             {[1,2,3,4,5].map((i) => (
                               <StarFill key={i} size={13} color={i <= Math.round(rating) ? "#fbbf24" : C.border} />
                             ))}
                           </div>
-                          <div style={{ fontSize:11.5, color:C.muted, marginTop:4 }}>{reviewCount} reviews</div>
+                          <div className="pb-rating-count">{reviewCount} reviews</div>
                         </div>
                         <div className="pb-rating-bars">
                           {RATING_BREAKDOWN.map((r) => (
@@ -589,31 +1006,80 @@ export default function PublicBookingPage() {
                       </div>
                     </div>
 
+                    {showReviewForm && (
+                      <div className="pb-review-form">
+                        <div className="pb-review-form-row">
+                          <label className="pb-field-label">Your Name</label>
+                          <input
+                            className="pb-field-input"
+                            placeholder="Jane Smith"
+                            value={reviewForm.name}
+                            onChange={(e) => setReviewForm((f) => ({ ...f, name: e.target.value }))}
+                          />
+                        </div>
+                        <div className="pb-review-form-row">
+                          <label className="pb-field-label">Rating</label>
+                          <div className="pb-review-form-stars">
+                            {[1,2,3,4,5].map((i) => (
+                              <button key={i} type="button" className="pb-review-star-btn"
+                                onClick={() => setReviewForm((f) => ({ ...f, rating: i }))}
+                                aria-label={`Rate ${i} star${i > 1 ? "s" : ""}`}>
+                                <StarFill size={20} color={i <= reviewForm.rating ? "#fbbf24" : C.border} />
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="pb-review-form-row">
+                          <label className="pb-field-label">Your Review</label>
+                          <textarea
+                            className="pb-field-input pb-field-textarea"
+                            placeholder="Tell others about your experience…"
+                            rows={3}
+                            value={reviewForm.text}
+                            onChange={(e) => setReviewForm((f) => ({ ...f, text: e.target.value }))}
+                          />
+                        </div>
+                        <button
+                          className="pb-review-submit-btn"
+                          disabled={!reviewForm.name.trim() || !reviewForm.text.trim()}
+                          onClick={handleAddReview}>
+                          Submit Review
+                        </button>
+                      </div>
+                    )}
+
                     <div className="pb-review-grid">
-                      {DEMO_REVIEWS.map((rev, i) => (
+                      {(showAllReviews ? reviewsList : reviewsList.slice(0, REVIEW_PREVIEW_COUNT)).map((rev, i) => (
                         <div key={i} className="pb-review-card">
-                          <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:10 }}>
-                            <div style={{ width:36, height:36, borderRadius:"50%", background:GRADIENT,
-                              color:"#fff", display:"flex", alignItems:"center", justifyContent:"center",
-                              fontWeight:800, fontSize:13, flexShrink:0 }}>
+                          <button className="pb-review-remove-btn" onClick={() => handleRemoveReview(i)}
+                            aria-label={`Remove review from ${rev.name}`}>
+                            <XLg size={12} />
+                          </button>
+                          <div className="pb-review-head">
+                            <div className="pb-review-avatar">
                               {initials(rev.name)}
                             </div>
-                            <div style={{ minWidth:0 }}>
-                              <p style={{ margin:0, fontSize:13, fontWeight:700, color:C.text }}>{rev.name}</p>
-                              <p style={{ margin:0, fontSize:11, color:C.muted }}>{rev.date}</p>
+                            <div className="pb-review-who">
+                              <p className="pb-review-name">{rev.name}</p>
+                              <p className="pb-review-date">{rev.date}</p>
                             </div>
                           </div>
-                          <div style={{ display:"flex", gap:2, marginBottom:8 }}>
+                          <div className="pb-review-stars">
                             {[1,2,3,4,5].map((i2) => (
                               <StarFill key={i2} size={11} color={i2 <= rev.rating ? "#fbbf24" : C.border} />
                             ))}
                           </div>
-                          <p style={{ margin:0, fontSize:12.5, color:"#4b5563", lineHeight:1.6 }}>{rev.text}</p>
+                          <p className="pb-review-text">{rev.text}</p>
                         </div>
                       ))}
                     </div>
 
-                    <button className="pb-view-all-btn">View All Reviews <ChevronRight size={13} /></button>
+                    {reviewsList.length > REVIEW_PREVIEW_COUNT && (
+                      <button className="pb-view-all-btn" onClick={() => setShowAllReviews((v) => !v)}>
+                        {showAllReviews ? "Show Less" : "View All Reviews"}
+                        <ChevronRight size={13} className={showAllReviews ? "pb-view-all-icon-up" : ""} />
+                      </button>
+                    )}
                   </div>
                 </div>
 
@@ -641,10 +1107,9 @@ export default function PublicBookingPage() {
                     )}
                     <a className="pb-map-preview"
                       target="_blank" rel="noopener noreferrer"
-                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || salonName)}`}
-                      style={{ marginTop:12 }}>
+                      href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address || salonName)}`}>
                       <PinMapFill size={20} />
-                      <span style={{ fontSize:11.5, fontWeight:700 }}>Open in Google Maps</span>
+                      <span className="pb-map-preview-label">Open in Google Maps</span>
                     </a>
                   </div>
 
@@ -673,7 +1138,7 @@ export default function PublicBookingPage() {
 
                   <div className="pb-sidebar-card">
                     <p className="pb-sidebar-title">Cancellation Policy</p>
-                    <p style={{ margin:0, fontSize:12.5, color:C.muted, lineHeight:1.6 }}>
+                    <p className="pb-cancellation-text">
                       Free cancellation up to 24 hours before your appointment. Late cancellations may incur a fee.
                     </p>
                   </div>
@@ -687,8 +1152,7 @@ export default function PublicBookingPage() {
                 <ServicesSummary services={selServices} />
 
                 <SectionHead title="Pick Your Stylist" sub="Choose who you'd like to work with" />
-                <div style={{ display:"grid",
-                  gridTemplateColumns:"repeat(auto-fill, minmax(150px,1fr))", gap:12, marginBottom:28 }}>
+                <div className="pb-staff-grid">
                   <StaffCard
                     name="Any available" subtitle="Best match for your slot"
                     initials="?" bg={C.muted}
@@ -709,24 +1173,17 @@ export default function PublicBookingPage() {
                 </div>
 
                 <SectionHead title="Choose a Date" sub="Select your preferred appointment day" />
-                <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:28 }}>
+                <div className="pb-date-row">
                   {dates.map((d, i) => {
                     const act = d.toDateString() === selDate.toDateString();
                     return (
-                      <button key={i} onClick={() => { setSelDate(d); setSelTime(null); }}
-                        style={{ background: act ? GRADIENT : C.white,
-                          border:`1.5px solid ${act ? C.accent : C.border}`,
-                          borderRadius:14, padding:"10px 14px", cursor:"pointer",
-                          textAlign:"center", color: act ? C.white : C.text, minWidth:58,
-                          boxShadow: act ? `0 4px 14px ${C.accent}40` : "none" }}>
-                        <div style={{ fontSize:9.5, fontWeight:700, opacity: act ? 0.85 : 0.55,
-                          marginBottom:3, letterSpacing:"0.06em" }}>
+                      <button key={i} className={`pb-date-btn ${act ? "active" : ""}`}
+                        onClick={() => { setSelDate(d); setSelTime(null); }}>
+                        <div className="pb-date-day">
                           {i === 0 ? "TODAY" : DAYS[d.getDay()].toUpperCase()}
                         </div>
-                        <div style={{ fontSize:20, fontWeight:900, lineHeight:1 }}>{d.getDate()}</div>
-                        <div style={{ fontSize:9.5, opacity: act ? 0.8 : 0.45, marginTop:3 }}>
-                          {MONTHS[d.getMonth()]}
-                        </div>
+                        <div className="pb-date-num">{d.getDate()}</div>
+                        <div className="pb-date-month">{MONTHS[d.getMonth()]}</div>
                       </button>
                     );
                   })}
@@ -738,22 +1195,16 @@ export default function PublicBookingPage() {
                 />
                 {slots.morning.length > 0 && (
                   <>
-                    <p style={{ fontSize:11, fontWeight:700, color:C.muted,
-                      textTransform:"uppercase", letterSpacing:"0.07em", margin:"0 0 10px" }}>
-                      Morning
-                    </p>
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:18 }}>
+                    <p className="pb-slot-label">Morning</p>
+                    <div className="pb-slot-row">
                       {slots.morning.map((t) => <TimeChip key={t} t={t} sel={selTime} onPick={setSelTime} />)}
                     </div>
                   </>
                 )}
                 {slots.afternoon.length > 0 && (
                   <>
-                    <p style={{ fontSize:11, fontWeight:700, color:C.muted,
-                      textTransform:"uppercase", letterSpacing:"0.07em", margin:"0 0 10px" }}>
-                      Afternoon
-                    </p>
-                    <div style={{ display:"flex", flexWrap:"wrap", gap:8, marginBottom:28 }}>
+                    <p className="pb-slot-label">Afternoon</p>
+                    <div className="pb-slot-row pb-slot-row--last">
                       {slots.afternoon.map((t) => <TimeChip key={t} t={t} sel={selTime} onPick={setSelTime} />)}
                     </div>
                   </>
@@ -762,13 +1213,7 @@ export default function PublicBookingPage() {
                 <button
                   disabled={!selStaff || !selTime}
                   onClick={() => setStep(3)}
-                  style={{ background: selStaff && selTime ? GRADIENT : C.med,
-                    color: selStaff && selTime ? C.white : C.muted,
-                    border:"none", borderRadius:12, padding:"13px 28px",
-                    fontSize:14, fontWeight:700,
-                    cursor: selStaff && selTime ? "pointer" : "not-allowed",
-                    display:"flex", alignItems:"center", gap:8,
-                    boxShadow: selStaff && selTime ? `0 4px 18px ${C.accent}40` : "none" }}>
+                  className="pb-step2-continue">
                   Continue to Confirmation <ChevronRight size={15} />
                 </button>
               </>
@@ -777,17 +1222,15 @@ export default function PublicBookingPage() {
             {step === 3 && selServices.length > 0 && (
               <>
                 <BackBtn label="Back" onClick={() => setStep(2)} />
-                <div style={{ display:"grid", gridTemplateColumns:"1fr 300px", gap:24, alignItems:"start" }}>
+                <div className="pb-form-grid">
                   <div>
                     <SectionHead title="Your Details" sub="Enter your contact info to complete the booking" />
-                    <div style={{ background:C.white, borderRadius:20, padding:24,
-                      border:`1px solid ${C.border}`, boxShadow:"0 2px 12px rgba(46,16,101,0.05)" }}>
+                    <div className="pb-form-card">
                       {(["name", "email", "phone"] as const).map((field) => (
-                        <div key={field} style={{ marginBottom:18 }}>
-                          <label style={{ display:"block", fontSize:13, fontWeight:600,
-                            color:"#374151", marginBottom:6 }}>
+                        <div key={field} className="pb-field">
+                          <label className="pb-field-label">
                             {{ name:"Full Name", email:"Email Address", phone:"Phone Number" }[field]}
-                            {field !== "phone" && <span style={{ color:C.accent, marginLeft:2 }}>*</span>}
+                            <span className="pb-field-required">*</span>
                           </label>
                           <input
                             type={{ name:"text", email:"email", phone:"tel" }[field]}
@@ -798,22 +1241,18 @@ export default function PublicBookingPage() {
                               if (field === "phone") val = val.replace(/\D/g, "").slice(0, 10);
                               setForm((f) => ({ ...f, [field]: val }));
                             }}
-                            style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${C.border}`,
-                              borderRadius:10, fontSize:13.5, outline:"none",
-                              boxSizing:"border-box", color:C.text }}
+                            className="pb-field-input"
                           />
                         </div>
                       ))}
-                      <div style={{ marginBottom:18 }}>
-                        <label style={{ display:"block", fontSize:13, fontWeight:600, color:"#374151", marginBottom:6 }}>
-                          Gender <span style={{ fontWeight:400, color:C.muted }}>(optional)</span>
+                      <div className="pb-field">
+                        <label className="pb-field-label">
+                          Gender <span className="pb-field-optional">(optional)</span>
                         </label>
                         <select
                           value={form.gender}
                           onChange={(e) => setForm((f) => ({ ...f, gender: e.target.value }))}
-                          style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${C.border}`,
-                            borderRadius:10, fontSize:13.5, outline:"none",
-                            boxSizing:"border-box", color:form.gender ? C.text : "#9ca3af", background:C.white }}>
+                          className={`pb-field-input ${form.gender ? "" : "pb-field-select-empty"}`}>
                           <option value="">Prefer not to say</option>
                           <option value="female">Female</option>
                           <option value="male">Male</option>
@@ -821,74 +1260,59 @@ export default function PublicBookingPage() {
                         </select>
                       </div>
                       <div>
-                        <label style={{ display:"block", fontSize:13, fontWeight:600, color:"#374151", marginBottom:6 }}>
-                          Notes <span style={{ fontWeight:400, color:C.muted }}>(optional)</span>
+                        <label className="pb-field-label">
+                          Notes <span className="pb-field-optional">(optional)</span>
                         </label>
                         <textarea
                           placeholder="Any requests or info for your stylist…"
                           value={form.notes} rows={3}
                           onChange={(e) => setForm((f) => ({ ...f, notes: e.target.value }))}
-                          style={{ width:"100%", padding:"10px 14px", border:`1.5px solid ${C.border}`,
-                            borderRadius:10, fontSize:13.5, outline:"none", resize:"vertical",
-                            fontFamily:"inherit", boxSizing:"border-box", color:C.text }}
+                          className="pb-field-input pb-field-textarea"
                         />
                       </div>
                     </div>
                   </div>
 
                   <div>
-                    <p style={{ fontSize:14, fontWeight:700, color:C.text, margin:"0 0 14px" }}>Booking Summary</p>
-                    <div style={{ background:C.white, borderRadius:20,
-                      border:`1.5px solid ${C.border}`, overflow:"hidden",
-                      boxShadow:`0 4px 24px ${C.accent}18` }}>
-                      <div style={{ background:GRADIENT, padding:"18px 20px", color:C.white }}>
-                        <p style={{ margin:"0 0 3px", fontWeight:800, fontSize:15 }}>
+                    <p className="pb-summary-title">Booking Summary</p>
+                    <div className="pb-summary-card">
+                      <div className="pb-summary-head">
+                        <p className="pb-summary-service">
                           {selServices.map((s) => s.name).join(", ")}
                         </p>
-                        <p style={{ margin:0, fontSize:12.5, opacity:0.85 }}>
+                        <p className="pb-summary-meta">
                           {fmtDur(totalDuration)} · {fmtPrice(totalPrice)}
                         </p>
                       </div>
-                      <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", gap:10 }}>
+                      <div className="pb-summary-body">
                         {[
                           { label:"Stylist", value: selStaff === "any" ? "Any available stylist" : selStaff ? staffName(selStaff as StaffMember) : "" },
                           { label:"Date", value: `${DAYS[selDate.getDay()]}, ${MONTHS[selDate.getMonth()]} ${selDate.getDate()}` },
                           { label:"Time", value: selTime ?? "" },
                         ].map(({ label, value }) => (
-                          <div key={label} style={{ display:"flex", justifyContent:"space-between",
-                            alignItems:"center", padding:"8px 12px", background:C.light, borderRadius:9,
-                            border:`1px solid ${C.border}` }}>
-                            <span style={{ fontSize:11, fontWeight:700, color:"#94a3b8",
-                              textTransform:"uppercase", letterSpacing:"0.07em" }}>{label}</span>
-                            <span style={{ fontSize:13, color:"#1e293b", fontWeight:600 }}>{value}</span>
+                          <div key={label} className="pb-summary-row">
+                            <span className="pb-summary-row-label">{label}</span>
+                            <span className="pb-summary-row-value">{value}</span>
                           </div>
                         ))}
                       </div>
-                      <div style={{ borderTop:`1px solid ${C.med}`, padding:"14px 20px",
-                        display:"flex", justifyContent:"space-between", alignItems:"center" }}>
-                        <span style={{ fontSize:13, fontWeight:600, color:C.muted }}>Total</span>
-                        <span style={{ fontSize:20, fontWeight:900, color:C.accent }}>{fmtPrice(totalPrice)}</span>
+                      <div className="pb-summary-total">
+                        <span className="pb-summary-total-label">Total</span>
+                        <span className="pb-summary-total-value">{fmtPrice(totalPrice)}</span>
                       </div>
                     </div>
 
                     {submitError && (
-                      <p style={{ fontSize:12.5, color:"#dc2626", marginTop:10 }}>{submitError}</p>
+                      <p className="pb-submit-error">{submitError}</p>
                     )}
 
                     <button
                       disabled={bookingLoading || !form.name || !form.email || form.phone.length !== 10}
                       onClick={handleSubmit}
-                      style={{ marginTop:14, width:"100%",
-                        background: bookingLoading || !form.name || !form.email || form.phone.length !== 10 ? C.med : GRADIENT,
-                        color: bookingLoading || !form.name || !form.email || form.phone.length !== 10 ? C.muted : C.white,
-                        border:"none", borderRadius:12, padding:"13px",
-                        fontSize:14, fontWeight:700,
-                        cursor: bookingLoading || !form.name || !form.email || form.phone.length !== 10 ? "not-allowed" : "pointer",
-                        boxShadow: form.name && form.email && form.phone.length === 10 && !bookingLoading
-                          ? `0 4px 18px ${C.accent}40` : "none" }}>
+                      className="pb-confirm-btn">
                       {bookingLoading ? "Confirming…" : "Confirm Booking"}
                     </button>
-                    <p style={{ fontSize:11.5, color:C.muted, textAlign:"center", marginTop:10 }}>
+                    <p className="pb-cancel-note">
                       Free cancellation up to 24 hours before.
                     </p>
                   </div>

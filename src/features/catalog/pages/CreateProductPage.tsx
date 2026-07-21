@@ -426,7 +426,7 @@ const CreateProductPage: React.FC = () => {
               onChange={(e) => { setField("supplyPrice", e.target.value); touch("supplyPrice"); }}
               onBlur={() => touch("supplyPrice")}
               onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-              iconLeft={<span>INR</span>}
+              iconLeft={<span>₹</span>}
               containerClass="mt-1"
             />
             {touched.supplyPrice && validationErrors.supplyPrice && (
@@ -466,7 +466,7 @@ const CreateProductPage: React.FC = () => {
                     value={form.retailPrice}
                     onChange={(e) => setField("retailPrice", e.target.value)}
                     onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-                    iconLeft={<span>INR</span>}
+                    iconLeft={<span>₹</span>}
                     containerClass=""
                   />
                 </div>
