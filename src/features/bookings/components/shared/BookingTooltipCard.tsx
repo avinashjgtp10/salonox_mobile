@@ -21,7 +21,6 @@ interface BookingTooltipCardProps {
   anchorEl: HTMLElement;
   onMouseEnter: () => void;
   onMouseLeave: () => void;
-  coveredServices?: Map<string, number>;
 }
 
 // Mirrors the calendar chip's own color logic exactly (computeChipStatusClass) —
@@ -44,7 +43,6 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   anchorEl,
   onMouseEnter,
   onMouseLeave,
-  coveredServices,
 }) => {
   const { refs, floatingStyles } = useFloating({
     placement: "right",
@@ -96,12 +94,14 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   const isEwalletPaid =
     (((booking as any).paymentMode || "").toLowerCase() === "ewallet");
 
+  // Per-item price/coverage is read straight from what was actually persisted
+  // per line item at save time (isPackageService / is_package_service) — no
+  // live re-guessing against the client's CURRENT package balance, which
+  // could easily disagree with what this specific past/existing booking was
+  // actually charged (sessions may have been consumed by a later visit since).
   const allItems: FlatItem[] = [
     ...services.map((svc: any) => {
-      const svcName = (svc.service || svc.name || "").toLowerCase();
-      const isCovered = isPackagePaid
-        || !!(svc.isPackageService || svc.is_package_service)
-        || (coveredServices != null && coveredServices.size > 0 && coveredServices.has(svcName));
+      const isCovered = isPackagePaid || !!(svc.isPackageService || svc.is_package_service);
       const rawTotal = (svc as any).total;
       const price = isCovered ? 0
         : ((rawTotal !== undefined && rawTotal !== null) ? Number(rawTotal) : (Number(svc.price) || 0));
@@ -125,38 +125,22 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
     ...productItems.map((p: any)    => ({ icon: <IconTag />,      name: p.name || p.productName    || "", price: Number(p.total) || Number(p.price) || 0, subText: itemStaffSub(p.staffId) || undefined })),
   ].filter((item) => item.name);
 
-  const computedTotal = allItems.reduce((sum, item) => sum + item.price, 0);
-
-  // ── Charges & discount breakdown (mirrors totalsUtils.computeTotals) ───────
-  const discountValue = Number(booking.discount) || 0;
-  const exCharges     = Number((booking as any).exCharges) || 0;
-  const tipAmount     = Number((booking as any).tipAmount) || 0;
-  const gstPercent    = Number(booking.gst) || 0;
-  const discountAmt   = booking.discountType === "Flat (₹)" ? discountValue : (computedTotal * discountValue) / 100;
+  // ── Charges & discount breakdown — read directly from what was already
+  // computed and persisted when this booking was saved/paid (bookingMapper.ts
+  // resolves discountAmount from the raw %/flat input exactly once, at fetch
+  // time; the backend computes gstAmount/taxBreakdown at save/payment time).
+  // No recomputation here — this tooltip is for an already-saved booking, not
+  // one being edited, so there's nothing left to calculate.
+  const exCharges      = Number((booking as any).exCharges) || 0;
+  const tipAmount      = Number((booking as any).tipAmount) || 0;
+  const gstPercent     = Number(booking.gst) || 0;
+  const discountAmt    = Number((booking as any).discountAmount) || 0;
   const couponDiscount = Number((booking as any).couponDiscount) || 0;
   const referralDiscount = Number((booking as any).referralDiscount) || 0;
-  const taxable       = Math.max(0, computedTotal - discountAmt - couponDiscount - referralDiscount);
-  // Prefer the persisted (accurate, per-tax) amount, then the payment's stored
-  // tax breakdown; only fall back to the blended-rate estimate for bookings
-  // saved before tax breakdown existed. The breakdown fallback matters for
-  // partially-paid bills after a refetch: the due amount still includes GST,
-  // so the GST line must not vanish just because item totals recompute to 0
-  // (e.g. package-covered rows).
-  const taxFromBreakdown = Array.isArray((booking as any).taxBreakdown)
-    ? ((booking as any).taxBreakdown as any[]).reduce((s, t) => s + (Number(t?.amount) || 0), 0)
-    : 0;
-  const gstAmount      = (booking as any).gstAmount != null
-    ? Number((booking as any).gstAmount) || 0
-    : (taxFromBreakdown > 0 ? taxFromBreakdown : (taxable * gstPercent) / 100);
-  const adjustedTotal = taxable + gstAmount + exCharges + tipAmount;
-  const hasAnyCovered = services.some((svc: any) =>
-    svc.isPackageService || svc.is_package_service
-    || (coveredServices != null && coveredServices.size > 0 && coveredServices.has((svc.service || svc.name || "").toLowerCase()))
-  ) || packageItems.some((p: any) => p.isPackageService || p.is_package_service);
-  // Package-paid or mixed: total is derived from allItems (covered services already priced at ₹0).
-  const total = (isPackagePaid || hasAnyCovered)
-    ? adjustedTotal
-    : (allItems.length > 0 ? adjustedTotal : (Number(booking.grandTotal) || 0));
+  const gstAmount      = Number((booking as any).gstAmount) || 0;
+  const hasAnyCovered = services.some((svc: any) => svc.isPackageService || svc.is_package_service)
+    || packageItems.some((p: any) => p.isPackageService || p.is_package_service);
+  const total = Number(booking.grandTotal) || 0;
 
   const chipStatus = computeChipStatusClass(booking);
   const payColor = STATUS_COLOR[chipStatus];
