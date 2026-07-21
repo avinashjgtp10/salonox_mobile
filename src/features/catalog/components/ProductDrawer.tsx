@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { X, PencilSquare, BoxSeam, Trash } from "react-bootstrap-icons";
+import { X, PencilSquare, BoxSeam } from "react-bootstrap-icons";
 import Button from "../../../components/ui/Button";
 import "../styles/ProductDrawer.scss";
 
@@ -16,7 +16,6 @@ interface ProductDrawerProps {
   categories: any[];
   loading: boolean;
   onClose: () => void;
-  onDelete?: (id: string) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -27,7 +26,6 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
   categories,
   loading: _loading,
   onClose,
-  onDelete,
 }) => {
   const navigate = useNavigate();
 
@@ -51,17 +49,6 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
             </div>
           </div>
           <div className="pd-panel__header-actions">
-            {onDelete && (
-              <Button
-                variant="outline-danger"
-                size="sm"
-                className="border-0 shadow-none"
-                iconLeft={<Trash size={14} />}
-                onClick={() => onDelete(product.id)}
-              >
-                Delete
-              </Button>
-            )}
             <Button
               variant="outline-dark"
               size="sm"
