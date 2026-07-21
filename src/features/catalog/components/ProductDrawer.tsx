@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { X, PencilSquare, BoxSeam } from "react-bootstrap-icons";
+import { X, PencilSquare, BoxSeam, Trash } from "react-bootstrap-icons";
 import Button from "../../../components/ui/Button";
 import "../styles/ProductDrawer.scss";
 
@@ -16,6 +16,7 @@ interface ProductDrawerProps {
   categories: any[];
   loading: boolean;
   onClose: () => void;
+  onDelete?: (id: string) => void;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -26,6 +27,7 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
   categories,
   loading: _loading,
   onClose,
+  onDelete,
 }) => {
   const navigate = useNavigate();
 
@@ -49,16 +51,25 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
             </div>
           </div>
           <div className="pd-panel__header-actions">
-            <>
+            {onDelete && (
               <Button
-                variant="outline-dark"
+                variant="outline-danger"
                 size="sm"
-                iconLeft={<PencilSquare size={14} />}
-                onClick={() => navigate(`/dashboard/catalog/products/edit/${product.id}`)}
+                className="border-0 shadow-none"
+                iconLeft={<Trash size={14} />}
+                onClick={() => onDelete(product.id)}
               >
-                Edit
+                Delete
               </Button>
-            </>
+            )}
+            <Button
+              variant="outline-dark"
+              size="sm"
+              iconLeft={<PencilSquare size={14} />}
+              onClick={() => navigate(`/dashboard/catalog/products/edit/${product.id}`)}
+            >
+              Edit
+            </Button>
             <button className="pd-panel__close" onClick={onClose} aria-label="Close">
               <X size={20} />
             </button>
@@ -67,44 +78,42 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
 
         {/* ── Body ─────────────────────────────────────────────────── */}
         <div className="pd-panel__body">
-            <>
-              <section className="pd-section">
-                <h6 className="pd-section__title">Basic info</h6>
-                <Field label="Product name"   value={product.name} />
-                <Field label="SKU / Barcode"  value={product.barcode ?? "—"} />
-                <Field label="Brand"          value={brandName} />
-                <Field label="Category"       value={categoryName} />
-                <Field label="Stock level"    value={`${isNaN(parseFloat(product.amount)) ? 0 : parseFloat(product.amount)} in stock`} badge={
-                  (isNaN(parseFloat(product.amount)) ? 0 : parseFloat(product.amount)) <= 0 ? "out" : (isNaN(parseFloat(product.amount)) ? 0 : parseFloat(product.amount)) <= 5 ? "low" : undefined
-                } />
-              </section>
+          <section className="pd-section">
+            <h6 className="pd-section__title">Basic info</h6>
+            <Field label="Product name"   value={product.name} />
+            <Field label="SKU / Barcode"  value={product.barcode ?? "—"} />
+            <Field label="Brand"          value={brandName} />
+            <Field label="Category"       value={categoryName} />
+            <Field label="Stock level"    value={`${isNaN(parseFloat(product.amount)) ? 0 : parseFloat(product.amount)} in stock`} badge={
+              (isNaN(parseFloat(product.amount)) ? 0 : parseFloat(product.amount)) <= 0 ? "out" : (isNaN(parseFloat(product.amount)) ? 0 : parseFloat(product.amount)) <= 5 ? "low" : undefined
+            } />
+          </section>
 
-              <section className="pd-section">
-                <h6 className="pd-section__title">Pricing</h6>
-                <Field label="Supply price"  value={product.supply_price  != null ? `₹${Number(product.supply_price).toLocaleString()}` : "—"} />
-                <Field label="Retail price"  value={product.retail_price  != null ? `₹${Number(product.retail_price).toLocaleString()}`  : "—"} />
-                <Field label="Markup"        value={product.markup_percentage != null ? `${product.markup_percentage}%` : "—"} />
-              </section>
+          <section className="pd-section">
+            <h6 className="pd-section__title">Pricing</h6>
+            <Field label="Supply price"  value={product.supply_price  != null ? `₹${Number(product.supply_price).toLocaleString()}` : "—"} />
+            <Field label="Retail price"  value={product.retail_price  != null ? `₹${Number(product.retail_price).toLocaleString()}`  : "—"} />
+            <Field label="Markup"        value={product.markup_percentage != null ? `${product.markup_percentage}%` : "—"} />
+          </section>
 
-              <section className="pd-section">
-                <h6 className="pd-section__title">Commission</h6>
-                <Field
-                  label="Team commission"
-                  value={product.team_commission_enabled ? "Enabled" : "Disabled"}
-                  badge={product.team_commission_enabled ? "on" : undefined}
-                />
-                {product.team_commission_enabled && (
-                  <Field label="Commission rate" value={`${product.team_commission_rate ?? 0}%`} />
-                )}
-              </section>
+          <section className="pd-section">
+            <h6 className="pd-section__title">Commission</h6>
+            <Field
+              label="Team commission"
+              value={product.team_commission_enabled ? "Enabled" : "Disabled"}
+              badge={product.team_commission_enabled ? "on" : undefined}
+            />
+            {product.team_commission_enabled && (
+              <Field label="Commission rate" value={`${product.team_commission_rate ?? 0}%`} />
+            )}
+          </section>
 
-              {product.description && (
-                <section className="pd-section">
-                  <h6 className="pd-section__title">Description</h6>
-                  <Field label="Full description" value={product.description} multiline />
-                </section>
-              )}
-            </>
+          {product.description && (
+            <section className="pd-section">
+              <h6 className="pd-section__title">Description</h6>
+              <Field label="Full description" value={product.description} multiline />
+            </section>
+          )}
         </div>
       </div>
     </>

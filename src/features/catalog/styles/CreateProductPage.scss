@@ -160,4 +160,62 @@
       &::after { left: 22px; }
     }
   }
+
+  // ── Brand dropdown ───────────────────────────────────────────────────────────
+  // Renders its own menu instead of a native <select> popup so a long brand list
+  // can be clamped to on-screen space and scrolled, instead of overflowing it.
+  .brand-select {
+    position: relative;
+
+    &__toggle {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      text-align: left;
+      cursor: pointer;
+    }
+
+    &__value {
+      display: block;
+      width: 100%;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    &__menu {
+      position: absolute;
+      left: 0;
+      right: 0;
+      overflow-y: auto;
+      background: #fff;
+      border: 1px solid #d0d5dd;
+      border-radius: 8px;
+      box-shadow: 0 4px 16px rgba(16, 24, 40, 0.12);
+      z-index: 1100;
+      padding: 4px;
+    }
+
+    &__option {
+      display: block;
+      width: 100%;
+      text-align: left;
+      padding: 8px 12px;
+      border: none;
+      background: none;
+      border-radius: 6px;
+      font-size: 14px;
+      color: #101828;
+
+      &:hover {
+        background: #f2f4f7;
+      }
+
+      &.active {
+        background: #eef2ff;
+        color: #3730a3;
+        font-weight: 600;
+      }
+    }
+  }
 }
