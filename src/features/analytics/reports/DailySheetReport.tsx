@@ -9,11 +9,13 @@ import Button from "../../../components/ui/Button";
 import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import "./DailySheetReport.scss";
 
 const REPORT_NAME = "Daily Sheet";
 
 interface DailyRow {
+  appointmentId: string | null;
   time: string;
   ticketNo: string;
   clientName: string;
@@ -37,6 +39,7 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
   const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
+  const [selectedId,  setSelectedId]  = useState<string | null>(null);
   useEffect(() => { setCurrentPage(1); }, [rows]);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -65,6 +68,7 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
       const res = await api.get(REPORT.DAILY_SHEET_TABLE(params.toString()), { signal: ctrl.signal });
       const raw: any[] = res.data?.data ?? [];
       const mapped: DailyRow[] = raw.map((r: any) => ({
+        appointmentId: r.appointmentId ? String(r.appointmentId) : null,
         time: r.time || "—",
         ticketNo: r.ticketNo,
         clientName: r.clientName || "Walk-in",
@@ -174,7 +178,7 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
             ) : rows.length === 0 ? (
               <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
-              <tr key={i}>
+              <tr key={i} className="rp-appt-row" onClick={() => r.appointmentId && setSelectedId(r.appointmentId)}>
                 <td>{r.time || "—"}</td>
                 <td>
                   <span className="rp-detail-link" title={r.ticketNo}>
@@ -197,6 +201,14 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
         onPageChange={setCurrentPage}
         onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
       />
+
+      {selectedId && (
+        <AppointmentDetailModal
+          appointmentId={selectedId}
+          onClose={() => setSelectedId(null)}
+          onChanged={fetchData}
+        />
+      )}
     </div>
   );
 }
