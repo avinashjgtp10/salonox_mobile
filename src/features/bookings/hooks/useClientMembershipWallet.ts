@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import api from "../../../services/api/axios";
 import type { ClientMembership } from "../../../services/api/endpoints/clientMemberships.endpoints";
+import { isExpired } from "../utils/packageStatus";
 
 /**
  * Fetches a client's active memberships (for wallet balance display/preview).
@@ -21,7 +22,15 @@ export function useClientMembershipWallet(clientId: string | null | undefined, r
     let cancelled = false;
     setLoading(true);
     api.get("/api/v1/client-memberships", { params: { clientId, status: "active", limit: 20 } })
-      .then((res) => { if (!cancelled) setMemberships(res.data?.data?.items ?? []); })
+      .then((res) => {
+        if (cancelled) return;
+        // Backend "active" filtering aside, also guard against a membership
+        // whose expiry date has passed but hasn't been flagged as such
+        // server-side yet — an expired membership must never contribute wallet
+        // balance to a booking.
+        const items: ClientMembership[] = res.data?.data?.items ?? [];
+        setMemberships(items.filter((m) => !isExpired(m.expiresAt)));
+      })
       .catch(() => { if (!cancelled) setMemberships([]); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };

@@ -21,6 +21,8 @@ import { getRewardPointsConfig } from "../../../settings/utils/rewardPointsSetti
 import { getReferralConfig } from "../../../settings/utils/referralSettings";
 import { isRealId } from "../../utils/paymentUtils";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
+import { isPackageExpired } from "../../utils/packageStatus";
+import { computeTotals }     from "../../utils/totalsUtils";
 import type { TotalsResult } from "../../utils/totalsUtils";
 import api from "../../../../services/api/axios";
 import { PRICING } from "../../../../services/api/endpoints";
@@ -302,6 +304,13 @@ export const AppointmentModal: React.FC<Props> = ({
     { clientId: clientIdForPkg, status: "Active", limit: 50 },
     { skip: !clientIdForPkg },
   );
+  // Backend "Active" filtering aside, also guard client-side against a
+  // package whose expiry date has passed but hasn't been flagged as such
+  // server-side yet — an expired package must never be selectable/applicable.
+  const nonExpiredPackages = useMemo(
+    () => (clientPkgsData?.items ?? []).filter((pkg) => !isPackageExpired(pkg.expiryDate)),
+    [clientPkgsData],
+  );
   // Map of coverage key → remaining sessions from active packages (memoized for
   // stable reference). Keyed by the real catalog service id when the package
   // has one (exact match, so two same-named services at different prices
@@ -310,7 +319,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // lack a catalog id — see ServiceRow.tsx's lookups.
   const coveredServices = useMemo(() => {
     const map = new Map<string, number>();
-    (clientPkgsData?.items ?? []).forEach((pkg) => {
+    nonExpiredPackages.forEach((pkg) => {
       pkg.services.forEach((svc) => {
         if (svc.remainingSessions > 0) {
           const key = svc.catalogServiceId ?? `name:${svc.serviceName.toLowerCase()}`;
@@ -319,7 +328,7 @@ export const AppointmentModal: React.FC<Props> = ({
       });
     });
     return map;
-  }, [clientPkgsData]);
+  }, [nonExpiredPackages]);
 
   // Manual opt-in via the "Apply Package" checkbox below the services list —
   // unchecked by default for a brand-new appointment, but restored to checked
@@ -512,7 +521,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // Marks package sessions as complete for each covered service row after appointment is done.
   // appointmentId links each consumed session back to the sale that used it (for audit/reporting).
   async function markPackageSessions(appointmentId?: string) {
-    const pkgs = clientPkgsData?.items ?? [];
+    const pkgs = nonExpiredPackages;
     for (const row of serviceRows) {
       const rowCatalogId = row.id || null;
       const nameKey = row.service.toLowerCase();
@@ -766,7 +775,7 @@ export const AppointmentModal: React.FC<Props> = ({
     activeMemberships: clientMemberships
       .filter((m) => m.status === "active")
       .map((m) => ({ membershipName: m.membershipName, membershipWalletBalance: m.membershipWalletBalance, expiresAt: m.expiresAt })),
-    activePackages: (clientPkgsData?.items ?? [])
+    activePackages: nonExpiredPackages
       .filter((p) => p.status === "Active")
       .map((p) => ({
         packageName: p.packageName,
@@ -1473,7 +1482,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // ── Available Benefits — one card per spendable balance (Package,
   // Membership, eWallet, Reward Points, Referral Credit). AppointmentModal
   // owns all the underlying state; the panel itself is purely presentational.
-  const firstActivePkg = (clientPkgsData?.items ?? [])[0];
+  const firstActivePkg = nonExpiredPackages[0];
   const availableBenefitCards: BenefitCardConfig[] = useMemo(() => {
     const cards: BenefitCardConfig[] = [];
 

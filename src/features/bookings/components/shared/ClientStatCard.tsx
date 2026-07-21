@@ -4,6 +4,7 @@ import type { ClientStats } from "../../types";
 import type { ClientPackage } from "../../../../services/api/endpoints/packages.endpoints";
 import type { ClientMembership } from "../../../../services/api/endpoints/clientMemberships.endpoints";
 import Skeleton from "../../../../components/ui/Skeleton";
+import { getPackageExpiryStatus, getExpiryStatus } from "../../utils/packageStatus";
 
 interface Props {
   name: string;
@@ -104,10 +105,15 @@ export const ClientStatCard: React.FC<Props> = ({
     ? (Number(stats.rewardPoints) / rewardPointsConfig.redeem_points) * rewardPointsConfig.redeem_value
     : 0;
 
-  const activePackages = packages.filter((p) => p.status === "Active");
+  // "Active" per the backend status, but also not past its own expiry date —
+  // a package sitting on a stale "Active" status server-side must still stop
+  // being offered as usable once its expiry date has passed.
+  const activePackages = packages.filter((p) => p.status === "Active" && getPackageExpiryStatus(p.expiryDate) !== "expired");
   const firstPkg = activePackages[0];
 
-  const activeMemberships = memberships.filter((m) => m.status === "active");
+  // "active" per the backend status, but also not past its own expiry date —
+  // same guard as packages above.
+  const activeMemberships = memberships.filter((m) => m.status === "active" && getExpiryStatus(m.expiresAt) !== "expired");
   const firstMembership = activeMemberships[0];
 
   return (
@@ -229,6 +235,7 @@ export const ClientStatCard: React.FC<Props> = ({
                   {activePackages.map((pkg) => {
                     const totalSessions = pkg.services.reduce((s, svc) => s + svc.totalSessions, 0);
                     const usedSessions  = pkg.services.reduce((s, svc) => s + svc.completedSessions, 0);
+                    const expiryStatus = getPackageExpiryStatus(pkg.expiryDate);
                     return (
                       <div key={pkg.id} className="pkg-card">
                         <div className="pkg-card__row">
@@ -242,6 +249,12 @@ export const ClientStatCard: React.FC<Props> = ({
                         <div className="pkg-card__row">
                           <span className="pkg-card__lbl">Expiry Date:</span>
                           <span className="pkg-card__val">{fmtDate(pkg.expiryDate)}</span>
+                        </div>
+                        <div className="pkg-card__row">
+                          <span className="pkg-card__lbl">Status:</span>
+                          <span className={`pkg-card__status-badge pkg-card__status-badge--${expiryStatus}`}>
+                            {expiryStatus === "expiring-soon" ? "Expiring Soon" : expiryStatus.charAt(0).toUpperCase() + expiryStatus.slice(1)}
+                          </span>
                         </div>
                         <div className="pkg-card__row">
                           <span className="pkg-card__lbl">Sessions:</span>
@@ -304,19 +317,13 @@ export const ClientStatCard: React.FC<Props> = ({
             {memPopover.visible && activeMemberships.length > 0 && (
               <div className="info-popover info-popover--wide">
                 <div className="pkg-modal__cards">
-                  {activeMemberships.map((m) => (
+                  {activeMemberships.map((m) => {
+                    const expiryStatus = getExpiryStatus(m.expiresAt);
+                    return (
                     <div key={m.id} className="pkg-card">
                       <div className="pkg-card__row">
                         <span className="pkg-card__lbl">Active Membership:</span>
                         <span className="pkg-card__val">{m.membershipName}</span>
-                      </div>
-                      <div className="pkg-card__row">
-                        <span className="pkg-card__lbl">Status:</span>
-                        <span className="pkg-card__val">{m.status.charAt(0).toUpperCase() + m.status.slice(1)}</span>
-                      </div>
-                      <div className="pkg-card__row">
-                        <span className="pkg-card__lbl">Price:</span>
-                        <span className="pkg-card__val">₹{Number(m.pricePaid ?? 0).toLocaleString("en-IN")}</span>
                       </div>
                       <div className="pkg-card__row">
                         <span className="pkg-card__lbl">Purchase Date:</span>
@@ -325,6 +332,16 @@ export const ClientStatCard: React.FC<Props> = ({
                       <div className="pkg-card__row">
                         <span className="pkg-card__lbl">Expiry Date:</span>
                         <span className="pkg-card__val">{fmtDate(m.expiresAt)}</span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Status:</span>
+                        <span className={`pkg-card__status-badge pkg-card__status-badge--${expiryStatus}`}>
+                          {expiryStatus === "expiring-soon" ? "Expiring Soon" : expiryStatus.charAt(0).toUpperCase() + expiryStatus.slice(1)}
+                        </span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Price:</span>
+                        <span className="pkg-card__val">₹{Number(m.pricePaid ?? 0).toLocaleString("en-IN")}</span>
                       </div>
                       <div className="pkg-card__row">
                         <span className="pkg-card__lbl">Sessions:</span>
@@ -337,7 +354,8 @@ export const ClientStatCard: React.FC<Props> = ({
                         <span className="pkg-card__val">₹{Number(m.membershipWalletBalance ?? 0).toLocaleString("en-IN")}</span>
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             )}
