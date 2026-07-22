@@ -1,1399 +1,236 @@
-import React, { useEffect, useRef, useState, useCallback, useMemo, useId } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FaWhatsapp } from 'react-icons/fa';
-import PhoneInput, { getCountryCallingCode, type Country } from 'react-phone-number-input';
-import flags from 'react-phone-number-input/flags';
-import { isValidPhoneNumber, isPossiblePhoneNumber } from 'libphonenumber-js';
+import { type Country } from 'react-phone-number-input';
+import { isPossiblePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
 import api from '../../../services/api/axios';
 import { DEMO_REQUESTS } from '../../../services/api/endpoints';
-// @ts-ignore
 import 'react-phone-number-input/style.css';
-// @ts-ignore
-import '../styles/landing.scss';
+import '../../../components/Landing/styles/main.scss';
+import {
+  AboutContent,
+  CITY_NAME_REGEX,
+  countryName,
+  DEMO_EMAIL,
+  DEMO_PHONE_DEFAULT_COUNTRY,
+  DEMO_SUBMIT_URL,
+  DEMO_VIDEO_EMBED_URL,
+  FeatureProductPreview,
+  Icon,
+  LANDING_SECTION_IDS,
+  PrivacyContent,
+  TermsContent,
+  WHATSAPP_DEMO_URL,
+  type DemoForm,
+  type WhyFeature,
+} from '../../../components/Landing/shared';
+import Hero from '../../../components/Landing/Hero/Hero';
+import WhySalonOX from '../../../components/Landing/WhySalonOX/WhySalonOX';
+import Features from '../../../components/Landing/Features/Features';
+import MultiBranch from '../../../components/Landing/MultiBranch/MultiBranch';
+import HowItWorks from '../../../components/Landing/HowItWorks/HowItWorks';
+import Reviews from '../../../components/Landing/Reviews/Reviews';
+import Pricing from '../../../components/Landing/Pricing/Pricing';
+import MobileApp from '../../../components/Landing/MobileApp/MobileApp';
+import BookDemo from '../../../components/Landing/BookDemo/BookDemo';
+import Footer from '../../../components/Landing/Footer/Footer';
 
+const DEMO_NOTIFICATION_TIME_ZONE = 'Asia/Kolkata';
 
-/* ============================================================================
-   SalonOX — Premium Salon & Spa SaaS Landing Page
-   Self-contained: no ThemeProvider, no Context API, no Redux, no extra files.
-   ============================================================================ */
-
-/* ---------------------------------- Icon set (inline SVG, zero deps) ---------------------------------- */
-
-const Icon = {
-  Calendar: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="3" y="4" width="18" height="18" rx="3" />
-      <path d="M16 2v4M8 2v4M3 10h18" />
-    </svg>
-  ),
-  Users: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
-  ),
-  Card: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="5" width="20" height="14" rx="2.5" />
-      <path d="M2 10h20" />
-    </svg>
-  ),
-  Megaphone: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 11v3a1 1 0 0 0 1 1h2l3.5 4.5V5.5L6 10H4a1 1 0 0 0-1 1Z" />
-      <path d="M14 7a5 5 0 0 1 0 10M18 4a9 9 0 0 1 0 16" />
-    </svg>
-  ),
-  Bar: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 21V9M9 21V3M15 21v-7M21 21v-4" />
-    </svg>
-  ),
-  Bell: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
-      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
-    </svg>
-  ),
-  Globe: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="12" cy="12" r="10" />
-      <path d="M2 12h20M12 2a15 15 0 0 1 0 20 15 15 0 0 1 0-20Z" />
-    </svg>
-  ),
-  Layers: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m12 2 9 5-9 5-9-5 9-5Z" />
-      <path d="m3 12 9 5 9-5M3 17l9 5 9-5" />
-    </svg>
-  ),
-  Shield: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z" />
-    </svg>
-  ),
-  Phone: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="6" y="2" width="12" height="20" rx="2.5" />
-      <path d="M11 18h2" />
-    </svg>
-  ),
-  Spark: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M12 3v4M12 17v4M3 12h4M17 12h4M5.6 5.6l2.8 2.8M15.6 15.6l2.8 2.8M18.4 5.6l-2.8 2.8M8.4 15.6l-2.8 2.8" />
-    </svg>
-  ),
-  Arrow: () => (
-    <svg className="icon-arrow" viewBox="0 0 24 24" fill="none" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M5 12h14M13 6l6 6-6 6" />
-    </svg>
-  ),
-  Play: () => (
-    <svg viewBox="0 0 24 24"><path d="M5 3l16 9-16 9V3Z" /></svg>
-  ),
-  Star: () => (
-    <svg viewBox="0 0 24 24"><path d="M12 2l3.1 6.7 7.4.7-5.6 5 1.7 7.3L12 17.9 5.4 21.7l1.7-7.3-5.6-5 7.4-.7L12 2Z" /></svg>
-  ),
-  Check: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  ),
-  Chevron: () => (
-    <svg className="chev" viewBox="0 0 24 24" fill="none" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d="m6 9 6 6 6-6" />
-    </svg>
-  ),
-  Twitter: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M23 3a10.9 10.9 0 0 1-3.1.9 5.4 5.4 0 0 0 2.4-3 10.8 10.8 0 0 1-3.4 1.3 5.4 5.4 0 0 0-9.2 4.9A15.3 15.3 0 0 1 1.6 1.6a5.4 5.4 0 0 0 1.7 7.2A5.3 5.3 0 0 1 .9 8v.1a5.4 5.4 0 0 0 4.3 5.3 5.4 5.4 0 0 1-2.4.1 5.4 5.4 0 0 0 5 3.8A10.9 10.9 0 0 1 0 19.5a15.3 15.3 0 0 0 8.3 2.4c10 0 15.4-8.3 15.4-15.4v-.7A11 11 0 0 0 23 3Z" />
-    </svg>
-  ),
-  Instagram: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="2" width="20" height="20" rx="5" />
-      <circle cx="12" cy="12" r="4.2" />
-      <path d="M17.5 6.5h.01" />
-    </svg>
-  ),
-  Linkedin: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="2" width="20" height="20" rx="3" />
-      <path d="M7 10v7M7 7v.01M12 17v-4.5a2.5 2.5 0 0 1 5 0V17M12 11v6" />
-    </svg>
-  ),
-  Facebook: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M14 9h3V5h-3a4 4 0 0 0-4 4v2H7v4h3v7h4v-7h3l1-4h-4V9a1 1 0 0 1 1-1Z" />
-    </svg>
-  ),
-  WhatsApp: () => (
-    <FaWhatsapp className="icon-whatsapp" aria-hidden="true" focusable="false" />
-  ),
-  Sync: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 12a9 9 0 0 1-15.5 6.5L3 16M3 12a9 9 0 0 1 15.5-6.5L21 8" />
-      <path d="M3 16v4h4M21 8V4h-4" />
-    </svg>
-  ),
-  Report: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 2h6l4 4v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2Z" />
-      <path d="M9 9h2M9 13h6M9 17h6" />
-    </svg>
-  ),
-  Mail: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <rect x="2" y="4" width="20" height="16" rx="2.5" />
-      <path d="m3 6 8.5 7a1 1 0 0 0 1 0L21 6" />
-    </svg>
-  ),
-  Building: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M3 21h18M3 7l9-4 9 4M4 21V7M20 21V7" />
-      <path d="M9 21v-4h6v4M9 11h1m4 0h1M9 15h1m4 0h1" />
-    </svg>
-  ),
-  Cloud: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z" />
-    </svg>
-  ),
-  Receipt: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z" />
-      <path d="M8 10h8M8 14h5" />
-    </svg>
-  ),
-  MessageCircle: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-    </svg>
-  ),
-  TrendingUp: () => (
-    <svg viewBox="0 0 24 24" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M22 7 13.5 15.5 8.5 10.5 2 17" />
-      <path d="M16 7h6v6" />
-    </svg>
-  ),
+type DemoNotificationRow = {
+  field: string;
+  information: string;
 };
 
-/* ---------------------------------- Static content ---------------------------------- */
-
-type Feature = { icon: keyof typeof Icon; title: string; desc: string };
-type WhyFeature = Feature & {
-  tag?: string;
-  modalTitle: string;
-  modalDesc: string;
-  benefits: string[];
-  metric: string;
-  metricLabel: string;
-};
-type Branch = { name: string; bookings: string; revenue: string };
-type DemoForm = { name: string; email: string; phone: string; salon: string; city: string; locations: string; agreed: boolean };
-const DEMO_PHONE_DEFAULT_COUNTRY: Country = 'IN';
-// Allows international letters/marks (accents, Devanagari, Arabic, etc.), spaces,
-// hyphens, apostrophes, and periods — covers city names like "Mumbai", "Saint-Étienne", "St. Louis".
-const CITY_NAME_REGEX = /^[\p{L}\p{M}][\p{L}\p{M}\s'.-]*$/u;
-
-const countryDisplayNames = typeof Intl.DisplayNames === 'function'
-  ? new Intl.DisplayNames(['en'], { type: 'region' })
-  : null;
-const countryName = (country: Country) => countryDisplayNames?.of(country) || country;
-
-const FEATURES: Feature[] = [
-  { icon: 'Calendar', title: 'Effortless scheduling', desc: 'Manage every chair, room, and stylist from one drag-and-drop calendar built for busy floors.' },
-  { icon: 'Bell', title: 'No-show protection', desc: 'Automated reminders by SMS and email cut no-shows and keep your day full.' },
-  { icon: 'Card', title: 'Integrated payments', desc: 'Take deposits, tips, and checkout in seconds with built-in point of sale.' },
-  { icon: 'Users', title: 'Client intelligence', desc: 'See visit history, preferences, and spend the moment a client walks in.' },
-  { icon: 'Megaphone', title: 'Marketing that works', desc: 'Win back lapsed clients and fill quiet hours with one-click campaigns.' },
-  { icon: 'Shield', title: 'Enterprise-grade security', desc: 'Bank-level encryption and role-based access keep every record safe.' },
-];
-
-const WHY_SALONOX: { icon: keyof typeof Icon; title: string; desc: string; tag?: string }[] = [
-  { icon: 'Building', title: 'Multi-Branch Ready', desc: 'Manage unlimited branches from a single dashboard. Each branch gets its own staff, schedule, and reports — all under one roof.', tag: 'Enterprise' },
-  { icon: 'Cloud', title: 'Cloud Based', desc: 'Access your salon data from anywhere, on any device. No installations, no downtime — always up-to-date and always available.', tag: 'SaaS' },
-  { icon: 'Receipt', title: 'GST Billing', desc: 'Generate GST-compliant invoices automatically. Handle taxes, discounts, and split payments with zero manual effort.', tag: 'India Ready' },
-  { icon: 'MessageCircle', title: 'WhatsApp Marketing', desc: 'Send appointment reminders, promotional offers, and feedback requests directly on WhatsApp for maximum open rates.', tag: 'Marketing' },
-  { icon: 'TrendingUp', title: 'Real-Time Analytics', desc: 'Track revenue, bookings, staff performance, and client retention live. Make data-driven decisions with instant insights.', tag: 'Analytics' },
-  { icon: 'Shield', title: 'Secure & Scalable', desc: 'Bank-grade encryption, role-based access controls, and automatic backups keep your business data safe as you grow.', tag: 'Security' },
-];
-
-void WHY_SALONOX;
-
-const WHY_FEATURE_DETAILS: WhyFeature[] = [
-  {
-    icon: 'Building',
-    title: 'Multi-Branch Ready',
-    desc: 'Manage unlimited branches from a single dashboard. Each branch gets its own staff, schedule, and reports under one roof.',
-    tag: 'Enterprise',
-    modalTitle: 'Run every branch without switching systems',
-    modalDesc: 'SalonOX gives owners and area managers one command center for all locations while keeping branch operations cleanly separated.',
-    metric: '12+',
-    metricLabel: 'branches managed from one login',
-    benefits: [
-      'Separate calendars, staff, services, and pricing per branch',
-      'Company-wide reporting with branch-level drilldowns',
-      'Centralized roles for owners, managers, and front desk teams',
-      'Fast branch switching without logging out',
-      'Consistent client experience across every location',
-    ],
-  },
-  {
-    icon: 'Cloud',
-    title: 'Cloud Based',
-    desc: 'Access your salon data from anywhere, on any device. No installations, no downtime, always up-to-date and available.',
-    tag: 'SaaS',
-    modalTitle: 'Your salon data, live on every device',
-    modalDesc: 'Work from reception, home, or between branches with a secure cloud workspace that stays synced automatically.',
-    metric: '24/7',
-    metricLabel: 'access from browser, tablet, or phone',
-    benefits: [
-      'No local installs or manual updates',
-      'Real-time syncing across all team devices',
-      'Secure access from anywhere with an internet connection',
-      'Automatic backups reduce operational risk',
-      'Built for fast onboarding and low maintenance',
-    ],
-  },
-  {
-    icon: 'Receipt',
-    title: 'GST Billing',
-    desc: 'Generate GST-compliant invoices automatically. Handle taxes, discounts, and split payments with zero manual effort.',
-    tag: 'India Ready',
-    modalTitle: 'GST-ready billing built for salon checkout',
-    modalDesc: 'Create compliant invoices, apply taxes and discounts, and complete checkout without spreadsheets or manual calculations.',
-    metric: '0',
-    metricLabel: 'manual tax calculations at checkout',
-    benefits: [
-      'GST-compliant invoice generation',
-      'Discounts, taxes, tips, and split payments in one flow',
-      'Printable and shareable receipts for clients',
-      'Daily sales visibility for owners and accountants',
-      'Cleaner checkout experience for walk-ins and appointments',
-    ],
-  },
-  {
-    icon: 'MessageCircle',
-    title: 'WhatsApp Marketing',
-    desc: 'Send appointment reminders, promotional offers, and feedback requests directly on WhatsApp for maximum open rates.',
-    tag: 'Marketing',
-    modalTitle: 'Turn WhatsApp into a salon growth channel',
-    modalDesc: 'Reach clients where they already respond with reminders, offers, win-back campaigns, and feedback requests.',
-    metric: '3x',
-    metricLabel: 'higher engagement than generic email blasts',
-    benefits: [
-      'Automated appointment reminders and confirmations',
-      'Promotional campaigns for slow days and seasonal offers',
-      'Client feedback requests after visits',
-      'Win-back messages for inactive clients',
-      'Campaign history tied to client profiles',
-    ],
-  },
-  {
-    icon: 'TrendingUp',
-    title: 'Real-Time Analytics',
-    desc: 'Track revenue, bookings, staff performance, and client retention live. Make data-driven decisions with instant insights.',
-    tag: 'Analytics',
-    modalTitle: 'Know what is happening before the day ends',
-    modalDesc: 'SalonOX analytics surface live revenue, appointments, utilization, and retention insights so owners can act quickly.',
-    metric: 'Live',
-    metricLabel: 'revenue, bookings, and staff performance',
-    benefits: [
-      'Live dashboards for daily revenue and bookings',
-      'Staff performance and utilization tracking',
-      'Client retention and repeat-visit insights',
-      'Branch comparisons for growing salon groups',
-      'Export-ready reports for weekly reviews',
-    ],
-  },
-  {
-    icon: 'Shield',
-    title: 'Secure & Scalable',
-    desc: 'Bank-grade encryption, role-based access controls, and automatic backups keep your business data safe as you grow.',
-    tag: 'Security',
-    modalTitle: 'Security that scales with your salon brand',
-    modalDesc: 'Protect client records, staff access, payments, and business reporting with controls designed for growing teams.',
-    metric: 'RBAC',
-    metricLabel: 'role-based controls for every team member',
-    benefits: [
-      'Role-based permissions for owners, managers, and staff',
-      'Encrypted data handling for sensitive client records',
-      'Automatic backups and recovery-minded operations',
-      'Scales from single location to salon groups',
-      'Access controls that keep teams focused and accountable',
-    ],
-  },
-];
-
-const MULTI_BRANCH_FEATURES: Feature[] = [
-  { icon: 'Layers', title: 'Centralized Management', desc: 'Control schedules, services, and pricing for every branch from one unified dashboard — no more juggling logins.' },
-  { icon: 'Bar', title: 'Branch Analytics', desc: 'Compare revenue, bookings, and utilization across locations with real-time, side-by-side reporting.' },
-  { icon: 'Users', title: 'Staff Control', desc: 'Assign, schedule, and track staff per branch while keeping permissions and payroll centrally governed.' },
-  { icon: 'Sync', title: 'Inventory Sync', desc: 'Keep retail stock and product levels synced across every branch, with automatic low-stock alerts.' },
-  { icon: 'Report', title: 'Consolidated Reporting', desc: 'Generate branch-level or company-wide reports in one click, ready to export and share.' },
-  { icon: 'Shield', title: 'Role-Based Access', desc: 'Granular permissions ensure managers, staff, and admins only see and touch what they need to.' },
-];
-
-const SHOWCASE = [
-  {
-    icon: 'Bar' as keyof typeof Icon,
-    title: 'Real-Time Dashboard',
-    desc: 'Get a complete overview of your salon\'s performance at a glance — track total revenue, appointments, active clients, and daily earnings with live charts and actionable insights.',
-    image: '/screenshots/dashboard.png',
-  },
-  {
-    icon: 'Card' as keyof typeof Icon,
-    title: 'Quick Sale & Billing',
-    desc: 'Process walk-in and booked clients in seconds. Search clients, add services, products, memberships, apply discounts, and accept Cash, Card, UPI, or Gift Card — all from one screen.',
-    image: '/screenshots/billing.png',
-  },
-  {
-    icon: 'Report' as keyof typeof Icon,
-    title: 'Reports & Analytics',
-    desc: 'Dive deep into revenue trends, compare targets vs. actuals, and discover your top-performing services. Filter by date range and export reports instantly for smarter business decisions.',
-    image: '/screenshots/reports.png',
-  },
-  {
-    icon: 'Calendar' as keyof typeof Icon,
-    title: 'Appointment Calendar',
-    desc: 'See every stylist\'s schedule at a glance with a color-coded, drag-and-drop calendar. Manage walk-ins, block time, and switch between day, week, and staff views effortlessly.',
-    image: '/screenshots/appointments.png',
-  },
-];
-
-const TESTIMONIALS = [
-  { name: 'Shubham Bagal', role: 'Owner, Elite Salon', quote: 'Bookings have never been smoother. Our no-show rate dropped by half within the first month.', initials: 'SB' },
-  { name: 'Nishant Zanzane', role: 'Director, Premium Spa Co.', quote: 'The reporting alone paid for the subscription. We finally know which services actually drive revenue.', initials: 'NZ' },
-  { name: 'Rutuja Pagale', role: 'Founder, Studio Beauty', quote: 'Clients love the booking page and our front desk loves how little they have to manage manually.', initials: 'RP' },
-  { name: 'Shivani Dhumal', role: 'Manager, Glow Wellness', quote: 'The multi-branch dashboard is a game-changer. Managing three locations has become incredibly easy.', initials: 'SD' },
-  { name: 'Avinash Jagtap', role: 'Owner, Lakme Salon', quote: 'Customer retention improved significantly thanks to the marketing automation features.', initials: 'AJ' },
-  { name: 'Shravani Gaware', role: 'Owner, Elegance Salon', quote: 'SalonOX has made managing appointments, staff, and daily operations effortless. The booking experience is smooth, and our clients love how simple everything has become.', initials: 'SG' },
-];
-
-const INITIAL_BRANCHES: Branch[] = [
-  { name: 'Downtown', bookings: '128', revenue: '$5,420' },
-  { name: 'Uptown', bookings: '94', revenue: '$3,860' },
-  { name: 'Mall Plaza', bookings: '156', revenue: '$6,180' },
-  { name: 'Riverside', bookings: '83', revenue: '$3,140' },
-];
-
-const NEW_BRANCH_NAMES = ['Harbor View', 'Garden District', 'North Park', 'Eastside', 'Old Town', 'West End'];
-const DEMO_EMAIL = 'support@salonox.com';
-const DEMO_SUBMIT_URL = `https://formsubmit.co/ajax/${DEMO_EMAIL}`;
-const WHATSAPP_DEMO_URL = 'https://wa.me/919503302647?text=Hi%20SalonOX%20Team,%20I%20am%20interested%20in%20SalonOX.%20Please%20share%20more%20details%20and%20schedule%20a%20demo.';
-
-type TermsSection = {
-  title: string;
-  body: string;
-  bullets?: string[];
-  email?: string;
-};
-
-const TERMS_SECTIONS: TermsSection[] = [
-  {
-    title: 'Acceptance of Terms',
-    body: 'By creating an account, accessing, or using SalonOX, you agree to these Terms & Conditions. These terms apply to the SalonOX web application, related features, support services, and connected tools made available as part of the SalonOX platform. If you use SalonOX on behalf of a salon, spa, clinic, or other business, you confirm that you have authority to accept these terms for that business.',
-  },
-  {
-    title: 'Definitions',
-    body: '"SalonOX" means the cloud-based salon and spa management software, including modules for appointments, clients, staff, services, inventory, marketing, billing, reporting, and integrations. "Customer" means the business or person subscribing to SalonOX. "User" means any owner, manager, employee, contractor, or invited person who accesses the Customer account. "Customer Data" means information entered, uploaded, imported, generated, or stored in SalonOX by or for the Customer.',
-  },
-  {
-    title: 'Eligibility',
-    body: 'SalonOX is intended for lawful commercial use by salons, spas, wellness providers, and similar service businesses. You must be legally able to enter into a binding agreement and must provide accurate registration and billing information. SalonOX may refuse access where required to comply with law, security requirements, payment controls, or platform integrity standards.',
-  },
-  {
-    title: 'User Accounts',
-    body: 'Customers are responsible for all activity under their SalonOX account and for assigning appropriate access permissions to their Users. Account credentials must be kept confidential and may not be shared outside the authorized team. You agree to promptly update account information and notify SalonOX if you suspect unauthorized access, credential misuse, or a security incident involving your account.',
-  },
-  {
-    title: 'Subscription & Payments',
-    body: 'SalonOX is offered on a subscription basis unless otherwise stated in a written order, invoice, or commercial agreement. Fees, billing cycles, plan limits, taxes, and included features are presented during purchase or renewal. You authorize SalonOX and its payment processors to charge applicable fees using the payment method provided. Late, failed, disputed, or incomplete payments may result in reminders, access limits, suspension, or termination.',
-  },
-  {
-    title: 'Free Trial (if applicable)',
-    body: 'SalonOX may offer a free trial or promotional access at its discretion. Trial availability, duration, included features, and conversion terms may vary by campaign, plan, or region. At the end of a trial, continued use may require an active paid subscription. SalonOX may modify, withdraw, or decline trial access where necessary to prevent misuse or ensure fair use of the platform.',
-  },
-  {
-    title: 'License to Use the Software',
-    body: 'Subject to these terms and payment of applicable fees, SalonOX grants the Customer a limited, non-exclusive, non-transferable, revocable license to access and use the software for internal salon or spa business operations. This license does not permit resale, sublicensing, copying, reverse engineering, source-code extraction, automated scraping, or use of SalonOX to build a competing product.',
-  },
-  {
-    title: 'Acceptable Use Policy',
-    body: 'You agree not to use SalonOX in a way that harms SalonOX, other customers, end clients, third-party providers, or the reliability and security of the platform.',
-    bullets: [
-      'Do not violate applicable laws, regulations, privacy obligations, or third-party rights.',
-      'Do not send unlawful, misleading, abusive, unsolicited, or non-compliant communications.',
-      'Do not upload malicious code, interfere with service operation, or test vulnerabilities without written permission.',
-      'Do not bypass plan limits, payment requirements, authentication, or access controls.',
-      'Do not store content that is illegal, discriminatory, defamatory, exploitative, or unrelated to legitimate business use.',
-    ],
-  },
-  {
-    title: 'User Responsibilities',
-    body: 'Customers are responsible for configuring SalonOX accurately, including business details, services, pricing, taxes, staff schedules, cancellation rules, customer records, messages, and payment settings. Customers must obtain any consents required to collect client information, send reminders or marketing messages, process payments, and use third-party integrations. Users must verify business records, appointment details, bills, and reports before relying on them for operational, tax, accounting, or compliance purposes.',
-  },
-  {
-    title: 'Data & Privacy',
-    body: 'Customer Data remains the responsibility of the Customer. SalonOX uses Customer Data to provide, secure, support, maintain, and improve the software, process transactions, operate integrations, and comply with lawful obligations. SalonOX will handle personal information in accordance with reasonable security measures and applicable privacy requirements. Customers are responsible for the accuracy, legality, consent basis, retention needs, and permitted use of client and staff data entered into SalonOX.',
-  },
-  {
-    title: 'Intellectual Property',
-    body: 'SalonOX and its software, interface, design, workflows, code, databases, documentation, trademarks, logos, content, analytics models, and related materials are owned by SalonOX or its licensors. These terms do not transfer any ownership rights to Customers or Users. Customer Data remains owned by the Customer or its lawful owners, subject to the rights granted to SalonOX to operate and support the platform.',
-  },
-  {
-    title: 'Third-Party Services',
-    body: 'SalonOX may connect with third-party services such as WhatsApp, SMS providers, payment gateways, email providers, maps, analytics tools, cloud infrastructure, and other business applications. Third-party services are governed by their own terms, policies, fees, message limits, delivery rules, and availability. SalonOX is not responsible for failures, delays, data handling, policy enforcement, pricing changes, account restrictions, or service interruptions caused by third-party providers.',
-  },
-  {
-    title: 'Service Availability',
-    body: 'SalonOX aims to provide a reliable cloud service, but availability may be affected by maintenance, updates, internet connectivity, hosting providers, third-party systems, security events, force majeure events, or factors outside SalonOX control. SalonOX may perform scheduled or emergency maintenance and may temporarily limit features to protect security, performance, legal compliance, or platform stability.',
-  },
-  {
-    title: 'Updates & Changes',
-    body: 'SalonOX may improve, modify, add, or remove features, interfaces, workflows, plan inclusions, integrations, and technical requirements from time to time. Updates may be released automatically because SalonOX is a cloud-based SaaS product. SalonOX will try to avoid unnecessary disruption, but changes may be required for security, compliance, product quality, scalability, or business reasons.',
-  },
-  {
-    title: 'Cancellation & Termination',
-    body: 'Customers may cancel their subscription according to the cancellation options available in SalonOX or by contacting support. Cancellation may stop future renewals but does not automatically refund fees already charged. SalonOX may suspend or terminate access for non-payment, security risk, unlawful use, material breach of these terms, misuse of the platform, or activity that may harm SalonOX, other customers, end clients, or third-party providers.',
-  },
-  {
-    title: 'Refund Policy',
-    body: 'Unless required by applicable law or expressly stated in a written agreement, subscription fees, setup fees, usage charges, communication credits, payment processing charges, and renewal fees are non-refundable. If SalonOX approves a refund as a courtesy or exception, that approval does not create an obligation to provide similar refunds in the future. Any approved refund may exclude taxes, third-party charges, gateway fees, or consumed usage.',
-  },
-  {
-    title: 'Limitation of Liability',
-    body: 'To the maximum extent permitted by law, SalonOX will not be liable for indirect, incidental, special, consequential, exemplary, or punitive damages, including loss of profits, revenue, goodwill, data, business opportunity, or customer relationships. SalonOX total liability for claims relating to the software or these terms will be limited to the subscription fees paid by the Customer for SalonOX during the three months immediately before the event giving rise to the claim.',
-  },
-  {
-    title: 'Disclaimer of Warranties',
-    body: 'SalonOX is provided on an "as is" and "as available" basis. SalonOX does not warrant that the software will be uninterrupted, error-free, fully secure, compatible with every device or browser, or suitable for every business requirement. SalonOX does not provide legal, tax, accounting, medical, employment, financial, or regulatory advice. Customers should independently review outputs, reports, automated reminders, invoices, and compliance decisions before acting on them.',
-  },
-  {
-    title: 'Indemnification',
-    body: 'You agree to defend, indemnify, and hold SalonOX, its officers, employees, contractors, affiliates, and service providers harmless from claims, losses, liabilities, damages, costs, and expenses arising from your use of SalonOX, Customer Data, breach of these terms, violation of law, misuse of third-party services, infringement of third-party rights, or communications sent through your account.',
-  },
-  {
-    title: 'Governing Law (India)',
-    body: 'These terms are governed by the laws of India, without regard to conflict-of-law principles. The parties agree to first attempt to resolve disputes in good faith through written communication. Subject to applicable law and any mandatory jurisdiction requirements, disputes relating to these terms or SalonOX may be brought before competent courts or forums in India.',
-  },
-  {
-    title: 'Changes to these Terms',
-    body: 'SalonOX may update these Terms & Conditions from time to time. When changes are material, SalonOX may provide notice through the platform, email, invoice notes, or another reasonable method. Continued access to or use of SalonOX after updated terms become effective means you accept the revised terms. If you do not agree to the revised terms, you should stop using SalonOX and cancel your subscription where applicable.',
-  },
-  {
-    title: 'Contact Us',
-    body: 'For questions about these Terms & Conditions or your SalonOX subscription, contact the SalonOX support team at',
-    email: 'support@salonox@gmail.com',
-  },
-];
-
-const PLANS = [
-  {
-    name: 'Starter', price: '29', desc: 'For independent stylists getting organized.',
-    feats: ['1 staff member', 'Online booking page', 'Client profiles', 'Email reminders'],
-    featured: false,
-  },
-  {
-    name: 'Growth', price: '79', desc: 'For growing salons with a full team.',
-    feats: ['Up to 10 staff', 'SMS + email reminders', 'Marketing automation', 'Payments & POS', 'Performance reports'],
-    featured: true,
-  },
-  {
-    name: 'Scale', price: '149', desc: 'For multi-location salon groups.',
-    feats: ['Unlimited staff', 'Multi-location dashboard', 'Advanced analytics', 'Priority support', 'Custom roles & permissions'],
-    featured: false,
-  },
-];
-
-/* ---------------------------------- Scroll reveal hook ---------------------------------- */
-
-function useReveal<T extends HTMLElement>() {
-  const ref = useRef<T | null>(null);
-  const [visible, setVisible] = useState(() => typeof IntersectionObserver === 'undefined');
-
-  useEffect(() => {
-    const node = ref.current;
-    if (!node || typeof IntersectionObserver === 'undefined') return;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            setVisible(true);
-            observer.unobserve(entry.target);
-          }
-        });
-      },
-      { threshold: 0.15, rootMargin: '0px 0px -60px 0px' }
-    );
-
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  return { ref, visible };
-}
-
-/* ---------------------------------- Hero revenue chart (inline SVG, zero deps) ---------------------------------- */
-
-type RevenuePoint = { day: string; value: number };
-
-const HERO_REVENUE_DATA: RevenuePoint[] = [
-  { day: 'Mon', value: 28400 },
-  { day: 'Tue', value: 33800 },
-  { day: 'Wed', value: 31200 },
-  { day: 'Thu', value: 42600 },
-  { day: 'Fri', value: 39900 },
-  { day: 'Sat', value: 47800 },
-  { day: 'Sun', value: 24860 },
-];
-
-const CHART_W = 300;
-const CHART_H = 150;
-const CHART_PAD = { left: 34, right: 8, top: 12, bottom: 24 };
-const CHART_Y_MAX = 60000;
-const CHART_Y_TICKS = [0, 20000, 40000, 60000];
-
-function scaleRevenueX(i: number, count: number) {
-  const innerW = CHART_W - CHART_PAD.left - CHART_PAD.right;
-  return CHART_PAD.left + (i * innerW) / (count - 1);
-}
-
-function scaleRevenueY(value: number) {
-  const innerH = CHART_H - CHART_PAD.top - CHART_PAD.bottom;
-  return CHART_H - CHART_PAD.bottom - (value / CHART_Y_MAX) * innerH;
-}
-
-function buildSmoothPath(points: { x: number; y: number }[]) {
-  if (points.length < 2) return '';
-  let d = `M ${points[0].x},${points[0].y}`;
-  for (let i = 0; i < points.length - 1; i++) {
-    const p0 = points[i - 1] || points[i];
-    const p1 = points[i];
-    const p2 = points[i + 1];
-    const p3 = points[i + 2] || p2;
-    const cp1x = p1.x + (p2.x - p0.x) / 6;
-    const cp1y = p1.y + (p2.y - p0.y) / 6;
-    const cp2x = p2.x - (p3.x - p1.x) / 6;
-    const cp2y = p2.y - (p3.y - p1.y) / 6;
-    d += ` C ${cp1x.toFixed(2)},${cp1y.toFixed(2)} ${cp2x.toFixed(2)},${cp2y.toFixed(2)} ${p2.x},${p2.y}`;
-  }
-  return d;
-}
-
-const HeroRevenueChart: React.FC = () => {
-  const [activeIndex, setActiveIndex] = useState<number | null>(null);
-
-  const points = HERO_REVENUE_DATA.map((d, i) => ({
-    ...d,
-    x: scaleRevenueX(i, HERO_REVENUE_DATA.length),
-    y: scaleRevenueY(d.value),
-  }));
-
-  const linePath = buildSmoothPath(points);
-  const baseline = CHART_H - CHART_PAD.bottom;
-  const areaPath = `${linePath} L ${points[points.length - 1].x},${baseline} L ${points[0].x},${baseline} Z`;
-
-  return (
-    <div className="revenue-dash">
-      <div className="revenue-dash-head">
-        <div className="revenue-dash-heading">
-          <span className="revenue-dash-label">Weekly Revenue</span>
-          <strong className="revenue-dash-value">₹2,48,560</strong>
-        </div>
-        <span className="revenue-dash-badge">
-          <Icon.TrendingUp />
-          +18.4% vs last week
-        </span>
-      </div>
-
-      <div className="revenue-chart-wrap">
-        <svg
-          className="revenue-chart-svg"
-          viewBox={`0 0 ${CHART_W} ${CHART_H}`}
-          preserveAspectRatio="xMidYMid meet"
-          role="img"
-          aria-label="Weekly revenue trend from Monday to Sunday"
-        >
-          <defs>
-            <linearGradient id="revenueAreaGradient" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#10B981" stopOpacity="0.32" />
-              <stop offset="100%" stopColor="#10B981" stopOpacity="0" />
-            </linearGradient>
-            <linearGradient id="revenueLineGradient" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#34D399" />
-              <stop offset="100%" stopColor="#059669" />
-            </linearGradient>
-          </defs>
-
-          {CHART_Y_TICKS.map((tick) => (
-            <line
-              key={tick}
-              className="revenue-grid-line"
-              x1={CHART_PAD.left}
-              x2={CHART_W - CHART_PAD.right}
-              y1={scaleRevenueY(tick)}
-              y2={scaleRevenueY(tick)}
-            />
-          ))}
-
-          <path className="revenue-area" d={areaPath} />
-          <path className="revenue-line" d={linePath} />
-
-          {CHART_Y_TICKS.map((tick) => (
-            <text
-              key={tick}
-              className="revenue-axis-label revenue-axis-y"
-              x={CHART_PAD.left - 6}
-              y={scaleRevenueY(tick)}
-            >
-              {tick === 0 ? '₹0' : `₹${tick / 1000}K`}
-            </text>
-          ))}
-
-          {points.map((p) => (
-            <text key={p.day} className="revenue-axis-label revenue-axis-x" x={p.x} y={CHART_H - 6}>
-              {p.day}
-            </text>
-          ))}
-
-          {points.map((p, i) => (
-            <g
-              key={p.day}
-              onMouseEnter={() => setActiveIndex(i)}
-              onMouseLeave={() => setActiveIndex(null)}
-              onFocus={() => setActiveIndex(i)}
-              onBlur={() => setActiveIndex(null)}
-              tabIndex={0}
-              role="img"
-              aria-label={`${p.day}: ₹${p.value.toLocaleString('en-IN')}`}
-            >
-              <circle className="revenue-hit" cx={p.x} cy={p.y} r={11} />
-              <circle className={`revenue-dot${activeIndex === i ? ' is-active' : ''}`} cx={p.x} cy={p.y} r={activeIndex === i ? 5 : 3} />
-              {activeIndex === i && (
-                <g className="revenue-tooltip" transform={`translate(${p.x}, ${p.y})`}>
-                  <rect x={-28} y={-34} width={56} height={20} rx={6} />
-                  <text x={0} y={-20} textAnchor="middle">₹{(p.value / 1000).toFixed(1)}K</text>
-                </g>
-              )}
-            </g>
-          ))}
-        </svg>
-      </div>
-    </div>
-  );
-};
-
-const Reveal: React.FC<{ children: React.ReactNode; delay?: 0 | 1 | 2 | 3 | 4; className?: string }> = ({
-  children,
-  delay = 0,
-  className = '',
-}) => {
-  const { ref, visible } = useReveal<HTMLDivElement>();
-  const delayClass = delay > 0 ? `reveal-delay-${delay}` : '';
-
-  return (
-    <div ref={ref} className={`reveal ${delayClass} ${visible ? 'is-visible' : ''} ${className}`}>
-      {children}
-    </div>
-  );
-};
-
-const FeatureProductPreview: React.FC<{ feature: WhyFeature }> = ({ feature }) => {
-  if (feature.title === 'GST Billing') {
-    return (
-      <div className="product-preview product-preview--billing">
-        <div className="preview-window-top">
-          <span><i /><i /><i /></span>
-          <strong>SalonOX Billing</strong>
-          <em>GST ready</em>
-        </div>
-        <div className="invoice-preview">
-          <div className="invoice-head">
-            <div>
-              <span>Invoice</span>
-              <strong>#SOX-2048</strong>
-            </div>
-            <b>Paid</b>
-          </div>
-          <div className="invoice-client">
-            <span>Client</span>
-            <strong>Aarohi Mehta</strong>
-          </div>
-          <div className="invoice-lines">
-            <p><span>Hair spa + styling</span><strong>₹2,400</strong></p>
-            <p><span>Keratin serum</span><strong>₹650</strong></p>
-            <p><span>Member discount</span><strong>-₹250</strong></p>
-          </div>
-          <div className="tax-grid">
-            <span>CGST 9% <strong>₹252</strong></span>
-            <span>SGST 9% <strong>₹252</strong></span>
-          </div>
-          <div className="invoice-total">
-            <span>Total payable</span>
-            <strong>₹3,304</strong>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (feature.title === 'Multi-Branch Ready') {
-    return (
-      <div className="product-preview product-preview--branch">
-        <div className="preview-window-top">
-          <span><i /><i /><i /></span>
-          <strong>Branch Command</strong>
-          <em>Live</em>
-        </div>
-        <div className="branch-preview-layout">
-          <aside>
-            {['Downtown', 'Mall Plaza', 'Studio Lux'].map((branch, index) => (
-              <span className={index === 0 ? 'is-active' : ''} key={branch}>{branch}</span>
-            ))}
-          </aside>
-          <main>
-            <div className="preview-metric-row">
-              <div><span>Bookings</span><strong>384</strong></div>
-              <div><span>Revenue</span><strong>₹8.7L</strong></div>
-            </div>
-            <div className="preview-chart">
-              <i /><i /><i /><i /><i /><i />
-            </div>
-            <div className="branch-mini-table">
-              <p><span>Top branch</span><strong>Downtown</strong></p>
-              <p><span>Utilization</span><strong>86%</strong></p>
-              <p><span>Staff active</span><strong>42</strong></p>
-            </div>
-          </main>
-        </div>
-      </div>
-    );
-  }
-
-  if (feature.title === 'Cloud Based') {
-    return (
-      <div className="product-preview product-preview--cloud">
-        <div className="cloud-device cloud-device--desktop">
-          <div className="preview-window-top">
-            <span><i /><i /><i /></span>
-            <strong>SalonOX Cloud</strong>
-          </div>
-          <div className="cloud-dashboard">
-            <div className="cloud-sidebar" />
-            <div className="cloud-content">
-              <span />
-              <div><i /><i /><i /></div>
-              <p />
-              <p />
-            </div>
-          </div>
-        </div>
-        <div className="cloud-device cloud-device--tablet">
-          <span>Today</span>
-          <strong>32</strong>
-          <em>synced bookings</em>
-        </div>
-        <div className="cloud-device cloud-device--phone">
-          <span />
-          <i />
-          <i />
-          <strong>Live</strong>
-        </div>
-      </div>
-    );
-  }
-
-  if (feature.title === 'WhatsApp Marketing') {
-    return (
-      <div className="product-preview product-preview--whatsapp">
-        <div className="campaign-panel">
-          <div className="preview-window-top">
-            <span><i /><i /><i /></span>
-            <strong>Campaigns</strong>
-            <em>WhatsApp</em>
-          </div>
-          <div className="campaign-card">
-            <span>Reminder sequence</span>
-            <strong>Tomorrow appointments</strong>
-            <div className="campaign-progress"><i /></div>
-            <p>1,248 clients reached</p>
-          </div>
-        </div>
-        <div className="whatsapp-phone">
-          <div className="phone-top">SalonOX</div>
-          <p className="message message-in">Hi Riya, your spa booking is tomorrow at 4:30 PM.</p>
-          <p className="message message-out">Confirm</p>
-          <p className="message message-in">Thank you. See you at Glow Room.</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (feature.title === 'Real-Time Analytics') {
-    return (
-      <div className="product-preview product-preview--analytics">
-        <div className="preview-window-top">
-          <span><i /><i /><i /></span>
-          <strong>Analytics</strong>
-          <em>Live data</em>
-        </div>
-        <div className="analytics-grid">
-          <div><span>Revenue</span><strong>₹4.8L</strong></div>
-          <div><span>Retention</span><strong>74%</strong></div>
-          <div className="analytics-chart"><i /><i /><i /><i /><i /></div>
-          <div className="analytics-list">
-            <p><span>Color services</span><strong>+18%</strong></p>
-            <p><span>Memberships</span><strong>+11%</strong></p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="product-preview product-preview--security">
-      <div className="security-panel">
-        <span className="security-shield"><Icon.Shield /></span>
-        <strong>Secure workspace</strong>
-        <p>Owner, manager, front desk, and stylist permissions stay separated.</p>
-        <div className="security-roles">
-          <span>Owner</span>
-          <span>Manager</span>
-          <span>Stylist</span>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const TermsContent: React.FC = () => (
-  <main className="terms-page" id="top">
-    <section className="terms-hero">
-      <div className="container terms-hero-grid">
-        <div className="terms-hero-copy">
-          <span className="eyebrow"><span className="dot" /> Legal</span>
-          <h1>Terms & Conditions</h1>
-          <p>
-            Commercial terms for salons, spas, and teams using SalonOX cloud management software.
-          </p>
-        </div>
-        <div className="terms-effective">
-          <span>Effective Date</span>
-          <strong>01 June 2026</strong>
-        </div>
-      </div>
-    </section>
-
-    <section className="terms-content">
-      <div className="container">
-        <div className="terms-layout">
-          <aside className="terms-summary" aria-label="Terms summary">
-            <span>SalonOX SaaS Agreement</span>
-            <p>
-              These terms cover account access, subscriptions, data handling, third-party services,
-              acceptable use, cancellations, and support.
-            </p>
-            <a href={`mailto:${DEMO_EMAIL}`}>{DEMO_EMAIL}</a>
-          </aside>
-
-          <div className="terms-sections">
-            {TERMS_SECTIONS.map((section, index) => (
-              <article className="terms-section" key={section.title}>
-                <span className="terms-section-number">{String(index + 1).padStart(2, '0')}</span>
-                <h2>{section.title}</h2>
-                <p>
-                  {section.body}
-                  {section.email && (
-                    <>
-                      {' '}
-                      <a href={`mailto:${section.email}`}>{section.email}</a>.
-                    </>
-                  )}
-                </p>
-                {section.bullets && (
-                  <ul>
-                    {section.bullets.map((bullet) => (
-                      <li key={bullet}>{bullet}</li>
-                    ))}
-                  </ul>
-                )}
-              </article>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-);
-
-const PRIVACY_SECTIONS: TermsSection[] = [
-  {
-    title: 'Introduction',
-    body: 'This Privacy Policy explains how SalonOX collects, uses, stores, shares, and protects the information of customers, team members, and end clients when they use our cloud-based Salon & Spa Management Software (SaaS). SalonOX is designed for salons, spas, clinics, and multi-branch service businesses and supports appointment scheduling, billing, inventory, CRM, marketing, memberships, staff management, and multi-location operations. By using SalonOX, you acknowledge that your information may be processed as described in this Privacy Policy.',
-  },
-  {
-    title: 'Information We Collect',
-    body: 'SalonOX collects information that is necessary to create and manage accounts, deliver services, support operations, improve reliability, and meet legal obligations.',
-    bullets: [
-      'Personal Information: name, email address, phone number, business name, business address, tax details, and contact details for salon owners, managers, staff, or authorized representatives.',
-      'Usage Information: appointment data, service history, billing records, purchase and refund activity, inventory movements, CRM notes, membership status, support tickets, communications, and platform activity logs.',
-      'Cookies & Tracking Technologies: browser cookies, session identifiers, device information, IP addresses, analytics signals, and similar technologies used to maintain secure sessions, remember preferences, and understand feature usage.',
-    ],
-  },
-  {
-    title: 'How We Use Your Information',
-    body: 'SalonOX uses information to provide the platform and related services, service your account, process transactions, support multi-branch workflows, manage staff permissions, send service reminders, deliver customer communications, improve product quality, secure the platform, and comply with legal or contractual requirements.',
-  },
-  {
-    title: 'How We Share Your Information',
-    body: 'SalonOX may share information with trusted service providers, integration partners, and payment processors only where necessary to operate the platform and fulfill the services you request. We do not sell personal information for profit. We may share information when required by law, to protect the rights and safety of our customers or users, or as part of a legitimate business transfer such as a merger, asset sale, or restructuring.',
-  },
-  {
-    title: 'Data Security',
-    body: 'SalonOX uses reasonable administrative, technical, and physical safeguards to reduce risk and protect information against unauthorized access, disclosure, alteration, or destruction. These controls may include encryption in transit, role-based access permissions, secure authentication, monitoring, and backup practices. No system can guarantee absolute security, so you should also protect your login credentials and report suspected misuse promptly.',
-  },
-  {
-    title: 'Data Retention',
-    body: 'SalonOX retains personal and business information for as long as needed to provide services, maintain account history, comply with legal obligations, resolve disputes, enforce agreements, and support legitimate business operations. When information is no longer required, SalonOX will delete or anonymize it in accordance with applicable standards and internal retention practices.',
-  },
-  {
-    title: 'Your Privacy Rights',
-    body: 'Depending on your location and applicable law, you may have the right to access, correct, update, delete, or restrict certain personal information, and to object to or limit certain processing activities. You may also request a copy of the personal information SalonOX holds about you. To exercise these rights, contact us at support@salonox.com and we will respond in line with applicable legal requirements.',
-  },
-  {
-    title: 'Third-Party Services',
-    body: 'SalonOX may rely on third-party services to deliver functionality and support your business. These may include:',
-    bullets: [
-      'WhatsApp services for customer communications, reminders, and marketing messages.',
-      'Payment gateways for secure card, wallet, or bank transfers and billing processing.',
-      'Email services for sending transactional and marketing emails.',
-      'Analytics providers for product usage insights, reliability monitoring, and service improvements.',
-    ],
-  },
-  {
-    title: 'Cookies Policy',
-    body: 'SalonOX uses cookies and similar technologies to keep your account secure, remember preferences, support performance, and analyze product usage. You may control or disable cookies through your browser settings, although some features of SalonOX may not function properly if cookies are disabled.',
-  },
-  {
-    title: "Children's Privacy",
-    body: 'SalonOX is not intended for children under the age of 13, and we do not knowingly collect personal information from children without appropriate consent from a parent or guardian. If you believe a child has provided personal information to SalonOX without the required authorization, please contact us so we can take appropriate action.',
-  },
-  {
-    title: 'Changes to this Privacy Policy',
-    body: 'SalonOX may update this Privacy Policy from time to time to reflect product changes, legal requirements, or security practices. When changes are material, we may notify you through the platform, email, or another reasonable method. Continued use of SalonOX after the updated policy becomes effective means you accept the revised terms.',
-  },
-  {
-    title: 'Contact Us',
-    body: 'If you have questions, requests, or concerns about this Privacy Policy or how SalonOX handles your information, please contact us at',
-    email: DEMO_EMAIL,
-  },
-];
-
-const PrivacyContent: React.FC = () => (
-  <main className="terms-page" id="top">
-    <section className="terms-hero">
-      <div className="container terms-hero-grid">
-        <div className="terms-hero-copy">
-          <span className="eyebrow"><span className="dot" /> Legal</span>
-          <h1>Privacy Policy</h1>
-          <p>
-            How SalonOX collects, uses, protects, and shares information across our salon and spa management platform.
-          </p>
-        </div>
-        <div className="terms-effective">
-          <span>Effective Date</span>
-          <strong>01 June 2026</strong>
-        </div>
-      </div>
-    </section>
-
-    <section className="terms-content">
-      <div className="container">
-        <div className="terms-layout">
-          <aside className="terms-summary" aria-label="Privacy policy summary">
-            <span>SalonOX Privacy Notice</span>
-            <p>
-              This notice explains the categories of information SalonOX collects, how the platform uses that information,
-              and the choices available to customers and end users.
-            </p>
-            <a href={`mailto:${DEMO_EMAIL}`}>{DEMO_EMAIL}</a>
-          </aside>
-
-          <div className="terms-sections">
-            {PRIVACY_SECTIONS.map((section, index) => (
-              <article className="terms-section" key={section.title}>
-                <span className="terms-section-number">{String(index + 1).padStart(2, '0')}</span>
-                <h2>{section.title}</h2>
-                <p>
-                  {section.body}
-                  {section.email && (
-                    <>
-                      {' '}
-                      <a href={`mailto:${section.email}`}>{section.email}</a>.
-                    </>
-                  )}
-                </p>
-                {section.bullets && (
-                  <ul>
-                    {section.bullets.map((bullet) => (
-                      <li key={bullet}>{bullet}</li>
-                    ))}
-                  </ul>
-                )}
-              </article>
-            ))}
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-);
-
-const ABOUT_OFFERS = [
-  'Appointments',
-  'Billing',
-  'CRM',
-  'Inventory',
-  'Marketing',
-  'Memberships',
-  'Staff Management',
-  'Multi-Branch',
-  'Analytics',
-];
-
-const WHY_CHOOSE = [
-  {
-    title: 'Built for real salon teams',
-    desc: 'SalonOX brings scheduling, checkout, client history, and operations into one elegant workspace so your team can move faster with less friction.',
-  },
-  {
-    title: 'Flexible for every growth stage',
-    desc: 'Whether you run one boutique salon or a growing chain, SalonOX adapts to your workflow with powerful modules and branch-ready controls.',
-  },
-  {
-    title: 'Reliable and secure',
-    desc: 'From secure access to consistent uptime, SalonOX is designed to help you run confidently while protecting sensitive customer and business data.',
-  },
-];
-
-type AboutContentProps = {
-  onNavigateToBookDemo: (event: React.MouseEvent<HTMLElement>) => void;
-};
-
-const AboutContent: React.FC<AboutContentProps> = ({ onNavigateToBookDemo }) => (
-  <main className="about-page" id="top">
-    <section className="about-hero">
-      <div className="container about-hero-grid">
-        <div className="about-hero-copy">
-          <span className="eyebrow"><span className="dot" /> About SalonOX</span>
-          <h1>Modern salon software built for beauty businesses that want to grow with clarity.</h1>
-          <p>
-            SalonOX is a cloud-based Salon & Spa Management Software designed to help owners, managers, and teams manage appointments, billing, inventory, CRM, memberships, staff workflows, and multi-branch operations from one place.
-          </p>
-          <div className="about-hero-actions">
-            <a href="#book-demo" className="btn btn-primary" onClick={onNavigateToBookDemo}>
-              Book Demo <Icon.Arrow />
-            </a>
-            <a href="#book-demo" className="btn btn-ghost" onClick={onNavigateToBookDemo}>
-              Contact Us
-            </a>
-          </div>
-        </div>
-        <div className="about-hero-card">
-          <span className="about-hero-card__kicker">Trusted by modern teams</span>
-          <h2>From first consultation to repeat bookings, SalonOX keeps every detail connected.</h2>
-          <p>We simplify daily operations so salon and spa businesses can deliver exceptional service and make smarter decisions with real-time visibility.</p>
-        </div>
-      </div>
-    </section>
-
-    <section className="about-content">
-      <div className="container about-stack">
-        <article className="about-card">
-          <h2>Who We Are</h2>
-          <p>
-            SalonOX was created for businesses that need a premium operating system for salons and spas. Our platform combines elegant design with practical workflows so teams can focus on client experience instead of manual admin.
-          </p>
-        </article>
-
-        <article className="about-card">
-          <h2>Our Mission</h2>
-          <p>
-            We help salon and spa businesses run smarter by bringing appointments, payments, customer insight, marketing, and staff collaboration into one secure and intuitive platform.
-          </p>
-        </article>
-
-        <article className="about-card about-card--wide">
-          <h2>What We Offer</h2>
-          <div className="about-offers-grid">
-            {ABOUT_OFFERS.map((item) => (
-              <div className="about-offer-pill" key={item}>{item}</div>
-            ))}
-          </div>
-        </article>
-
-        <article className="about-card">
-          <h2>Why Choose SalonOX</h2>
-          <div className="about-why-grid">
-            {WHY_CHOOSE.map((item) => (
-              <div className="about-why-card" key={item.title}>
-                <h3>{item.title}</h3>
-                <p>{item.desc}</p>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="about-card">
-          <h2>Our Vision</h2>
-          <p>
-            We believe every salon and spa deserves technology that feels effortless, scalable, and beautifully designed. Our vision is to make modern business operations simple so teams can spend more time creating memorable client experiences.
-          </p>
-        </article>
-      </div>
-    </section>
-
-    <section className="about-cta">
-      <div className="container about-cta-card">
-        <div>
-          <span className="eyebrow"><span className="dot" /> Ready to grow</span>
-          <h2>See how SalonOX can simplify your salon operations.</h2>
-          <p>Book a live demo or reach out to our team for a tailored walkthrough of the platform.</p>
-        </div>
-        <div className="about-hero-actions">
-          <a href="#book-demo" className="btn btn-primary" onClick={onNavigateToBookDemo}>
-            Book Demo <Icon.Arrow />
-          </a>
-          <a href="#book-demo" className="btn btn-ghost" onClick={onNavigateToBookDemo}>
-            Contact Us
-          </a>
-        </div>
-      </div>
-    </section>
-  </main>
-);
-
-/* ---------------------------------- Searchable country select (Book Demo phone field) ---------------------------------- */
-
-type CountrySelectOption = { value?: Country; label: string; divider?: boolean };
-
-type CountrySelectSearchProps = {
-  value?: Country;
-  onChange: (value?: Country) => void;
-  options: CountrySelectOption[];
-  disabled?: boolean;
-  readOnly?: boolean;
-  'aria-label'?: string;
-};
-
-const CountrySelectSearch: React.FC<CountrySelectSearchProps> = ({
-  value,
-  onChange,
-  options,
-  disabled,
-  readOnly,
-  'aria-label': ariaLabel,
-}) => {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState('');
-  const [activeIndex, setActiveIndex] = useState(0);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const searchRef = useRef<HTMLInputElement | null>(null);
-  const listRef = useRef<HTMLUListElement | null>(null);
-  const listboxId = useId();
-
-  const countryOptions = useMemo(
-    () => options.filter((option): option is CountrySelectOption & { value: Country } => !option.divider && !!option.value),
-    [options]
-  );
-
-  const selected = useMemo(
-    () => countryOptions.find((option) => option.value === value),
-    [countryOptions, value]
-  );
-
-  const filteredOptions = useMemo(() => {
-    const q = query.trim().toLowerCase().replace(/^\+/, '');
-    if (!q) return countryOptions;
-
-    // Ranks exact/prefix matches (e.g. typing "+91" surfaces India before
-    // Bolivia's "+591", which merely contains "91") above plain substring hits.
-    const ranked = countryOptions
-      .map((option) => {
-        const label = option.label.toLowerCase();
-        const callingCode = getCountryCallingCode(option.value);
-        let rank = -1;
-        if (label === q || callingCode === q) rank = 0;
-        else if (label.startsWith(q) || callingCode.startsWith(q)) rank = 1;
-        else if (label.includes(q) || option.value.toLowerCase().includes(q) || callingCode.includes(q)) rank = 2;
-        return { option, rank };
-      })
-      .filter((entry) => entry.rank !== -1);
-
-    ranked.sort((a, b) => a.rank - b.rank);
-    return ranked.map((entry) => entry.option);
-  }, [countryOptions, query]);
-
-  useEffect(() => {
-    if (!open) return;
-    const raf = requestAnimationFrame(() => searchRef.current?.focus());
-    return () => cancelAnimationFrame(raf);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-
-    const onPointerDown = (event: PointerEvent) => {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
-    };
-
-    document.addEventListener('pointerdown', onPointerDown);
-    return () => document.removeEventListener('pointerdown', onPointerDown);
-  }, [open]);
-
-  useEffect(() => {
-    if (!open) return;
-    listRef.current?.querySelector<HTMLElement>('[data-active="true"]')?.scrollIntoView({ block: 'nearest' });
-  }, [activeIndex, open]);
-
-  const openDropdown = useCallback(() => {
-    setQuery('');
-    setActiveIndex(0);
-    setOpen(true);
-  }, []);
-
-  const commitSelection = useCallback(
-    (country?: Country) => {
-      onChange(country);
-      setOpen(false);
-    },
-    [onChange]
-  );
-
-  const handleSearchChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setQuery(event.target.value);
-    setActiveIndex(0);
+const escapeEmailHtml = (value: string) =>
+  value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+
+const formatDemoSubmittedOn = (date: Date) => {
+  const dateParts = new Intl.DateTimeFormat('en-IN', {
+    timeZone: DEMO_NOTIFICATION_TIME_ZONE,
+    day: '2-digit',
+    month: 'long',
+    year: 'numeric',
+  }).formatToParts(date);
+
+  const timeParts = new Intl.DateTimeFormat('en-IN', {
+    timeZone: DEMO_NOTIFICATION_TIME_ZONE,
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZoneName: 'short',
+  }).formatToParts(date);
+
+  const part = (parts: Intl.DateTimeFormatPart[], type: Intl.DateTimeFormatPartTypes) =>
+    parts.find((item) => item.type === type)?.value ?? '';
+
+  const submittedDate = `${part(dateParts, 'day')} ${part(dateParts, 'month')} ${part(dateParts, 'year')}`;
+  const submittedTime = `${part(timeParts, 'hour')}:${part(timeParts, 'minute')} ${part(timeParts, 'dayPeriod').toUpperCase()} IST`;
+
+  return {
+    date: submittedDate,
+    time: submittedTime,
+    display: `${submittedDate} • ${submittedTime}`,
+    timeZone: DEMO_NOTIFICATION_TIME_ZONE,
   };
-
-  const handleTriggerKeyDown = (event: React.KeyboardEvent<HTMLButtonElement>) => {
-    if (disabled || readOnly) return;
-    if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
-      event.preventDefault();
-      openDropdown();
-    }
-  };
-
-  const handleSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === 'ArrowDown') {
-      event.preventDefault();
-      setActiveIndex((i) => Math.min(i + 1, filteredOptions.length - 1));
-    } else if (event.key === 'ArrowUp') {
-      event.preventDefault();
-      setActiveIndex((i) => Math.max(i - 1, 0));
-    } else if (event.key === 'Enter') {
-      event.preventDefault();
-      const option = filteredOptions[activeIndex];
-      if (option) commitSelection(option.value);
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      setOpen(false);
-    }
-  };
-
-  const SelectedFlag = selected ? flags[selected.value] : undefined;
-  const selectedCallingCode = selected ? getCountryCallingCode(selected.value) : '';
-
-  return (
-    <div className={`country-select-search${open ? ' is-open' : ''}`} ref={rootRef}>
-      <button
-        type="button"
-        className="country-select-trigger"
-        disabled={disabled || readOnly}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        aria-label={ariaLabel ? `${ariaLabel}${selected ? `, ${selected.label}` : ''}` : 'Select country'}
-        onClick={() => (open ? setOpen(false) : openDropdown())}
-        onKeyDown={handleTriggerKeyDown}
-      >
-        <span className="country-select-flag" aria-hidden="true">
-          {SelectedFlag && <SelectedFlag title={selected?.label || ''} />}
-        </span>
-        {selectedCallingCode && <span className="country-select-code">+{selectedCallingCode}</span>}
-        <span className="country-select-chevron" aria-hidden="true" />
-      </button>
-
-      {open && (
-        <div className="country-select-popover">
-          <div className="country-select-search-box">
-            <input
-              ref={searchRef}
-              type="text"
-              inputMode="search"
-              autoComplete="off"
-              placeholder="Search country or code"
-              value={query}
-              onChange={handleSearchChange}
-              onKeyDown={handleSearchKeyDown}
-              role="combobox"
-              aria-expanded={open}
-              aria-controls={listboxId}
-              aria-autocomplete="list"
-            />
-          </div>
-          <ul className="country-select-list" role="listbox" id={listboxId} ref={listRef} aria-label="Countries">
-            {filteredOptions.length === 0 && (
-              <li className="country-select-empty">No countries found</li>
-            )}
-            {filteredOptions.map((option, index) => {
-              const OptionFlag = flags[option.value];
-              const optionCallingCode = getCountryCallingCode(option.value);
-              const isActive = index === activeIndex;
-              const isSelected = option.value === value;
-
-              return (
-                <li
-                  key={option.value}
-                  role="option"
-                  aria-selected={isSelected}
-                  data-active={isActive}
-                  className={`country-select-option${isActive ? ' is-active' : ''}${isSelected ? ' is-selected' : ''}`}
-                  onMouseEnter={() => setActiveIndex(index)}
-                  onClick={() => commitSelection(option.value)}
-                >
-                  <span className="country-select-option-flag" aria-hidden="true">
-                    {OptionFlag && <OptionFlag title={option.label} />}
-                  </span>
-                  <span className="country-select-option-name">{option.label}</span>
-                  <span className="country-select-option-code">+{optionCallingCode}</span>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
 };
 
-/* ---------------------------------- Component ---------------------------------- */
+const buildDemoNotificationEmail = (rows: DemoNotificationRow[]) => {
+  const tableRows = rows.map(({ field, information }) => `
+    <tr>
+      <td style="padding:14px 18px;border-bottom:1px solid #E2E8F0;color:#475569;font-size:14px;font-weight:700;">${escapeEmailHtml(field)}</td>
+      <td style="padding:14px 18px;border-bottom:1px solid #E2E8F0;color:#0F172A;font-size:14px;font-weight:600;">${escapeEmailHtml(information)}</td>
+    </tr>
+  `).join('');
+
+  const textRows = rows.map(({ field, information }) => `${field}: ${information}`).join('\n');
+
+  return {
+    subject: 'New Demo Booking Received',
+    heading: 'New Demo Booking Received',
+    subtitle: 'A new demo request has been submitted through the SalonOX website.',
+    footer: 'This enquiry was submitted from the SalonOX website.',
+    text: `New Demo Booking Received\n\nA new demo request has been submitted through the SalonOX website.\n\n${textRows}\n\nThis enquiry was submitted from the SalonOX website.`,
+    html: `
+      <!doctype html>
+      <html>
+        <body style="margin:0;padding:0;background:#F8FAFC;font-family:Inter,Arial,sans-serif;color:#0F172A;">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#F8FAFC;padding:32px 16px;">
+            <tr>
+              <td align="center">
+                <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:680px;background:#FFFFFF;border:1px solid #E2E8F0;border-radius:24px;overflow:hidden;box-shadow:0 24px 70px rgba(15,23,42,0.10);">
+                  <tr>
+                    <td style="padding:28px 32px;background:linear-gradient(135deg,#ECFDF5 0%,#FFFFFF 58%,#F8FAFC 100%);">
+                      <table role="presentation" cellspacing="0" cellpadding="0">
+                        <tr>
+                          <td style="width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,#7C3AED,#10B981);color:#FFFFFF;text-align:center;font-size:22px;font-weight:900;line-height:42px;">△</td>
+                          <td style="padding-left:12px;color:#0F172A;font-size:24px;font-weight:900;letter-spacing:-0.04em;">Salon<span style="color:#10B981;">OX</span></td>
+                        </tr>
+                      </table>
+                      <h1 style="margin:28px 0 8px;color:#0F172A;font-size:28px;line-height:1.2;font-weight:900;letter-spacing:-0.04em;">New Demo Booking Received</h1>
+                      <p style="margin:0;color:#64748B;font-size:15px;line-height:1.65;">A new demo request has been submitted through the SalonOX website.</p>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:28px 32px 8px;">
+                      <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="border:1px solid #E2E8F0;border-radius:16px;overflow:hidden;border-collapse:separate;border-spacing:0;">
+                        <thead>
+                          <tr>
+                            <th align="left" style="padding:14px 18px;background:#F1F5F9;color:#0F172A;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;">Field</th>
+                            <th align="left" style="padding:14px 18px;background:#F1F5F9;color:#0F172A;font-size:12px;font-weight:900;text-transform:uppercase;letter-spacing:0.08em;">Information</th>
+                          </tr>
+                        </thead>
+                        <tbody>${tableRows}</tbody>
+                      </table>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding:22px 32px 30px;color:#64748B;font-size:13px;line-height:1.6;">
+                      This enquiry was submitted from the SalonOX website.
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+  };
+};
+
+const appendFormSubmitField = (formData: FormData, field: string, value: string) => {
+  formData.append(field, value.trim());
+};
 
 const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
   const [scrolled, setScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState<string>('top');
+  const [navScrollOffset, setNavScrollOffset] = useState(88);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [activeBranch, setActiveBranch] = useState(0);
-  const [branches, setBranches] = useState<Branch[]>(INITIAL_BRANCHES);
   const [selectedWhyFeature, setSelectedWhyFeature] = useState<WhyFeature | null>(null);
+  const [videoModalMounted, setVideoModalMounted] = useState(false);
+  const [videoModalClosing, setVideoModalClosing] = useState(false);
+  const [videoIframeSrc, setVideoIframeSrc] = useState('');
+  const videoModalRef = useRef<HTMLDivElement | null>(null);
+  const videoTriggerRef = useRef<HTMLElement | null>(null);
+  const videoCloseTimerRef = useRef<number | null>(null);
+  const heroRef = useRef<HTMLElement | null>(null);
+  const navRef = useRef<HTMLElement | null>(null);
+  const navBurgerRef = useRef<HTMLButtonElement | null>(null);
+  const scrollStateFrameRef = useRef<number | null>(null);
+  const scrolledRef = useRef(false);
   const isTermsPage = location.pathname === '/terms';
   const isPrivacyPage = location.pathname === '/privacy';
   const isAboutPage = location.pathname === '/about';
   const isContentPage = isTermsPage || isPrivacyPage || isAboutPage;
+
+  const handleHeroPointerMove = useCallback((event: React.PointerEvent<HTMLElement>) => {
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches || event.pointerType === 'touch') return;
+
+    const hero = heroRef.current;
+    if (!hero) return;
+
+    const bounds = hero.getBoundingClientRect();
+    const x = ((event.clientX - bounds.left) / bounds.width - 0.5) * 2;
+    const y = ((event.clientY - bounds.top) / bounds.height - 0.5) * 2;
+
+    hero.style.setProperty('--hero-parallax-x', `${(x * 3).toFixed(2)}px`);
+    hero.style.setProperty('--hero-parallax-y', `${(y * 3).toFixed(2)}px`);
+    hero.style.setProperty('--hero-dashboard-x', `${(x * 2).toFixed(2)}px`);
+    hero.style.setProperty('--hero-dashboard-y', `${(y * 2).toFixed(2)}px`);
+  }, []);
+
+  const resetHeroParallax = useCallback(() => {
+    const hero = heroRef.current;
+    if (!hero) return;
+
+    hero.style.setProperty('--hero-parallax-x', '0px');
+    hero.style.setProperty('--hero-parallax-y', '0px');
+    hero.style.setProperty('--hero-dashboard-x', '0px');
+    hero.style.setProperty('--hero-dashboard-y', '0px');
+  }, []);
+
+  const openVideoModal = useCallback((event: React.MouseEvent<HTMLElement>) => {
+    event.preventDefault();
+
+    if (videoCloseTimerRef.current !== null) {
+      window.clearTimeout(videoCloseTimerRef.current);
+      videoCloseTimerRef.current = null;
+    }
+
+    videoTriggerRef.current = event.currentTarget;
+    setVideoModalClosing(false);
+    setVideoIframeSrc(DEMO_VIDEO_EMBED_URL);
+    setVideoModalMounted(true);
+  }, []);
+
+  const closeVideoModal = useCallback(() => {
+    if (!videoModalMounted || videoModalClosing) return;
+
+    // Clearing the source immediately stops playback while the shell animates out.
+    setVideoIframeSrc('');
+    setVideoModalClosing(true);
+    videoCloseTimerRef.current = window.setTimeout(() => {
+      setVideoModalMounted(false);
+      setVideoModalClosing(false);
+      videoCloseTimerRef.current = null;
+      videoTriggerRef.current?.focus();
+    }, 300);
+  }, [videoModalClosing, videoModalMounted]);
+
+  useEffect(() => () => {
+    if (videoCloseTimerRef.current !== null) {
+      window.clearTimeout(videoCloseTimerRef.current);
+    }
+  }, []);
 
   useEffect(() => {
     const root = document.getElementById('root');
@@ -1431,8 +268,9 @@ const LandingPage: React.FC = () => {
       heightPriority: el.style.getPropertyPriority('height'),
     }));
 
-    html.style.setProperty('overflow', 'auto', 'important');
-    body.style.setProperty('overflow', 'auto', 'important');
+    html.style.setProperty('overflow-x', 'hidden', 'important');
+    html.style.setProperty('overflow-y', 'auto', 'important');
+    body.style.setProperty('overflow', 'visible', 'important');
     body.style.setProperty('height', 'auto', 'important');
     root?.style.setProperty('overflow', 'visible', 'important');
     root?.style.setProperty('height', 'auto', 'important');
@@ -1441,6 +279,8 @@ const LandingPage: React.FC = () => {
       prev.forEach(({ el, overflow, overflowPriority, height, heightPriority }) => {
         if (overflow) el.style.setProperty('overflow', overflow, overflowPriority);
         else el.style.removeProperty('overflow');
+        el.style.removeProperty('overflow-x');
+        el.style.removeProperty('overflow-y');
         if (height) el.style.setProperty('height', height, heightPriority);
         else el.style.removeProperty('height');
       });
@@ -1448,55 +288,122 @@ const LandingPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 24);
-    onScroll();
+    const updateScrolledState = () => {
+      scrollStateFrameRef.current = null;
+      const nextScrolled = window.scrollY > 24;
+
+      if (scrolledRef.current !== nextScrolled) {
+        scrolledRef.current = nextScrolled;
+        setScrolled(nextScrolled);
+      }
+    };
+
+    const onScroll = () => {
+      if (scrollStateFrameRef.current !== null) return;
+      scrollStateFrameRef.current = window.requestAnimationFrame(updateScrolledState);
+    };
+
+    updateScrolledState();
     window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (scrollStateFrameRef.current !== null) {
+        window.cancelAnimationFrame(scrollStateFrameRef.current);
+        scrollStateFrameRef.current = null;
+      }
+    };
   }, []);
 
-  // Locks page scroll behind the mobile drawer / feature modal. Must keep the
-  // `important` priority from the effect above — a plain assignment here would
-  // drop it, letting the global stylesheet rule silently reclaim scroll lock.
   useEffect(() => {
-    document.body.style.setProperty(
-      'overflow',
-      mobileOpen || selectedWhyFeature ? 'hidden' : 'auto',
-      'important'
-    );
-    if (isContentPage || !location.hash) return;
+    const html = document.documentElement;
+    const body = document.body;
+    const shouldLockPageScroll = mobileOpen || selectedWhyFeature || videoModalMounted;
 
-    window.requestAnimationFrame(() => {
-      const id = location.hash.replace('#', '');
-      const el = document.getElementById(id);
-      if (!el) return;
-
-      const nav = document.querySelector<HTMLElement>('.salonox-landing .nav');
-      const navOffset = nav ? nav.offsetHeight + 16 : 88;
-      const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
-
-      window.scrollTo({
-        top: Math.max(targetTop, 0),
-        behavior: 'smooth',
-      });
-    });
-  }, [isContentPage, location.hash]);
-
-  useEffect(() => {
-    const root = document.getElementById('root');
-    const pageNodes = [document.documentElement, document.body, root].filter(
-      (node): node is HTMLElement => Boolean(node)
-    );
-    const overflow = mobileOpen || selectedWhyFeature ? 'hidden' : 'auto';
-
-    pageNodes.forEach((node) => node.style.setProperty('overflow', overflow, 'important'));
+    html.style.setProperty('overflow-x', 'hidden', 'important');
+    html.style.setProperty('overflow-y', shouldLockPageScroll ? 'hidden' : 'auto', 'important');
+    body.style.setProperty('overflow', shouldLockPageScroll ? 'hidden' : 'visible', 'important');
 
     return () => {
-      pageNodes.forEach((node) => node.style.removeProperty('overflow'));
+      html.style.removeProperty('overflow-x');
+      html.style.removeProperty('overflow-y');
+      body.style.removeProperty('overflow');
+      body.style.removeProperty('overflow-x');
+      body.style.removeProperty('overflow-y');
     };
-  }, [mobileOpen, selectedWhyFeature]);
+  }, [mobileOpen, selectedWhyFeature, videoModalMounted]);
 
   useEffect(() => {
-    if (!selectedWhyFeature) return;
+    const desktopQuery = window.matchMedia('(min-width: 1024px)');
+    const closeDrawerOnDesktop = (event: MediaQueryListEvent | MediaQueryList) => {
+      if (event.matches) setMobileOpen(false);
+    };
+
+    closeDrawerOnDesktop(desktopQuery);
+    desktopQuery.addEventListener('change', closeDrawerOnDesktop);
+    return () => desktopQuery.removeEventListener('change', closeDrawerOnDesktop);
+  }, []);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+
+    const closeDrawerOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      setMobileOpen(false);
+      window.requestAnimationFrame(() => navBurgerRef.current?.focus());
+    };
+
+    document.addEventListener('keydown', closeDrawerOnEscape);
+    return () => document.removeEventListener('keydown', closeDrawerOnEscape);
+  }, [mobileOpen]);
+
+  useEffect(() => {
+    if (!videoModalMounted || videoModalClosing) return;
+
+    const modal = videoModalRef.current;
+    window.requestAnimationFrame(() => modal?.focus());
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        closeVideoModal();
+        return;
+      }
+
+      if (event.key !== 'Tab' || !modal) return;
+
+      const focusable = Array.from(
+        modal.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), a[href], iframe, [tabindex]:not([tabindex="-1"]):not([data-video-focus-guard])'
+        )
+      ).filter((element) => !element.hasAttribute('disabled'));
+
+      if (focusable.length === 0) {
+        event.preventDefault();
+        modal.focus();
+        return;
+      }
+
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+
+      if (event.shiftKey && (active === first || active === modal)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && active === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', onKeyDown, true);
+    return () => document.removeEventListener('keydown', onKeyDown, true);
+  }, [closeVideoModal, videoModalClosing, videoModalMounted]);
+
+  useEffect(() => {
+    if (!selectedWhyFeature || videoModalMounted) return;
 
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
@@ -1506,113 +413,120 @@ const LandingPage: React.FC = () => {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [selectedWhyFeature]);
+  }, [selectedWhyFeature, videoModalMounted]);
 
-  const handleAddBranch = useCallback(() => {
-    setBranches((prev) => {
-      const usedNames = new Set(prev.map((b) => b.name));
-      const nextName =
-        NEW_BRANCH_NAMES.find((name) => !usedNames.has(name)) || `Branch ${prev.length + 1}`;
-      const newBranch: Branch = {
-        name: nextName,
-        bookings: String(Math.floor(40 + Math.random() * 100)),
-        revenue: `$${(1500 + Math.floor(Math.random() * 4500)).toLocaleString()}`,
-      };
-      const updated = [...prev, newBranch];
-      setActiveBranch(updated.length - 1);
-      return updated;
-    });
+  const getNavOffset = useCallback(() => {
+    const page = document.querySelector<HTMLElement>('.salonox-landing');
+    const configuredGap = page
+      ? Number.parseFloat(window.getComputedStyle(page).getPropertyValue('--nav-scroll-gap'))
+      : Number.NaN;
+    const gap = Number.isFinite(configuredGap) ? configuredGap : 16;
+    return (navRef.current?.getBoundingClientRect().height ?? 72) + gap;
   }, []);
 
-  const scrollToId = useCallback((id: string) => {
-    const el = document.getElementById(id);
-    if (!el) return;
+  const focusSectionHeading = useCallback((section: HTMLElement) => {
+    const focusTarget = section.querySelector<HTMLElement>('h1, h2') ?? section;
+    const hadTabIndex = focusTarget.hasAttribute('tabindex');
 
-    const nav = document.querySelector<HTMLElement>('.salonox-landing .nav');
-    const navOffset = nav ? nav.offsetHeight + 16 : 88;
-    const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
+    if (!hadTabIndex) focusTarget.setAttribute('tabindex', '-1');
+    focusTarget.focus({ preventScroll: true });
 
-    window.scrollTo({
-      top: Math.max(targetTop, 0),
-      behavior: 'smooth',
-    });
-
-    window.history.replaceState(null, '', `#${id}`);
+    if (!hadTabIndex) {
+      focusTarget.addEventListener('blur', () => focusTarget.removeAttribute('tabindex'), { once: true });
+    }
   }, []);
 
-  // Below-the-fold content (e.g. lazy images) can still be loading when a nav
-  // click fires, growing the page and shifting the target section further
-  // down mid-animation, so the scroll can land short. This used to be
-  // corrected by blindly firing a second `smooth` scrollTo at a fixed 550ms
-  // delay — but that call interrupts the browser's in-flight smooth-scroll
-  // animation with a brand new one, which is visibly janky: the page
-  // decelerates as if it arrived, then lurches forward again. Long scrolls
-  // (e.g. to "Pricing", far down the page) hadn't even finished animating by
-  // 550ms, so the correction fired mid-flight on every click.
-  //
-  // Instead, poll for the scroll to actually stop moving (the animation has
-  // settled, whether that took 300ms or 1.2s), then silently snap-correct
-  // with an instant (non-smooth) jump if the target drifted — a few pixels
-  // of instant correction after the motion has already stopped is
-  // imperceptible, unlike a second animated scroll. Guarded by id so a
-  // newer click, or the user taking over the scroll themselves, cancels it.
-  const pendingScrollId = useRef<string | null>(null);
-  const scrollToIdSettled = useCallback(
-    (id: string) => {
-      pendingScrollId.current = id;
-      scrollToId(id);
+  const scrollToId = useCallback(
+    (id: string, options: { updateHash?: boolean; moveFocus?: boolean } = {}) => {
+      const section = document.getElementById(id);
+      if (!section) return;
 
-      const deadline = Date.now() + 2000;
-      let lastY = window.scrollY;
-      let stableFrames = 0;
+      const { updateHash = true, moveFocus = true } = options;
+      const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-      const cancel = () => {
-        if (pendingScrollId.current === id) pendingScrollId.current = null;
-      };
-      window.addEventListener('wheel', cancel, { once: true, passive: true });
-      window.addEventListener('touchstart', cancel, { once: true, passive: true });
-
-      const checkSettled = () => {
-        if (pendingScrollId.current !== id) return;
-
-        const y = window.scrollY;
-        stableFrames = Math.abs(y - lastY) < 1 ? stableFrames + 1 : 0;
-        lastY = y;
-
-        if (stableFrames < 6 && Date.now() < deadline) {
-          requestAnimationFrame(checkSettled);
-          return;
+      if (updateHash) {
+        const nextHash = `#${id}`;
+        if (window.location.hash === nextHash) {
+          window.history.replaceState(window.history.state, '', nextHash);
+        } else {
+          window.history.pushState(window.history.state, '', nextHash);
         }
+      }
 
-        window.removeEventListener('wheel', cancel);
-        window.removeEventListener('touchstart', cancel);
+      section.scrollIntoView({
+        behavior: reduceMotion ? 'auto' : 'smooth',
+        block: 'start',
+        inline: 'nearest',
+      });
 
-        const el = document.getElementById(id);
-        if (!el) return;
-
-        const nav = document.querySelector<HTMLElement>('.salonox-landing .nav');
-        const navOffset = nav ? nav.offsetHeight + 16 : 88;
-        const targetTop = Math.max(el.getBoundingClientRect().top + window.scrollY - navOffset, 0);
-
-        if (Math.abs(targetTop - y) > 4) {
-          window.scrollTo({ top: targetTop, behavior: 'auto' });
-        }
-      };
-
-      requestAnimationFrame(checkSettled);
+      if (moveFocus) focusSectionHeading(section);
     },
-    [scrollToId]
+    [focusSectionHeading]
   );
 
-  // Runs once per mount so a navbar link clicked from another route (e.g. the
-  // About or Terms pages) lands here, then scrolls to the requested section.
+  const scrollToIdSettled = useCallback((id: string) => scrollToId(id), [scrollToId]);
+
+  // Handles direct hashes, browser back/forward, refreshes, and navigation
+  // from the content routes without allowing the browser's default anchor jump.
   useEffect(() => {
-    if (!location.hash) return;
-    const id = location.hash.slice(1);
-    const t = setTimeout(() => scrollToIdSettled(id), 60);
-    return () => clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (isContentPage || !location.hash) return;
+
+    const id = decodeURIComponent(location.hash.slice(1));
+    scrollToId(id, { updateHash: false, moveFocus: false });
+  }, [isContentPage, location.hash, scrollToId]);
+
+  useEffect(() => {
+    const nav = navRef.current;
+    const page = document.querySelector<HTMLElement>('.salonox-landing');
+    if (!nav || !page) return;
+
+    const updateOffset = () => {
+      const offset = getNavOffset();
+      setNavScrollOffset((current) => Math.abs(current - offset) > 0.5 ? offset : current);
+      page.style.setProperty('--nav-scroll-offset', `${offset}px`);
+    };
+
+    updateOffset();
+    const resizeObserver = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(updateOffset);
+    resizeObserver?.observe(nav);
+    window.addEventListener('resize', updateOffset, { passive: true });
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener('resize', updateOffset);
+    };
+  }, [getNavOffset]);
+
+  useEffect(() => {
+    if (isContentPage || typeof IntersectionObserver === 'undefined') return;
+
+    const sections = LANDING_SECTION_IDS
+      .map((id) => document.getElementById(id))
+      .filter((section): section is HTMLElement => Boolean(section))
+      .sort((a, b) => a.offsetTop - b.offsetTop);
+    if (sections.length === 0) return;
+
+    const updateActiveSection = () => {
+      const activationLine = navScrollOffset + Math.min(window.innerHeight * 0.12, 120);
+      let current = sections[0].id;
+
+      sections.forEach((section) => {
+        if (section.getBoundingClientRect().top <= activationLine) current = section.id;
+      });
+
+      setActiveSection(current);
+    };
+
+    const observer = new IntersectionObserver(updateActiveSection, {
+      rootMargin: `-${Math.ceil(navScrollOffset)}px 0px -55% 0px`,
+      threshold: [0, 0.01, 0.25, 0.5],
+    });
+
+    sections.forEach((section) => observer.observe(section));
+    updateActiveSection();
+
+    return () => observer.disconnect();
+  }, [isContentPage, navScrollOffset]);
 
   const scrollToSection = useCallback(
     (id: string) => (e: React.MouseEvent<HTMLElement>) => {
@@ -1627,7 +541,7 @@ const LandingPage: React.FC = () => {
         return;
       }
 
-      window.requestAnimationFrame(() => scrollToIdSettled(id));
+      scrollToIdSettled(id);
     },
     [isContentPage, navigate, scrollToIdSettled]
   );
@@ -1642,7 +556,7 @@ const LandingPage: React.FC = () => {
         return;
       }
 
-      window.requestAnimationFrame(() => scrollToIdSettled(id));
+      scrollToIdSettled(id);
     },
     [isContentPage, navigate, scrollToIdSettled]
   );
@@ -1654,11 +568,9 @@ const LandingPage: React.FC = () => {
 
       if (location.pathname === path) {
         e.preventDefault();
-        window.requestAnimationFrame(() => {
-          window.scrollTo({
-            top: 0,
-            behavior: 'smooth',
-          });
+        window.scrollTo({
+          top: 0,
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
         });
         return;
       }
@@ -1666,12 +578,10 @@ const LandingPage: React.FC = () => {
       e.preventDefault();
       navigate(path);
 
-      window.setTimeout(() => {
-        window.scrollTo({
-          top: 0,
-          behavior: 'smooth',
-        });
-      }, 80);
+      window.scrollTo({
+        top: 0,
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      });
     },
     [location.pathname, navigate]
   );
@@ -1682,30 +592,14 @@ const LandingPage: React.FC = () => {
       setMobileOpen(false);
       setSelectedWhyFeature(null);
 
-      const goToContact = () => {
-        const el = document.getElementById('book-demo');
-        if (!el) return;
-
-        const nav = document.querySelector<HTMLElement>('.salonox-landing .nav');
-        const navOffset = nav ? nav.offsetHeight + 16 : 88;
-        const targetTop = el.getBoundingClientRect().top + window.scrollY - navOffset;
-
-        window.scrollTo({
-          top: Math.max(targetTop, 0),
-          behavior: 'smooth',
-        });
-        window.history.replaceState(null, '', '/#book-demo');
-      };
-
       if (location.pathname === '/') {
-        goToContact();
+        scrollToIdSettled('book-demo');
         return;
       }
 
-      navigate('/');
-      window.setTimeout(goToContact, 140);
+      navigate('/#book-demo');
     },
-    [location.pathname, navigate]
+    [location.pathname, navigate, scrollToIdSettled]
   );
 
   const [demoForm, setDemoForm] = useState<DemoForm>({
@@ -1806,33 +700,55 @@ const LandingPage: React.FC = () => {
       setDemoError('');
 
       try {
-        const response = await fetch(DEMO_SUBMIT_URL, {
+        const submittedAt = new Date();
+        const submittedOn = formatDemoSubmittedOn(submittedAt);
+        const notificationRows: DemoNotificationRow[] = [
+          { field: 'Name', information: demoForm.name },
+          { field: 'Work Email', information: demoForm.email },
+          { field: 'Phone Number', information: demoForm.phone },
+          { field: 'Salon Name', information: demoForm.salon },
+          { field: 'City', information: demoForm.city },
+          { field: 'Number of Locations', information: demoForm.locations },
+          { field: 'Submitted On', information: submittedOn.display },
+        ];
+
+        const notificationEmail = buildDemoNotificationEmail(notificationRows);
+
+        const formSubmitData = new FormData();
+        appendFormSubmitField(formSubmitData, '_subject', notificationEmail.subject);
+        appendFormSubmitField(formSubmitData, '_template', 'table');
+        appendFormSubmitField(formSubmitData, '_captcha', 'false');
+        appendFormSubmitField(formSubmitData, '_replyto', demoForm.email);
+        appendFormSubmitField(formSubmitData, '_autoresponse', 'Thank you for booking a SalonOX demo. Our team will contact you shortly.');
+        appendFormSubmitField(formSubmitData, 'Name', demoForm.name);
+        appendFormSubmitField(formSubmitData, 'Work Email', demoForm.email);
+        appendFormSubmitField(formSubmitData, 'Phone Number', demoForm.phone);
+        appendFormSubmitField(formSubmitData, 'Salon Name', demoForm.salon);
+        appendFormSubmitField(formSubmitData, 'City', demoForm.city);
+        appendFormSubmitField(formSubmitData, 'Number of Locations', demoForm.locations);
+        appendFormSubmitField(formSubmitData, 'Submitted On', submittedOn.display);
+        appendFormSubmitField(formSubmitData, 'Source', 'SalonOX website');
+
+        const formSubmitResponse = await fetch(DEMO_SUBMIT_URL, {
           method: 'POST',
           headers: {
             Accept: 'application/json',
-            'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            _subject: `SalonOX demo request from ${demoForm.salon}`,
-            _template: 'table',
-            _captcha: 'false',
-            _replyto: demoForm.email,
-            name: demoForm.name,
-            work_email: demoForm.email,
-            phone_number: demoForm.phone,
-            salon_name: demoForm.salon,
-            city: demoForm.city,
-            locations: demoForm.locations,
-          }),
+          body: formSubmitData,
         });
 
-        if (!response.ok) {
-          throw new Error('Demo request failed');
+        if (!formSubmitResponse.ok) {
+          const errorText = await formSubmitResponse.text().catch(() => '');
+          console.error('SalonOX demo email notification failed', {
+            status: formSubmitResponse.status,
+            statusText: formSubmitResponse.statusText,
+            response: errorText,
+            endpoint: DEMO_SUBMIT_URL,
+            recipient: DEMO_EMAIL,
+          });
+          throw new Error(`Email notification failed with status ${formSubmitResponse.status}`);
         }
 
-        // Persist to our own DB so it shows up in Super Admin > Demo Inquiries.
-        // Best-effort: the email above is already sent, so a failure here
-        // shouldn't block the visitor-facing success state.
         api.post(DEMO_REQUESTS.CREATE, {
           name: demoForm.name,
           email: demoForm.email,
@@ -1840,10 +756,34 @@ const LandingPage: React.FC = () => {
           salonName: demoForm.salon,
           city: demoForm.city,
           locationsCount: demoForm.locations,
-        }).catch(() => {});
+          submittedAt: submittedAt.toISOString(),
+          submittedOn: submittedOn.display,
+          submittedOnDate: submittedOn.date,
+          submittedOnTime: submittedOn.time,
+          submittedTimeZone: submittedOn.timeZone,
+          source: 'SalonOX website',
+          notification: {
+            to: 'support@salonox.com',
+            replyTo: demoForm.email,
+            subject: notificationEmail.subject,
+            heading: notificationEmail.heading,
+            subtitle: notificationEmail.subtitle,
+            footer: notificationEmail.footer,
+            tableHeaders: {
+              field: 'Field',
+              information: 'Information',
+            },
+            rows: notificationRows,
+            html: notificationEmail.html,
+            text: notificationEmail.text,
+          },
+        }).catch((error) => {
+          console.warn('SalonOX demo request was emailed but could not be saved to the backend.', error);
+        });
 
         setDemoSubmitted(true);
-      } catch {
+      } catch (error) {
+        console.error('SalonOX demo booking submission failed', error);
         setDemoError('We could not send your demo request. Please try again or email support@salonox.com.');
       } finally {
         setDemoSubmitting(false);
@@ -1855,7 +795,7 @@ const LandingPage: React.FC = () => {
   return (
     <div className="salonox-landing">
       {/* ============================== NAVBAR ============================== */}
-      <nav className={`nav ${scrolled ? 'nav-scrolled' : ''}`}>
+      <nav ref={navRef} className={`nav ${scrolled ? 'nav-scrolled' : ''}`}>
         <div className="container nav-inner">
           <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
             <img src="/appIcon.svg" alt="" className="logo-mark" width="36" height="36" />
@@ -1865,22 +805,25 @@ const LandingPage: React.FC = () => {
           </a>
 
           <ul className="nav-links">
-            <li><a className="nav-link" href="#why-salonox" onClick={scrollToSection('why-salonox')}>Why SalonOX</a></li>
-            <li><a className="nav-link" href="#features" onClick={scrollToSection('features')}>Features</a></li>
-            <li><a className="nav-link" href="#multi-branch" onClick={scrollToSection('multi-branch')}>Multi-Branch</a></li>
-            <li><a className="nav-link nav-link-btn" href="#how" onClick={scrollToSection('how')}>How it works</a></li>
-            <li><a className="nav-link" href="#pricing" onClick={scrollToSection('pricing')}>Pricing</a></li>
-            <li><a className="nav-link" href="#testimonials" onClick={scrollToSection('testimonials')}>Reviews</a></li>
+            <li><a className={`nav-link${activeSection === 'why-salonox' ? ' is-active' : ''}`} aria-current={activeSection === 'why-salonox' ? 'location' : undefined} href="#why-salonox" onClick={scrollToSection('why-salonox')}>Why SalonOX</a></li>
+            <li><a className={`nav-link${activeSection === 'features' ? ' is-active' : ''}`} aria-current={activeSection === 'features' ? 'location' : undefined} href="#features" onClick={scrollToSection('features')}>Features</a></li>
+            <li><a className={`nav-link${activeSection === 'multi-branch' ? ' is-active' : ''}`} aria-current={activeSection === 'multi-branch' ? 'location' : undefined} href="#multi-branch" onClick={scrollToSection('multi-branch')}>Multi-Branch</a></li>
+            <li><a className={`nav-link nav-link-btn${activeSection === 'how' ? ' is-active' : ''}`} aria-current={activeSection === 'how' ? 'location' : undefined} href="#how" onClick={scrollToSection('how')}>How it works</a></li>
+            <li><a className={`nav-link${activeSection === 'testimonials' ? ' is-active' : ''}`} aria-current={activeSection === 'testimonials' ? 'location' : undefined} href="#testimonials" onClick={scrollToSection('testimonials')}>Reviews</a></li>
+            <li><a className={`nav-link${activeSection === 'pricing' ? ' is-active' : ''}`} aria-current={activeSection === 'pricing' ? 'location' : undefined} href="#pricing" onClick={scrollToSection('pricing')}>Pricing</a></li>
           </ul>
 
           <div className="nav-actions">
             <Link to="/login" className="btn btn-ghost btn-sm nav-desktop-cta">Log in</Link>
-            <a href="#book-demo" className="btn btn-primary btn-sm nav-desktop-cta" onClick={scrollToSection('book-demo')}>Book Demo</a>
+            <a href="#book-demo" className={`btn btn-primary btn-sm nav-desktop-cta${activeSection === 'book-demo' ? ' is-active' : ''}`} aria-current={activeSection === 'book-demo' ? 'location' : undefined} onClick={scrollToSection('book-demo')}>Book Demo</a>
             <button
+              ref={navBurgerRef}
               className={`nav-burger ${mobileOpen ? 'is-open' : ''}`}
               aria-label="Toggle menu"
               aria-expanded={mobileOpen}
-              onClick={() => setMobileOpen((v) => !v)}
+              onClick={() => {
+                if (window.matchMedia('(max-width: 1023px)').matches) setMobileOpen((v) => !v);
+              }}
             >
               <span />
               <span />
@@ -1905,15 +848,15 @@ const LandingPage: React.FC = () => {
               <span />
             </button>
           </div>
-          <a href="#why-salonox" className="mobile-link" onClick={scrollToSection('why-salonox')}>Why SalonOX</a>
-          <a href="#features" className="mobile-link" onClick={scrollToSection('features')}>Features</a>
-          <a href="#multi-branch" className="mobile-link" onClick={scrollToSection('multi-branch')}>Multi-Branch</a>
-          <a href="#how" className="mobile-link mobile-link-btn" onClick={scrollToSection('how')}>How it works</a>
-          <a href="#pricing" className="mobile-link" onClick={scrollToSection('pricing')}>Pricing</a>
-          <a href="#testimonials" className="mobile-link" onClick={scrollToSection('testimonials')}>Reviews</a>
+          <a href="#why-salonox" className={`mobile-link${activeSection === 'why-salonox' ? ' is-active' : ''}`} aria-current={activeSection === 'why-salonox' ? 'location' : undefined} onClick={scrollToSection('why-salonox')}>Why SalonOX</a>
+          <a href="#features" className={`mobile-link${activeSection === 'features' ? ' is-active' : ''}`} aria-current={activeSection === 'features' ? 'location' : undefined} onClick={scrollToSection('features')}>Features</a>
+          <a href="#multi-branch" className={`mobile-link${activeSection === 'multi-branch' ? ' is-active' : ''}`} aria-current={activeSection === 'multi-branch' ? 'location' : undefined} onClick={scrollToSection('multi-branch')}>Multi-Branch</a>
+          <a href="#how" className={`mobile-link mobile-link-btn${activeSection === 'how' ? ' is-active' : ''}`} aria-current={activeSection === 'how' ? 'location' : undefined} onClick={scrollToSection('how')}>How it works</a>
+          <a href="#testimonials" className={`mobile-link${activeSection === 'testimonials' ? ' is-active' : ''}`} aria-current={activeSection === 'testimonials' ? 'location' : undefined} onClick={scrollToSection('testimonials')}>Reviews</a>
+          <a href="#pricing" className={`mobile-link${activeSection === 'pricing' ? ' is-active' : ''}`} aria-current={activeSection === 'pricing' ? 'location' : undefined} onClick={scrollToSection('pricing')}>Pricing</a>
           <div className="mobile-cta">
             <Link to="/login" className="btn btn-ghost btn-block" onClick={() => setMobileOpen(false)}>Log in</Link>
-            <a href="#book-demo" className="btn btn-primary btn-block" onClick={scrollToSection('book-demo')}>Book Demo</a>
+            <a href="#book-demo" className={`btn btn-primary btn-block${activeSection === 'book-demo' ? ' is-active' : ''}`} aria-current={activeSection === 'book-demo' ? 'location' : undefined} onClick={scrollToSection('book-demo')}>Book Demo</a>
           </div>
         </div>
       </div>
@@ -1922,587 +865,60 @@ const LandingPage: React.FC = () => {
         isTermsPage ? <TermsContent /> : isPrivacyPage ? <PrivacyContent /> : <AboutContent onNavigateToBookDemo={scrollToSection('book-demo')} />
       ) : (
         <>
-      {/* ============================== HERO ============================== */}
-      <header id="top" className="hero">
-        <span className="hero-blob hero-blob-1" />
-        <span className="hero-blob hero-blob-2" />
+      <Hero
+        heroRef={heroRef}
+        onPointerMove={handleHeroPointerMove}
+        onPointerLeave={resetHeroParallax}
+        scrollToSection={scrollToSection}
+        openVideoModal={openVideoModal}
+      />
 
-        <div className="container hero-grid">
-          <div className="hero-copy">
-            <span className="eyebrow"><span className="dot" /> Trusted by 4,000+ salons worldwide</span>
-            <h1>
-              The Complete <span className="grad">Operating System</span> for Modern Salons
-            </h1>
-            <p className="hero-sub">
-              Manage appointments, customers, staff, billing, memberships, inventory, marketing, and multiple branches from one powerful platform.
-            </p>
-            <div className="hero-cta-row">
-              <a href="#book-demo" className="btn btn-primary" onClick={scrollToSection('book-demo')}>
-                Book Demo <Icon.Arrow />
-              </a>
-              <a href="#how" className="hero-play" onClick={scrollToSection('how')}>
-                <span className="play-circle"><Icon.Play /></span>
-                Watch 90-sec demo
-              </a>
-            </div>
-            <div className="hero-trust">
-              <div className="trust-avatars">
-                <span>AC</span>
-                <span>DR</span>
-                <span>PN</span>
-                <span>+</span>
-              </div>
-              <p className="trust-text"><strong>4.9/5</strong> average rating from 2,300+ reviews</p>
-            </div>
-          </div>
+      <WhySalonOX onSelectFeature={setSelectedWhyFeature} />
 
-          <div className="hero-visual">
-            <div className="hero-mock">
-              <div className="float-card glass-card float-card-1">
-                <span className="float-icon"><Icon.Calendar /></span>
-                <span>
-                  <span className="float-label">Today's bookings</span>
-                  <span className="float-value">38 appointments</span>
-                </span>
-              </div>
+      <Features />
 
-              <div className="mock-frame">
-                <div className="mock-topbar">
-                  <i /><i /><i />
-                </div>
-                <div className="mock-body">
-                  <HeroRevenueChart />
-                  <div className="mock-list">
-                    <div className="mock-list-item">
-                      <span className="avatar" />
-                      <span className="lines"><span className="l1" /><span className="l2" /></span>
-                      <span className="status">Confirmed</span>
-                    </div>
-                    <div className="mock-list-item">
-                      <span className="avatar" />
-                      <span className="lines"><span className="l1" /><span className="l2" /></span>
-                      <span className="status">Confirmed</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+      <MultiBranch />
 
-              <div className="float-card glass-card float-card-2">
-                <span className="float-icon"><Icon.Card /></span>
-                <span>
-                  <span className="float-label">Paid today</span>
-                  <span className="float-value">₹4,210</span>
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </header>
+      <HowItWorks scrollToSection={scrollToSection} />
 
-      {/* ============================== LOGO STRIP ============================== */}
-      <section className="logo-strip">
-        <div className="container">
-          <Reveal>
-            <p className="logo-strip-label">Powering appointments for modern salons and spas</p>
-          </Reveal>
-          <Reveal delay={1}>
-            <div className="logo-strip-row">
-              <span>Lumière</span>
-              <span>Bloom & Co.</span>
-              <span>The Glow Room</span>
-              <span>Studio Lux</span>
-              <span>VELVET</span>
-              <span>Maison Hair</span>
-            </div>
-          </Reveal>
-        </div>
-      </section>
+      <Reviews />
 
-      {/* ============================== STATS ============================== */}
-      <section className="stats">
-        <div className="container">
-          <Reveal>
-            <div className="stats-grid">
-              <div className="stat-cell">
-                <div className="stat-num"><span>4,000+</span></div>
-                <div className="stat-label">Salons on SalonOX</div>
-              </div>
-              <div className="stat-cell">
-                <div className="stat-num"><span>2.8M</span></div>
-                <div className="stat-label">Bookings processed</div>
-              </div>
-              <div className="stat-cell">
-                <div className="stat-num"><span>38%</span></div>
-                <div className="stat-label">Fewer no-shows</div>
-              </div>
-              <div className="stat-cell">
-                <div className="stat-num"><span>4.9/5</span></div>
-                <div className="stat-label">Average rating</div>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
+      <Pricing scrollToSection={scrollToSection} />
 
-      {/* ============================== WHY SALONOX ============================== */}
-      <section id="why-salonox" className="why-section">
-        <div className="container">
-          <Reveal>
-            <div className="section-head">
-              <span className="eyebrow"><span className="dot" /> Why SalonOX</span>
-              <h2>Built for the way modern salons operate</h2>
-              <p>Every feature is designed around real salon workflows — so your team is productive from day one, not after weeks of training.</p>
-            </div>
-          </Reveal>
+      <MobileApp />
 
-          <div className="why-grid">
-            {WHY_FEATURE_DETAILS.map((item, i) => {
-              const Cmp = Icon[item.icon];
-              return (
-                <Reveal key={item.title} delay={(i % 3) as 0 | 1 | 2}>
-                  <button
-                    type="button"
-                    className="why-card"
-                    aria-haspopup="dialog"
-                    aria-label={`Open ${item.title} feature details`}
-                    onClick={() => setSelectedWhyFeature(item)}
-                  >
-                    <div className="why-card-top">
-                      <span className="why-icon"><Cmp /></span>
-                      {item.tag && <span className="why-tag">{item.tag}</span>}
-                    </div>
-                    <h3>{item.title}</h3>
-                    <p>{item.desc}</p>
-                    <span className="why-arrow">→</span>
-                  </button>
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
-      </section>
+      <BookDemo
+        demoForm={demoForm}
+        demoSubmitted={demoSubmitted}
+        demoSubmitting={demoSubmitting}
+        demoError={demoError}
+        phoneTouched={phoneTouched}
+        phoneError={phoneError}
+        cityTouched={cityTouched}
+        cityError={cityError}
+        handleDemoChange={handleDemoChange}
+        handleCityBlur={handleCityBlur}
+        handlePhoneChange={handlePhoneChange}
+        handlePhoneBlur={handlePhoneBlur}
+        handlePhoneCountryChange={handlePhoneCountryChange}
+        handleDemoSubmit={handleDemoSubmit}
+      />
 
-      {/* ============================== FEATURES ============================== */}
-      <section id="features" className="features">
-        <div className="container">
-          <Reveal>
-            <div className="section-head">
-              <span className="eyebrow"><span className="dot" /> Platform</span>
-              <h2>Everything your salon needs, in one place</h2>
-              <p>Replace a stack of spreadsheets and apps with a single platform built for the way salons actually work.</p>
-            </div>
-          </Reveal>
-
-          <div className="features-grid">
-            {FEATURES.map((feature, i) => {
-              const Cmp = Icon[feature.icon];
-              return (
-                <Reveal key={feature.title} delay={(i % 3) as 0 | 1 | 2}>
-                  <div className="feature-card">
-                    <span className="feature-icon"><Cmp /></span>
-                    <h3>{feature.title}</h3>
-                    <p>{feature.desc}</p>
-                  </div>
-                </Reveal>
-              );
-            })}
-          </div>
-
-          <Reveal delay={1}>
-            <div className="spotlight-card">
-              <div className="spotlight-copy">
-                <span className="eyebrow"><span className="dot" /> Multi-location</span>
-                <h3>Run every branch from one login</h3>
-                <p>
-                  Switch between locations in a click. Staff, schedules, and reporting stay separate per
-                  branch, while you see the whole business from a single dashboard.
-                </p>
-                <button type="button" className="btn btn-dark btn-sm spotlight-add" onClick={handleAddBranch}>
-                  <Icon.Layers /> Add a new branch
-                </button>
-              </div>
-
-              <div className="spotlight-panel">
-                <div className="branch-pills" aria-label="Branches">
-                  {branches.map((branch, i) => (
-                    <button
-                      key={branch.name}
-                      type="button"
-                      className={`branch-pill ${activeBranch === i ? 'is-active' : ''}`}
-                      onClick={() => setActiveBranch(i)}
-                    >
-                      {branch.name}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="branch-stat-row">
-                  <div className="branch-stat">
-                    <span className="branch-stat-label">Today's bookings</span>
-                    <span className="branch-stat-value">{branches[activeBranch].bookings}</span>
-                  </div>
-                  <div className="branch-stat">
-                    <span className="branch-stat-label">Today's revenue</span>
-                    <span className="branch-stat-value">{branches[activeBranch].revenue}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </Reveal>
-        </div>
-      </section>
-
-      {/* ============================== MULTI-BRANCH ============================== */}
-      <section id="multi-branch" className="mb-section">
-        <span className="mb-glow mb-glow-1" />
-        <span className="mb-glow mb-glow-2" />
-        <div className="container">
-          <Reveal>
-            <div className="section-head">
-              <span className="eyebrow"><span className="dot" /> Multi-Branch</span>
-              <h2>One platform. Every branch. Total control.</h2>
-              <p>
-                Built for salon groups, not just single locations. Run every branch with the same
-                tools, oversight, and polish, without adding a single extra login.
-              </p>
-            </div>
-          </Reveal>
-
-          <div className="mb-grid">
-            {MULTI_BRANCH_FEATURES.map((feature, i) => {
-              const Cmp = Icon[feature.icon];
-              return (
-                <Reveal key={feature.title} delay={(i % 3) as 0 | 1 | 2}>
-                  <div className="mb-card">
-                    <span className="mb-card-icon"><Cmp /></span>
-                    <h3>{feature.title}</h3>
-                    <p>{feature.desc}</p>
-                  </div>
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ============================== HOW IT WORKS — SHOWCASE ============================== */}
-      <section id="how" className="how">
-        <div className="container">
-          <Reveal>
-            <div className="section-head">
-              <span className="eyebrow"><span className="dot" /> How It Works</span>
-              <h2>See SalonOX in action</h2>
-              <p>From dashboard to checkout — everything your salon needs, beautifully designed and ready to use from day one.</p>
-            </div>
-          </Reveal>
-
-          <div className="showcase-grid">
-            {SHOWCASE.map((item) => {
-              const Cmp = Icon[item.icon];
-              return (
-                <Reveal key={item.title} delay={0}>
-                  <div className="showcase-card">
-                    <div className="showcase-img-wrap">
-                      <div className="browser-mock">
-                        <div className="browser-header">
-                          <span className="dot" />
-                          <span className="dot" />
-                          <span className="dot" />
-                        </div>
-                        <img src={item.image} alt={item.title} className="showcase-img" loading="lazy" />
-                      </div>
-                      <span className="showcase-badge">
-                        <Cmp />
-                      </span>
-                    </div>
-                    <div className="showcase-info">
-                      <h3>{item.title}</h3>
-                      <p>{item.desc}</p>
-                    </div>
-                  </div>
-                </Reveal>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
-      {/* ============================== TESTIMONIALS ============================== */}
-      <section id="testimonials" className="testimonials">
-        <div className="container">
-          <Reveal>
-            <div className="section-head">
-              <span className="eyebrow"><span className="dot" /> Reviews</span>
-              <h2>Loved by salon owners everywhere</h2>
-              <p>Real results from real teams who switched to SalonOX.</p>
-            </div>
-          </Reveal>
-
-          <div className="testi-grid">
-            {TESTIMONIALS.map((t, i) => (
-              <Reveal key={t.name} delay={i as 0 | 1 | 2}>
-                <div className="testi-card">
-                  <div className="testi-stars">
-                    <Icon.Star /><Icon.Star /><Icon.Star /><Icon.Star /><Icon.Star />
-                  </div>
-                  <p className="testi-quote">&ldquo;{t.quote}&rdquo;</p>
-                  <div className="testi-author">
-                    <span className="testi-avatar">{t.initials}</span>
-                    <span>
-                      <div className="testi-name">{t.name}</div>
-                      <div className="testi-role">{t.role}</div>
-                    </span>
-                  </div>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ============================== PRICING ============================== */}
-      <section id="pricing" className="pricing">
-        <div className="container">
-          <Reveal>
-            <div className="section-head">
-              <span className="eyebrow"><span className="dot" /> Pricing</span>
-              <h2>Simple plans that scale with you</h2>
-              <p>Start free for 14 days. No credit card required. Cancel anytime.</p>
-            </div>
-          </Reveal>
-
-          <div className="pricing-grid">
-            {PLANS.map((plan, i) => (
-              <Reveal key={plan.name} delay={i as 0 | 1 | 2}>
-                <div className={`price-card ${plan.featured ? 'is-featured' : ''}`}>
-                  {plan.featured && <span className="price-badge">Most popular</span>}
-                  <div className="price-name">{plan.name}</div>
-                  <div className="price-amt">${plan.price}<span>/month</span></div>
-                  <p className="price-desc">{plan.desc}</p>
-                  <div className="price-feats">
-                    {plan.feats.map((f) => (
-                      <div className="price-feat" key={f}><Icon.Check /> {f}</div>
-                    ))}
-                  </div>
-                  <a href="#" className={`btn btn-block ${plan.featured ? 'btn-primary' : 'btn-ghost'}`}>
-                    Get started
-                  </a>
-                </div>
-              </Reveal>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ============================== BOOK A DEMO ============================== */}
-      <section id="book-demo" className="demo-section">
-        <div className="container demo-grid">
-          <Reveal className="demo-copy">
-            <h2>Ready to Grow Your Salon Business?</h2>
-            <p>Everything you need to manage and scale your salon operations from one platform.</p>
-            <div className="demo-contact">
-              <a href={`mailto:${DEMO_EMAIL}`} className="demo-contact-row">
-                <span className="demo-contact-icon"><Icon.Mail /></span>
-                {DEMO_EMAIL}
-              </a>
-              <a href="tel:+919503302647" className="demo-contact-row">
-                <span className="demo-contact-icon"><Icon.Phone /></span>
-                +91 9503302647
-              </a>
-            </div>
-          </Reveal>
-
-          <Reveal delay={1} className="demo-card-wrap">
-            <div className="demo-card">
-              {demoSubmitted ? (
-                <div className="demo-success">
-                  <span className="demo-success-icon"><Icon.Check /></span>
-                  <h3>Thanks — you're booked in!</h3>
-                  <p>A member of our team will reach out within 1 business day to confirm your demo.</p>
-                </div>
-              ) : (
-                <>
-                  <h3>Schedule a Free Demo</h3>
-                  <p>See SalonOX live in action and ask all your questions.</p>
-                  <form className="demo-form" onSubmit={handleDemoSubmit}>
-                    <label className="demo-field">
-                      <span>Your Name</span>
-                      <input
-                        type="text"
-                        required
-                        placeholder="Jordan Lee"
-                        value={demoForm.name}
-                        onChange={handleDemoChange('name')}
-                      />
-                    </label>
-                    <label className="demo-field">
-                      <span>Work Email</span>
-                      <input
-                        type="email"
-                        required
-                        placeholder="you@yoursalon.com"
-                        value={demoForm.email}
-                        onChange={handleDemoChange('email')}
-                      />
-                    </label>
-                    {/* A `<div>`, not a `<label>` — the country dropdown below contains a
-                        search input and clickable options, and a wrapping `<label>` forwards
-                        clicks that bubble up to it from elsewhere inside onto its implicit
-                        associated control (the country trigger button), reopening the dropdown
-                        right after a selection. `aria-labelledby` keeps it accessibly labeled. */}
-                    <div className="demo-field">
-                      <span id="demo-phone-label">Mobile Number</span>
-                      <PhoneInput
-                        addInternationalOption={false}
-                        defaultCountry={DEMO_PHONE_DEFAULT_COUNTRY}
-                        flags={flags}
-                        countrySelectComponent={CountrySelectSearch}
-                        placeholder="9876543210"
-                        value={demoForm.phone}
-                        onChange={handlePhoneChange}
-                        onCountryChange={handlePhoneCountryChange}
-                        onBlur={handlePhoneBlur}
-                        numberInputProps={{ required: true }}
-                        className={phoneTouched && phoneError ? 'PhoneInput--invalid' : ''}
-                        aria-labelledby="demo-phone-label"
-                        aria-invalid={phoneTouched && !!phoneError}
-                        aria-describedby={phoneTouched && phoneError ? 'demo-phone-error' : undefined}
-                      />
-                      {phoneTouched && phoneError && (
-                        <span className="demo-field-error" id="demo-phone-error" role="alert">{phoneError}</span>
-                      )}
-                    </div>
-                    <label className="demo-field">
-                      <span>Salon Name</span>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. The Glow Room"
-                        value={demoForm.salon}
-                        onChange={handleDemoChange('salon')}
-                      />
-                    </label>
-                    <label className="demo-field">
-                      <span>City</span>
-                      <input
-                        type="text"
-                        required
-                        placeholder="e.g. Mumbai"
-                        value={demoForm.city}
-                        onChange={handleDemoChange('city')}
-                        onBlur={handleCityBlur}
-                        className={cityTouched && cityError ? 'is-invalid' : ''}
-                        aria-invalid={cityTouched && !!cityError}
-                        aria-describedby={cityTouched && cityError ? 'demo-city-error' : undefined}
-                      />
-                      {cityTouched && cityError && (
-                        <span className="demo-field-error" id="demo-city-error" role="alert">{cityError}</span>
-                      )}
-                    </label>
-                    <label className="demo-field">
-                      <span>Locations</span>
-                      <select required value={demoForm.locations} onChange={handleDemoChange('locations')}>
-                        <option value="" disabled>Select locations count</option>
-                        <option value="1">1 location</option>
-                        <option value="2-5">2–5 locations</option>
-                        <option value="6-15">6–15 locations</option>
-                        <option value="16+">16+ locations</option>
-                      </select>
-                    </label>
-                    {demoError && <p className="demo-error" role="alert">{demoError}</p>}
-                    <button type="submit" className="btn btn-primary btn-block" disabled={demoSubmitting}>
-                      {demoSubmitting ? 'Sending...' : 'Schedule Demo'}
-                    </button>
-                    <label className="demo-consent">
-                      <input
-                        type="checkbox"
-                        required
-                        checked={demoForm.agreed}
-                        onChange={handleDemoChange('agreed')}
-                      />
-                      <span>By checking, you agree to receive follow-up emails regarding SalonOX product demos.</span>
-                    </label>
-                  </form>
-                </>
-              )}
-            </div>
-          </Reveal>
-        </div>
-      </section>
         </>
       )}
 
-      {/* ============================== FOOTER ============================== */}
-      <footer className="footer">
-        <div className="container">
-          <div className="footer-top">
-            <div className="footer-brand">
-              <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
-                <img src="/appIcon.svg" alt="" className="logo-mark" width="36" height="36" />
-                <span className="logo-text">Salon<span className="accent">OX</span></span>
-              </a>
-              <p>The all-in-one platform for salons and spas to book, manage, and grow with confidence.</p>
-              <div className="footer-social">
-                <a href="#" aria-label="Twitter"><Icon.Twitter /></a>
-                <a href="https://www.instagram.com/salonox_crm?igsh=eG40bHd4dG9mNnJn" aria-label="Instagram" target="_blank" rel="noopener noreferrer"><Icon.Instagram /></a>
-                <a
-                  href={WHATSAPP_DEMO_URL}
-                  aria-label="WhatsApp"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  <Icon.WhatsApp />
-                </a>
-                <a href="#" aria-label="LinkedIn"><Icon.Linkedin /></a>
-                <a href="#" aria-label="Facebook"><Icon.Facebook /></a>
-              </div>
-            </div>
-
-            <div className="footer-col">
-              <h5>Product</h5>
-              <ul>
-                <li><a href="#features" onClick={scrollToSection('features')}>Scheduling</a></li>
-                <li><a href="#features" onClick={scrollToSection('features')}>Payments</a></li>
-                <li><a href="#features" onClick={scrollToSection('features')}>Marketing</a></li>
-                <li><a href="#pricing" onClick={scrollToSection('pricing')}>Pricing</a></li>
-              </ul>
-            </div>
-
-            <div className="footer-col">
-              <h5>Company</h5>
-              <ul>
-                <li><Link to="/about" onClick={handleContentRouteClick('/about')}>About</Link></li>
-                <li><a href="#book-demo" onClick={handleContactUsClick}>Contact Us</a></li>
-              </ul>
-            </div>
-
-            <div className="footer-col">
-              <h5>Resources</h5>
-              <ul>
-                <li><a href="#">Help center</a></li>
-                <li><a href="#">Blog</a></li>
-                <li><a href="#">API docs</a></li>
-                <li><a href="#">Community</a></li>
-              </ul>
-            </div>
-
-            <div className="footer-col">
-              <h5>Legal</h5>
-              <ul>
-                <li><Link to="/terms" onClick={handleContentRouteClick('/terms')}>Terms & Conditions</Link></li>
-                <li><Link to="/privacy" onClick={handleContentRouteClick('/privacy')}>Privacy Policy</Link></li>
-              </ul>
-            </div>
-          </div>
-
-          <div className="footer-bottom">
-            <p>&copy; {new Date().getFullYear()} SalonOX. All rights reserved.</p>
-          </div>
-        </div>
-      </footer>
+      <Footer
+        scrollToSection={scrollToSection}
+        handleContentRouteClick={handleContentRouteClick}
+        handleContactUsClick={handleContactUsClick}
+      />
 
       {selectedWhyFeature && (
-        <div className="feature-modal-backdrop" onClick={() => setSelectedWhyFeature(null)}>
+        <div
+          className="feature-modal-backdrop"
+          aria-hidden={videoModalMounted || undefined}
+          onClick={() => setSelectedWhyFeature(null)}
+        >
           <div
             className="feature-modal"
             role="dialog"
@@ -2541,7 +957,12 @@ const LandingPage: React.FC = () => {
               </ul>
 
               <div className="feature-modal-actions">
-                <button type="button" className="btn btn-ghost" onClick={() => jumpToSection('how')}>
+                <button
+                  type="button"
+                  className="btn btn-ghost"
+                  onClick={openVideoModal}
+                  aria-haspopup="dialog"
+                >
                   <Icon.Play /> Watch Demo
                 </button>
                 <button type="button" className="btn btn-primary" onClick={() => jumpToSection('book-demo')}>
@@ -2549,6 +970,57 @@ const LandingPage: React.FC = () => {
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {videoModalMounted && (
+        <div
+          className={`video-modal-backdrop ${videoModalClosing ? 'is-closing' : ''}`}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeVideoModal();
+          }}
+        >
+          <div
+            ref={videoModalRef}
+            className={`video-modal ${videoModalClosing ? 'is-closing' : ''}`}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="salonox-demo-video-title"
+            tabIndex={-1}
+          >
+            <div className="video-modal-header">
+              <div>
+                <span>SalonOX Product Tour</span>
+                <h2 id="salonox-demo-video-title">See SalonOX in action</h2>
+              </div>
+              <button
+                type="button"
+                className="video-modal-close"
+                aria-label="Close demo video"
+                onClick={closeVideoModal}
+              >
+                <span aria-hidden="true">&times;</span>
+              </button>
+            </div>
+
+            <div className="video-modal-player">
+              {videoIframeSrc && (
+                <iframe
+                  src={videoIframeSrc}
+                  title="SalonOX product demo video"
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  allowFullScreen
+                />
+              )}
+            </div>
+            <span
+              className="video-modal-focus-guard"
+              data-video-focus-guard
+              tabIndex={0}
+              aria-hidden="true"
+              onFocus={() => videoModalRef.current?.querySelector<HTMLButtonElement>('.video-modal-close')?.focus()}
+            />
           </div>
         </div>
       )}

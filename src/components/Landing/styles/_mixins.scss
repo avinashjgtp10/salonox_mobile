@@ -1,0 +1,9 @@
+@mixin landing-container {
+  width: min(100% - 48px, 1180px);
+  margin-inline: auto;
+}
+
+@mixin gpu-layer {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
