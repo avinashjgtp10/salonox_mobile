@@ -740,10 +740,12 @@ const ProductsListPage: React.FC = () => {
         <div
           className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
           style={{ backgroundColor: "rgba(0,0,0,0.4)", zIndex: 1050 }}
+          onClick={() => setActiveModal("none")}
         >
           <div
             className="bg-white rounded-4 shadow-lg d-flex flex-column"
             style={{ width: "480px", maxWidth: "90vw", minHeight: "320px", maxHeight: "80vh" }}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="d-flex justify-content-between align-items-center p-4 pb-0">
               <h5 className="mb-0 fw-bold fs-5 text-dark">My brands</h5>
@@ -848,10 +850,12 @@ const ProductsListPage: React.FC = () => {
         <div
           className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
           style={{ backgroundColor: "rgba(0,0,0,0.4)", zIndex: 1050 }}
+          onClick={() => setActiveModal("none")}
         >
           <div
             className="bg-white rounded-4 shadow-lg d-flex flex-column"
             style={{ width: "480px", maxWidth: "90vw", minHeight: "320px", maxHeight: "80vh" }}
+            onClick={(e) => e.stopPropagation()}
           >
             <div className="d-flex justify-content-between align-items-center p-4 pb-0">
               <h5 className="mb-0 fw-bold fs-5 text-dark">My categories</h5>
