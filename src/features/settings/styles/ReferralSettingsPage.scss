@@ -534,8 +534,16 @@ $rf-orange-text: #d97706;
 /* ── Footer ── */
 .rf-footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.rf-footer__message {
+  margin: 0 auto 0 0;
+  color: $dashboard-secondary;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .rf-btn {

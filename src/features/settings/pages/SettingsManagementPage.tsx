@@ -141,6 +141,7 @@ export default function SettingsManagementPage() {
 
   // ── GST module config (master toggle, invoice prefix, etc.) ────────────────
   const [moduleConfig, setModuleConfig] = useState<TaxModuleConfig>(DEFAULT_TAX_MODULE_CONFIG);
+  const [savedModuleConfig, setSavedModuleConfig] = useState<TaxModuleConfig>(DEFAULT_TAX_MODULE_CONFIG);
   const [moduleSettingId, setModuleSettingId] = useState<string | number | null>(null);
   const [moduleSaving, setModuleSaving] = useState(false);
 
@@ -163,12 +164,22 @@ export default function SettingsManagementPage() {
     const found = findTaxModuleSetting(items);
     if (!found) return;
     setModuleSettingId(found.id);
-    setModuleConfig(parseTaxModuleValue(found.value));
+    const parsed = parseTaxModuleValue(found.value);
+    setModuleConfig(parsed);
+    setSavedModuleConfig(parsed);
   }, [items, moduleSettingId]);
 
-  async function saveModuleConfig(next: TaxModuleConfig) {
-    setModuleConfig(next);
+  const moduleHasChanges = useMemo(
+    () => JSON.stringify(moduleConfig) !== JSON.stringify(savedModuleConfig),
+    [moduleConfig, savedModuleConfig]
+  );
+
+  async function saveModuleConfig() {
     setModuleSaving(true);
+    const next = {
+      ...moduleConfig,
+      invoice_prefix: moduleConfig.invoice_prefix || "INV",
+    };
     const value = JSON.stringify(next);
 
     let ok = false;
@@ -186,8 +197,16 @@ export default function SettingsManagementPage() {
     }
 
     setModuleSaving(false);
-    if (ok) showSuccess("Tax settings saved");
+    if (ok) {
+      setModuleConfig(next);
+      setSavedModuleConfig(next);
+      showSuccess("Tax settings saved");
+    }
     else showError("Failed to save tax settings");
+  }
+
+  function cancelModuleConfigChanges() {
+    setModuleConfig(savedModuleConfig);
   }
 
   const taxSettings = useMemo(() => items.filter(isTaxSetting), [items]);
@@ -321,7 +340,7 @@ export default function SettingsManagementPage() {
             <input
               type="checkbox"
               checked={moduleConfig.enabled}
-              onChange={(e) => saveModuleConfig({ ...moduleConfig, enabled: e.target.checked })}
+              onChange={(e) => setModuleConfig((c) => ({ ...c, enabled: e.target.checked }))}
               disabled={moduleSaving}
             />
             <span className="settings-toggle-slider" />
@@ -337,7 +356,7 @@ export default function SettingsManagementPage() {
                 className="sm-split__input"
                 value={moduleConfig.invoice_prefix}
                 onChange={(e) => setModuleConfig((c) => ({ ...c, invoice_prefix: e.target.value.toUpperCase() }))}
-                onBlur={() => saveModuleConfig({ ...moduleConfig, invoice_prefix: moduleConfig.invoice_prefix || "INV" })}
+                onBlur={() => setModuleConfig((c) => ({ ...c, invoice_prefix: c.invoice_prefix || "INV" }))}
                 placeholder="INV"
                 disabled={moduleSaving}
               />
@@ -347,7 +366,7 @@ export default function SettingsManagementPage() {
               <input
                 type="checkbox"
                 checked={moduleConfig.show_breakup_on_invoice}
-                onChange={(e) => saveModuleConfig({ ...moduleConfig, show_breakup_on_invoice: e.target.checked })}
+                onChange={(e) => setModuleConfig((c) => ({ ...c, show_breakup_on_invoice: e.target.checked }))}
                 disabled={moduleSaving}
               />
               Show GST breakup on invoice
@@ -357,7 +376,7 @@ export default function SettingsManagementPage() {
               <input
                 type="checkbox"
                 checked={moduleConfig.enable_gst_reports}
-                onChange={(e) => saveModuleConfig({ ...moduleConfig, enable_gst_reports: e.target.checked })}
+                onChange={(e) => setModuleConfig((c) => ({ ...c, enable_gst_reports: e.target.checked }))}
                 disabled={moduleSaving}
               />
               Enable GST Reports
@@ -376,6 +395,27 @@ export default function SettingsManagementPage() {
             </div>
           </div>
         )}
+
+        <div className="gst-module__actions">
+          {moduleHasChanges && (
+            <button
+              type="button"
+              className="sm-split__btn"
+              onClick={cancelModuleConfigChanges}
+              disabled={moduleSaving}
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            type="button"
+            className="sm-split__btn sm-split__btn--primary"
+            onClick={saveModuleConfig}
+            disabled={!moduleHasChanges || moduleSaving}
+          >
+            {moduleSaving ? "Saving…" : "Save"}
+          </button>
+        </div>
       </div>
 
       <div className="sm-split">
@@ -555,6 +595,7 @@ export default function SettingsManagementPage() {
             <div className="sm-split__actions">
               {!isCreating && selectedId != null && (
                 <button
+                  type="button"
                   className="sm-split__btn sm-split__btn--danger"
                   onClick={handleDelete}
                   disabled={isDeleting}
@@ -564,6 +605,7 @@ export default function SettingsManagementPage() {
                 </button>
               )}
               <button
+                type="button"
                 className="sm-split__btn"
                 onClick={handleCancel}
                 disabled={isSaving}
@@ -571,6 +613,7 @@ export default function SettingsManagementPage() {
                 Cancel
               </button>
               <button
+                type="button"
                 className="sm-split__btn sm-split__btn--primary"
                 onClick={handleSave}
                 disabled={isSaving}
