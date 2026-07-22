@@ -247,12 +247,37 @@ export function mapApiBooking(
   // taxFromBreakdown`, since computedTotal is the raw pre-discount item sum
   // and never accounts for the bill-level discount on its own.
   const computedGrandTotal = appt.computed_grand_total ?? (appt as any).computedGrandTotal;
+  // Once a real payment exists, reconstruct the TRUE grand total (subtotal −
+  // discount + tax + exCharges + tip, i.e. the full bill BEFORE any wallet/
+  // points/referral coverage) from what was actually recorded, instead of
+  // re-deriving it from scratch. `computedTotal + taxFromBreakdown` (the old
+  // fallback below) silently dropped the bill-level Discount, Extra Charges,
+  // and Tip entirely — and every OTHER screen that tried its own from-scratch
+  // recompute (tooltip, receipt, Sales Summary Report) landed on a different
+  // wrong number too, since each used a different formula/base for the
+  // discount. The real relationship (see payments.service.ts's `effectiveBill`):
+  // paid_amount ≈ grandTotal − ewallet_used − membership_wallet_used −
+  // reward_points_value − referral_credit_used. Adding those four back to
+  // what's actually been collected (paid_amount) plus whatever's still due
+  // reconstructs the exact original grandTotal with zero guessing — every
+  // field used here is already present on this same API response.
+  const rawPaidAmount = Number(appt.paid_amount ?? 0) || 0;
+  const walletUsageSum =
+    (Number(appt.ewallet_used ?? appt.ewalletUsed ?? 0) || 0) +
+    (Number(appt.membership_wallet_used ?? appt.membershipWalletUsed ?? 0) || 0) +
+    (Number(appt.reward_points_value ?? appt.rewardPointsValue ?? 0) || 0) +
+    (Number(appt.referral_credit_used ?? appt.referralCreditUsed ?? 0) || 0);
+  const rawDueAmount = Number(appt.due_amount ?? appt.dueAmount ?? 0) || 0;
+  const reconstructedFromPayment = rawPaidAmount > 0
+    ? rawPaidAmount + rawDueAmount + walletUsageSum
+    : 0;
   const grandTotalVal = isPackagePaid ? 0
     : hasPerServicePackage
       ? Math.max(0, [...services, ...productItems, ...packageItems, ...membershipItems]
           .reduce((sum, item: any) => sum + (Number(item.total) || 0), 0)) + taxFromBreakdown
       : (parseFloat(String(appt.grand_total ?? appt.grandTotal ?? appt.total_amount ?? 0))
-          || (computedGrandTotal != null ? Number(computedGrandTotal) : (computedTotal + taxFromBreakdown)));
+          || (computedGrandTotal != null ? Number(computedGrandTotal) : reconstructedFromPayment)
+          || (computedTotal + taxFromBreakdown));
 
   // ── Subtotal / discount / taxable amount ──────────────────────────────────
   const subtotalVal = parseFloat(String(appt.subtotal ?? 0)) || computedTotal;

@@ -22,6 +22,10 @@ interface CompletePaymentParams {
   manualDiscountAmt?: number;
   gstAmount?: number;         // add-on tax amount included in grandTotal, for receipt display
   taxBreakdown?: Booking["taxBreakdown"];
+  // Whether staff had "Include GST in this bill" checked for THIS payment —
+  // must reach the backend, or it independently recomputes tax from the
+  // salon's active config regardless of what was actually shown/charged.
+  includeGst?: boolean;
   alreadyPaidAmount: number;
   eWalletAmt: number;
   couponDiscount: number;
@@ -70,6 +74,7 @@ export function usePayment() {
       includeClearDue, priorDueAmt, selectedDueIds, useEWallet, applyMembershipWallet,
       membershipWalletRequested,
       gstAmount, taxBreakdown, rewardPointsToRedeem, referralCreditAmt,
+      includeGst,
     } = params;
 
     // gross_amount = pre-discount subtotal so the backend can compute:
@@ -128,9 +133,13 @@ export function usePayment() {
       // The backend (payments.service.ts `create()`) recomputes gross_amount/
       // net_amount/due_amount server-side from raw item prices plus the
       // salon's own active/applicable tax config — it doesn't trust whatever
-      // tax figure we send here, it derives its own. What we send (net_amount,
-      // tax_breakdown) is for the receipt/audit trail, not the authoritative
-      // due-amount source.
+      // ₹ tax figure we send here, it derives its own amount. What we send
+      // (net_amount, tax_breakdown) is for the receipt/audit trail, not the
+      // authoritative due-amount source. `include_gst` is the one tax-related
+      // flag it DOES respect — without it, the backend has no way to know
+      // GST was deliberately excluded from this specific bill and applies its
+      // active tax config unconditionally, leaving a phantom GST-sized due
+      // amount and a wrongly-"Partial" status after a full payment.
       const result: any = await dispatch(postPaymentThunk({
         salon_id:         salonId || undefined,
         appointment_id:   appointmentId,
@@ -150,6 +159,7 @@ export function usePayment() {
         tax_breakdown: taxBreakdown && taxBreakdown.length > 0 ? taxBreakdown : undefined,
         reward_points_used: rewardPointsToRedeem || undefined,
         referral_credit_used: referralCreditAmt || undefined,
+        include_gst: includeGst,
       }));
 
       // "already completed" is treated as success

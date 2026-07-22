@@ -33,6 +33,11 @@ export interface PaymentPayload {
   reward_points_used?: number; // points count
   referral_credit_used?: number; // ₹
   tax_breakdown?: { name: string; rate: number; amount: number; inclusive: boolean }[];
+  // Whether staff had "Include GST in this bill" checked for THIS payment —
+  // the backend must skip its own tax computation entirely when false, or
+  // due_amount/status end up computed against a GST-inclusive total the
+  // customer was never actually charged (see payments.service.ts::create()).
+  include_gst?: boolean;
 }
 
 // ─── Result of clearing a prior due ─────────────────────────────────────────
