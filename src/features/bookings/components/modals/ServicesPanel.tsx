@@ -88,6 +88,9 @@ interface Props {
   prodErrors?: Array<{ item?: boolean; staff?: boolean; time?: boolean }>;
   memErrors?: Array<{ item?: boolean; staff?: boolean; time?: boolean }>;
   onClearSvcError?: (index: number, field: string) => void;
+  onClearPkgError?: (index: number, field: string) => void;
+  onClearProdError?: (index: number, field: string) => void;
+  onClearMemError?: (index: number, field: string) => void;
 }
 
 type SearchableItemRowProps =
@@ -104,6 +107,7 @@ type SearchableItemRowProps =
       emptyText: string;
       staffList: { id: string; name: string }[];
       interval: IntervalOption;
+      onClearError?: () => void;
       onUpdate: (row: PackageItem) => void;
       onRemove: () => void;
     }
@@ -121,6 +125,7 @@ type SearchableItemRowProps =
       emptyText: string;
       staffList: { id: string; name: string }[];
       interval: IntervalOption;
+      onClearError?: () => void;
       onUpdate: (row: ProductItem) => void;
       onUpdateProductRow: (index: number, row: ProductItem) => void;
       onAddProductRow: () => void;
@@ -186,6 +191,21 @@ function productMatchesSearch(
 
   // Text input -> search only Product Name.
   return String(item.name || "").toLowerCase().includes(normalizedSearch);
+}
+
+// In-stock products first, out-of-stock ones last — a stable sort (relative
+// order within each group is untouched) so search-relevance ordering still
+// holds within "in stock" and within "out of stock" separately.
+function sortInStockFirst(items: SearchableCatalogItem[]): SearchableCatalogItem[] {
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const aOut = a.item.stock !== undefined && a.item.stock <= 0;
+      const bOut = b.item.stock !== undefined && b.item.stock <= 0;
+      if (aOut !== bOut) return aOut ? 1 : -1;
+      return a.index - b.index;
+    })
+    .map(({ item }) => item);
 }
 
 function mapProductSearchItem(item: any): SearchableCatalogItem {
@@ -299,13 +319,14 @@ interface MembershipRowProps {
   staffList: { id: string; name: string }[];
   availableMemberships: any[];
   memError?: { item?: boolean; staff?: boolean; time?: boolean };
+  onClearError?: (field: string) => void;
   onUpdateMembership: (index: number, row: MembershipItem) => void;
   onRemoveMembership: (index: number) => void;
 }
 
 function MembershipRow({
   row, index, frozen, interval, staffList, availableMemberships, memError,
-  onUpdateMembership, onRemoveMembership,
+  onClearError, onUpdateMembership, onRemoveMembership,
 }: MembershipRowProps) {
   const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
   const [discountInput, setDiscountInput] = useState(getDiscountValue(row.discount));
@@ -378,7 +399,7 @@ function MembershipRow({
           <select
             disabled={frozen}
             value={row.staffId || ""}
-            onChange={(e) => onUpdateMembership(index, { ...row, staffId: e.target.value })}
+            onChange={(e) => { onUpdateMembership(index, { ...row, staffId: e.target.value }); if (e.target.value) onClearError?.("staff"); }}
             className="svc-staff-pill__select"
             style={{ color: row.staffId ? "#111827" : "#6b7280" }}
           >
@@ -465,6 +486,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     emptyText,
     staffList,
     interval,
+    onClearError,
     onUpdate,
     onRemove,
   } = props;
@@ -625,11 +647,11 @@ function SearchableItemRow(props: SearchableItemRowProps) {
               }
             });
 
-            setResults(merged);
+            setResults(sortInStockFirst(merged));
           })
           .catch(() => {
             if (isCancelled) return;
-            setResults(localMatches);
+            setResults(sortInStockFirst(localMatches));
           })
           .finally(() => {
             if (isCancelled) return;
@@ -969,7 +991,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
           <select
             disabled={frozen}
             value={row.staffId || ""}
-            onChange={(e) => onUpdate({ ...row, staffId: e.target.value } as any)}
+            onChange={(e) => { onUpdate({ ...row, staffId: e.target.value } as any); if (e.target.value) onClearError?.(); }}
             className="svc-staff-pill__select"
             style={{ color: row.staffId ? "#111827" : "#6b7280" }}
           >
@@ -1063,6 +1085,7 @@ export const ServicesPanel: React.FC<Props> = ({
   availablePackages, availableProducts, availableMemberships,
   frozen, coveredServices, membershipWalletInfo,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
+  onClearPkgError, onClearProdError, onClearMemError,
 }) => {
   const { staffList, interval } = useSchedulerContext();
   const [pendingProductFocusIndex, setPendingProductFocusIndex] = useState<number | null>(null);
@@ -1132,6 +1155,7 @@ export const ServicesPanel: React.FC<Props> = ({
             emptyText="No packages found."
             staffList={staffList}
             interval={interval}
+            onClearError={() => onClearPkgError?.(i, "staff")}
             onUpdate={(nextRow) => onUpdatePackage(i, nextRow)}
             onRemove={() => onRemovePackage(i)}
           />
@@ -1160,6 +1184,7 @@ export const ServicesPanel: React.FC<Props> = ({
             emptyText="No products found."
             staffList={staffList}
             interval={interval}
+            onClearError={() => onClearProdError?.(i, "staff")}
             onUpdate={(nextRow) => onUpdateProduct(i, nextRow)}
             onUpdateProductRow={onUpdateProduct}
             onAddProductRow={onAddProduct}
@@ -1188,6 +1213,7 @@ export const ServicesPanel: React.FC<Props> = ({
             staffList={staffList}
             availableMemberships={availableMemberships}
             memError={memErrors?.[i]}
+            onClearError={(field) => onClearMemError?.(i, field)}
             onUpdateMembership={onUpdateMembership}
             onRemoveMembership={onRemoveMembership}
           />

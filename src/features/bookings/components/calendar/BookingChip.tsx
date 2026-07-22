@@ -17,6 +17,9 @@ function buildTitle(b: Booking): string {
 
 interface Props {
   booking: Booking;
+  // Ticks (DayView refreshes this every minute) so a "booked" chip whose end
+  // time has now passed flips to no-show live, without needing a page reload.
+  nowTs: number;
   staffStart: string;
   staffEnd: string;
   chipTop: number;
@@ -59,6 +62,7 @@ function arePropsEqual(prev: Props, next: Props): boolean {
   if (prev.slotHeight !== next.slotHeight) return false;
   if (prev.staffStart !== next.staffStart) return false;
   if (prev.staffEnd !== next.staffEnd) return false;
+  if (prev.nowTs !== next.nowTs) return false;
 
   // For the actively dragged chip only — track position updates
   if (next.isDraggingThis) {
@@ -80,7 +84,7 @@ function arePropsEqual(prev: Props, next: Props): boolean {
 }
 
 const BookingChipComponent: React.FC<Props> = ({
-  booking: b, staffStart, staffEnd,
+  booking: b, nowTs, staffStart, staffEnd,
   chipTop, chipHeight, chipCol = 0, chipTotalCols = 1, slotHeight, intervalMins,
   isDraggingThis, isResizingThis,
   dragging, resizing,
@@ -101,7 +105,7 @@ const BookingChipComponent: React.FC<Props> = ({
   // explicit choice over the original locked-by-default design.
   const isReadOnly  = isCancelled || !!b.isDeleted;
 
-  const statusClass = computeChipStatusClass(b);
+  const statusClass = computeChipStatusClass(b, new Date(nowTs));
 
   // Preview times during drag/resize
   const previewStart = isDraggingThis && dragging

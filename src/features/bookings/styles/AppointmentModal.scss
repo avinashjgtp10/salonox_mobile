@@ -1790,6 +1790,13 @@ $success:    #22c55e;
     outline: none;
     min-width: 0;
     cursor: pointer;
+    // A long staff name otherwise runs straight into the native dropdown
+    // arrow instead of truncating — clip it with an ellipsis and leave room
+    // for that arrow.
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding-right: 4px;
     &:disabled { color: #9ca3af; cursor: not-allowed; }
   }
 }

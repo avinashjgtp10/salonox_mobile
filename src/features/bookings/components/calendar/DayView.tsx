@@ -94,6 +94,10 @@ const DayView: React.FC<DayViewProps> = ({
     : 160;
 
   const [nowTime, setNowTime] = useState(getCurrentTime());
+  // Recomputed fresh on every render this triggers (nowTime ticks every
+  // minute) — passed to each chip so a still-"booked" one whose end time has
+  // now passed flips to no-show live, without needing a page reload.
+  const nowTsForStatus = Date.now();
   const [staffMenu, setStaffMenu] = useState<{ staffId: string; x: number; y: number } | null>(null);
 
   // ── Hover tooltip ─────────────────────────────────────────────────────────
@@ -116,6 +120,10 @@ const DayView: React.FC<DayViewProps> = ({
     currentStaffId: string; currentStaffIndex: number;
     originalStaffId: string;
     originalStart: string;
+    // The dragged staff segment's own end time (not booking.endTime, which for
+    // a multi-staff/multi-service appointment can legitimately differ and
+    // isn't reliable enough to compute a duration from).
+    originalEnd: string;
   } | null>(null);
 
   const [dragCandidate, setDragCandidate] = useState<{
@@ -314,6 +322,7 @@ const DayView: React.FC<DayViewProps> = ({
           currentStaffIndex: newIndex,
           originalStaffId: dragCandidate.originalStaffId,
           originalStart: dragCandidate.startTime,
+          originalEnd: dragCandidate.endTime,
         });
         setDragCandidate(null);
       }
@@ -332,7 +341,7 @@ const DayView: React.FC<DayViewProps> = ({
           const m = Math.round(totalMins % 60);
           const newStart = `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
           const [sh, sm] = dragging.originalStart.split(":").map(Number);
-          const [eh, em] = dragging.booking.endTime.split(":").map(Number);
+          const [eh, em] = dragging.originalEnd.split(":").map(Number);
           const duration = eh * 60 + em - (sh * 60 + sm);
           const newEnd = addMinutes(newStart, duration);
           const orig = (dragging.booking as any)._originalBooking || dragging.booking;
@@ -840,6 +849,7 @@ const DayView: React.FC<DayViewProps> = ({
                         <BookingChip
                           key={key}
                           booking={b}
+                          nowTs={nowTsForStatus}
                           staffStart={staffStart}
                           staffEnd={staffEnd}
                           chipTop={chipTop}
