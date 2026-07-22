@@ -33,24 +33,12 @@ interface Props {
   cards: BenefitCardConfig[];
 }
 
-// Fixed logical order every client sees, regardless of which of these they
-// actually have — a missing one renders as an invisible placeholder (same
-// footprint as a real card) so the rest never slide over to fill its spot.
-// Grid column count itself still adapts responsively (auto-fit); this only
-// pins the left-to-right/row-to-row sequence, not exact row/column math.
-const FIXED_ORDER = ["package", "membership", "ewallet", "reward", "referral"];
-
 export const AvailableBenefitsPanel: React.FC<Props> = ({ cards }) => {
   if (cards.length === 0) return null;
-  const byKey = new Map(cards.map((c) => [c.key, c]));
 
   return (
     <div className="benefits-grid">
-      {FIXED_ORDER.map((key) => {
-        const card = byKey.get(key);
-        if (!card) {
-          return <div key={key} className="benefit-card benefit-card--placeholder" aria-hidden="true" />;
-        }
+      {cards.map((card) => {
         const Icon = card.icon;
         return (
           <div

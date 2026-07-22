@@ -98,14 +98,26 @@ export function useSchedulerContext() {
           };
         });
 
-        // NOTE: package_items / product_items / membership_items are intentionally
-        // OMITTED here. This function only ever runs for drag/resize reschedules and
-        // payment-status updates (never item edits — see useAppointment.ts for that).
-        // `b` here is sourced from the calendar's lightweight list-range fetch, which
-        // does not return nested product/package/membership data, so those fields would
-        // be empty even for bookings that have them. Sending them as `[]` previously
-        // wiped real data server-side on every drag. Omitting the keys keeps this a true
-        // partial update — staff/time (and per-service time/staff) only.
+        // package_items / product_items / membership_items ARE now included below —
+        // the list endpoint this calendar fetches from does `SELECT a.*` (full row,
+        // same JSONB columns as everywhere else) and bookingMapper.ts already extracts
+        // them onto `b.packageItems`/`productItems`/`membershipItems`, so the old
+        // "lightweight fetch, no nested data" assumption no longer holds. Included so
+        // a drag update matches the same payload shape useAppointment.ts's save() sends
+        // (which reliably persists) instead of a narrower partial update.
+        const shiftedItemApiShape = (items: any[] | undefined, idKey: string) =>
+          (items || []).map((it: any) => ({
+            [idKey]:     it[`${idKey === "package_id" ? "packageId" : idKey === "product_id" ? "productId" : "membershipId"}`] || it.id || undefined,
+            name:        it[idKey === "package_id" ? "packageName" : idKey === "product_id" ? "productName" : "membershipName"] || it.name || "",
+            price:       it.price || 0,
+            quantity:    it.qty ?? 1,
+            total:       it.total,
+            discount:    Number(it.discount) || 0,
+            staff_id:    toApiStaffId(it.staffId),
+            start_time:  new Date(`${b.date}T${it.time || b.startTime}:00`).toISOString(),
+            ...(idKey === "package_id" && it.isPackageService ? { is_package_service: true } : {}),
+          }));
+
         // status is intentionally omitted — a reschedule never changes payment/
         // lifecycle state itself. The one exception (a no-show booking getting
         // dragged/resized) is handled server-side in appointments.service.ts's
@@ -121,6 +133,9 @@ export function useSchedulerContext() {
             staff_alert: (b as any).staffAlert || undefined,
             title: (b as any).title,
             services: serviceItems,
+            package_items:    shiftedItemApiShape((b as any).packageItems, "package_id"),
+            product_items:    shiftedItemApiShape((b as any).productItems, "product_id"),
+            membership_items: shiftedItemApiShape((b as any).membershipItems, "membership_id"),
           },
         };
         return (dispatch(updateBookingThunk(apiPayload)) as any)

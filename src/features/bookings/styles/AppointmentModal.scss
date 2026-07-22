@@ -1316,10 +1316,13 @@ $success:    #22c55e;
 // Reward Points/Referral Credit — one card per balance, each with its own
 // icon + accent color, checkbox top-left, amount input appears once checked.
 .benefits-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 8px;
-  padding: 12px 14px;
+  // Flex-wrap instead of grid — a card's width is its own content-driven
+  // size (capped below), not a stretched 1fr column, so 2 cards next to an
+  // empty row don't balloon to fill it; they just sit compact, left-aligned.
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 10px 12px;
 }
 
 .benefit-card {
@@ -1327,10 +1330,12 @@ $success:    #22c55e;
   --accent-bg: #eff6ff;
   display: flex;
   align-items: flex-start;
-  gap: 9px;
-  padding: 9px 11px;
+  gap: 7px;
+  padding: 6px 8px;
+  flex: 0 0 auto;
+  width: 170px;
   border: 1px solid $border;
-  border-radius: 10px;
+  border-radius: 8px;
   cursor: pointer;
   background: #fff;
   transition: all 0.15s;
@@ -1346,23 +1351,25 @@ $success:    #22c55e;
 
   &__checkbox {
     margin-top: 2px;
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     accent-color: var(--accent);
     cursor: pointer;
     flex-shrink: 0;
   }
 
   &__icon-wrap {
-    width: 28px;
-    height: 28px;
-    border-radius: 8px;
+    width: 21px;
+    height: 21px;
+    border-radius: 6px;
     background: var(--accent-bg);
     color: var(--accent);
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+
+    svg { width: 10px; height: 10px; }
   }
 
   &__body {
@@ -1378,20 +1385,20 @@ $success:    #22c55e;
   }
 
   &__title {
-    font-size: 12.5px;
+    font-size: 10.5px;
     font-weight: 700;
     color: #111827;
   }
 
   &__value {
-    font-size: 13px;
+    font-size: 11px;
     font-weight: 700;
     color: #111827;
     margin-top: 0;
   }
 
   &__subtitle {
-    font-size: 11px;
+    font-size: 9.5px;
     color: #6b7280;
     margin-top: 0;
     white-space: nowrap;
@@ -1402,8 +1409,8 @@ $success:    #22c55e;
   &__input-row {
     display: flex;
     align-items: center;
-    gap: 6px;
-    margin-top: 5px;
+    gap: 5px;
+    margin-top: 4px;
   }
 
   &--package    { --accent: #4f46e5; --accent-bg: #e0e7ff; }
@@ -1411,14 +1418,6 @@ $success:    #22c55e;
   &--ewallet    { --accent: #059669; --accent-bg: #d1fae5; }
   &--reward     { --accent: #d97706; --accent-bg: #fef3c7; }
   &--referral   { --accent: #db2777; --accent-bg: #fce7f3; }
-
-  // Reserves this slot's space in the grid when a client doesn't have this
-  // particular benefit, so the others stay put instead of sliding over.
-  &--placeholder {
-    visibility: hidden;
-    pointer-events: none;
-    border-color: transparent;
-  }
 }
 
 // Clear due banner

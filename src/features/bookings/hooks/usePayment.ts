@@ -39,6 +39,9 @@ interface CompletePaymentParams {
   selectedDueIds?: string[];
   useEWallet: boolean;
   applyMembershipWallet?: boolean;
+  // Staff-chosen cap ("only use ₹150 of the wallet") — the backend still
+  // clamps further by real balance/eligible items.
+  membershipWalletRequested?: number;
   // Own dedicated, spendable balances now — not folded into eWallet.
   rewardPointsToRedeem?: number; // points count
   referralCreditAmt?: number;    // ₹
@@ -65,6 +68,7 @@ export function usePayment() {
       alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, selectedDueIds, useEWallet, applyMembershipWallet,
+      membershipWalletRequested,
       gstAmount, taxBreakdown, rewardPointsToRedeem, referralCreditAmt,
     } = params;
 
@@ -142,6 +146,7 @@ export function usePayment() {
         split_details:    methods,
         status:           newDue > 0 ? "partial" : "completed",
         apply_membership_wallet: !!applyMembershipWallet,
+        membership_wallet_requested: applyMembershipWallet ? membershipWalletRequested : undefined,
         tax_breakdown: taxBreakdown && taxBreakdown.length > 0 ? taxBreakdown : undefined,
         reward_points_used: rewardPointsToRedeem || undefined,
         referral_credit_used: referralCreditAmt || undefined,

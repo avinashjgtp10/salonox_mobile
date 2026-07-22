@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+﻿import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { SuccessOverlay } from "../../../../components/ui";
 import { currencySymbol } from "../../utils/currency";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
@@ -685,11 +685,27 @@ export const AppointmentModal: React.FC<Props> = ({
   const hasAnyRowsForTotals = serviceRows.length + packageRows.length + productRows.length + membershipRows.length > 0;
   const totalsNotReady = hasAnyRowsForTotals && (!totalsConfirmed || totalsError);
 
+  // The debounced backend totals.effectiveTotal can lag a beat behind an edit
+  // to any locally-editable "how much of this benefit to use" amount
+  // (membership wallet, eWallet, reward points, referral credit) — reconciling
+  // it locally against the currently-displayed deduction lines means "Amount
+  // to Pay"/"Fully Covered" can never show a number that contradicts the
+  // "Membership Wallet Used"/"eWallet Used"/etc. rows directly above it, and —
+  // more importantly — staff are never silently skipped past collecting a
+  // real remaining balance because the preview hadn't caught up yet.
+  // totals.grandTotal only depends on tax/discount, not these wallet-style
+  // inputs, so it's a much narrower staleness window to inherit from the backend.
+  const reconciledEffectiveTotal = Math.max(0, totals.grandTotal
+    - membershipWalletUsedTotal
+    - (useEWallet ? eWalletAmt : 0)
+    - rewardPointsRedeemedValue
+    - (useReferralCredit ? referralCreditAmt : 0));
+
   const alreadyPaidAmount   = existingBooking?.payingNow ?? 0;
   // For partial bookings, trust the API's dueAmount directly — payingNow can be unreliable
   const remainingDue = (existingBooking?.status === "partial" && (existingBooking?.dueAmount ?? 0) > 0)
     ? existingBooking.dueAmount
-    : Math.max(0, totals.effectiveTotal - alreadyPaidAmount);
+    : Math.max(0, reconciledEffectiveTotal - alreadyPaidAmount);
   const parsedPartial   = parseFloat(partialAmtInput);
   // 0 counts as a deliberate partial entry (pay nothing now, leave it all due) —
   // matches the >= 0 check in usePayment.ts's actual charge calculation.
@@ -744,13 +760,13 @@ export const AppointmentModal: React.FC<Props> = ({
   // Reward earnings are credited straight into eWallet at payment time (see
   // payments.service.ts) — this is just a preview of that ₹ credit, not a
   // separate redeemable balance.
-  const previewPoints       = computePointsEarned(totals.effectiveTotal, rewardPointsConfig);
+  const previewPoints       = computePointsEarned(reconciledEffectiveTotal, rewardPointsConfig);
   const previewWalletCredit = computeEWalletCredit(previewPoints, rewardPointsConfig);
   // Nothing left to collect — either the appointment's items are fully package-covered
   // (grandTotal itself is already 0) or a wallet/membership deduction brought
   // an otherwise non-zero bill down to 0. Either way, there's no cash/card/UPI amount
   // to take, so the coupon/payment-method UI is just noise here.
-  const isFullyCovered = totals.effectiveTotal === 0;
+  const isFullyCovered = reconciledEffectiveTotal === 0;
   // Only swap in the static "Fully Covered" banner (which has no way to
   // uncheck/edit anything) when eWallet isn't the reason for the ₹0 —
   // eWallet is a user-editable choice (they may want to apply only part of
@@ -1123,7 +1139,7 @@ export const AppointmentModal: React.FC<Props> = ({
       clientId:      selectedClient?.id,
       salonId,
       grandTotal:        totals.grandTotal,
-      effectiveTotal:    totals.effectiveTotal,
+      effectiveTotal:    reconciledEffectiveTotal,
       subtotal:          totals.subtotal,
       manualDiscountAmt: totals.manualDiscount,
       alreadyPaidAmount,
@@ -1136,6 +1152,7 @@ export const AppointmentModal: React.FC<Props> = ({
       referralCreditAmt:    useReferralCredit ? referralCreditAmt : 0,
       selectedDueIds: Array.from(selectedDueIds),
       applyMembershipWallet: applyMembership,
+      membershipWalletRequested: membershipWalletAmt,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
     });
@@ -1147,13 +1164,17 @@ export const AppointmentModal: React.FC<Props> = ({
         );
         if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice });
       }
+      // A membership/eWallet/reward-points/referral deduction just happened
+      // server-side — refetch this client's balances so the still-open
+      // Available Benefits panel and client card stop showing pre-payment figures.
+      setClientRefreshKey((k) => k + 1);
       finishWithPaidPopup();
     }
   }, [
     completePayment, existingBooking, apiAppointmentId,
     selectedClient, salonId, totals, alreadyPaidAmount, amountThisTxn,
     eWalletAmt, coupon, paymentMode, singleMethod, splitEntries,
-    partialAmtInput, includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership,
+    partialAmtInput, includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership, membershipWalletAmt,
     useRewardPoints, rewardPointsToRedeem, useReferralCredit, referralCreditAmt,
     finishWithPaidPopup, printAfterPayment, schedulerStaff, currentSalon,
   ]);
@@ -1193,6 +1214,7 @@ export const AppointmentModal: React.FC<Props> = ({
         paymentMode: "Package",
       }));
       await markPackageSessions(String(apptId));
+      setClientRefreshKey((k) => k + 1);
       finishWithPaidPopup();
     } else {
       onClose();
@@ -1255,6 +1277,7 @@ export const AppointmentModal: React.FC<Props> = ({
           paymentMode: "Package",
         }));
         await markPackageSessions(String(id));
+        setClientRefreshKey((k) => k + 1);
         finishWithPaidPopup();
       }
       return;
@@ -1265,7 +1288,7 @@ export const AppointmentModal: React.FC<Props> = ({
       clientId:      selectedClient?.id,
       salonId,
       grandTotal:        totals.grandTotal,
-      effectiveTotal:    totals.effectiveTotal,
+      effectiveTotal:    reconciledEffectiveTotal,
       subtotal:          totals.subtotal,
       manualDiscountAmt: totals.manualDiscount,
       alreadyPaidAmount: 0,
@@ -1278,6 +1301,7 @@ export const AppointmentModal: React.FC<Props> = ({
       referralCreditAmt:    useReferralCredit ? referralCreditAmt : 0,
       selectedDueIds: Array.from(selectedDueIds),
       applyMembershipWallet: applyMembership,
+      membershipWalletRequested: membershipWalletAmt,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
     });
@@ -1289,12 +1313,13 @@ export const AppointmentModal: React.FC<Props> = ({
         );
         if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice });
       }
+      setClientRefreshKey((k) => k + 1);
       finishWithPaidPopup();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, completePayment, dispatch, selectedClient, salonId, serviceRows, totals, amountThisTxn,
       eWalletAmt, coupon, paymentMode, singleMethod, splitEntries, partialAmtInput,
-      includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership, printAfterPayment,
+      includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership, membershipWalletAmt, printAfterPayment,
       useRewardPoints, rewardPointsToRedeem, useReferralCredit, referralCreditAmt,
       schedulerStaff, currentSalon, finishWithPaidPopup]);
 
@@ -1310,7 +1335,7 @@ export const AppointmentModal: React.FC<Props> = ({
   const isPaymentFrozen =
     existingBooking?.status !== "partial"
         && alreadyPaidAmount > 0
-        && alreadyPaidAmount >= totals.effectiveTotal;
+        && alreadyPaidAmount >= reconciledEffectiveTotal;
 
   // Disable pay button when no method selected in single mode
   const isPayDisabled = isPaymentFrozen
@@ -1851,7 +1876,7 @@ export const AppointmentModal: React.FC<Props> = ({
                   {(useReferralCredit && referralCreditAmt > 0) && (
                     <div className="qs-summary-row qs-summary-row--discount"><span>Referral Credit Used</span><span>-{currencySymbol}{referralCreditAmt.toFixed(2)}</span></div>
                   )}
-                  <div className="qs-summary-row qs-summary-row--total"><span>Amount to Pay</span><span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span></div>
+                  <div className="qs-summary-row qs-summary-row--total"><span>Amount to Pay</span><span>{currencySymbol}{reconciledEffectiveTotal.toFixed(2)}</span></div>
                 </div>
 
                 {showFullyCoveredBanner ? (
@@ -1871,7 +1896,7 @@ export const AppointmentModal: React.FC<Props> = ({
                   </div>
                 ) : (
                   <PaymentPanel
-                    effectiveTotal={totals.effectiveTotal}
+                    effectiveTotal={reconciledEffectiveTotal}
                     remainingDue={remainingDue}
                     alreadyPaid={0}
                     grandTotal={totals.grandTotal}
@@ -1923,7 +1948,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
                 <button className="btn btn-dark" style={{ width: "100%" }}
                   disabled={isSaving || isProcessing || totalsNotReady} onClick={handleQuickSaleCheckout}>
-                  {isSaving ? "Saving…" : isProcessing ? "Processing…" : totalsNotReady ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…") : `Checkout (${currencySymbol}${(isPartialEntry ? parsedPartial : totals.effectiveTotal).toFixed(2)})`}
+                  {isSaving ? "Saving…" : isProcessing ? "Processing…" : totalsNotReady ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…") : `Checkout (${currencySymbol}${(isPartialEntry ? parsedPartial : reconciledEffectiveTotal).toFixed(2)})`}
                 </button>
               </div>
             </div>
@@ -1996,7 +2021,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     {alreadyPaidAmount > 0 ? (
                       <span>Paid {currencySymbol}{alreadyPaidAmount.toFixed(2)} &nbsp;·&nbsp; Remaining {currencySymbol}{remainingDue.toFixed(2)}</span>
                     ) : (
-                      <span>{currencySymbol}{totals.effectiveTotal.toFixed(2)}</span>
+                      <span>{currencySymbol}{reconciledEffectiveTotal.toFixed(2)}</span>
                     )}
                   </div>
                   {/* Subtotal/Discount/GST/Grand Total breakdown must stay
@@ -2058,7 +2083,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     </div>
                   ) : (
                   <PaymentPanel
-                    effectiveTotal={totals.effectiveTotal}
+                    effectiveTotal={reconciledEffectiveTotal}
                     remainingDue={remainingDue}
                     alreadyPaid={alreadyPaidAmount}
                     grandTotal={totals.grandTotal}

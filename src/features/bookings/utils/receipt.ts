@@ -409,10 +409,12 @@ export function printReceipt(
   .inv-topbar{display:flex;justify-content:space-between;align-items:flex-start;padding:28px 32px 20px;border-bottom:2px solid #111827}
   .inv-logo{width:68px;height:68px;border-radius:8px;object-fit:cover;border:1px solid #e5e7eb;flex-shrink:0}
   .inv-logo-placeholder{width:68px;height:68px;border-radius:8px;background:#f3f4f6;border:1px solid #e5e7eb;display:flex;align-items:center;justify-content:center;font-size:26px;font-weight:800;color:#374151;flex-shrink:0}
-  .inv-salon-block{display:flex;align-items:flex-start;gap:14px}
+  .inv-salon-block{display:flex;align-items:flex-start;gap:14px;min-width:0}
   .inv-salon-name{font-size:20px;font-weight:800;color:#111827;letter-spacing:-0.3px;margin-bottom:4px}
-  .inv-salon-meta{font-size:10.5px;color:#6b7280;line-height:1.8}
-  .inv-salon-meta span{display:block}
+  /* max-width + word-break so a long address wraps onto its own second line
+     instead of stretching past the page edge. */
+  .inv-salon-meta{font-size:10.5px;color:#6b7280;line-height:1.8;max-width:360px}
+  .inv-salon-meta span{display:block;word-break:break-word}
   .inv-title-block{text-align:right;flex-shrink:0}
   .inv-title-word{font-size:26px;font-weight:800;color:#111827;text-transform:uppercase;letter-spacing:2px;line-height:1}
   .inv-meta-table{margin-top:10px;font-size:11px;color:#374151;border-collapse:collapse}
@@ -455,10 +457,13 @@ export function printReceipt(
 
   /* ── Footer ── */
   .inv-footer{margin-top:auto;border-top:2px solid #111827;padding:16px 32px 18px;display:flex;justify-content:space-between;align-items:center;gap:16px}
-  .inv-footer-left{font-size:12px;color:#111827}
+  .inv-footer-left{font-size:12px;color:#111827;flex-shrink:0}
   .inv-footer-left strong{font-size:13px;font-weight:800}
-  .inv-footer-center{font-size:10px;color:#6b7280;text-align:center;line-height:1.8}
-  .inv-footer-right{font-size:10px;color:#6b7280;text-align:right;line-height:1.8}
+  /* flex:1 + min-width:0 lets this shrink below its content's natural width
+     (flex items don't by default) so a long address wraps instead of
+     stretching the row and pushing inv-footer-right off the page. */
+  .inv-footer-center{font-size:10px;color:#6b7280;text-align:center;line-height:1.8;flex:1;min-width:0;word-break:break-word}
+  .inv-footer-right{font-size:10px;color:#6b7280;text-align:right;line-height:1.8;flex-shrink:0}
 
   /* ── Screen toolbar ── */
   .print-toolbar{position:fixed;top:0;left:0;right:0;height:50px;background:#111827;display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:9999;box-shadow:0 2px 10px rgba(0,0,0,.3)}
@@ -600,7 +605,7 @@ export function printReceipt(
       </tbody>
       <tfoot>
         <tr>
-          <td colspan="8" style="text-align:right;padding:8px 12px;font-size:11px;color:#374151">Items Total</td>
+          <td colspan="9" style="text-align:right;padding:8px 12px;font-size:11px;color:#374151">Items Total</td>
           <td style="text-align:right;padding:8px 12px;font-weight:700;color:#111827">${fmt(Number((booking as any).subtotal || grandTotal))}</td>
         </tr>
       </tfoot>

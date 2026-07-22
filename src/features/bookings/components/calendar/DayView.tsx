@@ -8,6 +8,7 @@ import Avatar from "../shared/Avatar";
 import BookingTooltipCard from "../shared/BookingTooltipCard";
 import BookingChip from "./BookingChip";
 import { computeOverlapLayout } from "../../utils/overlapLayout";
+import { useStatusOverlay } from "../../../../hooks/useStatusOverlay";
 import "../../styles/DayView.scss";
 
 // Stable empty array — avoids allocating a new [] on every render for staff with no blocks
@@ -60,6 +61,7 @@ const DayView: React.FC<DayViewProps> = ({
 }) => {
   const { currentDate, slots, timeToPx, durationToPx, intervalMins } = useScheduler();
   const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId, bookings, highlightedBookingId, staffSchedules } = useSchedulerContext();
+  const { showError, overlay: dragErrorOverlay } = useStatusOverlay();
 
   const visibleStaff = useMemo(
     () => selectedStaffId ? staffList.filter((s) => s.id === selectedStaffId) : staffList,
@@ -336,6 +338,7 @@ const DayView: React.FC<DayViewProps> = ({
           const orig = (dragging.booking as any)._originalBooking || dragging.booking;
 
           if (isTimeRangeUnavailable(dragging.currentStaffId, newStart, newEnd)) {
+            showError("That staff member already has an appointment or is blocked at this time — pick another slot.");
             return;
           }
 
@@ -400,6 +403,7 @@ const DayView: React.FC<DayViewProps> = ({
             membershipItems: updatedMembershipItems,
           }).catch((err: any) => {
             console.error("Unable to reschedule appointment", err?.message);
+            showError(err?.message || "Couldn't move this appointment — it's been reverted to its original slot.");
           });
           justDraggedRef.current = true;
           setTimeout(() => { justDraggedRef.current = false; }, 300);
@@ -463,6 +467,7 @@ const DayView: React.FC<DayViewProps> = ({
 
       const startStr = `${sh.toString().padStart(2, "0")}:${sm.toString().padStart(2, "0")}`;
       if (isTimeRangeUnavailable(orig.staffId || resizing.booking.staffId, startStr, newEnd)) {
+        showError("That staff member already has an appointment or is blocked at this time — pick another duration.");
         return;
       }
 
@@ -476,7 +481,10 @@ const DayView: React.FC<DayViewProps> = ({
         s === lastResizedSvc ? { ...s, endTime: newEnd, end_time: newEnd } : s
       );
 
-      updateBooking({ ...orig, endTime: newEnd, services: updatedServices });
+      updateBooking({ ...orig, endTime: newEnd, services: updatedServices }).catch((err: any) => {
+        console.error("Unable to resize appointment", err?.message);
+        showError(err?.message || "Couldn't resize this appointment — it's been reverted.");
+      });
       } catch (err) {
         console.error("Resize failed", err);
       } finally {
@@ -909,6 +917,7 @@ const DayView: React.FC<DayViewProps> = ({
           )}
         </div>
       )}
+      {dragErrorOverlay}
     </div>
   );
 };
