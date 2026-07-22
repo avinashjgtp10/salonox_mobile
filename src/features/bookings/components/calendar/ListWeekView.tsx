@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import type { Booking } from "../../types/scheduler-types";
 import { useScheduler } from "../../hooks/useScheduler";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
@@ -30,8 +30,8 @@ const CHIP_BAR_COLOR: Record<string, string> = {
   pending:   "#f59e0b",
 };
 
-function chipBarColor(b: any): string {
-  return CHIP_BAR_COLOR[computeChipStatusClass(b)] ?? "#f59e0b";
+function chipBarColor(b: any, now: Date): string {
+  return CHIP_BAR_COLOR[computeChipStatusClass(b, now)] ?? "#f59e0b";
 }
 
 interface ListWeekViewProps {
@@ -41,6 +41,10 @@ interface ListWeekViewProps {
 const ListWeekViewComponent: React.FC<ListWeekViewProps> = ({ onViewBill }) => {
   const { currentDate } = useScheduler();
   const allBookings = useAppSelector((s: any) => s.scheduler?.bookings ?? []);
+  // Ticks every minute so a still-"booked" row whose end time has now passed
+  // flips to no-show live, without needing a page reload.
+  const [nowTime, setNowTime] = useState(() => new Date());
+  useEffect(() => { const t = setInterval(() => setNowTime(new Date()), 60000); return () => clearInterval(t); }, []);
   const bookingsByDate = useMemo(() => {
     const map = new Map<string, any[]>();
     allBookings.forEach((b: any) => {
@@ -72,7 +76,7 @@ const ListWeekViewComponent: React.FC<ListWeekViewProps> = ({ onViewBill }) => {
             ) : (
               dayBk.map((b: any) => (
                 <div key={b.id} className="lwv__card" onClick={() => { if (!b.isDeleted) onViewBill(b); }}>
-                  <div className="lwv__bar" style={{ background: chipBarColor(b) }} />
+                  <div className="lwv__bar" style={{ background: chipBarColor(b, nowTime) }} />
                   <div className="lwv__info">
                     <div className="lwv__title">
                       {b.title || b.services[0]?.service || b.clientName || "Appointment"}

@@ -142,7 +142,7 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
     || packageItems.some((p: any) => p.isPackageService || p.is_package_service);
   const total = Number(booking.grandTotal) || 0;
 
-  const chipStatus = computeChipStatusClass(booking);
+  const chipStatus = computeChipStatusClass(booking, new Date());
   const payColor = STATUS_COLOR[chipStatus];
   const payBg    = STATUS_BG[chipStatus];
   const payLabel = STATUS_LABEL[chipStatus];

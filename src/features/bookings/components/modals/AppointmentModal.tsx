@@ -1487,6 +1487,21 @@ export const AppointmentModal: React.FC<Props> = ({
             if (n[i]) n[i] = { ...n[i], [field]: false };
             return n;
           })}
+          onClearPkgError={(i: number, field: string) => setPkgErrors((prev) => {
+            const n = [...prev];
+            if (n[i]) n[i] = { ...n[i], [field]: false };
+            return n;
+          })}
+          onClearProdError={(i: number, field: string) => setProdErrors((prev) => {
+            const n = [...prev];
+            if (n[i]) n[i] = { ...n[i], [field]: false };
+            return n;
+          })}
+          onClearMemError={(i: number, field: string) => setMemErrors((prev) => {
+            const n = [...prev];
+            if (n[i]) n[i] = { ...n[i], [field]: false };
+            return n;
+          })}
         />
       </div>
 

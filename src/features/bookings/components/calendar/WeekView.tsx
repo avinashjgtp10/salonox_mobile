@@ -193,7 +193,10 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
                       }))
                     );
                     return dayBookings.map((b: any) => {
-                      const statusClass = computeChipStatusClass(b);
+                      // new Date() (not memoized) + this component's own nowTime tick every
+                      // minute means a still-"booked" chip past its end time flips to
+                      // no-show live, without needing a page reload.
+                      const statusClass = computeChipStatusClass(b, new Date());
                       const chipH = durationToPx(b.startTime, b.endTime);
                       const primaryStaffName = staffById.get(b.staffId)?.name ?? "";
                       const { col, totalCols } = overlapLayout.get(String(b.id)) ?? { col: 0, totalCols: 1 };

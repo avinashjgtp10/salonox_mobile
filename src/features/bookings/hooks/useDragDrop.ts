@@ -11,6 +11,12 @@ export interface DragState {
   currentStaffIndex: number;
   originalStaffId: string;
   originalStart: string;
+  // The dragged staff segment's own end time (from getStaffSegments), NOT the
+  // top-level booking.endTime — for a multi-staff/multi-service appointment
+  // those can legitimately differ, and the top-level field isn't reliable
+  // enough to compute a duration from. Carried over from DragCandidate.endTime
+  // so onMouseUp never has to fall back to dragging.booking.endTime.
+  originalEnd: string;
 }
 
 export interface DragCandidate {

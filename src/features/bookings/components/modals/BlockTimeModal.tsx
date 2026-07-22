@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import type { BlockedTime } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import MiniCalendar from "../shared/MiniCalendar.tsx";
@@ -29,6 +29,15 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
   const [showCal,   setShowCal]   = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [conflictError, setConflictError] = useState("");
+
+  // Auto-dismiss after a few seconds, same as the rest of the app's transient
+  // validation messages — this one previously stuck around indefinitely until
+  // the user happened to change a field.
+  useEffect(() => {
+    if (!conflictError) return;
+    const t = setTimeout(() => setConflictError(""), 4000);
+    return () => clearTimeout(t);
+  }, [conflictError]);
 
   const canSave = !!staffId && !!startTime && !!endTime && startTime < endTime;
 
