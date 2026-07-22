@@ -7,11 +7,8 @@ import { useEffect, useState } from "react";
 import { X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { EWALLET } from "../../../services/api/endpoints";
-import { PaymentMethodPicker, type PaymentSplitEntry } from "../../../components/shared/PaymentMethodPicker";
 import "../styles/ClientHistoryModal.scss";
 import "./EwalletTopupModal.scss";
-
-const TOPUP_METHODS = ["Cash", "Card", "UPI"];
 
 interface Props {
   clientId: string;
@@ -23,10 +20,6 @@ interface Props {
 export default function EwalletTopupModal({ clientId, clientName, onClose, onSuccess }: Props) {
   const [amount, setAmount]         = useState("");
   const [note, setNote]             = useState("");
-  const [singleMethod, setSingleMethod] = useState<string | null>(null);
-  const [payMethodError, setPayMethodError] = useState(false);
-  // Unused in single-only mode, but required by PaymentMethodPicker's props.
-  const [splitEntries, setSplitEntries] = useState<PaymentSplitEntry[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError]           = useState<string | null>(null);
 
@@ -40,13 +33,15 @@ export default function EwalletTopupModal({ clientId, clientName, onClose, onSuc
 
   const handleTopup = async () => {
     if (amountNum <= 0) { setError("Enter an amount greater than 0."); return; }
-    if (!singleMethod) { setPayMethodError(true); return; }
     setSubmitting(true);
     setError(null);
     try {
+      // No payment-method step here — this just credits the wallet directly.
+      // The backend requires a value from {cash,card,upi}, so this is a fixed
+      // placeholder rather than something staff choose.
       const res = await api.post(EWALLET.TOPUP(clientId), {
         amount: amountNum,
-        payment_method: singleMethod.toLowerCase(),
+        payment_method: "cash",
         note: note.trim() || undefined,
       });
       const balance = res.data?.data?.balance ?? res.data?.balance;
@@ -81,25 +76,6 @@ export default function EwalletTopupModal({ clientId, clientName, onClose, onSuc
               onKeyDown={(e) => { if (e.key === "Enter") handleTopup(); }}
             />
           </div>
-
-          <PaymentMethodPicker
-            methods={TOPUP_METHODS}
-            paymentMode="single"
-            onSetPaymentMode={() => {}}
-            singleMethod={singleMethod}
-            onSetSingleMethod={(m) => { setSingleMethod(m); setPayMethodError(false); }}
-            splitEntries={splitEntries}
-            onSetSplitEntries={setSplitEntries}
-            payMethodError={payMethodError}
-            totalToCollect={amountNum}
-            partialAmtInput=""
-            onSetPartialAmt={() => {}}
-            printAfterPayment={false}
-            onTogglePrint={() => {}}
-            showSplitMode={false}
-            showDueRow={false}
-            showPrintOption={false}
-          />
 
           <label className="ewtm-label">Note (optional)</label>
           <input

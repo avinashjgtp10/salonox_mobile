@@ -661,6 +661,12 @@ export const AppointmentModal: React.FC<Props> = ({
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, exCharges, tip, includeGst,
     coupon.applied, coupon.discount,
+    // referral.applied: linking a client to a referrer (the "Apply" button on
+    // the referral-code field) is its own API call, separate from this bill's
+    // totals — without this dependency, the first-bill welcome discount
+    // preview stays stuck at its pre-link value (usually ₹0) until some
+    // unrelated field happens to change and coincidentally retriggers this effect.
+    referral.applied,
     useEWallet, eWalletAmt, applyMembership, membershipWalletAmt,
     useRewardPoints, rewardPointsToRedeem, useReferralCredit, referralCreditAmt,
     selectedClient?.id, existingBooking?.id, apiAppointmentId,
@@ -690,8 +696,14 @@ export const AppointmentModal: React.FC<Props> = ({
   const isPartialEntry  = !isNaN(parsedPartial) && parsedPartial >= 0 && parsedPartial < remainingDue;
   // The amount actually being collected THIS transaction — not the whole bill.
   // A partial entry of 0 (deferring everything to due) needs no payment method,
-  // even though the bill itself (effectiveTotal) is still > 0.
-  const amountThisTxn   = isPartialEntry ? parsedPartial : totals.effectiveTotal;
+  // even though the bill itself (effectiveTotal) is still > 0. Falls back to
+  // remainingDue (the outstanding balance), not totals.effectiveTotal (the
+  // FULL bill) — for a booking with no prior payment those are identical
+  // (remainingDue = effectiveTotal - 0), but for topping up an already-
+  // partial booking, using effectiveTotal here double-counted what was
+  // already paid in the live "Paid"/"Due" preview below (though the actual
+  // charge in usePayment.ts was never affected — it already used remainingDue).
+  const amountThisTxn   = isPartialEntry ? parsedPartial : remainingDue;
   // Live preview for the payment-step summary: as staff types a partial
   // amount, Paid/Due (and therefore the still-visible GST line above it)
   // should update immediately instead of only reflecting a prior, already-
@@ -1808,6 +1820,17 @@ export const AppointmentModal: React.FC<Props> = ({
                   {coupon.discount > 0 && (
                     <div className="qs-summary-row qs-summary-row--discount"><span>Coupon{coupon.applied ? ` (${coupon.applied})` : ""}</span><span>-{currencySymbol}{coupon.discount.toFixed(2)}</span></div>
                   )}
+                  {/* Per-tax-name breakdown — mirrors TotalsPanel.tsx's exact
+                      convention, so this summary and the post-"Continue to
+                      Payment" panel never disagree on how GST is shown.
+                      Only exclusive taxes add to what's owed; inclusive ones
+                      are already inside the item price, shown for transparency only. */}
+                  {totals.taxBreakdown.filter((t) => !t.inclusive && t.amount > 0).map((t) => (
+                    <div className="qs-summary-row" key={`${t.name}-excl`}><span>{t.name} ({t.rate}%)</span><span>+{currencySymbol}{t.amount.toFixed(2)}</span></div>
+                  ))}
+                  {totals.taxBreakdown.filter((t) => t.inclusive && t.amount > 0).map((t) => (
+                    <div className="qs-summary-row" key={`${t.name}-incl`}><span>{t.name} ({t.rate}%, incl.)</span><span>{currencySymbol}{t.amount.toFixed(2)}</span></div>
+                  ))}
                   <div className="qs-summary-row"><span>Extra Charges</span><span>+{currencySymbol}{exCharges.toFixed(2)}</span></div>
                   {Math.abs(totals.roundOff) >= 0.005 && (
                     <div className="qs-summary-row"><span>Round Off</span><span>{totals.roundOff >= 0 ? "+" : "-"}{currencySymbol}{Math.abs(totals.roundOff).toFixed(2)}</span></div>

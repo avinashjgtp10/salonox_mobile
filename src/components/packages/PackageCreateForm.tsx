@@ -37,6 +37,12 @@ interface Props {
    *  reusable Package Template was created rather than a client-specific package. */
   onTemplateSaved?: (tmpl: PackageTemplate) => void;
   templateToLoad?:  PackageTemplate | null;
+  /** Calendar's "+ Sell Package" entry point: no payment is collected here —
+   *  saving always creates a reusable template (never a paid client package),
+   *  with the picked client (if any) folded into the template name only as a
+   *  note for staff. Selling to a client for real still happens afterwards,
+   *  the normal way, via "+ Package" on the bill. */
+  quickCreateMode?: boolean;
 }
 
 // yyyy-mm-dd expiry date -> whole months from today, rounded by actual elapsed
@@ -80,6 +86,7 @@ function newServiceRow(): NewService {
 
 const PackageCreateForm: React.FC<Props> = ({
   selectedClient, onClientChange, onCancel, onSaved, onTemplateSaved, templateToLoad,
+  quickCreateMode = false,
 }) => {
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const { data: templates = [] } = useListPackageTemplatesQuery();
@@ -169,24 +176,33 @@ const PackageCreateForm: React.FC<Props> = ({
     if (!neverExpires && expiry < todayStr)    { setApiError("Expiry date cannot be in the past."); return; }
     const validServices = services.filter(s => s.name.trim());
     if (validServices.length === 0)            { setApiError("Add at least one service."); return; }
-    const methodMissing = paymentMode === "single"
+    const methodMissing = !quickCreateMode && (paymentMode === "single"
       ? !singleMethod
-      : splitEntries.length === 0 || splitEntries.some(e => !e.method || !parseFloat(e.amount));
+      : splitEntries.length === 0 || splitEntries.some(e => !e.method || !parseFloat(e.amount)));
     if (methodMissing)                         { setPayMethodError(true); return; }
 
     setApiError(null); setPayMethodError(false);
 
     try {
-      if (isGeneric) {
+      if (isGeneric || quickCreateMode) {
+        // Quick-create from Calendar never charges or touches a client's
+        // account — always saves a reusable template. If a client was picked
+        // (non-generic), fold their name in as a note for staff only; the
+        // actual sale later happens normally via "+ Package" on a bill.
+        const taggedName = !isGeneric && selectedClient
+          ? `${pkgName.trim()} (for ${clientFullName})`
+          : pkgName.trim();
         const tmpl = await createTemplate({
-          name:          pkgName.trim(),
+          name:          taggedName,
           neverExpires,
           expiryMonths:  neverExpires ? null : dateToMonths(expiry),
           expiryDays:    neverExpires ? null : dateToDays(expiry),
           basePrice:     pkgPrice,
           gstPercentage: gstPct,
           discount:      discountVal,
-          paymentMethod: paymentMode === "split" ? "split" : toBackendPaymentMethod(singleMethod!),
+          ...(quickCreateMode ? {} : {
+            paymentMethod: paymentMode === "split" ? "split" : toBackendPaymentMethod(singleMethod!),
+          }),
           services: validServices.map(s => ({
             serviceName:   s.name,
             totalSessions: s.sessions || 1,
@@ -698,6 +714,7 @@ const PackageCreateForm: React.FC<Props> = ({
       </div>
 
       {/* ── Payment method ───────────────────────────────────────────────────── */}
+      {!quickCreateMode && (
       <div className={styles.card} style={{ marginBottom: 12 }}>
         <div className={styles.cardBody}>
           <PaymentMethodPicker
@@ -719,6 +736,7 @@ const PackageCreateForm: React.FC<Props> = ({
           />
         </div>
       </div>
+      )}
 
       {/* Error */}
       {apiError && (
