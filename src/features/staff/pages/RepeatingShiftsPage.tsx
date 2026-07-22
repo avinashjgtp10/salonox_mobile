@@ -7,6 +7,7 @@ import {
   Plus,
   X,
 } from "react-bootstrap-icons";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import "../styles/RepeatingShiftsPage.scss";
 
 interface DaySchedule {
@@ -83,7 +84,7 @@ const RepeatingShiftsPage: React.FC = () => {
             <p>
               Set weekly, biweekly or custom shifts. Changes saved will apply to
               all upcoming shifts for the selected period.{" "}
-              <span className="learn-more">Learn more</span>
+              <LearnMoreLink topic="repeating-shifts" className="learn-more">Learn more</LearnMoreLink>
             </p>
           </div>
         </div>

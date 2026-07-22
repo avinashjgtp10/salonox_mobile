@@ -162,6 +162,7 @@ const ProfileSkeleton = () => (
 export default function ProfilePage() {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const handleBack = () => navigate(-1);
 
   // ── Redux state ───────────────────────────────────────────────────────────
   const profile       = useSelector((s: RootState) => s.user.profile);
@@ -383,6 +384,9 @@ export default function ProfilePage() {
     return (
       <div className="pp-page">
         <div className="pp-page-header">
+          <button className="pp-back-btn" onClick={handleBack}>
+            <ChevronLeft size={16} /><span>Back</span>
+          </button>
           <h1 className="pp-page-title">My Profile</h1>
           <p className="pp-page-sub">Loading your profile…</p>
         </div>
@@ -402,7 +406,7 @@ export default function ProfilePage() {
     return (
       <div className="pp-page">
         <div className="pp-page-header">
-          <button className="pp-back-btn" onClick={() => navigate(-1)}>
+          <button className="pp-back-btn" onClick={handleBack}>
             <ChevronLeft size={16} /><span>Back</span>
           </button>
           <h1 className="pp-page-title">My Profile</h1>
@@ -423,7 +427,7 @@ export default function ProfilePage() {
 
       {/* ── PAGE HEADER ── */}
       <div className="pp-page-header">
-        <button className="pp-back-btn" onClick={() => navigate(-1)}>
+        <button className="pp-back-btn" onClick={handleBack}>
           <ChevronLeft size={16} /><span>Back</span>
         </button>
         <h1 className="pp-page-title">My Profile</h1>

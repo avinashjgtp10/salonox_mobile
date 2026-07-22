@@ -1,6 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Check2, BoxSeam } from "react-bootstrap-icons";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import "../styles/ProductsLandingPage.scss";
 
 const ProductsLandingPage: React.FC = () => {
@@ -58,9 +59,9 @@ const ProductsLandingPage: React.FC = () => {
               >
                 Start now
               </button>
-              <button className="btn products-landing-page__learn-btn">
+              <LearnMoreLink topic="products-landing" className="btn products-landing-page__learn-btn">
                 Learn more
-              </button>
+              </LearnMoreLink>
             </div>
           </div>
 

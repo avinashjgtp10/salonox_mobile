@@ -4,6 +4,7 @@ import "../styles/StaffCommissionsSection.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 
 interface CommissionSetting {
   category: "services" | "products" | "memberships" | "gift_cards" | "cancellation";
@@ -107,7 +108,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
             )}
           </div>
           <div className="switch-desc">
-            Commission earned on services provided. <a href="#">Learn more</a>
+            Commission earned on services provided. <LearnMoreLink topic="staff-commissions">Learn more</LearnMoreLink>
           </div>
         </div>
         <div className="form-check form-switch custom-switch">
@@ -169,7 +170,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
           <h6 className="sub-header mt-4 pt-1">Calculations</h6>
           <p className="calc-desc">
             Customize deductions for this team member.{" "}
-            <a href="#">Learn more</a>
+            <LearnMoreLink topic="staff-commissions">Learn more</LearnMoreLink>
           </p>
 
           <div className="custom-radio" onClick={() => updateCategory("services", { use_default_calculation: true })}>
@@ -214,7 +215,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
             )}
           </div>
           <div className="switch-desc">
-            Commission earned on products sold. <a href="#">Learn more</a>
+            Commission earned on products sold. <LearnMoreLink topic="staff-commissions">Learn more</LearnMoreLink>
           </div>
         </div>
         <div className="form-check form-switch custom-switch">
@@ -242,7 +243,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
             )}
           </div>
           <div className="switch-desc">
-            Commission earned on memberships sold. <a href="#">Learn more</a>
+            Commission earned on memberships sold. <LearnMoreLink topic="staff-commissions">Learn more</LearnMoreLink>
           </div>
         </div>
         <div className="form-check form-switch custom-switch">
@@ -270,7 +271,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
             )}
           </div>
           <div className="switch-desc">
-            Commission earned on gift cards sold. <a href="#">Learn more</a>
+            Commission earned on gift cards sold. <LearnMoreLink topic="staff-commissions">Learn more</LearnMoreLink>
           </div>
         </div>
         <div className="form-check form-switch custom-switch">
@@ -321,7 +322,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
           <h6 className="sub-header mt-4 pt-1">Calculations</h6>
           <p className="calc-desc">
             Customize deductions for this team member.{" "}
-            <a href="#">Learn more</a>
+            <LearnMoreLink topic="staff-commissions">Learn more</LearnMoreLink>
           </p>
 
           <div
@@ -373,7 +374,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
           </div>
           <div className="switch-desc">
             Commission earned on fees for no-shows and late cancellations.{" "}
-            <a href="#">Learn more</a>
+            <LearnMoreLink topic="staff-commissions">Learn more</LearnMoreLink>
           </div>
         </div>
         <div className="form-check form-switch custom-switch">

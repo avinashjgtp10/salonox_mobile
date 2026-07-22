@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   LifePreserver,
   Clock,
@@ -13,10 +14,12 @@ import {
   ExclamationCircle,
   InboxFill,
   CheckCircleFill,
+  QuestionCircle,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { submitTicketThunk, fetchMyTicketsThunk } from "../../../middleware/support/support.thunk";
 import { clearSubmitSuccess } from "../../../store/supportSlice";
+import { HELP_TOPICS } from "../helpTopics";
 import "../styles/HelpPage.scss";
 
 const CATEGORIES = ["General", "Billing", "Technical", "Feature Request", "Account", "Other"];
@@ -48,6 +51,9 @@ export default function HelpPage() {
   const dispatch = useAppDispatch();
   const { myTickets, loading, submitSuccess, error } = useAppSelector((s) => s.support);
   const [tab, setTab] = useState<"submit" | "tickets">("submit");
+  const [searchParams] = useSearchParams();
+  const topicKey = searchParams.get("topic");
+  const topic = topicKey ? HELP_TOPICS[topicKey] : undefined;
 
   // Form state
   const [subject,  setSubject]  = useState("");
@@ -90,6 +96,26 @@ export default function HelpPage() {
           </p>
         </div>
       </div>
+
+      {/* Contextual guide for the screen the user came from, if a topic was passed */}
+      {topicKey && (
+        <div className={`hs-topic-card ${topic ? "" : "hs-topic-card--empty"}`}>
+          <div className="hs-topic-icon"><QuestionCircle size={16} /></div>
+          {topic ? (
+            <div>
+              <div className="hs-topic-title">{topic.title}</div>
+              <div className="hs-topic-desc">{topic.description}</div>
+            </div>
+          ) : (
+            <div>
+              <div className="hs-topic-title">No guide available yet</div>
+              <div className="hs-topic-desc">
+                We don't have a specific guide for this section yet. Submit a request below and our team will help you directly.
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="hs-tabs">

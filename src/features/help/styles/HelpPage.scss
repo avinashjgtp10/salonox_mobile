@@ -30,6 +30,26 @@ $radius:  14px;
 .hs-title    { margin: 0; font-size: 22px; font-weight: 800; color: $primary; letter-spacing: -0.3px; }
 .hs-subtitle { margin: 4px 0 0; color: $muted; font-size: 13px; line-height: 1.5; }
 
+// ── Contextual topic banner ─────────────────────────────────────────────────
+.hs-topic-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  background: #ede9fe;
+  border: 1px solid #ddd6fe;
+  border-radius: $radius;
+  padding: 16px 18px;
+  margin-bottom: 20px;
+
+  &--empty {
+    background: #f1f5f9;
+    border-color: $border;
+  }
+}
+.hs-topic-icon { color: $purple; flex-shrink: 0; margin-top: 2px; }
+.hs-topic-title { font-size: 14px; font-weight: 700; color: $primary; margin-bottom: 2px; }
+.hs-topic-desc { font-size: 13px; color: $muted; line-height: 1.5; }
+
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 .hs-tabs {
   display: inline-flex;

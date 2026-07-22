@@ -120,6 +120,11 @@ export interface Booking {
   // `status === "deleted"` but kept as its own flag since the backend still
   // tracks deleted_at as a separate audit timestamp alongside status.
   isDeleted?: boolean;
+  // True once a Paid booking has been content-edited back down to "partial"
+  // (see appointments.service.ts::update()) — keeps its services/items
+  // editable on reopen, unlike a genuinely-original partial/deposit booking,
+  // which stays locked to prevent changing what a deposit was collected for.
+  reopenedFromPaid?: boolean;
 
   paymentMode?: PaymentMode;
   membershipWalletUsed?: number; // ₹ amount of this bill previously covered by the client's membership wallet

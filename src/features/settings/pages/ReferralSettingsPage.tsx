@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Share2,
   Save,
@@ -61,6 +61,7 @@ export default function ReferralSettingsPage() {
   const { items: settingItems } = useAppSelector((s) => s.setting);
 
   const [config, setConfig] = useState<ReferralConfig>(DEFAULT_REFERRAL_CONFIG);
+  const [savedConfig, setSavedConfig] = useState<ReferralConfig>(DEFAULT_REFERRAL_CONFIG);
   const [inputs, setInputs] = useState<Record<FieldKey, string>>(toInputs(DEFAULT_REFERRAL_CONFIG));
   const [errors, setErrors] = useState<FormErrors>({});
   const [settingId, setSettingId] = useState<EntityId | null>(null);
@@ -86,13 +87,29 @@ export default function ReferralSettingsPage() {
     setSettingId(found.id);
     const parsed = parseReferralValue(found.value);
     setConfig(parsed);
+    setSavedConfig(parsed);
     setInputs(toInputs(parsed));
   }, [settingItems, settingId]);
+
+  const hasChanges = useMemo(
+    () => JSON.stringify(config) !== JSON.stringify(savedConfig),
+    [config, savedConfig]
+  );
+
+  const hasValidValues =
+    config.referrer_reward_amount >= 1 &&
+    config.referee_reward_amount >= 1 &&
+    config.min_bill_amount >= 0 &&
+    config.max_wallet_usage_pct >= 1 &&
+    config.max_wallet_usage_pct <= 100;
+
+  const saveDisabled = saving || !hasChanges || !hasValidValues || (!config.active && !savedConfig.active);
 
   function handleCancel() {
     const found = findReferralSetting(settingItems);
     const parsed = found ? parseReferralValue(found.value) : DEFAULT_REFERRAL_CONFIG;
     setConfig(parsed);
+    setSavedConfig(parsed);
     setInputs(toInputs(parsed));
     setErrors({});
   }
@@ -127,6 +144,11 @@ export default function ReferralSettingsPage() {
   }
 
   async function handleSave() {
+    if (!config.active && !savedConfig.active) {
+      showError("Activate Refer & Earn before saving referral settings");
+      return;
+    }
+    if (!hasChanges) return;
     if (!validate()) return;
     setSaving(true);
     const value = JSON.stringify(config);
@@ -146,7 +168,10 @@ export default function ReferralSettingsPage() {
     }
 
     setSaving(false);
-    if (ok) showSuccess("Referral settings saved");
+    if (ok) {
+      setSavedConfig(config);
+      showSuccess("Referral settings saved");
+    }
     else showError("Failed to save referral settings");
   }
 
@@ -360,10 +385,18 @@ export default function ReferralSettingsPage() {
 
       {/* ── Footer ── */}
       <div className="rf-footer">
+        {!config.active && !hasChanges && (
+          <p className="rf-footer__message">Activate Refer &amp; Earn to save referral settings.</p>
+        )}
         <button className="rf-btn" onClick={handleCancel} disabled={saving}>
           <X size={14} /> Cancel
         </button>
-        <button className="rf-btn rf-btn--primary" onClick={handleSave} disabled={saving}>
+        <button
+          className="rf-btn rf-btn--primary"
+          onClick={handleSave}
+          disabled={saveDisabled}
+          title={!config.active && !hasChanges ? "Activate Refer & Earn to save referral settings" : undefined}
+        >
           <Save size={14} /> {saving ? "Saving…" : "Save Changes"}
         </button>
       </div>
