@@ -645,7 +645,6 @@ const ProductsListPage: React.FC = () => {
           categories={categories}
           loading={loading.update}
           onClose={() => setDrawerProduct(null)}
-          onDelete={(id) => openDeleteModal([id])}
         />
       )}
 
