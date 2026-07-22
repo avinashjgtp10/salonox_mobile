@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { PlusCircle, Trash3, ChevronDown, ChevronUp, GripVertical } from "react-bootstrap-icons";
 import type { ServiceAddOnsData, AddOnGroup, AddOnOption } from "../../types/catalog.types.ts";
+import LearnMoreLink from "../../../../components/shared/LearnMoreLink";
 
 interface Props {
   data: ServiceAddOnsData;
@@ -81,9 +82,9 @@ const ServiceAddOnsTab: React.FC<Props> = ({ data, onChange }) => {
           <h6>Service add-ons</h6>
           <p>
             Allow clients to add customisations and extras to their booking.{" "}
-            <a href="#" className="sao-link" onClick={(e) => e.preventDefault()}>
+            <LearnMoreLink topic="service-addons" className="sao-link">
               Learn more
-            </a>
+            </LearnMoreLink>
           </p>
           <button className="sao-btn-outline" onClick={addGroup}>
             Add group

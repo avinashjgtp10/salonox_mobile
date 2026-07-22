@@ -19,6 +19,7 @@ import PayRunDeleteModal from "../components/payruns/PayRunDeleteModal";
 import PayRunSettingsModal from "../components/payruns/PayRunSettingsModal";
 import Button from "../../../components/ui/Button";
 import { ChevronLeft, ChevronRight, Gear } from "react-bootstrap-icons";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 
 import "../styles/PayRunsPage.scss";
 
@@ -142,7 +143,7 @@ const PayRunsPage: React.FC = () => {
           <h1 className="title">Pay runs</h1>
           <p className="subtitle">
             Calculate and settle the amount owed to your team for tips,
-            commissions, and wages. <a href="#">Learn more</a>
+            commissions, and wages. <LearnMoreLink topic="payruns">Learn more</LearnMoreLink>
           </p>
         </div>
         <div className="d-flex align-items-center gap-3">

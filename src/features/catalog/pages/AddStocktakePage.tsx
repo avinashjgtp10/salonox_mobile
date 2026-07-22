@@ -17,6 +17,7 @@ import { fetchBranchesThunk, createBranchThunk } from "../../../middleware/salon
 import { fetchCatalogThunk } from "../../../middleware/catalog/catalog.thunk";
 import { createStocktakeThunk, processStockTakeThunk } from "../../../middleware/inventory/inventory.thunk";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import "../styles/AddStocktakePage.scss";
 
 // Removing MOCK_PRODUCTS as we'll use state
@@ -328,7 +329,7 @@ const AddStocktakePage: React.FC = () => {
             <div className="step-card animated-in">
               <header>
                 <h1>{id ? "Edit stocktake info" : "Add stocktake info"}</h1>
-                <p>Start a full inventory count to keep accurate stock levels. <a href="#">Learn more</a></p>
+                <p>Start a full inventory count to keep accurate stock levels. <LearnMoreLink topic="add-stocktake">Learn more</LearnMoreLink></p>
               </header>
 
               <div className={`location-card ${step1Errors.location ? "location-card--error" : ""}`}>

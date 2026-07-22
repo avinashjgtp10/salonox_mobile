@@ -1,5 +1,6 @@
 import React from "react";
 import { Check2, Plus, Dash, BoxSeam } from "react-bootstrap-icons";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import "../styles/StocktakesLandingPage.scss";
 
 const StocktakesLandingPage: React.FC = () => {
@@ -39,9 +40,9 @@ const StocktakesLandingPage: React.FC = () => {
               <button className="btn stocktakes-landing-page__cta-btn">
                 Start now
               </button>
-              <button className="btn stocktakes-landing-page__learn-btn">
+              <LearnMoreLink topic="stocktakes-landing" className="btn stocktakes-landing-page__learn-btn">
                 Learn more
-              </button>
+              </LearnMoreLink>
             </div>
           </div>
 

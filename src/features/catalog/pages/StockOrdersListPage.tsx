@@ -9,6 +9,7 @@ import {
   BoxSeam,
 } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import "../styles/StockOrdersListPage.scss";
 
 interface StockOrder {
@@ -116,7 +117,7 @@ const StockOrdersListPage: React.FC = () => {
               </span>
             </h1>
             <p className="subtext mb-0">
-              Add and manage your stock orders. <a href="#">Learn more</a>
+              Add and manage your stock orders. <LearnMoreLink topic="stock-orders">Learn more</LearnMoreLink>
             </p>
           </div>
 

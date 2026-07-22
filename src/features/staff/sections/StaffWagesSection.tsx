@@ -4,6 +4,7 @@ import "../styles/StaffWagesSection.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 
 interface WageSettings {
   wages_enabled: boolean;
@@ -100,7 +101,7 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
             )}
           </div>
           <div className="switch-desc">
-            Set up how much this team member earns. <a href="#">Learn more</a>
+            Set up how much this team member earns. <LearnMoreLink topic="staff-wages">Learn more</LearnMoreLink>
           </div>
         </div>
         <div className="form-check form-switch custom-switch">
@@ -162,7 +163,7 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
         <h5 className="section__block-title">Timesheet settings</h5>
         <p className="section__block-subtitle">
           Configure timesheet settings for this team member.{" "}
-          <a href="#">Learn more</a>
+          <LearnMoreLink topic="staff-wages">Learn more</LearnMoreLink>
         </p>
 
         <h6 className="sub-header">Proximity controls</h6>

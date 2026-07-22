@@ -44,6 +44,7 @@ import {
 import EmptyState from "../components/shared/EmptyState.tsx";
 import ErrorState from "../components/shared/ErrorState.tsx";
 import Pagination from "../components/shared/Pagination.tsx";
+import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import "../styles/ServicesListPage.scss";
 
 // Maps UI filter strings → API boolean params
@@ -319,7 +320,7 @@ const ServicesListPage: React.FC = () => {
           <h1 className="slp__title">Service menu</h1>
           <p className="slp__subtitle">
             View and manage the services offered by your business.{" "}
-            <a href="#" className="slp__learn">Learn more</a>
+            <LearnMoreLink topic="service-menu" className="slp__learn">Learn more</LearnMoreLink>
           </p>
         </div>
 
