@@ -1319,6 +1319,7 @@ $success:    #22c55e;
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
   gap: 8px;
+  padding: 12px 14px;
 }
 
 .benefit-card {
@@ -1410,6 +1411,14 @@ $success:    #22c55e;
   &--ewallet    { --accent: #059669; --accent-bg: #d1fae5; }
   &--reward     { --accent: #d97706; --accent-bg: #fef3c7; }
   &--referral   { --accent: #db2777; --accent-bg: #fce7f3; }
+
+  // Reserves this slot's space in the grid when a client doesn't have this
+  // particular benefit, so the others stay put instead of sliding over.
+  &--placeholder {
+    visibility: hidden;
+    pointer-events: none;
+    border-color: transparent;
+  }
 }
 
 // Clear due banner

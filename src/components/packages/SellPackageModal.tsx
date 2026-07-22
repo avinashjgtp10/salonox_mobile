@@ -42,6 +42,7 @@ export default function SellPackageModal({ initialClient, onClose, onSaved }: Se
             selectedClient={selectedClient}
             onClientChange={setSelectedClient}
             onCancel={onClose}
+            quickCreateMode
             onSaved={(pkg) => { onSaved?.(pkg); onClose(); }}
             // A generic package saves a reusable TEMPLATE (no client purchase,
             // so nothing changes in the client's history — that's expected).

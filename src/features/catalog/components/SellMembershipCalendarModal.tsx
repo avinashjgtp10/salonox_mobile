@@ -37,6 +37,7 @@ export default function SellMembershipCalendarModal({
             selectedClient={selectedClient}
             onClientChange={setSelectedClient}
             onCancel={onClose}
+            quickCreateMode
             onSaved={(result) => { onSaved?.(result); onClose(); }}
           />
         </div>

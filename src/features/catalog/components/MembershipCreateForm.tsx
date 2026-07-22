@@ -40,10 +40,17 @@ interface Props {
   onClientChange: (client: ClientSearchResult | null) => void;
   onCancel: () => void;
   onSaved: (result: { membershipId: string; name: string }) => void;
+  /** Calendar's "+ Sell Membership" entry point: no payment is collected here
+   *  and the client's wallet is never credited — saving only creates the
+   *  membership plan itself (with the picked client kept as a note on it for
+   *  staff). Selling it to a client for real still happens afterwards, the
+   *  normal way, via "+ Membership" on the bill. */
+  quickCreateMode?: boolean;
 }
 
 const MembershipCreateForm: React.FC<Props> = ({
   editId, selectedClient, onClientChange, onCancel, onSaved,
+  quickCreateMode = false,
 }) => {
   const dispatch = useDispatch<AppDispatch>();
 
@@ -117,7 +124,8 @@ const MembershipCreateForm: React.FC<Props> = ({
 
     // Immediate-purchase flow (create + pre-selected client) needs a payment
     // method before we can record the sale — same requirement as SellMembershipModal.
-    const isImmediatePurchase = !editId && !!selectedClient;
+    // Calendar's quick-create mode never purchases/charges here at all.
+    const isImmediatePurchase = !editId && !!selectedClient && !quickCreateMode;
     if (isImmediatePurchase) {
       if (paymentMode === "single" && !singleMethod) {
         setPayMethodError(true);
@@ -162,7 +170,7 @@ const MembershipCreateForm: React.FC<Props> = ({
       const savedMembership = (result as any).payload;
       const membershipId = savedMembership?.id || editId;
 
-      if (membershipId && selectedClient) {
+      if (membershipId && selectedClient && !quickCreateMode) {
         // 1. Save to localStorage so the drawer can display the client immediately
         localStorage.setItem(`mem_client_${membershipId}`, JSON.stringify({
           id:    String(selectedClient.id),
@@ -402,7 +410,7 @@ const MembershipCreateForm: React.FC<Props> = ({
             </div>
 
             {/* Payment method (immediate-purchase flow only) */}
-            {!editId && selectedClient && (
+            {!editId && selectedClient && !quickCreateMode && (
               <div className="cmp__card">
                 <div className="cmp__card-head">
                   <h3 className="cmp__card-title">Payment Method</h3>
