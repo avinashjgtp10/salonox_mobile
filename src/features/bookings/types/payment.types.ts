@@ -25,6 +25,10 @@ export interface PaymentPayload {
   status: "completed" | "partial";
   notes?: string;
   apply_membership_wallet?: boolean;
+  // Staff-chosen cap on how much of the membership wallet to actually use —
+  // the backend still clamps further by real balance/eligible items; this
+  // only limits the request, never trusted as the final deducted amount.
+  membership_wallet_requested?: number;
   // Own dedicated, spendable balances now — not folded into eWallet.
   reward_points_used?: number; // points count
   referral_credit_used?: number; // ₹
