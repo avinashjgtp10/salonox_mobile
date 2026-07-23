@@ -84,6 +84,9 @@ interface Props {
   // staff) split the real remaining sessions instead of each independently
   // seeing the full pool and both claiming to be covered.
   packageRemainingByRow?: Map<string, number>;
+  // Per-service-row GST (keyed by row tempId) from the live pricing preview —
+  // the real per-item tax each row will carry once the sale is saved.
+  serviceTaxByRow?: Map<string, number>;
   membershipWalletInfo?: Map<string, { walletUsed: number; payable: number }>;
 
   svcErrors?: Array<{ service?: boolean; staff?: boolean; time?: boolean }>;
@@ -1086,7 +1089,7 @@ export const ServicesPanel: React.FC<Props> = ({
   membershipRows, onUpdateMembership, onRemoveMembership, onAddMembership,
   onSellPackage, onSellMembership, onTopupEwallet,
   availablePackages, availableProducts, availableMemberships,
-  frozen, packageRemainingByRow, membershipWalletInfo,
+  frozen, packageRemainingByRow, membershipWalletInfo, serviceTaxByRow,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
   onClearPkgError, onClearProdError, onClearMemError,
 }) => {
@@ -1134,6 +1137,7 @@ export const ServicesPanel: React.FC<Props> = ({
         onRemove={() => onRemoveService(i)}
         packageSessionsRemaining={packageRemainingByRow?.get((row as any).tempId || String(i)) ?? 0}
         membershipWalletInfo={membershipWalletInfo?.get((row as any).tempId || String(i))}
+        taxAmount={serviceTaxByRow?.get((row as any).tempId || String(i))}
       />
     ))}
 

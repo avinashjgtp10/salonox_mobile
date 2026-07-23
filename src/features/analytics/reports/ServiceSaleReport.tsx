@@ -19,6 +19,7 @@ interface ServiceSaleRow {
   staff: string;
   serviceName: string;
   price: number;
+  taxAmount: number;
 }
 
 // Maps a row from the independent Service Sale API
@@ -33,6 +34,7 @@ function mapRow(row: any): ServiceSaleRow {
     staff: row.staff_name || "—",
     serviceName: row.service_name || "Service",
     price: Number(row.price) || 0,
+    taxAmount: Number(row.tax_amount) || 0,
   };
 }
 
@@ -97,8 +99,9 @@ export default function ServiceSaleReport({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch]);
 
-  const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Service Name", "Price (₹)"];
-  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.serviceName, r.price]);
+  const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Service Name", "Price (₹)", "GST (₹)", "Total (₹)"];
+  // Total column is gross = line base + its own GST.
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.serviceName, r.price, r.taxAmount, r.price + r.taxAmount]);
 
   return (
     <div className="rp-detail-view">
@@ -154,13 +157,13 @@ export default function ServiceSaleReport({ onBack }: { onBack: () => void }) {
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
-            <tr><th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Service Name</th><th>Price (₹)</th></tr>
+            <tr><th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Service Name</th><th>Price (₹)</th><th>GST (₹)</th><th>Total (₹)</th></tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={6} />
+              <SkeletonTableRows columns={8} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={6} className="rp-detail-empty-cell">No service sales found</td></tr>
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No service sales found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -173,6 +176,8 @@ export default function ServiceSaleReport({ onBack }: { onBack: () => void }) {
                 <td>{r.staff}</td>
                 <td className="fw-semibold">{r.serviceName}</td>
                 <td>₹{r.price.toLocaleString()}</td>
+                <td>₹{r.taxAmount.toLocaleString()}</td>
+                <td className="fw-semibold">₹{(r.price + r.taxAmount).toLocaleString()}</td>
               </tr>
             ))}
           </tbody>
