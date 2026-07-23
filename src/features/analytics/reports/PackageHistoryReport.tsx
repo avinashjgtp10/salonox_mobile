@@ -1,6 +1,7 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, Search } from "react-bootstrap-icons";
-import { useListClientPackagesQuery } from "../../../services/api/endpoints/packages.endpoints";
+import api from "../../../services/api/axios";
+import { PACKAGE_HISTORY_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
@@ -21,62 +22,84 @@ interface HistoryRow {
   status: string;
 }
 
+// Maps a row from the independent Package History API
+// (POST /api/report/package-history — reads client_package_session_history
+// directly, never the Appointment API) to the table's existing row shape.
+function mapRow(row: any): HistoryRow {
+  return {
+    date: row.date || "—",
+    client: row.client_name || "—",
+    clientId: row.client_id ? String(row.client_id) : "",
+    packageName: row.package_name || "—",
+    serviceName: row.service_name || "—",
+    sessionNo: Number(row.session_no) || 0,
+    staff: row.staff || "—",
+    status: row.status || "—",
+  };
+}
+
 export default function PackageHistoryReport({ onBack }: { onBack: () => void }) {
   const today   = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom, setDateFrom] = useState(monthStart);
   const [dateTo,   setDateTo]   = useState(today);
-  const [search,   setSearch]   = useState("");
+  const [search,   setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [rows,     setRows]     = useState<HistoryRow[]>([]);
+  const [total,    setTotal]    = useState(0);
+  const [stats,    setStats]    = useState({ totalSessions: 0, completedSessions: 0, uniqueClients: 0, uniquePackages: 0 });
+  const [loading,  setLoading]  = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const { data, isFetching, refetch } = useListClientPackagesQuery({ page: 1, limit: 500 });
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  const allRows = useMemo(() => {
-    const items = data?.items ?? [];
-    const rows: HistoryRow[] = [];
-    items.forEach(pkg => {
-      pkg.services.forEach(svc => {
-        (svc.sessionHistory ?? []).forEach(sh => {
-          // The backend formats this as a locale display string (e.g. "11 Jul 2026"),
-          // not ISO — re-parse it so it can be compared against the ISO date-range filters below.
-          const parsed = sh.date ? new Date(sh.date) : null;
-          const isoDate = parsed && !isNaN(parsed.getTime()) ? parsed.toISOString().slice(0, 10) : "";
-          rows.push({
-            date: isoDate,
-            client: pkg.clientName,
-            clientId: pkg.clientId ? String(pkg.clientId) : "",
-            packageName: pkg.packageName,
-            serviceName: svc.serviceName,
-            sessionNo: sh.sessionNo,
-            staff: sh.staff,
-            status: sh.status,
-          });
-        });
+  // Real server-side pagination — page/limit are sent on every request, and
+  // only that page's rows come back, along with stats computed by the
+  // backend over the WHOLE filtered set (not just the current page).
+  const fetchData = useCallback(async () => {
+    abortRef.current?.abort();
+    const ctrl = new AbortController();
+    abortRef.current = ctrl;
+    setLoading(true);
+    try {
+      const body: Record<string, any> = {
+        start_date: dateFrom, end_date: dateTo,
+        page: currentPage, limit: pageSize,
+      };
+      if (debouncedSearch) body.search = debouncedSearch;
+      const res = await api.post(PACKAGE_HISTORY_REPORT.SUMMARY(), body, { signal: ctrl.signal });
+      const data = res.data?.data;
+      const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
+      setRows(raw.map(mapRow));
+      setTotal(Number(data?.pagination?.total) || 0);
+      const s = data?.stats ?? {};
+      setStats({
+        totalSessions: Number(s.total_sessions) || 0,
+        completedSessions: Number(s.completed_sessions) || 0,
+        uniqueClients: Number(s.unique_clients) || 0,
+        uniquePackages: Number(s.unique_packages) || 0,
       });
-    });
-    return rows.sort((a, b) => (a.date < b.date ? 1 : -1));
-  }, [data]);
-
-  const rows = useMemo(() => {
-    let r = allRows.filter(h => (!dateFrom || h.date >= dateFrom) && (!dateTo || h.date <= dateTo));
-    if (search.trim()) {
-      const q = search.toLowerCase();
-      r = r.filter(h => h.client.toLowerCase().includes(q) || h.packageName.toLowerCase().includes(q) || h.serviceName.toLowerCase().includes(q));
+    } catch (e: any) {
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
+        setRows([]); setTotal(0);
+        setStats({ totalSessions: 0, completedSessions: 0, uniqueClients: 0, uniquePackages: 0 });
+      }
+    } finally {
+      if (!ctrl.signal.aborted) setLoading(false);
     }
-    return r;
-  }, [allRows, dateFrom, dateTo, search]);
+  }, [dateFrom, dateTo, debouncedSearch, currentPage, pageSize]);
 
-  const completedCount = rows.filter(r => r.status === "completed").length;
-  const uniqueClients = new Set(rows.map(r => r.client)).size;
-  const uniquePackages = new Set(rows.map(r => r.packageName)).size;
+  useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch]);
 
   const HEADERS = ["Date", "Client", "Package", "Service", "Session No", "Staff", "Status"];
   const exportRows = () => rows.map(r => [r.date, r.client, r.packageName, r.serviceName, r.sessionNo, r.staff, r.status]);
-  const totalPages = Math.max(1, Math.ceil(rows.length / pageSize));
-  const safePage = Math.min(currentPage, totalPages);
-  const paged = rows.slice((safePage - 1) * pageSize, safePage * pageSize);
 
   return (
     <div className="rp-detail-view">
@@ -95,24 +118,24 @@ export default function PackageHistoryReport({ onBack }: { onBack: () => void })
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Date</label>
           <div className="rp-detail-date-range">
-            <input type="date" value={dateFrom} onChange={e => { setDateFrom(e.target.value); setCurrentPage(1); }} className="rp-detail-date-input" />
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
             <span className="rp-detail-date-sep">-</span>
-            <input type="date" value={dateTo}   onChange={e => { setDateTo(e.target.value); setCurrentPage(1); }}   className="rp-detail-date-input" />
+            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
           </div>
         </div>
         <div className="rp-detail-filter-actions">
-          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={() => refetch()} loading={isFetching}>
+          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
             Run Report
           </Button>
         </div>
       </div>
 
-      {isFetching ? <SkeletonStatCards count={4} /> : (
+      {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Total Sessions</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{completedCount}</div><div className="rp-sra-summary-label">Completed Sessions</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{uniqueClients}</div><div className="rp-sra-summary-label">Unique Clients</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{uniquePackages}</div><div className="rp-sra-summary-label">Unique Packages</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalSessions}</div><div className="rp-sra-summary-label">Total Sessions</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.completedSessions}</div><div className="rp-sra-summary-label">Completed Sessions</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.uniqueClients}</div><div className="rp-sra-summary-label">Unique Clients</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.uniquePackages}</div><div className="rp-sra-summary-label">Unique Packages</div></div>
         </div>
       )}
 
@@ -125,7 +148,7 @@ export default function PackageHistoryReport({ onBack }: { onBack: () => void })
         </div>
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
-          <input type="text" className="rp-detail-search-input" placeholder="Client, package or service" value={search} onChange={e => { setSearch(e.target.value); setCurrentPage(1); }} />
+          <input type="text" className="rp-detail-search-input" placeholder="Client, package or service" value={search} onChange={e => setSearchInput(e.target.value)} />
         </div>
       </div>
 
@@ -135,11 +158,11 @@ export default function PackageHistoryReport({ onBack }: { onBack: () => void })
             <tr><th>Date</th><th>Client</th><th>Package</th><th>Service</th><th>Session No</th><th>Staff</th><th>Status</th></tr>
           </thead>
           <tbody>
-            {isFetching ? (
+            {loading ? (
               <SkeletonTableRows columns={7} />
-            ) : paged.length === 0 ? (
+            ) : rows.length === 0 ? (
               <tr><td colSpan={7} className="rp-detail-empty-cell">No package session history found</td></tr>
-            ) : paged.map((r, i) => (
+            ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.clientId ? "rp-appt-row" : undefined}
@@ -158,7 +181,7 @@ export default function PackageHistoryReport({ onBack }: { onBack: () => void })
         </table>
       </div>
 
-      <Pagination currentPage={safePage} pageSize={pageSize} totalItems={rows.length}
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
 
       {selectedClientId && (

@@ -1,12 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { BOOKING, PRODUCTS } from "../../../services/api/endpoints";
+import { PRODUCT_MARGIN_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import { normalizePaymentStatus } from "../../bookings/utils/bookingMapper";
 import "./ProductMarginReport.scss";
 
 const REPORT_NAME = "Product Margin";
@@ -20,86 +19,73 @@ interface MarginRow {
   marginPct: number;
 }
 
+// Maps a row from the independent Product Margin API
+// (POST /api/report/product-margin — reads sale_items/products directly,
+// never the Appointment API) to the table's existing MarginRow shape.
+function mapRow(row: any): MarginRow {
+  return {
+    productName: row.product_name || "Product",
+    quantity: Number(row.quantity) || 0,
+    revenue: Number(row.revenue) || 0,
+    cost: Number(row.cost) || 0,
+    profit: Number(row.profit) || 0,
+    marginPct: Number(row.margin_pct) || 0,
+  };
+}
+
 export default function ProductMarginReport({ onBack }: { onBack: () => void }) {
   const today   = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
   const [dateTo,      setDateTo]      = useState(today);
   const [rows,        setRows]        = useState<MarginRow[]>([]);
+  const [total,       setTotal]       = useState(0);
+  const [stats,       setStats]       = useState({ totalRevenue: 0, totalCost: 0, totalProfit: 0, avgMargin: 0 });
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Real server-side pagination — page/limit are sent on every request, and
+  // only that page's rows come back, along with stats computed by the
+  // backend over the WHOLE filtered set (not just the current page).
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const [apptRes, prodRes] = await Promise.all([
-        api.get(BOOKING.BASE, { params: { start_date: dateFrom, end_date: dateTo, limit: "200" }, signal: ctrl.signal }),
-        api.get(PRODUCTS.LIST, { signal: ctrl.signal }),
-      ]);
-      const products: any[] = prodRes.data?.data?.data ?? prodRes.data?.data ?? [];
-      const costMap = new Map<string, number>();
-      products.forEach((p: any) => {
-        const cost = parseFloat(p.supply_price) || 0;
-        if (p.id != null) costMap.set(String(p.id), cost);
-        if (p.name)        costMap.set(String(p.name).toLowerCase(), cost);
+      const body: Record<string, any> = {
+        start_date: dateFrom, end_date: dateTo,
+        page: currentPage, limit: pageSize,
+      };
+      const res = await api.post(PRODUCT_MARGIN_REPORT.SUMMARY(), body, { signal: ctrl.signal });
+      const data = res.data?.data;
+      const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
+      setRows(raw.map(mapRow));
+      setTotal(Number(data?.pagination?.total) || 0);
+      const s = data?.stats ?? {};
+      setStats({
+        totalRevenue: Number(s.total_revenue) || 0,
+        totalCost: Number(s.total_cost) || 0,
+        totalProfit: Number(s.total_profit) || 0,
+        avgMargin: Number(s.avg_margin_pct) || 0,
       });
-
-      const raw = apptRes.data?.data;
-      const appts: any[] =
-        Array.isArray(raw?.items) ? raw.items :
-        Array.isArray(raw?.data)  ? raw.data  :
-        Array.isArray(raw)        ? raw        : [];
-      const agg = new Map<string, { quantity: number; revenue: number; cost: number }>();
-      appts.forEach((appt: any) => {
-        if (normalizePaymentStatus(appt.status) === "Unpaid") return;
-        (Array.isArray(appt.product_items) ? appt.product_items : []).forEach((it: any) => {
-          const name = String(it.name ?? "Product");
-          const qty = Number(it.quantity ?? 1) || 1;
-          const price = Number(it.price) || 0;
-          const unitCost = costMap.get(String(it.product_id ?? "")) ?? costMap.get(name.toLowerCase()) ?? 0;
-          const e = agg.get(name) ?? { quantity: 0, revenue: 0, cost: 0 };
-          e.quantity += qty;
-          e.revenue  += price * qty;
-          e.cost     += unitCost * qty;
-          agg.set(name, e);
-        });
-      });
-
-      const result: MarginRow[] = [...agg.entries()].map(([productName, v]) => {
-        const profit = v.revenue - v.cost;
-        return {
-          productName,
-          quantity: v.quantity,
-          revenue: Math.round(v.revenue),
-          cost: Math.round(v.cost),
-          profit: Math.round(profit),
-          marginPct: v.revenue > 0 ? Math.round((profit / v.revenue) * 1000) / 10 : 0,
-        };
-      }).sort((a, b) => b.profit - a.profit);
-      setRows(result);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
+        setRows([]); setTotal(0);
+        setStats({ totalRevenue: 0, totalCost: 0, totalProfit: 0, avgMargin: 0 });
+      }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [rows]);
-
-  const totalRevenue = rows.reduce((s, r) => s + r.revenue, 0);
-  const totalCost = rows.reduce((s, r) => s + r.cost, 0);
-  const totalProfit = rows.reduce((s, r) => s + r.profit, 0);
-  const avgMargin = totalRevenue > 0 ? Math.round((totalProfit / totalRevenue) * 1000) / 10 : 0;
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo]);
 
   const HEADERS = ["Product Name", "Quantity Sold", "Revenue (₹)", "Cost (₹)", "Profit (₹)", "Margin (%)"];
   const exportRows = () => rows.map(r => [r.productName, r.quantity, r.revenue, r.cost, r.profit, r.marginPct]);
-  const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="rp-detail-view">
@@ -132,10 +118,10 @@ export default function ProductMarginReport({ onBack }: { onBack: () => void }) 
 
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalRevenue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalCost.toLocaleString()}</div><div className="rp-sra-summary-label">Total Cost</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val rp-pm-profit">₹{totalProfit.toLocaleString()}</div><div className="rp-sra-summary-label">Total Profit</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{avgMargin}%</div><div className="rp-sra-summary-label">Avg Margin</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalRevenue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalCost.toLocaleString()}</div><div className="rp-sra-summary-label">Total Cost</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val rp-pm-profit">₹{stats.totalProfit.toLocaleString()}</div><div className="rp-sra-summary-label">Total Profit</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.avgMargin}%</div><div className="rp-sra-summary-label">Avg Margin</div></div>
         </div>
       )}
 
@@ -147,9 +133,9 @@ export default function ProductMarginReport({ onBack }: { onBack: () => void }) 
           <tbody>
             {loading ? (
               <SkeletonTableRows columns={6} />
-            ) : paged.length === 0 ? (
+            ) : rows.length === 0 ? (
               <tr><td colSpan={6} className="rp-detail-empty-cell">No product margin data found</td></tr>
-            ) : paged.map((r, i) => (
+            ) : rows.map((r, i) => (
               <tr key={i}>
                 <td className="fw-semibold">{r.productName}</td>
                 <td>{r.quantity}</td>
@@ -163,7 +149,7 @@ export default function ProductMarginReport({ onBack }: { onBack: () => void }) 
         </table>
       </div>
 
-      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
     </div>
   );

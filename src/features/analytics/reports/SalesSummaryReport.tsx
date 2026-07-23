@@ -1,22 +1,22 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { ChevronLeft, Search } from "react-bootstrap-icons";
+import { ChevronLeft, Search, X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { BOOKING } from "../../../services/api/endpoints";
+import { SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
+import { Pagination, Loader } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
-import { normalizePaymentStatus } from "../../bookings/utils/bookingMapper";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
 
 interface SaleRow {
   id: string;
+  appointmentId: string | null;
   invoiceNo: string;
   name: string;
   contact: string;
@@ -37,88 +37,166 @@ interface SaleRow {
   referralCreditUsed: number;
 }
 
-function mapAppointment(appt: any): SaleRow {
-  const items: { name: string; _t: string }[] = [
-    ...(Array.isArray(appt.services)          ? appt.services.map((i: any)          => ({ name: i.name, _t: "service" }))    : []),
-    ...(Array.isArray(appt.package_items)      ? appt.package_items.map((i: any)     => ({ name: i.name, _t: "package" }))    : []),
-    ...(Array.isArray(appt.product_items)      ? appt.product_items.map((i: any)     => ({ name: i.name, _t: "product" }))    : []),
-    ...(Array.isArray(appt.membership_items)   ? appt.membership_items.map((i: any)  => ({ name: i.name, _t: "membership" })) : []),
-  ];
-  const itemDescription = items.map(i => i.name ?? "Item").join(", ") || "—";
-  const itemTypes = [...new Set(items.map(i => i._t))].join(", ") || "—";
+// Maps a row from the independent Sales Summary API
+// (POST /api/report/sales-summary — reads sales/sale_items/payments directly,
+// never the Appointment API) to the table's existing SaleRow shape.
+function mapAppointment(row: any): SaleRow {
+  const paid = Number(row.paid_amount) || 0;
+  const ewalletUsed          = Number(row.ewallet_used) || 0;
+  const membershipWalletUsed = Number(row.membership_wallet_used) || 0;
+  const rewardPointsValue    = Number(row.reward_points_value) || 0;
+  const referralCreditUsed   = Number(row.referral_credit_used) || 0;
 
-  const itemsTotal = [
-    ...(Array.isArray(appt.services) ? appt.services : []),
-    ...(Array.isArray(appt.package_items) ? appt.package_items : []),
-    ...(Array.isArray(appt.product_items) ? appt.product_items : []),
-    ...(Array.isArray(appt.membership_items) ? appt.membership_items : []),
-  ].reduce((s: number, it: any) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
-  const discount = appt.discount_type === "percentage"
-    ? itemsTotal * ((Number(appt.discount_value) || 0) / 100)
-    : (Number(appt.discount_value) || 0);
-  const taxableAmount = Math.max(itemsTotal - discount, 0);
-  const taxAmount = Array.isArray(appt.tax_breakdown) && appt.tax_breakdown.length
-    ? appt.tax_breakdown.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0)
-    : taxableAmount * ((Number(appt.gst_percent) || 0) / 100);
-  const tip = Number(appt.tip_amount) || 0;
-  const price = Math.round(taxableAmount + taxAmount + tip);
-  const paid = Number(appt.paid_amount) || 0;
-  // All four wallet-style legs are summed server-side across this
-  // appointment's payments (appointments.repository.ts) — the report shows
-  // each one explicitly so a bill paid partly via a client balance doesn't
-  // look like it was paid entirely via the "primary" payment_method.
-  const ewalletUsed          = Number(appt.ewallet_used) || 0;
-  const membershipWalletUsed = Number(appt.membership_wallet_used) || 0;
-  const rewardPointsValue    = Number(appt.reward_points_value) || 0;
-  const referralCreditUsed   = Number(appt.referral_credit_used) || 0;
-
-  const status = appt.status ?? "booked";
-
-  // Same rule the calendar uses (bookingMapper.ts) — a bill only carries a real
-  // "due" balance once status is actually "partial"; booked/paid/cancelled/etc.
-  // never show a stale/phantom balance just from price vs. paid drifting.
-  const dueAmount = status === "partial" ? Math.max(price - paid, 0) : 0;
-
-  // Description column shows ONLY the payment source(s) that actually
-  // contributed — short tag(s), same order as the "Available Benefits"
-  // picker (Package, Membership, eWallet, Reward Points). Item names already
-  // have their own "Item Types" column, so they're intentionally left out
-  // here — kept them in would push the payment tag past the column's
-  // ellipsis on any bill with more than one item.
-  const isPackagePayment = String(appt.payment_method ?? "").toLowerCase() === "package";
+  const isPackagePayment = String(row.payment_method ?? "").toLowerCase() === "package";
   const paymentSources = [
     isPackagePayment           ? "Package"       : null,
     membershipWalletUsed > 0   ? "Membership"    : null,
     ewalletUsed > 0             ? "eWallet"        : null,
     rewardPointsValue > 0      ? "Reward Points"  : null,
   ].filter((s): s is string => s !== null);
-  if (paymentSources.length === 0 && appt.payment_method) paymentSources.push(String(appt.payment_method));
+  if (paymentSources.length === 0 && row.payment_method) paymentSources.push(String(row.payment_method));
   const description = paymentSources.length > 0 ? paymentSources.join(", ") : "—";
 
   return {
-    id: String(appt.id ?? ""),
-    invoiceNo: appt.invoice_number != null ? String(appt.invoice_number) : String(appt.id ?? "—"),
-    name: appt.client_name ?? "Walk-in",
-    contact: appt.client_phone ?? "—",
-    itemDescription,
-    itemTypes,
-    actualPrice: Math.round(itemsTotal),
-    price,
+    id: String(row.id ?? ""),
+    appointmentId: row.appointment_id ? String(row.appointment_id) : null,
+    invoiceNo: row.invoice_number != null ? String(row.invoice_number) : String(row.id ?? "—"),
+    name: row.client_name ?? "Walk-in",
+    contact: row.client_phone ?? "—",
+    itemDescription: row.item_description ?? "—",
+    itemTypes: row.item_types ?? "—",
+    actualPrice: Math.round(Number(row.actual_price) || 0),
+    price: Math.round(Number(row.price) || 0),
     paid,
-    dueAmount,
+    dueAmount: Number(row.due_amount) || 0,
     description,
-    modes: appt.payment_method ?? "—",
-    // appt.payment_status never actually existed on the API response (that
-    // column was never created on the live DB) — appt.status now carries
-    // payment state directly (booked/paid/partial/...), same field.
-    status,
-    date: String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10),
-    tip,
+    modes: row.payment_method ?? "—",
+    status: row.status ?? "draft",
+    date: String(row.created_at ?? "").slice(0, 10),
+    tip: Number(row.tip_amount) || 0,
     ewalletUsed,
     membershipWalletUsed,
     rewardPointsValue,
     referralCreditUsed,
   };
+}
+
+// Independent single-sale drill-down — fetches GET /api/report/sales-summary/:saleId
+// directly (never the Appointment API), since walk-in sales have no appointment
+// to look up via AppointmentDetailModal.
+function SaleDetailModal({ saleId, onClose }: { saleId: string; onClose: () => void }) {
+  const [data, setData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
+  const money = (n: number) => `₹${(Number(n) || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+
+  useEffect(() => {
+    let alive = true;
+    setLoading(true);
+    setError(false);
+    api.get(SALES_REPORT.DETAIL(saleId))
+      .then(r => { if (alive) setData(r.data?.data ?? null); })
+      .catch(() => { if (alive) setError(true); })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [saleId]);
+
+  return (
+    <div className="modal-overlay" onClick={e => { e.stopPropagation(); onClose(); }}>
+      <div className="modal-box sd-modal-box" onClick={e => e.stopPropagation()}>
+        <div className="modal-header">
+          <h3>Sale {data?.sale?.invoice_number ?? saleId}</h3>
+          <button className="modal-close" onClick={onClose}><X size={16} /></button>
+        </div>
+
+        {loading ? (
+          <Loader message="Loading sale details..." />
+        ) : error || !data?.sale ? (
+          <div className="sd-error">Could not load this sale.</div>
+        ) : (
+          <>
+            <div className="sd-header-row">
+              <div>
+                <div className="sd-label">Client</div>
+                <div className="sd-value">{data.sale.client_name ?? "Walk-in"}</div>
+                <div className="sd-sub">{data.sale.client_phone ?? "—"}</div>
+              </div>
+              <div>
+                <div className="sd-label">Staff</div>
+                <div className="sd-value">{data.sale.staff_name ?? "—"}</div>
+              </div>
+              <div>
+                <div className="sd-label">Date</div>
+                <div className="sd-value">{String(data.sale.created_at).slice(0, 10)}</div>
+              </div>
+              <div>
+                <div className="sd-label">Status</div>
+                <span className={`rp-status-badge rp-status-${data.sale.status}`}>{data.sale.status}</span>
+              </div>
+            </div>
+
+            <table className="sd-items-table">
+              <thead>
+                <tr>
+                  <th>Item</th><th>Type</th><th>Qty</th><th>Unit Price</th>
+                  <th>Discount</th><th>Total</th><th>Staff</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(!data.items || data.items.length === 0) ? (
+                  <tr><td colSpan={7} className="sd-empty-cell">No line items</td></tr>
+                ) : data.items.map((it: any) => (
+                  <tr key={it.id}>
+                    <td>{it.name}</td>
+                    <td>{it.item_type}</td>
+                    <td>{it.quantity}</td>
+                    <td>{money(it.unit_price)}</td>
+                    <td>{money(it.discount_amount)}</td>
+                    <td>{money(it.total_price)}</td>
+                    <td>{it.staff_name ?? "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            <div className="sd-totals">
+              <div className="sd-row"><span>Subtotal</span><span>{money(data.sale.subtotal)}</span></div>
+              <div className="sd-row"><span>Discount</span><span>{money(data.sale.discount_amount)}</span></div>
+              <div className="sd-row"><span>Tax</span><span>{money(data.sale.tax_amount)}</span></div>
+              <div className="sd-row"><span>Tip</span><span>{money(data.sale.tip_amount)}</span></div>
+              <div className="sd-row sd-row--total"><span>Total</span><span>{money(data.sale.total_amount)}</span></div>
+            </div>
+
+            <div className="sd-payment">
+              <div className="sd-label">Payment Breakdown</div>
+              {data.payment == null ? (
+                <div className="sd-no-payment">
+                  No linked payment record — this sale has no linked appointment,
+                  so wallet/reward/referral amounts can't be attributed to it.
+                </div>
+              ) : (
+                <>
+                  <div className="sd-row"><span>Paid</span><span>{money(data.payment.paid_amount)}</span></div>
+                  <div className="sd-row"><span>Due</span><span>{money(data.payment.due_amount)}</span></div>
+                  <div className="sd-row"><span>E-Wallet</span><span>{money(data.payment.ewallet_used)}</span></div>
+                  <div className="sd-row"><span>Membership</span><span>{money(data.payment.membership_wallet_used)}</span></div>
+                  <div className="sd-row"><span>Rewards</span><span>{money(data.payment.reward_points_value)}</span></div>
+                  <div className="sd-row"><span>Referral</span><span>{money(data.payment.referral_credit_used)}</span></div>
+                </>
+              )}
+            </div>
+
+            {data.sale.notes && (
+              <div className="sd-notes">
+                <div className="sd-label">Notes</div>
+                <div className="sd-value">{data.sale.notes}</div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
 }
 
 export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
@@ -131,11 +209,16 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
   const [staffOptions,  setStaffOptions]  = useState<{ label: string; value: string }[]>([{ label: "All Staff", value: "All" }]);
   const [showStaffDrop, setShowStaffDrop] = useState(false);
   const [search,        setSearch]        = useState("");
-  const [allRows,       setAllRows]       = useState<SaleRow[]>([]);
+  const [rows,          setRows]          = useState<SaleRow[]>([]);
+  const [stats,         setStats]         = useState({
+    totalBill: 0, billAverage: 0, totalSale: 0, received: 0, totalTip: 0,
+    totalEwallet: 0, totalMembershipWallet: 0, totalRewardValue: 0, totalReferralCredit: 0,
+  });
+  const [total,         setTotal]         = useState(0);
   const [loading,       setLoading]       = useState(false);
   const [currentPage,   setCurrentPage]   = useState(1);
   const [pageSize,      setPageSize]      = useState(25);
-  const [selectedId,    setSelectedId]    = useState<string | null>(null);
+  const [selectedRow,   setSelectedRow]   = useState<{ saleId: string; appointmentId: string | null } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -148,29 +231,52 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
     }).catch(() => {});
   }, [dispatch]);
 
+  // Real server-side pagination — page/limit are sent on every request, and
+  // only that page's rows come back, along with stats computed by the
+  // backend over the WHOLE filtered set (not just the current page).
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params: Record<string, string> = { start_date: dateFrom, end_date: dateTo, limit: "200" };
-      if (staffFilter !== "All") params.staff_id = staffFilter;
-      const res = await api.get(BOOKING.BASE, { params, signal: ctrl.signal });
-      const raw = res.data?.data;
-      const list: any[] =
-        Array.isArray(raw?.items) ? raw.items :
-        Array.isArray(raw?.data)  ? raw.data  :
-        Array.isArray(raw)        ? raw        : [];
-      setAllRows(list.map(mapAppointment).filter(r => normalizePaymentStatus(r.status) !== "Unpaid"));
+      const body: Record<string, any> = {
+        start_date: dateFrom, end_date: dateTo,
+        page: currentPage, limit: pageSize,
+      };
+      if (staffFilter !== "All") body.staff_id = staffFilter;
+      if (search.trim()) body.search = search.trim();
+      const res = await api.post(SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
+      const data = res.data?.data;
+      const list: any[] = Array.isArray(data?.rows) ? data.rows : [];
+      setRows(list.map(mapAppointment));
+      setTotal(Number(data?.pagination?.total) || 0);
+      const s = data?.stats ?? {};
+      setStats({
+        totalBill: Number(s.total_bill) || 0,
+        billAverage: Number(s.bill_average) || 0,
+        totalSale: Number(s.total_sale) || 0,
+        received: Number(s.received_amount) || 0,
+        totalTip: Number(s.total_tip) || 0,
+        totalEwallet: Number(s.total_ewallet) || 0,
+        totalMembershipWallet: Number(s.total_membership) || 0,
+        totalRewardValue: Number(s.total_rewards) || 0,
+        totalReferralCredit: Number(s.total_referral) || 0,
+      });
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
+        setRows([]); setTotal(0);
+      }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilter]);
+  }, [dateFrom, dateTo, staffFilter, search, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Filter/search changes go back to page 1 — page/pageSize changes
+  // themselves should not reset back to page 1.
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilter, search]);
 
   useEffect(() => {
     const close = () => setShowStaffDrop(false);
@@ -178,36 +284,9 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const rows = useMemo(() => {
-    if (!search.trim()) return allRows;
-    const q = search.toLowerCase();
-    return allRows.filter(r =>
-      r.invoiceNo.toLowerCase().includes(q) || r.name.toLowerCase().includes(q) || r.contact.includes(q)
-    );
-  }, [allRows, search]);
-
-  useEffect(() => { setCurrentPage(1); }, [rows]);
-
-  const stats = useMemo(() => {
-    const totalBill = rows.length;
-    const totalSale = rows.reduce((s, r) => s + r.price, 0);
-    const received  = rows.reduce((s, r) => s + r.paid, 0);
-    const totalTip  = rows.reduce((s, r) => s + r.tip, 0);
-    const totalEwallet = rows.reduce((s, r) => s + r.ewalletUsed, 0);
-    const totalMembershipWallet = rows.reduce((s, r) => s + r.membershipWalletUsed, 0);
-    const totalRewardValue = rows.reduce((s, r) => s + r.rewardPointsValue, 0);
-    const totalReferralCredit = rows.reduce((s, r) => s + r.referralCreditUsed, 0);
-    return {
-      totalBill,
-      billAverage: totalBill > 0 ? totalSale / totalBill : 0,
-      totalSale, received, totalTip, totalEwallet,
-      totalMembershipWallet, totalRewardValue, totalReferralCredit,
-    };
-  }, [rows]);
-
   const HEADERS = ["Invoice No", "Name", "Contact", "Description", "Item Types", "Actual Price", "Price", "Paid", "E-Wallet", "Membership", "Rewards", "Referral", "Due Amount", "Modes", "Status", "Date"];
   const exportRows = () => rows.map(r => [r.invoiceNo, r.name, r.contact, r.description, r.itemTypes, r.actualPrice, r.price, r.paid, r.ewalletUsed, r.membershipWalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.date]);
-  const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const paged = rows;
 
   const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
@@ -325,7 +404,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
             ) : paged.length === 0 ? (
               <tr><td colSpan={16} className="rp-detail-empty-cell">No sales found</td></tr>
             ) : paged.map((r, i) => (
-              <tr key={i} className="rp-appt-row" onClick={() => r.id && setSelectedId(r.id)}>
+              <tr key={i} className="rp-appt-row" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>
                 <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td className="fw-semibold">{r.name}</td>
                 <td>{r.contact}</td>
@@ -349,17 +428,23 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
       </div>
 
       <Pagination
-        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage}
         onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
       />
 
-      {selectedId && (
-        <AppointmentDetailModal
-          appointmentId={selectedId}
-          onClose={() => setSelectedId(null)}
-          onChanged={fetchData}
-        />
+      {selectedRow && (
+        selectedRow.appointmentId ? (
+          <AppointmentDetailModal
+            appointmentId={selectedRow.appointmentId}
+            onClose={() => setSelectedRow(null)}
+          />
+        ) : (
+          <SaleDetailModal
+            saleId={selectedRow.saleId}
+            onClose={() => setSelectedRow(null)}
+          />
+        )
       )}
     </div>
   );

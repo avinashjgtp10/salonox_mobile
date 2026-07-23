@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { REPORT } from "../../../services/api/endpoints";
+import { REWARD_POINTS_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
@@ -20,53 +20,77 @@ interface RewardClientRow {
   lastActivityAt: string | null;
 }
 
+// Maps a row from the independent Reward Points API
+// (POST /api/report/reward-points — reads clients/reward_points_ledger
+// directly, never the Appointment API) to the table's existing row shape.
+function mapRow(row: any): RewardClientRow {
+  return {
+    clientId: row.client_id,
+    clientName: row.client_name || "Walk-in Client",
+    mobile: row.mobile || "—",
+    pointsAvailable: Number(row.points_available) || 0,
+    pointsEarned: Number(row.points_earned) || 0,
+    pointsRedeemed: Number(row.points_redeemed) || 0,
+    lastActivityAt: row.last_activity_at ?? null,
+  };
+}
+
 export default function RewardReport({ onBack }: { onBack: () => void }) {
-  const [search,      setSearch]      = useState("");
+  const [search,      setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [rows,        setRows]        = useState<RewardClientRow[]>([]);
+  const [total,       setTotal]       = useState(0);
+  const [stats,       setStats]       = useState({ totalAvailable: 0, totalEarned: 0, totalRedeemed: 0 });
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
   const abortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Real server-side pagination — page/limit are sent on every request, and
+  // only that page's rows come back, along with stats computed by the
+  // backend over the WHOLE filtered set (not just the current page).
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams();
-      if (search.trim()) params.set("search", search.trim());
-      const res = await api.get(REPORT.REWARD_POINTS_TABLE(params.toString()), { signal: ctrl.signal });
-      const raw: any[] = res.data?.data ?? [];
-      setRows(raw.map((r: any) => ({
-        clientId: r.clientId,
-        clientName: r.clientName || "Walk-in Client",
-        mobile: r.mobile || "—",
-        pointsAvailable: Number(r.pointsAvailable) || 0,
-        pointsEarned: Number(r.pointsEarned) || 0,
-        pointsRedeemed: Number(r.pointsRedeemed) || 0,
-        lastActivityAt: r.lastActivityAt ?? null,
-      })));
+      const body: Record<string, any> = { page: currentPage, limit: pageSize };
+      if (debouncedSearch) body.search = debouncedSearch;
+      const res = await api.post(REWARD_POINTS_REPORT.SUMMARY(), body, { signal: ctrl.signal });
+      const data = res.data?.data;
+      const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
+      setRows(raw.map(mapRow));
+      setTotal(Number(data?.pagination?.total) || 0);
+      const s = data?.stats ?? {};
+      setStats({
+        totalAvailable: Number(s.points_available) || 0,
+        totalEarned: Number(s.total_points_earned) || 0,
+        totalRedeemed: Number(s.total_points_redeemed) || 0,
+      });
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
+        setRows([]); setTotal(0);
+        setStats({ totalAvailable: 0, totalEarned: 0, totalRedeemed: 0 });
+      }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [search]);
+  }, [debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [rows]);
-
-  const totalAvailable = rows.reduce((s, r) => s + r.pointsAvailable, 0);
-  const totalEarned = rows.reduce((s, r) => s + r.pointsEarned, 0);
-  const totalRedeemed = rows.reduce((s, r) => s + r.pointsRedeemed, 0);
+  useEffect(() => { setCurrentPage(1); }, [debouncedSearch]);
 
   const HEADERS = ["Client", "Mobile", "Points Available", "Points Earned", "Points Redeemed", "Last Activity"];
   const exportRows = () => rows.map(r => [
     r.clientName, r.mobile, r.pointsAvailable, r.pointsEarned, r.pointsRedeemed,
     r.lastActivityAt ? String(r.lastActivityAt).slice(0, 10) : "—",
   ]);
-  const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="rp-detail-view">
@@ -91,7 +115,7 @@ export default function RewardReport({ onBack }: { onBack: () => void }) {
               className="rp-detail-search-input"
               placeholder="Search by name or mobile…"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => setSearchInput(e.target.value)}
             />
           </div>
         </div>
@@ -104,13 +128,13 @@ export default function RewardReport({ onBack }: { onBack: () => void }) {
 
       {loading ? <SkeletonStatCards count={3} /> : (
         <div className="rp-sra-summary-row">
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalAvailable.toLocaleString()}</div><div className="rp-sra-summary-label">Points Available</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalEarned.toLocaleString()}</div><div className="rp-sra-summary-label">Total Points Earned</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalRedeemed.toLocaleString()}</div><div className="rp-sra-summary-label">Total Points Redeemed</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalAvailable.toLocaleString()}</div><div className="rp-sra-summary-label">Points Available</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalEarned.toLocaleString()}</div><div className="rp-sra-summary-label">Total Points Earned</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalRedeemed.toLocaleString()}</div><div className="rp-sra-summary-label">Total Points Redeemed</div></div>
         </div>
       )}
 
-      <div className="rp-detail-drag-hint">{rows.length} client{rows.length !== 1 ? "s" : ""} with reward point activity</div>
+      <div className="rp-detail-drag-hint">{total} client{total !== 1 ? "s" : ""} with reward point activity</div>
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -123,9 +147,9 @@ export default function RewardReport({ onBack }: { onBack: () => void }) {
           <tbody>
             {loading ? (
               <SkeletonTableRows columns={6} />
-            ) : paged.length === 0 ? (
+            ) : rows.length === 0 ? (
               <tr><td colSpan={6} className="rp-detail-empty-cell">No reward point activity found</td></tr>
-            ) : paged.map((r) => (
+            ) : rows.map((r) => (
               <tr key={r.clientId}>
                 <td>{r.clientName}</td>
                 <td>{r.mobile}</td>
@@ -139,7 +163,7 @@ export default function RewardReport({ onBack }: { onBack: () => void }) {
         </table>
       </div>
 
-      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
     </div>
   );

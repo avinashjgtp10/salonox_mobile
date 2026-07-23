@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Search, ChevronLeft, Grid3x3Gap, InfoCircle } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { REPORT } from "../../../services/api/endpoints";
+import { APPOINTMENT_DETAIL_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
 import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
@@ -30,6 +30,27 @@ const APPT_STATUSES = ["All", "booked", "paid", "partial", "cancelled", "no-show
 const fmtStatusLabel = (s: string) =>
   s === "All" ? "All" : s.replace(/[_-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
+// Maps a row from the independent Appointment Detail API
+// (POST /api/report/appointment-detail — reads the appointments table
+// directly via SQL, never the Appointment HTTP API/service) to the table's
+// existing AppointmentRow shape.
+function mapRow(row: any): AppointmentRow {
+  return {
+    id: row.id,
+    appointmentDate: row.appointment_date || "—",
+    time: row.time || "—",
+    bookedDate: row.booked_date || "—",
+    clientName: row.client_name || "—",
+    serviceName: row.service_name || "—",
+    staffName: row.staff_name || "—",
+    status: row.payment_status ?? "booked",
+    duration: Number(row.duration) || 0,
+    amount: Number(row.amount) || 0,
+    paymentMethod: row.payment_method || "—",
+    paymentStatus: row.payment_status ?? "booked",
+  };
+}
+
 export default function AppointmentDetailReport({ onBack }: { onBack: () => void }) {
   const today     = new Date().toISOString().slice(0, 10);
   const monthAgo  = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -40,37 +61,43 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
   const [statusSearch,      setStatusSearch]      = useState("");
   const [showStatusDrop,    setShowStatusDrop]    = useState(false);
   const [rows,              setRows]              = useState<AppointmentRow[]>([]);
+  const [total,             setTotal]              = useState(0);
   const [loading,           setLoading]           = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
-  useEffect(() => { setCurrentPage(1); }, [rows]);
 
+  // Real server-side pagination — page/limit are sent on every request, and
+  // only that page's rows come back.
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({
-        dateType: "appointment",
-        from: dateFrom,
-        to: dateTo,
-        statuses: selectedStatuses.filter(s => s !== "All").join(","),
-      });
-      const res = await api.get<{ data: AppointmentRow[] }>(
-        REPORT.APPOINTMENT_DETAIL_TABLE(params.toString()),
-        { signal: ctrl.signal },
-      );
-      if (res.data?.data) setRows(res.data.data);
+      const body: Record<string, any> = {
+        from: dateFrom, to: dateTo,
+        page: currentPage, limit: pageSize,
+      };
+      const statuses = selectedStatuses.filter(s => s !== "All");
+      if (statuses.length > 0 && statuses.length < APPT_STATUSES.length - 1) body.statuses = statuses;
+      const res = await api.post(APPOINTMENT_DETAIL_REPORT.SUMMARY(), body, { signal: ctrl.signal });
+      const data = res.data?.data;
+      const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
+      setRows(raw.map(mapRow));
+      setTotal(Number(data?.pagination?.total) || 0);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
+        setRows([]); setTotal(0);
+      }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, selectedStatuses]);
+  }, [dateFrom, dateTo, selectedStatuses, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, selectedStatuses]);
 
   useEffect(() => {
     const close = () => setShowStatusDrop(false);
@@ -166,7 +193,7 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
 
       {!loading && (
         <div className="rp-detail-drag-hint">
-          {rows.length} appointment{rows.length !== 1 ? "s" : ""} found
+          {total} appointment{total !== 1 ? "s" : ""} found
         </div>
       )}
 
@@ -192,7 +219,7 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
             ) : rows.length === 0 ? (
               <tr><td colSpan={10} className="rp-detail-empty-cell">No data available</td></tr>
             ) : (
-              rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((row, i) => (
+              rows.map((row, i) => (
                 <tr key={i} className="rp-appt-row" onClick={() => setSelectedId(row.id)}>
                   <td>{row.appointmentDate}</td>
                   <td>{row.time}</td>
@@ -212,7 +239,7 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
       </div>
 
       <Pagination
-        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage}
         onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
       />

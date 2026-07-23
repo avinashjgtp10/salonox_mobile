@@ -5,13 +5,12 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import api from "../../../services/api/axios";
-import { BOOKING } from "../../../services/api/endpoints";
+import { STAFF_SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { SkeletonStatCards, SkeletonTableRows, SkeletonChartBlock } from "./ReportSkeleton";
-import { normalizePaymentStatus } from "../../bookings/utils/bookingMapper";
 import "./StaffSalesReport.scss";
 
 const REPORT_NAME = "Staff Sales";
@@ -49,41 +48,16 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ start_date: dateFrom, end_date: dateTo, limit: "200" });
-      const apptRes = await api.get(`${BOOKING.BASE}?${params}`, { signal: ctrl.signal });
-      const rawAppt = apptRes.data?.data;
-      const appts: any[] =
-        Array.isArray(rawAppt?.items) ? rawAppt.items :
-        Array.isArray(rawAppt?.data)  ? rawAppt.data  :
-        Array.isArray(rawAppt)        ? rawAppt        : [];
-
-      const bucketMap = new Map<string, { serviceRevenue: number; productRevenue: number }>();
-      const fmt = (d: string) => {
-        const dt = new Date(d);
-        if (revPeriod === "daily")   return dt.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-        if (revPeriod === "weekly")  { const w = new Date(dt); w.setDate(dt.getDate() - dt.getDay()); return `W${w.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}`; }
-        if (revPeriod === "monthly") return dt.toLocaleDateString("en-IN", { month: "short", year: "2-digit" });
-        return dt.getFullYear().toString();
-      };
-
-      appts.forEach((appt: any) => {
-        if (normalizePaymentStatus(appt.status) === "Unpaid") return;
-        const sid = String(appt.staff_id ?? "");
-        if (staffFilter !== "All" && sid !== staffFilter) return;
-        const date = String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10);
-        if (!date) return;
-        const label = fmt(date);
-        const svcRev  = (Array.isArray(appt.services)      ? appt.services      : []).reduce((s: number, it: any) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
-        const prodRev = (Array.isArray(appt.product_items) ? appt.product_items : []).reduce((s: number, it: any) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
-        if (!bucketMap.has(label)) bucketMap.set(label, { serviceRevenue: 0, productRevenue: 0 });
-        const b = bucketMap.get(label)!;
-        b.serviceRevenue += svcRev;
-        b.productRevenue += prodRev;
-      });
-
-      const result: RevRow[] = Array.from(bucketMap.entries())
-        .sort((a, b) => a[0].localeCompare(b[0]))
-        .map(([label, v]) => ({ label, serviceRevenue: Math.round(v.serviceRevenue), productRevenue: Math.round(v.productRevenue), total: Math.round(v.serviceRevenue + v.productRevenue) }));
+      const body: Record<string, any> = { start_date: dateFrom, end_date: dateTo, period: revPeriod };
+      if (staffFilter !== "All") body.staff_id = staffFilter;
+      const res = await api.post(STAFF_SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
+      const raw: any[] = Array.isArray(res.data?.data?.rows) ? res.data.data.rows : [];
+      const result: RevRow[] = raw.map((r: any) => ({
+        label: r.label,
+        serviceRevenue: Number(r.service_revenue) || 0,
+        productRevenue: Number(r.product_revenue) || 0,
+        total: Number(r.total) || 0,
+      }));
       setRows(result);
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
