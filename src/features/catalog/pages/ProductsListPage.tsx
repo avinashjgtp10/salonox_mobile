@@ -38,45 +38,68 @@ interface FilterOption {
   label: string;
 }
 
+const formatCategoryName = (name: unknown) =>
+  String(name ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
 // Native <select> popups are painted by the OS and can render past the
 // browser viewport when the option list is long (e.g. many brands). This
-// draws its own menu instead, so it can be clamped to the actual on-screen
-// space and given an internal scrollbar rather than overflowing it.
+// draws its own menu inside the drawer and gives the menu its own scrollbar.
 const FilterSelect: React.FC<{
   value: string;
   options: FilterOption[];
   onChange: (value: string) => void;
-}> = ({ value, options, onChange }) => {
-  const [open, setOpen] = useState(false);
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}> = ({ value, options, onChange, open, onOpenChange }) => {
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
+
+  const updateMenuPosition = () => {
+    if (!containerRef.current) return;
+
+    const rect = containerRef.current.getBoundingClientRect();
+    const drawer = containerRef.current.closest(".product-filter-drawer");
+    const drawerRect = drawer?.getBoundingClientRect();
+    const gap = 6;
+    const padding = 16;
+    const lowerBound = (drawerRect?.bottom ?? window.innerHeight) - padding;
+    const upperBound = (drawerRect?.top ?? 0) + padding;
+    const spaceBelow = lowerBound - rect.bottom - gap;
+    const spaceAbove = rect.top - upperBound - gap;
+    const openUpward = spaceBelow < 100 && spaceAbove > spaceBelow;
+    const availableSpace = openUpward ? spaceAbove : spaceBelow;
+    const maxHeight = Math.max(120, Math.min(280, availableSpace));
+
+    setMenuStyle(
+      openUpward
+        ? { bottom: `calc(100% + ${gap}px)`, top: "auto", maxHeight }
+        : { top: `calc(100% + ${gap}px)`, bottom: "auto", maxHeight }
+    );
+  };
 
   useEffect(() => {
     if (!open) return;
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
+        onOpenChange(false);
       }
     };
+    updateMenuPosition();
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+    window.addEventListener("resize", updateMenuPosition);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      window.removeEventListener("resize", updateMenuPosition);
+    };
+  }, [open, onOpenChange]);
 
   const handleToggle = () => {
-    if (!open && containerRef.current) {
-      const rect = containerRef.current.getBoundingClientRect();
-      const margin = 12;
-      const spaceBelow = window.innerHeight - rect.bottom - margin;
-      const spaceAbove = rect.top - margin;
-      const openUpward = spaceBelow < 160 && spaceAbove > spaceBelow;
-      const maxHeight = Math.max(120, Math.min(280, openUpward ? spaceAbove : spaceBelow));
-      setMenuStyle(
-        openUpward
-          ? { bottom: "calc(100% + 4px)", top: "auto", maxHeight }
-          : { top: "calc(100% + 4px)", bottom: "auto", maxHeight }
-      );
-    }
-    setOpen((o) => !o);
+    if (!open) updateMenuPosition();
+    onOpenChange(!open);
   };
 
   const selected = options.find((o) => o.value === value);
@@ -85,26 +108,23 @@ const FilterSelect: React.FC<{
     <div className="filter-select" ref={containerRef}>
       <button
         type="button"
-        className="filter-select__toggle form-select form-select-lg shadow-none border-secondary-subtle custom-focus-select"
-        style={{ fontSize: "15px" }}
+        className={`filter-select__toggle${open ? " is-open" : ""}`}
         onClick={handleToggle}
       >
         <span className="filter-select__value">{selected?.label ?? options[0]?.label}</span>
       </button>
-      {open && (
-        <div className="filter-select__menu" style={menuStyle}>
-          {options.map((opt) => (
-            <button
-              type="button"
-              key={opt.value}
-              className={`filter-select__option${opt.value === value ? " active" : ""}`}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
-            >
-              {opt.label}
-            </button>
-          ))}
-        </div>
-      )}
+      <div className={`filter-select__menu${open ? " is-open" : ""}`} style={menuStyle}>
+        {options.map((opt) => (
+          <button
+            type="button"
+            key={opt.value}
+            className={`filter-select__option${opt.value === value ? " active" : ""}`}
+            onClick={() => { onChange(opt.value); onOpenChange(false); }}
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 };
@@ -128,11 +148,13 @@ const ProductsListPage: React.FC = () => {
   const [deleteInput, setDeleteInput] = useState("");
   const [productsToDelete, setProductsToDelete] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [openRowActionId, setOpenRowActionId] = useState<string | null>(null);
 
   // Pending filter state (inside modal, not yet applied)
   const [pendingFilters, setPendingFilters] = useState<FilterState>(DEFAULT_FILTERS);
   // Applied filter state (triggers server fetch when changed)
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [openFilterSelect, setOpenFilterSelect] = useState<"category" | "brand" | null>(null);
 
   const [activeModal, setActiveModal] = useState<
     "none" | "brands" | "add_brand" | "categories" | "add_category"
@@ -218,15 +240,18 @@ const ProductsListPage: React.FC = () => {
 
   const handleOpenFilter = () => {
     setPendingFilters(appliedFilters);
+    setOpenFilterSelect(null);
     setIsFilterModalOpen(true);
   };
 
   const handleApplyFilters = () => {
+    setOpenFilterSelect(null);
     setAppliedFilters(pendingFilters);
     setIsFilterModalOpen(false);
   };
 
   const handleClearFilters = () => {
+    setOpenFilterSelect(null);
     setPendingFilters(DEFAULT_FILTERS);
     setAppliedFilters(DEFAULT_FILTERS);
     setIsFilterModalOpen(false);
@@ -544,7 +569,11 @@ const ProductsListPage: React.FC = () => {
                       })()}
                     </td>
                     <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
-                      <Dropdown align="end">
+                      <Dropdown
+                        align="end"
+                        show={openRowActionId === String(p.id)}
+                        onToggle={(nextShow) => setOpenRowActionId(nextShow ? String(p.id) : null)}
+                      >
                         <Dropdown.Toggle
                           as="button"
                           bsPrefix="row-actions-toggle"
@@ -555,13 +584,19 @@ const ProductsListPage: React.FC = () => {
                         </Dropdown.Toggle>
                         <Dropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "160px" }}>
                           <Dropdown.Item
-                            onClick={() => navigate(`/dashboard/catalog/products/edit/${p.id}`)}
+                            onClick={() => {
+                              setOpenRowActionId(null);
+                              navigate(`/dashboard/catalog/products/edit/${p.id}`);
+                            }}
                             className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
                           >
                             <PencilSquare size={14} /> Edit
                           </Dropdown.Item>
                           <Dropdown.Item
-                            onClick={() => openDeleteModal([p.id])}
+                            onClick={() => {
+                              setOpenRowActionId(null);
+                              openDeleteModal([p.id]);
+                            }}
                             className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger"
                           >
                             <Trash size={14} /> Delete
@@ -591,7 +626,7 @@ const ProductsListPage: React.FC = () => {
         onPageSizeChange={(sz) => {
           fetchProducts(buildParams(1, searchQuery, appliedFilters, sz));
         }}
-        className="mt-4"
+        className="products-pagination"
       />
 
       {/* ================= DELETE MODAL ================= */}
@@ -655,14 +690,17 @@ const ProductsListPage: React.FC = () => {
           style={{ backgroundColor: "rgba(0,0,0,0.4)", zIndex: 1050 }}
         >
           <div
-            className="bg-white rounded-4 shadow-lg d-flex flex-column"
+            className="product-filter-drawer bg-white rounded-4 shadow-lg d-flex flex-column"
             style={{ width: "480px", maxWidth: "90vw" }}
           >
             <div className="d-flex justify-content-between align-items-center p-4 pb-3">
               <h5 className="mb-0 fw-bold fs-5 text-dark">Filters</h5>
               <button
                 className="btn-close shadow-none"
-                onClick={() => setIsFilterModalOpen(false)}
+                onClick={() => {
+                  setOpenFilterSelect(null);
+                  setIsFilterModalOpen(false);
+                }}
               ></button>
             </div>
 
@@ -678,8 +716,10 @@ const ProductsListPage: React.FC = () => {
                   options={[
                     { value: "", label: "All categories" },
                     { value: "none", label: "No category" },
-                    ...categories.map((c: any) => ({ value: c.id, label: c.name })),
+                    ...categories.map((c: any) => ({ value: c.id, label: formatCategoryName(c.name) })),
                   ]}
+                  open={openFilterSelect === "category"}
+                  onOpenChange={(nextOpen) => setOpenFilterSelect(nextOpen ? "category" : null)}
                 />
               </div>
 
@@ -696,6 +736,8 @@ const ProductsListPage: React.FC = () => {
                     { value: "none", label: "No brand" },
                     ...brands.map((b: any) => ({ value: b.id, label: b.name })),
                   ]}
+                  open={openFilterSelect === "brand"}
+                  onOpenChange={(nextOpen) => setOpenFilterSelect(nextOpen ? "brand" : null)}
                 />
               </div>
 

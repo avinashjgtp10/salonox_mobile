@@ -7,11 +7,9 @@ import { createProductThunk, fetchBrandsThunk, fetchCategoriesThunk, createBrand
 import Alert from "../../../components/ui/Alert";
 import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
-import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
 import { retailFromActiveMethod, markupPercentFromRetail, flatAmountFromRetail } from "../utils/productPricing";
 import type { MarkupMethod } from "../utils/productPricing";
-import { useWheelStepInput } from "../../../hooks/useWheelStepInput";
 import "../styles/CreateProductPage.scss";
 
 
@@ -48,16 +46,24 @@ const initialForm: FormState = {
   markupMethod: "percentage",
 };
 
+const formatCategoryName = (name: unknown) =>
+  String(name ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
 // Native <select> popups are painted by the OS and can render past the browser
 // viewport when the option list is long (e.g. many brands). This draws its own
 // menu instead, so it can be clamped to on-screen space and scrolled rather than
 // overflowing it.
-const BrandSelect: React.FC<{
-  label: string;
+const ProductSelect: React.FC<{
+  label: React.ReactNode;
   value: string;
   options: { value: string; label: string }[];
   onChange: (value: string) => void;
-}> = ({ label, value, options, onChange }) => {
+  onBlur?: () => void;
+}> = ({ label, value, options, onChange, onBlur }) => {
   const [open, setOpen] = useState(false);
   const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
   const containerRef = useRef<HTMLDivElement>(null);
@@ -67,11 +73,12 @@ const BrandSelect: React.FC<{
     const handleClickOutside = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
         setOpen(false);
+        onBlur?.();
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [open]);
+  }, [open, onBlur]);
 
   const handleToggle = () => {
     if (!open && containerRef.current) {
@@ -98,7 +105,7 @@ const BrandSelect: React.FC<{
       <div className="brand-select" ref={containerRef}>
         <button
           type="button"
-          className="brand-select__toggle form-select shadow-none"
+          className="brand-select__toggle"
           onClick={handleToggle}
         >
           <span className="brand-select__value">{selected?.label ?? options[0]?.label}</span>
@@ -110,7 +117,7 @@ const BrandSelect: React.FC<{
                 type="button"
                 key={opt.value}
                 className={`brand-select__option${opt.value === value ? " active" : ""}`}
-                onClick={() => { onChange(opt.value); setOpen(false); }}
+                onClick={() => { onChange(opt.value); onBlur?.(); setOpen(false); }}
               >
                 {opt.label}
               </button>
@@ -204,14 +211,6 @@ const CreateProductPage: React.FC = () => {
   };
 
   // Mouse-wheel adjustment for the pricing fields (Supply/Retail price step by ₹1, Markup % by 1%)
-  const supplyPriceRef = useRef<HTMLInputElement>(null);
-  const retailPriceRef = useRef<HTMLInputElement>(null);
-  const markupPercentRef = useRef<HTMLInputElement>(null);
-  const flatAmountRef = useRef<HTMLInputElement>(null);
-  useWheelStepInput(supplyPriceRef, handleSupplyPriceChange);
-  useWheelStepInput(retailPriceRef, handleRetailPriceChange);
-  useWheelStepInput(markupPercentRef, handleMarkupChange);
-  useWheelStepInput(flatAmountRef, handleFlatAmountChange);
 
   const handleAddBrand = async () => {
     if (!newBrand.trim()) return;
@@ -310,7 +309,7 @@ const CreateProductPage: React.FC = () => {
               containerClass="mt-3"
             />
 
-            <BrandSelect
+            <ProductSelect
               label="Product brand"
               value={form.brandId}
               onChange={(v) => setField("brandId", v)}
@@ -401,18 +400,16 @@ const CreateProductPage: React.FC = () => {
               showCharCount
             />
 
-            <Select
+            <ProductSelect
               label={<>Product category <span style={{ color: "#dc2626" }}>*</span></>}
-              containerClass="mt-3"
               value={form.categoryId}
-              onChange={(e) => { setField("categoryId", e.target.value); touch("categoryId"); }}
+              onChange={(v) => { setField("categoryId", v); touch("categoryId"); }}
               onBlur={() => touch("categoryId")}
-            >
-              <option value="">Select a category</option>
-              {categories.map((c: any) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </Select>
+              options={[
+                { value: "", label: "Select a category" },
+                ...categories.map((c: any) => ({ value: c.id, label: formatCategoryName(c.name) })),
+              ]}
+            />
             {touched.categoryId && validationErrors.categoryId && (
               <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.categoryId}</div>
             )}
@@ -459,10 +456,9 @@ const CreateProductPage: React.FC = () => {
           {/* 2. Pricing */}
           <Card title="Pricing" className="mb-4">
             <Input
-              ref={supplyPriceRef}
               label={<>Supply price <span style={{ color: "#dc2626" }}>*</span></>}
-              type="number"
-              min="0"
+              type="text"
+              inputMode="decimal"
               placeholder="0.00"
               value={form.supplyPrice}
               onChange={(e) => { handleSupplyPriceChange(e.target.value); touch("supplyPrice"); }}
@@ -501,10 +497,9 @@ const CreateProductPage: React.FC = () => {
               <div className="row g-3">
                 <div className="col-6">
                   <Input
-                    ref={retailPriceRef}
                     label="Retail price"
-                    type="number"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="0.00"
                     value={form.retailPrice}
                     onChange={(e) => handleRetailPriceChange(e.target.value)}
@@ -513,29 +508,15 @@ const CreateProductPage: React.FC = () => {
                     containerClass=""
                   />
                 </div>
-                <div className="col-3">
+                <div className="col-6">
                   <Input
-                    ref={markupPercentRef}
                     label="Markup"
-                    type="number"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="0.00"
                     value={form.markupPercentage}
                     onChange={(e) => handleMarkupChange(e.target.value)}
                     iconLeft={<span>%</span>}
-                    containerClass=""
-                  />
-                </div>
-                <div className="col-3">
-                  <Input
-                    ref={flatAmountRef}
-                    label="Flat amount"
-                    type="number"
-                    min="0"
-                    placeholder="0.00"
-                    value={form.flatAmount}
-                    onChange={(e) => handleFlatAmountChange(e.target.value)}
-                    iconLeft={<span>₹</span>}
                     containerClass=""
                   />
                 </div>

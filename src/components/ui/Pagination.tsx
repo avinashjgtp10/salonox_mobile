@@ -80,23 +80,25 @@ export const Pagination: React.FC<PaginationProps> = ({
         Showing {startItem} – {endItem} of {totalItems} results
       </div>
 
-      <div className="ui-pagination__controls">
-        <button
-          className="ui-pagination__btn"
-          disabled={currentPage === 1}
-          onClick={() => onPageChange(currentPage - 1)}
-        >
-          <ChevronLeft size={14} /> Prev
-        </button>
-        {renderPageButtons()}
-        <button
-          className="ui-pagination__btn"
-          disabled={currentPage >= totalPages || totalPages === 0}
-          onClick={() => onPageChange(currentPage + 1)}
-        >
-          Next <ChevronRight size={14} />
-        </button>
-      </div>
+      {totalPages > 1 && (
+        <div className="ui-pagination__controls">
+          <button
+            className="ui-pagination__btn"
+            disabled={currentPage === 1}
+            onClick={() => onPageChange(currentPage - 1)}
+          >
+            <ChevronLeft size={14} /> Prev
+          </button>
+          {renderPageButtons()}
+          <button
+            className="ui-pagination__btn"
+            disabled={currentPage >= totalPages || totalPages === 0}
+            onClick={() => onPageChange(currentPage + 1)}
+          >
+            Next <ChevronRight size={14} />
+          </button>
+        </div>
+      )}
     </div>
   );
 };

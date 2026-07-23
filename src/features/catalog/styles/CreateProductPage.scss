@@ -171,8 +171,25 @@
       width: 100%;
       display: flex;
       align-items: center;
+      justify-content: space-between;
+      height: 48px;
+      padding: 0 40px 0 12px;
+      border: 1px solid #d0d5dd;
+      border-radius: 8px;
+      background-color: #fff;
+      background-image: var(--bs-form-select-bg-img);
+      background-position: right 12px center;
+      background-repeat: no-repeat;
+      background-size: 16px 12px;
+      color: #101828;
       text-align: left;
       cursor: pointer;
+
+      &:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15);
+      }
     }
 
     &__value {

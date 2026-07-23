@@ -4,7 +4,6 @@ import Button from "../../../components/ui/Button";
 import "../styles/Membershipfilterdrawer.scss";
 
 interface FilterState {
-  sessions:        string;
   payment:         string;
   validFor:        string;
   onlyAllServices: boolean;
@@ -17,7 +16,6 @@ interface Props {
 }
 
 const DEFAULT: FilterState = {
-  sessions:        "Any number of sessions",
   payment:         "All",
   validFor:        "Any period",
   onlyAllServices: false,
@@ -33,10 +31,13 @@ const MembershipFilterDrawer: React.FC<Props> = ({
     onClose();
   };
 
-  const handleClear = () => setFilters(DEFAULT);
+  const handleClear = () => {
+    setFilters(DEFAULT);
+    onApply?.(DEFAULT);
+    onClose();
+  };
 
   const activeCount = [
-    filters.sessions !== "Any number of sessions",
     filters.validFor !== "Any period",
     filters.onlyAllServices,
   ].filter(Boolean).length;
@@ -59,28 +60,6 @@ const MembershipFilterDrawer: React.FC<Props> = ({
         </header>
 
         <div className="membership-filters-drawer__body">
-
-          {/* Sessions filter */}
-          <div className="filter-group">
-            <label>Sessions</label>
-            <div className="select-wrapper">
-              <select
-                className="form-select-custom"
-                value={filters.sessions}
-                onChange={(e) =>
-                  setFilters({ ...filters, sessions: e.target.value })
-                }
-              >
-                <option>Any number of sessions</option>
-                <option>1 session</option>
-                <option>5 sessions</option>
-                <option>10 sessions</option>
-                <option>Unlimited</option>
-              </select>
-              <ChevronDown className="select-chevron" size={14} />
-            </div>
-          </div>
-
           {/* Payment filter */}
           <div className="filter-group">
             <label>Payment</label>
