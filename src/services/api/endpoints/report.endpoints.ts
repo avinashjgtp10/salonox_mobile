@@ -26,6 +26,13 @@ export const PRODUCT_RETAIL_REPORT = {
   SUMMARY: () => `/api/report/product-retail`,
 } as const;
 
+// Per-product units-sold + revenue, keyed by product_id — powers the "Sales"
+// column on the Product Inventory report. Reads sales/sale_items directly,
+// never through the Appointment API. Mounted at /api/report.
+export const PRODUCT_INVENTORY_SALES_REPORT = {
+  SUMMARY: () => `/api/report/product-inventory-sales`,
+} as const;
+
 // Independent Service Sale reporting API — reads sales/sale_items directly,
 // never through the Appointment API. Mounted at /api/report.
 export const SERVICE_SALE_REPORT = {

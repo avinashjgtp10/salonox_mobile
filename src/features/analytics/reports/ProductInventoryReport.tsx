@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, Grid3x3Gap, InfoCircle } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { PRODUCTS, CATEGORIES } from "../../../services/api/endpoints";
+import { PRODUCTS, CATEGORIES, PRODUCT_INVENTORY_SALES_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
 import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
@@ -20,6 +20,8 @@ interface InventoryRow {
   totalValue: number;
   status: "In Stock" | "Low Stock" | "Out of Stock";
   createdAt: string;
+  unitsSold: number;
+  salesRevenue: number;
 }
 
 const INV_STATUSES = ["All", "In Stock", "Low Stock", "Out of Stock"];
@@ -66,14 +68,20 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
         return all;
       };
 
-      const [products, catRes] = await Promise.all([
+      const salesBody: Record<string, string> = {};
+      if (dateFrom) salesBody.start_date = dateFrom;
+      if (dateTo) salesBody.end_date = dateTo;
+
+      const [products, catRes, salesRes] = await Promise.all([
         fetchAllProducts(),
         api.get(CATEGORIES.BASE, { signal: ctrl.signal }),
+        api.post(PRODUCT_INVENTORY_SALES_REPORT.SUMMARY(), salesBody, { signal: ctrl.signal }),
       ]);
       const cats: any[] = catRes.data?.data ?? [];
       const catMap: Record<string, string> = {};
       cats.forEach((c: any) => { catMap[c.id] = c.name; });
       setCategoryOptions(["All", ...cats.map((c: any) => c.name as string)]);
+      const salesByProductId: Record<string, { quantity: number; revenue: number }> = salesRes.data?.data ?? {};
       const mapped: InventoryRow[] = products.map((p: any) => {
         const currentStock = parseFloat(p.amount) || 0;
         const reorderLevel = Number(p.qty_alert) || 0;
@@ -83,7 +91,12 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
         let status: InventoryRow["status"] = "In Stock";
         if (currentStock <= 0) status = "Out of Stock";
         else if (reorderLevel > 0 && currentStock <= reorderLevel) status = "Low Stock";
-        return { product: p.name, category: catName, sku: p.barcode ?? "—", currentStock, reorderLevel, unitCost, totalValue, status, createdAt: p.created_at };
+        const sold = salesByProductId[String(p.id)];
+        return {
+          product: p.name, category: catName, sku: p.barcode ?? "—", currentStock, reorderLevel,
+          unitCost, totalValue, status, createdAt: p.created_at,
+          unitsSold: sold?.quantity ?? 0, salesRevenue: sold?.revenue ?? 0,
+        };
       });
       setAllRows(mapped);
     } catch (e: any) {
@@ -91,7 +104,7 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, []);
+  }, [dateFrom, dateTo]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -110,8 +123,8 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const HEADERS = ["Product", "Category", "SKU", "Current Stock", "Reorder Level", "Unit Cost (₹)", "Total Value (₹)", "Status"];
-  const exportRows = () => rows.map(r => [r.product, r.category, r.sku, r.currentStock, r.reorderLevel, r.unitCost, r.totalValue, r.status]);
+  const HEADERS = ["Product", "Category", "SKU", "Current Stock", "Reorder Level", "Unit Cost (₹)", "Total Value (₹)", "Sales (Qty)", "Sales (₹)", "Status"];
+  const exportRows = () => rows.map(r => [r.product, r.category, r.sku, r.currentStock, r.reorderLevel, r.unitCost, r.totalValue, r.unitsSold, r.salesRevenue, r.status]);
 
   const statusColor = (s: string) =>
     s === "In Stock" ? "#10b981" : s === "Low Stock" ? "#f59e0b" : "#ef4444";
@@ -196,14 +209,15 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
               <th>Reorder Level</th>
               <th>Unit Cost (₹)</th>
               <th>Total Value (₹)</th>
+              <th>Sales</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={8} />
+              <SkeletonTableRows columns={9} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
+              <tr><td colSpan={9} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
                 <td className="fw-semibold rp-inv-product-cell" title={r.product}>{r.product}</td>
@@ -213,6 +227,11 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
                 <td>{r.reorderLevel}</td>
                 <td>{money(r.unitCost)}</td>
                 <td className="fw-semibold">{money(r.totalValue)}</td>
+                <td>
+                  {r.unitsSold > 0
+                    ? <>{r.unitsSold} unit{r.unitsSold !== 1 ? "s" : ""} <span className="rp-inv-sales-rev">· {money(r.salesRevenue)}</span></>
+                    : "—"}
+                </td>
                 <td><span className={`rp-inv-status rp-inv-status--${statusColor(r.status) === "#10b981" ? "ok" : statusColor(r.status) === "#f59e0b" ? "low" : "out"}`}>{r.status}</span></td>
               </tr>
             ))}
