@@ -343,6 +343,39 @@
   &:focus { border-color: #6b7280; }
 }
 
+/* Bulk-select delete bar (Appointment Detail / Sales Summary / Daily Sheet) */
+.rp-bulk-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 16px;
+  margin-bottom: 8px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #991b1b;
+}
+
+.rp-bulk-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rp-row-checkbox-col {
+  width: 40px;
+  text-align: center !important;
+}
+
+.rp-row-checkbox {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
 /* Table */
 .rp-detail-table-wrap {
   overflow-x: auto;

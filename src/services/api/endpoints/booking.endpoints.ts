@@ -5,6 +5,7 @@ export const BOOKING = {
   // ── Status transitions ─────────────────────────────────────────────────────
   CANCEL:   (id: string | number) => `/api/v1/appointments/${id}/cancel`,
   CHECKOUT: (id: string | number) => `/api/v1/appointments/${id}/checkout`,
+  BULK_DELETE: "/api/v1/appointments/bulk-delete",
 
   EXPORT: (
     format: "excel" | "csv" | "pdf",
