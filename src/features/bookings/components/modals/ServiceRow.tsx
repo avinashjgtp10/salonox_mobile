@@ -62,6 +62,9 @@ interface ServiceRowProps {
    *  independently seeing the full pool and both claiming to be covered. */
   packageSessionsRemaining?: number;
   membershipWalletInfo?: { walletUsed: number; payable: number };
+  /** This row's own GST from the live pricing preview (see serviceTaxByRow in
+   *  AppointmentModal.tsx) — the real per-item tax it will carry once saved. */
+  taxAmount?: number;
 }
 
 function fmtName(name: string) {
@@ -145,6 +148,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   disabled,
   packageSessionsRemaining = 0,
   membershipWalletInfo,
+  taxAmount,
 }) => {
   const schedulerContext = useSchedulerContext();
   const salonBranches = useSelector((s: RootState) => s.salon?.branches ?? []);
@@ -863,6 +867,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
             }
             className="svc-field__input svc-field__input--readonly"
           />
+          {taxAmount !== undefined && taxAmount > 0 && !isPackageCovered && (
+            <span className="svc-field__hint" style={{ color: "#6b7280" }}>
+              +{currencySymbol}{taxAmount.toFixed(2)} GST
+            </span>
+          )}
         </div>
 
         <div className="svc-quick-actions">

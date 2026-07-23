@@ -659,6 +659,22 @@ export const AppointmentModal: React.FC<Props> = ({
   const [totalsConfirmed, setTotalsConfirmed] = useState(false);
   const [totalsError, setTotalsError] = useState(false);
   const [referralDiscountPreview, setReferralDiscountPreview] = useState(0);
+  // Per-row GST from the pricing preview (index-aligned with the rows we sent),
+  // so the live sale-building screen can show each item's own tax — same real
+  // figure that gets stored per sale_item at checkout.
+  const [rowTaxPreview, setRowTaxPreview] = useState<{ service: number[]; packages: number[]; product: number[]; membership: number[] } | null>(null);
+  // Per-service-row GST keyed by tempId — the pricing preview returns rowTax
+  // index-aligned with the serviceRows we sent (same order), so map each
+  // row's own tax back onto its tempId for the live per-row display.
+  const serviceTaxByRow = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!rowTaxPreview) return map;
+    serviceRows.forEach((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      map.set(tempId, rowTaxPreview.service[i] ?? 0);
+    });
+    return map;
+  }, [rowTaxPreview, serviceRows]);
 
   useEffect(() => {
     setTotalsConfirmed(false);
@@ -701,6 +717,7 @@ export const AppointmentModal: React.FC<Props> = ({
             grandTotal: data.grandTotal, roundOff: data.roundOff, effectiveTotal: data.effectiveTotal,
           });
           setReferralDiscountPreview(data.referralDiscountPreview ?? 0);
+          setRowTaxPreview(data.rowTax ?? null);
           setTotalsConfirmed(true);
         }
       } catch (err: any) {
@@ -1539,6 +1556,7 @@ export const AppointmentModal: React.FC<Props> = ({
           availableMemberships={availableMemberships}
           packageRemainingByRow={perRowCoveredRemaining}
           membershipWalletInfo={membershipWalletMap}
+          serviceTaxByRow={serviceTaxByRow}
           frozen={false}
           svcErrors={svcErrors}
           pkgErrors={pkgErrors}
