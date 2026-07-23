@@ -115,6 +115,11 @@ export function useClientDetails(clientId: string | null | undefined, refreshKey
 
           const paidAppts    = sortedAppts.filter(isPaid);
           const partialAppts = sortedAppts.filter(isPartial);
+          // "Total Visits" = any appointment paid/partial, plus any quick sale with
+          // no appointment at all (a walk-in checkout) — matches ClientHistoryDetail.tsx's
+          // definition exactly (completed_appointments now counts paid+partial too,
+          // see clients.controller.ts) so the two screens never disagree again.
+          const quickSalesCount = ((histData?.sales ?? []) as any[]).filter((s: any) => !s.appointment_id).length;
 
           // Most recent visit = newest paid or partial appointment
           const lastPaidAt = sortedAppts.find((a) => isPaid(a) || isPartial(a))?.scheduled_at ?? null;
@@ -171,7 +176,7 @@ export function useClientDetails(clientId: string | null | undefined, refreshKey
             if (!prev) return prev;
             const updated: ClientDetails = {
               ...prev,
-              total_visits:    paidAppts.length + partialAppts.length,
+              total_visits:    paidAppts.length + partialAppts.length + quickSalesCount,
               cancelled_count: s
                 ? (s.cancellations ?? s.cancelled_count ?? 0)
                 : sortedAppts.filter(isCancelled).length,

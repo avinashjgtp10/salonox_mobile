@@ -52,10 +52,6 @@ interface ServiceRowProps {
   onChange: (id: string, field: string, value: string | number | boolean) => void;
   onRemove: (id: string) => void;
   onClearError?: (tempId: string, field: string) => void;
-  /** Called before applying a picked service to THIS row. Return true if the
-   *  parent merged the pick into an existing row with the same service
-   *  (qty +1 there, this row removed) — the row then skips its own update. */
-  onSelectDuplicate?: (tempId: string, service: { id?: string; name: string; price: number; duration?: number }) => boolean;
   hasError?: boolean;
   errorFields?: { service?: boolean; staff?: boolean; time?: boolean; price?: boolean; qty?: boolean };
   disabled?: boolean;
@@ -140,7 +136,6 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   onChange,
   onRemove,
   onClearError,
-  onSelectDuplicate,
   errorFields = {},
   disabled,
   coveredServices,
@@ -392,14 +387,13 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   }
 
   function selectService(service: { id?: string; name: string; price: number; duration?: number }) {
-    // Same service already on the bill? Let the parent bump that row's qty
-    // instead of creating a duplicate row — two rows of one service each
-    // independently saw the package pool's full remaining count and could
-    // both mark themselves covered (double free session).
-    if (onSelectDuplicate?.(row.tempId, service)) {
-      setShowDrop(false);
-      return;
-    }
+    // Every pick creates/fills its own row, even if the same service is
+    // already on the bill elsewhere — a client can want the same service from
+    // two different staff at once, which a merge-into-existing-row would make
+    // impossible. Package-coverage math for this row is only a first-pass
+    // estimate here (based on the raw, unpooled remaining count); the parent
+    // (AppointmentModal) recomputes it correctly, pooled across every row
+    // sharing this service, right after — see perRowCoveredRemaining there.
     const remaining = getCoveredRemaining(service.id, service.name);
     catalogPriceRef.current = service.price;
     pkgRemainingRef.current = remaining;
@@ -672,7 +666,14 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   }
 
   const pkgRemaining = getCoveredRemaining(row.id, row.service);
-  const isPackageCovered = row.service.trim() !== "" && pkgRemaining > 0;
+  // Also requires the visible search text to be non-empty, not just the
+  // committed row.service — row.service only updates when a result is
+  // actually picked (see handleServiceSearchChange's comment), so backspacing
+  // the field to clear it leaves row.service untouched until blur reverts the
+  // text or a new pick commits it. Without this, the "✓ Package Applied"
+  // badge kept showing under a visibly empty search box the whole time the
+  // field was mid-edit.
+  const isPackageCovered = row.service.trim() !== "" && serviceSearch.trim() !== "" && pkgRemaining > 0;
 
   return (
     <>

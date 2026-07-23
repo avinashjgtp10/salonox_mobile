@@ -18,6 +18,11 @@ export interface BenefitCardConfig {
   subtitle: string;
   checked: boolean;
   onToggle: (v: boolean) => void;
+  /** Set when a prior benefit (applied first, in the same order the backend
+   * charges in) already covers the whole bill, so this one has nothing left
+   * to apply to. Blocks turning it on and explains why, instead of silently
+   * flashing checked then immediately un-checking itself. */
+  disabledReason?: string;
   input?: {
     value: number;
     max: number;
@@ -40,17 +45,19 @@ export const AvailableBenefitsPanel: React.FC<Props> = ({ cards }) => {
     <div className="benefits-grid">
       {cards.map((card) => {
         const Icon = card.icon;
+        const blocked = !!card.disabledReason && !card.checked;
         return (
           <div
             key={card.key}
-            className={`benefit-card ${card.variantClass}${card.checked ? " benefit-card--active" : ""}`}
-            onClick={() => card.onToggle(!card.checked)}
+            className={`benefit-card ${card.variantClass}${card.checked ? " benefit-card--active" : ""}${blocked ? " benefit-card--disabled" : ""}`}
+            onClick={() => { if (!blocked) card.onToggle(!card.checked); }}
           >
             <input
               type="checkbox"
               className="benefit-card__checkbox"
               checked={card.checked}
-              onChange={(e) => card.onToggle(e.target.checked)}
+              disabled={blocked}
+              onChange={(e) => { if (!blocked) card.onToggle(e.target.checked); }}
               onClick={(e) => e.stopPropagation()}
             />
             <div className="benefit-card__icon-wrap">
@@ -62,6 +69,9 @@ export const AvailableBenefitsPanel: React.FC<Props> = ({ cards }) => {
               </div>
               <div className="benefit-card__value">{card.value}</div>
               <div className="benefit-card__subtitle">{card.subtitle}</div>
+              {blocked && (
+                <div className="benefit-card__disabled-note">{card.disabledReason}</div>
+              )}
               {card.checked && card.input && (
                 <div className="benefit-card__input-row" onClick={(e) => e.stopPropagation()}>
                   {card.input.prefix && <span className="pay-due-row__symbol">{card.input.prefix}</span>}

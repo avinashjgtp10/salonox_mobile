@@ -1418,6 +1418,27 @@ $success:    #22c55e;
   &--ewallet    { --accent: #059669; --accent-bg: #d1fae5; }
   &--reward     { --accent: #d97706; --accent-bg: #fef3c7; }
   &--referral   { --accent: #db2777; --accent-bg: #fce7f3; }
+
+  // A prior benefit (applied first, same order the backend charges in) already
+  // covers the whole bill — nothing left for this one, so it's greyed out with
+  // an explanation instead of letting the checkbox flash on then immediately
+  // snap back off.
+  &--disabled {
+    cursor: not-allowed;
+    opacity: 0.55;
+    background: #f9fafb;
+
+    &:hover { border-color: $border; }
+
+    .benefit-card__checkbox { cursor: not-allowed; }
+  }
+
+  &__disabled-note {
+    font-size: 9px;
+    color: #9ca3af;
+    margin-top: 2px;
+    line-height: 1.25;
+  }
 }
 
 // Clear due banner
@@ -1737,6 +1758,7 @@ $success:    #22c55e;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 8px;
     width: 100%;
     padding: 8px 12px;
     border: none;
@@ -1750,8 +1772,12 @@ $success:    #22c55e;
     &--active { background: #eef2ff; }
   }
 
-  &__name { font-weight: 500; color: #111827; }
-  &__price { font-size: 12px; color: #6b7280; }
+  // flex:1 + min-width:0 keeps a long name wrapping within its own space
+  // instead of overflowing past the row's width — without this, a long name
+  // pushes __price off to the side, forcing the whole dropdown into an
+  // unwanted horizontal scroll to see the price at all.
+  &__name { flex: 1; min-width: 0; font-weight: 500; color: #111827; }
+  &__price { flex-shrink: 0; font-size: 12px; color: #6b7280; }
 }
 
 .svc-staff-pill {
