@@ -19,6 +19,7 @@ interface InventoryRow {
   unitCost: number;
   totalValue: number;
   status: "In Stock" | "Low Stock" | "Out of Stock";
+  createdAt: string;
 }
 
 const INV_STATUSES = ["All", "In Stock", "Low Stock", "Out of Stock"];
@@ -26,6 +27,8 @@ const INV_STATUSES = ["All", "In Stock", "Low Stock", "Out of Stock"];
 export default function ProductInventoryReport({ onBack }: { onBack: () => void }) {
   const [category,        setCategory]        = useState("All");
   const [stockStatus,     setStockStatus]     = useState("All");
+  const [dateFrom,        setDateFrom]        = useState("");
+  const [dateTo,          setDateTo]          = useState("");
   const [showCatDrop,     setShowCatDrop]     = useState(false);
   const [showStsDrop,     setShowStsDrop]     = useState(false);
   const [rows,            setRows]            = useState<InventoryRow[]>([]);
@@ -80,7 +83,7 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
         let status: InventoryRow["status"] = "In Stock";
         if (currentStock <= 0) status = "Out of Stock";
         else if (reorderLevel > 0 && currentStock <= reorderLevel) status = "Low Stock";
-        return { product: p.name, category: catName, sku: p.barcode ?? "—", currentStock, reorderLevel, unitCost, totalValue, status };
+        return { product: p.name, category: catName, sku: p.barcode ?? "—", currentStock, reorderLevel, unitCost, totalValue, status, createdAt: p.created_at };
       });
       setAllRows(mapped);
     } catch (e: any) {
@@ -96,8 +99,10 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
     let filtered = allRows;
     if (category !== "All") filtered = filtered.filter(r => r.category === category);
     if (stockStatus !== "All") filtered = filtered.filter(r => r.status === stockStatus);
+    if (dateFrom) filtered = filtered.filter(r => r.createdAt && r.createdAt.slice(0, 10) >= dateFrom);
+    if (dateTo) filtered = filtered.filter(r => r.createdAt && r.createdAt.slice(0, 10) <= dateTo);
     setRows(filtered);
-  }, [allRows, category, stockStatus]);
+  }, [allRows, category, stockStatus, dateFrom, dateTo]);
 
   useEffect(() => {
     const close = () => { setShowCatDrop(false); setShowStsDrop(false); };
@@ -157,6 +162,14 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
               ))}
             </div>
           )}
+        </div>
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Calendar (Date Added)</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <span className="rp-detail-date-sep">-</span>
+            <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="rp-detail-date-input" />
+          </div>
         </div>
         <div className="rp-detail-filter-actions">
           <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
