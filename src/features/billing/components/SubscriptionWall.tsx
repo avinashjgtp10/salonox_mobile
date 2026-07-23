@@ -1,17 +1,29 @@
 import { useState, useEffect } from "react";
-import { useAppSelector } from "../../../hooks/useAppRedux";
+import { useNavigate } from "react-router-dom";
+import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
+import { logout } from "../../../store/authSlice";
 import logo from "../../../assets/logo.png";
 import UpgradeButton from "./UpgradeButton";
 import api from "../../../services/api/axios";
 import type { SubscriptionPlan } from "../types/billing.types";
 
 export default function SubscriptionWall() {
+  const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const role = useAppSelector((s) => s.auth.role);
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [showPlans, setShowPlans] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const isOwnerOrAdmin = role === "salon_owner" || role === "admin";
+
+  // Same session-clearing pattern as DashboardLayout's handleLogout — clears
+  // the persisted auth slice (tokens/role/salonId) and redirects to /login,
+  // so a user stuck behind this wall can still leave without renewing.
+  const handleLogout = () => {
+    dispatch(logout());
+    navigate("/login");
+  };
 
   const loadPlans = () => {
     setLoading(true);
@@ -47,13 +59,34 @@ export default function SubscriptionWall() {
         </p>
 
         {isOwnerOrAdmin && !showPlans && (
+          <div style={styles.actionsRow}>
+            <button
+              style={{ ...styles.btn, flex: 1, width: "auto" }}
+              onClick={() => setShowPlans(true)}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#1a1a2e")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#111827")}
+            >
+              Renew Now
+            </button>
+            <button
+              style={{ ...styles.logoutBtn, flex: 1, width: "auto" }}
+              onClick={handleLogout}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#f3f4f6")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+            >
+              Logout
+            </button>
+          </div>
+        )}
+
+        {!isOwnerOrAdmin && (
           <button
-            style={styles.btn}
-            onClick={() => setShowPlans(true)}
-            onMouseEnter={(e) => (e.currentTarget.style.background = "#1a1a2e")}
-            onMouseLeave={(e) => (e.currentTarget.style.background = "#111827")}
+            style={styles.logoutBtn}
+            onClick={handleLogout}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#f3f4f6")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
           >
-            Renew Now
+            Logout
           </button>
         )}
 
@@ -87,6 +120,17 @@ export default function SubscriptionWall() {
               ))
             )}
           </div>
+        )}
+
+        {isOwnerOrAdmin && showPlans && (
+          <button
+            style={styles.logoutBtn}
+            onClick={handleLogout}
+            onMouseEnter={(e) => (e.currentTarget.style.background = "#f3f4f6")}
+            onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+          >
+            Logout
+          </button>
         )}
 
         <p style={styles.help}>
@@ -123,6 +167,15 @@ const styles: Record<string, React.CSSProperties> = {
   btn: {
     marginTop: "8px", background: "#111827", color: "#fff",
     border: "none", borderRadius: "10px", padding: "14px 40px",
+    fontSize: "15px", fontWeight: 600, cursor: "pointer",
+    transition: "background 0.15s", width: "100%",
+  },
+  actionsRow: {
+    display: "flex", gap: "12px", width: "100%", marginTop: "8px",
+  },
+  logoutBtn: {
+    marginTop: "8px", background: "#fff", color: "#374151",
+    border: "1px solid #d1d5db", borderRadius: "10px", padding: "14px 40px",
     fontSize: "15px", fontWeight: 600, cursor: "pointer",
     transition: "background 0.15s", width: "100%",
   },
