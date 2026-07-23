@@ -1,5 +1,6 @@
 // src/components/ui/Avatar.tsx
 import React from "react";
+import { PersonFill } from "react-bootstrap-icons";
 
 interface AvatarProps {
   initials: string;
@@ -14,6 +15,7 @@ const FONT_MAP = { sm: 10, md: 12, lg: 16 } as const;
 const Avatar: React.FC<AvatarProps> = ({ initials, size = "md", className = "", style }) => {
   const px = SIZE_MAP[size];
   const fs = FONT_MAP[size];
+  const trimmed = initials.trim();
 
   return (
     <div
@@ -35,7 +37,7 @@ const Avatar: React.FC<AvatarProps> = ({ initials, size = "md", className = "", 
         ...style,
       }}
     >
-      {initials.slice(0, 2).toUpperCase()}
+      {trimmed ? trimmed.slice(0, 2).toUpperCase() : <PersonFill size={fs} />}
     </div>
   );
 };
