@@ -219,6 +219,23 @@ export const AppointmentModal: React.FC<Props> = ({
   const [exCharges, setExCharges]         = useState(existingBooking?.exCharges ?? 0);
   const [tip, setTip]                     = useState(existingBooking?.tipAmount ?? 0);
   const [focusedField, setFocusedField]   = useState<"exCharges" | "tip" | "discountValue" | null>(null);
+  const [discountValueWarning, setDiscountValueWarning] = useState<string | null>(null);
+
+  // Switching Disc. Type to Percentage while a flat value over 100 is
+  // already entered must re-clamp it — the input's own onChange only caps
+  // new keystrokes, not a value that was valid under the OTHER type.
+  useEffect(() => {
+    if (discountType === "Percentage (%)" && discountValue > 100) setDiscountValue(100);
+  }, [discountType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-dismiss the discount validation message after a few seconds, same
+  // pattern as Block Time's conflict message — it's already visible the
+  // moment it appears, it doesn't need to sit on screen forever.
+  useEffect(() => {
+    if (!discountValueWarning) return;
+    const t = setTimeout(() => setDiscountValueWarning(null), 4000);
+    return () => clearTimeout(t);
+  }, [discountValueWarning]);
 
   // ── Notes / Alert ─────────────────────────────────────────────────────────
   const [notes, setNotes]           = useState(existingBooking?.notes ?? "");
@@ -306,8 +323,20 @@ export const AppointmentModal: React.FC<Props> = ({
   // Backend "Active" filtering aside, also guard client-side against a
   // package whose expiry date has passed but hasn't been flagged as such
   // server-side yet — an expired package must never be selectable/applicable.
+  // Sorted soonest-expiry-first (packages with no expiry sort last, since
+  // there's no urgency to use them up) — when a client owns more than one
+  // active package covering the same service, this makes the one closest to
+  // expiring the one actually picked/consumed first (see firstActivePkg's
+  // display below and markPackageSessions' redemption loop), instead of
+  // whatever arbitrary order the API happened to return them in.
   const nonExpiredPackages = useMemo(
-    () => (clientPkgsData?.items ?? []).filter((pkg) => !isPackageExpired(pkg.expiryDate)),
+    () => (clientPkgsData?.items ?? [])
+      .filter((pkg) => !isPackageExpired(pkg.expiryDate))
+      .sort((a, b) => {
+        const aTime = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
+        const bTime = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
+        return aTime - bTime;
+      }),
     [clientPkgsData],
   );
   // Map of coverage key → remaining sessions from active packages (memoized for
@@ -348,44 +377,64 @@ export const AppointmentModal: React.FC<Props> = ({
   const EMPTY_COVERED = useMemo(() => new Map<string, number>(), []);
   const effectiveCoveredServices = applyPackage ? coveredServices : EMPTY_COVERED;
 
-  // Apply (or restore) ₹0 pricing on service rows as the checkbox is toggled.
-  // Nothing is committed server-side just by checking this box — package
-  // sessions are only marked consumed after checkout (markPackageSessions) —
-  // so it's always safe to fully reverse here when unchecked.
+  // Allocates the (shared, service-keyed) coverage pool ACROSS every row that
+  // shares a service, in row order — instead of letting each matching row
+  // independently see the FULL remaining count. Without this, two rows of the
+  // same package-covered service (e.g. the same service booked for two
+  // different staff) could each mark themselves as the covered "free"
+  // session, double-spending the client's package. Keyed by row tempId;
+  // recomputed whenever rows are added/removed/reordered or their qty
+  // changes, since the allocation depends on row order and quantities.
+  const perRowCoveredRemaining = useMemo(() => {
+    const pool = new Map(effectiveCoveredServices);
+    const perRow = new Map<string, number>();
+    serviceRows.forEach((row, idx) => {
+      if (!row.service.trim()) return;
+      const rowCatalogId = (row as any).id || null;
+      const nameKey = `name:${row.service.toLowerCase()}`;
+      const key = (rowCatalogId && effectiveCoveredServices.has(rowCatalogId)) ? rowCatalogId : nameKey;
+      const avail = pool.get(key) ?? 0;
+      if (avail <= 0) return;
+      const tempId = (row as any).tempId || String(idx);
+      const qty = Number(row.qty) || 1;
+      const used = Math.min(avail, qty);
+      perRow.set(tempId, used);
+      pool.set(key, avail - used);
+    });
+    return perRow;
+  }, [effectiveCoveredServices, serviceRows]);
+
+  // Apply (or restore) ₹0 pricing on service rows as the checkbox is toggled
+  // (or as rows/quantities change and the pooled allocation above shifts).
+  // Nothing is committed server-side just by this — package sessions are only
+  // marked consumed after checkout (markPackageSessions) — so it's always
+  // safe to fully reverse here. Guards every row against a no-op write (same
+  // total/isPackageService as before) so this settles to a fixed point in one
+  // extra render instead of looping, even though `serviceRows` is itself a
+  // dependency (via perRowCoveredRemaining).
   useEffect(() => {
-    if (effectiveCoveredServices.size === 0) {
-      setServiceRows((prev) => {
-        let changed = false;
-        const next = prev.map((row) => {
-          if (!(row as any).isPackageService) return row;
-          changed = true;
-          const qty      = Number(row.qty) || 1;
-          const discount = Number((row as any).discount) || 0;
-          const price    = Number(row.price) || 0;
-          return { ...row, total: Math.max(0, price * qty - discount), isPackageService: false };
-        });
-        return changed ? next : prev;
-      });
-      return;
-    }
-    setServiceRows((prev) =>
-      prev.map((row) => {
-        if (!row.service.trim()) return row;
-        // Exact catalog-id key first, then the name-prefixed fallback key —
-        // must match coveredServices' actual key format (see the useMemo
-        // above), or this always misses and leaves the row untouched.
-        const rowCatalogId = (row as any).id || null;
-        const remaining = (rowCatalogId ? effectiveCoveredServices.get(rowCatalogId) : undefined)
-          ?? effectiveCoveredServices.get(`name:${row.service.toLowerCase()}`)
-          ?? 0;
-        if (remaining <= 0) return row;
+    setServiceRows((prev) => {
+      let changed = false;
+      const next = prev.map((row, idx) => {
+        if (!row.service.trim()) {
+          if ((row as any).isPackageService) { changed = true; return { ...row, isPackageService: false }; }
+          return row;
+        }
+        const tempId = (row as any).tempId || String(idx);
+        const remaining = perRowCoveredRemaining.get(tempId) ?? 0;
         const qty = Number(row.qty) || 1;
-        const paidQty = Math.max(0, qty - remaining);
-        const catalogPrice = Number(row.price) || 0;
-        return { ...row, total: paidQty * catalogPrice, isPackageService: paidQty === 0 };
-      })
-    );
-  }, [effectiveCoveredServices]);
+        const paidQty = remaining > 0 ? Math.max(0, qty - remaining) : qty;
+        const price = Number(row.price) || 0;
+        const discountPct = Math.min(100, Math.max(0, Number((row as any).discount) || 0));
+        const newTotal = Math.max(0, price * paidQty * (1 - discountPct / 100));
+        const newIsPkg = remaining > 0 && paidQty === 0;
+        if (row.total === newTotal && !!(row as any).isPackageService === newIsPkg) return row;
+        changed = true;
+        return { ...row, total: newTotal, isPackageService: newIsPkg };
+      });
+      return changed ? next : prev;
+    });
+  }, [perRowCoveredRemaining]);
 
   // Apply (or restore) ₹0 pricing on package rows when the client already owns that package
   useEffect(() => {
@@ -475,12 +524,19 @@ export const AppointmentModal: React.FC<Props> = ({
   // the max usable on enable, but editable down (e.g. "only use ₹300, save the
   // rest"), same pattern as the eWallet amount field above.
   const [membershipWalletAmt, setMembershipWalletAmt] = useState(0);
+  // Tracks whether the amount above was deliberately typed by staff (only
+  // ever clamp DOWN from here) vs still auto-following the max (e.g. GST
+  // being toggled, or another benefit's usage changing, can move the max in
+  // EITHER direction — an auto-following amount must track it back up too,
+  // not get stuck at whatever the max happened to be last time this ran).
+  const membershipWalletAmtIsCustomRef = useRef(false);
   useEffect(() => {
-    if (!applyMembership) { setMembershipWalletAmt(0); return; }
+    if (!applyMembership) { membershipWalletAmtIsCustomRef.current = false; setMembershipWalletAmt(0); return; }
     if (membershipMaxUsable <= 0) { setApplyMembership(false); setMembershipWalletAmt(0); return; }
-    setMembershipWalletAmt((prev) => (prev > 0 ? Math.min(prev, membershipMaxUsable) : membershipMaxUsable));
+    setMembershipWalletAmt((prev) => (membershipWalletAmtIsCustomRef.current && prev > 0) ? Math.min(prev, membershipMaxUsable) : membershipMaxUsable);
   }, [applyMembership, membershipMaxUsable]);
   const handleSetMembershipWalletAmt = useCallback((v: number) => {
+    membershipWalletAmtIsCustomRef.current = true;
     setMembershipWalletAmt(Math.max(0, Math.min(v, membershipMaxUsable)));
   }, [membershipMaxUsable]);
 
@@ -521,14 +577,16 @@ export const AppointmentModal: React.FC<Props> = ({
   // appointmentId links each consumed session back to the sale that used it (for audit/reporting).
   async function markPackageSessions(appointmentId?: string) {
     const pkgs = nonExpiredPackages;
-    for (const row of serviceRows) {
+    for (let idx = 0; idx < serviceRows.length; idx++) {
+      const row = serviceRows[idx];
       const rowCatalogId = row.id || null;
       const nameKey = row.service.toLowerCase();
-      // Try the exact catalog-id key first, then fall back to the
-      // name-prefixed key (covers legacy packages with no catalog id).
-      const remaining = (rowCatalogId ? effectiveCoveredServices.get(rowCatalogId) : undefined)
-        ?? effectiveCoveredServices.get(`name:${nameKey}`)
-        ?? 0;
+      // Pooled allocation for THIS row (see perRowCoveredRemaining) — not the
+      // raw, unpooled coverage map — so two rows of the same service (e.g.
+      // booked with two different staff) can never both consume the same
+      // remaining session.
+      const tempId = (row as any).tempId || String(idx);
+      const remaining = perRowCoveredRemaining.get(tempId) ?? 0;
       if (remaining <= 0) continue;
 
       // Find the package(s) that cover this row — exact catalog id match when
@@ -818,61 +876,91 @@ export const AppointmentModal: React.FC<Props> = ({
       .filter((p) => p.remaining > 0),
   };
 
-  // ── eWallet cap: most the client is allowed to apply to this bill ──────────
+  // ── Sequential benefit caps ──────────────────────────────────────────────
+  // Membership / eWallet / Reward Points / Referral Credit used to each cap
+  // themselves against the FULL bill (totals.grandTotal) independently, with
+  // zero awareness of the others — so toggling GST (which changes
+  // totals.grandTotal) after Membership already claimed part of the bill
+  // could leave a benefit re-capped against the wrong ceiling, and a benefit
+  // amount that was only ever auto-following its max could get stuck at a
+  // stale value instead of tracking the max back up. This must match the
+  // backend's actual charge-time order (payments.service.ts) and its own
+  // preview (pricing.service.ts): Membership → eWallet → Reward Points →
+  // Referral Credit, each capped against what's still left AFTER the ones
+  // before it, not the original bill.
+  const remainingAfterMembership = Math.max(0, totals.grandTotal - membershipWalletUsedTotal);
+
+  // ── eWallet cap: most the client is allowed to apply to what's left after membership ──
   const eWalletMaxAmt = useMemo(() => {
     const balance = clientStats?.ewalletAmt ?? 0;
     if (balance < EWALLET_REDEEM_MINIMUM) return 0;
-    const maxUsable = computeMaxWalletUsable(totals.grandTotal, referralConfig);
-    return Math.min(balance, totals.grandTotal, maxUsable);
-  }, [clientStats, totals.grandTotal, referralConfig]);
+    const maxUsable = computeMaxWalletUsable(remainingAfterMembership, referralConfig);
+    return Math.min(balance, remainingAfterMembership, maxUsable);
+  }, [clientStats, remainingAfterMembership, referralConfig]);
 
   // ── Sync eWalletAmt ──────────────────────────────────────────────────────
   // Defaults to the max allowed on enable, but a user-typed custom amount
   // (e.g. "just ₹500 from wallet, rest via cash") is preserved across
-  // re-renders and only clamped down if the cap itself shrinks.
+  // re-renders and only clamped down if the cap itself shrinks. An amount
+  // that's still auto-following the max (never manually edited) must track
+  // it in EITHER direction — e.g. toggling "Include GST" back on grows the
+  // bill/cap back up, and an eWallet amount that was only ever auto-set
+  // must grow back up with it, not stay frozen at the smaller pre-GST value.
+  const eWalletAmtIsCustomRef = useRef(false);
   useEffect(() => {
-    if (!useEWallet) { setEWalletAmt(0); return; }
+    if (!useEWallet) { eWalletAmtIsCustomRef.current = false; setEWalletAmt(0); return; }
     if (eWalletMaxAmt <= 0) { setUseEWallet(false); setEWalletAmt(0); return; }
-    setEWalletAmt((prev) => (prev > 0 ? Math.min(prev, eWalletMaxAmt) : eWalletMaxAmt));
+    setEWalletAmt((prev) => (eWalletAmtIsCustomRef.current && prev > 0) ? Math.min(prev, eWalletMaxAmt) : eWalletMaxAmt);
   }, [useEWallet, eWalletMaxAmt]);
 
   const handleSetEWalletAmt = useCallback((v: number) => {
+    eWalletAmtIsCustomRef.current = true;
     setEWalletAmt(Math.max(0, Math.min(v, eWalletMaxAmt)));
   }, [eWalletMaxAmt]);
 
-  // ── Reward points cap: most points the client can redeem on this bill ──────
+  const remainingAfterEWallet = Math.max(0, remainingAfterMembership - (useEWallet ? eWalletAmt : 0));
+
+  // ── Reward points cap: most points the client can redeem on what's left
+  // after membership + eWallet ────────────────────────────────────────────
   // Own dedicated balance now (not folded into eWallet) — capped by the real
-  // points balance and by not letting the redeemed ₹ value exceed the bill.
+  // points balance and by not letting the redeemed ₹ value exceed what's left.
   const rewardPointsMaxRedeem = useMemo(() => {
     const balance = clientStats?.rewardPoints ?? 0;
     if (balance <= 0 || rewardPointsConfig.redeem_points <= 0) return 0;
-    const maxByBill = Math.floor((totals.grandTotal / rewardPointsConfig.redeem_value) * rewardPointsConfig.redeem_points);
+    const maxByBill = Math.floor((remainingAfterEWallet / rewardPointsConfig.redeem_value) * rewardPointsConfig.redeem_points);
     return Math.max(0, Math.min(balance, maxByBill));
-  }, [clientStats, totals.grandTotal, rewardPointsConfig]);
+  }, [clientStats, remainingAfterEWallet, rewardPointsConfig]);
 
+  const rewardPointsIsCustomRef = useRef(false);
   useEffect(() => {
-    if (!useRewardPoints) { setRewardPointsToRedeem(0); return; }
+    if (!useRewardPoints) { rewardPointsIsCustomRef.current = false; setRewardPointsToRedeem(0); return; }
     if (rewardPointsMaxRedeem <= 0) { setUseRewardPoints(false); setRewardPointsToRedeem(0); return; }
-    setRewardPointsToRedeem((prev) => (prev > 0 ? Math.min(prev, rewardPointsMaxRedeem) : rewardPointsMaxRedeem));
+    setRewardPointsToRedeem((prev) => (rewardPointsIsCustomRef.current && prev > 0) ? Math.min(prev, rewardPointsMaxRedeem) : rewardPointsMaxRedeem);
   }, [useRewardPoints, rewardPointsMaxRedeem]);
 
   const handleSetRewardPointsToRedeem = useCallback((v: number) => {
+    rewardPointsIsCustomRef.current = true;
     setRewardPointsToRedeem(Math.max(0, Math.min(v, rewardPointsMaxRedeem)));
   }, [rewardPointsMaxRedeem]);
 
-  // ── Referral credit cap: most ₹ the client can redeem on this bill ─────────
+  const remainingAfterRewardPoints = Math.max(0, remainingAfterEWallet - rewardPointsRedeemedValue);
+
+  // ── Referral credit cap: most ₹ the client can redeem on what's left after
+  // membership + eWallet + reward points ──────────────────────────────────
   const referralCreditMaxAmt = useMemo(() => {
     const balance = clientStats?.referralBalance ?? 0;
-    return Math.max(0, Math.min(balance, totals.grandTotal));
-  }, [clientStats, totals.grandTotal]);
+    return Math.max(0, Math.min(balance, remainingAfterRewardPoints));
+  }, [clientStats, remainingAfterRewardPoints]);
 
+  const referralCreditIsCustomRef = useRef(false);
   useEffect(() => {
-    if (!useReferralCredit) { setReferralCreditAmt(0); return; }
+    if (!useReferralCredit) { referralCreditIsCustomRef.current = false; setReferralCreditAmt(0); return; }
     if (referralCreditMaxAmt <= 0) { setUseReferralCredit(false); setReferralCreditAmt(0); return; }
-    setReferralCreditAmt((prev) => (prev > 0 ? Math.min(prev, referralCreditMaxAmt) : referralCreditMaxAmt));
+    setReferralCreditAmt((prev) => (referralCreditIsCustomRef.current && prev > 0) ? Math.min(prev, referralCreditMaxAmt) : referralCreditMaxAmt);
   }, [useReferralCredit, referralCreditMaxAmt]);
 
   const handleSetReferralCreditAmt = useCallback((v: number) => {
+    referralCreditIsCustomRef.current = true;
     setReferralCreditAmt(Math.max(0, Math.min(v, referralCreditMaxAmt)));
   }, [referralCreditMaxAmt]);
 
@@ -1395,38 +1483,6 @@ export const AppointmentModal: React.FC<Props> = ({
           serviceRows={serviceRows}
           onUpdateService={(i, field, value) => setServiceRows((rows) => rows.map((x, idx) => idx === i ? { ...x, [field as string]: value } : x))}
           onRemoveService={(i) => setServiceRows((rows) => rows.filter((_, idx) => idx !== i))}
-          onServiceDuplicate={(i, svc) => {
-            // Picking a service that's already on the bill merges into that
-            // row (qty +1) instead of creating a duplicate row. Coverage is
-            // recomputed against the package pool ONCE for the merged row, so
-            // two rows of the same service can no longer each claim the same
-            // remaining session (double free) — anything beyond the remaining
-            // sessions is charged at the normal price.
-            const nameKey = svc.name.trim().toLowerCase();
-            const targetIdx = serviceRows.findIndex((r, idx) =>
-              idx !== i && r.service.trim() && (
-                (svc.id && r.id && String(r.id) === String(svc.id)) ||
-                r.service.trim().toLowerCase() === nameKey
-              ));
-            if (targetIdx === -1) return false;
-            setServiceRows((rows) => {
-              const target = rows[targetIdx];
-              if (!target) return rows;
-              const newQty = Math.min(99, (Number(target.qty) || 1) + 1);
-              const remaining = (svc.id ? effectiveCoveredServices.get(String(svc.id)) : undefined)
-                ?? effectiveCoveredServices.get(`name:${nameKey}`) ?? 0;
-              const price = Number(target.price) || Number(svc.price) || 0;
-              const discountPct = Math.min(100, Math.max(0, Number(target.discount) || 0));
-              const paidQty = Math.max(0, newQty - remaining);
-              const total = Math.max(0, price * paidQty * (1 - discountPct / 100));
-              return rows
-                .map((r, idx) => idx === targetIdx
-                  ? { ...r, qty: newQty, total, isPackageService: paidQty === 0 }
-                  : r)
-                .filter((_, idx) => idx !== i);
-            });
-            return true;
-          }}
           onAddService={() => setServiceRows((rows) => {
             const last = rows[rows.length - 1];
             const nextTime = last?.time
@@ -1475,7 +1531,7 @@ export const AppointmentModal: React.FC<Props> = ({
           availablePackages={availablePackages}
           availableProducts={availableProducts}
           availableMemberships={availableMemberships}
-          coveredServices={effectiveCoveredServices}
+          packageRemainingByRow={perRowCoveredRemaining}
           membershipWalletInfo={membershipWalletMap}
           frozen={false}
           svcErrors={svcErrors}
@@ -1545,10 +1601,27 @@ export const AppointmentModal: React.FC<Props> = ({
   // Membership, eWallet, Reward Points, Referral Credit). AppointmentModal
   // owns all the underlying state; the panel itself is purely presentational.
   const firstActivePkg = nonExpiredPackages[0];
+  // `coveredServices` is aggregated across ALL of the client's active
+  // packages, regardless of what's actually on THIS bill — so it stays
+  // non-empty even when none of the currently-added services match any of
+  // them. Gating the card on that alone let staff check "Apply Package" for
+  // a bill it could never actually apply to (e.g. a package that only
+  // covers Haircut, applied to a bill of just a Facial) — it never zeroed
+  // anything, but nothing indicated why. Only show/offer it when at least
+  // one current row is genuinely eligible.
+  const hasPackageEligibleRow = useMemo(
+    () => serviceRows.some((row) => {
+      if (!row.service.trim()) return false;
+      const rowCatalogId = (row as any).id || null;
+      return (rowCatalogId && coveredServices.has(rowCatalogId))
+        || coveredServices.has(`name:${row.service.toLowerCase()}`);
+    }),
+    [serviceRows, coveredServices],
+  );
   const availableBenefitCards: BenefitCardConfig[] = useMemo(() => {
     const cards: BenefitCardConfig[] = [];
 
-    if (coveredServices.size > 0 && firstActivePkg) {
+    if (coveredServices.size > 0 && firstActivePkg && hasPackageEligibleRow) {
       const pkgRemaining = firstActivePkg.services.reduce((s, svc) => s + svc.remainingSessions, 0);
       const pkgTotal = firstActivePkg.services.reduce((s, svc) => s + svc.totalSessions, 0);
       cards.push({
@@ -1652,7 +1725,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
     return cards;
   }, [
-    coveredServices, firstActivePkg, applyPackage,
+    coveredServices, firstActivePkg, hasPackageEligibleRow, applyPackage,
     clientMemberships, membershipTotalBalance, primaryMembership, applyMembership,
     membershipWalletAmt, membershipMaxUsable, handleSetMembershipWalletAmt,
     clientStats, useEWallet, eWalletAmt, eWalletMaxAmt, handleSetEWalletAmt,
@@ -1692,30 +1765,59 @@ export const AppointmentModal: React.FC<Props> = ({
       <div className="charges-grid">
         <div className="field-group">
           <label>Ex Charges</label>
-          <input className="fg-input" type="number" min={0}
+          <input className="fg-input" type="text" inputMode="decimal"
             value={focusedField === "exCharges" && exCharges === 0 ? "" : exCharges}
             onFocus={() => setFocusedField("exCharges")}
             onBlur={() => setFocusedField(null)}
-            onWheel={(e) => e.currentTarget.blur()}
-            onChange={(e) => setExCharges(e.target.value === "" ? 0 : Number(e.target.value))} />
+            onChange={(e) => {
+              // Digits and a single decimal point only — a native
+              // type="number" input still lets someone type "+"/"-"/"e"
+              // characters (min=0 only flags it :invalid, it doesn't block
+              // the keystroke), so this is a plain text input sanitized by
+              // hand instead, matching ServiceRow.tsx's price/qty/discount
+              // fields.
+              const cleaned = e.target.value.replace(/[^0-9.]/g, "");
+              setExCharges(cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0));
+            }} />
         </div>
         <div className="field-group">
           <label>Tip</label>
-          <input className="fg-input" type="number" min={0}
+          <input className="fg-input" type="text" inputMode="decimal"
             value={focusedField === "tip" && tip === 0 ? "" : tip}
             onFocus={() => setFocusedField("tip")}
             onBlur={() => setFocusedField(null)}
-            onWheel={(e) => e.currentTarget.blur()}
-            onChange={(e) => setTip(e.target.value === "" ? 0 : Number(e.target.value))} />
+            onChange={(e) => {
+              const cleaned = e.target.value.replace(/[^0-9.]/g, "");
+              setTip(cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0));
+            }} />
         </div>
         <div className="field-group">
           <label>Svc Discount</label>
-          <input className="fg-input" type="number" min={0}
+          <input className="fg-input" type="text" inputMode="decimal"
             value={focusedField === "discountValue" && discountValue === 0 ? "" : discountValue}
             onFocus={() => setFocusedField("discountValue")}
             onBlur={() => setFocusedField(null)}
-            onWheel={(e) => e.currentTarget.blur()}
-            onChange={(e) => setDiscountValue(e.target.value === "" ? 0 : Number(e.target.value))} />
+            onChange={(e) => {
+              const cleaned = e.target.value.replace(/[^0-9.]/g, "");
+              let num = cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0);
+              // A percentage discount can never exceed 100%. A flat (₹)
+              // discount can never exceed the current subtotal either —
+              // computeTotals() already floors the resulting taxable amount
+              // at 0 regardless, but silently letting the FIELD hold an
+              // absurd value (e.g. a stray extra digit) shows a nonsensical
+              // "Svc Discount: -₹3,400,000,000.00" line before that floor
+              // kicks in, so this clamps — and explains — right at entry.
+              if (discountType === "Percentage (%)") {
+                if (num > 100) { num = 100; setDiscountValueWarning("Percentage discount cannot exceed 100%"); }
+                else setDiscountValueWarning(null);
+              } else {
+                const subtotalCap = totals.subtotal || 0;
+                if (subtotalCap > 0 && num > subtotalCap) { num = subtotalCap; setDiscountValueWarning("Discount cannot exceed total amount"); }
+                else setDiscountValueWarning(null);
+              }
+              setDiscountValue(num);
+            }} />
+          {discountValueWarning && <span className="fg-field__err">{discountValueWarning}</span>}
         </div>
         <div className="field-group">
           <label>Disc. Type</label>
@@ -2073,6 +2175,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         rewardPointsValue={rewardPointsRedeemedValue}
                         referralCreditUsed={useReferralCredit ? referralCreditAmt : 0}
                         alreadyPaid={livePaidAmount}
+                        paidLabel="Paid (incl. this payment)"
                         dueAmount={liveDueAmount}
                         grandTotal={totals.grandTotal}
                         roundOff={totals.roundOff}
@@ -2261,6 +2364,7 @@ export const AppointmentModal: React.FC<Props> = ({
         <EwalletTopupModal
           clientId={selectedClient!.id}
           clientName={selectedClient!.name}
+          currentBalance={clientStats?.ewalletAmt ?? 0}
           onClose={() => setShowTopupModal(false)}
           onSuccess={() => setClientRefreshKey((k) => k + 1)}
         />

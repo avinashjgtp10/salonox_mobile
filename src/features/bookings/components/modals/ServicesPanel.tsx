@@ -49,9 +49,6 @@ interface Props {
   onUpdateService: (index: number, field: string, value: any) => void;
   onRemoveService: (index: number) => void;
   onAddService: () => void;
-  /** Return true if the picked service was merged into an existing row
-   *  (qty +1 there, row at `index` removed) — see ServiceRow.onSelectDuplicate. */
-  onServiceDuplicate?: (index: number, service: { id?: string; name: string; price: number; duration?: number }) => boolean;
 
   packageRows: PackageItem[];
   onUpdatePackage: (index: number, row: PackageItem) => void;
@@ -80,7 +77,13 @@ interface Props {
   availableProducts: any[];
   availableMemberships: any[];
   frozen?: boolean;
-  coveredServices?: Map<string, number>;
+  // Pre-pooled per-row package-session allocation (keyed by row tempId) —
+  // computed once in AppointmentModal.tsx by walking every service row in
+  // order and allocating the package's remaining sessions one row at a time,
+  // so two rows of the same covered service (e.g. booked with two different
+  // staff) split the real remaining sessions instead of each independently
+  // seeing the full pool and both claiming to be covered.
+  packageRemainingByRow?: Map<string, number>;
   membershipWalletInfo?: Map<string, { walletUsed: number; payable: number }>;
 
   svcErrors?: Array<{ service?: boolean; staff?: boolean; time?: boolean }>;
@@ -1077,13 +1080,13 @@ function SearchableItemRow(props: SearchableItemRowProps) {
 }
 
 export const ServicesPanel: React.FC<Props> = ({
-  serviceRows, onUpdateService, onRemoveService, onAddService, onServiceDuplicate,
+  serviceRows, onUpdateService, onRemoveService, onAddService,
   packageRows, onUpdatePackage, onRemovePackage, onAddPackage,
   productRows, onUpdateProduct, onRemoveProduct, onAddProduct,
   membershipRows, onUpdateMembership, onRemoveMembership, onAddMembership,
   onSellPackage, onSellMembership, onTopupEwallet,
   availablePackages, availableProducts, availableMemberships,
-  frozen, coveredServices, membershipWalletInfo,
+  frozen, packageRemainingByRow, membershipWalletInfo,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
   onClearPkgError, onClearProdError, onClearMemError,
 }) => {
@@ -1129,8 +1132,7 @@ export const ServicesPanel: React.FC<Props> = ({
           onUpdateService(i, field, value);
         }}
         onRemove={() => onRemoveService(i)}
-        onSelectDuplicate={onServiceDuplicate ? (_id, svc) => onServiceDuplicate(i, svc) : undefined}
-        coveredServices={coveredServices}
+        packageSessionsRemaining={packageRemainingByRow?.get((row as any).tempId || String(i)) ?? 0}
         membershipWalletInfo={membershipWalletInfo?.get((row as any).tempId || String(i))}
       />
     ))}

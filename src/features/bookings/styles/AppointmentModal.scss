@@ -557,6 +557,12 @@ $success:    #22c55e;
     &:disabled { background: #f9fafb; color: #9ca3af; }
   }
 
+  .fg-field__err {
+    font-size: 10.5px;
+    color: #dc2626;
+    line-height: 1.3;
+  }
+
   .fg-textarea {
     width: 100%;
     padding: 8px 10px;

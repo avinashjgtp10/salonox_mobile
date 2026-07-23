@@ -30,6 +30,13 @@ interface TotalsPanelProps {
   rewardPointsValue?: number;
   referralCreditUsed?: number;
   alreadyPaid?: number;
+  // Some callers pass a LIVE preview here (already-paid + whatever amount is
+  // currently typed into the Pay field, before it's actually confirmed) —
+  // labeling that row plain "Paid" reads as a statement of settled fact and
+  // directly contradicts a "Paid ₹X" figure shown elsewhere on the same
+  // screen from the real historical amount. Callers doing a live preview
+  // must override this to something that says so.
+  paidLabel?: string;
   dueAmount?: number;
   packageServiceCount?: number;
   // Authoritative rounded total + the adjustment that produced it, straight
@@ -48,7 +55,7 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   totalDiscount: totalDiscountProp,
   gstAmount = 0, taxBreakdown = [], tip = 0, membershipWalletUsed = 0,
   ewalletUsed = 0, rewardPointsValue = 0, referralCreditUsed = 0,
-  alreadyPaid = 0, dueAmount = 0, packageServiceCount = 0,
+  alreadyPaid = 0, paidLabel = "Paid", dueAmount = 0, packageServiceCount = 0,
   grandTotal: grandTotalProp, roundOff: roundOffProp,
 }) => {
   const discountVal = discountType === "Percentage (%)" ? (serviceTotal * discount) / 100 : discount;
@@ -65,6 +72,27 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   // inside the item price, shown here just as a breakdown of what it contains.
   const exclusiveTaxRows = taxBreakdown.filter((t) => !t.inclusive && t.amount > 0);
   const inclusiveTaxRows = taxBreakdown.filter((t) => t.inclusive && t.amount > 0);
+
+  // Standard GST-invoice presentation: whatever the underlying tax config
+  // actually is (one combined "GST" line, or separate CGST/SGST entries),
+  // show it the way a real invoice does — CGST + SGST for an intra-state
+  // sale, IGST for inter-state — rather than whatever raw name the salon
+  // happened to configure. Rate/amount are summed across every component so
+  // a genuine 2.5%+2.5% split still reads as a single correct 5% line.
+  const combineTaxRows = (rows: TaxBreakdownEntry[]) => {
+    if (rows.length === 0) return null;
+    const amount = rows.reduce((s, t) => s + t.amount, 0);
+    const rate = rows.reduce((s, t) => s + t.rate, 0);
+    const isIgst = rows.some((t) => t.name.toUpperCase().includes("IGST"));
+    return { label: isIgst ? "IGST" : "CGST + SGST", amount, rate };
+  };
+  const combinedExclusiveTax = combineTaxRows(exclusiveTaxRows);
+  const combinedInclusiveTax = combineTaxRows(inclusiveTaxRows);
+  // "Total after GST" = the taxable amount plus tax actually added to the
+  // bill (exclusive tax only — inclusive tax is already inside `subtotal`
+  // and doesn't add anything extra) — the standard invoice checkpoint
+  // between the tax breakdown and Extra Charges/Round Off/Grand Total.
+  const totalAfterGst = taxable + (combinedExclusiveTax?.amount ?? 0);
 
   const rows = [
     ...(packageServiceCount > 0 ? [{ label: `📦 Package Service${packageServiceCount > 1 ? "s" : ""} (${packageServiceCount})`, value: `${currencySymbol}0`, color: "text-success" }] : []),
@@ -87,8 +115,9 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
           ...(couponDiscount > 0 ? [{ label: `Coupon${couponCode ? ` (${couponCode})` : ""}`, value: `-${currencySymbol}${couponDiscount.toFixed(2)}`, color: "text-danger" }] : []),
         ]
       : (totalDiscount > 0 ? [{ label: "Discount", value: `-${currencySymbol}${totalDiscount.toFixed(2)}`, color: "text-danger" }] : [])),
-    ...exclusiveTaxRows.map((t) => ({ label: `${t.name} (${t.rate}%)`, value: `${currencySymbol}${t.amount.toFixed(2)}`, color: "" })),
-    ...inclusiveTaxRows.map((t) => ({ label: `${t.name} (${t.rate}%, incl.)`, value: `${currencySymbol}${t.amount.toFixed(2)}`, color: "text-secondary" })),
+    ...(combinedExclusiveTax ? [{ label: `${combinedExclusiveTax.label} (${combinedExclusiveTax.rate}%)`, value: `+${currencySymbol}${combinedExclusiveTax.amount.toFixed(2)}`, color: "" }] : []),
+    ...(combinedInclusiveTax ? [{ label: `${combinedInclusiveTax.label} (${combinedInclusiveTax.rate}%, incl.)`, value: `${currencySymbol}${combinedInclusiveTax.amount.toFixed(2)}`, color: "text-secondary" }] : []),
+    ...(combinedExclusiveTax ? [{ label: "Total after GST", value: `${currencySymbol}${totalAfterGst.toFixed(2)}`, color: "", bold: true }] : []),
     ...(exCharges     > 0 ? [{ label: "Ex Charges", value: `${currencySymbol}${exCharges.toFixed(2)}`,      color: "" }] : []),
     ...(Math.abs(roundOff) >= 0.005
       ? [{ label: "Round Off", value: `${roundOff >= 0 ? "+" : "-"}${currencySymbol}${Math.abs(roundOff).toFixed(2)}`, color: "text-secondary" }]
@@ -99,7 +128,7 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
     ...(rewardPointsValue  > 0 ? [{ label: "Reward Points Applied",   value: `-${currencySymbol}${rewardPointsValue.toFixed(2)}`,  color: "text-success" }] : []),
     ...(referralCreditUsed > 0 ? [{ label: "Referral Credit Applied", value: `-${currencySymbol}${referralCreditUsed.toFixed(2)}`, color: "text-success" }] : []),
     ...(tip         > 0 ? [{ label: "Tip (Staff)", value: `${currencySymbol}${tip.toFixed(2)}`,        color: "text-secondary" }] : []),
-    ...(alreadyPaid > 0 ? [{ label: "Paid",        value: `${currencySymbol}${alreadyPaid.toFixed(2)}`, color: "text-success",   bold: false }] : []),
+    ...(alreadyPaid > 0 ? [{ label: paidLabel,     value: `${currencySymbol}${alreadyPaid.toFixed(2)}`, color: "text-success",   bold: false }] : []),
     ...(dueAmount   > 0 ? [{ label: "Due",          value: `${currencySymbol}${dueAmount.toFixed(2)}`,  color: "text-danger",    bold: false }] : []),
   ];
 
