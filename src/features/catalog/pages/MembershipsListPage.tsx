@@ -33,13 +33,11 @@ import "../styles/MembershipsListPage.scss";
 const PAGE_SIZE = 20;
 
 interface Filters {
-  sessions: string;
   payment: string;
   validFor: string;
   onlyAllServices: boolean;
 }
 const DEFAULT_FILTERS: Filters = {
-  sessions: "Any number of sessions",
   payment: "All",
   validFor: "Any period",
   onlyAllServices: false,
@@ -112,8 +110,6 @@ const MembershipsListPage: React.FC = () => {
   // ── plans list ────────────────────────────────────────────────────────────
   const buildQuery = useCallback(() => ({
     search:      search.trim() || undefined,
-    sessionType: filters.sessions !== "Any number of sessions"
-      ? filters.sessions.replace(" sessions", "").toLowerCase() : undefined,
     validFor: filters.validFor !== "Any period" ? filters.validFor : undefined,
     page, limit: PAGE_SIZE,
   }), [search, filters, page]);
@@ -148,7 +144,6 @@ const MembershipsListPage: React.FC = () => {
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const activeFilterCount = [
-    filters.sessions !== "Any number of sessions",
     filters.validFor !== "Any period",
     filters.onlyAllServices,
   ].filter(Boolean).length;
@@ -249,7 +244,10 @@ const MembershipsListPage: React.FC = () => {
         </div>
         <button
           className={`msp__btn msp__btn--outline${activeFilterCount > 0 ? " msp__btn--active" : ""}`}
-          onClick={() => setFilterOpen(true)}
+          onClick={() => {
+            setOptOpen(false);
+            setFilterOpen(true);
+          }}
         >
           <Sliders size={14} />
           Filters {activeFilterCount > 0 && `(${activeFilterCount})`}

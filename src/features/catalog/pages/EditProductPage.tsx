@@ -11,7 +11,6 @@ import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
 import { retailFromActiveMethod, markupPercentFromRetail, flatAmountFromRetail } from "../utils/productPricing";
 import type { MarkupMethod } from "../utils/productPricing";
-import { useWheelStepInput } from "../../../hooks/useWheelStepInput";
 import "../styles/CreateProductPage.scss";
 
 
@@ -148,14 +147,6 @@ const EditProductPage: React.FC = () => {
   };
 
   // Mouse-wheel adjustment for the pricing fields (Supply/Retail price step by ₹1, Markup % by 1%)
-  const supplyPriceRef = useRef<HTMLInputElement>(null);
-  const retailPriceRef = useRef<HTMLInputElement>(null);
-  const markupPercentRef = useRef<HTMLInputElement>(null);
-  const flatAmountRef = useRef<HTMLInputElement>(null);
-  useWheelStepInput(supplyPriceRef, handleSupplyPriceChange);
-  useWheelStepInput(retailPriceRef, handleRetailPriceChange);
-  useWheelStepInput(markupPercentRef, handleMarkupChange);
-  useWheelStepInput(flatAmountRef, handleFlatAmountChange);
 
   const handleAddBrand = async () => {
     if (!newBrand.trim()) return;
@@ -360,10 +351,9 @@ const EditProductPage: React.FC = () => {
           {/* 2. Pricing */}
           <Card title="Pricing" className="mb-4">
             <Input
-              ref={supplyPriceRef}
               label="Supply price"
-              type="number"
-              min="0"
+              type="text"
+              inputMode="decimal"
               placeholder="0.00"
               value={form.supplyPrice}
               onChange={(e) => handleSupplyPriceChange(e.target.value)}
@@ -398,10 +388,9 @@ const EditProductPage: React.FC = () => {
               <div className="row g-3">
                 <div className="col-6">
                   <Input
-                    ref={retailPriceRef}
                     label="Retail price"
-                    type="number"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="0.00"
                     value={form.retailPrice}
                     onChange={(e) => handleRetailPriceChange(e.target.value)}
@@ -410,29 +399,15 @@ const EditProductPage: React.FC = () => {
                     containerClass=""
                   />
                 </div>
-                <div className="col-3">
+                <div className="col-6">
                   <Input
-                    ref={markupPercentRef}
                     label="Markup"
-                    type="number"
-                    min="0"
+                    type="text"
+                    inputMode="decimal"
                     placeholder="0.00"
                     value={form.markupPercentage}
                     onChange={(e) => handleMarkupChange(e.target.value)}
                     iconLeft={<span>%</span>}
-                    containerClass=""
-                  />
-                </div>
-                <div className="col-3">
-                  <Input
-                    ref={flatAmountRef}
-                    label="Flat amount"
-                    type="number"
-                    min="0"
-                    placeholder="0.00"
-                    value={form.flatAmount}
-                    onChange={(e) => handleFlatAmountChange(e.target.value)}
-                    iconLeft={<span>₹</span>}
                     containerClass=""
                   />
                 </div>
