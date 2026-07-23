@@ -151,10 +151,10 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
       )}
 
       <div className="rp-detail-table-wrap">
-        <table className="rp-detail-table">
+        <table className="rp-detail-table rp-inv-table">
           <thead>
             <tr>
-              <th>Product</th>
+              <th className="rp-inv-col-product">Product</th>
               <th>Category</th>
               <th>SKU</th>
               <th>Current Stock</th>
@@ -171,7 +171,7 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
               <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
               <tr key={i}>
-                <td className="fw-semibold">{r.product}</td>
+                <td className="fw-semibold rp-inv-product-cell" title={r.product}>{r.product}</td>
                 <td>{r.category}</td>
                 <td><span className="rp-detail-link">{r.sku}</span></td>
                 <td>{r.currentStock}</td>
