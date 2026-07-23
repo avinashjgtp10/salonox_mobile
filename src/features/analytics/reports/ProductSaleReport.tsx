@@ -1,13 +1,12 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { BOOKING } from "../../../services/api/endpoints";
+import { PRODUCT_RETAIL_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
-import { normalizePaymentStatus } from "../../bookings/utils/bookingMapper";
 import "./ProductSaleReport.scss";
 
 const REPORT_NAME = "Product Retail";
@@ -23,72 +22,94 @@ interface ProductSaleRow {
   total: number;
 }
 
+// Maps a row from the independent Product Retail API
+// (POST /api/report/product-retail — reads sales/sale_items directly, never
+// the Appointment API) to the table's existing ProductSaleRow shape.
+function mapRow(row: any): ProductSaleRow {
+  return {
+    date: row.date || "—",
+    invoiceNo: row.invoice_no ?? "—",
+    client: row.client_name || "Walk-in",
+    clientId: row.client_id ? String(row.client_id) : "",
+    productName: row.product_name || "Product",
+    quantity: Number(row.quantity) || 0,
+    price: Number(row.price) || 0,
+    total: Number(row.total) || 0,
+  };
+}
+
+interface FilterOption { id: string; label: string; }
+
 export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
   const today   = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
   const [dateTo,      setDateTo]      = useState(today);
-  const [search,      setSearch]      = useState("");
-  const [allRows,     setAllRows]     = useState<ProductSaleRow[]>([]);
+  const [search,      setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [rows,        setRows]        = useState<ProductSaleRow[]>([]);
+  const [total,       setTotal]       = useState(0);
+  const [stats,       setStats]       = useState({ totalQty: 0, totalRev: 0, uniqueProducts: 0, lineItems: 0 });
+  // No separate /products API call — the product-retail API itself returns
+  // filters_available (every product ever sold in this salon), so a filter
+  // dropdown could be added later without any extra network calls.
+  const [productOptions, setProductOptions] = useState<FilterOption[]>([]);
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Real server-side pagination — page/limit are sent on every request, and
+  // only that page's rows come back, along with stats computed by the
+  // backend over the WHOLE filtered set (not just the current page).
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      // Product line items live on the appointment record (`GET /api/v1/sales` never returns
-      // its line items — only the bare sale row), so we read them from the bookings/appointments API.
-      const res = await api.get(BOOKING.BASE, { params: { start_date: dateFrom, end_date: dateTo, limit: "200" }, signal: ctrl.signal });
-      const raw = res.data?.data;
-      const appts: any[] =
-        Array.isArray(raw?.items) ? raw.items :
-        Array.isArray(raw?.data)  ? raw.data  :
-        Array.isArray(raw)        ? raw        : [];
-      const rows: ProductSaleRow[] = [];
-      appts.forEach((appt: any) => {
-        if (normalizePaymentStatus(appt.status) === "Unpaid") return;
-        const date = String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10);
-        const invoiceNo = appt.invoice_number != null ? String(appt.invoice_number) : String(appt.id ?? "—");
-        const client = appt.client_name ?? "Walk-in";
-        const clientId = appt.client_id ? String(appt.client_id) : "";
-        (Array.isArray(appt.product_items) ? appt.product_items : []).forEach((it: any) => {
-          const quantity = Number(it.quantity ?? 1) || 1;
-          const price = Number(it.price) || 0;
-          rows.push({ date, invoiceNo, client, clientId, productName: String(it.name ?? "Product"), quantity, price, total: Math.round(price * quantity) });
-        });
+      const body: Record<string, any> = {
+        start_date: dateFrom, end_date: dateTo,
+        page: currentPage, limit: pageSize,
+      };
+      if (debouncedSearch) body.search = debouncedSearch;
+      const res = await api.post(PRODUCT_RETAIL_REPORT.SUMMARY(), body, { signal: ctrl.signal });
+      const data = res.data?.data;
+      const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
+      setRows(raw.map(mapRow));
+      setTotal(Number(data?.pagination?.total) || 0);
+      const s = data?.stats ?? {};
+      setStats({
+        totalQty: Number(s.total_quantity) || 0,
+        totalRev: Number(s.total_revenue) || 0,
+        uniqueProducts: Number(s.unique_products) || 0,
+        lineItems: Number(s.line_items) || 0,
       });
-      rows.sort((a, b) => (a.date < b.date ? 1 : -1));
-      setAllRows(rows);
+      setProductOptions(Array.isArray(data?.filters_available?.products) ? data.filters_available.products : []);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
+        setRows([]); setTotal(0);
+        setStats({ totalQty: 0, totalRev: 0, uniqueProducts: 0, lineItems: 0 });
+      }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo]);
+  }, [dateFrom, dateTo, debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const rows = useMemo(() => {
-    if (!search.trim()) return allRows;
-    const q = search.toLowerCase();
-    return allRows.filter(r => r.productName.toLowerCase().includes(q) || r.client.toLowerCase().includes(q) || r.invoiceNo.toLowerCase().includes(q));
-  }, [allRows, search]);
-
-  useEffect(() => { setCurrentPage(1); }, [rows]);
-
-  const totalQty = rows.reduce((s, r) => s + r.quantity, 0);
-  const totalRev = rows.reduce((s, r) => s + r.total, 0);
-  const uniqueProducts = new Set(rows.map(r => r.productName)).size;
+  // Filter/search changes go back to page 1 — page/pageSize changes
+  // themselves should not reset back to page 1.
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch]);
 
   const HEADERS = ["Date", "Invoice No", "Client", "Product Name", "Quantity", "Price (₹)", "Total (₹)"];
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.productName, r.quantity, r.price, r.total]);
-  const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="rp-detail-view">
@@ -121,10 +142,10 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
 
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalQty}</div><div className="rp-sra-summary-label">Total Quantity Sold</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalRev.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{uniqueProducts}</div><div className="rp-sra-summary-label">Unique Products</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{rows.length}</div><div className="rp-sra-summary-label">Line Items</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalQty}</div><div className="rp-sra-summary-label">Total Quantity Sold</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalRev.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.uniqueProducts}</div><div className="rp-sra-summary-label">Unique Products</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.lineItems}</div><div className="rp-sra-summary-label">Line Items</div></div>
         </div>
       )}
 
@@ -137,7 +158,7 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
         </div>
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
-          <input type="text" className="rp-detail-search-input" placeholder="Product, client or invoice" value={search} onChange={e => setSearch(e.target.value)} />
+          <input type="text" className="rp-detail-search-input" placeholder="Product, client or invoice" value={search} onChange={e => setSearchInput(e.target.value)} />
         </div>
       </div>
 
@@ -151,9 +172,9 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
           <tbody>
             {loading ? (
               <SkeletonTableRows columns={7} />
-            ) : paged.length === 0 ? (
+            ) : rows.length === 0 ? (
               <tr><td colSpan={7} className="rp-detail-empty-cell">No product sales found</td></tr>
-            ) : paged.map((r, i) => (
+            ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.clientId ? "rp-appt-row" : undefined}
@@ -172,7 +193,7 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
         </table>
       </div>
 
-      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
 
       {selectedClientId && (

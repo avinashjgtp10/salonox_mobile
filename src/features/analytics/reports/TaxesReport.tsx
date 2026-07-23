@@ -2,14 +2,13 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { ChevronLeft, BoxArrowUpRight } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { BOOKING } from "../../../services/api/endpoints";
+import { GST_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import { normalizePaymentStatus } from "../../bookings/utils/bookingMapper";
 import "./TaxesReport.scss";
 
 const REPORT_NAME = "GST Report";
@@ -18,14 +17,27 @@ interface InvoiceTaxRow {
   date: string;
   invoiceNo: string;
   client: string;
-  staffId: string;
   taxableAmount: number;
-  // Keyed by the exact tax name configured on the Tax Mapping settings page
-  // at billing time (a per-invoice snapshot, not a live reference) — so this
-  // report's columns always reflect whatever taxes were actually in use,
-  // instead of assuming a fixed CGST/SGST/IGST set.
-  taxAmounts: Record<string, number>;
+  // sales.tax_amount is a single flat number — there is no per-tax-name
+  // breakdown at the sales level (only payments.tax_breakdown has that, and
+  // only for appointment-linked sales), so this is one flat column now,
+  // not a dynamic CGST/SGST-style split.
+  taxAmount: number;
   total: number;
+}
+
+// Maps a row from the independent GST report API
+// (POST /api/report/gst — reads sales directly, never the Appointment API)
+// to the table's existing InvoiceTaxRow shape.
+function mapRow(row: any): InvoiceTaxRow {
+  return {
+    date: row.date || "—",
+    invoiceNo: row.invoice_no ?? "—",
+    client: row.client_name || "Walk-in",
+    taxableAmount: Number(row.taxable_amount) || 0,
+    taxAmount: Number(row.tax_amount) || 0,
+    total: Number(row.total) || 0,
+  };
 }
 
 export default function TaxesReport({ onBack }: { onBack: () => void }) {
@@ -37,8 +49,11 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
   const [staffFilter,   setStaffFilter]   = useState("All");
   const [staffOptions,  setStaffOptions]  = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
   const [showStaffDrop, setShowStaffDrop] = useState(false);
-  const [customerFilter, setCustomerFilter] = useState("");
+  const [customerFilter, setCustomerFilterInput] = useState("");
+  const [debouncedCustomerFilter, setDebouncedCustomerFilter] = useState("");
   const [rows,        setRows]        = useState<InvoiceTaxRow[]>([]);
+  const [total,       setTotal]       = useState(0);
+  const [stats,       setStats]       = useState({ invoicesWithTax: 0, totalTax: 0, totalCollected: 0 });
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
@@ -60,95 +75,55 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedCustomerFilter(customerFilter.trim()), 300);
+    return () => clearTimeout(t);
+  }, [customerFilter]);
+
+  // Real server-side pagination — page/limit are sent on every request, and
+  // only that page's rows come back, along with stats computed by the
+  // backend over the WHOLE filtered set (not just the current page).
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const res = await api.get(BOOKING.BASE, { params: { start_date: dateFrom, end_date: dateTo, limit: "200" }, signal: ctrl.signal });
-      const raw = res.data?.data;
-      const appts: any[] =
-        Array.isArray(raw?.items) ? raw.items :
-        Array.isArray(raw?.data)  ? raw.data  :
-        Array.isArray(raw)        ? raw        : [];
-      const result: InvoiceTaxRow[] = [];
-      appts.forEach((appt: any) => {
-        if (normalizePaymentStatus(appt.status) === "Unpaid") return;
-        const breakdown: any[] = Array.isArray(appt.tax_breakdown) ? appt.tax_breakdown : [];
-        if (breakdown.length === 0) return;
-        if (staffFilter !== "All" && String(appt.staff_id ?? "") !== staffFilter) return;
-
-        const date = String(appt.scheduled_at ?? appt.created_at ?? "").slice(0, 10);
-        const invoiceNo = appt.invoice_number != null ? String(appt.invoice_number) : String(appt.id ?? "—");
-        const client = appt.client_name ?? "Walk-in";
-        const itemsTotal = [
-          ...(Array.isArray(appt.services) ? appt.services : []),
-          ...(Array.isArray(appt.package_items) ? appt.package_items : []),
-          ...(Array.isArray(appt.product_items) ? appt.product_items : []),
-          ...(Array.isArray(appt.membership_items) ? appt.membership_items : []),
-        ].reduce((s: number, it: any) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
-        const discount = appt.discount_type === "percentage"
-          ? itemsTotal * ((Number(appt.discount_value) || 0) / 100)
-          : (Number(appt.discount_value) || 0);
-        const taxableAmount = Math.max(itemsTotal - discount, 0);
-
-        const taxAmounts: Record<string, number> = {};
-        // Inclusive tax is already baked into taxableAmount, so it must not be
-        // added again here — only exclusive (add-on-top) tax increases the
-        // total. Same distinction the printed receipt's Payment Summary makes.
-        let exclusiveTaxForAppt = 0;
-        breakdown.forEach((t: any) => {
-          const amt = Number(t.amount) || 0;
-          const name = String(t.name ?? "").trim() || "Other Tax";
-          taxAmounts[name] = (taxAmounts[name] ?? 0) + amt;
-          if (!t.inclusive) exclusiveTaxForAppt += amt;
-        });
-
-        const total = taxableAmount + exclusiveTaxForAppt + (Number(appt.tip_amount) || 0);
-
-        result.push({
-          date, invoiceNo, client, staffId: String(appt.staff_id ?? ""), taxableAmount,
-          taxAmounts, total,
-        });
+      const body: Record<string, any> = {
+        start_date: dateFrom, end_date: dateTo,
+        page: currentPage, limit: pageSize,
+      };
+      if (staffFilter !== "All") body.staff_id = staffFilter;
+      if (debouncedCustomerFilter) body.search = debouncedCustomerFilter;
+      const res = await api.post(GST_REPORT.SUMMARY(), body, { signal: ctrl.signal });
+      const data = res.data?.data;
+      const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
+      setRows(raw.map(mapRow));
+      setTotal(Number(data?.pagination?.total) || 0);
+      const s = data?.stats ?? {};
+      setStats({
+        invoicesWithTax: Number(s.invoices_with_tax) || 0,
+        totalTax: Number(s.total_tax_collected) || 0,
+        totalCollected: Number(s.total_amount_collected) || 0,
       });
-      result.sort((a, b) => (a.date < b.date ? 1 : -1));
-      setRows(result);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
+        setRows([]); setTotal(0);
+        setStats({ invoicesWithTax: 0, totalTax: 0, totalCollected: 0 });
+      }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilter]);
+  }, [dateFrom, dateTo, staffFilter, debouncedCustomerFilter, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [rows]);
 
-  const visibleRows = customerFilter.trim()
-    ? rows.filter(r => r.client.toLowerCase().includes(customerFilter.trim().toLowerCase()))
-    : rows;
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilter, debouncedCustomerFilter]);
 
-  // Column set is whatever tax names actually appear in this date range —
-  // not a fixed CGST/SGST/IGST list — so renaming/adding a tax on the Tax
-  // Mapping settings page is reflected here automatically for new invoices.
-  const taxColumns = Array.from(
-    visibleRows.reduce((names, r) => {
-      Object.keys(r.taxAmounts).forEach(n => names.add(n));
-      return names;
-    }, new Set<string>())
-  ).sort((a, b) => a.localeCompare(b));
-
-  const totalTax = visibleRows.reduce((s, r) => s + Object.values(r.taxAmounts).reduce((a, b) => a + b, 0), 0);
-  const totalCollected = visibleRows.reduce((s, r) => s + r.total, 0);
   const selectedStaffLabel = staffOptions.find(o => o.value === staffFilter)?.label ?? "All";
 
-  const HEADERS = ["Invoice No.", "Date", "Customer", "Taxable Value (₹)", ...taxColumns.map(n => `${n} (₹)`), "Total (₹)"];
-  const exportRows = () => visibleRows.map(r => [
-    r.invoiceNo, r.date, r.client, r.taxableAmount,
-    ...taxColumns.map(n => r.taxAmounts[n] ?? 0),
-    r.total,
-  ]);
-  const paged = visibleRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const HEADERS = ["Invoice No.", "Date", "Customer", "Taxable Value (₹)", "Tax Amount (₹)", "Total (₹)"];
+  const exportRows = () => rows.map(r => [r.invoiceNo, r.date, r.client, r.taxableAmount, r.taxAmount, r.total]);
 
   return (
     <div className="rp-detail-view">
@@ -202,7 +177,7 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
             className="rp-detail-date-input"
             placeholder="Search customer…"
             value={customerFilter}
-            onChange={e => setCustomerFilter(e.target.value)}
+            onChange={e => setCustomerFilterInput(e.target.value)}
           />
         </div>
         <div className="rp-detail-filter-actions">
@@ -214,35 +189,35 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
 
       {loading ? <SkeletonStatCards count={3} /> : (
       <div className="rp-sra-summary-row">
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{visibleRows.length}</div><div className="rp-sra-summary-label">Invoices with Tax</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalTax.toLocaleString()}</div><div className="rp-sra-summary-label">Total Tax Collected</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalCollected.toLocaleString()}</div><div className="rp-sra-summary-label">Total Amount Collected</div></div>
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.invoicesWithTax}</div><div className="rp-sra-summary-label">Invoices with Tax</div></div>
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalTax.toLocaleString()}</div><div className="rp-sra-summary-label">Total Tax Collected</div></div>
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalCollected.toLocaleString()}</div><div className="rp-sra-summary-label">Total Amount Collected</div></div>
       </div>
       )}
 
-      {!loading && <div className="rp-detail-drag-hint">{visibleRows.length} invoice{visibleRows.length !== 1 ? "s" : ""}</div>}
+      {!loading && <div className="rp-detail-drag-hint">{total} invoice{total !== 1 ? "s" : ""}</div>}
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
             <tr>
               <th>Invoice No.</th><th>Date</th><th>Customer</th><th>Taxable Value (₹)</th>
-              {taxColumns.map(n => <th key={n}>{n} (₹)</th>)}
+              <th>Tax Amount (₹)</th>
               <th>Total (₹)</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={5 + taxColumns.length} />
-            ) : paged.length === 0 ? (
-              <tr><td colSpan={5 + taxColumns.length} className="rp-detail-empty-cell">No tax data found</td></tr>
-            ) : paged.map((r, i) => (
+              <SkeletonTableRows columns={6} />
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={6} className="rp-detail-empty-cell">No tax data found</td></tr>
+            ) : rows.map((r, i) => (
               <tr key={i}>
                 <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td>{r.date}</td>
                 <td>{r.client}</td>
                 <td>₹{r.taxableAmount.toLocaleString()}</td>
-                {taxColumns.map(n => <td key={n}>₹{(r.taxAmounts[n] ?? 0).toLocaleString()}</td>)}
+                <td>₹{r.taxAmount.toLocaleString()}</td>
                 <td className="fw-semibold">₹{r.total.toLocaleString()}</td>
               </tr>
             ))}
@@ -250,7 +225,7 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
         </table>
       </div>
 
-      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={visibleRows.length}
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
     </div>
   );

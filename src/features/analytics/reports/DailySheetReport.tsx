@@ -1,10 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useDispatch } from "react-redux";
 import { ChevronLeft, Grid3x3Gap, InfoCircle } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { REPORT, SERVICES } from "../../../services/api/endpoints";
-import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
-import type { AppDispatch } from "../../../store/store";
+import { DAILY_SHEET_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
 import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
@@ -16,6 +13,8 @@ const REPORT_NAME = "Daily Sheet";
 
 interface DailyRow {
   appointmentId: string | null;
+  serviceId: string | null;
+  staffId: string | null;
   time: string;
   ticketNo: string;
   clientName: string;
@@ -25,67 +24,82 @@ interface DailyRow {
   paymentMethod: string;
 }
 
+// Maps a row from the independent Daily Sheet API
+// (POST /api/report/daily-sheet — reads sales/sale_items directly, never
+// the Appointment API) to the table's existing DailyRow shape.
+function mapRow(row: any): DailyRow {
+  return {
+    appointmentId: row.appointment_id ? String(row.appointment_id) : null,
+    serviceId: row.service_id ? String(row.service_id) : null,
+    staffId: row.staff_id ? String(row.staff_id) : null,
+    time: row.time || "—",
+    ticketNo: row.ticket_no ?? "—",
+    clientName: row.client_name || "Walk-in",
+    service: row.service || "—",
+    staff: row.staff || "—",
+    amount: Number(row.amount) || 0,
+    paymentMethod: row.payment_method || "N/A",
+  };
+}
+
+interface FilterOption { id: string; label: string; }
+
 export default function DailySheetReport({ onBack }: { onBack: () => void }) {
-  const dispatch = useDispatch<AppDispatch>();
   const today = new Date().toISOString().slice(0, 10);
   const [date,            setDate]            = useState(today);
-  const [serviceFilter,   setServiceFilter]   = useState("All");
-  const [serviceOptions,  setServiceOptions]  = useState<string[]>(["All"]);
-  const [staffFilter,     setStaffFilter]     = useState("All");
-  const [staffNames,      setStaffNames]      = useState<string[]>([]);
+  const [serviceFilter,   setServiceFilter]   = useState<string>("All");
+  const [staffFilter,     setStaffFilter]     = useState<string>("All");
+  // No separate /services or /staff calls — the daily-sheet API itself
+  // returns filters_available (every service/staff that has ever appeared
+  // in this salon's sales), so options are always complete regardless of
+  // the current date/filter selection.
+  const [serviceOptions,  setServiceOptions]  = useState<FilterOption[]>([]);
+  const [staffOptions,    setStaffOptions]    = useState<FilterOption[]>([]);
   const [showSvcDrop,     setShowSvcDrop]     = useState(false);
   const [showStfDrop,     setShowStfDrop]     = useState(false);
   const [rows,            setRows]            = useState<DailyRow[]>([]);
+  const [total,           setTotal]            = useState(0);
+  const [totalRevenue,    setTotalRevenue]     = useState(0);
   const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
-  const [selectedId,  setSelectedId]  = useState<string | null>(null);
-  useEffect(() => { setCurrentPage(1); }, [rows]);
+  const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    api.get(SERVICES.BASE).then(res => {
-      const list: any[] = res.data?.data?.data ?? res.data?.data ?? [];
-      const names = list.map((s: any) => s.name as string).filter(Boolean);
-      setServiceOptions(["All", ...names]);
-    }).catch(() => {});
-
-    dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
-      const names = list.map((s: any) => [s.first_name, s.last_name].filter(Boolean).join(" ")).filter(Boolean);
-      setStaffNames(names);
-    }).catch(() => {});
-  }, [dispatch]);
-
+  // Real server-side pagination — page/limit are sent on every request, and
+  // only that page's rows come back, along with the total amount computed
+  // by the backend over the WHOLE filtered set (not just the current page).
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const params = new URLSearchParams({ date });
-      if (serviceFilter !== "All") params.set("service", serviceFilter);
-      if (staffFilter   !== "All") params.set("staff", staffFilter);
-      const res = await api.get(REPORT.DAILY_SHEET_TABLE(params.toString()), { signal: ctrl.signal });
-      const raw: any[] = res.data?.data ?? [];
-      const mapped: DailyRow[] = raw.map((r: any) => ({
-        appointmentId: r.appointmentId ? String(r.appointmentId) : null,
-        time: r.time || "—",
-        ticketNo: r.ticketNo,
-        clientName: r.clientName || "Walk-in",
-        service: r.service || "—",
-        staff: r.staff || "—",
-        amount: Number(r.amount) || 0,
-        paymentMethod: r.paymentMethod || "N/A",
-      }));
-      setRows(mapped);
+      const body: Record<string, any> = { date, page: currentPage, limit: pageSize };
+      if (serviceFilter !== "All") body.service_id = serviceFilter;
+      if (staffFilter   !== "All") body.staff_id = staffFilter;
+      const res = await api.post(DAILY_SHEET_REPORT.SUMMARY(), body, { signal: ctrl.signal });
+      const data = res.data?.data;
+      const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
+      setRows(raw.map(mapRow));
+      setTotal(Number(data?.pagination?.total) || 0);
+      setTotalRevenue(Number(data?.total_amount) || 0);
+      setServiceOptions(Array.isArray(data?.filters_available?.services) ? data.filters_available.services : []);
+      setStaffOptions(Array.isArray(data?.filters_available?.staff) ? data.filters_available.staff : []);
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
+        setRows([]); setTotal(0); setTotalRevenue(0);
+      }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [date, serviceFilter, staffFilter]);
+  }, [date, serviceFilter, staffFilter, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Filter changes go back to page 1 — page/pageSize changes themselves
+  // should not reset back to page 1.
+  useEffect(() => { setCurrentPage(1); }, [date, serviceFilter, staffFilter]);
 
   useEffect(() => {
     const close = () => { setShowSvcDrop(false); setShowStfDrop(false); };
@@ -93,7 +107,6 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const totalRevenue = rows.reduce((sum, r) => sum + r.amount, 0);
   const HEADERS = ["Time", "Ticket No", "Client Name", "Service", "Staff", "Amount (₹)", "Payment Method"];
   const exportRows = () => rows.map(r => [r.time, r.ticketNo, r.clientName, r.service, r.staff, r.amount, r.paymentMethod]);
 
@@ -120,13 +133,15 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Service</label>
           <button className="rp-detail-select" onClick={() => { setShowSvcDrop(v => !v); setShowStfDrop(false); }}>
-            {serviceFilter} <span className="rp-detail-caret">▼</span>
+            {serviceFilter === "All" ? "All" : (serviceOptions.find(o => o.id === serviceFilter)?.label ?? "All")} <span className="rp-detail-caret">▼</span>
           </button>
           {showSvcDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {serviceOptions.map(s => (
-                <div key={s} className={`rp-detail-dropdown-item ${s === serviceFilter ? "active" : ""}`}
-                  onClick={() => { setServiceFilter(s); setShowSvcDrop(false); }}>{s}</div>
+              <div className={`rp-detail-dropdown-item ${serviceFilter === "All" ? "active" : ""}`}
+                onClick={() => { setServiceFilter("All"); setShowSvcDrop(false); }}>All</div>
+              {serviceOptions.map(o => (
+                <div key={o.id} className={`rp-detail-dropdown-item ${o.id === serviceFilter ? "active" : ""}`}
+                  onClick={() => { setServiceFilter(o.id); setShowSvcDrop(false); }}>{o.label}</div>
               ))}
             </div>
           )}
@@ -134,13 +149,15 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Staff</label>
           <button className="rp-detail-select" onClick={() => { setShowStfDrop(v => !v); setShowSvcDrop(false); }}>
-            {staffFilter} <span className="rp-detail-caret">▼</span>
+            {staffFilter === "All" ? "All" : (staffOptions.find(o => o.id === staffFilter)?.label ?? "All")} <span className="rp-detail-caret">▼</span>
           </button>
           {showStfDrop && (
             <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {["All", ...staffNames].map(s => (
-                <div key={s} className={`rp-detail-dropdown-item ${s === staffFilter ? "active" : ""}`}
-                  onClick={() => { setStaffFilter(s); setShowStfDrop(false); }}>{s}</div>
+              <div className={`rp-detail-dropdown-item ${staffFilter === "All" ? "active" : ""}`}
+                onClick={() => { setStaffFilter("All"); setShowStfDrop(false); }}>All</div>
+              {staffOptions.map(o => (
+                <div key={o.id} className={`rp-detail-dropdown-item ${o.id === staffFilter ? "active" : ""}`}
+                  onClick={() => { setStaffFilter(o.id); setShowStfDrop(false); }}>{o.label}</div>
               ))}
             </div>
           )}
@@ -155,7 +172,7 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
       {!loading && (
         <div className="rp-detail-drag-hint">
           Daily Total: <strong style={{ color: "#111827", marginLeft: 6 }}>₹{totalRevenue.toLocaleString()}</strong>
-          &nbsp;· {rows.length} transactions
+          &nbsp;· {total} transactions
         </div>
       )}
 
@@ -177,8 +194,12 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
               <SkeletonTableRows columns={7} />
             ) : rows.length === 0 ? (
               <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
-            ) : rows.slice((currentPage - 1) * pageSize, currentPage * pageSize).map((r, i) => (
-              <tr key={i} className="rp-appt-row" onClick={() => r.appointmentId && setSelectedId(r.appointmentId)}>
+            ) : rows.map((r, i) => (
+              <tr
+                key={i}
+                className={r.appointmentId ? "rp-appt-row" : undefined}
+                onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}
+              >
                 <td>{r.time || "—"}</td>
                 <td>
                   <span className="rp-detail-link" title={r.ticketNo}>
@@ -197,16 +218,15 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
       </div>
 
       <Pagination
-        currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+        currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage}
         onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
       />
 
-      {selectedId && (
+      {selectedAppointmentId && (
         <AppointmentDetailModal
-          appointmentId={selectedId}
-          onClose={() => setSelectedId(null)}
-          onChanged={fetchData}
+          appointmentId={selectedAppointmentId}
+          onClose={() => setSelectedAppointmentId(null)}
         />
       )}
     </div>

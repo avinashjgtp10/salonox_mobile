@@ -1,7 +1,7 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { ChevronLeft, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import { CLIENT, EWALLET } from "../../../services/api/endpoints";
+import { EWALLET, EWALLET_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
@@ -38,9 +38,12 @@ interface LedgerRow {
 const EMPTY_BREAKDOWN: Breakdown = { balance: 0, referral_rewards: 0, reward_credits: 0, other_credits: 0, wallet_debits: 0 };
 
 export default function EwalletReport({ onBack }: { onBack: () => void }) {
-  const [allRows,     setAllRows]     = useState<ClientRow[]>([]);
+  const [rows,        setRows]        = useState<ClientRow[]>([]);
+  const [total,       setTotal]       = useState(0);
+  const [stats,       setStats]       = useState({ totalClients: 0, withBalance: 0, totalValue: 0, avgBalance: 0 });
   const [loading,     setLoading]     = useState(false);
-  const [search,      setSearch]      = useState("");
+  const [search,      setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
   const abortRef = useRef<AbortController | null>(null);
@@ -51,45 +54,52 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
   const [drawerLoading, setDrawerLoading] = useState(false);
   const drawerAbortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  // Real server-side pagination — page/limit are sent on every request, and
+  // only that page's rows come back, along with stats computed by the
+  // backend over the WHOLE filtered set (not just the current page).
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const res = await api.get(CLIENT.BASE, { params: { limit: 200 }, signal: ctrl.signal });
-      const raw = res.data?.data;
-      const list: any[] = Array.isArray(raw?.items) ? raw.items : Array.isArray(raw) ? raw : [];
-      const rows: ClientRow[] = list.map((c: any) => ({
-        id: String(c.id),
-        name: c.full_name || `${c.first_name ?? ""} ${c.last_name ?? ""}`.trim() || "—",
-        phone: c.phone_number ? `${c.phone_country_code ?? ""} ${c.phone_number}`.trim() : "—",
-        email: c.email ?? "—",
-        balance: Number(c.ewallet_balance ?? c.wallet_balance ?? 0) || 0,
-      }));
-      rows.sort((a, b) => b.balance - a.balance);
-      setAllRows(rows);
+      const body: Record<string, any> = { page: currentPage, limit: pageSize };
+      if (debouncedSearch) body.search = debouncedSearch;
+      const res = await api.post(EWALLET_REPORT.SUMMARY(), body, { signal: ctrl.signal });
+      const data = res.data?.data;
+      const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
+      setRows(raw.map((c: any) => ({
+        id: String(c.client_id),
+        name: c.client_name || "—",
+        phone: c.phone || "—",
+        email: c.email || "—",
+        balance: Number(c.balance) || 0,
+      })));
+      setTotal(Number(data?.pagination?.total) || 0);
+      const s = data?.stats ?? {};
+      setStats({
+        totalClients: Number(s.total_clients) || 0,
+        withBalance: Number(s.with_balance) || 0,
+        totalValue: Number(s.total_wallet_value) || 0,
+        avgBalance: Number(s.avg_balance) || 0,
+      });
     } catch (e: any) {
-      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
+      if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
+        setRows([]); setTotal(0);
+        setStats({ totalClients: 0, withBalance: 0, totalValue: 0, avgBalance: 0 });
+      }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, []);
+  }, [debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-
-  const rows = useMemo(() => {
-    if (!search.trim()) return allRows;
-    const q = search.toLowerCase();
-    return allRows.filter(r => r.name.toLowerCase().includes(q) || r.phone.includes(q) || r.email.toLowerCase().includes(q));
-  }, [allRows, search]);
-
-  useEffect(() => { setCurrentPage(1); }, [rows]);
-
-  const totalClients = rows.length;
-  const withBalance = rows.filter(r => r.balance > 0).length;
-  const totalValue = rows.reduce((s, r) => s + r.balance, 0);
-  const avgBalance = withBalance > 0 ? totalValue / withBalance : 0;
+  useEffect(() => { setCurrentPage(1); }, [debouncedSearch]);
 
   const openDrawer = useCallback(async (row: ClientRow) => {
     setSelected(row);
@@ -129,7 +139,6 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
 
   const HEADERS = ["Client", "Phone", "Email", "Wallet Balance (₹)"];
   const exportRows = () => rows.map(r => [r.name, r.phone, r.email, r.balance]);
-  const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   return (
     <div className="rp-detail-view">
@@ -154,10 +163,10 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
 
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalClients}</div><div className="rp-sra-summary-label">Total Clients</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{withBalance}</div><div className="rp-sra-summary-label">With Wallet Balance</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{totalValue.toLocaleString("en-IN")}</div><div className="rp-sra-summary-label">Total Wallet Value</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{avgBalance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div><div className="rp-sra-summary-label">Avg Balance</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalClients}</div><div className="rp-sra-summary-label">Total Clients</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.withBalance}</div><div className="rp-sra-summary-label">With Wallet Balance</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalValue.toLocaleString("en-IN")}</div><div className="rp-sra-summary-label">Total Wallet Value</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.avgBalance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div><div className="rp-sra-summary-label">Avg Balance</div></div>
         </div>
       )}
 
@@ -175,7 +184,7 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
             className="rp-detail-search-input"
             placeholder="Client name, phone or email"
             value={search}
-            onChange={e => setSearch(e.target.value)}
+            onChange={e => setSearchInput(e.target.value)}
           />
         </div>
       </div>
@@ -188,9 +197,9 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
           <tbody>
             {loading ? (
               <SkeletonTableRows columns={4} />
-            ) : paged.length === 0 ? (
+            ) : rows.length === 0 ? (
               <tr><td colSpan={4} className="rp-detail-empty-cell">No clients found</td></tr>
-            ) : paged.map(r => (
+            ) : rows.map(r => (
               <tr key={r.id} className="rp-appt-row" onClick={() => openDrawer(r)}>
                 <td className="fw-semibold"><span className="rp-detail-link">{r.name}</span></td>
                 <td>{r.phone}</td>
@@ -202,7 +211,7 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
         </table>
       </div>
 
-      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+      <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
 
       {selected && (
