@@ -77,13 +77,7 @@ interface Props {
   availableProducts: any[];
   availableMemberships: any[];
   frozen?: boolean;
-  // Pre-pooled per-row package-session allocation (keyed by row tempId) —
-  // computed once in AppointmentModal.tsx by walking every service row in
-  // order and allocating the package's remaining sessions one row at a time,
-  // so two rows of the same covered service (e.g. booked with two different
-  // staff) split the real remaining sessions instead of each independently
-  // seeing the full pool and both claiming to be covered.
-  packageRemainingByRow?: Map<string, number>;
+  coveredServices?: Map<string, number>;
   membershipWalletInfo?: Map<string, { walletUsed: number; payable: number }>;
 
   svcErrors?: Array<{ service?: boolean; staff?: boolean; time?: boolean }>;
@@ -1086,7 +1080,7 @@ export const ServicesPanel: React.FC<Props> = ({
   membershipRows, onUpdateMembership, onRemoveMembership, onAddMembership,
   onSellPackage, onSellMembership, onTopupEwallet,
   availablePackages, availableProducts, availableMemberships,
-  frozen, packageRemainingByRow, membershipWalletInfo,
+  frozen, coveredServices, membershipWalletInfo,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
   onClearPkgError, onClearProdError, onClearMemError,
 }) => {
@@ -1132,7 +1126,7 @@ export const ServicesPanel: React.FC<Props> = ({
           onUpdateService(i, field, value);
         }}
         onRemove={() => onRemoveService(i)}
-        packageSessionsRemaining={packageRemainingByRow?.get((row as any).tempId || String(i)) ?? 0}
+        coveredServices={coveredServices}
         membershipWalletInfo={membershipWalletInfo?.get((row as any).tempId || String(i))}
       />
     ))}

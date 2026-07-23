@@ -105,22 +105,10 @@ export const ClientPanel: React.FC<Props> = ({
   const allBookings = useAppSelector(selectBookings);
 
   const clientIdForPkg = selectedClientId && selectedClientId !== "walk-in" ? selectedClientId : undefined;
-  const { data: clientPkgsData, refetch: refetchClientPkgs } = useListClientPackagesQuery(
+  const { data: clientPkgsData } = useListClientPackagesQuery(
     { clientId: clientIdForPkg, status: "Active", limit: 50 },
     { skip: !clientIdForPkg },
   );
-  // RTK Query only refetches when the query ARGS change or its cache is
-  // explicitly invalidated — bumping `refreshKey` (a plain prop, not a query
-  // arg) does nothing on its own. Selling a package updates a different
-  // Redux slice this query never reads, so a client's newly-bought package
-  // stayed invisible here (still "N/A") until the whole modal was closed and
-  // reopened — same underlying cause `useClientMembershipWallet` below was
-  // already fixed for, just via RTK Query's own refetch instead of a
-  // dependency-array re-run.
-  useEffect(() => {
-    if (clientIdForPkg) refetchClientPkgs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
 
   // refreshKey makes the Membership cell update live after a sale from this
   // same modal — without it only useClientDetails' stats refetched, while the
@@ -426,18 +414,6 @@ export const ClientPanel: React.FC<Props> = ({
             className="client-action-btn client-action-btn--primary"
             type="button"
             onClick={() => {
-              // The search effect above only prefills addFirst/addPhone when
-              // there are literally ZERO matches — a search like "Ram" that
-              // partially matches an unrelated client ("VikRAM Nair") still
-              // shows a result, so that auto-prefill never ran. If staff
-              // clicks Add Client anyway (none of the shown matches is who
-              // they meant), still carry over what they already typed rather
-              // than dropping it on the floor.
-              if (!addFirst && !addPhone && search.trim()) {
-                const isPhone = /^\d+$/.test(search.trim());
-                if (isPhone) setAddPhone(search.trim());
-                else setAddFirst(search.trim());
-              }
               skipNextClear.current = true;
               setSearch("");
               setShowDrop(false);
