@@ -41,7 +41,9 @@ import {
   Cake2,
   BellFill,
   CreditCard2Front,
+  PersonFill,
 } from "react-bootstrap-icons";
+import { getInitialsFromFullName } from "../../../utils/initials";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Skeleton from "../../../components/ui/Skeleton";
 import {
@@ -890,7 +892,9 @@ const AppointmentsTable = memo(function AppointmentsTable({
                   key={appt.id}
                 >
                   <span className="db-appt-client">
-                    <span className="db-avatar">{appt.client.charAt(0)}</span>
+                    <span className="db-avatar">
+                      {(() => { const ini = getInitialsFromFullName(appt.client); return ini ? ini : <PersonFill size={12} />; })()}
+                    </span>
                     {appt.client}
                   </span>
                   <span className="db-appt-service">{appt.service}</span>
@@ -1122,12 +1126,12 @@ const TopStaffCard = memo(function TopStaffCard({
       ) : (
         <div className="db-staff-list">
           {topStaff.slice(0, 3).map((s, i) => {
-            const initials = s.avatar ?? s.name.split(" ").map(w => w[0]).join("").toUpperCase().slice(0, 2);
+            const initials = (s.avatar || getInitialsFromFullName(s.name)).trim();
             const rev      = s.revenue ?? 0;
             return (
               <div className="db-staff-item" key={s.id}>
                 <span className="db-rank">#{i + 1}</span>
-                <div className="db-staff-avatar">{initials}</div>
+                <div className="db-staff-avatar">{initials ? initials.slice(0, 2).toUpperCase() : <PersonFill size={14} />}</div>
                 <div className="db-staff-info">
                   <div className="db-staff-name">{s.name}</div>
                   <div className="db-staff-role">{s.role ?? "Staff"}</div>
@@ -1222,6 +1226,24 @@ export default function DashboardPage() {
     refetchAppts();
     refetchPending();
   }, [dispatch, revPeriod, staffRevPeriod, refetchAppts, refetchPending]);
+
+  // A client/appointment/sale created elsewhere (Clients page, Calendar,
+  // Quick Sale) never pushes an update into this page's KPI cards (New
+  // Clients, Today's Revenue, etc.) — they only ever loaded once, on mount.
+  // Poll periodically, and refresh immediately whenever the tab regains
+  // focus/visibility, so "add a client, come back to Dashboard" reflects
+  // without needing the manual Refresh button.
+  useEffect(() => {
+    const interval = setInterval(handleRefresh, 60000);
+    const onVisible = () => { if (document.visibilityState === "visible") handleRefresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", handleRefresh);
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", handleRefresh);
+    };
+  }, [handleRefresh]);
 
   const retryChart = useCallback(() => {
     dispatch(fetchRevenueChart({ period: revPeriod }));
