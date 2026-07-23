@@ -55,7 +55,12 @@ interface ServiceRowProps {
   hasError?: boolean;
   errorFields?: { service?: boolean; staff?: boolean; time?: boolean; price?: boolean; qty?: boolean };
   disabled?: boolean;
-  coveredServices?: Map<string, number>;
+  /** Pre-pooled package sessions remaining for THIS row specifically (see
+   *  perRowCoveredRemaining in AppointmentModal.tsx) — already resolved by
+   *  the parent by walking every row in order, so two rows of the same
+   *  covered service split the real remaining sessions instead of each
+   *  independently seeing the full pool and both claiming to be covered. */
+  packageSessionsRemaining?: number;
   membershipWalletInfo?: { walletUsed: number; payable: number };
 }
 
@@ -138,7 +143,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   onClearError,
   errorFields = {},
   disabled,
-  coveredServices,
+  packageSessionsRemaining = 0,
   membershipWalletInfo,
 }) => {
   const schedulerContext = useSchedulerContext();
@@ -148,18 +153,6 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     salonBranches.find((b: any) => b.is_main === true)?.id ??
     salonBranches[0]?.id ??
     "";
-  // Coverage lookup: prefer the exact catalog service id (set once a service is
-  // picked from the dropdown below), falling back to the name-prefixed key —
-  // matches only legacy packages that have no catalog id of their own, so a
-  // same-named-but-different-price catalog service can't be cross-covered.
-  const getCoveredRemaining = (catalogId: string | undefined | null, name: string): number => {
-    if (!coveredServices) return 0;
-    if (catalogId) {
-      const byId = coveredServices.get(catalogId);
-      if (byId != null) return byId;
-    }
-    return coveredServices.get(`name:${name.trim().toLowerCase()}`) ?? 0;
-  };
 
   const interval = schedulerContext.interval;
   const staffList = schedulerContext.staffList as StaffDto[] | undefined;
@@ -178,18 +171,18 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
 
   // When package data loads for an existing row (not freshly selected), initialise the refs.
   // Also resets pkgRemainingRef back to 0 when coverage disappears (e.g. the "Apply
-  // Package" checkbox is unchecked) — otherwise qty/price handlers below would keep
-  // using a stale remaining-sessions value after coverage was turned off.
+  // Package" checkbox is unchecked, or this row's own pooled allocation shrinks to 0
+  // because an earlier row already claimed the remaining sessions) — otherwise qty/
+  // price handlers below would keep using a stale remaining-sessions value.
   useEffect(() => {
     if (!row.service) return;
-    const remaining = getCoveredRemaining(row.id, row.service);
-    if (remaining > 0) {
-      pkgRemainingRef.current = remaining;
+    if (packageSessionsRemaining > 0) {
+      pkgRemainingRef.current = packageSessionsRemaining;
       if (!catalogPriceRef.current) catalogPriceRef.current = Number(row.price) || 0;
     } else {
       pkgRemainingRef.current = 0;
     }
-  }, [coveredServices]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [packageSessionsRemaining]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Reminder modal state ──────────────────────────────────────────────────────
   const [showReminderModal, setShowReminderModal] = useState(false);
@@ -391,10 +384,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     // already on the bill elsewhere — a client can want the same service from
     // two different staff at once, which a merge-into-existing-row would make
     // impossible. Package-coverage math for this row is only a first-pass
-    // estimate here (based on the raw, unpooled remaining count); the parent
+    // estimate here (based on this row's CURRENT pooled allocation, which
+    // hasn't yet accounted for the service just picked); the parent
     // (AppointmentModal) recomputes it correctly, pooled across every row
     // sharing this service, right after — see perRowCoveredRemaining there.
-    const remaining = getCoveredRemaining(service.id, service.name);
+    const remaining = packageSessionsRemaining;
     catalogPriceRef.current = service.price;
     pkgRemainingRef.current = remaining;
 
@@ -665,7 +659,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     }
   }
 
-  const pkgRemaining = getCoveredRemaining(row.id, row.service);
+  const pkgRemaining = packageSessionsRemaining;
   // Also requires the visible search text to be non-empty, not just the
   // committed row.service — row.service only updates when a result is
   // actually picked (see handleServiceSearchChange's comment), so backspacing

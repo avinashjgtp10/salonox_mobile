@@ -219,6 +219,23 @@ export const AppointmentModal: React.FC<Props> = ({
   const [exCharges, setExCharges]         = useState(existingBooking?.exCharges ?? 0);
   const [tip, setTip]                     = useState(existingBooking?.tipAmount ?? 0);
   const [focusedField, setFocusedField]   = useState<"exCharges" | "tip" | "discountValue" | null>(null);
+  const [discountValueWarning, setDiscountValueWarning] = useState<string | null>(null);
+
+  // Switching Disc. Type to Percentage while a flat value over 100 is
+  // already entered must re-clamp it — the input's own onChange only caps
+  // new keystrokes, not a value that was valid under the OTHER type.
+  useEffect(() => {
+    if (discountType === "Percentage (%)" && discountValue > 100) setDiscountValue(100);
+  }, [discountType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-dismiss the discount validation message after a few seconds, same
+  // pattern as Block Time's conflict message — it's already visible the
+  // moment it appears, it doesn't need to sit on screen forever.
+  useEffect(() => {
+    if (!discountValueWarning) return;
+    const t = setTimeout(() => setDiscountValueWarning(null), 4000);
+    return () => clearTimeout(t);
+  }, [discountValueWarning]);
 
   // ── Notes / Alert ─────────────────────────────────────────────────────────
   const [notes, setNotes]           = useState(existingBooking?.notes ?? "");
@@ -306,8 +323,20 @@ export const AppointmentModal: React.FC<Props> = ({
   // Backend "Active" filtering aside, also guard client-side against a
   // package whose expiry date has passed but hasn't been flagged as such
   // server-side yet — an expired package must never be selectable/applicable.
+  // Sorted soonest-expiry-first (packages with no expiry sort last, since
+  // there's no urgency to use them up) — when a client owns more than one
+  // active package covering the same service, this makes the one closest to
+  // expiring the one actually picked/consumed first (see firstActivePkg's
+  // display below and markPackageSessions' redemption loop), instead of
+  // whatever arbitrary order the API happened to return them in.
   const nonExpiredPackages = useMemo(
-    () => (clientPkgsData?.items ?? []).filter((pkg) => !isPackageExpired(pkg.expiryDate)),
+    () => (clientPkgsData?.items ?? [])
+      .filter((pkg) => !isPackageExpired(pkg.expiryDate))
+      .sort((a, b) => {
+        const aTime = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
+        const bTime = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
+        return aTime - bTime;
+      }),
     [clientPkgsData],
   );
   // Map of coverage key → remaining sessions from active packages (memoized for
@@ -855,11 +884,15 @@ export const AppointmentModal: React.FC<Props> = ({
   // themselves against the FULL bill (totals.grandTotal) independently, with
   // zero awareness of the others — so a client could apply e.g. membership
   // wallet AND reward points, each up to the whole bill, and the two "Used"
-  // lines would together add up to far more than the invoice total. This
-  // must match the backend's actual charge-time order (payments.service.ts)
-  // and its own preview (pricing.service.ts): Membership → eWallet →
-  // Reward Points → Referral Credit, each capped against what's still left
-  // AFTER the ones before it, not the original bill.
+  // lines would together add up to far more than the invoice total. Toggling
+  // GST afterward (which changes totals.grandTotal) could also leave a
+  // benefit re-capped against the wrong ceiling, and a benefit amount that
+  // was only ever auto-following its max could get stuck at a stale value
+  // instead of tracking the max back up. This must match the backend's
+  // actual charge-time order (payments.service.ts) and its own preview
+  // (pricing.service.ts): Membership → eWallet → Reward Points → Referral
+  // Credit, each capped against what's still left AFTER the ones before it,
+  // not the original bill.
   const remainingAfterMembership = Math.max(0, totals.grandTotal - membershipWalletUsedTotal);
 
   // ── eWallet cap: most the client is allowed to apply to what's left after membership ──
@@ -1504,7 +1537,7 @@ export const AppointmentModal: React.FC<Props> = ({
           availablePackages={availablePackages}
           availableProducts={availableProducts}
           availableMemberships={availableMemberships}
-          coveredServices={effectiveCoveredServices}
+          packageRemainingByRow={perRowCoveredRemaining}
           membershipWalletInfo={membershipWalletMap}
           frozen={false}
           svcErrors={svcErrors}
@@ -1574,10 +1607,27 @@ export const AppointmentModal: React.FC<Props> = ({
   // Membership, eWallet, Reward Points, Referral Credit). AppointmentModal
   // owns all the underlying state; the panel itself is purely presentational.
   const firstActivePkg = nonExpiredPackages[0];
+  // `coveredServices` is aggregated across ALL of the client's active
+  // packages, regardless of what's actually on THIS bill — so it stays
+  // non-empty even when none of the currently-added services match any of
+  // them. Gating the card on that alone let staff check "Apply Package" for
+  // a bill it could never actually apply to (e.g. a package that only
+  // covers Haircut, applied to a bill of just a Facial) — it never zeroed
+  // anything, but nothing indicated why. Only show/offer it when at least
+  // one current row is genuinely eligible.
+  const hasPackageEligibleRow = useMemo(
+    () => serviceRows.some((row) => {
+      if (!row.service.trim()) return false;
+      const rowCatalogId = (row as any).id || null;
+      return (rowCatalogId && coveredServices.has(rowCatalogId))
+        || coveredServices.has(`name:${row.service.toLowerCase()}`);
+    }),
+    [serviceRows, coveredServices],
+  );
   const availableBenefitCards: BenefitCardConfig[] = useMemo(() => {
     const cards: BenefitCardConfig[] = [];
 
-    if (coveredServices.size > 0 && firstActivePkg) {
+    if (coveredServices.size > 0 && firstActivePkg && hasPackageEligibleRow) {
       const pkgRemaining = firstActivePkg.services.reduce((s, svc) => s + svc.remainingSessions, 0);
       const pkgTotal = firstActivePkg.services.reduce((s, svc) => s + svc.totalSessions, 0);
       cards.push({
@@ -1703,7 +1753,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
     return cards;
   }, [
-    coveredServices, firstActivePkg, applyPackage,
+    coveredServices, firstActivePkg, hasPackageEligibleRow, applyPackage,
     clientMemberships, membershipTotalBalance, primaryMembership, applyMembership,
     membershipWalletAmt, membershipMaxUsable, membershipWalletUsedTotal, handleSetMembershipWalletAmt,
     clientStats, useEWallet, eWalletAmt, eWalletMaxAmt, remainingAfterMembership, handleSetEWalletAmt,
@@ -1743,30 +1793,59 @@ export const AppointmentModal: React.FC<Props> = ({
       <div className="charges-grid">
         <div className="field-group">
           <label>Ex Charges</label>
-          <input className="fg-input" type="number" min={0}
+          <input className="fg-input" type="text" inputMode="decimal"
             value={focusedField === "exCharges" && exCharges === 0 ? "" : exCharges}
             onFocus={() => setFocusedField("exCharges")}
             onBlur={() => setFocusedField(null)}
-            onWheel={(e) => e.currentTarget.blur()}
-            onChange={(e) => setExCharges(e.target.value === "" ? 0 : Number(e.target.value))} />
+            onChange={(e) => {
+              // Digits and a single decimal point only — a native
+              // type="number" input still lets someone type "+"/"-"/"e"
+              // characters (min=0 only flags it :invalid, it doesn't block
+              // the keystroke), so this is a plain text input sanitized by
+              // hand instead, matching ServiceRow.tsx's price/qty/discount
+              // fields.
+              const cleaned = e.target.value.replace(/[^0-9.]/g, "");
+              setExCharges(cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0));
+            }} />
         </div>
         <div className="field-group">
           <label>Tip</label>
-          <input className="fg-input" type="number" min={0}
+          <input className="fg-input" type="text" inputMode="decimal"
             value={focusedField === "tip" && tip === 0 ? "" : tip}
             onFocus={() => setFocusedField("tip")}
             onBlur={() => setFocusedField(null)}
-            onWheel={(e) => e.currentTarget.blur()}
-            onChange={(e) => setTip(e.target.value === "" ? 0 : Number(e.target.value))} />
+            onChange={(e) => {
+              const cleaned = e.target.value.replace(/[^0-9.]/g, "");
+              setTip(cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0));
+            }} />
         </div>
         <div className="field-group">
           <label>Svc Discount</label>
-          <input className="fg-input" type="number" min={0}
+          <input className="fg-input" type="text" inputMode="decimal"
             value={focusedField === "discountValue" && discountValue === 0 ? "" : discountValue}
             onFocus={() => setFocusedField("discountValue")}
             onBlur={() => setFocusedField(null)}
-            onWheel={(e) => e.currentTarget.blur()}
-            onChange={(e) => setDiscountValue(e.target.value === "" ? 0 : Number(e.target.value))} />
+            onChange={(e) => {
+              const cleaned = e.target.value.replace(/[^0-9.]/g, "");
+              let num = cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0);
+              // A percentage discount can never exceed 100%. A flat (₹)
+              // discount can never exceed the current subtotal either —
+              // computeTotals() already floors the resulting taxable amount
+              // at 0 regardless, but silently letting the FIELD hold an
+              // absurd value (e.g. a stray extra digit) shows a nonsensical
+              // "Svc Discount: -₹3,400,000,000.00" line before that floor
+              // kicks in, so this clamps — and explains — right at entry.
+              if (discountType === "Percentage (%)") {
+                if (num > 100) { num = 100; setDiscountValueWarning("Percentage discount cannot exceed 100%"); }
+                else setDiscountValueWarning(null);
+              } else {
+                const subtotalCap = totals.subtotal || 0;
+                if (subtotalCap > 0 && num > subtotalCap) { num = subtotalCap; setDiscountValueWarning("Discount cannot exceed total amount"); }
+                else setDiscountValueWarning(null);
+              }
+              setDiscountValue(num);
+            }} />
+          {discountValueWarning && <span className="fg-field__err">{discountValueWarning}</span>}
         </div>
         <div className="field-group">
           <label>Disc. Type</label>
@@ -2126,6 +2205,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         rewardPointsValue={rewardPointsRedeemedValue}
                         referralCreditUsed={useReferralCredit ? referralCreditAmt : 0}
                         alreadyPaid={livePaidAmount}
+                        paidLabel="Paid (incl. this payment)"
                         dueAmount={liveDueAmount}
                         grandTotal={totals.grandTotal}
                         roundOff={totals.roundOff}
@@ -2312,6 +2392,7 @@ export const AppointmentModal: React.FC<Props> = ({
         <EwalletTopupModal
           clientId={selectedClient!.id}
           clientName={selectedClient!.name}
+          currentBalance={clientStats?.ewalletAmt ?? 0}
           onClose={() => setShowTopupModal(false)}
           onSuccess={() => setClientRefreshKey((k) => k + 1)}
         />
