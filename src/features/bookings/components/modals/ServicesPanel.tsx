@@ -77,7 +77,16 @@ interface Props {
   availableProducts: any[];
   availableMemberships: any[];
   frozen?: boolean;
-  coveredServices?: Map<string, number>;
+  // Pre-pooled per-row package-session allocation (keyed by row tempId) —
+  // computed once in AppointmentModal.tsx by walking every service row in
+  // order and allocating the package's remaining sessions one row at a time,
+  // so two rows of the same covered service (e.g. booked with two different
+  // staff) split the real remaining sessions instead of each independently
+  // seeing the full pool and both claiming to be covered.
+  packageRemainingByRow?: Map<string, number>;
+  // Per-service-row GST (keyed by row tempId) from the live pricing preview —
+  // the real per-item tax each row will carry once the sale is saved.
+  serviceTaxByRow?: Map<string, number>;
   membershipWalletInfo?: Map<string, { walletUsed: number; payable: number }>;
 
   svcErrors?: Array<{ service?: boolean; staff?: boolean; time?: boolean }>;
@@ -1080,7 +1089,7 @@ export const ServicesPanel: React.FC<Props> = ({
   membershipRows, onUpdateMembership, onRemoveMembership, onAddMembership,
   onSellPackage, onSellMembership, onTopupEwallet,
   availablePackages, availableProducts, availableMemberships,
-  frozen, coveredServices, membershipWalletInfo,
+  frozen, packageRemainingByRow, membershipWalletInfo, serviceTaxByRow,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
   onClearPkgError, onClearProdError, onClearMemError,
 }) => {
@@ -1126,8 +1135,9 @@ export const ServicesPanel: React.FC<Props> = ({
           onUpdateService(i, field, value);
         }}
         onRemove={() => onRemoveService(i)}
-        coveredServices={coveredServices}
+        packageSessionsRemaining={packageRemainingByRow?.get((row as any).tempId || String(i)) ?? 0}
         membershipWalletInfo={membershipWalletInfo?.get((row as any).tempId || String(i))}
+        taxAmount={serviceTaxByRow?.get((row as any).tempId || String(i))}
       />
     ))}
 

@@ -351,10 +351,10 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                             {s.time && <span>{svcStaffName ? " · " : ""}{s.time}</span>}
                           </div>
                         </div>
-                        <div className="vbm-service-card__total">{currencySymbol}{(isPackagePaid ? 0 : (s.total || 0)).toFixed(2)}</div>
+                        <div className="vbm-service-card__total">{currencySymbol}{(isPackagePaid ? 0 : (s.total || 0) + (sAny.tax || 0)).toFixed(2)}</div>
                       </div>
                       <div className="vbm-service-card__pills">
-                        {[["Qty", s.qty], ["Price", `${currencySymbol}${(s.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((s as any).discount || 0).toFixed(2)}`]].map(([lbl, val]) => (
+                        {[["Qty", s.qty], ["Price", `${currencySymbol}${(s.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((s as any).discount || 0).toFixed(2)}`], ["Tax", `${currencySymbol}${(isPackagePaid ? 0 : (sAny.tax || 0)).toFixed(2)}`]].map(([lbl, val]) => (
                           <span key={lbl as string} className="vbm-pill">{lbl}: {val}</span>
                         ))}
                       </div>
@@ -371,10 +371,10 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                           <span style={{ background: "#fef3c7", color: "#92400e", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 3 }}>PACKAGE</span>
                         </div>
                       </div>
-                      <div className="vbm-service-card__total">{currencySymbol}{(p.total || p.price || 0).toFixed(2)}</div>
+                      <div className="vbm-service-card__total">{currencySymbol}{((p.total || p.price || 0) + ((p as any).tax || 0)).toFixed(2)}</div>
                     </div>
                     <div className="vbm-service-card__pills">
-                      {[["Qty", p.qty || 1], ["Price", `${currencySymbol}${(p.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((p as any).discount || 0).toFixed(2)}`]].map(([lbl, val]) => (
+                      {[["Qty", p.qty || 1], ["Price", `${currencySymbol}${(p.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((p as any).discount || 0).toFixed(2)}`], ["Tax", `${currencySymbol}${((p as any).tax || 0).toFixed(2)}`]].map(([lbl, val]) => (
                         <span key={lbl as string} className="vbm-pill">{lbl}: {val}</span>
                       ))}
                     </div>
@@ -390,10 +390,10 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                           <span style={{ background: "#dbeafe", color: "#1d4ed8", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 3 }}>PRODUCT</span>
                         </div>
                       </div>
-                      <div className="vbm-service-card__total">{currencySymbol}{(p.total || p.price || 0).toFixed(2)}</div>
+                      <div className="vbm-service-card__total">{currencySymbol}{((p.total || p.price || 0) + (p.tax || 0)).toFixed(2)}</div>
                     </div>
                     <div className="vbm-service-card__pills">
-                      {[["Qty", p.qty || 1], ["Price", `${currencySymbol}${(p.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((p as any).discount || 0).toFixed(2)}`]].map(([lbl, val]) => (
+                      {[["Qty", p.qty || 1], ["Price", `${currencySymbol}${(p.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((p as any).discount || 0).toFixed(2)}`], ["Tax", `${currencySymbol}${(p.tax || 0).toFixed(2)}`]].map(([lbl, val]) => (
                         <span key={lbl as string} className="vbm-pill">{lbl}: {val}</span>
                       ))}
                     </div>
@@ -409,10 +409,10 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                           <span style={{ background: "#f0fdf4", color: "#15803d", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 3 }}>MEMBERSHIP</span>
                         </div>
                       </div>
-                      <div className="vbm-service-card__total">{currencySymbol}{(m.total || m.price || 0).toFixed(2)}</div>
+                      <div className="vbm-service-card__total">{currencySymbol}{((m.total || m.price || 0) + (m.tax || 0)).toFixed(2)}</div>
                     </div>
                     <div className="vbm-service-card__pills">
-                      {[["Qty", m.qty || 1], ["Price", `${currencySymbol}${(m.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((m as any).discount || 0).toFixed(2)}`]].map(([lbl, val]) => (
+                      {[["Qty", m.qty || 1], ["Price", `${currencySymbol}${(m.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((m as any).discount || 0).toFixed(2)}`], ["Tax", `${currencySymbol}${(m.tax || 0).toFixed(2)}`]].map(([lbl, val]) => (
                         <span key={lbl as string} className="vbm-pill">{lbl}: {val}</span>
                       ))}
                     </div>
@@ -421,32 +421,72 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
 
                 <div className="vbm-breakdown-card">
                   <div className="vbm-breakdown-card__title">Payment Breakdown</div>
-                  {[
-                    booking.subtotal ? ["Subtotal", `${currencySymbol}${(booking.subtotal || 0).toFixed(2)}`, "#6b7280"] : null,
-                    booking.discountAmount ? ["Discount", `−${currencySymbol}${(booking.discountAmount || 0).toFixed(2)}`, "#ef4444"] : null,
-                    booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${(booking.couponDiscount || 0).toFixed(2)}`, "#22c55e"] : null,
-                    booking.referralDiscount ? ["Referral Discount", `−${currencySymbol}${(booking.referralDiscount || 0).toFixed(2)}`, "#22c55e"] : null,
-                    booking.exCharges ? ["Extra Charges", `${currencySymbol}${(booking.exCharges || 0).toFixed(2)}`, "#374151"] : null,
-                    booking.tipAmount ? ["Tip", `${currencySymbol}${(booking.tipAmount || 0).toFixed(2)}`, "#374151"] : null,
-                    ...((booking as any).taxBreakdown?.length
-                      ? [
-                          ...(booking as any).taxBreakdown
-                            .filter((t: any) => t.amount > 0)
-                            .map((t: any) => [
-                              `${t.name} ${t.rate}%${t.inclusive ? " (incl.)" : ""}`,
-                              `${t.inclusive ? "" : "+"}${currencySymbol}${t.amount.toFixed(2)}`,
-                              "#374151",
-                            ]),
-                          ["Total Tax", `${currencySymbol}${(booking as any).taxBreakdown.reduce((s: number, t: any) => s + (t.amount > 0 ? t.amount : 0), 0).toFixed(2)}`, "#111827"],
-                        ]
-                      : ((booking as any).gstAmount > 0
-                          ? [[`GST${(booking as any).gst ? ` (${(booking as any).gst}%)` : ""}`, `+${currencySymbol}${(booking as any).gstAmount.toFixed(2)}`, "#374151"]]
-                          : [])),
-                  ].filter(Boolean).map((row, i) => (
-                    <div key={i} className="vbm-breakdown-row" style={{ color: row![2] as string }}>
-                      <span>{row![0] as string}</span><span>{row![1] as string}</span>
-                    </div>
-                  ))}
+                  {(() => {
+                    const subtotal = booking.subtotal || 0;
+                    const discountAmount = booking.discountAmount || 0;
+                    const couponDiscount = booking.couponDiscount || 0;
+                    const referralDiscount = booking.referralDiscount || 0;
+                    const exCharges = booking.exCharges || 0;
+                    const tipAmount = booking.tipAmount || 0;
+                    const grandTotal = isPackagePaid ? 0 : (booking.grandTotal || 0);
+
+                    // Standard GST-invoice presentation: whatever the underlying
+                    // tax config actually is (one combined "GST" line, or
+                    // separate CGST/SGST entries), show it the way a real
+                    // invoice does — CGST + SGST for intra-state, IGST for
+                    // inter-state — rather than whatever raw name was
+                    // configured. Rate/amount summed across every exclusive
+                    // component so a genuine 2.5%+2.5% split still reads as a
+                    // single correct rate.
+                    const rawTaxRows = ((booking as any).taxBreakdown?.length
+                      ? (booking as any).taxBreakdown.filter((t: any) => t.amount > 0)
+                      : []) as Array<{ name: string; rate: number; amount: number; inclusive?: boolean }>;
+                    const exclusiveTaxRows = rawTaxRows.filter((t) => !t.inclusive);
+                    const inclusiveTaxRows = rawTaxRows.filter((t) => t.inclusive);
+                    const combineTaxRows = (rows: typeof rawTaxRows) => {
+                      if (rows.length === 0) return null;
+                      const amount = rows.reduce((s, t) => s + t.amount, 0);
+                      const rate = rows.reduce((s, t) => s + t.rate, 0);
+                      const isIgst = rows.some((t) => t.name.toUpperCase().includes("IGST"));
+                      return { label: isIgst ? "IGST" : "CGST + SGST", amount, rate };
+                    };
+                    const combinedExclusiveTax = combineTaxRows(exclusiveTaxRows);
+                    const combinedInclusiveTax = combineTaxRows(inclusiveTaxRows);
+                    // Legacy fallback for a booking that only ever carried a
+                    // single blended gstAmount, never a real taxBreakdown.
+                    const legacyGst = (!combinedExclusiveTax && (booking as any).gstAmount > 0)
+                      ? { label: "CGST + SGST", amount: (booking as any).gstAmount, rate: (booking as any).gst ?? 0 }
+                      : null;
+                    const totalTaxAmount = (combinedExclusiveTax?.amount ?? legacyGst?.amount ?? 0);
+
+                    const taxable = Math.max(0, subtotal - discountAmount - couponDiscount - referralDiscount);
+                    const rawTotal = taxable + totalTaxAmount + exCharges + tipAmount;
+                    const roundOff = grandTotal - rawTotal;
+
+                    const rows: Array<[string, string, string]> = [
+                      subtotal ? ["Subtotal", `${currencySymbol}${subtotal.toFixed(2)}`, "#6b7280"] : null,
+                      discountAmount ? ["Discount", `−${currencySymbol}${discountAmount.toFixed(2)}`, "#ef4444"] : null,
+                      couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${couponDiscount.toFixed(2)}`, "#22c55e"] : null,
+                      referralDiscount ? ["Referral Discount", `−${currencySymbol}${referralDiscount.toFixed(2)}`, "#22c55e"] : null,
+                      combinedExclusiveTax ? [`${combinedExclusiveTax.label} (${combinedExclusiveTax.rate}%)`, `+${currencySymbol}${combinedExclusiveTax.amount.toFixed(2)}`, "#374151"] : null,
+                      combinedInclusiveTax ? [`${combinedInclusiveTax.label} (${combinedInclusiveTax.rate}%, incl.)`, `${currencySymbol}${combinedInclusiveTax.amount.toFixed(2)}`, "#6b7280"] : null,
+                      legacyGst ? [`${legacyGst.label}${legacyGst.rate ? ` (${legacyGst.rate}%)` : ""}`, `+${currencySymbol}${legacyGst.amount.toFixed(2)}`, "#374151"] : null,
+                      (combinedExclusiveTax || legacyGst) ? ["Total Tax", `${currencySymbol}${totalTaxAmount.toFixed(2)}`, "#111827"] : null,
+                      // Always shown (even ₹0.00) for consistency with a
+                      // standard GST invoice's line-item presentation.
+                      ["Extra Charges", `+${currencySymbol}${exCharges.toFixed(2)}`, "#374151"],
+                      tipAmount ? ["Tip", `${currencySymbol}${tipAmount.toFixed(2)}`, "#374151"] : null,
+                      Math.abs(roundOff) >= 0.005
+                        ? ["Round Off", `${roundOff >= 0 ? "+" : "-"}${currencySymbol}${Math.abs(roundOff).toFixed(2)}`, "#6b7280"]
+                        : null,
+                    ].filter((r): r is [string, string, string] => r !== null);
+
+                    return rows.map((row, i) => (
+                      <div key={i} className="vbm-breakdown-row" style={{ color: row[2] }}>
+                        <span>{row[0]}</span><span>{row[1]}</span>
+                      </div>
+                    ));
+                  })()}
                   <div className="vbm-breakdown-row vbm-breakdown-row--grand"><span>Grand Total</span><span>{currencySymbol}{(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}</span></div>
                   {(booking.rewardPointsValue || 0) > 0 && (
                     <div className="vbm-breakdown-row" style={{ color: "#7c3aed" }}><span>🎁 Paid from Reward Points</span><span>{currencySymbol}{(booking.rewardPointsValue || 0).toFixed(2)}</span></div>

@@ -135,6 +135,11 @@ export function mapApiBooking(
       time: mappedTime,
       duration,
       discount: derivedDiscount,
+      // Real per-item GST, attached by appointmentsService's read-time
+      // enrichment once this appointment has a linked, paid sale (see
+      // sale_items.tax_amount) — undefined for an unpaid appointment, which
+      // receipt.ts falls back to its own blended-rate approximation for.
+      tax: s.tax_amount !== undefined ? parseFloat(String(s.tax_amount)) || 0 : undefined,
     };
   });
 
@@ -174,6 +179,7 @@ export function mapApiBooking(
       discount: deriveRowDiscount(pPrice, pQty, pTotal, p.discount),
       staffId: String(p.staff_id ?? p.staffId ?? ""),
       time: sanitizeItemTime(p.time ?? p.start_time ?? p.startTime),
+      tax: p.tax_amount !== undefined ? parseFloat(String(p.tax_amount)) || 0 : undefined,
     };
   });
 
@@ -194,6 +200,7 @@ export function mapApiBooking(
       discount: isPkgService ? 0 : deriveRowDiscount(pPrice, pQty, pTotal, p.discount),
       staffId: String(p.staff_id ?? p.staffId ?? ""),
       time: sanitizeItemTime(p.time ?? p.start_time ?? p.startTime),
+      tax: p.tax_amount !== undefined ? parseFloat(String(p.tax_amount)) || 0 : undefined,
     };
   });
 
@@ -212,6 +219,7 @@ export function mapApiBooking(
       discount: deriveRowDiscount(mPrice, mQty, mTotal, m.discount),
       staffId: String(m.staff_id ?? m.staffId ?? ""),
       time: sanitizeItemTime(m.time ?? m.start_time ?? m.startTime),
+      tax: m.tax_amount !== undefined ? parseFloat(String(m.tax_amount)) || 0 : undefined,
     };
   });
 

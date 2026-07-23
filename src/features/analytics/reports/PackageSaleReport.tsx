@@ -20,6 +20,7 @@ interface PackageSaleRow {
   paidAmount: number;
   pendingAmount: number;
   paymentStatus: string;
+  gstAmount: number;
 }
 
 // Maps a row from the independent Package Sale API
@@ -35,6 +36,7 @@ function mapRow(row: any): PackageSaleRow {
     paidAmount: Number(row.paid_amount) || 0,
     pendingAmount: Number(row.pending_amount) || 0,
     paymentStatus: row.payment_status || "unpaid",
+    gstAmount: Number(row.gst_amount) || 0,
   };
 }
 
@@ -98,8 +100,8 @@ export default function PackageSaleReport({ onBack }: { onBack: () => void }) {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch]);
 
-  const HEADERS = ["Date", "Client", "Package Name", "Total Amount (₹)", "Paid (₹)", "Balance Due (₹)", "Status"];
-  const exportRows = () => rows.map(r => [r.date, r.client, r.packageName, r.totalAmount, r.paidAmount, r.pendingAmount, r.paymentStatus]);
+  const HEADERS = ["Date", "Client", "Package Name", "Total Amount (₹)", "GST (₹)", "Paid (₹)", "Balance Due (₹)", "Status"];
+  const exportRows = () => rows.map(r => [r.date, r.client, r.packageName, r.totalAmount, r.gstAmount, r.paidAmount, r.pendingAmount, r.paymentStatus]);
 
   return (
     <div className="rp-detail-view">
@@ -156,14 +158,14 @@ export default function PackageSaleReport({ onBack }: { onBack: () => void }) {
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Date</th><th>Client</th><th>Package Name</th><th>Total Amount (₹)</th><th>Paid (₹)</th><th>Balance Due (₹)</th><th>Status</th>
+              <th>Date</th><th>Client</th><th>Package Name</th><th>Total Amount (₹)</th><th>GST (₹)</th><th>Paid (₹)</th><th>Balance Due (₹)</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={7} />
+              <SkeletonTableRows columns={8} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="rp-detail-empty-cell">No package sales found</td></tr>
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No package sales found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -174,6 +176,7 @@ export default function PackageSaleReport({ onBack }: { onBack: () => void }) {
                 <td className="fw-semibold">{r.client}</td>
                 <td>{r.packageName}</td>
                 <td>₹{r.totalAmount.toLocaleString()}</td>
+                <td>₹{r.gstAmount.toLocaleString()}</td>
                 <td>₹{r.paidAmount.toLocaleString()}</td>
                 <td>₹{r.pendingAmount.toLocaleString()}</td>
                 <td><span className={`rp-status-badge rp-status-${(r.paymentStatus ?? "").toLowerCase()}`}>{r.paymentStatus}</span></td>

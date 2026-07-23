@@ -20,6 +20,7 @@ interface ProductSaleRow {
   quantity: number;
   price: number;
   total: number;
+  taxAmount: number;
 }
 
 // Maps a row from the independent Product Retail API
@@ -35,6 +36,7 @@ function mapRow(row: any): ProductSaleRow {
     quantity: Number(row.quantity) || 0,
     price: Number(row.price) || 0,
     total: Number(row.total) || 0,
+    taxAmount: Number(row.tax_amount) || 0,
   };
 }
 
@@ -108,8 +110,9 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
   // themselves should not reset back to page 1.
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch]);
 
-  const HEADERS = ["Date", "Invoice No", "Client", "Product Name", "Quantity", "Price (₹)", "Total (₹)"];
-  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.productName, r.quantity, r.price, r.total]);
+  const HEADERS = ["Date", "Invoice No", "Client", "Product Name", "Quantity", "Price (₹)", "GST (₹)", "Total (₹)"];
+  // Total column is gross = line base + its own GST (so ₹399 @ 5% reads ₹418.95).
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.productName, r.quantity, r.price, r.taxAmount, r.total + r.taxAmount]);
 
   return (
     <div className="rp-detail-view">
@@ -166,14 +169,14 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Date</th><th>Invoice No</th><th>Client</th><th>Product Name</th><th>Quantity</th><th>Price (₹)</th><th>Total (₹)</th>
+              <th>Date</th><th>Invoice No</th><th>Client</th><th>Product Name</th><th>Quantity</th><th>Price (₹)</th><th>GST (₹)</th><th>Total (₹)</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={7} />
+              <SkeletonTableRows columns={8} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="rp-detail-empty-cell">No product sales found</td></tr>
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No product sales found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -186,7 +189,8 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
                 <td className="fw-semibold">{r.productName}</td>
                 <td>{r.quantity}</td>
                 <td>₹{r.price.toLocaleString()}</td>
-                <td className="fw-semibold">₹{r.total.toLocaleString()}</td>
+                <td>₹{r.taxAmount.toLocaleString()}</td>
+                <td className="fw-semibold">₹{(r.total + r.taxAmount).toLocaleString()}</td>
               </tr>
             ))}
           </tbody>

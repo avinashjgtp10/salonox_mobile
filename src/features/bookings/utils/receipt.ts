@@ -239,17 +239,43 @@ export function printReceipt(
     ? taxBreakdownEarly.filter((t) => !t.inclusive).reduce((s, t) => s + (Number(t.rate) || 0), 0)
     : taxRatePct;
 
+  // Running sum of every row's gross (tax-inclusive) amount — filled in as
+  // makeRow renders each line, read back by the "Items Total" footer so the
+  // AMOUNT column always adds up to its own total.
+  let grossItemsTotal = 0;
   const makeRow = (
     name: string, type: string, staff: string, time: string,
     qty: number, price: number, discount: number, total: number,
-    isEven: boolean,
+    isEven: boolean, realTax?: number,
   ) => {
     srNo++;
     const [badgeBg, badgeColor] = BADGE[type] ?? ["#f3f4f6", "#374151"];
     const rowBg = isEven ? "#f9fafb" : "#ffffff";
-    const rowInclusiveTax = inclusiveRatePct > 0 ? (total * inclusiveRatePct) / (100 + inclusiveRatePct) : 0;
-    const rowExclusiveTax = exclusiveRatePct > 0 ? (total * exclusiveRatePct) / 100 : 0;
-    const rowTax = rowInclusiveTax + rowExclusiveTax;
+    // Prefer the item's own real, backend-computed GST (attached once the
+    // appointment has a linked, paid sale — see bookingMapper.ts/
+    // appointmentsService's enrichItemsWithTax) over this blended
+    // bill-level-rate approximation, which only stays accurate when a single
+    // tax configuration applies uniformly across every item on the bill.
+    let rowTax: number;
+    // Only EXCLUSIVE tax adds to the row's gross amount — an inclusive tax is
+    // already baked into `total`, so adding it again would double-count.
+    let rowExclusiveTax: number;
+    if (realTax !== undefined) {
+      rowTax = realTax;
+      // sale_items.tax_amount bundles exclusive+inclusive; treat it as
+      // exclusive unless the salon's tax config is purely inclusive.
+      rowExclusiveTax = (exclusiveRatePct === 0 && inclusiveRatePct > 0) ? 0 : realTax;
+    } else {
+      const rowInclusiveTax = inclusiveRatePct > 0 ? (total * inclusiveRatePct) / (100 + inclusiveRatePct) : 0;
+      rowExclusiveTax = exclusiveRatePct > 0 ? (total * exclusiveRatePct) / 100 : 0;
+      rowTax = rowInclusiveTax + rowExclusiveTax;
+    }
+    // AMOUNT column is the gross line total the client pays for this line =
+    // post-discount base + its own exclusive GST (so a ₹1,500 service at 5%
+    // reads ₹1,575). Accumulated into grossItemsTotal for the "Items Total"
+    // footer so the column reconciles to its own sum.
+    const grossAmount = total + rowExclusiveTax;
+    grossItemsTotal += grossAmount;
     return `
     <tr style="background:${rowBg};-webkit-print-color-adjust:exact;print-color-adjust:exact">
       <td style="padding:8px 8px;border:1px solid #e5e7eb;text-align:center;color:#6b7280;font-size:11px">${srNo}</td>
@@ -265,15 +291,15 @@ export function printReceipt(
       <td style="padding:8px 8px;border:1px solid #e5e7eb;text-align:right;font-size:11px;color:#374151">
         ${rowTax > 0 ? `${fmt(rowTax)}<div style="font-size:9px;color:#9ca3af;margin-top:1px">${taxLabel}</div>` : "—"}
       </td>
-      <td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:right;font-weight:700;font-size:12px;color:#111827">${fmt(total)}</td>
+      <td style="padding:8px 10px;border:1px solid #e5e7eb;text-align:right;font-weight:700;font-size:12px;color:#111827">${fmt(grossAmount)}</td>
     </tr>`;
   };
 
   let rowIdx = 0;
-  const svcRows  = services.map((s: any) => makeRow(s.service || s.name || "", "Service", findStaffName(s.staffId) || allStaffDisplay, s.time ? formatTime12(s.time) : "—", Number(s.qty||1), Number(s.price||0), Number(s.discount||0), isPackagePaid ? 0 : Number(s.total||s.price||0), (rowIdx++ % 2 === 0))).join("");
-  const pkgRows  = packageItems.map((p: any) => makeRow(p.packageName||p.name||"", "Package", findStaffName(p.staffId)||"—", p.time ? formatTime12(p.time) : "—", Number(p.qty||1), Number(p.price||0), Number(p.discount||0), Number(p.total||p.price||0), (rowIdx++ % 2 === 0))).join("");
-  const memRows  = membershipItems.map((m: any) => makeRow(m.membershipName||m.name||"", "Membership", findStaffName(m.staffId)||"—", "—", Number(m.qty||1), Number(m.price||0), Number(m.discount||0), Number(m.total||m.price||0), (rowIdx++ % 2 === 0))).join("");
-  const prodRows = productItems.map((p: any) => makeRow(p.productName||p.name||"", "Product", findStaffName(p.staffId)||"—", p.time ? formatTime12(p.time) : "—", Number(p.qty||1), Number(p.price||0), Number(p.discount||0), Number(p.total||p.price||0), (rowIdx++ % 2 === 0))).join("");
+  const svcRows  = services.map((s: any) => makeRow(s.service || s.name || "", "Service", findStaffName(s.staffId) || allStaffDisplay, s.time ? formatTime12(s.time) : "—", Number(s.qty||1), Number(s.price||0), Number(s.discount||0), isPackagePaid ? 0 : Number(s.total||s.price||0), (rowIdx++ % 2 === 0), s.tax)).join("");
+  const pkgRows  = packageItems.map((p: any) => makeRow(p.packageName||p.name||"", "Package", findStaffName(p.staffId)||"—", p.time ? formatTime12(p.time) : "—", Number(p.qty||1), Number(p.price||0), Number(p.discount||0), Number(p.total||p.price||0), (rowIdx++ % 2 === 0), p.tax)).join("");
+  const memRows  = membershipItems.map((m: any) => makeRow(m.membershipName||m.name||"", "Membership", findStaffName(m.staffId)||"—", "—", Number(m.qty||1), Number(m.price||0), Number(m.discount||0), Number(m.total||m.price||0), (rowIdx++ % 2 === 0), m.tax)).join("");
+  const prodRows = productItems.map((p: any) => makeRow(p.productName||p.name||"", "Product", findStaffName(p.staffId)||"—", p.time ? formatTime12(p.time) : "—", Number(p.qty||1), Number(p.price||0), Number(p.discount||0), Number(p.total||p.price||0), (rowIdx++ % 2 === 0), p.tax)).join("");
   const allItemRows = svcRows + pkgRows + memRows + prodRows;
 
   // ── Payment summary ───────────────────────────────────────────────────────
@@ -606,7 +632,7 @@ export function printReceipt(
       <tfoot>
         <tr>
           <td colspan="9" style="text-align:right;padding:8px 12px;font-size:11px;color:#374151">Items Total</td>
-          <td style="text-align:right;padding:8px 12px;font-weight:700;color:#111827">${fmt(Number((booking as any).subtotal || grandTotal))}</td>
+          <td style="text-align:right;padding:8px 12px;font-weight:700;color:#111827">${fmt(grossItemsTotal)}</td>
         </tr>
       </tfoot>
     </table>

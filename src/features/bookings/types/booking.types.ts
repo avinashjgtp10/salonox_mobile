@@ -31,6 +31,11 @@ export interface ServiceItem {
   duration?: number;
   isFav?: boolean;
   isPackageService?: boolean;
+  // This row's own real GST, attached at read time once the appointment has
+  // a linked, paid sale (see appointmentsService's enrichItemsWithTax) —
+  // undefined for an unpaid appointment, which falls back to receipt.ts's
+  // blended bill-level rate approximation.
+  tax?: number;
 }
 
 export interface PackageItem {
@@ -43,6 +48,7 @@ export interface PackageItem {
   total: number;
   staffId?: string;
   time?: string;
+  tax?: number;
 }
 
 export interface ProductItem {
@@ -55,6 +61,7 @@ export interface ProductItem {
   total: number;
   staffId?: string;
   time?: string;
+  tax?: number;
 }
 
 export interface MembershipItem {
@@ -67,6 +74,7 @@ export interface MembershipItem {
   total: number;
   staffId?: string;
   time?: string;
+  tax?: number;
 }
 
 export interface GroupItem {
