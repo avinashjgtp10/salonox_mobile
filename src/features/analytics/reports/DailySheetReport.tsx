@@ -22,6 +22,7 @@ interface DailyRow {
   staff: string;
   amount: number;
   paymentMethod: string;
+  status: string;
 }
 
 // Maps a row from the independent Daily Sheet API
@@ -39,6 +40,7 @@ function mapRow(row: any): DailyRow {
     staff: row.staff || "—",
     amount: Number(row.amount) || 0,
     paymentMethod: row.payment_method || "N/A",
+    status: row.status ?? "booked",
   };
 }
 
@@ -107,8 +109,8 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const HEADERS = ["Time", "Ticket No", "Client Name", "Service", "Staff", "Amount (₹)", "Payment Method"];
-  const exportRows = () => rows.map(r => [r.time, r.ticketNo, r.clientName, r.service, r.staff, r.amount, r.paymentMethod]);
+  const HEADERS = ["Time", "Ticket No", "Client Name", "Service", "Staff", "Amount (₹)", "Payment Method", "Status"];
+  const exportRows = () => rows.map(r => [r.time, r.ticketNo, r.clientName, r.service, r.staff, r.amount, r.paymentMethod, r.status]);
 
   return (
     <div className="rp-detail-view">
@@ -187,13 +189,14 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
               <th>Staff</th>
               <th>Amount (₹)</th>
               <th>Payment Method</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={7} />
+              <SkeletonTableRows columns={8} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -211,6 +214,7 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
                 <td>{r.staff}</td>
                 <td className="fw-semibold">₹{r.amount.toLocaleString("en-IN")}</td>
                 <td className="rp-ds-payment">{r.paymentMethod}</td>
+                <td><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
               </tr>
             ))}
           </tbody>

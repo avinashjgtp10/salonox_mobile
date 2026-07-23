@@ -71,7 +71,7 @@ function mapAppointment(row: any): SaleRow {
     dueAmount: Number(row.due_amount) || 0,
     description,
     modes: row.payment_method ?? "—",
-    status: row.status ?? "draft",
+    status: row.status ?? "booked",
     date: String(row.created_at ?? "").slice(0, 10),
     tip: Number(row.tip_amount) || 0,
     ewalletUsed,
