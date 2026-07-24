@@ -210,6 +210,11 @@ body {
     width: 270px;
     padding: 24px 18px;
   }
+
+  &--clients {
+    width: 250px;
+    padding: 24px 18px;
+  }
 }
 
 // Only the nav-links area scrolls/clips — .sub-header (and its floating-close
@@ -294,6 +299,7 @@ body {
   &.shifted { margin-left: 410px; }
   &.shifted--team { margin-left: 350px; }
   &.shifted--marketing { margin-left: 360px; }
+  &.shifted--clients { margin-left: 340px; }
 
   // Below this width (iPad portrait and smaller), pushing content over by
   // 350-410px leaves almost nothing to work with. The sub-sidebars are
@@ -301,7 +307,7 @@ body {
   // them float on top of the content instead of shifting it — same pattern
   // as a mobile off-canvas nav.
   @media (max-width: 1024px) {
-    &.shifted, &.shifted--team, &.shifted--marketing { margin-left: 90px; }
+    &.shifted, &.shifted--team, &.shifted--marketing, &.shifted--clients { margin-left: 90px; }
   }
 }
 

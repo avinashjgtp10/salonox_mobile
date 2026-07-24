@@ -841,9 +841,12 @@
   // ════════════════════════════════════════════════
   // PACKAGES TAB
   // ════════════════════════════════════════════════
+  // Full-width stacked cards to match the Memberships tab (which renders its
+  // .chp-pkg-card list block-flow inside .chp-card), instead of a multi-column
+  // grid — SCRUM-1092, one consistent card layout across both tabs.
   .chp-pkg-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 14px;
   }
 

@@ -8,7 +8,7 @@ interface Props {
 
 export default function ClientsSubSidebar({ onClose }: Props) {
   return (
-    <div className="sub-sidebar">
+    <div className="sub-sidebar sub-sidebar--clients">
       <div className="sub-header">
         <h3>Clients</h3>
         <button className="floating-close" onClick={onClose}>

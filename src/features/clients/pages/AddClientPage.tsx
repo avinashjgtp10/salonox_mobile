@@ -34,8 +34,8 @@ const AddClientPage: React.FC = () => {
     lastName: prefill.prefillName?.split(" ").slice(1).join(" ") ?? "",
     email: "",
     phone: prefill.prefillPhone ?? "", phoneCountryCode: "+91",
-    birthday: "", address: "", gender: "", clientSource: "walk_in",
-    additionalEmail: "", additionalPhone: "", additionalPhoneCountryCode: "+91",
+    birthday: "", anniversary: "", address: "", gender: "", clientSource: "walk_in",
+    additionalPhone: "", additionalPhoneCountryCode: "+91",
     referredByCode: "",
   };
   const [form, setForm] = useState(initialForm);
@@ -45,6 +45,13 @@ const AddClientPage: React.FC = () => {
   // editable code input. Null in add mode, or in edit mode before the record
   // has loaded / if no referrer is set yet.
   const [referredBy, setReferredBy] = useState<{ full_name: string } | null>(null);
+
+  // Live resolution of the typed referral code → whose code it is, shown in
+  // green under the field so staff can confirm the referrer before saving.
+  const [referralLookup, setReferralLookup] = useState<{
+    status: "idle" | "loading" | "found" | "notfound";
+    name?: string;
+  }>({ status: "idle" });
 
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
@@ -91,10 +98,10 @@ const AddClientPage: React.FC = () => {
           birthday: c.birthday_day_month
             ? `${c.birthday_year || DOB_PLACEHOLDER_YEAR}-${c.birthday_day_month}`
             : "",
+          anniversary: c.anniversary ? String(c.anniversary).slice(0, 10) : "",
           address: c.address || "",
           gender: c.gender || "",
           clientSource: c.client_source || "walk_in",
-          additionalEmail: c.additional_email || "",
           additionalPhone: c.additional_phone_number || "",
           additionalPhoneCountryCode: c.additional_phone_country_code || "+91",
           referredByCode: "",
@@ -117,6 +124,28 @@ const AddClientPage: React.FC = () => {
     load();
   }, [id, isEdit]);
 
+  // ── Live "Referred by" resolution ────────────────────────────────────────────
+  // Debounced lookup of the typed code → the referrer's name. Skipped once a
+  // referrer is already locked in (edit mode), since the code can't change then.
+  useEffect(() => {
+    if (referredBy) return;
+    const code = form.referredByCode.trim();
+    if (!code) { setReferralLookup({ status: "idle" }); return; }
+    setReferralLookup({ status: "loading" });
+    const t = setTimeout(async () => {
+      try {
+        const res = await api.get(CLIENT.REFERRAL_LOOKUP(code));
+        const data = res.data?.data ?? res.data;
+        setReferralLookup(data?.full_name
+          ? { status: "found", name: data.full_name }
+          : { status: "notfound" });
+      } catch {
+        setReferralLookup({ status: "notfound" });
+      }
+    }, 400);
+    return () => clearTimeout(t);
+  }, [form.referredByCode, referredBy]);
+
   // ── Field validation ─────────────────────────────────────────────────────────
   const today = new Date().toISOString().slice(0, 10);
 
@@ -138,10 +167,19 @@ const AddClientPage: React.FC = () => {
 
   const isGenderInvalid = attemptedSubmit && form.gender.trim() === "";
 
-  const isAdditionalEmailInvalid =
-    attemptedSubmit && form.additionalEmail.trim() !== "" && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.additionalEmail.trim());
+  // The additional mobile can't duplicate the primary one (SCRUM-1087) —
+  // compared with country code so the same digits under different codes aren't
+  // wrongly flagged. Shown inline as soon as they match, not only on submit.
+  const isAdditionalPhoneDuplicate =
+    form.additionalPhone.trim() !== "" &&
+    `${form.phoneCountryCode}${form.phone.trim()}` ===
+      `${form.additionalPhoneCountryCode}${form.additionalPhone.trim()}`;
   const isAdditionalPhoneInvalid =
-    attemptedSubmit && form.additionalPhone.trim() !== "" && !/^\d{10}$/.test(form.additionalPhone.trim());
+    (attemptedSubmit && form.additionalPhone.trim() !== "" && !/^\d{10}$/.test(form.additionalPhone.trim())) ||
+    isAdditionalPhoneDuplicate;
+  const additionalPhoneErrorMessage = isAdditionalPhoneDuplicate
+    ? "Additional mobile must be different from the primary mobile"
+    : "Enter a valid 10-digit phone number";
 
   const setField = (key: keyof typeof form) => (val: string) => {
     setForm((prev) => ({ ...prev, [key]: val }));
@@ -186,10 +224,14 @@ const AddClientPage: React.FC = () => {
 
     if (
       form.firstName.trim() === "" || !emailFormatValid ||
-      form.phone.trim() === "" || !/^\d{10}$/.test(form.phone.trim()) || isBirthdayInvalid ||
-      form.gender.trim() === "" || isAdditionalEmailInvalid || isAdditionalPhoneInvalid
+      form.phone.trim() === "" || !/^\d{10}$/.test(form.phone.trim()) ||
+      (!!form.birthday && form.birthday > today) ||
+      form.gender.trim() === "" ||
+      (form.additionalPhone.trim() !== "" && !/^\d{10}$/.test(form.additionalPhone.trim())) ||
+      isAdditionalPhoneDuplicate
     ) {
-      showError("Please fix the highlighted fields");
+      // No error overlay/modal — attemptedSubmit is set above, so the invalid
+      // fields highlight inline with their own messages (SCRUM-1083).
       return;
     }
 
@@ -218,10 +260,10 @@ const AddClientPage: React.FC = () => {
         phone_country_code: form.phoneCountryCode,
         birthday_day_month: birthday_day_month ?? null,
         birthday_year: birthday_year ?? null,
+        anniversary: form.anniversary || null,
         address: form.address.trim() || null,
         gender: form.gender,
         client_source: form.clientSource || null,
-        additional_email: form.additionalEmail.trim() || null,
         additional_phone_number: form.additionalPhone.trim() || null,
         additional_phone_country_code: form.additionalPhone.trim() ? form.additionalPhoneCountryCode : null,
         avatar_url: avatarUrl || null,
@@ -316,15 +358,19 @@ const AddClientPage: React.FC = () => {
             <h6 className="cli-card__title">Details</h6>
             <div className="cli-details-grid">
               <div className="cli-field">
+                <label className="cli-field__label">
+                  First name <span style={{ color: "#dc2626" }}>*</span>
+                </label>
                 <input
                   className={`cli-input ${isFirstNameInvalid ? "cli-input--invalid" : ""}`}
-                  placeholder="First name*"
+                  placeholder="First name"
                   value={form.firstName}
                   onChange={(e) => setField("firstName")(e.target.value)}
                 />
                 {isFirstNameInvalid && <span className="cli-field__error">First name is required</span>}
               </div>
               <div className="cli-field">
+                <label className="cli-field__label">Last name</label>
                 <input
                   className="cli-input"
                   placeholder="Last name"
@@ -334,6 +380,7 @@ const AddClientPage: React.FC = () => {
               </div>
 
               <div className="cli-field">
+                <label className="cli-field__label">Email</label>
                 <input
                   className={`cli-input ${isEmailInvalid ? "cli-input--invalid" : ""}`}
                   placeholder="Email"
@@ -344,6 +391,9 @@ const AddClientPage: React.FC = () => {
                 {isEmailInvalid && <span className="cli-field__error">{emailErrorMessage}</span>}
               </div>
               <div className="cli-field">
+                <label className="cli-field__label">
+                  Phone <span style={{ color: "#dc2626" }}>*</span>
+                </label>
                 <div className={`cli-phone-group ${isPhoneInvalid ? "cli-input--invalid" : ""}`}>
                   <select
                     className="cli-phone-code"
@@ -356,7 +406,7 @@ const AddClientPage: React.FC = () => {
                   </select>
                   <input
                     className="cli-input cli-phone-input"
-                    placeholder="Phone*"
+                    placeholder="Phone"
                     value={form.phone}
                     onChange={(e) => setField("phone")(e.target.value.replace(/\D/g, ""))}
                     maxLength={10}
@@ -366,13 +416,15 @@ const AddClientPage: React.FC = () => {
               </div>
 
               <div className="cli-field">
-                <label className="cli-field__label">Gender</label>
+                <label className="cli-field__label">
+                  Gender <span style={{ color: "#dc2626" }}>*</span>
+                </label>
                 <select
                   className={`cli-input cli-select ${isGenderInvalid ? "cli-input--invalid" : ""}`}
                   value={form.gender}
                   onChange={(e) => setField("gender")(e.target.value)}
                 >
-                  <option value="">Select gender*</option>
+                  <option value="" disabled hidden>Select gender</option>
                   <option value="Female">Female</option>
                   <option value="Male">Male</option>
                   <option value="Other">Other</option>
@@ -402,6 +454,16 @@ const AddClientPage: React.FC = () => {
               </div>
 
               <div className="cli-field">
+                <label className="cli-field__label">Anniversary</label>
+                <input
+                  className="cli-input"
+                  type="date"
+                  value={form.anniversary}
+                  onChange={(e) => setField("anniversary")(e.target.value)}
+                />
+              </div>
+
+              <div className="cli-field">
                 <label className="cli-field__label">Client source</label>
                 <select
                   className="cli-input cli-select"
@@ -418,27 +480,28 @@ const AddClientPage: React.FC = () => {
                 {referredBy ? (
                   <input className="cli-input" value={referredBy.full_name} disabled readOnly />
                 ) : (
-                  <input
-                    className="cli-input text-uppercase"
-                    placeholder="e.g. NIS1126"
-                    value={form.referredByCode}
-                    onChange={(e) => setField("referredByCode")(e.target.value.toUpperCase())}
-                    maxLength={20}
-                  />
+                  <>
+                    <input
+                      className="cli-input text-uppercase"
+                      placeholder="e.g. NIS1126"
+                      value={form.referredByCode}
+                      onChange={(e) => setField("referredByCode")(e.target.value.toUpperCase())}
+                      maxLength={20}
+                    />
+                    {referralLookup.status === "found" && (
+                      <span className="cli-field__hint" style={{ color: "#16a34a", fontWeight: 600 }}>
+                        Referred by {referralLookup.name}
+                      </span>
+                    )}
+                    {referralLookup.status === "notfound" && form.referredByCode.trim() !== "" && (
+                      <span className="cli-field__error">No client found for this referral code</span>
+                    )}
+                  </>
                 )}
               </div>
 
               <div className="cli-field">
-                <input
-                  className={`cli-input ${isAdditionalEmailInvalid ? "cli-input--invalid" : ""}`}
-                  placeholder="Additional email"
-                  type="email"
-                  value={form.additionalEmail}
-                  onChange={(e) => setField("additionalEmail")(e.target.value)}
-                />
-                {isAdditionalEmailInvalid && <span className="cli-field__error">Enter a valid email address</span>}
-              </div>
-              <div className="cli-field">
+                <label className="cli-field__label">Additional mobile</label>
                 <div className={`cli-phone-group ${isAdditionalPhoneInvalid ? "cli-input--invalid" : ""}`}>
                   <select
                     className="cli-phone-code"
@@ -457,7 +520,7 @@ const AddClientPage: React.FC = () => {
                     maxLength={10}
                   />
                 </div>
-                {isAdditionalPhoneInvalid && <span className="cli-field__error">Enter a valid 10-digit phone number</span>}
+                {isAdditionalPhoneInvalid && <span className="cli-field__error">{additionalPhoneErrorMessage}</span>}
               </div>
             </div>
           </div>

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { X, Pencil, Clipboard } from "react-bootstrap-icons";
+import { X, Pencil, Clipboard, ArrowLeft } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
@@ -12,6 +12,20 @@ interface ClientDetailsDrawerProps {
   clientId: string | number | null;
   isOpen: boolean;
   onClose: () => void;
+}
+
+// Birthday is stored split as "MM-DD" + an optional year (a birthday may have
+// no year on file) — reassemble it for display. Reading client.birthday
+// directly (as this panel used to) always showed "–" since no such field
+// exists on the record, making saved birthdays look lost (SCRUM-1090).
+function formatBirthday(dayMonth?: string | null, year?: number | null): string | null {
+  if (!dayMonth) return null;
+  const [mm, dd] = dayMonth.split("-").map(Number);
+  if (!mm || !dd) return null;
+  const d = new Date(year || 2000, mm - 1, dd);
+  return d.toLocaleDateString("en-GB", year
+    ? { day: "numeric", month: "long", year: "numeric" }
+    : { day: "numeric", month: "long" });
 }
 
 function InfoRow({
@@ -59,12 +73,28 @@ export default function ClientDetailsDrawer({
   const [showWalletModal, setShowWalletModal] = useState(false);
   const { showSuccess, overlay } = useStatusOverlay();
 
+  // Which client the drawer is currently showing. It starts as the client the
+  // parent selected (`clientId`), but the "Referred By" card pushes the
+  // referrer's id on top so their details load in-place. The stack lets the
+  // header's Back button return to whichever client we came from.
+  const [idStack, setIdStack] = useState<(string | number)[]>(
+    clientId != null ? [clientId] : [],
+  );
+  const activeClientId = idStack[idStack.length - 1] ?? null;
+  const isViewingReferrer = idStack.length > 1;
+
+  // Reset to the parent-selected client whenever it changes or the drawer
+  // reopens, so a previously-viewed referrer chain doesn't linger.
+  useEffect(() => {
+    if (isOpen && clientId != null) setIdStack([clientId]);
+  }, [isOpen, clientId]);
+
   useEffect(() => {
     let isMounted = true;
-    if (isOpen && clientId) {
+    if (isOpen && activeClientId != null) {
       setLoading(true);
       api
-        .get(CLIENT.BY_ID(clientId))
+        .get(CLIENT.BY_ID(activeClientId))
         .then((r) => {
           if (isMounted) setClient(r.data?.data || r.data);
         })
@@ -81,7 +111,16 @@ export default function ClientDetailsDrawer({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, clientId]);
+  }, [isOpen, activeClientId]);
+
+  // Warm the lazy-loaded Add/Edit client page chunk (and its heavy
+  // country-state-city import) as soon as the drawer opens, so clicking
+  // "Edit" navigates instantly instead of waiting on a cold chunk fetch.
+  useEffect(() => {
+    if (isOpen) {
+      import("../pages/AddClientPage");
+    }
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -102,14 +141,16 @@ export default function ClientDetailsDrawer({
       })
     : null;
 
-  const birthday = client?.birthday || null;
+  const birthday = formatBirthday(client?.birthday_day_month, client?.birthday_year);
+  const anniversary = client?.anniversary
+    ? new Date(client.anniversary).toLocaleDateString("en-GB", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      })
+    : null;
   const gender = client?.gender || null;
-  const pronouns = client?.pronouns || null;
-  const occupation = client?.occupation || null;
-  const country = client?.country || null;
   const clientSource = client?.client_source || null;
-  const preferredLanguage = client?.preferred_language || null;
-  const additionalEmail = client?.additional_email || null;
   const additionalPhone = client?.additional_phone_number || null;
 
   const walletBalance = Number(client?.wallet_balance ?? client?.ewallet_balance ?? 0);
@@ -141,6 +182,16 @@ export default function ClientDetailsDrawer({
           </div>
         ) : (
           <>
+            {isViewingReferrer && (
+              <button
+                type="button"
+                className="cdd-back-btn"
+                onClick={() => setIdStack((s) => s.slice(0, -1))}
+              >
+                <ArrowLeft size={14} /> Back
+              </button>
+            )}
+
             {/* Avatar + Name */}
             <div className="cdd-header">
               <div className="cdd-avatar">{initials}</div>
@@ -150,7 +201,7 @@ export default function ClientDetailsDrawer({
               </div>
               <button
                 className="cdd-edit-btn"
-                onClick={() => navigate(`/dashboard/clients/edit/${clientId}`)}
+                onClick={() => navigate(`/dashboard/clients/edit/${activeClientId}`)}
               >
                 <Pencil size={14} /> Edit
               </button>
@@ -163,10 +214,8 @@ export default function ClientDetailsDrawer({
               <InfoRow label="Email" value={email} />
               <InfoRow label="Phone" value={phone} />
               <InfoRow label="Birthday" value={birthday} />
+              <InfoRow label="Anniversary" value={anniversary} />
               <InfoRow label="Gender" value={gender} />
-              <InfoRow label="Pronouns" value={pronouns} />
-              <InfoRow label="Occupation" value={occupation} />
-              <InfoRow label="Country" value={country} />
 
               <div className="cdd-section-title cdd-section-title--mt">Wallet</div>
               <div className="cdd-wallet-row">
@@ -206,7 +255,7 @@ export default function ClientDetailsDrawer({
                     <button
                       type="button"
                       className="cdd-referrer-view-btn"
-                      onClick={() => navigate(`/dashboard/clients/edit/${referredBy.id}`)}
+                      onClick={() => setIdStack((s) => [...s, referredBy.id])}
                     >
                       View
                     </button>
@@ -216,8 +265,6 @@ export default function ClientDetailsDrawer({
 
               <div className="cdd-section-title cdd-section-title--mt">Additional info</div>
               <InfoRow label="Client source" value={clientSource} />
-              <InfoRow label="Preferred language" value={preferredLanguage} />
-              <InfoRow label="Additional email" value={additionalEmail} />
               <InfoRow label="Additional phone" value={additionalPhone} />
               <InfoRow label="Joined" value={createdAt} />
             </div>
@@ -225,8 +272,8 @@ export default function ClientDetailsDrawer({
         )}
       </div>
 
-      {showWalletModal && clientId && (
-        <WalletBreakdownModal clientId={clientId} onClose={() => setShowWalletModal(false)} />
+      {showWalletModal && activeClientId != null && (
+        <WalletBreakdownModal clientId={activeClientId} onClose={() => setShowWalletModal(false)} />
       )}
     </div>
   );
