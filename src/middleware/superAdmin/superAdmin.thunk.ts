@@ -263,6 +263,70 @@ export const updateSalonPermissionsThunk = createAsyncThunk<any, { salonId: stri
   }
 );
 
+// ── SUBSCRIPTION PERMISSIONS ─────────────────────────────────────────────────
+
+export const searchSalonsForSubscriptionPermissionsThunk = createAsyncThunk<any[], string, { rejectValue: string }>(
+  "superAdmin/searchSalonsForSubscriptionPermissions",
+  async (q, { rejectWithValue }) => {
+    try {
+      const res = await api.get(SUPER_ADMIN.SUBSCRIPTION_PERMISSIONS_SEARCH, { params: { q } });
+      const data = res.data?.data ?? res.data;
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      return rejectWithValue(err?.message ?? "Search failed");
+    }
+  }
+);
+
+export const fetchSubscriptionPermissionsByIdThunk = createAsyncThunk<any, string, { rejectValue: string }>(
+  "superAdmin/fetchSubscriptionPermissionsById",
+  async (salonId, { rejectWithValue }) => {
+    try {
+      const res = await api.get(SUPER_ADMIN.SUBSCRIPTION_PERMISSIONS_GET(salonId));
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Salon not found");
+    }
+  }
+);
+
+export const updateSubscriptionPermissionsThunk = createAsyncThunk<any, { salonId: string; permissions: Record<string, boolean> }, { rejectValue: string }>(
+  "superAdmin/updateSubscriptionPermissions",
+  async ({ salonId, permissions }, { rejectWithValue }) => {
+    try {
+      const res = await api.put(SUPER_ADMIN.SUBSCRIPTION_PERMISSIONS_PUT(salonId), { permissions });
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.message ?? "Failed to save permissions");
+    }
+  }
+);
+
+export const fetchSubscriptionPermissionAuditLogThunk = createAsyncThunk<any[], string, { rejectValue: string }>(
+  "superAdmin/fetchSubscriptionPermissionAuditLog",
+  async (salonId, { rejectWithValue }) => {
+    try {
+      const res = await api.get(SUPER_ADMIN.SUBSCRIPTION_PERMISSIONS_AUDIT_LOG(salonId));
+      const data = res.data?.data ?? res.data;
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      return rejectWithValue(err?.message ?? "Failed to load audit log");
+    }
+  }
+);
+
+export const grantSubscriptionDaysThunk = createAsyncThunk<any, { salonId: string; days: number }, { rejectValue: string }>(
+  "superAdmin/grantSubscriptionDays",
+  async ({ salonId, days }, { rejectWithValue }) => {
+    try {
+      const res = await api.post(SUPER_ADMIN.SUBSCRIPTION_GRANT_DAYS(salonId), { days });
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to grant days");
+    }
+  }
+);
+
 // ── BILLING ───────────────────────────────────────────────────────────────────
 
 export const fetchSuperAdminSubscriptionsThunk = createAsyncThunk<any[], string | undefined, { rejectValue: string }>(
