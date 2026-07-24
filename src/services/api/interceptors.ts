@@ -230,19 +230,26 @@ export const applyInterceptors = (instance: AxiosInstance) => {
       // ── All other errors ───────────────────────────────────────────────────
       switch (status) {
         case 400:
-          return Promise.reject(new ApiError(400, message, data?.errors));
+          return Promise.reject(new ApiError(400, message, data?.errors, errorCode));
         case 401:
-          return Promise.reject(new ApiError(401, message));
+          return Promise.reject(new ApiError(401, message, undefined, errorCode));
         case 403:
-          return Promise.reject(new ApiError(403, message));
+          return Promise.reject(new ApiError(403, message, undefined, errorCode));
         case 404:
-          return Promise.reject(new ApiError(404, message));
+          return Promise.reject(new ApiError(404, message, undefined, errorCode));
+        // DUPLICATE_PHONE / DUPLICATE_EMAIL (clients) and any other
+        // code-carrying conflict rely on errorCode surviving past this
+        // interceptor — every branch here used to drop it, so every 409
+        // resolved to the same generic "conflict" with no way for a caller to
+        // tell which field actually collided.
+        case 409:
+          return Promise.reject(new ApiError(409, message, undefined, errorCode));
         case 422:
-          return Promise.reject(new ApiError(422, message, data?.errors));
+          return Promise.reject(new ApiError(422, message, data?.errors, errorCode));
         case 500:
-          return Promise.reject(new ApiError(500, message));
+          return Promise.reject(new ApiError(500, message, undefined, errorCode));
         default:
-          return Promise.reject(new ApiError(status ?? 0, message));
+          return Promise.reject(new ApiError(status ?? 0, message, undefined, errorCode));
       }
     },
   );

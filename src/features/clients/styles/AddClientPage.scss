@@ -202,6 +202,12 @@ $transition:      0.18s ease;
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 14px 16px;
+  // Default grid stretch makes every cell in a row match the tallest one —
+  // when one field shows a validation error below it, its row-mate grows to
+  // match but has nothing to fill that space with, leaving it visually
+  // blank right where the error text sits. Each field now sizes to its own
+  // content instead, so an error under one field doesn't affect its sibling.
+  align-items: start;
 }
 
 .cli-field {

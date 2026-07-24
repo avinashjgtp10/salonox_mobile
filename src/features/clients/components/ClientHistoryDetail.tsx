@@ -51,6 +51,7 @@ interface AppointmentRecord {
   services: Array<{ name?: string; service_name?: string; price?: number }>;
   product_items: Array<{ name: string }>;
   package_items?: Array<{ name?: string; package_name?: string; price?: number; total?: number }>;
+  membership_items?: Array<{ name?: string; price?: number; total?: number }>;
   staff_id?: string | null;
   staff?: { id: string; full_name?: string } | null;
 }
@@ -584,7 +585,11 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
 
   const visitHistoryEntries: VisitEntry[] = useMemo(() => {
     const packageEntries: VisitEntry[] = filteredPackages
-      .filter((pkg) => pkg.payment_status === "paid")
+      // Backend returns the raw DB value ("Paid", capital P) — comparing
+      // against the lowercase literal always failed, silently dropping every
+      // fully-paid package purchase out of Visit History (and the total count
+      // it drives), even though the package genuinely was paid in full.
+      .filter((pkg) => (pkg.payment_status || "").toLowerCase() === "paid")
       .map((pkg) => ({
         kind: "package" as const,
         date: pkg.created_date,
@@ -915,7 +920,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                     .map((entry) => {
                     if (entry.kind === "package") {
                       const pkg = entry.pkg;
-                      const isPkgPaid = pkg.payment_status === "paid";
+                      const isPkgPaid = (pkg.payment_status || "").toLowerCase() === "paid";
                       const d = fmtDate(pkg.created_date);
                       return (
                         <div key={`pkg-${pkg.id}`} className="chp-visit-row">
@@ -1002,8 +1007,23 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                       appt.services?.[0]?.name ||
                       appt.services?.[0]?.service_name ||
                       appt.product_items?.[0]?.name ||
+                      appt.package_items?.[0]?.name ||
+                      appt.package_items?.[0]?.package_name ||
+                      appt.membership_items?.[0]?.name ||
                       "Appointment";
-                    const extraSvcs = (appt.services?.length ?? 0) - 1;
+                    // Was services.length - 1 — a bill can bundle a service
+                    // AND a package AND a product AND a membership in one
+                    // appointment, but only the "extra" count within the
+                    // service list got tallied. A row showing 4 different item
+                    // types billed together displayed as if it were a single
+                    // plain service, with no "+N more" hint that anything else
+                    // was on that same sale. Now counts everything on the bill.
+                    const totalItemCount =
+                      (appt.services?.length ?? 0) +
+                      (appt.package_items?.length ?? 0) +
+                      (appt.product_items?.length ?? 0) +
+                      (appt.membership_items?.length ?? 0);
+                    const extraSvcs = Math.max(0, totalItemCount - 1);
                     const isPaid = linkedSale
                       ? linkedSale.status === "completed"
                       : appt.payment_status === "paid" || Number(appt.amount_paid) > 0;
@@ -1240,7 +1260,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               </div>
             )}
             {filteredPackages.length === 0 && filteredPackageItems.length === 0 ? (
-              <div className="chp-no-data">No packages found</div>
+              // Matches the Memberships tab's empty state: a proper chp-card
+              // with its own header, not bare unwrapped text — this used to
+              // render with no card/header at all, the one visible difference
+              // between the two tabs' presentation (SCRUM-1092).
+              <div className="chp-card" style={{ gridColumn: "1 / -1" }}>
+                <div className="chp-card-header">
+                  <span className="chp-card-title">Packages purchased (0)</span>
+                </div>
+                <div className="chp-no-data">No packages found</div>
+              </div>
             ) : filteredPackages.length === 0 ? null : (
               filteredPackages.map((pkg) => {
                 const expiryStatus = getPackageExpiryStatus(pkg.expiry_date);
