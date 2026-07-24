@@ -318,7 +318,10 @@ export const AppointmentModal: React.FC<Props> = ({
   const clientIdForPkg = selectedClient?.id && selectedClient.id !== "walk-in" ? selectedClient.id : undefined;
   const { data: clientPkgsData } = useListClientPackagesQuery(
     { clientId: clientIdForPkg, status: "Active", limit: 50 },
-    { skip: !clientIdForPkg },
+    // See ClientPanel.tsx's identical option for why this is needed — a
+    // package purchased outside this exact RTK Query cache entry (another
+    // tab, a backfill script, etc.) must not be masked by a stale cached hit.
+    { skip: !clientIdForPkg, refetchOnMountOrArgChange: true },
   );
   // Backend "Active" filtering aside, also guard client-side against a
   // package whose expiry date has passed but hasn't been flagged as such

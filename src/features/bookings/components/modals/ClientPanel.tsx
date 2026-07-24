@@ -107,7 +107,13 @@ export const ClientPanel: React.FC<Props> = ({
   const clientIdForPkg = selectedClientId && selectedClientId !== "walk-in" ? selectedClientId : undefined;
   const { data: clientPkgsData, refetch: refetchClientPkgs } = useListClientPackagesQuery(
     { clientId: clientIdForPkg, status: "Active", limit: 50 },
-    { skip: !clientIdForPkg },
+    // refetchOnMountOrArgChange: a package bought in a completely different
+    // session/tab (or, as with the membership backfill, directly via script)
+    // never touches this RTK Query cache at all — without this, a stale
+    // cached "no packages" response could win over the manual refreshKey
+    // refetch below on some mount orders. Forces a fresh fetch every time
+    // this panel opens for a client, not just when refreshKey changes.
+    { skip: !clientIdForPkg, refetchOnMountOrArgChange: true },
   );
   // RTK Query only refetches when the query ARGS change or its cache is
   // explicitly invalidated — bumping `refreshKey` (a plain prop, not a query

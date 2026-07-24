@@ -171,6 +171,7 @@ function normalise(appt: TodayAppointment) {
     time:    utcTimeToLocal(appt.startTime ?? appt.time ?? "—"),
     status:  appt.status,
     amount:  appt.amount      ?? appt.price   ?? 0,
+    paidAmount: appt.paidAmount ?? 0,
   };
 }
 
@@ -268,6 +269,7 @@ const StatusBadge = memo(function StatusBadge({ status }: { status: string }) {
   const map: Record<string, { label: string; cls: string }> = {
     completed:     { label: "Completed",   cls: "db-badge-success" },
     upcoming:      { label: "Upcoming",    cls: "db-badge-warning" },
+    partial:       { label: "Partial",     cls: "db-badge-partial" },
     cancelled:     { label: "Cancelled",   cls: "db-badge-danger"  },
     "no-show":     { label: "No Show",     cls: "db-badge-noshow"  },
     deleted:       { label: "Deleted",     cls: "db-badge-neutral" },
@@ -766,7 +768,7 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
 
 // ─── Section: Appointment Summary Bar Chart ───────────────────────────────────
 
-type ApptChartEntry = { label: string; completed: number; pending: number; cancelled: number; noShow: number };
+type ApptChartEntry = { label: string; completed: number; pending: number; partial: number; cancelled: number; noShow: number };
 
 const AppointmentSummaryPanel = memo(function AppointmentSummaryPanel({
   apptChartData,
@@ -800,6 +802,7 @@ const AppointmentSummaryPanel = memo(function AppointmentSummaryPanel({
               <Tooltip content={<ApptTooltip />} />
               <Bar dataKey="completed" name="Completed" fill="#111827" radius={[4, 4, 0, 0]} />
               <Bar dataKey="pending"   name="Upcoming"  fill="#d1d5db" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="partial"   name="Partial"   fill="#93c5fd" radius={[4, 4, 0, 0]} />
               <Bar dataKey="cancelled" name="Cancelled" fill="#fecaca" radius={[4, 4, 0, 0]} />
               <Bar dataKey="noShow"    name="No Show"   fill="#c4b5fd" radius={[4, 4, 0, 0]} />
             </BarChart>
@@ -807,6 +810,7 @@ const AppointmentSummaryPanel = memo(function AppointmentSummaryPanel({
           <div className="db-bar-legend">
             <span><CircleFill size={8} color="#111827" /> Completed</span>
             <span><CircleFill size={8} color="#d1d5db" /> Upcoming</span>
+            <span><CircleFill size={8} color="#93c5fd" /> Partial</span>
             <span><CircleFill size={8} color="#fecaca" /> Cancelled</span>
             <span><CircleFill size={8} color="#c4b5fd" /> No Show</span>
           </div>
@@ -856,6 +860,9 @@ const AppointmentsTable = memo(function AppointmentsTable({
           <span className="db-appt-chip db-appt-chip-warning">
             {normAppts.filter(a => a.status === "upcoming").length} Upcoming
           </span>
+          <span className="db-appt-chip db-appt-chip-partial">
+            {normAppts.filter(a => a.status === "partial").length} Partial
+          </span>
           <span className="db-appt-chip db-appt-chip-danger">
             {normAppts.filter(a => a.status === "cancelled").length} Cancelled
           </span>
@@ -902,7 +909,16 @@ const AppointmentsTable = memo(function AppointmentsTable({
                   <span className="db-appt-time">
                     <ClockHistory size={12} className="me-1" />{appt.time}
                   </span>
-                  <span className="db-appt-amount">₹{appt.amount.toLocaleString("en-IN")}</span>
+                  <span className="db-appt-amount">
+                    {appt.status === "partial" ? (
+                      <>
+                        ₹{appt.paidAmount.toLocaleString("en-IN")}
+                        <span className="db-appt-amount-due"> of ₹{appt.amount.toLocaleString("en-IN")}</span>
+                      </>
+                    ) : (
+                      `₹${appt.amount.toLocaleString("en-IN")}`
+                    )}
+                  </span>
                   <StatusBadge status={appt.status} />
                 </div>
               ))}
@@ -1278,7 +1294,7 @@ export default function DashboardPage() {
     };
 
     if (normAppts.length === 0) {
-      return [{ label: "Today", completed: 0, pending: 0, cancelled: 0, noShow: 0 }];
+      return [{ label: "Today", completed: 0, pending: 0, partial: 0, cancelled: 0, noShow: 0 }];
     }
 
     const hourSet = new Set<number>();
@@ -1289,6 +1305,7 @@ export default function DashboardPage() {
         label: "Today",
         completed: normAppts.filter(a => a.status === "completed").length,
         pending:   normAppts.filter(a => a.status === "upcoming").length,
+        partial:   normAppts.filter(a => a.status === "partial").length,
         cancelled: normAppts.filter(a => a.status === "cancelled").length,
         noShow:    normAppts.filter(a => a.status === "no-show").length,
       }];
@@ -1304,6 +1321,7 @@ export default function DashboardPage() {
         label,
         completed: slot.filter(a => a.status === "completed").length,
         pending:   slot.filter(a => a.status === "upcoming").length,
+        partial:   slot.filter(a => a.status === "partial").length,
         cancelled: slot.filter(a => a.status === "cancelled").length,
         noShow:    slot.filter(a => a.status === "no-show").length,
       };

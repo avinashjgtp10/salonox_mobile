@@ -26,7 +26,7 @@ export interface DashboardAllResponse {
     service: string;
     staffName: string;
     time: string;
-    status: "completed" | "upcoming" | "cancelled" | "no-show" | "deleted";
+    status: "completed" | "upcoming" | "partial" | "cancelled" | "no-show" | "deleted";
     amount: number;
   }>;
   revenueChart: Array<{ month: string; revenue: number; expenses: number }>;

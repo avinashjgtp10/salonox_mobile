@@ -20,9 +20,13 @@ export interface TodayAppointment {
   staffName?: string;
   time?: string;
   startTime?: string;
-  status: "completed" | "in-progress" | "upcoming" | "cancelled" | string;
+  status: "completed" | "in-progress" | "upcoming" | "partial" | "cancelled" | string;
   amount?: number;
   price?: number;
+  // Only meaningful when status is "partial" — how much of `amount` has
+  // actually been collected so far, so the dashboard can show "₹575 of
+  // ₹1,575" instead of implying the full amount was paid.
+  paidAmount?: number;
 }
 
 export interface RevenueDataPoint {

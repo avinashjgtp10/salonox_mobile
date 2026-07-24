@@ -31,9 +31,13 @@ function computeStatus(appt: any): TodayAppointment["status"] {
   if (bs === "cancelled") return "cancelled";
   if (bs === "paid")      return "completed";
   if (bs === "no-show")   return "no-show";
-  // booked / partial intentionally fall through to the time-based check
-  // below — mirrors salon-dashboard.repository.ts's own mapStatus() default
-  // bucket (booked/partial → "upcoming" unless the slot has already passed).
+  // A partial payment means the client genuinely showed up and paid
+  // something — it must never fall into the no-show inference below just
+  // because the slot time has passed. Mirrors salon-dashboard.repository.ts's
+  // mapStatus(), which gives 'partial' its own bucket instead of folding it
+  // into "upcoming".
+  if (bs === "partial")   return "partial";
+  // booked intentionally falls through to the time-based check below.
 
   const endIso = appt.ends_at ?? appt.end_time;
   if (endIso) {
@@ -101,6 +105,10 @@ export function useTodayAppointments() {
           startTime: appt.scheduled_at ? toUtcAmPm(appt.scheduled_at) : "—",
           status: computeStatus(appt),
           amount: computeAmount(appt),
+          // appointments.repository.ts's listBySalonId already sums this
+          // across payments (status IN completed/partial) per appointment —
+          // used to show "₹X of ₹Y" instead of implying the full bill was paid.
+          paidAmount: Number(appt.paid_amount) || 0,
         };
       });
       setAppointments(mapped);
