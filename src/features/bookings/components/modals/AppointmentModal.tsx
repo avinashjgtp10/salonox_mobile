@@ -799,13 +799,24 @@ export const AppointmentModal: React.FC<Props> = ({
   // already paid in the live "Paid"/"Due" preview below (though the actual
   // charge in usePayment.ts was never affected — it already used remainingDue).
   const amountThisTxn   = isPartialEntry ? parsedPartial : remainingDue;
+  // Preview shown in the summary below defaults amountThisTxn to the full
+  // remainingDue purely as a fallback for the *charge* calculation — it does
+  // NOT mean staff have actually chosen to collect it. Simply opening a
+  // partially-paid appointment (nothing typed, no payment method picked,
+  // "Confirm & Pay" still disabled) previewed "Paid (incl. this payment)" as
+  // if the outstanding balance had already been paid in full. Once staff
+  // actually type a partial amount, that's real, deliberate input and the
+  // preview should track it live regardless of method choice (unchanged,
+  // original behavior) — this only suppresses the *unrequested* default.
+  const hasChosenPaymentMethod = !(amountThisTxn > 0 && paymentMode === "single" && !singleMethod);
+  const previewAmountThisTxn = isPartialEntry || hasChosenPaymentMethod ? amountThisTxn : 0;
   // Live preview for the payment-step summary: as staff types a partial
   // amount, Paid/Due (and therefore the still-visible GST line above it)
   // should update immediately instead of only reflecting a prior, already-
   // completed transaction — otherwise the GST-inclusive balance due looks
   // frozen/wrong while a partial payment is being entered.
-  const livePaidAmount = alreadyPaidAmount + amountThisTxn;
-  const liveDueAmount  = Math.max(0, remainingDue - amountThisTxn);
+  const livePaidAmount = alreadyPaidAmount + previewAmountThisTxn;
+  const liveDueAmount  = Math.max(0, remainingDue - previewAmountThisTxn);
   // Exclude current appointment's due so "Clear Pending Due" only shows OTHER unpaid appointments —
   // one row per prior booking (by date), so staff can pick specific ones instead of all-or-nothing.
   const currentApptId = existingBooking?.id ?? apiAppointmentId;
