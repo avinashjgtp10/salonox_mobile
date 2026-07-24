@@ -12,7 +12,27 @@ import { selectInventorySummary } from "@/store/product/product.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatDashboardRevenue } from "@/utils/dashboard";
 
-// Split out of DashboardHero — same selectors/derived values, moved
+const getRevenueComparison = (currentMonth: number, lastMonth: number, revenueChange: number) => {
+  if (currentMonth === 0 && lastMonth === 0) {
+    return { detail: "No Revenue Yet", indicator: "\u2014", status: "", tone: "neutral" as const };
+  }
+
+  if (lastMonth === 0 && currentMonth > 0) {
+    return { detail: "New Growth", indicator: "\u2191", status: "", tone: "positive" as const };
+  }
+
+  if (revenueChange > 0) {
+    return { detail: "Increase", indicator: "\u2191", status: `${revenueChange}%`, tone: "positive" as const };
+  }
+
+  if (revenueChange < 0) {
+    return { detail: "Decrease", indicator: "\u2193", status: `${Math.abs(revenueChange)}%`, tone: "negative" as const };
+  }
+
+  return { detail: "No Change", indicator: "\u2014", status: "", tone: "neutral" as const };
+};
+
+// Split out of DashboardHero ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â same selectors/derived values, moved
 // verbatim, now rendered as separate premium tiles below the hero instead of
 // an inline strip inside it.
 export default function DashboardStatTiles() {
@@ -23,12 +43,26 @@ export default function DashboardStatTiles() {
   const dashboardMetrics = useAppSelector(selectDashboardMetrics);
   const isDashboardLoading = useAppSelector(selectDashboardIsLoading);
   const inventorySummary = useAppSelector(selectInventorySummary);
+  const revenueComparison = useMemo(
+    () =>
+      getRevenueComparison(
+        dashboardMetrics.monthlyRevenue,
+        dashboardMetrics.lastMonthRevenue,
+        dashboardMetrics.revenueChange,
+      ),
+    [
+      dashboardMetrics.lastMonthRevenue,
+      dashboardMetrics.monthlyRevenue,
+      dashboardMetrics.revenueChange,
+    ],
+  );
 
   const ownerKpis = useMemo(
     () => [
       {
         icon: "cash-outline" as const,
-        label: "Total Revenue",
+        label: "This Month Revenue",
+        subtitle: "Current Calendar Month",
         value: formatDashboardRevenue(dashboardMetrics.monthlyRevenue),
       },
       {
@@ -47,19 +81,36 @@ export default function DashboardStatTiles() {
         label: "Bookings",
         value: String(dashboardMetrics.bookings),
       },
+      {
+        currentMonthRevenue: dashboardMetrics.monthlyRevenue,
+        icon: "analytics-outline" as const,
+        kind: "revenueComparison" as const,
+        label: "This Month vs Last Month",
+        lastMonthRevenue: dashboardMetrics.lastMonthRevenue,
+        revenueComparison,
+      },
     ],
     [
       dashboardMetrics.bookings,
+      dashboardMetrics.lastMonthRevenue,
       dashboardMetrics.monthlyRevenue,
       dashboardMetrics.todaysRevenue,
       inventorySummary,
+      revenueComparison,
     ],
   );
 
   return (
     <View style={styles.row}>
       {ownerKpis.map((stat) => (
-        <View key={stat.label} style={[styles.tile, stat.kind === "stock" && styles.stockTile]}>
+        <View
+          key={stat.label}
+          style={[
+            styles.tile,
+            stat.kind === "stock" && styles.stockTile,
+            stat.kind === "revenueComparison" && styles.comparisonTile,
+          ]}
+        >
           {isDashboardLoading ? (
             <>
               <View style={styles.iconSkeleton} />
@@ -70,50 +121,95 @@ export default function DashboardStatTiles() {
             </>
           ) : (
             <>
-              <View style={[
-                styles.iconWrap,
-                isCompact && styles.iconWrapCompact,
-                stat.kind === "stock" && styles.stockIconWrap,
-              ]}>
+              <View style={[styles.iconWrap, isCompact && styles.iconWrapCompact]}>
                 <Ionicons name={stat.icon} size={22} color={Colors.heading} />
               </View>
-              <View style={[styles.copy, stat.kind === "stock" && styles.stockCopy]}>
+              <View
+                style={[
+                  styles.copy,
+                  (stat.kind === "stock" || stat.kind === "revenueComparison") && styles.stockCopy,
+                ]}
+              >
                 {stat.kind === "stock" ? (
                   <>
                     <Text style={styles.stockTitle}>Stock</Text>
                     <View style={styles.stockRows}>
-                      <View style={styles.stockMetric}>
+                      <View style={[styles.stockMetric, styles.stockMetricRaised]}>
                         <Text numberOfLines={1} ellipsizeMode="tail" style={styles.stockValue}>
                           {stat.stockMetrics.totalProducts}
                         </Text>
-                        <Text adjustsFontSizeToFit minimumFontScale={0.62} numberOfLines={1} style={styles.stockLabel}>
+                        <Text style={styles.stockLabel}>
                           Available
                         </Text>
                       </View>
-                      <View style={styles.stockMetric}>
+                      <View style={[styles.stockMetric, styles.stockMetricDivider]}>
                         <Text numberOfLines={1} ellipsizeMode="tail" style={styles.stockValue}>
                           {stat.stockMetrics.lowStockProducts}
                         </Text>
-                        <Text adjustsFontSizeToFit minimumFontScale={0.62} numberOfLines={1} style={styles.stockLabel}>
+                        <Text style={styles.stockLabel}>
                           Low Stock
                         </Text>
                       </View>
-                      <View style={styles.stockMetric}>
+                      <View style={[styles.stockMetric, styles.stockMetricDivider]}>
                         <Text numberOfLines={1} ellipsizeMode="tail" style={styles.stockValue}>
                           {stat.stockMetrics.outOfStockProducts}
                         </Text>
-                        <Text adjustsFontSizeToFit minimumFontScale={0.62} numberOfLines={1} style={styles.stockLabel}>
+                        <Text style={styles.stockLabel}>
                           Out of Stock
+                        </Text>
+                      </View>
+                    </View>
+                  </>
+                ) : stat.kind === "revenueComparison" ? (
+                  <>
+                    <Text numberOfLines={1} style={styles.stockTitle}>
+                      {stat.label}
+                    </Text>
+                    <View style={styles.titleDivider} />
+                    <View style={styles.comparisonRows}>
+                      <View style={styles.comparisonMetric}>
+                        <Text style={styles.comparisonLabel}>Current Month</Text>
+                        <Text style={styles.comparisonValue}>
+                          {formatDashboardRevenue(stat.currentMonthRevenue)}
+                        </Text>
+                      </View>
+                      <View style={[styles.comparisonMetric, styles.comparisonMetricDivider]}>
+                        <Text style={styles.comparisonLabel}>Last Month</Text>
+                        <Text style={styles.comparisonValue}>
+                          {formatDashboardRevenue(stat.lastMonthRevenue)}
+                        </Text>
+                      </View>
+                      <View style={[styles.comparisonMetric, styles.comparisonMetricDivider]}>
+                        <Text style={styles.comparisonLabel}>Change</Text>
+                        <Text
+                          style={[
+                            styles.comparisonValue,
+                            stat.revenueComparison.tone === "positive" && styles.comparisonStatusPositive,
+                            stat.revenueComparison.tone === "negative" && styles.comparisonStatusNegative,
+                          ]}
+                        >
+                          {[stat.revenueComparison.indicator, stat.revenueComparison.status].filter(Boolean).join(" ")}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.comparisonStatus,
+                            stat.revenueComparison.tone === "positive" && styles.comparisonStatusPositive,
+                            stat.revenueComparison.tone === "negative" && styles.comparisonStatusNegative,
+                          ]}
+                        >
+                          {stat.revenueComparison.detail}
                         </Text>
                       </View>
                     </View>
                   </>
                 ) : (
                   <>
+                    <Text style={styles.label}>{stat.label}</Text>
+                    <View style={styles.titleDivider} />
                     <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={styles.value}>
                       {stat.value}
                     </Text>
-                    <Text style={styles.label}>{stat.label}</Text>
+                    {stat.subtitle ? <Text style={styles.subtitle}>{stat.subtitle}</Text> : null}
                   </>
                 )}
               </View>
@@ -129,24 +225,24 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
   row: {
     flexWrap: "wrap",
     flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 22,
+    gap: 14,
+    paddingHorizontal: 20,
   },
   tile: {
     alignItems: "center",
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: 18,
+    borderRadius: 22,
     borderWidth: 1,
-    flexBasis: "48%",
+    flexBasis: "47%",
     flexGrow: 1,
-    flexDirection: isCompact ? "column" : "row",
+    flexDirection: "column",
     gap: isCompact ? 9 : 10,
-    justifyContent: isCompact ? "center" : "flex-start",
-    minHeight: isCompact ? 124 : 104,
+    justifyContent: "center",
+    minHeight: isCompact ? 156 : 170,
     minWidth: 0,
-    paddingHorizontal: isCompact ? 10 : 12,
-    paddingVertical: isCompact ? 12 : 14,
+    paddingHorizontal: isCompact ? 12 : 16,
+    paddingVertical: isCompact ? 16 : 20,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.06,
@@ -158,13 +254,20 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     flexDirection: "column",
     justifyContent: "center",
   },
+  comparisonTile: {
+    alignItems: "center",
+    flexBasis: "100%",
+    flexDirection: "column",
+    justifyContent: "center",
+    minHeight: isCompact ? 148 : 164,
+  },
   iconWrap: {
     alignItems: "center",
     backgroundColor: Colors.backgroundElement,
-    borderRadius: 16,
-    height: 44,
+    borderRadius: 17,
+    height: isCompact ? 48 : 56,
     justifyContent: "center",
-    width: 44,
+    width: isCompact ? 48 : 56,
   },
   iconWrapCompact: {
     borderRadius: 14,
@@ -172,8 +275,10 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     width: 40,
   },
   copy: {
-    flex: 1,
+    alignItems: "center",
+    flex: 0,
     minWidth: 0,
+    width: "100%",
   },
   stockCopy: {
     flex: 0,
@@ -184,57 +289,124 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
   },
   value: {
     color: Colors.heading,
-    fontSize: isCompact ? 15 : 17,
+    fontSize: isCompact ? 25 : 30,
     fontWeight: "800",
     includeFontPadding: false,
-    lineHeight: isCompact ? 20 : 22,
+    lineHeight: isCompact ? 32 : 38,
+    marginTop: isCompact ? 4 : 6,
+    textAlign: "center",
   },
   label: {
+    color: Colors.heading,
+    fontSize: isCompact ? 14 : 16,
+    fontWeight: "800",
+    letterSpacing: 0,
+    lineHeight: isCompact ? 18 : 20,
+    marginTop: isCompact ? 4 : 6,
+    textAlign: "center",
+  },
+  subtitle: {
     color: Colors.text2,
     fontSize: isCompact ? 11 : 12,
     fontWeight: Typography.fontWeights.semibold,
-    letterSpacing: 0,
     lineHeight: isCompact ? 14 : 16,
-    marginTop: isCompact ? 4 : 5,
+    marginTop: isCompact ? 5 : 6,
+    textAlign: "center",
+  },
+  titleDivider: {
+    backgroundColor: Colors.border,
+    height: 1,
+    marginTop: isCompact ? 8 : 10,
+    opacity: 0.85,
+    width: "86%",
   },
   stockTitle: {
     color: Colors.heading,
-    fontSize: isCompact ? 13 : 14,
+    fontSize: isCompact ? 16 : 18,
     fontWeight: "800",
     includeFontPadding: false,
-    lineHeight: isCompact ? 17 : 18,
+    lineHeight: isCompact ? 20 : 22,
+    marginTop: isCompact ? 4 : 6,
     textAlign: "center",
     width: "100%",
   },
   stockRows: {
     flexDirection: "row",
-    gap: isCompact ? 5 : 6,
     justifyContent: "space-between",
-    marginTop: isCompact ? 7 : 8,
+    marginTop: isCompact ? 16 : 18,
     minWidth: 0,
+    width: "100%",
   },
-  stockMetric: {
+  comparisonRows: {
+    flexDirection: "row",
+    marginTop: isCompact ? 16 : 18,
+    width: "100%",
+  },
+  comparisonMetric: {
     alignItems: "center",
     flex: 1,
     justifyContent: "flex-start",
     minWidth: 0,
   },
+  comparisonMetricDivider: {
+    borderLeftColor: Colors.border,
+    borderLeftWidth: 1,
+  },
+  comparisonLabel: {
+    color: Colors.text2,
+    fontSize: isCompact ? 11 : 12,
+    fontWeight: Typography.fontWeights.semibold,
+    textAlign: "center",
+  },
+  comparisonValue: {
+    color: Colors.heading,
+    fontSize: isCompact ? 16 : 18,
+    fontWeight: "800",
+    marginTop: isCompact ? 7 : 8,
+    textAlign: "center",
+  },
+  comparisonStatus: {
+    color: Colors.text2,
+    fontSize: isCompact ? 11 : 12,
+    fontWeight: "800",
+    marginTop: 2,
+    textAlign: "center",
+  },
+  comparisonStatusPositive: {
+    color: Colors.success,
+  },
+  comparisonStatusNegative: {
+    color: Colors.error,
+  },
+  stockMetric: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "center",
+    minWidth: 0,
+  },
+  stockMetricRaised: {
+    transform: [{ translateY: -2 }],
+  },
+  stockMetricDivider: {
+    borderLeftColor: Colors.border,
+    borderLeftWidth: 1,
+  },
   stockLabel: {
     color: Colors.text2,
-    fontSize: isCompact ? 9.5 : 10,
+    fontSize: 10,
     fontWeight: Typography.fontWeights.semibold,
-    lineHeight: isCompact ? 12 : 13,
-    marginTop: 2,
+    lineHeight: 12,
+    marginTop: isCompact ? 5 : 6,
     minWidth: 0,
     textAlign: "center",
     width: "100%",
   },
   stockValue: {
     color: Colors.heading,
-    fontSize: isCompact ? 14 : 15,
+    fontSize: isCompact ? 18 : 20,
     fontWeight: "800",
     includeFontPadding: false,
-    lineHeight: isCompact ? 17 : 18,
+    lineHeight: isCompact ? 22 : 24,
     minWidth: 0,
     textAlign: "center",
     width: "100%",

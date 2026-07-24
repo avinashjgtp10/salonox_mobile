@@ -1,4 +1,4 @@
-import { Platform, StyleSheet, View, type ColorSchemeName, useColorScheme } from "react-native";
+import { Platform, StyleSheet, View } from "react-native";
 import * as NavigationBar from "expo-navigation-bar";
 import * as SystemUI from "expo-system-ui";
 import {
@@ -7,12 +7,10 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
   type PropsWithChildren,
 } from "react";
 
 import { getDashboardColors, type AppColorScheme, type ThemeColors } from "@/constants/theme";
-import { themeStorage } from "@/services/themeStorage";
 
 export type ThemeMode = "light" | "dark" | "system";
 
@@ -26,46 +24,13 @@ type ThemeContextValue = {
 
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
-const resolveScheme = (mode: ThemeMode, systemScheme: ColorSchemeName): AppColorScheme => {
-  if (mode === "system") {
-    return systemScheme === "dark" ? "dark" : "light";
-  }
-
-  return mode;
-};
+const FORCED_THEME_MODE: ThemeMode = "dark";
+const FORCED_COLOR_SCHEME: AppColorScheme = "dark";
 
 export function ThemeProvider({ children }: PropsWithChildren) {
-  const [mode, setModeState] = useState<ThemeMode>("system");
-  const systemScheme = useColorScheme();
-  const [isHydrated, setIsHydrated] = useState(false);
-  const scheme = resolveScheme(mode, systemScheme);
-  const colors = useMemo(() => getDashboardColors(scheme), [scheme]);
-
-  useEffect(() => {
-    let isMounted = true;
-
-    themeStorage
-      .getThemeMode()
-      .then((storedMode) => {
-        if (isMounted && storedMode) {
-          setModeState(storedMode);
-        }
-      })
-      .catch((error) => {
-        if (__DEV__) {
-          console.warn("[ThemeProvider] Unable to restore theme preference.", error);
-        }
-      })
-      .finally(() => {
-        if (isMounted) {
-          setIsHydrated(true);
-        }
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+  const mode = FORCED_THEME_MODE;
+  const scheme = FORCED_COLOR_SCHEME;
+  const colors = useMemo(() => getDashboardColors(FORCED_COLOR_SCHEME), []);
 
   useEffect(() => {
     if (Platform.OS === "android") {
@@ -76,18 +41,11 @@ export function ThemeProvider({ children }: PropsWithChildren) {
     SystemUI.setBackgroundColorAsync(colors.bg).catch(() => {});
   }, [colors.bg, scheme]);
 
-  const setMode = useCallback((nextMode: ThemeMode) => {
-    setModeState(nextMode);
-    themeStorage.setThemeMode(nextMode).catch((error) => {
-      if (__DEV__) {
-        console.warn("[ThemeProvider] Unable to save theme preference.", error);
-      }
-    });
-  }, []);
+  const setMode = useCallback((_nextMode: ThemeMode) => {}, []);
 
   const value = useMemo<ThemeContextValue>(
-    () => ({ colors, isHydrated, mode, scheme, setMode }),
-    [colors, isHydrated, mode, scheme, setMode],
+    () => ({ colors, isHydrated: true, mode, scheme, setMode }),
+    [colors, mode, scheme, setMode],
   );
 
   return (

@@ -51,6 +51,9 @@
   },
   "scripts": {
     "start": "set EXPO_NO_TYPESCRIPT_SETUP=1&& set EXPO_NO_DEPENDENCY_VALIDATION=1&& expo start --tunnel --clear --port 8083",
+    "start:dev": "node ./scripts/use-env.js development && set EXPO_NO_TYPESCRIPT_SETUP=1&& set EXPO_NO_DEPENDENCY_VALIDATION=1&& expo start --tunnel --clear --port 8083",
+    "start:qa": "node ./scripts/use-env.js qa && set EXPO_NO_TYPESCRIPT_SETUP=1&& set EXPO_NO_DEPENDENCY_VALIDATION=1&& expo start --tunnel --clear --port 8083",
+    "start:prod": "node ./scripts/use-env.js production && set EXPO_NO_TYPESCRIPT_SETUP=1&& set EXPO_NO_DEPENDENCY_VALIDATION=1&& expo start --tunnel --clear --port 8083",
     "start:tunnel": "set EXPO_NO_TYPESCRIPT_SETUP=1&& set EXPO_NO_DEPENDENCY_VALIDATION=1&& expo start --tunnel --clear --port 8083",
     "start:lan": "set EXPO_NO_TYPESCRIPT_SETUP=1&& set EXPO_NO_DEPENDENCY_VALIDATION=1&& expo start --lan --clear --port 8083",
     "start:localhost": "set EXPO_NO_TYPESCRIPT_SETUP=1&& set EXPO_NO_DEPENDENCY_VALIDATION=1&& expo start --localhost --clear --port 8083",

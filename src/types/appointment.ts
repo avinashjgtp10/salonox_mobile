@@ -46,12 +46,22 @@ export type AppointmentApiClient = {
 };
 
 export type AppointmentApiService = {
+  discount?: number | string | null;
   duration?: number | string | null;
+  duration_minutes?: number | string | null;
   id?: string | number | null;
+  is_package_service?: boolean | null;
   name?: string | null;
   price?: number | string | null;
+  quantity?: number | string | null;
+  qty?: number | string | null;
   service_id?: string | number | null;
+  staff_id?: string | number | null;
+  staff_name?: string | null;
+  start_time?: string | null;
+  time?: string | null;
   title?: string | null;
+  total?: number | string | null;
 };
 
 export type AppointmentApiStaff = {
@@ -205,20 +215,72 @@ export type AppointmentDetailResponse = {
 };
 
 export type CreateAppointmentRequest = {
+  apply_membership_wallet?: boolean;
+  branch_id?: string;
   client_id?: string;
   discount?: number;
+  discount_type?: "flat" | "percentage";
+  discount_value?: number;
   duration_minutes: number;
   end_time: string;
+  ex_charges?: number;
+  gst_percent?: number;
+  membership_items?: {
+    membership_id?: string | null;
+    name: string;
+    price: number;
+    quantity: number;
+    staff_id?: string | null;
+    staff_name?: string | null;
+    start_time?: string | null;
+    total?: number;
+  }[];
   notes?: string;
+  package_items?: {
+    is_package_service?: boolean;
+    name: string;
+    package_id: string;
+    price: number;
+    quantity: number;
+    staff_id?: string | null;
+    staff_name?: string | null;
+    start_time?: string | null;
+    total?: number;
+  }[];
   payment_method?: string;
   price?: number;
+  product_items?: {
+    name: string;
+    price: number;
+    product_id?: string | null;
+    quantity: number;
+    staff_id?: string | null;
+    staff_name?: string | null;
+    start_time?: string | null;
+    total?: number;
+  }[];
   salon_id?: string;
   scheduled_at?: string;
   service_id?: string;
   service_name?: string;
+  services?: {
+    discount?: number;
+    duration?: number;
+    is_package_service?: boolean;
+    name: string;
+    price: number;
+    quantity: number;
+    service_id: string;
+    staff_id?: string | null;
+    staff_name?: string | null;
+    time?: string | null;
+    total?: number;
+  }[];
   staff_id: string;
+  staff_alert?: string;
   start_time: string;
   status: string;
+  tip_amount?: number;
 };
 
 export type UpdateAppointmentRequest = Partial<CreateAppointmentRequest>;

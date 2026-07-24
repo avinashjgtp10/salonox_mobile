@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -11,36 +11,10 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
-import { useAppTheme, type ThemeMode } from "@/theme/ThemeProvider";
-
-const THEME_OPTIONS: {
-  description: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  mode: ThemeMode;
-  title: string;
-}[] = [
-  {
-    description: "Always use the light appearance.",
-    icon: "sunny-outline",
-    mode: "light",
-    title: "Light",
-  },
-  {
-    description: "Always use the dark appearance.",
-    icon: "moon-outline",
-    mode: "dark",
-    title: "Dark",
-  },
-  {
-    description: "Automatically match this device's system setting.",
-    icon: "phone-portrait-outline",
-    mode: "system",
-    title: "Use Device Theme",
-  },
-];
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 export default function AppearanceScreen() {
-  const { colors: Colors, mode, setMode } = useAppTheme();
+  const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   const handleBack = () => {
@@ -64,43 +38,18 @@ export default function AppearanceScreen() {
         <View style={styles.backButtonPlaceholder} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.subtitle}>Choose how SalonOX looks on this device.</Text>
-
-        <View accessibilityRole="radiogroup">
-          {THEME_OPTIONS.map((option, index) => {
-            const isSelected = option.mode === mode;
-
-            return (
-              <TouchableOpacity
-                key={option.mode}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: isSelected }}
-                activeOpacity={0.84}
-                onPress={() => setMode(option.mode)}
-                style={[styles.optionRow, index > 0 && styles.optionRowSpaced]}
-              >
-                <View style={[styles.optionIcon, isSelected && styles.optionIconActive]}>
-                  <Ionicons
-                    color={isSelected ? Colors.onPrimary : Colors.primary}
-                    name={option.icon}
-                    size={20}
-                  />
-                </View>
-                <View style={styles.optionCopy}>
-                  <Text style={styles.optionTitle}>{option.title}</Text>
-                  <Text style={styles.optionDescription}>{option.description}</Text>
-                </View>
-                {isSelected ? (
-                  <Ionicons name="checkmark-circle" size={22} color={Colors.selection} />
-                ) : (
-                  <View style={styles.radioOuter} />
-                )}
-              </TouchableOpacity>
-            );
-          })}
+      <View style={styles.content}>
+        <View style={styles.card}>
+          <View style={styles.iconWrap}>
+            <Ionicons color={Colors.onPrimary} name="moon-outline" size={22} />
+          </View>
+          <Text style={styles.title}>Dark Mode Active</Text>
+          <Text style={styles.description}>
+            SalonOX now uses Dark Mode across the mobile app. Light Theme tokens remain available
+            in the codebase for future use.
+          </Text>
         </View>
-      </ScrollView>
+      </View>
     </SafeAreaView>
   );
 }
@@ -141,56 +90,34 @@ const createStyles = (Colors: ThemeColors) =>
       paddingHorizontal: AppLayout.contentHorizontalPadding,
       paddingTop: AppLayout.headerMarginBottom,
     },
-    subtitle: {
-      color: Colors.text2,
-      fontSize: AppLayout.headerSubtitleFontSize,
-      lineHeight: 20,
-      marginBottom: AppLayout.headerMarginBottom,
-    },
-    optionRow: {
+    card: {
       alignItems: "center",
       backgroundColor: Colors.card,
       borderColor: Colors.border,
       borderRadius: AppRadius.card,
       borderWidth: 1,
-      flexDirection: "row",
       padding: AppLayout.cardPadding,
     },
-    optionRowSpaced: {
-      marginTop: AppLayout.sectionGap,
-    },
-    optionIcon: {
+    iconWrap: {
       alignItems: "center",
-      backgroundColor: Colors.bg2,
-      borderRadius: Radius.lg,
-      height: 42,
-      justifyContent: "center",
-      width: 42,
-    },
-    optionIconActive: {
       backgroundColor: Colors.primary,
-    },
-    optionCopy: {
-      flex: 1,
-      marginLeft: Spacing.md,
-      marginRight: Spacing.md,
-    },
-    optionTitle: {
-      color: Colors.heading,
-      fontSize: 16,
-      fontWeight: "800",
-    },
-    optionDescription: {
-      color: Colors.text2,
-      fontSize: 12,
-      lineHeight: 18,
-      marginTop: 4,
-    },
-    radioOuter: {
-      borderColor: Colors.border,
       borderRadius: Radius.full,
-      borderWidth: 2,
-      height: 22,
-      width: 22,
+      height: 48,
+      justifyContent: "center",
+      width: 48,
+    },
+    title: {
+      color: Colors.heading,
+      fontSize: 18,
+      fontWeight: "800",
+      marginTop: Spacing.md,
+      textAlign: "center",
+    },
+    description: {
+      color: Colors.text2,
+      fontSize: 13,
+      lineHeight: 20,
+      marginTop: Spacing.sm,
+      textAlign: "center",
     },
   });

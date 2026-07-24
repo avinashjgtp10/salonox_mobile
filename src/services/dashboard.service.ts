@@ -2,8 +2,10 @@ import { api } from "@/services/api";
 import { DASHBOARD } from "@/services/api/endpoints";
 
 type DashboardSummaryResponse = {
+  lastMonthRevenue?: number | null;
   quick_sale_revenue?: number | null;
   quickSaleRevenue?: number | null;
+  revenueChange?: number | null;
   todayAppointmentsCount?: number | null;
   todayRevenue?: number | null;
   totalRevenue?: number | null;
@@ -96,7 +98,9 @@ type DashboardApiResponse = {
 
 export type DashboardMetrics = {
   bookings: number;
+  lastMonthRevenue: number;
   monthlyRevenue: number;
+  revenueChange: number;
   todaysRevenue: number;
 };
 
@@ -371,7 +375,9 @@ export const dashboardService = {
 
     const metrics: DashboardMetrics = {
       bookings: toSafeNumber(summary?.todayAppointmentsCount),
+      lastMonthRevenue: toSafeNumber(summary?.lastMonthRevenue),
       monthlyRevenue: toSafeNumber(summary?.totalRevenue),
+      revenueChange: toSafeNumber(summary?.revenueChange),
       todaysRevenue: toSafeNumber(summary?.todayRevenue),
     };
     // Ascending by scheduled start time; appointments with no parseable

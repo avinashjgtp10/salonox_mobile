@@ -14,7 +14,7 @@ npm install
 
 ### 2. Configure environment variables
 
-The app requires a Google Maps API key for address search, reverse geocoding, and map preview features.
+The app uses Expo public environment variables for backend, realtime socket, and Google Maps configuration.
 
 **Create a `.env` file in the project root:**
 
@@ -23,6 +23,15 @@ EXPO_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
 ```
 
 > ⚠️ **Never commit the `.env` file.** It is already listed in `.gitignore`.
+
+Backend environment defaults live in `.env.development`, `.env.qa`, and `.env.production`.
+Use the dedicated scripts to switch local Metro runs. They write the selected backend values to ignored `.env.local` while preserving your private `.env` secrets:
+
+```bash
+npm run start:dev
+npm run start:qa
+npm run start:prod
+```
 
 **How to obtain a Google Maps API key:**
 1. Go to [Google Cloud Console](https://console.cloud.google.com/)
@@ -52,6 +61,8 @@ Open in [Expo Go](https://expo.dev/go) on your device or an emulator.
 
 | Variable | Required | Description |
 |---|---|---|
+| `EXPO_PUBLIC_API_BASE_URL` | Yes | Backend API base URL for the active environment |
+| `EXPO_PUBLIC_SOCKET_URL` | Yes | Socket.IO origin URL for the active environment |
 | `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` | Yes | Google Maps API key for Places, Geocoding, and Static Maps |
 
 All `EXPO_PUBLIC_*` variables are inlined by Metro at build time. They are **not** secret and will be included in the app bundle — use server-side API key restrictions (HTTP referrer, app restrictions) to limit their usage.

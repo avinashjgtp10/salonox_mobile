@@ -11,6 +11,11 @@ export type AddItemInput = {
   itemId: string;
   itemType: CartItemSource;
   name: string;
+  packageCoverageClientPackageId?: string;
+  packageCoverageRemaining?: number;
+  packageCoverageServiceId?: string;
+  taxAmount?: number;
+  taxRate?: number;
   unitPrice: number;
 };
 
@@ -32,6 +37,9 @@ const nextLineId = () => {
   lineIdCounter += 1;
   return `cart-line-${lineIdCounter}`;
 };
+
+const isSaleLineItem = (item: CartItem): item is CartItem & { itemType: Exclude<CartItemSource, "package"> } =>
+  item.itemType !== "package";
 
 const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
   switch (action.type) {
@@ -56,9 +64,14 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
         name: action.input.name,
         note: "",
         originalUnitPrice: action.input.unitPrice,
+        packageCoverageClientPackageId: action.input.packageCoverageClientPackageId,
+        packageCoverageRemaining: action.input.packageCoverageRemaining,
+        packageCoverageServiceId: action.input.packageCoverageServiceId,
         quantity: 1,
-        staffId: action.input.itemType === "service" ? action.input.defaultStaffId ?? null : null,
-        staffName: action.input.itemType === "service" ? action.input.defaultStaffName ?? null : null,
+        staffId: action.input.defaultStaffId ?? null,
+        staffName: action.input.defaultStaffName ?? null,
+        taxAmount: action.input.taxAmount,
+        taxRate: action.input.taxRate,
         unitPrice: action.input.unitPrice,
       };
 
@@ -159,6 +172,11 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
               itemId: action.input.itemId,
               name: action.input.name,
               originalUnitPrice: action.input.unitPrice,
+              packageCoverageClientPackageId: action.input.packageCoverageClientPackageId,
+              packageCoverageRemaining: action.input.packageCoverageRemaining,
+              packageCoverageServiceId: action.input.packageCoverageServiceId,
+              taxAmount: action.input.taxAmount,
+              taxRate: action.input.taxRate,
               unitPrice: action.input.unitPrice,
             }
           : item,
@@ -231,7 +249,7 @@ export const useCart = () => {
   const clearCart = useCallback(() => dispatch({ type: "clear" }), []);
 
   const toSaleLineItemRequests = useCallback((): SaleLineItemRequest[] => {
-    return items.map((item) => ({
+    return items.filter(isSaleLineItem).map((item) => ({
       discountAmount: item.discountAmount || undefined,
       itemId: item.itemId || undefined,
       itemType: item.itemType,

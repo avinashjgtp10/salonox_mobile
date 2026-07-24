@@ -13,6 +13,7 @@ type GlobalSearchBarProps = {
   onChangeQuery: (value: string) => void;
   onClear: () => void;
   onFocus: () => void;
+  placeholder?: string;
   query: string;
 };
 
@@ -22,6 +23,7 @@ function GlobalSearchBarComponent({
   onChangeQuery,
   onClear,
   onFocus,
+  placeholder = "Search clients, services, products...",
   query,
 }: GlobalSearchBarProps) {
   const Colors = useThemeColors();
@@ -41,7 +43,7 @@ function GlobalSearchBarComponent({
         ref={inputRef}
         onChangeText={onChangeQuery}
         onFocus={onFocus}
-        placeholder="Search clients, services, products..."
+        placeholder={placeholder}
         placeholderTextColor={Colors.placeholder}
         returnKeyType="search"
         style={styles.searchInput}

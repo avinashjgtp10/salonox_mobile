@@ -1511,7 +1511,7 @@ const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
     width: "100%",
   },
   categoryCard: {
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.cardBg,
     borderWidth: 0,
     borderRadius: 0,
     elevation: 0,
@@ -1971,8 +1971,8 @@ const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
   },
   backButton: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderColor: "#E7E2D9",
+    backgroundColor: Colors.cardBg,
+    borderColor: Colors.cardBorder,
     borderRadius: 18,
     borderWidth: 1,
     flex: 1,

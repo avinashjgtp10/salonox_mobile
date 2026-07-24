@@ -1,6 +1,6 @@
 # SalonOX Realtime Socket Contract
 
-The mobile app connects to `EXPO_PUBLIC_SOCKET_URL` when set, otherwise it derives the socket origin from `API_BASE_URL`.
+The mobile app connects to the required `EXPO_PUBLIC_SOCKET_URL` value from the active Expo environment.
 
 ## Authentication
 
@@ -19,7 +19,7 @@ The backend should validate the token during the Socket.IO handshake and reject 
 After connect and whenever the active branch changes, the client emits:
 
 ```ts
-socket.emit("salon:join", { salonId, room: `salon:${salonId}` });
+socket.emit("join_salon", salonId);
 ```
 
 When switching branch rooms, the client also emits:

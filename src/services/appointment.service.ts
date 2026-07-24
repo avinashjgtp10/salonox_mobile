@@ -566,6 +566,19 @@ export const appointmentService = {
     };
   },
 
+  async checkoutAppointment(
+    appointmentId: string,
+  ): Promise<AppointmentMutationResponse> {
+    const response = await api.post<AppointmentDetailApiResponse>(
+      APPOINTMENT.CHECKOUT(appointmentId),
+      {},
+    );
+    return {
+      appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
+      message: response.data.message,
+    };
+  },
+
   async rescheduleAppointment(
     appointmentId: string,
     payload: RescheduleAppointmentRequest,

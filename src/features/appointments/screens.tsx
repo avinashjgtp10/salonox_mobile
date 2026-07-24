@@ -83,6 +83,7 @@ import {
 import { selectStaffMembers } from "@/store/staff/staff.slice";
 import type {
   AppointmentCalendarView,
+  AppointmentApiService,
   AppointmentListItem,
   AppointmentPaymentMethod,
   AppointmentStatus,
@@ -236,6 +237,17 @@ type ClientBookingMode = "existing" | "walkIn";
 
 type FormErrors = Partial<Record<keyof AppointmentFormState, string>>;
 
+type AppointmentSelectedService = ServiceListItem & {
+  catalogServiceId?: string;
+  discount?: number;
+  isPackageService?: boolean;
+  quantity?: number;
+  staffId?: string | null;
+  staffName?: string | null;
+  startTime?: string | null;
+  total?: number;
+};
+
 type ServiceSearchQuery =
   | { kind: "invalid"; raw: string }
   | { kind: "name"; raw: string; text: string }
@@ -301,6 +313,96 @@ const getServicePricingTotals = (services: ServiceListItem[]) => {
     subtotal,
     tax,
   };
+};
+
+const getSelectedServiceCatalogId = (service: AppointmentSelectedService) =>
+  service.catalogServiceId ?? service.id;
+
+const toOptionalNumber = (value: unknown) => {
+  const numberValue = Number(value);
+
+  return Number.isFinite(numberValue) ? numberValue : undefined;
+};
+
+const toOptionalStringValue = (value: unknown) => {
+  if (typeof value === "string" || typeof value === "number") {
+    const stringValue = String(value).trim();
+    return stringValue || undefined;
+  }
+
+  return undefined;
+};
+
+const appointmentServicesToSelectedServices = (
+  appointment?: AppointmentListItem,
+): AppointmentSelectedService[] => {
+  const rawServices = Array.isArray(appointment?.raw.services)
+    ? appointment.raw.services
+    : [];
+
+  if (rawServices.length > 0) {
+    return rawServices.map((service: AppointmentApiService, index) => {
+      const catalogServiceId =
+        toOptionalStringValue(service.service_id) ??
+        toOptionalStringValue(service.id) ??
+        `existing-service-${index + 1}`;
+      const price = toOptionalNumber(service.price) ?? 0;
+
+      return {
+        catalogServiceId,
+        category: null,
+        categoryId: null,
+        createdAt: null,
+        discount: toOptionalNumber(service.discount),
+        durationMinutes:
+          toOptionalNumber(service.duration_minutes) ??
+          toOptionalNumber(service.duration) ??
+          null,
+        id: `${catalogServiceId}:${index}`,
+        isActive: true,
+        isPackageService: Boolean(service.is_package_service),
+        name:
+          toOptionalStringValue(service.name) ??
+          toOptionalStringValue(service.title) ??
+          appointment?.serviceName ??
+          "Service",
+        price,
+        quantity:
+          toOptionalNumber(service.quantity) ??
+          toOptionalNumber(service.qty) ??
+          1,
+        staffId: toOptionalStringValue(service.staff_id) ?? appointment?.staffId ?? null,
+        staffName: toOptionalStringValue(service.staff_name) ?? appointment?.staffName ?? null,
+        startTime:
+          toOptionalStringValue(service.time) ??
+          toOptionalStringValue(service.start_time) ??
+          null,
+        total: toOptionalNumber(service.total),
+      };
+    });
+  }
+
+  if (!appointment?.serviceName) {
+    return [];
+  }
+
+  return [
+    {
+      catalogServiceId: appointment.serviceId || "existing-service",
+      category: null,
+      categoryId: null,
+      createdAt: null,
+      durationMinutes: appointment.durationMinutes,
+      id: appointment.serviceId || "existing-service",
+      isActive: true,
+      name: appointment.serviceName,
+      price: appointment.amount,
+      quantity: 1,
+      staffId: appointment.staffId || null,
+      staffName: appointment.staffName || null,
+      total: appointment.amount,
+    },
+  ];
 };
 
 const formatDurationLabel = (durationMinutes: number | null) =>
@@ -2647,7 +2749,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   const [serviceSearch, setServiceSearch] = useState(form.serviceName);
   const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
   const [services, setServices] = useState<ServiceListItem[]>([]);
-  const [selectedServices, setSelectedServices] = useState<ServiceListItem[]>([]);
+  const [selectedServices, setSelectedServices] = useState<AppointmentSelectedService[]>([]);
   const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0);
   const serviceCacheRef = useRef(new Map<string, ServiceListItem[] | Promise<ServiceListItem[]>>());
   const serviceRequestIdRef = useRef(0);
@@ -3090,18 +3192,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   useEffect(() => {
     if (existingAppointment) {
       setForm(appointmentToForm(existingAppointment));
-      setSelectedServices([
-        {
-          category: null,
-          categoryId: null,
-          createdAt: null,
-          durationMinutes: existingAppointment.durationMinutes,
-          id: existingAppointment.serviceId || "existing-service",
-          isActive: true,
-          name: existingAppointment.serviceName,
-          price: existingAppointment.amount,
-        },
-      ]);
+      setSelectedServices(appointmentServicesToSelectedServices(existingAppointment));
       setClientBookingMode("existing");
       setClientSearch(existingAppointment.clientName);
       setClientDropdownOpen(false);
@@ -3154,6 +3245,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
 
   useEffect(() => {
     const firstService = selectedServices[0];
+    const firstServiceId = firstService ? getSelectedServiceCatalogId(firstService) : "";
     const nextDuration = selectedServices.reduce(
       (total, service) => total + Math.max(service.durationMinutes ?? 0, 0),
       0,
@@ -3165,7 +3257,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         ...current,
         duration: nextDuration > 0 ? String(nextDuration) : "",
         price: String(nextPrice),
-        serviceId: firstService?.id ?? "",
+        serviceId: firstServiceId,
         serviceName: selectedServices.map((service) => service.name).join(", "),
       };
 
@@ -3262,8 +3354,8 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
 
   const handleSelectService = (service: ServiceListItem) => {
     setSelectedServices((current) => {
-      if (current.some((selectedService) => selectedService.id === service.id)) {
-        return current.filter((selectedService) => selectedService.id !== service.id);
+      if (current.some((selectedService) => getSelectedServiceCatalogId(selectedService) === service.id)) {
+        return current.filter((selectedService) => getSelectedServiceCatalogId(selectedService) !== service.id);
       }
 
       return [...current, service];
@@ -3370,6 +3462,31 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
       servicePricingTotals.discount,
     );
     const calculatedEndTime = selectedSlot.endTime ?? form.endTime;
+    const serviceItems = selectedServices
+      .map((service) => {
+        const serviceId = getSelectedServiceCatalogId(service).trim();
+
+        if (!serviceId) {
+          return null;
+        }
+
+        const quantity = Math.max(1, Math.trunc(service.quantity ?? 1));
+
+        return {
+          ...(service.discount !== undefined ? { discount: service.discount } : {}),
+          ...(service.durationMinutes ? { duration: service.durationMinutes } : {}),
+          ...(service.isPackageService ? { is_package_service: true } : {}),
+          name: service.name,
+          price: service.price,
+          quantity,
+          service_id: serviceId,
+          staff_id: service.staffId ?? form.staffId,
+          staff_name: service.staffName ?? selectedStaff?.name,
+          time: service.startTime ?? selectedSlot.value,
+          total: service.total ?? service.price * quantity,
+        };
+      })
+      .filter((service): service is NonNullable<typeof service> => Boolean(service));
 
     const payload: Omit<CreateAppointmentRequest, "salon_id"> = {
       duration_minutes: durationMinutes,
@@ -3380,6 +3497,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
       scheduled_at: combineDateTime(form.date, selectedSlot.value),
       service_id: form.serviceId.trim() || undefined,
       service_name: form.serviceName.trim() || undefined,
+      services: serviceItems,
       staff_id: form.staffId,
       start_time: combineDateTime(form.date, selectedSlot.value),
       status: appointmentStatusToApiValue(form.status),
@@ -3500,7 +3618,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
                 onSearchChange={handleServiceSearchChange}
                 onSelect={handleSelectService}
                 search={serviceSearch}
-                selectedServiceIds={selectedServices.map((service) => service.id)}
+                selectedServiceIds={selectedServices.map(getSelectedServiceCatalogId)}
                 serviceError={serviceError}
                 services={services}
               />
