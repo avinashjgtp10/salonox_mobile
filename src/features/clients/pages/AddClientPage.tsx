@@ -287,10 +287,16 @@ const AddClientPage: React.FC = () => {
       navigate("/dashboard/clients/list");
     } catch (error: any) {
       console.error("Error saving client:", error);
-      const status = error?.response?.status ?? error?.status;
-      const code = error?.response?.data?.error?.code;
-      const serverMessage =
-        error?.response?.data?.error?.message || error?.response?.data?.message || error?.message;
+      // api.ts's response interceptor already unwraps every non-2xx response
+      // into a plain ApiError { status, message, code } — it never reaches
+      // this catch as a raw Axios error with a `.response` property. Reading
+      // error.response.* here always resolved to undefined, so `code` could
+      // never be DUPLICATE_EMAIL/DUPLICATE_PHONE — every 409 silently fell
+      // through to the phone branch regardless of which field actually
+      // collided, mislabeling the field and showing the wrong inline error.
+      const status = error?.status;
+      const code = error?.code;
+      const serverMessage = error?.message;
 
       if (status === 409) {
         // code is DUPLICATE_PHONE / DUPLICATE_EMAIL when the service layer's

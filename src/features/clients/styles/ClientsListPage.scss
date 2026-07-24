@@ -25,10 +25,21 @@
     padding: 10px 16px;
     display: flex;
     align-items: center;
+    // The DownloadButton/Button base class hardcodes justify-content-center
+    // (for standalone buttons elsewhere in the app) — that Bootstrap utility
+    // class wins over this one regardless of className order, since text-start
+    // only sets text-align and has no effect on flex-child positioning. Forces
+    // Excel/CSV to sit flush left like the plain Import/Merge rows above them.
+    justify-content: flex-start !important;
     gap: 10px;
     font-size: 14px;
     cursor: pointer;
     transition: 0.2s;
+    color: inherit;
+    text-align: left;
+    background: none;
+    border: none;
+    width: 100%;
   }
 
   .option-item:hover {
