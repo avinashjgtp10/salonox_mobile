@@ -246,6 +246,8 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const [productsPageSize, setProductsPageSize] = useState(10);
   const [paymentsPage, setPaymentsPage] = useState(1);
   const [paymentsPageSize, setPaymentsPageSize] = useState(10);
+  const [packageBookingsPage, setPackageBookingsPage] = useState(1);
+  const [packageBookingsPageSize, setPackageBookingsPageSize] = useState(10);
 
   // Global filter — applies across all tabs
   const [showGlobalFilter, setShowGlobalFilter] = useState(false);
@@ -263,6 +265,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     setMembershipsPage(1);
     setProductsPage(1);
     setPaymentsPage(1);
+    setPackageBookingsPage(1);
   }, [globalDatePreset, globalCalDay, globalServiceFilter, globalStaffFilter]);
 
   const loadHistory = useCallback(async (id: string) => {
@@ -279,6 +282,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     setMembershipsPage(1);
     setProductsPage(1);
     setPaymentsPage(1);
+    setPackageBookingsPage(1);
     setGlobalCalDay(null);
     setGlobalDatePreset("all");
     setGlobalServiceFilter("all");
@@ -342,6 +346,17 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     return linkedSale
       ? linkedSale.status === "completed"
       : appt.payment_status === "paid" || Number(appt.amount_paid) > 0;
+  };
+
+  // Visit History shows both fully-paid AND partially-paid appointments
+  // (SCRUM-1091) — a partial visit still happened. isApptPaid alone dropped any
+  // appointment whose linked sale was "partial" (not yet "completed"), hiding
+  // real partial-payment visits from the feed.
+  const isApptPaidOrPartial = (appt: AppointmentRecord) => {
+    const linkedSale = saleByAppointmentId.get(appt.id);
+    return linkedSale
+      ? linkedSale.status === "completed" || linkedSale.status === "partial"
+      : appt.payment_status === "paid" || appt.payment_status === "partial" || Number(appt.amount_paid) > 0;
   };
 
   // Quick Sell entries: sales with no linked appointment
@@ -581,7 +596,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     );
 
     const entries: VisitEntry[] = [
-      ...visibleAppointments.filter(isApptPaid).map((appt) => ({ kind: "appointment" as const, date: appt.scheduled_at, appt })),
+      ...visibleAppointments.filter(isApptPaidOrPartial).map((appt) => ({ kind: "appointment" as const, date: appt.scheduled_at, appt })),
       ...visibleQuickSales
         .filter((sale) => !usedSaleIds.has(sale.id) && sale.status === "completed")
         .map((sale) => ({ kind: "quickSale" as const, date: sale.created_at, sale })),
@@ -589,6 +604,17 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     ];
     return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [visibleAppointments, visibleQuickSales, filteredPackages, packageSaleMatch, saleByAppointmentId]);
+
+  // Total Visits = paid/partial appointments (from the backend stat) + genuine
+  // walk-in quick sales. The old count used quickSales.length, which counted
+  // EVERY sale with no appointment — including the sale rows that back a
+  // package/membership purchase and any non-completed sale — inflating the
+  // number (SCRUM-1109). Exclude package-purchase sale rows (they already show
+  // as a package) and keep only completed walk-ins.
+  const packageSaleIds = new Set([...packageSaleMatch.values()].map((s) => s.id));
+  const walkInVisitCount = quickSales.filter(
+    (s) => s.status === "completed" && !packageSaleIds.has(s.id),
+  ).length;
 
   const handleBookAppointment = () => {
     if (!client) return;
@@ -815,7 +841,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
 
           <div className="chp-stat-bar">
             <div className="chp-stat-item">
-              <div className="chp-stat-val">{stats.completed_appointments + quickSales.length}</div>
+              <div className="chp-stat-val">{stats.completed_appointments + walkInVisitCount}</div>
               <div className="chp-stat-lbl">Total Visits</div>
             </div>
             <div className="chp-stat-item">
@@ -1192,7 +1218,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                 <table className="chp-table">
                   <thead><tr><th>Package</th><th>Date</th><th>Amount</th></tr></thead>
                   <tbody>
-                    {filteredPackageItems.map((it, i) => (
+                    {filteredPackageItems
+                      .slice((packageBookingsPage - 1) * packageBookingsPageSize, packageBookingsPage * packageBookingsPageSize)
+                      .map((it, i) => (
                       <tr key={i}>
                         <td>{it.name}</td>
                         <td>{fmtDateShort(it.sale_date)}</td>
@@ -1201,6 +1229,14 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                     ))}
                   </tbody>
                 </table>
+                <Pagination
+                  currentPage={packageBookingsPage}
+                  pageSize={packageBookingsPageSize}
+                  totalItems={filteredPackageItems.length}
+                  onPageChange={setPackageBookingsPage}
+                  onPageSizeChange={(sz) => { setPackageBookingsPageSize(sz); setPackageBookingsPage(1); }}
+                  pageSizeOptions={[10, 25, 50, 100]}
+                />
               </div>
             )}
             {filteredPackages.length === 0 && filteredPackageItems.length === 0 ? (

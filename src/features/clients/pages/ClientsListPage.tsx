@@ -11,8 +11,6 @@ import {
   ArrowDown,
   ArrowDownUp,
   X,
-  Person,
-  People,
   ArrowRight,
   ArrowLeftRight,
   FileEarmarkExcel,
@@ -66,6 +64,13 @@ export default function ClientsListPage() {
   const pageSizeRef = useRef(pageSize);
   useEffect(() => { pageSizeRef.current = pageSize; }, [pageSize]);
 
+  // Same rationale as pageSizeRef: the Created-date and Revenue range filters
+  // are applied server-side, but threading four more positional args through
+  // every fetchClients() call site (pagination, sort, search, refresh-after-
+  // mutation) would be error-prone. fetchClients reads the currently-applied
+  // range values from this ref instead; it's kept in sync with the state below.
+  const rangeFiltersRef = useRef({ dateFrom: "", dateTo: "", minRevenue: "", maxRevenue: "" });
+
   const sortMap: Record<string, { sort_by: string; sort_order: string }> = {
     "First name (A-Z)": { sort_by: "full_name", sort_order: "asc" },
     "First name (Z-A)": { sort_by: "full_name", sort_order: "desc" },
@@ -102,6 +107,12 @@ export default function ClientsListPage() {
       };
       if (gender && gender !== "All") params.gender = gender.toLowerCase();
       if (search && search.trim()) params.search = search.trim();
+      const { dateFrom: df, dateTo: dt, minRevenue: minRev, maxRevenue: maxRev } =
+        rangeFiltersRef.current;
+      if (df) params.created_from = df;
+      if (dt) params.created_to = dt;
+      if (minRev !== "") params.min_sales = minRev;
+      if (maxRev !== "") params.max_sales = maxRev;
       const res = await api.get(CLIENT.BASE, { params });
       const payload = res.data?.data;
       const items = payload?.items ?? [];
@@ -136,12 +147,25 @@ export default function ClientsListPage() {
 
   /* ================= FILTER STATE ================= */
   const [showFilter, setShowFilter] = useState(false);
-  const [genderOpen, setGenderOpen] = useState(false);
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
+  // Created-at date range (YYYY-MM-DD) and total-sales revenue range.
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
+  const [minRevenue, setMinRevenue] = useState("");
+  const [maxRevenue, setMaxRevenue] = useState("");
+
+  useEffect(() => {
+    rangeFiltersRef.current = { dateFrom, dateTo, minRevenue, maxRevenue };
+  }, [dateFrom, dateTo, minRevenue, maxRevenue]);
+
+  // One badge count per active filter group (gender / date / revenue).
+  const activeFilterCount =
+    (selectedGender ? 1 : 0) +
+    (dateFrom || dateTo ? 1 : 0) +
+    (minRevenue || maxRevenue ? 1 : 0);
 
   const genderOptions = [
     "All",
-    "Prefer not to say",
     "Female",
     "Male",
     "Other",
@@ -180,8 +204,12 @@ export default function ClientsListPage() {
     const params: Record<string, any> = { sort_by, sort_order };
     if (selectedGender && selectedGender !== "All") params.gender = selectedGender.toLowerCase();
     if (searchQuery && searchQuery.trim()) params.search = searchQuery.trim();
+    if (dateFrom) params.created_from = dateFrom;
+    if (dateTo) params.created_to = dateTo;
+    if (minRevenue !== "") params.min_sales = minRevenue;
+    if (maxRevenue !== "") params.max_sales = maxRevenue;
     return params;
-  }, [selectedSort, selectedGender, searchQuery]);
+  }, [selectedSort, selectedGender, searchQuery, dateFrom, dateTo, minRevenue, maxRevenue]);
 
   // Debounced live filter: typing in the search box re-fetches the table
   // itself (page 1) instead of showing a separate floating results dropdown.
@@ -394,90 +422,103 @@ export default function ClientsListPage() {
   return (
     <div className="clients-page">
       {overlay}
-      {/* ================= FILTER DRAWER ================= */}
+      {/* ================= FILTER MODAL ================= */}
       {showFilter && (
-        <div className="filter-overlay" onClick={() => setShowFilter(false)}>
-          <div className="filter-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="filter-header">
+        <div
+          className="clients-filter-overlay"
+          onClick={() => setShowFilter(false)}
+        >
+          <div
+            className="clients-filter-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="clients-filter-modal__header">
+              <h5>Filters</h5>
               <button
-                className="close-btn"
+                className="clients-filter-modal__close"
                 onClick={() => setShowFilter(false)}
+                aria-label="Close filters"
               >
-                <X size={16} />
+                <X size={20} />
               </button>
-              <h4>All filters</h4>
             </div>
 
-            <div className="filter-body">
-              <div className="filter-item">
-                <div className="filter-title">
-                  <div className="title-left">
-                    <People size={16} />
-                    <span>Client group</span>
-                  </div>
-                  <ChevronDown size={16} />
-                </div>
-              </div>
-
-              <div className="filter-item">
-                <div
-                  className="filter-title"
-                  onClick={() => setGenderOpen(!genderOpen)}
+            <div className="clients-filter-modal__body">
+              <div className="clients-filter-field">
+                <label>Gender</label>
+                <select
+                  className="form-select form-select-lg custom-focus-select"
+                  value={selectedGender ?? ""}
+                  onChange={(e) =>
+                    setSelectedGender(e.target.value || null)
+                  }
                 >
-                  <div className="title-left">
-                    <Person size={16} />
-                    <span>Gender</span>
+                  {genderOptions.map((g) => (
+                    <option key={g} value={g === "All" ? "" : g}>
+                      {g}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-                    {selectedGender && <span className="filter-count">1</span>}
-                  </div>
-
-                  <div className="title-right">
-                    {selectedGender && (
-                      <span
-                        className="clear-text"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setSelectedGender(null);
-                        }}
-                      >
-                        Clear
-                      </span>
-                    )}
-
-                    {genderOpen ? (
-                      <ChevronUp size={16} />
-                    ) : (
-                      <ChevronDown size={16} />
-                    )}
-                  </div>
+              <div className="clients-filter-field">
+                <label>Created date</label>
+                <div className="clients-filter-range">
+                  <input
+                    type="date"
+                    className="form-control form-control-lg custom-focus-select"
+                    value={dateFrom}
+                    max={dateTo || undefined}
+                    onChange={(e) => setDateFrom(e.target.value)}
+                  />
+                  <span className="clients-filter-range__sep">to</span>
+                  <input
+                    type="date"
+                    className="form-control form-control-lg custom-focus-select"
+                    value={dateTo}
+                    min={dateFrom || undefined}
+                    onChange={(e) => setDateTo(e.target.value)}
+                  />
                 </div>
+              </div>
 
-                {genderOpen && (
-                  <div className="filter-options">
-                    {genderOptions.map((g) => (
-                      <div
-                        key={g}
-                        className={`option ${selectedGender === g ? "active" : ""
-                          }`}
-                        onClick={() => setSelectedGender(g)}
-                      >
-                        <span>{g}</span>
-
-                        {selectedGender === g && (
-                          <span className="check-icon">✓</span>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
+              <div className="clients-filter-field">
+                <label>Revenue (₹)</label>
+                <div className="clients-filter-range">
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Min"
+                    className="form-control form-control-lg custom-focus-select"
+                    value={minRevenue}
+                    onChange={(e) => setMinRevenue(e.target.value)}
+                  />
+                  <span className="clients-filter-range__sep">to</span>
+                  <input
+                    type="number"
+                    min="0"
+                    placeholder="Max"
+                    className="form-control form-control-lg custom-focus-select"
+                    value={maxRevenue}
+                    onChange={(e) => setMaxRevenue(e.target.value)}
+                  />
+                </div>
               </div>
             </div>
 
-            <div className="filter-footer">
+            <div className="clients-filter-modal__footer">
               <button
                 className="clear-btn"
                 onClick={() => {
                   setSelectedGender(null);
+                  setDateFrom("");
+                  setDateTo("");
+                  setMinRevenue("");
+                  setMaxRevenue("");
+                  // Sync the ref synchronously — fetchClients reads range
+                  // filters from it, and the state resets above won't have
+                  // flushed to the ref (via its effect) before this call.
+                  rangeFiltersRef.current = { dateFrom: "", dateTo: "", minRevenue: "", maxRevenue: "" };
                   setShowFilter(false);
                   fetchClients(1, selectedSort, null);
                 }}
@@ -488,6 +529,7 @@ export default function ClientsListPage() {
               <button
                 className="apply-btn"
                 onClick={() => {
+                  rangeFiltersRef.current = { dateFrom, dateTo, minRevenue, maxRevenue };
                   setShowFilter(false);
                   fetchClients(1, selectedSort, selectedGender);
                 }}
@@ -656,9 +698,9 @@ export default function ClientsListPage() {
               iconLeft={<Sliders size={14} />}
             >
               Filters
-              {selectedGender && (
+              {activeFilterCount > 0 && (
                 <Badge variant="dark" pill className="ms-2">
-                  1
+                  {activeFilterCount}
                 </Badge>
               )}
             </Button>
@@ -885,7 +927,11 @@ export default function ClientsListPage() {
                     </div>
                     <div className="col-created">
                       {client.created_at
-                        ? new Date(client.created_at).toLocaleDateString()
+                        ? new Date(client.created_at).toLocaleDateString("en-GB", {
+                            day: "2-digit",
+                            month: "2-digit",
+                            year: "2-digit",
+                          })
                         : "-"}
                     </div>
 

@@ -2,6 +2,7 @@ export const CLIENT = {
   BASE: "/api/v1/clients",
   BY_ID: (id: string | number) => `/api/v1/clients/${id}`,
   SEARCH: (q: string) => `/api/v1/clients/search?q=${encodeURIComponent(q)}`,
+  REFERRAL_LOOKUP: (code: string) => `/api/v1/clients/referral/${encodeURIComponent(code)}`,
   BLOCK: "/api/v1/clients/block",
   UNBLOCK: "/api/v1/clients/unblock",
   EXPORT: (format: "excel" | "csv" | "pdf") =>

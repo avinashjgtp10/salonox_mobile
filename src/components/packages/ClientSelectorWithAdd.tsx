@@ -117,7 +117,23 @@ const ClientSelectorWithAdd: React.FC<Props> = ({
       setFirstName(""); setLastName(""); setPhone(""); setGender("");
       setFormErrors([]); setPhoneDuplicate(false);
     } catch (err: any) {
-      setSaveError(err?.response?.data?.message ?? "Failed to save client. Please try again.");
+      const status = err?.response?.status;
+      // The API returns its error as { success:false, error:{ code, message } },
+      // so the human message lives at data.error.message — reading data.message
+      // (the old path) always missed it and fell back to the generic string,
+      // hiding the backend's specific "already registered to <name>" text.
+      const serverMessage =
+        err?.response?.data?.error?.message ??
+        err?.response?.data?.message ??
+        err?.message;
+      if (status === 409) {
+        // Duplicate phone (or email): highlight the phone field and show the
+        // backend's specific message instead of a generic failure.
+        setPhoneDuplicate(true);
+        setSaveError(serverMessage ?? "This phone number is already registered to another client.");
+      } else {
+        setSaveError(serverMessage ?? "Failed to save client. Please try again.");
+      }
     } finally {
       setSaving(false);
     }
