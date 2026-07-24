@@ -13,6 +13,8 @@ import {
 } from "../../../middleware/billing/billing.thunk";
 import { setSubscriptionExpired } from "../../../store/billingSlice";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
+import { getSubscriptionPermissions } from "../utils/subscriptionPermissions";
 import Button from "../../../components/ui/Button";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import SettingsSection from "../components/SettingsSection";
@@ -32,6 +34,12 @@ export default function BillingPage() {
   const { subscription, invoices, loading } = useAppSelector((s) => s.billing);
   const { currentSalon } = useAppSelector((s) => s.salon);
   const { items: staffList } = useAppSelector((s) => s.staff);
+  const settingItems = useAppSelector((s: any) => s.setting.items);
+  useEffect(() => { dispatch(fetchSettingsThunk()); }, [dispatch]);
+  // UI-only — hides/disables actions the account can't use so it doesn't show
+  // a button that will 403. The actual enforcement is server-side, in
+  // requireSubscriptionPermission() (subscriptionPermission.middleware.ts).
+  const subPerms = useMemo(() => getSubscriptionPermissions(settingItems), [settingItems]);
 
   const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
   const [plansLoading, setPlansLoading] = useState(false);
@@ -96,11 +104,13 @@ export default function BillingPage() {
   }, [dispatch]);
 
   useEffect(() => {
-    if (currentSalon?.id) {
+    if (currentSalon?.id && subPerms.view_subscription) {
       dispatch(fetchSubscriptionThunk(currentSalon.id));
+    }
+    if (currentSalon?.id && subPerms.view_billing_history) {
       dispatch(fetchInvoicesThunk(currentSalon.id));
     }
-  }, [dispatch, currentSalon?.id]);
+  }, [dispatch, currentSalon?.id, subPerms.view_subscription, subPerms.view_billing_history]);
 
   const usageData = useMemo(() => [
     { label: "Staff Members",           used: staffList.length, limit: 10,   icon: <Users size={15} /> },
@@ -159,7 +169,14 @@ export default function BillingPage() {
       </div>
 
       {/* Current Plan */}
-      {loading.subscription ? (
+      {!subPerms.view_subscription ? (
+        <div className="settings-billing-plan mb-4" style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}>
+          <p className="settings-billing-plan-label" style={{ color: "#6b7280" }}>Subscription details unavailable</p>
+          <p className="settings-billing-plan-price" style={{ color: "#6b7280" }}>
+            Your account does not have permission to view subscription details. Contact support if you believe this is a mistake.
+          </p>
+        </div>
+      ) : loading.subscription ? (
         <div className="settings-section">
           <div className="settings-section-body" style={{ padding: 24, color: "#6b7280", fontSize: 13 }}>
             Loading subscription…
@@ -179,17 +196,19 @@ export default function BillingPage() {
               day: "numeric", month: "short", year: "numeric",
             })}
           </p>
-          <div className="settings-billing-plan-actions">
-            <Button
-              size="sm"
-              variant="outline-light"
-              loading={cancelLoading}
-              onClick={handleCancelPlan}
-              disabled={subscription.status === "cancelled"}
-            >
-              {subscription.status === "cancelled" ? "Cancelled" : "Cancel plan"}
-            </Button>
-          </div>
+          {subPerms.cancel_subscription && (
+            <div className="settings-billing-plan-actions">
+              <Button
+                size="sm"
+                variant="outline-light"
+                loading={cancelLoading}
+                onClick={handleCancelPlan}
+                disabled={subscription.status === "cancelled"}
+              >
+                {subscription.status === "cancelled" ? "Cancelled" : "Cancel plan"}
+              </Button>
+            </div>
+          )}
         </div>
       ) : (
         <div className="settings-billing-plan mb-4" style={{ background: "#f9fafb", border: "1px solid #e5e7eb" }}>
@@ -268,8 +287,12 @@ export default function BillingPage() {
                     <Button fullWidth size="sm" variant="outline-secondary" disabled>
                       Current plan
                     </Button>
-                  ) : (
+                  ) : (subPerms.renew_subscription || subPerms.upgrade_subscription || subPerms.downgrade_subscription) ? (
                     <UpgradeButton plan={plan} />
+                  ) : (
+                    <Button fullWidth size="sm" variant="outline-secondary" disabled title="Your account does not have permission to change plans">
+                      Plan changes disabled
+                    </Button>
                   )}
                 </div>
               );
@@ -280,7 +303,9 @@ export default function BillingPage() {
 
       {/* Billing History */}
       <SettingsSection title="Billing History" desc="Download past invoices." noPadding>
-        {loading.invoices ? (
+        {!subPerms.view_billing_history ? (
+          <p style={{ fontSize: 13, color: "#6b7280", padding: "16px 22px" }}>Your account does not have permission to view billing history.</p>
+        ) : loading.invoices ? (
           <p style={{ fontSize: 13, color: "#6b7280", padding: "16px 22px" }}>Loading…</p>
         ) : invoices.length === 0 ? (
           <p style={{ fontSize: 13, color: "#6b7280", padding: "16px 22px" }}>No invoices yet.</p>
