@@ -23,6 +23,13 @@ function ActionBtn({ label, color, bg, onClick, disabled }: { label: string; col
   );
 }
 
+// Matches the dd MMM yyyy convention used elsewhere in the app (see
+// ClientHistoryDetail.tsx's fmtDateShort) — e.g. "19 Jul 2026".
+const fmtDateShort = (iso?: string | null) =>
+  iso
+    ? new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+    : "—";
+
 function Toast({ msg, ok }: { msg: string; ok: boolean }) {
   return (
     <div style={{ position: "fixed", top: 20, right: 20, zIndex: 9999, background: ok ? "#f0fdf4" : "#fef2f2", border: `1px solid ${ok ? "#bbf7d0" : "#fecaca"}`, color: ok ? "#15803d" : "#dc2626", padding: "12px 20px", borderRadius: 10, fontSize: 13, fontWeight: 600, boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}>
@@ -74,9 +81,23 @@ export default function SalonsPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [page, setPage]       = useState(1);
   const [perPage, setPerPage] = useState(20);
+  const [createdSort, setCreatedSort] = useState<"asc" | "desc" | null>(null);
 
   const load = useCallback((q?: string) => { dispatch(fetchSuperAdminSalonsThunk(q)); }, [dispatch]);
   useEffect(() => { load(); }, [load]);
+
+  // Search already hits the backend, which now also matches against a
+  // "DD Mon YYYY" formatted created_at (see super-admin.repository.ts::
+  // getAllSalons), so typing e.g. "19 Jul 2026" filters by Created Date too.
+  // Sorting by Created Date is applied client-side on top of whatever page
+  // of results comes back.
+  const sortedSalons = createdSort
+    ? [...salons].sort((a: any, b: any) => {
+        const da = a.created_at ? new Date(a.created_at).getTime() : 0;
+        const db = b.created_at ? new Date(b.created_at).getTime() : 0;
+        return createdSort === "asc" ? da - db : db - da;
+      })
+    : salons;
 
   function showToast(msg: string, ok = true) { setToast({ msg, ok }); setTimeout(() => setToast(null), 3000); }
 
@@ -154,8 +175,17 @@ export default function SalonsPage() {
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 900 }}>
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-              {["Salon", "Owner", "Plan", "Staff", "Clients", "Revenue", "Status", "Onboarding", "Actions"].map(h => (
-                <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+              {["Salon", "Owner", "Plan", "Staff", "Clients", "Revenue", "Created Date", "Status", "Onboarding", "Actions"].map(h => (
+                h === "Created Date" ? (
+                  <th key={h}
+                    onClick={() => setCreatedSort(createdSort === "desc" ? "asc" : "desc")}
+                    style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap", cursor: "pointer", userSelect: "none" }}
+                    title="Click to sort by creation date">
+                    {h} {createdSort === "asc" ? "▲" : createdSort === "desc" ? "▼" : ""}
+                  </th>
+                ) : (
+                  <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+                )
               ))}
             </tr>
           </thead>
@@ -163,17 +193,17 @@ export default function SalonsPage() {
             {loading.salons ? (
               [...Array(6)].map((_, i) => (
                 <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
-                  {[...Array(9)].map((_, j) => (
+                  {[...Array(10)].map((_, j) => (
                     <td key={j} style={{ padding: "14px 16px" }}>
                       <div style={{ height: 13, borderRadius: 4, background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "200% 100%", animation: "sa-shimmer 1.4s infinite" }} />
                     </td>
                   ))}
                 </tr>
               ))
-            ) : salons.length === 0 ? (
-              <tr><td colSpan={9} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No salons found</td></tr>
+            ) : sortedSalons.length === 0 ? (
+              <tr><td colSpan={10} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No salons found</td></tr>
             ) : (
-              salons.slice((page - 1) * perPage, page * perPage).map((s: any) => (
+              sortedSalons.slice((page - 1) * perPage, page * perPage).map((s: any) => (
                 <tr key={s.id} style={{ borderTop: "1px solid #f1f5f9", transition: "background 0.1s" }}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
@@ -190,6 +220,7 @@ export default function SalonsPage() {
                   <td style={{ padding: "13px 16px", color: "#374151" }}>{s.staff_count ?? "—"}</td>
                   <td style={{ padding: "13px 16px", color: "#374151" }}>{s.client_count ?? "—"}</td>
                   <td style={{ padding: "13px 16px", color: "#16a34a", fontWeight: 700 }}>{fmt(s.revenue)}</td>
+                  <td style={{ padding: "13px 16px", color: "#374151", whiteSpace: "nowrap" }}>{fmtDateShort(s.created_at)}</td>
                   <td style={{ padding: "13px 16px" }}><Badge status={s.status} /></td>
                   <td style={{ padding: "13px 16px" }}>
                     {s.is_onboarding_complete

@@ -15,6 +15,7 @@ import { useAppSelector } from "./hooks/useAppRedux";
 function App() {
   const subscriptionExpired = useAppSelector((s) => s.billing.subscriptionExpired);
   const accessToken = useAppSelector((s) => s.auth.accessToken);
+  const role = useAppSelector((s) => s.auth.role);
   useSubscriptionPoller();
 
   return (

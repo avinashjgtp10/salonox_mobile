@@ -5,7 +5,7 @@ import { refreshSessionThunk } from "../../middleware/auth/authThunk";
 import { logout } from "../../store/authSlice";
 
 const GuestGuard = () => {
-  const { accessToken: token, refreshToken, isOnboardingComplete } = useAppSelector(
+  const { accessToken: token, refreshToken, isOnboardingComplete, role } = useAppSelector(
     (state) => state.auth,
   );
   const dispatch = useAppDispatch();
@@ -32,7 +32,15 @@ const GuestGuard = () => {
   if (restoring) return null;
 
   if (token) {
-    if (isOnboardingComplete) {
+    // Super admins never go through salon onboarding — send them straight to
+    // the super admin panel, not /dashboard or /business-name. Without this
+    // check, GuestGuard re-renders the instant loginThunk sets accessToken
+    // (before LoginPage's own navigate("/super-admin") call lands) and races
+    // it to /dashboard instead, since it only ever looked at
+    // isOnboardingComplete.
+    if (role === "super_admin") {
+      return <Navigate to="/super-admin" replace />;
+    } else if (isOnboardingComplete) {
       return <Navigate to="/dashboard" replace />;
     } else {
       return <Navigate to="/business-name" replace />;

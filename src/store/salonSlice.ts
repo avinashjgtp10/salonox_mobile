@@ -7,6 +7,7 @@ import {
   fetchBranchesThunk,
   createBranchThunk,
 } from "../middleware/salon/salon.thunk";
+import { logout } from "./authSlice";
 import type { Salon, Branch } from "../types/salon.types";
 
 interface SalonState {
@@ -132,6 +133,17 @@ const salonSlice = createSlice({
         state.loading.branches = false;
         state.error = payload ?? "Failed to create branch";
       });
+
+    // Clear stale salon context on logout — without this, switching accounts
+    // in the same browser session (no full page reload) leaves the previous
+    // account's currentSalon.id in memory. useSubscriptionPoller reads that
+    // stale salonId and can flag subscriptionExpired for the NEW session
+    // (e.g. a super admin login) based on the OLD salon's subscription.
+    builder.addCase(logout, (state) => {
+      state.currentSalon = null;
+      state.branches = [];
+      state.error = null;
+    });
   },
 });
 
