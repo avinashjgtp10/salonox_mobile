@@ -233,6 +233,15 @@ export default function MoreScreen() {
       title: "Log out of all devices",
     },
     {
+      danger: false,
+      description: "How we collect, use, and protect your data.",
+      icon: "shield-checkmark-outline" as const,
+      key: "privacy-policy",
+      loading: false,
+      onPress: () => router.push("/privacy-policy" as Href),
+      title: "Privacy Policy",
+    },
+    {
       danger: true,
       description: "Permanently remove your account and all associated data.",
       icon: "trash-outline" as const,
