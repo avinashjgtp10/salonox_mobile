@@ -5,6 +5,8 @@ export * from "./coupon.endpoints";
 export * from "./dashboard.endpoints";
 export * from "./membership.endpoints";
 export * from "./notification.endpoints";
+export * from "./package.endpoints";
+export * from "./payment.endpoints";
 export * from "./product.endpoints";
 export * from "./profile.endpoints";
 export * from "./sales.endpoints";

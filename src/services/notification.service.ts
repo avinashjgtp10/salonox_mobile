@@ -137,7 +137,20 @@ export const notificationService = {
   },
 
   async registerDevice(payload: RegisterDeviceRequest): Promise<RegisterDeviceResponse> {
-    const response = await api.post<ApiResponse<unknown>>(NOTIFICATION.REGISTER_DEVICE, payload);
+    console.log("[PushNotifications] notification.service entered");
+    const expoPushToken = payload.token.trim();
+    const requestPayload: RegisterDeviceRequest = {
+      token: expoPushToken,
+      platform: payload.platform,
+    };
+
+    console.log("Expo Push Token:", expoPushToken);
+    console.log("Register Device Payload:", requestPayload);
+    console.log("[PushNotifications] Axios POST executed", NOTIFICATION.REGISTER_DEVICE);
+
+    const response = await api.post<ApiResponse<unknown>>(NOTIFICATION.REGISTER_DEVICE, requestPayload);
+
+    console.log("[PushNotifications] Response received", response.status);
 
     return { message: response.data.message };
   },

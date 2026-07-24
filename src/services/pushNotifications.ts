@@ -84,8 +84,23 @@ export const getExpoPushToken = async (): Promise<string> => {
 
   try {
     const { data } = await Notifications.getExpoPushTokenAsync({ projectId });
-    return data;
+    const token = typeof data === "string" ? data.trim() : "";
+
+    if (!token) {
+      throw new Error("Expo returned an empty push token.");
+    }
+
+    if (!token.startsWith("ExponentPushToken[")) {
+      throw new Error(`Expo returned an unexpected push token format: ${token}`);
+    }
+
+    return token;
   } catch (error) {
+    console.warn("[PushNotifications] getExpoPushTokenAsync failed:", {
+      error,
+      projectId,
+      platform: Platform.OS,
+    });
     throw new PushTokenGenerationError(error);
   }
 };

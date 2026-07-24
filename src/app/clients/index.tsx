@@ -1096,7 +1096,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   filterCountBadge: {
     alignItems: "center",
-    backgroundColor: "#FFFFFF",
+    backgroundColor: Colors.bg,
     borderRadius: Radius.full,
     height: 18,
     justifyContent: "center",

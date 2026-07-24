@@ -16,11 +16,12 @@ import {
   shouldInvalidateSession,
   shouldRefreshToken,
 } from "@/services/authSession";
+import { environmentConfig } from "@/config/environment";
 import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
 import { tokenStorage } from "@/services/tokenStorage";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
-export const API_BASE_URL = "http://dev.salonox.com/api/v1";
+export const API_BASE_URL = environmentConfig.apiBaseUrl;
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
   _networkRetry?: boolean;

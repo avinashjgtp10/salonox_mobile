@@ -77,12 +77,6 @@ const MENU_ITEMS = [
     route: "/stock" as Href,
     title: "Products",
   },
-  {
-    description: "Switch between light, dark, or your device's theme.",
-    icon: "moon-outline" as const,
-    route: "/appearance" as Href,
-    title: "Appearance",
-  },
 ];
 
 export default function MoreScreen() {

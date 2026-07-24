@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -16,7 +16,14 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN")}`;
+  return `₹${amount.toLocaleString("en-IN")}`;
+}
+
+function formatPaymentMethod(method: string) {
+  return method
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 export default function QuickSaleCheckoutScreen() {
@@ -49,94 +56,156 @@ export default function QuickSaleCheckoutScreen() {
   const amountPaid = authoritativeSale?.amountPaid ?? Number(params.amountPaid ?? 0);
   const total = authoritativeSale?.total ?? Number(params.total ?? amountPaid);
   const paymentMethod = authoritativeSale?.paymentMethod ?? params.paymentMethod ?? "Cash";
+  const lineItems = authoritativeSale?.lineItems ?? [];
+  const clientName = authoritativeSale?.clientName ?? "Walk-In";
+  const createdDateLabel = authoritativeSale?.createdDateLabel ?? "Just now";
+  const itemCount =
+    lineItems.length > 0 ? lineItems.reduce((count, item) => count + item.quantity, 0) : 0;
+  const outstandingAmount = authoritativeSale?.outstandingAmount ?? Math.max(0, total - amountPaid);
+
+  const handleStartNewSale = () => {
+    router.replace({
+      pathname: "/quick-sale",
+      params: { resetSale: String(Date.now()) },
+    });
+  };
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
 
       <View style={styles.container}>
-        <View style={styles.successCard}>
-          <View style={styles.iconWrap}>
-            <Ionicons
-              name={isPreview ? "receipt-outline" : "checkmark-done-outline"}
-              size={30}
-              color={Colors.primary}
-            />
-          </View>
-          <Text style={styles.title}>
-            {isPreview ? "Receipt Ready to Print or Share" : "Sale Completed Successfully"}
-          </Text>
-          <Text style={styles.subtitle}>
-            {isPreview
-              ? "Your draft receipt is ready. You can print it, share it, or return to the sale."
-              : "Payment has been captured and the receipt is ready for the front desk."}
-          </Text>
-
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Receipt Number</Text>
-              <Text style={styles.summaryValue}>{receipt}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>{isPreview ? "Grand Total" : "Amount Paid"}</Text>
-              <Text style={styles.summaryValue}>{formatCurrency(isPreview ? total : amountPaid)}</Text>
-            </View>
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Payment Method</Text>
-              <Text style={styles.summaryValue}>{paymentMethod}</Text>
-            </View>
-          </View>
-
-          <TouchableOpacity activeOpacity={0.86} style={styles.primaryButton}>
-            <Text style={styles.primaryButtonText}>Print Receipt</Text>
+        <View style={styles.header}>
+          <TouchableOpacity
+            activeOpacity={0.86}
+            accessibilityLabel="Back to dashboard"
+            onPress={() => router.replace("/dashboard" as Href)}
+            style={styles.headerIconButton}
+          >
+            <Ionicons name="close" size={20} color={Colors.heading} />
           </TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.86} style={styles.secondaryButton}>
-            <Text style={styles.secondaryButtonText}>Share Receipt</Text>
-          </TouchableOpacity>
+          <Text style={styles.headerTitle}>{isPreview ? "Receipt Preview" : "Sale Completed"}</Text>
+          <View style={styles.headerIconButtonPlaceholder} />
+        </View>
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          style={styles.scroll}
+        >
+          <View style={styles.successBlock}>
+            <View style={styles.iconWrap}>
+              <Ionicons
+                name={isPreview ? "receipt-outline" : "checkmark"}
+                size={34}
+                color={Colors.primary}
+              />
+            </View>
+            <Text style={styles.title}>{isPreview ? "Receipt Ready" : "Payment Successful"}</Text>
+            <Text style={styles.subtitle}>
+              {isPreview
+                ? "Your draft receipt is ready for review."
+                : "The sale has been completed successfully."}
+            </Text>
+          </View>
+
+          <View style={styles.infoCard}>
+            <InfoRow label="Invoice" value={receipt} />
+            <InfoRow label="Client" value={clientName} />
+            <InfoRow label="Date & Time" value={createdDateLabel} />
+            <InfoRow label="Payment" value={formatPaymentMethod(paymentMethod)} />
+            <InfoRow label="Items" value={itemCount > 0 ? String(itemCount) : "—"} />
+            <InfoRow label="Total" value={formatCurrency(total)} />
+            {outstandingAmount > 0 ? (
+              <InfoRow label="Outstanding" value={formatCurrency(outstandingAmount)} />
+            ) : null}
+          </View>
+
+          {lineItems.length > 0 ? (
+            <View style={styles.infoCard}>
+              <Text style={styles.sectionTitle}>Services Summary</Text>
+              {lineItems.slice(0, 4).map((item) => (
+                <View key={item.id} style={styles.itemRow}>
+                  <View style={styles.itemCopy}>
+                    <Text numberOfLines={1} style={styles.itemName}>
+                      {item.name}
+                    </Text>
+                    <Text style={styles.itemMeta}>Qty {item.quantity}</Text>
+                  </View>
+                  <Text style={styles.itemPrice}>{formatCurrency(item.totalPrice)}</Text>
+                </View>
+              ))}
+              {lineItems.length > 4 ? (
+                <Text style={styles.moreItemsText}>+{lineItems.length - 4} more item(s)</Text>
+              ) : null}
+            </View>
+          ) : null}
+
+          <View style={styles.infoCard}>
+            <Text style={styles.sectionTitle}>Receipt Actions</Text>
+            <ReceiptAction icon="print-outline" label="Print Receipt" />
+            <ReceiptAction icon="share-social-outline" label="Share Receipt" />
+            <ReceiptAction icon="logo-whatsapp" label="WhatsApp Receipt" />
+            <ReceiptAction icon="mail-outline" label="Email Receipt" />
+          </View>
 
           {params.saleId ? (
             <TouchableOpacity
               activeOpacity={0.86}
               onPress={() => router.push(`/sales/${params.saleId}` as Href)}
-              style={styles.secondaryButton}
+              style={styles.optionalButton}
             >
-              <Text style={styles.secondaryButtonText}>View Full Invoice</Text>
+              <Ionicons name="document-text-outline" size={17} color={Colors.primaryDark} />
+              <Text style={styles.optionalButtonText}>View Invoice</Text>
             </TouchableOpacity>
           ) : null}
+        </ScrollView>
 
-          {!isPreview ? (
-            <TouchableOpacity
-              activeOpacity={0.86}
-              onPress={() =>
-                router.replace({
-                  pathname: "/quick-sale",
-                  params: { resetSale: String(Date.now()) },
-                })
-              }
-              style={styles.ghostButton}
-            >
-              <Text style={styles.ghostButtonText}>New Sale</Text>
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity
-              activeOpacity={0.86}
-              onPress={() => router.back()}
-              style={styles.ghostButton}
-            >
-              <Text style={styles.ghostButtonText}>Back to Sale</Text>
-            </TouchableOpacity>
-          )}
-
+        <View style={styles.footer}>
+          <TouchableOpacity
+            activeOpacity={0.86}
+            onPress={isPreview ? () => router.back() : handleStartNewSale}
+            style={styles.primaryButton}
+          >
+            <Text style={styles.primaryButtonText}>{isPreview ? "Back to Sale" : "Start New Sale"}</Text>
+          </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.86}
             onPress={() => router.replace("/dashboard" as Href)}
-            style={styles.linkButton}
+            style={styles.secondaryButton}
           >
-            <Text style={styles.linkButtonText}>Back to Dashboard</Text>
+            <Text style={styles.secondaryButtonText}>Back to Dashboard</Text>
           </TouchableOpacity>
         </View>
       </View>
     </SafeAreaView>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  return (
+    <View style={styles.summaryRow}>
+      <Text style={styles.summaryLabel}>{label}</Text>
+      <Text numberOfLines={1} style={styles.summaryValue}>{value}</Text>
+    </View>
+  );
+}
+
+function ReceiptAction({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  return (
+    <TouchableOpacity activeOpacity={1} disabled style={[styles.receiptAction, styles.buttonDisabled]}>
+      <View style={styles.receiptActionIcon}>
+        <Ionicons name={icon} size={17} color={Colors.primaryDark} />
+      </View>
+      <Text style={styles.receiptActionText}>{label}</Text>
+      <Text style={styles.receiptActionMeta}>Coming Soon</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -147,36 +216,62 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   container: {
     flex: 1,
-    justifyContent: "center",
-    padding: Spacing.lg,
+    paddingHorizontal: Spacing.lg,
   },
-  successCard: {
+  header: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingBottom: Spacing.md,
+    paddingTop: Spacing.sm,
+  },
+  headerIconButton: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: "center",
+    width: 40,
+  },
+  headerIconButtonPlaceholder: {
+    height: 40,
+    width: 40,
+  },
+  headerTitle: {
+    color: Colors.heading,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: Spacing.lg,
+  },
+  successBlock: {
     alignItems: "center",
     backgroundColor: Colors.card,
     borderColor: Colors.border,
     borderRadius: Radius.xl,
     borderWidth: 1,
-    paddingHorizontal: Spacing.xl,
-    paddingVertical: Spacing.xxl,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-    elevation: 4,
+    marginBottom: Spacing.md,
+    padding: Spacing.xl,
   },
   iconWrap: {
     alignItems: "center",
-    backgroundColor: Colors.bg2,
+    backgroundColor: Colors.successBg,
     borderRadius: Radius.full,
-    height: 72,
+    height: 76,
     justifyContent: "center",
-    width: 72,
+    width: 76,
   },
   title: {
     color: Colors.heading,
-    fontSize: 22,
-    fontWeight: "800",
-    marginTop: Spacing.lg,
+    fontSize: 20,
+    fontWeight: "900",
+    marginTop: Spacing.md,
     textAlign: "center",
   },
   subtitle: {
@@ -186,48 +281,144 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: Spacing.sm,
     textAlign: "center",
   },
-  summaryCard: {
-    backgroundColor: Colors.bg,
+  infoCard: {
+    backgroundColor: Colors.card,
     borderColor: Colors.border,
     borderRadius: Radius.lg,
     borderWidth: 1,
-    marginTop: Spacing.lg,
+    marginBottom: Spacing.md,
     paddingHorizontal: Spacing.lg,
     paddingVertical: Spacing.md,
-    width: "100%",
+  },
+  sectionTitle: {
+    color: Colors.heading,
+    fontSize: 14,
+    fontWeight: "900",
+    marginBottom: Spacing.sm,
   },
   summaryRow: {
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 8,
+    minHeight: 34,
+    paddingVertical: 6,
   },
   summaryLabel: {
     color: Colors.text2,
     fontSize: 12,
-    fontWeight: "600",
+    fontWeight: "800",
   },
   summaryValue: {
     color: Colors.heading,
     flexShrink: 1,
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "900",
     marginLeft: Spacing.md,
     textAlign: "right",
+  },
+  itemRow: {
+    alignItems: "center",
+    borderTopColor: Colors.border,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.md,
+    justifyContent: "space-between",
+    paddingVertical: Spacing.sm,
+  },
+  itemCopy: {
+    flex: 1,
+    minWidth: 0,
+  },
+  itemName: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  itemMeta: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  itemPrice: {
+    color: Colors.primaryDark,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  moreItemsText: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "800",
+    marginTop: Spacing.xs,
+    textAlign: "center",
+  },
+  receiptAction: {
+    alignItems: "center",
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.border,
+    borderRadius: Radius.lg,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginTop: Spacing.sm,
+    minHeight: 48,
+    paddingHorizontal: Spacing.md,
+  },
+  receiptActionIcon: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderRadius: Radius.full,
+    height: 32,
+    justifyContent: "center",
+    width: 32,
+  },
+  receiptActionText: {
+    color: Colors.heading,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  receiptActionMeta: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "800",
+  },
+  optionalButton: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    marginBottom: Spacing.md,
+    minHeight: 46,
+  },
+  optionalButtonText: {
+    color: Colors.primaryDark,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  footer: {
+    backgroundColor: Colors.bg,
+    borderTopColor: Colors.border,
+    borderTopWidth: 1,
+    paddingBottom: Spacing.sm,
+    paddingTop: Spacing.md,
   },
   primaryButton: {
     alignItems: "center",
     backgroundColor: Colors.primary,
     borderRadius: Radius.full,
     justifyContent: "center",
-    marginTop: Spacing.lg,
-    minHeight: 48,
+    minHeight: 52,
     width: "100%",
   },
   primaryButtonText: {
     color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "900",
   },
   secondaryButton: {
     alignItems: "center",
@@ -242,31 +433,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   secondaryButtonText: {
     color: Colors.heading,
     fontSize: 13,
-    fontWeight: "800",
+    fontWeight: "900",
   },
-  ghostButton: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
-    justifyContent: "center",
-    marginTop: Spacing.sm,
-    minHeight: 48,
-    width: "100%",
-  },
-  ghostButtonText: {
-    color: Colors.primaryDark,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  linkButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: Spacing.sm,
-    minHeight: 42,
-  },
-  linkButtonText: {
-    color: Colors.primary,
-    fontSize: 12,
-    fontWeight: "800",
+  buttonDisabled: {
+    opacity: 0.5,
   },
 });

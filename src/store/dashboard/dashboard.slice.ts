@@ -27,7 +27,9 @@ const DASHBOARD_STALE_MS = 5 * 60 * 1000;
 
 const EMPTY_DASHBOARD_METRICS: DashboardMetrics = {
   bookings: 0,
+  lastMonthRevenue: 0,
   monthlyRevenue: 0,
+  revenueChange: 0,
   todaysRevenue: 0,
 };
 

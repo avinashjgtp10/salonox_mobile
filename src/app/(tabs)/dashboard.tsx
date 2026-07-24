@@ -18,7 +18,6 @@ import { DashboardFloatingActions } from "@/components/dashboard/DashboardFloati
 import DashboardStatTiles from "@/components/dashboard/DashboardStatTiles";
 import QuickActions from "@/components/dashboard/QuickActions";
 import StaffWorkload from "@/components/dashboard/StaffWorkload";
-import TopClientCard from "@/components/dashboard/TopClientCard";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -277,9 +276,6 @@ export default function DashboardScreen() {
             </View>
             <View style={styles.sectionBlock}>
               <StaffWorkload />
-            </View>
-            <View style={styles.sectionBlock}>
-              <TopClientCard />
             </View>
           </>
         )}

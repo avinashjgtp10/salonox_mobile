@@ -1,10 +1,9 @@
 import { io, type Socket } from "socket.io-client";
 
-import { API_BASE_URL } from "@/services/api";
+import { environmentConfig } from "@/config/environment";
 import { tokenStorage } from "@/services/tokenStorage";
 
-const DEFAULT_SOCKET_URL = API_BASE_URL.replace(/\/api\/v\d+\/?$/, "");
-const SOCKET_URL = process.env.EXPO_PUBLIC_SOCKET_URL || DEFAULT_SOCKET_URL;
+const SOCKET_URL = environmentConfig.socketUrl;
 
 type ConnectArgs = {
   salonId: string;
@@ -42,6 +41,11 @@ class RealtimeSocket {
       });
 
       this.socket.on("connect", () => {
+        console.log("[Socket.IO] Socket connected", {
+          socketId: this.socket?.id,
+          salonId: this.joinedSalonId,
+        });
+
         if (this.joinedSalonId) {
           this.joinSalon(this.joinedSalonId);
         }
@@ -70,7 +74,10 @@ class RealtimeSocket {
     }
 
     this.joinedSalonId = salonId;
-    this.socket?.emit("salon:join", { room: `salon:${salonId}`, salonId });
+    console.log("[Socket.IO] Emitting join_salon", { salonId });
+    this.socket?.emit("join_salon", salonId, (ack?: unknown) => {
+      console.log("[Socket.IO] join_salon acknowledgement", { salonId, ack });
+    });
   }
 
   disconnect() {

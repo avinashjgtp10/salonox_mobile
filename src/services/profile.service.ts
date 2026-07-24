@@ -116,35 +116,31 @@ const normalizeProfile = (profile: UserProfileApiItem): UserProfile => {
   };
 };
 
-const buildUpdatePayload = (payload: UpdateProfileRequest) => {
-  const requestBody: Record<string, string> = {};
+const splitFullName = (fullName: string) => {
+  const [firstName = "", ...lastNameParts] = fullName.trim().split(/\s+/);
 
-  // The backend field-naming contract is undocumented, so send common camelCase
-  // and snake_case variants together to maximise compatibility.
+  return {
+    firstName,
+    lastName: lastNameParts.join(" ") || null,
+  };
+};
+
+const buildUpdatePayload = (payload: UpdateProfileRequest) => {
+  const requestBody: Record<string, string | null> = {};
+
   if (payload.fullName !== undefined) {
-    requestBody.fullName = payload.fullName;
-    requestBody.full_name = payload.fullName;
-    requestBody.name = payload.fullName;
+    const { firstName, lastName } = splitFullName(payload.fullName);
+
+    requestBody.firstName = firstName;
+    requestBody.lastName = lastName;
   }
 
   if (payload.phone !== undefined) {
     requestBody.phone = payload.phone;
-    requestBody.phone_number = payload.phone;
-  }
-
-  if (payload.gender !== undefined) {
-    requestBody.gender = payload.gender;
-  }
-
-  if (payload.dateOfBirth !== undefined) {
-    requestBody.dateOfBirth = payload.dateOfBirth;
-    requestBody.date_of_birth = payload.dateOfBirth;
-    requestBody.dob = payload.dateOfBirth;
   }
 
   if (payload.businessName !== undefined) {
     requestBody.businessName = payload.businessName;
-    requestBody.business_name = payload.businessName;
   }
 
   if (payload.address !== undefined) {

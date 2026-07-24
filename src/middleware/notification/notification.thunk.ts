@@ -94,9 +94,22 @@ export const registerDeviceThunk = createAsyncThunk<
   { rejectValue: RejectValue; state: RootState }
 >("notification/registerDevice", async (payload, { rejectWithValue }) => {
   try {
-    const response = await notificationService.registerDevice(payload);
+    console.log("[PushNotifications] notification.thunk entered");
+    const token = payload.token.trim();
 
-    await notificationDeviceStorage.setRegisteredToken(payload.token);
+    if (!token) {
+      console.warn("[PushNotifications] notification.thunk blocked empty token");
+      return rejectWithValue({ message: "Expo push token is empty; device registration was skipped." });
+    }
+
+    const response = await notificationService.registerDevice({
+      ...payload,
+      token,
+    });
+
+    console.log("[PushNotifications] notification.thunk response received");
+
+    await notificationDeviceStorage.setRegisteredToken(token);
 
     return response;
   } catch (error) {

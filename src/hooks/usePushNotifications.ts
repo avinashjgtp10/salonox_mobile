@@ -47,16 +47,32 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       await requestNotificationPermission();
 
       const token = await getExpoPushToken();
+      const expoPushToken = token.trim();
 
-      if (token === registeredTokenRef.current) {
+      console.log("[PushNotifications] Token obtained");
+      console.log("Expo Push Token:", expoPushToken);
+
+      if (!expoPushToken) {
+        console.warn("[PushNotifications] Skipping device registration because Expo push token is empty.");
         return;
+      }
+
+      if (expoPushToken === registeredTokenRef.current) {
+        console.log("[PushNotifications] Token matches local registered token; re-confirming with backend.");
       }
 
       if (registerDeviceStatusRef.current === "loading") {
+        console.log("[PushNotifications] Registration skipped because registerDevice is already loading.");
         return;
       }
 
-      void dispatch(registerDeviceThunk({ platform: PLATFORM, token }));
+      console.log("[PushNotifications] Dispatch registerDevice");
+      console.log("Register Device Payload:", {
+        token: expoPushToken,
+        platform: PLATFORM,
+      });
+
+      void dispatch(registerDeviceThunk({ platform: PLATFORM, token: expoPushToken }));
     } catch (error) {
       if (error instanceof PushPermissionDeniedError) {
         if (!hasWarnedPermissionRef.current) {
@@ -68,6 +84,8 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
         }
         return;
       }
+
+      console.warn("[PushNotifications] Registration flow failed before dispatch completed:", error);
 
       // Token generation / network failure — silent by design. This runs on
       // every login and every foreground, so a transient failure will

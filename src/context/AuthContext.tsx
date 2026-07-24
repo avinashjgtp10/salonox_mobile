@@ -66,24 +66,24 @@ export function AuthProvider({ children }: PropsWithChildren) {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const applyAuthenticatedUserState = useCallback((nextUser: AuthUser, source: string) => {
+  const applyAuthenticatedUserState = useCallback((nextUser: AuthUser) => {
     const userWithKnownSalon = preserveSalonId(nextUser, store.getState().user.user);
 
     store.dispatch(setCurrentUser(userWithKnownSalon));
     setUser((currentUser) => preserveSalonId(userWithKnownSalon, currentUser));
   }, []);
 
-  const persistAuthenticatedUser = useCallback(async (nextUser: AuthUser, source: string) => {
+  const persistAuthenticatedUser = useCallback(async (nextUser: AuthUser) => {
     const userWithKnownSalon = preserveSalonId(nextUser, store.getState().user.user);
 
     await tokenStorage.setStoredUser(userWithKnownSalon);
-    applyAuthenticatedUserState(userWithKnownSalon, `${source}:persisted`);
+    applyAuthenticatedUserState(userWithKnownSalon);
   }, [applyAuthenticatedUserState]);
 
-  const applyAuthenticatedUserAndPersistLater = useCallback((nextUser: AuthUser, source: string) => {
+  const applyAuthenticatedUserAndPersistLater = useCallback((nextUser: AuthUser) => {
     const userWithKnownSalon = preserveSalonId(nextUser, store.getState().user.user);
 
-    applyAuthenticatedUserState(userWithKnownSalon, source);
+    applyAuthenticatedUserState(userWithKnownSalon);
     tokenStorage.setStoredUser(userWithKnownSalon).catch((err) => {
       console.error("Failed to persist authenticated user", err);
     });
@@ -130,7 +130,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const resultAction = await store.dispatch(fetchCurrentUserThunk());
 
     if (fetchCurrentUserThunk.fulfilled.match(resultAction)) {
-      await persistAuthenticatedUser(resultAction.payload, "users_me");
+      await persistAuthenticatedUser(resultAction.payload);
 
       return resultAction.payload;
     }
@@ -162,7 +162,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
 
         if (session.user && isMounted) {
-          applyAuthenticatedUserState(session.user, "bootstrap:cached_session");
+          applyAuthenticatedUserState(session.user);
           logAuthEvent("bootstrap_restored_cached_user", {
             userId: session.user.id,
           });
@@ -216,10 +216,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       const authData = await authService.login(credentials);
       finishUserLogin();
-      applyAuthenticatedUserAndPersistLater(
-        withOnboardingStatus(authData.user, authData),
-        "login_response_partial",
-      );
+      applyAuthenticatedUserAndPersistLater(withOnboardingStatus(authData.user, authData));
       markStartup("post_login_navigation");
 
       void syncCurrentUserProfile().catch((profileError) => {
@@ -246,10 +243,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     try {
       const authData = await authService.register(credentials);
       finishUserLogin();
-      applyAuthenticatedUserAndPersistLater(
-        withOnboardingStatus(authData.user, authData),
-        "register_response_partial",
-      );
+      applyAuthenticatedUserAndPersistLater(withOnboardingStatus(authData.user, authData));
       markStartup("post_login_navigation");
 
       void syncCurrentUserProfile().catch((profileError) => {
@@ -278,7 +272,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       finishUserLogin();
 
       if (authData.user) {
-        applyAuthenticatedUserAndPersistLater(authData.user, "google_login_response_partial");
+        applyAuthenticatedUserAndPersistLater(authData.user);
         markStartup("post_login_navigation");
         void syncCurrentUserProfile().catch((profileError) => {
           logAuthEvent("google_login_profile_fetch_failed", {
