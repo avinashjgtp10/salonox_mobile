@@ -7,7 +7,9 @@ import type {
   AttendanceStatusKey,
   AttendanceSummary,
   AttendanceToday,
+  CheckInRequest,
   CheckInResponse,
+  CheckOutRequest,
   CheckOutResponse,
   ManualAttendanceStatus,
   MarkAttendanceRequest,
@@ -60,35 +62,26 @@ const getInitials = (name: string) => {
   );
 };
 
-// Single source of truth for the STATUS MAPPING contract:
-//   Present + Checked In -> Active
-//   Late                 -> Late
-//   Absent                -> Inactive
-//   On Leave              -> On Leave
-//   Checked Out           -> Inactive
-//   Half Day              -> Half Day
 const toAttendanceStatusKey = (rawStatus: string): AttendanceStatusKey => {
   const normalized = rawStatus.toLowerCase().replace(/[\s-]+/g, "_");
 
   switch (normalized) {
     case "present":
-    case "checked_in":
-    case "active":
-      return "active";
+      return "present";
     case "late":
       return "late";
     case "half_day":
     case "halfday":
       return "halfDay";
-    case "on_leave":
-    case "leave":
-      return "onLeave";
-    case "checked_out":
     case "absent":
-    case "inactive":
-      return "inactive";
+      return "absent";
+    case "on_leave":
+      return "onLeave";
+    case "not_marked":
+    case "notmarked":
+      return "notMarked";
     default:
-      return "inactive";
+      return "notMarked";
   }
 };
 
@@ -224,6 +217,8 @@ const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | nul
     ) || null;
   const hoursWorkedRaw = firstValue(entry, ["hoursWorked", "hours_worked"]);
   const hoursWorked = hoursWorkedRaw !== undefined ? toSafeNumber(hoursWorkedRaw) : null;
+  const scheduledHoursRaw = firstValue(entry, ["scheduledHours", "scheduled_hours"]);
+  const scheduledHours = scheduledHoursRaw !== undefined ? toSafeNumber(scheduledHoursRaw) : null;
   const jobsToday = toSafeNumber(
     firstValue(entry, ["jobsToday", "jobs_today", "todayAppointments", "today_appointments", "appointmentsCount", "appointments_count"]),
   );
@@ -247,6 +242,7 @@ const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | nul
     initials: getInitials(staffName),
     jobsToday,
     rawStatus,
+    scheduledHours,
     slotsRemaining,
     staffId,
     staffName,
@@ -261,6 +257,7 @@ const normalizeAttendanceRecord = (entry: UnknownRecord): AttendanceRecord | nul
 const normalizeAttendanceSummary = (entry: UnknownRecord): AttendanceSummary => ({
   absent: toSafeNumber(firstValue(entry, ["absent"])),
   date: toSafeString(firstValue(entry, ["date"])) || null,
+  halfDay: toSafeNumber(firstValue(entry, ["halfDay", "half_day"])),
   late: toSafeNumber(firstValue(entry, ["late"])),
   onLeave: toSafeNumber(firstValue(entry, ["onLeave", "on_leave"])),
   present: toSafeNumber(firstValue(entry, ["present"])),
@@ -292,11 +289,21 @@ const normalizeAttendanceSettings = (entry: UnknownRecord): AttendanceSettings =
 });
 
 export const attendanceService = {
-  async checkIn(staffId: string): Promise<CheckInResponse> {
-    const response = await api.post<AttendanceRecordApiResponse>(ATTENDANCE.CHECK_IN, {
-      staff_id: staffId,
-      staffId,
-    });
+  async checkIn(payload: CheckInRequest): Promise<CheckInResponse> {
+    const requestBody: Record<string, string> = {
+      staff_id: payload.staffId,
+      staffId: payload.staffId,
+    };
+
+    if (payload.checkInTime !== undefined) {
+      requestBody.check_in = payload.checkInTime;
+    }
+
+    if (payload.notes !== undefined) {
+      requestBody.note = payload.notes;
+    }
+
+    const response = await api.post<AttendanceRecordApiResponse>(ATTENDANCE.CHECK_IN, requestBody);
     const record = normalizeAttendanceRecord(getRecordFromEnvelope(response.data.data));
 
     return {
@@ -305,11 +312,21 @@ export const attendanceService = {
     };
   },
 
-  async checkOut(staffId: string): Promise<CheckOutResponse> {
-    const response = await api.post<AttendanceRecordApiResponse>(ATTENDANCE.CHECK_OUT, {
-      staff_id: staffId,
-      staffId,
-    });
+  async checkOut(payload: CheckOutRequest): Promise<CheckOutResponse> {
+    const requestBody: Record<string, string> = {
+      staff_id: payload.staffId,
+      staffId: payload.staffId,
+    };
+
+    if (payload.checkOutTime !== undefined) {
+      requestBody.check_out = payload.checkOutTime;
+    }
+
+    if (payload.notes !== undefined) {
+      requestBody.note = payload.notes;
+    }
+
+    const response = await api.post<AttendanceRecordApiResponse>(ATTENDANCE.CHECK_OUT, requestBody);
     const record = normalizeAttendanceRecord(getRecordFromEnvelope(response.data.data));
 
     return {
@@ -318,17 +335,23 @@ export const attendanceService = {
     };
   },
 
-  async getSummary(salonId?: string | null): Promise<AttendanceSummary> {
+  async getSummary(salonId?: string | null, date?: string): Promise<AttendanceSummary> {
     const response = await api.get<AttendanceSummaryApiResponse>(ATTENDANCE.SUMMARY, {
-      params: salonId ? { salon_id: salonId } : undefined,
+      params: {
+        ...(salonId ? { salon_id: salonId } : {}),
+        ...(date ? { date } : {}),
+      },
     });
 
     return normalizeAttendanceSummary(getSummaryRecord(response.data.data));
   },
 
-  async getToday(salonId?: string | null): Promise<AttendanceToday> {
+  async getToday(salonId?: string | null, date?: string): Promise<AttendanceToday> {
     const response = await api.get<AttendanceTodayApiResponse>(ATTENDANCE.TODAY, {
-      params: salonId ? { salon_id: salonId } : undefined,
+      params: {
+        ...(salonId ? { salon_id: salonId } : {}),
+        ...(date ? { date } : {}),
+      },
     });
     const apiRecords = getTodayArray(response.data.data);
     const records = apiRecords
@@ -338,6 +361,9 @@ export const attendanceService = {
     return {
       date: getTodayDate(response.data.data),
       records,
+      summary: Array.isArray(response.data.data)
+        ? null
+        : normalizeAttendanceSummary(getSummaryRecord(asRecord(response.data.data))),
     };
   },
 

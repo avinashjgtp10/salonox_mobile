@@ -3,7 +3,6 @@ import { router, type Href } from "expo-router";
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import { DeleteAccountModal } from "@/components/account/DeleteAccountModal";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
@@ -82,7 +81,7 @@ const MENU_ITEMS = [
 export default function MoreScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const { deleteAccount, signOut, signOutAll } = useAuth();
+  const { signOut, signOutAll } = useAuth();
   const currentUser = useAppSelector(selectCurrentUser);
   const fullName = getUserFullName(currentUser);
   const businessName = getUserBusinessName(currentUser);
@@ -93,10 +92,7 @@ export default function MoreScreen() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
-  const [isDeleteModalVisible, setIsDeleteModalVisible] = useState(false);
-  const [deleteAccountError, setDeleteAccountError] = useState<string | null>(null);
-  const isBusy = isLoggingOut || isLoggingOutAll || isSendingOtp || isDeletingAccount;
+  const isBusy = isLoggingOut || isLoggingOutAll || isSendingOtp;
 
   const handleLogout = async () => {
     if (isBusy) {
@@ -162,44 +158,6 @@ export default function MoreScreen() {
     );
   };
 
-  const handleDeleteAccount = () => {
-    if (isBusy) {
-      return;
-    }
-
-    setDeleteAccountError(null);
-    setIsDeleteModalVisible(true);
-  };
-
-  const handleCancelDeleteAccount = () => {
-    if (isDeletingAccount) {
-      return;
-    }
-
-    setIsDeleteModalVisible(false);
-    setDeleteAccountError(null);
-  };
-
-  const handleConfirmDeleteAccount = async () => {
-    if (isDeletingAccount) {
-      return;
-    }
-
-    setIsDeletingAccount(true);
-    setDeleteAccountError(null);
-
-    try {
-      await deleteAccount();
-
-      setIsDeleteModalVisible(false);
-      Alert.alert("Account deleted", "Your account has been permanently deleted.");
-    } catch (error) {
-      setDeleteAccountError(getApiErrorMessage(error));
-    } finally {
-      setIsDeletingAccount(false);
-    }
-  };
-
   const accountActions = [
     ...(!isEmailVerified
       ? [
@@ -240,15 +198,6 @@ export default function MoreScreen() {
       loading: false,
       onPress: () => router.push("/privacy-policy" as Href),
       title: "Privacy Policy",
-    },
-    {
-      danger: true,
-      description: "Permanently remove your account and all associated data.",
-      icon: "trash-outline" as const,
-      key: "delete-account",
-      loading: isDeletingAccount,
-      onPress: handleDeleteAccount,
-      title: "Delete Account",
     },
   ];
 
@@ -373,14 +322,6 @@ export default function MoreScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
-
-      <DeleteAccountModal
-        errorMessage={deleteAccountError}
-        isDeleting={isDeletingAccount}
-        onCancel={handleCancelDeleteAccount}
-        onConfirm={() => void handleConfirmDeleteAccount()}
-        visible={isDeleteModalVisible}
-      />
     </SafeAreaView>
   );
 }

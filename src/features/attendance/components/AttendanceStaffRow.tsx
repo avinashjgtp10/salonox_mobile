@@ -15,6 +15,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AttendanceRecord } from "@/types/attendance";
 
 type AttendanceStaffRowProps = {
+  canManageAttendance: boolean;
   isBusy: boolean;
   onOpenModal: () => void;
   onPrimaryAction: () => void;
@@ -23,6 +24,7 @@ type AttendanceStaffRowProps = {
 };
 
 function AttendanceStaffRowComponent({
+  canManageAttendance,
   isBusy,
   onOpenModal,
   onPrimaryAction,
@@ -36,6 +38,11 @@ function AttendanceStaffRowComponent({
   const avatarBg = record?.avatarBg || staffMember.avatarBg || Colors.bg2;
   const avatarColor = record?.avatarColor || staffMember.avatarColor || Colors.primaryDark;
   const initials = record?.initials || staffMember.initials;
+  const scheduledHoursLabel =
+    typeof record?.scheduledHours === "number" && record.scheduledHours > 0
+      ? `${record.scheduledHours.toFixed(record.scheduledHours % 1 === 0 ? 0 : 1)}h scheduled`
+      : "Schedule --";
+  const showPrimaryAction = canManageAttendance || action.kind !== "edit";
 
   const primaryButtonStyle = [
     styles.primaryButton,
@@ -77,24 +84,30 @@ function AttendanceStaffRowComponent({
             <Ionicons name="hourglass-outline" size={12} color={Colors.text2} />
             <Text style={styles.metaText}>{getWorkingHoursLabel(record)}</Text>
           </View>
+          <View style={styles.metaItem}>
+            <Ionicons name="calendar-clear-outline" size={12} color={Colors.text2} />
+            <Text style={styles.metaText}>{scheduledHoursLabel}</Text>
+          </View>
         </View>
       </View>
 
       <View style={styles.actions}>
-        <TouchableOpacity
-          activeOpacity={0.85}
-          disabled={isBusy}
-          onPress={onPrimaryAction}
-          style={[...primaryButtonStyle, isBusy && styles.buttonDisabled]}
-        >
-          {isBusy ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text style={styles.primaryButtonText}>{action.label}</Text>
-          )}
-        </TouchableOpacity>
+        {showPrimaryAction ? (
+          <TouchableOpacity
+            activeOpacity={0.85}
+            disabled={isBusy}
+            onPress={onPrimaryAction}
+            style={[...primaryButtonStyle, isBusy && styles.buttonDisabled]}
+          >
+            {isBusy ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.primaryButtonText}>{action.label}</Text>
+            )}
+          </TouchableOpacity>
+        ) : null}
 
-        {action.kind !== "edit" ? (
+        {canManageAttendance && action.kind !== "edit" ? (
           <TouchableOpacity activeOpacity={0.85} onPress={onOpenModal} style={styles.secondaryButton}>
             <Ionicons name="create-outline" size={15} color={Colors.primaryDark} />
           </TouchableOpacity>

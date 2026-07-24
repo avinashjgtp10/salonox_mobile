@@ -23,19 +23,19 @@ export type AttendanceStatusConfig = {
   label: string;
 };
 
-// Single source of truth for how a collapsed status key renders everywhere in
+// Single source of truth for how the backend status renders everywhere in
 // the UI (list badges, chips, progress bar tint). Takes the active theme's
 // Colors so callers stay in sync with light/dark mode instead of baking in a
 // static palette.
 const buildAttendanceStatusConfig = (
   Colors: ThemeColors,
 ): Record<AttendanceStatusKey, AttendanceStatusConfig> => ({
-  active: {
+  present: {
     bg: Colors.successBg,
     color: Colors.success,
     icon: "checkmark-circle",
-    key: "active",
-    label: "Active",
+    key: "present",
+    label: "Present",
   },
   late: {
     bg: Colors.warningBg,
@@ -51,12 +51,12 @@ const buildAttendanceStatusConfig = (
     key: "halfDay",
     label: "Half Day",
   },
-  inactive: {
+  absent: {
     bg: Colors.errorBg,
     color: Colors.error,
     icon: "close-circle",
-    key: "inactive",
-    label: "Inactive",
+    key: "absent",
+    label: "Absent",
   },
   onLeave: {
     bg: Colors.purpleBg,
@@ -65,9 +65,16 @@ const buildAttendanceStatusConfig = (
     key: "onLeave",
     label: "On Leave",
   },
+  notMarked: {
+    bg: Colors.bg2,
+    color: Colors.text2,
+    icon: "ellipse-outline",
+    key: "notMarked",
+    label: "Not Marked",
+  },
 });
 
-// Not a real AttendanceStatusKey: this renders when a staff member has no
+// Renders when a staff member has no
 // attendance record for today at all (attendance not yet marked), which is
 // distinct from any status value the backend can actually return.
 const buildNotMarkedStatusConfig = (Colors: ThemeColors): Omit<AttendanceStatusConfig, "key"> => ({
@@ -96,11 +103,10 @@ export type AttendanceAction = {
 };
 
 // Derives the single primary action every staff row must always offer,
-// matching the Web App's contract exactly: no record yet -> Check In;
-// checked in but not out -> Check Out; anything else already recorded
-// (checked out, manually marked absent/late/half-day/on-leave) -> Edit.
+// matching the Web App's contract exactly: timestamps decide actions,
+// independently from the backend status label.
 export const getAttendanceAction = (record: AttendanceRecord | null | undefined): AttendanceAction => {
-  if (!record) {
+  if (!record || (!record.checkInTime && !record.checkOutTime)) {
     return { kind: "checkIn", label: "Check In" };
   }
 
@@ -133,11 +139,12 @@ export const MANUAL_STATUS_OPTIONS: { label: string; value: ManualAttendanceStat
   ["present", "late", "halfDay", "absent", "onLeave"] as ManualAttendanceStatus[]
 ).map((value) => ({ label: MANUAL_STATUS_LABELS[value], value }));
 
-// Reverse of the collapsed statusKey mapping, used to pre-populate the Edit
+// Reverse of the backend status mapping, used to pre-populate the Edit
 // modal's status dropdown from an existing record.
 export const statusKeyToManualStatus = (statusKey: AttendanceStatusKey): ManualAttendanceStatus => {
   switch (statusKey) {
-    case "active":
+    case "present":
+    case "notMarked":
       return "present";
     case "late":
       return "late";
@@ -145,7 +152,7 @@ export const statusKeyToManualStatus = (statusKey: AttendanceStatusKey): ManualA
       return "halfDay";
     case "onLeave":
       return "onLeave";
-    case "inactive":
+    case "absent":
     default:
       return "absent";
   }
@@ -212,37 +219,23 @@ export const formatAttendanceTime = (value: string | null | undefined): string =
   return parsed ? formatHourMinuteAmPm(parsed) : "--:--";
 };
 
-// Working hours are always derived live from the check-in/check-out
-// timestamps rather than trusted from a possibly-stale `hoursWorked` field,
-// so the row updates the instant either time changes.
 export const getWorkingHoursLabel = (record: AttendanceRecord | null | undefined): string => {
   if (!record) {
-    return "-";
+    return "—";
   }
 
-  const checkIn = parseAttendanceDateTime(record.checkInTime);
-  const checkOut = parseAttendanceDateTime(record.checkOutTime);
-
-  if (checkIn && checkOut) {
-    const diffMinutes = Math.max(0, Math.round((checkOut.getTime() - checkIn.getTime()) / 60000));
-    const hours = Math.floor(diffMinutes / 60);
-    const minutes = diffMinutes % 60;
-
-    if (hours <= 0 && minutes <= 0) {
-      return "0m";
-    }
-
-    return `${hours > 0 ? `${hours}h ` : ""}${minutes}m`.trim();
-  }
-
-  if (typeof record.hoursWorked === "number" && record.hoursWorked > 0) {
+  if (typeof record.hoursWorked === "number") {
     const hours = Math.floor(record.hoursWorked);
     const minutes = Math.round((record.hoursWorked - hours) * 60);
 
-    return `${hours > 0 ? `${hours}h ` : ""}${minutes}m`.trim();
+    return `${hours > 0 ? `${hours}h ` : ""}${minutes}m`.trim() || "0m";
   }
 
-  return "-";
+  if (typeof record.scheduledHours === "number") {
+    return `${record.scheduledHours.toFixed(record.scheduledHours % 1 === 0 ? 0 : 1)}h`;
+  }
+
+  return "—";
 };
 
 // The backend always computes "today" in Asia/Kolkata (see attendance

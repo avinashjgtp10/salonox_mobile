@@ -24,6 +24,7 @@ const getCards = (Colors: ThemeColors): SummaryCardConfig[] => [
   { bg: Colors.warningBg, color: Colors.warning, icon: "time", key: "late", label: "Late" },
   { bg: Colors.errorBg, color: Colors.error, icon: "close-circle", key: "absent", label: "Absent" },
   { bg: Colors.purpleBg, color: Colors.purple, icon: "moon", key: "onLeave", label: "On Leave" },
+  { bg: Colors.infoBg, color: Colors.info, icon: "contrast", key: "halfDay", label: "Half Day" },
 ];
 
 function AttendanceSummaryCardsComponent({ summary }: AttendanceSummaryCardsProps) {

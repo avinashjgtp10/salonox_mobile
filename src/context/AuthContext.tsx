@@ -20,6 +20,7 @@ import {
 import { branchStorage } from "@/services/branchStorage";
 import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
 import { salonService } from "@/services/salon.service";
+import { realtimeSocket } from "@/services/realtimeSocket";
 import { addSessionInvalidationListener } from "@/services/sessionInvalidation";
 import { markStartup } from "@/services/startupPerformance";
 import { tokenStorage } from "@/services/tokenStorage";
@@ -96,6 +97,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       notificationDeviceStorage.clearRegisteredToken(),
     ]);
     salonService.clearSalonMeCache();
+    realtimeSocket.disconnect();
 
     store.dispatch(resetAppState());
     setUser(null);
@@ -303,9 +305,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       beginUserLogout();
       const session = await tokenStorage.getSession();
 
+      await unregisterNotificationDevice();
       await clearLocalSession("logout");
 
-      void unregisterNotificationDevice();
       void authService.logout({
         accessToken: session.accessToken,
         refreshToken: session.refreshToken,
@@ -328,9 +330,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
       beginUserLogout();
       const session = await tokenStorage.getSession();
 
+      await unregisterNotificationDevice();
       await clearLocalSession("logout_all");
 
-      void unregisterNotificationDevice();
       void authService.logoutAll({ accessToken: session.accessToken }).catch((signOutAllError) => {
         logAuthEvent("logout_all_request_failed_after_local_clear", {
           status: getAuthErrorStatus(signOutAllError),

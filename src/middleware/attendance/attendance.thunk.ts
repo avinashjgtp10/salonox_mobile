@@ -9,7 +9,9 @@ import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import type {
   AttendanceSummary,
   AttendanceToday,
+  CheckInRequest,
   CheckInResponse,
+  CheckOutRequest,
   CheckOutResponse,
   MarkAttendanceRequest,
   MarkAttendanceResponse,
@@ -85,11 +87,11 @@ export const hydrateAttendanceFromCacheThunk = createAsyncThunk<
 
 export const fetchTodayAttendanceThunk = createAsyncThunk<
   AttendanceToday,
-  void,
+  string | undefined,
   { rejectValue: AttendanceRejectValue; state: RootState }
->("attendance/fetchToday", async (_, { getState, rejectWithValue }) => {
+>("attendance/fetchToday", async (date, { getState, rejectWithValue }) => {
   try {
-    const today = await attendanceService.getToday(selectActiveBranchId(getState()));
+    const today = await attendanceService.getToday(selectActiveBranchId(getState()), date);
 
     void attendanceCache.setToday(today);
 
@@ -103,11 +105,11 @@ export const fetchTodayAttendanceThunk = createAsyncThunk<
 
 export const fetchAttendanceSummaryThunk = createAsyncThunk<
   AttendanceSummary,
-  void,
+  string | undefined,
   { rejectValue: AttendanceRejectValue; state: RootState }
->("attendance/fetchSummary", async (_, { getState, rejectWithValue }) => {
+>("attendance/fetchSummary", async (date, { getState, rejectWithValue }) => {
   try {
-    const summary = await attendanceService.getSummary(selectActiveBranchId(getState()));
+    const summary = await attendanceService.getSummary(selectActiveBranchId(getState()), date);
 
     void attendanceCache.setSummary(summary);
 
@@ -125,26 +127,26 @@ export const fetchAttendanceSummaryThunk = createAsyncThunk<
 // this never double-tracks loading/error flags.
 export const fetchAttendanceOverviewThunk = createAsyncThunk<
   void,
-  void,
+  string | undefined,
   { state: RootState }
->("attendance/fetchOverview", async (_, { dispatch }) => {
-  await Promise.all([dispatch(fetchTodayAttendanceThunk()), dispatch(fetchAttendanceSummaryThunk())]);
+>("attendance/fetchOverview", async (date, { dispatch }) => {
+  await Promise.all([dispatch(fetchTodayAttendanceThunk(date)), dispatch(fetchAttendanceSummaryThunk(date))]);
 });
 
 export const checkInThunk = createAsyncThunk<
   CheckInResponse,
-  string,
+  CheckInRequest & { date?: string },
   { rejectValue: AttendanceRejectValue; state: RootState }
->("attendance/checkIn", async (staffId, { dispatch, rejectWithValue }) => {
+>("attendance/checkIn", async (payload, { dispatch, rejectWithValue }) => {
   try {
-    const response = await attendanceService.checkIn(staffId);
+    const response = await attendanceService.checkIn(payload);
 
-    void dispatch(fetchAttendanceOverviewThunk());
+    void dispatch(fetchAttendanceOverviewThunk(payload.date));
     void dispatch(fetchDashboardThunk());
 
     return response;
   } catch (error) {
-    console.error("[Attendance] Check-in failed", { staffId, ...toRejectValue(error) });
+    console.error("[Attendance] Check-in failed", { staffId: payload.staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -152,18 +154,18 @@ export const checkInThunk = createAsyncThunk<
 
 export const checkOutThunk = createAsyncThunk<
   CheckOutResponse,
-  string,
+  CheckOutRequest & { date?: string },
   { rejectValue: AttendanceRejectValue; state: RootState }
->("attendance/checkOut", async (staffId, { dispatch, rejectWithValue }) => {
+>("attendance/checkOut", async (payload, { dispatch, rejectWithValue }) => {
   try {
-    const response = await attendanceService.checkOut(staffId);
+    const response = await attendanceService.checkOut(payload);
 
-    void dispatch(fetchAttendanceOverviewThunk());
+    void dispatch(fetchAttendanceOverviewThunk(payload.date));
     void dispatch(fetchDashboardThunk());
 
     return response;
   } catch (error) {
-    console.error("[Attendance] Check-out failed", { staffId, ...toRejectValue(error) });
+    console.error("[Attendance] Check-out failed", { staffId: payload.staffId, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -177,7 +179,7 @@ export const markAttendanceThunk = createAsyncThunk<
   try {
     const response = await attendanceService.markAttendance(payload);
 
-    void dispatch(fetchAttendanceOverviewThunk());
+    void dispatch(fetchAttendanceOverviewThunk(payload.date));
     void dispatch(fetchDashboardThunk());
 
     return response;
@@ -190,13 +192,13 @@ export const markAttendanceThunk = createAsyncThunk<
 
 export const updateAttendanceThunk = createAsyncThunk<
   UpdateAttendanceResponse,
-  { attendanceId: string; updates: UpdateAttendanceRequest },
+  { attendanceId: string; date?: string; updates: UpdateAttendanceRequest },
   { rejectValue: AttendanceRejectValue; state: RootState }
->("attendance/update", async ({ attendanceId, updates }, { dispatch, rejectWithValue }) => {
+>("attendance/update", async ({ attendanceId, date, updates }, { dispatch, rejectWithValue }) => {
   try {
     const response = await attendanceService.updateAttendance(attendanceId, updates);
 
-    void dispatch(fetchAttendanceOverviewThunk());
+    void dispatch(fetchAttendanceOverviewThunk(date));
     void dispatch(fetchDashboardThunk());
 
     return response;

@@ -13,7 +13,12 @@ import {
   selectAttendanceUpdatingIds,
 } from "@/store/attendance/attendance.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import type { ManualAttendanceStatus, UpdateAttendanceRequest } from "@/types/attendance";
+import type {
+  CheckInRequest,
+  CheckOutRequest,
+  ManualAttendanceStatus,
+  UpdateAttendanceRequest,
+} from "@/types/attendance";
 
 // Reusable check-in / check-out / manual-mark / edit dispatch + per-item busy
 // state, so any screen that manages staff attendance (dashboard today, team
@@ -30,8 +35,14 @@ export const useAttendanceActions = () => {
   // Returns the unwrapped result so callers that need to know success/failure
   // (e.g. to close a modal only once the save actually lands) can await it;
   // callers that only need to fire-and-forget can ignore the promise.
-  const checkIn = useCallback((staffId: string) => dispatch(checkInThunk(staffId)).unwrap(), [dispatch]);
-  const checkOut = useCallback((staffId: string) => dispatch(checkOutThunk(staffId)).unwrap(), [dispatch]);
+  const checkIn = useCallback(
+    (payload: CheckInRequest & { date?: string }) => dispatch(checkInThunk(payload)).unwrap(),
+    [dispatch],
+  );
+  const checkOut = useCallback(
+    (payload: CheckOutRequest & { date?: string }) => dispatch(checkOutThunk(payload)).unwrap(),
+    [dispatch],
+  );
 
   const markAttendance = useCallback(
     (staffId: string, status: ManualAttendanceStatus, notes?: string, date?: string) =>
@@ -40,8 +51,8 @@ export const useAttendanceActions = () => {
   );
 
   const updateAttendance = useCallback(
-    (attendanceId: string, updates: UpdateAttendanceRequest) =>
-      dispatch(updateAttendanceThunk({ attendanceId, updates })).unwrap(),
+    (attendanceId: string, updates: UpdateAttendanceRequest, date?: string) =>
+      dispatch(updateAttendanceThunk({ attendanceId, date, updates })).unwrap(),
     [dispatch],
   );
 

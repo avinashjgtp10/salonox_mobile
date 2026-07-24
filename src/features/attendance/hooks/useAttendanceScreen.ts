@@ -10,7 +10,6 @@ import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import {
   selectAttendanceCheckingInStaffIds,
   selectAttendanceCheckingOutStaffIds,
-  selectAttendanceDate,
   selectAttendanceIsInitialLoading,
   selectAttendanceRecords,
   selectAttendanceRecordsError,
@@ -26,6 +25,19 @@ export type AttendanceStaffRowData = {
   staffMember: StaffMember;
 };
 
+const shiftDate = (dateKey: string, days: number) => {
+  const [year, month, day] = dateKey.split("-").map(Number);
+  const date = new Date(year, (month || 1) - 1, day || 1);
+
+  date.setDate(date.getDate() + days);
+
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+};
+
 // Orchestrates the Manual Attendance screen's data: joins the live staff
 // roster against today's attendance records (same multi-identifier matching
 // used by the dashboard's Staff Workload widget), and exposes a single
@@ -38,26 +50,22 @@ export const useAttendanceScreen = () => {
   const staffLoading = useAppSelector(selectStaffLoading);
   const attendanceRecords = useAppSelector(selectAttendanceRecords);
   const summary = useAppSelector(selectAttendanceSummary);
-  // GET /attendance/today's own `date` (backend-computed, IST) is the real
-  // "today" this screen is showing; fall back to a locally-computed IST date
-  // only until that first response lands, so Manual Mark's required `date`
-  // field is never undefined.
-  const backendDate = useAppSelector(selectAttendanceDate);
-  const attendanceDate = backendDate || getTodayAttendanceDateKey();
   const isInitialLoading = useAppSelector(selectAttendanceIsInitialLoading);
   const recordsError = useAppSelector(selectAttendanceRecordsError);
   const recordsRefreshing = useAppSelector(selectAttendanceRecordsRefreshing);
   const checkingInStaffIds = useAppSelector(selectAttendanceCheckingInStaffIds);
   const checkingOutStaffIds = useAppSelector(selectAttendanceCheckingOutStaffIds);
 
+  const [selectedDate, setSelectedDate] = useState(getTodayAttendanceDateKey);
   const [isManualRefreshing, setIsManualRefreshing] = useState(false);
+  const [search, setSearch] = useState("");
 
   const refresh = useCallback(async () => {
     await Promise.all([
-      dispatch(fetchAttendanceOverviewThunk()),
+      dispatch(fetchAttendanceOverviewThunk(selectedDate)),
       dispatch(fetchStaffThunk({ reset: true })),
     ]);
-  }, [dispatch]);
+  }, [dispatch, selectedDate]);
 
   // Fires on initial mount and every time the screen regains focus (e.g.
   // navigating back from a staff detail screen), so data never goes stale
@@ -87,13 +95,27 @@ export const useAttendanceScreen = () => {
     [rawStaffMembers],
   );
 
+  const filteredStaffMembers = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
+    if (!query) {
+      return activeStaffMembers;
+    }
+
+    return activeStaffMembers.filter(
+      (member) =>
+        member.name.toLowerCase().includes(query) ||
+        member.role.toLowerCase().includes(query),
+    );
+  }, [activeStaffMembers, search]);
+
   const rows = useMemo<AttendanceStaffRowData[]>(
     () =>
-      activeStaffMembers.map((staffMember) => ({
+      filteredStaffMembers.map((staffMember) => ({
         record: findAttendanceRecordForStaff(attendanceRecords, staffMember) ?? null,
         staffMember,
       })),
-    [activeStaffMembers, attendanceRecords],
+    [attendanceRecords, filteredStaffMembers],
   );
 
   const isStaffBusy = useCallback(
@@ -102,14 +124,21 @@ export const useAttendanceScreen = () => {
   );
 
   return {
-    attendanceDate,
     handlePullToRefresh,
     isInitialLoading: isInitialLoading || (staffLoading && activeStaffMembers.length === 0),
     isRefreshing: isManualRefreshing || recordsRefreshing,
     isStaffBusy,
+    isTodaySelected: selectedDate >= getTodayAttendanceDateKey(),
+    onNextDay: () => setSelectedDate((date) => shiftDate(date, 1)),
+    onPreviousDay: () => setSelectedDate((date) => shiftDate(date, -1)),
+    onSearchChange: setSearch,
+    onSelectDate: setSelectedDate,
+    onToday: () => setSelectedDate(getTodayAttendanceDateKey()),
     recordsError,
     refresh,
     rows,
+    search,
+    selectedDate,
     summary,
   };
 };

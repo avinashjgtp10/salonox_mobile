@@ -260,7 +260,7 @@ export function EditAttendanceModal({
         ...(checkInDate ? { checkInTime: checkInDate.toISOString() } : {}),
         ...(checkOutDate ? { checkOutTime: checkOutDate.toISOString() } : {}),
         notes: note.trim() || undefined,
-      });
+      }, attendanceDate);
       onClose();
     } catch (thunkError) {
       const rejectValue = thunkError as Partial<AttendanceRejectValue> | undefined;
