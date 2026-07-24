@@ -63,7 +63,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   const { memberships: clientActiveMemberships } = useClientMembershipWallet(clientIdForExtras);
   const { data: clientPkgsData } = useListClientPackagesQuery(
     { clientId: clientIdForExtras, status: "Active", limit: 50 },
-    { skip: !clientIdForExtras },
+    // See ClientPanel.tsx's identical option — avoids showing a stale
+    // "no packages" cache hit for a package bought outside this query.
+    { skip: !clientIdForExtras, refetchOnMountOrArgChange: true },
   );
   const activePackagesForBill = (clientPkgsData?.items ?? [])
     .filter((p) => p.status === "Active")
