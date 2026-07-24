@@ -7,6 +7,8 @@ import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
+import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
+import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
 import "./DailySheetReport.scss";
 
 const REPORT_NAME = "Daily Sheet";
@@ -22,6 +24,7 @@ interface DailyRow {
   staff: string;
   amount: number;
   paymentMethod: string;
+  status: string;
 }
 
 // Maps a row from the independent Daily Sheet API
@@ -39,6 +42,7 @@ function mapRow(row: any): DailyRow {
     staff: row.staff || "—",
     amount: Number(row.amount) || 0,
     paymentMethod: row.payment_method || "N/A",
+    status: row.status ?? "booked",
   };
 }
 
@@ -95,6 +99,9 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
     }
   }, [date, serviceFilter, staffFilter, currentPage, pageSize]);
 
+  const bulkDelete = useBulkAppointmentDelete(fetchData);
+  const deletableIds = rows.filter(r => r.appointmentId).map(r => r.appointmentId as string);
+
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Filter changes go back to page 1 — page/pageSize changes themselves
@@ -107,8 +114,8 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const HEADERS = ["Time", "Ticket No", "Client Name", "Service", "Staff", "Amount (₹)", "Payment Method"];
-  const exportRows = () => rows.map(r => [r.time, r.ticketNo, r.clientName, r.service, r.staff, r.amount, r.paymentMethod]);
+  const HEADERS = ["Time", "Ticket No", "Client Name", "Service", "Staff", "Amount (₹)", "Payment Method", "Status"];
+  const exportRows = () => rows.map(r => [r.time, r.ticketNo, r.clientName, r.service, r.staff, r.amount, r.paymentMethod, r.status]);
 
   return (
     <div className="rp-detail-view">
@@ -176,10 +183,21 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
         </div>
       )}
 
+      <BulkDeleteBar count={bulkDelete.selectedIds.size} onDeleteClick={() => bulkDelete.setShowConfirm(true)} />
+
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={deletableIds.length > 0 && deletableIds.every(id => bulkDelete.selectedIds.has(id))}
+                  onChange={() => bulkDelete.toggleAll(deletableIds)}
+                  disabled={deletableIds.length === 0}
+                />
+              </th>
               <th>Time</th>
               <th>Ticket No</th>
               <th>Client Name</th>
@@ -187,30 +205,38 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
               <th>Staff</th>
               <th>Amount (₹)</th>
               <th>Payment Method</th>
+              <th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={7} />
+              <SkeletonTableRows columns={9} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
+              <tr><td colSpan={9} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.map((r, i) => (
-              <tr
-                key={i}
-                className={r.appointmentId ? "rp-appt-row" : undefined}
-                onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}
-              >
-                <td>{r.time || "—"}</td>
-                <td>
+              <tr key={i} className={r.appointmentId ? "rp-appt-row" : undefined}>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  {r.appointmentId && (
+                    <input
+                      type="checkbox"
+                      className="rp-row-checkbox"
+                      checked={bulkDelete.selectedIds.has(r.appointmentId)}
+                      onChange={() => bulkDelete.toggleOne(r.appointmentId as string)}
+                    />
+                  )}
+                </td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.time || "—"}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>
                   <span className="rp-detail-link" title={r.ticketNo}>
                     {r.ticketNo.length > 12 ? r.ticketNo.slice(0, 8).toUpperCase() + "…" : r.ticketNo}
                   </span>
                 </td>
-                <td><span className="rp-detail-link">{r.clientName || "Walk-in"}</span></td>
-                <td>{r.service}</td>
-                <td>{r.staff}</td>
-                <td className="fw-semibold">₹{r.amount.toLocaleString("en-IN")}</td>
-                <td className="rp-ds-payment">{r.paymentMethod}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}><span className="rp-detail-link">{r.clientName || "Walk-in"}</span></td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.service}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.staff}</td>
+                <td className="fw-semibold" onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>₹{r.amount.toLocaleString("en-IN")}</td>
+                <td className="rp-ds-payment" onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.paymentMethod}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
               </tr>
             ))}
           </tbody>
@@ -229,6 +255,15 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
           onClose={() => setSelectedAppointmentId(null)}
         />
       )}
+
+      <BulkDeleteConfirmModal
+        show={bulkDelete.showConfirm}
+        count={bulkDelete.selectedIds.size}
+        deleting={bulkDelete.deleting}
+        error={bulkDelete.error}
+        onCancel={() => { bulkDelete.setShowConfirm(false); bulkDelete.setError(null); }}
+        onConfirm={bulkDelete.confirmDelete}
+      />
     </div>
   );
 }

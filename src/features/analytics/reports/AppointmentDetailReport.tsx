@@ -7,6 +7,8 @@ import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
+import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
+import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
 import "./AppointmentDetailReport.scss";
 
 const REPORT_NAME = "Detailed Appointment Reports";
@@ -94,6 +96,8 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
       if (!ctrl.signal.aborted) setLoading(false);
     }
   }, [dateFrom, dateTo, selectedStatuses, currentPage, pageSize]);
+
+  const bulkDelete = useBulkAppointmentDelete(fetchData);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -197,10 +201,20 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
         </div>
       )}
 
+      <BulkDeleteBar count={bulkDelete.selectedIds.size} onDeleteClick={() => bulkDelete.setShowConfirm(true)} />
+
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every(r => bulkDelete.selectedIds.has(r.id))}
+                  onChange={() => bulkDelete.toggleAll(rows.map(r => r.id))}
+                />
+              </th>
               <th>Appointment Date</th>
               <th>Time</th>
               <th>Booked Date</th>
@@ -215,22 +229,30 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={10} />
+              <SkeletonTableRows columns={11} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={10} className="rp-detail-empty-cell">No data available</td></tr>
+              <tr><td colSpan={11} className="rp-detail-empty-cell">No data available</td></tr>
             ) : (
               rows.map((row, i) => (
-                <tr key={i} className="rp-appt-row" onClick={() => setSelectedId(row.id)}>
-                  <td>{row.appointmentDate}</td>
-                  <td>{row.time}</td>
-                  <td>{row.bookedDate}</td>
-                  <td>{row.clientName || "—"}</td>
-                  <td className="rp-adr-service" title={row.serviceName}>{row.serviceName}</td>
-                  <td>{row.staffName || "—"}</td>
-                  <td>{row.duration ? `${row.duration} min` : "—"}</td>
-                  <td>{row.amount > 0 ? `₹${Number(row.amount).toLocaleString("en-IN")}` : "—"}</td>
-                  <td>{row.paymentMethod || "—"}</td>
-                  <td><span className={`rp-status-badge rp-status-${row.paymentStatus}`}>{row.paymentStatus}</span></td>
+                <tr key={i} className="rp-appt-row">
+                  <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="rp-row-checkbox"
+                      checked={bulkDelete.selectedIds.has(row.id)}
+                      onChange={() => bulkDelete.toggleOne(row.id)}
+                    />
+                  </td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.appointmentDate}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.time}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.bookedDate}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.clientName || "—"}</td>
+                  <td className="rp-adr-service" title={row.serviceName} onClick={() => setSelectedId(row.id)}>{row.serviceName}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.staffName || "—"}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.duration ? `${row.duration} min` : "—"}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.amount > 0 ? `₹${Number(row.amount).toLocaleString("en-IN")}` : "—"}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.paymentMethod || "—"}</td>
+                  <td onClick={() => setSelectedId(row.id)}><span className={`rp-status-badge rp-status-${row.paymentStatus}`}>{row.paymentStatus}</span></td>
                 </tr>
               ))
             )}
@@ -251,6 +273,15 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
           onChanged={fetchData}
         />
       )}
+
+      <BulkDeleteConfirmModal
+        show={bulkDelete.showConfirm}
+        count={bulkDelete.selectedIds.size}
+        deleting={bulkDelete.deleting}
+        error={bulkDelete.error}
+        onCancel={() => { bulkDelete.setShowConfirm(false); bulkDelete.setError(null); }}
+        onConfirm={bulkDelete.confirmDelete}
+      />
     </div>
   );
 }

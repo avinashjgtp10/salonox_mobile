@@ -10,6 +10,8 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, Loader } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
+import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
+import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
@@ -71,7 +73,7 @@ function mapAppointment(row: any): SaleRow {
     dueAmount: Number(row.due_amount) || 0,
     description,
     modes: row.payment_method ?? "—",
-    status: row.status ?? "draft",
+    status: row.status ?? "booked",
     date: String(row.created_at ?? "").slice(0, 10),
     tip: Number(row.tip_amount) || 0,
     ewalletUsed,
@@ -272,6 +274,11 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
     }
   }, [dateFrom, dateTo, staffFilter, search, currentPage, pageSize]);
 
+  const bulkDelete = useBulkAppointmentDelete(fetchData);
+  // Only sale rows linked to a real appointment can be bulk-deleted — walk-in
+  // sales with no appointment_id have nothing on the Appointment API to delete.
+  const deletableIds = rows.filter(r => r.appointmentId).map(r => r.appointmentId as string);
+
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Filter/search changes go back to page 1 — page/pageSize changes
@@ -376,10 +383,21 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
+      <BulkDeleteBar count={bulkDelete.selectedIds.size} onDeleteClick={() => bulkDelete.setShowConfirm(true)} />
+
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={deletableIds.length > 0 && deletableIds.every(id => bulkDelete.selectedIds.has(id))}
+                  onChange={() => bulkDelete.toggleAll(deletableIds)}
+                  disabled={deletableIds.length === 0}
+                />
+              </th>
               <th>Invoice No</th>
               <th>Name</th>
               <th>Contact</th>
@@ -400,27 +418,37 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={16} />
+              <SkeletonTableRows columns={17} />
             ) : paged.length === 0 ? (
-              <tr><td colSpan={16} className="rp-detail-empty-cell">No sales found</td></tr>
+              <tr><td colSpan={17} className="rp-detail-empty-cell">No sales found</td></tr>
             ) : paged.map((r, i) => (
-              <tr key={i} className="rp-appt-row" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>
-                <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
-                <td className="fw-semibold">{r.name}</td>
-                <td>{r.contact}</td>
-                <td className="rp-ss-desc" title={r.description}>{r.description}</td>
-                <td>{r.itemTypes}</td>
-                <td>{money(r.actualPrice)}</td>
-                <td className="fw-semibold">{money(r.price)}</td>
-                <td>{money(r.paid)}</td>
-                <td>{r.ewalletUsed > 0 ? money(r.ewalletUsed) : "—"}</td>
-                <td>{r.membershipWalletUsed > 0 ? money(r.membershipWalletUsed) : "—"}</td>
-                <td>{r.rewardPointsValue > 0 ? money(r.rewardPointsValue) : "—"}</td>
-                <td>{r.referralCreditUsed > 0 ? money(r.referralCreditUsed) : "—"}</td>
-                <td>{money(r.dueAmount)}</td>
-                <td className="rp-ss-mode">{r.modes}</td>
-                <td><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
-                <td>{r.date}</td>
+              <tr key={i} className="rp-appt-row">
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  {r.appointmentId && (
+                    <input
+                      type="checkbox"
+                      className="rp-row-checkbox"
+                      checked={bulkDelete.selectedIds.has(r.appointmentId)}
+                      onChange={() => bulkDelete.toggleOne(r.appointmentId as string)}
+                    />
+                  )}
+                </td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}><span className="rp-detail-link">{r.invoiceNo}</span></td>
+                <td className="fw-semibold" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.name}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.contact}</td>
+                <td className="rp-ss-desc" title={r.description} onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.description}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.itemTypes}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.actualPrice)}</td>
+                <td className="fw-semibold" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.price)}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.paid)}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.ewalletUsed > 0 ? money(r.ewalletUsed) : "—"}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.membershipWalletUsed > 0 ? money(r.membershipWalletUsed) : "—"}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.rewardPointsValue > 0 ? money(r.rewardPointsValue) : "—"}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.referralCreditUsed > 0 ? money(r.referralCreditUsed) : "—"}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.dueAmount)}</td>
+                <td className="rp-ss-mode" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.modes}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.date}</td>
               </tr>
             ))}
           </tbody>
@@ -446,6 +474,15 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
           />
         )
       )}
+
+      <BulkDeleteConfirmModal
+        show={bulkDelete.showConfirm}
+        count={bulkDelete.selectedIds.size}
+        deleting={bulkDelete.deleting}
+        error={bulkDelete.error}
+        onCancel={() => { bulkDelete.setShowConfirm(false); bulkDelete.setError(null); }}
+        onConfirm={bulkDelete.confirmDelete}
+      />
     </div>
   );
 }
