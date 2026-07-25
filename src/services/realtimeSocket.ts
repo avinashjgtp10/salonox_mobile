@@ -1,6 +1,6 @@
 import { io, type Socket } from "socket.io-client";
 
-import { environmentConfig } from "@/config/environment";
+import { environmentConfig, getEnvironmentConfigurationError } from "@/config/environment";
 import { tokenStorage } from "@/services/tokenStorage";
 
 const SOCKET_URL = environmentConfig.socketUrl;
@@ -18,6 +18,13 @@ class RealtimeSocket {
   }
 
   async connect({ salonId }: ConnectArgs) {
+    const configurationError = getEnvironmentConfigurationError();
+
+    if (configurationError) {
+      console.error("[Socket.IO] Connection skipped", configurationError);
+      return null;
+    }
+
     const accessToken = await tokenStorage.getAccessToken();
 
     if (!accessToken) {

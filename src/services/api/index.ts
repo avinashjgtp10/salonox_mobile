@@ -16,7 +16,7 @@ import {
   shouldInvalidateSession,
   shouldRefreshToken,
 } from "@/services/authSession";
-import { environmentConfig } from "@/config/environment";
+import { environmentConfig, getEnvironmentConfigurationError } from "@/config/environment";
 import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
 import { tokenStorage } from "@/services/tokenStorage";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
@@ -211,6 +211,14 @@ const waitForOnlineIfNeeded = async (config: InternalAxiosRequestConfig) => {
   throw new ApiError(OFFLINE_MUTATION_MESSAGE);
 };
 
+const assertApiEnvironmentConfigured = () => {
+  const configurationError = getEnvironmentConfigurationError();
+
+  if (configurationError) {
+    throw new ApiError(configurationError);
+  }
+};
+
 const toApiError = (error: unknown) => {
   if (isAxiosError<ApiErrorPayload>(error)) {
     if (!error.response) {
@@ -305,6 +313,7 @@ const refreshAccessToken = async (reason: string) => {
 api.interceptors.request.use(async (config) => {
   const requestUrl = config.url ?? "";
 
+  assertApiEnvironmentConfigured();
   await waitForOnlineIfNeeded(config);
 
   if (shouldSkipRefreshForRequest(requestUrl)) {
