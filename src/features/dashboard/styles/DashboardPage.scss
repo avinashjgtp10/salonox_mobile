@@ -515,65 +515,39 @@ body {
     box-shadow: 0 6px 20px rgba(0,0,0,0.08);
     transform: translateY(-2px);
   }
+}
 
-  /* Flip variant — the card itself becomes a bare perspective container;
-     background/border/padding move onto each .db-kpi-card__face instead so
-     both faces can be laid out independently and rotated in 3D. */
-  &--flip {
-    background: none;
-    border: none;
-    padding: 0;
-    box-shadow: none;
-    height: 152px;
-    min-height: 0;
-    position: relative;
-    perspective: 1200px;
-    cursor: pointer;
+// Small two-way pill toggle inside a KPI card — replaces the old auto-flip
+// animation with an explicit, static choice: nothing moves until clicked.
+.db-kpi-toggle {
+  display: inline-flex;
+  background: #f3f4f6;
+  border-radius: 999px;
+  padding: 2px;
+  gap: 2px;
+  margin: 6px 0;
+}
 
-    &:hover {
-      box-shadow: none;
-      transform: none;
-    }
+.db-kpi-toggle__btn {
+  border: none;
+  background: none;
+  font-size: 11px;
+  font-weight: 600;
+  color: $dashboard-secondary;
+  padding: 4px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
 
-    &:focus-visible {
-      outline: 2px solid #4f46e5;
-      outline-offset: 3px;
-      border-radius: 14px;
-    }
+  &:hover {
+    color: $dashboard-primary;
   }
-}
 
-.db-kpi-card__inner {
-  position: relative;
-  width: 100%;
-  height: 100%;
-  transition: transform 0.6s cubic-bezier(0.4, 0.2, 0.2, 1);
-  transform-style: preserve-3d;
-  // Always rotates FORWARD by another 180deg each flip (0 → 180 → 360 → 540…)
-  // instead of toggling 0/180, so it never visibly "unwinds" backward.
-  transform: rotateY(var(--flip-deg, 0deg));
-}
-
-.db-kpi-card__face {
-  position: absolute;
-  inset: 0;
-  backface-visibility: hidden;
-  background: $white;
-  border: 1px solid $dashboard-border;
-  border-radius: 14px;
-  padding: 20px;
-  box-shadow: 0 1px 4px rgba(0,0,0,0.04);
-  display: flex;
-  flex-direction: column;
-  transition: box-shadow 0.2s;
-
-  &--back {
-    transform: rotateY(180deg);
+  &--active {
+    background: $white;
+    color: $dashboard-primary;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
   }
-}
-
-.db-kpi-card--flip:hover .db-kpi-card__face {
-  box-shadow: 0 6px 20px rgba(0,0,0,0.08);
 }
 
 .db-kpi-top {
@@ -1917,6 +1891,18 @@ body {
   font-size: 11.5px;
   font-weight: 600;
   white-space: nowrap;
+  cursor: pointer;
+  transition: transform 0.1s, box-shadow 0.15s;
+
+  &:hover   { filter: brightness(0.96); }
+  &:active  { transform: scale(0.97); }
+  &:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+
+  // Active/selected filter — same tint, just a stronger border + subtle ring
+  // so it's obvious which status the table below is currently narrowed to.
+  &--active {
+    box-shadow: 0 0 0 2px currentColor inset;
+  }
 
   &.db-appt-chip-success { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
   &.db-appt-chip-info    { background: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; }
@@ -1925,6 +1911,18 @@ body {
   &.db-appt-chip-danger  { background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }
   &.db-appt-chip-noshow  { background: #f5f3ff; color: #7c3aed; border: 1px solid #ddd6fe; }
   &.db-appt-chip-neutral { background: #f3f4f6; color: #6b7280; border: 1px solid #e5e7eb; }
+}
+
+.db-appt-clear-filter {
+  border: none;
+  background: none;
+  color: #4f46e5;
+  font-weight: 600;
+  font-size: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0;
+  margin-left: 4px;
 }
 
 /* ── Table Wrapper (overrides overflow-x inside section) ── */
