@@ -145,6 +145,16 @@ const schedulerSlice = createSlice({
     clearDragPatch(state, { payload }: PayloadAction<string>) {
       delete state.dragPatchCache[String(payload)];
     },
+    // paymentPatchCache bridges the gap right after a payment, before the list
+    // endpoint's own row catches up — but nothing ever cleared it afterward, so
+    // it kept overriding every later refresh's fresh status/grandTotal/etc.
+    // forever, e.g. making a later edit to that same (already-paid) appointment
+    // look like it never refreshed. Called once a genuine update to the
+    // appointment itself has round-tripped, so the next refresh trusts the
+    // server's fresh response again instead of the stale payment snapshot.
+    clearPaymentPatch(state, { payload }: PayloadAction<string>) {
+      delete state.paymentPatchCache[String(payload)];
+    },
     setStaffList(state, { payload }: PayloadAction<Staff[]>) {
       state.staffList = payload;
     },
@@ -342,7 +352,7 @@ export const {
   setStaffList, setSelectedStaffId, setHighlightedBookingId, setClientsList,
   setServicesList, setPackagesList, setMembershipsList, setProductsList,
   setStaffSchedules, bumpScheduleVersion,
-  addBooking, updateBooking, patchPaymentStatus, replaceBookingId, deleteBooking,
+  addBooking, updateBooking, patchPaymentStatus, clearPaymentPatch, replaceBookingId, deleteBooking,
   setBlockedTimes, addBlockedTime, updateBlockedTime, replaceBlockedTimeId, deleteBlockedTime,
   setViewMode, setCurrentDate, setInterval, navigate,
   updateClientNotes,

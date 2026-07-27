@@ -1004,6 +1004,7 @@ export const AppointmentModal: React.FC<Props> = ({
   const [clientError,    setClientError]    = useState("");
   const [noItemsError,   setNoItemsError]   = useState(false);
   const [blockTimeError,      setBlockTimeError]      = useState("");
+  const [overnightError,      setOvernightError]      = useState("");
   const [svcErrors,      setSvcErrors]      = useState<Array<{ service?: boolean; staff?: boolean; time?: boolean }>>([]);
   const [pkgErrors,      setPkgErrors]      = useState<Array<{ item?: boolean; staff?: boolean; time?: boolean }>>([]);
   const [prodErrors,     setProdErrors]     = useState<Array<{ item?: boolean; staff?: boolean; time?: boolean }>>([]);
@@ -1038,6 +1039,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
   useEffect(() => {
     if (blockTimeError) setBlockTimeError("");
+    if (overnightError) setOvernightError("");
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [serviceRows, packageRows, membershipRows, productRows, calDate]);
 
@@ -1105,6 +1107,19 @@ export const AppointmentModal: React.FC<Props> = ({
       ...productRows.filter((r: any) => r.productId && r.staffId && r.time)
         .map((r: any) => ({ staffId: r.staffId, time: r.time, duration: r.duration || 30 })),
     ];
+    // ── Reject any item that would run past midnight ──────────────────────
+    // The calendar grid, drag/resize, and duration math (see useAppointment.ts's
+    // buildSavePayload) all assume a single calendar day — nothing here rolls
+    // an appointment onto the next day's date. Block it up front with a clear
+    // message rather than silently truncating the stored duration.
+    setOvernightError("");
+    const overnightRow = rowsToCheck.find((row) => timeToMins(row.time) + (row.duration || 30) > 24 * 60);
+    if (overnightRow) {
+      setOvernightError("This appointment runs past midnight — please choose a start time/duration that ends before 12:00 AM, or split it into two separate bookings.");
+      ok = false;
+      if (!scrollTarget) scrollTarget = "services";
+    }
+
     for (const row of rowsToCheck) {
       const svcStart = timeToMins(row.time);
       const svcEnd   = svcStart + (row.duration || 30);
@@ -1204,23 +1219,20 @@ export const AppointmentModal: React.FC<Props> = ({
       discountType, discountValue, exCharges, tip, activeTaxes, totals,
       onRefresh, onClose]);
 
-  // Save (or update) the booking, then reveal the payment section — shared by
-  // "Continue to Payment" (existing booking) and Quick Sale (new booking, ₹0).
-  const handleContinueToPaymentZero = useCallback(async () => {
+  // Reveal the payment section only — does NOT persist anything. The
+  // appointment is only actually saved/updated once the client confirms
+  // payment (see handlePay / handleZeroPackagePayment), so simply opening
+  // the payment step on an existing booking no longer fires an update call.
+  const handleContinueToPaymentZero = useCallback(() => {
     if (totalsNotReady) return;
     if (!validate()) return;
-    const id = await save(buildSavePayload());
-    if (!id) return;
     setShowPaymentSection(true);
     setTimeout(() => { paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }); }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
-      calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, exCharges, tip, activeTaxes, totals]);
+  }, [totalsNotReady, selectedClient, serviceRows, packageRows, productRows, membershipRows]);
 
-  // Same as above but requires a real (non-walk-in) client — shared by
-  // "Continue to Payment" (existing booking) and Quick Sale (new booking, non-₹0).
-  const handleContinueToPayment = useCallback(async () => {
+  // Same as above but requires a real (non-walk-in) client.
+  const handleContinueToPayment = useCallback(() => {
     if (totalsNotReady) return;
     const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
     if (isWalkIn) {
@@ -1230,16 +1242,12 @@ export const AppointmentModal: React.FC<Props> = ({
       return;
     }
     if (!validate()) return;
-    const id = await save(buildSavePayload());
-    if (!id) return;
     setShowPaymentSection(true);
     setTimeout(() => {
       paymentSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 50);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
-      calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, exCharges, tip, activeTaxes, totals]);
+  }, [totalsNotReady, selectedClient, serviceRows, packageRows, productRows, membershipRows]);
 
   // ── Pay ──────────────────────────────────────────────────────────────────
   const handlePay = useCallback(async () => {
@@ -1255,7 +1263,11 @@ export const AppointmentModal: React.FC<Props> = ({
     }
     setPayMethodError(false);
 
-    const apptId = existingBooking?.id ?? apiAppointmentId;
+    // Persist whatever was edited in this session (services/prices/discounts)
+    // right before actually charging — this is the only point an existing
+    // booking's update API is called from the payment step, not merely
+    // opening/revealing it (see handleContinueToPayment above).
+    const apptId = await save(buildSavePayload());
     if (!apptId) return;
 
     const ok = await completePayment({
@@ -1296,7 +1308,7 @@ export const AppointmentModal: React.FC<Props> = ({
       finishWithPaidPopup();
     }
   }, [
-    completePayment, existingBooking, apiAppointmentId,
+    completePayment, save, existingBooking, apiAppointmentId,
     selectedClient, salonId, totals, alreadyPaidAmount, amountThisTxn,
     eWalletAmt, coupon, paymentMode, singleMethod, splitEntries,
     partialAmtInput, includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership, membershipWalletAmt,
@@ -1307,7 +1319,10 @@ export const AppointmentModal: React.FC<Props> = ({
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   // ── Zero-payment for fully package-covered appointments ─────────────────
   const handleZeroPackagePayment = useCallback(async () => {
-    const apptId = existingBooking?.id ?? apiAppointmentId;
+    // Persist the current services/prices first — Continue to Payment no
+    // longer saves eagerly, so the appointment isn't guaranteed to already
+    // reflect this session's edits until this point.
+    const apptId = existingBooking ? await save(buildSavePayload()) : (apiAppointmentId ?? undefined);
     if (!apptId) return;
     // Catalog total = what the backend stored (price × qty per service, before package discount).
     // The appointment was saved at full price so grand_total > 0 in the DB.
@@ -1345,7 +1360,7 @@ export const AppointmentModal: React.FC<Props> = ({
       onClose();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, existingBooking, apiAppointmentId, selectedClient, salonId, serviceRows, finishWithPaidPopup, onClose]);
+  }, [dispatch, save, existingBooking, apiAppointmentId, selectedClient, salonId, serviceRows, finishWithPaidPopup, onClose]);
 
   // ── Quick Sale: single "Checkout" click — saves the appointment and
   // completes payment in one step, no separate "Continue to Payment" reveal.
@@ -1526,7 +1541,11 @@ export const AppointmentModal: React.FC<Props> = ({
               ? (() => {
                   const [h, m] = last.time.split(":").map(Number);
                   const total = h * 60 + m + (last.duration || 30);
-                  return `${String(Math.floor(total / 60) % 24).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+                  // Don't wrap past midnight into a bogus "00:00" (looks like the
+                  // very start of the same day, not the actual next day) — 23:30
+                  // is the last bookable slot, so cap there instead.
+                  if (total >= 24 * 60) return "23:30";
+                  return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
                 })()
               : rows[0]?.time;
             return [...rows, emptyService("", nextTime)];
@@ -2326,6 +2345,18 @@ export const AppointmentModal: React.FC<Props> = ({
             }}>
               <span style={{ flexShrink: 0 }}>⛔</span>
               <span>{blockTimeError}</span>
+            </div>
+          )}
+
+          {overnightError && (
+            <div style={{
+              margin: "8px 0", padding: "10px 14px",
+              background: "#fef2f2", border: "1px solid #fca5a5",
+              borderRadius: 8, color: "#dc2626", fontSize: 13,
+              display: "flex", alignItems: "flex-start", gap: 8,
+            }}>
+              <span style={{ flexShrink: 0 }}>⛔</span>
+              <span>{overnightError}</span>
             </div>
           )}
         </div>

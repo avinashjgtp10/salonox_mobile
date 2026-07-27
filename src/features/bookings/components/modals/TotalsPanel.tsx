@@ -79,18 +79,20 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   const exclusiveTaxRows = taxBreakdown.filter((t) => !t.inclusive && t.amount > 0);
   const inclusiveTaxRows = taxBreakdown.filter((t) => t.inclusive && t.amount > 0);
 
-  // Standard GST-invoice presentation: whatever the underlying tax config
-  // actually is (one combined "GST" line, or separate CGST/SGST entries),
-  // show it the way a real invoice does — CGST + SGST for an intra-state
-  // sale, IGST for inter-state — rather than whatever raw name the salon
-  // happened to configure. Rate/amount are summed across every component so
-  // a genuine 2.5%+2.5% split still reads as a single correct 5% line.
+  // Combine same-exclusivity tax rows into one line, rate/amount summed so a
+  // genuine 2.5%+2.5% split still reads as a single correct 5% line. The
+  // label uses the salon's own configured tax name(s) — e.g. a single "GST"
+  // row stays "GST", while genuinely separate CGST + SGST rows join as
+  // "CGST + SGST" — rather than always forcing the CGST+SGST label onto
+  // whatever single tax the salon actually configured.
   const combineTaxRows = (rows: TaxBreakdownEntry[]) => {
     if (rows.length === 0) return null;
     const amount = rows.reduce((s, t) => s + t.amount, 0);
     const rate = rows.reduce((s, t) => s + t.rate, 0);
     const isIgst = rows.some((t) => t.name.toUpperCase().includes("IGST"));
-    return { label: isIgst ? "IGST" : "CGST + SGST", amount, rate };
+    const distinctNames = Array.from(new Set(rows.map((t) => t.name)));
+    const label = isIgst ? "IGST" : distinctNames.join(" + ");
+    return { label, amount, rate };
   };
   const combinedExclusiveTax = combineTaxRows(exclusiveTaxRows);
   const combinedInclusiveTax = combineTaxRows(inclusiveTaxRows);
