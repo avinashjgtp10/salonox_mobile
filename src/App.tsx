@@ -1,4 +1,4 @@
-import { Suspense } from "react";
+import { Suspense, createContext } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import { PageLoader } from "./components/ui";
@@ -12,14 +12,19 @@ import SubscriptionWall from "./features/billing/components/SubscriptionWall";
 import { useSubscriptionPoller } from "./hooks/useSubscriptionPoller";
 import { useAppSelector } from "./hooks/useAppRedux";
 
+// Lets any descendant (billing pages, SubscriptionWall) trigger an
+// immediate subscription re-check — e.g. after cancel/renew/upgrade —
+// without prop-drilling through the route tree.
+export const SubscriptionRefreshContext = createContext<() => void>(() => {});
+
 function App() {
   const subscriptionExpired = useAppSelector((s) => s.billing.subscriptionExpired);
   const accessToken = useAppSelector((s) => s.auth.accessToken);
   const role = useAppSelector((s) => s.auth.role);
-  useSubscriptionPoller();
+  const { refreshNow } = useSubscriptionPoller();
 
   return (
-    <>
+    <SubscriptionRefreshContext.Provider value={refreshNow}>
       <Toaster position="top-center" toastOptions={{ duration: 3000 }} />
       <ErrorBoundary>
         <Suspense fallback={<PageLoader fullHeight />}>
@@ -43,7 +48,7 @@ function App() {
       <SalonOxBot />
       {/* Full-screen subscription wall — renders over authenticated routes only */}
       {accessToken && subscriptionExpired && <SubscriptionWall />}
-    </>
+    </SubscriptionRefreshContext.Provider>
   );
 }
 
