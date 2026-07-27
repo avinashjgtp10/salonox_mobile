@@ -13,7 +13,6 @@ import type { ServiceFiltersState } from "../../../store/serviceFiltersSlice";
  */
 export const countActiveFilters = (f: ServiceFiltersState): number =>
   [
-    f.status !== INITIAL_SERVICE_FILTERS.status,
     f.onlineBooking !== INITIAL_SERVICE_FILTERS.onlineBooking,
     f.commissions !== INITIAL_SERVICE_FILTERS.commissions,
     f.resourceRequirements !== INITIAL_SERVICE_FILTERS.resourceRequirements,

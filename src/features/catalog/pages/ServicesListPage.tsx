@@ -62,8 +62,6 @@ const buildFilterParams = (
       "isActive" | "onlineBooking" | "commissionEnabled" | "resourceRequired"
     >
   > = {};
-  if (f.status === "Active")   p.isActive = true;
-  if (f.status === "Inactive") p.isActive = false;
   if (f.onlineBooking === "Enabled")  p.onlineBooking = true;
   if (f.onlineBooking === "Disabled") p.onlineBooking = false;
   if (f.commissions === "Enabled")    p.commissionEnabled = true;
