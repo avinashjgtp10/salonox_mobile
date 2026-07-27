@@ -48,23 +48,6 @@ const ServiceFilterDrawer: React.FC<Props> = ({
         </header>
 
         <div className="service-filters-modal__body">
-          {/* Status */}
-          <div className="filter-group">
-            <label>Status</label>
-            <div className="select-wrapper">
-              <select
-                className="form-select-custom"
-                value={draft.status}
-                onChange={(e) => set("status", e.target.value)}
-              >
-                <option>All status</option>
-                <option>Active</option>
-                <option>Inactive</option>
-              </select>
-              <ChevronDown className="select-chevron" size={14} />
-            </div>
-          </div>
-
           {/* Online bookings */}
           <div className="filter-group">
             <label>Online bookings</label>
