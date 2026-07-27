@@ -1,5 +1,6 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useContext } from "react";
 import { useSearchParams } from "react-router-dom";
+import { SubscriptionRefreshContext } from "../../../App";
 import {
   CheckCircle2, Zap, Building2, Download,
   ArrowUpRight, Users, Calendar, MessageCircle, BarChart2, Sparkles,
@@ -46,6 +47,7 @@ export default function BillingPage() {
   const [cancelLoading, setCancelLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const refreshSubscriptionStatus = useContext(SubscriptionRefreshContext);
 
   // ── Detect redirect back from Razorpay after payment ─────────────────────
   useEffect(() => {
@@ -128,6 +130,7 @@ export default function BillingPage() {
     setCancelLoading(false);
     if (cancelSubscriptionThunk.fulfilled.match(result)) {
       showSuccess("Subscription cancelled");
+      refreshSubscriptionStatus();
     } else {
       showError((result.payload as string) || "Failed to cancel subscription");
     }
