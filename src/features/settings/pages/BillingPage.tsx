@@ -344,7 +344,9 @@ export default function BillingPage() {
           <p className="settings-billing-cta-sub">Contact our sales team for volume pricing or custom integrations.</p>
         </div>
         <Button size="sm" variant="outline-secondary" iconRight={<ArrowUpRight size={14} />}
-          onClick={() => { showError("Contact sales coming soon"); }}>
+          onClick={() => {
+            window.location.href = "mailto:support@salonox.com?subject=Custom%20Plan%20Inquiry";
+          }}>
           Contact sales
         </Button>
       </div>
