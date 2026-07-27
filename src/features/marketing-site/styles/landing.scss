@@ -363,16 +363,25 @@ body.landing-page-active {
     right: 0;
     z-index: 200;
     padding: 18px 0;
-    transition: background 0.4s ease, box-shadow 0.4s ease, padding 0.4s ease, border-color 0.4s ease;
-    background: transparent;
-    border-bottom: 1px solid transparent;
+    background: rgba(255, 255, 255, 0.76);
+    -webkit-backdrop-filter: blur(18px) saturate(145%);
+    backdrop-filter: blur(18px) saturate(145%);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.72);
+    box-shadow: 0 4px 24px rgba(15, 23, 42, 0.055);
+    transition:
+      background-color 0.4s ease,
+      -webkit-backdrop-filter 0.4s ease,
+      backdrop-filter 0.4s ease,
+      box-shadow 0.4s ease,
+      padding 0.4s ease,
+      border-color 0.4s ease;
 
     &.nav-scrolled {
-      background: rgba(255, 255, 255, 0.78);
-      -webkit-backdrop-filter: blur(16px);
-      backdrop-filter: blur(16px);
-      box-shadow: var(--shadow-sm);
-      border-bottom: 1px solid var(--gray-200);
+      background: rgba(255, 255, 255, 0.92);
+      -webkit-backdrop-filter: blur(24px) saturate(165%);
+      backdrop-filter: blur(24px) saturate(165%);
+      box-shadow: 0 10px 32px rgba(15, 23, 42, 0.09);
+      border-bottom-color: rgba(203, 213, 225, 0.8);
       padding: 12px 0;
     }
 
@@ -400,11 +409,11 @@ body.landing-page-active {
         border-radius: var(--radius-pill);
         font-weight: 600;
         font-size: 14.5px;
-        color: var(--navy-softer);
-        transition: background 0.25s ease, color 0.25s ease;
+        color: var(--navy-soft);
+        transition: background-color 0.25s ease, color 0.25s ease;
 
         &:hover {
-          background: var(--gray-100);
+          background: rgba(241, 245, 249, 0.88);
           color: var(--navy);
         }
 
@@ -416,7 +425,7 @@ body.landing-page-active {
 
         &.nav-link-btn {
           background: transparent;
-          color: var(--navy-softer) !important;
+          color: var(--navy-soft) !important;
           border: 1.5px solid transparent;
           padding: 8px 18px;
           margin-left: 6px;
