@@ -337,32 +337,23 @@ interface KpiFace {
   sub: string;
 }
 
-const FLIP_INTERVAL_MS = 10_000;
-
-const FlipKpiCard = memo(function FlipKpiCard({
-  theme, icon, front, back, loading, error, onRetry,
+const TabKpiCard = memo(function TabKpiCard({
+  theme, icon, tabLabels, front, back, loading, error, onRetry,
 }: {
   theme: string;
   icon: React.ReactNode;
+  /** Short labels for the two-way pill toggle, e.g. ["All Time", "This Month"]. */
+  tabLabels: [string, string];
   front: KpiFace;
   back: KpiFace;
   loading: boolean;
   error: string | null;
   onRetry: () => void;
 }) {
-  // An ever-incrementing count rather than a boolean — toggling true/false
-  // makes the CSS transition interpolate back through the angle it just came
-  // from (180deg → 0deg), which reads as flipping the opposite direction
-  // every other time. Always adding one more half-turn (0 → 180 → 360 → 540…)
-  // keeps every flip spinning the same way.
-  const [flipCount, setFlipCount] = useState(0);
-
-  // Auto-flip every 10s, paused while loading/erroring (nothing useful to flip to yet).
-  useEffect(() => {
-    if (loading || error) return;
-    const id = setInterval(() => setFlipCount((c) => c + 1), FLIP_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [loading, error]);
+  // Explicit, static choice — no auto-advancing timer and no flip animation.
+  // Both stats are always one click away via the pill toggle, but nothing on
+  // the card moves on its own.
+  const [activeTab, setActiveTab] = useState<0 | 1>(0);
 
   if (loading) {
     return (
@@ -379,8 +370,10 @@ const FlipKpiCard = memo(function FlipKpiCard({
     );
   }
 
-  const renderFace = (f: KpiFace) => (
-    <>
+  const f = activeTab === 0 ? front : back;
+
+  return (
+    <div className="db-kpi-card">
       <div className="db-kpi-top">
         <span className={`db-kpi-icon db-kpi-icon--${theme}`}>{icon}</span>
         {f.change && (
@@ -392,30 +385,21 @@ const FlipKpiCard = memo(function FlipKpiCard({
       </div>
       <div className="db-kpi-value">{f.value}</div>
       <div className="db-kpi-label">{f.label}</div>
-      <div className="db-kpi-sub">{f.sub}</div>
-    </>
-  );
-
-  const toggleFlip = () => setFlipCount((c) => c + 1);
-
-  return (
-    <div
-      className="db-kpi-card db-kpi-card--flip"
-      onClick={toggleFlip}
-      role="button"
-      tabIndex={0}
-      title="Click to flip"
-      onKeyDown={(e) => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggleFlip(); }
-      }}
-    >
-      <div
-        className="db-kpi-card__inner"
-        style={{ "--flip-deg": `${flipCount * 180}deg` } as React.CSSProperties}
-      >
-        <div className="db-kpi-card__face db-kpi-card__face--front">{renderFace(front)}</div>
-        <div className="db-kpi-card__face db-kpi-card__face--back">{renderFace(back)}</div>
+      <div className="db-kpi-toggle" role="tablist">
+        {tabLabels.map((label, i) => (
+          <button
+            key={label}
+            type="button"
+            role="tab"
+            aria-selected={activeTab === i}
+            className={`db-kpi-toggle__btn${activeTab === i ? " db-kpi-toggle__btn--active" : ""}`}
+            onClick={() => setActiveTab(i as 0 | 1)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
+      <div className="db-kpi-sub">{f.sub}</div>
     </div>
   );
 });
@@ -437,6 +421,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
     {
       theme: "revenue",
       icon:  <CurrencyRupee size={20} />,
+      tabLabels: ["All Time", "This Month"] as [string, string],
       front: {
         label:  "Total Revenue",
         value:  fmt(summary?.allTimeRevenue),
@@ -453,6 +438,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
     {
       theme: "appointments",
       icon:  <CalendarCheck size={20} />,
+      tabLabels: ["This Month", "Today"] as [string, string],
       front: {
         label:  "Appointments",
         value:  summary?.totalAppointments?.toLocaleString("en-IN") ?? "—",
@@ -469,6 +455,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
     {
       theme: "today-revenue",
       icon:  <CurrencyRupee size={20} />,
+      tabLabels: ["Today", "Yesterday"] as [string, string],
       front: {
         label:  "Today's Revenue",
         value:  fmt(summary?.todayRevenue),
@@ -485,6 +472,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
     {
       theme: "new-clients",
       icon:  <PersonPlus size={20} />,
+      tabLabels: ["Today", "This Month"] as [string, string],
       front: {
         label:  "New Clients Today",
         value:  String(summary?.newClientsToday ?? 0),
@@ -503,10 +491,11 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
   return (
     <div className="db-kpi-row">
       {cards.map((card) => (
-        <FlipKpiCard
+        <TabKpiCard
           key={card.theme}
           theme={card.theme}
           icon={card.icon}
+          tabLabels={card.tabLabels}
           front={card.front}
           back={card.back}
           loading={loading}
@@ -823,26 +812,46 @@ const AppointmentSummaryPanel = memo(function AppointmentSummaryPanel({
 // ─── Section: Today's Appointments Table ──────────────────────────────────────
 
 type NormAppt = ReturnType<typeof normalise>;
+type ApptStatusFilter = "all" | "completed" | "upcoming" | "partial" | "cancelled" | "no-show" | "deleted";
 
 const AppointmentsTable = memo(function AppointmentsTable({
   normAppts,
+  filteredCount,
   pagedAppts,
   apptPage,
   totalApptPages,
+  statusFilter,
+  onStatusFilterChange,
   loading,
   error,
   onPageChange,
   onRetry,
 }: {
   normAppts: NormAppt[];
+  /** Count after the active status filter is applied — may differ from normAppts.length. */
+  filteredCount: number;
   pagedAppts: NormAppt[];
   apptPage: number;
   totalApptPages: number;
+  statusFilter: ApptStatusFilter;
+  onStatusFilterChange: (status: ApptStatusFilter) => void;
   loading: boolean;
   error: string | null;
   onPageChange: (p: number) => void;
   onRetry: () => void;
 }) {
+  // Chip counts always reflect the FULL day's list regardless of which filter
+  // is active — only the table rows below narrow down, so a chip never
+  // changes its own count out from under the user when they click it.
+  const chips: Array<{ status: Exclude<ApptStatusFilter, "all">; label: string; cls: string }> = [
+    { status: "completed", label: "Completed", cls: "db-appt-chip-success" },
+    { status: "upcoming",  label: "Upcoming",  cls: "db-appt-chip-warning" },
+    { status: "partial",   label: "Partial",   cls: "db-appt-chip-partial" },
+    { status: "cancelled", label: "Cancelled", cls: "db-appt-chip-danger" },
+    { status: "no-show",   label: "No Show",   cls: "db-appt-chip-noshow" },
+    { status: "deleted",   label: "Deleted",   cls: "db-appt-chip-neutral" },
+  ];
+
   return (
     <div className="db-appt-section">
       <div className="db-appt-section-header">
@@ -854,24 +863,18 @@ const AppointmentsTable = memo(function AppointmentsTable({
           </p>
         </div>
         <div className="db-appt-section-chips">
-          <span className="db-appt-chip db-appt-chip-success">
-            {normAppts.filter(a => a.status === "completed").length} Completed
-          </span>
-          <span className="db-appt-chip db-appt-chip-warning">
-            {normAppts.filter(a => a.status === "upcoming").length} Upcoming
-          </span>
-          <span className="db-appt-chip db-appt-chip-partial">
-            {normAppts.filter(a => a.status === "partial").length} Partial
-          </span>
-          <span className="db-appt-chip db-appt-chip-danger">
-            {normAppts.filter(a => a.status === "cancelled").length} Cancelled
-          </span>
-          <span className="db-appt-chip db-appt-chip-noshow">
-            {normAppts.filter(a => a.status === "no-show").length} No Show
-          </span>
-          <span className="db-appt-chip db-appt-chip-neutral">
-            {normAppts.filter(a => a.status === "deleted").length} Deleted
-          </span>
+          {chips.map((c) => (
+            <button
+              key={c.status}
+              type="button"
+              className={`db-appt-chip ${c.cls}${statusFilter === c.status ? " db-appt-chip--active" : ""}`}
+              onClick={() => onStatusFilterChange(c.status)}
+              aria-pressed={statusFilter === c.status}
+              title={`Show only ${c.label.toLowerCase()} appointments`}
+            >
+              {normAppts.filter(a => a.status === c.status).length} {c.label}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -881,6 +884,13 @@ const AppointmentsTable = memo(function AppointmentsTable({
         <SectionError message={error} onRetry={onRetry} />
       ) : normAppts.length === 0 ? (
         <div className="db-empty">No appointments scheduled for today.</div>
+      ) : filteredCount === 0 ? (
+        <div className="db-empty">
+          No {statusFilter === "no-show" ? "no-show" : statusFilter} appointments today.{" "}
+          <button type="button" className="db-appt-clear-filter" onClick={() => onStatusFilterChange("all")}>
+            Clear filter
+          </button>
+        </div>
       ) : (
         <>
           <div className="db-appt-table-wrap">
@@ -928,8 +938,8 @@ const AppointmentsTable = memo(function AppointmentsTable({
           <div className="db-appt-pagination">
             <span className="db-appt-pg-info">
               Showing{" "}
-              <strong>{(apptPage - 1) * PAGE_SIZE + 1}–{Math.min(apptPage * PAGE_SIZE, normAppts.length)}</strong>
-              {" "}of <strong>{normAppts.length}</strong> appointments
+              <strong>{(apptPage - 1) * PAGE_SIZE + 1}–{Math.min(apptPage * PAGE_SIZE, filteredCount)}</strong>
+              {" "}of <strong>{filteredCount}</strong> appointments
             </span>
             <div className="db-appt-pg-controls">
               <button
@@ -1173,6 +1183,7 @@ export default function DashboardPage() {
   const dispatch = useAppDispatch();
 
   const [apptPage,  setApptPage]  = useState(1);
+  const [apptStatusFilter, setApptStatusFilter] = useState<ApptStatusFilter>("all");
   const [revPeriod, setRevPeriod] = useState<RevPeriod>("monthly");
   const [staffRevPeriod, setStaffRevPeriod] = useState<RevPeriod>("monthly");
 
@@ -1199,10 +1210,16 @@ export default function DashboardPage() {
     dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Reset appointment page when list changes
+  // Reset appointment page when list or the active status filter changes
   useEffect(() => {
     setApptPage(1);
-  }, [appointments.length]);
+  }, [appointments.length, apptStatusFilter]);
+
+  // Clicking an already-active status chip clears the filter back to "all" —
+  // otherwise there'd be no way to get back without a page reload.
+  const handleApptStatusFilterChange = useCallback((status: ApptStatusFilter) => {
+    setApptStatusFilter((prev) => (prev === status ? "all" : status));
+  }, []);
 
   // ── Period change: only re-fetch the chart, nothing else ─────────────────
   const handlePeriodChange = useCallback(
@@ -1271,14 +1288,22 @@ export default function DashboardPage() {
     [appointments]
   );
 
+  // Status-chip filter — counts on the chips themselves always reflect the
+  // FULL day's list (see AppointmentsTable), only the table rows/pagination
+  // below narrow to the selected status.
+  const filteredAppts = useMemo(
+    () => apptStatusFilter === "all" ? normAppts : normAppts.filter(a => a.status === apptStatusFilter),
+    [normAppts, apptStatusFilter]
+  );
+
   const totalApptPages = useMemo(
-    () => Math.max(1, Math.ceil(normAppts.length / PAGE_SIZE)),
-    [normAppts.length]
+    () => Math.max(1, Math.ceil(filteredAppts.length / PAGE_SIZE)),
+    [filteredAppts.length]
   );
 
   const pagedAppts = useMemo(
-    () => normAppts.slice((apptPage - 1) * PAGE_SIZE, apptPage * PAGE_SIZE),
-    [normAppts, apptPage]
+    () => filteredAppts.slice((apptPage - 1) * PAGE_SIZE, apptPage * PAGE_SIZE),
+    [filteredAppts, apptPage]
   );
 
   const apptChartData = useMemo<ApptChartEntry[]>(() => {
@@ -1430,9 +1455,12 @@ export default function DashboardPage() {
       {/* ── TODAY'S APPOINTMENTS TABLE ── */}
       <AppointmentsTable
         normAppts={normAppts}
+        filteredCount={filteredAppts.length}
         pagedAppts={pagedAppts}
         apptPage={apptPage}
         totalApptPages={totalApptPages}
+        statusFilter={apptStatusFilter}
+        onStatusFilterChange={handleApptStatusFilterChange}
         loading={dashLoading || apptsLoading}
         error={apptsError || dashError}
         onPageChange={setApptPage}
