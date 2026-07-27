@@ -22,6 +22,8 @@ export interface Membership {
   enableOnlineRedemption: boolean;
   termsAndConditions?: string;
   appliesToProducts?: boolean;
+  pricingType?: 'value' | 'percentage';
+  discountPercent?: number;
   createdAt: Date;
   updatedAt: Date;
   // Optional client association (if backend supports it)
@@ -45,6 +47,8 @@ export interface CreateMembershipDTO {
   enableOnlineRedemption: boolean;
   termsAndConditions?: string;
   appliesToProducts?: boolean;
+  pricingType?: 'value' | 'percentage';
+  discountPercent?: number;
   clientId?: string;
   clientName?: string;
   clientPhone?: string;

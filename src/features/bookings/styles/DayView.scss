@@ -476,6 +476,12 @@
     filter: grayscale(30%);
   }
 
+  // Cancelled/deleted — locked from dragging, cursor communicates that
+  // clicking still opens it (read-only) rather than the default grab cursor.
+  &--readonly {
+    cursor: pointer;
+  }
+
   &__body {
     padding: 4px 8px;
   }
@@ -514,6 +520,18 @@
     margin-top: 3px;
     padding: 1px 5px;
     background: rgba(0, 0, 0, 0.25);
+    border-radius: 3px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+  }
+
+  &__membership {
+    display: inline-block;
+    margin-top: 3px;
+    padding: 1px 5px;
+    background: rgba(255, 255, 255, 0.25);
     border-radius: 3px;
     font-size: 10px;
     font-weight: 700;

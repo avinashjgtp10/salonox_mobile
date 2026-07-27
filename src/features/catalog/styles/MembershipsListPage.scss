@@ -517,9 +517,8 @@
     white-space: nowrap;
   }
 
-  /* ── Tier badge ──────────────────────────────────────────────── */
-  &__tier-badge {
-    --tc: #6366f1;
+  /* ── Membership type badge (Value / Percentage) ─────────────── */
+  &__type-badge {
     display: inline-flex;
     align-items: center;
     gap: 5px;
@@ -527,8 +526,6 @@
     font-weight: 600;
     padding: 4px 10px;
     border-radius: 20px;
-    background: color-mix(in srgb, var(--tc) 12%, #fff);
-    color: var(--tc);
     white-space: nowrap;
 
     &::before {
@@ -536,8 +533,19 @@
       width: 6px;
       height: 6px;
       border-radius: 50%;
-      background: var(--tc);
       flex-shrink: 0;
+    }
+
+    &--value {
+      background: #f0fdf4;
+      color: #16a34a;
+      &::before { background: #16a34a; }
+    }
+
+    &--percentage {
+      background: #eff6ff;
+      color: #2563eb;
+      &::before { background: #2563eb; }
     }
   }
 
