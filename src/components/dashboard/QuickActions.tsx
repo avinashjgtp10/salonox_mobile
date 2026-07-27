@@ -35,12 +35,12 @@ export default function QuickActions() {
 
   return (
     <View style={styles.row}>
-      {actions.map((action, index) => (
+      {actions.map((action) => (
         <TouchableOpacity
           key={action.label}
           activeOpacity={0.7}
           onPress={() => router.push(action.route)}
-          style={[styles.btn, index > 0 && styles.btnBorder]}
+          style={styles.btn}
         >
           <View style={[styles.icon, { backgroundColor: action.iconBg }]}>
             <Ionicons name={action.icon} size={20} color={Colors.primary} />
@@ -56,29 +56,37 @@ export default function QuickActions() {
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: {
-    backgroundColor: Colors.card,
-    borderBottomColor: Colors.border,
-    borderBottomWidth: 1,
     flexDirection: "row",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
   },
   btn: {
     alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: 18,
+    borderWidth: 1,
+    elevation: 2,
     flex: 1,
     gap: 6,
     justifyContent: "center",
+    minHeight: 72,
     paddingHorizontal: 4,
-    paddingVertical: 14,
-  },
-  btnBorder: {
-    borderLeftColor: Colors.border,
-    borderLeftWidth: 1,
+    paddingVertical: 10,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 7,
   },
   icon: {
     alignItems: "center",
+    borderColor: Colors.border,
     borderRadius: 14,
-    height: 40,
+    borderWidth: 1,
+    height: 42,
     justifyContent: "center",
-    width: 40,
+    width: 42,
   },
   label: {
     color: Colors.text2,

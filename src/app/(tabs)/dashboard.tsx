@@ -302,7 +302,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 8,
   },
   stickyActions: {
-    backgroundColor: Colors.card,
+    backgroundColor: Colors.bg,
     zIndex: 10,
   },
   errorWrap: {
