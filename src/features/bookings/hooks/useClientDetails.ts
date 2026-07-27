@@ -144,18 +144,30 @@ export function useClientDetails(clientId: string | null | undefined, refreshKey
             return sum + Math.max(0, collected - walletPortion);
           }, 0);
 
-          // Package purchases: add paid amount (money actually collected for the package)
+          // Package purchases: add paid amount (money actually collected for the package) —
+          // but ONLY for a genuinely standalone "Sell Package" purchase (no appointmentId).
+          // One sold as a line item on an appointment already has its price counted via
+          // paidRevenue/partialRevenue above (apptTotal() sums package_items too) — the
+          // backend only sets appointmentId on that auto-created byproduct row, never on
+          // a standalone sale, so this is exactly the distinction needed to avoid counting
+          // the same purchase twice.
           const pkgItems: any[] = pkgRes.data?.data?.items ?? pkgRes.data?.items ?? pkgRes.data?.data ?? [];
           const packageRevenue = Array.isArray(pkgItems)
-            ? pkgItems.reduce((sum: number, p: any) => sum + Number(p.paidAmount ?? p.paid_amount ?? p.totalAmount ?? p.total_amount ?? 0), 0)
+            ? pkgItems
+                .filter((p: any) => !(p.appointmentId ?? p.appointment_id))
+                .reduce((sum: number, p: any) => sum + Number(p.paidAmount ?? p.paid_amount ?? p.totalAmount ?? p.total_amount ?? 0), 0)
             : 0;
 
           // Membership purchases (e.g. "Sell to client") — these create a
           // client_memberships row directly with no appointment/payment/sale
           // record, so they'd otherwise never be counted anywhere as revenue.
+          // Same appointmentId exclusion as packages above — one sold within an
+          // appointment is already counted via paidRevenue/partialRevenue.
           const memItems: any[] = memRes?.data?.data?.items ?? memRes?.data?.items ?? [];
           const membershipRevenue = Array.isArray(memItems)
-            ? memItems.reduce((sum: number, m: any) => sum + Number(m.pricePaid ?? m.price_paid ?? 0), 0)
+            ? memItems
+                .filter((m: any) => !(m.appointmentId ?? m.appointment_id))
+                .reduce((sum: number, m: any) => sum + Number(m.pricePaid ?? m.price_paid ?? 0), 0)
             : 0;
 
           const totalBilled = paidRevenue + partialRevenue + packageRevenue + membershipRevenue;

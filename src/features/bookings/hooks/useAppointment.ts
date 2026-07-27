@@ -3,7 +3,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { createBookingThunk, updateBookingThunk, deleteBookingThunk } from "../../../middleware/booking/booking.thunk";
 import {
   addBooking, updateBooking as updateBookingAction,
-  deleteBooking as deleteBookingAction, replaceBookingId,
+  deleteBooking as deleteBookingAction, replaceBookingId, clearPaymentPatch,
 } from "../../../store/schedulerSlice";
 import { toApiStaffId, isRealId } from "../utils/paymentUtils";
 import type { Booking, ServiceItem, PackageItem, ProductItem, MembershipItem } from "../types";
@@ -246,6 +246,13 @@ export function useAppointment() {
           setError(msg);
           return null;
         }
+        // A prior payment may have left a stale snapshot in paymentPatchCache
+        // (status/grandTotal/etc. as of that payment) — this update just
+        // round-tripped fresh data for this same appointment, so the next
+        // calendar refresh should trust the server's response, not that
+        // now-outdated patch (see Scheduler.tsx's handleRefresh, which
+        // otherwise re-applies it forever and looks like nothing refreshed).
+        dispatch(clearPaymentPatch(String(existingBooking.id)));
         return String(existingBooking.id);
       } else {
         // Optimistic add with temp id — include serviceRows so per-service staffIds survive the refresh

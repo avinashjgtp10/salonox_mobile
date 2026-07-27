@@ -27,12 +27,38 @@ interface StaffSegment { time: string; endTime: string; }
 // all four item types (previously only `services` was checked here, so products/
 // packages/memberships assigned to a different staff than the main service never
 // showed up under their own staff's column at all).
+function toMinsOfDay(t: string): number {
+  const [h, m] = t.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+// The single-day grid has no way to represent a segment that actually runs
+// into the next day — a stray record left over from before the midnight
+// guards (drag/resize/modal) were added would otherwise show endTime as a
+// numerically SMALLER clock value than its own start (e.g. start 23:00, end
+// "02:00"), which durationToPx reads as a huge/negative span and renders as
+// a garbled or oversized chip. Clamp such a segment to the end of the visible
+// day instead of letting it distort the whole column.
+function clampSameDayEnd(time: string, endTime: string): string {
+  // A genuinely missing/empty endTime (data not loaded yet, or simply never
+  // set on this row) must NOT be treated as "00:00" — toMinsOfDay("") is 0,
+  // which is <= any real start time, so an empty string used to get clamped
+  // to "23:59" as if it were a midnight-wrapped value. That turned a perfectly
+  // normal, just-created appointment's chip into an 8-hour block the moment
+  // any render hit this fallback with no endTime yet available (e.g. before
+  // per-service staffId caught up) — only clamp when there's an actual,
+  // parseable endTime to compare.
+  if (!endTime) return endTime;
+  return toMinsOfDay(endTime) <= toMinsOfDay(time) ? "23:59" : endTime;
+}
+
 function getStaffSegments(b: any, staffId: string): StaffSegment[] {
   const segs: StaffSegment[] = [];
   (b.services || []).forEach((s: any) => {
     if (String(s.staffId) !== String(staffId)) return;
     const time = s.time || b.startTime;
-    segs.push({ time, endTime: s.endTime || addMinutes(time, s.duration || 30) });
+    const endTime = s.endTime || addMinutes(time, s.duration || 30);
+    segs.push({ time, endTime: clampSameDayEnd(time, endTime) });
   });
   const otherItems = [
     ...(b.packageItems || []),
@@ -42,7 +68,7 @@ function getStaffSegments(b: any, staffId: string): StaffSegment[] {
   otherItems.forEach((it: any) => {
     if (String(it.staffId) !== String(staffId)) return;
     const time = it.time || b.startTime;
-    segs.push({ time, endTime: addMinutes(time, 30) });
+    segs.push({ time, endTime: clampSameDayEnd(time, addMinutes(time, 30)) });
   });
   return segs;
 }
@@ -346,12 +372,21 @@ const DayView: React.FC<DayViewProps> = ({
           const newEnd = addMinutes(newStart, duration);
           const orig = (dragging.booking as any)._originalBooking || dragging.booking;
 
+          const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
+          // Same midnight-rollover guard as the resize handler above — dragging the
+          // chip down far enough that its (unchanged) duration would now run past
+          // midnight produces an invalid wrapped time instead of an actual next-day
+          // booking, which the single-day grid can't render correctly anyway.
+          if (toMins(newStart) + duration > 24 * 60) {
+            showError("Appointments can't run past midnight — pick an earlier slot or shorten it first.");
+            return;
+          }
+
           if (isTimeRangeUnavailable(dragging.currentStaffId, newStart, newEnd)) {
             showError("That staff member already has an appointment or is blocked at this time — pick another slot.");
             return;
           }
 
-          const toMins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
           const oldStartMins = toMins(dragging.originalStart);
           const newStartMins = toMins(newStart);
           const deltaMins = newStartMins - oldStartMins;
@@ -469,6 +504,15 @@ const DayView: React.FC<DayViewProps> = ({
       const startMins = sh * 60 + sm;
       const addedMins = (resizing.currentHeight / SLOT_HEIGHT) * intervalMins;
       const endMins = startMins + addedMins;
+      // The calendar grid (and duration math elsewhere) assumes a single
+      // calendar day — dragging past midnight produces an invalid hour
+      // (e.g. "26:00") with no day rollover, which then renders as a
+      // garbled/oversized chip. Reject it here, same as the "book past
+      // midnight" guard in AppointmentModal's validate().
+      if (endMins > 24 * 60) {
+        showError("Appointments can't run past midnight — choose a shorter duration or split it into two bookings.");
+        return;
+      }
       const eh = Math.floor(endMins / 60);
       const em = Math.round(endMins % 60);
       const newEnd = `${eh.toString().padStart(2, "0")}:${em.toString().padStart(2, "0")}`;
@@ -815,7 +859,7 @@ const DayView: React.FC<DayViewProps> = ({
                           : b.startTime;
                         const staffEnd = segs.length > 0
                           ? segs.reduce((max, s) => toMinsLocal(s.endTime) > toMinsLocal(max) ? s.endTime : max, segs[0].endTime)
-                          : b.endTime;
+                          : clampSameDayEnd(staffStart, b.endTime);
                         return { booking: b, staffStart, staffEnd };
                       })
                       .filter(({ staffStart, staffEnd }) => !isTimeRangeUnavailable(staff.id, staffStart, staffEnd));

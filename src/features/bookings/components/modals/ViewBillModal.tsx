@@ -432,14 +432,13 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     const tipAmount = booking.tipAmount || 0;
                     const grandTotal = isPackagePaid ? 0 : (booking.grandTotal || 0);
 
-                    // Standard GST-invoice presentation: whatever the underlying
-                    // tax config actually is (one combined "GST" line, or
-                    // separate CGST/SGST entries), show it the way a real
-                    // invoice does — CGST + SGST for intra-state, IGST for
-                    // inter-state — rather than whatever raw name was
-                    // configured. Rate/amount summed across every exclusive
-                    // component so a genuine 2.5%+2.5% split still reads as a
-                    // single correct rate.
+                    // Combine same-exclusivity tax rows into one line, rate/amount
+                    // summed so a genuine 2.5%+2.5% split still reads as a single
+                    // correct rate. The label uses the salon's own configured tax
+                    // name(s) — e.g. a single "GST" row stays "GST", while
+                    // genuinely separate CGST + SGST rows join as "CGST + SGST" —
+                    // rather than always forcing the CGST+SGST label onto
+                    // whatever single tax the salon actually configured.
                     const rawTaxRows = ((booking as any).taxBreakdown?.length
                       ? (booking as any).taxBreakdown.filter((t: any) => t.amount > 0)
                       : []) as Array<{ name: string; rate: number; amount: number; inclusive?: boolean }>;
@@ -450,14 +449,17 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                       const amount = rows.reduce((s, t) => s + t.amount, 0);
                       const rate = rows.reduce((s, t) => s + t.rate, 0);
                       const isIgst = rows.some((t) => t.name.toUpperCase().includes("IGST"));
-                      return { label: isIgst ? "IGST" : "CGST + SGST", amount, rate };
+                      const distinctNames = Array.from(new Set(rows.map((t) => t.name)));
+                      return { label: isIgst ? "IGST" : distinctNames.join(" + "), amount, rate };
                     };
                     const combinedExclusiveTax = combineTaxRows(exclusiveTaxRows);
                     const combinedInclusiveTax = combineTaxRows(inclusiveTaxRows);
                     // Legacy fallback for a booking that only ever carried a
-                    // single blended gstAmount, never a real taxBreakdown.
+                    // single blended gstAmount, never a real taxBreakdown — no
+                    // per-component name survives from that era, so "GST" is the
+                    // honest generic label rather than guessing a CGST+SGST split.
                     const legacyGst = (!combinedExclusiveTax && (booking as any).gstAmount > 0)
-                      ? { label: "CGST + SGST", amount: (booking as any).gstAmount, rate: (booking as any).gst ?? 0 }
+                      ? { label: "GST", amount: (booking as any).gstAmount, rate: (booking as any).gst ?? 0 }
                       : null;
                     const totalTaxAmount = (combinedExclusiveTax?.amount ?? legacyGst?.amount ?? 0);
 
