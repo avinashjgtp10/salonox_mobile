@@ -210,6 +210,12 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
   const [staffFilter,   setStaffFilter]   = useState("All");
   const [staffOptions,  setStaffOptions]  = useState<{ label: string; value: string }[]>([{ label: "All Staff", value: "All" }]);
   const [showStaffDrop, setShowStaffDrop] = useState(false);
+  const [categoryFilter,  setCategoryFilter]  = useState("All");
+  // Populated from filters_available.service_categories on every fetch — every
+  // service category in the salon (not just ones with sales), same convention
+  // as Daily Sheet's service/staff dropdowns.
+  const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string }[]>([{ label: "All Categories", value: "All" }]);
+  const [showCategoryDrop, setShowCategoryDrop] = useState(false);
   const [search,        setSearch]        = useState("");
   const [rows,          setRows]          = useState<SaleRow[]>([]);
   const [stats,         setStats]         = useState({
@@ -247,6 +253,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
         page: currentPage, limit: pageSize,
       };
       if (staffFilter !== "All") body.staff_id = staffFilter;
+      if (categoryFilter !== "All") body.category_id = categoryFilter;
       if (search.trim()) body.search = search.trim();
       const res = await api.post(SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -265,6 +272,13 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
         totalRewardValue: Number(s.total_rewards) || 0,
         totalReferralCredit: Number(s.total_referral) || 0,
       });
+      const cats = data?.filters_available?.service_categories;
+      if (Array.isArray(cats)) {
+        setCategoryOptions([
+          { label: "All Categories", value: "All" },
+          ...cats.map((c: any) => ({ label: String(c.label ?? ""), value: String(c.id ?? "") })),
+        ]);
+      }
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
         setRows([]); setTotal(0);
@@ -272,7 +286,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilter, search, currentPage, pageSize]);
+  }, [dateFrom, dateTo, staffFilter, categoryFilter, search, currentPage, pageSize]);
 
   const bulkDelete = useBulkAppointmentDelete(fetchData);
   // Only sale rows linked to a real appointment can be bulk-deleted — walk-in
@@ -283,10 +297,10 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
 
   // Filter/search changes go back to page 1 — page/pageSize changes
   // themselves should not reset back to page 1.
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilter, search]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilter, categoryFilter, search]);
 
   useEffect(() => {
-    const close = () => setShowStaffDrop(false);
+    const close = () => { setShowStaffDrop(false); setShowCategoryDrop(false); };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, []);
@@ -313,7 +327,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
       <div className="rp-detail-filters">
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Staff</label>
-          <button className="rp-detail-select" onClick={() => setShowStaffDrop(v => !v)}>
+          <button className="rp-detail-select" onClick={() => { setShowStaffDrop(v => !v); setShowCategoryDrop(false); }}>
             {(staffOptions.find(o => o.value === staffFilter)?.label ?? "All Staff").slice(0, 16)}
             <span className="rp-detail-caret">▼</span>
           </button>
@@ -322,6 +336,21 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
               {staffOptions.map(o => (
                 <div key={o.value} className={`rp-detail-dropdown-item ${o.value === staffFilter ? "active" : ""}`}
                   onClick={() => { setStaffFilter(o.value); setShowStaffDrop(false); }}>{o.label}</div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Service Category</label>
+          <button className="rp-detail-select" onClick={() => { setShowCategoryDrop(v => !v); setShowStaffDrop(false); }}>
+            {(categoryOptions.find(o => o.value === categoryFilter)?.label ?? "All Categories").slice(0, 16)}
+            <span className="rp-detail-caret">▼</span>
+          </button>
+          {showCategoryDrop && (
+            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
+              {categoryOptions.map(o => (
+                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === categoryFilter ? "active" : ""}`}
+                  onClick={() => { setCategoryFilter(o.value); setShowCategoryDrop(false); }}>{o.label}</div>
               ))}
             </div>
           )}
