@@ -65,7 +65,7 @@ export const fetchAppointmentsThunk = createAsyncThunk<
     search: args?.search ?? appointmentState.query.search,
     sort_by: args?.sort_by ?? appointmentState.query.sort_by,
     sort_order: args?.sort_order ?? appointmentState.query.sort_order,
-    staff_id: args?.staff_id ?? appointmentState.query.staff_id,
+    staff_id: args ? args.staff_id : appointmentState.query.staff_id,
     status: args && "status" in args ? args.status : appointmentState.query.status,
     to_date: args?.to_date ?? appointmentState.query.to_date,
   };

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams, type Href } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -30,6 +30,7 @@ import { CurrentLocationButton } from "@/components/maps/CurrentLocationButton";
 import { type AddressDetails } from "@/types/location";
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { resolveLoginRoute } from "@/utils/routeResolver";
 import {
   CONFIRM_PASSWORD_MISMATCH_MESSAGE_GENERIC,
   EMAIL_INVALID_MESSAGE,
@@ -420,11 +421,7 @@ export default function LoginScreen() {
 
       setFailedLoginAttempts(0);
 
-      if (authData.isOnboardingComplete) {
-        router.replace("/dashboard" as Href);
-      } else {
-        router.replace("/onboarding" as Href);
-      }
+      router.replace(resolveLoginRoute(authData));
     } catch (loginError) {
       if (isAccountLockedError(loginError)) {
         // Real backend-enforced lock/rate-limit — show its own message

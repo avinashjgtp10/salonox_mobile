@@ -1,9 +1,12 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
+import { fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
+import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { attendanceService } from "@/services/attendance.service";
 import { attendanceCache } from "@/services/attendanceCache";
+import { emitRealtimeEntityChanged } from "@/services/realtimeEvents";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import type {
@@ -143,6 +146,15 @@ export const checkInThunk = createAsyncThunk<
 
     void dispatch(fetchAttendanceOverviewThunk(payload.date));
     void dispatch(fetchDashboardThunk());
+    void dispatch(fetchStaffThunk({ page: 1, refresh: true, reset: true }));
+    void dispatch(fetchUnreadCountThunk());
+    emitRealtimeEntityChanged({
+      entity: "attendance",
+      payload: { action: "checked-in", record: response.record, staffId: payload.staffId },
+    });
+    emitRealtimeEntityChanged({ entity: "dashboard", payload: { source: "attendance.checkIn" } });
+    emitRealtimeEntityChanged({ entity: "staff", payload: { source: "attendance.checkIn", staffId: payload.staffId } });
+    emitRealtimeEntityChanged({ entity: "notifications", payload: { source: "attendance.checkIn" } });
 
     return response;
   } catch (error) {
@@ -162,6 +174,15 @@ export const checkOutThunk = createAsyncThunk<
 
     void dispatch(fetchAttendanceOverviewThunk(payload.date));
     void dispatch(fetchDashboardThunk());
+    void dispatch(fetchStaffThunk({ page: 1, refresh: true, reset: true }));
+    void dispatch(fetchUnreadCountThunk());
+    emitRealtimeEntityChanged({
+      entity: "attendance",
+      payload: { action: "checked-out", record: response.record, staffId: payload.staffId },
+    });
+    emitRealtimeEntityChanged({ entity: "dashboard", payload: { source: "attendance.checkOut" } });
+    emitRealtimeEntityChanged({ entity: "staff", payload: { source: "attendance.checkOut", staffId: payload.staffId } });
+    emitRealtimeEntityChanged({ entity: "notifications", payload: { source: "attendance.checkOut" } });
 
     return response;
   } catch (error) {

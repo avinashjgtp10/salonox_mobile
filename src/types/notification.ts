@@ -34,8 +34,12 @@ export type MarkAllNotificationsReadResponse = {
 export type DevicePlatform = "android" | "ios";
 
 export type RegisterDeviceRequest = {
+  app_env?: string;
   platform: DevicePlatform;
+  role?: string | null;
+  staff_id?: string | null;
   token: string;
+  user_id?: string | null;
 };
 
 export type RegisterDeviceResponse = {
@@ -43,7 +47,11 @@ export type RegisterDeviceResponse = {
 };
 
 export type UnregisterDeviceRequest = {
+  app_env?: string;
+  role?: string | null;
+  staff_id?: string | null;
   token: string;
+  user_id?: string | null;
 };
 
 export type UnregisterDeviceResponse = {

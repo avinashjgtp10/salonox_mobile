@@ -80,7 +80,12 @@ import {
   selectStaffAvailabilityError,
   selectStaffAvailabilityLoading,
 } from "@/store/staff/staffAvailability.slice";
-import { selectStaffMembers } from "@/store/staff/staff.slice";
+import {
+  selectCurrentStaff,
+  selectCurrentStaffError,
+  selectCurrentStaffLoading,
+  selectStaffMembers,
+} from "@/store/staff/staff.slice";
 import type {
   AppointmentCalendarView,
   AppointmentApiService,
@@ -91,6 +96,7 @@ import type {
   RescheduleAppointmentRequest,
   UpdateAppointmentRequest,
 } from "@/types/appointment";
+import type { BlockedTimeEntry } from "@/types/staffBlockedTimes";
 import type { ClientListItem } from "@/types/client";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ServiceListItem } from "@/types/service";
@@ -119,6 +125,27 @@ const STAFF_AVAILABILITY_REALTIME_ENTITIES = new Set([
   "staff",
   "staffAvailability",
 ]);
+
+const getResponsiveHorizontalPadding = (width = 393) => {
+  if (width < 360) {
+    return 16;
+  }
+
+  if (width >= 768) {
+    return 40;
+  }
+
+  if (width >= 600) {
+    return 32;
+  }
+
+  return AppLayout.contentHorizontalPadding;
+};
+
+const getResponsiveTopPadding = (width = 393) => (width < 360 ? Spacing.sm : Spacing.md);
+
+const getResponsiveHeaderTitleSize = (width = 393) =>
+  width < 360 ? AppLayout.headerTitleFontSize - 2 : AppLayout.headerTitleFontSize;
 
 const toComparableId = (value: unknown) => {
   if (typeof value === "string" || typeof value === "number") {
@@ -832,34 +859,50 @@ const appointmentToForm = (appointment?: AppointmentListItem): AppointmentFormSt
 });
 
 function ScreenShell({
+  backFallback = "/dashboard" as Href,
   children,
   onRefresh,
   refreshing,
+  safeAreaEdges = ["top", "bottom"],
   showCreateAction = true,
   title,
 }: {
+  backFallback?: Href;
   children: React.ReactNode;
   onRefresh?: () => void;
   refreshing?: boolean;
+  safeAreaEdges?: React.ComponentProps<typeof SafeAreaView>["edges"];
   showCreateAction?: boolean;
   title: string;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const { width } = useWindowDimensions();
+  const contentStyle = useMemo(
+    () => ({
+      paddingHorizontal: getResponsiveHorizontalPadding(width),
+      paddingTop: getResponsiveTopPadding(width),
+    }),
+    [width],
+  );
+  const headerTitleStyle = useMemo(
+    () => ({ fontSize: getResponsiveHeaderTitleSize(width) }),
+    [width],
+  );
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
       return;
     }
 
-    router.replace("/dashboard" as Href);
+    router.replace(backFallback);
   };
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+    <SafeAreaView edges={safeAreaEdges} style={styles.safeArea}>
       <AppStatusBar />
       <ScrollView
-        contentContainerStyle={styles.content}
+        contentContainerStyle={[styles.content, contentStyle]}
         keyboardShouldPersistTaps="handled"
         refreshControl={
           onRefresh ? (
@@ -877,7 +920,7 @@ function ScreenShell({
           <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.iconButton}>
             <Ionicons name="chevron-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{title}</Text>
+          <Text style={[styles.headerTitle, headerTitleStyle]}>{title}</Text>
           {showCreateAction ? (
             <TouchableOpacity
               activeOpacity={0.8}
@@ -1009,15 +1052,24 @@ function ClientAvatar({ name }: { name: string }) {
   return <InitialsAvatar initials={initials} size={46} />;
 }
 
-function AppointmentCard({ appointment }: { appointment: AppointmentListItem }) {
+function AppointmentCard({
+  appointment,
+  detailRoute,
+  showPaymentStatus = false,
+}: {
+  appointment: AppointmentListItem;
+  detailRoute?: (appointmentId: string) => Href;
+  showPaymentStatus?: boolean;
+}) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const route = detailRoute?.(appointment.id) ?? (`/appointments/${appointment.id}` as Href);
 
   return (
     <Animated.View layout={Layout.springify().damping(18).stiffness(160)}>
       <TouchableOpacity
         activeOpacity={0.84}
-        onPress={() => router.push(`/appointments/${appointment.id}` as Href)}
+        onPress={() => router.push(route)}
         style={styles.card}
       >
         <View style={styles.cardTopRow}>
@@ -1039,7 +1091,7 @@ function AppointmentCard({ appointment }: { appointment: AppointmentListItem }) 
           <MetaPill icon="person-outline" label={appointment.staffName} />
           <MetaPill icon="time-outline" label={formatTimeLabel(appointment.scheduledAt)} />
           <MetaPill icon="timer-outline" label={appointment.durationLabel} />
-          <MetaPill icon="card-outline" label={appointment.paymentMethod} />
+          <MetaPill icon="card-outline" label={showPaymentStatus ? appointment.paymentStatus : appointment.paymentMethod} />
         </View>
 
         <View style={styles.cardFooter}>
@@ -1371,6 +1423,7 @@ function useFetchAppointments() {
       refresh = false,
       reset = false,
       search = "",
+      staffId,
       status = "All",
     }: {
       date?: string;
@@ -1379,6 +1432,7 @@ function useFetchAppointments() {
       refresh?: boolean;
       reset?: boolean;
       search?: string;
+      staffId?: string;
       status?: "All" | AppointmentStatus;
     } = {}) => {
       await dispatch(
@@ -1391,6 +1445,7 @@ function useFetchAppointments() {
           search,
           sort_by: query.sort_by,
           sort_order: query.sort_order,
+          staff_id: staffId,
           status: status && status !== "All" ? appointmentStatusToListApiValue(status) : undefined,
         }),
       );
@@ -1399,7 +1454,7 @@ function useFetchAppointments() {
   );
 
   const fetchNext = useCallback(
-    async (params: { date?: string; search?: string; status?: "All" | AppointmentStatus }) => {
+    async (params: { date?: string; search?: string; staffId?: string; status?: "All" | AppointmentStatus }) => {
       if (!pagination.hasMore) {
         return;
       }
@@ -1703,12 +1758,222 @@ export function AppointmentListScreen() {
   );
 }
 
+type StaffAppointmentRow =
+  | { id: string; title: string; type: "section" }
+  | { appointment: AppointmentListItem; id: string; type: "appointment" };
+
+const isSameDay = (appointment: AppointmentListItem, date: string) =>
+  getDateKey(appointment.scheduledAt) === date;
+
+const isAssignedToStaff = (appointment: AppointmentListItem, staff: StaffMember) => {
+  const staffIds = [staff.id, staff.userId, staff.employeeCode, ...(staff.staffIdAliases ?? [])]
+    .map(toComparableId)
+    .filter(Boolean);
+  const appointmentStaffIds = [
+    appointment.staffId,
+    appointment.raw.staff_id,
+    appointment.raw.staff?.id,
+    ...((appointment.raw.services ?? []).map((service) => service.staff_id)),
+  ]
+    .map(toComparableId)
+    .filter(Boolean);
+
+  return appointmentStaffIds.some((staffId) => staffIds.includes(staffId));
+};
+
+const buildStaffAppointmentRows = (
+  appointments: AppointmentListItem[],
+  today: string,
+): StaffAppointmentRow[] => {
+  const todayAppointments = appointments.filter((appointment) => isSameDay(appointment, today));
+  const upcomingAppointments = appointments.filter(
+    (appointment) => !isSameDay(appointment, today) && ACTIVE_APPOINTMENT_STATUSES.has(appointment.status),
+  );
+  const completedAppointments = appointments.filter(
+    (appointment) => !isSameDay(appointment, today) && appointment.status === "Completed",
+  );
+  const cancelledAppointments = appointments.filter(
+    (appointment) => !isSameDay(appointment, today) && appointment.status === "Cancelled",
+  );
+  const rows: StaffAppointmentRow[] = [];
+  const addSection = (title: string, sectionAppointments: AppointmentListItem[]) => {
+    if (sectionAppointments.length === 0) {
+      return;
+    }
+
+    rows.push({ id: `section-${title}`, title, type: "section" });
+    rows.push(
+      ...sectionAppointments.sort(sortWithActiveFirst).map((appointment) => ({
+        appointment,
+        id: appointment.id,
+        type: "appointment" as const,
+      })),
+    );
+  };
+
+  addSection("Today's Appointments", todayAppointments);
+  addSection("Upcoming Appointments", upcomingAppointments);
+  addSection("Completed Appointments", completedAppointments);
+  addSection("Cancelled Appointments", cancelledAppointments);
+
+  return rows;
+};
+
+export function StaffMyAppointmentsScreen() {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const { width } = useWindowDimensions();
+  const flatListContentStyle = useMemo(
+    () => [
+      styles.flatListContent,
+      {
+        paddingHorizontal: getResponsiveHorizontalPadding(width),
+        paddingTop: getResponsiveTopPadding(width),
+      },
+    ],
+    [styles.flatListContent, width],
+  );
+  const headerTitleStyle = useMemo(
+    () => ({ fontSize: getResponsiveHeaderTitleSize(width) }),
+    [width],
+  );
+  const appointments = useAppSelector(selectAppointments);
+  const currentStaff = useAppSelector(selectCurrentStaff);
+  const currentStaffError = useAppSelector(selectCurrentStaffError);
+  const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
+  const error = useAppSelector(selectAppointmentsError);
+  const loading = useAppSelector(selectAppointmentsIsLoading);
+  const loadingMore = useAppSelector(selectAppointmentsLoadingMore);
+  const refreshing = useAppSelector(selectAppointmentsRefreshing);
+  const { fetchAppointments, fetchNext } = useFetchAppointments();
+  const today = todayIsoDate();
+  const currentStaffId = currentStaff?.id ?? "";
+
+  useEffect(() => {
+    if (!currentStaffId) {
+      return;
+    }
+
+    void fetchAppointments({ reset: true, staffId: currentStaffId });
+  }, [currentStaffId, fetchAppointments]);
+
+  const staffAppointments = useMemo(
+    () => (currentStaff ? appointments.filter((appointment) => isAssignedToStaff(appointment, currentStaff)) : []),
+    [appointments, currentStaff],
+  );
+  const rows = useMemo(() => buildStaffAppointmentRows(staffAppointments, today), [staffAppointments, today]);
+  const counts = useMemo(
+    () => ({
+      cancelled: staffAppointments.filter((appointment) => appointment.status === "Cancelled").length,
+      completed: staffAppointments.filter((appointment) => appointment.status === "Completed").length,
+      today: staffAppointments.filter((appointment) => isSameDay(appointment, today)).length,
+      upcoming: staffAppointments.filter((appointment) => ACTIVE_APPOINTMENT_STATUSES.has(appointment.status)).length,
+    }),
+    [staffAppointments, today],
+  );
+  const blockingError =
+    currentStaffError ??
+    (!currentStaffId && !currentStaffLoading ? "Staff profile is not available for this session." : null) ??
+    error;
+  const isInitialLoading = currentStaffLoading || loading;
+
+  return (
+    <SafeAreaView edges={["top"]} style={styles.safeArea}>
+      <AppStatusBar />
+      <FlatList
+        ListHeaderComponent={
+          <View style={styles.listHeader}>
+            <View style={styles.headerRow}>
+              <View>
+                <Text style={[styles.headerTitle, headerTitleStyle]}>My Appointments</Text>
+              </View>
+            </View>
+            <View style={styles.summaryGrid}>
+              <View style={[styles.summaryTileWrap, { width: "48%" }]}>
+                <SummaryTile icon="today-outline" label="Today" value={String(counts.today)} />
+              </View>
+              <View style={[styles.summaryTileWrap, { width: "48%" }]}>
+                <SummaryTile icon="arrow-up-circle-outline" label="Upcoming" value={String(counts.upcoming)} />
+              </View>
+              <View style={[styles.summaryTileWrap, { width: "48%" }]}>
+                <SummaryTile icon="checkmark-done-outline" label="Completed" value={String(counts.completed)} />
+              </View>
+              <View style={[styles.summaryTileWrap, { width: "48%" }]}>
+                <SummaryTile icon="close-circle-outline" label="Cancelled" value={String(counts.cancelled)} />
+              </View>
+            </View>
+          </View>
+        }
+        ListEmptyComponent={
+          isInitialLoading ? (
+            <SkeletonList />
+          ) : blockingError ? (
+            <StateCard
+              actionLabel="Retry"
+              icon="cloud-offline-outline"
+              message={blockingError}
+              onAction={() => currentStaffId && void fetchAppointments({ reset: true, staffId: currentStaffId })}
+              title="Unable to load appointments"
+              tone="error"
+            />
+          ) : (
+            <StateCard
+              icon="calendar-clear-outline"
+              message="No appointments are currently assigned to you."
+              title="No appointments"
+            />
+          )
+        }
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={styles.footerLoader}>
+              <ActivityIndicator color={Colors.primary} />
+            </View>
+          ) : null
+        }
+        contentContainerStyle={flatListContentStyle}
+        data={isInitialLoading || blockingError ? [] : rows}
+        keyExtractor={(item) => item.id}
+        onEndReached={() => currentStaffId && void fetchNext({ staffId: currentStaffId })}
+        onEndReachedThreshold={0.45}
+        refreshControl={
+          <RefreshControl
+            colors={[Colors.primary]}
+            onRefresh={() => currentStaffId && void fetchAppointments({ refresh: true, staffId: currentStaffId })}
+            refreshing={refreshing}
+            tintColor={Colors.primary}
+          />
+        }
+        renderItem={({ item }) =>
+          item.type === "section" ? (
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>{item.title}</Text>
+            </View>
+          ) : (
+            <AppointmentCard
+              appointment={item.appointment}
+              detailRoute={(appointmentId) => `/(staff)/appointment-details/${appointmentId}` as Href}
+              showPaymentStatus
+            />
+          )
+        }
+        showsVerticalScrollIndicator={false}
+      />
+      <AppointmentSnackbar />
+    </SafeAreaView>
+  );
+}
+
 function CalendarPreview({
   appointments,
   date,
+  detailRoute,
+  title = "Calendar View",
 }: {
   appointments: AppointmentListItem[];
   date: string;
+  detailRoute?: (appointmentId: string) => Href;
+  title?: string;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -1727,7 +1992,7 @@ function CalendarPreview({
   return (
     <View style={styles.calendarCard}>
       <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Calendar View</Text>
+        <Text style={styles.sectionTitle}>{title}</Text>
         <View style={styles.segmented}>
           {(["day", "week", "month"] as AppointmentCalendarView[]).map((option) => (
             <TouchableOpacity
@@ -1743,6 +2008,9 @@ function CalendarPreview({
           ))}
         </View>
       </View>
+      {date === todayIsoDate() && view === "day" ? (
+        <Text style={styles.fieldHint}>Current time indicator • {formatHourMinuteAmPm(new Date())}</Text>
+      ) : null}
 
       {grouped.length === 0 ? (
         <Text style={styles.calendarEmpty}>No appointments to plot.</Text>
@@ -1761,7 +2029,7 @@ function CalendarPreview({
               {items.sort(sortBySchedule).map((appointment) => (
                 <Pressable
                   key={appointment.id}
-                  onPress={() => router.push(`/appointments/${appointment.id}` as Href)}
+                  onPress={() => router.push(detailRoute?.(appointment.id) ?? (`/appointments/${appointment.id}` as Href))}
                   style={styles.calendarEvent}
                 >
                   <Text numberOfLines={1} style={styles.calendarEventTitle}>
@@ -3791,13 +4059,19 @@ function DetailRow({ label, value }: { label: string; value?: string | number | 
   );
 }
 
-export function AppointmentDetailsScreen() {
+export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | "staff" } = {}) {
   const { styles } = useAppointmentStyles();
   const dispatch = useAppDispatch();
   const params = useLocalSearchParams<{ id?: string }>();
   const appointmentId = params.id;
   const appointment = useAppSelector((state) => selectAppointmentById(state, appointmentId));
   const detailsState = useAppSelector((state) => selectAppointmentDetailsState(state, appointmentId));
+  const currentStaff = useAppSelector(selectCurrentStaff);
+  const currentStaffError = useAppSelector(selectCurrentStaffError);
+  const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
+  const isStaffMode = mode === "staff";
+  const isStaffAppointment =
+    !isStaffMode || !appointment || (currentStaff ? isAssignedToStaff(appointment, currentStaff) : false);
 
   useEffect(() => {
     if (appointmentId) {
@@ -3815,9 +4089,19 @@ export function AppointmentDetailsScreen() {
         }
       }}
       refreshing={detailsState?.loading}
-      title="Appointment Details"
+      title={isStaffMode ? "My Appointment" : "Appointment Details"}
     >
-      {detailsState?.loading && !appointment ? <SkeletonList /> : null}
+      {(detailsState?.loading || (isStaffMode && currentStaffLoading)) && !appointment ? <SkeletonList /> : null}
+      {isStaffMode && currentStaffError && !appointment ? (
+        <StateCard
+          actionLabel="Retry"
+          icon="cloud-offline-outline"
+          message={currentStaffError}
+          onAction={() => appointmentId && void dispatch(fetchAppointmentByIdThunk(appointmentId))}
+          title="Unable to resolve staff profile"
+          tone="error"
+        />
+      ) : null}
       {detailsState?.error && !appointment ? (
         <StateCard
           actionLabel="Retry"
@@ -3835,7 +4119,15 @@ export function AppointmentDetailsScreen() {
           title="Appointment not found"
         />
       ) : null}
-      {appointment ? (
+      {appointment && !isStaffAppointment ? (
+        <StateCard
+          icon="lock-closed-outline"
+          message="This appointment is not assigned to your staff profile."
+          title="Appointment unavailable"
+          tone="error"
+        />
+      ) : null}
+      {appointment && isStaffAppointment ? (
         <>
           <View style={styles.detailHero}>
             <ClientAvatar name={displayName} />
@@ -3856,10 +4148,14 @@ export function AppointmentDetailsScreen() {
             {appointment.status === "In Progress" ? (
               <CompleteAppointmentAction appointment={appointment} />
             ) : null}
-            <ActionButton icon="create-outline" label="Edit" route={`/appointments/${appointment.id}/edit`} />
-            <ActionButton icon="calendar-outline" label="Reschedule" route={`/appointments/${appointment.id}/reschedule`} />
-            <ActionButton icon="close-circle-outline" label="Cancel" route={`/appointments/${appointment.id}/cancel`} danger />
-            <ActionButton icon="time-outline" label="History" route={`/appointments/${appointment.id}/history`} />
+            {!isStaffMode ? (
+              <>
+                <ActionButton icon="create-outline" label="Edit" route={`/appointments/${appointment.id}/edit`} />
+                <ActionButton icon="calendar-outline" label="Reschedule" route={`/appointments/${appointment.id}/reschedule`} />
+                <ActionButton icon="close-circle-outline" label="Cancel" route={`/appointments/${appointment.id}/cancel`} danger />
+                <ActionButton icon="time-outline" label="History" route={`/appointments/${appointment.id}/history`} />
+              </>
+            ) : null}
           </View>
 
           <View style={styles.formCard}>
@@ -3892,6 +4188,10 @@ export function AppointmentDetailsScreen() {
       ) : null}
     </ScreenShell>
   );
+}
+
+export function StaffAppointmentDetailsScreen() {
+  return <AppointmentDetailsScreen mode="staff" />;
 }
 
 function ConfirmAppointmentAction({ appointment }: { appointment: AppointmentListItem }) {
@@ -4452,6 +4752,182 @@ export function AppointmentCalendarScreen() {
         status={status}
       />
       <CalendarPreview appointments={appointments} date={date} />
+    </ScreenShell>
+  );
+}
+
+function ReadOnlyBlockedTimesSummary({
+  blockedTimes,
+  error,
+  loading,
+  onRetry,
+}: {
+  blockedTimes: BlockedTimeEntry[];
+  error: string | null;
+  loading: boolean;
+  onRetry: () => void;
+}) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const sortedBlockedTimes = useMemo(
+    () => [...blockedTimes].sort((left, right) => (left.startAt ?? "").localeCompare(right.startAt ?? "")),
+    [blockedTimes],
+  );
+
+  return (
+    <View style={styles.availabilityCard}>
+      <View style={styles.availabilityHeader}>
+        <Text style={styles.availabilityTitle}>Blocked Times</Text>
+        {loading ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
+      </View>
+      {error ? (
+        <StateCard
+          actionLabel="Retry"
+          icon="cloud-offline-outline"
+          message={error}
+          onAction={onRetry}
+          title="Unable to load blocked times"
+          tone="error"
+        />
+      ) : null}
+      {!error && loading ? <Text style={styles.fieldHint}>Loading blocked times...</Text> : null}
+      {!error && !loading && sortedBlockedTimes.length === 0 ? (
+        <Text style={styles.fieldHint}>No blocked times for this date.</Text>
+      ) : null}
+      {!error && sortedBlockedTimes.length > 0 ? (
+        <View style={styles.availabilityRows}>
+          {sortedBlockedTimes.map((blockedTime) => (
+            <View key={blockedTime.id} style={styles.availabilityRow}>
+              <Text ellipsizeMode="tail" numberOfLines={1} style={styles.availabilityRowLabel}>
+                {blockedTime.reason || "Blocked time"}
+              </Text>
+              <Text ellipsizeMode="tail" numberOfLines={1} style={styles.availabilityRowValue}>
+                {[blockedTime.startAt, blockedTime.endAt].filter(Boolean).join(" — ") || "-"}
+              </Text>
+            </View>
+          ))}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+export function StaffCalendarScreen() {
+  const appointments = useAppSelector(selectAppointments);
+  const appointmentsError = useAppSelector(selectAppointmentsError);
+  const appointmentsLoading = useAppSelector(selectAppointmentsIsLoading);
+  const refreshing = useAppSelector(selectAppointmentsRefreshing);
+  const currentStaff = useAppSelector(selectCurrentStaff);
+  const currentStaffError = useAppSelector(selectCurrentStaffError);
+  const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
+  const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
+  const { fetchAppointments } = useFetchAppointments();
+  const dispatch = useAppDispatch();
+  const currentStaffId = currentStaff?.id ?? "";
+  const availability = useAppSelector((state) => selectStaffAvailability(state, currentStaffId, date));
+  const availabilityLoading = useAppSelector((state) =>
+    selectStaffAvailabilityLoading(state, currentStaffId, date),
+  );
+  const availabilityError = useAppSelector((state) =>
+    selectStaffAvailabilityError(state, currentStaffId, date),
+  );
+  const loadCalendar = useCallback(
+    (refresh = false) => {
+      if (!currentStaffId) {
+        return;
+      }
+
+      void fetchAppointments({ date, refresh, reset: !refresh, search, staffId: currentStaffId, status });
+      void dispatch(fetchStaffAvailabilityThunk({ date, staffId: currentStaffId }));
+    },
+    [currentStaffId, date, dispatch, fetchAppointments, search, status],
+  );
+
+  useEffect(() => {
+    loadCalendar(false);
+  }, [loadCalendar]);
+
+  const staffAppointments = useMemo(
+    () =>
+      currentStaff
+        ? appointments
+            .filter((appointment) => isAssignedToStaff(appointment, currentStaff))
+            .filter((appointment) => getDateKey(appointment.scheduledAt) === date)
+            .filter((appointment) => matchesAppointment(appointment, search, status))
+        : [],
+    [appointments, currentStaff, date, search, status],
+  );
+  const dateBlockedTimes = useMemo(
+    () =>
+      (availability?.blockedTimes ?? []).filter((blockedTime) =>
+        [blockedTime.startAt, blockedTime.endAt].some((value) => value?.startsWith(date)),
+      ),
+    [availability?.blockedTimes, date],
+  );
+  const blockingError =
+    currentStaffError ??
+    (!currentStaffId && !currentStaffLoading ? "Staff profile is not available for this session." : null) ??
+    appointmentsError;
+
+  return (
+    <ScreenShell
+      backFallback={"/(staff)/home" as Href}
+      onRefresh={() => loadCalendar(true)}
+      refreshing={refreshing || availabilityLoading}
+      safeAreaEdges={["top"]}
+      showCreateAction={false}
+      title="My Calendar"
+    >
+      <FilterBar
+        date={date}
+        onDateChange={setDate}
+        onSearchChange={setSearch}
+        onStatusChange={setStatus}
+        search={search}
+        status={status}
+      />
+
+      {currentStaffLoading || appointmentsLoading ? <SkeletonList /> : null}
+      {!currentStaffLoading && !appointmentsLoading && blockingError ? (
+        <StateCard
+          actionLabel="Retry"
+          icon="cloud-offline-outline"
+          message={blockingError}
+          onAction={() => loadCalendar(false)}
+          title="Unable to load calendar"
+          tone="error"
+        />
+      ) : null}
+      {!blockingError ? (
+        <>
+          <StaffAvailabilitySummary
+            availabilityLabel={availability?.availabilityLabel ?? currentStaff?.availabilityLabel ?? "-"}
+            checkedInLabel={availability?.checkedInLabel ?? "-"}
+            checkedOutLabel={availability?.checkedOutLabel ?? "-"}
+            currentStatusLabel={availability?.currentStatusLabel ?? currentStaff?.status ?? "-"}
+            error={availabilityError}
+            hasStaff={Boolean(currentStaffId)}
+            holidayLabel={availability?.holidayLabel ?? "-"}
+            loading={availabilityLoading}
+            onLeaveLabel={availability?.onLeaveLabel ?? "-"}
+            shiftEndLabel={availability?.shiftEndLabel ?? "-"}
+            shiftStartLabel={availability?.shiftStartLabel ?? "-"}
+            workingHoursLabel={availability?.workingHoursLabel ?? currentStaff?.workingHours ?? "-"}
+          />
+          <ReadOnlyBlockedTimesSummary
+            blockedTimes={dateBlockedTimes}
+            error={availabilityError}
+            loading={availabilityLoading}
+            onRetry={() => loadCalendar(false)}
+          />
+          <CalendarPreview
+            appointments={staffAppointments}
+            date={date}
+            detailRoute={(appointmentId) => `/(staff)/appointment-details/${appointmentId}` as Href}
+            title="My Timeline"
+          />
+        </>
+      ) : null}
     </ScreenShell>
   );
 }
