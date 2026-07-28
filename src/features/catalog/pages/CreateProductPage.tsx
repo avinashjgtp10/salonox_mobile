@@ -10,6 +10,7 @@ import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import { retailFromActiveMethod, markupPercentFromRetail, flatAmountFromRetail } from "../utils/productPricing";
 import type { MarkupMethod } from "../utils/productPricing";
+import { PRODUCT_MESSAGES } from "../../../constants/messages";
 import "../styles/CreateProductPage.scss";
 
 
@@ -146,14 +147,14 @@ const CreateProductPage: React.FC = () => {
   const [touched, setTouched] = useState<Record<string, boolean>>({});
 
   const validationErrors = {
-    productName: !form.productName.trim() ? "Product name is required" : "",
-    categoryId: !form.categoryId ? "Product category is required" : "",
-    amount: !form.amount.trim() || isNaN(Number(form.amount)) ? "Product quantity is required" : "",
-    supplyPrice: !form.supplyPrice.trim() || isNaN(Number(form.supplyPrice)) || Number(form.supplyPrice) <= 0 ? "Supplier price is required" : "",
+    productName: !form.productName.trim() ? PRODUCT_MESSAGES.PRODUCT_NAME_REQUIRED : "",
+    categoryId: !form.categoryId ? PRODUCT_MESSAGES.CATEGORY_REQUIRED : "",
+    amount: !form.amount.trim() || isNaN(Number(form.amount)) ? PRODUCT_MESSAGES.QUANTITY_REQUIRED : "",
+    supplyPrice: !form.supplyPrice.trim() || isNaN(Number(form.supplyPrice)) || Number(form.supplyPrice) <= 0 ? PRODUCT_MESSAGES.SUPPLY_PRICE_REQUIRED : "",
     qtyAlert: !form.qtyAlert.trim() || !Number.isInteger(Number(form.qtyAlert)) || Number(form.qtyAlert) < 0
-      ? "Low stock alert is required"
+      ? PRODUCT_MESSAGES.LOW_STOCK_ALERT_REQUIRED
       : (form.amount.trim() && !isNaN(Number(form.amount)) && Number(form.qtyAlert) >= Number(form.amount))
-        ? "Low Stock Alert Quantity must be less than the Product Quantity."
+        ? PRODUCT_MESSAGES.LOW_STOCK_ALERT_EXCEEDS_QUANTITY
         : "",
   };
 
@@ -389,7 +390,7 @@ const CreateProductPage: React.FC = () => {
               <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.qtyAlert}</div>
             ) : (
               <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "4px" }}>
-                Alert when stock drops to or below this number.
+                {PRODUCT_MESSAGES.LOW_STOCK_ALERT_HINT}
               </div>
             )}
 
