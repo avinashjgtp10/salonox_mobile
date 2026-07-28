@@ -263,7 +263,7 @@ function StepResult({ result }: { result: ImportResult | null }) {
       </div>
       <h2 className="isp-step-title">{success ? "Import successful!" : "Import failed!"}</h2>
       <p className={`isp-step-desc ${success ? "text-success" : "text-muted"}`}>
-        {success ? "Your staff members have been added to your team." : "No staff members were added. Please check your file."}
+        {success ? "Your staff members have been added." : "No staff members were added. Please check your file."}
       </p>
 
       {result && (

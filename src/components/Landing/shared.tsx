@@ -226,7 +226,7 @@ export const WHY_FEATURE_DETAILS: WhyFeature[] = [
     benefits: [
       'Separate calendars, staff, services, and pricing per branch',
       'Company-wide reporting with branch-level drilldowns',
-      'Centralized roles for owners, managers, and front desk teams',
+      'Centralized roles for owners, managers, and front desk staff',
       'Fast branch switching without logging out',
       'Consistent client experience across every location',
     ],
@@ -242,7 +242,7 @@ export const WHY_FEATURE_DETAILS: WhyFeature[] = [
     metricLabel: 'access from browser, tablet, or phone',
     benefits: [
       'No local installs or manual updates',
-      'Real-time syncing across all team devices',
+      'Real-time syncing across all staff devices',
       'Secure access from anywhere with an internet connection',
       'Automatic backups reduce operational risk',
       'Built for fast onboarding and low maintenance',
@@ -305,15 +305,15 @@ export const WHY_FEATURE_DETAILS: WhyFeature[] = [
     desc: 'Bank-grade encryption, role-based access controls, and automatic backups keep your business data safe as you grow.',
     tag: 'Security',
     modalTitle: 'Security that scales with your salon brand',
-    modalDesc: 'Protect client records, staff access, payments, and business reporting with controls designed for growing teams.',
+    modalDesc: 'Protect client records, staff access, payments, and business reporting with controls designed for growing staff.',
     metric: 'RBAC',
-    metricLabel: 'role-based controls for every team member',
+    metricLabel: 'role-based controls for every staff member',
     benefits: [
       'Role-based permissions for owners, managers, and staff',
       'Encrypted data handling for sensitive client records',
       'Automatic backups and recovery-minded operations',
       'Scales from single location to salon groups',
-      'Access controls that keep teams focused and accountable',
+      'Access controls that keep staff focused and accountable',
     ],
   },
 ];
@@ -392,7 +392,7 @@ export const TERMS_SECTIONS: TermsSection[] = [
   },
   {
     title: 'User Accounts',
-    body: 'Customers are responsible for all activity under their SalonOX account and for assigning appropriate access permissions to their Users. Account credentials must be kept confidential and may not be shared outside the authorized team. You agree to promptly update account information and notify SalonOX if you suspect unauthorized access, credential misuse, or a security incident involving your account.',
+    body: 'Customers are responsible for all activity under their SalonOX account and for assigning appropriate access permissions to their Users. Account credentials must be kept confidential and may not be shared outside the authorized staff. You agree to promptly update account information and notify SalonOX if you suspect unauthorized access, credential misuse, or a security incident involving your account.',
   },
   {
     title: 'Subscription & Payments',
@@ -1079,7 +1079,7 @@ export const TermsContent: React.FC = () => (
           <span className="eyebrow"><span className="dot" /> Legal</span>
           <h1>Terms & Conditions</h1>
           <p>
-            Commercial terms for salons, spas, and teams using SalonOX cloud management software.
+            Commercial terms for salons, spas, and staff using SalonOX cloud management software.
           </p>
         </div>
         <div className="terms-effective">
@@ -1134,7 +1134,7 @@ export const TermsContent: React.FC = () => (
 export const PRIVACY_SECTIONS: TermsSection[] = [
   {
     title: 'Introduction',
-    body: 'This Privacy Policy explains how SalonOX collects, uses, stores, shares, and protects the information of customers, team members, and end clients when they use our cloud-based Salon & Spa Management Software (SaaS). SalonOX is designed for salons, spas, clinics, and multi-branch service businesses and supports appointment scheduling, billing, inventory, CRM, marketing, memberships, staff management, and multi-location operations. By using SalonOX, you acknowledge that your information may be processed as described in this Privacy Policy.',
+    body: 'This Privacy Policy explains how SalonOX collects, uses, stores, shares, and protects the information of customers, staff members, and end clients when they use our cloud-based Salon & Spa Management Software (SaaS). SalonOX is designed for salons, spas, clinics, and multi-branch service businesses and supports appointment scheduling, billing, inventory, CRM, marketing, memberships, staff management, and multi-location operations. By using SalonOX, you acknowledge that your information may be processed as described in this Privacy Policy.',
   },
   {
     title: 'Information We Collect',
@@ -1268,8 +1268,8 @@ export const ABOUT_OFFERS = [
 
 export const WHY_CHOOSE = [
   {
-    title: 'Built for real salon teams',
-    desc: 'SalonOX brings scheduling, checkout, client history, and operations into one elegant workspace so your team can move faster with less friction.',
+    title: 'Built for real salon staff',
+    desc: 'SalonOX brings scheduling, checkout, client history, and operations into one elegant workspace so your staff can move faster with less friction.',
   },
   {
     title: 'Flexible for every growth stage',
@@ -1293,7 +1293,7 @@ export const AboutContent: React.FC<AboutContentProps> = ({ onNavigateToBookDemo
           <span className="eyebrow"><span className="dot" /> About SalonOX</span>
           <h1>Modern salon software built for beauty businesses that want to grow with clarity.</h1>
           <p>
-            SalonOX is a cloud-based Salon & Spa Management Software designed to help owners, managers, and teams manage appointments, billing, inventory, CRM, memberships, staff workflows, and multi-branch operations from one place.
+            SalonOX is a cloud-based Salon & Spa Management Software designed to help owners, managers, and staff manage appointments, billing, inventory, CRM, memberships, staff workflows, and multi-branch operations from one place.
           </p>
           <div className="about-hero-actions">
             <a href="#book-demo" className="btn btn-primary" onClick={onNavigateToBookDemo}>
@@ -1305,7 +1305,7 @@ export const AboutContent: React.FC<AboutContentProps> = ({ onNavigateToBookDemo
           </div>
         </div>
         <div className="about-hero-card">
-          <span className="about-hero-card__kicker">Trusted by modern teams</span>
+          <span className="about-hero-card__kicker">Trusted by modern staff</span>
           <h2>From first consultation to repeat bookings, SalonOX keeps every detail connected.</h2>
           <p>We simplify daily operations so salon and spa businesses can deliver exceptional service and make smarter decisions with real-time visibility.</p>
         </div>
@@ -1317,7 +1317,7 @@ export const AboutContent: React.FC<AboutContentProps> = ({ onNavigateToBookDemo
         <article className="about-card">
           <h2>Who We Are</h2>
           <p>
-            SalonOX was created for businesses that need a premium operating system for salons and spas. Our platform combines elegant design with practical workflows so teams can focus on client experience instead of manual admin.
+            SalonOX was created for businesses that need a premium operating system for salons and spas. Our platform combines elegant design with practical workflows so staff can focus on client experience instead of manual admin.
           </p>
         </article>
 
@@ -1352,7 +1352,7 @@ export const AboutContent: React.FC<AboutContentProps> = ({ onNavigateToBookDemo
         <article className="about-card">
           <h2>Our Vision</h2>
           <p>
-            We believe every salon and spa deserves technology that feels effortless, scalable, and beautifully designed. Our vision is to make modern business operations simple so teams can spend more time creating memorable client experiences.
+            We believe every salon and spa deserves technology that feels effortless, scalable, and beautifully designed. Our vision is to make modern business operations simple so staff can spend more time creating memorable client experiences.
           </p>
         </article>
       </div>

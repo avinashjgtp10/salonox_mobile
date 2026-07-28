@@ -238,7 +238,7 @@ export default function PayrollPage() {
       <div className="pr-header">
         <div>
           <h2 className="pr-title">Payroll</h2>
-          <p className="pr-subtitle">Manage and process monthly payroll for your team.</p>
+          <p className="pr-subtitle">Manage and process monthly payroll for your staff.</p>
         </div>
         <div className="pr-header-actions">
           <button className="pr-btn pr-btn--outline">
@@ -260,7 +260,7 @@ export default function PayrollPage() {
           <SearchIcon size={14} className="pr-search-icon" />
           <input
             className="pr-search"
-            placeholder="Search team members…"
+            placeholder="Search staff members…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />

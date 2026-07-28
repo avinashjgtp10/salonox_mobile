@@ -10,9 +10,9 @@ import { useAutoNavigate } from "../../../hooks/useAutoNavigate";
 type TeamSize = "2-5" | "6-10" | "11+";
 
 const sizeDetails: { value: TeamSize; label: string; sub: string }[] = [
-  { value: "2-5", label: "2 – 5 people", sub: "Small & growing team" },
-  { value: "6-10", label: "6 – 10 people", sub: "Established team" },
-  { value: "11+", label: "11+ people", sub: "Large or multi-location team" },
+  { value: "2-5", label: "2 – 5 people", sub: "Small & growing staff" },
+  { value: "6-10", label: "6 – 10 people", sub: "Established staff" },
+  { value: "11+", label: "11+ people", sub: "Large or multi-location staff" },
 ];
 
 export default function TeamSizePage() {
@@ -40,9 +40,9 @@ export default function TeamSizePage() {
 
           <div className="flex-grow-1 d-flex align-items-center justify-content-center">
             <div className="w-100" style={{ maxWidth: "420px" }}>
-              <h3 className="account-heading mb-2" style={{ fontSize: "26px" }}>What's your team size?</h3>
+              <h3 className="account-heading mb-2" style={{ fontSize: "26px" }}>What's your staff size?</h3>
               <p className="account-subheading mb-4">
-                We'll recommend the right plan for your team.
+                We'll recommend the right plan for your staff.
               </p>
 
               <div className="d-flex flex-column gap-3">

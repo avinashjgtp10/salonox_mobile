@@ -51,7 +51,7 @@ const StaffEmergencyContactsSection: React.FC<StaffEmergencyContactsProps> = ({
         Emergency Contacts
       </h5>
       <p className="text-muted mb-4 section__subtitle">
-        Manage your team members' emergency contacts.
+        Manage your staff members' emergency contacts.
       </p>
 
       {contacts.map((c) => (

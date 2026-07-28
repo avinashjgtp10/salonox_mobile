@@ -231,7 +231,7 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
                     <p>{member.employmentType}</p>
                   </div>
                   <div className="detail-item">
-                    <label>Team member ID</label>
+                    <label>Staff member ID</label>
                     <p>{member.teamMemberId}</p>
                   </div>
                 </div>

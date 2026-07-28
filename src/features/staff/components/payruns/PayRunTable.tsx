@@ -13,7 +13,7 @@ interface PayRunTableProps {
 const PayRunTable: React.FC<PayRunTableProps> = ({ data, loading, onRowClick, onEdit, onDelete }) => {
   const columns = [
     {
-      header: "Team member",
+      header: "Staff member",
       key: "employeeName",
       render: (item: PayRun) => {
         const name =

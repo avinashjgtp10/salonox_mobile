@@ -36,7 +36,7 @@ interface TabItem {
 
 const generalTabs: TabItem[] = [
   { key: "basic", label: "Basic details" },
-  { key: "team", label: "Team members" },
+  { key: "team", label: "Staff members" },
 ];
 
 const settingsTabs: TabItem[] = [

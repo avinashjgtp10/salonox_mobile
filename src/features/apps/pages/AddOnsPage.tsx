@@ -44,7 +44,7 @@ const addOnsData: AddOn[] = [
     id: "insights",
     title: "Insights",
     description:
-      "Unlock additional reports and create your own unique reports which you can share with your team.",
+      "Unlock additional reports and create your own unique reports which you can share with your staff.",
     icon: <BarChart size={24} />,
     iconColorClass: "icon-indigo",
   },

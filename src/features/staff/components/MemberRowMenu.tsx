@@ -86,18 +86,18 @@ const MemberRowMenu: React.FC<MemberRowMenuProps> = ({
             Delete all shifts
           </button>
           <div className="member-row-menu__divider" />
-          <p className="member-row-menu__section">Team member</p>
+          <p className="member-row-menu__section">Staff member</p>
           <button
             className="member-row-menu__item"
             onClick={() => act(() => onViewMember(memberId))}
           >
-            View team member
+            View staff member
           </button>
           <button
             className="member-row-menu__item"
             onClick={() => act(() => onEditMember(memberId))}
           >
-            Edit team member
+            Edit staff member
           </button>
         </div>
       )}

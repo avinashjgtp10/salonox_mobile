@@ -137,7 +137,7 @@ const RepeatingShiftsPage: React.FC = () => {
           <div className="info-box">
             <InfoCircle size={16} />
             <p>
-              Team members will not be scheduled on business closed periods.
+              Staff members will not be scheduled on business closed periods.
             </p>
           </div>
         </div>

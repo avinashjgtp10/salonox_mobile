@@ -32,7 +32,7 @@ const PayRunSummaryCards: React.FC<PayRunSummaryCardsProps> = ({ summary, onPayT
                 onClick={onPayTeam}
                 className="btn-pay"
               >
-                Pay team
+                Pay staff
               </button>
             )}
           </div>

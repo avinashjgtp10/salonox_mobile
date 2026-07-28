@@ -565,7 +565,7 @@ export default function BusinessSettingsPage() {
             <div className="settings-form-group">
               <label className="settings-label">
                 <Users size={13} className="me-1" />
-                Team Type
+                Staff Type
               </label>
               <select
                 className="settings-select"
@@ -576,12 +576,12 @@ export default function BusinessSettingsPage() {
               >
                 <option value="">Select type</option>
                 <option value="independent">Independent — just me</option>
-                <option value="team">Team — multiple staff</option>
+                <option value="team">Staff team — multiple staff</option>
               </select>
             </div>
 
             <div className="settings-form-group">
-              <label className="settings-label">Team Size</label>
+              <label className="settings-label">Staff Size</label>
               <select
                 className="settings-select"
                 name="team_size"

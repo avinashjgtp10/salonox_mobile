@@ -65,7 +65,7 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
 
   const handleSave = async () => {
     if (!staffId || staffId === "undefined") {
-      showError("Please save the team member profile first");
+      showError("Please save the staff member profile first");
       return;
     }
     try {
@@ -101,7 +101,7 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
             )}
           </div>
           <div className="switch-desc">
-            Set up how much this team member earns. <LearnMoreLink topic="staff-wages">Learn more</LearnMoreLink>
+            Set up how much this staff member earns. <LearnMoreLink topic="staff-wages">Learn more</LearnMoreLink>
           </div>
         </div>
         <div className="form-check form-switch custom-switch">
@@ -162,7 +162,7 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
         {/* Timesheet Settings */}
         <h5 className="section__block-title">Timesheet settings</h5>
         <p className="section__block-subtitle">
-          Configure timesheet settings for this team member.{" "}
+          Configure timesheet settings for this staff member.{" "}
           <LearnMoreLink topic="staff-wages">Learn more</LearnMoreLink>
         </p>
 

@@ -40,7 +40,7 @@ export default function RolesPermissionsPage() {
       <div className="settings-page-header">
         <h2 className="settings-page-title">Roles &amp; Permissions</h2>
         <p className="settings-page-subtitle">
-          Customize permissions per staff member from the team section below.
+          Customize permissions per staff member from the staff section below.
         </p>
       </div>
 
@@ -50,17 +50,17 @@ export default function RolesPermissionsPage() {
           <div>
             <p className="settings-section-title">Per-Staff Permission Overrides</p>
             <p className="settings-section-desc">
-              Click "Customize" on any team member to set individual permissions.
+              Click "Customize" on any staff member to set individual permissions.
             </p>
           </div>
         </div>
         <div className="settings-section-body">
           {staffLoading.fetchAll ? (
-            <p style={{ fontSize: 13, color: "#6b7280" }}>Loading team…</p>
+            <p style={{ fontSize: 13, color: "#6b7280" }}>Loading staff…</p>
           ) : staffList.length === 0 ? (
             <p style={{ fontSize: 13, color: "#6b7280" }}>
-              No team members yet. Add staff from the{" "}
-              <a href="/dashboard/team" style={{ color: "#111827", fontWeight: 600 }}>Team section</a>.
+              No staff members yet. Add staff from the{" "}
+              <a href="/dashboard/team" style={{ color: "#111827", fontWeight: 600 }}>Staff section</a>.
             </p>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
@@ -105,7 +105,7 @@ export default function RolesPermissionsPage() {
 
           <div className="mt-3">
             <Button size="sm" variant="outline-secondary" onClick={() => { window.location.href = "/dashboard/team"; }}>
-              Manage team →
+              Manage staff →
             </Button>
           </div>
         </div>

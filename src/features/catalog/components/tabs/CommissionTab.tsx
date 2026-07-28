@@ -103,7 +103,7 @@ const CommissionTab: React.FC<Props> = ({ data, onChange }) => {
           </div>
         </div>
         <p className="text-muted small mt-3 mb-0">
-          This rate applies to all team members unless a custom rate is set
+          This rate applies to all staff members unless a custom rate is set
           below.
         </p>
       </div>

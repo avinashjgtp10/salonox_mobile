@@ -125,7 +125,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
     <div className="sp-section">
       <h5 className="sp-section__title">Profile</h5>
       <p className="sp-section__subtitle">
-        Manage your team member's personal profile
+        Manage your staff member's personal profile
       </p>
 
       {/* Avatar Upload */}
@@ -192,7 +192,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
           <option value="staff">Staff</option>
           <option value="manager">Manager</option>
         </select>
-        <p className="sp-hint">Visible to clients online and shown in the team member list</p>
+        <p className="sp-hint">Visible to clients online and shown in the staff member list</p>
       </div>
 
       {/* Email */}
@@ -391,7 +391,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
 
       <h5 className="sp-block-title">Work details</h5>
       <p className="sp-block-subtitle">
-        Manage your team member's start date, and employment details
+        Manage your staff member's start date, and employment details
       </p>
 
       {/* Start Date */}
@@ -459,7 +459,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
           </select>
         </div>
         <div className="sp-field sp-field--half">
-          <label className="sp-label">Team member ID</label>
+          <label className="sp-label">Staff member ID</label>
           <input
             type="text"
             className="sp-input"
@@ -477,7 +477,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
         <label className="sp-label">Notes</label>
         <textarea
           className="sp-textarea"
-          placeholder="Add a private note only viewable in the team member list"
+          placeholder="Add a private note only viewable in the staff member list"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           maxLength={1000}

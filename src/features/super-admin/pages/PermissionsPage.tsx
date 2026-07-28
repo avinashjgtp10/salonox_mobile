@@ -49,7 +49,7 @@ const CATEGORY_ICONS: Record<string, JSX.Element> = {
       <path d="M22 12h-4l-3 9L9 3l-3 9H2"/>
     </svg>
   ),
-  Team: (
+  Staff: (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
       <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
     </svg>
@@ -80,7 +80,7 @@ const CAT_COLORS: Record<string, { from: string; to: string; text: string }> = {
   Catalog:          { from: "#8b5cf6", to: "#a78bfa", text: "#7c3aed" },
   "Online Booking": { from: "#06b6d4", to: "#22d3ee", text: "#0891b2" },
   Marketing:        { from: "#ef4444", to: "#f87171", text: "#dc2626" },
-  Team:             { from: "#f97316", to: "#fb923c", text: "#ea580c" },
+  Staff:            { from: "#f97316", to: "#fb923c", text: "#ea580c" },
   Reports:          { from: "#64748b", to: "#94a3b8", text: "#475569" },
   Settings:         { from: "#64748b", to: "#94a3b8", text: "#475569" },
   Help:             { from: "#14b8a6", to: "#2dd4bf", text: "#0d9488" },

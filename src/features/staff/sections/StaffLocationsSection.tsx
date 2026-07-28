@@ -7,7 +7,7 @@ const StaffLocationsSection: React.FC = () => {
     <div className="section locations-section">
       <h5 className="section__title">Works at</h5>
       <p className="section__subtitle">
-        Choose the locations where this team member works
+        Choose the locations where this staff member works
       </p>
 
       <div className="location-list mt-3">

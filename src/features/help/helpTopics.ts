@@ -21,24 +21,24 @@ export const HELP_TOPICS: Record<string, HelpTopic> = {
     description: "Add-ons let clients customize a booking with optional extras (e.g. a deep conditioning treatment) for an additional charge and time.",
   },
   "staff-wages": {
-    title: "Team member wages",
-    description: "Set up how a team member earns — hourly wage, salary, or a mix — so wages calculate correctly on their pay runs and timesheets.",
+    title: "Staff member wages",
+    description: "Set up how a staff member earns — hourly wage, salary, or a mix — so wages calculate correctly on their pay runs and timesheets.",
   },
   "staff-payruns-settings": {
     title: "Pay run settings",
-    description: "Choose how a team member is paid (bank transfer, cash, etc.) and which fees or deductions are automatically applied during a pay run.",
+    description: "Choose how a staff member is paid (bank transfer, cash, etc.) and which fees or deductions are automatically applied during a pay run.",
   },
   "staff-commissions": {
-    title: "Team member commissions",
-    description: "Configure commission rates a team member earns on services, products, memberships, and gift cards they sell, plus deductions applied to those calculations.",
+    title: "Staff member commissions",
+    description: "Configure commission rates a staff member earns on services, products, memberships, and gift cards they sell, plus deductions applied to those calculations.",
   },
   "staff-list": {
-    title: "Managing your team",
-    description: "Add team members, assign roles and access levels, and manage their availability from the Team page.",
+    title: "Managing your staff",
+    description: "Add staff members, assign roles and access levels, and manage their availability from the Staff page.",
   },
   payruns: {
     title: "Pay runs",
-    description: "Calculate and settle what you owe your team — tips, commissions, and wages — for a given pay period, then mark the run as paid.",
+    description: "Calculate and settle what you owe your staff — tips, commissions, and wages — for a given pay period, then mark the run as paid.",
   },
   stocktakes: {
     title: "Stocktakes",
@@ -62,7 +62,7 @@ export const HELP_TOPICS: Record<string, HelpTopic> = {
   },
   "repeating-shifts": {
     title: "Repeating shifts",
-    description: "Set a weekly, biweekly, or custom shift pattern for a team member. Changes you save apply to all upcoming shifts for the selected period.",
+    description: "Set a weekly, biweekly, or custom shift pattern for a staff member. Changes you save apply to all upcoming shifts for the selected period.",
   },
   "stocktakes-landing": {
     title: "Stocktakes",

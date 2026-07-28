@@ -167,7 +167,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           }}
         >
           <People size={26} />
-          <span className="nav-label">Team</span>
+          <span className="nav-label">Staff</span>
         </button>
       )}
 

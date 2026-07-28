@@ -200,7 +200,7 @@ export default function LinkBuilderPage() {
               {loadingData ? (
                 <p className="ob-card-sub">Loading staff…</p>
               ) : staff.length === 0 ? (
-                <p className="ob-card-sub">No active staff found. Add one in Team first.</p>
+                <p className="ob-card-sub">No active staff found. Add one in Staff first.</p>
               ) : (
                 <select
                   className="ob-select"

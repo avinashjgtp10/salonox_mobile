@@ -36,7 +36,7 @@ export const exportStaffPDF = (staff: ExportableStaff[]): Blob => {
 
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
-  doc.text("Team Members", 14, 18);
+  doc.text("Staff Members", 14, 18);
 
   doc.setFontSize(9);
   doc.setFont("helvetica", "normal");

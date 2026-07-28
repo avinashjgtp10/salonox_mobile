@@ -100,7 +100,7 @@ export default function AcceptInvitePage() {
                   marginBottom: '2rem'
                 }}>✓</div>
                 <h2 style={{ fontSize: '2.5rem', fontWeight: 800, color: '#fff', marginBottom: '1.5rem' }}>
-                  Welcome to the Salonox Team!
+                  Welcome to the Salonox Staff!
                 </h2>
                 <p style={{ fontSize: '1.25rem', color: 'rgba(255, 255, 255, 0.9)', lineHeight: 1.6, marginBottom: '1.5rem' }}>
                   You are now an active member of the Salonox staff.

@@ -33,12 +33,12 @@ export default function StaffSettingsSection({
   return (
     <div className="st-section">
       <h5 className="st-section__title">Settings</h5>
-      <p className="st-section__subtitle">Configure team member permissions and booking availability</p>
+      <p className="st-section__subtitle">Configure staff member permissions and booking availability</p>
 
       {/* Appointment Settings */}
       <div className="st-field">
         <h6 className="st-block-title">Appointment settings</h6>
-        <p className="st-block-subtitle">Choose if this team member is bookable on the calendar</p>
+        <p className="st-block-subtitle">Choose if this staff member is bookable on the calendar</p>
 
         <label className="st-toggle-row">
           <div className="st-toggle-content">
@@ -61,7 +61,7 @@ export default function StaffSettingsSection({
       {/* Permission level */}
       <div className="st-field">
         <h6 className="st-block-title">Permission level</h6>
-        <p className="st-block-subtitle">Control what this team member can access in the workspace</p>
+        <p className="st-block-subtitle">Control what this staff member can access in the workspace</p>
 
         <div className="st-selector" ref={dropdownRef}>
           <div

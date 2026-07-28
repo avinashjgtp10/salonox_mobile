@@ -62,7 +62,7 @@ const PayRunSettingsModal: React.FC<PayRunSettingsModalProps> = ({ isOpen, onClo
               <option value="monthly">Monthly</option>
             </select>
             <div className="form-text text-muted mt-1">
-              How often pay runs are calculated for your team.
+              How often pay runs are calculated for your staff.
             </div>
           </div>
 

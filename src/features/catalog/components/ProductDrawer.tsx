@@ -86,7 +86,7 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
           <section className="pd-section">
             <h6 className="pd-section__title">Commission</h6>
             <Field
-              label="Team commission"
+              label="Staff commission"
               value={product.team_commission_enabled ? "Enabled" : "Disabled"}
               badge={product.team_commission_enabled ? "on" : undefined}
             />

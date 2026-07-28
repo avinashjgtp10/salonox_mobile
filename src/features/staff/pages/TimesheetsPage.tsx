@@ -35,8 +35,8 @@ const TimesheetsPage: React.FC = () => {
   const sortOptions = [
     "Date (newest first)",
     "Date (oldest first)",
-    "Team member (A-Z)",
-    "Team member (Z-A)",
+    "Staff member (A-Z)",
+    "Staff member (Z-A)",
     "Breaks (longest first)",
     "Breaks (shortest first)",
   ];
@@ -165,7 +165,7 @@ const TimesheetsPage: React.FC = () => {
                 Simplify time tracking <br /> and attendance
               </h1>
               <p className="ts-page__subtext">
-                Track your team's working hours and make pay calculations <br />
+                Track your staff's working hours and make pay calculations <br />
                 straightforward with salonox timesheets
               </p>
               <ul className="ts-page__features">
@@ -191,7 +191,7 @@ const TimesheetsPage: React.FC = () => {
                   className="ts-page__btn ts-page__btn--light"
                   onClick={() => navigate("/dashboard/team/members")}
                 >
-                  View team members
+                  View staff members
                 </button>
               </div>
             </div>
@@ -305,7 +305,7 @@ const TimesheetsPage: React.FC = () => {
       <div className="ts-page__header">
         <div className="ts-page__header-info">
           <h2>Timesheets</h2>
-          <p>Manage your team members' timesheets</p>
+          <p>Manage your staff members' timesheets</p>
         </div>
         <div className="ts-page__header-btns">
           <div className="ts-page__options-wrap" ref={optionsRef}>
@@ -448,9 +448,9 @@ const TimesheetsPage: React.FC = () => {
           <div className="ts-page__empty-icon">
             <PeopleFill />
           </div>
-          <h3>No team members</h3>
+          <h3>No staff members</h3>
           <p>
-            To add your first timesheet, enable timesheets for your team members
+            To add your first timesheet, enable timesheets for your staff members
           </p>
           <button
             className="ts-page__btn ts-page__btn--white"
@@ -530,7 +530,7 @@ const TimesheetsPage: React.FC = () => {
         >
           <div className="ts-drawer" onClick={(e) => e.stopPropagation()}>
             <div className="ts-drawer__header">
-              <h3>Select team member</h3>
+              <h3>Select staff member</h3>
               <button
                 className="ts-drawer__close"
                 onClick={() => setIsAddDrawerOpen(false)}
@@ -542,23 +542,23 @@ const TimesheetsPage: React.FC = () => {
             <div className="ts-drawer__body">
               <div className="ts-drawer__search">
                 <Search size={16} />
-                <input type="text" placeholder="Search team member name" />
+                <input type="text" placeholder="Search staff member name" />
               </div>
 
               <div className="ts-drawer__empty">
                 <div className="ts-drawer__empty-icon">
                   <Search size={32} />
                 </div>
-                <strong>No team members found</strong>
+                <strong>No staff members found</strong>
                 <p>
-                  To add your first timesheet, enable timesheets for your team
+                  To add your first timesheet, enable timesheets for your staff
                   members
                 </p>
                 <button
                   className="ts-page__btn ts-page__btn--white"
                   onClick={() => navigate("/dashboard/team/members")}
                 >
-                  View team members
+                  View staff members
                 </button>
               </div>
             </div>

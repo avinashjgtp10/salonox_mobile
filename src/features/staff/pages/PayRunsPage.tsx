@@ -126,7 +126,7 @@ const PayRunsPage: React.FC = () => {
       return;
     }
     showSuccess(
-      `Processing payment of ₹${summary.toPay.toLocaleString()} for the team...`
+      `Processing payment of ₹${summary.toPay.toLocaleString()} for the staff...`
     );
   };
 
@@ -142,7 +142,7 @@ const PayRunsPage: React.FC = () => {
         <div>
           <h1 className="title">Pay runs</h1>
           <p className="subtitle">
-            Calculate and settle the amount owed to your team for tips,
+            Calculate and settle the amount owed to your staff for tips,
             commissions, and wages. <LearnMoreLink topic="payruns">Learn more</LearnMoreLink>
           </p>
         </div>

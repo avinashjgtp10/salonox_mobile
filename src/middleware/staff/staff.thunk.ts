@@ -128,7 +128,7 @@ export const activateStaffThunk = createAsyncThunk<
     return { id, is_active: true } as unknown as Staff;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
-    return rejectWithValue("Failed to activate team member");
+    return rejectWithValue("Failed to activate staff member");
   }
 });
 
@@ -143,7 +143,7 @@ export const deactivateStaffThunk = createAsyncThunk<
     return { id, is_active: false } as unknown as Staff;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
-    return rejectWithValue("Failed to deactivate team member");
+    return rejectWithValue("Failed to deactivate staff member");
   }
 });
 

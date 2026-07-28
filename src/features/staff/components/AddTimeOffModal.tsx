@@ -106,7 +106,7 @@ const AddTimeOffModal: React.FC<AddTimeOffModalProps> = ({
         <div className="toff-modal__grid">
           <div className="toff-modal__row">
             <div className="toff-modal__field">
-              <label className="toff-modal__label">Team member</label>
+              <label className="toff-modal__label">Staff member</label>
               <select
                 className="toff-modal__select"
                 value={memberId}

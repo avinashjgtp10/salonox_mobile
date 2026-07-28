@@ -43,7 +43,7 @@ const staffSlice = createCRUDSlice<Staff>({
       })
       .addCase(activateStaffThunk.rejected, (state, { payload }) => {
         state.loading.activate = false;
-        state.error = (payload as string) ?? "Failed to activate team member";
+        state.error = (payload as string) ?? "Failed to activate staff member";
       });
 
     // ── deactivate ────────────────────────────────────────────────────────────
@@ -62,7 +62,7 @@ const staffSlice = createCRUDSlice<Staff>({
       })
       .addCase(deactivateStaffThunk.rejected, (state, { payload }) => {
         state.loading.deactivate = false;
-        state.error = (payload as string) ?? "Failed to deactivate team member";
+        state.error = (payload as string) ?? "Failed to deactivate staff member";
       });
   },
 });

@@ -3,7 +3,7 @@ import { Reveal } from '../shared';
 
 const featureItems = [
   'Dashboard Overview',
-  'Team Management',
+  'Staff Management',
   'Quick Sale',
   'Clients & Services',
 ] as const;
@@ -34,7 +34,7 @@ const appScreens = [
   },
   {
     src: '/screenshots/mobile-app-team.jpg',
-    alt: 'SalonOX mobile app team management screen',
+    alt: 'SalonOX mobile app staff management screen',
   },
 ] as const;
 

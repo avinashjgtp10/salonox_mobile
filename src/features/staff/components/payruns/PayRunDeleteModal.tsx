@@ -30,7 +30,7 @@ const PayRunDeleteModal: React.FC<PayRunDeleteModalProps> = ({
         <h4 className="fw-black text-dark mb-2">Are you absolutely sure?</h4>
         <p className="pay-run-delete-modal__desc text-muted mb-5 mx-auto">
           This action will permanently delete the pay run record for 
-          <strong className="text-dark d-block mt-1">"{itemName || "this team member"}"</strong>
+          <strong className="text-dark d-block mt-1">"{itemName || "this staff member"}"</strong>
           This operation cannot be reversed.
         </p>
 

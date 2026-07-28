@@ -66,12 +66,12 @@ export const defaultPermissions: Permission[] = [
   { key: "view_campaigns",      label: "View Campaigns",      desc: "See marketing campaigns",              category: "Marketing",      owner: true, staff: false, manager: true },
   { key: "create_campaigns",    label: "Create Campaigns",    desc: "Create and send campaigns",            category: "Marketing",      owner: true, staff: false, manager: true },
 
-  // ── Team ──────────────────────────────────────────────────────────────────
-  { key: "view_team",           label: "View Staff",           desc: "See team members and schedules",       category: "Team",           owner: true, staff: true,  manager: true },
-  { key: "add_team_member",     label: "Add Staff Member",     desc: "Invite and add new staff",             category: "Team",           owner: true, staff: false, manager: true },
-  { key: "edit_team_member",    label: "Edit Staff Member",    desc: "Update team member details",           category: "Team",           owner: true, staff: false, manager: true },
-  { key: "manage_shifts",       label: "Manage Shifts",       desc: "Create and edit scheduled shifts",     category: "Team",           owner: true, staff: false, manager: true },
-  { key: "view_payroll",        label: "View Payroll",        desc: "Access pay runs and payroll data",     category: "Team",           owner: true, staff: false, manager: true },
+  // ── Staff ─────────────────────────────────────────────────────────────────
+  { key: "view_team",           label: "View Staff",           desc: "See team members and schedules",       category: "Staff",          owner: true, staff: true,  manager: true },
+  { key: "add_team_member",     label: "Add Staff Member",     desc: "Invite and add new staff",             category: "Staff",          owner: true, staff: false, manager: true },
+  { key: "edit_team_member",    label: "Edit Staff Member",    desc: "Update team member details",           category: "Staff",          owner: true, staff: false, manager: true },
+  { key: "manage_shifts",       label: "Manage Shifts",       desc: "Create and edit scheduled shifts",     category: "Staff",          owner: true, staff: false, manager: true },
+  { key: "view_payroll",        label: "View Payroll",        desc: "Access pay runs and payroll data",     category: "Staff",          owner: true, staff: false, manager: true },
 
   // ── Reports ───────────────────────────────────────────────────────────────
   { key: "view_reports",        label: "View Reports",        desc: "Access business reports",              category: "Reports",        owner: true, staff: false, manager: true },

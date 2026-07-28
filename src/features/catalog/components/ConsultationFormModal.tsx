@@ -171,7 +171,7 @@ const ConsultationFormModal: React.FC<Props> = ({ form, onClose, onSave, staffMe
                       value={values.consultantName}
                       onChange={(e) => set("consultantName", e.target.value)}
                     >
-                      <option value="">Select a team member</option>
+                      <option value="">Select a staff member</option>
                       {staffMembers.map((m) => {
                         const name = `${m.firstName} ${m.lastName}`.trim();
                         return (

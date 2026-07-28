@@ -189,9 +189,9 @@ export default function StaffDashboardPage() {
       {/* ── Header ── */}
       <div className="sdb__header">
         <div>
-          <h1 className="sdb__title">Team Overview</h1>
+          <h1 className="sdb__title">Staff Overview</h1>
           <p className="sdb__subtitle">
-            Monitor your team's performance and activity at a glance.
+            Monitor your staff's performance and activity at a glance.
           </p>
         </div>
         <button
@@ -222,10 +222,10 @@ export default function StaffDashboardPage() {
 
       {/* ── Body Grid ── */}
       <div className="sdb__grid">
-        {/* Recent Team Members */}
+        {/* Recent Staff Members */}
         <div className="sdb__card">
           <div className="sdb__card-header">
-            <h3 className="sdb__card-title">Recent Team Members</h3>
+            <h3 className="sdb__card-title">Recent Staff Members</h3>
             <button
               className="sdb__card-link"
               onClick={() => navigate("/dashboard/team/members")}
@@ -250,7 +250,7 @@ export default function StaffDashboardPage() {
           ) : recentStaff.length === 0 ? (
             <div className="sdb__empty">
               <People size={36} className="sdb__empty-icon" />
-              <p>No team members yet</p>
+              <p>No staff members yet</p>
               <button
                 className="sdb__empty-btn"
                 onClick={() => navigate("/dashboard/team/add")}
@@ -308,7 +308,7 @@ export default function StaffDashboardPage() {
           <div className="sdb__actions">
             {[
               {
-                label: "Add Team Member",
+                label: "Add Staff Member",
                 desc: "Invite a new staff member",
                 icon: <PersonPlus size={18} />,
                 path: "/dashboard/team/add",

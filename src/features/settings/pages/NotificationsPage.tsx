@@ -243,7 +243,7 @@ const notifRows: NotifRow[] = [
   {
     key: "staffLogin",
     label: "Staff Login",
-    desc: "When a team member signs in",
+    desc: "When a staff member signs in",
     icon: <UserPlus size={16} />,
     iconBg: "#f3f4f6",
     iconColor: "#374151",

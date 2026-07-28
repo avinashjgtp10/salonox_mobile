@@ -48,7 +48,7 @@ export default function SetupCompletePage() {
               {[
                 { icon: "📅", text: "Bookings are ready to go" },
                 { icon: "💳", text: "Payments set up instantly" },
-                { icon: "👥", text: "Team management enabled" },
+                { icon: "👥", text: "Staff management enabled" },
               ].map((item, i) => (
                 <div key={i} className="highlight-row">
                   <span className="highlight-icon">{item.icon}</span>
