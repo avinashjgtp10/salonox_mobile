@@ -1,6 +1,6 @@
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect } from "react";
-import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { logout, setCustomPermissions } from "../../../store/authSlice";
 import { getMySalonThunk } from "../../../middleware/salon/salon.thunk";
 import { fetchMeThunk } from "../../../middleware/user/user.thunk";

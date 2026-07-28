@@ -33,13 +33,7 @@ const initialState: DashboardState = {
 const dashboardSlice = createSlice({
   name: "dashboard",
   initialState,
-  reducers: {
-    clearDashboard: (state) => {
-      state.data = null;
-      state.error = null;
-      state.chartError = null;
-    },
-  },
+  reducers: {},
   extraReducers: (builder) => {
     // ── Full dashboard load ────────────────────────────────────────────────────
     builder
@@ -91,5 +85,4 @@ const dashboardSlice = createSlice({
   },
 });
 
-export const { clearDashboard } = dashboardSlice.actions;
 export default dashboardSlice.reducer;
