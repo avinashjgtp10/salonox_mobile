@@ -1,5 +1,5 @@
 import { router } from "expo-router";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { Alert, Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 
@@ -21,7 +21,11 @@ import {
   selectRegisteredDeviceToken,
   selectRegisterDeviceStatus,
 } from "@/store/notification/notification.slice";
+import { selectCurrentStaff, selectCurrentStaffLoading } from "@/store/staff/staff.slice";
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { appEnv } from "@/config/environment";
 import { resolveRouteFromPushData } from "@/utils/notificationRouting";
+import { isStaffExperienceUser } from "@/utils/routeResolver";
 
 const PLATFORM: "android" | "ios" = Platform.OS === "ios" ? "ios" : "android";
 
@@ -33,16 +37,42 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
   const dispatch = useAppDispatch();
   const registeredToken = useAppSelector(selectRegisteredDeviceToken);
   const registerDeviceStatus = useAppSelector(selectRegisterDeviceStatus);
+  const currentUser = useAppSelector(selectCurrentUser);
+  const currentStaff = useAppSelector(selectCurrentStaff);
+  const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
   const registeredTokenRef = useRef(registeredToken);
   const registerDeviceStatusRef = useRef(registerDeviceStatus);
+  const currentUserRef = useRef(currentUser);
+  const currentStaffRef = useRef(currentStaff);
+  const currentStaffLoadingRef = useRef(currentStaffLoading);
+  const isAuthenticatedRef = useRef(isAuthenticated);
   const hydratedStoredTokenRef = useRef(false);
   const hasWarnedPermissionRef = useRef(false);
   const handledResponseIdsRef = useRef(new Set<string>());
+  const pendingNotificationResponseRef = useRef<Notifications.NotificationResponse | null>(null);
+  const confirmedRegistrationSignatureRef = useRef<string | null>(null);
   registeredTokenRef.current = registeredToken;
   registerDeviceStatusRef.current = registerDeviceStatus;
+  currentUserRef.current = currentUser;
+  currentStaffRef.current = currentStaff;
+  currentStaffLoadingRef.current = currentStaffLoading;
+  isAuthenticatedRef.current = isAuthenticated;
 
   const syncDeviceToken = async () => {
     try {
+      const activeUser = currentUserRef.current;
+      const activeStaff = currentStaffRef.current;
+      const isStaffUser = isStaffExperienceUser(activeUser);
+
+      if (isStaffUser && !activeStaff?.id) {
+        if (currentStaffLoadingRef.current) {
+          console.log("[PushNotifications] Staff device registration waiting for currentStaff.");
+        } else {
+          console.warn("[PushNotifications] Staff device registration skipped because currentStaff is unavailable.");
+        }
+        return;
+      }
+
       await ensureAndroidNotificationChannel();
       await requestNotificationPermission();
 
@@ -50,15 +80,10 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       const expoPushToken = token.trim();
 
       console.log("[PushNotifications] Token obtained");
-      console.log("Expo Push Token:", expoPushToken);
 
       if (!expoPushToken) {
         console.warn("[PushNotifications] Skipping device registration because Expo push token is empty.");
         return;
-      }
-
-      if (expoPushToken === registeredTokenRef.current) {
-        console.log("[PushNotifications] Token matches local registered token; re-confirming with backend.");
       }
 
       if (registerDeviceStatusRef.current === "loading") {
@@ -66,13 +91,34 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
         return;
       }
 
-      console.log("[PushNotifications] Dispatch registerDevice");
-      console.log("Register Device Payload:", {
-        token: expoPushToken,
+      const registrationPayload = {
+        app_env: appEnv,
         platform: PLATFORM,
-      });
+        role: activeUser?.role ?? null,
+        staff_id: isStaffUser ? activeStaff?.id ?? null : null,
+        token: expoPushToken,
+        user_id: activeUser?.id ?? null,
+      };
+      const registrationSignature = JSON.stringify(registrationPayload);
 
-      void dispatch(registerDeviceThunk({ platform: PLATFORM, token: expoPushToken }));
+      if (
+        expoPushToken === registeredTokenRef.current &&
+        registrationSignature === confirmedRegistrationSignatureRef.current
+      ) {
+        console.log("[PushNotifications] Registration skipped because this device context is already confirmed.");
+        return;
+      }
+
+      console.log("[PushNotifications] Dispatch registerDevice");
+
+      void dispatch(registerDeviceThunk(registrationPayload))
+        .unwrap()
+        .then(() => {
+          confirmedRegistrationSignatureRef.current = registrationSignature;
+        })
+        .catch((error) => {
+          console.warn("[PushNotifications] Device registration failed:", error);
+        });
     } catch (error) {
       if (error instanceof PushPermissionDeniedError) {
         if (!hasWarnedPermissionRef.current) {
@@ -99,6 +145,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
   useEffect(() => {
     if (!isAuthenticated) {
       hydratedStoredTokenRef.current = false;
+      confirmedRegistrationSignatureRef.current = null;
       return;
     }
 
@@ -112,7 +159,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       void syncDeviceToken();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isAuthenticated]);
+  }, [currentStaff?.id, currentStaffLoading, currentUser?.id, currentUser?.role, isAuthenticated]);
 
   // Token rotation can happen at any time (app reinstall keeps the same
   // device but Expo may issue a new token) — re-check on every return to
@@ -123,20 +170,38 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
     }
   });
 
+  const handleNotificationResponse = useCallback((response: Notifications.NotificationResponse) => {
+    if (!isAuthenticatedRef.current || !currentUserRef.current) {
+      pendingNotificationResponseRef.current = response;
+      return;
+    }
+
+    const responseId = response.notification.request.identifier;
+
+    if (handledResponseIdsRef.current.has(responseId)) {
+      return;
+    }
+
+    handledResponseIdsRef.current.add(responseId);
+    const href = resolveRouteFromPushData(
+      response.notification.request.content.data,
+      isStaffExperienceUser(currentUserRef.current) ? "staff" : "owner",
+    );
+    router.push(href);
+    void dispatch(fetchNotificationsThunk());
+    void dispatch(fetchUnreadCountThunk());
+  }, [dispatch]);
+
   useEffect(() => {
-    const handleNotificationResponse = (response: Notifications.NotificationResponse) => {
-      const responseId = response.notification.request.identifier;
+    const pendingResponse = pendingNotificationResponseRef.current;
 
-      if (handledResponseIdsRef.current.has(responseId)) {
-        return;
-      }
+    if (isAuthenticated && currentUser && pendingResponse) {
+      pendingNotificationResponseRef.current = null;
+      handleNotificationResponse(pendingResponse);
+    }
+  }, [currentUser, handleNotificationResponse, isAuthenticated]);
 
-      handledResponseIdsRef.current.add(responseId);
-      const href = resolveRouteFromPushData(response.notification.request.content.data);
-      router.push(href);
-      void dispatch(fetchNotificationsThunk());
-      void dispatch(fetchUnreadCountThunk());
-    };
+  useEffect(() => {
 
     const receivedSubscription = Notifications.addNotificationReceivedListener(() => {
       // Foreground receipt: the OS banner is already handled by the
@@ -165,5 +230,5 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       receivedSubscription.remove();
       responseSubscription.remove();
     };
-  }, [dispatch]);
+  }, [dispatch, handleNotificationResponse]);
 };

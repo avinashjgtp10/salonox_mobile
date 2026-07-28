@@ -20,6 +20,7 @@ import type { StaffEmergencyContactListItem } from "@/types/staff";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
 
 type EmergencyContactsSectionProps = {
+  readOnly?: boolean;
   staffId?: string | null;
 };
 
@@ -54,12 +55,13 @@ function ContactRow({ canDelete, contact, onDelete, onEdit, staffId }: ContactRo
         {contact.email ? <Text style={styles.subtle}>{contact.email}</Text> : null}
         {contact.address ? <Text style={styles.subtle}>{contact.address}</Text> : null}
       </View>
+      {canDelete ? (
       <View style={styles.rowActions}>
         <TouchableOpacity
           activeOpacity={0.84}
-          disabled={deleting}
+          disabled={!canDelete || deleting}
           onPress={() => onEdit(contact)}
-          style={styles.editButton}
+          style={[styles.editButton, (!canDelete || deleting) && styles.deleteButtonDisabled]}
         >
           <Text style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>
@@ -76,11 +78,12 @@ function ContactRow({ canDelete, contact, onDelete, onEdit, staffId }: ContactRo
           )}
         </TouchableOpacity>
       </View>
+      ) : null}
     </View>
   );
 }
 
-export function EmergencyContactsSection({ staffId }: EmergencyContactsSectionProps) {
+export function EmergencyContactsSection({ readOnly = false, staffId }: EmergencyContactsSectionProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const controller = useStaffEmergencyContacts(staffId);
@@ -124,6 +127,7 @@ export function EmergencyContactsSection({ staffId }: EmergencyContactsSectionPr
   return (
     <StaffSectionCard
       action={
+        readOnly ? null :
         <TouchableOpacity
           activeOpacity={0.84}
           onPress={controller.openCreateForm}
@@ -162,10 +166,10 @@ export function EmergencyContactsSection({ staffId }: EmergencyContactsSectionPr
           {controller.contacts.map((contact) => (
             <ContactRow
               key={contact.id}
-              canDelete={canManageContacts}
+              canDelete={!readOnly && canManageContacts}
               contact={contact}
               onDelete={handleDelete}
-              onEdit={controller.openEditForm}
+              onEdit={readOnly ? () => undefined : controller.openEditForm}
               staffId={staffId}
             />
           ))}

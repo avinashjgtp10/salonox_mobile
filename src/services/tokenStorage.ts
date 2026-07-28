@@ -52,8 +52,6 @@ export const tokenStorage = {
       AsyncStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken),
       AsyncStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken),
     ]);
-    console.log("[Auth Debug] tokenStorage saved access token:", tokens.accessToken);
-    console.log("[Auth Debug] tokenStorage saved refresh token:", tokens.refreshToken);
   },
 
   async setStoredUser(user: AuthUser) {

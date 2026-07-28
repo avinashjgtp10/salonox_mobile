@@ -94,6 +94,9 @@ type StaffApiItem = {
   status?: string | null;
   today_appointments?: number | string | null;
   today_revenue?: number | string | null;
+  user?: { _id?: string | number | null; id?: string | number | null } | null;
+  user_id?: string | number | null;
+  userId?: string | number | null;
   weekly_revenue?: number | string | null;
   work_end_time?: string | null;
   work_start_time?: string | null;
@@ -614,6 +617,12 @@ const getEmergencyContactPagination = (
 
 const normalizeStaffMember = (staffMember: StaffApiItem, index: number): StaffMember => {
   const name = getFullName(staffMember);
+  const userId =
+    toSafeString(staffMember.user_id) ||
+    toSafeString(staffMember.userId) ||
+    toSafeString(staffMember.user?.id) ||
+    toSafeString(staffMember.user?._id) ||
+    null;
   const staffIdAliases = Array.from(
     new Set(
       [
@@ -659,6 +668,7 @@ const normalizeStaffMember = (staffMember: StaffApiItem, index: number): StaffMe
     todayAppointments: toSafeNumber(staffMember.today_appointments),
     todayRevenue: toSafeNumber(staffMember.today_revenue),
     todayScheduleNote: getAvailabilityLabel(staffMember, availability),
+    userId,
     weeklyRevenue: toSafeNumber(staffMember.weekly_revenue),
     workingHours: getWorkingHours(staffMember),
     employeeCode: toSafeString(staffMember.employee_code, "-"),

@@ -1,3 +1,5 @@
+import type { BlockedTimeEntry } from "@/types/staffBlockedTimes";
+
 export type StaffAvailabilitySlot = {
   display: string;
   endTime: string | null;
@@ -7,7 +9,7 @@ export type StaffAvailabilitySlot = {
 export type StaffAvailability = {
   availableSlots: StaffAvailabilitySlot[];
   availabilityLabel: string | null;
-  blockedTimes: unknown[];
+  blockedTimes: BlockedTimeEntry[];
   checkedInLabel: string | null;
   checkedOutLabel: string | null;
   currentStatusLabel: string | null;

@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useFocusEffect } from "expo-router";
+import { router, useFocusEffect, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -24,9 +24,15 @@ import {
   selectNotificationsListRefreshing,
   selectUnreadCount,
 } from "@/store/notification/notification.slice";
+import {
+  selectCurrentStaff,
+  selectCurrentStaffError,
+  selectCurrentStaffLoading,
+} from "@/store/staff/staff.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { NotificationItem } from "@/types/notification";
+import { resolveNotificationRoute } from "@/utils/notificationRouting";
 
 // Presentation-only lookup keyed by the backend's free-form `type` string —
 // unrecognized types still render fully via the fallback entry, never hidden
@@ -51,9 +57,29 @@ const getNotificationIcon = (type: string, Colors: ThemeColors) =>
 
 const AUTO_REFRESH_INTERVAL_MS = 30_000;
 
+const getResponsiveHorizontalPadding = (width = 393) => {
+  if (width < 360) {
+    return 16;
+  }
+
+  if (width >= 768) {
+    return 40;
+  }
+
+  if (width >= 600) {
+    return 32;
+  }
+
+  return AppLayout.contentHorizontalPadding;
+};
+
+const getResponsiveTitleSize = (width = 393) =>
+  width < 360 ? AppLayout.headerTitleFontSize - 2 : AppLayout.headerTitleFontSize;
+
 function NotificationSkeleton() {
   const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const { width } = useWindowDimensions();
+  const styles = useMemo(() => createStyles(Colors, width), [Colors, width]);
 
   return (
     <View style={styles.row}>
@@ -70,10 +96,12 @@ function NotificationRow({
   isMarking,
   notification,
   onPress,
+  showDetailMeta = false,
 }: {
   isMarking: boolean;
   notification: NotificationItem;
   onPress: () => void;
+  showDetailMeta?: boolean;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -101,13 +129,31 @@ function NotificationRow({
           </Text>
         ) : null}
         <Text style={styles.time}>{notification.createdDateLabel}</Text>
+        {showDetailMeta ? (
+          <View style={styles.metaRow}>
+            <Text style={styles.metaPill}>{notification.type || "general"}</Text>
+            <Text style={styles.metaPill}>{notification.isRead ? "Read" : "Unread"}</Text>
+          </View>
+        ) : null}
       </View>
       {isMarking ? <ActivityIndicator color={Colors.primary} size="small" /> : null}
     </TouchableOpacity>
   );
 }
 
-export default function NotificationsScreen() {
+export default function NotificationsScreen({
+  backFallback = "/dashboard" as Href,
+  enableDeepLinks = false,
+  requireStaffIdentity = false,
+  routeScope = "owner",
+  showDetailMeta = false,
+}: {
+  backFallback?: Href;
+  enableDeepLinks?: boolean;
+  requireStaffIdentity?: boolean;
+  routeScope?: "owner" | "staff";
+  showDetailMeta?: boolean;
+} = {}) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -118,8 +164,16 @@ export default function NotificationsScreen() {
   const unreadCount = useAppSelector(selectUnreadCount);
   const markingReadIds = useAppSelector(selectMarkingReadIds);
   const markingAllRead = useAppSelector(selectMarkingAllRead);
+  const currentStaff = useAppSelector(selectCurrentStaff);
+  const currentStaffError = useAppSelector(selectCurrentStaffError);
+  const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const staffIdentityReady = !requireStaffIdentity || Boolean(currentStaff?.id);
+  const blockingError =
+    requireStaffIdentity && !currentStaff?.id && !currentStaffLoading
+      ? currentStaffError ?? "Staff profile is not available for this session."
+      : error;
 
   // Pure client-side derivation over the already-fetched list — no new
   // selector/thunk/API call. fetchNotificationsThunk, the 30s auto-refresh,
@@ -131,10 +185,14 @@ export default function NotificationsScreen() {
 
   const refresh = useCallback(
     (args?: { refresh?: boolean }) => {
+      if (!staffIdentityReady) {
+        return;
+      }
+
       void dispatch(fetchNotificationsThunk(args));
       void dispatch(fetchUnreadCountThunk());
     },
-    [dispatch],
+    [dispatch, staffIdentityReady],
   );
 
   useEffect(() => {
@@ -166,12 +224,16 @@ export default function NotificationsScreen() {
       return;
     }
 
-    router.replace("/dashboard");
+    router.replace(backFallback);
   };
 
   const handlePressNotification = (notification: NotificationItem) => {
     if (!notification.isRead) {
       void dispatch(markNotificationReadThunk(notification.id));
+    }
+
+    if (enableDeepLinks) {
+      router.push(resolveNotificationRoute(notification, routeScope));
     }
   };
 
@@ -217,19 +279,19 @@ export default function NotificationsScreen() {
         />
       </View>
 
-      {loading && notifications.length === 0 ? (
+      {(loading || (requireStaffIdentity && currentStaffLoading)) && notifications.length === 0 ? (
         <View style={styles.listContent}>
           {Array.from({ length: 5 }).map((_, index) => (
             <NotificationSkeleton key={`notification-skeleton-${index}`} />
           ))}
         </View>
-      ) : error && notifications.length === 0 ? (
+      ) : blockingError && notifications.length === 0 ? (
         <View style={styles.stateCard}>
           <View style={styles.stateIcon}>
             <Ionicons name="cloud-offline-outline" size={26} color={Colors.error} />
           </View>
           <Text style={styles.stateTitle}>Unable to load notifications</Text>
-          <Text style={styles.stateDescription}>{error}</Text>
+          <Text style={styles.stateDescription}>{blockingError}</Text>
           <TouchableOpacity activeOpacity={0.85} onPress={() => refresh()} style={styles.retryButton}>
             <Text style={styles.retryButtonText}>Retry</Text>
           </TouchableOpacity>
@@ -271,6 +333,7 @@ export default function NotificationsScreen() {
               isMarking={markingReadIds.includes(item.id)}
               notification={item}
               onPress={() => handlePressNotification(item)}
+              showDetailMeta={showDetailMeta}
             />
           )}
           showsVerticalScrollIndicator={false}
@@ -280,7 +343,7 @@ export default function NotificationsScreen() {
   );
 }
 
-const createStyles = (Colors: ThemeColors) => StyleSheet.create({
+const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,
@@ -289,8 +352,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
-    paddingTop: Spacing.sm,
+    gap: Spacing.sm,
+    paddingHorizontal: getResponsiveHorizontalPadding(width),
+    paddingTop: width < 360 ? Spacing.sm : Spacing.md,
   },
   iconButton: {
     alignItems: "center",
@@ -304,8 +368,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   headerTitle: {
     color: Colors.heading,
-    fontSize: AppLayout.headerTitleFontSize,
+    flex: 1,
+    fontSize: getResponsiveTitleSize(width),
     fontWeight: AppLayout.screenTitleFontWeight,
+    textAlign: "center",
   },
   markAllButton: {
     alignItems: "center",
@@ -322,12 +388,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   segmentedWrap: {
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
+    paddingHorizontal: getResponsiveHorizontalPadding(width),
     paddingTop: Spacing.md,
   },
   listContent: {
     paddingBottom: AppLayout.contentBottomPadding,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
+    paddingHorizontal: getResponsiveHorizontalPadding(width),
     paddingTop: Spacing.md,
   },
   row: {
@@ -386,6 +452,24 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 10,
     fontWeight: "600",
     marginTop: 4,
+  },
+  metaRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 6,
+  },
+  metaPill: {
+    backgroundColor: Colors.bg,
+    borderColor: Colors.border,
+    borderRadius: Radius.full,
+    borderWidth: 1,
+    color: Colors.text2,
+    fontSize: 10,
+    fontWeight: "800",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    textTransform: "capitalize",
   },
   skeletonLine: {
     backgroundColor: Colors.bg2,

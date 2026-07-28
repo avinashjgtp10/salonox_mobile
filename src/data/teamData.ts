@@ -18,6 +18,7 @@ export type StaffStatus =
 
 export type StaffMember = {
   id: string;
+  userId?: string | null;
   staffIdAliases?: string[];
   initials: string;
   name: string;

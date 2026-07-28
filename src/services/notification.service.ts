@@ -140,12 +140,14 @@ export const notificationService = {
     console.log("[PushNotifications] notification.service entered");
     const expoPushToken = payload.token.trim();
     const requestPayload: RegisterDeviceRequest = {
+      ...(payload.app_env ? { app_env: payload.app_env } : {}),
       token: expoPushToken,
       platform: payload.platform,
+      ...(payload.role ? { role: payload.role } : {}),
+      ...(payload.staff_id ? { staff_id: payload.staff_id } : {}),
+      ...(payload.user_id ? { user_id: payload.user_id } : {}),
     };
 
-    console.log("Expo Push Token:", expoPushToken);
-    console.log("Register Device Payload:", requestPayload);
     console.log("[PushNotifications] Axios POST executed", NOTIFICATION.REGISTER_DEVICE);
 
     const response = await api.post<ApiResponse<unknown>>(NOTIFICATION.REGISTER_DEVICE, requestPayload);
@@ -156,8 +158,16 @@ export const notificationService = {
   },
 
   async unregisterDevice(payload: UnregisterDeviceRequest): Promise<UnregisterDeviceResponse> {
+    const expoPushToken = payload.token.trim();
+    const requestPayload: UnregisterDeviceRequest = {
+      ...(payload.app_env ? { app_env: payload.app_env } : {}),
+      token: expoPushToken,
+      ...(payload.role ? { role: payload.role } : {}),
+      ...(payload.staff_id ? { staff_id: payload.staff_id } : {}),
+      ...(payload.user_id ? { user_id: payload.user_id } : {}),
+    };
     const response = await api.delete<ApiResponse<unknown>>(NOTIFICATION.REGISTER_DEVICE, {
-      data: payload,
+      data: requestPayload,
     });
 
     return { message: response.data.message };
