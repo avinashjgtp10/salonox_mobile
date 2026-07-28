@@ -2,8 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector } from "react-redux";
 import {
-  Search,
-  BarChart,
   Bell,
   PersonCircle,
   Gear,
@@ -96,7 +94,6 @@ export default function DashboardTopbar({ onLogout }: Props) {
   const [showSearch,  setShowSearch]  = useState(false);
   const [showNotif,   setShowNotif]   = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [planLoading, setPlanLoading] = useState(false);
   const [notifs,      setNotifs]      = useState<Notification[]>([]);
   const [loading,     setLoading]     = useState(false);
   const [toasts,      setToasts]      = useState<Toast[]>([]);
@@ -217,11 +214,6 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
   // ── Handlers ─────────────────────────────────────────────────────────────────
 
-  const handleActivatePlan = useCallback(() => {
-    setPlanLoading(true);
-    setTimeout(() => { setPlanLoading(false); navigate("/dashboard/settings/billing"); }, 400);
-  }, [navigate]);
-
   const handleMarkAllRead = useCallback(async () => {
     try {
       await api.patch(NOTIFICATIONS.MARK_ALL);
@@ -289,25 +281,6 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
           {/* Current date */}
           <span className="topbar-date" title="Today's date">{todayLabel}</span>
-
-          {/* Activate Plan */}
-          <button
-            className={`activate-btn ${planLoading ? "activate-btn--loading" : ""}`}
-            onClick={handleActivatePlan}
-            disabled={planLoading}
-          >
-            {planLoading ? <span className="activate-btn-spinner" /> : "Activate Plan"}
-          </button>
-
-          {/* Search */}
-          <button className="topbar-icon-btn" title="Search (Ctrl+K)" onClick={() => setShowSearch(true)} aria-label="Open search">
-            <Search size={19} />
-          </button>
-
-          {/* Analytics */}
-          <button className="topbar-icon-btn" title="Analytics" onClick={() => navigate("/dashboard/analytics")} aria-label="Analytics">
-            <BarChart size={19} />
-          </button>
 
           {/* Notifications bell */}
           <div className="topbar-notif-wrap" ref={notifRef}>

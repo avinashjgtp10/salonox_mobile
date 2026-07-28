@@ -63,24 +63,6 @@ body {
 
 }
 
-.activate-btn {
-  background: $btn-primary;
-  color: $white;
-  font-weight: 500;
-  padding: 6px 16px;
-  height: 34px;
-  border-radius: 999px;
-  border: none;
-  cursor: pointer;
-  font-size: 13px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  white-space: nowrap;
-  transition: 0.2s ease;
-  &:hover { background: $btn-hover; }
-}
-
 .profile {
   width: 30px;
   height: 30px;
@@ -1342,27 +1324,6 @@ body {
   @media (max-width: 700px) { display: none; }
 }
 
-/* ── ACTIVATE PLAN BUTTON LOADING STATE ── */
-.activate-btn--loading {
-  opacity: 0.75;
-  pointer-events: none;
-  gap: 8px;
-}
-
-.activate-btn-spinner {
-  display: inline-block;
-  width: 13px;
-  height: 13px;
-  border: 2px solid rgba(255,255,255,0.4);
-  border-top-color: #fff;
-  border-radius: 50%;
-  animation: tb-spin 0.7s linear infinite;
-}
-
-@keyframes tb-spin {
-  to { transform: rotate(360deg); }
-}
-
 /* ── TOPBAR ICON BUTTON (active state) ── */
 .topbar-icon-btn--active {
   background: $dashboard-bg !important;
@@ -1822,7 +1783,6 @@ body {
 /* ── MOBILE ── */
 @media (max-width: 480px) {
   .brand      { font-size: 16px; }
-  .activate-btn { padding: 6px 12px; font-size: 12px; }
   .db-header  { flex-direction: column; }
   .db-title   { font-size: 18px; }
 
