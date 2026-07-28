@@ -131,6 +131,11 @@ export default function CouponsSettingsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<CouponForm>(EMPTY_FORM);
+  // Snapshot of `form` as it was when the currently-selected coupon was loaded
+  // (or last saved) — compared against the live form to gate the Save button,
+  // so opening an existing coupon for editing doesn't leave Save clickable
+  // with nothing actually changed.
+  const [originalForm, setOriginalForm] = useState<CouponForm | null>(null);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -209,7 +214,9 @@ export default function CouponsSettingsPage() {
   function handleSelect(coupon: Coupon) {
     setSelectedId(coupon.id);
     setIsCreating(false);
-    setForm(couponToForm(coupon));
+    const snapshot = couponToForm(coupon);
+    setForm(snapshot);
+    setOriginalForm(snapshot);
     setFormErrors({});
   }
 
@@ -217,6 +224,7 @@ export default function CouponsSettingsPage() {
     setSelectedId(null);
     setIsCreating(true);
     setForm(EMPTY_FORM);
+    setOriginalForm(null);
     setFormErrors({});
   }
 
@@ -225,8 +233,11 @@ export default function CouponsSettingsPage() {
       setIsCreating(false);
       setSelectedId(null);
       setForm(EMPTY_FORM);
+      setOriginalForm(null);
     } else if (selectedCoupon) {
-      setForm(couponToForm(selectedCoupon));
+      const snapshot = couponToForm(selectedCoupon);
+      setForm(snapshot);
+      setOriginalForm(snapshot);
     }
     setFormErrors({});
   }
@@ -246,6 +257,9 @@ export default function CouponsSettingsPage() {
 
   async function handleSave() {
     if (!validate()) return;
+    // Belt-and-suspenders alongside the disabled Save button — no update
+    // call is fired if editing an existing coupon with nothing changed.
+    if (!isCreating && !isFormDirty) return;
     setSaving(true);
     const payload = formToPayload(form);
     try {
@@ -260,7 +274,9 @@ export default function CouponsSettingsPage() {
         const res = await api.patch(COUPON.BY_ID(selectedId), payload);
         const updated: Coupon = res.data?.data ?? res.data;
         await fetchCoupons();
-        setForm(couponToForm(updated));
+        const snapshot = couponToForm(updated);
+        setForm(snapshot);
+        setOriginalForm(snapshot);
         showSuccess("Coupon saved");
       }
     } catch (err: any) {
@@ -371,6 +387,15 @@ export default function CouponsSettingsPage() {
   const showForm = isCreating || selectedId != null;
   const panelTitle = isCreating ? "Create Coupon" : "Coupon Details";
   const panelSubtitle = isCreating ? "Set up a new coupon code" : "Update coupon information and settings";
+
+  // Whether the live form differs from the snapshot taken when this coupon
+  // was loaded/last saved — gates the Save button so opening an existing
+  // coupon for editing doesn't leave it clickable with nothing changed yet.
+  // Always true while creating a new coupon (there's no "original" to diff against).
+  const isFormDirty = isCreating || !originalForm || Object.keys(form).some(
+    (key) => form[key as keyof CouponForm] !== originalForm[key as keyof CouponForm]
+  );
+  const saveDisabled = saving || (!isCreating && !isFormDirty);
 
   const previewValue = form.value.trim() ? Number(form.value) || 0 : 0;
   const previewMinOrder = Number(form.min_order_amount) || 0;
@@ -694,7 +719,7 @@ export default function CouponsSettingsPage() {
                 <button className="cp-btn" onClick={handleCancel} disabled={saving}>
                   Cancel
                 </button>
-                <button className="cp-btn cp-btn--primary" onClick={handleSave} disabled={saving}>
+                <button className="cp-btn cp-btn--primary" onClick={handleSave} disabled={saveDisabled}>
                   <Save size={14} /> {saving ? "Saving…" : "Save Changes"}
                 </button>
               </div>

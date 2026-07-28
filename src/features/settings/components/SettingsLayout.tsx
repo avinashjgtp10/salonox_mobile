@@ -72,8 +72,10 @@ export default function SettingsLayout() {
 
   return (
     <div className="settings-wrapper">
-      {/* Page-level header */}
-      <div className="d-flex align-items-center gap-2 mb-4">
+      {/* Page-level header — sticky against .main (the dashboard's own scroll
+          container, see DashboardLayout.tsx) so it stays visible below the
+          fixed top navbar while only the nav/content below it scroll. */}
+      <div className="settings-sticky-header d-flex align-items-center gap-2">
         <Settings size={20} color="#111827" />
         <h1 className="settings-heading">Settings</h1>
       </div>
