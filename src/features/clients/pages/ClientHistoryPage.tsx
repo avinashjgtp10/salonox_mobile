@@ -8,6 +8,7 @@ import { Search, PersonCircle, Funnel, StarFill } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import ClientHistoryDetail from "../components/ClientHistoryDetail";
 import Skeleton from "../../../components/ui/Skeleton";
+import Pagination from "../../../components/ui/Pagination";
 import "../styles/ClientHistoryPage.scss";
 
 // ── Types (sidebar/list concerns only — the detail panel's own types live in
@@ -64,10 +65,9 @@ export default function ClientHistoryPage() {
   // Client list
   const [clients, setClients] = useState<ClientListItem[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
-  const [clientsLoadingMore, setClientsLoadingMore] = useState(false);
   const [clientsTotal, setClientsTotal] = useState(0);
   const [clientsPage, setClientsPage] = useState(1);
-  const [clientsHasMore, setClientsHasMore] = useState(false);
+  const [clientsPageSize, setClientsPageSize] = useState(50);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -99,12 +99,12 @@ export default function ClientHistoryPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Core fetch function — replace=true resets the list (page 1), false appends (load more)
-  const doFetch = useCallback(async (page: number, replace: boolean) => {
-    if (replace) setClientsLoading(true);
-    else setClientsLoadingMore(true);
+  // Fetches a single page, replacing whatever was showing — paged navigation
+  // via the shared Pagination component, not the old "load more"/append style.
+  const doFetch = useCallback(async (page: number, pageSize: number) => {
+    setClientsLoading(true);
 
-    const params: Record<string, string> = { page: String(page), limit: "50" };
+    const params: Record<string, string> = { page: String(page), limit: String(pageSize) };
     if (filters.serviceId !== "all") params.service_id = filters.serviceId;
     if (filters.staffId   !== "all") params.staff_id   = filters.staffId;
     if (filters.gender    !== "all") params.gender      = filters.gender;
@@ -114,21 +114,26 @@ export default function ClientHistoryPage() {
     try {
       const res = await api.get("/api/v1/clients/with-history-stats", { params });
       const d = res.data?.data;
-      const newItems: ClientListItem[] = d?.items ?? [];
-      setClients((prev) => replace ? newItems : [...prev, ...newItems]);
+      setClients(d?.items ?? []);
       setClientsTotal(d?.total ?? d?.count ?? d?.total_count ?? 0);
-      setClientsHasMore(d?.hasMore ?? d?.has_more ?? false);
       setClientsPage(page);
     } catch {
-      if (replace) { setClients([]); setClientsTotal(0); setClientsHasMore(false); }
+      setClients([]); setClientsTotal(0);
     } finally {
-      if (replace) setClientsLoading(false);
-      else setClientsLoadingMore(false);
+      setClientsLoading(false);
     }
   }, [filters, debouncedSearch]);
 
-  // Refetch page 1 whenever filters or debounced search change
-  useEffect(() => { doFetch(1, true); }, [doFetch]);
+  // Refetch page 1 whenever filters, page size, or debounced search change
+  useEffect(() => { doFetch(1, clientsPageSize); }, [doFetch, clientsPageSize]);
+
+  const handleClientsPageChange = useCallback((page: number) => {
+    doFetch(page, clientsPageSize);
+  }, [doFetch, clientsPageSize]);
+
+  const handleClientsPageSizeChange = useCallback((size: number) => {
+    setClientsPageSize(size);
+  }, []);
 
   // Auto-open a specific client when navigated from the appointment modal
   useEffect(() => {
@@ -306,16 +311,17 @@ export default function ClientHistoryPage() {
               );
             })
           )}
-          {clientsHasMore && (
-            <button
-              className="chp-load-more-btn"
-              onClick={() => doFetch(clientsPage + 1, false)}
-              disabled={clientsLoadingMore}
-            >
-              {clientsLoadingMore ? "Loading..." : `Load more (${clientsTotal - clients.length} remaining)`}
-            </button>
-          )}
         </div>
+
+        <Pagination
+          currentPage={clientsPage}
+          pageSize={clientsPageSize}
+          totalItems={clientsTotal}
+          onPageChange={handleClientsPageChange}
+          onPageSizeChange={handleClientsPageSizeChange}
+          pageSizeOptions={[10, 25, 50, 100]}
+          className="chp-pagination"
+        />
       </div>
 
       {/* ══════════ RIGHT: detail panel ══════════ */}
