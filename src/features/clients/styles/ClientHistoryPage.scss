@@ -466,7 +466,15 @@
   }
 
   .chp-stat-item {
-    text-align: right;
+    // Value and label centered within their own column — right-aligning them
+    // independently left a short value (e.g. "0", "₹0") sitting flush against
+    // the right edge while its longer label extended further left, reading
+    // as crooked/misaligned instead of stacked directly on top of each other.
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    min-width: 72px;
 
     .chp-stat-val {
       font-size: 14px;
@@ -541,22 +549,24 @@
     background: #f4f5f7;
   }
 
-  .chp-load-more-btn {
-    display: block;
-    width: calc(100% - 24px);
-    margin: 8px 12px 12px;
-    padding: 9px;
-    background: #f5f3ff;
-    border: 1px solid #ddd6fe;
-    border-radius: 6px;
-    color: #6c5ce7;
-    font-size: 12px;
-    font-weight: 500;
-    cursor: pointer;
-    text-align: center;
+  // Shared Pagination component is built for a full-width table footer —
+  // the sidebar here is only 230px, so stack it into a compact column instead
+  // of the default space-between row (which would just wrap awkwardly).
+  .chp-pagination {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+    padding: 10px 12px;
     flex-shrink: 0;
-    &:hover:not(:disabled) { background: #ede9fe; }
-    &:disabled { opacity: 0.6; cursor: default; }
+    border-radius: 0;
+
+    .ui-pagination__size,
+    .ui-pagination__info,
+    .ui-pagination__controls {
+      width: 100%;
+      justify-content: center;
+      text-align: center;
+    }
   }
 
   .chp-no-data {
