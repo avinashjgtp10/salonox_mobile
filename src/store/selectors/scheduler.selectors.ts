@@ -17,8 +17,8 @@ export const selectBookingsByDate = (date: string) =>
 export const selectStaffList = (state: RootState): Staff[] =>
   state.scheduler.staffList as Staff[];
 
-export const selectSelectedStaffId = (state: RootState): string | null =>
-  state.scheduler.selectedStaffId;
+export const selectSelectedStaffIds = (state: RootState): string[] =>
+  state.scheduler.selectedStaffIds;
 
 // ─── Blocked times ────────────────────────────────────────────────────────────
 export const selectBlockedTimes = (state: RootState): BlockedTime[] =>

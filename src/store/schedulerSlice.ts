@@ -52,7 +52,9 @@ interface SchedulerState {
   interval: IntervalOption;
   clientStats: ClientStat[];
   staffList: Staff[];
-  selectedStaffId: string | null;
+  // Empty array = "All Staff" (no filter). Multiple ids = show only those
+  // staff members' columns/appointments side by side for comparison.
+  selectedStaffIds: string[];
   highlightedBookingId: string | null;
   clientsList: Client[];
   servicesList: SchedulerService[];
@@ -78,7 +80,7 @@ const initialState: SchedulerState = {
   interval: "30 Mins",
   clientStats: [],
   staffList: [],
-  selectedStaffId: null,
+  selectedStaffIds: [],
   highlightedBookingId: null,
   clientsList: [],
   servicesList: [],
@@ -158,8 +160,8 @@ const schedulerSlice = createSlice({
     setStaffList(state, { payload }: PayloadAction<Staff[]>) {
       state.staffList = payload;
     },
-    setSelectedStaffId(state, { payload }: PayloadAction<string | null>) {
-      state.selectedStaffId = payload;
+    setSelectedStaffIds(state, { payload }: PayloadAction<string[]>) {
+      state.selectedStaffIds = payload;
     },
     setHighlightedBookingId(state, { payload }: PayloadAction<string | null>) {
       state.highlightedBookingId = payload;
@@ -349,7 +351,7 @@ const schedulerSlice = createSlice({
 
 export const {
   setBookings, setDragPatch, clearDragPatch,
-  setStaffList, setSelectedStaffId, setHighlightedBookingId, setClientsList,
+  setStaffList, setSelectedStaffIds, setHighlightedBookingId, setClientsList,
   setServicesList, setPackagesList, setMembershipsList, setProductsList,
   setStaffSchedules, bumpScheduleVersion,
   addBooking, updateBooking, patchPaymentStatus, clearPaymentPatch, replaceBookingId, deleteBooking,

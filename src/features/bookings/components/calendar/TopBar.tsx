@@ -26,7 +26,7 @@ const INTERVAL_OPTIONS: IntervalOption[] = ["15 Mins", "30 Mins", "60 Mins"];
 const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefresh, onNewAppointmentForClient }) => {
   const {
     viewMode, setViewMode, currentDate, setCurrentDate,
-    navigate, interval, setInterval, staffList, selectedStaffId, setSelectedStaffId,
+    navigate, interval, setInterval, staffList, selectedStaffIds, setSelectedStaffIds,
   } = useSchedulerContext();
   const navTo   = useNavigate();
   const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
@@ -173,13 +173,25 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
     setShowStaffDrop((v) => !v);
   }
 
-  const selectedStaffName = selectedStaffId
-    ? (staffList.find((s) => s.id === selectedStaffId)?.name ?? "Staff")
-    : "All Staff";
+  const selectedStaffName = selectedStaffIds.length === 0
+    ? "All Staff"
+    : selectedStaffIds.length === 1
+      ? (staffList.find((s) => s.id === selectedStaffIds[0])?.name ?? "Staff")
+      : `${selectedStaffIds.length} Staff`;
 
-  const selectedStaffColor = selectedStaffId
-    ? staffList.find((s) => s.id === selectedStaffId)?.color
+  // Only show a single accent dot when exactly one staff member is selected —
+  // with more than one selected there's no single color to represent them all.
+  const selectedStaffColor = selectedStaffIds.length === 1
+    ? staffList.find((s) => s.id === selectedStaffIds[0])?.color
     : undefined;
+
+  const toggleStaffSelection = useCallback((staffId: string) => {
+    setSelectedStaffIds(
+      selectedStaffIds.includes(staffId)
+        ? selectedStaffIds.filter((id) => id !== staffId)
+        : [...selectedStaffIds, staffId]
+    );
+  }, [selectedStaffIds, setSelectedStaffIds]);
 
   return (
     <>
@@ -339,7 +351,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
         {/* Staff filter */}
         <button
           ref={staffDropBtnRef}
-          className={`topbar__staff-btn${selectedStaffId ? " topbar__staff-btn--active" : ""}`}
+          className={`topbar__staff-btn${selectedStaffIds.length > 0 ? " topbar__staff-btn--active" : ""}`}
           onMouseDown={(e) => { e.stopPropagation(); openStaffDrop(); }}
         >
           {selectedStaffColor && (
@@ -428,21 +440,28 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
       {showStaffDrop && ReactDOM.createPortal(
         <div ref={staffDropRef} className="topbar-staff-drop" style={{ top: staffDropPos.top, left: staffDropPos.left }}>
           <button
-            className={`topbar-staff-drop__item${!selectedStaffId ? " topbar-staff-drop__item--active" : ""}`}
-            onClick={() => { setSelectedStaffId(null); setShowStaffDrop(false); }}
+            className={`topbar-staff-drop__item${selectedStaffIds.length === 0 ? " topbar-staff-drop__item--active" : ""}`}
+            onClick={() => { setSelectedStaffIds([]); setShowStaffDrop(false); }}
           >
             All Staff
           </button>
-          {staffList.map((s) => (
-            <button
-              key={s.id}
-              className={`topbar-staff-drop__item${selectedStaffId === s.id ? " topbar-staff-drop__item--active" : ""}`}
-              onClick={() => { setSelectedStaffId(s.id); setShowStaffDrop(false); }}
-            >
-              <span className="topbar-staff-drop__dot" style={{ background: s.color }} />
-              {s.name}
-            </button>
-          ))}
+          {/* Multi-select: clicking a staff member toggles them in/out of the
+              selection without closing the dropdown, so staff can add/remove
+              several at once (e.g. Ram + Amit + Priya) before dismissing it. */}
+          {staffList.map((s) => {
+            const checked = selectedStaffIds.includes(s.id);
+            return (
+              <button
+                key={s.id}
+                className={`topbar-staff-drop__item${checked ? " topbar-staff-drop__item--active" : ""}`}
+                onClick={() => toggleStaffSelection(s.id)}
+              >
+                <span className="topbar-staff-drop__checkbox" aria-hidden="true">{checked ? "☑" : "☐"}</span>
+                <span className="topbar-staff-drop__dot" style={{ background: s.color }} />
+                {s.name}
+              </button>
+            );
+          })}
         </div>,
         document.body,
       )}
