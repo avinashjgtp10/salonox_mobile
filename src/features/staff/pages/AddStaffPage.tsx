@@ -307,7 +307,7 @@ const AddStaffPage: React.FC = () => {
     <div className="add-staff">
       {overlay}
       <div className="add-staff__header">
-        <h5 className="add-staff__header-title">{isEdit ? "Edit Employee" : "Create Employee"}</h5>
+        <h5 className="add-staff__header-title">{isEdit ? "Edit Staff" : "Create Staff"}</h5>
         <div className="add-staff__header-actions">
           <button className="btn add-staff__btn-close" onClick={() => setShowUnsavedDialog(true)}>
             Close
