@@ -1,22 +1,14 @@
-import React, { useState } from "react";
-import { useNavigate, useParams, useLocation } from "react-router-dom";
-import type { ClientSearchResult } from "../../clients/components/ClientSearchInput";
-import MembershipCreateForm from "../components/MembershipCreateForm";
+import React from "react";
+import { useNavigate, useParams } from "react-router-dom";
+import AddMembershipModal from "../components/AddMembershipModal";
 
 const CreateMembershipPage: React.FC = () => {
-  const { id }     = useParams();
-  const navigate   = useNavigate();
-  const location   = useLocation();
-
-  // client passed from Memberships list page
-  const locationClient = (location.state as any)?.client as ClientSearchResult | undefined;
-  const [pageClient, setPageClient] = useState<ClientSearchResult | null>(locationClient ?? null);
+  const { id }   = useParams();
+  const navigate = useNavigate();
 
   return (
-    <MembershipCreateForm
+    <AddMembershipModal
       editId={id}
-      selectedClient={pageClient}
-      onClientChange={setPageClient}
       onCancel={() => navigate(-1)}
       onSaved={() => navigate("/dashboard/catalog/memberships")}
     />

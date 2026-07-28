@@ -43,12 +43,11 @@ const DEFAULT_FILTERS: Filters = {
   onlyAllServices: false,
 };
 
-const TIER_MAP: Record<string, string> = {
-  "#1a1a2e": "Standard",
-  "#b8860b": "Gold",
-  "#4a90d9": "Diamond",
-  "#16a34a": "Emerald",
-  "#8b5cf6": "Platinum",
+interface MembershipMeta {
+  actualPrice?: number;
+}
+const getMembershipMeta = (m: Membership): MembershipMeta => {
+  try { return JSON.parse(m.description ?? "{}"); } catch { return {}; }
 };
 
 const STATUS_LABEL: Record<string, string> = {
@@ -270,17 +269,18 @@ const MembershipsListPage: React.FC = () => {
           <table className="msp__table">
             <thead>
               <tr>
-                <th>Membership name</th>
-                <th>Tier</th>
-                <th>Valid for</th>
-                <th>Price</th>
+                <th>Membership Name</th>
+                <th>Membership Type</th>
+                <th>Benefit</th>
+                <th>Validity</th>
                 <th className="msp__td-actions" />
               </tr>
             </thead>
             <tbody>
               {memberships.length > 0 ? memberships.map(m => {
                 const color = m.colour || "#1a1a2e";
-                const tier  = TIER_MAP[color] ?? "Custom";
+                const meta  = getMembershipMeta(m);
+                const isPercentage = m.pricingType === "percentage";
                 return (
                   <tr key={m.id} onClick={() => { setDrawerId(String(m.id)); setDrawerOpen(true); }}>
                     <td>
@@ -297,17 +297,16 @@ const MembershipsListPage: React.FC = () => {
                       </div>
                     </td>
                     <td>
-                      <span className="msp__tier-badge" style={{ "--tc": color } as React.CSSProperties}>
-                        {tier}
+                      <span className={`msp__type-badge${isPercentage ? " msp__type-badge--percentage" : " msp__type-badge--value"}`}>
+                        {isPercentage ? "Percentage" : "Value"}
                       </span>
                     </td>
+                    <td className="msp__price">
+                      {isPercentage
+                        ? `${m.discountPercent ?? 0}% Discount`
+                        : `₹${Number(meta.actualPrice || m.price).toLocaleString("en-IN")} Value`}
+                    </td>
                     <td className="msp__td-muted">{m.validFor}</td>
-                    <td className="msp__price">{(() => {
-                        let bonus = 0;
-                        try { bonus = Number(JSON.parse(m.description ?? "{}").bonusCredit) || 0; } catch {}
-                        const wallet = Number(m.price) + bonus;
-                        return <>₹{wallet.toLocaleString("en-IN")}</>;
-                      })()}</td>
                     <td className="msp__td-actions" onClick={e => e.stopPropagation()}>
                       <div className="msp__dd-wrap">
                         <button

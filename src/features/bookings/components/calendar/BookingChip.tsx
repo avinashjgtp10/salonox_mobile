@@ -135,6 +135,19 @@ const BookingChipComponent: React.FC<Props> = ({
   const appointmentTitle = buildTitle(b);
   const originalBooking = (b as any)._originalBooking || b;
 
+  // Membership indicator — Value-type memberships cover part/all of the bill
+  // via the wallet (membershipWalletUsed > 0), shown as the resulting final
+  // price; Percentage-type memberships drive the same bill-level discount
+  // fields a manual discount would (see AppointmentModal.tsx's auto-sync
+  // effect), so any active percentage discount reads as "X% OFF" here.
+  const membershipWalletUsed = Number(b.membershipWalletUsed) || 0;
+  const isPercentDiscount = b.discountType === "Percentage (%)" && Number(b.discount) > 0;
+  const membershipBadge = membershipWalletUsed > 0
+    ? `${currencySymbol}${Number(b.grandTotal).toFixed(0)}`
+    : isPercentDiscount
+      ? `${Number(b.discount)}% OFF`
+      : null;
+
   // Concurrent appointments for the same staff render side-by-side instead of stacking.
   const isConcurrent = chipTotalCols > 1;
   const overlapStyle: React.CSSProperties = isConcurrent
@@ -156,8 +169,9 @@ const BookingChipComponent: React.FC<Props> = ({
         isResizingThis ? "dv-chip--resizing" : "",
         isConcurrent ? "dv-chip--concurrent" : "",
         isHighlighted ? "dv-chip--highlighted" : "",
+        isReadOnly ? "dv-chip--readonly" : "",
       ].filter(Boolean).join(" ")}
-      style={{ top: chipTop, height: chipHeight, cursor: isReadOnly ? "pointer" : undefined, ...overlapStyle }}
+      style={{ top: chipTop, height: chipHeight, ...overlapStyle }}
       onMouseEnter={(e) => { if (!isInteracting) onOpenTip(originalBooking, e.currentTarget); }}
       onMouseLeave={onCloseTip}
       onMouseDown={(e) => {
@@ -189,6 +203,9 @@ const BookingChipComponent: React.FC<Props> = ({
         <span className="dv-chip__time">{formatTime12(previewStart)} – {formatTime12(previewEnd)}</span>
         <span className="dv-chip__service" title={appointmentTitle}>{appointmentTitle}</span>
         <span className="dv-chip__client">👤 {b.clientName || "Walk-In"}</span>
+        {membershipBadge && (
+          <span className="dv-chip__membership">🎗️ {membershipBadge}</span>
+        )}
         {isPartial && Number(b.dueAmount) > 0 && (
           <span className="dv-chip__due">Due {currencySymbol}{Number(b.dueAmount).toFixed(2)}</span>
         )}
