@@ -92,10 +92,6 @@ function validateSalonForm(form: UpdateSalonPayload): Errors {
   if (pincode && !/^[0-9]{4,10}$/.test(pincode))
     e.pincode = "Pincode must be 4–10 digits.";
 
-  const currency = String(form.currency ?? "").trim().toUpperCase();
-  if (currency && !/^[A-Z]{3}$/.test(currency))
-    e.currency = "Use a 3-letter currency code (e.g. INR, USD).";
-
   const desc = String(form.description ?? "").trim();
   if (desc.length > 500)
     e.description = "Description must be under 500 characters.";
@@ -758,12 +754,6 @@ export default function ProfilePage() {
                     label="Timezone" value={String(salonForm.timezone ?? "")} name="timezone"
                     icon={<Clock size={14} />} editing={salonEditing}
                     placeholder="Asia/Kolkata" onChange={handleSalonFieldChange}
-                  />
-                  <ProfileField
-                    label="Currency" value={String(salonForm.currency ?? "")} name="currency"
-                    icon={<CreditCard size={14} />} editing={salonEditing}
-                    placeholder="INR" error={salonFieldErrors.currency}
-                    onChange={handleSalonFieldChange}
                   />
                   <div style={{ gridColumn: "1 / -1" }}>
                     <ProfileField

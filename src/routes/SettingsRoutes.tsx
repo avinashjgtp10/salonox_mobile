@@ -12,6 +12,7 @@ const IntegrationsPage      = lazy(() => import("../features/settings/pages/Inte
 const BillingPage           = lazy(() => import("../features/settings/pages/BillingPage"));
 const DataPrivacyPage       = lazy(() => import("../features/settings/pages/DataPrivacyPage"));
 const SettingsManagementPage = lazy(() => import("../features/settings/pages/SettingsManagementPage"));
+const CurrencySettingsPage    = lazy(() => import("../features/settings/pages/CurrencySettingsPage"));
 const RewardsSettingsPage    = lazy(() => import("../features/settings/pages/RewardsSettingsPage"));
 const ReferralSettingsPage   = lazy(() => import("../features/settings/pages/ReferralSettingsPage"));
 const CouponsSettingsPage    = lazy(() => import("../features/settings/pages/CouponsSettingsPage"));
@@ -31,6 +32,7 @@ export const SettingsRoutes = () => (
         <Route path="billing"       element={<BillingPage />} />
         <Route path="data-privacy"  element={<DataPrivacyPage />} />
         <Route path="tax-mapping"    element={<SettingsManagementPage />} />
+        <Route path="currency"       element={<CurrencySettingsPage />} />
         <Route path="reward-points" element={<RewardsSettingsPage />} />
         <Route path="referral"      element={<ReferralSettingsPage />} />
         <Route path="coupons"       element={<CouponsSettingsPage />} />
