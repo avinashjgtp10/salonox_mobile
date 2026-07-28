@@ -30,7 +30,7 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
     return map;
   }, [allBookings]);
   const getBookingsByDate = (date: string) => bookingsByDate.get(date) ?? EMPTY_BOOKINGS;
-  const { staffSchedules, staffList, selectedStaffId } = useSchedulerContext();
+  const { staffSchedules, staffList, selectedStaffIds } = useSchedulerContext();
   const today = new Date().toISOString().slice(0, 10);
   const weekDays = getWeekDays(currentDate);
 
@@ -156,7 +156,7 @@ const WeekViewComponent: React.FC<WeekViewProps> = ({ onSlotClick, onViewBill })
                     return (
                       <div
                         key={t}
-                        onClick={() => !offHours && onSlotClick(selectedStaffId || staffList[0]?.id || "", t)}
+                        onClick={() => !offHours && onSlotClick(selectedStaffIds[0] || staffList[0]?.id || "", t)}
                         className={`wv-slot${offHours ? " wv-slot--off-hours" : ""}`}
                         onMouseEnter={(e) => { if (!offHours) (e.currentTarget as HTMLElement).classList.add("wv-slot--hover"); }}
                         onMouseLeave={(e) => { (e.currentTarget as HTMLElement).classList.remove("wv-slot--hover"); }}

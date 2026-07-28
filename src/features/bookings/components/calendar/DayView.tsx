@@ -86,12 +86,14 @@ const DayView: React.FC<DayViewProps> = ({
   onSlotClick, onEditBooking, onCancelBooking, onDeleteBooking, onBlockTime, onEditBlockTime,
 }) => {
   const { currentDate, slots, timeToPx, durationToPx, intervalMins } = useScheduler();
-  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffId, bookings, highlightedBookingId, staffSchedules } = useSchedulerContext();
+  const { blockedTimes, deleteBlockedTime, updateBooking, staffList, selectedStaffIds, bookings, highlightedBookingId, staffSchedules } = useSchedulerContext();
   const { showError, overlay: dragErrorOverlay } = useStatusOverlay();
 
+  // Empty selection = "All Staff" — otherwise show only the selected staff
+  // members' columns, side by side, so schedules can be compared directly.
   const visibleStaff = useMemo(
-    () => selectedStaffId ? staffList.filter((s) => s.id === selectedStaffId) : staffList,
-    [staffList, selectedStaffId],
+    () => selectedStaffIds.length > 0 ? staffList.filter((s) => selectedStaffIds.includes(s.id)) : staffList,
+    [staffList, selectedStaffIds],
   );
 
   const today = new Date().toISOString().slice(0, 10);

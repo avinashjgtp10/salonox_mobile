@@ -23,7 +23,7 @@ import {
   setInterval,
   navigate,
   updateClientNotes,
-  setSelectedStaffId,
+  setSelectedStaffIds,
   setHighlightedBookingId,
   setDragPatch,
   clearDragPatch,
@@ -50,7 +50,7 @@ export function useSchedulerContext() {
   const interval = useAppSelector((s) => s.scheduler.interval);
   const clientStats = useAppSelector((s) => s.scheduler.clientStats);
   const staffList = useAppSelector((s) => s.scheduler.staffList);
-  const selectedStaffId = useAppSelector((s) => s.scheduler.selectedStaffId);
+  const selectedStaffIds = useAppSelector((s) => s.scheduler.selectedStaffIds);
   const highlightedBookingId = useAppSelector((s) => s.scheduler.highlightedBookingId);
   const clientsList = useAppSelector((s) => s.scheduler.clientsList);
   const servicesList = useAppSelector((s) => s.scheduler.servicesList);
@@ -253,8 +253,8 @@ export function useSchedulerContext() {
 
     // ── Lookup data ───────────────────────────────────────────────────────────
     staffList,
-    selectedStaffId,
-    setSelectedStaffId: (id: string | null) => dispatch(setSelectedStaffId(id)),
+    selectedStaffIds,
+    setSelectedStaffIds: (ids: string[]) => dispatch(setSelectedStaffIds(ids)),
     highlightedBookingId,
     setHighlightedBookingId: (id: string | null) => dispatch(setHighlightedBookingId(id)),
     clientsList,
