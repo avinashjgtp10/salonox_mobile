@@ -73,7 +73,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
 
   const handleSave = async () => {
     if (!staffId || !salonId || staffId === "undefined") {
-      showError("Please save the team member profile first");
+      showError("Please save the staff member profile first");
       return;
     }
     try {
@@ -169,7 +169,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
 
           <h6 className="sub-header mt-4 pt-1">Calculations</h6>
           <p className="calc-desc">
-            Customize deductions for this team member.{" "}
+            Customize deductions for this staff member.{" "}
             <LearnMoreLink topic="staff-commissions">Learn more</LearnMoreLink>
           </p>
 
@@ -194,7 +194,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
                 Custom settings
               </div>
               <div className="radio-subtitle">
-                Choose custom settings for this team member
+                Choose custom settings for this staff member
               </div>
             </div>
           </div>
@@ -321,7 +321,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
 
           <h6 className="sub-header mt-4 pt-1">Calculations</h6>
           <p className="calc-desc">
-            Customize deductions for this team member.{" "}
+            Customize deductions for this staff member.{" "}
             <LearnMoreLink topic="staff-commissions">Learn more</LearnMoreLink>
           </p>
 
@@ -352,7 +352,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
                 Custom settings
               </div>
               <div className="radio-subtitle">
-                Choose custom settings for this team member
+                Choose custom settings for this staff member
               </div>
             </div>
           </div>
@@ -404,7 +404,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
                 Pass on the cancellation fee for late cancellations
               </label>
               <span className="cancellation-hint">
-                When the client cancels late, the team member earns a portion of
+                When the client cancels late, the staff member earns a portion of
                 the cancellation fee
               </span>
             </div>
@@ -424,7 +424,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
                 Pass on the cancellation fee for no-shows
               </label>
               <span className="cancellation-hint">
-                When the client is a no-show, the team member earns a portion of
+                When the client is a no-show, the staff member earns a portion of
                 the fee
               </span>
             </div>

@@ -120,7 +120,7 @@ export default function JoinBusinessPage() {
       {/* RIGHT IMAGE PANEL */}
       <OnboardingImagePanel
         quote={{
-          text: "Joining a team on salonox is seamless. I was up and running on my first day.",
+          text: "Joining a salon staff on salonox is seamless. I was up and running on my first day.",
           author: "Maya S.",
           role: "Senior Stylist, Paris",
         }}

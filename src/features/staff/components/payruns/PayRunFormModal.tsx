@@ -120,7 +120,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
                 required
                 disabled={!!initialData?.id}
               >
-                <option value="">Choose a team member...</option>
+                <option value="">Choose a staff member...</option>
                 {staffMembers.map((staff) => {
                   const name = staff.fullName || `${staff.first_name || ""} ${staff.last_name || ""}`.trim() || "Unnamed Staff";
                   return (

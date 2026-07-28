@@ -54,7 +54,7 @@ export default function TeamSetupPage() {
               >
                 <div className="choice-icon-bg flex-shrink-0"><FiUsers size={20} /></div>
                 <div>
-                  <div className="fw-bold" style={{ fontSize: "15px", color: "#111827" }}>I have a team</div>
+                  <div className="fw-bold" style={{ fontSize: "15px", color: "#111827" }}>I have staff</div>
                   <div className="text-muted" style={{ fontSize: "13px" }}>Manage staff, schedules & payroll</div>
                 </div>
               </OnboardingChoiceCard>
@@ -68,7 +68,7 @@ export default function TeamSetupPage() {
       {/* RIGHT IMAGE PANEL */}
       <OnboardingImagePanel
         quote={{
-          text: "Managing my team of 8 stylists has never been this smooth. The scheduling tools are a game-changer.",
+          text: "Managing my staff of 8 stylists has never been this smooth. The scheduling tools are a game-changer.",
           author: "Rachel T.",
           role: "Spa Manager, Dubai",
         }}

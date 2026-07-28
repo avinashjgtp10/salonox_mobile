@@ -64,7 +64,7 @@ const StaffServicesSection: React.FC<StaffServicesSectionProps> = ({
     <div className="section services-section">
       <h5 className="section__title">Services</h5>
       <p className="section__subtitle">
-        Choose the services this team member provides
+        Choose the services this staff member provides
       </p>
 
       {/* SEARCH BAR */}

@@ -6,7 +6,7 @@ interface Props {
 }
 
 const NAV_ITEMS = [
-  { to: "/dashboard/team/members",     label: "Team members" },
+  { to: "/dashboard/team/members",     label: "Staff Members" },
   { to: "/dashboard/team/shifts",      label: "Scheduled shifts" },
   { to: "/dashboard/team/commissions", label: "Commissions" },
   { to: "/dashboard/team/attendance",  label: "Attendance" },
@@ -18,7 +18,7 @@ export default function TeamSubSidebar({ onClose }: Props) {
   return (
     <div className="sub-sidebar sub-sidebar--team">
       <div className="sub-header">
-        <h3>Team</h3>
+        <h3>Staff</h3>
         <button className="floating-close" onClick={onClose}>
           <ChevronLeft size={16} />
         </button>

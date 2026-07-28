@@ -791,7 +791,7 @@ export default function CommissionsPage() {
       <div className="cm-header">
         <div>
           <h2 className="cm-title">Commission Management</h2>
-          <p className="cm-subtitle">Create and manage commission rules for your team</p>
+          <p className="cm-subtitle">Create and manage commission rules for your staff</p>
         </div>
         <div className="cm-header-actions">
           <div className="cm-options-dropdown" onClick={(e) => e.stopPropagation()}>

@@ -4,7 +4,7 @@ import "../styles/onboarding-layout.scss";
 // ── Step → section mapping ────────────────────────────────────────────────────
 const SECTIONS = [
   { key: "business",  label: "Business",     routes: ["/business-name", "/service-type"] },
-  { key: "team",      label: "Team",         routes: ["/team-setup", "/team-size"] },
+  { key: "team",      label: "Staff",        routes: ["/team-setup", "/team-size"] },
   { key: "location",  label: "Location",     routes: ["/business-location", "/venue-location"] },
   { key: "finishing", label: "Finishing up", routes: ["/recommendation-source"] },
 ];

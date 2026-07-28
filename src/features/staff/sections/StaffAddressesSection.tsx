@@ -50,7 +50,7 @@ const StaffAddressesSection: React.FC<StaffAddressesProps> = ({
     <div className="section staff-form">
       <h5 className="fw-bold mb-3 section__title">Addresses</h5>
       <p className="text-muted section__subtitle">
-        Manage the team member's home and other addresses
+        Manage the staff member's home and other addresses
       </p>
 
       {/* Render existing addresses */}

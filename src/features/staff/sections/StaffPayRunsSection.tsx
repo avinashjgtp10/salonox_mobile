@@ -61,7 +61,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
 
   const handleSave = async () => {
     if (!staffId || staffId === "undefined") {
-      showError("Please save the team member profile first");
+      showError("Please save the staff member profile first");
       return;
     }
     try {
@@ -97,7 +97,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
             )}
           </div>
           <div className="switch-desc">
-            Choose how you will pay this team member through pay runs.{" "}
+            Choose how you will pay this staff member through pay runs.{" "}
             <LearnMoreLink topic="staff-payruns-settings">Learn more</LearnMoreLink>
           </div>
         </div>
@@ -117,7 +117,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
           {/* Preferred Payment Method */}
           <h6 className="section__block-title">Preferred payment method</h6>
           <p className="section__block-subtitle">
-            Choose how you would prefer to pay your team member when completing
+            Choose how you would prefer to pay your staff member when completing
             a pay run. A processing fee may apply for transfers to bank
             accounts. <LearnMoreLink topic="staff-payruns-settings">Learn more</LearnMoreLink>
           </p>
@@ -165,7 +165,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
 
                 <h5 className="payment-modal-title">Preferred payment method</h5>
                 <p className="payment-modal-desc">
-                  Choose how you would prefer to pay this team member. A
+                  Choose how you would prefer to pay this staff member. A
                   processing fee may apply for bank transfers.
                 </p>
 
@@ -261,7 +261,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
                 <div className="calc-info-desc">
                   Calculates the amount to pay based on activity from
                   timesheets, earned wages, commissions and tips as configured
-                  on this team members settings.
+                  on this staff members settings.
                 </div>
               </div>
             </div>
@@ -272,7 +272,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
           {/* Pay Run Deductions */}
           <h6 className="section__block-title">Pay run deductions</h6>
           <p className="section__block-subtitle">
-            Choose which fees to automatically deduct from this team member's
+            Choose which fees to automatically deduct from this staff member's
             earnings. <LearnMoreLink topic="staff-payruns-settings">Learn more</LearnMoreLink>
           </p>
 
@@ -288,7 +288,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
                 Deduct salonox payment processing fees
               </label>
               <div className="deduction-desc">
-                Deduct payment processing fees for items sold by this team
+                Deduct payment processing fees for items sold by this staff
                 member.
               </div>
             </div>
@@ -307,7 +307,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
               </label>
               <div className="deduction-desc">
                 Deduct the new client fee for any new client bookings with this
-                team member.
+                staff member.
               </div>
             </div>
           </div>
@@ -332,7 +332,7 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
                 Record cash payments for sales as 'paid' in pay runs
               </label>
               <div className="deduction-desc">
-                When a sale is paid in cash, record that this team member has
+                When a sale is paid in cash, record that this staff member has
                 taken the full cash amount as an advance within the pay period.
               </div>
             </div>

@@ -54,7 +54,7 @@ export default function SubscriptionWall() {
 
         <p style={styles.subtitle}>
           {isOwnerOrAdmin
-            ? "Renew your plan to continue using SalonOx and restore access for your entire team."
+            ? "Renew your plan to continue using SalonOx and restore access for your entire staff."
             : "Your salon's subscription has expired. Please contact your salon owner to renew."}
         </p>
 

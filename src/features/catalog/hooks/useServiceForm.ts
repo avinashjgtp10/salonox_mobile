@@ -114,7 +114,7 @@ export const useServiceForm = (_type: "single" | "bundle") => {
     ) {
       errors.team = [
         ...(errors.team || []),
-        "At least one team member must be selected",
+        "At least one staff member must be selected",
       ];
     }
 

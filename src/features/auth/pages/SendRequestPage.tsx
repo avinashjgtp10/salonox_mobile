@@ -79,7 +79,7 @@ export default function SendRequestPage() {
         {/* RIGHT IMAGE PANEL */}
         <OnboardingImagePanel
           quote={{
-            text: "Joining the team was effortless. Everything I needed was ready on day one.",
+            text: "Joining the staff was effortless. Everything I needed was ready on day one.",
             author: "Carlos M.",
             role: "Barber, Madrid",
           }}

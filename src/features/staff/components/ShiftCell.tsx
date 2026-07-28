@@ -122,7 +122,7 @@ const ShiftCell: React.FC<ShiftCellProps> = ({
                 className="shift-cell__pop-item"
                 onClick={() => act(() => onViewMember(memberId))}
               >
-                View team member
+                View staff member
               </button>
             </>
           ) : (
@@ -150,7 +150,7 @@ const ShiftCell: React.FC<ShiftCellProps> = ({
                 className="shift-cell__pop-item"
                 onClick={() => act(() => onViewMember(memberId))}
               >
-                View team member
+                View staff member
               </button>
             </>
           )}

@@ -144,7 +144,7 @@ export const useEditServiceForm = (serviceId: string | number) => {
       errors.basic = [...(errors.basic || []), "Price is required"];
     }
     if (!data.team.allMembers && data.team.selectedMemberIds.length === 0) {
-      errors.team = [...(errors.team || []), "At least one team member must be selected"];
+      errors.team = [...(errors.team || []), "At least one staff member must be selected"];
     }
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;

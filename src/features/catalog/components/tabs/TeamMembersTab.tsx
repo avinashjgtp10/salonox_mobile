@@ -39,9 +39,9 @@ const TeamMembersTab: React.FC<Props> = ({
 
   return (
     <div className="tab-content-panel">
-      <h5 className="tab-content-panel__title">Team members required</h5>
+      <h5 className="tab-content-panel__title">Staff members required</h5>
       <p className="text-muted small mb-4">
-        Choose which team members will perform this service
+        Choose which staff members will perform this service
       </p>
 
       {hasError && (
@@ -51,7 +51,7 @@ const TeamMembersTab: React.FC<Props> = ({
         >
           <i className="bi bi-exclamation-triangle-fill me-2" />
           <span className="small fw-medium">
-            At least one team member must be selected.
+            At least one staff member must be selected.
           </span>
         </div>
       )}
@@ -59,11 +59,11 @@ const TeamMembersTab: React.FC<Props> = ({
       {staffLoading ? (
         <div className="d-flex align-items-center gap-2 py-4 text-muted">
           <span className="spinner-border spinner-border-sm" />
-          <span className="small">Loading team members…</span>
+          <span className="small">Loading staff members…</span>
         </div>
       ) : members.length === 0 ? (
         <div className="text-muted small py-4">
-          No team members found. Add staff members first.
+          No staff members found. Add staff members first.
         </div>
       ) : (
         <div className="team-selection-list">
@@ -81,7 +81,7 @@ const TeamMembersTab: React.FC<Props> = ({
                 className="form-check-label fw-bold d-flex align-items-center gap-2 mb-0"
                 htmlFor="all-members"
               >
-                All team members{" "}
+                All staff members{" "}
                 <span className="nav-item-count bg-light text-muted small px-2 rounded-pill">
                   {members.length}
                 </span>

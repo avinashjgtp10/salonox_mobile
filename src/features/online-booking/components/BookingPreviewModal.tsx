@@ -300,7 +300,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
             <div style={{ padding:"18px 18px 0" }}>
               <p style={{ fontSize:10, fontWeight:700, color:"#94a3b8",
                 textTransform:"uppercase", letterSpacing:"0.1em", margin:"0 0 12px" }}>
-                Meet Our Team
+                Meet Our Staff
               </p>
               <div style={{ display:"flex", flexWrap:"wrap", gap:8 }}>
                 {displayStaff.slice(0,6).map((s) => {

@@ -138,7 +138,7 @@ export default function StaffListPage() {
       await dispatch(fetchStaffThunk()).unwrap();
     } catch (error: any) {
       console.error("Error fetching staff", error);
-      showToast(`Failed to load team members: ${error || "Unknown error"}`, "error");
+      showToast(`Failed to load staff members: ${error || "Unknown error"}`, "error");
     }
   }, [dispatch, showToast]);
 
@@ -192,7 +192,7 @@ export default function StaffListPage() {
       // Refetch to sync with server (handles edge cases where backend may have cascade effects)
       fetchStaff();
     } catch (err: any) {
-      showToast(err || "Failed to delete team member", "error");
+      showToast(err || "Failed to delete staff member", "error");
     } finally {
       setDeletingId(null);
       setActionMenuId(null);
@@ -319,7 +319,7 @@ export default function StaffListPage() {
                     onClick={() => setSelectedStatus(s)}
                   >
                     <span>
-                      {s === "all" ? "All team members" : s === "active" ? "Active" : "Inactive"}
+                      {s === "all" ? "All staff members" : s === "active" ? "Active" : "Inactive"}
                     </span>
                     {selectedStatus === s && <span className="fs-radio-check">✓</span>}
                   </div>
@@ -338,11 +338,11 @@ export default function StaffListPage() {
       <div className="slp-header">
         <div className="slp-header__left">
           <div className="slp-title-row">
-            <h2 className="slp-title">Team members</h2>
+            <h2 className="slp-title">Staff members</h2>
             <span className="slp-count-badge">{sorted.length}</span>
           </div>
           <p className="slp-subtitle">
-            Manage your team, their roles and access levels.
+            Manage your staff, their roles and access levels.
             <LearnMoreLink topic="staff-list" className="slp-learn-more">Learn more</LearnMoreLink>
           </p>
         </div>
@@ -359,7 +359,7 @@ export default function StaffListPage() {
               <div className="slp-options-menu">
 
                 <div className="slp-option-item" onClick={() => setOptionsOpen(false)}>
-                  <span>⚙️</span> Team settings
+                  <span>⚙️</span> Staff settings
                 </div>
                 <div className="slp-option-divider" />
                 <div className="slp-option-label">Import</div>
@@ -533,19 +533,19 @@ export default function StaffListPage() {
             <PersonBadge size={36} />
           </div>
           <h3 className="slp-empty__title">
-            {searchTerm || totalFilterBadge > 0 ? "No results found" : "No team members yet"}
+            {searchTerm || totalFilterBadge > 0 ? "No results found" : "No staff members yet"}
           </h3>
           <p className="slp-empty__desc">
             {searchTerm || totalFilterBadge > 0
               ? "Try adjusting your search or filters."
-              : "Add your first team member to get started."}
+              : "Add your first staff member to get started."}
           </p>
           {!searchTerm && totalFilterBadge === 0 && (
             <button
               className="slp-empty__btn"
               onClick={() => navigate("/dashboard/team/add")}
             >
-              <PersonPlus size={15} /> Add team member
+              <PersonPlus size={15} /> Add staff member
             </button>
           )}
         </div>
@@ -561,7 +561,7 @@ export default function StaffListPage() {
                 onChange={handleSelectAll}
               />
             </div>
-            <div className="slp-col-member">Team member</div>
+            <div className="slp-col-member">Staff member</div>
             <div className="slp-col-contact">Contact</div>
             <div className="slp-col-role">Role</div>
             <div className="slp-col-status">Status</div>
@@ -703,13 +703,13 @@ export default function StaffListPage() {
       <Modal
         show={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
-        title={deleteConfirm?.mode === "bulk" ? "Delete team members?" : "Delete team member?"}
+        title={deleteConfirm?.mode === "bulk" ? "Delete staff members?" : "Delete staff member?"}
         size="sm"
       >
         <p className="mb-0">
           {deleteConfirm?.mode === "bulk"
-            ? `Are you sure you want to delete ${selectedIds.length} selected team member${selectedIds.length === 1 ? "" : "s"}?`
-            : "Are you sure you want to delete this team member?"}
+            ? `Are you sure you want to delete ${selectedIds.length} selected staff member${selectedIds.length === 1 ? "" : "s"}?`
+            : "Are you sure you want to delete this staff member?"}
         </p>
         <div className="d-flex justify-content-end gap-2 mt-3">
           <button className="btn btn-outline-secondary" onClick={() => setDeleteConfirm(null)}>
@@ -725,7 +725,7 @@ export default function StaffListPage() {
       {!loading && sorted.length > 0 && (
         <div className="slp-footer">
           <span className="slp-footer-results">
-            Showing <strong>{rangeFrom}–{rangeTo}</strong> of <strong>{sorted.length}</strong> team members
+            Showing <strong>{rangeFrom}–{rangeTo}</strong> of <strong>{sorted.length}</strong> staff members
           </span>
 
           <div className="slp-pagination">

@@ -160,7 +160,7 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
                 <span className="sdp__detail-val">{service.category_name || "Uncategorized"}</span>
               </div>
               <div className="sdp__detail-row">
-                <span className="sdp__detail-key"><People size={13} /> Team members</span>
+                <span className="sdp__detail-key"><People size={13} /> Staff members</span>
                 <span className="sdp__detail-val">
                   {(service.staff ?? []).length === 0
                     ? "All members"
