@@ -150,7 +150,11 @@ const CreateProductPage: React.FC = () => {
     categoryId: !form.categoryId ? "Product category is required" : "",
     amount: !form.amount.trim() || isNaN(Number(form.amount)) ? "Product quantity is required" : "",
     supplyPrice: !form.supplyPrice.trim() || isNaN(Number(form.supplyPrice)) || Number(form.supplyPrice) <= 0 ? "Supplier price is required" : "",
-    qtyAlert: !form.qtyAlert.trim() || !Number.isInteger(Number(form.qtyAlert)) || Number(form.qtyAlert) < 0 ? "Low stock alert is required" : "",
+    qtyAlert: !form.qtyAlert.trim() || !Number.isInteger(Number(form.qtyAlert)) || Number(form.qtyAlert) < 0
+      ? "Low stock alert is required"
+      : (form.amount.trim() && !isNaN(Number(form.amount)) && Number(form.qtyAlert) >= Number(form.amount))
+        ? "Low Stock Alert Quantity must be less than the Product Quantity."
+        : "",
   };
 
   const isFormValid = Object.values(validationErrors).every((e) => !e);

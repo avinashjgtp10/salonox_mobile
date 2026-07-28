@@ -68,7 +68,9 @@ const EditProductPage: React.FC = () => {
 
   const qtyAlertError = !form.qtyAlert.trim() || !Number.isInteger(Number(form.qtyAlert)) || Number(form.qtyAlert) < 0
     ? "Low stock alert is required"
-    : "";
+    : (form.amount.trim() && !isNaN(Number(form.amount)) && Number(form.qtyAlert) >= Number(form.amount))
+      ? "Low Stock Alert Quantity must be less than the Product Quantity."
+      : "";
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
