@@ -153,12 +153,6 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
       )}
 
       <div className="rp-detail-toolbar">
-        <div className="rp-detail-show-n">
-          <span>Show</span>
-          <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}>
-            {[10, 25, 50, 100].map(n => <option key={n} value={n}>{n}</option>)}
-          </select>
-        </div>
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
           <input type="text" className="rp-detail-search-input" placeholder="Product, client or invoice" value={search} onChange={e => setSearchInput(e.target.value)} />

@@ -10,6 +10,7 @@ import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { Pagination } from "../../../components/ui";
 import { SkeletonStatCards, SkeletonTableRows, SkeletonChartBlock } from "./ReportSkeleton";
 import "./StaffSalesReport.scss";
 
@@ -30,6 +31,8 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
   const [showStaffDrop,  setShowStaffDrop]  = useState(false);
   const [loading,        setLoading]        = useState(false);
   const [rows,           setRows]           = useState<RevRow[]>([]);
+  const [currentPage,    setCurrentPage]    = useState(1);
+  const [pageSize,       setPageSize]       = useState(25);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -68,6 +71,8 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  useEffect(() => { setCurrentPage(1); }, [rows.length]);
+
   useEffect(() => {
     const close = () => setShowStaffDrop(false);
     document.addEventListener("mousedown", close);
@@ -80,6 +85,7 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
 
   const HEADERS = ["Period", "Service Revenue (₹)", "Product Revenue (₹)", "Total Revenue (₹)"];
   const exportRows = () => rows.map(r => [r.label, r.serviceRevenue, r.productRevenue, r.total]);
+  const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const selectedStaffLabel = staffOptions.find(o => o.value === staffFilter)?.label ?? "All";
 
@@ -201,7 +207,7 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
                 </tr>
               </thead>
               <tbody>
-                {rows.map((r, i) => (
+                {paged.map((r, i) => (
                   <tr key={i}>
                     <td>{r.label}</td>
                     <td>₹{r.serviceRevenue.toLocaleString()}</td>
@@ -212,6 +218,12 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
               </tbody>
             </table>
           </div>
+
+          <Pagination
+            currentPage={currentPage} pageSize={pageSize} totalItems={rows.length}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }}
+          />
         </>
       )}
     </div>
