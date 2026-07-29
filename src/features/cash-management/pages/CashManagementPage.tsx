@@ -32,6 +32,7 @@ import {
   ExpenseModal,
   OpenCounterModal,
 } from "./CashManagementModals";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/CashManagementPage.scss";
 
 type ActiveTab = "transactions" | "expenses";
@@ -40,13 +41,6 @@ type NotificationState = {
   tone: CashManagementNotificationTone;
   message: string;
 } | null;
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 2,
-  }).format(value || 0);
 
 const formatDateInput = (date: Date) => {
   const year = date.getFullYear();
@@ -82,6 +76,7 @@ function isInDateRange(date?: string | null, sharedDateFrom?: string, sharedDate
 }
 
 export default function CashManagementPage() {
+  const { formatAmount } = useCurrency();
   const {
     dashboard,
     transactions,
@@ -176,37 +171,37 @@ export default function CashManagementPage() {
     () => [
       {
         label: "Opening Balance",
-        value: formatCurrency(summaryDashboard.openingBalance),
+        value: formatAmount(summaryDashboard.openingBalance),
         icon: <Wallet2 size={18} />,
         tone: "primary",
       },
       {
         label: "Cash Revenue",
-        value: formatCurrency(summaryDashboard.cashRevenue),
+        value: formatAmount(summaryDashboard.cashRevenue),
         icon: <CashStack size={18} />,
         tone: "success",
       },
       {
         label: "Cash Expense",
-        value: formatCurrency(summaryDashboard.cashExpense),
+        value: formatAmount(summaryDashboard.cashExpense),
         icon: <JournalText size={18} />,
         tone: "warning",
       },
       {
         label: "Closing Balance",
-        value: formatCurrency(summaryDashboard.closingBalance),
+        value: formatAmount(summaryDashboard.closingBalance),
         icon: <Safe2 size={18} />,
         tone: "dark",
       },
       {
         label: "In Store Cash",
-        value: formatCurrency(summaryDashboard.inStoreCash),
+        value: formatAmount(summaryDashboard.inStoreCash),
         icon: <CheckCircle size={18} />,
         tone: "info",
       },
       {
         label: "Reconciliation Amount",
-        value: formatCurrency(summaryDashboard.reconciliationAmount),
+        value: formatAmount(summaryDashboard.reconciliationAmount),
         icon: <Safe2 size={18} />,
         tone:
           summaryDashboard.reconciliationAmount === 0

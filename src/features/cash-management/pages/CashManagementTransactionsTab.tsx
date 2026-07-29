@@ -3,6 +3,7 @@ import { Search, SortDown, SortUp } from "react-bootstrap-icons";
 import { Pagination } from "../../../components/ui";
 import type { CashManagementExportDataset } from "../cashManagement.export";
 import type { CashCounterStatus, CashTransactionRecord } from "../cashManagement.types";
+import { useCurrency } from "../../../hooks/useCurrency";
 
 interface Props {
   rows: CashTransactionRecord[];
@@ -26,16 +27,6 @@ type SortKey =
   | "reconciliationAmount"
   | "status";
 
-const formatPdfCurrency = (value: number | null | undefined) =>
-  `Rs. ${new Intl.NumberFormat("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value ?? 0)}`;
-
-  const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(value || 0);
-
-  
 const formatDate = (value: string) => {
   if (!value) return "--";
   const next = new Date(value);
@@ -78,6 +69,7 @@ export default function CashManagementTransactionsTab({
   onFilteredCountChange,
   onExportDataChange,
 }: Props) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState<"all" | CashCounterStatus>("all");
   const [page, setPage] = useState(1);
@@ -154,12 +146,12 @@ export default function CashManagementTransactionsTab({
       columns: [
         "Date",
         "Created By",
-        "Opening Balance (Rs.)",
-        "Cash Revenue (Rs.)",
-        "Cash Expense (Rs.)",
-        "Closing Balance (Rs.)",
-        "In-Store Cash (Rs.)",
-        "Reconciliation Amount (Rs.)",
+        `Opening Balance (${currencySymbol})`,
+        `Cash Revenue (${currencySymbol})`,
+        `Cash Expense (${currencySymbol})`,
+        `Closing Balance (${currencySymbol})`,
+        `In-Store Cash (${currencySymbol})`,
+        `Reconciliation Amount (${currencySymbol})`,
         "Status",
       ],
       rows: filtered.map((row) => {
@@ -168,12 +160,12 @@ export default function CashManagementTransactionsTab({
         return [
           formatDate(getRowDisplayDate(row)),
           row.createdBy,
-          formatPdfCurrency(row.openingBalance),
-          formatPdfCurrency(row.cashRevenue),
-          formatPdfCurrency(row.cashExpense),
-          formatPdfCurrency(row.closingBalance),
-          formatPdfCurrency(row.inStoreCash),
-          formatPdfCurrency(row.reconciliationAmount),
+          formatAmount(row.openingBalance ?? 0),
+          formatAmount(row.cashRevenue ?? 0),
+          formatAmount(row.cashExpense ?? 0),
+          formatAmount(row.closingBalance ?? 0),
+          formatAmount(row.inStoreCash ?? 0),
+          formatAmount(row.reconciliationAmount ?? 0),
           statusTime ? `${statusValue} (${statusTime})` : statusValue,
         ];
       }),
@@ -284,11 +276,11 @@ export default function CashManagementTransactionsTab({
                 <tr key={row.id}>
                   <td>{formatDate(getRowDisplayDate(row))}</td>
                   <td>{row.createdBy}</td>
-                  <td>{formatCurrency(row.openingBalance)}</td>
-                  <td>{formatCurrency(row.cashRevenue)}</td>
-                  <td>{formatCurrency(row.cashExpense)}</td>
-                  <td>{formatCurrency(row.inStoreCash)}</td>
-                  <td>{formatCurrency(row.closingBalance)}</td>
+                  <td>{formatAmount(row.openingBalance)}</td>
+                  <td>{formatAmount(row.cashRevenue)}</td>
+                  <td>{formatAmount(row.cashExpense)}</td>
+                  <td>{formatAmount(row.inStoreCash)}</td>
+                  <td>{formatAmount(row.closingBalance)}</td>
                   <td
                     className={
                       row.reconciliationAmount >= 0
@@ -296,7 +288,7 @@ export default function CashManagementTransactionsTab({
                         : "cash-mgmt__amount-negative"
                     }
                   >
-                    {formatCurrency(row.reconciliationAmount)}
+                    {formatAmount(row.reconciliationAmount)}
                   </td>
                   <td>
                     <div className="cash-mgmt__status-cell">
