@@ -3,6 +3,7 @@ import React from "react";
 import { CheckCircle2 } from "lucide-react";
 import styles from "./packages.module.scss";
 import type { ClientPackage } from "../../services/api/endpoints/packages.endpoints";
+import { useCurrency } from "../../hooks/useCurrency";
 
 interface Props {
   pkg: ClientPackage;
@@ -15,6 +16,7 @@ function initials(name: string) {
 }
 
 const PackageCreatedSuccess: React.FC<Props> = ({ pkg, onViewPackages, onCreateAnother }) => {
+  const { formatAmount } = useCurrency();
   const expiryFmt = pkg.expiryDate
     ? new Date(pkg.expiryDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
     : "Never expires";
@@ -86,7 +88,7 @@ const PackageCreatedSuccess: React.FC<Props> = ({ pkg, onViewPackages, onCreateA
                   <td className={styles.tableTd}>{s.totalSessions}</td>
                   <td className={styles.tableTd}>{s.completedSessions}</td>
                   <td className={styles.tableTd} style={{ color: "#7c3aed", fontWeight: 700 }}>{s.remainingSessions}</td>
-                  <td className={styles.tableTd}>₹{s.price.toFixed(2)}</td>
+                  <td className={styles.tableTd}>{formatAmount(s.price)}</td>
                 </tr>
               ))}
             </tbody>
@@ -99,15 +101,15 @@ const PackageCreatedSuccess: React.FC<Props> = ({ pkg, onViewPackages, onCreateA
             <div>
               <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 8 }}>Payment Summary</div>
               <div className={styles.priceBox}>
-                <div className={styles.priceRow}><span>Package price</span><span>₹{pkg.basePrice.toFixed(2)}</span></div>
+                <div className={styles.priceRow}><span>Package price</span><span>{formatAmount(pkg.basePrice)}</span></div>
                 {pkg.discount > 0 && (
-                  <div className={styles.priceRow}><span>Discount</span><span>− ₹{pkg.discount.toFixed(2)}</span></div>
+                  <div className={styles.priceRow}><span>Discount</span><span>− {formatAmount(pkg.discount)}</span></div>
                 )}
                 {pkg.gstPercentage > 0 && (
-                  <div className={styles.priceRow}><span>GST ({pkg.gstPercentage}%)</span><span>₹{pkg.gstAmount.toFixed(2)}</span></div>
+                  <div className={styles.priceRow}><span>GST ({pkg.gstPercentage}%)</span><span>{formatAmount(pkg.gstAmount)}</span></div>
                 )}
                 <div className={`${styles.priceRow} ${styles["priceRow--total"]}`}>
-                  <span>Total Amount</span><span>₹{pkg.totalAmount.toFixed(2)}</span>
+                  <span>Total Amount</span><span>{formatAmount(pkg.totalAmount)}</span>
                 </div>
               </div>
             </div>
@@ -115,7 +117,7 @@ const PackageCreatedSuccess: React.FC<Props> = ({ pkg, onViewPackages, onCreateA
               <div style={{ fontSize: 13, fontWeight: 600, color: "#111827", marginBottom: 8 }}>Payment Information</div>
               <div className={styles.priceBox}>
                 <div className={styles.priceRow}><span>Method</span><span style={{ fontWeight: 600 }}>{pkg.paymentMethod}</span></div>
-                <div className={styles.priceRow}><span>Paid Amount</span><span style={{ fontWeight: 600 }}>₹{pkg.paidAmount.toFixed(2)}</span></div>
+                <div className={styles.priceRow}><span>Paid Amount</span><span style={{ fontWeight: 600 }}>{formatAmount(pkg.paidAmount)}</span></div>
                 <div className={styles.priceRow} style={{ marginTop: 4 }}>
                   <span>Status</span>
                   <span className={`${styles.badge} ${styles["badge--green"]}`}>

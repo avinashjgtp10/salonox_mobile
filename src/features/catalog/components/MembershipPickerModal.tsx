@@ -3,6 +3,7 @@ import { createPortal } from "react-dom";
 import { XLg, Search, Award } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import type { Membership, MembershipsListResponse, ApiResponse } from "../../../services/api/endpoints/memberships.endpoints";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./MembershipPickerModal.scss";
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 }
 
 const MembershipPickerModal: React.FC<Props> = ({ onSelect, onClose }) => {
+  const { formatAmount } = useCurrency();
   const [query,    setQuery]    = useState("");
   const [results,  setResults]  = useState<Membership[]>([]);
   const [loading,  setLoading]  = useState(false);
@@ -80,7 +82,7 @@ const MembershipPickerModal: React.FC<Props> = ({ onSelect, onClose }) => {
                   {m.validFor} &middot; {m.sessionType === "unlimited" ? "No cap" : `${m.numberOfSessions ?? "–"} visits`}
                 </span>
               </div>
-              <span className="mpm__item-price">₹{Number(m.price).toLocaleString("en-IN")}</span>
+              <span className="mpm__item-price">{formatAmount(Number(m.price))}</span>
             </button>
           ))}
         </div>

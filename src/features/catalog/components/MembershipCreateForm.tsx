@@ -18,6 +18,7 @@ import api from "../../../services/api/axios";
 import { PaymentMethodPicker, type PaymentSplitEntry } from "../../../components/shared/PaymentMethodPicker";
 import { buildMethodLabel } from "../../bookings/utils/paymentUtils";
 import type { SingleMethod } from "../../bookings/types/payment.types";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/CreateMembershipPage.scss";
 
 const SINGLE_METHODS: SingleMethod[] = ["Cash", "Card", "UPI"];
@@ -53,6 +54,7 @@ const MembershipCreateForm: React.FC<Props> = ({
   quickCreateMode = false,
 }) => {
   const dispatch = useDispatch<AppDispatch>();
+  const { currencySymbol, formatAmount } = useCurrency();
 
   const submitting = useSelector(selectMembershipsSubmitting);
   const apiError   = useSelector(selectMembershipsError);
@@ -313,7 +315,7 @@ const MembershipCreateForm: React.FC<Props> = ({
                   <div className="cmp__field">
                     <label className="cmp__label">Membership Price <span className="cmp__req">*</span></label>
                     <div className="cmp__pfx-wrap">
-                      <span className="cmp__pfx">₹</span>
+                      <span className="cmp__pfx">{currencySymbol}</span>
                       <input
                         type="number" min={0} step={1}
                         className={`cmp__input cmp__input--pfx${errors.price ? " cmp__input--err" : ""}`}
@@ -383,7 +385,7 @@ const MembershipCreateForm: React.FC<Props> = ({
                   <div className="cmp__field">
                     <label className="cmp__label">Bonus Credit</label>
                     <div className="cmp__pfx-wrap">
-                      <span className="cmp__pfx">₹</span>
+                      <span className="cmp__pfx">{currencySymbol}</span>
                       <input
                         type="number" min={0} step={100}
                         className="cmp__input cmp__input--pfx"
@@ -399,8 +401,7 @@ const MembershipCreateForm: React.FC<Props> = ({
                   <div className="cmp__field">
                     <label className="cmp__label">Total Wallet Value</label>
                     <div className="cmp__computed">
-                      <span className="cmp__computed-pfx">₹</span>
-                      <span className="cmp__computed-val">{walletValue.toLocaleString("en-IN")}</span>
+                      <span className="cmp__computed-val">{formatAmount(walletValue)}</span>
                       <span className="cmp__computed-tag">Auto</span>
                     </div>
                   </div>
@@ -462,16 +463,16 @@ const MembershipCreateForm: React.FC<Props> = ({
                 <p className="cmp__mc-name">{name || "Membership Name"}</p>
                 <div className="cmp__mc-rows">
                   <div className="cmp__mc-row">
-                    <span>Paid Amount</span>  <span>₹{priceNum.toLocaleString("en-IN")}</span>
+                    <span>Paid Amount</span>  <span>{formatAmount(priceNum)}</span>
                   </div>
                   <div className="cmp__mc-row">
-                    <span>Wallet Value</span> <span>₹{walletValue.toLocaleString("en-IN")}</span>
+                    <span>Wallet Value</span> <span>{formatAmount(walletValue)}</span>
                   </div>
                   <div className="cmp__mc-row">
-                    <span>Used Amount</span>  <span>₹0</span>
+                    <span>Used Amount</span>  <span>{formatAmount(0)}</span>
                   </div>
                   <div className="cmp__mc-row cmp__mc-row--hi">
-                    <span>Balance</span>      <span>₹{walletValue.toLocaleString("en-IN")}</span>
+                    <span>Balance</span>      <span>{formatAmount(walletValue)}</span>
                   </div>
                   <div className="cmp__mc-row">
                     <span>Valid Till</span>   <span>{validTillDate}</span>

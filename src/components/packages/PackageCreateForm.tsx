@@ -10,6 +10,7 @@ import { useCreateClientPackage } from "../../hooks/packages/usePackages";
 import { useServices } from "../../features/catalog/hooks/useServices";
 import type { Service } from "../../features/catalog/types/catalog.types";
 import { PaymentMethodPicker, type PaymentSplitEntry } from "../shared/PaymentMethodPicker";
+import { useCurrency } from "../../hooks/useCurrency";
 
 interface NewService {
   id: number;
@@ -88,6 +89,7 @@ const PackageCreateForm: React.FC<Props> = ({
   selectedClient, onClientChange, onCancel, onSaved, onTemplateSaved, templateToLoad,
   quickCreateMode = false,
 }) => {
+  const { currencySymbol, formatAmount } = useCurrency();
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
   const { data: templates = [] } = useListPackageTemplatesQuery();
 
@@ -344,7 +346,7 @@ const PackageCreateForm: React.FC<Props> = ({
                           {t.services.length} service{t.services.length !== 1 ? "s" : ""} · {t.neverExpires ? "Never expires" : `${t.expiryMonths} months`}
                         </div>
                       </div>
-                      <div style={{ fontWeight: 700, fontSize: 15, color: "#7c3aed" }}>₹{total.toFixed(2)}</div>
+                      <div style={{ fontWeight: 700, fontSize: 15, color: "#7c3aed" }}>{formatAmount(total)}</div>
                     </div>
                     <div style={{ marginTop: 8, display: "flex", gap: 6, flexWrap: "wrap" }}>
                       {t.services.map(s => (
@@ -523,7 +525,7 @@ const PackageCreateForm: React.FC<Props> = ({
             </div>
           )}
           <div style={{ display: "grid", gridTemplateColumns: isFromTemplate ? "1fr 80px 110px" : "1fr 80px 110px 32px", gap: 8, marginBottom: 6 }}>
-            {["Service name", "Sessions", "Price (₹)", ...(isFromTemplate ? [] : [""])].map(h => (
+            {["Service name", "Sessions", `Price (${currencySymbol})`, ...(isFromTemplate ? [] : [""])].map(h => (
               <div key={h} style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" as const, letterSpacing: ".04em" }}>{h}</div>
             ))}
           </div>
@@ -589,7 +591,7 @@ const PackageCreateForm: React.FC<Props> = ({
                   disabled={isFromTemplate}
                 />
                 <div className={styles.inputPrefix}>
-                  <span className={styles.inputPrefixSymbol}>₹</span>
+                  <span className={styles.inputPrefixSymbol}>{currencySymbol}</span>
                   <input
                     type="number"
                     min={0}
@@ -627,9 +629,9 @@ const PackageCreateForm: React.FC<Props> = ({
         <div className={styles.cardBody}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
             <div className={styles.formField}>
-              <label className={`${styles.formLabel} ${styles.formLabelRequired}`}>Package price (₹)</label>
+              <label className={`${styles.formLabel} ${styles.formLabelRequired}`}>Package price ({currencySymbol})</label>
               <div className={styles.inputPrefix}>
-                <span className={styles.inputPrefixSymbol}>₹</span>
+                <span className={styles.inputPrefixSymbol}>{currencySymbol}</span>
                 <input
                   type="number"
                   min={0}
@@ -658,7 +660,7 @@ const PackageCreateForm: React.FC<Props> = ({
               <label className={styles.formLabel}>Discount</label>
               <div style={{ display: "flex", gap: 6 }}>
                 <div className={styles.inputPrefix} style={{ flex: 1 }}>
-                  <span className={styles.inputPrefixSymbol}>{discountType === "percent" ? "%" : "₹"}</span>
+                  <span className={styles.inputPrefixSymbol}>{discountType === "percent" ? "%" : currencySymbol}</span>
                   <input
                     type="number"
                     min={0}
@@ -680,7 +682,7 @@ const PackageCreateForm: React.FC<Props> = ({
                   disabled={isFromTemplate}
                   aria-label="Discount type"
                 >
-                  <option value="flat">₹</option>
+                  <option value="flat">{currencySymbol}</option>
                   <option value="percent">%</option>
                 </select>
               </div>
@@ -691,23 +693,23 @@ const PackageCreateForm: React.FC<Props> = ({
           <div className={styles.priceBox}>
             <div className={styles.priceRow}>
               <span>Package price</span>
-              <span>₹{pkgPrice.toFixed(2)}</span>
+              <span>{formatAmount(pkgPrice)}</span>
             </div>
             {discountVal > 0 && (
               <div className={`${styles.priceRow} ${styles["priceRow--accent"]}`}>
                 <span>Discount{discountType === "percent" ? ` (${Math.min(Math.max(discount, 0), 100)}%)` : ""}</span>
-                <span>− ₹{discountVal.toFixed(2)}</span>
+                <span>− {formatAmount(discountVal)}</span>
               </div>
             )}
             {gstPct > 0 && (
               <div className={styles.priceRow}>
                 <span>GST ({gstPct}%)</span>
-                <span>₹{gstAmount.toFixed(2)}</span>
+                <span>{formatAmount(gstAmount)}</span>
               </div>
             )}
             <div className={`${styles.priceRow} ${styles["priceRow--total"]}`}>
               <span>Total amount</span>
-              <span>₹{totalAmount.toFixed(2)}</span>
+              <span>{formatAmount(totalAmount)}</span>
             </div>
           </div>
         </div>
@@ -774,6 +776,7 @@ const ServiceSearchInput: React.FC<{
   onSearch: (q: string) => void;
   disabled?: boolean;
 }> = ({ value, options, loading, onChange, onSearch, disabled = false }) => {
+  const { formatAmount } = useCurrency();
   const [query, setQuery] = useState(value);
   const [open,  setOpen]  = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -832,7 +835,7 @@ const ServiceSearchInput: React.FC<{
                 onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = isSelected ? "#f5f3ff" : ""; }}
               >
                 <span style={{ color: isSelected ? "#7c3aed" : "#111827", fontWeight: isSelected ? 600 : 400 }}>{name}</span>
-                {price > 0 && <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>₹{price}</span>}
+                {price > 0 && <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>{formatAmount(price)}</span>}
               </div>
             );
           })}

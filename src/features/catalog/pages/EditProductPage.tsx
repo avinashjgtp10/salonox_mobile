@@ -12,6 +12,7 @@ import Button from "../../../components/ui/Button";
 import { retailFromActiveMethod, markupPercentFromRetail, flatAmountFromRetail } from "../utils/productPricing";
 import type { MarkupMethod } from "../utils/productPricing";
 import { PRODUCT_MESSAGES } from "../../../constants/messages";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/CreateProductPage.scss";
 
 
@@ -51,6 +52,7 @@ const initialForm: FormState = {
 const EditProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { currencySymbol } = useCurrency();
   const dispatch = useDispatch<AppDispatch>();
   const { items: products, brands, categories, loading: { update: loading }, error } = useSelector(
     (state: RootState) => state.products
@@ -361,7 +363,7 @@ const EditProductPage: React.FC = () => {
               value={form.supplyPrice}
               onChange={(e) => handleSupplyPriceChange(e.target.value)}
               onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-              iconLeft={<span>₹</span>}
+              iconLeft={<span>{currencySymbol}</span>}
               containerClass="mt-1"
             />
 
@@ -398,7 +400,7 @@ const EditProductPage: React.FC = () => {
                     value={form.retailPrice}
                     onChange={(e) => handleRetailPriceChange(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-                    iconLeft={<span>₹</span>}
+                    iconLeft={<span>{currencySymbol}</span>}
                     containerClass=""
                   />
                 </div>

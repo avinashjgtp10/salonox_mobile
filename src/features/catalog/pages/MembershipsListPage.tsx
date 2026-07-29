@@ -5,9 +5,11 @@ import {
   Search, PlusLg, Sliders, ChevronDown,
   PencilSquare, Trash3, FileEarmarkPdf,
   FileEarmarkExcel, FiletypeCsv, CardList,
-  Award, CurrencyRupee, CheckCircleFill,
+  Award, CheckCircleFill,
   ThreeDotsVertical,
 } from "react-bootstrap-icons";
+import { useCurrency } from "../../../hooks/useCurrency";
+import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
@@ -60,6 +62,8 @@ const STATUS_LABEL: Record<string, string> = {
 const MembershipsListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
+  const { formatAmount, currencyCode } = useCurrency();
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
 
   const memberships = useSelector(selectMemberships);
   const loading     = useSelector(selectMembershipsLoading);
@@ -219,15 +223,15 @@ const MembershipsListPage: React.FC = () => {
         </div>
         <div className="msp__stat-div" />
         <div className="msp__stat">
-          <span className="msp__stat-icon msp__stat-icon--amber"><CurrencyRupee size={15} /></span>
+          <span className="msp__stat-icon msp__stat-icon--amber"><CurrencyIcon size={15} /></span>
           <span className="msp__stat-label">Plan revenue</span>
-          <strong className="msp__stat-val">₹{stats.revenue.toLocaleString("en-IN")}</strong>
+          <strong className="msp__stat-val">{formatAmount(stats.revenue)}</strong>
         </div>
         <div className="msp__stat-div" />
         <div className="msp__stat">
           <span className="msp__stat-icon msp__stat-icon--violet"><CardList size={15} /></span>
           <span className="msp__stat-label">Avg. price</span>
-          <strong className="msp__stat-val">₹{stats.avg.toLocaleString("en-IN")}</strong>
+          <strong className="msp__stat-val">{formatAmount(stats.avg)}</strong>
         </div>
       </div>
 
@@ -304,7 +308,7 @@ const MembershipsListPage: React.FC = () => {
                     <td className="msp__price">
                       {isPercentage
                         ? `${m.discountPercent ?? 0}% Discount`
-                        : `₹${Number(meta.actualPrice || m.price).toLocaleString("en-IN")} Value`}
+                        : `${formatAmount(Number(meta.actualPrice || m.price))} Value`}
                     </td>
                     <td className="msp__td-muted">{m.validFor}</td>
                     <td className="msp__td-actions" onClick={e => e.stopPropagation()}>

@@ -10,6 +10,7 @@ import { purchaseClientMembershipThunk } from "../../../middleware/clientMembers
 import { PaymentMethodPicker, type PaymentSplitEntry } from "../../../components/shared/PaymentMethodPicker";
 import { buildMethodLabel } from "../../bookings/utils/paymentUtils";
 import type { SingleMethod } from "../../bookings/types/payment.types";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./SellMembershipModal.scss";
 
 const SINGLE_METHODS: SingleMethod[] = ["Cash", "Card", "UPI"];
@@ -21,6 +22,7 @@ interface Props {
 
 const SellMembershipModal: React.FC<Props> = ({ membership, onClose }) => {
   const dispatch      = useDispatch<AppDispatch>();
+  const { formatAmount } = useCurrency();
   const salonId       = useSelector((s: any) => s.salon?.currentSalon?.id);
   const [client,      setClient]      = useState<ClientSearchResult | null>(null);
   const [selling,     setSelling]     = useState(false);
@@ -130,7 +132,7 @@ const SellMembershipModal: React.FC<Props> = ({ membership, onClose }) => {
             <div>
               <h3 className="smm__title">Select Client</h3>
               <p className="smm__sub">
-                {membership.name} &middot; ₹{Number(membership.price).toLocaleString("en-IN")}
+                {membership.name} &middot; {formatAmount(Number(membership.price))}
               </p>
             </div>
           </div>
@@ -181,7 +183,7 @@ const SellMembershipModal: React.FC<Props> = ({ membership, onClose }) => {
               >
                 {selling
                   ? "Selling…"
-                  : `Sell ₹${Number(membership.price).toLocaleString("en-IN")} to ${client.first_name} ${client.last_name ?? ""}`.trim()}
+                  : `Sell ${formatAmount(Number(membership.price))} to ${client.first_name} ${client.last_name ?? ""}`.trim()}
               </button>
             </>
           )}
