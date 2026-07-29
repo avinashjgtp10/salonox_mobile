@@ -20,7 +20,7 @@ export interface Service {
   category_id: string | number | null;
   category_name: string | null;
   price_type?: "fixed" | "from" | "free";
-  price: string | number; // string from backend ("65.00"), display with ₹
+  price: string | number; // string from backend ("65.00"), display via useCurrency()
   discounted_price?: string | number | null;
   duration: number;
   description?: string;

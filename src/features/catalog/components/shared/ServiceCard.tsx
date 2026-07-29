@@ -2,11 +2,12 @@ import React from "react";
 import {
   ThreeDotsVertical,
   ClockHistory,
-  CurrencyRupee,
   PencilSquare,
   Trash3,
 } from "react-bootstrap-icons";
 import type { Service } from "../../types/catalog.types";
+import { useCurrency } from "../../../../hooks/useCurrency";
+import { getCurrencyIcon } from "../../../../utils/currencyIcon";
 
 interface ServiceCardProps {
   service: Service;
@@ -19,7 +20,10 @@ interface ServiceCardProps {
 }
 
 const ServiceCard: React.FC<ServiceCardProps> = React.memo(
-  ({ service, openMenuId, onMenuToggle, onEdit, onDelete, onClick, highlighted = false }) => (
+  ({ service, openMenuId, onMenuToggle, onEdit, onDelete, onClick, highlighted = false }) => {
+    const { currencyCode } = useCurrency();
+    const CurrencyIcon = getCurrencyIcon(currencyCode);
+    return (
     <div
       id={`service-card-${service.id}`}
       className={`slp__service-card ${highlighted ? "slp__service-card--highlighted" : ""}`}
@@ -51,7 +55,7 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
 
       <div className="slp__svc-right" onClick={(e) => e.stopPropagation()}>
         <span className="slp__svc-price">
-          <CurrencyRupee size={14} />
+          <CurrencyIcon size={14} />
           {service.price}
         </span>
 
@@ -91,7 +95,8 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
         </div>
       </div>
     </div>
-  ),
+    );
+  },
 );
 
 ServiceCard.displayName = "ServiceCard";

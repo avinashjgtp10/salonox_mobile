@@ -11,6 +11,7 @@ import { useSelector, useDispatch } from "react-redux";
 import { selectAllStaff } from "../../store/selectors/slices.selectors";
 import { fetchStaffThunk } from "../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../store/store";
+import { useCurrency } from "../../hooks/useCurrency";
 
 interface Props {
   selectedClient: ClientSearchResult | null;
@@ -31,6 +32,7 @@ function daysUntil(dateStr: string | null) {
 const PackageDashboard: React.FC<Props> = ({
   selectedClient, onClientChange, onCreateNew, onCreateFromTemplate,
 }) => {
+  const { formatAmount } = useCurrency();
   const [selService,      setSelService]      = useState("");
   const [selStaff,        setSelStaff]        = useState("");
   const [activeTab,       setActiveTab]       = useState("");
@@ -431,8 +433,8 @@ const PackageDashboard: React.FC<Props> = ({
                                 </div>
                               </td>
                               <td className={styles.tableTd}>
-                                ₹{svc.price != null && !isNaN(Number(svc.price))
-                                  ? Number(svc.price).toLocaleString('en-IN')
+                                {svc.price != null && !isNaN(Number(svc.price))
+                                  ? formatAmount(Number(svc.price))
                                   : '—'}
                               </td>
                             </tr>
@@ -443,9 +445,9 @@ const PackageDashboard: React.FC<Props> = ({
 
                     <div className={styles.paymentGrid}>
                       {[
-                        ["Total amount",  `₹${pkg.totalAmount.toFixed(2)}`],
-                        ["Paid amount",   `₹${pkg.paidAmount.toFixed(2)}`],
-                        ["Pending",       `₹${pkg.pendingAmount.toFixed(2)}`],
+                        ["Total amount",  formatAmount(pkg.totalAmount)],
+                        ["Paid amount",   formatAmount(pkg.paidAmount)],
+                        ["Pending",       formatAmount(pkg.pendingAmount)],
                         ["Mode",          pkg.paymentMethod],
                       ].map(([l, v]) => (
                         <div key={l}>
@@ -685,7 +687,7 @@ const PackageDashboard: React.FC<Props> = ({
                       </div>
                     </div>
                     <div style={{ textAlign: "right", flexShrink: 0 }}>
-                      <div style={{ fontSize: 16, fontWeight: 800, color: "#7c3aed" }}>₹{total.toFixed(0)}</div>
+                      <div style={{ fontSize: 16, fontWeight: 800, color: "#7c3aed" }}>{formatAmount(total)}</div>
                       <div style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
                         {t.neverExpires ? "Never expires" : `${t.expiryMonths}mo`}
                       </div>

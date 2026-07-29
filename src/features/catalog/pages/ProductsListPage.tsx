@@ -23,6 +23,7 @@ import Button from "../../../components/ui/Button";
 import Skeleton from "../../../components/ui/Skeleton";
 import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/ProductsListPage.scss";
 
 interface FilterState {
@@ -131,6 +132,7 @@ const FilterSelect: React.FC<{
 
 const ProductsListPage: React.FC = () => {
   const navigate = useNavigate();
+  const { formatAmount } = useCurrency();
   const {
     products, page: currentPage, pageSize, totalRecords,
     brands, categories, loading, error,
@@ -557,13 +559,13 @@ const ProductsListPage: React.FC = () => {
                         const isValidRp = !isNaN(rp) && rp !== 0;
                         const isValidSp = !isNaN(sp) && sp !== 0;
 
-                        if (isValidRp) return `₹${rp.toLocaleString()}`;
-                        if (isValidSp) return `₹${sp.toLocaleString()}`;
+                        if (isValidRp) return formatAmount(rp);
+                        if (isValidSp) return formatAmount(sp);
 
-                        // If it's explicitly 0 and intended, we could show ₹0, 
-                        // but requirement says 'If both missing -> Price not available'
-                        if (p.retail_price === 0 || p.retail_price === "0") return "₹0";
-                        if (p.supply_price === 0 || p.supply_price === "0") return "₹0";
+                        // If it's explicitly 0 and intended, we could show a
+                        // zero amount, but requirement says 'If both missing -> Price not available'
+                        if (p.retail_price === 0 || p.retail_price === "0") return formatAmount(0);
+                        if (p.supply_price === 0 || p.supply_price === "0") return formatAmount(0);
 
                         return <span className="text-muted fst-italic" style={{ fontSize: "12px" }}>Price not available</span>;
                       })()}

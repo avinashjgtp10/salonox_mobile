@@ -8,6 +8,7 @@ import {
 import type { UpdatePackageDTO } from "../../../services/api/endpoints/packages.endpoints";
 import { useServices } from "../hooks/useServices";
 import type { Service as ApiService } from "../types/catalog.types";
+import { useCurrency } from "../../../hooks/useCurrency";
 
 type Service = ApiService;
 
@@ -31,6 +32,7 @@ const slugify = (v: string) =>
 const EditPackagePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { currencySymbol, formatAmount } = useCurrency();
 
   const { data: pkg, isLoading, isError } = useGetPackageByIdQuery(id!, { skip: !id });
   const [updatePackage] = useUpdatePackageMutation();
@@ -271,9 +273,9 @@ const EditPackagePage: React.FC = () => {
 
                 <div className="row g-3 mb-3">
                   <div className="col-md-4">
-                    <label className="pkg-create__label">BASE PRICE (₹) <span className="text-danger">*</span></label>
+                    <label className="pkg-create__label">BASE PRICE ({currencySymbol}) <span className="text-danger">*</span></label>
                     <div className="position-relative">
-                      <span className="pkg-create__currency">₹</span>
+                      <span className="pkg-create__currency">{currencySymbol}</span>
                       <input type="number" min="0" className="form-control pkg-create__input pkg-create__input--price" value={basePrice} onChange={(e) => setBasePrice(e.target.value)} onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }} />
                     </div>
                   </div>
@@ -350,7 +352,7 @@ const EditPackagePage: React.FC = () => {
                   const picked = !!selectedServices.find((s) => s.id === svc.id);
                   return (
                     <button key={svc.id} className={`pkg-service-tag ${picked ? "picked" : ""}`} onClick={() => toggleService(svc)}>
-                      {svc.name} <span className="pkg-service-tag__price">₹{svc.price}</span>
+                      {svc.name} <span className="pkg-service-tag__price">{formatAmount(Number(svc.price))}</span>
                     </button>
                   );
                 })}
@@ -411,7 +413,7 @@ const EditPackagePage: React.FC = () => {
                       <input type="date" className="form-control pkg-create__input" value={offer.endDate} onChange={(e) => updateOffer(offer.id, "endDate", e.target.value)} />
                     </div>
                     <div className="col-md-4">
-                      <label className="pkg-create__label">MIN ORDER (₹)</label>
+                      <label className="pkg-create__label">MIN ORDER ({currencySymbol})</label>
                       <input type="number" className="form-control pkg-create__input" value={offer.minOrder} onChange={(e) => updateOffer(offer.id, "minOrder", Number(e.target.value))} />
                     </div>
                   </div>

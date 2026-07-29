@@ -10,6 +10,7 @@ import {
 } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
+import { formatAmount } from "../../../utils/currency";
 import "../styles/StockOrdersListPage.scss";
 
 interface StockOrder {
@@ -46,7 +47,7 @@ const MOCK_ORDERS: StockOrder[] = Array.from({ length: 28 }, (_, i) => {
     status,
     orderedOn: `${(i % 28) + 1} Mar 2026`,
     receivedOn: status === "Received" ? `${(i % 28) + 2} Mar 2026` : "-",
-    totalCost: `₹${(Math.floor(Math.random() * 15000) + 1500).toLocaleString()}`,
+    totalCost: formatAmount(Math.floor(Math.random() * 15000) + 1500),
   };
 });
 

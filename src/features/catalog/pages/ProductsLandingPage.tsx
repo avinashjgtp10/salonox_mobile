@@ -2,10 +2,12 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { Check2, BoxSeam } from "react-bootstrap-icons";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/ProductsLandingPage.scss";
 
 const ProductsLandingPage: React.FC = () => {
   const navigate = useNavigate();
+  const { formatAmount } = useCurrency();
 
   return (
     <div className="products-landing-page">
@@ -76,19 +78,19 @@ const ProductsLandingPage: React.FC = () => {
                 {[
                   {
                     name: "Organic Shampoo",
-                    price: "₹850",
+                    price: formatAmount(850),
                     stock: 24,
                     status: "OK",
                   },
                   {
                     name: "Hair Wax Pro",
-                    price: "₹450",
+                    price: formatAmount(450),
                     stock: 5,
                     status: "LOW",
                   },
                   {
                     name: "Conditioner Lite",
-                    price: "₹650",
+                    price: formatAmount(650),
                     stock: 12,
                     status: "OK",
                   },

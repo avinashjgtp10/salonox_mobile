@@ -15,6 +15,7 @@ import type {
 } from "../../services/api/endpoints/packages.endpoints";
 import { useServices } from "../../features/catalog/hooks/useServices";
 import type { Service } from "../../features/catalog/types/catalog.types";
+import { useCurrency } from "../../hooks/useCurrency";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -166,6 +167,7 @@ interface ServiceSearchProps {
 }
 
 function ServiceSearchInput({ value, options, loading, disabled, onChange, onSearch }: ServiceSearchProps) {
+  const { formatAmount } = useCurrency();
   const [query, setQuery] = useState(value);
   const [open,  setOpen]  = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -231,7 +233,7 @@ function ServiceSearchInput({ value, options, loading, disabled, onChange, onSea
                 onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = isSelected ? "#f5f3ff" : ""; }}
               >
                 <span style={{ color: isSelected ? "#7c3aed" : "#111827", fontWeight: isSelected ? 600 : 400 }}>{name}</span>
-                {price > 0 && <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>₹{price}</span>}
+                {price > 0 && <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>{formatAmount(price)}</span>}
               </div>
             );
           })}
@@ -396,6 +398,7 @@ interface FormPanelProps {
 }
 
 function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoading, anchorDate, onChange, onSave, onClose, onSearch }: FormPanelProps) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const servicesTotal = form.services.reduce((s, r) => s + (parseFloat(r.price) || 0), 0);
   const base   = parseFloat(form.basePrice)     || servicesTotal;
   const gst    = parseFloat(form.gstPercentage) || 0;
@@ -568,7 +571,7 @@ function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoadi
               </button>
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 100px 30px", gap: 8, marginBottom: 4 }}>
-              {["Service Name", "Sessions", "Price (₹)", ""].map(h => (
+              {["Service Name", "Sessions", `Price (${currencySymbol})`, ""].map(h => (
                 <span key={h} style={{ fontSize: 11, fontWeight: 700, color: "#9ca3af", textTransform: "uppercase" as const }}>{h}</span>
               ))}
             </div>
@@ -605,7 +608,7 @@ function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoadi
 
           <div className="pkg-sold-panel__edit-row">
             <div className="pkg-sold-panel__edit-group">
-              <label className="pkg-sold-panel__edit-label">Base Price (₹)</label>
+              <label className="pkg-sold-panel__edit-label">Base Price ({currencySymbol})</label>
               <input
                 type="number"
                 className="pkg-sold-panel__edit-input"
@@ -616,7 +619,7 @@ function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoadi
                 min={0}
               />
               {!form.basePrice && servicesTotal > 0 && (
-                <span style={{ fontSize: 11, color: "#9ca3af" }}>Auto: ₹{servicesTotal}</span>
+                <span style={{ fontSize: 11, color: "#9ca3af" }}>Auto: {formatAmount(servicesTotal)}</span>
               )}
             </div>
             <div className="pkg-sold-panel__edit-group">
@@ -628,14 +631,14 @@ function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoadi
           </div>
 
           <div className="pkg-sold-panel__edit-group" style={{ maxWidth: "50%" }}>
-            <label className="pkg-sold-panel__edit-label">Discount (₹)</label>
+            <label className="pkg-sold-panel__edit-label">Discount ({currencySymbol})</label>
             <input type="number" className="pkg-sold-panel__edit-input" value={form.discount} onChange={e => onChange({ discount: e.target.value })} disabled={saving} min={0} />
           </div>
 
           <div className="pkg-sold-panel__price-preview">
-            Total: <strong>₹{total.toFixed(2)}</strong>
-            {gstAmt > 0 && <span style={{ marginLeft: 10, opacity: 0.7, fontSize: 12 }}>incl. ₹{gstAmt.toFixed(2)} GST</span>}
-            {disc > 0 && <span style={{ marginLeft: 10, color: "#16a34a", fontSize: 12 }}>-₹{disc} off</span>}
+            Total: <strong>{formatAmount(total)}</strong>
+            {gstAmt > 0 && <span style={{ marginLeft: 10, opacity: 0.7, fontSize: 12 }}>incl. {formatAmount(gstAmt)} GST</span>}
+            {disc > 0 && <span style={{ marginLeft: 10, color: "#16a34a", fontSize: 12 }}>-{formatAmount(disc)} off</span>}
           </div>
 
           {error && (
@@ -660,6 +663,7 @@ interface TemplateCardProps {
 }
 
 function TemplateCard({ template: t, index, deleting, onEdit, onDelete }: TemplateCardProps) {
+  const { formatAmount } = useCurrency();
   const gradient = CARD_GRADIENTS[index % CARD_GRADIENTS.length];
   const gstAmt = (t.basePrice - t.discount) * t.gstPercentage / 100;
   const total  = t.basePrice - t.discount + gstAmt;
@@ -689,11 +693,11 @@ function TemplateCard({ template: t, index, deleting, onEdit, onDelete }: Templa
             <div style={{ fontSize: 17, fontWeight: 700, color: "#fff", lineHeight: 1.3 }}>{t.name}</div>
           </div>
           <div style={{ textAlign: "right", flexShrink: 0 }}>
-            <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", lineHeight: 1 }}>₹{total.toFixed(0)}</div>
+            <div style={{ fontSize: 22, fontWeight: 800, color: "#fff", lineHeight: 1 }}>{formatAmount(total)}</div>
             {t.discount > 0 && (
               <div style={{ fontSize: 11, color: "rgba(255,255,255,.8)", marginTop: 2 }}>
-                <span style={{ textDecoration: "line-through" }}>₹{t.basePrice}</span>
-                <span style={{ marginLeft: 4, background: "rgba(255,255,255,.2)", borderRadius: 4, padding: "1px 5px" }}>-₹{t.discount}</span>
+                <span style={{ textDecoration: "line-through" }}>{formatAmount(t.basePrice)}</span>
+                <span style={{ marginLeft: 4, background: "rgba(255,255,255,.2)", borderRadius: 4, padding: "1px 5px" }}>-{formatAmount(t.discount)}</span>
               </div>
             )}
           </div>
@@ -736,7 +740,7 @@ function TemplateCard({ template: t, index, deleting, onEdit, onDelete }: Templa
                   ×{s.totalSessions}
                 </span>
                 {s.price > 0 && (
-                  <span style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>₹{s.price}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "#111827" }}>{formatAmount(s.price)}</span>
                 )}
               </div>
             </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { XLg, Pencil, CardList, InfoCircle, PersonFill } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/MembershipDetailsDrawer.scss";
 
 interface MembershipDetailsDrawerProps {
@@ -16,6 +17,7 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
   onClose,
 }) => {
   const navigate = useNavigate();
+  const { formatAmount } = useCurrency();
 
   const [membership, setMembership] = useState<any>(null);
   const [loading,    setLoading]    = useState(false);
@@ -149,21 +151,21 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
                 <div className="detail-item">
                   <span className="label">Customer Pays</span>
                   <span className="value fw-bold">
-                    ₹{Number(membership?.price || 0).toLocaleString("en-IN")}
+                    {formatAmount(Number(membership?.price || 0))}
                   </span>
                 </div>
                 {bonusCredit > 0 && (
                   <div className="detail-item">
                     <span className="label">Bonus Credit</span>
                     <span className="value" style={{ color: "#16a34a", fontWeight: 700 }}>
-                      +₹{bonusCredit.toLocaleString("en-IN")}
+                      +{formatAmount(bonusCredit)}
                     </span>
                   </div>
                 )}
                 <div className="detail-item">
                   <span className="label">Wallet Value</span>
                   <span className="value fw-bold" style={{ color: "#2563eb" }}>
-                    ₹{walletValue.toLocaleString("en-IN")}
+                    {formatAmount(walletValue)}
                   </span>
                 </div>
                 <div className="detail-item">
@@ -181,7 +183,7 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
                   <span className="label">Visit Limit</span>
                   <span className="value">
                     {membership?.sessionType === "unlimited"
-                      ? "No cap (use until balance ₹0)"
+                      ? `No cap (use until balance ${formatAmount(0)})`
                       : `${membership?.numberOfSessions || 0} visits`}
                   </span>
                 </div>
