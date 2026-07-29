@@ -7,6 +7,7 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./ServiceSaleReport.scss";
 
 const REPORT_NAME = "Service Sale";
@@ -39,6 +40,7 @@ function mapRow(row: any): ServiceSaleRow {
 }
 
 export default function ServiceSaleReport({ onBack }: { onBack: () => void }) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const today   = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
@@ -99,7 +101,7 @@ export default function ServiceSaleReport({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch]);
 
-  const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Service Name", "Price (₹)", "GST (₹)", "Total (₹)"];
+  const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Service Name", `Price (${currencySymbol})`, `GST (${currencySymbol})`, `Total (${currencySymbol})`];
   // Total column is gross = line base + its own GST.
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.serviceName, r.price, r.taxAmount, r.price + r.taxAmount]);
 
@@ -135,8 +137,8 @@ export default function ServiceSaleReport({ onBack }: { onBack: () => void }) {
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.servicesSold}</div><div className="rp-sra-summary-label">Services Sold</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalRev.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.avgTicket.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div><div className="rp-sra-summary-label">Avg Ticket</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalRev)}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.avgTicket)}</div><div className="rp-sra-summary-label">Avg Ticket</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.uniqueServices}</div><div className="rp-sra-summary-label">Unique Services</div></div>
         </div>
       )}
@@ -151,7 +153,7 @@ export default function ServiceSaleReport({ onBack }: { onBack: () => void }) {
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
-            <tr><th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Service Name</th><th>Price (₹)</th><th>GST (₹)</th><th>Total (₹)</th></tr>
+            <tr><th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Service Name</th><th>Price ({currencySymbol})</th><th>GST ({currencySymbol})</th><th>Total ({currencySymbol})</th></tr>
           </thead>
           <tbody>
             {loading ? (
@@ -169,9 +171,9 @@ export default function ServiceSaleReport({ onBack }: { onBack: () => void }) {
                 <td>{r.client}</td>
                 <td>{r.staff}</td>
                 <td className="fw-semibold">{r.serviceName}</td>
-                <td>₹{r.price.toLocaleString()}</td>
-                <td>₹{r.taxAmount.toLocaleString()}</td>
-                <td className="fw-semibold">₹{(r.price + r.taxAmount).toLocaleString()}</td>
+                <td>{formatAmount(r.price)}</td>
+                <td>{formatAmount(r.taxAmount)}</td>
+                <td className="fw-semibold">{formatAmount(r.price + r.taxAmount)}</td>
               </tr>
             ))}
           </tbody>

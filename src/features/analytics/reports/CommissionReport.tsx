@@ -6,6 +6,7 @@ import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, DateRangePicker } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./CommissionReport.scss";
 
 const REPORT_NAME = "Commission Report";
@@ -30,6 +31,7 @@ interface Summary {
 }
 
 export default function CommissionReport({ onBack }: { onBack: () => void }) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const today       = new Date().toISOString().slice(0, 10);
   const monthStart  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
@@ -89,7 +91,7 @@ export default function CommissionReport({ onBack }: { onBack: () => void }) {
 
   useEffect(() => { setCurrentPage(1); }, [filteredRows.length]);
 
-  const HEADERS = ["Staff", "Designation", "Categories", "Transactions", "Revenue (₹)", "Commission Earned (₹)", "Pending (₹)", "Paid (₹)", "Status"];
+  const HEADERS = ["Staff", "Designation", "Categories", "Transactions", `Revenue (${currencySymbol})`, `Commission Earned (${currencySymbol})`, `Pending (${currencySymbol})`, `Paid (${currencySymbol})`, "Status"];
   const statusOf = (r: EarnedRow) => r.pending > 0 ? "Pending" : r.paid > 0 ? "Paid" : "—";
   const exportRows = () => filteredRows.map(r => [r.staffName, r.designation, r.categories.join(", "), r.transactions, r.revenue, r.earned, r.pending, r.paid, statusOf(r)]);
   const paged = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -121,10 +123,10 @@ export default function CommissionReport({ onBack }: { onBack: () => void }) {
 
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{summary.totalRevenue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{summary.totalCommission.toLocaleString()}</div><div className="rp-sra-summary-label">Total Commission</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{summary.pendingPayout.toLocaleString()}</div><div className="rp-sra-summary-label">Pending Payout</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{summary.paidOut.toLocaleString()}</div><div className="rp-sra-summary-label">Paid Out</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(summary.totalRevenue)}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(summary.totalCommission)}</div><div className="rp-sra-summary-label">Total Commission</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(summary.pendingPayout)}</div><div className="rp-sra-summary-label">Pending Payout</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(summary.paidOut)}</div><div className="rp-sra-summary-label">Paid Out</div></div>
         </div>
       )}
 
@@ -139,7 +141,7 @@ export default function CommissionReport({ onBack }: { onBack: () => void }) {
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Staff</th><th>Designation</th><th>Categories</th><th>Transactions</th><th>Revenue (₹)</th><th>Commission Earned (₹)</th><th>Pending (₹)</th><th>Paid (₹)</th><th>Status</th>
+              <th>Staff</th><th>Designation</th><th>Categories</th><th>Transactions</th><th>Revenue ({currencySymbol})</th><th>Commission Earned ({currencySymbol})</th><th>Pending ({currencySymbol})</th><th>Paid ({currencySymbol})</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -153,10 +155,10 @@ export default function CommissionReport({ onBack }: { onBack: () => void }) {
                 <td>{r.designation}</td>
                 <td>{r.categories.length ? r.categories.join(", ") : "—"}</td>
                 <td>{r.transactions}</td>
-                <td>₹{r.revenue.toLocaleString()}</td>
-                <td className="fw-semibold">₹{r.earned.toLocaleString()}</td>
-                <td>₹{r.pending.toLocaleString()}</td>
-                <td>₹{r.paid.toLocaleString()}</td>
+                <td>{formatAmount(r.revenue)}</td>
+                <td className="fw-semibold">{formatAmount(r.earned)}</td>
+                <td>{formatAmount(r.pending)}</td>
+                <td>{formatAmount(r.paid)}</td>
                 <td><span className={`rp-status-badge rp-status-${statusOf(r).toLowerCase()}`}>{statusOf(r)}</span></td>
               </tr>
             ))}

@@ -6,6 +6,7 @@ import Button from "../../../components/ui/Button";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./EwalletReport.scss";
 
 const REPORT_NAME = "Ewallet";
@@ -38,6 +39,7 @@ interface LedgerRow {
 const EMPTY_BREAKDOWN: Breakdown = { balance: 0, referral_rewards: 0, reward_credits: 0, other_credits: 0, wallet_debits: 0 };
 
 export default function EwalletReport({ onBack }: { onBack: () => void }) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const [rows,        setRows]        = useState<ClientRow[]>([]);
   const [total,       setTotal]       = useState(0);
   const [stats,       setStats]       = useState({ totalClients: 0, withBalance: 0, totalValue: 0, avgBalance: 0 });
@@ -137,7 +139,7 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
     }
   }, []);
 
-  const HEADERS = ["Client", "Phone", "Email", "Wallet Balance (₹)"];
+  const HEADERS = ["Client", "Phone", "Email", `Wallet Balance (${currencySymbol})`];
   const exportRows = () => rows.map(r => [r.name, r.phone, r.email, r.balance]);
 
   return (
@@ -165,8 +167,8 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
         <div className="rp-sra-summary-row">
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalClients}</div><div className="rp-sra-summary-label">Total Clients</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.withBalance}</div><div className="rp-sra-summary-label">With Wallet Balance</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalValue.toLocaleString("en-IN")}</div><div className="rp-sra-summary-label">Total Wallet Value</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.avgBalance.toLocaleString("en-IN", { maximumFractionDigits: 0 })}</div><div className="rp-sra-summary-label">Avg Balance</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalValue)}</div><div className="rp-sra-summary-label">Total Wallet Value</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.avgBalance)}</div><div className="rp-sra-summary-label">Avg Balance</div></div>
         </div>
       )}
 
@@ -186,7 +188,7 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
-            <tr><th>Client</th><th>Phone</th><th>Email</th><th>Wallet Balance (₹)</th></tr>
+            <tr><th>Client</th><th>Phone</th><th>Email</th><th>Wallet Balance ({currencySymbol})</th></tr>
           </thead>
           <tbody>
             {loading ? (
@@ -198,7 +200,7 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
                 <td className="fw-semibold"><span className="rp-detail-link">{r.name}</span></td>
                 <td>{r.phone}</td>
                 <td>{r.email}</td>
-                <td className={r.balance > 0 ? "rp-ew-credit fw-semibold" : "fw-semibold"}>₹{r.balance.toLocaleString("en-IN")}</td>
+                <td className={r.balance > 0 ? "rp-ew-credit fw-semibold" : "fw-semibold"}>{formatAmount(r.balance)}</td>
               </tr>
             ))}
           </tbody>
@@ -245,11 +247,11 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
                 <>
                   <div className="rp-appt-drawer-section-title">Wallet Breakdown</div>
                   <div className="rp-ew-drawer-stats">
-                    <div className="rp-ew-drawer-stat"><span>₹{breakdown.balance.toLocaleString("en-IN")}</span><label>Balance</label></div>
-                    <div className="rp-ew-drawer-stat"><span>₹{breakdown.referral_rewards.toLocaleString("en-IN")}</span><label>Referral</label></div>
-                    <div className="rp-ew-drawer-stat"><span>₹{breakdown.reward_credits.toLocaleString("en-IN")}</span><label>Rewards</label></div>
-                    <div className="rp-ew-drawer-stat"><span>₹{breakdown.other_credits.toLocaleString("en-IN")}</span><label>Other</label></div>
-                    <div className="rp-ew-drawer-stat"><span className="rp-ew-debit">₹{breakdown.wallet_debits.toLocaleString("en-IN")}</span><label>Debits</label></div>
+                    <div className="rp-ew-drawer-stat"><span>{formatAmount(breakdown.balance)}</span><label>Balance</label></div>
+                    <div className="rp-ew-drawer-stat"><span>{formatAmount(breakdown.referral_rewards)}</span><label>Referral</label></div>
+                    <div className="rp-ew-drawer-stat"><span>{formatAmount(breakdown.reward_credits)}</span><label>Rewards</label></div>
+                    <div className="rp-ew-drawer-stat"><span>{formatAmount(breakdown.other_credits)}</span><label>Other</label></div>
+                    <div className="rp-ew-drawer-stat"><span className="rp-ew-debit">{formatAmount(breakdown.wallet_debits)}</span><label>Debits</label></div>
                   </div>
 
                   <div className="rp-appt-drawer-section-title rp-ew-drawer-ledger-title">Transaction History</div>
@@ -261,7 +263,7 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
                         <div key={i} className="rp-appt-drawer-meta-row">
                           <span className="rp-appt-drawer-meta-label">{l.date || "—"} · <span className="rp-ew-type">{l.type}</span></span>
                           <span className={`rp-appt-drawer-meta-val ${l.amount >= 0 ? "rp-ew-credit" : "rp-ew-debit"}`}>
-                            {l.amount >= 0 ? "+" : ""}₹{l.amount.toLocaleString()}
+                            {l.amount >= 0 ? `+${formatAmount(l.amount)}` : `-${formatAmount(Math.abs(l.amount))}`}
                           </span>
                         </div>
                       ))}

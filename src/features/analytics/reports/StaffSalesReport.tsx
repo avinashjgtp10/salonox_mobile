@@ -12,6 +12,7 @@ import Button from "../../../components/ui/Button";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { Pagination } from "../../../components/ui";
 import { SkeletonStatCards, SkeletonTableRows, SkeletonChartBlock } from "./ReportSkeleton";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./StaffSalesReport.scss";
 
 const REPORT_NAME = "Staff Sales";
@@ -21,6 +22,7 @@ interface RevRow { label: string; serviceRevenue: number; productRevenue: number
 
 export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
   const dispatch = useDispatch<AppDispatch>();
+  const { currencySymbol, formatAmount } = useCurrency();
   const today      = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,       setDateFrom]       = useState(monthStart);
@@ -83,7 +85,7 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
   const totalProd = rows.reduce((s, r) => s + r.productRevenue, 0);
   const totalRev  = rows.reduce((s, r) => s + r.total, 0);
 
-  const HEADERS = ["Period", "Service Revenue (₹)", "Product Revenue (₹)", "Total Revenue (₹)"];
+  const HEADERS = ["Period", `Service Revenue (${currencySymbol})`, `Product Revenue (${currencySymbol})`, `Total Revenue (${currencySymbol})`];
   const exportRows = () => rows.map(r => [r.label, r.serviceRevenue, r.productRevenue, r.total]);
   const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
@@ -144,9 +146,9 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
       {loading ? <SkeletonStatCards count={3} /> : (
         <div className="rp-sra-summary-row">
           {[
-            { label: "Service Revenue", value: `₹${totalSvc.toLocaleString()}`, cls: "svc" },
-            { label: "Product Revenue", value: `₹${totalProd.toLocaleString()}`, cls: "prod" },
-            { label: "Total Revenue",   value: `₹${totalRev.toLocaleString()}`,  cls: "total" },
+            { label: "Service Revenue", value: formatAmount(totalSvc), cls: "svc" },
+            { label: "Product Revenue", value: formatAmount(totalProd), cls: "prod" },
+            { label: "Total Revenue",   value: formatAmount(totalRev),  cls: "total" },
           ].map(c => (
             <div key={c.label} className="rp-sra-summary-card">
               <div className={`rp-sra-summary-val rp-ss-val--${c.cls}`}>{c.value}</div>
@@ -164,9 +166,9 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
               <thead>
                 <tr>
                   <th>Period</th>
-                  <th>Service Revenue (₹)</th>
-                  <th>Product Revenue (₹)</th>
-                  <th>Total Revenue (₹)</th>
+                  <th>Service Revenue ({currencySymbol})</th>
+                  <th>Product Revenue ({currencySymbol})</th>
+                  <th>Total Revenue ({currencySymbol})</th>
                 </tr>
               </thead>
               <tbody>
@@ -184,8 +186,8 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
               <BarChart data={rows} margin={{ top: 0, right: 16, left: 0, bottom: 0 }} barSize={16}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
                 <XAxis dataKey="label" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={v => `₹${(v/1000).toFixed(0)}k`} />
-                <Tooltip formatter={(v: any) => `₹${Number(v).toLocaleString()}`} />
+                <YAxis tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={v => `${currencySymbol}${(v/1000).toFixed(0)}k`} />
+                <Tooltip formatter={(v: any) => formatAmount(Number(v))} />
                 <Bar dataKey="serviceRevenue" name="Service Revenue" fill="#3b82f6" radius={[4,4,0,0]} />
                 <Bar dataKey="productRevenue" name="Product Revenue" fill="#10b981" radius={[4,4,0,0]} />
               </BarChart>
@@ -201,18 +203,18 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
               <thead>
                 <tr>
                   <th>Period</th>
-                  <th>Service Revenue (₹)</th>
-                  <th>Product Revenue (₹)</th>
-                  <th>Total Revenue (₹)</th>
+                  <th>Service Revenue ({currencySymbol})</th>
+                  <th>Product Revenue ({currencySymbol})</th>
+                  <th>Total Revenue ({currencySymbol})</th>
                 </tr>
               </thead>
               <tbody>
                 {paged.map((r, i) => (
                   <tr key={i}>
                     <td>{r.label}</td>
-                    <td>₹{r.serviceRevenue.toLocaleString()}</td>
-                    <td>₹{r.productRevenue.toLocaleString()}</td>
-                    <td className="fw-semibold">₹{r.total.toLocaleString()}</td>
+                    <td>{formatAmount(r.serviceRevenue)}</td>
+                    <td>{formatAmount(r.productRevenue)}</td>
+                    <td className="fw-semibold">{formatAmount(r.total)}</td>
                   </tr>
                 ))}
               </tbody>

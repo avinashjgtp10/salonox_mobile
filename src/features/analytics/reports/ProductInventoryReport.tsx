@@ -6,6 +6,7 @@ import Button from "../../../components/ui/Button";
 import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./ProductInventoryReport.scss";
 
 const REPORT_NAME = "Product Inventory";
@@ -27,6 +28,7 @@ interface InventoryRow {
 const INV_STATUSES = ["All", "In Stock", "Low Stock", "Out of Stock"];
 
 export default function ProductInventoryReport({ onBack }: { onBack: () => void }) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const [category,        setCategory]        = useState("All");
   const [stockStatus,     setStockStatus]     = useState("All");
   const [dateFrom,        setDateFrom]        = useState("");
@@ -123,13 +125,13 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const HEADERS = ["Product", "Category", "SKU", "Current Stock", "Reorder Level", "Unit Cost (₹)", "Total Value (₹)", "Sales (Qty)", "Sales (₹)", "Status"];
+  const HEADERS = ["Product", "Category", "SKU", "Current Stock", "Reorder Level", `Unit Cost (${currencySymbol})`, `Total Value (${currencySymbol})`, "Sales (Qty)", `Sales (${currencySymbol})`, "Status"];
   const exportRows = () => rows.map(r => [r.product, r.category, r.sku, r.currentStock, r.reorderLevel, r.unitCost, r.totalValue, r.unitsSold, r.salesRevenue, r.status]);
 
   const statusColor = (s: string) =>
     s === "In Stock" ? "#10b981" : s === "Low Stock" ? "#f59e0b" : "#ef4444";
 
-  const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  const money = formatAmount;
   const totalValueSum = rows.reduce((s, r) => s + r.totalValue, 0);
 
   return (
@@ -207,8 +209,8 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
               <th>SKU</th>
               <th>Current Stock</th>
               <th>Reorder Level</th>
-              <th>Unit Cost (₹)</th>
-              <th>Total Value (₹)</th>
+              <th>Unit Cost ({currencySymbol})</th>
+              <th>Total Value ({currencySymbol})</th>
               <th>Sales</th>
               <th>Status</th>
             </tr>

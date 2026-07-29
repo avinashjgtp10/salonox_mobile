@@ -9,6 +9,7 @@ import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
 import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./DailySheetReport.scss";
 
 const REPORT_NAME = "Daily Sheet";
@@ -49,6 +50,7 @@ function mapRow(row: any): DailyRow {
 interface FilterOption { id: string; label: string; }
 
 export default function DailySheetReport({ onBack }: { onBack: () => void }) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const today = new Date().toISOString().slice(0, 10);
   const [date,            setDate]            = useState(today);
   const [serviceFilter,   setServiceFilter]   = useState<string>("All");
@@ -114,7 +116,7 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const HEADERS = ["Time", "Ticket No", "Client Name", "Service", "Staff", "Amount (₹)", "Payment Method", "Status"];
+  const HEADERS = ["Time", "Ticket No", "Client Name", "Service", "Staff", `Amount (${currencySymbol})`, "Payment Method", "Status"];
   const exportRows = () => rows.map(r => [r.time, r.ticketNo, r.clientName, r.service, r.staff, r.amount, r.paymentMethod, r.status]);
 
   return (
@@ -178,7 +180,7 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
 
       {!loading && (
         <div className="rp-detail-drag-hint">
-          Daily Total: <strong style={{ color: "#111827", marginLeft: 6 }}>₹{totalRevenue.toLocaleString()}</strong>
+          Daily Total: <strong style={{ color: "#111827", marginLeft: 6 }}>{formatAmount(totalRevenue)}</strong>
           &nbsp;· {total} transactions
         </div>
       )}
@@ -203,7 +205,7 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
               <th>Client Name</th>
               <th>Service</th>
               <th>Staff</th>
-              <th>Amount (₹)</th>
+              <th>Amount ({currencySymbol})</th>
               <th>Payment Method</th>
               <th>Status</th>
             </tr>
@@ -234,7 +236,7 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
                 <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}><span className="rp-detail-link">{r.clientName || "Walk-in"}</span></td>
                 <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.service}</td>
                 <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.staff}</td>
-                <td className="fw-semibold" onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>₹{r.amount.toLocaleString("en-IN")}</td>
+                <td className="fw-semibold" onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{formatAmount(r.amount)}</td>
                 <td className="rp-ds-payment" onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.paymentMethod}</td>
                 <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
               </tr>

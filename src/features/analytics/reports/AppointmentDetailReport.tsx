@@ -9,6 +9,7 @@ import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
 import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./AppointmentDetailReport.scss";
 
 const REPORT_NAME = "Detailed Appointment Reports";
@@ -54,6 +55,7 @@ function mapRow(row: any): AppointmentRow {
 }
 
 export default function AppointmentDetailReport({ onBack }: { onBack: () => void }) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const today     = new Date().toISOString().slice(0, 10);
   const monthAgo  = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const abortRef = useRef<AbortController | null>(null);
@@ -109,7 +111,7 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
-  const HEADERS = ["Appointment Date", "Time", "Booked Date", "Client Name", "Service Name", "Staff Name", "Duration (min)", "Amount (₹)", "Payment Method", "Payment Status"];
+  const HEADERS = ["Appointment Date", "Time", "Booked Date", "Client Name", "Service Name", "Staff Name", "Duration (min)", `Amount (${currencySymbol})`, "Payment Method", "Payment Status"];
   const exportRows = () => rows.map(r => [r.appointmentDate, r.time, r.bookedDate, r.clientName, r.serviceName, r.staffName, r.duration, r.amount, r.paymentMethod, r.paymentStatus]);
 
   const toggleStatus = (s: string) => {
@@ -250,7 +252,7 @@ export default function AppointmentDetailReport({ onBack }: { onBack: () => void
                   <td className="rp-adr-service" title={row.serviceName} onClick={() => setSelectedId(row.id)}>{row.serviceName}</td>
                   <td onClick={() => setSelectedId(row.id)}>{row.staffName || "—"}</td>
                   <td onClick={() => setSelectedId(row.id)}>{row.duration ? `${row.duration} min` : "—"}</td>
-                  <td onClick={() => setSelectedId(row.id)}>{row.amount > 0 ? `₹${Number(row.amount).toLocaleString("en-IN")}` : "—"}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.amount > 0 ? formatAmount(Number(row.amount)) : "—"}</td>
                   <td onClick={() => setSelectedId(row.id)}>{row.paymentMethod || "—"}</td>
                   <td onClick={() => setSelectedId(row.id)}><span className={`rp-status-badge rp-status-${row.paymentStatus}`}>{row.paymentStatus}</span></td>
                 </tr>
