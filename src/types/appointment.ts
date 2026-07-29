@@ -301,6 +301,7 @@ export type RescheduleAppointmentRequest = {
 export type AppointmentMutationResponse = {
   appointment: AppointmentListItem;
   message?: string;
+  saleId?: string;
 };
 
 export type AppointmentHistoryResponse = {

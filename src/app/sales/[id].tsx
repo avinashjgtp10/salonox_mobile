@@ -21,6 +21,7 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { SaleLineItem } from "@/types/sales";
+import { formatInvoiceNumber } from "@/utils/receipt";
 
 function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
@@ -136,7 +137,7 @@ export default function SaleDetailsScreen() {
 
     Alert.alert(
       "Delete Sale",
-      `Are you sure you want to delete "${sale.receiptNumber}"? This action cannot be undone.`,
+      `Are you sure you want to delete "${formatInvoiceNumber(sale.receiptNumber) ?? "this sale"}"? This action cannot be undone.`,
       [
         { style: "cancel", text: "Cancel" },
         { onPress: () => void handleConfirmDelete(), style: "destructive", text: "Delete" },
@@ -221,6 +222,7 @@ export default function SaleDetailsScreen() {
   }
 
   const isDraft = sale.status.toLowerCase() === "draft" || sale.status.toLowerCase() === "pending";
+  const invoiceNumber = formatInvoiceNumber(sale.receiptNumber) ?? "—";
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
@@ -232,7 +234,7 @@ export default function SaleDetailsScreen() {
           <View style={styles.avatar}>
             <Ionicons name="receipt-outline" size={28} color={Colors.primaryDark} />
           </View>
-          <Text style={styles.receiptNumber}>{sale.receiptNumber}</Text>
+          <Text style={styles.receiptNumber}>{invoiceNumber}</Text>
           <Text style={styles.clientName}>{sale.clientName}</Text>
           <View
             style={[

@@ -573,9 +573,16 @@ export const appointmentService = {
       APPOINTMENT.CHECKOUT(appointmentId),
       {},
     );
+    const payload = response.data.data;
+    const saleId =
+      !Array.isArray(payload) && "saleId" in payload
+        ? toSafeString(payload.saleId)
+        : "";
+
     return {
-      appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
+      appointment: normalizeAppointment(getAppointmentFromPayload(payload)),
       message: response.data.message,
+      ...(saleId ? { saleId } : {}),
     };
   },
 
