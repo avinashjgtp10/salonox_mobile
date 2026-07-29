@@ -7,6 +7,7 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./PackageSaleReport.scss";
 
 const REPORT_NAME = "Package Sale";
@@ -41,6 +42,7 @@ function mapRow(row: any): PackageSaleRow {
 }
 
 export default function PackageSaleReport({ onBack }: { onBack: () => void }) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const today   = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
@@ -100,7 +102,7 @@ export default function PackageSaleReport({ onBack }: { onBack: () => void }) {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch]);
 
-  const HEADERS = ["Date", "Client", "Package Name", "Total Amount (₹)", "GST (₹)", "Paid (₹)", "Balance Due (₹)", "Status"];
+  const HEADERS = ["Date", "Client", "Package Name", `Total Amount (${currencySymbol})`, `GST (${currencySymbol})`, `Paid (${currencySymbol})`, `Balance Due (${currencySymbol})`, "Status"];
   const exportRows = () => rows.map(r => [r.date, r.client, r.packageName, r.totalAmount, r.gstAmount, r.paidAmount, r.pendingAmount, r.paymentStatus]);
 
   return (
@@ -135,8 +137,8 @@ export default function PackageSaleReport({ onBack }: { onBack: () => void }) {
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.packagesSold}</div><div className="rp-sra-summary-label">Packages Sold</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalSaleValue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Sale Value</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalReceived.toLocaleString()}</div><div className="rp-sra-summary-label">Total Received</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalSaleValue)}</div><div className="rp-sra-summary-label">Total Sale Value</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalReceived)}</div><div className="rp-sra-summary-label">Total Received</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.uniquePackages}</div><div className="rp-sra-summary-label">Unique Packages</div></div>
         </div>
       )}
@@ -152,7 +154,7 @@ export default function PackageSaleReport({ onBack }: { onBack: () => void }) {
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Date</th><th>Client</th><th>Package Name</th><th>Total Amount (₹)</th><th>GST (₹)</th><th>Paid (₹)</th><th>Balance Due (₹)</th><th>Status</th>
+              <th>Date</th><th>Client</th><th>Package Name</th><th>Total Amount ({currencySymbol})</th><th>GST ({currencySymbol})</th><th>Paid ({currencySymbol})</th><th>Balance Due ({currencySymbol})</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
@@ -169,10 +171,10 @@ export default function PackageSaleReport({ onBack }: { onBack: () => void }) {
                 <td>{r.date || "—"}</td>
                 <td className="fw-semibold">{r.client}</td>
                 <td>{r.packageName}</td>
-                <td>₹{r.totalAmount.toLocaleString()}</td>
-                <td>₹{r.gstAmount.toLocaleString()}</td>
-                <td>₹{r.paidAmount.toLocaleString()}</td>
-                <td>₹{r.pendingAmount.toLocaleString()}</td>
+                <td>{formatAmount(r.totalAmount)}</td>
+                <td>{formatAmount(r.gstAmount)}</td>
+                <td>{formatAmount(r.paidAmount)}</td>
+                <td>{formatAmount(r.pendingAmount)}</td>
                 <td><span className={`rp-status-badge rp-status-${(r.paymentStatus ?? "").toLowerCase()}`}>{r.paymentStatus}</span></td>
               </tr>
             ))}

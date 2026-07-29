@@ -7,6 +7,7 @@ import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./ClientRevenueReport.scss";
 
 const REPORT_NAME = "Client Revenue";
@@ -37,6 +38,7 @@ function mapRow(row: any): ClientRevenueRow {
 }
 
 export default function ClientRevenueReport({ onBack }: { onBack: () => void }) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const today   = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
@@ -96,7 +98,7 @@ export default function ClientRevenueReport({ onBack }: { onBack: () => void }) 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch]);
 
-  const HEADERS = ["Client", "Contact", "Visits", "Total Spend (₹)", "Avg Ticket (₹)", "Last Visit"];
+  const HEADERS = ["Client", "Contact", "Visits", `Total Spend (${currencySymbol})`, `Avg Ticket (${currencySymbol})`, "Last Visit"];
   const exportRows = () => rows.map(r => [r.client, r.contact, r.visits, r.totalSpend, r.avgTicket, r.lastVisit]);
 
   return (
@@ -131,8 +133,8 @@ export default function ClientRevenueReport({ onBack }: { onBack: () => void }) 
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalClients}</div><div className="rp-sra-summary-label">Total Clients</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalRevenue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.avgSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div><div className="rp-sra-summary-label">Avg Spend / Client</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalRevenue)}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.avgSpend)}</div><div className="rp-sra-summary-label">Avg Spend / Client</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val rp-cr-top">{stats.topClient}</div><div className="rp-sra-summary-label">Top Client</div></div>
         </div>
       )}
@@ -147,7 +149,7 @@ export default function ClientRevenueReport({ onBack }: { onBack: () => void }) 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
-            <tr><th>Client</th><th>Contact</th><th>Visits</th><th>Total Spend (₹)</th><th>Avg Ticket (₹)</th><th>Last Visit</th></tr>
+            <tr><th>Client</th><th>Contact</th><th>Visits</th><th>Total Spend ({currencySymbol})</th><th>Avg Ticket ({currencySymbol})</th><th>Last Visit</th></tr>
           </thead>
           <tbody>
             {loading ? (
@@ -163,8 +165,8 @@ export default function ClientRevenueReport({ onBack }: { onBack: () => void }) 
                 <td className="fw-semibold">{r.client}</td>
                 <td>{r.contact}</td>
                 <td>{r.visits}</td>
-                <td className="fw-semibold">₹{r.totalSpend.toLocaleString()}</td>
-                <td>₹{r.avgTicket.toLocaleString()}</td>
+                <td className="fw-semibold">{formatAmount(r.totalSpend)}</td>
+                <td>{formatAmount(r.avgTicket)}</td>
                 <td>{r.lastVisit || "—"}</td>
               </tr>
             ))}

@@ -9,6 +9,7 @@ import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./StaffItemSalesReport.scss";
 
 const REPORT_NAME = "Service, Product, Membership & Package Sold by Staff";
@@ -38,6 +39,7 @@ function mapRow(row: any): ItemRow {
 
 export default function StaffItemSalesReport({ onBack }: { onBack: () => void }) {
   const dispatch = useDispatch<AppDispatch>();
+  const { currencySymbol, formatAmount } = useCurrency();
   const today      = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,      setDateFrom]      = useState(monthStart);
@@ -115,7 +117,7 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
     itemType === "membership" ? "Membership Name" :
     "Package Name";
 
-  const HEADERS = ["Staff Name", itemColLabel, "Quantity", "Revenue (₹)", "Date"];
+  const HEADERS = ["Staff Name", itemColLabel, "Quantity", `Revenue (${currencySymbol})`, "Date"];
   const exportRows = () => rows.map(r => [r.staffName, r.itemName, r.quantity, r.revenue, r.date]);
 
   return (
@@ -174,7 +176,7 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
         <div className="rp-sra-summary-row">
           {[
             { label: "Total Quantity Sold", value: stats.totalQty.toString() },
-            { label: "Total Revenue",       value: `₹${stats.totalRev.toLocaleString()}` },
+            { label: "Total Revenue",       value: formatAmount(stats.totalRev) },
             { label: "Top Item",            value: stats.topItem },
             { label: "Top Staff",           value: stats.topStaff },
           ].map(c => (
@@ -194,7 +196,7 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
               <th>Staff Name</th>
               <th>{itemColLabel}</th>
               <th>Quantity</th>
-              <th>Revenue (₹)</th>
+              <th>Revenue ({currencySymbol})</th>
               <th>Date</th>
             </tr>
           </thead>
@@ -209,7 +211,7 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
                 <td className="fw-semibold">{r.staffName}</td>
                 <td>{r.itemName}</td>
                 <td>{r.quantity}</td>
-                <td>₹{r.revenue.toLocaleString()}</td>
+                <td>{formatAmount(r.revenue)}</td>
                 <td>{r.date}</td>
               </tr>
             ))}

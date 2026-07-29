@@ -12,6 +12,7 @@ import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
 import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
@@ -90,7 +91,7 @@ function SaleDetailModal({ saleId, onClose }: { saleId: string; onClose: () => v
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const money = (n: number) => `₹${(Number(n) || 0).toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
+  const { formatAmount: money } = useCurrency();
 
   useEffect(() => {
     let alive = true;
@@ -203,6 +204,7 @@ function SaleDetailModal({ saleId, onClose }: { saleId: string; onClose: () => v
 
 export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
   const dispatch = useDispatch<AppDispatch>();
+  const { formatAmount: money } = useCurrency();
   const today     = new Date().toISOString().slice(0, 10);
   const weekAgo   = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const [dateFrom,      setDateFrom]      = useState(weekAgo);
@@ -316,8 +318,6 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
   const HEADERS = ["Invoice No", "Name", "Contact", "Description", "Item Types", "Actual Price", "Price", "Paid", "E-Wallet", "Membership", "Rewards", "Referral", "Due Amount", "Modes", "Status", "Date"];
   const exportRows = () => rows.map(r => [r.invoiceNo, r.name, r.contact, r.description, r.itemTypes, r.actualPrice, r.price, r.paid, r.ewalletUsed, r.membershipWalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.date]);
   const paged = rows;
-
-  const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
 
   return (
     <div className="rp-detail-view">

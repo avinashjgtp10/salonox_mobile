@@ -9,6 +9,7 @@ import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./TaxesReport.scss";
 
 const REPORT_NAME = "GST Report";
@@ -42,6 +43,7 @@ function mapRow(row: any): InvoiceTaxRow {
 
 export default function TaxesReport({ onBack }: { onBack: () => void }) {
   const dispatch = useDispatch<AppDispatch>();
+  const { currencySymbol, formatAmount } = useCurrency();
   const today   = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
@@ -122,7 +124,7 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
 
   const selectedStaffLabel = staffOptions.find(o => o.value === staffFilter)?.label ?? "All";
 
-  const HEADERS = ["Invoice No.", "Date", "Customer", "Taxable Value (₹)", "Tax Amount (₹)", "Total (₹)"];
+  const HEADERS = ["Invoice No.", "Date", "Customer", `Taxable Value (${currencySymbol})`, `Tax Amount (${currencySymbol})`, `Total (${currencySymbol})`];
   const exportRows = () => rows.map(r => [r.invoiceNo, r.date, r.client, r.taxableAmount, r.taxAmount, r.total]);
 
   return (
@@ -190,8 +192,8 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
       {loading ? <SkeletonStatCards count={3} /> : (
       <div className="rp-sra-summary-row">
         <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.invoicesWithTax}</div><div className="rp-sra-summary-label">Invoices with Tax</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalTax.toLocaleString()}</div><div className="rp-sra-summary-label">Total Tax Collected</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalCollected.toLocaleString()}</div><div className="rp-sra-summary-label">Total Amount Collected</div></div>
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalTax)}</div><div className="rp-sra-summary-label">Total Tax Collected</div></div>
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalCollected)}</div><div className="rp-sra-summary-label">Total Amount Collected</div></div>
       </div>
       )}
 
@@ -201,9 +203,9 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Invoice No.</th><th>Date</th><th>Customer</th><th>Taxable Value (₹)</th>
-              <th>Tax Amount (₹)</th>
-              <th>Total (₹)</th>
+              <th>Invoice No.</th><th>Date</th><th>Customer</th><th>Taxable Value ({currencySymbol})</th>
+              <th>Tax Amount ({currencySymbol})</th>
+              <th>Total ({currencySymbol})</th>
             </tr>
           </thead>
           <tbody>
@@ -216,9 +218,9 @@ export default function TaxesReport({ onBack }: { onBack: () => void }) {
                 <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td>{r.date}</td>
                 <td>{r.client}</td>
-                <td>₹{r.taxableAmount.toLocaleString()}</td>
-                <td>₹{r.taxAmount.toLocaleString()}</td>
-                <td className="fw-semibold">₹{r.total.toLocaleString()}</td>
+                <td>{formatAmount(r.taxableAmount)}</td>
+                <td>{formatAmount(r.taxAmount)}</td>
+                <td className="fw-semibold">{formatAmount(r.total)}</td>
               </tr>
             ))}
           </tbody>

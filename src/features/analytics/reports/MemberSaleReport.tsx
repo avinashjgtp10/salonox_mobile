@@ -7,6 +7,7 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./MemberSaleReport.scss";
 
 const REPORT_NAME = "Member Sale";
@@ -41,6 +42,7 @@ function mapRow(row: any): MemberSaleRow {
 }
 
 export default function MemberSaleReport({ onBack }: { onBack: () => void }) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const today   = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
@@ -99,7 +101,7 @@ export default function MemberSaleReport({ onBack }: { onBack: () => void }) {
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch]);
 
-  const HEADERS = ["Date", "Client", "Membership", "Price Paid (₹)", "Sessions", "Status"];
+  const HEADERS = ["Date", "Client", "Membership", `Price Paid (${currencySymbol})`, "Sessions", "Status"];
   const exportRows = () => rows.map(r => [
     r.purchasedAt.slice(0, 10), r.clientName, r.membershipName, r.pricePaid,
     r.totalSessions === 0 ? "Unlimited" : `${r.usedSessions}/${r.totalSessions}`, r.status,
@@ -137,7 +139,7 @@ export default function MemberSaleReport({ onBack }: { onBack: () => void }) {
       {loading ? <SkeletonStatCards count={3} /> : (
         <div className="rp-sra-summary-row">
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.membershipsSold}</div><div className="rp-sra-summary-label">Memberships Sold</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalRevenue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalRevenue)}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.activeCount}</div><div className="rp-sra-summary-label">Active Memberships</div></div>
         </div>
       )}
@@ -152,7 +154,7 @@ export default function MemberSaleReport({ onBack }: { onBack: () => void }) {
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
-            <tr><th>Date</th><th>Client</th><th>Membership</th><th>Price Paid (₹)</th><th>Sessions</th><th>Status</th></tr>
+            <tr><th>Date</th><th>Client</th><th>Membership</th><th>Price Paid ({currencySymbol})</th><th>Sessions</th><th>Status</th></tr>
           </thead>
           <tbody>
             {loading ? (
@@ -168,7 +170,7 @@ export default function MemberSaleReport({ onBack }: { onBack: () => void }) {
                 <td>{r.purchasedAt.slice(0, 10)}</td>
                 <td className="fw-semibold">{r.clientName}</td>
                 <td>{r.membershipName}</td>
-                <td>₹{r.pricePaid.toLocaleString()}</td>
+                <td>{formatAmount(r.pricePaid)}</td>
                 <td>{r.totalSessions === 0 ? "Unlimited" : `${r.usedSessions}/${r.totalSessions}`}</td>
                 <td><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
               </tr>

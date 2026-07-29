@@ -7,6 +7,7 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./ProductSaleReport.scss";
 
 const REPORT_NAME = "Product Retail";
@@ -43,6 +44,7 @@ function mapRow(row: any): ProductSaleRow {
 interface FilterOption { id: string; label: string; }
 
 export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const today   = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
@@ -110,7 +112,7 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
   // themselves should not reset back to page 1.
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch]);
 
-  const HEADERS = ["Date", "Invoice No", "Client", "Product Name", "Quantity", "Price (₹)", "GST (₹)", "Total (₹)"];
+  const HEADERS = ["Date", "Invoice No", "Client", "Product Name", "Quantity", `Price (${currencySymbol})`, `GST (${currencySymbol})`, `Total (${currencySymbol})`];
   // Total column is gross = line base + its own GST (so ₹399 @ 5% reads ₹418.95).
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.productName, r.quantity, r.price, r.taxAmount, r.total + r.taxAmount]);
 
@@ -146,7 +148,7 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalQty}</div><div className="rp-sra-summary-label">Total Quantity Sold</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalRev.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalRev)}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.uniqueProducts}</div><div className="rp-sra-summary-label">Unique Products</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.lineItems}</div><div className="rp-sra-summary-label">Line Items</div></div>
         </div>
@@ -163,7 +165,7 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Date</th><th>Invoice No</th><th>Client</th><th>Product Name</th><th>Quantity</th><th>Price (₹)</th><th>GST (₹)</th><th>Total (₹)</th>
+              <th>Date</th><th>Invoice No</th><th>Client</th><th>Product Name</th><th>Quantity</th><th>Price ({currencySymbol})</th><th>GST ({currencySymbol})</th><th>Total ({currencySymbol})</th>
             </tr>
           </thead>
           <tbody>
@@ -182,9 +184,9 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
                 <td>{r.client}</td>
                 <td className="fw-semibold">{r.productName}</td>
                 <td>{r.quantity}</td>
-                <td>₹{r.price.toLocaleString()}</td>
-                <td>₹{r.taxAmount.toLocaleString()}</td>
-                <td className="fw-semibold">₹{(r.total + r.taxAmount).toLocaleString()}</td>
+                <td>{formatAmount(r.price)}</td>
+                <td>{formatAmount(r.taxAmount)}</td>
+                <td className="fw-semibold">{formatAmount(r.total + r.taxAmount)}</td>
               </tr>
             ))}
           </tbody>

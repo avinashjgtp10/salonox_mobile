@@ -6,6 +6,7 @@ import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "./ProductMarginReport.scss";
 
 const REPORT_NAME = "Product Margin";
@@ -34,6 +35,7 @@ function mapRow(row: any): MarginRow {
 }
 
 export default function ProductMarginReport({ onBack }: { onBack: () => void }) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const today   = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
@@ -84,7 +86,7 @@ export default function ProductMarginReport({ onBack }: { onBack: () => void }) 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo]);
 
-  const HEADERS = ["Product Name", "Quantity Sold", "Revenue (₹)", "Cost (₹)", "Profit (₹)", "Margin (%)"];
+  const HEADERS = ["Product Name", "Quantity Sold", `Revenue (${currencySymbol})`, `Cost (${currencySymbol})`, `Profit (${currencySymbol})`, "Margin (%)"];
   const exportRows = () => rows.map(r => [r.productName, r.quantity, r.revenue, r.cost, r.profit, r.marginPct]);
 
   return (
@@ -118,9 +120,9 @@ export default function ProductMarginReport({ onBack }: { onBack: () => void }) 
 
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalRevenue.toLocaleString()}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">₹{stats.totalCost.toLocaleString()}</div><div className="rp-sra-summary-label">Total Cost</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val rp-pm-profit">₹{stats.totalProfit.toLocaleString()}</div><div className="rp-sra-summary-label">Total Profit</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalRevenue)}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalCost)}</div><div className="rp-sra-summary-label">Total Cost</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val rp-pm-profit">{formatAmount(stats.totalProfit)}</div><div className="rp-sra-summary-label">Total Profit</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.avgMargin}%</div><div className="rp-sra-summary-label">Avg Margin</div></div>
         </div>
       )}
@@ -128,7 +130,7 @@ export default function ProductMarginReport({ onBack }: { onBack: () => void }) 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
-            <tr><th>Product Name</th><th>Quantity Sold</th><th>Revenue (₹)</th><th>Cost (₹)</th><th>Profit (₹)</th><th>Margin (%)</th></tr>
+            <tr><th>Product Name</th><th>Quantity Sold</th><th>Revenue ({currencySymbol})</th><th>Cost ({currencySymbol})</th><th>Profit ({currencySymbol})</th><th>Margin (%)</th></tr>
           </thead>
           <tbody>
             {loading ? (
@@ -139,9 +141,9 @@ export default function ProductMarginReport({ onBack }: { onBack: () => void }) 
               <tr key={i}>
                 <td className="fw-semibold">{r.productName}</td>
                 <td>{r.quantity}</td>
-                <td>₹{r.revenue.toLocaleString()}</td>
-                <td>₹{r.cost.toLocaleString()}</td>
-                <td className={r.profit >= 0 ? "rp-pm-profit" : "rp-pm-loss"}>₹{r.profit.toLocaleString()}</td>
+                <td>{formatAmount(r.revenue)}</td>
+                <td>{formatAmount(r.cost)}</td>
+                <td className={r.profit >= 0 ? "rp-pm-profit" : "rp-pm-loss"}>{formatAmount(r.profit)}</td>
                 <td className={r.marginPct >= 0 ? "rp-pm-profit" : "rp-pm-loss"}>{r.marginPct}%</td>
               </tr>
             ))}
