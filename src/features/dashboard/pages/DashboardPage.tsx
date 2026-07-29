@@ -26,6 +26,11 @@ import {
 import {
   CalendarCheck,
   CurrencyRupee,
+  CurrencyDollar,
+  CurrencyEuro,
+  CurrencyPound,
+  CurrencyYen,
+  CurrencyExchange,
   ArrowUpRight,
   ArrowDownRight,
   ClockHistory,
@@ -55,6 +60,7 @@ import type { TodayAppointment } from "../../../types/dashboard.types";
 import type { DashboardAllResponse } from "../../../middleware/dashboard/dashboard.thunk";
 import { usePendingPayments } from "../hooks/usePendingPayments";
 import { useTodayAppointments } from "../hooks/useTodayAppointments";
+import { useCurrency } from "../../../hooks/useCurrency";
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -89,8 +95,18 @@ function getPageNumbers(current: number, total: number): (number | "...")[] {
   return pages;
 }
 
-function fmt(n?: number) {
-  return n != null ? `₹${n.toLocaleString("en-IN")}` : "—";
+// Only a few currencies have their own glyph in react-bootstrap-icons —
+// anything else falls back to a neutral currency-exchange icon rather than
+// showing a misleading ₹ symbol when e.g. AED or THB is selected.
+const CURRENCY_ICON: Record<string, typeof CurrencyRupee> = {
+  INR: CurrencyRupee,
+  USD: CurrencyDollar,
+  EUR: CurrencyEuro,
+  GBP: CurrencyPound,
+  JPY: CurrencyYen,
+};
+function getCurrencyIcon(code: string) {
+  return CURRENCY_ICON[code] ?? CurrencyExchange;
 }
 
 function fmtChange(n?: number) {
@@ -281,6 +297,7 @@ const StatusBadge = memo(function StatusBadge({ status }: { status: string }) {
 // ─── Chart tooltips ───────────────────────────────────────────────────────────
 
 const RevenueTooltip = memo(function RevenueTooltip({ active, payload, label }: any) {
+  const { formatAmount } = useCurrency();
   if (!active || !payload?.length) return null;
   const rev = payload.find((p: any) => p.dataKey === "revenue");
   return (
@@ -288,7 +305,7 @@ const RevenueTooltip = memo(function RevenueTooltip({ active, payload, label }: 
       <p className="db-tooltip-label">{label}</p>
       {rev && (
         <p className="db-tooltip-value">
-          ₹{rev.value?.toLocaleString("en-IN")}
+          {formatAmount(rev.value || 0)}
         </p>
       )}
     </div>
@@ -417,10 +434,13 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
   error: string | null;
   onRetry: () => void;
 }) {
+  const { formatAmount, currencyCode } = useCurrency();
+  const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
   const cards = [
     {
       theme: "revenue",
-      icon:  <CurrencyRupee size={20} />,
+      icon:  <CurrencyIcon size={20} />,
       tabLabels: ["All Time", "This Month"] as [string, string],
       front: {
         label:  "Total Revenue",
@@ -454,7 +474,7 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
     },
     {
       theme: "today-revenue",
-      icon:  <CurrencyRupee size={20} />,
+      icon:  <CurrencyIcon size={20} />,
       tabLabels: ["Today", "Yesterday"] as [string, string],
       front: {
         label:  "Today's Revenue",
@@ -575,6 +595,8 @@ const BottomStatCards = memo(function BottomStatCards({
   onNavigateWhatsApp: () => void;
   onNavigateSalesSummary: () => void;
 }) {
+  const { formatAmount } = useCurrency();
+  const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
   const cards = [
     {
       label: "Pending Payments",
@@ -637,6 +659,8 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
   onPeriodChange: (p: RevPeriod) => void;
   onRetry: () => void;
 }) {
+  const { formatAmount, currencySymbol } = useCurrency();
+  const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
   const localRevenue = revenue;
 
   const periodTotal = useMemo(
@@ -718,7 +742,7 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
               tick={{ fontSize: 12, fill: "#9ca3af" }}
               axisLine={false}
               tickLine={false}
-              tickFormatter={(v) => v >= 1000 ? `₹${(v / 1000).toFixed(0)}k` : `₹${v}`}
+              tickFormatter={(v) => v >= 1000 ? `${currencySymbol}${(v / 1000).toFixed(0)}k` : `${currencySymbol}${v}`}
             />
             <Tooltip content={<RevenueTooltip />} />
             <Area
@@ -840,6 +864,7 @@ const AppointmentsTable = memo(function AppointmentsTable({
   onPageChange: (p: number) => void;
   onRetry: () => void;
 }) {
+  const { formatAmount } = useCurrency();
   // Chip counts always reflect the FULL day's list regardless of which filter
   // is active — only the table rows below narrow down, so a chip never
   // changes its own count out from under the user when they click it.
@@ -922,11 +947,11 @@ const AppointmentsTable = memo(function AppointmentsTable({
                   <span className="db-appt-amount">
                     {appt.status === "partial" ? (
                       <>
-                        ₹{appt.paidAmount.toLocaleString("en-IN")}
-                        <span className="db-appt-amount-due"> of ₹{appt.amount.toLocaleString("en-IN")}</span>
+                        {formatAmount(appt.paidAmount)}
+                        <span className="db-appt-amount-due"> of {formatAmount(appt.amount)}</span>
                       </>
                     ) : (
-                      `₹${appt.amount.toLocaleString("en-IN")}`
+                      formatAmount(appt.amount)
                     )}
                   </span>
                   <StatusBadge status={appt.status} />
@@ -1012,6 +1037,7 @@ const StaffRevenueCard = memo(function StaffRevenueCard({
   error: string | null;
   onRetry: () => void;
 }) {
+  const { formatAmount } = useCurrency();
   const slices: StaffRevSlice[] = useMemo(
     () => entries.map((e, i) => ({
       id: e.id, name: e.name, role: e.role, value: e.revenue,
@@ -1072,13 +1098,13 @@ const StaffRevenueCard = memo(function StaffRevenueCard({
                   ))}
                 </Pie>
                 <Tooltip
-                  formatter={(val: any) => [`₹${(val || 0).toLocaleString("en-IN")}`, ""]}
+                  formatter={(val: any) => [formatAmount(val || 0), ""]}
                   contentStyle={{ borderRadius: 10, fontSize: 12 }}
                 />
               </PieChart>
             </ResponsiveContainer>
             <div className="db-svc-donut-center">
-              <span className="db-svc-donut-total">₹{totalValue.toLocaleString("en-IN")}</span>
+              <span className="db-svc-donut-total">{formatAmount(totalValue)}</span>
               <span className="db-svc-donut-label">total revenue</span>
             </div>
           </div>
@@ -1094,7 +1120,7 @@ const StaffRevenueCard = memo(function StaffRevenueCard({
                     <span className="db-svc-donut-meta">{s.role}</span>
                   </div>
                   <div className="db-svc-donut-right">
-                    <span className="db-svc-donut-price">₹{s.value.toLocaleString("en-IN")}</span>
+                    <span className="db-svc-donut-price">{formatAmount(s.value)}</span>
                     <span className="db-svc-donut-pct">{pct}%</span>
                   </div>
                 </div>
@@ -1132,6 +1158,7 @@ const TopStaffCard = memo(function TopStaffCard({
   onNavigate: () => void;
   onRetry: () => void;
 }) {
+  const { currencySymbol } = useCurrency();
   return (
     <div className="db-card">
       <div className="db-card-header">
@@ -1164,7 +1191,7 @@ const TopStaffCard = memo(function TopStaffCard({
                 </div>
                 <div className="db-staff-stats">
                   <div className="db-staff-rev">
-                    {rev >= 1000 ? `₹${(rev / 1000).toFixed(0)}k` : `₹${rev}`}
+                    {rev >= 1000 ? `${currencySymbol}${(rev / 1000).toFixed(0)}k` : `${currencySymbol}${rev}`}
                   </div>
                 </div>
               </div>
