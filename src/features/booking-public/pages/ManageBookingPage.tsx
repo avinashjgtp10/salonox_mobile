@@ -127,6 +127,7 @@ export default function ManageBookingPage() {
   const services: any[] = Array.isArray(booking.services) ? booking.services : [];
   const title = booking.title || services.map((s) => s.name).join(", ") || "Appointment";
   const total = services.reduce((sum, s) => sum + (Number(s.price) || 0) * (Number(s.quantity) || 1), 0);
+  const currencyCode: string | undefined = booking.salon_currency;
   const dateObj = new Date(booking.scheduled_at);
   const dateLabel = `${DAYS[dateObj.getDay()]}, ${MONTHS[dateObj.getMonth()]} ${dateObj.getDate()}`;
   const timeLabel = dateObj.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
@@ -253,7 +254,7 @@ export default function ManageBookingPage() {
             </div>
             <span className="cb-status-badge"><XCircleFill size={10}/> BOOKING CANCELLED</span>
             <h1 className="cb-title">{title}</h1>
-            <p className="cb-sub">{fmtDur(booking.duration_minutes)} · {fmtPrice(total)}</p>
+            <p className="cb-sub">{fmtDur(booking.duration_minutes)} · {fmtPrice(total, currencyCode)}</p>
             {cancelledLabel && (
               <span className="cb-cancelled-chip"><CalendarX size={12}/> Cancelled on {cancelledLabel}</span>
             )}
@@ -432,7 +433,7 @@ export default function ManageBookingPage() {
           </div>
           <span className="mb-status-badge"><CheckCircleFill size={10}/> UPCOMING APPOINTMENT</span>
           <h1 className="mb-title">{title}</h1>
-          <p className="mb-sub">{fmtDur(booking.duration_minutes)} · {fmtPrice(total)}</p>
+          <p className="mb-sub">{fmtDur(booking.duration_minutes)} · {fmtPrice(total, currencyCode)}</p>
         </div>
       </div>
 
