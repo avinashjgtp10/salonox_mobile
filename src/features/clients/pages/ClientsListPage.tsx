@@ -28,6 +28,7 @@ import ClientDetailsDrawer from "../components/ClientDetailsDrawer";
 import ClientSearchInput from "../components/ClientSearchInput";
 import ClientImportModal from "../components/ClientImportModal";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { useCurrency } from "../../../hooks/useCurrency";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 
 // UI Components
@@ -45,6 +46,7 @@ import "../styles/ClientsListPage.scss";
 
 export default function ClientsListPage() {
   const { t } = useTranslation();
+  const { currencySymbol, formatAmount } = useCurrency();
   const navigate = useNavigate();
   const location = useLocation();
   const [clients, setClients] = useState<any[]>([]);
@@ -483,7 +485,7 @@ export default function ClientsListPage() {
               </div>
 
               <div className="clients-filter-field">
-                <label>Revenue (₹)</label>
+                <label>Revenue ({currencySymbol})</label>
                 <div className="clients-filter-range">
                   <input
                     type="number"
@@ -923,7 +925,7 @@ export default function ClientsListPage() {
                         : "-"}
                     </div>
                     <div className="col-sales">
-                      ₹{parseFloat(client.total_sales || "0").toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      {formatAmount(parseFloat(client.total_sales || "0"))}
                     </div>
                     <div className="col-created">
                       {client.created_at

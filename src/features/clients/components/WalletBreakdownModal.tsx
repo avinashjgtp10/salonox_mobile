@@ -3,6 +3,7 @@ import { X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { EWALLET } from "../../../services/api/endpoints";
 import { Loader } from "../../../components/ui";
+import { useCurrency } from "../../../hooks/useCurrency";
 import { EMPTY_WALLET_BREAKDOWN, type WalletBreakdown } from "../../../types/wallet.types";
 
 interface Props {
@@ -10,14 +11,15 @@ interface Props {
   onClose: () => void;
 }
 
-function fmt(n: number): string {
-  const abs = Math.abs(Number(n) || 0);
-  return `${n < 0 ? "-" : ""}₹${abs.toLocaleString("en-IN")}`;
-}
-
 export default function WalletBreakdownModal({ clientId, onClose }: Props) {
+  const { formatAmount } = useCurrency();
   const [breakdown, setBreakdown] = useState<WalletBreakdown>(EMPTY_WALLET_BREAKDOWN);
   const [loading, setLoading] = useState(true);
+
+  const fmt = (n: number): string => {
+    const num = Number(n) || 0;
+    return num < 0 ? `-${formatAmount(Math.abs(num))}` : formatAmount(num);
+  };
 
   useEffect(() => {
     let isMounted = true;

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { X, Pencil, Clipboard, ArrowLeft } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { useCurrency } from "../../../hooks/useCurrency";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { Loader } from "../../../components/ui";
@@ -68,6 +69,7 @@ export default function ClientDetailsDrawer({
   onClose,
 }: ClientDetailsDrawerProps) {
   const navigate = useNavigate();
+  const { formatAmount } = useCurrency();
   const [client, setClient] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
@@ -155,7 +157,7 @@ export default function ClientDetailsDrawer({
 
   const walletBalance = Number(client?.wallet_balance ?? client?.ewallet_balance ?? 0);
   const referralCode = client?.referral_code || null;
-  const totalReferralEarnings = `₹${Number(client?.total_referral_earnings ?? 0).toLocaleString("en-IN")}`;
+  const totalReferralEarnings = formatAmount(Number(client?.total_referral_earnings ?? 0));
   const totalSuccessfulReferrals = String(client?.total_successful_referrals ?? 0);
 
   // The client who referred THIS client — separate from the "Referral" section
@@ -219,7 +221,7 @@ export default function ClientDetailsDrawer({
 
               <div className="cdd-section-title cdd-section-title--mt">Wallet</div>
               <div className="cdd-wallet-row">
-                <span className="cdd-wallet-value">₹{walletBalance.toLocaleString("en-IN")}</span>
+                <span className="cdd-wallet-value">{formatAmount(walletBalance)}</span>
                 <button
                   type="button"
                   className="cdd-info-btn"
