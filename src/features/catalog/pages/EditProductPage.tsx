@@ -15,6 +15,7 @@ import type { MarkupMethod } from "../utils/productPricing";
 import { PRODUCT_UNITS, isConsumableType, TAX_TYPE_OPTIONS } from "../types/product.types";
 import type { ProductType, ProductUnit, TaxType } from "../types/product.types";
 import { PRODUCT_MESSAGES } from "../../../constants/messages";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/CreateProductPage.scss";
 
 
@@ -74,6 +75,7 @@ const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string }[] = [
 const EditProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { currencySymbol } = useCurrency();
   const dispatch = useDispatch<AppDispatch>();
   const { items: products, brands, categories, loading: { update: loading }, error } = useSelector(
     (state: RootState) => state.products
@@ -99,9 +101,9 @@ const EditProductPage: React.FC = () => {
   const isConsumable = isConsumableType(form.productType);
 
   const qtyAlertError = !form.qtyAlert.trim() || isNaN(Number(form.qtyAlert)) || (!isConsumable && !Number.isInteger(Number(form.qtyAlert))) || Number(form.qtyAlert) < 0
-    ? PRODUCT_MESSAGES.QTY_ALERT_REQUIRED
+    ? PRODUCT_MESSAGES.LOW_STOCK_ALERT_REQUIRED
     : form.amount.trim() && !isNaN(Number(form.amount)) && Number(form.qtyAlert) >= Number(form.amount)
-      ? PRODUCT_MESSAGES.QTY_ALERT_EXCEEDS_QUANTITY
+      ? PRODUCT_MESSAGES.LOW_STOCK_ALERT_EXCEEDS_QUANTITY
       : "";
 
   const unitError = isConsumable && !form.unit ? "Unit is required for consumable products" : "";
@@ -448,7 +450,7 @@ const EditProductPage: React.FC = () => {
               <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{qtyAlertError}</div>
             ) : (
               <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "4px" }}>
-                Alert when stock drops to or below this number.
+                {PRODUCT_MESSAGES.LOW_STOCK_ALERT_HINT}
               </div>
             )}
 
@@ -507,7 +509,7 @@ const EditProductPage: React.FC = () => {
               value={form.supplyPrice}
               onChange={(e) => handleSupplyPriceChange(e.target.value)}
               onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-              iconLeft={<span>₹</span>}
+              iconLeft={<span>{currencySymbol}</span>}
               containerClass="mt-1"
             />
 
@@ -544,7 +546,7 @@ const EditProductPage: React.FC = () => {
                     value={form.retailPrice}
                     onChange={(e) => handleRetailPriceChange(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-                    iconLeft={<span>₹</span>}
+                    iconLeft={<span>{currencySymbol}</span>}
                     containerClass=""
                   />
                 </div>

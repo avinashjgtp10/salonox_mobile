@@ -2,6 +2,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { X, PencilSquare, BoxSeam } from "react-bootstrap-icons";
 import Button from "../../../components/ui/Button";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/ProductDrawer.scss";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -28,6 +29,7 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
   onClose,
 }) => {
   const navigate = useNavigate();
+  const { formatAmount } = useCurrency();
 
   const brandName  = brands.find((b: any) => b.id === product.brand_id)?.name ?? "—";
   const categoryName = categories.find((c: any) => c.id === product.category_id)?.name ?? "—";
@@ -84,8 +86,8 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
 
           <section className="pd-section">
             <h6 className="pd-section__title">Pricing</h6>
-            <Field label="Supply price"  value={product.supply_price  != null ? `₹${Number(product.supply_price).toLocaleString()}` : "—"} />
-            <Field label="Retail price"  value={product.retail_price  != null ? `₹${Number(product.retail_price).toLocaleString()}`  : "—"} />
+            <Field label="Supply price"  value={product.supply_price  != null ? formatAmount(Number(product.supply_price)) : "—"} />
+            <Field label="Retail price"  value={product.retail_price  != null ? formatAmount(Number(product.retail_price))  : "—"} />
             <Field label="Markup"        value={product.markup_percentage != null ? `${product.markup_percentage}%` : "—"} />
           </section>
 

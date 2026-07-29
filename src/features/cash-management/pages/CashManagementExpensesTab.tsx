@@ -9,6 +9,7 @@ import {
 import { Button, Pagination } from "../../../components/ui";
 import type { CashManagementExportDataset } from "../cashManagement.export";
 import type { CashExpenseRecord } from "../cashManagement.types";
+import { useCurrency } from "../../../hooks/useCurrency";
 
 interface Props {
   rows: CashExpenseRecord[];
@@ -26,16 +27,6 @@ interface Props {
 }
 
 type SortKey = "expenseDate" | "expenseType" | "description" | "amount" | "createdBy";
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(value || 0);
-
-const formatPdfCurrency = (value: number | null | undefined) =>
-  `Rs. ${new Intl.NumberFormat("en-IN", {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value ?? 0)}`;
-
 
 const formatDate = (value: string) => {
   if (!value) return "--";
@@ -82,6 +73,7 @@ export default function CashManagementExpensesTab({
   onEdit,
   onDelete,
 }: Props) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
@@ -143,7 +135,7 @@ export default function CashManagementExpensesTab({
         "Expense Date",
         "Expense Type",
         "Description",
-        "Amount (Rs.)",
+        `Amount (${currencySymbol})`,
         "Created By",
         "Status",
       ],
@@ -160,7 +152,7 @@ export default function CashManagementExpensesTab({
             : formatDate(row.expenseDate),
           row.expenseType,
           row.description,
-          formatPdfCurrency(row.amount),
+          formatAmount(row.amount ?? 0),
           row.createdBy,
           isRowOpen
             ? `Open (Opened at ${transactionTime || "--"})`
@@ -279,7 +271,7 @@ export default function CashManagementExpensesTab({
                   </td>
                   <td>{row.expenseType}</td>
                   <td>{row.description}</td>
-                  <td>{formatCurrency(row.amount)}</td>
+                  <td>{formatAmount(row.amount)}</td>
                   <td>{row.createdBy}</td>
                   <td>
                     <div className="cash-mgmt__status-cell">

@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
 import { X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { EWALLET } from "../../../services/api/endpoints";
-import { currencySymbol } from "../../bookings/utils/currency";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/ClientHistoryModal.scss";
 import "./EwalletTopupModal.scss";
 
@@ -29,6 +29,7 @@ interface Props {
 type Direction = "credit" | "debit";
 
 export default function EwalletTopupModal({ clientId, clientName, currentBalance, onClose, onSuccess }: Props) {
+  const { currencySymbol, formatAmount } = useCurrency();
   const [direction, setDirection]   = useState<Direction>("credit");
   const [amount, setAmount]         = useState("");
   const [note, setNote]             = useState("");
@@ -124,7 +125,7 @@ export default function EwalletTopupModal({ clientId, clientName, currentBalance
 
           <label className="ewtm-label">Amount</label>
           <div className="ewtm-input-wrap">
-            <span className="ewtm-pfx">₹</span>
+            <span className="ewtm-pfx">{currencySymbol}</span>
             <input
               type="number" min={0} step={1} autoFocus
               placeholder="0"
@@ -161,7 +162,7 @@ export default function EwalletTopupModal({ clientId, clientName, currentBalance
             {submitting
               ? (isDebit ? "Deducting…" : "Adding…")
               : amountNum > 0
-                ? `${isDebit ? "Deduct" : "Add"} ₹${amountNum.toLocaleString("en-IN")}`
+                ? `${isDebit ? "Deduct" : "Add"} ${formatAmount(amountNum)}`
                 : (isDebit ? "Deduct from Wallet" : "Add to Wallet")}
           </button>
         </div>

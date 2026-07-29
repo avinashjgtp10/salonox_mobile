@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { useCurrency } from "../../hooks/useCurrency";
 import "./PaymentMethodPicker.scss";
 
 export interface PaymentSplitEntry {
@@ -55,8 +56,13 @@ export const PaymentMethodPicker: React.FC<PaymentMethodPickerProps> = ({
   showSplitMode = true,
   showDueRow = true,
   showPrintOption = true,
-  currencySymbol = "₹",
+  currencySymbol: currencySymbolProp,
 }) => {
+  // Falls back to the salon's actual selected currency instead of a
+  // hardcoded "₹" — callers that already source their own currencySymbol
+  // from useCurrency() (e.g. PaymentPanel.tsx) still take precedence via the prop.
+  const { currencySymbol: activeCurrencySymbol } = useCurrency();
+  const currencySymbol = currencySymbolProp ?? activeCurrencySymbol;
   // Checked by default. Decoupled from partialAmtInput so unchecking can show a
   // blank field (nothing typed yet) instead of forcing the field to always show
   // some value — partialAmtInput stays "" (→ pay the full amount) until the user

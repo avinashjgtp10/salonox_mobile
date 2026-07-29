@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { currencySymbol } from "../../utils/currency";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import {
   useFloating,
   flip,
@@ -44,6 +44,7 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
   onMouseEnter,
   onMouseLeave,
 }) => {
+  const { currencySymbol } = useCurrency();
   const { refs, floatingStyles } = useFloating({
     placement: "right",
     middleware: [offset(10), flip({ fallbackAxisSideDirection: "end" }), shift({ padding: 8 })],

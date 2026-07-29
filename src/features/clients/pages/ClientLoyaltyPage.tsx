@@ -4,6 +4,7 @@ import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { Pagination, Loader } from "../../../components/ui";
 import WalletBreakdownModal from "../components/WalletBreakdownModal";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/ClientLoyaltyPage.scss";
 
 interface LoyaltyClientRow {
@@ -38,9 +39,8 @@ function mapClient(c: any): LoyaltyClientRow {
   };
 }
 
-const money = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
-
 export default function ClientLoyaltyPage() {
+  const { formatAmount: money } = useCurrency();
   const [rows, setRows] = useState<LoyaltyClientRow[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);

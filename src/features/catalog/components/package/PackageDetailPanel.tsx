@@ -7,7 +7,6 @@ import {
   CardList,
   Tag,
   Clock,
-  CurrencyRupee,
   ToggleOn,
   ToggleOff,
   Percent,
@@ -19,6 +18,8 @@ import type {
   UpdatePackageDTO,
 } from "../../../../services/api/endpoints/packages.endpoints";
 import { useUpdatePackageMutation } from "../../../../services/api/endpoints/packages.endpoints";
+import { useCurrency } from "../../../../hooks/useCurrency";
+import { getCurrencyIcon } from "../../../../utils/currencyIcon";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -103,7 +104,10 @@ interface ViewContentProps {
   pkg: Package;
 }
 
-const ViewContent: React.FC<ViewContentProps> = ({ pkg }) => (
+const ViewContent: React.FC<ViewContentProps> = ({ pkg }) => {
+  const { currencySymbol, formatAmount, currencyCode } = useCurrency();
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
+  return (
   <div className="pkgpanel__view">
     {/* Hero */}
     <div className="pkgpanel__hero" style={{ background: `linear-gradient(135deg, ${pkg.colour}15 0%, ${pkg.colour}05 100%)` }}>
@@ -130,9 +134,9 @@ const ViewContent: React.FC<ViewContentProps> = ({ pkg }) => (
         value={pkg.durationMinutes ? `${pkg.durationMinutes} min` : "N/A"}
       />
       <DetailRow
-        icon={<CurrencyRupee size={15} />}
+        icon={<CurrencyIcon size={15} />}
         label="Base Price"
-        value={`₹${pkg.basePrice.toLocaleString("en-IN")}`}
+        value={formatAmount(pkg.basePrice)}
         accent
       />
       {pkg.discountValue && pkg.discountValue > 0 && (
@@ -140,7 +144,7 @@ const ViewContent: React.FC<ViewContentProps> = ({ pkg }) => (
           icon={<Percent size={15} />}
           label="Discount"
           value={`${pkg.discountValue}${
-            pkg.discountType === "percentage" ? "%" : " ₹"
+            pkg.discountType === "percentage" ? "%" : ` ${currencySymbol}`
           } off`}
         />
       )}
@@ -171,7 +175,8 @@ const ViewContent: React.FC<ViewContentProps> = ({ pkg }) => (
       )}
     </div>
   </div>
-);
+  );
+};
 
 // ─── Sub-component: Edit Content ──────────────────────────────────────────────
 
@@ -187,7 +192,9 @@ const EditContent: React.FC<EditContentProps> = ({
   saving,
   saveError,
   onChange,
-}) => (
+}) => {
+  const { currencySymbol } = useCurrency();
+  return (
   <div className="pkgpanel__edit">
     <div className="pkgpanel__edit-group">
       <label className="pkgpanel__edit-label">
@@ -228,10 +235,10 @@ const EditContent: React.FC<EditContentProps> = ({
     <div className="pkgpanel__edit-row">
       <div className="pkgpanel__edit-group">
         <label className="pkgpanel__edit-label">
-          BASE PRICE (₹) <span className="text-danger">*</span>
+          BASE PRICE ({currencySymbol}) <span className="text-danger">*</span>
         </label>
         <div className="pkgpanel__price-wrap">
-          <span className="pkgpanel__price-prefix">₹</span>
+          <span className="pkgpanel__price-prefix">{currencySymbol}</span>
           <input
             type="number"
             min="0"
@@ -276,7 +283,7 @@ const EditContent: React.FC<EditContentProps> = ({
           onChange={(e) => onChange("discountType", e.target.value)}
           disabled={saving}
         >
-          <option value="fixed">Fixed (₹)</option>
+          <option value="fixed">Fixed ({currencySymbol})</option>
           <option value="percentage">Percent (%)</option>
         </select>
       </div>
@@ -347,7 +354,8 @@ const EditContent: React.FC<EditContentProps> = ({
 
     {saveError && <div className="pkgpanel__error">{saveError}</div>}
   </div>
-);
+  );
+};
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 

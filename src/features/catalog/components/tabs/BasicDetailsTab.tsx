@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown } from "react-bootstrap-icons";
 import Input from "../../../../components/ui/Input";
 import type { BasicDetailsData } from "../../types/catalog.types.ts";
+import { useCurrency } from "../../../../hooks/useCurrency";
 
 interface CategoryOption {
   id: string | number;
@@ -17,6 +18,7 @@ interface Props {
 }
 
 const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categories = [] }) => {
+  const { currencySymbol } = useCurrency();
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const categoryRef = useRef<HTMLDivElement>(null);
 
@@ -162,7 +164,7 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
                 className="input-group-text bg-white border-0 pe-1 text-muted"
                 style={{ fontSize: "14px" }}
               >
-                ₹
+                {currencySymbol}
               </span>
               <input
                 type="number"

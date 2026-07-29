@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { currencySymbol } from "../../utils/currency";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import ServiceRow from "./ServiceRow";
 import { Trash } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
@@ -334,6 +334,7 @@ function MembershipRow({
   row, index, frozen, interval, staffList, availableMemberships, memError,
   onClearError, onUpdateMembership, onRemoveMembership,
 }: MembershipRowProps) {
+  const { currencySymbol } = useCurrency();
   const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
   const [discountInput, setDiscountInput] = useState(getDiscountValue(row.discount));
 
@@ -496,6 +497,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     onUpdate,
     onRemove,
   } = props;
+  const { currencySymbol } = useCurrency();
   const productRows = kind === "product" ? props.productRows : [];
   const onUpdateProductRow = kind === "product" ? props.onUpdateProductRow : undefined;
   const onAddProductRow = kind === "product" ? props.onAddProductRow : undefined;

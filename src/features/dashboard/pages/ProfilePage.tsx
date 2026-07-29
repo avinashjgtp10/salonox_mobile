@@ -92,10 +92,6 @@ function validateSalonForm(form: UpdateSalonPayload): Errors {
   if (pincode && !/^[0-9]{4,10}$/.test(pincode))
     e.pincode = "Pincode must be 4–10 digits.";
 
-  const currency = String(form.currency ?? "").trim().toUpperCase();
-  if (currency && !/^[A-Z]{3}$/.test(currency))
-    e.currency = "Use a 3-letter currency code (e.g. INR, USD).";
-
   const desc = String(form.description ?? "").trim();
   if (desc.length > 500)
     e.description = "Description must be under 500 characters.";
@@ -358,13 +354,14 @@ export default function ProfilePage() {
     if (!/[A-Z]/.test(pwNew)) { setPwError("Must contain at least one uppercase letter."); return; }
     if (!/[a-z]/.test(pwNew)) { setPwError("Must contain at least one lowercase letter."); return; }
     if (!/[0-9]/.test(pwNew)) { setPwError("Must contain at least one number."); return; }
+    if (pwNew === pwCurrent) { setPwError("New password must be different from your current password."); return; }
     if (pwNew !== pwConfirm) { setPwError("Passwords do not match."); return; }
     setPwError(null);
     const result = await dispatch(changePasswordThunk({ currentPassword: pwCurrent, newPassword: pwNew }));
     if (changePasswordThunk.fulfilled.match(result)) {
       setPwSuccess(true);
       setPwCurrent(""); setPwNew(""); setPwConfirm("");
-      showSuccess("Password changed successfully!");
+      showSuccess("Password updated successfully.");
       setTimeout(() => { setPwSuccess(false); setPwSection(false); }, 2000);
     } else {
       const msg = String(result.payload ?? "Failed to change password.");
@@ -739,11 +736,6 @@ export default function ProfilePage() {
                     placeholder="State" onChange={handleSalonFieldChange}
                   />
                   <ProfileField
-                    label="Country" value={String(salonForm.country ?? "")} name="country"
-                    icon={<Globe size={14} />} editing={salonEditing}
-                    placeholder="Country" onChange={handleSalonFieldChange}
-                  />
-                  <ProfileField
                     label="Pincode" value={String(salonForm.pincode ?? "")} name="pincode"
                     icon={<Hash size={14} />} editing={salonEditing}
                     placeholder="400001" error={salonFieldErrors.pincode}
@@ -758,12 +750,6 @@ export default function ProfilePage() {
                     label="Timezone" value={String(salonForm.timezone ?? "")} name="timezone"
                     icon={<Clock size={14} />} editing={salonEditing}
                     placeholder="Asia/Kolkata" onChange={handleSalonFieldChange}
-                  />
-                  <ProfileField
-                    label="Currency" value={String(salonForm.currency ?? "")} name="currency"
-                    icon={<CreditCard size={14} />} editing={salonEditing}
-                    placeholder="INR" error={salonFieldErrors.currency}
-                    onChange={handleSalonFieldChange}
                   />
                   <div style={{ gridColumn: "1 / -1" }}>
                     <ProfileField
@@ -804,7 +790,7 @@ export default function ProfilePage() {
               <div className="pp-pw-body">
                 {pwSuccess && (
                   <div className="pp-success-banner">
-                    <CheckCircleFill size={13} /> Password changed successfully!
+                    <CheckCircleFill size={13} /> Password updated successfully.
                   </div>
                 )}
                 {pwError && (

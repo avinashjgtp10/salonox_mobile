@@ -53,6 +53,7 @@ const navGroups: NavGroup[] = [
   {
     groupLabel: "Configuration",
     items: [
+      { label: "Currency", path: "currency", icon: <CreditCard size={15} /> },
       { label: "Tax Mapping", path: "tax-mapping", icon: <SlidersHorizontal size={15} /> },
       { label: "Reward Points", path: "reward-points", icon: <Gift size={15} /> },
       { label: "Refer & Earn", path: "referral", icon: <Share2 size={15} /> },
@@ -72,8 +73,10 @@ export default function SettingsLayout() {
 
   return (
     <div className="settings-wrapper">
-      {/* Page-level header */}
-      <div className="d-flex align-items-center gap-2 mb-4">
+      {/* Page-level header — sticky against .main (the dashboard's own scroll
+          container, see DashboardLayout.tsx) so it stays visible below the
+          fixed top navbar while only the nav/content below it scroll. */}
+      <div className="settings-sticky-header d-flex align-items-center gap-2">
         <Settings size={20} color="#111827" />
         <h1 className="settings-heading">Settings</h1>
       </div>

@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { PlusCircle, Trash3, ChevronDown, ChevronUp, GripVertical } from "react-bootstrap-icons";
 import type { ServiceAddOnsData, AddOnGroup, AddOnOption } from "../../types/catalog.types.ts";
 import LearnMoreLink from "../../../../components/shared/LearnMoreLink";
+import { useCurrency } from "../../../../hooks/useCurrency";
 
 interface Props {
   data: ServiceAddOnsData;
@@ -29,6 +30,7 @@ const newGroup = (): AddOnGroup => ({
 const DURATIONS = [5, 10, 15, 20, 30, 45, 60, 90, 120];
 
 const ServiceAddOnsTab: React.FC<Props> = ({ data, onChange }) => {
+  const { currencySymbol } = useCurrency();
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const groups = data.availableGroups ?? [];
@@ -163,7 +165,7 @@ const ServiceAddOnsTab: React.FC<Props> = ({ data, onChange }) => {
                       onChange={(e) => updateOption(group.id, opt.id, { name: e.target.value })}
                     />
                     <div className="sao-input-prefix-wrap">
-                      <span className="sao-prefix">₹</span>
+                      <span className="sao-prefix">{currencySymbol}</span>
                       <input
                         className="sao-input sao-input--sm"
                         type="number"

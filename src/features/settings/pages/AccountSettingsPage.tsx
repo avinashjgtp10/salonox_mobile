@@ -26,6 +26,25 @@ interface PasswordForm {
   confirmPassword: string;
 }
 
+interface PasswordErrors {
+  currentPassword?: string;
+  newPassword?: string;
+  confirmPassword?: string;
+}
+
+// Mirrors the backend's changePasswordSchema (users.validator.ts) — kept in
+// sync so the user sees the exact reason a password is rejected instead of
+// round-tripping to the server to find out. Strength (Weak/Fair/Good/Strong)
+// is deliberately NOT part of this — it's shown as guidance only and must
+// never block the update on its own.
+const validateNewPassword = (pw: string): string | undefined => {
+  if (pw.length < 8) return "Password must be at least 8 characters";
+  if (!/[A-Z]/.test(pw)) return "Password must contain at least one uppercase letter";
+  if (!/[a-z]/.test(pw)) return "Password must contain at least one lowercase letter";
+  if (!/[0-9]/.test(pw)) return "Password must contain at least one number";
+  return undefined;
+};
+
 const passwordStrength = (pw: string) => {
   if (!pw) return { label: "", color: "", pct: 0 };
   let score = 0;
@@ -44,6 +63,7 @@ interface PasswordFieldProps {
   label: string;
   value: string;
   show: boolean;
+  error?: string;
   onToggle: () => void;
   onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }
@@ -53,6 +73,7 @@ function PasswordField({
   label,
   value,
   show,
+  error,
   onToggle,
   onChange,
 }: PasswordFieldProps) {
@@ -64,7 +85,7 @@ function PasswordField({
       </label>
       <div className="settings-pw-wrap">
         <input
-          className="settings-input"
+          className={`settings-input${error ? " settings-input--error" : ""}`}
           type={show ? "text" : "password"}
           name={name}
           value={value}
@@ -76,6 +97,7 @@ function PasswordField({
           {show ? <EyeOff size={16} /> : <Eye size={16} />}
         </button>
       </div>
+      {error && <span className="settings-error">{error}</span>}
     </div>
   );
 }
@@ -90,6 +112,7 @@ export default function AccountSettingsPage() {
     newPassword: "",
     confirmPassword: "",
   });
+  const [pwErrors, setPwErrors] = useState<PasswordErrors>({});
   const [showCurrent, setShowCurrent] = useState(false);
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
@@ -103,22 +126,38 @@ export default function AccountSettingsPage() {
   const strength = passwordStrength(pwForm.newPassword);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setPwForm((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+    const { name, value } = e.target;
+    setPwForm((prev) => ({ ...prev, [name]: value }));
+    // Clear that field's error the moment the user edits it, rather than
+    // leaving a stale error up until the next submit attempt.
+    setPwErrors((prev) => (prev[name as keyof PasswordErrors] ? { ...prev, [name]: undefined } : prev));
   };
 
   const handleSavePassword = async () => {
-    if (!pwForm.currentPassword || !pwForm.newPassword || !pwForm.confirmPassword) {
-      showError("Please fill in all password fields");
-      return;
+    const errors: PasswordErrors = {};
+
+    if (!pwForm.currentPassword) {
+      errors.currentPassword = "Current password is required";
     }
-    if (pwForm.newPassword !== pwForm.confirmPassword) {
-      showError("New passwords do not match");
-      return;
+
+    const strengthError = validateNewPassword(pwForm.newPassword);
+    if (strengthError) {
+      // Strength (Weak/Fair/Good/Strong) is guidance only — this only fires
+      // for the actual required rules (length, upper/lower/number), never
+      // for a low strength score on an otherwise-valid password.
+      errors.newPassword = strengthError;
+    } else if (pwForm.currentPassword && pwForm.newPassword === pwForm.currentPassword) {
+      errors.newPassword = "New password must be different from your current password";
     }
-    if (pwForm.newPassword.length < 8) {
-      showError("Password must be at least 8 characters");
-      return;
+
+    if (!pwForm.confirmPassword) {
+      errors.confirmPassword = "Please confirm your new password";
+    } else if (pwForm.confirmPassword !== pwForm.newPassword) {
+      errors.confirmPassword = "Passwords do not match";
     }
+
+    setPwErrors(errors);
+    if (Object.keys(errors).length > 0) return;
 
     const result = await dispatch(
       changePasswordThunk({
@@ -127,10 +166,17 @@ export default function AccountSettingsPage() {
       })
     );
     if (changePasswordThunk.fulfilled.match(result)) {
-      showSuccess("Password changed successfully");
+      showSuccess("Password updated successfully.");
       setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setPwErrors({});
     } else {
-      showError((result.payload as string) || "Failed to change password. Check your current password.");
+      const message = (result.payload as string) || "Failed to change password";
+      // A wrong current password is a field-level concern, not a toast.
+      if (/current password/i.test(message)) {
+        setPwErrors({ currentPassword: message });
+      } else {
+        showError(message);
+      }
     }
   };
 
@@ -209,6 +255,7 @@ export default function AccountSettingsPage() {
             label="Current Password"
             value={pwForm.currentPassword}
             show={showCurrent}
+            error={pwErrors.currentPassword}
             onToggle={() => setShowCurrent((v) => !v)}
             onChange={handlePasswordChange}
           />
@@ -220,6 +267,7 @@ export default function AccountSettingsPage() {
             label="New Password"
             value={pwForm.newPassword}
             show={showNew}
+            error={pwErrors.newPassword}
             onToggle={() => setShowNew((v) => !v)}
             onChange={handlePasswordChange}
           />
@@ -229,6 +277,7 @@ export default function AccountSettingsPage() {
             label="Confirm New Password"
             value={pwForm.confirmPassword}
             show={showConfirm}
+            error={pwErrors.confirmPassword}
             onToggle={() => setShowConfirm((v) => !v)}
             onChange={handlePasswordChange}
           />

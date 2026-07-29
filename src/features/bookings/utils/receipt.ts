@@ -130,7 +130,13 @@ export function printReceipt(
   staffList: { id: string; name: string }[],
   salon: Salon | null,
   client?: { phone?: string | null; email?: string | null; [key: string]: any } | null,
-  opts?: { auto?: boolean; showTaxBreakup?: boolean },
+  opts?: {
+    auto?: boolean;
+    showTaxBreakup?: boolean;
+    /** From the caller's own useCurrency() — this module is a plain function,
+     *  not a component, so it can't call the hook itself. */
+    formatAmount?: (n: number) => string;
+  },
 ) {
   // Defaults to true (itemized) when the caller doesn't pass it, so existing
   // call sites that haven't wired the Tax Settings toggle through yet keep
@@ -205,8 +211,12 @@ export function printReceipt(
   const membershipItems = (booking as any).membershipItems || (booking as any).memberships || [];
   const productItems    = (booking as any).productItems  || (booking as any).products      || [];
 
-  // ── Currency: no symbol for calendar feature ──
-  const fmt = (n: number) => n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  // Prefer the caller's own useCurrency().formatAmount (reflects the salon's
+  // actual selected currency) — this fallback only covers a caller that
+  // hasn't been updated to pass it, and shows real ₹ formatting rather than
+  // repeating the old bug of printing bare numbers with no symbol at all.
+  const fmt = opts?.formatAmount
+    ?? ((n: number) => `₹${n.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`);
 
   // ── Table rows ────────────────────────────────────────────────────────────
   let srNo = 0;

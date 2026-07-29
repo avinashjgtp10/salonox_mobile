@@ -6,7 +6,6 @@ import {
   PencilSquare,
   Trash3,
   ClockHistory,
-  CurrencyRupee,
   CheckCircleFill,
   XCircleFill,
   Globe,
@@ -14,6 +13,8 @@ import {
   Calendar3,
 } from "react-bootstrap-icons";
 import type { Service } from "../types/catalog.types";
+import { useCurrency } from "../../../hooks/useCurrency";
+import { getCurrencyIcon } from "../../../utils/currencyIcon";
 
 interface ServiceDetailPanelProps {
   service: Service;
@@ -27,11 +28,13 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
   onDelete,
 }) => {
   const navigate = useNavigate();
+  const { formatAmount, currencyCode } = useCurrency();
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
   const dialogTitleId = "service-detail-panel-title";
   const formatMoney = (value: string | number | null | undefined) => {
     const parsed = parseFloat(String(value ?? 0));
     const safeValue = Number.isFinite(parsed) ? parsed : 0;
-    return `₹${safeValue.toFixed(2)}`;
+    return formatAmount(safeValue);
   };
   const formatDate = (value?: string) =>
     value ? new Date(value).toLocaleString() : "";
@@ -114,7 +117,7 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
               </div>
             </div>
             <div className="sdp__metric">
-              <span className="sdp__metric-icon"><CurrencyRupee size={16} /></span>
+              <span className="sdp__metric-icon"><CurrencyIcon size={16} /></span>
               <div>
                 <p className="sdp__metric-label">Price</p>
                 <p className="sdp__metric-value">

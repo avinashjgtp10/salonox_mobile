@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import type { ServiceConsultationFormValues, ServiceForm, TeamMember } from "../types/catalog.types.ts";
+import { useCurrency } from "../../../hooks/useCurrency";
 
 interface Props {
   form: ServiceForm;
@@ -71,6 +72,7 @@ const validate = (v: ServiceConsultationFormValues): FieldErrors => {
 };
 
 const ConsultationFormModal: React.FC<Props> = ({ form, onClose, onSave, staffMembers = [] }) => {
+  const { currencySymbol } = useCurrency();
   const [values, setValues] = useState<ServiceConsultationFormValues>({
     ...blankValues,
     ...form.values,
@@ -357,7 +359,7 @@ const ConsultationFormModal: React.FC<Props> = ({ form, onClose, onSave, staffMe
                 <div className="col-md-6">
                   <label className="form-label small text-muted">Recommended Service Cost <span className="text-danger">*</span></label>
                   <div className={`input-group premium-group ${errors.estimatedCost ? "border-danger" : ""}`} style={{ height: "40px" }}>
-                    <span className="input-group-text bg-white border-0 pe-1 text-muted" style={{ fontSize: "14px" }}>₹</span>
+                    <span className="input-group-text bg-white border-0 pe-1 text-muted" style={{ fontSize: "14px" }}>{currencySymbol}</span>
                     <input
                       type="number"
                       min="0"

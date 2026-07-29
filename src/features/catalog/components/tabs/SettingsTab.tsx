@@ -1,6 +1,7 @@
 import React from "react";
 import { InfoCircle } from "react-bootstrap-icons";
 import type { SettingsData } from "../../types/catalog.types.ts";
+import { useCurrency } from "../../../../hooks/useCurrency";
 
 interface Props {
   data: SettingsData;
@@ -13,6 +14,7 @@ const COLORS = [
 ];
 
 const SettingsTab: React.FC<Props> = ({ data, onChange }) => {
+  const { currencySymbol } = useCurrency();
   const update = (key: keyof SettingsData, value: any) =>
     onChange({ ...data, [key]: value });
 
@@ -56,7 +58,7 @@ const SettingsTab: React.FC<Props> = ({ data, onChange }) => {
           <div className="st-field st-field--indent">
             <label className="st-field__label">Fee amount</label>
             <div className="st-input-prefix-wrap">
-              <span className="st-prefix">₹</span>
+              <span className="st-prefix">{currencySymbol}</span>
               <input
                 type="number"
                 className="st-input"

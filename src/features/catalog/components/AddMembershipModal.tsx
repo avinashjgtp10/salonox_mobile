@@ -10,9 +10,11 @@ import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   ChevronDown, InfoCircleFill, PhoneFill, Globe2, X,
-  AwardFill, CurrencyRupee, Percent,
+  AwardFill, Percent,
 } from "react-bootstrap-icons";
 import type { AppDispatch } from "../../../store/store";
+import { useCurrency } from "../../../hooks/useCurrency";
+import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import { createMembershipThunk, updateMembershipThunk } from "../../../middleware/membership/membership.thunk";
 import { selectMembershipsSubmitting, selectMembershipsError } from "../../../store/selectors/membership.selectors";
 import { clearMembershipError } from "../../../store/membershipSlice";
@@ -56,6 +58,8 @@ interface Props {
 
 const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
   const dispatch = useDispatch<AppDispatch>();
+  const { currencySymbol, currencyCode } = useCurrency();
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
 
   const submitting = useSelector(selectMembershipsSubmitting);
   const apiError   = useSelector(selectMembershipsError);
@@ -158,7 +162,7 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
           onClick={() => setPricingType(type)}
         >
           <span className="amm__type-icon">
-            {type === "value" ? <CurrencyRupee size={16} /> : <Percent size={15} />}
+            {type === "value" ? <CurrencyIcon size={16} /> : <Percent size={15} />}
           </span>
           <span className="amm__type-copy">
             <span className="amm__type-title">{type === "value" ? "Value" : "Percentage"}</span>
@@ -198,7 +202,7 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
           <div className="amm__field">
             <label className="amm__label">Special Offer Price <span className="amm__req">*</span></label>
             <div className="amm__pfx-wrap">
-              <span className="amm__pfx">₹</span>
+              <span className="amm__pfx">{currencySymbol}</span>
               <input
                 type="number" min={0} step={1}
                 className={`amm__input amm__input--pfx${isActive && errors.offerPrice ? " amm__input--err" : ""}`}
@@ -216,7 +220,7 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
             <div className="amm__field">
               <label className="amm__label">Actual Price <span className="amm__req">*</span></label>
               <div className="amm__pfx-wrap">
-                <span className="amm__pfx">₹</span>
+                <span className="amm__pfx">{currencySymbol}</span>
                 <input
                   type="number" min={0} step={1}
                   className={`amm__input amm__input--pfx${isActive && errors.actualPrice ? " amm__input--err" : ""}`}

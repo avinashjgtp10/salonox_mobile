@@ -1,5 +1,6 @@
 import { useState, useCallback } from "react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { useCurrency } from "../../../hooks/useCurrency";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { patchPaymentStatus } from "../../../store/schedulerSlice";
 import { postPaymentThunk, clearClientDuesThunk } from "../../../middleware/booking/payment.thunk";
@@ -64,6 +65,7 @@ export function usePayment() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [payError, setPayError]         = useState<string | null>(null);
   const { showSuccess, overlay } = useStatusOverlay();
+  const { formatAmount } = useCurrency();
 
   const completePayment = useCallback(async (params: CompletePaymentParams): Promise<boolean> => {
     const {
@@ -193,7 +195,7 @@ export function usePayment() {
       const referralWalletCredited = savedPayment?.referral_wallet_credited != null
         ? Number(savedPayment.referral_wallet_credited) : 0;
       if (referralWalletCredited > 0) {
-        showSuccess(`Referral reward of ₹${referralWalletCredited.toFixed(2)} added to client's eWallet`);
+        showSuccess(`Referral reward of ${formatAmount(referralWalletCredited)} added to client's eWallet`);
       }
 
       dispatch(patchPaymentStatus({

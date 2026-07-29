@@ -14,6 +14,7 @@ import type { MarkupMethod } from "../utils/productPricing";
 import { PRODUCT_UNITS, isConsumableType, TAX_TYPE_OPTIONS } from "../types/product.types";
 import type { ProductType, ProductUnit, TaxType } from "../types/product.types";
 import { PRODUCT_MESSAGES } from "../../../constants/messages";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/CreateProductPage.scss";
 
 
@@ -155,6 +156,7 @@ const ProductSelect: React.FC<{
 
 const CreateProductPage: React.FC = () => {
   const navigate = useNavigate();
+  const { currencySymbol } = useCurrency();
   const dispatch = useDispatch<AppDispatch>();
   const { brands, categories, loading: { create: loading }, error } = useSelector(
     (state: RootState) => state.products
@@ -176,14 +178,14 @@ const CreateProductPage: React.FC = () => {
   const isConsumable = isConsumableType(form.productType);
 
   const validationErrors = {
-    productName: !form.productName.trim() ? "Product name is required" : "",
-    categoryId: !form.categoryId ? "Product category is required" : "",
-    amount: !form.amount.trim() || isNaN(Number(form.amount)) ? "Product quantity is required" : "",
-    supplyPrice: !form.supplyPrice.trim() || isNaN(Number(form.supplyPrice)) || Number(form.supplyPrice) <= 0 ? "Supplier price is required" : "",
+    productName: !form.productName.trim() ? PRODUCT_MESSAGES.PRODUCT_NAME_REQUIRED : "",
+    categoryId: !form.categoryId ? PRODUCT_MESSAGES.CATEGORY_REQUIRED : "",
+    amount: !form.amount.trim() || isNaN(Number(form.amount)) ? PRODUCT_MESSAGES.QUANTITY_REQUIRED : "",
+    supplyPrice: !form.supplyPrice.trim() || isNaN(Number(form.supplyPrice)) || Number(form.supplyPrice) <= 0 ? PRODUCT_MESSAGES.SUPPLY_PRICE_REQUIRED : "",
     qtyAlert: !form.qtyAlert.trim() || isNaN(Number(form.qtyAlert)) || (!isConsumable && !Number.isInteger(Number(form.qtyAlert))) || Number(form.qtyAlert) < 0
-      ? PRODUCT_MESSAGES.QTY_ALERT_REQUIRED
+      ? PRODUCT_MESSAGES.LOW_STOCK_ALERT_REQUIRED
       : form.amount.trim() && !isNaN(Number(form.amount)) && Number(form.qtyAlert) >= Number(form.amount)
-        ? PRODUCT_MESSAGES.QTY_ALERT_EXCEEDS_QUANTITY
+        ? PRODUCT_MESSAGES.LOW_STOCK_ALERT_EXCEEDS_QUANTITY
         : "",
     unit: isConsumable && !form.unit ? "Unit is required for consumable products" : "",
     hsnSac: form.hsnSac.trim() && !/^\d+$/.test(form.hsnSac.trim()) ? PRODUCT_MESSAGES.HSN_SAC_INVALID : "",
@@ -537,7 +539,7 @@ const CreateProductPage: React.FC = () => {
               <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.qtyAlert}</div>
             ) : (
               <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "4px" }}>
-                Alert when stock drops to or below this number.
+                {PRODUCT_MESSAGES.LOW_STOCK_ALERT_HINT}
               </div>
             )}
 
@@ -616,7 +618,7 @@ const CreateProductPage: React.FC = () => {
               onChange={(e) => { handleSupplyPriceChange(e.target.value); touch("supplyPrice"); }}
               onBlur={() => touch("supplyPrice")}
               onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-              iconLeft={<span>₹</span>}
+              iconLeft={<span>{currencySymbol}</span>}
               containerClass="mt-1"
             />
             {touched.supplyPrice && validationErrors.supplyPrice && (
@@ -656,7 +658,7 @@ const CreateProductPage: React.FC = () => {
                     value={form.retailPrice}
                     onChange={(e) => handleRetailPriceChange(e.target.value)}
                     onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-                    iconLeft={<span>₹</span>}
+                    iconLeft={<span>{currencySymbol}</span>}
                     containerClass=""
                   />
                 </div>

@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { applyCouponThunk } from "../../../middleware/booking/payment.thunk";
-import { currencySymbol } from "../utils/currency";
+import { useCurrency } from "../../../hooks/useCurrency";
 
 export interface CouponState {
   input: string;
@@ -14,6 +14,7 @@ export interface CouponState {
 
 export function useCoupon(salonId?: string) {
   const dispatch = useAppDispatch();
+  const { formatAmount } = useCurrency();
   const [state, setState] = useState<CouponState>({
     input: "", applied: "", discount: 0,
     message: "", error: "", loading: false,
@@ -31,7 +32,7 @@ export function useCoupon(salonId?: string) {
         ...s, loading: false,
         applied: data.couponCode || s.input,
         discount: data.discountAmount || 0,
-        message: data.message || `Coupon applied! -${currencySymbol}${data.discountAmount}`,
+        message: data.message || `Coupon applied! -${formatAmount(data.discountAmount)}`,
         error: "",
       }));
     } else {
