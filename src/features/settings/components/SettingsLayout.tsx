@@ -53,6 +53,7 @@ const navGroups: NavGroup[] = [
   {
     groupLabel: "Configuration",
     items: [
+      { label: "Currency", path: "currency", icon: <CreditCard size={15} /> },
       { label: "Tax Mapping", path: "tax-mapping", icon: <SlidersHorizontal size={15} /> },
       { label: "Reward Points", path: "reward-points", icon: <Gift size={15} /> },
       { label: "Refer & Earn", path: "referral", icon: <Share2 size={15} /> },

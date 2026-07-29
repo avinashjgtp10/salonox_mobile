@@ -172,6 +172,15 @@ $settings-header-height: 60px;
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
+
+  // Without this, a long section title/description squeezes this row for
+  // space and "Save changes" wraps onto two lines instead of shrinking the
+  // button itself staying put at its natural width.
+  .btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
 }
 
 .settings-section-title {

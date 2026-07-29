@@ -12,3 +12,13 @@ export const PRODUCT_MESSAGES = {
   LOW_STOCK_ALERT_EXCEEDS_QUANTITY: "Low Stock Alert Quantity must be less than the Product Quantity.",
   LOW_STOCK_ALERT_HINT: "Alert when stock drops to or below this number.",
 } as const;
+
+export const CURRENCY_MESSAGES = {
+  PAGE_TITLE: "Currency",
+  PAGE_SUBTITLE: "Choose the country and currency used everywhere in the app — bills, reports, the calendar, and receipts.",
+  SECTION_TITLE: "Region & Currency",
+  SECTION_DESC: "Selecting a country automatically fills in its currency — but you can still change the currency independently afterward (e.g. a salon in India billing in USD).",
+  SALON_NOT_FOUND: "Salon information not found",
+  SAVE_SUCCESS: "Saved — applies across the whole app immediately",
+  SAVE_FAILED: "Failed to save",
+} as const;

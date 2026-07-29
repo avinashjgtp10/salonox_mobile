@@ -79,6 +79,10 @@ export const selectIsSalonLoaded = createSelector(
   selectCurrentSalon,
   (s) => s !== null,
 );
+export const selectSalonCurrency = createSelector(
+  selectCurrentSalon,
+  (s) => s?.currency ?? null,
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Client
