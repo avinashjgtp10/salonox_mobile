@@ -8,13 +8,14 @@ import {
   CalendarEvent,
   Scissors,
   Cart3,
-  CurrencyRupee,
   Receipt,
   Clock,
 } from "react-bootstrap-icons";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { STAFF, BOOKING, SALE } from "../../../services/api/endpoints";
+import { useCurrency } from "../../../hooks/useCurrency";
+import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import "../styles/StaffPerformancePage.scss";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -96,10 +97,6 @@ function fmtTime(val?: string) {
   catch { return val; }
 }
 
-function fmtCurrency(val: number) {
-  return `₹${val.toLocaleString("en-IN", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
-}
-
 const STATUS_CLASS: Record<string, string> = {
   confirmed: "spp-badge--blue",
   pending: "spp-badge--amber",
@@ -120,6 +117,8 @@ const TYPE_LABEL: Record<string, string> = {
 export default function StaffPerformancePage() {
   const currentSalon = useSelector(selectCurrentSalon);
   const salonId = currentSalon?.id;
+  const { formatAmount: fmtCurrency, currencyCode } = useCurrency();
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
 
   // staff list
   const [staffList, setStaffList] = useState<StaffMember[]>([]);
@@ -402,7 +401,7 @@ export default function StaffPerformancePage() {
                       <div className="spp__summary-label">Products Sold</div>
                     </div>
                     <div className="spp__summary-card spp__summary-card--green">
-                      <div className="spp__summary-icon"><CurrencyRupee size={18} /></div>
+                      <div className="spp__summary-icon"><CurrencyIcon size={18} /></div>
                       <div className="spp__summary-val">{fmtCurrency(dayData.revenue)}</div>
                       <div className="spp__summary-label">Revenue</div>
                     </div>

@@ -6,11 +6,12 @@ import {
   Scissors,
   X,
   Clock,
-  CurrencyDollar,
 } from "react-bootstrap-icons";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { SERVICES } from "../../../services/api/endpoints";
+import { useCurrency } from "../../../hooks/useCurrency";
+import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import "../styles/StaffServicesPage.scss";
 
 interface Service {
@@ -50,6 +51,8 @@ function formatDuration(mins?: number) {
 export default function StaffServicesPage() {
   const currentSalon = useSelector(selectCurrentSalon);
   const salonId = currentSalon?.id;
+  const { formatAmount, currencyCode } = useCurrency();
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
 
   const [services, setServices] = useState<Service[]>([]);
   const [loading, setLoading] = useState(true);
@@ -205,9 +208,9 @@ export default function StaffServicesPage() {
                     {formatDuration(svc.duration)}
                   </span>
                   <span className="svc-meta-chip svc-meta-chip--price">
-                    <CurrencyDollar size={11} />
+                    <CurrencyIcon size={11} />
                     {svc.price != null
-                      ? `₹${Number(svc.price).toLocaleString("en-IN")}`
+                      ? formatAmount(Number(svc.price))
                       : "Price on request"}
                   </span>
                 </div>

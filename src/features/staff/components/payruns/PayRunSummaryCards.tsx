@@ -1,5 +1,6 @@
 import React from "react";
 import type { PayRunSummary } from "../../../../types/payRun.types";
+import { useCurrency } from "../../../../hooks/useCurrency";
 
 interface PayRunSummaryCardsProps {
   summary: PayRunSummary;
@@ -7,6 +8,7 @@ interface PayRunSummaryCardsProps {
 }
 
 const PayRunSummaryCards: React.FC<PayRunSummaryCardsProps> = ({ summary, onPayTeam }) => {
+  const { formatAmount } = useCurrency();
   const cards = [
     { label: "Earnings", value: summary.earnings, color: "text-gray-900" },
     { label: "Other", value: summary.other, color: "text-gray-900" },
@@ -25,7 +27,7 @@ const PayRunSummaryCards: React.FC<PayRunSummaryCardsProps> = ({ summary, onPayT
           <span className="card-label">{card.label}</span>
           <div className="card-content">
             <span className={`card-value ${card.color.includes('green') ? 'text-green' : card.color.includes('red') ? 'text-red' : ''}`}>
-              ₮{card.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              {formatAmount(card.value)}
             </span>
             {card.isAction && (
               <button 

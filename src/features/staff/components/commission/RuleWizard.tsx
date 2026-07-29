@@ -5,6 +5,7 @@ import type {
   CommissionFrequency, CommissionRuleStatus,
 } from "../../types/commissionRules.types";
 import { SOURCE_META } from "./commissionRuleMeta";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import "../../styles/RuleWizard.scss";
 
 interface StaffOption {
@@ -38,6 +39,7 @@ const FREQUENCY_OPTIONS: CommissionFrequency[] = ["daily", "monthly"];
 const FREQUENCY_LABELS: Record<CommissionFrequency, string> = { daily: "Daily", weekly: "Weekly", biweekly: "Bi-Weekly", monthly: "Monthly", custom: "Custom Date" };
 
 export default function RuleWizard({ staffOptions, staffLoading, editing, initialStaffIds, onClose, onSave }: RuleWizardProps) {
+  const { currencySymbol } = useCurrency();
   const [savingStatus, setSavingStatus] = useState<CommissionRuleStatus | null>(null);
   const [attempted, setAttempted] = useState(false);
   // Synchronous guard — React's `disabled` state can't stop a second click that
@@ -165,7 +167,7 @@ export default function RuleWizard({ staffOptions, staffLoading, editing, initia
           <div className="rw-field">
             <label className="rw-field-label">{TYPE_FIELD_LABEL[type]}</label>
             <div className={`rw-rate-input-wrap ${isRateInvalid ? "rw-invalid" : ""}`}>
-              <span className="rw-rate-prefix">{type === "percentage" ? "%" : "₹"}</span>
+              <span className="rw-rate-prefix">{type === "percentage" ? "%" : currencySymbol}</span>
               <input
                 type="number"
                 min={0}
@@ -186,11 +188,11 @@ export default function RuleWizard({ staffOptions, staffLoading, editing, initia
             <div className="rw-condition-sentence">
               <span>They will receive</span>
               <strong className="rw-condition-value">
-                {rate ? (type === "percentage" ? `${rate}%` : `₹${rate}`) : "—"}
+                {rate ? (type === "percentage" ? `${rate}%` : `${currencySymbol}${rate}`) : "—"}
               </strong>
               <span>when they generate</span>
               <div className={`rw-condition-input-wrap ${isConditionInvalid ? "rw-invalid" : ""}`}>
-                <span>₹</span>
+                <span>{currencySymbol}</span>
                 <input
                   type="number" min={0}
                   placeholder="e.g. 20000"

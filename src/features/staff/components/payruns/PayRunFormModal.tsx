@@ -5,6 +5,7 @@ import Button from "../../../../components/ui/Button";
 import type { PayRun } from "../../../../types/payRun.types";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/useAppRedux";
 import { fetchStaffThunk } from "../../../../middleware/staff/staff.thunk";
+import { useCurrency } from "../../../../hooks/useCurrency";
 
 interface PayRunFormModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
   loading,
 }) => {
   const dispatch = useAppDispatch();
+  const { currencySymbol, formatAmount } = useCurrency();
   const { items: staffMembers } = useAppSelector((state) => state.staff);
 
   const [formData, setFormData] = useState({
@@ -177,7 +179,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
           <div className="row g-3">
             <div className="col-md-4">
               <Input
-                label="Earnings (₹)"
+                label={`Earnings (${currencySymbol})`}
                 name="earnings"
                 type="number"
                 value={formData.earnings}
@@ -187,7 +189,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
             </div>
             <div className="col-md-4">
               <Input
-                label="Other (₹)"
+                label={`Other (${currencySymbol})`}
                 name="other"
                 type="number"
                 value={formData.other}
@@ -197,7 +199,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
             </div>
             <div className="col-md-4">
               <Input
-                label="Deductions (₹)"
+                label={`Deductions (${currencySymbol})`}
                 name="deductions"
                 type="number"
                 value={formData.deductions}
@@ -212,7 +214,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
           <div>
             <div className="small fw-bold text-uppercase opacity-75">Net Salary</div>
             <div className="h3 fw-black mb-0">
-              ₹{calculateNetSalary().toLocaleString(undefined, { minimumFractionDigits: 2 })}
+              {formatAmount(calculateNetSalary())}
             </div>
           </div>
           <div className="text-end opacity-50 small">

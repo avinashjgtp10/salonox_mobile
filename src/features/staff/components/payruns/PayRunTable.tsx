@@ -1,6 +1,7 @@
 import React from "react";
 import type { PayRun } from "../../../../types/payRun.types";
 import ModernTable from "../../../../components/ui/ModernTable";
+import { useCurrency } from "../../../../hooks/useCurrency";
 
 interface PayRunTableProps {
   data: PayRun[];
@@ -11,6 +12,7 @@ interface PayRunTableProps {
 }
 
 const PayRunTable: React.FC<PayRunTableProps> = ({ data, loading, onRowClick, onEdit, onDelete }) => {
+  const { formatAmount } = useCurrency();
   const columns = [
     {
       header: "Staff member",
@@ -59,7 +61,7 @@ const PayRunTable: React.FC<PayRunTableProps> = ({ data, loading, onRowClick, on
       key: "earnings",
       align: "right" as const,
       render: (item: PayRun) => (
-        <span className="fw-medium text-dark">₹{(item.earnings || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-medium text-dark">{formatAmount(item.earnings || 0)}</span>
       ),
     },
     {
@@ -67,7 +69,7 @@ const PayRunTable: React.FC<PayRunTableProps> = ({ data, loading, onRowClick, on
       key: "other",
       align: "right" as const,
       render: (item: PayRun) => (
-        <span className="fw-medium text-muted">₹{(item.other || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-medium text-muted">{formatAmount(item.other || 0)}</span>
       ),
     },
     {
@@ -75,7 +77,7 @@ const PayRunTable: React.FC<PayRunTableProps> = ({ data, loading, onRowClick, on
       key: "total",
       align: "right" as const,
       render: (item: PayRun) => (
-        <span className="fw-bold text-dark">₹{(item.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-bold text-dark">{formatAmount(item.total || 0)}</span>
       ),
     },
     {
@@ -83,7 +85,7 @@ const PayRunTable: React.FC<PayRunTableProps> = ({ data, loading, onRowClick, on
       key: "paid",
       align: "right" as const,
       render: (item: PayRun) => (
-        <span className="fw-medium text-success">₹{(item.paid || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-medium text-success">{formatAmount(item.paid || 0)}</span>
       ),
     },
     {
@@ -91,7 +93,7 @@ const PayRunTable: React.FC<PayRunTableProps> = ({ data, loading, onRowClick, on
       key: "toPay",
       align: "right" as const,
       render: (item: PayRun) => (
-        <span className="fw-black text-danger">₹{(item.toPay || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+        <span className="fw-black text-danger">{formatAmount(item.toPay || 0)}</span>
       ),
     },
   ];

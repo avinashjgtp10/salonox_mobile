@@ -14,6 +14,8 @@ import {
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF, BOOKING, SALE, CLIENT } from "../../../services/api/endpoints";
+import { useCurrency } from "../../../hooks/useCurrency";
+import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import "../styles/StaffDashboardPage.scss";
 
 interface StatCard {
@@ -59,6 +61,8 @@ function getAvatar(name: string, color?: string): { initials: string; bg: string
 }
 
 export default function StaffDashboardPage() {
+  const { formatAmount, currencyCode } = useCurrency();
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
   const navigate = useNavigate();
   const currentSalon = useSelector(selectCurrentSalon);
   const salonId = currentSalon?.id;
@@ -177,8 +181,8 @@ export default function StaffDashboardPage() {
     },
     {
       label: "Revenue (All Time)",
-      value: `₹${Number(stats.revenue).toLocaleString("en-IN")}`,
-      icon: <CurrencyDollar size={20} />,
+      value: formatAmount(Number(stats.revenue)),
+      icon: <CurrencyIcon size={20} />,
       color: "rose",
       loading: stats.loadingRevenue,
     },

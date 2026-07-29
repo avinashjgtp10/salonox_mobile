@@ -1,7 +1,8 @@
 import { ThreeDots, Pencil, Trash, ToggleOn } from "react-bootstrap-icons";
 import { useEffect, useRef, useState } from "react";
 import type { RuleGroup } from "../../types/commissionRules.types";
-import { SOURCE_META, FREQUENCY_LABELS, fmtMoney } from "./commissionRuleMeta";
+import { SOURCE_META, FREQUENCY_LABELS } from "./commissionRuleMeta";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import "../../styles/RuleCard.scss";
 
 interface RuleCardProps {
@@ -15,6 +16,7 @@ interface RuleCardProps {
 }
 
 export default function RuleCard({ group, staffNames, onOpenDetail, onEdit, onDelete, onToggleStatus, toggling }: RuleCardProps) {
+  const { formatAmount: fmtMoney } = useCurrency();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuWrapRef = useRef<HTMLDivElement>(null);
   const rule = group.primary;

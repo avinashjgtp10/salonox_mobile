@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { XLg } from "react-bootstrap-icons";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/PayRunsPage.scss";
 
 interface AddAdjustmentModalProps {
@@ -13,6 +14,7 @@ const AddAdjustmentModal: React.FC<AddAdjustmentModalProps> = ({
   onClose,
   memberName,
 }) => {
+  const { currencySymbol } = useCurrency();
   const [type, setType] = useState("Earnings");
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
@@ -46,7 +48,7 @@ const AddAdjustmentModal: React.FC<AddAdjustmentModalProps> = ({
           <div className="form-group">
             <label>Amount</label>
             <div className="amount-input-wrap">
-              <span className="currency-symbol">₮</span>
+              <span className="currency-symbol">{currencySymbol}</span>
               <input
                 type="number"
                 placeholder="0.00"

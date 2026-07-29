@@ -5,11 +5,12 @@ import {
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  CurrencyRupee,
   ClockHistory,
   PersonCheck,
   CheckCircleFill,
 } from "react-bootstrap-icons";
+import { useCurrency } from "../../../hooks/useCurrency";
+import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import "../styles/PayrollPage.scss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -47,13 +48,11 @@ const STATUS_CONFIG: Record<PayStatus, { label: string; class: string }> = {
   processing: { label: "Processing", class: "pr-badge--processing" },
 };
 
-function fmt(n: number) {
-  return `₹${n.toLocaleString("en-IN")}`;
-}
-
 // ─── Summary Cards ────────────────────────────────────────────────────────────
 
 function SummaryCards({ data }: { data: StaffPayroll[] }) {
+  const { formatAmount: fmt, currencyCode } = useCurrency();
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
   const totalNet   = data.reduce((s, d) => s + d.net_pay, 0);
   const totalPaid  = data.filter((d) => d.status === "paid").reduce((s, d) => s + d.net_pay, 0);
   const pending    = data.filter((d) => d.status === "pending").length;
@@ -62,7 +61,7 @@ function SummaryCards({ data }: { data: StaffPayroll[] }) {
   return (
     <div className="pr-cards">
       <div className="pr-card">
-        <div className="pr-card-icon pr-card-icon--purple"><CurrencyRupee size={18} /></div>
+        <div className="pr-card-icon pr-card-icon--purple"><CurrencyIcon size={18} /></div>
         <div>
           <div className="pr-card-val">{fmt(totalNet)}</div>
           <div className="pr-card-label">Total payroll</div>
@@ -102,6 +101,7 @@ function PayrollRow({
   member: StaffPayroll;
   onMarkPaid: (id: string) => void;
 }) {
+  const { formatAmount: fmt } = useCurrency();
   const [open, setOpen] = useState(false);
   const cfg = STATUS_CONFIG[member.status];
 
@@ -202,6 +202,8 @@ function PayrollRow({
 const today = new Date();
 
 export default function PayrollPage() {
+  const { currencyCode } = useCurrency();
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
   const [search, setSearch]       = useState("");
   const [viewYear, setYear]       = useState(today.getFullYear());
   const [viewMonth, setMonth]     = useState(today.getMonth());
@@ -307,7 +309,7 @@ export default function PayrollPage() {
         <div className="pr-table-body">
           {filtered.length === 0 ? (
             <div className="pr-empty">
-              <CurrencyRupee size={32} className="pr-empty__icon" />
+              <CurrencyIcon size={32} className="pr-empty__icon" />
               <p>No payroll records for this month.</p>
               <span>Settle commissions from the Commissions page to generate payroll entries.</span>
             </div>
