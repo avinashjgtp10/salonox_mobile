@@ -736,11 +736,6 @@ export default function ProfilePage() {
                     placeholder="State" onChange={handleSalonFieldChange}
                   />
                   <ProfileField
-                    label="Country" value={String(salonForm.country ?? "")} name="country"
-                    icon={<Globe size={14} />} editing={salonEditing}
-                    placeholder="Country" onChange={handleSalonFieldChange}
-                  />
-                  <ProfileField
                     label="Pincode" value={String(salonForm.pincode ?? "")} name="pincode"
                     icon={<Hash size={14} />} editing={salonEditing}
                     placeholder="400001" error={salonFieldErrors.pincode}
