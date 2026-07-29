@@ -4,6 +4,7 @@ import {
   CalendarPlus, HouseDoorFill, StarFill, PencilSquare,
   Scissors, Palette2, Droplet, Eye, Gem, PersonFill, Flower1, HeartPulse,
 } from "react-bootstrap-icons";
+import { getCurrencyDef } from "../../../../config/currencies";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,9 +35,16 @@ export const fmtDur = (m: number) => {
   return m < 60 ? `${m} min` : `${Math.floor(m / 60)}h${m % 60 ? ` ${m % 60}m` : ""}`;
 };
 
-export const fmtPrice = (p: number | string) => {
+// `currencyCode` is optional and threaded down from whichever page renders
+// these shared components — the authenticated admin preview reads it from
+// the logged-in salon's own currency setting, while the public booking pages
+// (no admin session) read it off the salon record they fetched publicly.
+// Falls back to the app default when not yet known (e.g. still loading).
+export const fmtPrice = (p: number | string, currencyCode?: string) => {
   const n = typeof p === "string" ? parseFloat(p) : p;
-  return isNaN(n) ? "—" : n.toFixed(2);
+  if (isNaN(n)) return "—";
+  const def = getCurrencyDef(currencyCode);
+  return `${def.symbol}${n.toLocaleString(def.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
 export const DAYS  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
@@ -164,7 +172,7 @@ export function BackBtn({ label, onClick }: { label: string; onClick: () => void
   );
 }
 
-export function ServicesSummary({ services }: { services: ServiceItem[] }) {
+export function ServicesSummary({ services, currencyCode }: { services: ServiceItem[]; currencyCode?: string }) {
   const totalDuration = services.reduce((sum, s) => sum + (Number(s.duration) || 0), 0);
   const totalPrice = services.reduce((sum, s) => sum + (typeof s.price === "string" ? parseFloat(s.price) || 0 : s.price), 0);
   return (
@@ -179,7 +187,7 @@ export function ServicesSummary({ services }: { services: ServiceItem[] }) {
               {fmtDur(svc.duration)}
             </span>
           </div>
-          <span style={{ fontWeight:800, color:C.accent, fontSize:15 }}>{fmtPrice(svc.price)}</span>
+          <span style={{ fontWeight:800, color:C.accent, fontSize:15 }}>{fmtPrice(svc.price, currencyCode)}</span>
         </div>
       ))}
       {services.length > 1 && (
@@ -187,7 +195,7 @@ export function ServicesSummary({ services }: { services: ServiceItem[] }) {
           <span style={{ fontWeight:700, color:C.text, fontSize:13 }}>
             Total ({services.length} services) · {fmtDur(totalDuration)}
           </span>
-          <span style={{ fontWeight:800, color:C.text, fontSize:15 }}>{fmtPrice(totalPrice)}</span>
+          <span style={{ fontWeight:800, color:C.text, fontSize:15 }}>{fmtPrice(totalPrice, currencyCode)}</span>
         </div>
       )}
     </div>
@@ -195,12 +203,12 @@ export function ServicesSummary({ services }: { services: ServiceItem[] }) {
 }
 
 // Kept for any remaining single-service call sites.
-export function ServicePill({ svc }: { svc: ServiceItem }) {
-  return <ServicesSummary services={[svc]} />;
+export function ServicePill({ svc, currencyCode }: { svc: ServiceItem; currencyCode?: string }) {
+  return <ServicesSummary services={[svc]} currencyCode={currencyCode} />;
 }
 
-export function ServiceCard({ svc, popular, selected, onPick }:
-  { svc: ServiceItem; popular?: boolean; selected?: boolean; onPick: () => void }) {
+export function ServiceCard({ svc, popular, selected, onPick, currencyCode }:
+  { svc: ServiceItem; popular?: boolean; selected?: boolean; onPick: () => void; currencyCode?: string }) {
   const [hov, setHov] = useState(false);
   const m = catMeta(svc.category_name);
   return (
@@ -266,7 +274,7 @@ export function ServiceCard({ svc, popular, selected, onPick }:
         )}
         <div style={{ display:"flex", alignItems:"center", gap:10 }}>
           <span style={{ fontSize:17, fontWeight:900, color:C.accent }}>
-            {fmtPrice(svc.price)}
+            {fmtPrice(svc.price, currencyCode)}
           </span>
           {svc.duration > 0 && (
             <span style={{ fontSize:12, color:C.muted, fontWeight:500 }}>
@@ -348,16 +356,17 @@ export function TimeChip({ t, sel, onPick }: { t:string; sel:string|null; onPick
   );
 }
 
-export function SuccessScreen({ salonName, selServices, selStaff, selDate, selTime, form, onReset, onBackHome, onAddToCalendar, onManage }:
+export function SuccessScreen({ salonName, selServices, selStaff, selDate, selTime, form, onReset, onBackHome, onAddToCalendar, onManage, currencyCode }:
   { salonName:string; selServices:ServiceItem[]; selStaff:StaffMember|"any"|null;
     selDate:Date; selTime:string|null; form:{name:string;email:string};
-    onReset:()=>void; onBackHome:()=>void; onAddToCalendar:()=>void; onManage?:()=>void }) {
+    onReset:()=>void; onBackHome:()=>void; onAddToCalendar:()=>void; onManage?:()=>void; currencyCode?:string }) {
 
   const staffLabel = selStaff === "any" ? "Any available" : selStaff ? staffName(selStaff as StaffMember) : "";
   const dateLabel = `${DAYS[selDate.getDay()]}, ${MONTHS[selDate.getMonth()]} ${selDate.getDate()}`;
   const serviceLabel = selServices.map((s) => s.name).join(", ");
   const totalLabel = fmtPrice(
-    selServices.reduce((sum, s) => sum + (typeof s.price === "string" ? parseFloat(s.price) || 0 : s.price), 0)
+    selServices.reduce((sum, s) => sum + (typeof s.price === "string" ? parseFloat(s.price) || 0 : s.price), 0),
+    currencyCode
   );
 
   return (

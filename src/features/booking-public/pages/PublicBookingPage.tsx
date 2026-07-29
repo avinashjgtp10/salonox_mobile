@@ -162,6 +162,7 @@ export default function PublicBookingPage() {
   const staffList: StaffMember[] = salonDetails?.staff ?? [];
   const salon = salonDetails?.salon ?? null;
   const salonName = salon?.business_name || salon?.display_name || salon?.name || "This salon";
+  const currencyCode: string | undefined = salon?.currency;
 
   // Hero / sidebar derived fields (defensive — backend salon shape is loosely typed;
   // banner_url is the real column, the rest are aliases some callers may send instead)
@@ -880,6 +881,7 @@ export default function PublicBookingPage() {
                 ? () => navigate(`/book/${slug}/manage/${createdAppointment.id}?token=${createdAppointment.manage_token}`)
                 : undefined
             }
+            currencyCode={currencyCode}
           />
         ) : (
           <div className="pb-container">
@@ -953,7 +955,8 @@ export default function PublicBookingPage() {
                       {filtered.map((svc) => (
                         <ServiceCard key={svc.id} svc={svc}
                           selected={selServices.some((s) => s.id === svc.id)}
-                          onPick={() => toggleService(svc)} />
+                          onPick={() => toggleService(svc)}
+                          currencyCode={currencyCode} />
                       ))}
                     </div>
                   )}
@@ -965,7 +968,7 @@ export default function PublicBookingPage() {
                           {selServices.length} service{selServices.length > 1 ? "s" : ""} selected
                         </p>
                         <p className="pb-continue-meta">
-                          {fmtDur(totalDuration)} · {fmtPrice(totalPrice)}
+                          {fmtDur(totalDuration)} · {fmtPrice(totalPrice, currencyCode)}
                         </p>
                       </div>
                       <button className="pb-continue-btn" onClick={() => setStep(2)}>
@@ -1149,7 +1152,7 @@ export default function PublicBookingPage() {
             {step === 2 && selServices.length > 0 && (
               <>
                 <BackBtn label="Back to Services" onClick={() => setStep(1)} />
-                <ServicesSummary services={selServices} />
+                <ServicesSummary services={selServices} currencyCode={currencyCode} />
 
                 <SectionHead title="Pick Your Stylist" sub="Choose who you'd like to work with" />
                 <div className="pb-staff-grid">
@@ -1281,7 +1284,7 @@ export default function PublicBookingPage() {
                           {selServices.map((s) => s.name).join(", ")}
                         </p>
                         <p className="pb-summary-meta">
-                          {fmtDur(totalDuration)} · {fmtPrice(totalPrice)}
+                          {fmtDur(totalDuration)} · {fmtPrice(totalPrice, currencyCode)}
                         </p>
                       </div>
                       <div className="pb-summary-body">
@@ -1298,7 +1301,7 @@ export default function PublicBookingPage() {
                       </div>
                       <div className="pb-summary-total">
                         <span className="pb-summary-total-label">Total</span>
-                        <span className="pb-summary-total-value">{fmtPrice(totalPrice)}</span>
+                        <span className="pb-summary-total-value">{fmtPrice(totalPrice, currencyCode)}</span>
                       </div>
                     </div>
 

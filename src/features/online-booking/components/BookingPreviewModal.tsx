@@ -12,6 +12,7 @@ import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import { STAFF } from "../../../services/api/endpoints/staff.endpoints";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { createPublicBookingThunk } from "../../../middleware/onlineBooking/onlineBooking.thunk";
+import { useCurrency } from "../../../hooks/useCurrency";
 import {
   C, DAYS, MONTHS, catMeta, staffName, initials, fmtDur, fmtPrice, nextDays, buildSlots,
   AvatarCircle, StepBar, SectionHead, BackBtn, ServicesSummary, ServiceCard, StaffCard, TimeChip, SuccessScreen,
@@ -46,6 +47,7 @@ interface Props {
 export default function BookingPreviewModal({ open, onClose, previewName, previewTagline, previewDescription, galleryPhotos }: Props) {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const { currencyCode } = useCurrency();
   const [loading,  setLoading]  = useState(true);
   const [salon,    setSalon]    = useState<SalonData>({ name: previewName || "My Salon" });
   const [services, setServices] = useState<ServiceItem[]>([]);
@@ -396,6 +398,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                   state: { focusAppointment: { id: createdAppointment.id, date: dateStr } },
                 });
               }}
+              currencyCode={currencyCode}
             />
 
           ) : (
@@ -465,7 +468,8 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                       {filtered.map((svc, idx) => (
                         <ServiceCard key={svc.id} svc={svc} popular={idx < 2 && isDemo}
                           selected={selServices.some(s => s.id === svc.id)}
-                          onPick={() => toggleService(svc)}/>
+                          onPick={() => toggleService(svc)}
+                          currencyCode={currencyCode}/>
                       ))}
                     </div>
                   )}
@@ -480,7 +484,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                           {selServices.length} service{selServices.length > 1 ? "s" : ""} selected
                         </p>
                         <p style={{ margin:0, fontSize:12, color:C.muted }}>
-                          {fmtDur(totalDuration)} · {fmtPrice(totalPrice)}
+                          {fmtDur(totalDuration)} · {fmtPrice(totalPrice, currencyCode)}
                         </p>
                       </div>
                       <button onClick={() => setStep(2)}
@@ -499,7 +503,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
               {step === 2 && (
                 <>
                   <BackBtn label="Back to Services" onClick={() => setStep(1)}/>
-                  <ServicesSummary services={selServices}/>
+                  <ServicesSummary services={selServices} currencyCode={currencyCode}/>
 
                   <SectionHead title="Pick Your Stylist" sub="Choose who you'd like to work with"/>
                   <div style={{ display:"grid",
@@ -660,7 +664,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                             {selServices.map(s => s.name).join(", ")}
                           </p>
                           <p style={{ margin:0, fontSize:12.5, opacity:0.85 }}>
-                            {fmtDur(totalDuration)} · {fmtPrice(totalPrice)}
+                            {fmtDur(totalDuration)} · {fmtPrice(totalPrice, currencyCode)}
                           </p>
                         </div>
                         <div style={{ padding:"16px 20px", display:"flex", flexDirection:"column", gap:10 }}>
@@ -688,7 +692,7 @@ export default function BookingPreviewModal({ open, onClose, previewName, previe
                           display:"flex", justifyContent:"space-between", alignItems:"center" }}>
                           <span style={{ fontSize:13, fontWeight:600, color:C.muted }}>Total</span>
                           <span style={{ fontSize:20, fontWeight:900, color:C.accent }}>
-                            {fmtPrice(totalPrice)}
+                            {fmtPrice(totalPrice, currencyCode)}
                           </span>
                         </div>
                       </div>
