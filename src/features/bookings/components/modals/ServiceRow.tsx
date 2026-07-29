@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
 import { useSelector } from "react-redux";
 import type { ServiceItem } from "../../types/scheduler-types";
-import { currencySymbol } from "../../utils/currency";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import TimeSelect from "../shared/TimeSelect";
 import { Trash } from "react-bootstrap-icons";
@@ -150,6 +150,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   membershipWalletInfo,
   taxAmount,
 }) => {
+  const { currencySymbol } = useCurrency();
   const schedulerContext = useSchedulerContext();
   const salonBranches = useSelector((s: RootState) => s.salon?.branches ?? []);
   const currentSalon = useSelector((s: RootState) => s.salon?.currentSalon ?? null);

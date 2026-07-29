@@ -2,7 +2,7 @@ import React from "react";
 import type { SingleMethod, SplitEntry } from "../../types";
 import "../../styles/AppointmentModal.scss";
 import { SINGLE_METHODS } from "../../types";
-import { currencySymbol } from "../../utils/currency";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import { PaymentMethodPicker } from "../../../../components/shared/PaymentMethodPicker";
 
 interface Props {
@@ -100,6 +100,7 @@ export const PaymentPanel: React.FC<Props> = ({
   previewPoints, previewWalletCredit,
   frozen,
 }) => {
+  const { currencySymbol } = useCurrency();
   // priorDueAmt is already the sum of only the SELECTED prior bookings (0 when
   // none are checked), so this collapses to remainingDue with nothing selected.
   const totalToCollect = remainingDue + priorDueAmt;

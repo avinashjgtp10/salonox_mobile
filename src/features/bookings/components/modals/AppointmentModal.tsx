@@ -1,6 +1,6 @@
 ﻿import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { SuccessOverlay } from "../../../../components/ui";
-import { currencySymbol } from "../../utils/currency";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
 import { useAppointment }    from "../../hooks/useAppointment";
 import { usePayment }        from "../../hooks/usePayment";
@@ -109,6 +109,7 @@ export const AppointmentModal: React.FC<Props> = ({
   onRefresh, onCancelBooking, onDeleteBooking, quickSale,
 }) => {
   const dispatch = useAppDispatch();
+  const { currencySymbol, formatAmount } = useCurrency();
 
   // Keyboard accessibility: trap Tab inside the drawer, Escape closes it,
   // focus returns to whatever triggered it. Not a modal when embedded as a
@@ -1299,7 +1300,7 @@ export const AppointmentModal: React.FC<Props> = ({
         const freshBooking = store.getState().scheduler.bookings.find(
           (b: any) => String(b.id) === String(apptId)
         );
-        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice });
+        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
       }
       // A membership/eWallet/reward-points/referral deduction just happened
       // server-side — refetch this client's balances so the still-open
@@ -1452,7 +1453,7 @@ export const AppointmentModal: React.FC<Props> = ({
         const freshBooking = store.getState().scheduler.bookings.find(
           (b: any) => String(b.id) === String(id)
         );
-        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice });
+        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
       }
       setClientRefreshKey((k) => k + 1);
       finishWithPaidPopup();
@@ -1700,7 +1701,7 @@ export const AppointmentModal: React.FC<Props> = ({
         icon: AwardFill,
         variantClass: "benefit-card--membership",
         title: activeMembershipsWithBalance.length > 1 ? `Membership (${activeMembershipsWithBalance.length})` : "Membership",
-        value: `${currencySymbol}${membershipTotalBalance.toLocaleString("en-IN")} Remaining`,
+        value: `${formatAmount(membershipTotalBalance)} Remaining`,
         subtitle: activeMembershipsWithBalance.length > 1
           ? activeMembershipsWithBalance.map((m) => m.membershipName).join(", ")
           : (activeMembershipsWithBalance[0]?.membershipName ?? primaryMembership?.membershipName ?? ""),
@@ -1723,12 +1724,12 @@ export const AppointmentModal: React.FC<Props> = ({
         icon: WalletFill,
         variantClass: "benefit-card--ewallet",
         title: "eWallet",
-        value: `${currencySymbol}${eWalletBal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        value: formatAmount(eWalletBal),
         subtitle: "Available Balance",
         checked: useEWallet,
         onToggle: setUseEWallet,
         disabledReason: (!useEWallet && remainingAfterMembership <= 0)
-          ? (membershipWalletUsedTotal > 0 ? "Bill already fully covered by Membership Wallet" : "Bill total is already ₹0")
+          ? (membershipWalletUsedTotal > 0 ? "Bill already fully covered by Membership Wallet" : `Bill total is already ${formatAmount(0)}`)
           : undefined,
         input: {
           value: eWalletAmt,
@@ -1757,7 +1758,7 @@ export const AppointmentModal: React.FC<Props> = ({
                 membershipWalletUsedTotal > 0 ? "Membership Wallet" : "",
                 useEWallet && eWalletAmt > 0 ? "eWallet" : "",
               ].filter(Boolean);
-              return parts.length > 0 ? `Bill already fully covered by ${parts.join(" + ")}` : "Bill total is already ₹0";
+              return parts.length > 0 ? `Bill already fully covered by ${parts.join(" + ")}` : `Bill total is already ${formatAmount(0)}`;
             })()
           : undefined,
         input: {
@@ -1778,7 +1779,7 @@ export const AppointmentModal: React.FC<Props> = ({
         icon: PeopleFill,
         variantClass: "benefit-card--referral",
         title: "Referral Credit",
-        value: `${currencySymbol}${referralBal.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+        value: formatAmount(referralBal),
         subtitle: "Available Credit",
         checked: useReferralCredit,
         onToggle: setUseReferralCredit,
@@ -1789,7 +1790,7 @@ export const AppointmentModal: React.FC<Props> = ({
                 useEWallet && eWalletAmt > 0 ? "eWallet" : "",
                 useRewardPoints && rewardPointsRedeemedValue > 0 ? "Reward Points" : "",
               ].filter(Boolean);
-              return parts.length > 0 ? `Bill already fully covered by ${parts.join(" + ")}` : "Bill total is already ₹0";
+              return parts.length > 0 ? `Bill already fully covered by ${parts.join(" + ")}` : `Bill total is already ${formatAmount(0)}`;
             })()
           : undefined,
         input: {

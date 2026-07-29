@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { currencySymbol } from "../../utils/currency";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import type { ClientStats } from "../../types";
 import type { ClientPackage } from "../../../../services/api/endpoints/packages.endpoints";
 import type { ClientMembership } from "../../../../services/api/endpoints/clientMemberships.endpoints";
@@ -32,22 +32,29 @@ interface Props {
 // Phase 2 field but lives in the second row now, handled separately below.)
 const HISTORY_KEYS = new Set<keyof ClientStats>(["totalVisit", "lastVisit"]);
 
-const STAT_ROWS: Array<{
+type StatRow = {
   label: string;
   key: keyof ClientStats;
   format?: (v: any) => string;
   danger?: (v: any) => boolean;
   info?: boolean;
   hideWhen?: (v: any) => boolean;
-}> = [
-  { label: "E-Wallet",      key: "ewalletAmt",      format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}` },
-  { label: "Unpaid",        key: "unpaidAmt",        format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}`, danger: (v) => v > 0 },
-  { label: "Reward",        key: "rewardPoints",     format: (v) => `${Number(v).toLocaleString("en-IN")} pts` },
-  { label: "Referral",      key: "referralBalance",  format: (v) => `${currencySymbol}${Number(v).toLocaleString("en-IN")}` },
-  { label: "Visits",        key: "totalVisit",       hideWhen: (v) => !v || Number(v) === 0 },
-  { label: "Last Visit",    key: "lastVisit",        hideWhen: (v) => !v || v === "N/A" },
-  { label: "Cancelled",     key: "cancelled",        danger: (v) => v > 0 },
-];
+};
+
+// Built inside the component (not module-level) since `format` needs the
+// salon's currently-selected currency from useCurrency(), which only exists
+// inside a component's render.
+function buildStatRows(formatAmount: (n: number) => string): StatRow[] {
+  return [
+    { label: "E-Wallet",      key: "ewalletAmt",      format: (v) => formatAmount(Number(v)) },
+    { label: "Unpaid",        key: "unpaidAmt",        format: (v) => formatAmount(Number(v)), danger: (v) => v > 0 },
+    { label: "Reward",        key: "rewardPoints",     format: (v) => `${Number(v).toLocaleString("en-IN")} pts` },
+    { label: "Referral",      key: "referralBalance",  format: (v) => formatAmount(Number(v)) },
+    { label: "Visits",        key: "totalVisit",       hideWhen: (v) => !v || Number(v) === 0 },
+    { label: "Last Visit",    key: "lastVisit",        hideWhen: (v) => !v || v === "N/A" },
+    { label: "Cancelled",     key: "cancelled",        danger: (v) => v > 0 },
+  ];
+}
 
 function fmtExpiry(date: string | null | undefined): string {
   if (!date) return "";
@@ -96,6 +103,8 @@ export const ClientStatCard: React.FC<Props> = ({
   name, phone, address, stats, packages = [], memberships = [], onViewHistory, historyUrl,
   historyLoading = false, rewardPointsConfig,
 }) => {
+  const { formatAmount } = useCurrency();
+  const STAT_ROWS = buildStatRows(formatAmount);
   const initial = name?.charAt(0)?.toUpperCase() || "?";
   const rewardPopover = usePopover();
   const pkgPopover = usePopover();
@@ -167,7 +176,7 @@ export const ClientStatCard: React.FC<Props> = ({
                     <button
                       type="button"
                       className="pkg-info-btn reward-info-btn"
-                      title="View ₹ value"
+                      title="View money value"
                       onMouseEnter={rewardPopover.onMouseEnter}
                       onMouseLeave={rewardPopover.onMouseLeave}
                       onClick={rewardPopover.toggle}
@@ -178,7 +187,7 @@ export const ClientStatCard: React.FC<Props> = ({
                 </span>
                 {isReward && rewardPopover.visible && (
                   <div className="info-popover">
-                    ≈ {currencySymbol}{rewardMoneyValue.toLocaleString("en-IN", { maximumFractionDigits: 2 })}
+                    ≈ {formatAmount(rewardMoneyValue)}
                   </div>
                 )}
               </div>
@@ -199,7 +208,7 @@ export const ClientStatCard: React.FC<Props> = ({
             <div className="info-cell info">
               <span className="info-cell__label">Total Revenue</span>
               <span className="info-cell__value">
-                {currencySymbol}{Number(stats.totalRevenue).toLocaleString("en-IN")}
+                {formatAmount(Number(stats.totalRevenue))}
               </span>
             </div>
           ) : null}
@@ -341,7 +350,7 @@ export const ClientStatCard: React.FC<Props> = ({
                       </div>
                       <div className="pkg-card__row">
                         <span className="pkg-card__lbl">Price:</span>
-                        <span className="pkg-card__val">₹{Number(m.pricePaid ?? 0).toLocaleString("en-IN")}</span>
+                        <span className="pkg-card__val">{formatAmount(Number(m.pricePaid ?? 0))}</span>
                       </div>
                       <div className="pkg-card__row">
                         <span className="pkg-card__lbl">Sessions:</span>
@@ -351,7 +360,7 @@ export const ClientStatCard: React.FC<Props> = ({
                       </div>
                       <div className="pkg-card__row">
                         <span className="pkg-card__lbl">Balance Amount:</span>
-                        <span className="pkg-card__val">₹{Number(m.membershipWalletBalance ?? 0).toLocaleString("en-IN")}</span>
+                        <span className="pkg-card__val">{formatAmount(Number(m.membershipWalletBalance ?? 0))}</span>
                       </div>
                     </div>
                     );

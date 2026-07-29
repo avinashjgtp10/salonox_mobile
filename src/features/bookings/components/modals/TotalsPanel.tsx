@@ -1,5 +1,5 @@
 import React from "react";
-import { currencySymbol } from "../../utils/currency";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import type { TaxBreakdownEntry } from "../../utils/totalsUtils";
 import "../../styles/AppointmentModal.scss";
 
@@ -64,6 +64,7 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   alreadyPaid = 0, paidLabel = "Paid", dueAmount = 0, packageServiceCount = 0,
   grandTotal: grandTotalProp, roundOff: roundOffProp,
 }) => {
+  const { currencySymbol } = useCurrency();
   const discountVal = discountType === "Percentage (%)" ? (serviceTotal * discount) / 100 : discount;
   const totalDiscount = totalDiscountProp !== undefined ? totalDiscountProp : Math.min(discountVal, serviceTotal);
   const taxable = Math.max(0, subtotal - totalDiscount);
