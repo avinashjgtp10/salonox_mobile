@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button, Input, Modal } from "../../../components/ui";
+import { useCurrency } from "../../../hooks/useCurrency";
 import type {
   CashDashboardSummary,
   CashExpenseRecord,
@@ -60,9 +61,6 @@ interface CloseCounterModalProps {
   onNotify: Notify;
   onSubmit: (payload: CloseCounterPayload) => Promise<void>;
 }
-
-const formatCurrency = (value: number) =>
-  new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR" }).format(value || 0);
 
 const trimText = (value: string) => value.trim();
 
@@ -420,6 +418,7 @@ export function CloseCounterModal({
   onNotify,
   onSubmit,
 }: CloseCounterModalProps) {
+  const { formatAmount } = useCurrency();
   const [inStoreCash, setInStoreCash] = useState("");
   const [remarks, setRemarks] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
@@ -522,28 +521,28 @@ export function CloseCounterModal({
         <div className="cash-mgmt__close-grid">
           <div className="cash-mgmt__close-card">
             <span>Opening Balance</span>
-            <strong>{formatCurrency(dashboard.openingBalance)}</strong>
+            <strong>{formatAmount(dashboard.openingBalance)}</strong>
           </div>
           <div className="cash-mgmt__close-card">
             <span>Cash Revenue</span>
-            <strong>{formatCurrency(dashboard.cashRevenue)}</strong>
+            <strong>{formatAmount(dashboard.cashRevenue)}</strong>
           </div>
           <div className="cash-mgmt__close-card">
             <span>Cash Expense</span>
-            <strong>{formatCurrency(dashboard.cashExpense)}</strong>
+            <strong>{formatAmount(dashboard.cashExpense)}</strong>
           </div>
           <div className="cash-mgmt__close-card">
             <span>Expected Closing Balance</span>
-            <strong>{formatCurrency(dashboard.closingBalance)}</strong>
+            <strong>{formatAmount(dashboard.closingBalance)}</strong>
           </div>
           <div className="cash-mgmt__close-card">
             <span>In Store Cash</span>
-            <strong>{formatCurrency(Number(inStoreCash || 0))}</strong>
+            <strong>{formatAmount(Number(inStoreCash || 0))}</strong>
           </div>
           <div className="cash-mgmt__close-card">
             <span>Difference</span>
             <strong className={difference >= 0 ? "cash-mgmt__amount-positive" : "cash-mgmt__amount-negative"}>
-              {formatCurrency(difference)}
+              {formatAmount(difference)}
             </strong>
           </div>
         </div>
