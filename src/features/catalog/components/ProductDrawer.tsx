@@ -72,7 +72,13 @@ const ProductDrawer: React.FC<ProductDrawerProps> = ({
             <Field label="Brand"          value={brandName} />
             <Field label="Category"       value={categoryName} />
             <Field label="Stock level"    value={`${isNaN(parseFloat(product.amount)) ? 0 : parseFloat(product.amount)} in stock`} badge={
-              (isNaN(parseFloat(product.amount)) ? 0 : parseFloat(product.amount)) <= 0 ? "out" : (isNaN(parseFloat(product.amount)) ? 0 : parseFloat(product.amount)) <= 5 ? "low" : undefined
+              (() => {
+                const stock = isNaN(parseFloat(product.amount)) ? 0 : parseFloat(product.amount);
+                const alertAt = isNaN(parseFloat(product.qty_alert)) ? 0 : parseFloat(product.qty_alert);
+                if (stock <= 0) return "out";
+                if (alertAt > 0 && stock <= alertAt) return "low";
+                return undefined;
+              })()
             } />
           </section>
 

@@ -211,6 +211,21 @@
       box-shadow: 0 4px 16px rgba(16, 24, 40, 0.12);
       z-index: 1100;
       padding: 4px;
+
+      // Long option lists (e.g. all 10 units) need a visible scroll affordance —
+      // override the app-wide scrollbar-hiding rule (src/index.css) just here.
+      scrollbar-width: thin;
+      &::-webkit-scrollbar {
+        display: block;
+        width: 6px;
+      }
+      &::-webkit-scrollbar-thumb {
+        background: #d0d5dd;
+        border-radius: 4px;
+      }
+      &::-webkit-scrollbar-track {
+        background: transparent;
+      }
     }
 
     &__option {

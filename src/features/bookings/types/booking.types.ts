@@ -36,6 +36,15 @@ export interface ServiceItem {
   // undefined for an unpaid appointment, which falls back to receipt.ts's
   // blended bill-level rate approximation.
   tax?: number;
+  // Copied from the service's own configured consumables when it's picked
+  // (see ServiceRow.selectService) — carried on the appointment payload but
+  // only actually deducted from stock at completion (ConsumableDeductionModal).
+  consumables?: {
+    productId: string;
+    productName: string;
+    qty: number;
+    unit: string;
+  }[];
 }
 
 export interface PackageItem {

@@ -4,12 +4,16 @@ import { XLg } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import { createProductThunk, fetchBrandsThunk, fetchCategoriesThunk, createBrandThunk, createCategoryThunk } from "../../../middleware/catalog/products.thunk";
+import { fetchSuppliersThunk, createSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
 import Alert from "../../../components/ui/Alert";
 import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import { retailFromActiveMethod, markupPercentFromRetail, flatAmountFromRetail } from "../utils/productPricing";
 import type { MarkupMethod } from "../utils/productPricing";
+import { PRODUCT_UNITS, isConsumableType, TAX_TYPE_OPTIONS } from "../types/product.types";
+import type { ProductType, ProductUnit, TaxType } from "../types/product.types";
+import { PRODUCT_MESSAGES } from "../../../constants/messages";
 import "../styles/CreateProductPage.scss";
 
 
@@ -18,6 +22,7 @@ interface FormState {
   productName: string;
   barcode: string;
   brandId: string;
+  supplierId: string;
   amount: string;
   qtyAlert: string;
   description: string;
@@ -28,12 +33,19 @@ interface FormState {
   markupPercentage: string;
   flatAmount: string;
   markupMethod: MarkupMethod;
+  productType: ProductType;
+  unit: ProductUnit | "";
+  sizeValue: string;
+  taxType: TaxType;
+  customTaxRate: string;
+  hsnSac: string;
 }
 
 const initialForm: FormState = {
   productName: "",
   barcode: "",
   brandId: "",
+  supplierId: "",
   amount: "",
   qtyAlert: "",
   description: "",
@@ -44,7 +56,19 @@ const initialForm: FormState = {
   markupPercentage: "",
   flatAmount: "",
   markupMethod: "percentage",
+  productType: "retail",
+  unit: "",
+  sizeValue: "",
+  taxType: "no_tax",
+  customTaxRate: "",
+  hsnSac: "",
 };
+
+const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string }[] = [
+  { value: "retail", label: "Retail" },
+  { value: "consumable", label: "Consumable" },
+  { value: "both", label: "Both" },
+];
 
 const formatCategoryName = (name: unknown) =>
   String(name ?? "")
@@ -135,6 +159,7 @@ const CreateProductPage: React.FC = () => {
   const { brands, categories, loading: { create: loading }, error } = useSelector(
     (state: RootState) => state.products
   );
+  const suppliers = useSelector((state: RootState) => state.inventory.suppliers);
 
   const [form, setForm] = useState<FormState>(initialForm);
   const [newBrand, setNewBrand] = useState("");
@@ -143,20 +168,31 @@ const CreateProductPage: React.FC = () => {
   const [newCategory, setNewCategory] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [savingCategory, setSavingCategory] = useState(false);
+  const [newSupplier, setNewSupplier] = useState("");
+  const [showAddSupplier, setShowAddSupplier] = useState(false);
+  const [savingSupplier, setSavingSupplier] = useState(false);
   const [touched, setTouched] = useState<Record<string, boolean>>({});
+
+  const isConsumable = isConsumableType(form.productType);
 
   const validationErrors = {
     productName: !form.productName.trim() ? "Product name is required" : "",
     categoryId: !form.categoryId ? "Product category is required" : "",
     amount: !form.amount.trim() || isNaN(Number(form.amount)) ? "Product quantity is required" : "",
     supplyPrice: !form.supplyPrice.trim() || isNaN(Number(form.supplyPrice)) || Number(form.supplyPrice) <= 0 ? "Supplier price is required" : "",
-    qtyAlert: !form.qtyAlert.trim() || !Number.isInteger(Number(form.qtyAlert)) || Number(form.qtyAlert) < 0 ? "Low stock alert is required" : "",
+    qtyAlert: !form.qtyAlert.trim() || isNaN(Number(form.qtyAlert)) || (!isConsumable && !Number.isInteger(Number(form.qtyAlert))) || Number(form.qtyAlert) < 0
+      ? PRODUCT_MESSAGES.QTY_ALERT_REQUIRED
+      : form.amount.trim() && !isNaN(Number(form.amount)) && Number(form.qtyAlert) >= Number(form.amount)
+        ? PRODUCT_MESSAGES.QTY_ALERT_EXCEEDS_QUANTITY
+        : "",
+    unit: isConsumable && !form.unit ? "Unit is required for consumable products" : "",
+    hsnSac: form.hsnSac.trim() && !/^\d+$/.test(form.hsnSac.trim()) ? PRODUCT_MESSAGES.HSN_SAC_INVALID : "",
   };
 
   const isFormValid = Object.values(validationErrors).every((e) => !e);
 
   const touch = (field: string) => setTouched((prev) => ({ ...prev, [field]: true }));
-  const touchAll = () => setTouched({ productName: true, categoryId: true, amount: true, supplyPrice: true, qtyAlert: true });
+  const touchAll = () => setTouched({ productName: true, categoryId: true, amount: true, supplyPrice: true, qtyAlert: true, unit: true, hsnSac: true });
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -164,6 +200,7 @@ const CreateProductPage: React.FC = () => {
   useEffect(() => {
     dispatch(fetchBrandsThunk());
     dispatch(fetchCategoriesThunk());
+    dispatch(fetchSuppliersThunk());
   }, [dispatch]);
 
   // Supply price change recalculates retail price from whichever markup method is active
@@ -185,16 +222,6 @@ const CreateProductPage: React.FC = () => {
       const markup = parseFloat(val) || 0;
       const retail = val === "" ? prev.retailPrice : String(retailFromActiveMethod(supply, "percentage", markup, 0));
       return { ...prev, markupPercentage: val, flatAmount: "", markupMethod: "percentage", retailPrice: retail };
-    });
-  };
-
-  // Flat amount changes: becomes the active method, clears markup %, recalculates retail price
-  const handleFlatAmountChange = (val: string) => {
-    setForm((prev) => {
-      const supply = parseFloat(prev.supplyPrice) || 0;
-      const flat = parseFloat(val) || 0;
-      const retail = val === "" ? prev.retailPrice : String(retailFromActiveMethod(supply, "flat", 0, flat));
-      return { ...prev, flatAmount: val, markupPercentage: "", markupMethod: "flat", retailPrice: retail };
     });
   };
 
@@ -224,6 +251,18 @@ const CreateProductPage: React.FC = () => {
     setShowAddBrand(false);
   };
 
+  const handleAddSupplier = async () => {
+    if (!newSupplier.trim()) return;
+    setSavingSupplier(true);
+    const result = await dispatch(createSupplierThunk({ name: newSupplier.trim() })) as any;
+    setSavingSupplier(false);
+    if (result?.payload?.id) {
+      setField("supplierId", result.payload.id);
+    }
+    setNewSupplier("");
+    setShowAddSupplier(false);
+  };
+
   const handleAddCategory = async () => {
     if (!newCategory.trim()) return;
     setSavingCategory(true);
@@ -245,15 +284,22 @@ const CreateProductPage: React.FC = () => {
       retail_sales_enabled: form.retailSalesEnabled,
       barcode: form.barcode || null,
       brand_id: form.brandId || null,
+      supplier_id: form.supplierId || null,
       category_id: form.categoryId || null,
       amount: form.amount ? parseFloat(form.amount) : 0,
-      qty_alert: parseInt(form.qtyAlert, 10),
+      qty_alert: isConsumable ? parseFloat(form.qtyAlert) : parseInt(form.qtyAlert, 10),
       description: form.description || null,
       supply_price: form.supplyPrice ? parseFloat(form.supplyPrice) : 0,
       retail_price: form.retailSalesEnabled && form.retailPrice ? parseFloat(form.retailPrice) : null,
       markup_percentage: form.retailSalesEnabled && form.retailPrice
         ? markupPercentFromRetail(parseFloat(form.supplyPrice) || 0, parseFloat(form.retailPrice))
         : null,
+      product_type: form.productType,
+      unit: form.unit || null,
+      size: form.sizeValue.trim() && form.unit ? `${form.sizeValue.trim()} ${form.unit}` : null,
+      tax_type: form.taxType,
+      custom_tax_rate: form.taxType === "custom" && form.customTaxRate ? parseFloat(form.customTaxRate) : null,
+      hsn_sac: form.hsnSac.trim() || null,
     };
 
     const result = await dispatch(createProductThunk(payload));
@@ -357,10 +403,115 @@ const CreateProductPage: React.FC = () => {
               </div>
             )}
 
+            <ProductSelect
+              label="Supplier"
+              value={form.supplierId}
+              onChange={(v) => setField("supplierId", v)}
+              options={[
+                { value: "", label: "Select a supplier" },
+                ...suppliers.map((s: any) => ({ value: s.id, label: s.name })),
+              ]}
+            />
+            {/* Add Supplier inline */}
+            {!showAddSupplier ? (
+              <button
+                type="button"
+                className="btn btn-link p-0 mt-1 text-decoration-none fw-medium"
+                style={{ fontSize: "13px", color: "#6366f1" }}
+                onClick={() => setShowAddSupplier(true)}
+              >
+                + Add a supplier
+              </button>
+            ) : (
+              <div className="d-flex align-items-center gap-2 mt-2 p-3 rounded-3 border bg-white" style={{ fontSize: "13px" }}>
+                <input
+                  autoFocus
+                  type="text"
+                  className="form-control form-control-sm shadow-none border-secondary-subtle"
+                  placeholder="Supplier name"
+                  value={newSupplier}
+                  onChange={(e) => setNewSupplier(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddSupplier(); if (e.key === "Escape") setShowAddSupplier(false); }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-dark btn-sm rounded-pill px-3 fw-medium flex-shrink-0"
+                  onClick={handleAddSupplier}
+                  disabled={!newSupplier.trim() || savingSupplier}
+                >
+                  {savingSupplier ? "Saving..." : "Save"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-light btn-sm rounded-pill px-3 fw-medium flex-shrink-0 border"
+                  onClick={() => { setShowAddSupplier(false); setNewSupplier(""); }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
+
+            <div className="mt-3">
+              <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+                Product type <span style={{ color: "#dc2626" }}>*</span>
+              </label>
+              <div className="d-flex gap-2" role="group" aria-label="Product type">
+                {PRODUCT_TYPE_OPTIONS.map((opt) => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={`btn btn-sm rounded-pill px-3 ${form.productType === opt.value ? "btn-dark" : "btn-outline-secondary"}`}
+                    onClick={() => {
+                      setField("productType", opt.value);
+                      touch("unit");
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="d-flex flex-wrap mt-1" style={{ gap: 12 }}>
+              <div style={{ flex: "1 1 40%", minWidth: 140 }}>
+                <Input
+                  label="Size"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 100"
+                  value={form.sizeValue}
+                  onChange={(e) => setField("sizeValue", e.target.value)}
+                  containerClass=""
+                />
+              </div>
+              <div style={{ flex: "1 1 60%", minWidth: 180 }}>
+                <ProductSelect
+                  label={<>Unit of measure {isConsumable && <span style={{ color: "#dc2626" }}>*</span>}</>}
+                  value={form.unit}
+                  onChange={(v) => { setField("unit", v as ProductUnit); touch("unit"); }}
+                  onBlur={() => touch("unit")}
+                  options={[
+                    { value: "", label: "Select a unit" },
+                    ...PRODUCT_UNITS.map((u) => ({ value: u, label: u })),
+                  ]}
+                />
+              </div>
+            </div>
+            {form.sizeValue && form.unit && (
+              <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "4px" }}>
+                Will be saved as: {form.sizeValue} {form.unit}
+              </div>
+            )}
+            {touched.unit && validationErrors.unit && (
+              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.unit}</div>
+            )}
+
             <Input
               label={<>Product Quantity <span style={{ color: "#dc2626" }}>*</span></>}
               type="number"
               min="0"
+              step={isConsumable ? "0.01" : "1"}
               placeholder="0.00"
               value={form.amount}
               onChange={(e) => { setField("amount", e.target.value); touch("amount"); }}
@@ -375,6 +526,7 @@ const CreateProductPage: React.FC = () => {
               label={<>Low stock alert <span style={{ color: "#dc2626" }}>*</span></>}
               type="number"
               min="0"
+              step={isConsumable ? "0.01" : "1"}
               placeholder="e.g. 5"
               value={form.qtyAlert}
               onChange={(e) => { setField("qtyAlert", e.target.value); touch("qtyAlert"); }}
@@ -521,6 +673,44 @@ const CreateProductPage: React.FC = () => {
                   />
                 </div>
               </div>
+            )}
+          </Card>
+
+          {/* 3. Tax & compliance */}
+          <Card title="Tax & compliance" className="mb-4">
+            <ProductSelect
+              label="GST"
+              value={form.taxType}
+              onChange={(v) => setField("taxType", v as TaxType)}
+              options={TAX_TYPE_OPTIONS}
+            />
+
+            {form.taxType === "custom" && (
+              <Input
+                label="Custom tax rate"
+                type="text"
+                inputMode="decimal"
+                placeholder="0.00"
+                value={form.customTaxRate}
+                onChange={(e) => setField("customTaxRate", e.target.value)}
+                onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
+                iconLeft={<span>%</span>}
+                containerClass="mt-3"
+              />
+            )}
+
+            <Input
+              label={<>HSN/SAC code <span className="text-muted fw-normal">(Optional)</span></>}
+              type="text"
+              inputMode="numeric"
+              placeholder="e.g. 3305"
+              value={form.hsnSac}
+              onChange={(e) => { setField("hsnSac", e.target.value.replace(/\D/g, "")); touch("hsnSac"); }}
+              onBlur={() => touch("hsnSac")}
+              containerClass="mt-3"
+            />
+            {touched.hsnSac && validationErrors.hsnSac && (
+              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.hsnSac}</div>
             )}
           </Card>
 

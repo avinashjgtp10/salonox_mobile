@@ -9,6 +9,7 @@ import { selectAllCategories, selectAllStaff, selectStaffLoading } from "../../.
 import { useServiceForm } from "../hooks/useServiceForm.ts";
 import BasicDetailsTab from "../components/tabs/BasicDetailsTab.tsx";
 import TeamMembersTab from "../components/tabs/TeamMembersTab.tsx";
+import ConsumablesTab from "../components/tabs/ConsumablesTab.tsx";
 import OnlineBookingTab from "../components/tabs/OnlineBookingTab.tsx";
 import PortfolioImagesTab from "../components/tabs/PortfolioImagesTab.tsx";
 import FormsTab from "../components/tabs/FormsTab.tsx";
@@ -19,6 +20,7 @@ import "../styles/AddServicePage.scss";
 type TabKey =
   | "basic"
   | "team"
+  | "consumables"
   | "online-booking"
   | "portfolio"
   | "forms"
@@ -35,6 +37,7 @@ interface TabItem {
 const generalTabs: TabItem[] = [
   { key: "basic", label: "Basic details" },
   { key: "team", label: "Staff members" },
+  { key: "consumables", label: "Consumables used" },
 ];
 
 const settingsTabs: TabItem[] = [
@@ -168,6 +171,12 @@ const AddServicePage: React.FC = () => {
                   errors={validationErrors.team}
                   staffMembers={staffMembers}
                   staffLoading={staffLoading.fetchAll}
+                />
+              )}
+              {activeTab === "consumables" && (
+                <ConsumablesTab
+                  data={formData.consumables}
+                  onChange={(v: any) => updateField("consumables", v)}
                 />
               )}
               {activeTab === "online-booking" && (

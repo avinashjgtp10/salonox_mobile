@@ -41,6 +41,7 @@ export interface Service {
   gender_preference?: string | null;
   image_url?: string | null;
   treatment_type?: string | null;
+  consumables_used?: { product_id: string; product_name?: string; qty: number; unit: string }[];
   created_at?: string;
   updated_at?: string;
 }
@@ -106,6 +107,24 @@ export interface AddOnGroup {
 export interface ServiceAddOnsData {
   selectedGroupIds: string[];
   availableGroups: AddOnGroup[];
+}
+
+export interface ConsumableUsageEntry {
+  id: string;
+  productId: string;
+  productName: string;
+  qty: number;
+  unit: string;
+}
+
+export interface ConsumablesData {
+  items: ConsumableUsageEntry[];
+}
+
+export interface ConsumableUsagePayloadItem {
+  product_id: string;
+  qty: number;
+  unit: string;
 }
 
 export interface OnlineBookingData {
@@ -217,6 +236,7 @@ export interface CatalogFormData {
   team: TeamMembersData;
   resources: ResourcesData;
   addons: ServiceAddOnsData;
+  consumables: ConsumablesData;
   onlineBooking: OnlineBookingData;
   portfolio: PortfolioData;
   forms: FormsData;

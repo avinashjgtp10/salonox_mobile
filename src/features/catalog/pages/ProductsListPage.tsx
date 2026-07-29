@@ -16,6 +16,9 @@ import {
   Trash
 } from "react-bootstrap-icons";
 import { Dropdown } from "react-bootstrap";
+import { useDispatch, useSelector } from "react-redux";
+import type { AppDispatch, RootState } from "../../../store/store";
+import { fetchSuppliersThunk } from "../../../middleware/inventory/inventory.thunk";
 import { useProducts } from "../hooks/useProducts";
 import ProductDrawer from "../components/ProductDrawer";
 import Pagination from "../../../components/ui/Pagination";
@@ -29,9 +32,17 @@ interface FilterState {
   category: string;
   brand: string;
   stock: string;
+  productType: string;
 }
 
-const DEFAULT_FILTERS: FilterState = { category: "", brand: "", stock: "" };
+const DEFAULT_FILTERS: FilterState = { category: "", brand: "", stock: "", productType: "" };
+
+const PRODUCT_TYPE_FILTER_OPTIONS: FilterOption[] = [
+  { value: "", label: "All types" },
+  { value: "retail", label: "Retail" },
+  { value: "consumable", label: "Consumable" },
+  { value: "both", label: "Both" },
+];
 
 interface FilterOption {
   value: string;
@@ -131,6 +142,8 @@ const FilterSelect: React.FC<{
 
 const ProductsListPage: React.FC = () => {
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
+  const suppliers = useSelector((state: RootState) => state.inventory.suppliers);
   const {
     products, page: currentPage, pageSize, totalRecords,
     brands, categories, loading, error,
@@ -154,7 +167,7 @@ const ProductsListPage: React.FC = () => {
   const [pendingFilters, setPendingFilters] = useState<FilterState>(DEFAULT_FILTERS);
   // Applied filter state (triggers server fetch when changed)
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [openFilterSelect, setOpenFilterSelect] = useState<"category" | "brand" | null>(null);
+  const [openFilterSelect, setOpenFilterSelect] = useState<"category" | "brand" | "productType" | null>(null);
 
   const [activeModal, setActiveModal] = useState<
     "none" | "brands" | "add_brand" | "categories" | "add_category"
@@ -168,11 +181,16 @@ const ProductsListPage: React.FC = () => {
   const categoryMap: Record<string, string> = {};
   categories.forEach((c: any) => { categoryMap[c.id] = c.name; });
 
+  // Build a lookup map from supplier_id -> supplier name
+  const supplierMap: Record<string, string> = {};
+  suppliers.forEach((s: any) => { supplierMap[s.id] = s.name; });
+
   const buildFilterParams = (search: string, filters: FilterState) => ({
     search: search || undefined,
     category_id: filters.category && filters.category !== "none" ? filters.category : undefined,
     brand_id: filters.brand && filters.brand !== "none" ? filters.brand : undefined,
     stock: filters.stock === "low" ? "low" : filters.stock === "out" ? "out_of_stock" : undefined,
+    product_type: filters.productType || undefined,
   });
 
   const buildParams = (page: number, search: string, filters: FilterState, ps?: number) => ({
@@ -189,6 +207,7 @@ const ProductsListPage: React.FC = () => {
     setSelectedProducts([]);
     fetchBrands();
     fetchCategories();
+    dispatch(fetchSuppliersThunk());
     const t = setTimeout(() => { isMountedRef.current = true; }, 0);
     return () => clearTimeout(t);
   }, []);
@@ -224,7 +243,7 @@ const ProductsListPage: React.FC = () => {
   }, [fetchProducts, currentPage, searchQuery, appliedFilters, pageSize]);
 
   const hasActiveFilters =
-    !!appliedFilters.category || !!appliedFilters.brand || !!appliedFilters.stock;
+    !!appliedFilters.category || !!appliedFilters.brand || !!appliedFilters.stock || !!appliedFilters.productType;
 
   const handlePageChange = (newPage: number) => {
     setSelectedProducts([]);
@@ -375,7 +394,7 @@ const ProductsListPage: React.FC = () => {
           <Search className="search-icon-abs" size={18} />
           <input
             type="text"
-            placeholder="Search by product name or SKU"
+            placeholder="Search by product name, SKU or supplier"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -398,7 +417,7 @@ const ProductsListPage: React.FC = () => {
           Filters <Sliders size={16} />
           {hasActiveFilters && (
             <span className="ms-1 badge bg-dark rounded-pill" style={{ fontSize: "10px" }}>
-              {[appliedFilters.category, appliedFilters.brand, appliedFilters.stock].filter(Boolean).length}
+              {[appliedFilters.category, appliedFilters.brand, appliedFilters.stock, appliedFilters.productType].filter(Boolean).length}
             </span>
           )}
         </Button>
@@ -449,6 +468,8 @@ const ProductsListPage: React.FC = () => {
                 <th className="checkbox-cell" style={{ width: "48px", paddingRight: 0 }} />
                 <th>Product name & SKU</th>
                 <th>Category</th>
+                <th>Supplier</th>
+                <th>Type</th>
                 <th>Stock  Left</th>
                 <th>Retail price</th>
                 <th className="actions-cell" style={{ width: "56px" }} />
@@ -468,6 +489,8 @@ const ProductsListPage: React.FC = () => {
                     </div>
                   </td>
                   <td><Skeleton width="60%" height={12} /></td>
+                  <td><Skeleton width="50%" height={12} /></td>
+                  <td><Skeleton width="50%" height={12} /></td>
                   <td><Skeleton width="40%" height={12} /></td>
                   <td><Skeleton width="50%" height={12} /></td>
                   <td className="actions-cell" />
@@ -494,6 +517,8 @@ const ProductsListPage: React.FC = () => {
                 </th>
                 <th>Product name & SKU</th>
                 <th>Category</th>
+                <th>Supplier</th>
+                <th>Type</th>
                 <th>Stock  Left</th>
                 <th>Retail price</th>
                 <th className="actions-cell" style={{ width: "56px" }} />
@@ -531,6 +556,38 @@ const ProductsListPage: React.FC = () => {
                       </div>
                     </td>
                     <td>{p.category_id ? (categoryMap[p.category_id] ?? p.category_id) : "—"}</td>
+                    <td>{p.supplier_id ? (supplierMap[p.supplier_id] ?? p.supplier_id) : "—"}</td>
+                    <td>
+                      {(() => {
+                        const type = p.product_type || "retail";
+                        const styles: Record<string, { bg: string; color: string }> = {
+                          retail: { bg: "#e0e7ff", color: "#4338ca" },
+                          consumable: { bg: "#dcfce7", color: "#15803d" },
+                          both: { bg: "#fef3c7", color: "#b45309" },
+                        };
+                        const labels: Record<string, string> = {
+                          retail: "Retail",
+                          consumable: "Consumable",
+                          both: "Both",
+                        };
+                        const s = styles[type] ?? styles.retail;
+                        return (
+                          <span
+                            style={{
+                              display: "inline-block",
+                              background: s.bg,
+                              color: s.color,
+                              fontWeight: 600,
+                              fontSize: "12px",
+                              padding: "4px 10px",
+                              borderRadius: "12px",
+                            }}
+                          >
+                            {labels[type] ?? "Retail"}
+                          </span>
+                        );
+                      })()}
+                    </td>
                     <td className="stock-cell">
                       {(() => {
                         const rawQty = parseFloat(p.amount);
@@ -608,7 +665,7 @@ const ProductsListPage: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={6} className="text-center py-5">
+                  <td colSpan={8} className="text-center py-5">
                     No products found.
                   </td>
                 </tr>
@@ -756,6 +813,20 @@ const ProductsListPage: React.FC = () => {
                   <option value="low">Low in stock</option>
                   <option value="out">Out of stock</option>
                 </select>
+              </div>
+
+              {/* Product type */}
+              <div className="d-flex flex-column gap-2 mb-2">
+                <label className="form-label mb-0 fw-medium text-dark" style={{ fontSize: "14px" }}>
+                  Product type
+                </label>
+                <FilterSelect
+                  value={pendingFilters.productType}
+                  onChange={(v) => setPendingFilters((f) => ({ ...f, productType: v }))}
+                  options={PRODUCT_TYPE_FILTER_OPTIONS}
+                  open={openFilterSelect === "productType"}
+                  onOpenChange={(nextOpen) => setOpenFilterSelect(nextOpen ? "productType" : null)}
+                />
               </div>
             </div>
 

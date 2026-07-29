@@ -8,7 +8,7 @@ import {
 } from "../../../middleware/services/services.thunk";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
 import { selectAllServices } from "../../../store/selectors/slices.selectors";
-import type { CatalogFormData, Service } from "../types/catalog.types.ts";
+import type { CatalogFormData, Service, ConsumableUsagePayloadItem } from "../types/catalog.types.ts";
 
 const fromApiGenderPreference = (value?: string | null) => {
   if (!value) return null;
@@ -55,6 +55,15 @@ const mapServiceToFormData = (svc: Service): CatalogFormData => ({
   addons: {
     selectedGroupIds: [],
     availableGroups: [],
+  },
+  consumables: {
+    items: (svc.consumables_used ?? []).map((c) => ({
+      id: crypto.randomUUID(),
+      productId: c.product_id,
+      productName: c.product_name ?? "",
+      qty: c.qty,
+      unit: c.unit,
+    })),
   },
   onlineBooking: {
     enabled: svc.online_booking ?? true,
@@ -189,6 +198,13 @@ export const useEditServiceForm = (serviceId: string | number) => {
         staff_ids: formData.team.allMembers
           ? []
           : formData.team.selectedMemberIds,
+        consumables_used: formData.consumables.items.map(
+          (i): ConsumableUsagePayloadItem => ({
+            product_id: i.productId,
+            qty: i.qty,
+            unit: i.unit,
+          }),
+        ),
       };
 
       const resultAction = await dispatch(

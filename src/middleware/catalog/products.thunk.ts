@@ -21,6 +21,7 @@ export type FetchProductsParams = {
   category_id?: string;
   brand_id?: string;
   stock?: string;
+  product_type?: string;
   sort_by?: string;
   sort_order?: "ASC" | "DESC";
 };
