@@ -1,8 +1,11 @@
 import React, { useState, useRef, useEffect } from "react";
 import { ChevronDown } from "react-bootstrap-icons";
+import { useDispatch } from "react-redux";
 import Input from "../../../../components/ui/Input";
 import type { BasicDetailsData } from "../../types/catalog.types.ts";
 import { useCurrency } from "../../../../hooks/useCurrency";
+import type { AppDispatch } from "../../../../store/store";
+import { createCategoryThunk, fetchCategoriesThunk } from "../../../../middleware/services/categories.thunk";
 
 interface CategoryOption {
   id: string | number;
@@ -18,9 +21,27 @@ interface Props {
 }
 
 const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categories = [] }) => {
+  const dispatch = useDispatch<AppDispatch>();
   const { currencySymbol } = useCurrency();
   const [showCategoryMenu, setShowCategoryMenu] = useState(false);
   const categoryRef = useRef<HTMLDivElement>(null);
+  const [showAddCategory, setShowAddCategory] = useState(false);
+  const [newCategory, setNewCategory] = useState("");
+  const [savingCategory, setSavingCategory] = useState(false);
+
+  const handleAddCategory = async () => {
+    if (!newCategory.trim()) return;
+    setSavingCategory(true);
+    const result = await dispatch(createCategoryThunk({ name: newCategory.trim() }));
+    setSavingCategory(false);
+    if (createCategoryThunk.fulfilled.match(result)) {
+      update("categoryId", String(result.payload.id));
+      dispatch(fetchCategoriesThunk());
+      setShowCategoryMenu(false);
+    }
+    setNewCategory("");
+    setShowAddCategory(false);
+  };
 
   const update = (key: keyof BasicDetailsData, value: any) =>
     onChange({ ...data, [key]: value });
@@ -35,6 +56,8 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
     const handleClickOutside = (e: MouseEvent) => {
       if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
         setShowCategoryMenu(false);
+        setShowAddCategory(false);
+        setNewCategory("");
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -62,9 +85,9 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
             />
           </div>
 
-          <div className="col-md-6">
+          <div className="col-md-6" ref={categoryRef}>
             <label className="form-label">Menu category <span className="text-danger">*</span></label>
-            <div className="custom-select-wrapper category-select" ref={categoryRef}>
+            <div className="custom-select-wrapper category-select">
               <button
                 type="button"
                 className={`form-select text-start ${hasError("category") ? "border-danger" : ""}`}
@@ -100,9 +123,47 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
             {hasError("category") && (
               <div className="text-danger small mt-1">Category is required</div>
             )}
+
+            {!showAddCategory ? (
+              <button
+                type="button"
+                className="btn btn-link p-0 mt-1 text-decoration-none fw-medium"
+                style={{ fontSize: "13px", color: "#6366f1" }}
+                onClick={() => setShowAddCategory(true)}
+              >
+                + Add a category
+              </button>
+            ) : (
+              <div className="d-flex flex-wrap align-items-center gap-2 mt-2 p-3 rounded-3 border bg-white" style={{ fontSize: "13px" }}>
+                <input
+                  autoFocus
+                  type="text"
+                  className="form-control form-control-sm shadow-none border-secondary-subtle"
+                  placeholder="Category name"
+                  style={{ flex: "1 1 200px", minWidth: 160 }}
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddCategory(); if (e.key === "Escape") setShowAddCategory(false); }}
+                />
+                <button
+                  type="button"
+                  className="btn btn-dark btn-sm rounded-pill px-3 fw-medium flex-shrink-0"
+                  onClick={handleAddCategory}
+                  disabled={!newCategory.trim() || savingCategory}
+                >
+                  {savingCategory ? "Saving..." : "Save"}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-light btn-sm rounded-pill px-3 fw-medium flex-shrink-0 border"
+                  onClick={() => { setShowAddCategory(false); setNewCategory(""); }}
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
 
-    
           <div className="col-md-6">
             <label className="form-label">Gender preference (Optional)</label>
             <div className="custom-select-wrapper">
@@ -114,7 +175,7 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
                 <option value="">No preference</option>
                 <option value="male">Male</option>
                 <option value="female">Female</option>
-                <option value="any">Any</option>
+                <option value="other">Other</option>
               </select>
               <ChevronDown className="select-icon" />
             </div>
