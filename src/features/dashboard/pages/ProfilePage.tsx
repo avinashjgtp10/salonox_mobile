@@ -354,13 +354,14 @@ export default function ProfilePage() {
     if (!/[A-Z]/.test(pwNew)) { setPwError("Must contain at least one uppercase letter."); return; }
     if (!/[a-z]/.test(pwNew)) { setPwError("Must contain at least one lowercase letter."); return; }
     if (!/[0-9]/.test(pwNew)) { setPwError("Must contain at least one number."); return; }
+    if (pwNew === pwCurrent) { setPwError("New password must be different from your current password."); return; }
     if (pwNew !== pwConfirm) { setPwError("Passwords do not match."); return; }
     setPwError(null);
     const result = await dispatch(changePasswordThunk({ currentPassword: pwCurrent, newPassword: pwNew }));
     if (changePasswordThunk.fulfilled.match(result)) {
       setPwSuccess(true);
       setPwCurrent(""); setPwNew(""); setPwConfirm("");
-      showSuccess("Password changed successfully!");
+      showSuccess("Password updated successfully.");
       setTimeout(() => { setPwSuccess(false); setPwSection(false); }, 2000);
     } else {
       const msg = String(result.payload ?? "Failed to change password.");
@@ -794,7 +795,7 @@ export default function ProfilePage() {
               <div className="pp-pw-body">
                 {pwSuccess && (
                   <div className="pp-success-banner">
-                    <CheckCircleFill size={13} /> Password changed successfully!
+                    <CheckCircleFill size={13} /> Password updated successfully.
                   </div>
                 )}
                 {pwError && (
