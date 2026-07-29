@@ -1,13 +1,15 @@
+import Constants from "expo-constants";
 import { Ionicons } from "@expo/vector-icons";
+import * as WebBrowser from "expo-web-browser";
 import { router, type Href } from "expo-router";
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { getApiErrorMessage } from "@/services/api";
+import { api, getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
 import {
   DashboardRadius as Radius,
@@ -27,7 +29,16 @@ import {
 } from "@/utils/userProfile";
 import { useMemo, useState } from "react";
 
+const WEB_APP_URL = "https://www.salonox.com";
+const SUPPORT_EMAIL = "support@salonox.com";
+
 const MENU_ITEMS = [
+  {
+    description: "Explore sales, staff, inventory, membership, and marketing performance.",
+    icon: "stats-chart-outline" as const,
+    route: "/reports" as Href,
+    title: "Reports",
+  },
   {
     description: "Search, segment, and manage salon clients with visit history and memberships.",
     icon: "people-outline" as const,
@@ -92,7 +103,60 @@ export default function MoreScreen() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
-  const isBusy = isLoggingOut || isLoggingOutAll || isSendingOtp;
+  const [isReportModalVisible, setIsReportModalVisible] = useState(false);
+  const [isSubmittingReport, setIsSubmittingReport] = useState(false);
+  const [reportSubject, setReportSubject] = useState("");
+  const [reportMessage, setReportMessage] = useState("");
+  const isBusy = isLoggingOut || isLoggingOutAll || isSendingOtp || isSubmittingReport;
+  const appVersion =
+    Constants.expoConfig?.version ??
+    Constants.manifest2?.extra?.expoClient?.version ??
+    "Unavailable";
+  const buildNumber =
+    Constants.expoConfig?.ios?.buildNumber ??
+    Constants.expoConfig?.android?.versionCode?.toString() ??
+    "Unavailable";
+
+  const showUnavailable = (title: string, message: string) => {
+    Alert.alert(title, message);
+  };
+
+  const openWebAppPage = async (path: string) => {
+    await WebBrowser.openBrowserAsync(`${WEB_APP_URL}${path}`);
+  };
+
+  const handleContactSupport = async () => {
+    await Linking.openURL(`mailto:${SUPPORT_EMAIL}`);
+  };
+
+  const handleSubmitReport = async () => {
+    const subject = reportSubject.trim();
+    const message = reportMessage.trim();
+
+    if (!subject || !message) {
+      Alert.alert("Details required", "Add a subject and description before submitting.");
+      return;
+    }
+
+    setIsSubmittingReport(true);
+
+    try {
+      await api.post("/support", {
+        category: "technical",
+        message,
+        priority: "medium",
+        subject,
+      });
+      setIsReportModalVisible(false);
+      setReportSubject("");
+      setReportMessage("");
+      Alert.alert("Report submitted", "Your report has been sent to SalonOX support.");
+    } catch (error) {
+      Alert.alert("Unable to submit report", getApiErrorMessage(error));
+    } finally {
+      setIsSubmittingReport(false);
+    }
+  };
 
   const handleLogout = async () => {
     if (isBusy) {
@@ -198,6 +262,52 @@ export default function MoreScreen() {
       loading: false,
       onPress: () => router.push("/privacy-policy" as Href),
       title: "Privacy Policy",
+    },
+  ];
+  const aboutActions = [
+    {
+      description: "How SalonOX collects, uses, and protects your data.",
+      icon: "shield-checkmark-outline" as const,
+      key: "privacy",
+      onPress: () => router.push("/privacy-policy" as Href),
+      title: "Privacy Policy",
+    },
+    {
+      description: "Read the SalonOX Terms & Conditions.",
+      icon: "reader-outline" as const,
+      key: "terms",
+      onPress: () => openWebAppPage("/terms"),
+      title: "Terms & Conditions",
+    },
+    {
+      description: "Coming Soon",
+      icon: "code-slash-outline" as const,
+      key: "licenses",
+      onPress: () => showUnavailable("Coming Soon", "Open source licenses will be available soon."),
+      title: "Open Source Licenses",
+    },
+  ];
+  const supportActions = [
+    {
+      description: "Contact SalonOX support at support@salonox.com.",
+      icon: "mail-outline" as const,
+      key: "support",
+      onPress: handleContactSupport,
+      title: "Contact Support",
+    },
+    {
+      description: "Send issue details directly to SalonOX support.",
+      icon: "bug-outline" as const,
+      key: "report-problem",
+      onPress: () => setIsReportModalVisible(true),
+      title: "Report a Problem",
+    },
+    {
+      description: "Coming Soon",
+      icon: "help-circle-outline" as const,
+      key: "faq",
+      onPress: () => showUnavailable("Coming Soon", "FAQ will be available soon."),
+      title: "FAQ",
     },
   ];
 
@@ -306,6 +416,61 @@ export default function MoreScreen() {
           ))}
         </View>
 
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>About</Text>
+          <TouchableOpacity
+            activeOpacity={0.84}
+            onPress={() => openWebAppPage("/about")}
+            style={styles.versionCard}
+          >
+            <Text style={styles.versionTitle}>SalonOX Mobile</Text>
+            <Text style={styles.versionText}>Version {appVersion}</Text>
+            <Text style={styles.versionText}>Build {buildNumber}</Text>
+          </TouchableOpacity>
+          {aboutActions.map((action, index) => (
+            <TouchableOpacity
+              key={action.key}
+              activeOpacity={0.84}
+              onPress={action.onPress}
+              style={[styles.menuCard, index > 0 && styles.menuCardSpaced]}
+            >
+              <View style={styles.menuCardLeft}>
+                <View style={styles.menuIcon}>
+                  <Ionicons name={action.icon} size={20} color={Colors.primary} />
+                </View>
+                <View style={styles.menuCopy}>
+                  <Text style={styles.menuTitle}>{action.title}</Text>
+                  <Text style={styles.menuDescription}>{action.description}</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.text2} />
+            </TouchableOpacity>
+          ))}
+        </View>
+
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Help & Support</Text>
+          {supportActions.map((action, index) => (
+            <TouchableOpacity
+              key={action.key}
+              activeOpacity={0.84}
+              onPress={action.onPress}
+              style={[styles.menuCard, index > 0 && styles.menuCardSpaced]}
+            >
+              <View style={styles.menuCardLeft}>
+                <View style={styles.menuIcon}>
+                  <Ionicons name={action.icon} size={20} color={Colors.primary} />
+                </View>
+                <View style={styles.menuCopy}>
+                  <Text style={styles.menuTitle}>{action.title}</Text>
+                  <Text style={styles.menuDescription}>{action.description}</Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={Colors.text2} />
+            </TouchableOpacity>
+          ))}
+        </View>
+
         <TouchableOpacity
           activeOpacity={0.84}
           disabled={isBusy}
@@ -322,6 +487,57 @@ export default function MoreScreen() {
           </Text>
         </TouchableOpacity>
       </ScrollView>
+      <Modal
+        animationType="slide"
+        onRequestClose={() => setIsReportModalVisible(false)}
+        transparent
+        visible={isReportModalVisible}
+      >
+        <View style={styles.modalBackdrop}>
+          <View style={styles.reportModal}>
+            <View style={styles.reportModalHeader}>
+              <Text style={styles.reportModalTitle}>Report a Problem</Text>
+              <TouchableOpacity
+                accessibilityLabel="Close report form"
+                disabled={isSubmittingReport}
+                onPress={() => setIsReportModalVisible(false)}
+              >
+                <Ionicons name="close" size={24} color={Colors.text2} />
+              </TouchableOpacity>
+            </View>
+            <TextInput
+              editable={!isSubmittingReport}
+              onChangeText={setReportSubject}
+              placeholder="Subject"
+              placeholderTextColor={Colors.text2}
+              style={styles.reportInput}
+              value={reportSubject}
+            />
+            <TextInput
+              editable={!isSubmittingReport}
+              multiline
+              onChangeText={setReportMessage}
+              placeholder="Describe the problem"
+              placeholderTextColor={Colors.text2}
+              style={[styles.reportInput, styles.reportMessageInput]}
+              textAlignVertical="top"
+              value={reportMessage}
+            />
+            <TouchableOpacity
+              activeOpacity={0.84}
+              disabled={isSubmittingReport}
+              onPress={handleSubmitReport}
+              style={[styles.reportSubmitButton, isSubmittingReport && styles.logoutButtonDisabled]}
+            >
+              {isSubmittingReport ? (
+                <ActivityIndicator color="#FFFFFF" size="small" />
+              ) : (
+                <Text style={styles.reportSubmitText}>Submit Report</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -471,6 +687,74 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     letterSpacing: 0,
     marginBottom: Spacing.sm,
     textTransform: "uppercase",
+  },
+  versionCard: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.card,
+    borderWidth: 1,
+    marginBottom: AppLayout.sectionGap,
+    padding: AppLayout.cardPadding,
+  },
+  versionTitle: {
+    color: Colors.heading,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  versionText: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  modalBackdrop: {
+    backgroundColor: "rgba(0, 0, 0, 0.55)",
+    flex: 1,
+    justifyContent: "flex-end",
+  },
+  reportModal: {
+    backgroundColor: Colors.card,
+    borderTopLeftRadius: Radius.xxl,
+    borderTopRightRadius: Radius.xxl,
+    padding: AppLayout.cardPadding,
+    paddingBottom: AppLayout.contentBottomPadding,
+  },
+  reportModalHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+  },
+  reportModalTitle: {
+    color: Colors.heading,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  reportInput: {
+    backgroundColor: Colors.bg,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.card,
+    borderWidth: 1,
+    color: Colors.heading,
+    fontSize: 14,
+    marginBottom: AppLayout.sectionGap,
+    minHeight: 50,
+    padding: AppLayout.cardPadding,
+  },
+  reportMessageInput: {
+    minHeight: 140,
+  },
+  reportSubmitButton: {
+    alignItems: "center",
+    backgroundColor: Colors.primaryDark,
+    borderRadius: Radius.full,
+    justifyContent: "center",
+    minHeight: 52,
+  },
+  reportSubmitText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
   },
   menuCardDisabled: {
     opacity: 0.6,
