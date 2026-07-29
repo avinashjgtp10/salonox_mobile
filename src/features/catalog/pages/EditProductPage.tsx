@@ -95,7 +95,6 @@ const EditProductPage: React.FC = () => {
   const [showAddSupplier, setShowAddSupplier] = useState(false);
   const [savingSupplier, setSavingSupplier] = useState(false);
   const [qtyAlertTouched, setQtyAlertTouched] = useState(false);
-  const [unitTouched, setUnitTouched] = useState(false);
   const [hsnSacTouched, setHsnSacTouched] = useState(false);
 
   const isConsumable = isConsumableType(form.productType);
@@ -105,8 +104,6 @@ const EditProductPage: React.FC = () => {
     : form.amount.trim() && !isNaN(Number(form.amount)) && Number(form.qtyAlert) >= Number(form.amount)
       ? PRODUCT_MESSAGES.LOW_STOCK_ALERT_EXCEEDS_QUANTITY
       : "";
-
-  const unitError = isConsumable && !form.unit ? "Unit is required for consumable products" : "";
 
   const hsnSacError = form.hsnSac.trim() && !/^\d+$/.test(form.hsnSac.trim()) ? PRODUCT_MESSAGES.HSN_SAC_INVALID : "";
 
@@ -224,9 +221,8 @@ const EditProductPage: React.FC = () => {
 
   const handleSubmit = async () => {
     setQtyAlertTouched(true);
-    setUnitTouched(true);
     setHsnSacTouched(true);
-    if (qtyAlertError || unitError || hsnSacError) return;
+    if (qtyAlertError || hsnSacError) return;
 
     const payload = {
       name: form.productName.trim(),
@@ -377,10 +373,7 @@ const EditProductPage: React.FC = () => {
                     key={opt.value}
                     type="button"
                     className={`btn btn-sm rounded-pill px-3 ${form.productType === opt.value ? "btn-dark" : "btn-outline-secondary"}`}
-                    onClick={() => {
-                      setField("productType", opt.value);
-                      setUnitTouched(true);
-                    }}
+                    onClick={() => setField("productType", opt.value)}
                   >
                     {opt.label}
                   </button>
@@ -403,10 +396,10 @@ const EditProductPage: React.FC = () => {
               </div>
               <div style={{ flex: "1 1 60%", minWidth: 180 }}>
                 <Select
-                  label={<>Unit of measure {isConsumable && <span style={{ color: "#dc2626" }}>*</span>}</>}
+                  label="Unit of measure"
                   containerClass=""
                   value={form.unit}
-                  onChange={(e) => { setField("unit", e.target.value as ProductUnit); setUnitTouched(true); }}
+                  onChange={(e) => setField("unit", e.target.value as ProductUnit)}
                 >
                   <option value="">Select a unit</option>
                   {PRODUCT_UNITS.map((u) => (
@@ -419,9 +412,6 @@ const EditProductPage: React.FC = () => {
               <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "4px" }}>
                 Will be saved as: {form.sizeValue} {form.unit}
               </div>
-            )}
-            {unitTouched && unitError && (
-              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{unitError}</div>
             )}
 
             <Input
