@@ -182,9 +182,12 @@ export function printReceipt(
   const now = new Date();
   const printDate = now.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
   const printTime = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  // invoiceNumber now already carries the full "INV-00002"-style value from
+  // the linked sale (see appointments.repository.ts/bookingMapper.ts) — no
+  // longer a bare sequence number that needs its own INV- prefix/padding here.
   const invoiceSeq = (booking as any).invoiceNumber || (booking as any).invoice_number;
   const invoiceNo  = invoiceSeq
-    ? `INV-${String(invoiceSeq).padStart(5, "0")}`
+    ? String(invoiceSeq)
     : `INV-${String(booking.id).slice(0, 8).toUpperCase()}`;
 
   const apptDate = (booking as any).billDate || (booking as any).date || "—";

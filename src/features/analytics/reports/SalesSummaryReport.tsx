@@ -251,6 +251,10 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
       const body: Record<string, any> = {
         start_date: dateFrom, end_date: dateTo,
         page: currentPage, limit: pageSize,
+        // Sales Summary is a revenue report — only Paid/Partial Payment sales
+        // are actual revenue. Upcoming/Cancelled/No Show/Deleted etc. must
+        // never contribute to rows or the server-computed stats totals.
+        statuses: ["paid", "partial"],
       };
       if (staffFilter !== "All") body.staff_id = staffFilter;
       if (categoryFilter !== "All") body.category_id = categoryFilter;
@@ -258,7 +262,11 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
       const res = await api.post(SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const list: any[] = Array.isArray(data?.rows) ? data.rows : [];
-      setRows(list.map(mapAppointment));
+      // Defensive client-side filter in addition to the statuses param above —
+      // only Paid/Partial Payment sales are revenue and belong in this report
+      // (table + export), regardless of what the backend returns.
+      const eligible = list.filter(r => ["paid", "partial"].includes(String(r.status ?? "").toLowerCase()));
+      setRows(eligible.map(mapAppointment));
       setTotal(Number(data?.pagination?.total) || 0);
       const s = data?.stats ?? {};
       setStats({
