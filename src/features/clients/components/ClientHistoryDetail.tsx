@@ -8,6 +8,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { useCurrency } from "../../../hooks/useCurrency";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { getTaxModuleConfig } from "../../settings/utils/taxModuleSettings";
 import {
@@ -159,9 +160,6 @@ const fmtDateShort = (iso: string) =>
     day: "2-digit", month: "short", year: "numeric",
   });
 
-const fmtRupees = (v: number | string) =>
-  "₹" + Number(v).toLocaleString("en-IN", { maximumFractionDigits: 0 });
-
 const getInitials = (name: string) =>
   name
     .split(" ")
@@ -211,6 +209,8 @@ export interface ClientHistoryDetailProps {
 export default function ClientHistoryDetail({ clientId, onClose, initialTab }: ClientHistoryDetailProps) {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { formatAmount } = useCurrency();
+  const fmtRupees = (v: number | string) => formatAmount(Number(v));
   const currentSalon = useAppSelector((s: any) => s.salon.currentSalon);
   const reduxStaff = useAppSelector((s: any) => s.staff.items ?? []);
   const settingItems = useAppSelector((s: any) => s.setting.items);
@@ -655,7 +655,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       rewardPointsValue: (appt as any).reward_points_value,
       referralCreditUsed: (appt as any).referral_credit_used,
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
   };
 
   const printSaleBill = (s: SaleRecord) => {
@@ -673,7 +673,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       invoiceNumber: s.invoice_number,
       grandTotalOverride: Number(s.total_amount) || 0,
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
   };
 
   const printPackageBill = (pkg: PackageRecord, matchedSale: SaleRecord | undefined) => {
@@ -705,7 +705,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       invoiceNumber: matchedSale?.invoice_number,
       grandTotalOverride: matchedSale ? Number(matchedSale.total_amount) : (Number(pkg.total_amount) || 0),
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email }, { showTaxBreakup: showTaxBreakupOnInvoice });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
   };
 
   if (historyLoading) {
@@ -1176,8 +1176,8 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                         )}
                       </div>
                       <div className="chp-pkg-footer">
-                        <span className="chp-pkg-amount">Wallet Balance: ₹{Number(m.membership_wallet_balance).toLocaleString("en-IN")}</span>
-                        <span className="chp-pkg-amount">₹{Number(m.price_paid).toLocaleString("en-IN")}</span>
+                        <span className="chp-pkg-amount">Wallet Balance: {formatAmount(Number(m.membership_wallet_balance))}</span>
+                        <span className="chp-pkg-amount">{formatAmount(Number(m.price_paid))}</span>
                       </div>
                     </div>
                   );
@@ -1244,7 +1244,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                       <tr key={i}>
                         <td>{it.name}</td>
                         <td>{fmtDateShort(it.sale_date)}</td>
-                        <td>₹{Number(it.total_price || 0).toLocaleString("en-IN")}</td>
+                        <td>{formatAmount(Number(it.total_price || 0))}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -1307,7 +1307,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                       </span>
                       <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                         <span className="chp-pkg-amount">
-                          ₹{Number(pkg.total_amount).toLocaleString("en-IN")}
+                          {formatAmount(Number(pkg.total_amount))}
                         </span>
                         <button
                           className="chp-print-btn"
@@ -1423,7 +1423,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                         </span>
                       </td>
                       <td style={{ textAlign: "right", fontWeight: 700 }}>
-                        ₹{Number(s.total_amount).toLocaleString("en-IN")}
+                        {formatAmount(Number(s.total_amount))}
                       </td>
                     </tr>
                   ))}
