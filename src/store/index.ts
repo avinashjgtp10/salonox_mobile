@@ -15,6 +15,7 @@ import membershipReducer from "@/store/membership/membership.slice";
 import networkReducer from "@/store/network/network.slice";
 import notificationReducer from "@/store/notification/notification.slice";
 import profileReducer from "@/store/profile/profile.slice";
+import reportReducer from "@/store/report/report.slice";
 import productReducer from "@/store/product/product.slice";
 import salesReducer from "@/store/sales/sales.slice";
 import salonReducer from "@/store/salon/salon.slice";
@@ -44,6 +45,7 @@ const appReducer = combineReducers({
   network: networkReducer,
   notification: notificationReducer,
   profile: profileReducer,
+  report: reportReducer,
   product: productReducer,
   sales: salesReducer,
   salon: salonReducer,

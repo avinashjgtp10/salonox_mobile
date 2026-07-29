@@ -10,6 +10,7 @@ export * from "./payment.endpoints";
 export * from "./product.endpoints";
 export * from "./profile.endpoints";
 export * from "./sales.endpoints";
+export * from "./report.endpoints";
 export * from "./service.endpoints";
 export * from "./staff.endpoints";
 export * from "./user.endpoints";
