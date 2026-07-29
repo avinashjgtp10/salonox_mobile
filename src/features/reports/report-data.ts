@@ -1,5 +1,6 @@
 import type { ReportData } from "@/store/report/report.slice";
 import type { ReportSlug } from "@/features/reports/report-config";
+import { formatInvoiceNumber } from "@/utils/receipt";
 
 export type ReportRow = Record<string, unknown>;
 
@@ -48,6 +49,11 @@ const percentKey = /(pct|percent)$/i;
 
 export const formatReportValue = (key: string, value: unknown): string => {
   if (value === null || value === undefined || value === "") return "—";
+  if (key === "invoiceNumber" || key === "invoiceNo") {
+    return formatInvoiceNumber(
+      typeof value === "string" || typeof value === "number" ? value : null,
+    ) ?? "—";
+  }
   if (typeof value === "boolean") return value ? "Yes" : "No";
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "number") {

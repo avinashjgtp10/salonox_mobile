@@ -699,7 +699,6 @@ export default function QuickSaleScreen() {
         params: {
           appointmentId: appointment.appointment.id,
           mode: "preview",
-          receipt: appointment.appointment.id,
           total: String(totals.grandTotal),
         },
         pathname: "/quick-sale/checkout",
@@ -728,7 +727,7 @@ export default function QuickSaleScreen() {
 
       const appointmentId = appointment.appointment.id;
       await paymentService.createPayment(buildPaymentPayload(appointmentId, payment));
-      await appointmentService.checkoutAppointment(appointmentId);
+      const checkout = await appointmentService.checkoutAppointment(appointmentId);
 
       if (isFullyPackageCoveredSale) {
         await markPackageSessions(appointmentId);
@@ -754,7 +753,7 @@ export default function QuickSaleScreen() {
           amountPaid: String(totals.grandTotal),
           appointmentId,
           paymentMethod: payment.method,
-          receipt: appointmentId,
+          saleId: checkout.saleId,
           total: String(totals.grandTotal),
         },
         pathname: "/quick-sale/checkout",
