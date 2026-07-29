@@ -11,6 +11,7 @@ import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
 import { retailFromActiveMethod, markupPercentFromRetail, flatAmountFromRetail } from "../utils/productPricing";
 import type { MarkupMethod } from "../utils/productPricing";
+import { PRODUCT_MESSAGES } from "../../../constants/messages";
 import "../styles/CreateProductPage.scss";
 
 
@@ -67,8 +68,10 @@ const EditProductPage: React.FC = () => {
   const [qtyAlertTouched, setQtyAlertTouched] = useState(false);
 
   const qtyAlertError = !form.qtyAlert.trim() || !Number.isInteger(Number(form.qtyAlert)) || Number(form.qtyAlert) < 0
-    ? "Low stock alert is required"
-    : "";
+    ? PRODUCT_MESSAGES.LOW_STOCK_ALERT_REQUIRED
+    : (form.amount.trim() && !isNaN(Number(form.amount)) && Number(form.qtyAlert) >= Number(form.amount))
+      ? PRODUCT_MESSAGES.LOW_STOCK_ALERT_EXCEEDS_QUANTITY
+      : "";
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -299,7 +302,7 @@ const EditProductPage: React.FC = () => {
               <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{qtyAlertError}</div>
             ) : (
               <div style={{ color: "#6b7280", fontSize: "12px", marginTop: "4px" }}>
-                Alert when stock drops to or below this number.
+                {PRODUCT_MESSAGES.LOW_STOCK_ALERT_HINT}
               </div>
             )}
 
