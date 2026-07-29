@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { Country, State, City } from "country-state-city";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { createSupplierThunk, updateSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
+import { SUPPLIER_MESSAGES } from "../../../constants/messages";
 import "../styles/AddSupplierPage.scss";
 
 const COUNTRIES = Country.getAllCountries().map((c) => ({
@@ -38,7 +39,6 @@ const AddSupplierPage: React.FC = () => {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [mobileNumber, setMobileNumber] = useState("");
-  const [telephone, setTelephone] = useState("");
   const [email, setEmail] = useState("");
   const [website, setWebsite] = useState("");
 
@@ -57,10 +57,6 @@ const AddSupplierPage: React.FC = () => {
   const [mobileSearch, setMobileSearch] = useState("");
   const [mobileDropOpen, setMobileDropOpen] = useState(false);
 
-  const [telDialCode, setTelDialCode] = useState(INDIA.dial);
-  const [telSearch, setTelSearch] = useState("");
-  const [telDropOpen, setTelDropOpen] = useState(false);
-
   // Location dropdowns
   const [physCountry, setPhysCountry] = useState("India");
   const [physState, setPhysState] = useState("");
@@ -75,6 +71,19 @@ const AddSupplierPage: React.FC = () => {
   // UI state
   const [saving, setSaving] = useState(false);
   const [nameError, setNameError] = useState(false);
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [mobileTouched, setMobileTouched] = useState(false);
+
+  const emailError = !email.trim()
+    ? SUPPLIER_MESSAGES.EMAIL_REQUIRED
+    : !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())
+      ? SUPPLIER_MESSAGES.EMAIL_INVALID
+      : "";
+  const mobileError = !mobileNumber.trim()
+    ? SUPPLIER_MESSAGES.MOBILE_REQUIRED
+    : mobileNumber.trim().length !== 10
+      ? SUPPLIER_MESSAGES.MOBILE_INVALID
+      : "";
 
   const filteredMobile = useMemo(
     () =>
@@ -84,16 +93,6 @@ const AddSupplierPage: React.FC = () => {
           c.dial.includes(mobileSearch),
       ),
     [mobileSearch],
-  );
-
-  const filteredTel = useMemo(
-    () =>
-      COUNTRIES.filter(
-        (c) =>
-          c.name.toLowerCase().includes(telSearch.toLowerCase()) ||
-          c.dial.includes(telSearch),
-      ),
-    [telSearch],
   );
 
   const physStates = useMemo(
@@ -146,8 +145,6 @@ const AddSupplierPage: React.FC = () => {
         setLastName(s.last_name || "");
         setMobileDialCode(s.mobile_country_code || INDIA.dial);
         setMobileNumber(s.mobile_number || "");
-        setTelDialCode(s.telephone_country_code || INDIA.dial);
-        setTelephone(s.telephone_number || "");
         setEmail(s.email || "");
         setWebsite(s.website || "");
         setPhysStreet(s.street || "");
@@ -170,11 +167,14 @@ const AddSupplierPage: React.FC = () => {
   }, [isEdit, id, suppliers]);
 
   const handleSave = async () => {
+    setEmailTouched(true);
+    setMobileTouched(true);
     if (!name.trim()) {
       setNameError(true);
       return;
     }
     setNameError(false);
+    if (emailError || mobileError) return;
 
     const payload = {
       name: name.trim(),
@@ -183,8 +183,6 @@ const AddSupplierPage: React.FC = () => {
       last_name: lastName.trim() || undefined,
       mobile_country_code: mobileDialCode || undefined,
       mobile_number: mobileNumber.trim() || undefined,
-      telephone_country_code: telDialCode || undefined,
-      telephone_number: telephone.trim() || undefined,
       email: email.trim() || undefined,
       website: website.trim() || undefined,
       street: physStreet.trim() || undefined,
@@ -290,8 +288,10 @@ const AddSupplierPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="field-group">
-            <label>Mobile number</label>
+          <div className={`field-group${mobileTouched && mobileError ? " field-group--error" : ""}`}>
+            <label>
+              Mobile number <span style={{ color: "red" }}>*</span>
+            </label>
             <div className="phone-field">
               <div
                 className="dial-selector"
@@ -307,7 +307,9 @@ const AddSupplierPage: React.FC = () => {
                 type="tel"
                 placeholder="Mobile number"
                 value={mobileNumber}
-                onChange={(e) => setMobileNumber(e.target.value)}
+                maxLength={10}
+                onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                onBlur={() => setMobileTouched(true)}
               />
               {mobileDropOpen && (
                 <div
@@ -344,71 +346,25 @@ const AddSupplierPage: React.FC = () => {
                 </div>
               )}
             </div>
+            {mobileTouched && mobileError && (
+              <span className="field-error">{mobileError}</span>
+            )}
           </div>
 
-          <div className="field-group">
-            <label>Telephone</label>
-            <div className="phone-field">
-              <div
-                className="dial-selector"
-                onClick={() => {
-                  setTelDropOpen((o) => !o);
-                  setTelSearch("");
-                }}
-              >
-                <span>{telDialCode}</span>
-                <span className="chevron">▾</span>
-              </div>
-              <input
-                type="tel"
-                placeholder="Telephone number"
-                value={telephone}
-                onChange={(e) => setTelephone(e.target.value)}
-              />
-              {telDropOpen && (
-                <div
-                  className="dial-dropdown"
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  <input
-                    className="dial-search"
-                    type="text"
-                    placeholder="Search country or code..."
-                    value={telSearch}
-                    onChange={(e) => setTelSearch(e.target.value)}
-                    autoFocus
-                  />
-                  <ul>
-                    {filteredTel.map((c) => (
-                      <li
-                        key={c.code}
-                        onClick={() => {
-                          setTelDialCode(c.dial);
-                          setTelDropOpen(false);
-                        }}
-                      >
-                        <span className="flag">{c.flag}</span>
-                        <span className="cname">{c.name}</span>
-                        <span className="cdial">{c.dial}</span>
-                      </li>
-                    ))}
-                    {filteredTel.length === 0 && (
-                      <li className="no-result">No results</li>
-                    )}
-                  </ul>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="field-group">
-            <label>Email</label>
+          <div className={`field-group${emailTouched && emailError ? " field-group--error" : ""}`}>
+            <label>
+              Email <span style={{ color: "red" }}>*</span>
+            </label>
             <input
               type="email"
               placeholder="mail@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              onBlur={() => setEmailTouched(true)}
             />
+            {emailTouched && emailError && (
+              <span className="field-error">{emailError}</span>
+            )}
           </div>
 
           <div className="field-group">
@@ -630,19 +586,6 @@ const AddSupplierPage: React.FC = () => {
             <div className="section-divider" />
           </section>
         )}
-
-        <div className="form-actions">
-          <button className="btn-cancel" onClick={() => navigate(-1)}>
-            Close
-          </button>
-          <button
-            className="btn-save-bottom"
-            onClick={handleSave}
-            disabled={saving}
-          >
-            {saving ? "Saving..." : "Save"}
-          </button>
-        </div>
       </div>
     </div>
   );

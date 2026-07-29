@@ -8,7 +8,7 @@ import {
   updateConsultationFormThunk,
 } from "../../../middleware/services/services.thunk";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
-import type { CatalogFormData, Service } from "../types/catalog.types.ts";
+import type { CatalogFormData, Service, ConsumableUsagePayloadItem } from "../types/catalog.types.ts";
 
 const initialData: CatalogFormData = {
   basic: {
@@ -40,6 +40,9 @@ const initialData: CatalogFormData = {
   addons: {
     selectedGroupIds: [],
     availableGroups: [],
+  },
+  consumables: {
+    items: [],
   },
   onlineBooking: {
     enabled: true,
@@ -139,7 +142,7 @@ export const useServiceForm = (_type: "single" | "bundle") => {
 
     try {
       // Map formData to Backend Service shape
-      const payload: Partial<Service> = {
+      const payload: Partial<Service> & { consumables_used?: ConsumableUsagePayloadItem[] } = {
         name: formData.basic.name,
         description: formData.basic.description || undefined,
         category_id: formData.basic.categoryId || null,
@@ -157,6 +160,11 @@ export const useServiceForm = (_type: "single" | "bundle") => {
           : formData.team.selectedMemberIds,
         gender_preference: formData.basic.genderPreference ?? null,
         image_url: formData.basic.imageUrl ?? null,
+        consumables_used: formData.consumables.items.map((i) => ({
+          product_id: i.productId,
+          qty: i.qty,
+          unit: i.unit,
+        })),
       };
 
       const resultAction = await dispatch(createServiceThunk(payload));

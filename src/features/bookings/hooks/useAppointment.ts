@@ -82,6 +82,13 @@ function buildServiceApiItems(
         discount: Number((s as any).discount) || 0,
         duration: s.duration || 30,
         ...(isPackageService ? { is_package_service: true } : {}),
+        // Attached but not deducted — stock deduction is not implemented
+        // client-side yet (no backend endpoint exists for it).
+        consumables: (s.consumables ?? []).map((c) => ({
+          product_id: c.productId,
+          qty: c.qty,
+          unit: c.unit,
+        })),
       };
     });
 }

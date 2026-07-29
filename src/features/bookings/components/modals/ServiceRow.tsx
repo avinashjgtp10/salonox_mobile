@@ -21,11 +21,19 @@ interface StaffDto {
   name: string;
 }
 
+interface RawConsumableUsage {
+  product_id: string;
+  product_name?: string;
+  qty: number;
+  unit: string;
+}
+
 interface SearchServiceResult {
   id: string;
   name: string;
   price: number;
   duration: number;
+  consumables_used: RawConsumableUsage[];
 }
 
 interface RawServiceItem {
@@ -34,6 +42,7 @@ interface RawServiceItem {
   price?: string | number;
   duration?: string | number;
   duration_minutes?: string | number;
+  consumables_used?: RawConsumableUsage[];
 }
 
 interface ConsumableItem {
@@ -49,7 +58,7 @@ interface ConsumableItem {
 
 interface ServiceRowProps {
   row: ServiceItem & { tempId: string };
-  onChange: (id: string, field: string, value: string | number | boolean) => void;
+  onChange: (id: string, field: string, value: string | number | boolean | ServiceItem["consumables"]) => void;
   onRemove: (id: string) => void;
   onClearError?: (tempId: string, field: string) => void;
   hasError?: boolean;
@@ -86,6 +95,7 @@ function mapServiceSearchResult(service: RawServiceItem): SearchServiceResult {
     name: service.name ?? "",
     price: parseFloat(String(service.price ?? 0)) || 0,
     duration: Number(service.duration ?? service.duration_minutes) || 30,
+    consumables_used: service.consumables_used ?? [],
   };
 }
 
@@ -384,7 +394,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     }
   }
 
-  function selectService(service: { id?: string; name: string; price: number; duration?: number }) {
+  function selectService(service: { id?: string; name: string; price: number; duration?: number; consumables_used?: RawConsumableUsage[] }) {
     // Every pick creates/fills its own row, even if the same service is
     // already on the bill elsewhere — a client can want the same service from
     // two different staff at once, which a merge-into-existing-row would make
@@ -410,6 +420,18 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     onChange(row.tempId, "qty", qty);
     onChange(row.tempId, "total", effectiveTotal);
     onChange(row.tempId, "isPackageService", paidQty === 0);
+    // Attach the service's configured consumables so they ride along on the
+    // appointment payload — deduction happens later, at completion, not here.
+    onChange(
+      row.tempId,
+      "consumables",
+      (service.consumables_used ?? []).map((c) => ({
+        productId: c.product_id,
+        productName: c.product_name ?? "",
+        qty: c.qty,
+        unit: c.unit,
+      })),
+    );
 
     setShowDrop(false);
     onClearError?.(row.tempId, "service");

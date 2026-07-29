@@ -11,6 +11,14 @@ export const PRODUCT_MESSAGES = {
   LOW_STOCK_ALERT_REQUIRED: "Low stock alert is required",
   LOW_STOCK_ALERT_EXCEEDS_QUANTITY: "Low Stock Alert Quantity must be less than the Product Quantity.",
   LOW_STOCK_ALERT_HINT: "Alert when stock drops to or below this number.",
+  HSN_SAC_INVALID: "HSN/SAC code must contain only numbers",
+} as const;
+
+export const SUPPLIER_MESSAGES = {
+  EMAIL_REQUIRED: "Email is required",
+  EMAIL_INVALID: "Enter a valid email address",
+  MOBILE_REQUIRED: "Mobile number is required",
+  MOBILE_INVALID: "Mobile number must be exactly 10 digits",
 } as const;
 
 export const CURRENCY_MESSAGES = {
