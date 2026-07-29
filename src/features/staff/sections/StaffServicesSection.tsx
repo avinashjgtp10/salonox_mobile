@@ -3,6 +3,7 @@ import { Search } from "react-bootstrap-icons";
 import "../styles/StaffServicesSection.scss";
 import api from "../../../services/api/axios";
 import { SERVICES as SERVICES_ENDPOINTS } from "../../../services/api/endpoints";
+import { useCurrency } from "../../../hooks/useCurrency";
 
 interface StaffServicesSectionProps {
   specialization?: string[];
@@ -13,8 +14,9 @@ interface StaffServicesSectionProps {
 const StaffServicesSection: React.FC<StaffServicesSectionProps> = ({ 
   specialization = [], 
   setSpecialization = () => {},
-  salonId 
+  salonId
 }) => {
+  const { formatAmount } = useCurrency();
   const [availableServices, setAvailableServices] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -121,7 +123,7 @@ const StaffServicesSection: React.FC<StaffServicesSectionProps> = ({
                 </div>
                 <div className="service-duration">{service.duration_minutes} min</div>
               </div>
-              <div className="service-price">₹{service.price}</div>
+              <div className="service-price">{formatAmount(Number(service.price))}</div>
             </div>
           );
         })}

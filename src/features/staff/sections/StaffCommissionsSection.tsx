@@ -5,6 +5,7 @@ import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
+import { useCurrency } from "../../../hooks/useCurrency";
 
 interface CommissionSetting {
   category: "services" | "products" | "memberships" | "gift_cards" | "cancellation";
@@ -24,6 +25,7 @@ interface StaffCommissionsSectionProps {
 }
 
 const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staffId, salonId, commissions, setCommissions }) => {
+  const { currencySymbol } = useCurrency();
   const [localSettings, setLocalSettings] = useState<Record<string, CommissionSetting>>({
     services: { category: "services", is_enabled: true, commission_kind: "percentage", default_rate: 0, use_default_calculation: true, pass_cancellation_fee_late: false, pass_cancellation_fee_noshow: false },
     products: { category: "products", is_enabled: false, commission_kind: "percentage", default_rate: 0, use_default_calculation: true, pass_cancellation_fee_late: false, pass_cancellation_fee_noshow: false },
@@ -140,7 +142,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
               <label className="control-label">Default rate</label>
               <div className="input-group">
                 <span className="input-group-text px-3 bg-white border-end-0">
-                  {settings.services.commission_kind === "percentage" ? "%" : "₹"}
+                  {settings.services.commission_kind === "percentage" ? "%" : currencySymbol}
                 </span>
                 <input
                   type="number"
@@ -303,7 +305,7 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
               <label className="control-label">Default rate</label>
               <div className="input-group">
                 <span className="input-group-text px-3 bg-white border-end-0">
-                  {settings.gift_cards.commission_kind === "percentage" ? "%" : "₹"}
+                  {settings.gift_cards.commission_kind === "percentage" ? "%" : currencySymbol}
                 </span>
                 <input
                   type="number"

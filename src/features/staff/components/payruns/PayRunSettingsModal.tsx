@@ -2,12 +2,12 @@ import React, { useState } from "react";
 import Modal from "../../../../components/ui/Modal";
 import Button from "../../../../components/ui/Button";
 import { useStatusOverlay } from "../../../../hooks/useStatusOverlay";
+import { useCurrency } from "../../../../hooks/useCurrency";
 
 interface PayRunSettings {
   payPeriod: "weekly" | "biweekly" | "monthly";
   weekStartDay: "0" | "1" | "2" | "3" | "4" | "5" | "6";
   defaultPaymentMethod: "Bank Transfer" | "Cash" | "Check";
-  currency: string;
   autoCalculate: boolean;
 }
 
@@ -20,13 +20,13 @@ const DEFAULT_SETTINGS: PayRunSettings = {
   payPeriod: "weekly",
   weekStartDay: "1",
   defaultPaymentMethod: "Bank Transfer",
-  currency: "INR",
   autoCalculate: true,
 };
 
 const PayRunSettingsModal: React.FC<PayRunSettingsModalProps> = ({ isOpen, onClose }) => {
   const [settings, setSettings] = useState<PayRunSettings>(DEFAULT_SETTINGS);
   const { showSuccess, overlay } = useStatusOverlay();
+  const { currencyCode, currencySymbol } = useCurrency();
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
@@ -100,20 +100,15 @@ const PayRunSettingsModal: React.FC<PayRunSettingsModalProps> = ({ isOpen, onClo
             </select>
           </div>
 
-          {/* Currency */}
+          {/* Currency — controlled globally, not per pay run */}
           <div className="col-12">
             <label className="form-label fw-bold text-dark mb-2">Currency</label>
-            <select
-              name="currency"
-              className="pay-run-settings-modal__select form-select border rounded-3 py-2 px-3 shadow-sm"
-              value={settings.currency}
-              onChange={handleChange}
-            >
-              <option value="INR">INR — Indian Rupee (₹)</option>
-              <option value="USD">USD — US Dollar ($)</option>
-              <option value="EUR">EUR — Euro (€)</option>
-              <option value="GBP">GBP — British Pound (£)</option>
-            </select>
+            <div className="pay-run-settings-modal__select form-select border rounded-3 py-2 px-3 shadow-sm bg-light text-muted">
+              {currencyCode} ({currencySymbol})
+            </div>
+            <div className="form-text text-muted mt-1">
+              Set once for the whole app in Settings → Configuration → Currency.
+            </div>
           </div>
 
           {/* Auto Calculate */}

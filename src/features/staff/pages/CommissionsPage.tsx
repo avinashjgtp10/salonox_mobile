@@ -7,13 +7,15 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
   Plus, X,
   SquareFill, ListCheck,
-  CurrencyRupee, People, Wallet, GraphUpArrow,
+  People, Wallet, GraphUpArrow,
   PersonCheck, PersonX, Tools, Bag, Tag, Gift, BoxSeam,
   StarFill, Gear, CheckCircleFill, XCircleFill,
   Calculator, CreditCard2Front,
   ChevronLeft, ChevronRight, ChevronDown, ClockHistory, Download,
   FileEarmarkExcel, FiletypePdf,
 } from "react-bootstrap-icons";
+import { useCurrency } from "../../../hooks/useCurrency";
+import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import "../styles/CommissionsPage.scss";
 import { SuccessOverlay } from "../../../components/ui";
 import RuleCard from "../components/commission/RuleCard";
@@ -117,10 +119,6 @@ function getCatMeta(cat: CommissionCategory) {
   return CATEGORIES.find((c) => c.key === cat) ?? CATEGORIES[0];
 }
 
-function fmt(n: number) {
-  return `₹${n.toLocaleString("en-IN")}`;
-}
-
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
 function OverviewTab({
@@ -138,6 +136,8 @@ function OverviewTab({
   settlingId: string | null;
   onOpenHistory: (staffId: string) => void;
 }): JSX.Element {
+  const { formatAmount: fmt, currencyCode } = useCurrency();
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
   // "Configured" = staff directly targeted by a rule (scope_type='staff', scope_id=their id).
   // Salon-wide/role-scoped rules aren't attributed to individual staff here yet.
   const staffWithComm     = new Set(commissionRules.filter((r) => r.scope_type === "staff").map((r) => r.scope_id));
@@ -231,7 +231,7 @@ function OverviewTab({
         </div>
         <div className="cm-ov-earn-card">
           <div className="cm-ov-earn-icon" style={{ background: "#dcfce7", color: "#16a34a" }}>
-            <CurrencyRupee size={16} />
+            <CurrencyIcon size={16} />
           </div>
           <div>
             <div className="cm-ov-earn-label">Commission Paid</div>
@@ -285,7 +285,7 @@ function OverviewTab({
 
           {earnedByStaff.length === 0 ? (
             <div className="cm-ov-empty">
-              <CurrencyRupee size={28} />
+              <CurrencyIcon size={28} />
               <p>No commissions earned this month</p>
               <span className="cm-ov-empty-sub">Commissions appear here after checkouts</span>
             </div>
@@ -481,6 +481,7 @@ function CommissionHistoryDrawer({
   summaryMonth: string;
   onClose: () => void;
 }): JSX.Element {
+  const { formatAmount: fmt, currencySymbol } = useCurrency();
   const [history, setHistory] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
@@ -585,7 +586,7 @@ function CommissionHistoryDrawer({
                     <div className="cm-history-earned">
                       {h.commission_kind === "percentage"
                         ? `${h.commission_rate}%`
-                        : `Fixed ₹${h.commission_rate}`}
+                        : `Fixed ${currencySymbol}${h.commission_rate}`}
                       {" → "}
                       <strong>{fmt(parseFloat(h.commission_amount))}</strong>
                     </div>
@@ -608,6 +609,8 @@ function CommissionHistoryDrawer({
 export default function CommissionsPage() {
   const currentSalon = useSelector(selectCurrentSalon);
   const salonId      = currentSalon?.id;
+  const { formatAmount, currencyCode } = useCurrency();
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
 
   const [activeTab,   setActiveTab]   = useState<TabKey>("overview");
   const [staffList,   setStaffList]   = useState<StaffMember[]>([]);
@@ -767,7 +770,7 @@ export default function CommissionsPage() {
     setSettlingId(staffId);
     try {
       await api.post(STAFF.SETTLE_COMMISSION(staffId));
-      showSuccess(`₹${amount.toLocaleString("en-IN")} settled for ${name}`);
+      showSuccess(`${formatAmount(amount)} settled for ${name}`);
       const [summaryRes, earnedRes] = await Promise.all([
         api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&month=${summaryMonth}`),
         api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&month=${summaryMonth}`),
@@ -951,7 +954,7 @@ export default function CommissionsPage() {
               <div className="cm-sidebar-title"><CheckCircleFill size={13} /> How it works?</div>
               {[
                 { icon: <Tools size={14} />,           bg: "#ede9fe", ic: "#7c3aed", t: "Set Rules",      d: "Create commission rules per staff member." },
-                { icon: <CurrencyRupee size={14} />,    bg: "#dcfce7", ic: "#16a34a", t: "Earn",           d: "Staff earns commission when they hit targets." },
+                { icon: <CurrencyIcon size={14} />,    bg: "#dcfce7", ic: "#16a34a", t: "Earn",           d: "Staff earns commission when they hit targets." },
                 { icon: <Calculator size={14} />,       bg: "#dbeafe", ic: "#2563eb", t: "Auto Calculate", d: "Commission is calculated automatically." },
                 { icon: <CreditCard2Front size={14} />, bg: "#fef3c7", ic: "#d97706", t: "Payout",         d: "Pay commissions with one click." },
               ].map((s, i) => (

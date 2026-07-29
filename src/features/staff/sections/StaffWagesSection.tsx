@@ -5,6 +5,7 @@ import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
+import { useCurrency } from "../../../hooks/useCurrency";
 
 interface WageSettings {
   wages_enabled: boolean;
@@ -25,6 +26,7 @@ interface StaffWagesSectionProps {
 }
 
 const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId, wages, setWages }) => {
+  const { currencySymbol } = useCurrency();
   // Use props if available, otherwise fallback to local state (for standalone usage if any)
   const [localSettings, setLocalSettings] = useState<WageSettings>({
     wages_enabled: false,
@@ -138,7 +140,7 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
               {settings.compensation_type === "hourly" ? "Hourly rate" : "Salary amount"}
             </label>
             <div className="input-group">
-              <span className="input-group-text bg-white">₹</span>
+              <span className="input-group-text bg-white">{currencySymbol}</span>
               <input
                 type="number"
                 className="form-control"

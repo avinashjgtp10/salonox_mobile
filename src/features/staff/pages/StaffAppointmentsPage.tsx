@@ -10,6 +10,7 @@ import {
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { BOOKING } from "../../../services/api/endpoints";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/StaffAppointmentsPage.scss";
 
 interface Appointment {
@@ -70,6 +71,7 @@ function formatDate(val?: string) {
 export default function StaffAppointmentsPage() {
   const currentSalon = useSelector(selectCurrentSalon);
   const salonId = currentSalon?.id;
+  const { formatAmount } = useCurrency();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -291,7 +293,7 @@ export default function StaffAppointmentsPage() {
                 <div className="app-table__col app-table__col--amount">
                   <span className="app-table__cell-primary">
                     {appt.total != null
-                      ? `₹${Number(appt.total).toLocaleString("en-IN")}`
+                      ? formatAmount(Number(appt.total))
                       : "—"}
                   </span>
                 </div>

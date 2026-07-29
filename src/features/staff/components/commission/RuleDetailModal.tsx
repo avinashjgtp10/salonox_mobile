@@ -1,6 +1,7 @@
 import { X, Pencil, Trash, ToggleOn, People } from "react-bootstrap-icons";
 import type { RuleGroup } from "../../types/commissionRules.types";
-import { SOURCE_META, FREQUENCY_LABELS, fmtMoney } from "./commissionRuleMeta";
+import { SOURCE_META, FREQUENCY_LABELS } from "./commissionRuleMeta";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import "../../styles/RuleDetailModal.scss";
 
 interface RuleDetailModalProps {
@@ -14,6 +15,7 @@ interface RuleDetailModalProps {
 }
 
 export default function RuleDetailModal({ group, staffNames, onClose, onEdit, onDelete, onToggleStatus, toggling }: RuleDetailModalProps) {
+  const { formatAmount: fmtMoney } = useCurrency();
   const rule = group.primary;
   const source = SOURCE_META[rule.source];
 

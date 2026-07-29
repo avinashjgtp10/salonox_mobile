@@ -5,10 +5,8 @@ import { fetchPayRunByIdThunk, updatePayRunThunk } from "../../../middleware/pay
 import { ChevronLeft, Printer, Download, ClockHistory, CashStack } from "react-bootstrap-icons";
 import Loader from "../../../components/ui/Loader";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/PayRunBreakdownPage.scss";
-
-const fmt = (val: any) =>
-  Number(val || 0).toLocaleString("en-IN", { minimumFractionDigits: 2 });
 
 const TABS = ["Overview", "Earnings", "Deductions", "History"];
 
@@ -16,6 +14,7 @@ const PayRunBreakdownPage: React.FC = () => {
   const navigate = useNavigate();
   const { id } = useParams();
   const dispatch = useAppDispatch();
+  const { formatAmount: fmt } = useCurrency();
   const { loading } = useAppSelector((state) => state.payRun);
 
   const [payRun, setPayRun] = useState<any>(null);
@@ -85,11 +84,11 @@ const PayRunBreakdownPage: React.FC = () => {
       ["Status", status],
       ["Period Start", periodStart],
       ["Period End", periodEnd],
-      ["Gross Earnings", `₹${fmt(earnings)}`],
-      ["Adjustments / Other", `₹${fmt(other)}`],
-      ["Total Gross", `₹${fmt(earnings + other)}`],
-      ["Deductions", `₹${fmt(deductions)}`],
-      ["Net Pay", `₹${fmt(total)}`],
+      ["Gross Earnings", `${fmt(earnings)}`],
+      ["Adjustments / Other", `${fmt(other)}`],
+      ["Total Gross", `${fmt(earnings + other)}`],
+      ["Deductions", `${fmt(deductions)}`],
+      ["Net Pay", `${fmt(total)}`],
       ["Payment Method", payRun.paymentMethod || payRun.payment_method || "—"],
       ["Period", payRun.period || payRun.pay_period || "Weekly"],
       ["Notes", payRun.notes || ""],
@@ -175,7 +174,7 @@ const PayRunBreakdownPage: React.FC = () => {
               </span>
               <div className="prb-page__amount-block">
                 <div className="prb-page__amount-label">Total Amount Owed</div>
-                <div className="prb-page__amount-value">₹{fmt(total)}</div>
+                <div className="prb-page__amount-value">{fmt(total)}</div>
               </div>
             </div>
           </div>
@@ -227,11 +226,11 @@ const PayRunBreakdownPage: React.FC = () => {
               <div className="prb-page__stat-grid">
                 <div className="prb-page__stat-card prb-page__stat-card--green">
                   <div className="prb-page__stat-label">Gross Earnings</div>
-                  <div className="prb-page__stat-value">₹{fmt(earnings)}</div>
+                  <div className="prb-page__stat-value">{fmt(earnings)}</div>
                 </div>
                 <div className="prb-page__stat-card prb-page__stat-card--red">
                   <div className="prb-page__stat-label">Total Deductions</div>
-                  <div className="prb-page__stat-value">₹{fmt(deductions)}</div>
+                  <div className="prb-page__stat-value">{fmt(deductions)}</div>
                 </div>
               </div>
 
@@ -246,19 +245,19 @@ const PayRunBreakdownPage: React.FC = () => {
                       <div className="prb-page__breakdown-name">Base Salary / Wages</div>
                       <div className="prb-page__breakdown-sub">Regular hourly rate</div>
                     </div>
-                    <span className="prb-page__breakdown-amount">₹{fmt(earnings)}</span>
+                    <span className="prb-page__breakdown-amount">{fmt(earnings)}</span>
                   </div>
                   <div className="prb-page__breakdown-row">
                     <div>
                       <div className="prb-page__breakdown-name">Adjustments / Other</div>
                       <div className="prb-page__breakdown-sub">Bonuses and tips</div>
                     </div>
-                    <span className="prb-page__breakdown-amount">₹{fmt(other)}</span>
+                    <span className="prb-page__breakdown-amount">{fmt(other)}</span>
                   </div>
                   <div className="prb-page__breakdown-row prb-page__breakdown-row--total">
                     <span className="prb-page__breakdown-name">Total Gross</span>
                     <span className="prb-page__breakdown-amount prb-page__breakdown-amount--total">
-                      ₹{fmt(earnings + other)}
+                      {fmt(earnings + other)}
                     </span>
                   </div>
                 </div>
@@ -284,7 +283,7 @@ const PayRunBreakdownPage: React.FC = () => {
                     <div className="prb-page__breakdown-row prb-page__breakdown-row--total">
                       <span className="prb-page__breakdown-name">Total Deductions</span>
                       <span className="prb-page__breakdown-amount prb-page__breakdown-amount--total">
-                        −₹{fmt(deductions)}
+                        −{fmt(deductions)}
                       </span>
                     </div>
                   </div>
@@ -307,19 +306,19 @@ const PayRunBreakdownPage: React.FC = () => {
                       <div className="prb-page__breakdown-name">Base Salary / Wages</div>
                       <div className="prb-page__breakdown-sub">Regular hourly rate</div>
                     </div>
-                    <span className="prb-page__breakdown-amount">₹{fmt(earnings)}</span>
+                    <span className="prb-page__breakdown-amount">{fmt(earnings)}</span>
                   </div>
                   <div className="prb-page__breakdown-row">
                     <div>
                       <div className="prb-page__breakdown-name">Adjustments / Other</div>
                       <div className="prb-page__breakdown-sub">Bonuses and tips</div>
                     </div>
-                    <span className="prb-page__breakdown-amount">₹{fmt(other)}</span>
+                    <span className="prb-page__breakdown-amount">{fmt(other)}</span>
                   </div>
                   <div className="prb-page__breakdown-row prb-page__breakdown-row--total">
                     <span className="prb-page__breakdown-name">Gross Total</span>
                     <span className="prb-page__breakdown-amount prb-page__breakdown-amount--total">
-                      ₹{fmt(earnings + other)}
+                      {fmt(earnings + other)}
                     </span>
                   </div>
                 </div>
@@ -351,7 +350,7 @@ const PayRunBreakdownPage: React.FC = () => {
                     <div className="prb-page__breakdown-row prb-page__breakdown-row--total">
                       <span className="prb-page__breakdown-name">Total Deductions</span>
                       <span className="prb-page__breakdown-amount prb-page__breakdown-amount--total">
-                        −₹{fmt(deductions)}
+                        −{fmt(deductions)}
                       </span>
                     </div>
                   </div>

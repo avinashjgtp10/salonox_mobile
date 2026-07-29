@@ -16,10 +16,6 @@ export const FREQUENCY_LABELS: Record<CommissionFrequency, string> = {
   custom: "Custom Date",
 };
 
-export function fmtMoney(n: number): string {
-  return `₹${n.toLocaleString("en-IN")}`;
-}
-
 /** Collapses fanned-out staff-scoped rows (one CommissionRule row per staff member,
  *  created together from a single wizard submission) back into one logical rule
  *  per card. Rows are grouped by every field a user actually sets in the wizard —

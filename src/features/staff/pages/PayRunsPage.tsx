@@ -10,6 +10,7 @@ import {
 import { clearPayRunError, clearPayRunSuccess } from "../../../store/payRunSlice";
 import type { PayRun } from "../../../types/payRun.types";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { useCurrency } from "../../../hooks/useCurrency";
 
 import PayRunSummaryCards from "../components/payruns/PayRunSummaryCards";
 import PayRunTable from "../components/payruns/PayRunTable";
@@ -28,6 +29,7 @@ const PAGE_SIZE = 10;
 const PayRunsPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+  const { formatAmount } = useCurrency();
   const { payRuns, summary, loading, error, success } = useAppSelector(
     (state) => state.payRun
   );
@@ -126,7 +128,7 @@ const PayRunsPage: React.FC = () => {
       return;
     }
     showSuccess(
-      `Processing payment of ₹${summary.toPay.toLocaleString()} for the staff...`
+      `Processing payment of ${formatAmount(summary.toPay)} for the staff...`
     );
   };
 

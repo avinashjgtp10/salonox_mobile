@@ -7,12 +7,13 @@ import {
   Filter,
   Receipt,
   CheckCircleFill,
-  CurrencyDollar,
 } from "react-bootstrap-icons";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { SALE } from "../../../services/api/endpoints";
 import { DownloadButton } from "../../../components/ui";
+import { useCurrency } from "../../../hooks/useCurrency";
+import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import "../styles/StaffSalesPage.scss";
 
 interface Sale {
@@ -64,6 +65,8 @@ function formatDate(val?: string) {
 export default function StaffSalesPage() {
   const currentSalon = useSelector(selectCurrentSalon);
   const salonId = currentSalon?.id;
+  const { formatAmount, currencyCode } = useCurrency();
+  const CurrencyIcon = getCurrencyIcon(currencyCode);
 
   const [sales, setSales] = useState<Sale[]>([]);
   const [summary, setSummary] = useState<SaleSummary | null>(null);
@@ -167,8 +170,8 @@ export default function StaffSalesPage() {
             label: "Total Revenue",
             value: loadingSummary
               ? null
-              : `₹${Number(summary?.total_revenue ?? 0).toLocaleString("en-IN")}`,
-            icon: <CurrencyDollar size={18} />,
+              : formatAmount(Number(summary?.total_revenue ?? 0)),
+            icon: <CurrencyIcon size={18} />,
             color: "emerald",
           },
           {
@@ -181,7 +184,7 @@ export default function StaffSalesPage() {
             label: "Average Sale",
             value: loadingSummary
               ? null
-              : `₹${Number(summary?.average_sale ?? 0).toLocaleString("en-IN")}`,
+              : formatAmount(Number(summary?.average_sale ?? 0)),
             icon: <CheckCircleFill size={18} />,
             color: "amber",
           },
@@ -342,7 +345,7 @@ export default function StaffSalesPage() {
                 <div className="sale-table__col sale-table__col--amount">
                   <span className="sale-cell-amount">
                     {sale.total != null
-                      ? `₹${Number(sale.total).toLocaleString("en-IN")}`
+                      ? formatAmount(Number(sale.total))
                       : "—"}
                   </span>
                 </div>

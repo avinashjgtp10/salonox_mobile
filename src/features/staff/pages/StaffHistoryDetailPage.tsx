@@ -10,6 +10,7 @@ import {
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF, SALE, ATTENDANCE, REVIEWS } from "../../../services/api/endpoints";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/StaffHistoryPage.scss";
 
 // ─── Shared types/helpers ───────────────────────────────────────────────────
@@ -70,10 +71,6 @@ interface AttendanceRow {
   check_in: string | null;
   check_out: string | null;
   hours_worked: string | null;
-}
-
-function fmtMoney(n: number) {
-  return `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 0 })}`;
 }
 
 function fmtDate(d: string | undefined | null) {
@@ -190,6 +187,7 @@ function OverviewTab({ salesTotal, servicesRecent, commissionTotal, attendancePc
   commissionTotal: { loading: boolean; error: boolean; value: number; retry: () => void };
   attendancePct: { loading: boolean; error: boolean; value: number | null; retry: () => void };
 }) {
+  const { formatAmount: fmtMoney } = useCurrency();
   return (
     <div className="shp-overview">
       <div className="shp-stat-grid">
@@ -283,6 +281,7 @@ function OverviewTab({ salesTotal, servicesRecent, commissionTotal, attendancePc
 // ─── Timeline tab ────────────────────────────────────────────────────────────
 
 function TimelineTab({ staffId }: { staffId: string }) {
+  const { formatAmount: fmtMoney } = useCurrency();
   const { data: items, loading, error, retry } = useFetch<SaleItemRow[]>(
     () => api.get(SALE.STAFF_ITEMS(staffId), { params: { limit: 20 } }).then((r) => r.data?.data?.items ?? []),
     [staffId], []
@@ -335,6 +334,7 @@ function TimelineTab({ staffId }: { staffId: string }) {
 // ─── Services tab ────────────────────────────────────────────────────────────
 
 function ServicesTab({ staffId }: { staffId: string }) {
+  const { formatAmount: fmtMoney } = useCurrency();
   const { data, loading, error, retry } = useFetch<SaleItemRow[]>(
     () => api.get(SALE.STAFF_ITEMS(staffId), { params: { item_type: "service" } }).then((r) => r.data?.data?.items ?? []),
     [staffId], []
@@ -366,6 +366,7 @@ function ServicesTab({ staffId }: { staffId: string }) {
 // ─── Sales tab ───────────────────────────────────────────────────────────────
 
 function SalesTab({ staffId }: { staffId: string }) {
+  const { formatAmount: fmtMoney } = useCurrency();
   const { data, loading, error, retry } = useFetch<SaleRow[]>(
     () => api.get(SALE.BASE, { params: { staff_id: staffId } }).then((r) => r.data?.data?.items ?? []),
     [staffId], []
@@ -396,6 +397,7 @@ function SalesTab({ staffId }: { staffId: string }) {
 // ─── Commission tab ──────────────────────────────────────────────────────────
 
 function CommissionTab({ staffId }: { staffId: string }) {
+  const { formatAmount: fmtMoney, currencySymbol } = useCurrency();
   const [month] = useState(() => new Date().toISOString().slice(0, 7));
   const { data, loading, error, retry } = useFetch<CommissionRow[]>(
     () => api.get(`${STAFF.BY_ID(staffId)}/commissions/history`, { params: { month } }).then((r) => r.data?.data?.items ?? []),
@@ -419,7 +421,7 @@ function CommissionTab({ staffId }: { staffId: string }) {
               <td>{fmtDate(r.earned_at)}</td>
               <td className="shp-cap">{r.category}</td>
               <td>{fmtMoney(Number(r.revenue_amount))}</td>
-              <td>{r.commission_kind === "percentage" ? `${r.commission_rate}%` : `₹${r.commission_rate}`}</td>
+              <td>{r.commission_kind === "percentage" ? `${r.commission_rate}%` : `${currencySymbol}${r.commission_rate}`}</td>
               <td>{fmtMoney(Number(r.commission_amount))}</td>
               <td><span className={`shp-status shp-status--${r.status}`}>{r.status}</span></td>
             </tr>

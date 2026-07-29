@@ -11,6 +11,7 @@ import {
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/StaffCustomersPage.scss";
 
 interface Client {
@@ -56,6 +57,7 @@ function formatDate(val?: string) {
 export default function StaffCustomersPage() {
   const currentSalon = useSelector(selectCurrentSalon);
   const salonId = currentSalon?.id;
+  const { formatAmount } = useCurrency();
 
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
@@ -220,7 +222,7 @@ export default function StaffCustomersPage() {
                   <div className="cust-table__col cust-table__col--spent">
                     <span className="cust-cell-value">
                       {client.total_spent != null
-                        ? `₹${Number(client.total_spent).toLocaleString("en-IN")}`
+                        ? formatAmount(Number(client.total_spent))
                         : "—"}
                     </span>
                   </div>
