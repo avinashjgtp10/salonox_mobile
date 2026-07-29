@@ -1,6 +1,6 @@
 import React, { useRef, useState } from "react";
 import { CheckCircleFill, RecordCircle } from "react-bootstrap-icons";
-import { currencySymbol } from "../../utils/currency";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import "../../styles/PaymentButton.scss";
 
 interface PaymentButtonProps {
@@ -20,12 +20,13 @@ const PaymentButton: React.FC<PaymentButtonProps> = ({
   label,
   fullWidth = true,
 }) => {
+  const { formatAmount } = useCurrency();
   const clickedRef = useRef(false);
   const [isPaying, setIsPaying] = useState(false);
 
   const displayLabel = label ?? (isPartial
-    ? <><RecordCircle size={13} className="pay-btn__icon-partial" style={{ marginRight: 4, verticalAlign: "middle" }} />Confirm Partial — {currencySymbol}{amount.toFixed(2)}</>
-    : <><CheckCircleFill size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Confirm &amp; Pay — {currencySymbol}{amount.toFixed(2)}</>);
+    ? <><RecordCircle size={13} className="pay-btn__icon-partial" style={{ marginRight: 4, verticalAlign: "middle" }} />Confirm Partial — {formatAmount(amount)}</>
+    : <><CheckCircleFill size={13} style={{ marginRight: 4, verticalAlign: "middle" }} />Confirm &amp; Pay — {formatAmount(amount)}</>);
 
   async function handleClick() {
     if (clickedRef.current || isPaying) return;

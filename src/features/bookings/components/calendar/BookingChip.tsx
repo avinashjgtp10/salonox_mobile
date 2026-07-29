@@ -1,7 +1,7 @@
 import React from "react";
 import type { Booking } from "../../types";
 import type { DragCandidate, ResizeState } from "../../hooks/useDragDrop";
-import { currencySymbol } from "../../utils/currency";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import { formatTime12, addMinutes } from "../../utils/timeUtils";
 import { computeChipStatusClass } from "../../utils/bookingStatusUtils";
 
@@ -93,6 +93,7 @@ const BookingChipComponent: React.FC<Props> = ({
   onEdit, onOpenTip, onCloseTip,
   onStartDragCandidate, onStartResize,
 }) => {
+  const { formatAmount } = useCurrency();
   // b.status carries the raw backend appointment status through unchanged
   // (booked/paid/partial/cancelled/no-show/deleted) — payment state and
   // lifecycle state are the same field now, no separate paymentStatus.
@@ -143,7 +144,7 @@ const BookingChipComponent: React.FC<Props> = ({
   const membershipWalletUsed = Number(b.membershipWalletUsed) || 0;
   const isPercentDiscount = b.discountType === "Percentage (%)" && Number(b.discount) > 0;
   const membershipBadge = membershipWalletUsed > 0
-    ? `${currencySymbol}${Number(b.grandTotal).toFixed(0)}`
+    ? formatAmount(Number(b.grandTotal))
     : isPercentDiscount
       ? `${Number(b.discount)}% OFF`
       : null;
@@ -207,7 +208,7 @@ const BookingChipComponent: React.FC<Props> = ({
           <span className="dv-chip__membership">🎗️ {membershipBadge}</span>
         )}
         {isPartial && Number(b.dueAmount) > 0 && (
-          <span className="dv-chip__due">Due {currencySymbol}{Number(b.dueAmount).toFixed(2)}</span>
+          <span className="dv-chip__due">Due {formatAmount(Number(b.dueAmount))}</span>
         )}
         {b.notes && chipHeight >= slotHeight * 2 && (
           <span className="dv-chip__note">📝 {b.notes}</span>

@@ -1,7 +1,7 @@
 import React from "react";
 import type { Booking } from "../../types/booking.types";
 import { formatTime12 } from "../../utils/timeUtils";
-import { currencySymbol } from "../../utils/currency";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 
 interface BookingCardProps {
@@ -15,6 +15,7 @@ interface BookingCardProps {
 const BookingCard: React.FC<BookingCardProps> = ({
   booking, onEdit, onPayment, onClose, style,
 }) => {
+  const { formatAmount } = useCurrency();
   const bs = (booking.status || "").toLowerCase();
   const isPaid = bs === "paid";
   const isPartial = bs === "partial";
@@ -74,7 +75,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
           color: isPaid ? "#22c55e" : isPartial ? "#7c3aed" : "#ef4444",
           fontWeight: 600,
         }}>{normalizePaymentStatus(booking.status)}</span></span>
-        <span>Bill: <strong>{currencySymbol}{(booking.grandTotal || 0).toFixed(2)}</strong></span>
+        <span>Bill: <strong>{formatAmount(booking.grandTotal || 0)}</strong></span>
       </div>
 
       {/* Last note */}

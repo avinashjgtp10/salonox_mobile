@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
-import { currencySymbol } from "../../utils/currency";
+import { useCurrency } from "../../../../hooks/useCurrency";
 import type { Booking } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
@@ -31,6 +31,7 @@ const STATUS_PILL_STYLES: Record<string, { label: string; text: string; bg: stri
 };
 
 const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue }) => {
+  const { currencySymbol, formatAmount } = useCurrency();
   const { staffList, clientsList } = useSchedulerContext();
   const currentSalon = useAppSelector((s) => s.salon.currentSalon);
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -308,7 +309,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                         referralEarnings: referralEarningsForBill,
                         activeMemberships: activeMembershipsForBill,
                         activePackages: activePackagesForBill,
-                      }, { showTaxBreakup: showTaxBreakupOnInvoice });
+                      }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
                     }}
                     style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: "0 0 10px 10px", textAlign: "left" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
