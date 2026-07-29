@@ -55,6 +55,10 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
 
   const client = clientsList.find((c) => c.id === booking.clientId);
 
+  // A receipt only makes sense once payment has actually been collected —
+  // Booked/Cancelled/No Show/Deleted appointments have no completed transaction to print.
+  const canPrintReceipt = booking.status === "paid" || booking.status === "partial";
+
   // ── Client's overall standing (reward points / active memberships / packages) ──
   // Distinct from the items purchased on THIS booking — this reflects the client's
   // current balance, shown "if had" on both the screen view and the printed receipt.
@@ -251,9 +255,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               <div>
                 <h2 className="vbm-header__title mb-0">View Appointment</h2>
                 <div className="vbm-header__id text-muted small">
-                  #{(booking as any).invoiceNumber
-                    ? String((booking as any).invoiceNumber).padStart(5, "0")
-                    : String(booking.id).slice(0, 8).toUpperCase()}
+                  {(booking as any).invoiceNumber
+                    ? String((booking as any).invoiceNumber)
+                    : `#${String(booking.id).slice(0, 8).toUpperCase()}`}
                 </div>
               </div>
             </div>
@@ -267,14 +271,14 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                 <div style={{ position: "absolute", right: 0, top: "calc(100% + 6px)", background: "#fff", border: "1px solid #e5e7eb", borderRadius: 10, boxShadow: "0 6px 24px rgba(0,0,0,0.13)", minWidth: 190, zIndex: 9999 }}>
                   <button
                     onClick={() => { setShowDotMenu(false); onEdit?.(booking); }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: "10px 10px 0 0", textAlign: "left" }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: canPrintReceipt ? "10px 10px 0 0" : 10, textAlign: "left" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
                   >
                     <span>✏️</span> Edit Appointment
                   </button>
-                  <div style={{ height: 1, background: "#f3f4f6" }} />
-                  <button
+                  {canPrintReceipt && <div style={{ height: 1, background: "#f3f4f6" }} />}
+                  {canPrintReceipt && <button
                     onClick={() => {
                       setShowDotMenu(false);
                       // If the booking was loaded from the backend it won't carry taxBreakdown
@@ -315,7 +319,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
                   >
                     <span>🖨️</span> Print Receipt
-                  </button>
+                  </button>}
                 </div>
               )}
             </div>

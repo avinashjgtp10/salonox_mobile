@@ -101,7 +101,7 @@ export type IntervalOption  = "5 Mins" | "10 Mins" | "15 Mins" | "20 Mins" | "30
 export interface Booking {
   id: string;
   title?: string;
-  invoiceNumber?: number;
+  invoiceNumber?: string;
   clientId?: string;
   clientName: string;
   clientPhone: string;

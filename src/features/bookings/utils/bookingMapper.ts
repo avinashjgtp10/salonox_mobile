@@ -400,7 +400,10 @@ export function mapApiBooking(
   return {
     ...appt,
     title,
-    invoiceNumber: appt.invoice_number ? Number(appt.invoice_number) : undefined,
+    // The linked sale's own invoice_number (e.g. "INV-00002") — NULL until the
+    // appointment is actually billed. See appointments.repository.ts's
+    // findById()/listBySalonId() comment: no longer an appointment-count.
+    invoiceNumber: appt.invoice_number ? String(appt.invoice_number) : undefined,
     clientName,
     clientPhone,
     clientEmail,
