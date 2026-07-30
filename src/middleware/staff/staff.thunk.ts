@@ -2,10 +2,12 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
+import { isUserLogoutInProgress } from "@/services/authLifecycle";
 import { staffService } from "@/services/staff.service";
 import type { StaffMember } from "@/data/teamData";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { selectCurrentUser } from "@/store/user/user.slice";
 import type {
   CreateEmergencyContactFormFields,
   CreateEmergencyContactRequest,
@@ -329,6 +331,14 @@ export const fetchStaffThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
+    if (isUserLogoutInProgress() || !selectCurrentUser(getState())) {
+      return rejectWithValue({
+        message,
+        responseBody: error instanceof ApiError ? error.responseData : undefined,
+        status: error instanceof ApiError ? error.status : undefined,
+      });
+    }
+
     console.error("[Staff] Fetch failed", {
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
@@ -341,6 +351,9 @@ export const fetchStaffThunk = createAsyncThunk<
       status: error instanceof ApiError ? error.status : undefined,
     });
   }
+}, {
+  condition: (_, { getState }) =>
+    !isUserLogoutInProgress() && Boolean(selectCurrentUser(getState())),
 });
 
 export const resolveCurrentStaffThunk = createAsyncThunk<

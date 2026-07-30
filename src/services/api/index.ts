@@ -16,12 +16,11 @@ import {
   shouldInvalidateSession,
   shouldRefreshToken,
 } from "@/services/authSession";
-import { environmentConfig, getEnvironmentConfigurationError } from "@/config/environment";
 import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
 import { tokenStorage } from "@/services/tokenStorage";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
-export const API_BASE_URL = environmentConfig.apiBaseUrl;
+export const API_BASE_URL = "http://192.168.31.114:3000/api/v1";
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
   _networkRetry?: boolean;
@@ -211,14 +210,6 @@ const waitForOnlineIfNeeded = async (config: InternalAxiosRequestConfig) => {
   throw new ApiError(OFFLINE_MUTATION_MESSAGE);
 };
 
-const assertApiEnvironmentConfigured = () => {
-  const configurationError = getEnvironmentConfigurationError();
-
-  if (configurationError) {
-    throw new ApiError(configurationError);
-  }
-};
-
 const toApiError = (error: unknown) => {
   if (isAxiosError<ApiErrorPayload>(error)) {
     if (!error.response) {
@@ -313,7 +304,6 @@ const refreshAccessToken = async (reason: string) => {
 api.interceptors.request.use(async (config) => {
   const requestUrl = config.url ?? "";
 
-  assertApiEnvironmentConfigured();
   await waitForOnlineIfNeeded(config);
 
   if (shouldSkipRefreshForRequest(requestUrl)) {
