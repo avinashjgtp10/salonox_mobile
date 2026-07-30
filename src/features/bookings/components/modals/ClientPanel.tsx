@@ -11,6 +11,7 @@ import api from "../../../../services/api/axios";
 import { Button } from "../../../../components/ui";
 import Skeleton from "../../../../components/ui/Skeleton";
 import ClientHistoryModal from "../../../clients/components/ClientHistoryModal";
+import QuickEditClientModal from "../../../clients/components/QuickEditClientModal";
 import "../../styles/AppointmentModal.scss";
 
 const AVATAR_COLORS = [
@@ -33,6 +34,16 @@ function highlight(text: string, query: string): React.ReactNode {
       {text.slice(idx + query.length)}
     </>
   );
+}
+
+// A typed/searched "karan raja" should prefill First=karan, Last=raja, not
+// dump the whole string into First — same first-word/rest split AddClientPage
+// already uses for its own prefill handoff.
+function splitName(full: string): { first: string; last: string } {
+  const trimmed = full.trim();
+  const spaceIdx = trimmed.indexOf(" ");
+  if (spaceIdx === -1) return { first: trimmed, last: "" };
+  return { first: trimmed.slice(0, spaceIdx), last: trimmed.slice(spaceIdx + 1).trim() };
 }
 
 function highlightPhone(phone: string, query: string): React.ReactNode {
@@ -68,6 +79,10 @@ interface Props {
   // Bump this (e.g. after an external eWallet top-up) to force a refetch of
   // this client's stats without needing selectedClientId to change.
   refreshKey?: number;
+  // Fired after a successful Quick Edit save — lets the parent bump its own
+  // refreshKey so every other consumer of this client's data (membership
+  // wallet, packages) picks up the change too, not just this panel.
+  onClientUpdated?: () => void;
   // Ratio for showing reward points' ₹ equivalent on the stat card — omit to
   // hide that info button entirely.
   rewardPointsConfig?: { redeem_points: number; redeem_value: number };
@@ -77,15 +92,16 @@ export const ClientPanel: React.FC<Props> = ({
   salonId, calDate, onDateChange, selectedClientId,
   fallbackUnpaidAmt,
   onSelectClient, onClearClient, onStatsLoaded, error, defaultName, defaultPhone, openAddForm,
-  refreshKey, rewardPointsConfig,
+  refreshKey, rewardPointsConfig, onClientUpdated,
 }) => {
   const [search, setSearch] = useState(selectedClientId === "walk-in" ? "Walk In" : "");
   const [suggestions, setSuggestions] = useState<Client[]>([]);
   const [totalFound, setTotalFound] = useState(0);
   const [showDrop, setShowDrop] = useState(false);
   const [showAddForm, setShowAddForm] = useState(!!defaultName || !!defaultPhone);
-  const [addFirst, setAddFirst] = useState(defaultName ?? "");
-  const [addLast, setAddLast] = useState("");
+  const defaultNameSplit = splitName(defaultName ?? "");
+  const [addFirst, setAddFirst] = useState(defaultNameSplit.first);
+  const [addLast, setAddLast] = useState(defaultNameSplit.last);
   const [addPhone, setAddPhone] = useState(defaultPhone ?? "");
   const [addGender, setAddGender] = useState("");
   const [addReferredBy, setAddReferredBy] = useState("");
@@ -196,9 +212,10 @@ export const ClientPanel: React.FC<Props> = ({
         if (items.length === 0) {
           setNoResults(true);
           const isPhone = /^\d+$/.test(search);
+          const { first, last } = isPhone ? { first: "", last: "" } : splitName(search);
           setAddPhone(isPhone ? search : "");
-          setAddFirst(!isPhone ? search : "");
-          setAddLast("");
+          setAddFirst(first);
+          setAddLast(last);
           setAddGender("");
           setAddErrors({});
         } else {
@@ -318,6 +335,18 @@ export const ClientPanel: React.FC<Props> = ({
   const onViewHistory = (selectedClientId && selectedClientId !== "walk-in")
     ? () => setShowHistoryModal(true)
     : undefined;
+
+  // Same "popup over the calendar" reasoning as history — a typo fix
+  // shouldn't cost staff the appointment they were already building.
+  const [showQuickEditModal, setShowQuickEditModal] = useState(false);
+  const onEditClient = (selectedClientId && selectedClientId !== "walk-in")
+    ? () => setShowQuickEditModal(true)
+    : undefined;
+
+  function handleClientUpdated(updated: { id: string; name: string; phone: string }) {
+    selectClient({ id: updated.id, name: updated.name, phone: updated.phone, eWallet: stats?.ewalletAmt ?? 0 });
+    onClientUpdated?.();
+  }
 
   return (
     <div className="client-panel">
@@ -441,8 +470,13 @@ export const ClientPanel: React.FC<Props> = ({
               // than dropping it on the floor.
               if (!addFirst && !addPhone && search.trim()) {
                 const isPhone = /^\d+$/.test(search.trim());
-                if (isPhone) setAddPhone(search.trim());
-                else setAddFirst(search.trim());
+                if (isPhone) {
+                  setAddPhone(search.trim());
+                } else {
+                  const { first, last } = splitName(search);
+                  setAddFirst(first);
+                  setAddLast(last);
+                }
               }
               skipNextClear.current = true;
               setSearch("");
@@ -573,6 +607,7 @@ export const ClientPanel: React.FC<Props> = ({
             onViewHistory={onViewHistory}
             historyLoading={historyLoading}
             rewardPointsConfig={rewardPointsConfig}
+            onEdit={onEditClient}
           />
         )
       )}
@@ -581,6 +616,14 @@ export const ClientPanel: React.FC<Props> = ({
         <ClientHistoryModal
           clientId={selectedClientId}
           onClose={() => setShowHistoryModal(false)}
+        />
+      )}
+
+      {showQuickEditModal && selectedClientId && selectedClientId !== "walk-in" && (
+        <QuickEditClientModal
+          clientId={selectedClientId}
+          onClose={() => setShowQuickEditModal(false)}
+          onSaved={handleClientUpdated}
         />
       )}
     </div>

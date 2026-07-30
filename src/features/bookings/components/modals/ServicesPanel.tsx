@@ -795,6 +795,17 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     });
   }
 
+  function handlePriceChange(value: string) {
+    const price = Math.max(0, parseFloat(value) || 0);
+    const qty = getSafeQty(row.qty);
+    const discount = parseInt(discountInput, 10) || 0;
+
+    updateRow({
+      price,
+      total: calcTotal(price, qty, discount),
+    });
+  }
+
   function resetBlankProductRow() {
     if (kind !== "product") return;
 
@@ -1039,11 +1050,23 @@ function SearchableItemRow(props: SearchableItemRowProps) {
         {timeError && <span className="svc-field__err">Select time</span>}
       </div>
 
-      <input
-        className="svc-field__input svc-field__input--readonly"
-        readOnly
-        value={row.price ? `${currencySymbol}${row.price}` : `${currencySymbol}0`}
-      />
+      {kind === "product" ? (
+        <input
+          className="svc-field__input"
+          type="text"
+          inputMode="numeric"
+          disabled={frozen}
+          placeholder="0"
+          value={row.price || ""}
+          onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
+        />
+      ) : (
+        <input
+          className="svc-field__input svc-field__input--readonly"
+          readOnly
+          value={row.price ? `${currencySymbol}${row.price}` : `${currencySymbol}0`}
+        />
+      )}
 
       <input
         className="svc-field__input"

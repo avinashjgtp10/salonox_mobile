@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
+import { Pencil } from "react-bootstrap-icons";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import type { ClientStats } from "../../types";
 import type { ClientPackage } from "../../../../services/api/endpoints/packages.endpoints";
@@ -15,6 +16,9 @@ interface Props {
   memberships?: ClientMembership[];
   onViewHistory?: () => void;
   historyUrl?: string;
+  // Opens the "Quick Edit Client" popup for a name/phone/email typo fix
+  // without leaving the booking flow — omit to hide the pencil button.
+  onEdit?: () => void;
   // True while the background history/packages/memberships fetch (which is
   // what actually populates totalVisit/lastVisit/totalRevenue) is still in
   // flight — shows those 3 cells as skeleton placeholders instead of quietly
@@ -101,7 +105,7 @@ function usePopover() {
 
 export const ClientStatCard: React.FC<Props> = ({
   name, phone, address, stats, packages = [], memberships = [], onViewHistory, historyUrl,
-  historyLoading = false, rewardPointsConfig,
+  historyLoading = false, rewardPointsConfig, onEdit,
 }) => {
   const { formatAmount } = useCurrency();
   const STAT_ROWS = buildStatRows(formatAmount);
@@ -135,6 +139,17 @@ export const ClientStatCard: React.FC<Props> = ({
             <div className="name">{name}</div>
             <div className="sub">{phone}{address && address !== "N/A" ? ` · ${address}` : ""}</div>
           </div>
+          {onEdit && (
+            <button
+              type="button"
+              className="client-edit-btn"
+              title="Edit client"
+              aria-label="Edit client"
+              onClick={onEdit}
+            >
+              <Pencil size={12} />
+            </button>
+          )}
           {stats.membership !== "NA" && (
             <span className="badge badge-warning ms-auto" style={{ fontSize: 11 }}>
               ★ {stats.membership}

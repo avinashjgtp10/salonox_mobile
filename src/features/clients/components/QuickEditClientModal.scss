@@ -1,0 +1,137 @@
+// Reuses .chm-overlay's centering/backdrop chrome (ClientHistoryModal.scss) —
+// this only overrides the panel to a small, auto-height size for a
+// name/phone/email correction form.
+
+.qec-panel {
+  width: min(400px, 100%);
+  height: auto;
+  max-height: min(500px, 90vh);
+  display: flex;
+  flex-direction: column;
+}
+
+.qec-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e5e7eb;
+
+  h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+  }
+}
+
+.qec-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  &:hover { background: #e5e7eb; }
+}
+
+.qec-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+}
+
+.qec-loading {
+  color: #6b7280;
+  font-size: 13.5px;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.qec-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #6b7280;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-top: 12px;
+  &:first-child { margin-top: 0; }
+}
+
+.qec-req-star {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
+.qec-input {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 14px;
+  outline: none;
+  width: 100%;
+  &:focus { border-color: #6366f1; }
+}
+
+.qec-phone-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  .qec-phone-code {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 10px 10px;
+    font-size: 14px;
+    color: #6b7280;
+    background: #f9fafb;
+    flex-shrink: 0;
+  }
+
+  .qec-phone-input { flex: 1; }
+}
+
+.qec-error {
+  color: #dc2626;
+  font-size: 12.5px;
+  margin: 8px 0 0;
+}
+
+.qec-actions {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+
+  button { flex: 1; }
+}
+
+.qec-btn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s;
+
+  &--outline {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    &:hover { background: #f8fafc; }
+  }
+
+  &--dark {
+    background: #0f172a;
+    color: #fff;
+    &:hover { background: #1e293b; }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+  }
+}

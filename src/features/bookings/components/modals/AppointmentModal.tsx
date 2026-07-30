@@ -263,8 +263,11 @@ export const AppointmentModal: React.FC<Props> = ({
   const [printAfterPayment, setPrintAfterPayment] = useState(false);
   // Lets staff exclude GST from this specific bill even when Tax Mapping is
   // configured (e.g. a client requesting a no-GST cash bill) — defaults to
-  // on so behavior is unchanged unless staff explicitly opts out.
-  const [includeGst, setIncludeGst] = useState(true);
+  // on so behavior is unchanged unless staff explicitly opts out. Restored
+  // from the persisted flag when reopening an existing booking — otherwise
+  // a bill saved with GST excluded silently got GST recomputed back in on
+  // every reopen (see includeGst on the Booking type).
+  const [includeGst, setIncludeGst] = useState(() => existingBooking?.includeGst ?? true);
   const [payMethodError, setPayMethodError]     = useState(false);
   const [showPaymentSection, setShowPaymentSection] = useState(false);
   const [showPaidPopup, setShowPaidPopup] = useState(false);
@@ -1179,6 +1182,7 @@ export const AppointmentModal: React.FC<Props> = ({
       existingBooking:      existingBooking ?? null,
       isPackageAppointment: isPackageZero,
       applyMembershipWallet: applyMembership,
+      includeGst,
     };
   }
 
@@ -1516,6 +1520,7 @@ export const AppointmentModal: React.FC<Props> = ({
         openAddForm={triggerAddForm}
         refreshKey={clientRefreshKey}
         rewardPointsConfig={rewardPointsConfig}
+        onClientUpdated={() => setClientRefreshKey((k) => k + 1)}
       />
     </div>
   );

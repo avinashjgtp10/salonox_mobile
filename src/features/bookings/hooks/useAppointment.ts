@@ -24,6 +24,7 @@ interface SavePayload {
   existingBooking?: Booking | null;
   isPackageAppointment?: boolean;
   applyMembershipWallet?: boolean;
+  includeGst?: boolean;
 }
 
 function addMinutes(time: string, mins: number): string {
@@ -113,6 +114,7 @@ export function useAppointment() {
       calDate, defaultTime, notes, staffAlert, salonId, clientId, existingBooking,
       isPackageAppointment: _isPackageAppointment,
       applyMembershipWallet,
+      includeGst,
     } = payload;
 
     setIsSaving(true);
@@ -240,6 +242,7 @@ export function useAppointment() {
         tip_amount:     (booking as any).tipAmount ?? 0,
         gst_percent:    (booking as any).gst ?? 0,
         apply_membership_wallet: applyMembershipWallet ?? false,
+        include_gst:    includeGst ?? true,
       };
 
       if (existingBooking) {

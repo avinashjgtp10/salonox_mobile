@@ -157,6 +157,7 @@ export interface Booking {
   discountType?: DiscountType;
   gst?: number; // effective blended tax rate (%), for legacy/simple display
   gstAmount?: number; // total add-on tax amount included in grandTotal
+  includeGst?: boolean; // persisted "Include GST" checkbox state, independent of payment — see applyMembershipWallet for the equivalent pattern
   taxBreakdown?: { name: string; rate: number; amount: number; inclusive: boolean }[];
   couponCode?: string;
   couponDiscount?: number;
