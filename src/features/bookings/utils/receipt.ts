@@ -43,6 +43,11 @@ export interface BuildPrintableBookingParams {
   /** Use when the real bill total isn't just the sum of `items` (e.g. an appointment
    *  with no linked sale yet, priced from amount_paid instead). */
   grandTotalOverride?: number;
+  /** The actual amount collected so far — needed for a partial payment, where
+   *  it's neither the full grandTotal (not fully paid) nor 0 (something WAS
+   *  collected). Omit for the normal fully-paid/fully-unpaid cases, where
+   *  paymentStatus alone is enough to tell payingNow/dueAmount apart. */
+  amountPaidOverride?: number;
   notes?: string | null;
   /** Amount of `grandTotal` paid from the client's eWallet — printReceipt only
    *  shows a "Paid via eWallet" line when this (or membershipWalletUsed) is
@@ -84,6 +89,14 @@ export function buildPrintableBooking(params: BuildPrintableBookingParams): any 
   const grandTotal = params.grandTotalOverride
     ?? params.items.reduce((s, it) => s + (Number(it.total_price) || 0), 0);
 
+  // Binary paid-or-not by default (payingNow = grandTotal or 0) — overridden
+  // for a partial payment, where the real collected amount is somewhere in
+  // between and dueAmount is whatever's left, not the full grandTotal.
+  const payingNow = params.amountPaidOverride !== undefined
+    ? params.amountPaidOverride
+    : (isPaid ? grandTotal : 0);
+  const dueAmount = Math.max(0, grandTotal - payingNow);
+
   const ewalletUsed = Number(params.ewalletUsed) || 0;
   // Only the eWallet leg is known precisely here (the appointment/sale record
   // doesn't carry a full cash/card/upi split) — still strictly more accurate
@@ -112,8 +125,8 @@ export function buildPrintableBooking(params: BuildPrintableBookingParams): any 
     subtotal: grandTotal,
     taxableAmount: grandTotal,
     grandTotal,
-    payingNow: isPaid ? grandTotal : 0,
-    dueAmount: isPaid ? 0 : grandTotal,
+    payingNow,
+    dueAmount,
     notes: params.notes || undefined,
     splitDetails,
     membershipWalletUsed: Number(params.membershipWalletUsed) || 0,
