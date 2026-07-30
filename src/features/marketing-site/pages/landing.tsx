@@ -851,7 +851,7 @@ const LandingPage: React.FC = () => {
           <a href="#why-salonox" className={`mobile-link${activeSection === 'why-salonox' ? ' is-active' : ''}`} aria-current={activeSection === 'why-salonox' ? 'location' : undefined} onClick={scrollToSection('why-salonox')}>Why SalonOX</a>
           <a href="#features" className={`mobile-link${activeSection === 'features' ? ' is-active' : ''}`} aria-current={activeSection === 'features' ? 'location' : undefined} onClick={scrollToSection('features')}>Features</a>
           <a href="#multi-branch" className={`mobile-link${activeSection === 'multi-branch' ? ' is-active' : ''}`} aria-current={activeSection === 'multi-branch' ? 'location' : undefined} onClick={scrollToSection('multi-branch')}>Multi-Branch</a>
-          <a href="#how" className={`mobile-link mobile-link-btn${activeSection === 'how' ? ' is-active' : ''}`} aria-current={activeSection === 'how' ? 'location' : undefined} onClick={scrollToSection('how')}>How it works</a>
+          <a href="#how" className={`mobile-link${activeSection === 'how' ? ' is-active' : ''}`} aria-current={activeSection === 'how' ? 'location' : undefined} onClick={scrollToSection('how')}>How it works</a>
           <a href="#testimonials" className={`mobile-link${activeSection === 'testimonials' ? ' is-active' : ''}`} aria-current={activeSection === 'testimonials' ? 'location' : undefined} onClick={scrollToSection('testimonials')}>Reviews</a>
           <a href="#pricing" className={`mobile-link${activeSection === 'pricing' ? ' is-active' : ''}`} aria-current={activeSection === 'pricing' ? 'location' : undefined} onClick={scrollToSection('pricing')}>Pricing</a>
           <div className="mobile-cta">

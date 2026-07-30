@@ -6742,31 +6742,6 @@ body.landing-page-active {
     }
   }
 
-  .mobile-link.mobile-link-btn {
-    background: transparent;
-    color: var(--navy) !important;
-    border: 1px solid transparent !important;
-    border-radius: var(--radius-sm);
-    padding: 12px 16px !important;
-    text-align: center;
-    margin-top: 8px;
-    margin-bottom: 8px;
-    font-weight: 800;
-
-    &:hover {
-      background: var(--gradient-emerald);
-      color: var(--white) !important;
-      border-color: var(--emerald-dark);
-    }
-
-    &.is-active {
-      background: var(--emerald-soft);
-      color: var(--emerald-dark) !important;
-      border-color: rgba(16, 185, 129, 0.3) !important;
-      box-shadow: inset 3px 0 0 var(--emerald-dark);
-    }
-  }
-
   .mobile-cta {
     margin-top: 20px;
     display: grid;
