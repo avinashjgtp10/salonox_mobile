@@ -51,6 +51,7 @@ function buildNavigationTheme(scheme: 'light' | 'dark', colors: ThemeColors): Th
 
 const PUBLIC_ROUTES = new Set([
   "index",
+  "welcome",
   "login",
   "forgot-password",
   "verify-otp",
@@ -239,6 +240,7 @@ function AppShell() {
               }}
             >
               <Stack.Screen name="login" />
+              <Stack.Screen name="welcome" />
               <Stack.Screen name="forgot-password" />
               <Stack.Screen name="verify-otp" />
               <Stack.Screen name="reset-password" />
