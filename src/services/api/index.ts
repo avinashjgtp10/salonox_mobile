@@ -16,6 +16,7 @@ import {
   shouldInvalidateSession,
   shouldRefreshToken,
 } from "@/services/authSession";
+import { isUserLogoutInProgress } from "@/services/authLifecycle";
 import { environmentConfig, getEnvironmentConfigurationError } from "@/config/environment";
 import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
 import { tokenStorage } from "@/services/tokenStorage";
@@ -24,6 +25,7 @@ import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 export const API_BASE_URL = environmentConfig.apiBaseUrl;
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
+  _logoutAbortController?: AbortController;
   _networkRetry?: boolean;
   _retry?: boolean;
 };
@@ -70,8 +72,10 @@ export const api = create({
 });
 
 let refreshAccessTokenPromise: Promise<string> | null = null;
+let refreshAbortController: AbortController | null = null;
 const defaultApiAdapter = getAdapter(api.defaults.adapter) as AxiosAdapter;
 const inFlightSafeRequests = new Map<string, Promise<AxiosResponse>>();
+const protectedRequestControllers = new Set<AbortController>();
 
 const SAFE_RETRY_METHODS = new Set(["get", "head", "options"]);
 
@@ -253,10 +257,32 @@ const shouldSkipRefreshForRequest = (requestUrl: string) =>
   requestUrl.includes("/auth/logout") ||
   requestUrl.includes("/auth/forgot-password");
 
+const releaseProtectedRequest = (config?: RetryableRequestConfig) => {
+  const controller = config?._logoutAbortController;
+
+  if (controller) {
+    protectedRequestControllers.delete(controller);
+    delete config._logoutAbortController;
+  }
+};
+
+export const cancelProtectedApiRequests = () => {
+  refreshAbortController?.abort();
+  refreshAbortController = null;
+  protectedRequestControllers.forEach((controller) => controller.abort());
+  protectedRequestControllers.clear();
+};
+
 const refreshAccessToken = async (reason: string) => {
   if (!refreshAccessTokenPromise) {
     refreshAccessTokenPromise = (async () => {
+      const controller = new AbortController();
+      refreshAbortController = controller;
       const refreshToken = await tokenStorage.getRefreshToken();
+
+      if (isUserLogoutInProgress()) {
+        throw new ApiError("Token refresh cancelled during logout.");
+      }
 
       if (!refreshToken) {
         logAuthEvent("refresh_missing_refresh_token", { reason });
@@ -270,9 +296,14 @@ const refreshAccessToken = async (reason: string) => {
         const response = await refreshClient.post<ApiResponse<RefreshTokenResponseData>>(
           "/auth/refresh",
           { refreshToken },
+          { signal: controller.signal },
         );
         const nextTokens = response.data.data;
         const nextRefreshToken = nextTokens.refreshToken ?? refreshToken;
+
+        if (isUserLogoutInProgress()) {
+          throw new ApiError("Token refresh cancelled during logout.");
+        }
 
         await tokenStorage.setTokens({
           accessToken: nextTokens.accessToken,
@@ -302,6 +333,9 @@ const refreshAccessToken = async (reason: string) => {
 
         throw toApiError(refreshError);
       } finally {
+        if (refreshAbortController === controller) {
+          refreshAbortController = null;
+        }
         refreshAccessTokenPromise = null;
       }
     })();
@@ -320,7 +354,25 @@ api.interceptors.request.use(async (config) => {
     return config;
   }
 
+  // Logout is a hard boundary for authenticated traffic. Screens remain
+  // mounted until navigation reacts to the cleared user, so reject protected
+  // work during that transition instead of sending it without credentials.
+  if (isUserLogoutInProgress()) {
+    throw new ApiError("Protected request cancelled during logout.");
+  }
+
+  const logoutAbortController = new AbortController();
+  config.signal = logoutAbortController.signal;
+  (config as RetryableRequestConfig)._logoutAbortController = logoutAbortController;
+  protectedRequestControllers.add(logoutAbortController);
+
   const accessToken = await tokenStorage.getAccessToken();
+
+  if (isUserLogoutInProgress()) {
+    logoutAbortController.abort();
+    releaseProtectedRequest(config as RetryableRequestConfig);
+    throw new ApiError("Protected request cancelled during logout.");
+  }
 
   if (!accessToken) {
     return config;
@@ -332,6 +384,11 @@ api.interceptors.request.use(async (config) => {
     if (refreshToken) {
       try {
         const nextAccessToken = await refreshAccessToken(`request:${requestUrl}`);
+
+        if (isUserLogoutInProgress()) {
+          throw new ApiError("Protected request cancelled during logout.");
+        }
+
         config.headers.Authorization = `Bearer ${nextAccessToken}`;
 
         return config;
@@ -351,9 +408,13 @@ api.interceptors.request.use(async (config) => {
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    releaseProtectedRequest(response.config as RetryableRequestConfig);
+    return response;
+  },
   async (error: AxiosError<ApiErrorPayload>) => {
     const originalRequest = error.config as RetryableRequestConfig | undefined;
+    releaseProtectedRequest(originalRequest);
     const status = error.response?.status;
     const requestUrl = originalRequest?.url ?? "";
     const shouldSkipRefresh = shouldSkipRefreshForRequest(requestUrl);

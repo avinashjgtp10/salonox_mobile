@@ -9,7 +9,7 @@ import {
 
 import { unregisterDeviceThunk } from "@/middleware/notification/notification.thunk";
 import { fetchCurrentUserThunk } from "@/middleware/user/user.thunk";
-import { ApiError, getApiErrorMessage } from "@/services/api";
+import { ApiError, cancelProtectedApiRequests, getApiErrorMessage } from "@/services/api";
 import { beginUserLogout, finishUserLogin } from "@/services/authLifecycle";
 import { authService } from "@/services/authService";
 import {
@@ -302,10 +302,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
-      beginUserLogout();
       const session = await tokenStorage.getSession();
 
       await unregisterNotificationDevice();
+      beginUserLogout();
+      cancelProtectedApiRequests();
       await clearLocalSession("logout");
 
       void authService.logout({
@@ -327,10 +328,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
-      beginUserLogout();
       const session = await tokenStorage.getSession();
 
       await unregisterNotificationDevice();
+      beginUserLogout();
+      cancelProtectedApiRequests();
       await clearLocalSession("logout_all");
 
       void authService.logoutAll({ accessToken: session.accessToken }).catch((signOutAllError) => {
@@ -349,10 +351,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
-      beginUserLogout();
       await unregisterNotificationDevice();
       await authService.deleteAccount();
 
+      beginUserLogout();
+      cancelProtectedApiRequests();
       await clearLocalSession("delete_account");
     } catch (deleteAccountError) {
       const message = getApiErrorMessage(deleteAccountError);
