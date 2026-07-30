@@ -10,8 +10,6 @@ import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
 import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
-import { retailFromActiveMethod, markupPercentFromRetail, flatAmountFromRetail } from "../utils/productPricing";
-import type { MarkupMethod } from "../utils/productPricing";
 import { PRODUCT_UNITS, isConsumableType, TAX_TYPE_OPTIONS } from "../types/product.types";
 import type { ProductType, ProductUnit, TaxType } from "../types/product.types";
 import { PRODUCT_MESSAGES } from "../../../constants/messages";
@@ -32,9 +30,6 @@ interface FormState {
   supplyPrice: string;
   retailSalesEnabled: boolean;
   retailPrice: string;
-  markupPercentage: string;
-  flatAmount: string;
-  markupMethod: MarkupMethod;
   productType: ProductType;
   unit: ProductUnit | "";
   sizeValue: string;
@@ -55,9 +50,6 @@ const initialForm: FormState = {
   supplyPrice: "",
   retailSalesEnabled: true,
   retailPrice: "",
-  markupPercentage: "",
-  flatAmount: "",
-  markupMethod: "percentage",
   productType: "retail",
   unit: "",
   sizeValue: "",
@@ -96,6 +88,7 @@ const EditProductPage: React.FC = () => {
   const [savingSupplier, setSavingSupplier] = useState(false);
   const [qtyAlertTouched, setQtyAlertTouched] = useState(false);
   const [hsnSacTouched, setHsnSacTouched] = useState(false);
+  const [retailPriceTouched, setRetailPriceTouched] = useState(false);
 
   const isConsumable = isConsumableType(form.productType);
 
@@ -106,6 +99,10 @@ const EditProductPage: React.FC = () => {
       : "";
 
   const hsnSacError = form.hsnSac.trim() && !/^\d+$/.test(form.hsnSac.trim()) ? PRODUCT_MESSAGES.HSN_SAC_INVALID : "";
+
+  const retailPriceError = form.retailSalesEnabled && (!form.retailPrice.trim() || isNaN(Number(form.retailPrice)) || Number(form.retailPrice) <= 0)
+    ? "Retail price is required"
+    : "";
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -134,9 +131,6 @@ const EditProductPage: React.FC = () => {
         supplyPrice: product.supply_price != null ? String(product.supply_price) : "",
         retailSalesEnabled: product.retail_sales_enabled ?? true,
         retailPrice: product.retail_price != null ? String(product.retail_price) : "",
-        markupPercentage: product.markup_percentage != null ? String(product.markup_percentage) : "",
-        flatAmount: "",
-        markupMethod: "percentage",
         productType: (product.product_type as ProductType) || "retail",
         unit: (product.unit as ProductUnit) || "",
         sizeValue: product.size ? String(parseFloat(product.size)) : "",
@@ -147,41 +141,12 @@ const EditProductPage: React.FC = () => {
     }
   }, [product]);
 
-  // Supply price change recalculates retail price from whichever markup method is active
-  const handleSupplyPriceChange = (val: string) => {
-    setForm((prev) => {
-      const supply = parseFloat(val) || 0;
-      const markup = parseFloat(prev.markupPercentage) || 0;
-      const flat = parseFloat(prev.flatAmount) || 0;
-      const hasMarkupInput = prev.markupMethod === "percentage" ? prev.markupPercentage !== "" : prev.flatAmount !== "";
-      const retail = hasMarkupInput ? String(retailFromActiveMethod(supply, prev.markupMethod, markup, flat)) : prev.retailPrice;
-      return { ...prev, supplyPrice: val, retailPrice: retail };
-    });
-  };
+  // Supply price and Retail price are fully independent fields — no
+  // auto-fill, default, or markup-driven sync between them.
+  const handleSupplyPriceChange = (val: string) => setField("supplyPrice", val);
 
-  // Markup % changes: becomes the active method, clears flat amount, recalculates retail price
-  const handleMarkupChange = (val: string) => {
-    setForm((prev) => {
-      const supply = parseFloat(prev.supplyPrice) || 0;
-      const markup = parseFloat(val) || 0;
-      const retail = val === "" ? prev.retailPrice : String(retailFromActiveMethod(supply, "percentage", markup, 0));
-      return { ...prev, markupPercentage: val, flatAmount: "", markupMethod: "percentage", retailPrice: retail };
-    });
-  };
+  const handleRetailPriceChange = (val: string) => setField("retailPrice", val);
 
-  // Manual retail price edits recalculate the corresponding value for the active markup method
-  const handleRetailPriceChange = (val: string) => {
-    setForm((prev) => {
-      const supply = parseFloat(prev.supplyPrice) || 0;
-      const retail = parseFloat(val) || 0;
-      if (prev.markupMethod === "percentage") {
-        return { ...prev, retailPrice: val, markupPercentage: val === "" ? prev.markupPercentage : String(markupPercentFromRetail(supply, retail)) };
-      }
-      return { ...prev, retailPrice: val, flatAmount: val === "" ? prev.flatAmount : String(flatAmountFromRetail(supply, retail)) };
-    });
-  };
-
-  // Mouse-wheel adjustment for the pricing fields (Supply/Retail price step by ₹1, Markup % by 1%)
 
   const handleAddBrand = async () => {
     if (!newBrand.trim()) return;
@@ -222,7 +187,8 @@ const EditProductPage: React.FC = () => {
   const handleSubmit = async () => {
     setQtyAlertTouched(true);
     setHsnSacTouched(true);
-    if (qtyAlertError || hsnSacError) return;
+    setRetailPriceTouched(true);
+    if (qtyAlertError || hsnSacError || retailPriceError) return;
 
     const payload = {
       name: form.productName.trim(),
@@ -235,10 +201,9 @@ const EditProductPage: React.FC = () => {
       qty_alert: isConsumable ? parseFloat(form.qtyAlert) : parseInt(form.qtyAlert, 10),
       description: form.description || null,
       supply_price: form.supplyPrice ? parseFloat(form.supplyPrice) : 0,
-      retail_price: form.retailSalesEnabled && form.retailPrice ? parseFloat(form.retailPrice) : null,
-      markup_percentage: form.retailSalesEnabled && form.retailPrice
-        ? markupPercentFromRetail(parseFloat(form.supplyPrice) || 0, parseFloat(form.retailPrice))
-        : null,
+      // Retail price is a required, independent field (validated above) when
+      // retail sales is enabled — no markup/supply-price fallback needed.
+      retail_price: form.retailSalesEnabled ? parseFloat(form.retailPrice) || 0 : null,
       product_type: form.productType,
       unit: form.unit || null,
       size: form.sizeValue.trim() && form.unit ? `${form.sizeValue.trim()} ${form.unit}` : null,
@@ -491,19 +456,7 @@ const EditProductPage: React.FC = () => {
 
           {/* 2. Pricing */}
           <Card title="Pricing" className="mb-4">
-            <Input
-              label="Supply price"
-              type="text"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={form.supplyPrice}
-              onChange={(e) => handleSupplyPriceChange(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-              iconLeft={<span>{currencySymbol}</span>}
-              containerClass="mt-1"
-            />
-
-            <div className="d-flex align-items-center justify-content-between mt-4 mb-1">
+            <div className="d-flex align-items-center justify-content-between mb-1">
               <div>
                 <div className="fw-semibold" style={{ fontSize: "14px" }}>Retail sales</div>
                 <div className="text-muted" style={{ fontSize: "13px" }}>
@@ -526,34 +479,36 @@ const EditProductPage: React.FC = () => {
             </div>
 
             {form.retailSalesEnabled && (
-              <div className="row g-3">
-                <div className="col-6">
-                  <Input
-                    label="Retail price"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={form.retailPrice}
-                    onChange={(e) => handleRetailPriceChange(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-                    iconLeft={<span>{currencySymbol}</span>}
-                    containerClass=""
-                  />
-                </div>
-                <div className="col-6">
-                  <Input
-                    label="Markup"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={form.markupPercentage}
-                    onChange={(e) => handleMarkupChange(e.target.value)}
-                    iconLeft={<span>%</span>}
-                    containerClass=""
-                  />
-                </div>
+              <div className="mb-1">
+                <Input
+                  label={<>Retail price <span style={{ color: "#dc2626" }}>*</span></>}
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={form.retailPrice}
+                  onChange={(e) => { handleRetailPriceChange(e.target.value.replace(/[^0-9.]/g, "")); setRetailPriceTouched(true); }}
+                  onBlur={() => setRetailPriceTouched(true)}
+                  onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
+                  iconLeft={<span>{currencySymbol}</span>}
+                  containerClass=""
+                />
+                {retailPriceTouched && retailPriceError && (
+                  <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{retailPriceError}</div>
+                )}
               </div>
             )}
+
+            <Input
+              label="Supply price"
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={form.supplyPrice}
+              onChange={(e) => handleSupplyPriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
+              onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
+              iconLeft={<span>{currencySymbol}</span>}
+              containerClass="mt-3"
+            />
           </Card>
 
           {/* 3. Tax & compliance */}
