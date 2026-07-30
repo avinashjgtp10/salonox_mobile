@@ -49,6 +49,14 @@ interface AppointmentRecord {
   payment_mode?: string | null;
   membership_wallet_used?: number;
   ewallet_used?: number;
+  // Actual net bill for a completed appointment (post discount/eWallet/
+  // membership-wallet) — null until a completed payment exists.
+  net_amount?: number | null;
+  // Backfill name from the linked client_memberships/client_packages record
+  // (same appointment_id) — used when this appointment's own
+  // membership_items/package_items entry came through with no name.
+  linked_membership_name?: string | null;
+  linked_package_name?: string | null;
   services: Array<{ name?: string; service_name?: string; price?: number }>;
   product_items: Array<{ name: string }>;
   package_items?: Array<{ name?: string; package_name?: string; price?: number; total?: number }>;
@@ -222,6 +230,17 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   }));
 
   const [data, setData] = useState<HistoryData | null>(null);
+  // Standalone (no linked appointment) package/membership purchase revenue —
+  // fetched separately from /history's own packages/memberships arrays,
+  // which don't select appointment_id and so can't distinguish "sold on its
+  // own" from "sold as a line item on an appointment" (that case is already
+  // counted via the appointment's own total below). Same two endpoints and
+  // same standalone filter useClientDetails.ts uses for the Calendar/Sale
+  // Client Information panel's Total Revenue, so this screen's Total Spend
+  // matches it instead of silently under-counting a purchase whose
+  // background sales-mirror row failed to get created.
+  const [standalonePkgRevenue, setStandalonePkgRevenue] = useState(0);
+  const [standaloneMemRevenue, setStandaloneMemRevenue] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? "history");
   // loadHistory() unconditionally lands on "history" — that's the right default when the
@@ -269,6 +288,30 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     setPackageBookingsPage(1);
   }, [globalDatePreset, globalCalDay, globalServiceFilter, globalStaffFilter]);
 
+  // Same standalone-purchase revenue useClientDetails.ts computes from these
+  // same two endpoints — see the standalonePkgRevenue/standaloneMemRevenue
+  // state comment above.
+  const fetchStandaloneRevenue = useCallback(async (id: string) => {
+    const [pkgRes, memRes] = await Promise.all([
+      api.get(`/api/v1/client-packages?clientId=${id}&limit=500`).catch(() => ({ data: null })),
+      api.get(`/api/v1/client-memberships?clientId=${id}&limit=200`).catch(() => ({ data: null })),
+    ]);
+    const pkgItems: any[] = pkgRes.data?.data?.items ?? pkgRes.data?.items ?? pkgRes.data?.data ?? [];
+    const pkgRevenue = Array.isArray(pkgItems)
+      ? pkgItems
+          .filter((p: any) => !(p.appointmentId ?? p.appointment_id))
+          .reduce((sum: number, p: any) => sum + Number(p.paidAmount ?? p.paid_amount ?? p.totalAmount ?? p.total_amount ?? 0), 0)
+      : 0;
+    const memItems: any[] = memRes.data?.data?.items ?? memRes.data?.items ?? [];
+    const memRevenue = Array.isArray(memItems)
+      ? memItems
+          .filter((m: any) => !(m.appointmentId ?? m.appointment_id))
+          .reduce((sum: number, m: any) => sum + Number(m.pricePaid ?? m.price_paid ?? 0), 0)
+      : 0;
+    setStandalonePkgRevenue(pkgRevenue);
+    setStandaloneMemRevenue(memRevenue);
+  }, []);
+
   const loadHistory = useCallback(async (id: string) => {
     setData(null);
     setHistoryLoading(true);
@@ -297,9 +340,38 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     } finally {
       setHistoryLoading(false);
     }
-  }, [initialTab]);
+    fetchStandaloneRevenue(id).catch(() => {});
+  }, [initialTab, fetchStandaloneRevenue]);
 
   useEffect(() => { loadHistory(clientId); }, [clientId, loadHistory]);
+
+  // Unlike ClientHistoryModal (which fully unmounts/remounts on every open,
+  // so it always gets a fresh fetch), this component mounts once per
+  // selected client and never re-fetches on its own — a sale/payment made
+  // elsewhere (e.g. the Calendar, in another tab) while this panel stays
+  // mounted left it showing an arbitrarily stale Total Spend/Visits snapshot
+  // indefinitely. Silently re-fetch (no tab/filter/page reset, unlike
+  // loadHistory) whenever this tab regains focus, so re-checking a client
+  // already on screen picks up anything that changed while it was stale.
+  useEffect(() => {
+    async function silentRefresh() {
+      if (document.visibilityState !== "visible") return;
+      try {
+        const res = await api.get(`/api/v1/clients/${clientId}/history`);
+        setData(res.data?.data ?? null);
+        fetchStandaloneRevenue(clientId).catch(() => {});
+      } catch {
+        // Keep showing the last-good snapshot rather than blanking the
+        // panel over a transient network blip from a background refresh.
+      }
+    }
+    window.addEventListener("focus", silentRefresh);
+    document.addEventListener("visibilitychange", silentRefresh);
+    return () => {
+      window.removeEventListener("focus", silentRefresh);
+      document.removeEventListener("visibilitychange", silentRefresh);
+    };
+  }, [clientId, fetchStandaloneRevenue]);
 
   const client = data?.client;
   const stats = data?.stats;
@@ -363,17 +435,34 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   // Quick Sell entries: sales with no linked appointment
   const quickSales = sales.filter((s) => !s.appointment_id);
 
-  // stats.lifetime_spend (from the backend) doesn't reliably include every completed
-  // sale — e.g. a completed package purchase can be left out — so it can under-report
-  // "Total Spend" even when Payment History correctly lists the payment. Compute it
-  // here instead from the same completed sales/appointments already driving those tabs:
-  // completed sales' total_amount, plus any paid appointment that has no linked sale
-  // at all (so its amount isn't double-counted with a sale total).
-  const computedLifetimeSpend =
-    sales.filter((s) => s.status === "completed").reduce((sum, s) => sum + (Number(s.total_amount) || 0), 0) +
-    appointments
-      .filter((a) => !saleByAppointmentId.has(a.id) && isApptPaid(a))
-      .reduce((sum, a) => sum + (Number(a.amount_paid) || 0), 0);
+  // Same formula as useClientDetails.ts (the Calendar/Sale Client Information
+  // panel's Total Revenue) — kept identical on purpose so this screen and
+  // that panel never disagree on the same client's total again. Previously
+  // this summed every completed sale's total_amount (which double-counts
+  // eWallet-covered spend as new revenue, drops partial payments to ₹0, and
+  // silently misses a standalone package/membership sale whenever its
+  // background sales-row mirror failed) — see standalonePkgRevenue/
+  // standaloneMemRevenue's declaration above for the package/membership half.
+  const paidRevenue = appointments
+    .filter((a) => a.status === "paid")
+    .reduce((sum, a) => {
+      const net = a.net_amount;
+      // Falls back to amount_paid (not the full catalog total) on the rare
+      // paid appointment with no net_amount yet — a "paid" status normally
+      // implies a completed payment already populated it.
+      return sum + ((net !== null && net !== undefined) ? Number(net) : Number(a.amount_paid ?? 0));
+    }, 0);
+  // amount_paid intentionally includes eWallet/membership-wallet money (it
+  // represents "how much of this bill is settled") — subtract those back out
+  // here since neither is new money for the salon, same reasoning as paidRevenue.
+  const partialRevenue = appointments
+    .filter((a) => a.status === "partial")
+    .reduce((sum, a) => {
+      const collected = Number(a.amount_paid ?? 0);
+      const walletPortion = Number(a.ewallet_used ?? 0) + Number(a.membership_wallet_used ?? 0);
+      return sum + Math.max(0, collected - walletPortion);
+    }, 0);
+  const computedLifetimeSpend = paidRevenue + partialRevenue + standalonePkgRevenue + standaloneMemRevenue;
 
   const servicesFromSales = sales
     .filter((s) => s.status === "completed")
@@ -433,12 +522,6 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     (s.items ?? []).filter((it) => it.item_type === "membership")
       .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id }))
   );
-
-  const completedSalesCount = sales.filter((s) => s.status === "completed").length;
-  const avgTicket =
-    completedSalesCount > 0
-      ? Math.round(computedLifetimeSpend / completedSalesCount)
-      : 0;
 
   const isGoldMember = computedLifetimeSpend > 5000;
 
@@ -620,6 +703,14 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const walkInVisitCount = quickSales.filter(
     (s) => s.status === "completed" && !packageSaleIds.has(s.id),
   ).length;
+
+  // Same "Total Visits" figure shown in the stat bar below — keeps Avg
+  // Ticket = Total Spend / Total Visits internally consistent instead of
+  // dividing by a completed-sales count that no longer matches what's in
+  // the numerator (computedLifetimeSpend now includes partial appointments
+  // and standalone package/membership purchases too, not just sales rows).
+  const totalVisitsCount = (stats?.completed_appointments ?? 0) + walkInVisitCount;
+  const avgTicket = totalVisitsCount > 0 ? Math.round(computedLifetimeSpend / totalVisitsCount) : 0;
 
   const handleBookAppointment = () => {
     if (!client) return;
@@ -1010,6 +1101,12 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                       appt.package_items?.[0]?.name ||
                       appt.package_items?.[0]?.package_name ||
                       appt.membership_items?.[0]?.name ||
+                      // Falls back to the linked client_packages/client_memberships
+                      // record's own name when this appointment's own item entry
+                      // came through with no name (see linked_package_name/
+                      // linked_membership_name on the /history response).
+                      appt.linked_package_name ||
+                      appt.linked_membership_name ||
                       "Appointment";
                     // Was services.length - 1 — a bill can bundle a service
                     // AND a package AND a product AND a membership in one

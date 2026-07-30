@@ -261,6 +261,21 @@ export default function ClientsListPage() {
   // with position: fixed so it can never be clipped by an ancestor.
   const [rowMenuPos, setRowMenuPos] = useState({ top: 0, left: 0, openUp: false });
 
+  // The dropdown is position:fixed with coordinates captured once at open
+  // time (see rowMenuPos's comment above) — those never update afterward, so
+  // scrolling the table (or the page) left it visually stranded, floating
+  // over whatever row happened to end up under its original screen position
+  // instead of the row it was actually opened for. Closing on scroll is
+  // simpler and less janky than continuously repositioning it, and is an
+  // explicitly acceptable fix. Capture phase so this also catches scrolling
+  // inside the table's own scroll container, not just the window.
+  useEffect(() => {
+    if (!openRowMenuId) return;
+    const closeMenu = () => setOpenRowMenuId(null);
+    window.addEventListener("scroll", closeMenu, true);
+    return () => window.removeEventListener("scroll", closeMenu, true);
+  }, [openRowMenuId]);
+
   useEffect(() => {
     const openClientId = (location.state as any)?.openClientId;
     if (openClientId) {
