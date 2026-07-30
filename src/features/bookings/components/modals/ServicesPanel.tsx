@@ -94,9 +94,13 @@ interface Props {
   // staff) split the real remaining sessions instead of each independently
   // seeing the full pool and both claiming to be covered.
   packageRemainingByRow?: Map<string, number>;
-  // Per-service-row GST (keyed by row tempId) from the live pricing preview —
-  // the real per-item tax each row will carry once the sale is saved.
+  // Per-row GST (keyed by row tempId) from the live pricing preview — the
+  // real per-item tax each row will carry once the sale is saved. One map
+  // per billable item type, same shape as the backend's rowTax.
   serviceTaxByRow?: Map<string, number>;
+  packageTaxByRow?: Map<string, number>;
+  productTaxByRow?: Map<string, number>;
+  membershipTaxByRow?: Map<string, number>;
   membershipWalletInfo?: Map<string, { walletUsed: number; payable: number }>;
 
   svcErrors?: Array<{ service?: boolean; staff?: boolean; time?: boolean }>;
@@ -126,6 +130,7 @@ type SearchableItemRowProps =
       onClearError?: () => void;
       onUpdate: (row: PackageItem) => void;
       onRemove: () => void;
+      taxAmount?: number;
     }
   | {
       row: ProductItem;
@@ -150,6 +155,7 @@ type SearchableItemRowProps =
       onAutoFocusHandled?: () => void;
       onRemove: () => void;
       membershipWalletInfo?: { walletUsed: number; payable: number };
+      taxAmount?: number;
     };
 
 function getSafeQty(qty?: number) {
@@ -203,6 +209,15 @@ function productMatchesSearch(
   rawSearch: string,
   isNumericPriceSearch: boolean,
 ) {
+  // Checked first, regardless of whether the typed value looks numeric — a
+  // barcode is very often all-digits, which would otherwise be routed to
+  // matchesProductPriceSearch below and never actually compared against any
+  // product's barcode at all. This is also what filters the async
+  // /products?search= results (that endpoint DOES match by barcode
+  // server-side), so without this a correct backend barcode match was being
+  // thrown away here before it ever reached the dropdown.
+  if (matchesProductBarcode(item, rawSearch)) return true;
+
   if (isNumericPriceSearch) return matchesProductPriceSearch(item, rawSearch);
 
   // Text input -> search only Product Name.
@@ -338,11 +353,12 @@ interface MembershipRowProps {
   onClearError?: (field: string) => void;
   onUpdateMembership: (index: number, row: MembershipItem) => void;
   onRemoveMembership: (index: number) => void;
+  taxAmount?: number;
 }
 
 function MembershipRow({
   row, index, frozen, interval, staffList, availableMemberships, memError,
-  onClearError, onUpdateMembership, onRemoveMembership,
+  onClearError, onUpdateMembership, onRemoveMembership, taxAmount,
 }: MembershipRowProps) {
   const { currencySymbol } = useCurrency();
   const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
@@ -476,7 +492,14 @@ function MembershipRow({
       />
 
       {/* 7 — Total (readonly) */}
-      <input className="svc-field__input svc-field__input--readonly" readOnly value={`${currencySymbol}${row.total.toFixed(2)}`} />
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <input className="svc-field__input svc-field__input--readonly" readOnly value={`${currencySymbol}${row.total.toFixed(2)}`} />
+        {taxAmount !== undefined && taxAmount > 0 && (
+          <span className="svc-field__hint" style={{ color: "#6b7280" }}>
+            +{currencySymbol}{taxAmount.toFixed(2)} GST
+          </span>
+        )}
+      </div>
 
       {/* 8 — Placeholder (quick-actions column) */}
       <span />
@@ -506,6 +529,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     onClearError,
     onUpdate,
     onRemove,
+    taxAmount,
   } = props;
   const { currencySymbol } = useCurrency();
   const productRows = kind === "product" ? props.productRows : [];
@@ -1092,20 +1116,30 @@ function SearchableItemRow(props: SearchableItemRowProps) {
         onBlur={handleDiscountBlur}
       />
 
-      <input
-        className="svc-field__input svc-field__input--readonly"
-        readOnly
-        value={
-          membershipWalletInfo && membershipWalletInfo.walletUsed > 0
-            ? `${currencySymbol}${membershipWalletInfo.payable.toFixed(2)}`
-            : `${currencySymbol}${row.total.toFixed(2)}`
-        }
-        title={
-          membershipWalletInfo && membershipWalletInfo.walletUsed > 0
-            ? `Full price ${currencySymbol}${row.total.toFixed(2)} — ${currencySymbol}${membershipWalletInfo.walletUsed.toFixed(2)} covered by membership`
-            : undefined
-        }
-      />
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <input
+          className="svc-field__input svc-field__input--readonly"
+          readOnly
+          value={
+            membershipWalletInfo && membershipWalletInfo.walletUsed > 0
+              ? `${currencySymbol}${membershipWalletInfo.payable.toFixed(2)}`
+              : `${currencySymbol}${row.total.toFixed(2)}`
+          }
+          title={
+            membershipWalletInfo && membershipWalletInfo.walletUsed > 0
+              ? `Full price ${currencySymbol}${row.total.toFixed(2)} — ${currencySymbol}${membershipWalletInfo.walletUsed.toFixed(2)} covered by membership`
+              : undefined
+          }
+        />
+        {/* Same live per-row GST hint ServiceRow.tsx already shows — this
+            row's own tax from the pricing preview (see packageTaxByRow/
+            productTaxByRow in AppointmentModal.tsx). */}
+        {taxAmount !== undefined && taxAmount > 0 && (
+          <span className="svc-field__hint" style={{ color: "#6b7280" }}>
+            +{currencySymbol}{taxAmount.toFixed(2)} GST
+          </span>
+        )}
+      </div>
 
       {/* Placeholder for quick-actions column so columns align with service rows */}
       <span />
@@ -1125,6 +1159,7 @@ export const ServicesPanel: React.FC<Props> = ({
   onSellPackage, onSellMembership, onTopupEwallet,
   availablePackages, availableProducts, availableMemberships,
   frozen, packageRemainingByRow, membershipWalletInfo, serviceTaxByRow,
+  packageTaxByRow, productTaxByRow, membershipTaxByRow,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
   onClearPkgError, onClearProdError, onClearMemError,
 }) => {
@@ -1199,6 +1234,7 @@ export const ServicesPanel: React.FC<Props> = ({
             onClearError={() => onClearPkgError?.(i, "staff")}
             onUpdate={(nextRow) => onUpdatePackage(i, nextRow)}
             onRemove={() => onRemovePackage(i)}
+            taxAmount={packageTaxByRow?.get((row as any).tempId || String(i))}
           />
         ))}
       </>
@@ -1234,6 +1270,7 @@ export const ServicesPanel: React.FC<Props> = ({
             onAutoFocusHandled={() => setPendingProductFocusIndex((prev) => prev === i ? null : prev)}
             onRemove={() => onRemoveProduct(i)}
             membershipWalletInfo={membershipWalletInfo?.get(`product:${(row as any).tempId || String(i)}`)}
+            taxAmount={productTaxByRow?.get((row as any).tempId || String(i))}
           />
         ))}
       </>
@@ -1257,6 +1294,7 @@ export const ServicesPanel: React.FC<Props> = ({
             onClearError={(field) => onClearMemError?.(i, field)}
             onUpdateMembership={onUpdateMembership}
             onRemoveMembership={onRemoveMembership}
+            taxAmount={membershipTaxByRow?.get((row as any).tempId || String(i))}
           />
         ))}
       </>

@@ -683,6 +683,40 @@ export const AppointmentModal: React.FC<Props> = ({
     return map;
   }, [rowTaxPreview, serviceRows]);
 
+  // Same per-row GST preview as serviceTaxByRow above, for the other three
+  // billable item types — the backend's rowTax already carries all four
+  // (see pricing.engine.ts's computeBillTotals), only the service row ever
+  // had a live "+₹X GST" hint wired up to it on this side.
+  const packageTaxByRow = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!rowTaxPreview) return map;
+    packageRows.forEach((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      map.set(tempId, rowTaxPreview.packages[i] ?? 0);
+    });
+    return map;
+  }, [rowTaxPreview, packageRows]);
+
+  const productTaxByRow = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!rowTaxPreview) return map;
+    productRows.forEach((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      map.set(tempId, rowTaxPreview.product[i] ?? 0);
+    });
+    return map;
+  }, [rowTaxPreview, productRows]);
+
+  const membershipTaxByRow = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!rowTaxPreview) return map;
+    membershipRows.forEach((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      map.set(tempId, rowTaxPreview.membership[i] ?? 0);
+    });
+    return map;
+  }, [rowTaxPreview, membershipRows]);
+
   useEffect(() => {
     setTotalsConfirmed(false);
     setTotalsError(false);
@@ -1521,6 +1555,8 @@ export const AppointmentModal: React.FC<Props> = ({
         refreshKey={clientRefreshKey}
         rewardPointsConfig={rewardPointsConfig}
         onClientUpdated={() => setClientRefreshKey((k) => k + 1)}
+        packages={nonExpiredPackages}
+        memberships={clientMemberships}
       />
     </div>
   );
@@ -1596,6 +1632,9 @@ export const AppointmentModal: React.FC<Props> = ({
           packageRemainingByRow={perRowCoveredRemaining}
           membershipWalletInfo={membershipWalletMap}
           serviceTaxByRow={serviceTaxByRow}
+          packageTaxByRow={packageTaxByRow}
+          productTaxByRow={productTaxByRow}
+          membershipTaxByRow={membershipTaxByRow}
           frozen={false}
           svcErrors={svcErrors}
           pkgErrors={pkgErrors}
@@ -2170,8 +2209,14 @@ export const AppointmentModal: React.FC<Props> = ({
                   means what staff applies is what actually gets deducted. */}
               {showPaymentSection && availableBenefitsSectionEl}
 
-              {/* 3. Charges & Discounts */}
-              {!showPaymentSection && chargesSectionEl}
+              {/* 3. Charges & Discounts — stays visible through the payment
+                  step too (Partial/Continue Payment), matching the Quick
+                  Sale layout below which never hid it. Previously this
+                  disappeared the moment showPaymentSection flipped true,
+                  even though exCharges/tip/discountValue/discountType still
+                  fed the live totals recalc shown in the payment section —
+                  staff just lost the ability to see/edit them mid-checkout. */}
+              {chargesSectionEl}
 
               {/* 4. Payment & Notes */}
               {!showPaymentSection && (

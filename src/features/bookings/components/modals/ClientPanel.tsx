@@ -5,8 +5,8 @@ import { ClientStatCard } from "../shared/ClientStatCard";
 import { useClientDetails } from "../../hooks/useClientDetails";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { selectBookings } from "../../../../store/selectors/scheduler.selectors";
-import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
-import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
+import type { ClientPackage } from "../../../../services/api/endpoints/packages.endpoints";
+import type { ClientMembership } from "../../../../services/api/endpoints/clientMemberships.endpoints";
 import api from "../../../../services/api/axios";
 import { Button } from "../../../../components/ui";
 import Skeleton from "../../../../components/ui/Skeleton";
@@ -86,6 +86,15 @@ interface Props {
   // Ratio for showing reward points' ₹ equivalent on the stat card — omit to
   // hide that info button entirely.
   rewardPointsConfig?: { redeem_points: number; redeem_value: number };
+  // The client's active packages/memberships — fetched once by the parent
+  // (AppointmentModal already needs these for package-coverage/membership-
+  // wallet logic) and passed down here rather than this panel independently
+  // re-fetching the same data a second time, which could leave the stat
+  // card's Package/Membership cells out of sync with the rest of the modal
+  // (e.g. the "Fully covered by active package" banner) even though both
+  // ultimately read the same client.
+  packages?: ClientPackage[];
+  memberships?: ClientMembership[];
 }
 
 export const ClientPanel: React.FC<Props> = ({
@@ -93,6 +102,7 @@ export const ClientPanel: React.FC<Props> = ({
   fallbackUnpaidAmt,
   onSelectClient, onClearClient, onStatsLoaded, error, defaultName, defaultPhone, openAddForm,
   refreshKey, rewardPointsConfig, onClientUpdated,
+  packages, memberships,
 }) => {
   const [search, setSearch] = useState(selectedClientId === "walk-in" ? "Walk In" : "");
   const [suggestions, setSuggestions] = useState<Client[]>([]);
@@ -119,35 +129,6 @@ export const ClientPanel: React.FC<Props> = ({
 
   const { details, stats, loading: statsLoading, historyLoading } = useClientDetails(selectedClientId, refreshKey);
   const allBookings = useAppSelector(selectBookings);
-
-  const clientIdForPkg = selectedClientId && selectedClientId !== "walk-in" ? selectedClientId : undefined;
-  const { data: clientPkgsData, refetch: refetchClientPkgs } = useListClientPackagesQuery(
-    { clientId: clientIdForPkg, status: "Active", limit: 50 },
-    // refetchOnMountOrArgChange: a package bought in a completely different
-    // session/tab (or, as with the membership backfill, directly via script)
-    // never touches this RTK Query cache at all — without this, a stale
-    // cached "no packages" response could win over the manual refreshKey
-    // refetch below on some mount orders. Forces a fresh fetch every time
-    // this panel opens for a client, not just when refreshKey changes.
-    { skip: !clientIdForPkg, refetchOnMountOrArgChange: true },
-  );
-  // RTK Query only refetches when the query ARGS change or its cache is
-  // explicitly invalidated — bumping `refreshKey` (a plain prop, not a query
-  // arg) does nothing on its own. Selling a package updates a different
-  // Redux slice this query never reads, so a client's newly-bought package
-  // stayed invisible here (still "N/A") until the whole modal was closed and
-  // reopened — same underlying cause `useClientMembershipWallet` below was
-  // already fixed for, just via RTK Query's own refetch instead of a
-  // dependency-array re-run.
-  useEffect(() => {
-    if (clientIdForPkg) refetchClientPkgs();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshKey]);
-
-  // refreshKey makes the Membership cell update live after a sale from this
-  // same modal — without it only useClientDetails' stats refetched, while the
-  // membership list (this hook) stayed stale until the modal was reopened.
-  const { memberships: clientMemberships } = useClientMembershipWallet(clientIdForPkg, refreshKey);
 
   // Calculate real unpaid amount from Redux — API always returns 0.
   // Falls back to the existingBooking's dueAmount when Redux doesn't have the booking yet.
@@ -602,8 +583,8 @@ export const ClientPanel: React.FC<Props> = ({
             name={details.full_name || `${details.first_name || ""} ${details.last_name || ""}`.trim() || search}
             phone={details.phone_number || details.phone || ""}
             stats={{ ...stats, unpaidAmt }}
-            packages={clientPkgsData?.items ?? []}
-            memberships={clientMemberships}
+            packages={packages ?? []}
+            memberships={memberships ?? []}
             onViewHistory={onViewHistory}
             historyLoading={historyLoading}
             rewardPointsConfig={rewardPointsConfig}
