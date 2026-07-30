@@ -27,14 +27,24 @@ interface SearchableCatalogItem {
 }
 
 function getProductDisplayPrice(item: any) {
-  return parseFloat(String(
+  const retail = parseFloat(String(
     item.retail_price ??
     item.selling_price ??
     item.sellingPrice ??
     item.retailPrice ??
     item.sellingPriceRaw ??
     item.price
-  )) || 0;
+  ));
+  if (!isNaN(retail) && retail !== 0) return retail;
+
+  // Same fallback as ProductsListPage.tsx's price column — a product with no
+  // retail_price set (e.g. consumable-only, or an incomplete manual entry)
+  // still has a real supply_price, and showing ₹0 here silently zeroed out
+  // the row's total instead of falling back to it.
+  const supply = parseFloat(String(item.supply_price ?? item.supplyPrice));
+  if (!isNaN(supply) && supply !== 0) return supply;
+
+  return 0;
 }
 
 function getProductPriceSearchValues(item: any) {

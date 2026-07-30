@@ -9,8 +9,6 @@ import Alert from "../../../components/ui/Alert";
 import Card from "../../../components/ui/Card";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
-import { retailFromActiveMethod, markupPercentFromRetail, flatAmountFromRetail } from "../utils/productPricing";
-import type { MarkupMethod } from "../utils/productPricing";
 import { PRODUCT_UNITS, isConsumableType, TAX_TYPE_OPTIONS } from "../types/product.types";
 import type { ProductType, ProductUnit, TaxType } from "../types/product.types";
 import { PRODUCT_MESSAGES } from "../../../constants/messages";
@@ -31,9 +29,6 @@ interface FormState {
   supplyPrice: string;
   retailSalesEnabled: boolean;
   retailPrice: string;
-  markupPercentage: string;
-  flatAmount: string;
-  markupMethod: MarkupMethod;
   productType: ProductType;
   unit: ProductUnit | "";
   sizeValue: string;
@@ -54,9 +49,6 @@ const initialForm: FormState = {
   supplyPrice: "",
   retailSalesEnabled: true,
   retailPrice: "",
-  markupPercentage: "",
-  flatAmount: "",
-  markupMethod: "percentage",
   productType: "retail",
   unit: "",
   sizeValue: "",
@@ -181,7 +173,9 @@ const CreateProductPage: React.FC = () => {
     productName: !form.productName.trim() ? PRODUCT_MESSAGES.PRODUCT_NAME_REQUIRED : "",
     categoryId: !form.categoryId ? PRODUCT_MESSAGES.CATEGORY_REQUIRED : "",
     amount: !form.amount.trim() || isNaN(Number(form.amount)) ? PRODUCT_MESSAGES.QUANTITY_REQUIRED : "",
-    supplyPrice: !form.supplyPrice.trim() || isNaN(Number(form.supplyPrice)) || Number(form.supplyPrice) <= 0 ? PRODUCT_MESSAGES.SUPPLY_PRICE_REQUIRED : "",
+    retailPrice: form.retailSalesEnabled && (!form.retailPrice.trim() || isNaN(Number(form.retailPrice)) || Number(form.retailPrice) <= 0)
+      ? "Retail price is required"
+      : "",
     qtyAlert: !form.qtyAlert.trim() || isNaN(Number(form.qtyAlert)) || (!isConsumable && !Number.isInteger(Number(form.qtyAlert))) || Number(form.qtyAlert) < 0
       ? PRODUCT_MESSAGES.LOW_STOCK_ALERT_REQUIRED
       : form.amount.trim() && !isNaN(Number(form.amount)) && Number(form.qtyAlert) >= Number(form.amount)
@@ -194,7 +188,7 @@ const CreateProductPage: React.FC = () => {
   const isFormValid = Object.values(validationErrors).every((e) => !e);
 
   const touch = (field: string) => setTouched((prev) => ({ ...prev, [field]: true }));
-  const touchAll = () => setTouched({ productName: true, categoryId: true, amount: true, supplyPrice: true, qtyAlert: true, unit: true, hsnSac: true });
+  const touchAll = () => setTouched({ productName: true, categoryId: true, amount: true, retailPrice: true, qtyAlert: true, unit: true, hsnSac: true });
 
   const setField = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -205,41 +199,11 @@ const CreateProductPage: React.FC = () => {
     dispatch(fetchSuppliersThunk());
   }, [dispatch]);
 
-  // Supply price change recalculates retail price from whichever markup method is active
-  const handleSupplyPriceChange = (val: string) => {
-    setForm((prev) => {
-      const supply = parseFloat(val) || 0;
-      const markup = parseFloat(prev.markupPercentage) || 0;
-      const flat = parseFloat(prev.flatAmount) || 0;
-      const hasMarkupInput = prev.markupMethod === "percentage" ? prev.markupPercentage !== "" : prev.flatAmount !== "";
-      const retail = hasMarkupInput ? String(retailFromActiveMethod(supply, prev.markupMethod, markup, flat)) : prev.retailPrice;
-      return { ...prev, supplyPrice: val, retailPrice: retail };
-    });
-  };
+  // Supply price and Retail price are fully independent fields — no
+  // auto-fill, default, or markup-driven sync between them.
+  const handleSupplyPriceChange = (val: string) => setField("supplyPrice", val);
 
-  // Markup % changes: becomes the active method, clears flat amount, recalculates retail price
-  const handleMarkupChange = (val: string) => {
-    setForm((prev) => {
-      const supply = parseFloat(prev.supplyPrice) || 0;
-      const markup = parseFloat(val) || 0;
-      const retail = val === "" ? prev.retailPrice : String(retailFromActiveMethod(supply, "percentage", markup, 0));
-      return { ...prev, markupPercentage: val, flatAmount: "", markupMethod: "percentage", retailPrice: retail };
-    });
-  };
-
-  // Manual retail price edits recalculate the corresponding value for the active markup method
-  const handleRetailPriceChange = (val: string) => {
-    setForm((prev) => {
-      const supply = parseFloat(prev.supplyPrice) || 0;
-      const retail = parseFloat(val) || 0;
-      if (prev.markupMethod === "percentage") {
-        return { ...prev, retailPrice: val, markupPercentage: val === "" ? prev.markupPercentage : String(markupPercentFromRetail(supply, retail)) };
-      }
-      return { ...prev, retailPrice: val, flatAmount: val === "" ? prev.flatAmount : String(flatAmountFromRetail(supply, retail)) };
-    });
-  };
-
-  // Mouse-wheel adjustment for the pricing fields (Supply/Retail price step by ₹1, Markup % by 1%)
+  const handleRetailPriceChange = (val: string) => setField("retailPrice", val);
 
   const handleAddBrand = async () => {
     if (!newBrand.trim()) return;
@@ -292,10 +256,9 @@ const CreateProductPage: React.FC = () => {
       qty_alert: isConsumable ? parseFloat(form.qtyAlert) : parseInt(form.qtyAlert, 10),
       description: form.description || null,
       supply_price: form.supplyPrice ? parseFloat(form.supplyPrice) : 0,
-      retail_price: form.retailSalesEnabled && form.retailPrice ? parseFloat(form.retailPrice) : null,
-      markup_percentage: form.retailSalesEnabled && form.retailPrice
-        ? markupPercentFromRetail(parseFloat(form.supplyPrice) || 0, parseFloat(form.retailPrice))
-        : null,
+      // Retail price is a required, independent field (validated above) when
+      // retail sales is enabled — no markup/supply-price fallback needed.
+      retail_price: form.retailSalesEnabled ? parseFloat(form.retailPrice) || 0 : null,
       product_type: form.productType,
       unit: form.unit || null,
       size: form.sizeValue.trim() && form.unit ? `${form.sizeValue.trim()} ${form.unit}` : null,
@@ -609,23 +572,7 @@ const CreateProductPage: React.FC = () => {
 
           {/* 2. Pricing */}
           <Card title="Pricing" className="mb-4">
-            <Input
-              label={<>Supply price <span style={{ color: "#dc2626" }}>*</span></>}
-              type="text"
-              inputMode="decimal"
-              placeholder="0.00"
-              value={form.supplyPrice}
-              onChange={(e) => { handleSupplyPriceChange(e.target.value); touch("supplyPrice"); }}
-              onBlur={() => touch("supplyPrice")}
-              onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-              iconLeft={<span>{currencySymbol}</span>}
-              containerClass="mt-1"
-            />
-            {touched.supplyPrice && validationErrors.supplyPrice && (
-              <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.supplyPrice}</div>
-            )}
-
-            <div className="d-flex align-items-center justify-content-between mt-4 mb-1">
+            <div className="d-flex align-items-center justify-content-between mb-1">
               <div>
                 <div className="fw-semibold" style={{ fontSize: "14px" }}>Retail sales</div>
                 <div className="text-muted" style={{ fontSize: "13px" }}>
@@ -648,34 +595,36 @@ const CreateProductPage: React.FC = () => {
             </div>
 
             {form.retailSalesEnabled && (
-              <div className="row g-3">
-                <div className="col-6">
-                  <Input
-                    label="Retail price"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={form.retailPrice}
-                    onChange={(e) => handleRetailPriceChange(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
-                    iconLeft={<span>{currencySymbol}</span>}
-                    containerClass=""
-                  />
-                </div>
-                <div className="col-6">
-                  <Input
-                    label="Markup"
-                    type="text"
-                    inputMode="decimal"
-                    placeholder="0.00"
-                    value={form.markupPercentage}
-                    onChange={(e) => handleMarkupChange(e.target.value)}
-                    iconLeft={<span>%</span>}
-                    containerClass=""
-                  />
-                </div>
+              <div className="mb-1">
+                <Input
+                  label={<>Retail price <span style={{ color: "#dc2626" }}>*</span></>}
+                  type="text"
+                  inputMode="decimal"
+                  placeholder="0.00"
+                  value={form.retailPrice}
+                  onChange={(e) => { handleRetailPriceChange(e.target.value.replace(/[^0-9.]/g, "")); touch("retailPrice"); }}
+                  onBlur={() => touch("retailPrice")}
+                  onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
+                  iconLeft={<span>{currencySymbol}</span>}
+                  containerClass=""
+                />
+                {touched.retailPrice && validationErrors.retailPrice && (
+                  <div style={{ color: "#dc2626", fontSize: "12px", marginTop: "4px" }}>{validationErrors.retailPrice}</div>
+                )}
               </div>
             )}
+
+            <Input
+              label="Supply price"
+              type="text"
+              inputMode="decimal"
+              placeholder="0.00"
+              value={form.supplyPrice}
+              onChange={(e) => handleSupplyPriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
+              onKeyDown={(e) => { if (e.key === "-" || e.key === "e" || e.key === "E") e.preventDefault(); }}
+              iconLeft={<span>{currencySymbol}</span>}
+              containerClass="mt-3"
+            />
           </Card>
 
           {/* 3. Tax & compliance */}
