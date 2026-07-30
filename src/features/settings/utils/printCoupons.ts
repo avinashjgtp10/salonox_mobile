@@ -12,14 +12,18 @@ function fmtDate(raw?: string | null): string {
  * Prints a sheet of cut-out voucher cards, one per coupon — for handing a
  * freshly bulk-created batch of single-use codes out to customers.
  */
-export function printCoupons(coupons: Coupon[], salon: Salon | null) {
+export function printCoupons(
+  coupons: Coupon[],
+  salon: Salon | null,
+  formatAmount: (n: number) => string = (n) => `₹${n}`,
+) {
   const s = salon as any;
   const salonName = s?.business_name || "Salon";
   const logoUrl = s?.logo_url || "";
 
   const cards = coupons.map((c) => {
-    const valueText = c.type === "percentage" ? `${Number(c.value)}% OFF` : `₹${Number(c.value)} OFF`;
-    const minOrderText = Number(c.min_order_amount) > 0 ? `On orders above ₹${Number(c.min_order_amount)}` : "No minimum order";
+    const valueText = c.type === "percentage" ? `${Number(c.value)}% OFF` : `${formatAmount(Number(c.value))} OFF`;
+    const minOrderText = Number(c.min_order_amount) > 0 ? `On orders above ${formatAmount(Number(c.min_order_amount))}` : "No minimum order";
     return `
     <div class="voucher">
       <div class="voucher__salon">

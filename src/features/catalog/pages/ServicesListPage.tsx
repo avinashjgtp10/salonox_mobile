@@ -116,15 +116,41 @@ const ServicesListPage: React.FC = () => {
   const optMenuRef = useRef<HTMLDivElement>(null);
   const [showOptMenu, setShowOptMenu] = useState(false);
 
-  // Fetch from API on every dependency change. When search/category/filters
-  // change while not already on page 1, reset to page 1 without firing a
-  // second (stale-page) fetch in the same tick — the page-1 reset alone
-  // triggers this effect again on the next render.
-  const filtersKey = JSON.stringify({ selectedCategory, searchQuery, filters });
-  const prevFiltersKeyRef = useRef(filtersKey);
+  // Tracks whether we're past the initial mount, so the effects below don't
+  // also fire (redundantly) on first render — mirrors ProductsListPage.tsx.
+  const isMountedRef = useRef(false);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Always-current pagination/category/filter state for the debounced search
+  // effect to read from inside its setTimeout callback, without needing them
+  // in its dependency array (which would re-arm the debounce on every change).
+  const latestRef = useRef({ currentPage, pageSize, selectedCategory, filters });
+  latestRef.current = { currentPage, pageSize, selectedCategory, filters };
+
+  // Initial fetch on mount only.
   useEffect(() => {
-    if (prevFiltersKeyRef.current !== filtersKey) {
-      prevFiltersKeyRef.current = filtersKey;
+    fetchServices({
+      page: currentPage,
+      limit: pageSize,
+      search: searchQuery || undefined,
+      categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
+      ...buildFilterParams(filters),
+    });
+    const t = setTimeout(() => { isMountedRef.current = true; }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Category/filter/page/pageSize changes are discrete actions (not free-text
+  // typing), so they re-fetch immediately. When category/filters change while
+  // not already on page 1, reset to page 1 without firing a second (stale-page)
+  // fetch in the same tick — the page-1 reset alone triggers this effect again.
+  const categoryFiltersKey = JSON.stringify({ selectedCategory, filters });
+  const prevCategoryFiltersKeyRef = useRef(categoryFiltersKey);
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    if (prevCategoryFiltersKeyRef.current !== categoryFiltersKey) {
+      prevCategoryFiltersKeyRef.current = categoryFiltersKey;
       if (currentPage !== 1) {
         setCurrentPage(1);
         return;
@@ -137,7 +163,29 @@ const ServicesListPage: React.FC = () => {
       categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
       ...buildFilterParams(filters),
     });
-  }, [currentPage, pageSize, selectedCategory, searchQuery, filters, fetchServices, filtersKey]);
+  }, [currentPage, pageSize, selectedCategory, filters, fetchServices, categoryFiltersKey]);
+
+  // Debounced re-fetch on search input change (skip initial mount, already
+  // handled above) — search typing shouldn't hit the API on every keystroke.
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
+    searchDebounceRef.current = setTimeout(() => {
+      const { currentPage: page, pageSize: limit, selectedCategory: cat, filters: f } = latestRef.current;
+      if (page !== 1) {
+        setCurrentPage(1);
+        return;
+      }
+      fetchServices({
+        page: 1,
+        limit,
+        search: searchQuery || undefined,
+        categoryId: cat !== "all" ? cat : undefined,
+        ...buildFilterParams(f),
+      });
+    }, 400);
+    return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
+  }, [searchQuery, fetchServices]);
 
   // Close dropdowns on outside click
   useEffect(() => {

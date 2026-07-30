@@ -15,6 +15,7 @@ import {
   parseRewardPointsValue,
   type RewardPointsConfig,
 } from "../utils/rewardPointsSettings";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/RewardsSettingsPage.scss";
 
 type FieldKey = keyof Omit<RewardPointsConfig, "active">;
@@ -43,6 +44,7 @@ interface FormErrors {
 const PREVIEW_SPEND = 1000;
 
 export default function RewardsSettingsPage() {
+  const { currencySymbol, formatAmount } = useCurrency();
   const dispatch = useAppDispatch();
   const { items: settingItems } = useAppSelector((s) => s.setting);
 
@@ -151,7 +153,7 @@ export default function RewardsSettingsPage() {
         <div className="rp-header__text">
           <h2 className="rp-header__title">Reward Points</h2>
           <p className="rp-header__desc">
-            Let customers earn points on every visit — instantly credited as ₹ to their eWallet, ready to spend on a future visit.
+            Let customers earn points on every visit — instantly credited as {currencySymbol} to their eWallet, ready to spend on a future visit.
           </p>
         </div>
         <label className="rp-header__toggle">
@@ -180,7 +182,7 @@ export default function RewardsSettingsPage() {
               <div className="rp-field">
                 <label className="rp-field__label">For every customer spends</label>
                 <div className={`rp-input-wrap${errors.spend_amount ? " rp-input-wrap--error" : ""}`}>
-                  <span>₹</span>
+                  <span>{currencySymbol}</span>
                   <input
                     type="text" inputMode="numeric"
                     value={inputs.spend_amount}
@@ -208,7 +210,7 @@ export default function RewardsSettingsPage() {
             <div className="rp-banner rp-banner--purple">
               <Info size={14} />
               <span>
-                Example: Customer spends <strong>₹{config.spend_amount}</strong> → earns{" "}
+                Example: Customer spends <strong>{formatAmount(config.spend_amount)}</strong> → earns{" "}
                 <strong>{config.points_earned} points</strong> (instantly credited to eWallet)
               </span>
             </div>
@@ -242,7 +244,7 @@ export default function RewardsSettingsPage() {
               <div className="rp-field">
                 <label className="rp-field__label">They receive</label>
                 <div className={`rp-input-wrap${errors.redeem_value ? " rp-input-wrap--error" : ""}`}>
-                  <span>₹</span>
+                  <span>{currencySymbol}</span>
                   <input
                     type="text" inputMode="numeric"
                     value={inputs.redeem_value}
@@ -258,7 +260,7 @@ export default function RewardsSettingsPage() {
               <Info size={14} />
               <span>
                 Example: <strong>{config.redeem_points} points</strong> can be redeemed for{" "}
-                <strong>₹{config.redeem_value}</strong> in wallet
+                <strong>{formatAmount(config.redeem_value)}</strong> in wallet
               </span>
             </div>
           </div>
@@ -273,7 +275,7 @@ export default function RewardsSettingsPage() {
               <div className="rp-flow__icon rp-flow__icon--purple"><ShoppingCart size={16} /></div>
               <div>
                 <div className="rp-flow__label">Customer spends</div>
-                <div className="rp-flow__value">₹{config.spend_amount}</div>
+                <div className="rp-flow__value">{formatAmount(config.spend_amount)}</div>
               </div>
             </div>
             <div className="rp-flow__arrow">↓</div>
@@ -300,7 +302,7 @@ export default function RewardsSettingsPage() {
               <div className="rp-flow__icon rp-flow__icon--green"><Wallet size={16} /></div>
               <div>
                 <div className="rp-flow__label">Get</div>
-                <div className="rp-flow__value">₹{config.redeem_value} Wallet</div>
+                <div className="rp-flow__value">{formatAmount(config.redeem_value)} Wallet</div>
               </div>
             </div>
           </div>
@@ -314,7 +316,7 @@ export default function RewardsSettingsPage() {
                 pay out. One decimal place is enough to show sub-1% rates
                 accurately without being noisy for whole-number rates. */}
             <div className="rp-cashback__value">{effectiveCashbackPct.toFixed(1)}%</div>
-            <div className="rp-cashback__note">(₹{cashbackPer100.toFixed(2)} on every ₹100 spent)</div>
+            <div className="rp-cashback__note">({formatAmount(cashbackPer100)} on every {formatAmount(100)} spent)</div>
           </div>
         </div>
       </div>
@@ -333,7 +335,7 @@ export default function RewardsSettingsPage() {
           <div className="rp-preview__box">
             <div className="rp-preview__box-text">
               <div className="rp-preview__box-label">Customer spends</div>
-              <div className="rp-preview__box-value">₹{PREVIEW_SPEND.toLocaleString("en-IN")}</div>
+              <div className="rp-preview__box-value">{formatAmount(PREVIEW_SPEND)}</div>
             </div>
             <div className="rp-preview__box-icon rp-preview__box-icon--blue"><Wallet size={15} /></div>
           </div>
@@ -360,7 +362,7 @@ export default function RewardsSettingsPage() {
           <div className="rp-preview__box">
             <div className="rp-preview__box-text">
               <div className="rp-preview__box-label">Worth</div>
-              <div className="rp-preview__box-value">₹{previewWalletValue.toFixed(0)} Wallet</div>
+              <div className="rp-preview__box-value">{formatAmount(previewWalletValue)} Wallet</div>
             </div>
             <div className="rp-preview__box-icon rp-preview__box-icon--green"><Wallet size={15} /></div>
           </div>
@@ -369,9 +371,9 @@ export default function RewardsSettingsPage() {
         <div className="rp-preview__note">
           <Info size={14} />
           <span>
-            If a customer spends <strong>₹{PREVIEW_SPEND.toLocaleString("en-IN")}</strong>, they will earn{" "}
+            If a customer spends <strong>{formatAmount(PREVIEW_SPEND)}</strong>, they will earn{" "}
             <strong>{previewPointsEarned} points</strong>, which can later be redeemed for{" "}
-            <strong>₹{previewWalletValue.toFixed(0)}</strong> in their wallet.
+            <strong>{formatAmount(previewWalletValue)}</strong> in their wallet.
           </span>
         </div>
       </div>
