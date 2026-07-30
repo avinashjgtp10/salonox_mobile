@@ -179,9 +179,6 @@ export function printReceipt(
     return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
   };
 
-  const now = new Date();
-  const printDate = now.toLocaleDateString("en-IN", { year: "numeric", month: "long", day: "numeric" });
-  const printTime = now.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
   // invoiceNumber now already carries the full "INV-00002"-style value from
   // the linked sale (see appointments.repository.ts/bookingMapper.ts) — no
   // longer a bare sequence number that needs its own INV- prefix/padding here.
@@ -189,8 +186,19 @@ export function printReceipt(
   const invoiceNo  = invoiceSeq
     ? String(invoiceSeq)
     : `INV-${String(booking.id).slice(0, 8).toUpperCase()}`;
+  // Always derived from the appointment's own id — genuinely distinct from
+  // Invoice No (the sales/billing record's own sequence, which only exists
+  // once the visit is actually billed). Previously this reused invoiceSeq
+  // too, so "Booking #" just silently repeated the invoice number.
+  const bookingNo = String(booking.id).slice(0, 8).toUpperCase();
 
   const apptDate = (booking as any).billDate || (booking as any).date || "—";
+  const fmtDDMMYYYY = (raw: string) => {
+    if (!raw || raw === "—") return "—";
+    const d = new Date(raw);
+    if (isNaN(d.getTime())) return raw;
+    return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
+  };
   const apptTime = `${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}`;
 
   const isCancelled = ((booking as any).status || "").toLowerCase() === "cancelled";
@@ -465,7 +473,11 @@ export function printReceipt(
   .inv-info-col{padding:16px 32px}
   .inv-info-col+.inv-info-col{border-left:1px solid #e5e7eb}
   .inv-section-label{font-size:9px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:#111827;background:#f3f4f6;display:inline-block;padding:2px 8px;border-radius:3px;margin-bottom:12px}
-  .inv-info-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+  /* Single column — Bill To has an odd field count (Name/Phone/Email, plus
+     optional GST/Membership/Referral rows), so a 2-column grid staggered
+     unpredictably depending on which optional fields were present, leaving
+     a field from one row sitting next to an unrelated field from the next. */
+  .inv-info-grid{display:grid;grid-template-columns:1fr;gap:0}
 
   /* ── Payment status badge ── */
   .pay-badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:0.3px;text-transform:uppercase;border:1px solid currentColor}
@@ -587,9 +599,9 @@ export function printReceipt(
       <div class="inv-title-word">Invoice</div>
       <table class="inv-meta-table">
         <tr><td>Invoice No</td><td><strong>${invoiceNo}</strong></td></tr>
-        <tr><td>Booking #</td><td>${invoiceSeq ? String(invoiceSeq).padStart(5, "0") : String(booking.id).slice(0, 8).toUpperCase()}</td></tr>
-        <tr><td>Date</td><td>${printDate}</td></tr>
-        <tr><td>Time</td><td>${printTime}</td></tr>
+        <tr><td>Booking #</td><td>${bookingNo}</td></tr>
+        <tr><td>Invoice Date</td><td>${fmtDDMMYYYY(apptDate)}</td></tr>
+        <tr><td>Payment Status</td><td style="color:${payColor};font-weight:700">${rawPs}</td></tr>
       </table>
     </div>
   </div>

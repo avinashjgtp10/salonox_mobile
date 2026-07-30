@@ -48,10 +48,13 @@ const EMPTY_FORM: TaxForm = {
   tax_value: "",
   active: true,
   inclusive_taxes: false,
+  // All four default to taxed — a new GST rule should apply to every
+  // billable item type out of the box; staff opt individual types OUT
+  // (e.g. a genuinely tax-exempt product line), not opt each one in.
   applicable_service: true,
   applicable_product: true,
-  applicable_membership: false,
-  applicable_packages: false,
+  applicable_membership: true,
+  applicable_packages: true,
 };
 
 // The form still stores the same two underlying booleans (active,
@@ -108,10 +111,14 @@ function settingToTaxForm(s: Setting): TaxForm {
     tax_value: parsed.tax_value ?? (typeof s.value === "string" ? s.value : ""),
     active:                parsed.active             != null ? Boolean(parsed.active)             : true,
     inclusive_taxes:       parsed.inclusive_taxes    != null ? Boolean(parsed.inclusive_taxes)    : true,
+    // Same "taxed unless explicitly excluded" default as EMPTY_FORM — a
+    // legacy tax row saved before per-item-type applicability existed shows
+    // as applying to everything here, so reopening and saving it carries
+    // that forward explicitly instead of silently staying service-only.
     applicable_service:    applicable.service        != null ? Boolean(applicable.service)        : true,
     applicable_product:    applicable.product         != null ? Boolean(applicable.product)        : true,
-    applicable_membership: applicable.membership      != null ? Boolean(applicable.membership)     : false,
-    applicable_packages:   applicable.packages         != null ? Boolean(applicable.packages)       : false,
+    applicable_membership: applicable.membership      != null ? Boolean(applicable.membership)     : true,
+    applicable_packages:   applicable.packages         != null ? Boolean(applicable.packages)       : true,
   };
 }
 
