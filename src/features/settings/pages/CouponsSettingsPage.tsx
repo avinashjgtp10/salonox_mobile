@@ -22,6 +22,7 @@ import api from "../../../services/api/axios";
 import { useAppSelector } from "../../../hooks/useAppRedux";
 import { COUPON, type Coupon, type CreateCouponPayload, type CreateBulkCouponsPayload } from "../../../services/api/endpoints/coupon.endpoints";
 import { printCoupons } from "../utils/printCoupons";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/CouponsSettingsPage.scss";
 
 interface CouponForm {
@@ -124,6 +125,7 @@ function couponStatus(c: Coupon): { label: string; variant: "" | "gray" | "red" 
 }
 
 export default function CouponsSettingsPage() {
+  const { currencySymbol, formatAmount } = useCurrency();
   const currentSalon = useAppSelector((s) => s.salon.currentSalon);
   const [items, setItems] = useState<Coupon[]>([]);
   const [loading, setLoading] = useState(false);
@@ -376,12 +378,12 @@ export default function CouponsSettingsPage() {
   }
 
   function handlePrintBatch() {
-    if (lastBulkBatch?.length) printCoupons(lastBulkBatch, currentSalon);
+    if (lastBulkBatch?.length) printCoupons(lastBulkBatch, currentSalon, formatAmount);
   }
 
   function handlePrintAll() {
     if (filtered.length === 0) { showError("No coupons to print"); return; }
-    printCoupons(filtered, currentSalon);
+    printCoupons(filtered, currentSalon, formatAmount);
   }
 
   const showForm = isCreating || selectedId != null;
@@ -399,7 +401,7 @@ export default function CouponsSettingsPage() {
 
   const previewValue = form.value.trim() ? Number(form.value) || 0 : 0;
   const previewMinOrder = Number(form.min_order_amount) || 0;
-  const previewValueLabel = form.type === "percentage" ? `${previewValue}% OFF` : `₹${previewValue} OFF`;
+  const previewValueLabel = form.type === "percentage" ? `${previewValue}% OFF` : `${formatAmount(previewValue)} OFF`;
   const previewMaxUses = form.max_uses.trim() ? form.max_uses : "Unlimited";
 
   return (
@@ -444,7 +446,7 @@ export default function CouponsSettingsPage() {
                 if (row.kind === "single") {
                   const coupon = row.coupon;
                   const status = couponStatus(coupon);
-                  const valueLabel = coupon.type === "percentage" ? `${Number(coupon.value).toFixed(2)}% OFF` : `₹${Number(coupon.value).toFixed(2)} OFF`;
+                  const valueLabel = coupon.type === "percentage" ? `${Number(coupon.value).toFixed(2)}% OFF` : `${formatAmount(Number(coupon.value))} OFF`;
                   return (
                     <div
                       key={coupon.id}
@@ -466,7 +468,7 @@ export default function CouponsSettingsPage() {
                 }
 
                 const first = row.coupons[0];
-                const valueLabel = first.type === "percentage" ? `${Number(first.value).toFixed(2)}% OFF` : `₹${Number(first.value).toFixed(2)} OFF`;
+                const valueLabel = first.type === "percentage" ? `${Number(first.value).toFixed(2)}% OFF` : `${formatAmount(Number(first.value))} OFF`;
                 const isOpen = expandedBatches.has(row.batchId);
                 const containsSelected = row.coupons.some((c) => c.id === selectedId);
                 return (
@@ -480,7 +482,7 @@ export default function CouponsSettingsPage() {
                       </div>
                       <div className="cp-list__item-body">
                         <div className="cp-list__item-code">{row.label}</div>
-                        <div className="cp-list__item-sub">{valueLabel} · Min ₹{Number(first.min_order_amount).toFixed(0)}</div>
+                        <div className="cp-list__item-sub">{valueLabel} · Min {formatAmount(Number(first.min_order_amount))}</div>
                       </div>
                       <span className="cp-list__batch-count">{row.coupons.length} codes</span>
                       <button
@@ -590,7 +592,7 @@ export default function CouponsSettingsPage() {
                       value={form.value}
                       onChange={(e) => setField("value", e.target.value)}
                     />
-                    <span className="cp-value-badge">{form.type === "percentage" ? "%" : "₹"}</span>
+                    <span className="cp-value-badge">{form.type === "percentage" ? "%" : currencySymbol}</span>
                   </div>
                   {formErrors.value ? (
                     <span className="settings-error">{formErrors.value}</span>
@@ -615,13 +617,13 @@ export default function CouponsSettingsPage() {
                     checked={form.type === "flat"}
                     onChange={() => setField("type", "flat")}
                   />
-                  Flat Amount (₹)
+                  Flat Amount ({currencySymbol})
                 </label>
               </div>
 
               <div className="cp-form-row">
                 <div className="cp-field">
-                  <label className="cp-field__label">Minimum Order Amount (₹)</label>
+                  <label className="cp-field__label">Minimum Order Amount ({currencySymbol})</label>
                   <input
                     type="number"
                     className="cp-input"
@@ -679,7 +681,7 @@ export default function CouponsSettingsPage() {
                     <div className="cp-preview__stat-icon"><ShoppingCart size={15} /></div>
                     <div>
                       <div className="cp-preview__stat-label">Min. Order</div>
-                      <div className="cp-preview__stat-value">₹{previewMinOrder.toFixed(2)}</div>
+                      <div className="cp-preview__stat-value">{formatAmount(previewMinOrder)}</div>
                     </div>
                   </div>
                   <div className="cp-preview__stat">
@@ -701,7 +703,7 @@ export default function CouponsSettingsPage() {
                 <div className="cp-preview__note">
                   <Info size={14} />
                   <span>
-                    This coupon will give {previewValueLabel.replace(" OFF", "")} discount on orders above ₹{previewMinOrder.toFixed(2)}
+                    This coupon will give {previewValueLabel.replace(" OFF", "")} discount on orders above {formatAmount(previewMinOrder)}
                   </span>
                 </div>
               </div>
@@ -788,7 +790,7 @@ export default function CouponsSettingsPage() {
                         value={bulkForm.value}
                         onChange={(e) => setBulkField("value", e.target.value)}
                       />
-                      <span className="cp-value-badge">{bulkForm.type === "percentage" ? "%" : "₹"}</span>
+                      <span className="cp-value-badge">{bulkForm.type === "percentage" ? "%" : currencySymbol}</span>
                     </div>
                     {bulkErrors.value && <span className="settings-error">{bulkErrors.value}</span>}
                   </div>
@@ -821,13 +823,13 @@ export default function CouponsSettingsPage() {
                       checked={bulkForm.type === "flat"}
                       onChange={() => setBulkField("type", "flat")}
                     />
-                    Flat Amount (₹)
+                    Flat Amount ({currencySymbol})
                   </label>
                 </div>
 
                 <div className="cp-form-row">
                   <div className="cp-field">
-                    <label className="cp-field__label">Minimum Order Amount (₹)</label>
+                    <label className="cp-field__label">Minimum Order Amount ({currencySymbol})</label>
                     <input
                       type="number"
                       className="cp-input"

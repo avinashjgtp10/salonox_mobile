@@ -33,6 +33,7 @@ import {
   parseReferralValue,
   type ReferralConfig,
 } from "../utils/referralSettings";
+import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/ReferralSettingsPage.scss";
 
 type FieldKey = keyof Omit<ReferralConfig, "active">;
@@ -57,6 +58,7 @@ interface FormErrors {
 }
 
 export default function ReferralSettingsPage() {
+  const { currencySymbol, formatAmount } = useCurrency();
   const dispatch = useAppDispatch();
   const { items: settingItems } = useAppSelector((s) => s.setting);
 
@@ -212,11 +214,11 @@ export default function ReferralSettingsPage() {
           </div>
           <div className="rf-row">
             <div className="rf-field">
-              <label className="rf-field__label">Referrer reward (₹)</label>
+              <label className="rf-field__label">Referrer reward ({currencySymbol})</label>
               <p className="rf-field__hint">Wallet credit for the person who refers</p>
               <div className={`rf-input-wrap${errors.referrer_reward_amount ? " rf-input-wrap--error" : ""}`}>
                 <span className="rf-input-wrap__icon"><UserRound size={15} /></span>
-                <span className="rf-input-wrap__prefix">₹</span>
+                <span className="rf-input-wrap__prefix">{currencySymbol}</span>
                 <input
                   type="text" inputMode="numeric"
                   value={inputs.referrer_reward_amount}
@@ -228,11 +230,11 @@ export default function ReferralSettingsPage() {
             </div>
 
             <div className="rf-field">
-              <label className="rf-field__label">Friend reward (₹)</label>
+              <label className="rf-field__label">Friend reward ({currencySymbol})</label>
               <p className="rf-field__hint">Wallet credit for the new customer</p>
               <div className={`rf-input-wrap${errors.referee_reward_amount ? " rf-input-wrap--error" : ""}`}>
                 <span className="rf-input-wrap__icon"><Users size={15} /></span>
-                <span className="rf-input-wrap__prefix">₹</span>
+                <span className="rf-input-wrap__prefix">{currencySymbol}</span>
                 <input
                   type="text" inputMode="numeric"
                   value={inputs.referee_reward_amount}
@@ -255,11 +257,11 @@ export default function ReferralSettingsPage() {
           </div>
           <div className="rf-row">
             <div className="rf-field">
-              <label className="rf-field__label">Minimum bill to unlock reward (₹)</label>
+              <label className="rf-field__label">Minimum bill to unlock reward ({currencySymbol})</label>
               <p className="rf-field__hint">First paid visit must be of this amount or more</p>
               <div className={`rf-input-wrap${errors.min_bill_amount ? " rf-input-wrap--error" : ""}`}>
                 <span className="rf-input-wrap__icon"><FileText size={15} /></span>
-                <span className="rf-input-wrap__prefix">₹</span>
+                <span className="rf-input-wrap__prefix">{currencySymbol}</span>
                 <input
                   type="text" inputMode="numeric"
                   value={inputs.min_bill_amount}
@@ -291,8 +293,8 @@ export default function ReferralSettingsPage() {
             <span className="rf-banner__icon"><Info size={13} /></span>
             <div className="rf-banner__text">
               <span className="rf-banner__title">How it works</span>
-              When a friend completes their first paid visit of at least <strong>₹{config.min_bill_amount}</strong>, both the referrer and the friend will receive{" "}
-              <strong>₹{config.referrer_reward_amount === config.referee_reward_amount ? config.referrer_reward_amount : `${config.referrer_reward_amount} / ₹${config.referee_reward_amount}`}</strong> wallet credit. On any single bill, wallet balance can cover up to <strong>{config.max_wallet_usage_pct}%</strong> of the total.
+              When a friend completes their first paid visit of at least <strong>{formatAmount(config.min_bill_amount)}</strong>, both the referrer and the friend will receive{" "}
+              <strong>{config.referrer_reward_amount === config.referee_reward_amount ? formatAmount(config.referrer_reward_amount) : `${formatAmount(config.referrer_reward_amount)} / ${formatAmount(config.referee_reward_amount)}`}</strong> wallet credit. On any single bill, wallet balance can cover up to <strong>{config.max_wallet_usage_pct}%</strong> of the total.
             </div>
           </div>
         </div>
@@ -313,7 +315,7 @@ export default function ReferralSettingsPage() {
               <div className="rf-flow__icon rf-flow__icon--purple"><UserPlus size={17} /></div>
               <div className="rf-flow__body">
                 <div className="rf-flow__label">Friend visits your salon</div>
-                <div className="rf-flow__desc">They complete their first paid visit of ₹{config.min_bill_amount} or more</div>
+                <div className="rf-flow__desc">They complete their first paid visit of {formatAmount(config.min_bill_amount)} or more</div>
               </div>
             </div>
 
@@ -323,7 +325,7 @@ export default function ReferralSettingsPage() {
               <div className="rf-flow__body">
                 <div className="rf-flow__label">You (Referrer) get</div>
                 <div>
-                  <span className="rf-flow__value">₹{config.referrer_reward_amount}</span>
+                  <span className="rf-flow__value">{formatAmount(config.referrer_reward_amount)}</span>
                   <span className="rf-flow__unit">Wallet credit</span>
                 </div>
               </div>
@@ -335,7 +337,7 @@ export default function ReferralSettingsPage() {
               <div className="rf-flow__body">
                 <div className="rf-flow__label">Your Friend gets</div>
                 <div>
-                  <span className="rf-flow__value">₹{config.referee_reward_amount}</span>
+                  <span className="rf-flow__value">{formatAmount(config.referee_reward_amount)}</span>
                   <span className="rf-flow__unit">Wallet credit</span>
                 </div>
               </div>

@@ -193,6 +193,10 @@ export default function BillingPage() {
             {statusBadge(subscription.status)}
           </p>
           <p className="settings-billing-plan-price">
+            {/* Intentionally fixed to ₹ — this is our own SaaS subscription charge,
+                settled via Razorpay in INR regardless of the salon's own display
+                currency (Settings → Configuration → Currency), which only governs
+                how the salon prices its own clients. Do not swap for useCurrency(). */}
             ₹{parseFloat(subscription.total_amount).toLocaleString()} / year
             &nbsp;·&nbsp; Renews{" "}
             {new Date(subscription.current_period_end).toLocaleDateString("en-IN", {
