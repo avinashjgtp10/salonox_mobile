@@ -114,6 +114,12 @@ export default function StaffListPage() {
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState<{ mode: "single"; id: string } | { mode: "bulk" } | null>(null);
+  // Same "type DELETE to confirm" guard as the Clients page — clears
+  // automatically whenever the modal opens for a new target or closes, so a
+  // leftover "DELETE" from a previous confirmation can never silently arm
+  // the button for a different (or re-opened) delete.
+  const [deleteInput, setDeleteInput] = useState("");
+  useEffect(() => { setDeleteInput(""); }, [deleteConfirm]);
 
   // Filter state
   const [bookable, setBookable] = useState(false);
@@ -708,14 +714,26 @@ export default function StaffListPage() {
       >
         <p className="mb-0">
           {deleteConfirm?.mode === "bulk"
-            ? `Are you sure you want to delete ${selectedIds.length} selected staff member${selectedIds.length === 1 ? "" : "s"}?`
-            : "Are you sure you want to delete this staff member?"}
+            ? `Are you sure you want to delete ${selectedIds.length} selected staff member${selectedIds.length === 1 ? "" : "s"}? This operation can't be undone.`
+            : "Are you sure you want to delete this staff member? This operation can't be undone."}
         </p>
+        <div className="mt-3">
+          <Input
+            label="Type DELETE to confirm"
+            placeholder="DELETE"
+            value={deleteInput}
+            onChange={(e) => setDeleteInput(e.target.value)}
+          />
+        </div>
         <div className="d-flex justify-content-end gap-2 mt-3">
           <button className="btn btn-outline-secondary" onClick={() => setDeleteConfirm(null)}>
             Cancel
           </button>
-          <button className="btn btn-danger" onClick={handleConfirmDelete}>
+          <button
+            className="btn btn-danger"
+            disabled={deleteInput !== "DELETE"}
+            onClick={handleConfirmDelete}
+          >
             Delete
           </button>
         </div>

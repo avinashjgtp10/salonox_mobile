@@ -44,6 +44,10 @@ interface AppointmentRecord {
   notes: string | null;
   cancel_reason: string | null;
   amount_paid: number;
+  // Authoritative remaining balance for this appointment (already net of
+  // discount/eWallet/membership-wallet — see payments.service.ts) — 0 for a
+  // fully-paid appointment, the real outstanding amount for a partial one.
+  due_amount?: number;
   payment_method?: string | null;
   paymentMode?: string | null;
   payment_mode?: string | null;
@@ -739,7 +743,18 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       rawPaymentStatus: linkedSale?.status ?? appt.payment_status,
       paymentMethod: linkedSale?.payment_method ?? (appt as any).payment_method,
       invoiceNumber: linkedSale?.invoice_number,
-      grandTotalOverride: linkedSale ? Number(linkedSale.total_amount) : Number(appt.amount_paid || 0),
+      // No linked sale yet means this appointment isn't fully settled (a sale
+      // row is only auto-created once a payment completes it) — that's
+      // exactly the partial-payment case, so the real bill total is what's
+      // been paid PLUS what's still due, not amount_paid alone (which used
+      // to get passed off as the entire grand total, making a partially
+      // paid ₹1050 bill print as a fully-settled ₹300 one).
+      grandTotalOverride: linkedSale
+        ? Number(linkedSale.total_amount)
+        : Number(appt.amount_paid || 0) + Number(appt.due_amount || 0),
+      // Lets buildPrintableBooking print the real Paid/Due split for a
+      // partial appointment instead of assuming binary paid-or-not.
+      amountPaidOverride: linkedSale ? undefined : Number(appt.amount_paid || 0),
       notes: appt.notes,
       ewalletUsed: appt.ewallet_used,
       membershipWalletUsed: appt.membership_wallet_used,
