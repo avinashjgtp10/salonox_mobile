@@ -443,6 +443,9 @@ export function mapApiBooking(
     paymentMode: appt.paymentMode || appt.payment_mode || appt.payment_method,
     membershipWalletUsed: parseFloat(String(appt.membership_wallet_used ?? appt.membershipWalletUsed ?? 0)) || 0,
     applyMembershipWallet: !!(appt.apply_membership_wallet ?? appt.applyMembershipWallet),
+    // Defaults true when absent (pre-fix rows, or a raw payload that never carried it) —
+    // matches the backend column's own DEFAULT TRUE and the checkbox's original on-by-default behavior.
+    includeGst: !!(appt.include_gst ?? appt.includeGst ?? true),
     ewalletUsed: parseFloat(String(appt.ewallet_used ?? appt.ewalletUsed ?? 0)) || 0,
     referralCreditUsed: parseFloat(String(appt.referral_credit_used ?? appt.referralCreditUsed ?? 0)) || 0,
     splitDetails: (() => {
