@@ -73,7 +73,7 @@ export default function ClientDetailsDrawer({
   const [client, setClient] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [showWalletModal, setShowWalletModal] = useState(false);
-  const { showSuccess, overlay } = useStatusOverlay();
+  const { showSuccess, clear: clearStatusOverlay, overlay } = useStatusOverlay();
 
   // Which client the drawer is currently showing. It starts as the client the
   // parent selected (`clientId`), but the "Referred By" card pushes the
@@ -90,6 +90,16 @@ export default function ClientDetailsDrawer({
   useEffect(() => {
     if (isOpen && clientId != null) setIdStack([clientId]);
   }, [isOpen, clientId]);
+
+  // Clears any lingering "Referral code copied!" (or other) status overlay
+  // whenever the client actually shown changes — either the parent selecting
+  // a different client, or navigating to/from a "Referred By" referrer within
+  // this same drawer. This drawer instance is reused across clients (never
+  // unmounts, just swaps clientId/activeClientId), so without this a toast
+  // triggered on one client's panel stayed on screen after switching to another.
+  useEffect(() => {
+    clearStatusOverlay();
+  }, [activeClientId, clearStatusOverlay]);
 
   useEffect(() => {
     let isMounted = true;

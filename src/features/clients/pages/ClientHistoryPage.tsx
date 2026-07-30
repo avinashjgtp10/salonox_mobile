@@ -86,6 +86,11 @@ export default function ClientHistoryPage() {
   // Which client's detail panel is open — ClientHistoryDetail owns all the
   // history-fetching/tab/filter state itself once given this id.
   const [selectedClient, setSelectedClient] = useState<ClientListItem | null>(null);
+  // Bumped on every row click (including re-clicking the already-selected
+  // client) and folded into ClientHistoryDetail's `key` below — without this,
+  // re-clicking the same client is a no-op (id unchanged) and can't refresh
+  // an already-stale panel the way opening it fresh always does.
+  const [selectVersion, setSelectVersion] = useState(0);
 
   // Ensure services + staff are in Redux (calendar may have already loaded them)
   useEffect(() => {
@@ -291,7 +296,7 @@ export default function ClientHistoryPage() {
                 <div
                   key={c.id}
                   className={`chp-client-row ${isSelected ? "active" : ""}`}
-                  onClick={() => setSelectedClient(c)}
+                  onClick={() => { setSelectedClient(c); setSelectVersion((v) => v + 1); }}
                 >
                   <div className="chp-row-avatar">{getInitials(c.full_name)}</div>
                   <div className="chp-row-info">
@@ -333,7 +338,7 @@ export default function ClientHistoryPage() {
           </div>
         ) : (
           <ClientHistoryDetail
-            key={selectedClient.id}
+            key={`${selectedClient.id}-${selectVersion}`}
             clientId={selectedClient.id}
             onClose={() => setSelectedClient(null)}
           />

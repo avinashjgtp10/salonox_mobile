@@ -20,5 +20,5 @@ export function useStatusOverlay() {
       : <ErrorOverlay message={status.message} onDone={clear} />
   ) : null;
 
-  return { showSuccess, showError, overlay };
+  return { showSuccess, showError, clear, overlay };
 }
