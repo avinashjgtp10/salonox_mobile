@@ -146,6 +146,8 @@ export interface Booking {
   paymentMode?: PaymentMode;
   membershipWalletUsed?: number; // ₹ amount of this bill previously covered by the client's membership wallet
   applyMembershipWallet?: boolean; // persisted "Apply Membership" checkbox state, independent of payment
+  membershipDiscountUsed?: number; // ₹ amount of this bill previously discounted by a percentage/loyalty membership
+  applyMembershipDiscount?: boolean; // persisted "Apply Membership Discount" checkbox state, independent of payment
   ewalletUsed?: number; // ₹ amount of this bill covered by the client's real eWallet balance
   splitDetails?: Record<string, number>; // per-method breakdown of the latest payment (e.g. {Cash: 200, eWallet: 300})
 

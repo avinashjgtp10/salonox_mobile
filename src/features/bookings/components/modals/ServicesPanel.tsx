@@ -102,6 +102,11 @@ interface Props {
   productTaxByRow?: Map<string, number>;
   membershipTaxByRow?: Map<string, number>;
   membershipWalletInfo?: Map<string, { walletUsed: number; payable: number }>;
+  // Per-row Discount Balance/Loyalty membership discount (keyed by row
+  // tempId) — same fill-in-order split already folded into the row's own
+  // GST above, shown separately against the Price box.
+  serviceMembershipDiscountByRow?: Map<string, number>;
+  productMembershipDiscountByRow?: Map<string, number>;
 
   svcErrors?: Array<{ service?: boolean; staff?: boolean; time?: boolean }>;
   pkgErrors?: Array<{ item?: boolean; staff?: boolean; time?: boolean }>;
@@ -156,6 +161,7 @@ type SearchableItemRowProps =
       onRemove: () => void;
       membershipWalletInfo?: { walletUsed: number; payable: number };
       taxAmount?: number;
+      membershipDiscountAmount?: number;
     };
 
 function getSafeQty(qty?: number) {
@@ -539,6 +545,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   const autoFocusSearch = kind === "product" ? props.autoFocusSearch : undefined;
   const onAutoFocusHandled = kind === "product" ? props.onAutoFocusHandled : undefined;
   const membershipWalletInfo = kind === "product" ? props.membershipWalletInfo : undefined;
+  const membershipDiscountAmount = kind === "product" ? props.membershipDiscountAmount : undefined;
   const selectedName = kind === "package" ? row.packageName : row.productName;
   const [search, setSearch] = useState(selectedName);
   const [showDrop, setShowDrop] = useState(false);
@@ -1075,15 +1082,22 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       </div>
 
       {kind === "product" ? (
-        <input
-          className="svc-field__input"
-          type="text"
-          inputMode="numeric"
-          disabled={frozen}
-          placeholder="0"
-          value={row.price || ""}
-          onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
-        />
+        <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <input
+            className="svc-field__input"
+            type="text"
+            inputMode="numeric"
+            disabled={frozen}
+            placeholder="0"
+            value={row.price || ""}
+            onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
+          />
+          {!!membershipDiscountAmount && membershipDiscountAmount > 0 && (
+            <span className="svc-field__pkg-badge" title="Membership discount — GST is calculated on the price after this reduction">
+              ✓ Membership −{currencySymbol}{membershipDiscountAmount.toFixed(2)}
+            </span>
+          )}
+        </div>
       ) : (
         <input
           className="svc-field__input svc-field__input--readonly"
@@ -1117,20 +1131,25 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       />
 
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <input
-          className="svc-field__input svc-field__input--readonly"
-          readOnly
-          value={
-            membershipWalletInfo && membershipWalletInfo.walletUsed > 0
-              ? `${currencySymbol}${membershipWalletInfo.payable.toFixed(2)}`
-              : `${currencySymbol}${row.total.toFixed(2)}`
-          }
-          title={
-            membershipWalletInfo && membershipWalletInfo.walletUsed > 0
-              ? `Full price ${currencySymbol}${row.total.toFixed(2)} — ${currencySymbol}${membershipWalletInfo.walletUsed.toFixed(2)} covered by membership`
-              : undefined
-          }
-        />
+        {(() => {
+          const walletCovered = membershipWalletInfo?.walletUsed ?? 0;
+          const discountApplied = membershipDiscountAmount ?? 0;
+          const displayedTotal = Math.max(0, row.total - walletCovered - discountApplied);
+          const titleParts: string[] = [];
+          if (walletCovered > 0) titleParts.push(`${currencySymbol}${walletCovered.toFixed(2)} covered by membership wallet`);
+          if (discountApplied > 0) titleParts.push(`${currencySymbol}${discountApplied.toFixed(2)} membership discount`);
+          const title = titleParts.length > 0
+            ? `Full price ${currencySymbol}${row.total.toFixed(2)} — ${titleParts.join(" + ")}`
+            : undefined;
+          return (
+            <input
+              className="svc-field__input svc-field__input--readonly"
+              readOnly
+              value={`${currencySymbol}${displayedTotal.toFixed(2)}`}
+              title={title}
+            />
+          );
+        })()}
         {/* Same live per-row GST hint ServiceRow.tsx already shows — this
             row's own tax from the pricing preview (see packageTaxByRow/
             productTaxByRow in AppointmentModal.tsx). */}
@@ -1160,6 +1179,7 @@ export const ServicesPanel: React.FC<Props> = ({
   availablePackages, availableProducts, availableMemberships,
   frozen, packageRemainingByRow, membershipWalletInfo, serviceTaxByRow,
   packageTaxByRow, productTaxByRow, membershipTaxByRow,
+  serviceMembershipDiscountByRow, productMembershipDiscountByRow,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
   onClearPkgError, onClearProdError, onClearMemError,
 }) => {
@@ -1208,6 +1228,7 @@ export const ServicesPanel: React.FC<Props> = ({
         packageSessionsRemaining={packageRemainingByRow?.get((row as any).tempId || String(i)) ?? 0}
         membershipWalletInfo={membershipWalletInfo?.get((row as any).tempId || String(i))}
         taxAmount={serviceTaxByRow?.get((row as any).tempId || String(i))}
+        membershipDiscountAmount={serviceMembershipDiscountByRow?.get((row as any).tempId || String(i))}
       />
     ))}
 
@@ -1271,6 +1292,7 @@ export const ServicesPanel: React.FC<Props> = ({
             onRemove={() => onRemoveProduct(i)}
             membershipWalletInfo={membershipWalletInfo?.get(`product:${(row as any).tempId || String(i)}`)}
             taxAmount={productTaxByRow?.get((row as any).tempId || String(i))}
+            membershipDiscountAmount={productMembershipDiscountByRow?.get((row as any).tempId || String(i))}
           />
         ))}
       </>

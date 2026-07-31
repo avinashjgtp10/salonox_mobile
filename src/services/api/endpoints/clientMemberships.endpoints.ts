@@ -1,3 +1,5 @@
+import type { MembershipAppliesTo } from "./memberships.endpoints";
+
 export const CLIENT_MEMBERSHIPS = {
   BASE:    '/api/v1/client-memberships',
   BY_ID:   (id: string) => `/api/v1/client-memberships/${id}`,
@@ -23,8 +25,12 @@ export interface ClientMembership {
   status: 'active' | 'expired' | 'exhausted' | 'cancelled';
   pricePaid?: number;
   membershipWalletBalance: number;
-  /** Denormalized from the membership plan — true when its wallet may also cover products. */
-  appliesToProducts?: boolean;
+  /** Denormalized from the membership plan at purchase time. */
+  appliesTo: MembershipAppliesTo;
+  pricingType?: 'value' | 'percentage' | 'loyalty';
+  discountPercent?: number;
+  /** 'percentage' only — discount still available to hand out, depletes by discount given. */
+  discountBalanceRemaining?: number;
   usageLog?: UsageLogEntry[];
   createdAt: string;
   updatedAt: string;

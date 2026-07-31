@@ -29,6 +29,10 @@ export interface PaymentPayload {
   // the backend still clamps further by real balance/eligible items; this
   // only limits the request, never trusted as the final deducted amount.
   membership_wallet_requested?: number;
+  // Percentage/loyalty membership discount — intent only. No matching
+  // "requested" field: the amount is fully determined server-side by the
+  // plan's percentage, the eligible line total, and any discount balance left.
+  apply_membership_discount?: boolean;
   // Own dedicated, spendable balances now — not folded into eWallet.
   reward_points_used?: number; // points count
   referral_credit_used?: number; // ₹

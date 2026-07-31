@@ -277,53 +277,6 @@
     }
   }
 
-  /* ── Status pills ────────────────────────────────────────────── */
-  &__pills {
-    display: flex;
-    gap: 8px;
-    margin-top: 2px;
-  }
-
-  &__pill {
-    display: flex;
-    align-items: center;
-    gap: 7px;
-    padding: 8px 16px;
-    border: 1px solid #e2e8f0;
-    border-radius: 30px;
-    font-size: 13px;
-    font-weight: 500;
-    color: #475569;
-    cursor: pointer;
-    transition: all 0.15s;
-    background: #fff;
-
-    &--on {
-      border-color: #0f172a;
-      background: #0f172a;
-      color: #fff;
-      .cmp__pill-dot::after { background: #fff; }
-    }
-  }
-
-  &__pill-dot {
-    width: 13px;
-    height: 13px;
-    border-radius: 50%;
-    border: 1.5px solid currentColor;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    &::after {
-      content: '';
-      width: 5px;
-      height: 5px;
-      border-radius: 50%;
-      background: transparent;
-      transition: background 0.1s;
-    }
-  }
-
   /* ── Tier buttons ────────────────────────────────────────────── */
   &__tiers {
     display: flex;
@@ -431,18 +384,6 @@
       // tier colors like Standard's #1a1a2e still read against the card's
       // own dark navy background instead of nearly disappearing into it.
       color: color-mix(in srgb, var(--mc) 55%, #fff);
-    }
-
-    &-badge {
-      font-size: 10px;
-      font-weight: 700;
-      background: color-mix(in srgb, var(--mc) 20%, transparent);
-      border: 1px solid color-mix(in srgb, var(--mc) 50%, transparent);
-      color: color-mix(in srgb, var(--mc) 80%, #fff);
-      filter: brightness(1.3);
-      padding: 3px 10px;
-      border-radius: 20px;
-      letter-spacing: 0.04em;
     }
 
     &-name {

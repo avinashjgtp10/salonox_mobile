@@ -138,15 +138,14 @@ const BookingChipComponent: React.FC<Props> = ({
 
   // Membership indicator — Value-type memberships cover part/all of the bill
   // via the wallet (membershipWalletUsed > 0), shown as the resulting final
-  // price; Percentage-type memberships drive the same bill-level discount
-  // fields a manual discount would (see AppointmentModal.tsx's auto-sync
-  // effect), so any active percentage discount reads as "X% OFF" here.
+  // price; Percentage/Loyalty memberships instead grant a discount
+  // (membershipDiscountUsed > 0), shown as the ₹ amount saved.
   const membershipWalletUsed = Number(b.membershipWalletUsed) || 0;
-  const isPercentDiscount = b.discountType === "Percentage (%)" && Number(b.discount) > 0;
+  const membershipDiscountUsed = Number(b.membershipDiscountUsed) || 0;
   const membershipBadge = membershipWalletUsed > 0
     ? formatAmount(Number(b.grandTotal))
-    : isPercentDiscount
-      ? `${Number(b.discount)}% OFF`
+    : membershipDiscountUsed > 0
+      ? `-${formatAmount(membershipDiscountUsed)}`
       : null;
 
   // Concurrent appointments for the same staff render side-by-side instead of stacking.

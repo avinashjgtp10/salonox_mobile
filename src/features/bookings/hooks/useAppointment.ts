@@ -24,6 +24,11 @@ interface SavePayload {
   existingBooking?: Booking | null;
   isPackageAppointment?: boolean;
   applyMembershipWallet?: boolean;
+  // Intent flag for a percentage/loyalty membership discount — no matching
+  // amount here, same reasoning as applyMembershipWallet: this only persists
+  // what staff opted into, the requested figure only ever travels with the
+  // payment call.
+  applyMembershipDiscount?: boolean;
   includeGst?: boolean;
 }
 
@@ -114,6 +119,7 @@ export function useAppointment() {
       calDate, defaultTime, notes, staffAlert, salonId, clientId, existingBooking,
       isPackageAppointment: _isPackageAppointment,
       applyMembershipWallet,
+      applyMembershipDiscount,
       includeGst,
     } = payload;
 
@@ -242,6 +248,7 @@ export function useAppointment() {
         tip_amount:     (booking as any).tipAmount ?? 0,
         gst_percent:    (booking as any).gst ?? 0,
         apply_membership_wallet: applyMembershipWallet ?? false,
+        apply_membership_discount: applyMembershipDiscount ?? false,
         include_gst:    includeGst ?? true,
       };
 

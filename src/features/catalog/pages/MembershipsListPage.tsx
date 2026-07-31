@@ -35,28 +35,21 @@ import "../styles/MembershipsListPage.scss";
 const PAGE_SIZE = 20;
 
 interface Filters {
-  payment: string;
   validFor: string;
-  onlyAllServices: boolean;
 }
 const DEFAULT_FILTERS: Filters = {
-  payment: "All",
   validFor: "Any period",
-  onlyAllServices: false,
 };
 
 interface MembershipMeta {
-  actualPrice?: number;
+  bonusCredit?: number;
 }
 const getMembershipMeta = (m: Membership): MembershipMeta => {
   try { return JSON.parse(m.description ?? "{}"); } catch { return {}; }
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  active:    "Active",
-  expired:   "Expired",
-  exhausted: "Exhausted",
-  cancelled: "Cancelled",
+const TYPE_LABEL: Record<string, string> = {
+  value: "Wallet", percentage: "Discount Balance", loyalty: "Loyalty",
 };
 
 const MembershipsListPage: React.FC = () => {
@@ -146,10 +139,7 @@ const MembershipsListPage: React.FC = () => {
   };
 
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const activeFilterCount = [
-    filters.validFor !== "Any period",
-    filters.onlyAllServices,
-  ].filter(Boolean).length;
+  const activeFilterCount = filters.validFor !== "Any period" ? 1 : 0;
 
   const stats = useMemo(() => ({
     revenue: memberships.reduce((s, m) => s + (Number(m.price) || 0), 0),
@@ -284,7 +274,7 @@ const MembershipsListPage: React.FC = () => {
               {memberships.length > 0 ? memberships.map(m => {
                 const color = m.colour || "#1a1a2e";
                 const meta  = getMembershipMeta(m);
-                const isPercentage = m.pricingType === "percentage";
+                const type  = m.pricingType ?? "value";
                 return (
                   <tr key={m.id} onClick={() => { setDrawerId(String(m.id)); setDrawerOpen(true); }}>
                     <td>
@@ -301,16 +291,18 @@ const MembershipsListPage: React.FC = () => {
                       </div>
                     </td>
                     <td>
-                      <span className={`msp__type-badge${isPercentage ? " msp__type-badge--percentage" : " msp__type-badge--value"}`}>
-                        {isPercentage ? "Percentage" : "Value"}
+                      <span className={`msp__type-badge msp__type-badge--${type}`}>
+                        {TYPE_LABEL[type] ?? "Wallet"}
                       </span>
                     </td>
                     <td className="msp__price">
-                      {isPercentage
-                        ? `${m.discountPercent ?? 0}% Discount`
-                        : `${formatAmount(Number(meta.actualPrice || m.price))} Value`}
+                      {type === "percentage"
+                        ? `${m.discountPercent ?? 0}% Off · ${formatAmount(Number(m.discountBalance) || 0)} balance`
+                        : type === "loyalty"
+                          ? `${m.discountPercent ?? 0}% after ${m.loyaltyThresholdValue ?? 0} visits`
+                          : `${formatAmount((Number(m.price) || 0) + (Number(meta.bonusCredit) || 0))} Wallet`}
                     </td>
-                    <td className="msp__td-muted">{m.validFor}</td>
+                    <td className="msp__td-muted">{type === "loyalty" ? "—" : m.validFor}</td>
                     <td className="msp__td-actions" onClick={e => e.stopPropagation()}>
                       <div className="msp__dd-wrap">
                         <button

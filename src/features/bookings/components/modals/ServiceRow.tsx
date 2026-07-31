@@ -74,6 +74,11 @@ interface ServiceRowProps {
   /** This row's own GST from the live pricing preview (see serviceTaxByRow in
    *  AppointmentModal.tsx) — the real per-item tax it will carry once saved. */
   taxAmount?: number;
+  /** This row's own Discount Balance/Loyalty membership discount (see
+   *  serviceMembershipDiscountByRow in AppointmentModal.tsx) — already
+   *  excluded from this row's own taxable base server-side, shown here so
+   *  it's visible against the price it actually reduced. */
+  membershipDiscountAmount?: number;
 }
 
 function fmtName(name: string) {
@@ -159,6 +164,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   packageSessionsRemaining = 0,
   membershipWalletInfo,
   taxAmount,
+  membershipDiscountAmount,
 }) => {
   const { currencySymbol } = useCurrency();
   const schedulerContext = useSchedulerContext();
@@ -696,6 +702,25 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   // field was mid-edit.
   const isPackageCovered = row.service.trim() !== "" && serviceSearch.trim() !== "" && pkgRemaining > 0;
 
+  // Total field display: same "show what the client actually pays" rule the
+  // wallet coverage above already follows — row.total itself stays untouched
+  // (the bill's subtotal/tax math reads from it directly), but the DISPLAYED
+  // figure must reflect both the wallet-covered portion AND the membership
+  // discount, or the ✓ Membership badge above looks like it did nothing to
+  // this row's own Total.
+  const fullRowTotal = row.total ? Number(row.total) : 0;
+  const walletCovered = !isPackageCovered ? (membershipWalletInfo?.walletUsed ?? 0) : 0;
+  const discountApplied = !isPackageCovered ? (membershipDiscountAmount ?? 0) : 0;
+  const displayedRowTotal = isPackageCovered
+    ? fullRowTotal
+    : Math.max(0, fullRowTotal - walletCovered - discountApplied);
+  const rowTotalTitleParts: string[] = [];
+  if (walletCovered > 0) rowTotalTitleParts.push(`${currencySymbol}${walletCovered.toFixed(2)} covered by membership wallet`);
+  if (discountApplied > 0) rowTotalTitleParts.push(`${currencySymbol}${discountApplied.toFixed(2)} membership discount`);
+  const rowTotalTitle = rowTotalTitleParts.length > 0
+    ? `Full price ${currencySymbol}${fullRowTotal.toFixed(2)} — ${rowTotalTitleParts.join(" + ")}`
+    : undefined;
+
   return (
     <>
       <div className="svc-row">
@@ -835,6 +860,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
             onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
           />
           {errorFields.price && <span className="svc-field__err">Enter price</span>}
+          {!isPackageCovered && !!membershipDiscountAmount && membershipDiscountAmount > 0 && (
+            <span className="svc-field__pkg-badge" title="Membership discount — GST is calculated on the price after this reduction">
+              ✓ Membership −{currencySymbol}{membershipDiscountAmount.toFixed(2)}
+            </span>
+          )}
         </div>
 
         <div className="svc-field">
@@ -872,22 +902,15 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
           <span className="svc-field__label">Total</span>
           <input
             readOnly
-            // Membership coverage is a bill-level wallet deduction (see
-            // membershipWalletMap in AppointmentModal.tsx) — row.total itself is
-            // deliberately left untouched so the bill's subtotal/tax math isn't
-            // double-discounted. This field's DISPLAY still needs to reflect the
-            // discounted payable amount, though, or the "Membership Applied"
-            // badge above looks like it did nothing to this row's price.
-            value={
-              !isPackageCovered && membershipWalletInfo && membershipWalletInfo.walletUsed > 0
-                ? membershipWalletInfo.payable.toFixed(2)
-                : row.total ? (row.total as number).toFixed(2) : "0.00"
-            }
-            title={
-              !isPackageCovered && membershipWalletInfo && membershipWalletInfo.walletUsed > 0
-                ? `Full price ${currencySymbol}${(Number(row.total) || 0).toFixed(2)} — ${currencySymbol}${membershipWalletInfo.walletUsed.toFixed(2)} covered by membership`
-                : undefined
-            }
+            // Membership coverage/discount is a bill-level deduction (see
+            // membershipWalletMap / serviceMembershipDiscountByRow in
+            // AppointmentModal.tsx) — row.total itself is deliberately left
+            // untouched so the bill's subtotal/tax math isn't double-discounted.
+            // This field's DISPLAY still needs to reflect the discounted
+            // payable amount, though, or the membership badges above look
+            // like they did nothing to this row's price.
+            value={displayedRowTotal.toFixed(2)}
+            title={rowTotalTitle}
             className="svc-field__input svc-field__input--readonly"
           />
           {taxAmount !== undefined && taxAmount > 0 && !isPackageCovered && (
