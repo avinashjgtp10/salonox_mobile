@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { BoxArrowUp, FileEarmarkSpreadsheet, FiletypePdf, FileEarmarkText, ChevronDown } from "react-bootstrap-icons";
 
 interface ReportExportButtonProps {
@@ -63,31 +65,33 @@ const ReportExportButton = ({ title, headers, rows, filename, variant = "icon", 
 
   const exportPdf = () => {
     const data = rows();
-    const tbody = data
-      .map(r => `<tr>${r.map(c => `<td>${c}</td>`).join("")}</tr>`)
-      .join("");
-    const html = `<!DOCTYPE html><html><head><title>${title}</title>
-      <style>
-        body { font-family: Arial, sans-serif; font-size: 12px; margin: 24px; }
-        h2   { margin: 0 0 16px; font-size: 16px; }
-        table { width: 100%; border-collapse: collapse; }
-        th { background: #f3f4f6; padding: 8px 12px; text-align: left; font-weight: 600;
-             border: 1px solid #e5e7eb; font-size: 11px; }
-        td { padding: 7px 12px; border: 1px solid #e5e7eb; font-size: 11px; }
-        tr:nth-child(even) td { background: #f9fafb; }
-      </style></head><body>
-      <h2>${title}</h2>
-      <table>
-        <thead><tr>${headers.map(h => `<th>${h}</th>`).join("")}</tr></thead>
-        <tbody>${tbody}</tbody>
-      </table>
-      </body></html>`;
-    const win = window.open("", "_blank");
-    if (!win) return;
-    win.document.write(html);
-    win.document.close();
-    win.focus();
-    setTimeout(() => { win.print(); }, 300);
+    // Real one-click file download (no print dialog, no popup to be
+    // blocked) — same jsPDF + autoTable pattern already used by
+    // serviceExport.ts/staffExport.ts/commissionExport.ts elsewhere in the app.
+    const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text(title, 14, 16);
+
+    autoTable(doc, {
+      head: [headers],
+      body: data.map(r => r.map(c => String(c ?? ""))),
+      startY: 22,
+      styles: { fontSize: 7.5, cellPadding: 3, overflow: "linebreak", textColor: [30, 30, 30] },
+      headStyles: {
+        fillColor: [243, 244, 246],
+        textColor: [17, 24, 39],
+        fontStyle: "bold",
+        fontSize: 8,
+        lineColor: [229, 231, 235],
+        lineWidth: 0.2,
+      },
+      alternateRowStyles: { fillColor: [249, 250, 251] },
+      bodyStyles: { lineColor: [229, 231, 235], lineWidth: 0.2 },
+    });
+
+    doc.save(`${filename}.pdf`);
     setOpen(false);
   };
 

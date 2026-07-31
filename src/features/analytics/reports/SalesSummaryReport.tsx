@@ -25,8 +25,10 @@ interface SaleRow {
   contact: string;
   itemDescription: string;
   itemTypes: string;
-  actualPrice: number;
-  price: number;
+  staffName: string;
+  bill: number;
+  discountAmount: number;
+  taxAmount: number;
   paid: number;
   dueAmount: number;
   description: string;
@@ -38,6 +40,19 @@ interface SaleRow {
   membershipWalletUsed: number;
   rewardPointsValue: number;
   referralCreditUsed: number;
+}
+
+// dd-MM-yyyy, consistently across the table and every export (CSV/Excel/PDF
+// all read the same r.date via exportRows) — toLocaleDateString("en-GB")
+// gives dd/MM/yyyy (slashes), not the dash-separated format required here.
+// Also used by the drill-down modal's own date so it matches the table.
+function formatDate(input: string): string {
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}-${mm}-${yyyy}`;
 }
 
 // Maps a row from the independent Sales Summary API
@@ -68,14 +83,16 @@ function mapAppointment(row: any): SaleRow {
     contact: row.client_phone ?? "—",
     itemDescription: row.item_description ?? "—",
     itemTypes: row.item_types ?? "—",
-    actualPrice: Math.round(Number(row.actual_price) || 0),
-    price: Math.round(Number(row.price) || 0),
+    staffName: row.staff_name ?? "—",
+    bill: Math.round(Number(row.price) || 0),
+    discountAmount: Number(row.discount_amount) || 0,
+    taxAmount: Number(row.tax_amount) || 0,
     paid,
     dueAmount: Number(row.due_amount) || 0,
     description,
     modes: row.payment_method ?? "—",
     status: row.status ?? "booked",
-    date: String(row.created_at ?? "").slice(0, 10),
+    date: row.created_at ? formatDate(row.created_at) : "—",
     tip: Number(row.tip_amount) || 0,
     ewalletUsed,
     membershipWalletUsed,
@@ -130,7 +147,7 @@ function SaleDetailModal({ saleId, onClose }: { saleId: string; onClose: () => v
               </div>
               <div>
                 <div className="sd-label">Date</div>
-                <div className="sd-value">{String(data.sale.created_at).slice(0, 10)}</div>
+                <div className="sd-value">{data.sale.created_at ? formatDate(data.sale.created_at) : "—"}</div>
               </div>
               <div>
                 <div className="sd-label">Status</div>
@@ -211,13 +228,32 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
   const [dateTo,        setDateTo]        = useState(today);
   const [staffFilter,   setStaffFilter]   = useState("All");
   const [staffOptions,  setStaffOptions]  = useState<{ label: string; value: string }[]>([{ label: "All Staff", value: "All" }]);
-  const [showStaffDrop, setShowStaffDrop] = useState(false);
   const [categoryFilter,  setCategoryFilter]  = useState("All");
   // Populated from filters_available.service_categories on every fetch — every
   // service category in the salon (not just ones with sales), same convention
   // as Daily Sheet's service/staff dropdowns.
   const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string }[]>([{ label: "All Categories", value: "All" }]);
-  const [showCategoryDrop, setShowCategoryDrop] = useState(false);
+  const [paymentModeFilter, setPaymentModeFilter] = useState("All");
+  const [paymentModeOptions, setPaymentModeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("All");
+  const paymentStatusOptions = [
+    { label: "All", value: "All" },
+    { label: "Paid", value: "paid" },
+    { label: "Partial", value: "partial" },
+  ];
+  const [itemTypeFilter, setItemTypeFilter] = useState("All");
+  const itemTypeOptions = [
+    { label: "All", value: "All" },
+    { label: "Service", value: "service" },
+    { label: "Product", value: "product" },
+    { label: "Membership", value: "membership" },
+    { label: "Gift Card", value: "gift_card" },
+    { label: "Quick", value: "quick" },
+    { label: "Package", value: "package" },
+  ];
+  const [serviceFilter, setServiceFilter] = useState("All");
+  const [serviceOptions, setServiceOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [search,        setSearch]        = useState("");
   const [rows,          setRows]          = useState<SaleRow[]>([]);
   const [stats,         setStats]         = useState({
@@ -250,16 +286,21 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
     abortRef.current = ctrl;
     setLoading(true);
     try {
+      // Sales Summary is a revenue report — only Paid/Partial Payment sales
+      // are actual revenue. Upcoming/Cancelled/No Show/Deleted etc. must
+      // never contribute to rows or the server-computed stats totals. The
+      // Payment Status filter narrows within that same paid/partial set.
+      const statuses = paymentStatusFilter === "All" ? ["paid", "partial"] : [paymentStatusFilter];
       const body: Record<string, any> = {
         start_date: dateFrom, end_date: dateTo,
         page: currentPage, limit: pageSize,
-        // Sales Summary is a revenue report — only Paid/Partial Payment sales
-        // are actual revenue. Upcoming/Cancelled/No Show/Deleted etc. must
-        // never contribute to rows or the server-computed stats totals.
-        statuses: ["paid", "partial"],
+        statuses,
       };
       if (staffFilter !== "All") body.staff_id = staffFilter;
       if (categoryFilter !== "All") body.category_id = categoryFilter;
+      if (paymentModeFilter !== "All") body.payment_mode = paymentModeFilter;
+      if (itemTypeFilter !== "All") body.item_type = itemTypeFilter;
+      if (serviceFilter !== "All") body.service_id = serviceFilter;
       if (search.trim()) body.search = search.trim();
       const res = await api.post(SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -267,7 +308,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
       // Defensive client-side filter in addition to the statuses param above —
       // only Paid/Partial Payment sales are revenue and belong in this report
       // (table + export), regardless of what the backend returns.
-      const eligible = list.filter(r => ["paid", "partial"].includes(String(r.status ?? "").toLowerCase()));
+      const eligible = list.filter(r => statuses.includes(String(r.status ?? "").toLowerCase()));
       setRows(eligible.map(mapAppointment));
       setTotal(Number(data?.pagination?.total) || 0);
       const s = data?.stats ?? {};
@@ -282,11 +323,23 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
         totalRewardValue: Number(s.total_rewards) || 0,
         totalReferralCredit: Number(s.total_referral) || 0,
       });
-      const cats = data?.filters_available?.service_categories;
-      if (Array.isArray(cats)) {
+      const avail = data?.filters_available ?? {};
+      if (Array.isArray(avail.service_categories)) {
         setCategoryOptions([
           { label: "All Categories", value: "All" },
-          ...cats.map((c: any) => ({ label: String(c.label ?? ""), value: String(c.id ?? "") })),
+          ...avail.service_categories.map((c: any) => ({ label: String(c.label ?? ""), value: String(c.id ?? "") })),
+        ]);
+      }
+      if (Array.isArray(avail.payment_modes)) {
+        setPaymentModeOptions([
+          { label: "All", value: "All" },
+          ...avail.payment_modes.map((m: any) => ({ label: String(m), value: String(m) })),
+        ]);
+      }
+      if (Array.isArray(avail.services)) {
+        setServiceOptions([
+          { label: "All", value: "All" },
+          ...avail.services.map((s2: any) => ({ label: String(s2.label ?? ""), value: String(s2.id ?? "") })),
         ]);
       }
     } catch (e: any) {
@@ -296,7 +349,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilter, categoryFilter, search, currentPage, pageSize]);
+  }, [dateFrom, dateTo, staffFilter, categoryFilter, paymentModeFilter, paymentStatusFilter, itemTypeFilter, serviceFilter, search, currentPage, pageSize]);
 
   const bulkDelete = useBulkAppointmentDelete(fetchData);
   // Only sale rows linked to a real appointment can be bulk-deleted — walk-in
@@ -307,16 +360,18 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
 
   // Filter/search changes go back to page 1 — page/pageSize changes
   // themselves should not reset back to page 1.
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilter, categoryFilter, search]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilter, categoryFilter, paymentModeFilter, paymentStatusFilter, itemTypeFilter, serviceFilter, search]);
 
-  useEffect(() => {
-    const close = () => { setShowStaffDrop(false); setShowCategoryDrop(false); };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
+  const activeFilterCount = [staffFilter, categoryFilter, paymentModeFilter, paymentStatusFilter, itemTypeFilter, serviceFilter]
+    .filter(v => v !== "All").length;
 
-  const HEADERS = ["Invoice No", "Name", "Contact", "Description", "Item Types", "Actual Price", "Price", "Paid", "E-Wallet", "Membership", "Rewards", "Referral", "Due Amount", "Modes", "Status", "Date"];
-  const exportRows = () => rows.map(r => [r.invoiceNo, r.name, r.contact, r.description, r.itemTypes, r.actualPrice, r.price, r.paid, r.ewalletUsed, r.membershipWalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.date]);
+  const clearFilters = () => {
+    setStaffFilter("All"); setCategoryFilter("All"); setPaymentModeFilter("All");
+    setPaymentStatusFilter("All"); setItemTypeFilter("All"); setServiceFilter("All");
+  };
+
+  const HEADERS = ["Date", "Invoice No", "Name", "Contact", "Item Types", "Staff Name", "Bill", "Discount", "GST", "Paid", "Membership", "E-Wallet", "Rewards", "Referral", "Due Amount", "Modes", "Status", "Description"];
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.name, r.contact, r.itemTypes, r.staffName, r.bill, r.discountAmount, r.taxAmount, r.paid, r.membershipWalletUsed, r.ewalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.description]);
   const paged = rows;
 
   return (
@@ -334,36 +389,6 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
 
       <div className="rp-detail-filters">
         <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Staff</label>
-          <button className="rp-detail-select" onClick={() => { setShowStaffDrop(v => !v); setShowCategoryDrop(false); }}>
-            {(staffOptions.find(o => o.value === staffFilter)?.label ?? "All Staff").slice(0, 16)}
-            <span className="rp-detail-caret">▼</span>
-          </button>
-          {showStaffDrop && (
-            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {staffOptions.map(o => (
-                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === staffFilter ? "active" : ""}`}
-                  onClick={() => { setStaffFilter(o.value); setShowStaffDrop(false); }}>{o.label}</div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Service Category</label>
-          <button className="rp-detail-select" onClick={() => { setShowCategoryDrop(v => !v); setShowStaffDrop(false); }}>
-            {(categoryOptions.find(o => o.value === categoryFilter)?.label ?? "All Categories").slice(0, 16)}
-            <span className="rp-detail-caret">▼</span>
-          </button>
-          {showCategoryDrop && (
-            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {categoryOptions.map(o => (
-                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === categoryFilter ? "active" : ""}`}
-                  onClick={() => { setCategoryFilter(o.value); setShowCategoryDrop(false); }}>{o.label}</div>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Date</label>
           <div className="rp-detail-date-range">
             <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
@@ -371,6 +396,10 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
             <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
           </div>
         </div>
+        <button className="rp-ss-filters-btn" onClick={() => setShowFiltersPanel(true)}>
+          Filters
+          {activeFilterCount > 0 && <span className="rp-ss-filters-badge">{activeFilterCount}</span>}
+        </button>
         <div className="rp-detail-filter-actions">
           <Button variant="dark" className="rp-ss-run-btn" onClick={fetchData} loading={loading}>
             Run Report
@@ -429,29 +458,31 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
                   disabled={deletableIds.length === 0}
                 />
               </th>
+              <th>Date</th>
               <th>Invoice No</th>
               <th>Name</th>
               <th>Contact</th>
-              <th>Description</th>
               <th>Item Types</th>
-              <th>Actual Price</th>
-              <th>Price</th>
+              <th>Staff Name</th>
+              <th>Bill</th>
+              <th>Discount</th>
+              <th>GST</th>
               <th>Paid</th>
-              <th>E-Wallet</th>
               <th>Membership</th>
+              <th>E-Wallet</th>
               <th>Rewards</th>
               <th>Referral</th>
               <th>Due Amount</th>
               <th>Modes</th>
               <th>Status</th>
-              <th>Date</th>
+              <th>Description</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={17} />
+              <SkeletonTableRows columns={19} />
             ) : paged.length === 0 ? (
-              <tr><td colSpan={17} className="rp-detail-empty-cell">No sales found</td></tr>
+              <tr><td colSpan={19} className="rp-detail-empty-cell">No sales found</td></tr>
             ) : paged.map((r, i) => (
               <tr key={i} className="rp-appt-row">
                 <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
@@ -464,22 +495,24 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
                     />
                   )}
                 </td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.date}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td className="fw-semibold" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.name}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.contact}</td>
-                <td className="rp-ss-desc" title={r.description} onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.description}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.itemTypes}</td>
-                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.actualPrice)}</td>
-                <td className="fw-semibold" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.price)}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.staffName}</td>
+                <td className="fw-semibold" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.bill)}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.discountAmount)}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.taxAmount)}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.paid)}</td>
-                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.ewalletUsed > 0 ? money(r.ewalletUsed) : "—"}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.membershipWalletUsed > 0 ? money(r.membershipWalletUsed) : "—"}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.ewalletUsed > 0 ? money(r.ewalletUsed) : "—"}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.rewardPointsValue > 0 ? money(r.rewardPointsValue) : "—"}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.referralCreditUsed > 0 ? money(r.referralCreditUsed) : "—"}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.dueAmount)}</td>
                 <td className="rp-ss-mode" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.modes}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
-                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.date}</td>
+                <td className="rp-ss-desc" title={r.description} onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.description}</td>
               </tr>
             ))}
           </tbody>
@@ -514,6 +547,90 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
         onCancel={() => { bulkDelete.setShowConfirm(false); bulkDelete.setError(null); }}
         onConfirm={bulkDelete.confirmDelete}
       />
+
+      {showFiltersPanel && (
+        <div className="rp-ss-filters-overlay" onClick={() => setShowFiltersPanel(false)}>
+          <div className="rp-ss-filters-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Filters</h3>
+            </div>
+
+            <div className="rp-ss-filters-body">
+              <FilterField label="Staff" value={staffFilter} options={staffOptions} onChange={setStaffFilter} />
+              <FilterField label="Service Category" value={categoryFilter} options={categoryOptions} onChange={setCategoryFilter} />
+              <FilterField label="Payment Mode" value={paymentModeFilter} options={paymentModeOptions} onChange={setPaymentModeFilter} />
+              <FilterField label="Payment Status" value={paymentStatusFilter} options={paymentStatusOptions} onChange={setPaymentStatusFilter} />
+              <FilterField label="Item Type" value={itemTypeFilter} options={itemTypeOptions} onChange={setItemTypeFilter} />
+              <FilterField label="Service" value={serviceFilter} options={serviceOptions} onChange={setServiceFilter} />
+            </div>
+
+            <div className="rp-ss-filters-actions">
+              <Button variant="ghost" onClick={() => { clearFilters(); }}>Clear</Button>
+              <Button variant="dark" onClick={() => { setShowFiltersPanel(false); fetchData(); }}>Apply</Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function FilterField({ label, value, options, onChange }: {
+  label: string;
+  value: string;
+  options: { label: string; value: string }[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  useEffect(() => {
+    if (open) { setQuery(""); searchRef.current?.focus(); }
+  }, [open]);
+
+  const filtered = query.trim()
+    ? options.filter(o => o.label.toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
+
+  return (
+    <div className="rp-detail-filter-group rp-ss-filter-field" ref={wrapRef}>
+      <label className="rp-detail-filter-label">{label}</label>
+      <button type="button" className="rp-detail-select rp-ss-filter-select" onClick={() => setOpen(v => !v)}>
+        {options.find(o => o.value === value)?.label ?? "All"}
+        <span className="rp-detail-caret">▼</span>
+      </button>
+      {open && (
+        <div className="rp-ss-filter-dropdown-wrap">
+          <input
+            ref={searchRef}
+            type="text"
+            className="rp-ss-filter-search"
+            placeholder={`Search ${label.toLowerCase()}...`}
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onClick={e => e.stopPropagation()}
+          />
+          <div className="rp-ss-filter-list">
+            {filtered.length === 0 ? (
+              <div className="rp-ss-filter-no-match">No matches</div>
+            ) : filtered.map(o => (
+              <div key={o.value} className={`rp-detail-dropdown-item ${o.value === value ? "active" : ""}`}
+                onClick={() => { onChange(o.value); setOpen(false); }}>{o.label}</div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
