@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronLeft, Grid3x3Gap, InfoCircle } from "react-bootstrap-icons";
+import { Grid3x3Gap, InfoCircle } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PRODUCTS, CATEGORIES, PRODUCT_INVENTORY_SALES_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
+import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
@@ -27,7 +28,7 @@ interface InventoryRow {
 
 const INV_STATUSES = ["All", "In Stock", "Low Stock", "Out of Stock"];
 
-export default function ProductInventoryReport({ onBack }: { onBack: () => void }) {
+export default function ProductInventoryReport({ onBack, category: reportCategory, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
   const [category,        setCategory]        = useState("All");
   const [stockStatus,     setStockStatus]     = useState("All");
@@ -138,9 +139,7 @@ export default function ProductInventoryReport({ onBack }: { onBack: () => void 
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
-          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
-            <ChevronLeft size={15} /> {REPORT_NAME}
-          </Button>
+          <Breadcrumb current={REPORT_NAME} category={reportCategory} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
             <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={REPORT_NAME} csv />

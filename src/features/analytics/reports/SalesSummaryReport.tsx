@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { ChevronLeft, Search, X } from "react-bootstrap-icons";
+import { Search, X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
+import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, Loader } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
@@ -219,7 +220,7 @@ function SaleDetailModal({ saleId, onClose }: { saleId: string; onClose: () => v
   );
 }
 
-export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
+export default function SalesSummaryReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
   const { formatAmount: money } = useCurrency();
   const today     = new Date().toISOString().slice(0, 10);
@@ -378,9 +379,7 @@ export default function SalesSummaryReport({ onBack }: { onBack: () => void }) {
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
-          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
-            <ChevronLeft size={15} /> {REPORT_NAME}
-          </Button>
+          <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`sales-summary-${dateFrom}-${dateTo}`} variant="button" csv />
           </div>

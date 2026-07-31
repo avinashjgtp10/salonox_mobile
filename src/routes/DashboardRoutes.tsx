@@ -65,7 +65,8 @@ export const DashboardRoutes = (
         <Route path="calendar" element={<Scheduler />} />
       </Route>
 
-      {/* Analytics / Reports — requires view_reports */}
+      {/* Legacy path — ReportsPage itself redirects to the new top-level /reports URL,
+          preserving ?report=<id> deep links (e.g. dashboard's "Collect Now" shortcut) */}
       <Route element={<PermissionGuard permKey="view_reports" />}>
         <Route path="analytics" element={<ReportsPage />} />
       </Route>
@@ -117,6 +118,21 @@ export const DashboardRoutes = (
 
       {/* Help & Support — accessible to all authenticated users */}
       <Route path="help" element={<HelpPage />} />
+    </Route>
+
+    {/* Reports — top-level /reports/... (not under /dashboard), same layout/guards */}
+    <Route
+      path="/reports"
+      element={
+        <DashboardProviders>
+          <DashboardLayout />
+        </DashboardProviders>
+      }
+    >
+      <Route element={<PermissionGuard permKey="view_reports" />}>
+        <Route index element={<ReportsPage />} />
+        <Route path=":category/:reportSlug" element={<ReportsPage />} />
+      </Route>
     </Route>
   </Route>
 );

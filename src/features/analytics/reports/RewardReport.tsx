@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronLeft, Search } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { REWARD_POINTS_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
+import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
@@ -35,7 +36,7 @@ function mapRow(row: any): RewardClientRow {
   };
 }
 
-export default function RewardReport({ onBack }: { onBack: () => void }) {
+export default function RewardReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [rows,        setRows]        = useState<RewardClientRow[]>([]);
@@ -96,9 +97,7 @@ export default function RewardReport({ onBack }: { onBack: () => void }) {
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
-          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
-            <ChevronLeft size={15} /> {REPORT_NAME}
-          </Button>
+          <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`reward-points-${new Date().toISOString().slice(0, 10)}`} variant="button" csv />
           </div>

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronLeft, Search } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PRODUCT_RETAIL_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
+import Breadcrumb from "../../../components/ui/Breadcrumb";
 import Select from "../../../components/ui/Select";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
@@ -66,7 +67,7 @@ function mapRow(row: any): ProductSaleRow {
 
 interface FilterOption { id: string; label: string; }
 
-export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
+export default function ProductSaleReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
   // Same Brand/Category source as Catalog → Products (fetchBrandsThunk/
   // fetchCategoriesThunk) — the full catalog list, not just brands/categories
@@ -168,9 +169,7 @@ export default function ProductSaleReport({ onBack }: { onBack: () => void }) {
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
-          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
-            <ChevronLeft size={15} /> {REPORT_NAME}
-          </Button>
+          <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`product-retail-${dateFrom}-${dateTo}`} variant="button" csv />
           </div>
