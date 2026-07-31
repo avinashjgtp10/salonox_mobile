@@ -22,6 +22,11 @@ interface TotalsPanelProps {
    * but wasn't broken out as its own line here, so the gap between Subtotal
    * and Grand Total looked unexplained whenever it applied. */
   referralDiscount?: number;
+  /** Discount given by a percentage/loyalty membership — also already folded
+   * into grandTotal by the backend (a genuine pre-tax price reduction, unlike
+   * membershipWalletUsed below which is a post-tax redemption), broken out
+   * the same way referralDiscount is just above. */
+  membershipDiscountUsed?: number;
   totalDiscount?: number;
   gstAmount?: number;
   taxBreakdown?: TaxBreakdownEntry[];
@@ -57,7 +62,7 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   subtotal, catalogTotal, itemDiscountTotal = 0,
   serviceTotal, packageTotal, productTotal, membershipTotal,
   exCharges, discount, discountType, manualDiscount, couponDiscount = 0, couponCode,
-  referralDiscount = 0,
+  referralDiscount = 0, membershipDiscountUsed = 0,
   totalDiscount: totalDiscountProp,
   gstAmount = 0, taxBreakdown = [], tip = 0, membershipWalletUsed = 0,
   ewalletUsed = 0, rewardPointsValue = 0, referralCreditUsed = 0,
@@ -124,6 +129,7 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
           ...(couponDiscount > 0 ? [{ label: `Coupon${couponCode ? ` (${couponCode})` : ""}`, value: `-${currencySymbol}${couponDiscount.toFixed(2)}`, color: "text-danger" }] : []),
         ]
       : (totalDiscount > 0 ? [{ label: "Discount", value: `-${currencySymbol}${totalDiscount.toFixed(2)}`, color: "text-danger" }] : [])),
+    ...(membershipDiscountUsed > 0 ? [{ label: "Membership Discount", value: `-${currencySymbol}${membershipDiscountUsed.toFixed(2)}`, color: "text-danger" }] : []),
     ...(referralDiscount > 0 ? [{ label: "Referral Discount", value: `-${currencySymbol}${referralDiscount.toFixed(2)}`, color: "text-danger" }] : []),
     ...(combinedExclusiveTax ? [{ label: `${combinedExclusiveTax.label} (${combinedExclusiveTax.rate}%)`, value: `+${currencySymbol}${combinedExclusiveTax.amount.toFixed(2)}`, color: "" }] : []),
     ...(combinedInclusiveTax ? [{ label: `${combinedInclusiveTax.label} (${combinedInclusiveTax.rate}%, incl.)`, value: `${currencySymbol}${combinedInclusiveTax.amount.toFixed(2)}`, color: "text-secondary" }] : []),

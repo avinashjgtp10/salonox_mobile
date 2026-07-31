@@ -1,11 +1,20 @@
-import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
-import { API_V1_BASE_URL } from "../baseUrl";
-
 export interface IncludedService {
   serviceId: string;
   serviceName: string;
   durationMinutes?: number;
 }
+
+/**
+ * 'value'      — wallet: pay a fee, get a spendable balance drawn down at face value.
+ * 'percentage' — discount balance: N% off every service, where the discount GIVEN
+ *                depletes a separate pool.
+ * 'loyalty'    — free/automatic: unlocks N% off once a visit threshold is met,
+ *                then applies indefinitely with no cap.
+ */
+export type MembershipPricingType = 'value' | 'percentage' | 'loyalty';
+
+/** Which line items a membership's benefit is eligible to cover. */
+export type MembershipAppliesTo = 'services' | 'products' | 'both';
 
 export interface Membership {
   id: string;
@@ -21,9 +30,14 @@ export interface Membership {
   enableOnlineSales: boolean;
   enableOnlineRedemption: boolean;
   termsAndConditions?: string;
-  appliesToProducts?: boolean;
-  pricingType?: 'value' | 'percentage';
+  /** Defaults to 'services' server-side when omitted. */
+  appliesTo?: MembershipAppliesTo;
+  pricingType?: MembershipPricingType;
   discountPercent?: number;
+  /** 'percentage' only — the depleting pool of discount this plan may hand out. */
+  discountBalance?: number;
+  /** 'loyalty' only — how many visits have to accumulate before the discount unlocks. */
+  loyaltyThresholdValue?: number;
   createdAt: Date;
   updatedAt: Date;
   // Optional client association (if backend supports it)
@@ -46,9 +60,14 @@ export interface CreateMembershipDTO {
   enableOnlineSales: boolean;
   enableOnlineRedemption: boolean;
   termsAndConditions?: string;
-  appliesToProducts?: boolean;
-  pricingType?: 'value' | 'percentage';
+  /** Defaults to 'services' server-side when omitted. */
+  appliesTo?: MembershipAppliesTo;
+  pricingType?: MembershipPricingType;
   discountPercent?: number;
+  /** 'percentage' only — the depleting pool of discount this plan may hand out. */
+  discountBalance?: number;
+  /** 'loyalty' only — how many visits have to accumulate before the discount unlocks. */
+  loyaltyThresholdValue?: number;
   clientId?: string;
   clientName?: string;
   clientPhone?: string;
@@ -75,68 +94,13 @@ export interface ApiResponse<T> {
   data: T;
 }
 
-export const membershipsApi = createApi({
-  reducerPath: "membershipsApi",
-  baseQuery: fetchBaseQuery({
-    baseUrl: API_V1_BASE_URL,
-    prepareHeaders: (headers, { getState }) => {
-      const state = getState() as any;
-      const token = state?.auth?.accessToken;
-      if (token) headers.set("Authorization", `Bearer ${token}`);
-      return headers;
-    },
-  }),
-  tagTypes: ["Membership"],
-
-  endpoints: (builder) => ({
-
-    listMemberships: builder.query<MembershipsListResponse, MembershipsListQuery>({
-      query: (params = {}) => ({ url: "/memberships", params }),
-      transformResponse: (res: ApiResponse<MembershipsListResponse>) => res.data,
-      providesTags: (result) =>
-        result
-          ? [
-              ...result.items.map(({ id }) => ({ type: "Membership" as const, id })),
-              { type: "Membership", id: "LIST" },
-            ]
-          : [{ type: "Membership", id: "LIST" }],
-    }),
-
-    getMembershipById: builder.query<Membership, string>({
-      query: (id) => `/memberships/${id}`,
-      transformResponse: (res: ApiResponse<Membership>) => res.data,
-      providesTags: (_result, _error, id) => [{ type: "Membership", id }],
-    }),
-
-    createMembership: builder.mutation<Membership, CreateMembershipDTO>({
-      query: (body) => ({ url: "/memberships", method: "POST", body }),
-      transformResponse: (res: ApiResponse<Membership>) => res.data,
-      invalidatesTags: [{ type: "Membership", id: "LIST" }],
-    }),
-
-    updateMembership: builder.mutation<Membership, { id: string; data: UpdateMembershipDTO }>({
-      query: ({ id, data }) => ({ url: `/memberships/${id}`, method: "PATCH", body: data }),
-      transformResponse: (res: ApiResponse<Membership>) => res.data,
-      invalidatesTags: (_result, _error, { id }) => [
-        { type: "Membership", id },
-        { type: "Membership", id: "LIST" },
-      ],
-    }),
-
-    deleteMembership: builder.mutation<void, string>({
-      query: (id) => ({ url: `/memberships/${id}`, method: "DELETE" }),
-      invalidatesTags: (_result, _error, id) => [
-        { type: "Membership", id },
-        { type: "Membership", id: "LIST" },
-      ],
-    }),
-  }),
-});
-
-export const {
-  useListMembershipsQuery,
-  useGetMembershipByIdQuery,
-  useCreateMembershipMutation,
-  useUpdateMembershipMutation,
-  useDeleteMembershipMutation,
-} = membershipsApi;
+export interface LoyaltyEligibility {
+  membershipId: string;
+  name: string;
+  discountPercent: number;
+  thresholdValue: number;
+  /** Visits accumulated so far. */
+  current: number;
+  eligible: boolean;
+  appliesTo: MembershipAppliesTo;
+}

@@ -4,9 +4,7 @@ import Button from "../../../components/ui/Button";
 import "../styles/Membershipfilterdrawer.scss";
 
 interface FilterState {
-  payment:         string;
-  validFor:        string;
-  onlyAllServices: boolean;
+  validFor: string;
 }
 
 interface Props {
@@ -16,9 +14,7 @@ interface Props {
 }
 
 const DEFAULT: FilterState = {
-  payment:         "All",
-  validFor:        "Any period",
-  onlyAllServices: false,
+  validFor: "Any period",
 };
 
 const MembershipFilterDrawer: React.FC<Props> = ({
@@ -37,10 +33,7 @@ const MembershipFilterDrawer: React.FC<Props> = ({
     onClose();
   };
 
-  const activeCount = [
-    filters.validFor !== "Any period",
-    filters.onlyAllServices,
-  ].filter(Boolean).length;
+  const activeCount = filters.validFor !== "Any period" ? 1 : 0;
 
   return (
     <div className="membership-filters-overlay" onClick={onClose}>
@@ -60,25 +53,6 @@ const MembershipFilterDrawer: React.FC<Props> = ({
         </header>
 
         <div className="membership-filters-drawer__body">
-          {/* Payment filter */}
-          <div className="filter-group">
-            <label>Payment</label>
-            <div className="select-wrapper">
-              <select
-                className="form-select-custom"
-                value={filters.payment}
-                onChange={(e) =>
-                  setFilters({ ...filters, payment: e.target.value })
-                }
-              >
-                <option>All</option>
-                <option>Upfront</option>
-                <option>Recurring</option>
-              </select>
-              <ChevronDown className="select-chevron" size={14} />
-            </div>
-          </div>
-
           {/* Valid for filter — maps directly to backend validFor field */}
           <div className="filter-group">
             <label>Valid for</label>
@@ -99,21 +73,6 @@ const MembershipFilterDrawer: React.FC<Props> = ({
               </select>
               <ChevronDown className="select-chevron" size={14} />
             </div>
-          </div>
-
-          {/* All services checkbox */}
-          <div className="filter-group checkbox-group">
-            <label className="checkbox-container">
-              <input
-                type="checkbox"
-                checked={filters.onlyAllServices}
-                onChange={(e) =>
-                  setFilters({ ...filters, onlyAllServices: e.target.checked })
-                }
-              />
-              <span className="checkmark"></span>
-              Display only memberships which cover all services
-            </label>
           </div>
         </div>
 

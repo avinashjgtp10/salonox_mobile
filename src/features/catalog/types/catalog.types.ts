@@ -221,16 +221,6 @@ export interface Category {
   serviceCount: number;
 }
 
-export interface Membership {
-  id: string;
-  name: string;
-  servicesCovered: string; // e.g., "All services"
-  validFor: string; // e.g., "1 month"
-  sessions: string; // e.g., "5 sessions"
-  price: number;
-  image?: string;
-}
-
 export interface CatalogFormData {
   basic: BasicDetailsData;
   team: TeamMembersData;

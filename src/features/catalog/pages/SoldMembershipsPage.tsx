@@ -7,6 +7,7 @@ import {
   DashCircle,
 } from "react-bootstrap-icons";
 import type { AppDispatch, RootState } from "../../../store/store";
+import { useCurrency } from "../../../hooks/useCurrency";
 import {
   fetchClientMembershipsThunk,
   consumeSessionThunk,
@@ -54,6 +55,7 @@ function SessionBar({ used, total }: { used: number; total: number }) {
 const SoldMembershipsPage: React.FC = () => {
   const navigate   = useNavigate();
   const dispatch   = useDispatch<AppDispatch>();
+  const { formatAmount } = useCurrency();
 
   const { items, total, loading, submitting, error, selected } = useSelector(
     (s: RootState) => s.clientMemberships
@@ -210,6 +212,7 @@ const SoldMembershipsPage: React.FC = () => {
                   <th>Membership</th>
                   <th>Sessions</th>
                   <th>Remaining</th>
+                  <th>Balance</th>
                   <th>Status</th>
                   <th>Purchased</th>
                   <th />
@@ -259,6 +262,13 @@ const SoldMembershipsPage: React.FC = () => {
                         </span>
                       </td>
                       <td>
+                        {item.pricingType === "percentage"
+                          ? <span className="smp__balance">{formatAmount(item.discountBalanceRemaining ?? 0)}</span>
+                          : item.membershipWalletBalance > 0
+                            ? <span className="smp__balance">{formatAmount(item.membershipWalletBalance)}</span>
+                            : <span className="smp__td-muted">—</span>}
+                      </td>
+                      <td>
                         <span className={`smp__status smp__status--${item.status}`}>
                           {STATUS_LABEL[item.status] ?? item.status}
                         </span>
@@ -303,7 +313,7 @@ const SoldMembershipsPage: React.FC = () => {
                   );
                 }) : (
                   <tr>
-                    <td colSpan={7}>
+                    <td colSpan={8}>
                       <div className="smp__empty">
                         <Award size={44} className="smp__empty-icon" />
                         <p className="smp__empty-msg">No sold memberships found.</p>
@@ -332,28 +342,50 @@ const SoldMembershipsPage: React.FC = () => {
               <button className="smp__detail-close" onClick={() => setDetailId(null)}>×</button>
             </div>
 
+            {/* Balance summary — percentage plans have no session concept
+                (totalSessions is always 0/unlimited for them), so the
+                discount balance is what actually matters here. Value plans
+                still show it too, alongside sessions, since a wallet can be
+                session-capped and ₹-capped at once. */}
+            {(detailItem.pricingType === "percentage" || detailItem.membershipWalletBalance > 0) && (
+              <div className="smp__detail-summary">
+                <div className="smp__ds-card smp__ds-card--rem">
+                  <span className="smp__ds-label">
+                    {detailItem.pricingType === "percentage" ? "Discount Balance" : "Wallet Balance"}
+                  </span>
+                  <strong className="smp__ds-val">
+                    {formatAmount(detailItem.pricingType === "percentage"
+                      ? (detailItem.discountBalanceRemaining ?? 0)
+                      : detailItem.membershipWalletBalance)}
+                  </strong>
+                </div>
+              </div>
+            )}
+
             {/* Session summary */}
-            <div className="smp__detail-summary">
-              <div className="smp__ds-card">
-                <span className="smp__ds-label">Total</span>
-                <strong className="smp__ds-val">
-                  {detailItem.totalSessions === 0 ? "∞" : detailItem.totalSessions}
-                </strong>
+            {detailItem.pricingType !== "percentage" && (
+              <div className="smp__detail-summary">
+                <div className="smp__ds-card">
+                  <span className="smp__ds-label">Total</span>
+                  <strong className="smp__ds-val">
+                    {detailItem.totalSessions === 0 ? "∞" : detailItem.totalSessions}
+                  </strong>
+                </div>
+                <div className="smp__ds-card smp__ds-card--used">
+                  <span className="smp__ds-label">Used</span>
+                  <strong className="smp__ds-val">{detailItem.usedSessions}</strong>
+                </div>
+                <div className="smp__ds-card smp__ds-card--rem">
+                  <span className="smp__ds-label">Remaining</span>
+                  <strong className="smp__ds-val">
+                    {detailItem.totalSessions === 0 ? "∞" : detailItem.remainingSessions}
+                  </strong>
+                </div>
               </div>
-              <div className="smp__ds-card smp__ds-card--used">
-                <span className="smp__ds-label">Used</span>
-                <strong className="smp__ds-val">{detailItem.usedSessions}</strong>
-              </div>
-              <div className="smp__ds-card smp__ds-card--rem">
-                <span className="smp__ds-label">Remaining</span>
-                <strong className="smp__ds-val">
-                  {detailItem.totalSessions === 0 ? "∞" : detailItem.remainingSessions}
-                </strong>
-              </div>
-            </div>
+            )}
 
             {/* Progress bar */}
-            {detailItem.totalSessions > 0 && (
+            {detailItem.pricingType !== "percentage" && detailItem.totalSessions > 0 && (
               <div className="smp__detail-bar">
                 <div
                   className="smp__detail-bar-fill"

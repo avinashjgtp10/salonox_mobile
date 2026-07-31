@@ -75,6 +75,7 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
   })();
   const bonusCredit  = Number(descMeta.bonusCredit) || 0;
   const walletValue  = (Number(membership?.price) || 0) + bonusCredit;
+  const type: "value" | "percentage" | "loyalty" = membership?.pricingType ?? "value";
   if (!isOpen) return null;
 
   return (
@@ -148,30 +149,83 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
             <section className="mdd__section">
               <h4 className="section-title">Price & Details</h4>
               <div className="details-grid">
-                <div className="detail-item">
-                  <span className="label">Customer Pays</span>
-                  <span className="value fw-bold">
-                    {formatAmount(Number(membership?.price || 0))}
-                  </span>
-                </div>
-                {bonusCredit > 0 && (
+                {type === "value" && (
+                  <>
+                    <div className="detail-item">
+                      <span className="label">Customer Pays</span>
+                      <span className="value fw-bold">
+                        {formatAmount(Number(membership?.price || 0))}
+                      </span>
+                    </div>
+                    {bonusCredit > 0 && (
+                      <div className="detail-item">
+                        <span className="label">Bonus Credit</span>
+                        <span className="value" style={{ color: "#16a34a", fontWeight: 700 }}>
+                          +{formatAmount(bonusCredit)}
+                        </span>
+                      </div>
+                    )}
+                    <div className="detail-item">
+                      <span className="label">Wallet Value</span>
+                      <span className="value fw-bold" style={{ color: "#2563eb" }}>
+                        {formatAmount(walletValue)}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {type === "percentage" && (
+                  <>
+                    <div className="detail-item">
+                      <span className="label">Membership Fee</span>
+                      <span className="value fw-bold">
+                        {formatAmount(Number(membership?.price || 0))}
+                      </span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Discount</span>
+                      <span className="value fw-bold" style={{ color: "#2563eb" }}>
+                        {membership?.discountPercent ?? 0}% Off
+                      </span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Discount Balance</span>
+                      <span className="value fw-bold" style={{ color: "#2563eb" }}>
+                        {formatAmount(Number(membership?.discountBalance) || 0)}
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {type === "loyalty" && (
+                  <>
+                    <div className="detail-item">
+                      <span className="label">Discount</span>
+                      <span className="value fw-bold" style={{ color: "#a21caf" }}>
+                        {membership?.discountPercent ?? 0}% Off
+                      </span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Unlocks After</span>
+                      <span className="value fw-bold">
+                        {membership?.loyaltyThresholdValue ?? 0} visits
+                      </span>
+                    </div>
+                    <div className="detail-item">
+                      <span className="label">Enrollment</span>
+                      <span className="value" style={{ color: "#16a34a", fontWeight: 700 }}>
+                        Free — automatic for every client
+                      </span>
+                    </div>
+                  </>
+                )}
+
+                {type !== "loyalty" && (
                   <div className="detail-item">
-                    <span className="label">Bonus Credit</span>
-                    <span className="value" style={{ color: "#16a34a", fontWeight: 700 }}>
-                      +{formatAmount(bonusCredit)}
-                    </span>
+                    <span className="label">Validity</span>
+                    <span className="value">{membership?.validFor || "–"}</span>
                   </div>
                 )}
-                <div className="detail-item">
-                  <span className="label">Wallet Value</span>
-                  <span className="value fw-bold" style={{ color: "#2563eb" }}>
-                    {formatAmount(walletValue)}
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <span className="label">Validity</span>
-                  <span className="value">{membership?.validFor || "–"}</span>
-                </div>
                 <div className="detail-item">
                   <span className="label">Status</span>
                   <span className="value" style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, color: membership?.status === "active" ? "#16a34a" : "#64748b" }}>
@@ -179,20 +233,24 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
                     {membership?.status === "active" ? "Active" : "Inactive"}
                   </span>
                 </div>
-                <div className="detail-item">
-                  <span className="label">Visit Limit</span>
-                  <span className="value">
-                    {membership?.sessionType === "unlimited"
-                      ? `No cap (use until balance ${formatAmount(0)})`
-                      : `${membership?.numberOfSessions || 0} visits`}
-                  </span>
-                </div>
-                <div className="detail-item">
-                  <span className="label">Tax Rate</span>
-                  <span className="value">
-                    {membership?.taxRate ? `${membership.taxRate}%` : "No tax"}
-                  </span>
-                </div>
+                {type === "value" && (
+                  <div className="detail-item">
+                    <span className="label">Visit Limit</span>
+                    <span className="value">
+                      {membership?.sessionType === "unlimited"
+                        ? `No cap (use until balance ${formatAmount(0)})`
+                        : `${membership?.numberOfSessions || 0} visits`}
+                    </span>
+                  </div>
+                )}
+                {type !== "loyalty" && (
+                  <div className="detail-item">
+                    <span className="label">Tax Rate</span>
+                    <span className="value">
+                      {membership?.taxRate ? `${membership.taxRate}%` : "No tax"}
+                    </span>
+                  </div>
+                )}
               </div>
             </section>
 

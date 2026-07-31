@@ -47,6 +47,11 @@ interface CompletePaymentParams {
   // Staff-chosen cap ("only use ₹150 of the wallet") — the backend still
   // clamps further by real balance/eligible items.
   membershipWalletRequested?: number;
+  // Percentage/loyalty membership discount — intent only. There is no
+  // matching "requested" field: the amount is fully determined server-side by
+  // the plan's percentage, the eligible line total, and any discount balance
+  // left, same reasoning as reward points/referral credit below.
+  applyMembershipDiscount?: boolean;
   // Own dedicated, spendable balances now — not folded into eWallet.
   rewardPointsToRedeem?: number; // points count
   referralCreditAmt?: number;    // ₹
@@ -74,7 +79,7 @@ export function usePayment() {
       alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, selectedDueIds, useEWallet, applyMembershipWallet,
-      membershipWalletRequested,
+      membershipWalletRequested, applyMembershipDiscount,
       gstAmount, taxBreakdown, rewardPointsToRedeem, referralCreditAmt,
       includeGst,
     } = params;
@@ -158,6 +163,7 @@ export function usePayment() {
         status:           newDue > 0 ? "partial" : "completed",
         apply_membership_wallet: !!applyMembershipWallet,
         membership_wallet_requested: applyMembershipWallet ? membershipWalletRequested : undefined,
+        apply_membership_discount: !!applyMembershipDiscount,
         tax_breakdown: taxBreakdown && taxBreakdown.length > 0 ? taxBreakdown : undefined,
         reward_points_used: rewardPointsToRedeem || undefined,
         referral_credit_used: referralCreditAmt || undefined,
@@ -215,6 +221,7 @@ export function usePayment() {
         // saved figures over our local guess, same reasoning as finalPaid/finalDue above.
         ewalletUsed: savedPayment?.ewallet_used != null ? Number(savedPayment.ewallet_used) : (useEWallet ? eWalletAmt : 0),
         membershipWalletUsed: savedPayment?.membership_wallet_used != null ? Number(savedPayment.membership_wallet_used) : undefined,
+        membershipDiscountUsed: savedPayment?.membership_discount_used != null ? Number(savedPayment.membership_discount_used) : undefined,
         rewardPointsValue: savedPayment?.reward_points_value != null ? Number(savedPayment.reward_points_value) : undefined,
         referralCreditUsed: savedPayment?.referral_credit_used != null ? Number(savedPayment.referral_credit_used) : (referralCreditAmt || undefined),
         splitDetails: savedPayment?.split_details ?? methods,

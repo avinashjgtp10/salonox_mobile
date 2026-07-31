@@ -547,6 +547,12 @@
       color: #2563eb;
       &::before { background: #2563eb; }
     }
+
+    &--loyalty {
+      background: #fdf4ff;
+      color: #a21caf;
+      &::before { background: #a21caf; }
+    }
   }
 
   /* ── Muted td ────────────────────────────────────────────────── */

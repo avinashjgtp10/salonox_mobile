@@ -1,6 +1,7 @@
 /* ================================================================
    Add / Edit Membership Modal  (.amm)
-   Two-column Value/Percentage layout, matching the reference design.
+   Three membership types (Wallet / Discount Balance / Loyalty), picked via
+   a card row; the single field list below switches to match.
    ================================================================ */
 
 .amm-overlay {
@@ -11,14 +12,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 24px;
+  padding: 16px;
   z-index: 1200;
 }
 
 .amm {
   width: 100%;
   max-width: 880px;
-  max-height: calc(100vh - 48px);
+  max-height: calc(100vh - 32px);
   background: #fff;
   border-radius: 20px;
   box-shadow: 0 30px 70px rgba(15, 23, 42, 0.4), 0 0 0 1px rgba(15, 23, 42, 0.03);
@@ -39,7 +40,7 @@
   /* ── Header ─────────────────────────────────────────────────── */
   &__header {
     position: relative;
-    padding: 18px 24px;
+    padding: 13px 24px;
     border-bottom: 1px solid #eef1f5;
     display: flex;
     align-items: center;
@@ -96,7 +97,7 @@
 
   /* ── Body ───────────────────────────────────────────────────── */
   &__body {
-    padding: 22px 24px 24px;
+    padding: 14px 24px 16px;
     overflow-y: auto;
     flex: 1;
     background: linear-gradient(180deg, #fafaff 0%, #ffffff 140px);
@@ -118,80 +119,57 @@
     color: #7c3aed;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    margin-bottom: 12px;
-
-    &--mt { margin-top: 20px; }
+    margin-bottom: 8px;
   }
 
-  /* ── Two-column layout with OR divider ───────────────────────── */
-  &__columns {
+  /* ── Type-selector card row ──────────────────────────────────── */
+  &__type-row {
     display: grid;
-    grid-template-columns: 1fr auto 1fr;
-    gap: 18px;
-    align-items: start;
-    position: relative;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-bottom: 14px;
 
-    @media (max-width: 720px) {
-      grid-template-columns: 1fr;
-      .amm__or-wrap { display: none; }
-    }
+    @media (max-width: 640px) { grid-template-columns: 1fr; }
   }
 
-  &__or-wrap {
-    align-self: stretch;
-    display: flex;
-    justify-content: center;
-    position: relative;
-    padding-top: 58px;
-
-    // Faint vertical rule connecting the two columns behind the badge
-    &::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      bottom: 0;
-      left: 50%;
-      width: 1px;
-      background: linear-gradient(180deg, transparent, #e9e3fb 15%, #e9e3fb 85%, transparent);
-    }
-  }
-
-  &__or {
-    position: relative;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 1.5px solid #e0d7fb;
-    background: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10.5px;
-    font-weight: 800;
-    color: #7c3aed;
-    box-shadow: 0 2px 6px rgba(124, 58, 237, 0.12);
-  }
-
-  &__col {
+  /* ── Single-column field list, switches per selected type ────── */
+  &__form {
     display: flex;
     flex-direction: column;
-    gap: 14px;
-    opacity: 0.55;
-    filter: saturate(0.7);
-    transition: opacity 0.2s, filter 0.2s;
-
-    &--on { opacity: 1; filter: none; }
+    gap: 10px;
   }
 
-  /* ── Membership type card (top of each column) ──────────────── */
+  &__hint {
+    font-size: 11px;
+    color: #64748b;
+    margin: 4px 0 0;
+    line-height: 1.4;
+  }
+
+  &__wallet-preview {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #f5f3ff, #eef2ff);
+    border: 1px solid #e0d7fb;
+    border-radius: 11px;
+    padding: 8px 15px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #5b21b6;
+
+    strong { font-size: 15px; font-weight: 800; }
+  }
+
+  /* ── Membership type card ─────────────────────────────────────── */
   &__type-card {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 9px;
     text-align: left;
-    padding: 14px 16px;
+    padding: 9px 12px;
     border: 1.5px solid #e2e8f0;
-    border-radius: 13px;
+    border-radius: 12px;
     background: #fff;
     cursor: pointer;
     transition: all 0.18s;
@@ -210,9 +188,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
+    width: 26px;
+    height: 26px;
+    border-radius: 9px;
     background: #f1f5f9;
     color: #64748b;
     flex-shrink: 0;
@@ -248,15 +226,16 @@
   &__type-copy { display: flex; flex-direction: column; min-width: 0; }
 
   &__type-title {
-    font-size: 13.5px;
+    font-size: 13px;
     font-weight: 700;
     color: #0f172a;
   }
 
   &__type-sub {
-    font-size: 11.5px;
+    font-size: 10.5px;
     color: #64748b;
     margin-top: 1px;
+    line-height: 1.3;
   }
 
   /* ── Fields ─────────────────────────────────────────────────── */
@@ -277,13 +256,13 @@
     font-size: 12px;
     font-weight: 600;
     color: #334155;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
 
   &__req { color: #ef4444; margin-left: 2px; }
 
   &__input {
-    height: 39px;
+    height: 36px;
     border: 1px solid #e2e8f0;
     border-radius: 10px;
     padding: 0 12px;
@@ -333,7 +312,7 @@
 
   &__select {
     appearance: none;
-    height: 39px;
+    height: 36px;
     border: 1px solid #e2e8f0;
     border-radius: 10px;
     padding: 0 32px 0 12px;
@@ -368,10 +347,10 @@
 
   &__textarea {
     width: 100%;
-    min-height: 64px;
+    min-height: 42px;
     border: 1px solid #e2e8f0;
     border-radius: 10px;
-    padding: 9px 12px 20px;
+    padding: 8px 12px 18px;
     font-size: 13px;
     color: #0f172a;
     font-family: inherit;
@@ -399,95 +378,6 @@
     color: #94a3b8;
   }
 
-  /* ── Visibility toggle rows ─────────────────────────────────── */
-  &__toggle-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border: 1px solid #eef1f5;
-    border-radius: 12px;
-    margin-bottom: 8px;
-    background: #fff;
-    transition: border-color 0.15s, box-shadow 0.15s;
-
-    &:hover { border-color: #e0d7fb; box-shadow: 0 2px 8px rgba(124, 58, 237, 0.06); }
-    &:last-child { margin-bottom: 0; }
-  }
-
-  &__toggle-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    border-radius: 9px;
-    background: linear-gradient(135deg, #f5f3ff, #eef2ff);
-    color: #7c3aed;
-    flex-shrink: 0;
-  }
-
-  &__toggle-text { flex: 1; min-width: 0; }
-
-  &__toggle-title {
-    display: block;
-    font-size: 12.5px;
-    font-weight: 700;
-    color: #0f172a;
-  }
-
-  &__toggle-sub {
-    display: block;
-    font-size: 10.5px;
-    color: #94a3b8;
-    margin-top: 1px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  &__switch {
-    position: relative;
-    display: inline-block;
-    width: 38px;
-    height: 21px;
-    flex-shrink: 0;
-
-    input {
-      opacity: 0;
-      width: 0;
-      height: 0;
-      position: absolute;
-
-      &:checked + .amm__switch-track {
-        background: linear-gradient(135deg, #7c3aed, #6366f1);
-        &::before { transform: translateX(17px); }
-      }
-    }
-  }
-
-  &__switch-track {
-    position: absolute;
-    inset: 0;
-    background: #cbd5e1;
-    border-radius: 999px;
-    cursor: pointer;
-    transition: background 0.15s;
-
-    &::before {
-      content: '';
-      position: absolute;
-      left: 3px;
-      top: 3px;
-      width: 15px;
-      height: 15px;
-      border-radius: 50%;
-      background: #fff;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
-      transition: transform 0.15s;
-    }
-  }
-
   /* ── Info banner ────────────────────────────────────────────── */
   &__info-banner {
     display: flex;
@@ -496,13 +386,13 @@
     background: linear-gradient(135deg, #f5f3ff, #eef2ff);
     border: 1px solid #e0d7fb;
     border-radius: 13px;
-    padding: 13px 15px;
-    margin-top: 20px;
+    padding: 10px 15px;
+    margin-top: 12px;
 
     p {
       margin: 0;
-      font-size: 12px;
-      line-height: 1.65;
+      font-size: 11.5px;
+      line-height: 1.5;
       color: #5b21b6;
     }
   }
@@ -518,7 +408,7 @@
     display: flex;
     justify-content: flex-end;
     gap: 10px;
-    padding: 16px 24px;
+    padding: 12px 24px;
     border-top: 1px solid #eef1f5;
     background: #fafaff;
     flex-shrink: 0;
@@ -528,7 +418,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    padding: 10px 26px;
+    padding: 8px 24px;
     font-size: 13.5px;
     font-weight: 700;
     border-radius: 11px;

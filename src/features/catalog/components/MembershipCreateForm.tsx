@@ -19,6 +19,7 @@ import { PaymentMethodPicker, type PaymentSplitEntry } from "../../../components
 import { buildMethodLabel } from "../../bookings/utils/paymentUtils";
 import type { SingleMethod } from "../../bookings/types/payment.types";
 import { useCurrency } from "../../../hooks/useCurrency";
+import type { MembershipAppliesTo } from "../../../services/api/endpoints/memberships.endpoints";
 import "../styles/CreateMembershipPage.scss";
 
 const SINGLE_METHODS: SingleMethod[] = ["Cash", "Card", "UPI"];
@@ -29,6 +30,12 @@ const VALIDITY_OPTIONS = [
   { label: "6 Months",  value: "6 months" },
   { label: "12 Months", value: "1 year"   },
   { label: "Lifetime",  value: "lifetime" },
+];
+
+const APPLIES_TO_OPTIONS: { label: string; value: MembershipAppliesTo }[] = [
+  { label: "Services only", value: "services" },
+  { label: "Products only", value: "products" },
+  { label: "Both",          value: "both"     },
 ];
 
 const TIER_COLORS = ["#1a1a2e", "#b8860b", "#4a90d9", "#16a34a", "#8b5cf6"];
@@ -65,10 +72,10 @@ const MembershipCreateForm: React.FC<Props> = ({
   const [name,         setName]         = useState("");
   const [price,        setPrice]        = useState("");
   const [validity,     setValidity]     = useState("1 year");
-  const [status,       setStatus]       = useState<"active" | "inactive">("active");
   const [bonusCredit,  setBonusCredit]  = useState("");
   const [tierColor,    setTierColor]    = useState(TIER_COLORS[0]);
   const [description,  setDescription]  = useState("");
+  const [appliesTo,    setAppliesTo]    = useState<MembershipAppliesTo>("services");
   const [errors,       setErrors]       = useState<Record<string, string>>({});
 
   // Only relevant for the immediate-purchase flow (selectedClient set, creating not editing).
@@ -103,6 +110,7 @@ const MembershipCreateForm: React.FC<Props> = ({
       setPrice(String(d.price ?? ""));
       setValidity(d.validFor ?? "1 year");
       setDescription(d.description ?? "");
+      setAppliesTo(d.appliesTo ?? "services");
       const matchedColor = TIER_COLORS.includes(d.colour) ? d.colour : TIER_COLORS[1];
       setTierColor(matchedColor);
       try {
@@ -125,7 +133,7 @@ const MembershipCreateForm: React.FC<Props> = ({
     if (!validate()) return;
 
     // Immediate-purchase flow (create + pre-selected client) needs a payment
-    // method before we can record the sale — same requirement as SellMembershipModal.
+    // method before we can record the sale.
     // Calendar's quick-create mode never purchases/charges here at all.
     const isImmediatePurchase = !editId && !!selectedClient && !quickCreateMode;
     if (isImmediatePurchase) {
@@ -156,7 +164,7 @@ const MembershipCreateForm: React.FC<Props> = ({
       enableOnlineSales: true,
       enableOnlineRedemption: true,
       termsAndConditions: undefined,
-      appliesToProducts: false,
+      appliesTo,
       // Persist client association so the drawer can display who this was created for
       ...(selectedClient ? {
         clientId:    String(selectedClient.id),
@@ -340,15 +348,12 @@ const MembershipCreateForm: React.FC<Props> = ({
                   </div>
 
                   <div className="cmp__field">
-                    <label className="cmp__label">Status</label>
-                    <div className="cmp__pills">
-                      {(["active", "inactive"] as const).map(s => (
-                        <label key={s} className={`cmp__pill${status === s ? " cmp__pill--on" : ""}`}>
-                          <input type="radio" hidden checked={status === s} onChange={() => setStatus(s)} />
-                          <span className="cmp__pill-dot" />
-                          {s === "active" ? "Active" : "Inactive"}
-                        </label>
-                      ))}
+                    <label className="cmp__label">Applies To</label>
+                    <div className="cmp__sel-wrap">
+                      <select className="cmp__select" value={appliesTo} onChange={e => setAppliesTo(e.target.value as MembershipAppliesTo)}>
+                        {APPLIES_TO_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                      <ChevronDown size={13} className="cmp__sel-icon" />
                     </div>
                   </div>
 
@@ -458,7 +463,6 @@ const MembershipCreateForm: React.FC<Props> = ({
               <div className="cmp__mc" style={{ "--mc": tierColor } as React.CSSProperties}>
                 <div className="cmp__mc-header">
                   <span className="cmp__mc-tier">{tierLabel} Membership</span>
-                  <span className="cmp__mc-badge">{status === "active" ? "Active" : "Inactive"}</span>
                 </div>
                 <p className="cmp__mc-name">{name || "Membership Name"}</p>
                 <div className="cmp__mc-rows">

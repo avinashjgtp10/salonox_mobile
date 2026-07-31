@@ -356,6 +356,12 @@
     &--zero { color: #ef4444; }
   }
 
+  &__balance {
+    font-weight: 700;
+    font-size: 14px;
+    color: #2563eb;
+  }
+
   &__td-muted { color: #64748b; font-size: 13px; }
 
   /* ── Status badge ────────────────────────────────────────────── */
