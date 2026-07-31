@@ -392,6 +392,13 @@ $radius: 12px;
 .slp-col-member { display: flex; align-items: center; gap: 12px; }
 .slp-col-contact { display: flex; align-items: center; }
 .slp-col-role { display: flex; align-items: center; }
+// The role pill (.slp-role-tag) has its own 11px left padding for its rounded
+// shape, so its text sits 11px right of the column's true left edge — while
+// the "Role" header label (sharing this same .slp-col-role class) has none,
+// leaving the header visibly unaligned with the pill text below it. Only the
+// header instance needs the offset; the body cell's own edge is already
+// where it should be, it's just the pill drawn inside it that's inset.
+.slp-table-header .slp-col-role { padding-left: 11px; }
 .slp-col-status { display: flex; align-items: center; }
 .slp-col-actions { display: flex; align-items: center; justify-content: flex-end; gap: 4px; }
 

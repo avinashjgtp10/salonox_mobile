@@ -436,6 +436,26 @@ const AddStaffPage: React.FC = () => {
                   onChange={(e) => setField("designation")(e.target.value)}
                 />
               </div>
+              <div className="emp-field">
+                {/* permissionLevel already existed as state (feeding
+                    permission_level in the save payload) but had no control
+                    anywhere in this form to actually change it — every new
+                    staff member silently saved as "Low" regardless of intent,
+                    which is also why the staff list showed "Low" as their
+                    role. Collapses the underlying 6-tier permission_level
+                    (No access/Basic/Low/Medium/High/Manager) down to the two
+                    that matter for this quick choice — the "Staff
+                    Permissions" matrix below still allows finer-grained
+                    customization independent of this. */}
+                <select
+                  className="emp-input emp-select"
+                  value={permissionLevel === "Manager" ? "Manager" : "Staff"}
+                  onChange={(e) => setPermissionLevel(e.target.value === "Manager" ? "Manager" : "Low")}
+                >
+                  <option value="Staff">Staff</option>
+                  <option value="Manager">Manager</option>
+                </select>
+              </div>
 
               <div className="emp-field">
                 <input

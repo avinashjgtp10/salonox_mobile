@@ -1,0 +1,145 @@
+// Plain hex values instead of importing AddClientPage.scss's $variables —
+// this file's SCSS variables are scoped to that one file's compilation unit
+// (each page here defines its own token set locally, not a shared partial),
+// so re-declaring them here would risk exactly the @import/@use collision
+// noted elsewhere in this codebase's Sass setup. Values match
+// AddClientPage.scss's $border/$danger/$radius-sm/$text-primary/$text-muted.
+
+.ccs-root {
+  display: contents;
+}
+
+.ccs-trigger {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 40px;
+  border: none;
+  border-right: 1px solid #e5e7eb;
+  background: transparent;
+  font-size: 13px;
+  color: #1a1a1a;
+  padding: 0 8px;
+  width: 92px;
+  flex-shrink: 0;
+  cursor: pointer;
+
+  &:focus { outline: none; }
+  &:disabled { cursor: not-allowed; opacity: 0.6; }
+
+  &__flag {
+    font-size: 15px;
+    line-height: 1;
+  }
+
+  &__code {
+    flex: 1;
+    text-align: left;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  &__chevron {
+    color: #6b7280;
+    flex-shrink: 0;
+  }
+}
+
+.ccs-panel {
+  z-index: 1200;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.16);
+  display: flex;
+  flex-direction: column;
+  // Fixed height with internal scroll — the whole point of this component
+  // over the native <select> it replaced, which just expanded to show every
+  // one of the ~250 countries at once.
+  max-height: 320px;
+  overflow: hidden;
+  animation: ccs-pop-in 0.12s ease;
+}
+
+@keyframes ccs-pop-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.ccs-search-wrap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 10px;
+  border-bottom: 1px solid #e5e7eb;
+  flex-shrink: 0;
+}
+
+.ccs-search-icon { color: #9ca3af; flex-shrink: 0; }
+
+.ccs-search {
+  border: none;
+  outline: none;
+  font-size: 13px;
+  width: 100%;
+  color: #1a1a1a;
+  &::placeholder { color: #9ca3af; }
+}
+
+.ccs-list {
+  overflow-y: auto;
+  flex: 1;
+}
+
+.ccs-empty {
+  padding: 16px 12px;
+  font-size: 12.5px;
+  color: #6b7280;
+  text-align: center;
+}
+
+.ccs-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 7px 10px;
+  font-size: 13px;
+  color: #1a1a1a;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover { background: #f9fafb; }
+  &--active { background: #f3f0fd; }
+
+  &__flag { font-size: 15px; flex-shrink: 0; }
+
+  &__name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__iso {
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    background: #f3f4f6;
+    border-radius: 4px;
+    padding: 1px 5px;
+  }
+
+  &__dial {
+    flex-shrink: 0;
+    font-size: 12.5px;
+    color: #6b7280;
+    min-width: 38px;
+    text-align: right;
+  }
+}

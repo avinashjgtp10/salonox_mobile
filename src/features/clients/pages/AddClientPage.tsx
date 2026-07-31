@@ -1,20 +1,12 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
-import { Country } from "country-state-city";
 import { Camera } from "react-bootstrap-icons";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddClientPage.scss";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
-
-const PHONE_CODES = Country.getAllCountries()
-  .map((c) => ({
-    code: c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`,
-    label: `${c.isoCode} (${c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`})`,
-  }))
-  .filter((v, i, a) => a.findIndex((t) => t.label === v.label) === i)
-  .sort((a, b) => a.label.localeCompare(b.label));
+import CountryCodeSelect from "../components/CountryCodeSelect";
 
 const DOB_PLACEHOLDER_YEAR = 2000;
 
@@ -401,15 +393,10 @@ const AddClientPage: React.FC = () => {
                   Phone <span style={{ color: "#dc2626" }}>*</span>
                 </label>
                 <div className={`cli-phone-group ${isPhoneInvalid ? "cli-input--invalid" : ""}`}>
-                  <select
-                    className="cli-phone-code"
+                  <CountryCodeSelect
                     value={form.phoneCountryCode}
-                    onChange={(e) => setField("phoneCountryCode")(e.target.value)}
-                  >
-                    {PHONE_CODES.map((c) => (
-                      <option key={c.label} value={c.code}>{c.code}</option>
-                    ))}
-                  </select>
+                    onChange={(code) => setField("phoneCountryCode")(code)}
+                  />
                   <input
                     className="cli-input cli-phone-input"
                     placeholder="Phone"
@@ -509,15 +496,10 @@ const AddClientPage: React.FC = () => {
               <div className="cli-field">
                 <label className="cli-field__label">Additional mobile</label>
                 <div className={`cli-phone-group ${isAdditionalPhoneInvalid ? "cli-input--invalid" : ""}`}>
-                  <select
-                    className="cli-phone-code"
+                  <CountryCodeSelect
                     value={form.additionalPhoneCountryCode}
-                    onChange={(e) => setField("additionalPhoneCountryCode")(e.target.value)}
-                  >
-                    {PHONE_CODES.map((c) => (
-                      <option key={c.label} value={c.code}>{c.code}</option>
-                    ))}
-                  </select>
+                    onChange={(code) => setField("additionalPhoneCountryCode")(code)}
+                  />
                   <input
                     className="cli-input cli-phone-input"
                     placeholder="Additional phone"

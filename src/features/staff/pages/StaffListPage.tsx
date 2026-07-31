@@ -80,15 +80,6 @@ function resolveColor(color?: string): string | undefined {
   return COLOR_KEY_TO_HEX[color] ?? color;
 }
 
-const PERMISSION_LABELS: Record<string, string> = {
-  no_access: "No Access",
-  basic:     "Basic",
-  low:       "Low",
-  medium:    "Medium",
-  high:      "High",
-  manager:   "Manager",
-};
-
 export default function StaffListPage() {
   const navigate = useNavigate();
 
@@ -633,9 +624,14 @@ export default function StaffListPage() {
                     const m = member as any;
                     const jobTitle = m.job_title || m.jobTitle;
                     const permKey = m.permission_level || m.permissionLevel || m.access_level || m.role;
-                    const label = PERMISSION_LABELS[permKey] || permKey;
+                    // Every other tier (no_access/basic/low/medium/high) is an
+                    // internal permission granularity, not a meaningful "role"
+                    // to show here — collapses to "Staff" instead of exposing
+                    // e.g. "Low" as if it were the employee's job role. Only
+                    // "Manager" is distinct enough to surface directly.
+                    const isManager = String(permKey || "").toLowerCase() === "manager";
                     if (jobTitle) return <span className="slp-role-tag">{jobTitle}</span>;
-                    if (label) return <span className="slp-role-tag slp-role-tag--perm">{label}</span>;
+                    if (isManager) return <span className="slp-role-tag slp-role-tag--perm">Manager</span>;
                     return <span className="slp-role-tag slp-role-tag--default">Staff</span>;
                   })()}
                 </div>
