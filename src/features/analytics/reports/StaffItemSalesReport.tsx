@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { ChevronLeft } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF_ITEM_SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
+import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
@@ -37,7 +37,7 @@ function mapRow(row: any): ItemRow {
   };
 }
 
-export default function StaffItemSalesReport({ onBack }: { onBack: () => void }) {
+export default function StaffItemSalesReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
   const { currencySymbol, formatAmount } = useCurrency();
   const today      = new Date().toISOString().slice(0, 10);
@@ -124,9 +124,7 @@ export default function StaffItemSalesReport({ onBack }: { onBack: () => void })
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
-          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
-            <ChevronLeft size={15} /> {REPORT_NAME}
-          </Button>
+          <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-item-sales-${itemType}-${dateFrom}-${dateTo}`} csv />
           </div>

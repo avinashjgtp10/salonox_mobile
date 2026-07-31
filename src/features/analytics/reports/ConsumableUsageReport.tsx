@@ -1,11 +1,12 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
-import { ChevronLeft, Search } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { fetchBranchesThunk } from "../../../middleware/salon/salon.thunk";
 import type { AppDispatch, RootState } from "../../../store/store";
 import Button from "../../../components/ui/Button";
+import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
@@ -24,7 +25,7 @@ interface UsageRow {
   remark: string;
 }
 
-export default function ConsumableUsageReport({ onBack }: { onBack: () => void }) {
+export default function ConsumableUsageReport({ onBack, category: reportCategory, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
   const { currentSalon, branches } = useSelector((s: RootState) => s.salon);
 
@@ -107,9 +108,7 @@ export default function ConsumableUsageReport({ onBack }: { onBack: () => void }
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
-          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
-            <ChevronLeft size={15} /> {REPORT_NAME}
-          </Button>
+          <Breadcrumb current={REPORT_NAME} category={reportCategory} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename="consumable-usage" variant="button" csv />
           </div>

@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronLeft, Search } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { EWALLET, EWALLET_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
+import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
@@ -38,7 +39,7 @@ interface LedgerRow {
 
 const EMPTY_BREAKDOWN: Breakdown = { balance: 0, referral_rewards: 0, reward_credits: 0, other_credits: 0, wallet_debits: 0 };
 
-export default function EwalletReport({ onBack }: { onBack: () => void }) {
+export default function EwalletReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
   const [rows,        setRows]        = useState<ClientRow[]>([]);
   const [total,       setTotal]       = useState(0);
@@ -146,9 +147,7 @@ export default function EwalletReport({ onBack }: { onBack: () => void }) {
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
-          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
-            <ChevronLeft size={15} /> {REPORT_NAME}
-          </Button>
+          <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename="ewallet-balances" variant="button" csv />
           </div>

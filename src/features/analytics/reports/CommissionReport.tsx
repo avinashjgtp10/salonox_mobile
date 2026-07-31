@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
-import { ChevronLeft, Search } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
+import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, DateRangePicker } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
@@ -30,7 +31,7 @@ interface Summary {
   paidOut: number;
 }
 
-export default function CommissionReport({ onBack }: { onBack: () => void }) {
+export default function CommissionReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
   const today       = new Date().toISOString().slice(0, 10);
   const monthStart  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
@@ -100,9 +101,7 @@ export default function CommissionReport({ onBack }: { onBack: () => void }) {
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
-          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
-            <ChevronLeft size={15} /> {REPORT_NAME}
-          </Button>
+          <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`commission-report-${dateFrom}-${dateTo}`} variant="button" csv />
           </div>

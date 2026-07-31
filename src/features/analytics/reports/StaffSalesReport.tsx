@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { ChevronLeft } from "react-bootstrap-icons";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -9,6 +8,7 @@ import { STAFF_SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
+import Breadcrumb from "../../../components/ui/Breadcrumb";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { Pagination } from "../../../components/ui";
 import { SkeletonStatCards, SkeletonTableRows, SkeletonChartBlock } from "./ReportSkeleton";
@@ -20,7 +20,7 @@ const REPORT_NAME = "Staff Sales";
 type RevPeriodKey = "daily" | "weekly" | "monthly" | "yearly";
 interface RevRow { label: string; serviceRevenue: number; productRevenue: number; total: number }
 
-export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
+export default function StaffSalesReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
   const { currencySymbol, formatAmount } = useCurrency();
   const today      = new Date().toISOString().slice(0, 10);
@@ -95,9 +95,7 @@ export default function StaffSalesReport({ onBack }: { onBack: () => void }) {
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
-          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
-            <ChevronLeft size={15} /> {REPORT_NAME}
-          </Button>
+          <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-sales-${dateFrom}-${dateTo}`} csv />
           </div>

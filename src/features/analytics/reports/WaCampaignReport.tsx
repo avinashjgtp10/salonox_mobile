@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ChevronLeft, Grid3x3Gap, InfoCircle, Search } from "react-bootstrap-icons";
+import { Grid3x3Gap, InfoCircle, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import Button from "../../../components/ui/Button";
+import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
@@ -25,7 +26,7 @@ interface CampaignPerfRow {
 
 const CAMP_STATUSES = ["All", "COMPLETED", "RUNNING", "PAUSED", "SCHEDULED", "FAILED", "DRAFT"];
 
-export default function WaCampaignReport({ onBack }: { onBack: () => void }) {
+export default function WaCampaignReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const [rows,           setRows]           = useState<CampaignPerfRow[]>([]);
   const [allRows,        setAllRows]        = useState<CampaignPerfRow[]>([]);
   const [statusFilter,   setStatusFilter]   = useState("All");
@@ -98,9 +99,7 @@ export default function WaCampaignReport({ onBack }: { onBack: () => void }) {
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
-          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
-            <ChevronLeft size={15} /> {REPORT_NAME}
-          </Button>
+          <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
             <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={REPORT_NAME} csv />

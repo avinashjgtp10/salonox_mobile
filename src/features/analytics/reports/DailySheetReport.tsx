@@ -3,6 +3,7 @@ import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { DAILY_SHEET_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
+import Breadcrumb from "../../../components/ui/Breadcrumb";
 import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
 import { SkeletonTableRows, SkeletonStatCards } from "./ReportSkeleton";
@@ -185,7 +186,7 @@ function MultiStaffField({ options, selected, onChange }: {
   );
 }
 
-export default function DailySheetReport({ onBack }: { onBack: () => void }) {
+export default function DailySheetReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
   const today = new Date().toISOString().slice(0, 10);
   const [date,            setDate]            = useState(today);
@@ -286,9 +287,7 @@ export default function DailySheetReport({ onBack }: { onBack: () => void }) {
     <div className="rp-detail-view">
       <div className="rp-detail-header">
         <div className="rp-detail-back-row">
-          <Button variant="ghost" className="rp-detail-back" onClick={onBack}>
-            {REPORT_NAME}
-          </Button>
+          <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
             <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`${REPORT_NAME}-${date}`} variant="button" csv />
           </div>

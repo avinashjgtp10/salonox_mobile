@@ -173,7 +173,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
       {can("view_reports") && (
         <NavLink
-          to="analytics"
+          to="/reports"
           className={({ isActive }) => navClass(isActive)}
           onClick={() => onMenuChange(null)}
         >
