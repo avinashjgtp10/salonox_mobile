@@ -41,7 +41,9 @@ const ReportExportButton = ({ title, headers, rows, filename, variant = "icon", 
       return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
     };
     const csvContent = [headers, ...data].map(r => r.map(escape).join(",")).join("\n");
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    // UTF-8 BOM ("﻿") — without it Excel guesses Windows-1252 for the
+    // file and mangles non-ASCII characters (— becomes â€”, ₹ becomes â‚¹).
+    const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
