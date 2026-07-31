@@ -8,6 +8,7 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
+        "APP_ENV": "development",
         "EXPO_PUBLIC_API_BASE_URL": "https://dev.salonox.com/api/v1",
         "EXPO_PUBLIC_SOCKET_URL": "https://dev.salonox.com"
       }
@@ -15,6 +16,7 @@
     "preview": {
       "distribution": "internal",
       "env": {
+        "APP_ENV": "qa",
         "EXPO_PUBLIC_API_BASE_URL": "https://qa.salonox.com/api/v1",
         "EXPO_PUBLIC_SOCKET_URL": "https://qa.salonox.com"
       }
@@ -22,6 +24,7 @@
     "qa": {
       "distribution": "internal",
       "env": {
+        "APP_ENV": "qa",
         "EXPO_PUBLIC_API_BASE_URL": "https://qa.salonox.com/api/v1",
         "EXPO_PUBLIC_SOCKET_URL": "https://qa.salonox.com"
       }
@@ -29,6 +32,7 @@
     "production": {
       "autoIncrement": true,
       "env": {
+        "APP_ENV": "production",
         "EXPO_PUBLIC_API_BASE_URL": "https://www.salonox.com/api/v1",
         "EXPO_PUBLIC_SOCKET_URL": "https://www.salonox.com"
       }

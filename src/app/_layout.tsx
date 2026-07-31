@@ -12,11 +12,20 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNetworkMonitor } from '@/hooks/useNetworkMonitor';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { fetchBranchesThunk } from '@/middleware/branch/branch.thunk';
+import { resolveCurrentStaffThunk } from '@/middleware/staff/staff.thunk';
 import { branchStorage } from '@/services/branchStorage';
 import { store } from '@/store';
-import { resetBranchState, setActiveBranchId } from '@/store/branch/branch.slice';
-import { useAppDispatch } from '@/store/hooks';
+import { resetBranchState, selectActiveBranchId, setActiveBranchId } from '@/store/branch/branch.slice';
+import { useAppDispatch, useAppSelector } from '@/store/hooks';
+import { clearCurrentStaff } from '@/store/staff/staff.slice';
 import { ThemeProvider as AppThemeProvider, useAppTheme } from '@/theme/ThemeProvider';
+import {
+  isOwnerRouteGroup,
+  isOwnerOnlyRoute,
+  isStaffExperienceUser,
+  isStaffRouteGroup,
+  resolveAuthenticatedRoute,
+} from '@/utils/routeResolver';
 
 export const unstable_settings = {
   initialRouteName: 'login',
@@ -42,6 +51,7 @@ function buildNavigationTheme(scheme: 'light' | 'dark', colors: ThemeColors): Th
 
 const PUBLIC_ROUTES = new Set([
   "index",
+  "welcome",
   "login",
   "forgot-password",
   "verify-otp",
@@ -81,12 +91,18 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
       }
 
       if (user?.isOnboardingComplete) {
-        if (isPublicRoute || isOnboardingRoute) {
-          router.replace("/dashboard" as Href);
+        const shouldUseStaffApp = isStaffExperienceUser(user);
+        const isWrongAuthenticatedApp =
+          (shouldUseStaffApp && isOwnerRouteGroup(topLevelSegment)) ||
+          (shouldUseStaffApp && isOwnerOnlyRoute(topLevelSegment)) ||
+          (!shouldUseStaffApp && isStaffRouteGroup(topLevelSegment));
+
+        if (isPublicRoute || isOnboardingRoute || isWrongAuthenticatedApp) {
+          router.replace(resolveAuthenticatedRoute(user));
         }
       } else {
         if (!isOnboardingRoute) {
-          router.replace("/onboarding" as Href);
+          router.replace(resolveAuthenticatedRoute(user));
         }
       }
     } else {
@@ -169,6 +185,33 @@ function BranchBootstrap() {
   return null;
 }
 
+function StaffIdentityBootstrap() {
+  const { isAuthenticated, user } = useAuth();
+  const dispatch = useAppDispatch();
+  const activeBranchId = useAppSelector(selectActiveBranchId);
+  const resolvedIdentityKeyRef = useRef<string | null>(null);
+  const userId = user?.id?.trim() ?? "";
+  const identityKey = `${userId}:${activeBranchId ?? "all-branches"}`;
+  const shouldResolveStaff = isAuthenticated && isStaffExperienceUser(user);
+
+  useEffect(() => {
+    if (!shouldResolveStaff) {
+      resolvedIdentityKeyRef.current = null;
+      dispatch(clearCurrentStaff());
+      return;
+    }
+
+    if (!userId || resolvedIdentityKeyRef.current === identityKey) {
+      return;
+    }
+
+    resolvedIdentityKeyRef.current = identityKey;
+    void dispatch(resolveCurrentStaffThunk(userId));
+  }, [dispatch, identityKey, shouldResolveStaff, userId]);
+
+  return null;
+}
+
 function AppShell() {
   const { colors, isHydrated: isThemeHydrated, scheme } = useAppTheme();
   const [isNavigationReady, setIsNavigationReady] = useState(false);
@@ -185,6 +228,7 @@ function AppShell() {
             <PushNotificationsSetup />
             <RealtimeSyncSetup />
             <BranchBootstrap />
+            <StaffIdentityBootstrap />
             <SimpleSplash backgroundColor={colors.bg} isReady={isThemeHydrated && isNavigationReady} />
             <Stack
               initialRouteName="login"
@@ -196,6 +240,7 @@ function AppShell() {
               }}
             >
               <Stack.Screen name="login" />
+              <Stack.Screen name="welcome" />
               <Stack.Screen name="forgot-password" />
               <Stack.Screen name="verify-otp" />
               <Stack.Screen name="reset-password" />
@@ -208,6 +253,7 @@ function AppShell() {
               <Stack.Screen name="appearance" />
               <Stack.Screen name="privacy-policy" />
               <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="(staff)" />
               <Stack.Screen name="index" />
               <Stack.Screen name="explore" />
             </Stack>

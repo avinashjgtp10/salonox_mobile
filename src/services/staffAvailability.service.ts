@@ -1,52 +1,17 @@
-import { ApiError, API_BASE_URL, api } from "@/services/api";
-import { STAFF } from "@/services/api/endpoints";
-import type { ApiResponse } from "@/types/auth";
+import { staffBlockedTimesService } from "@/services/staffBlockedTimes.service";
+import { staffScheduleService } from "@/services/staffSchedule.service";
+import type { BlockedTimeEntry } from "@/types/staffBlockedTimes";
 import type { StaffAvailability, StaffAvailabilitySlot } from "@/types/staffAvailability";
+import type { ScheduleDayEntry, StaffSchedule } from "@/types/staffSchedule";
 import {
-  asRecord,
-  firstArray,
-  firstValue,
-  toOptionalBoolean,
-  toSafeString,
   type UnknownRecord,
 } from "@/utils/apiNormalize";
 
-type StaffAvailabilityApiData =
-  | UnknownRecord
-  | {
-      availability?: UnknownRecord | null;
-      data?: UnknownRecord | null;
-      staffAvailability?: UnknownRecord | null;
-    };
-
-type StaffAvailabilityApiResponse = ApiResponse<StaffAvailabilityApiData>;
-
-const toLooseBoolean = (value: unknown): boolean | null => {
-  if (typeof value === "boolean") {
-    return value;
-  }
-
-  if (typeof value === "number" && Number.isFinite(value)) {
-    return value !== 0;
-  }
-
-  if (typeof value === "string") {
-    const normalized = value.trim().toLowerCase();
-
-    if (["1", "true", "yes", "available", "open", "working"].includes(normalized)) {
-      return true;
-    }
-
-    if (["0", "false", "no", "busy", "closed", "off", "leave", "holiday"].includes(normalized)) {
-      return false;
-    }
-  }
-
-  return null;
-};
+const SLOT_INTERVAL_MINUTES = 30;
+const WEEK_DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
 const toTimeValue = (value: unknown): string | null => {
-  const raw = toSafeString(value);
+  const raw = typeof value === "string" || typeof value === "number" ? String(value).trim() : "";
 
   if (!raw) {
     return null;
@@ -85,205 +50,148 @@ const toDisplayTime = (value: string | null) => {
   return `${hours12}:${match[2]} ${suffix}`;
 };
 
-const splitWorkingHours = (value: unknown) => {
-  const workingHours = toSafeString(value).replace(/\u2013|\u2014/g, "-");
-  const [startTime, endTime] = workingHours
-    .split(/\s+(?:to|until)\s+|-/i)
-    .map((part) => toTimeValue(part.trim()));
+const toMinutes = (time: string | null): number | null => {
+  const normalized = toTimeValue(time);
 
-  return { endTime: endTime ?? null, startTime: startTime ?? null };
-};
-
-const getAvailabilityFromEnvelope = (payload: StaffAvailabilityApiData): UnknownRecord => {
-  const record = asRecord(payload);
-  const nested = firstValue(record, ["availability", "staffAvailability", "data"]);
-
-  return nested !== undefined ? asRecord(nested) : record;
-};
-
-const normalizeSlot = (value: unknown, index: number): StaffAvailabilitySlot | null => {
-  const entry = asRecord(value);
-  const startTime =
-    toTimeValue(
-      typeof value === "string" || typeof value === "number"
-        ? value
-        : firstValue(entry, [
-            "startTime",
-            "start_time",
-            "start",
-            "slotStart",
-            "slot_start",
-            "time",
-            "value",
-            "scheduled_at",
-          ]),
-    ) ?? null;
-
-  if (!startTime) {
+  if (!normalized) {
     return null;
   }
 
-  const endTime =
-    toTimeValue(
-      firstValue(entry, [
-        "endTime",
-        "end_time",
-        "end",
-        "slotEnd",
-        "slot_end",
-      ]),
-    ) ?? null;
-  const display =
-    toSafeString(firstValue(entry, ["display", "label", "title"])) ||
-    toDisplayTime(startTime) ||
-    `Slot ${index + 1}`;
+  const [hours, minutes] = normalized.split(":").map(Number);
 
-  return {
-    display,
-    endTime,
-    value: startTime,
-  };
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
 };
 
-const normalizeSlots = (entry: UnknownRecord) => {
-  const rawSlots = firstValue(entry, [
-    "availableSlots",
-    "available_slots",
-    "slots",
-    "timeSlots",
-    "time_slots",
-  ]);
-  const slots = Array.isArray(rawSlots) ? rawSlots : firstArray(entry, [
-    "availableSlots",
-    "available_slots",
-    "slots",
-    "timeSlots",
-    "time_slots",
-  ]);
+const fromMinutes = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
 
-  return slots
-    .map(normalizeSlot)
-    .filter((slot): slot is StaffAvailabilitySlot => Boolean(slot));
+const getScheduleDay = (schedule: StaffSchedule, date: string): ScheduleDayEntry | null => {
+  const parsedDate = new Date(`${date}T00:00:00`);
+
+  if (Number.isNaN(parsedDate.getTime())) {
+    return null;
+  }
+
+  const day = WEEK_DAYS[parsedDate.getDay()];
+
+  return schedule.days.find((entry) => entry.day.toLowerCase() === day) ?? null;
 };
 
-const getStatusLabel = (value: unknown) => {
-  const label = toSafeString(value);
-  return label || null;
+const getBlockMinutesForDate = (blockedTime: BlockedTimeEntry, date: string) => {
+  const startDate = blockedTime.startAt ? new Date(blockedTime.startAt) : null;
+  const endDate = blockedTime.endAt ? new Date(blockedTime.endAt) : null;
+
+  if (!startDate || !endDate || Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) {
+    return null;
+  }
+
+  const dayStart = new Date(`${date}T00:00:00`);
+  const dayEnd = new Date(`${date}T23:59:59.999`);
+
+  if (endDate < dayStart || startDate > dayEnd) {
+    return null;
+  }
+
+  const start = startDate < dayStart ? 0 : startDate.getHours() * 60 + startDate.getMinutes();
+  const end = endDate > dayEnd ? 24 * 60 : endDate.getHours() * 60 + endDate.getMinutes();
+
+  return { end, start };
 };
 
-const normalizeAvailability = (entry: UnknownRecord, staffId: string): StaffAvailability => {
-  const workingHours = splitWorkingHours(firstValue(entry, ["workingHours", "working_hours", "hours"]));
-  const shiftStartTime =
-    toTimeValue(
-      firstValue(entry, [
-        "shiftStart",
-        "shift_start",
-        "startTime",
-        "start_time",
-        "work_start_time",
-        "working_start_time",
-      ]),
-    ) ?? workingHours.startTime;
-  const shiftEndTime =
-    toTimeValue(
-      firstValue(entry, [
-        "shiftEnd",
-        "shift_end",
-        "endTime",
-        "end_time",
-        "work_end_time",
-        "working_end_time",
-      ]),
-    ) ?? workingHours.endTime;
-  const availableSlots = normalizeSlots(entry);
-  const isOnLeave =
-    toLooseBoolean(firstValue(entry, ["isOnLeave", "is_on_leave", "onLeave", "on_leave"])) ??
-    Boolean(toSafeString(firstValue(entry, ["leaveStatus", "leave_status"])));
-  const isHoliday =
-    toLooseBoolean(firstValue(entry, ["isHoliday", "is_holiday", "holiday"])) ??
-    toOptionalBoolean(firstValue(entry, ["holiday"]));
-  const isAvailable =
-    toLooseBoolean(firstValue(entry, ["isAvailable", "is_available", "available"])) ??
-    (!isOnLeave && !isHoliday && availableSlots.length > 0);
-  const shiftStartLabel = getStatusLabel(firstValue(entry, ["shiftStartLabel", "shift_start_label"])) ?? toDisplayTime(shiftStartTime);
-  const shiftEndLabel = getStatusLabel(firstValue(entry, ["shiftEndLabel", "shift_end_label"])) ?? toDisplayTime(shiftEndTime);
+const isBlocked = (slotStart: number, blockedTimes: BlockedTimeEntry[], date: string) =>
+  blockedTimes.some((blockedTime) => {
+    const block = getBlockMinutesForDate(blockedTime, date);
+
+    return Boolean(block && slotStart >= block.start && slotStart < block.end);
+  });
+
+const buildSlots = (
+  scheduleDay: ScheduleDayEntry | null,
+  blockedTimes: BlockedTimeEntry[],
+  date: string,
+): StaffAvailabilitySlot[] => {
+  if (!scheduleDay || scheduleDay.isOff) {
+    return [];
+  }
+
+  const shiftStart = toMinutes(scheduleDay.startTime);
+  const shiftEnd = toMinutes(scheduleDay.endTime);
+
+  if (shiftStart === null || shiftEnd === null || shiftEnd <= shiftStart) {
+    return [];
+  }
+
+  const slots: StaffAvailabilitySlot[] = [];
+
+  for (let minutes = shiftStart; minutes < shiftEnd; minutes += SLOT_INTERVAL_MINUTES) {
+    if (isBlocked(minutes, blockedTimes, date)) {
+      continue;
+    }
+
+    const value = fromMinutes(minutes);
+
+    slots.push({
+      display: toDisplayTime(value) ?? value,
+      endTime: fromMinutes(Math.min(minutes + SLOT_INTERVAL_MINUTES, shiftEnd)),
+      value,
+    });
+  }
+
+  return slots;
+};
+
+const normalizeAvailability = (
+  schedule: StaffSchedule,
+  blockedTimes: BlockedTimeEntry[],
+  staffId: string,
+  date: string,
+): StaffAvailability => {
+  const scheduleDay = getScheduleDay(schedule, date);
+  const shiftStartTime = toTimeValue(scheduleDay?.startTime);
+  const shiftEndTime = toTimeValue(scheduleDay?.endTime);
+  const shiftStartLabel = toDisplayTime(shiftStartTime);
+  const shiftEndLabel = toDisplayTime(shiftEndTime);
   const workingHoursLabel =
-    getStatusLabel(firstValue(entry, ["workingHoursLabel", "working_hours_label", "workingHours", "working_hours"])) ??
-    (shiftStartLabel && shiftEndLabel ? `${shiftStartLabel} - ${shiftEndLabel}` : null);
-  const leaveStatus = getStatusLabel(firstValue(entry, ["leaveStatus", "leave_status"]));
+    shiftStartLabel && shiftEndLabel ? `${shiftStartLabel} - ${shiftEndLabel}` : null;
+  const availableSlots = buildSlots(scheduleDay, blockedTimes, date);
+  const isOff = !scheduleDay || scheduleDay.isOff;
+  const isAvailable = !isOff && availableSlots.length > 0;
 
   return {
     availableSlots,
-    availabilityLabel:
-      getStatusLabel(firstValue(entry, ["availabilityLabel", "availability_label", "availabilityStatus", "availability_status"])) ??
-      (isAvailable ? "Available" : "Busy"),
-    blockedTimes: firstArray(entry, ["blockedTimes", "blocked_times", "blocks"]),
-    checkedInLabel: getStatusLabel(firstValue(entry, ["checkedInLabel", "checked_in_label", "checkedIn", "checked_in"])),
-    checkedOutLabel: getStatusLabel(firstValue(entry, ["checkedOutLabel", "checked_out_label", "checkedOut", "checked_out"])),
-    currentStatusLabel:
-      getStatusLabel(firstValue(entry, ["currentStatus", "current_status", "status", "statusLabel", "status_label"])) ??
-      (isOnLeave ? "On Leave" : isHoliday ? "Holiday" : isAvailable ? "Available" : "Busy"),
-    existingAppointments: firstArray(entry, ["existingAppointments", "existing_appointments", "appointments"]),
-    holidayLabel:
-      getStatusLabel(firstValue(entry, ["holidayLabel", "holiday_label"])) ??
-      (isHoliday ? "Holiday" : null),
+    availabilityLabel: isOff ? "Not scheduled" : isAvailable ? "Available" : "Busy",
+    blockedTimes,
+    checkedInLabel: null,
+    checkedOutLabel: null,
+    currentStatusLabel: isOff ? "Not scheduled" : isAvailable ? "Available" : "Busy",
+    existingAppointments: [],
+    holidayLabel: isOff ? "Not scheduled" : null,
     isAvailable,
-    isHoliday,
-    isOnLeave,
-    leaveStatus,
-    onLeaveLabel:
-      getStatusLabel(firstValue(entry, ["onLeaveLabel", "on_leave_label"])) ??
-      (isOnLeave ? leaveStatus ?? "On Leave" : null),
-    raw: entry,
+    isHoliday: isOff,
+    isOnLeave: false,
+    leaveStatus: null,
+    onLeaveLabel: null,
+    raw: { blockedTimes, date, schedule } satisfies UnknownRecord,
     shiftEndLabel,
     shiftEndTime,
     shiftStartLabel,
     shiftStartTime,
-    staffId: toSafeString(firstValue(entry, ["staffId", "staff_id"]), staffId),
+    staffId,
     workingHoursLabel,
   };
 };
 
 export const staffAvailabilityService = {
   async getAvailability(staffId: string, date: string): Promise<StaffAvailability> {
-    const url = STAFF.AVAILABILITY(staffId);
-    const params = { date };
-    const queryString = new URLSearchParams(params).toString();
-    const fullUrl = `${API_BASE_URL}${url}${queryString ? `?${queryString}` : ""}`;
+    const [schedule, blockedTimes] = await Promise.all([
+      staffScheduleService.getSchedule(staffId),
+      staffBlockedTimesService.getBlockedTimes(staffId),
+    ]);
 
-    if (__DEV__) {
-      console.log("[StaffAvailability API] Request", {
-        fullUrl,
-        method: "GET",
-        params,
-        staffId,
-        url,
-      });
-    }
-
-    try {
-      const response = await api.get<StaffAvailabilityApiResponse>(url, { params });
-
-      if (__DEV__) {
-        console.log("[StaffAvailability API] Response", {
-          body: response.data,
-          fullUrl,
-          status: response.status,
-        });
-      }
-
-      return normalizeAvailability(getAvailabilityFromEnvelope(response.data.data), staffId);
-    } catch (error) {
-      if (__DEV__) {
-        console.log("[StaffAvailability API] Error response", {
-          body: error instanceof ApiError ? error.responseData : undefined,
-          fullUrl,
-          message: error instanceof Error ? error.message : String(error),
-          status: error instanceof ApiError ? error.status : undefined,
-        });
-      }
-
-      throw error;
-    }
+    return normalizeAvailability(schedule, blockedTimes, staffId, date);
   },
 };

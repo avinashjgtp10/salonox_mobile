@@ -2,10 +2,12 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
+import { isUserLogoutInProgress } from "@/services/authLifecycle";
 import { staffService } from "@/services/staff.service";
 import type { StaffMember } from "@/data/teamData";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { selectCurrentUser } from "@/store/user/user.slice";
 import type {
   CreateEmergencyContactFormFields,
   CreateEmergencyContactRequest,
@@ -329,7 +331,85 @@ export const fetchStaffThunk = createAsyncThunk<
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
+    if (isUserLogoutInProgress() || !selectCurrentUser(getState())) {
+      return rejectWithValue({
+        message,
+        responseBody: error instanceof ApiError ? error.responseData : undefined,
+        status: error instanceof ApiError ? error.status : undefined,
+      });
+    }
+
     console.error("[Staff] Fetch failed", {
+      message,
+      responseBody: error instanceof ApiError ? error.responseData : undefined,
+      status: error instanceof ApiError ? error.status : undefined,
+    });
+
+    return rejectWithValue({
+      message,
+      responseBody: error instanceof ApiError ? error.responseData : undefined,
+      status: error instanceof ApiError ? error.status : undefined,
+    });
+  }
+}, {
+  condition: (_, { getState }) =>
+    !isUserLogoutInProgress() && Boolean(selectCurrentUser(getState())),
+});
+
+export const resolveCurrentStaffThunk = createAsyncThunk<
+  StaffMember,
+  string,
+  { rejectValue: FetchStaffRejectValue; state: RootState }
+>("staff/resolveCurrentStaff", async (authenticatedUserId, { getState, rejectWithValue }) => {
+  const normalizedUserId = authenticatedUserId.trim();
+
+  if (!normalizedUserId) {
+    return rejectWithValue({
+      message: "Unable to resolve staff profile because the authenticated user ID is missing.",
+    });
+  }
+
+  try {
+    const salonId = selectActiveBranchId(getState());
+    const matches: StaffMember[] = [];
+    const limit = 100;
+    let page = 1;
+    let hasMore = true;
+
+    while (hasMore) {
+      const response = await staffService.getStaff({ limit, page }, salonId);
+
+      matches.push(
+        ...response.staffMembers.filter((staffMember) => staffMember.userId === normalizedUserId),
+      );
+
+      hasMore = response.pagination.hasMore;
+
+      if (response.pagination.nextPage <= response.pagination.page) {
+        break;
+      }
+
+      page = response.pagination.nextPage;
+    }
+
+    if (matches.length === 1) {
+      return matches[0];
+    }
+
+    if (matches.length > 1) {
+      return rejectWithValue({
+        message: "Multiple staff profiles are linked to this authenticated user.",
+      });
+    }
+
+    return rejectWithValue({
+      message: "No staff profile is linked to this authenticated user.",
+    });
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
+
+    console.error("[Staff] Resolve current staff failed", {
+      authenticatedUserId: normalizedUserId,
       message,
       responseBody: error instanceof ApiError ? error.responseData : undefined,
       status: error instanceof ApiError ? error.status : undefined,

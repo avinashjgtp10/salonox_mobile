@@ -9,7 +9,7 @@ import {
 
 import { unregisterDeviceThunk } from "@/middleware/notification/notification.thunk";
 import { fetchCurrentUserThunk } from "@/middleware/user/user.thunk";
-import { ApiError, getApiErrorMessage } from "@/services/api";
+import { ApiError, cancelProtectedApiRequests, getApiErrorMessage } from "@/services/api";
 import { beginUserLogout, finishUserLogin } from "@/services/authLifecycle";
 import { authService } from "@/services/authService";
 import {
@@ -20,6 +20,7 @@ import {
 import { branchStorage } from "@/services/branchStorage";
 import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
 import { salonService } from "@/services/salon.service";
+import { realtimeSocket } from "@/services/realtimeSocket";
 import { addSessionInvalidationListener } from "@/services/sessionInvalidation";
 import { markStartup } from "@/services/startupPerformance";
 import { tokenStorage } from "@/services/tokenStorage";
@@ -96,6 +97,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       notificationDeviceStorage.clearRegisteredToken(),
     ]);
     salonService.clearSalonMeCache();
+    realtimeSocket.disconnect();
 
     store.dispatch(resetAppState());
     setUser(null);
@@ -300,12 +302,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
-      beginUserLogout();
       const session = await tokenStorage.getSession();
 
+      await unregisterNotificationDevice();
+      beginUserLogout();
+      cancelProtectedApiRequests();
       await clearLocalSession("logout");
 
-      void unregisterNotificationDevice();
       void authService.logout({
         accessToken: session.accessToken,
         refreshToken: session.refreshToken,
@@ -325,12 +328,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
-      beginUserLogout();
       const session = await tokenStorage.getSession();
 
+      await unregisterNotificationDevice();
+      beginUserLogout();
+      cancelProtectedApiRequests();
       await clearLocalSession("logout_all");
 
-      void unregisterNotificationDevice();
       void authService.logoutAll({ accessToken: session.accessToken }).catch((signOutAllError) => {
         logAuthEvent("logout_all_request_failed_after_local_clear", {
           status: getAuthErrorStatus(signOutAllError),
@@ -347,10 +351,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
     setError(null);
 
     try {
-      beginUserLogout();
       await unregisterNotificationDevice();
       await authService.deleteAccount();
 
+      beginUserLogout();
+      cancelProtectedApiRequests();
       await clearLocalSession("delete_account");
     } catch (deleteAccountError) {
       const message = getApiErrorMessage(deleteAccountError);

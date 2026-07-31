@@ -5,7 +5,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
-  Dimensions,
   Image,
   Keyboard,
   KeyboardAvoidingView,
@@ -19,8 +18,10 @@ import {
   View,
 } from "react-native";
 import { validatePhoneNumberLength, isValidPhoneNumber } from "libphonenumber-js";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
+import { LuxuryBackButton } from "@/components/auth/LuxuryAuth";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
 import { PhoneInput } from "@/components/ui/PhoneInput";
@@ -30,6 +31,7 @@ import { CurrentLocationButton } from "@/components/maps/CurrentLocationButton";
 import { type AddressDetails } from "@/types/location";
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { resolveLoginRoute } from "@/utils/routeResolver";
 import {
   CONFIRM_PASSWORD_MISMATCH_MESSAGE_GENERIC,
   EMAIL_INVALID_MESSAGE,
@@ -38,27 +40,25 @@ import {
   PASSWORD_REQUIREMENT_MESSAGE,
 } from "@/utils/validation";
 
-const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
-
 // ─── Color Palette ───────────────────────────────────────────
 const createAuthColors = (theme: ThemeColors, scheme: "light" | "dark") => ({
-  bgGradientStart: theme.bg,
-  bgGradientEnd: theme.bg2,
-  primary: theme.primary,
-  primaryDark: theme.primaryDark,
-  secondary: theme.secondary,
-  accent: theme.gold,
-  accentDark: theme.goldDark,
+  bgGradientStart: scheme === "dark" ? theme.bg : "#F6F0E7",
+  bgGradientEnd: scheme === "dark" ? theme.bg2 : "#FFFEFB",
+  primary: scheme === "dark" ? theme.primary : "#7A4B27",
+  primaryDark: scheme === "dark" ? theme.primaryDark : "#603719",
+  secondary: scheme === "dark" ? theme.secondary : "#7A4B27",
+  accent: scheme === "dark" ? theme.gold : "#7A4B27",
+  accentDark: scheme === "dark" ? theme.goldDark : "#603719",
   shadow: theme.shadow,
-  text: theme.heading,
-  textPrimary: theme.text,
-  textSecondary: theme.text2,
-  placeholder: theme.placeholder,
-  cardBg: theme.card,
-  cardBorder: theme.border,
-  inputBg: scheme === "dark" ? theme.bg2 : theme.card,
-  inputBorder: theme.border,
-  inputBorderFocus: theme.focusBorder,
+  text: scheme === "dark" ? theme.heading : "#171310",
+  textPrimary: scheme === "dark" ? theme.text : "#171310",
+  textSecondary: scheme === "dark" ? theme.text2 : "#625A54",
+  placeholder: scheme === "dark" ? theme.placeholder : "#837B75",
+  cardBg: scheme === "dark" ? theme.card : "#FFFEFC",
+  cardBorder: scheme === "dark" ? theme.border : "#E5DDD3",
+  inputBg: scheme === "dark" ? theme.bg2 : "rgba(255,255,255,0.72)",
+  inputBorder: scheme === "dark" ? theme.border : "#DED5CA",
+  inputBorderFocus: scheme === "dark" ? theme.focusBorder : "#7A4B27",
   error: theme.error,
   errorBg: theme.errorBg,
   success: theme.success,
@@ -148,10 +148,10 @@ const REGISTER_STEP_FIELDS: Record<RegisterStep, (keyof RegisterFieldErrors)[]> 
 export default function LoginScreen() {
   const Colors = useAuthColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const params = useLocalSearchParams<{ successMessage?: string }>();
+  const params = useLocalSearchParams<{ mode?: string; successMessage?: string }>();
   const routeSuccessMessage = getRouteParam(params.successMessage);
   const { clearError, error, isLoading, signIn, signInWithGoogle, signUp } = useAuth();
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [isRegisterMode, setIsRegisterMode] = useState(getRouteParam(params.mode) === "register");
   const [registrationStep, setRegistrationStep] = useState<RegisterStep>(1);
   const [fullName, setFullName] = useState("");
   const [businessName, setBusinessName] = useState("");
@@ -184,6 +184,7 @@ export default function LoginScreen() {
   );
   const [fieldErrors, setFieldErrors] = useState<RegisterFieldErrors>({});
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
@@ -420,11 +421,7 @@ export default function LoginScreen() {
 
       setFailedLoginAttempts(0);
 
-      if (authData.isOnboardingComplete) {
-        router.replace("/dashboard" as Href);
-      } else {
-        router.replace("/onboarding" as Href);
-      }
+      router.replace(resolveLoginRoute(authData));
     } catch (loginError) {
       if (isAccountLockedError(loginError)) {
         // Real backend-enforced lock/rate-limit — show its own message
@@ -688,6 +685,13 @@ export default function LoginScreen() {
       end={{ x: 1, y: 1 }}
     >
       <StatusBar barStyle={Colors.statusBarStyle} backgroundColor={Colors.bgGradientStart} />
+      <View pointerEvents="none" style={styles.floralArtwork}>
+        <Image
+          resizeMode="contain"
+          source={require("../../assets/images/auth/floral-line-art.png")}
+          style={styles.floralArtworkImage}
+        />
+      </View>
 
       {/* ── Background Glow Blobs ── */}
       <View pointerEvents="none" style={styles.blurContainer}>
@@ -707,11 +711,12 @@ export default function LoginScreen() {
         />
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={styles.keyboardView}
-      >
-        <ScrollView
+      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={styles.keyboardView}
+        >
+          <ScrollView
           ref={scrollViewRef}
           scrollEnabled={shouldEnableScroll}
           bounces={false}
@@ -723,7 +728,7 @@ export default function LoginScreen() {
           keyboardDismissMode="none"
           keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
-        >
+          >
           <Animated.View
             style={[
               styles.card,
@@ -733,62 +738,26 @@ export default function LoginScreen() {
               },
             ]}
           >
+            <View
+              style={[
+                styles.topBackButton,
+                isRegisterMode && styles.registrationBackButton,
+              ]}
+            >
+              <LuxuryBackButton onPress={() => router.replace("/welcome" as Href)} />
+            </View>
+
             {/* Branding Section */}
             <View style={styles.brandContainer}>
-              <Image
-                source={require("../../assets/images/logo.png")}
-                style={styles.logoImage}
-                resizeMode="contain"
-              />
-
               <Text style={styles.logoText}>
-                {isRegisterMode ? (
-                  "Create Your Salon"
-                ) : (
-                  <>
-                    Salon<Text style={styles.logoAccent}>OX</Text>
-                  </>
-                )}
+                {isRegisterMode ? "Create Your Account" : "Welcome Back"}
               </Text>
 
               <Text style={styles.tagline}>
                 {isRegisterMode
-                  ? "Let's set up your business in less than a minute."
-                  : "Smart Salon Management Platform"}
+                  ? "Start managing your salon in minutes."
+                  : "Sign in to continue managing your salon."}
               </Text>
-            </View>
-
-            {/* Google Sign-In */}
-            <Animated.View style={{ transform: [{ scale: googleScale }] }}>
-              <Pressable
-                disabled={isGoogleLoading}
-                onPress={handleGoogleLogin}
-                onPressIn={() => handlePressIn(googleScale)}
-                onPressOut={() => handlePressOut(googleScale)}
-                style={[styles.googleButton, isGoogleLoading && styles.googleButtonDisabled]}
-              >
-                {isGoogleLoading ? (
-                  <ActivityIndicator color={Colors.primary} size="small" style={styles.googleIcon} />
-                ) : (
-                  <Image
-                    source={require("../../assets/images/google-logo.png")}
-                    style={styles.googleIcon}
-                    resizeMode="contain"
-                  />
-                )}
-                <Text style={styles.googleButtonText}>
-                  {isGoogleLoading ? "Connecting..." : "Continue with Google"}
-                </Text>
-              </Pressable>
-            </Animated.View>
-
-            {/* Divider */}
-            <View style={styles.dividerContainer}>
-              <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>
-                {isRegisterMode ? "CREATE ACCOUNT WITH EMAIL" : "OR CONTINUE WITH EMAIL"}
-              </Text>
-              <View style={styles.dividerLine} />
             </View>
 
             {isRegisterMode && (
@@ -1337,20 +1306,32 @@ export default function LoginScreen() {
             )}
 
             {!isRegisterMode && (
-              /* Forgot Password */
-              <Pressable
-                onPress={() => router.push("/forgot-password")}
-                style={styles.forgotPassword}
-              >
-                <Text
-                  style={[
-                    styles.forgotPasswordText,
-                    failedLoginAttempts >= 3 && styles.forgotPasswordTextEmphasized,
-                  ]}
+              <View style={styles.loginOptionsRow}>
+                <Pressable
+                  accessibilityRole="checkbox"
+                  accessibilityState={{ checked: rememberMe }}
+                  onPress={() => setRememberMe((current) => !current)}
+                  style={styles.rememberRow}
                 >
-                  Forgot Password?
-                </Text>
-              </Pressable>
+                  <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                    {rememberMe ? <Ionicons color="#FFFFFF" name="checkmark" size={15} /> : null}
+                  </View>
+                  <Text style={styles.rememberText}>Remember me</Text>
+                </Pressable>
+                <Pressable
+                  onPress={() => router.push("/forgot-password")}
+                  style={styles.forgotPassword}
+                >
+                  <Text
+                    style={[
+                      styles.forgotPasswordText,
+                      failedLoginAttempts >= 3 && styles.forgotPasswordTextEmphasized,
+                    ]}
+                  >
+                    Forgot password?
+                  </Text>
+                </Pressable>
+              </View>
             )}
 
             {isRegisterMode && registrationStep > 1 && (
@@ -1381,12 +1362,7 @@ export default function LoginScreen() {
                   isLoading && styles.submitButtonDisabled,
                 ]}
               >
-                <LinearGradient
-                  colors={[Colors.primaryDark, Colors.primary]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.submitButton}
-                >
+                <View style={styles.submitButton}>
                   {isLoading ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
@@ -1394,11 +1370,39 @@ export default function LoginScreen() {
                       {isRegisterMode
                         ? registrationStep < 3
                           ? "Next"
-                          : "Create Account"
-                        : "Sign In"}
+                          : "Get Started"
+                        : "Log In"}
                     </Text>
                   )}
-                </LinearGradient>
+                </View>
+              </Pressable>
+            </Animated.View>
+
+            <View style={styles.dividerContainer}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>
+                {isRegisterMode ? "Or sign up with" : "Or continue with"}
+              </Text>
+              <View style={styles.dividerLine} />
+            </View>
+
+            <Animated.View style={{ transform: [{ scale: googleScale }] }}>
+              <Pressable
+                disabled={isGoogleLoading}
+                onPress={handleGoogleLogin}
+                onPressIn={() => handlePressIn(googleScale)}
+                onPressOut={() => handlePressOut(googleScale)}
+                style={[styles.googleButton, isGoogleLoading && styles.googleButtonDisabled]}
+              >
+                {isGoogleLoading ? (
+                  <ActivityIndicator color={Colors.primary} size="small" />
+                ) : (
+                  <Image
+                    source={require("../../assets/images/google-logo.png")}
+                    style={styles.googleIcon}
+                    resizeMode="contain"
+                  />
+                )}
               </Pressable>
             </Animated.View>
 
@@ -1410,14 +1414,15 @@ export default function LoginScreen() {
               <Text style={styles.createAccountText}>
                 {isRegisterMode ? "Already have an account? " : "Don't have an account? "}
                 <Text style={styles.createAccountHighlight}>
-                  {isRegisterMode ? "Sign In" : "Create Account"}
+                  {isRegisterMode ? "Log in" : "Create account"}
                 </Text>
               </Text>
             </Pressable>
           </Animated.View>
 
-        </ScrollView>
-      </KeyboardAvoidingView>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </SafeAreaView>
     </LinearGradient>
   );
 }
@@ -1436,37 +1441,69 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     borderRadius: 999,
   },
   glowPista: {
-    width: SCREEN_W * 1.2,
-    height: SCREEN_W * 1.2,
-    top: -SCREEN_H * 0.15,
-    left: -SCREEN_W * 0.3,
+    height: 420,
+    left: -140,
+    top: -130,
+    width: 420,
   },
   glowCream: {
-    width: SCREEN_W * 1.0,
-    height: SCREEN_W * 1.0,
-    bottom: -SCREEN_H * 0.15,
-    right: -SCREEN_W * 0.2,
+    bottom: -140,
+    height: 360,
+    right: -110,
+    width: 360,
   },
   keyboardView: {
     backgroundColor: Colors.bgGradientStart,
     flex: 1,
   },
+  safeArea: {
+    flex: 1,
+  },
   scrollContainer: {
-    backgroundColor: Colors.bgGradientStart,
     flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
-    paddingTop: Platform.OS === "ios" ? 70 : 44,
-    paddingBottom: 40,
+    paddingTop: 16,
+    paddingBottom: 32,
+  },
+  floralArtwork: {
+    height: 245,
+    opacity: 0.34,
+    position: "absolute",
+    right: -52,
+    top: 14,
+    width: 275,
+  },
+  floralArtworkImage: {
+    height: "100%",
+    tintColor: "#C9A784",
+    width: "100%",
   },
   card: {
+    backgroundColor: Colors.cardBg,
+    borderRadius: 30,
+    elevation: 8,
     paddingHorizontal: 24,
-    paddingTop: 36,
-    paddingBottom: 32,
+    paddingTop: 42,
+    paddingBottom: 24,
+    shadowColor: "#6B4A2D",
+    shadowOffset: { height: 8, width: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 24,
+  },
+  topBackButton: {
+    left: 0,
+    position: "absolute",
+    top: -58,
+  },
+  registrationBackButton: {
+    left: 0,
+    top: -12,
+    zIndex: 2,
   },
   brandContainer: {
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: 24,
   },
   logoImage: {
     width: 64,
@@ -1474,41 +1511,45 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     marginBottom: 12,
   },
   logoText: {
-    fontSize: 28,
-    fontWeight: "700",
+    fontFamily: "Georgia",
+    fontSize: 40,
+    fontWeight: "400",
     color: Colors.text,
-    letterSpacing: 0,
+    letterSpacing: -0.5,
+    textAlign: "center",
   },
   logoAccent: {
     color: Colors.accent,
     fontWeight: "800",
   },
   tagline: {
-    fontSize: 13,
+    fontSize: 16,
     color: Colors.textSecondary,
-    marginTop: 6,
+    lineHeight: 22,
+    marginTop: 8,
     letterSpacing: 0,
+    textAlign: "center",
   },
   googleButton: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: Colors.cardBg,
     borderWidth: 1,
     borderColor: Colors.cardBorder,
-    height: 52,
-    borderRadius: 18,
+    height: 62,
+    width: 62,
+    alignSelf: "center",
+    borderRadius: 31,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
+    shadowOpacity: 0.09,
     shadowRadius: 12,
-    elevation: 2,
-    marginBottom: 24,
+    elevation: 4,
+    marginBottom: 18,
   },
   googleIcon: {
-    width: 20,
-    height: 20,
-    marginRight: 12,
+    width: 25,
+    height: 25,
   },
   googleButtonDisabled: {
     opacity: 0.6,
@@ -1522,7 +1563,8 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   dividerContainer: {
     flexDirection: "row",
     alignItems: "center",
-    marginBottom: 24,
+    marginBottom: 16,
+    marginTop: 20,
   },
   dividerLine: {
     flex: 1,
@@ -1531,37 +1573,33 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   },
   dividerText: {
     marginHorizontal: 12,
-    fontSize: 10,
-    fontWeight: "700",
+    fontSize: 13,
+    fontWeight: "400",
     color: Colors.textSecondary,
     letterSpacing: 0,
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 13,
-    fontWeight: "600",
-    color: Colors.textSecondary,
-    marginBottom: 8,
-    letterSpacing: 0,
+    display: "none",
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.inputBg,
     borderRadius: 18,
-    borderWidth: 1.5,
+    borderWidth: 1,
     borderColor: Colors.inputBorder,
     paddingHorizontal: 16,
-    height: 54,
+    height: 52,
   },
   inputContainerError: {
     borderColor: Colors.error,
   },
   addressInputContainer: {
     alignItems: "flex-start",
-    minHeight: 68,
+    minHeight: 52,
     paddingVertical: 0,
   },
   phoneRow: {
@@ -1590,8 +1628,8 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     height: "100%",
   },
   addressTextInput: {
-    minHeight: 66,
-    paddingTop: 12,
+    minHeight: 50,
+    paddingTop: 10,
     textAlignVertical: "top",
   },
   passwordToggle: {
@@ -1650,7 +1688,7 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   },
   stepHeader: {
     alignItems: "center",
-    marginBottom: 22,
+    marginBottom: 16,
     marginTop: -4,
     width: "100%",
   },
@@ -1659,7 +1697,7 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     width: "100%",
-    marginBottom: 14,
+    marginBottom: 12,
   },
   progressStepGroup: {
     flex: 1,
@@ -1668,12 +1706,12 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   },
   progressStepItem: {
     alignItems: "center",
-    width: 92,
+    width: 84,
   },
   progressCircle: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     borderWidth: 1.5,
     borderColor: Colors.inputBorder,
     backgroundColor: Colors.cardBg,
@@ -1704,11 +1742,13 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   },
   progressLabel: {
     color: Colors.textSecondary,
-    fontSize: 9,
-    fontWeight: "700",
-    marginTop: 7,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: 6,
+    paddingHorizontal: 4,
     textAlign: "center",
-    lineHeight: 12,
+    lineHeight: 16,
+    width: 84,
   },
   progressLabelActive: {
     color: Colors.secondary,
@@ -1718,7 +1758,7 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     height: 3,
     borderRadius: 999,
     backgroundColor: Colors.inputBorder,
-    marginTop: 15,
+    marginTop: 19,
     marginHorizontal: 2,
   },
   progressLineCompleted: {
@@ -1726,8 +1766,9 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   },
   stepTitle: {
     color: Colors.text,
-    fontSize: 18,
-    fontWeight: "700",
+    fontFamily: "Georgia",
+    fontSize: 28,
+    fontWeight: "400",
   },
   termsRow: {
     flexDirection: "row",
@@ -1767,8 +1808,22 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   },
   forgotPassword: {
     alignSelf: "center",
-    marginBottom: 26,
-    marginTop: -4,
+  },
+  loginOptionsRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 20,
+    marginTop: 2,
+  },
+  rememberRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    minHeight: 44,
+  },
+  rememberText: {
+    color: Colors.textSecondary,
+    fontSize: 13,
   },
   forgotPasswordText: {
     fontSize: 13,
@@ -1794,25 +1849,26 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     fontWeight: "700",
   },
   submitButtonWrapper: {
-    borderRadius: 18,
+    borderRadius: 20,
     overflow: "hidden",
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.22,
     shadowRadius: 18,
     elevation: 6,
-    marginBottom: 22,
+    marginBottom: 0,
   },
   submitButtonDisabled: {
     opacity: 0.72,
   },
   submitButton: {
-    height: 54,
+    backgroundColor: Colors.primary,
+    height: 52,
     alignItems: "center",
     justifyContent: "center",
   },
   submitButtonText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: "700",
     color: "#FFFFFF",
     letterSpacing: 0,

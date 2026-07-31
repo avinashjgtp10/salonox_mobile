@@ -16,12 +16,11 @@ import {
   shouldInvalidateSession,
   shouldRefreshToken,
 } from "@/services/authSession";
-import { environmentConfig } from "@/config/environment";
 import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
 import { tokenStorage } from "@/services/tokenStorage";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
-export const API_BASE_URL = environmentConfig.apiBaseUrl;
+export const API_BASE_URL = "http://192.168.31.114:3000/api/v1";
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
   _networkRetry?: boolean;

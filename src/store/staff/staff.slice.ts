@@ -11,6 +11,7 @@ import {
   fetchStaffAddressesThunk,
   fetchStaffByIdThunk,
   fetchStaffThunk,
+  resolveCurrentStaffThunk,
   updateEmergencyContactThunk,
   updateStaffAddressThunk,
   updateStaffThunk,
@@ -66,6 +67,9 @@ type StaffState = {
   createError: string | null;
   creating: boolean;
   currentRequestId: string | null;
+  currentStaff: StaffMember | null;
+  currentStaffError: string | null;
+  currentStaffLoading: boolean;
   deleteError: string | null;
   deletingStaffIds: string[];
   detailsError: string | null;
@@ -131,6 +135,9 @@ const initialState: StaffState = {
   createError: null,
   creating: false,
   currentRequestId: null,
+  currentStaff: null,
+  currentStaffError: null,
+  currentStaffLoading: false,
   deleteError: null,
   deletingStaffIds: [],
   detailsError: null,
@@ -255,7 +262,13 @@ const getEmergencyContactRecordKey = (staffId: string, recordId: string) =>
 const staffSlice = createSlice({
   name: "staff",
   initialState,
-  reducers: {},
+  reducers: {
+    clearCurrentStaff(state) {
+      state.currentStaff = null;
+      state.currentStaffError = null;
+      state.currentStaffLoading = false;
+    },
+  },
   extraReducers: (builder) => {
     builder
       .addCase(createStaffThunk.pending, (state) => {
@@ -693,10 +706,30 @@ const staffSlice = createSlice({
       .addCase(fetchStaffByIdThunk.rejected, (state, action) => {
         state.detailsLoading = false;
         state.detailsError = action.payload?.message ?? action.error.message ?? "Unable to load staff details.";
+      })
+      .addCase(resolveCurrentStaffThunk.pending, (state) => {
+        state.currentStaffLoading = true;
+        state.currentStaffError = null;
+      })
+      .addCase(resolveCurrentStaffThunk.fulfilled, (state, action) => {
+        state.currentStaff = action.payload;
+        state.currentStaffLoading = false;
+        state.currentStaffError = null;
+      })
+      .addCase(resolveCurrentStaffThunk.rejected, (state, action) => {
+        state.currentStaff = null;
+        state.currentStaffLoading = false;
+        state.currentStaffError =
+          action.payload?.message ?? action.error.message ?? "Unable to resolve staff profile.";
       });
   },
 });
 
+export const { clearCurrentStaff } = staffSlice.actions;
+
+export const selectCurrentStaff = (state: RootState) => state.staff.currentStaff;
+export const selectCurrentStaffError = (state: RootState) => state.staff.currentStaffError;
+export const selectCurrentStaffLoading = (state: RootState) => state.staff.currentStaffLoading;
 export const selectStaffCreateError = (state: RootState) => state.staff.createError;
 export const selectStaffCreating = (state: RootState) => state.staff.creating;
 export const selectStaffAddressCreateError = (state: RootState, staffId?: string | null) =>

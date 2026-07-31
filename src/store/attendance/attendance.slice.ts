@@ -55,6 +55,7 @@ type AttendanceState = {
 const EMPTY_SUMMARY: AttendanceSummary = {
   absent: 0,
   date: null,
+  halfDay: 0,
   late: 0,
   onLeave: 0,
   present: 0,
@@ -141,6 +142,15 @@ const attendanceSlice = createSlice({
       .addCase(fetchTodayAttendanceThunk.fulfilled, (state, action) => {
         state.date = action.payload.date;
         state.records = action.payload.records;
+        if (action.payload.summary) {
+          state.summary = action.payload.summary;
+          state.summaryError = null;
+          state.summaryErrorKind = null;
+          state.summaryIsFromCache = false;
+          state.summaryLastFetchedAt = Date.now();
+          state.summaryRefreshing = false;
+          state.summaryStatus = "succeeded";
+        }
         state.recordsError = null;
         state.recordsErrorKind = null;
         state.recordsIsFromCache = false;
@@ -184,13 +194,13 @@ const attendanceSlice = createSlice({
         state.summaryStatus = hasExistingData ? "succeeded" : "failed";
       })
       .addCase(checkInThunk.pending, (state, action) => {
-        const staffId = action.meta.arg;
+        const staffId = action.meta.arg.staffId;
 
         state.checkInErrorByStaffId[staffId] = null;
         state.checkingInStaffIds = [...state.checkingInStaffIds, staffId];
       })
       .addCase(checkInThunk.fulfilled, (state, action) => {
-        const staffId = action.meta.arg;
+        const staffId = action.meta.arg.staffId;
 
         state.checkingInStaffIds = state.checkingInStaffIds.filter((id) => id !== staffId);
         state.toast = { message: action.payload.message ?? "Checked in successfully.", tone: "success" };
@@ -200,7 +210,7 @@ const attendanceSlice = createSlice({
         }
       })
       .addCase(checkInThunk.rejected, (state, action) => {
-        const staffId = action.meta.arg;
+        const staffId = action.meta.arg.staffId;
         const message = getAttendanceErrorMessage(action.payload?.kind, action.payload?.message);
 
         state.checkInErrorByStaffId[staffId] = message;
@@ -208,13 +218,13 @@ const attendanceSlice = createSlice({
         state.toast = { message, tone: "error" };
       })
       .addCase(checkOutThunk.pending, (state, action) => {
-        const staffId = action.meta.arg;
+        const staffId = action.meta.arg.staffId;
 
         state.checkOutErrorByStaffId[staffId] = null;
         state.checkingOutStaffIds = [...state.checkingOutStaffIds, staffId];
       })
       .addCase(checkOutThunk.fulfilled, (state, action) => {
-        const staffId = action.meta.arg;
+        const staffId = action.meta.arg.staffId;
 
         state.checkingOutStaffIds = state.checkingOutStaffIds.filter((id) => id !== staffId);
         state.toast = { message: action.payload.message ?? "Checked out successfully.", tone: "success" };
@@ -224,7 +234,7 @@ const attendanceSlice = createSlice({
         }
       })
       .addCase(checkOutThunk.rejected, (state, action) => {
-        const staffId = action.meta.arg;
+        const staffId = action.meta.arg.staffId;
         const message = getAttendanceErrorMessage(action.payload?.kind, action.payload?.message);
 
         state.checkOutErrorByStaffId[staffId] = message;

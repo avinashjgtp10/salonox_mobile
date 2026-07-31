@@ -3,7 +3,7 @@
 // of these buckets everywhere the UI needs to show a chip or color. This only
 // covers staff who have an attendance record for the day — the "not marked"
 // case (no record at all) is a UI-only concept, not a value in this union.
-export type AttendanceStatusKey = "active" | "halfDay" | "inactive" | "late" | "onLeave";
+export type AttendanceStatusKey = "absent" | "halfDay" | "late" | "notMarked" | "onLeave" | "present";
 
 // What action the UI should offer for a given record right now. Every staff
 // member always has exactly one of these: not marked yet -> checkIn; checked
@@ -32,6 +32,7 @@ export type AttendanceRecord = {
   // Raw backend status string, kept for debugging and for future features
   // (reports, calendar) that may need finer detail than the collapsed key.
   rawStatus: string;
+  scheduledHours: number | null;
   slotsRemaining: number;
   staffId: string;
   staffName: string;
@@ -51,20 +52,34 @@ export type AttendanceRecord = {
 export type AttendanceToday = {
   date: string | null;
   records: AttendanceRecord[];
+  summary: AttendanceSummary | null;
 };
 
 export type AttendanceSummary = {
   absent: number;
   date: string | null;
+  halfDay: number;
   late: number;
   onLeave: number;
   present: number;
   total: number;
 };
 
+export type CheckInRequest = {
+  checkInTime?: string;
+  notes?: string;
+  staffId: string;
+};
+
 export type CheckInResponse = {
   message?: string;
   record: AttendanceRecord | null;
+};
+
+export type CheckOutRequest = {
+  checkOutTime?: string;
+  notes?: string;
+  staffId: string;
 };
 
 export type CheckOutResponse = {

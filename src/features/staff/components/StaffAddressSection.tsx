@@ -20,6 +20,7 @@ import type { StaffAddressListItem } from "@/types/staff";
 import { canManageStaffLifecycle } from "@/utils/userProfile";
 
 type StaffAddressSectionProps = {
+  readOnly?: boolean;
   staffId?: string | null;
 };
 
@@ -53,12 +54,13 @@ function AddressRow({ address, canDelete, onDelete, onEdit, staffId }: AddressRo
         </Text>
         <Text style={styles.addressMeta}>{address.country}</Text>
       </View>
+      {canDelete ? (
       <View style={styles.rowActions}>
         <TouchableOpacity
           activeOpacity={0.84}
-          disabled={deleting}
+          disabled={!canDelete || deleting}
           onPress={() => onEdit(address)}
-          style={styles.editButton}
+          style={[styles.editButton, (!canDelete || deleting) && styles.deleteButtonDisabled]}
         >
           <Text style={styles.editButtonText}>Edit</Text>
         </TouchableOpacity>
@@ -75,11 +77,12 @@ function AddressRow({ address, canDelete, onDelete, onEdit, staffId }: AddressRo
           )}
         </TouchableOpacity>
       </View>
+      ) : null}
     </View>
   );
 }
 
-export function StaffAddressSection({ staffId }: StaffAddressSectionProps) {
+export function StaffAddressSection({ readOnly = false, staffId }: StaffAddressSectionProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const controller = useStaffAddresses(staffId);
@@ -120,6 +123,7 @@ export function StaffAddressSection({ staffId }: StaffAddressSectionProps) {
   return (
     <StaffSectionCard
       action={
+        readOnly ? null :
         <TouchableOpacity
           activeOpacity={0.84}
           onPress={controller.openCreateForm}
@@ -155,9 +159,9 @@ export function StaffAddressSection({ staffId }: StaffAddressSectionProps) {
             <AddressRow
               key={address.id}
               address={address}
-              canDelete={canManageAddresses}
+              canDelete={!readOnly && canManageAddresses}
               onDelete={handleDelete}
-              onEdit={controller.openEditForm}
+              onEdit={readOnly ? () => undefined : controller.openEditForm}
               staffId={staffId}
             />
           ))}

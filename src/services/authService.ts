@@ -37,7 +37,6 @@ export const authService = {
     const response = await timeStartup("Login API", () =>
       api.post<ApiResponse<LoginResponseData>>("/auth/login", credentials),
     );
-    console.log("[Auth Debug] Login response:", response.data);
     const authData: LoginResponseData = {
       ...response.data.data,
       user: normalizeAuthUser(response.data.data.user),
@@ -48,8 +47,6 @@ export const authService = {
         accessToken: authData.accessToken,
         refreshToken: authData.refreshToken,
       });
-      console.log("[Auth Debug] Saved access token:", authData.accessToken);
-      console.log("[Auth Debug] Saved refresh token:", authData.refreshToken);
       await tokenStorage.clearStoredUser();
     });
 

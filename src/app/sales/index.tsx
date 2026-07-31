@@ -41,6 +41,7 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { SaleListItem } from "@/types/sales";
+import { formatInvoiceNumber } from "@/utils/receipt";
 
 const SALE_FILTERS = ["All", "Draft", "Pending", "Completed", "Cancelled"] as const;
 type SaleFilter = (typeof SALE_FILTERS)[number];
@@ -115,7 +116,9 @@ function SaleCard({
 
       <View style={styles.saleCopy}>
         <View style={styles.nameRow}>
-          <Text style={styles.saleReceipt}>{sale.receiptNumber}</Text>
+          <Text style={styles.saleReceipt}>
+            {formatInvoiceNumber(sale.receiptNumber) ?? "—"}
+          </Text>
           <View style={[styles.statusBadge, statusStyle.badge]}>
             <Text style={[styles.statusBadgeText, statusStyle.text]}>
               {sale.status.charAt(0).toUpperCase() + sale.status.slice(1)}
@@ -319,7 +322,7 @@ export default function SalesHistoryScreen() {
   const handleDeleteSale = (sale: SaleListItem) => {
     Alert.alert(
       "Delete Sale",
-      `Are you sure you want to delete "${sale.receiptNumber}"? This action cannot be undone.`,
+      `Are you sure you want to delete "${formatInvoiceNumber(sale.receiptNumber) ?? "this sale"}"? This action cannot be undone.`,
       [
         { style: "cancel", text: "Cancel" },
         {

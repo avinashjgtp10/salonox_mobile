@@ -302,10 +302,7 @@ const normalizeSaleListItem = (entry: UnknownRecord): SaleListItem => {
     id: toSafeString(firstValue(entry, ["id", "_id"])),
     itemCount: lineItems.length || toSafeNumber(firstValue(entry, ["item_count", "itemCount"])),
     paymentMethod: toSafeString(firstValue(entry, ["payment_method", "paymentMethod"]), "-"),
-    receiptNumber: toSafeString(
-      firstValue(entry, ["invoice_number", "invoiceNumber"]),
-      toSafeString(firstValue(entry, ["id", "_id"])),
-    ),
+    receiptNumber: toSafeString(firstValue(entry, ["invoice_number", "invoiceNumber"])),
     status: toSafeString(firstValue(entry, ["status"]), "draft") as SaleListItem["status"],
     total: toSafeNumber(firstValue(entry, ["total_amount", "totalAmount", "total"])),
   };
@@ -335,10 +332,7 @@ const normalizeSaleDetail = (entry: UnknownRecord): SaleDetail => {
       firstValue(entry, ["outstanding_amount", "outstandingAmount"]),
     ) || Math.max(0, total - amountPaid),
     paymentMethod: toSafeString(firstValue(entry, ["payment_method", "paymentMethod"]), "-"),
-    receiptNumber: toSafeString(
-      firstValue(entry, ["invoice_number", "invoiceNumber"]),
-      toSafeString(firstValue(entry, ["id", "_id"])),
-    ),
+    receiptNumber: toSafeString(firstValue(entry, ["invoice_number", "invoiceNumber"])),
     status: toSafeString(firstValue(entry, ["status"]), "draft") as SaleDetail["status"],
     subtotal: toSafeNumber(firstValue(entry, ["subtotal"])),
     taxAmount: toSafeNumber(firstValue(entry, ["tax_amount", "taxAmount"])),

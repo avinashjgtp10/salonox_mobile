@@ -10,7 +10,9 @@ import type { NotificationItem } from "@/types/notification";
 // falls through to the generic Notifications screen instead of being
 // dropped, so a brand-new backend notification type renders/navigates
 // correctly with zero frontend changes.
-const ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href> = {
+type NotificationRouteScope = "owner" | "staff";
+
+const OWNER_ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href> = {
   appointment: (id) => (id ? (`/appointments/${id}` as Href) : ("/bookings" as Href)),
   attendance: () => "/team/attendance" as Href,
   client: (id) => (id ? (`/clients/${id}` as Href) : ("/clients" as Href)),
@@ -19,22 +21,40 @@ const ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href> = {
   staff: (id) => (id ? (`/team/${id}` as Href) : ("/team" as Href)),
 };
 
+const STAFF_ROUTE_BUILDERS: Record<string, (referenceId: string | null) => Href> = {
+  appointment: (id) =>
+    id ? (`/(staff)/appointment-details/${id}` as Href) : ("/(staff)/appointments" as Href),
+  attendance: () => "/(staff)/calendar" as Href,
+  general: () => "/(staff)/notifications" as Href,
+  payment: () => "/(staff)/appointments" as Href,
+  reminder: () => "/(staff)/calendar" as Href,
+  sale: () => "/(staff)/appointments" as Href,
+  staff: () => "/(staff)/profile" as Href,
+};
+
 const FALLBACK_ROUTE = "/notifications" as Href;
+const STAFF_FALLBACK_ROUTE = "/(staff)/notifications" as Href;
 
 export const resolveNotificationRoute = (
   notification: Pick<NotificationItem, "type" | "referenceId">,
+  scope: NotificationRouteScope = "owner",
 ): Href => {
-  const builder = ROUTE_BUILDERS[notification.type.trim().toLowerCase()];
+  const type = notification.type.trim().toLowerCase();
+  const builders = scope === "staff" ? STAFF_ROUTE_BUILDERS : OWNER_ROUTE_BUILDERS;
+  const builder = builders[type];
 
-  return builder ? builder(notification.referenceId) : FALLBACK_ROUTE;
+  return builder ? builder(notification.referenceId) : scope === "staff" ? STAFF_FALLBACK_ROUTE : FALLBACK_ROUTE;
 };
 
 // Push payload data survives as loosely-typed JSON (Expo/FCM don't preserve
 // our TS types), so this normalizes whatever shape actually arrives before
 // handing it to resolveNotificationRoute.
-export const resolveRouteFromPushData = (data: unknown): Href => {
+export const resolveRouteFromPushData = (
+  data: unknown,
+  scope: NotificationRouteScope = "owner",
+): Href => {
   if (!data || typeof data !== "object") {
-    return FALLBACK_ROUTE;
+    return scope === "staff" ? STAFF_FALLBACK_ROUTE : FALLBACK_ROUTE;
   }
 
   const record = data as Record<string, unknown>;
@@ -49,8 +69,8 @@ export const resolveRouteFromPushData = (data: unknown): Href => {
           : null;
 
   if (!type) {
-    return FALLBACK_ROUTE;
+    return scope === "staff" ? STAFF_FALLBACK_ROUTE : FALLBACK_ROUTE;
   }
 
-  return resolveNotificationRoute({ type, referenceId });
+  return resolveNotificationRoute({ type, referenceId }, scope);
 };

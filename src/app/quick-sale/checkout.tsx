@@ -14,6 +14,7 @@ import { fetchSaleByIdThunk } from "@/middleware/sales/sales.thunk";
 import { selectSaleDetail } from "@/store/sales/sales.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { formatInvoiceNumber } from "@/utils/receipt";
 
 function formatCurrency(amount: number) {
   return `₹${amount.toLocaleString("en-IN")}`;
@@ -52,7 +53,7 @@ export default function QuickSaleCheckoutScreen() {
     saleDetail && params.saleId && saleDetail.id === params.saleId ? saleDetail : null;
 
   const isPreview = params.mode === "preview";
-  const receipt = authoritativeSale?.receiptNumber ?? params.receipt ?? "QS-0001";
+  const receipt = formatInvoiceNumber(authoritativeSale?.receiptNumber ?? params.receipt) ?? "—";
   const amountPaid = authoritativeSale?.amountPaid ?? Number(params.amountPaid ?? 0);
   const total = authoritativeSale?.total ?? Number(params.total ?? amountPaid);
   const paymentMethod = authoritativeSale?.paymentMethod ?? params.paymentMethod ?? "Cash";

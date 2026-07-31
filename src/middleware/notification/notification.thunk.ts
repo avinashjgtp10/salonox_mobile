@@ -1,10 +1,13 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
+import { appEnv } from "@/config/environment";
 import { getApiErrorMessage } from "@/services/api";
 import { notificationService } from "@/services/notification.service";
 import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
 import type { RootState } from "@/store";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { selectCurrentStaff } from "@/store/staff/staff.slice";
+import { selectCurrentUser } from "@/store/user/user.slice";
 import type {
   MarkAllNotificationsReadResponse,
   MarkNotificationReadResponse,
@@ -117,14 +120,28 @@ export const registerDeviceThunk = createAsyncThunk<
   }
 });
 
+const getNotificationDeviceContext = (state: RootState) => {
+  const currentUser = selectCurrentUser(state);
+  const currentStaff = selectCurrentStaff(state);
+
+  return {
+    app_env: appEnv,
+    role: currentUser?.role ?? null,
+    staff_id: currentStaff?.id ?? null,
+    user_id: currentUser?.id ?? null,
+  };
+};
+
 export const unregisterDeviceThunk = createAsyncThunk<
   UnregisterDeviceResponse,
   void,
   { rejectValue: RejectValue; state: RootState }
 >("notification/unregisterDevice", async (_arg, { getState, rejectWithValue }) => {
+  const state = getState();
   const storedToken =
-    getState().notification.registeredDeviceToken ??
+    state.notification.registeredDeviceToken ??
     (await notificationDeviceStorage.getRegisteredToken());
+  const deviceContext = getNotificationDeviceContext(state);
 
   try {
     if (!storedToken) {
@@ -132,7 +149,10 @@ export const unregisterDeviceThunk = createAsyncThunk<
       return {};
     }
 
-    const response = await notificationService.unregisterDevice({ token: storedToken });
+    const response = await notificationService.unregisterDevice({
+      ...deviceContext,
+      token: storedToken,
+    });
 
     await notificationDeviceStorage.clearRegisteredToken();
 

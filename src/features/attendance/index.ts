@@ -1,3 +1,4 @@
+export * from "@/features/attendance/components/AttendanceCheckModal";
 export * from "@/features/attendance/components/AttendanceStaffRow";
 export * from "@/features/attendance/components/AttendanceStatusChip";
 export * from "@/features/attendance/components/AttendanceSummaryCards";

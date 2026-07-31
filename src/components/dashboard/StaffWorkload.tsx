@@ -11,6 +11,7 @@ import {
 import { findAttendanceRecordForStaff } from "@/features/attendance/utils/attendanceMatching";
 import {
   formatAttendanceTime,
+  getAttendanceBadgeConfig,
   getTodayAttendanceDateKey,
 } from "@/features/attendance/utils/attendanceStatus";
 import { selectAttendanceDate, selectAttendanceRecords } from "@/store/attendance/attendance.slice";
@@ -37,7 +38,7 @@ const ACTIVE_WORKLOAD_STATUSES = new Set(["in-progress", "upcoming"]);
 type AttendancePresentation = {
   bg: string;
   color: string;
-  label: "Checked In" | "Checked Out" | "Leave" | "Not Marked" | "On Break";
+  label: string;
   time: string;
 };
 
@@ -51,51 +52,15 @@ const formatDisplayDate = (dateKey: string) => {
 
 const getAttendancePresentation = (
   record: AttendanceRecord | null,
-  staffMember: StaffMember,
+  Colors: ThemeColors,
 ): AttendancePresentation => {
-  const status = staffMember.status.toLowerCase();
-
-  if (status === "break") {
-    return {
-      bg: "rgba(245, 191, 79, 0.16)",
-      color: "#F5C451",
-      label: "On Break",
-      time: formatAttendanceTime(record?.checkInTime),
-    };
-  }
-
-  if (!record) {
-    return {
-      bg: "rgba(180, 180, 180, 0.12)",
-      color: "#A9A9A9",
-      label: "Not Marked",
-      time: "--",
-    };
-  }
-
-  if (record.statusKey === "onLeave" || record.statusKey === "inactive") {
-    return {
-      bg: "rgba(236, 127, 127, 0.16)",
-      color: "#FF9B9B",
-      label: "Leave",
-      time: "--",
-    };
-  }
-
-  if (record.checkOutTime) {
-    return {
-      bg: "rgba(99, 155, 255, 0.16)",
-      color: "#78A9FF",
-      label: "Checked Out",
-      time: formatAttendanceTime(record.checkOutTime),
-    };
-  }
+  const config = getAttendanceBadgeConfig(record, Colors);
 
   return {
-    bg: "rgba(139, 199, 162, 0.16)",
-    color: "#91D68F",
-    label: "Checked In",
-    time: formatAttendanceTime(record.checkInTime),
+    bg: config.bg,
+    color: config.color,
+    label: config.label,
+    time: formatAttendanceTime(record?.checkInTime),
   };
 };
 
@@ -186,7 +151,7 @@ export default function StaffWorkload() {
             const jobs = isOnLeave ? 0 : staffAppointments.length;
             const slotsLeft = isOnLeave ? 0 : Math.max(0, totalSlots - jobs);
             const pct = isOnLeave ? 0 : Math.min(100, Math.round((jobs / totalSlots) * 100));
-            const attendance = getAttendancePresentation(attendanceRecord, member);
+            const attendance = getAttendancePresentation(attendanceRecord, Colors);
             const availability = getAvailabilityPresentation(member, jobs);
             const initials =
               member.initials ||
@@ -263,9 +228,9 @@ export default function StaffWorkload() {
               </View>
             </View>
             <View style={styles.legendRow}>
-              <LegendItem color="#91D68F" label="Checked In" />
-              <LegendItem color="#78A9FF" label="Checked Out" />
-              <LegendItem color="#F5C451" label="On Break" />
+              <LegendItem color="#91D68F" label="Present" />
+              <LegendItem color="#F5C451" label="Late" />
+              <LegendItem color="#FF9B9B" label="Absent" />
               <LegendItem color="#A9A9A9" label="Not Marked" />
             </View>
           </View>
