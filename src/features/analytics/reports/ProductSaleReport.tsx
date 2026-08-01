@@ -5,6 +5,7 @@ import { PRODUCT_RETAIL_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import Select from "../../../components/ui/Select";
+import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
@@ -80,7 +81,7 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
   const [dateTo,      setDateTo]      = useState(today);
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [staffFilter,    setStaffFilter]    = useState("All");
+  const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
   const [brandFilter,    setBrandFilter]    = useState("All");
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
@@ -118,7 +119,7 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
         page: currentPage, limit: pageSize,
       };
       if (debouncedSearch) body.search = debouncedSearch;
-      if (staffFilter !== "All") body.staff_id = staffFilter;
+      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
       if (brandFilter !== "All") body.brand_id = brandFilter;
       if (categoryFilter !== "All") body.category_id = categoryFilter;
       const res = await api.post(PRODUCT_RETAIL_REPORT.SUMMARY(), body, { signal: ctrl.signal });
@@ -143,22 +144,22 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, staffFilter, brandFilter, categoryFilter, currentPage, pageSize]);
+  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, brandFilter, categoryFilter, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Filter/search changes go back to page 1 — page/pageSize changes
   // themselves should not reset back to page 1.
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, staffFilter, brandFilter, categoryFilter]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, brandFilter, categoryFilter]);
 
   const activeFilterCount = [
-    staffFilter !== "All" ? 1 : 0,
+    staffFilterIds.length > 0 ? 1 : 0,
     brandFilter !== "All" ? 1 : 0,
     categoryFilter !== "All" ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const clearFilters = () => {
-    setStaffFilter("All"); setBrandFilter("All"); setCategoryFilter("All");
+    setStaffFilterIds([]); setBrandFilter("All"); setCategoryFilter("All");
   };
 
   const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Product Name", "Category", "Brand", "Quantity", `Bill (${currencySymbol})`, `GST (${currencySymbol})`, `Total (${currencySymbol})`, "Payment Method", "Status"];
@@ -266,10 +267,14 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
             </div>
 
             <div className="rp-ps-filters-body">
-              <Select label="Staff" containerClass="rp-ps-filter-field" value={staffFilter} onChange={e => setStaffFilter(e.target.value)}>
-                <option value="All">All</option>
-                {staffOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
+              <MultiSelectCheckbox
+                label="Staff"
+                containerClass="rp-ps-filter-field"
+                options={staffOptions}
+                selected={staffFilterIds}
+                onChange={setStaffFilterIds}
+                placeholder="All staff"
+              />
               <Select label="Brand" containerClass="rp-ps-filter-field" value={brandFilter} onChange={e => setBrandFilter(e.target.value)}>
                 <option value="All">All brands</option>
                 {brands.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}

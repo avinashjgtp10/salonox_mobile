@@ -32,3 +32,5 @@ export { default as DateRangePicker } from "./DateRangePicker";
 export type { DateRangePickerProps } from "./DateRangePicker";
 export { default as SuccessOverlay } from "./SuccessOverlay";
 export { default as ErrorOverlay } from "./ErrorOverlay";
+export { default as MultiSelectCheckbox } from "./MultiSelectCheckbox";
+export type { FilterOption } from "./MultiSelectCheckbox";
