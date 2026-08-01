@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <defs>
+    <linearGradient id="brandMarkBase" x1="10%" y1="4%" x2="86%" y2="98%">
+      <stop offset="0%" stop-color="#2b2090" />
+      <stop offset="33%" stop-color="#5b35c9" />
+      <stop offset="62%" stop-color="#9d3fe0" />
+      <stop offset="100%" stop-color="#7ec4f5" />
+    </linearGradient>
+    <clipPath id="brandMarkCircle">
+      <circle cx="100" cy="100" r="100" />
+    </clipPath>
+  </defs>
+
+  <circle cx="100" cy="100" r="100" fill="url(#brandMarkBase)" />
+
+  <g clip-path="url(#brandMarkCircle)">
+    <path
+      d="M -10 70 C 40 50, 60 90, 100 65 C 140 40, 160 75, 210 45 L 210 -10 L -10 -10 Z"
+      fill="#ffffff"
+      opacity="0.2"
+    />
+  </g>
+
+  <path
+    d="M 109,57.6 L 141.2,113.4 Q 150.2,129 132.2,129 L 67.8,129 Q 49.8,129 58.8,113.4 L 91,57.6 Q 100,42 109,57.6 Z"
+    fill="none"
+    stroke="#ffffff"
+    stroke-width="11"
+    stroke-linejoin="round"
+    stroke-linecap="round"
+  />
+</svg>

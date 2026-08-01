@@ -6,8 +6,8 @@ import { FiEye, FiEyeOff } from "react-icons/fi";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { loginThunk } from "../../../middleware/auth/authThunk";
 import { API_ORIGIN } from "../../../services/api/baseUrl";
-import salonImg from "../../../assets/images/salon.jpg";
-import salonoxLogo from "../../../assets/salonox_logo_black.svg";
+import salonImg from "../../../assets/images/dashboard-hero.jpg.png";
+import salonoxIcon from "../../../assets/salonox_icon.svg";
 
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
@@ -100,7 +100,10 @@ export default function LoginPage() {
 
       <div className="lp-inner">
         <div className="lp-brand">
-          <img src={salonoxLogo} alt="SalonOx" className="lp-brand__logo" width="124" height="40" />
+          <img src={salonoxIcon} alt="" className="lp-brand__icon" width="32" height="32" />
+          <span className="lp-brand__wordmark">
+            Salon<span className="lp-brand__wordmark-accent">OX</span>
+          </span>
         </div>
 
         <div className="lp-heading-block">
@@ -186,54 +189,6 @@ export default function LoginPage() {
   const RightSection = (
     <div className="lp-right">
       <img src={salonImg} alt="salon" className="lp-right__img" />
-      <div className="lp-right__overlay" />
-
-      <div className="lp-particles">
-        {Array.from({ length: 16 }).map((_, i) => (
-          <span key={i} className={`lp-particle lp-particle--${i + 1}`} />
-        ))}
-      </div>
-
-      <div className="lp-right__content">
-        <div className="lp-badge">
-          <span className="lp-badge__dot" />
-          Trusted by 10,000+ salons across India
-        </div>
-
-        <div className="lp-testimonial">
-          <div className="lp-testimonial__stars">
-            {[1,2,3,4,5].map(i => (
-              <svg key={i} width="15" height="15" viewBox="0 0 24 24" fill="#C9A96E">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
-              </svg>
-            ))}
-          </div>
-          <blockquote className="lp-testimonial__quote">
-            "salonox transformed how I run my salon. Bookings, billing, staff — all in one place."
-          </blockquote>
-          <cite className="lp-testimonial__author">
-            <span className="lp-testimonial__name">Priya Sharma</span>
-            <span className="lp-testimonial__role">Founder, Studio Luxe · Mumbai</span>
-          </cite>
-        </div>
-
-        <div className="lp-stats">
-          <div className="lp-stat">
-            <span className="lp-stat__val">10K+</span>
-            <span className="lp-stat__label">Professionals</span>
-          </div>
-          <div className="lp-stat-div" />
-          <div className="lp-stat">
-            <span className="lp-stat__val">4.9★</span>
-            <span className="lp-stat__label">Rating</span>
-          </div>
-          <div className="lp-stat-div" />
-          <div className="lp-stat">
-            <span className="lp-stat__val">Free</span>
-            <span className="lp-stat__label">7-day trial</span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 

@@ -29,9 +29,27 @@ body {
 }
 
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 18px;
   font-weight: 600;
   color: $dashboard-primary;
+  margin: 0;
+}
+
+.brand-icon {
+  display: block;
+  flex-shrink: 0;
+}
+
+.brand-wordmark {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.brand-wordmark-accent {
+  color: #14b8a6;
 }
 
 .topbar-right {

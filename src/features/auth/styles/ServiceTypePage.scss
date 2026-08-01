@@ -155,6 +155,36 @@
   background: #888;
 }
 
+.service-type-scroll {
+  padding-bottom: 160px !important;
+}
+
+.service-type-fixed-btn {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+  background: #ffffff;
+  border-top: 1px solid #f0f0f0;
+  padding: 16px 40px;
+}
+
+@media (min-width: 992px) {
+  .service-type-fixed-btn {
+    width: 41.6667%; // matches Bootstrap col-lg-5
+  }
+}
+
+@media (max-width: 991px) {
+  .service-type-fixed-btn {
+    padding: 12px 16px;
+  }
+  .service-type-scroll {
+    padding-bottom: 130px !important;
+  }
+}
+
 @media (max-width: 768px) {
   .account-heading {
     font-size: 24px;
