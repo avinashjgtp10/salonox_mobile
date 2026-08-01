@@ -37,13 +37,28 @@ $bar-h: 64px;
 
   // ── Logo ─────────────────────────────────────────────────
   &__logo {
-    font-family: 'Outfit', 'Inter', sans-serif;
-    font-weight: 800;
-    font-size: 18px;
-    color: #0f172a;
-    letter-spacing: -0.04em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
     flex-shrink: 0;
     user-select: none;
+
+    &-icon {
+      display: block;
+      flex-shrink: 0;
+    }
+
+    &-wordmark {
+      font-family: 'Outfit', 'Inter', sans-serif;
+      font-weight: 800;
+      font-size: 18px;
+      color: #0f172a;
+      letter-spacing: -0.02em;
+    }
+
+    &-wordmark-accent {
+      color: #14b8a6;
+    }
   }
 
   // ── Steps nav ────────────────────────────────────────────

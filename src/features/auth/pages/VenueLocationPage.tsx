@@ -212,7 +212,7 @@ export default function VenueLocationPage() {
                 <input
                   type="text"
                   className="form-control ps-5 pe-3"
-                  placeholder="Search location (e.g., Lakme Academy Baramati)"
+                  placeholder="Search location"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
                   disabled={navigating}

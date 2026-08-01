@@ -1,7 +1,7 @@
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/ServiceTypePage.scss";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   FaCut,
   FaHandSparkles,
@@ -47,6 +47,12 @@ export default function ServiceTypePage() {
     { name: "Other", icon: <FaUserTie /> },
   ];
 
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => setError(""), 3000);
+    return () => clearTimeout(timer);
+  }, [error]);
+
   const handleSelect = (name: string) => {
     setError("");
     if (selected.includes(name)) {
@@ -76,67 +82,79 @@ export default function ServiceTypePage() {
   return (
     <OnboardingPageWrapper className="bg-light">
         {/* LEFT PANEL */}
-        <div className="col-lg-5 col-12 bg-white p-4 p-lg-5 position-relative">
-          <OnboardingBackButton />
+        <div
+          className="col-lg-5 col-12 bg-white position-relative d-flex flex-column"
+          style={{ height: "100vh" }}
+        >
+          {/* SCROLLABLE CONTENT */}
+          <div
+            className="p-4 p-lg-5 custom-scrollbar service-type-scroll"
+            style={{ flex: 1, overflowY: "auto" }}
+          >
+            <OnboardingBackButton />
 
-          <div className="mt-4">
-            <h3 className="fw-bold mb-1" style={{ fontSize: "24px", color: "#111827", letterSpacing: "-0.02em" }}>
-              Select your service categories
-            </h3>
-            <p className="text-muted mb-3" style={{ fontSize: "14px" }}>
-              Choose your primary and up to 3 related service types
-            </p>
+            <div className="mt-4">
+              <h3 className="fw-bold mb-1" style={{ fontSize: "24px", color: "#111827", letterSpacing: "-0.02em" }}>
+                Select your service categories
+              </h3>
+              <p className="text-muted mb-3" style={{ fontSize: "14px" }}>
+                Choose your primary and up to 3 related service types
+              </p>
 
-            {error && (
-              <div className="alert py-2 px-3 mb-3" style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", borderRadius: "10px", fontSize: "13px" }}>
-                {error}
-              </div>
-            )}
+              {error && (
+                <div className="alert py-2 px-3 mb-3" style={{ background: "#fef2f2", border: "1px solid #fecaca", color: "#dc2626", borderRadius: "10px", fontSize: "13px" }}>
+                  {error}
+                </div>
+              )}
 
-            <div className="row g-2">
-              {categories.map((item) => {
-                const isSelected = selected.includes(item.name);
-                const index = selected.indexOf(item.name);
-                return (
-                  <div key={item.name} className="col-md-6">
-                    <div
-                      className={`card premium-choice-card p-3 ${isSelected ? "selected" : ""}`}
-                      onClick={() => handleSelect(item.name)}
-                    >
-                      {isSelected && (
-                        <span className="selection-badge">{index + 1}</span>
-                      )}
-                      {isSelected && index === 0 && (
-                        <span className="primary-tag">Primary</span>
-                      )}
-                      <div className="d-flex align-items-center gap-3">
-                        <div className="fs-5 text-secondary">{item.icon}</div>
-                        <div className="fw-medium" style={{ fontSize: "14px", color: "#111827" }}>{item.name}</div>
+              <div className="row g-2">
+                {categories.map((item) => {
+                  const isSelected = selected.includes(item.name);
+                  const index = selected.indexOf(item.name);
+                  return (
+                    <div key={item.name} className="col-md-6">
+                      <div
+                        className={`card premium-choice-card p-3 ${isSelected ? "selected" : ""}`}
+                        onClick={() => handleSelect(item.name)}
+                      >
+                        {isSelected && (
+                          <span className="selection-badge">{index + 1}</span>
+                        )}
+                        {isSelected && index === 0 && (
+                          <span className="primary-tag">Primary</span>
+                        )}
+                        <div className="d-flex align-items-center gap-3">
+                          <div className="fs-5 text-secondary">{item.icon}</div>
+                          <div className="fw-medium" style={{ fontSize: "14px", color: "#111827" }}>{item.name}</div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {showOtherInput && (
-              <div className="mt-3">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
-                  Other service type
-                </label>
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="e.g. Bridal makeup"
-                  value={otherValue}
-                  onChange={(e) => setOtherValue(e.target.value)}
-                  style={{ height: "48px", borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: "14px" }}
-                />
+                  );
+                })}
               </div>
-            )}
 
+              {showOtherInput && (
+                <div className="mt-3">
+                  <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
+                    Other service type
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="e.g. Bridal makeup"
+                    value={otherValue}
+                    onChange={(e) => setOtherValue(e.target.value)}
+                    style={{ height: "48px", borderRadius: "12px", border: "1px solid #e5e7eb", fontSize: "14px" }}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* FIXED CONTINUE BUTTON */}
+          <div className="service-type-fixed-btn">
             <button
-              className="btn btn-dark w-100 rounded-pill mt-4"
+              className="btn btn-dark w-100 rounded-pill"
               style={{ height: "52px", fontWeight: 600, fontSize: "14px" }}
               disabled={!isValid}
               onClick={handleContinue}

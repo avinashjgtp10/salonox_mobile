@@ -125,14 +125,34 @@ $border:     #E8E4DE;
 .lp-brand {
   display: flex;
   align-items: center;
+  gap: 10px;
   margin-bottom: 24px;
   animation: lp-fade-in 0.5s 0.1s both;
+}
+
+.lp-brand__icon {
+  width: 32px;
+  height: 32px;
+  display: block;
+  flex-shrink: 0;
 }
 
 .lp-brand__logo {
   width: 124px;
   height: auto;
   display: block;
+}
+
+.lp-brand__wordmark {
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.lp-brand__wordmark-accent {
+  color: #14b8a6;
 }
 
 .lp-brand__gem {
