@@ -19,6 +19,7 @@ export default function CurrencySettingsPage() {
   const [currency, setCurrency] = useState(DEFAULT_CURRENCY_CODE);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
 
   useEffect(() => {
     dispatch(getMySalonThunk());
@@ -31,19 +32,46 @@ export default function CurrencySettingsPage() {
     }
   }, [currentSalon, editing]);
 
+  // Warn on tab close/refresh with unsaved changes still pending.
+  useEffect(() => {
+    if (!editing || !isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [editing, isDirty]);
+
   // Picking a country auto-fills the currency with that country's default
   // (e.g. India -> INR) — but currency stays a fully independent choice
   // afterward, so a salon in India billing in USD is still a valid,
   // intentional combination (handleCurrencyChange never touches country).
   const handleCountryChange = (code: string) => {
     setCountry(code);
+    setIsDirty(true);
     const def = getCountryDef(code);
     if (def) setCurrency(def.currency);
+  };
+
+  const handleCurrencyChange = (code: string) => {
+    setCurrency(code);
+    setIsDirty(true);
+  };
+
+  const startEditing = () => {
+    setEditing(true);
+    setIsDirty(false);
   };
 
   const handleSave = async () => {
     if (!currentSalon?.id) {
       showError(CURRENCY_MESSAGES.SALON_NOT_FOUND);
+      return;
+    }
+    if (!isDirty) {
+      // Nothing changed — just leave edit mode instead of firing a no-op save.
+      setEditing(false);
       return;
     }
     setSaving(true);
@@ -52,6 +80,7 @@ export default function CurrencySettingsPage() {
 
     if (updateSalonThunk.fulfilled.match(result)) {
       showSuccess(CURRENCY_MESSAGES.SAVE_SUCCESS);
+      setIsDirty(false);
       setEditing(false);
     } else {
       showError((result.payload as string) || CURRENCY_MESSAGES.SAVE_FAILED);
@@ -59,8 +88,10 @@ export default function CurrencySettingsPage() {
   };
 
   const handleCancel = () => {
+    if (isDirty && !window.confirm("Discard your unsaved changes?")) return;
     setCountry(currentSalon?.country || DEFAULT_COUNTRY_CODE);
     setCurrency(currentSalon?.currency || DEFAULT_CURRENCY_CODE);
+    setIsDirty(false);
     setEditing(false);
   };
 
@@ -82,7 +113,7 @@ export default function CurrencySettingsPage() {
             <Button
               variant="outline-secondary"
               size="sm"
-              onClick={() => setEditing(true)}
+              onClick={startEditing}
               iconLeft={<Pencil size={13} />}
             >
               Edit
@@ -92,7 +123,7 @@ export default function CurrencySettingsPage() {
               <Button variant="ghost" size="sm" onClick={handleCancel} disabled={saving} iconLeft={<X size={13} />}>
                 Cancel
               </Button>
-              <Button size="sm" loading={saving} onClick={handleSave} iconLeft={<Save size={14} />}>
+              <Button size="sm" loading={saving} disabled={saving} onClick={handleSave} iconLeft={<Save size={14} />}>
                 Save changes
               </Button>
             </div>
@@ -112,7 +143,7 @@ export default function CurrencySettingsPage() {
                 <CreditCard size={13} className="me-1" />
                 Currency
               </label>
-              <CurrencySelect value={currency} onChange={setCurrency} disabled={!editing} />
+              <CurrencySelect value={currency} onChange={handleCurrencyChange} disabled={!editing} />
             </div>
           </div>
         </div>

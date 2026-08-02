@@ -144,6 +144,21 @@
   margin-bottom: 28px;
   padding-bottom: 20px;
   border-bottom: 1px solid $dashboard-border;
+
+  // Pages with a page-level Edit/Save/Cancel control (e.g. Business Settings'
+  // single view->edit workflow) need the title block and actions side by
+  // side, wrapping to stacked on narrow viewports instead of squeezing.
+  &--with-actions {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+
+    .settings-section-actions {
+      flex-shrink: 0;
+    }
+  }
 }
 
 .settings-page-title {
@@ -1357,6 +1372,17 @@
   padding-left: 18px;
   line-height: 1.8;
   margin-bottom: 0;
+}
+
+// View-mode success state after a password change — shown in place of the
+// (now hidden again) password fields until the next Edit click.
+.settings-pw-success {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: $success;
+  font-weight: 500;
 }
 
 /* ============================================================

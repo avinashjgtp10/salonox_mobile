@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Bell,
   Mail,
@@ -10,6 +10,8 @@ import {
   Star,
   AlertCircle,
   Save,
+  Pencil,
+  X,
 } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -273,9 +275,23 @@ export default function NotificationsPage() {
   const [settingId, setSettingId] = useState<EntityId | null>(null);
 
   const [whatsappPrefs, setWhatsappPrefs] = useState<WhatsAppPrefs>(defaultWhatsAppPrefs);
-  const [savingWhatsapp, setSavingWhatsapp] = useState(false);
   const [whatsappSettingId, setWhatsappSettingId] = useState<EntityId | null>(null);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+
+  // Single page-level View <-> Edit toggle — every toggle across every
+  // section (Channels, Events, Digest, WhatsApp) becomes editable together
+  // and saves together, instead of each section having its own Save button.
+  const [isEditing, setIsEditing] = useState(false);
+  const [isDirty,   setIsDirty]   = useState(false);
+
+  // Last-saved values, restored verbatim on Cancel. Kept as a ref (not
+  // state) since it only needs to be read/written on load and on
+  // Cancel/Save, never re-rendered off of.
+  const savedSnapshot = useRef({
+    globalEmail: true, globalPush: true, prefs: defaultPrefs,
+    digestMorning: true, digestEvening: false, digestWeekly: true,
+    whatsappPrefs: defaultWhatsAppPrefs,
+  });
 
   useEffect(() => {
     dispatch(fetchSettingsThunk());
@@ -288,16 +304,25 @@ export default function NotificationsPage() {
     try {
       const raw = typeof found.value === "string" ? found.value : JSON.stringify(found.value);
       const stored: NotifStorage = JSON.parse(raw);
-      if (stored.channels) {
-        setGlobalEmail(stored.channels.email ?? true);
-        setGlobalPush(stored.channels.push ?? true);
-      }
-      if (stored.events) setPrefs(stored.events);
-      if (stored.digest) {
-        setDigestMorning(stored.digest.morning ?? true);
-        setDigestEvening(stored.digest.evening ?? false);
-        setDigestWeekly(stored.digest.weekly ?? true);
-      }
+      const nextEmail = stored.channels?.email ?? true;
+      const nextPush = stored.channels?.push ?? true;
+      const nextEvents = stored.events ?? defaultPrefs;
+      const nextMorning = stored.digest?.morning ?? true;
+      const nextEvening = stored.digest?.evening ?? false;
+      const nextWeekly = stored.digest?.weekly ?? true;
+
+      setGlobalEmail(nextEmail);
+      setGlobalPush(nextPush);
+      setPrefs(nextEvents);
+      setDigestMorning(nextMorning);
+      setDigestEvening(nextEvening);
+      setDigestWeekly(nextWeekly);
+
+      savedSnapshot.current = {
+        ...savedSnapshot.current,
+        globalEmail: nextEmail, globalPush: nextPush, prefs: nextEvents,
+        digestMorning: nextMorning, digestEvening: nextEvening, digestWeekly: nextWeekly,
+      };
     } catch {
       // malformed value — keep defaults
     }
@@ -310,13 +335,27 @@ export default function NotificationsPage() {
     try {
       const raw = typeof found.value === "string" ? found.value : JSON.stringify(found.value);
       const stored: WhatsAppPrefs = JSON.parse(raw);
-      setWhatsappPrefs((prev) => ({ ...prev, ...stored }));
+      const next = { ...defaultWhatsAppPrefs, ...stored };
+      setWhatsappPrefs(next);
+      savedSnapshot.current = { ...savedSnapshot.current, whatsappPrefs: next };
     } catch {
       // malformed value — keep defaults
     }
   }, [settingItems]);
 
+  // Warn on tab close/refresh with unsaved changes still pending.
+  useEffect(() => {
+    if (!isEditing || !isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isEditing, isDirty]);
+
   const toggle = (key: NotifKey, channel: Channel) => {
+    setIsDirty(true);
     setPrefs((prev) => ({
       ...prev,
       [key]: {
@@ -327,11 +366,18 @@ export default function NotificationsPage() {
   };
 
   const toggleWhatsapp = (key: WhatsAppKey) => {
+    setIsDirty(true);
     setWhatsappPrefs((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleSave = async () => {
-    setSaving(true);
+  const markDirty = <T,>(setter: (v: T) => void) => (v: T) => {
+    setIsDirty(true);
+    setter(v);
+  };
+
+  // Two settings rows (NOTIF_KEY, WHATSAPP_KEY) persisted independently on
+  // the backend, but presented and saved together as one page-level edit.
+  const saveNotifPrefs = async (): Promise<boolean> => {
     const stored: NotifStorage = {
       channels: { email: globalEmail, push: globalPush },
       events: prefs,
@@ -339,61 +385,127 @@ export default function NotificationsPage() {
     };
     const value = JSON.stringify(stored);
 
-    let ok = false;
     if (settingId) {
       const result = await dispatch(
         updateSettingThunk({ id: settingId, data: { key: NOTIF_KEY, value } })
       );
-      ok = updateSettingThunk.fulfilled.match(result);
-    } else {
-      const result = await dispatch(
-        createSettingThunk({ key: NOTIF_KEY, value, description: "Notification preferences" })
-      );
-      if (createSettingThunk.fulfilled.match(result)) {
-        setSettingId(result.payload.id);
-        ok = true;
-      }
+      return updateSettingThunk.fulfilled.match(result);
     }
-
-    setSaving(false);
-    if (ok) showSuccess("Notification preferences saved");
-    else showError("Failed to save preferences");
+    const result = await dispatch(
+      createSettingThunk({ key: NOTIF_KEY, value, description: "Notification preferences" })
+    );
+    if (createSettingThunk.fulfilled.match(result)) {
+      setSettingId(result.payload.id);
+      return true;
+    }
+    return false;
   };
 
-  const handleSaveWhatsapp = async () => {
-    setSavingWhatsapp(true);
+  const saveWhatsappPrefs = async (): Promise<boolean> => {
     const value = JSON.stringify(whatsappPrefs);
 
-    let ok = false;
     if (whatsappSettingId) {
       const result = await dispatch(
         updateSettingThunk({ id: whatsappSettingId, data: { key: WHATSAPP_KEY, value } })
       );
-      ok = updateSettingThunk.fulfilled.match(result);
-    } else {
-      const result = await dispatch(
-        createSettingThunk({ key: WHATSAPP_KEY, value, description: "WhatsApp notification preferences" })
-      );
-      if (createSettingThunk.fulfilled.match(result)) {
-        setWhatsappSettingId(result.payload.id);
-        ok = true;
-      }
+      return updateSettingThunk.fulfilled.match(result);
+    }
+    const result = await dispatch(
+      createSettingThunk({ key: WHATSAPP_KEY, value, description: "WhatsApp notification preferences" })
+    );
+    if (createSettingThunk.fulfilled.match(result)) {
+      setWhatsappSettingId(result.payload.id);
+      return true;
+    }
+    return false;
+  };
+
+  const startEditing = () => {
+    setIsEditing(true);
+    setIsDirty(false);
+  };
+
+  const handleCancel = () => {
+    if (isDirty && !window.confirm("Discard your unsaved changes?")) return;
+    const snap = savedSnapshot.current;
+    setGlobalEmail(snap.globalEmail);
+    setGlobalPush(snap.globalPush);
+    setPrefs(snap.prefs);
+    setDigestMorning(snap.digestMorning);
+    setDigestEvening(snap.digestEvening);
+    setDigestWeekly(snap.digestWeekly);
+    setWhatsappPrefs(snap.whatsappPrefs);
+    setIsDirty(false);
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
+    if (!isDirty) {
+      // Nothing changed — just leave edit mode instead of firing a no-op save.
+      setIsEditing(false);
+      return;
     }
 
-    setSavingWhatsapp(false);
-    if (ok) showSuccess("WhatsApp notification preferences saved");
-    else showError("Failed to save WhatsApp preferences");
+    setSaving(true);
+    const [notifOk, whatsappOk] = await Promise.all([saveNotifPrefs(), saveWhatsappPrefs()]);
+    setSaving(false);
+
+    if (notifOk && whatsappOk) {
+      showSuccess("Notification preferences saved");
+      savedSnapshot.current = {
+        globalEmail, globalPush, prefs,
+        digestMorning, digestEvening, digestWeekly,
+        whatsappPrefs,
+      };
+      setIsDirty(false);
+      setIsEditing(false);
+    } else {
+      showError("Failed to save some notification preferences");
+    }
   };
 
   return (
     <>
       {overlay}
       {/* Page Header */}
-      <div className="settings-page-header">
-        <h2 className="settings-page-title">Notifications</h2>
-        <p className="settings-page-subtitle">
-          Choose how and when you receive notifications about your business.
-        </p>
+      <div className="settings-page-header settings-page-header--with-actions">
+        <div>
+          <h2 className="settings-page-title">Notifications</h2>
+          <p className="settings-page-subtitle">
+            Choose how and when you receive notifications about your business.
+          </p>
+        </div>
+        {!isEditing ? (
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={startEditing}
+            iconLeft={<Pencil size={13} />}
+          >
+            Edit
+          </Button>
+        ) : (
+          <div className="settings-section-actions">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              disabled={saving}
+              iconLeft={<X size={13} />}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              loading={saving}
+              onClick={handleSave}
+              disabled={saving}
+              iconLeft={<Save size={14} />}
+            >
+              Save changes
+            </Button>
+          </div>
+        )}
       </div>
 
       {/* Global Channels */}
@@ -416,7 +528,8 @@ export default function NotificationsPage() {
           </div>
           <SettingsToggle
             checked={globalEmail}
-            onChange={() => setGlobalEmail((v) => !v)}
+            onChange={() => markDirty(setGlobalEmail)(!globalEmail)}
+            disabled={!isEditing}
           />
         </div>
 
@@ -435,7 +548,8 @@ export default function NotificationsPage() {
           </div>
           <SettingsToggle
             checked={globalPush}
-            onChange={() => setGlobalPush((v) => !v)}
+            onChange={() => markDirty(setGlobalPush)(!globalPush)}
+            disabled={!isEditing}
           />
         </div>
       </SettingsSection>
@@ -473,6 +587,7 @@ export default function NotificationsPage() {
               <SettingsToggle
                 checked={prefs[row.key].email && globalEmail}
                 onChange={() => toggle(row.key, "email")}
+                disabled={!isEditing}
               />
             </div>
 
@@ -480,22 +595,11 @@ export default function NotificationsPage() {
               <SettingsToggle
                 checked={prefs[row.key].push && globalPush}
                 onChange={() => toggle(row.key, "push")}
+                disabled={!isEditing}
               />
             </div>
           </div>
         ))}
-
-        {/* Save Action */}
-        <div className="notif-table-footer">
-          <Button
-            size="sm"
-            loading={saving}
-            onClick={handleSave}
-            iconLeft={<Save size={14} />}
-          >
-            Save preferences
-          </Button>
-        </div>
       </SettingsSection>
 
       {/* Digest Settings */}
@@ -510,7 +614,11 @@ export default function NotificationsPage() {
               Get a daily overview of today's appointments at 8:00 AM
             </p>
           </div>
-          <SettingsToggle checked={digestMorning} onChange={() => setDigestMorning((v) => !v)} />
+          <SettingsToggle
+            checked={digestMorning}
+            onChange={() => markDirty(setDigestMorning)(!digestMorning)}
+            disabled={!isEditing}
+          />
         </div>
         <div className="settings-toggle-row">
           <div className="settings-toggle-info">
@@ -519,7 +627,11 @@ export default function NotificationsPage() {
               Daily revenue, completed appointments, and new clients at 8:00 PM
             </p>
           </div>
-          <SettingsToggle checked={digestEvening} onChange={() => setDigestEvening((v) => !v)} />
+          <SettingsToggle
+            checked={digestEvening}
+            onChange={() => markDirty(setDigestEvening)(!digestEvening)}
+            disabled={!isEditing}
+          />
         </div>
         <div className="settings-toggle-row">
           <div className="settings-toggle-info">
@@ -528,7 +640,11 @@ export default function NotificationsPage() {
               Detailed weekly analytics every Monday morning
             </p>
           </div>
-          <SettingsToggle checked={digestWeekly} onChange={() => setDigestWeekly((v) => !v)} />
+          <SettingsToggle
+            checked={digestWeekly}
+            onChange={() => markDirty(setDigestWeekly)(!digestWeekly)}
+            disabled={!isEditing}
+          />
         </div>
       </SettingsSection>
 
@@ -550,6 +666,7 @@ export default function NotificationsPage() {
                     className="wa-notif-checkbox"
                     checked={whatsappPrefs[item.key]}
                     onChange={() => toggleWhatsapp(item.key)}
+                    disabled={!isEditing}
                   />
                   <span className="wa-notif-channel-label">WhatsApp</span>
                 </label>
@@ -557,16 +674,6 @@ export default function NotificationsPage() {
             ))}
           </div>
         ))}
-        <div className="notif-table-footer">
-          <Button
-            size="sm"
-            loading={savingWhatsapp}
-            onClick={handleSaveWhatsapp}
-            iconLeft={<Save size={14} />}
-          >
-            Save preferences
-          </Button>
-        </div>
       </SettingsSection>
     </>
   );

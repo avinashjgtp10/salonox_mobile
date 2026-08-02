@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Gift, Save, X, ArrowRight, BarChart3, ShoppingCart, Star, Wallet, Info, Eye } from "lucide-react";
+import { Gift, Save, X, Pencil, ArrowRight, BarChart3, ShoppingCart, Star, Wallet, Info, Eye } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
@@ -55,6 +55,12 @@ export default function RewardsSettingsPage() {
   const [saving, setSaving] = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
+  // Page-level View <-> Edit toggle — fields are read-only until Edit is
+  // clicked. Reward Summary / Live Preview below are purely derived from
+  // `config` and keep updating live in both modes, unchanged.
+  const [isEditing, setIsEditing] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+
   useEffect(() => {
     dispatch(fetchSettingsThunk());
   }, [dispatch]);
@@ -71,18 +77,38 @@ export default function RewardsSettingsPage() {
     setInputs(toInputs(parsed));
   }, [settingItems, settingId]);
 
+  // Warn on tab close/refresh with unsaved changes still pending.
+  useEffect(() => {
+    if (!isEditing || !isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isEditing, isDirty]);
+
+  function startEditing() {
+    setIsEditing(true);
+    setIsDirty(false);
+  }
+
   function handleCancel() {
+    if (isDirty && !window.confirm("Discard your unsaved changes?")) return;
     const found = findRewardPointsSetting(settingItems);
     const parsed = found ? parseRewardPointsValue(found.value) : DEFAULT_REWARD_POINTS_CONFIG;
     setConfig(parsed);
     setInputs(toInputs(parsed));
     setErrors({});
+    setIsDirty(false);
+    setIsEditing(false);
   }
 
   function handleInputChange(field: FieldKey, raw: string) {
     const digits = raw.replace(/[^0-9]/g, "");
     setInputs((prev) => ({ ...prev, [field]: digits }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
+    setIsDirty(true);
     // Live-update config as they type (not just on blur) so the Reward
     // Summary / Live Preview panels react immediately, matching the design.
     setConfig((c) => ({ ...c, [field]: Math.max(0, parseInt(digits, 10) || 0) }));
@@ -108,6 +134,11 @@ export default function RewardsSettingsPage() {
   }
 
   async function handleSave() {
+    if (!isDirty) {
+      // Nothing changed — just leave edit mode instead of firing a no-op save.
+      setIsEditing(false);
+      return;
+    }
     if (!validate()) return;
     setSaving(true);
     const value = JSON.stringify(config);
@@ -127,8 +158,13 @@ export default function RewardsSettingsPage() {
     }
 
     setSaving(false);
-    if (ok) showSuccess("Reward points settings saved");
-    else showError("Failed to save reward points settings");
+    if (ok) {
+      showSuccess("Reward points settings saved");
+      setIsDirty(false);
+      setIsEditing(false);
+    } else {
+      showError("Failed to save reward points settings");
+    }
   }
 
   // ── Derived preview numbers ─────────────────────────────────────────────
@@ -160,11 +196,17 @@ export default function RewardsSettingsPage() {
           <input
             type="checkbox"
             checked={config.active}
-            onChange={() => setConfig((c) => ({ ...c, active: !c.active }))}
+            onChange={() => { setIsDirty(true); setConfig((c) => ({ ...c, active: !c.active })); }}
+            disabled={!isEditing}
           />
           <span className="rp-header__toggle-track"><span className="rp-header__toggle-thumb" /></span>
           <span className="rp-header__toggle-label">{config.active ? "Enabled" : "Disabled"}</span>
         </label>
+        {!isEditing && (
+          <button className="rp-btn" onClick={startEditing} style={{ marginLeft: 12 }}>
+            <Pencil size={14} /> Edit
+          </button>
+        )}
       </div>
 
       <div className={`rp-grid${!config.active ? " rp-disabled" : ""}`}>
@@ -188,6 +230,7 @@ export default function RewardsSettingsPage() {
                     value={inputs.spend_amount}
                     onChange={(e) => handleInputChange("spend_amount", e.target.value)}
                     onBlur={() => handleInputBlur("spend_amount", 1)}
+                    disabled={!isEditing}
                   />
                 </div>
                 {errors.spend_amount && <span className="settings-error">{errors.spend_amount}</span>}
@@ -201,6 +244,7 @@ export default function RewardsSettingsPage() {
                     value={inputs.points_earned}
                     onChange={(e) => handleInputChange("points_earned", e.target.value)}
                     onBlur={() => handleInputBlur("points_earned", 1)}
+                    disabled={!isEditing}
                   />
                   <span>Points</span>
                 </div>
@@ -235,6 +279,7 @@ export default function RewardsSettingsPage() {
                     value={inputs.redeem_points}
                     onChange={(e) => handleInputChange("redeem_points", e.target.value)}
                     onBlur={() => handleInputBlur("redeem_points", 1)}
+                    disabled={!isEditing}
                   />
                   <span>Points</span>
                 </div>
@@ -250,6 +295,7 @@ export default function RewardsSettingsPage() {
                     value={inputs.redeem_value}
                     onChange={(e) => handleInputChange("redeem_value", e.target.value)}
                     onBlur={() => handleInputBlur("redeem_value", 1)}
+                    disabled={!isEditing}
                   />
                   <span>Wallet Value</span>
                 </div>
@@ -378,15 +424,18 @@ export default function RewardsSettingsPage() {
         </div>
       </div>
 
-      {/* ── Footer ── */}
-      <div className="rp-footer">
-        <button className="rp-btn" onClick={handleCancel} disabled={saving}>
-          <X size={14} /> Cancel
-        </button>
-        <button className="rp-btn rp-btn--primary" onClick={handleSave} disabled={saving}>
-          <Save size={14} /> {saving ? "Saving…" : "Save Changes"}
-        </button>
-      </div>
+      {/* ── Footer — only in Edit Mode; View Mode's only action is the
+          header's Edit button ── */}
+      {isEditing && (
+        <div className="rp-footer">
+          <button className="rp-btn" onClick={handleCancel} disabled={saving}>
+            <X size={14} /> Cancel
+          </button>
+          <button className="rp-btn rp-btn--primary" onClick={handleSave} disabled={saving}>
+            <Save size={14} /> {saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
