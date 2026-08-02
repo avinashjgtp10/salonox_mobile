@@ -128,16 +128,15 @@ export function useTodayAppointments() {
   // tab) never pushes an update into this hook — it only ever fetched once,
   // on mount, so a booking paid AFTER that fetch kept showing whatever it
   // looked like (booked, and past its slot → "no-show") until the whole page
-  // was reloaded. Poll periodically, and refetch immediately whenever the tab
-  // regains focus/visibility — the common case of switching away to collect
-  // a payment then coming back.
+  // was reloaded. Refetch whenever the tab regains focus/visibility — the
+  // common case of switching away to collect a payment then coming back.
+  // Deliberately NOT a recurring timer — this used to also poll every 30s in
+  // the background regardless of whether the dashboard was even open.
   useEffect(() => {
-    const interval = setInterval(refetch, 30000);
     const onVisible = () => { if (document.visibilityState === "visible") refetch(); };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", refetch);
     return () => {
-      clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", refetch);
     };

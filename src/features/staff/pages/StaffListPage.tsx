@@ -699,6 +699,7 @@ export default function StaffListPage() {
         isOpen={isDrawerOpen}
         onClose={() => setIsDrawerOpen(false)}
         memberId={selectedMemberId}
+        onUpdated={fetchStaff}
       />
 
       {/* ===== DELETE CONFIRMATION ===== */}

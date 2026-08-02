@@ -23,6 +23,7 @@ import {
   Trash,
   SlashCircle,
   CheckCircle,
+  Clipboard,
 } from "react-bootstrap-icons";
 import ClientDetailsDrawer from "../components/ClientDetailsDrawer";
 import ClientSearchInput from "../components/ClientSearchInput";
@@ -864,6 +865,7 @@ export default function ClientsListPage() {
                     <ArrowUp size={12} className={selectedSort === "First name (A-Z)" ? "text-dark" : "text-muted"} />
                   )}
                 </div>
+                <div className="col-referral">Referral code</div>
                 <div className="col-mobile">Mobile number</div>
                 <div className="col-reviews">Reviews</div>
                 <div className="col-sales">Sales</div>
@@ -929,6 +931,24 @@ export default function ClientsListPage() {
                           {client.email || "-"}
                         </div>
                       </div>
+                    </div>
+
+                    <div className="col-referral" title={client.referral_code || "-"}>
+                      <span className="col-referral__code">{client.referral_code || "-"}</span>
+                      {client.referral_code && (
+                        <button
+                          type="button"
+                          className="col-referral__copy-btn"
+                          title="Copy referral code"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            navigator.clipboard.writeText(client.referral_code);
+                            showSuccess("Referral code copied!");
+                          }}
+                        >
+                          <Clipboard size={12} />
+                        </button>
+                      )}
                     </div>
 
                     <div className="col-mobile" title={client.phone_number || "-"}>

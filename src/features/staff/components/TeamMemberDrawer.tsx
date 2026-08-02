@@ -1,23 +1,16 @@
-import React, { useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  X,
-  ChevronDown,
-} from "react-bootstrap-icons";
+import { X, PencilSquare } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
+import { useCurrency } from "../../../hooks/useCurrency";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import "../styles/TeamMemberDrawer.scss";
 
 const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December",
 ];
-
-function ordinal(n: number): string {
-  const suffixes = ["th", "st", "nd", "rd"];
-  const v = n % 100;
-  return `${n}${suffixes[(v - 20) % 10] || suffixes[v] || suffixes[0]}`;
-}
 
 function formatDob(day?: number | null, month?: number | null): string | null {
   if (!day || !month || month < 1 || month > 12) return null;
@@ -28,217 +21,207 @@ function formatJoined(dateStr?: string | null): string | null {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
-  return `${MONTH_NAMES[d.getMonth()]} ${ordinal(d.getDate())}, ${d.getFullYear()} – present`;
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 }
 
 function formatColorLabel(key?: string | null): string | null {
-  if (!key || key.startsWith("#")) return null;
+  if (!key) return null;
+  if (key.startsWith("#")) return key.toUpperCase();
   return key.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function InfoRow({ label, value }: { label: string; value?: React.ReactNode }) {
+  return (
+    <div className="tmd-info-row">
+      <span className="tmd-info-label">{label}</span>
+      <span className="tmd-info-value">{value || "–"}</span>
+    </div>
+  );
 }
 
 interface TeamMemberDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   memberId: string | number | null;
-  onViewCalendar?: (id: string | number) => void;
-  onViewShifts?: (id: string | number) => void;
-  onAddTimeOff?: (id: string | number) => void;
+  /** Called after Activate/Deactivate succeeds, so the parent list's own
+   *  Active/Inactive column/filter stays in sync without a manual refresh. */
+  onUpdated?: () => void;
 }
 
 const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
   isOpen,
   onClose,
   memberId,
-  onViewCalendar,
-  onViewShifts,
-  onAddTimeOff,
+  onUpdated,
 }) => {
   const navigate = useNavigate();
-  const [showActions, setShowActions] = useState(false);
+  const { formatAmount } = useCurrency();
+  const { showSuccess, showError, overlay } = useStatusOverlay();
   const [member, setMember] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
+  const [togglingActive, setTogglingActive] = useState(false);
 
-  React.useEffect(() => {
+  const loadMember = useCallback(async (id: string | number) => {
+    setLoading(true);
+    try {
+      const [staffRes, wagesRes] = await Promise.all([
+        api.get(STAFF.BY_ID(id)),
+        api.get(STAFF.WAGES(id)).catch(() => null),
+      ]);
+      const data = staffRes.data?.data || staffRes.data;
+      const wages = wagesRes?.data?.data;
+      if (data) {
+        const name = [data.first_name, data.last_name].filter(Boolean).join(" ") || "Unknown";
+        setMember({
+          id: data.id,
+          name,
+          initials: (data.first_name?.[0] || "?").toUpperCase(),
+          avatarColor: data.calendar_color?.startsWith?.("#") ? data.calendar_color : "#111827",
+          isActive: data.is_active !== false,
+          email: data.email || null,
+          mobile: (data.phone_number || data.phone)
+            ? `${data.phone_country_code || ""} ${data.phone_number || data.phone}`.trim()
+            : null,
+          gender: data.gender || null,
+          dob: formatDob(data.birthday_day, data.birthday_month),
+          address: data.address || null,
+          country: data.country || null,
+          joinedDate: formatJoined(data.joined_date),
+          employmentType: data.employment_type || null,
+          designation: data.designation || data.job_title || null,
+          staffMemberId: data.employee_code || data.id,
+          workingHoursPerDay: data.working_hours_per_day != null ? `${data.working_hours_per_day} hrs/day` : null,
+          weeklyHolidays: data.holidays != null ? String(data.holidays) : null,
+          calendarColor: data.calendar_color || null,
+          calendarColorLabel: formatColorLabel(data.calendar_color),
+          hourlyRate: wages?.hourly_rate != null ? formatAmount(Number(wages.hourly_rate)) : null,
+          fixedSalary: wages?.salary_amount != null ? formatAmount(Number(wages.salary_amount)) : null,
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching team member details:", error);
+      setMember(null);
+    } finally {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
     if (isOpen && memberId) {
-      const fetchMember = async () => {
-        try {
-          const res = await api.get(STAFF.BY_ID(memberId));
-          const data = res.data?.data || res.data;
-          if (data) {
-            const name = [data.first_name, data.last_name].filter(Boolean).join(" ") || "Unknown";
-            setMember({
-              id: data.id,
-              name,
-              initials: (data.first_name?.[0] || "").toUpperCase(),
-              avatarColor: data.calendar_color || "#111827",
-              email: data.email || "–",
-              phoneDisplay: (data.phone || data.phone_number)
-                ? `${data.phone_country_code || ""} ${data.phone || data.phone_number}`.trim()
-                : "–",
-              dob: formatDob(data.birthday_day, data.birthday_month) || "–",
-              country: data.country || "–",
-              colorLabel: formatColorLabel(data.calendar_color) || "–",
-              jobTitle: data.designation || data.job_title || "–",
-              employment: formatJoined(data.joined_date) || "–",
-              employmentType: data.employment_type || "–",
-              teamMemberId: data.employee_code || data.id || "–",
-            });
-          }
-        } catch (error) {
-          console.error("Error fetching team member details:", error);
-        }
-      };
-      fetchMember();
+      loadMember(memberId);
     } else if (!isOpen) {
       setMember(null);
     }
-  }, [isOpen, memberId]);
+  }, [isOpen, memberId, loadMember]);
 
-  if (!isOpen || !member) return null;
+  const handleToggleActive = async () => {
+    if (!member || togglingActive) return;
+    setTogglingActive(true);
+    try {
+      const endpoint = member.isActive ? STAFF.DEACTIVATE(member.id) : STAFF.ACTIVATE(member.id);
+      await api.patch(endpoint);
+      setMember((prev: any) => (prev ? { ...prev, isActive: !prev.isActive } : prev));
+      showSuccess(member.isActive ? "Staff member deactivated" : "Staff member activated");
+      onUpdated?.();
+    } catch {
+      showError("Failed to update staff status. Please try again.");
+    } finally {
+      setTogglingActive(false);
+    }
+  };
+
+  if (!isOpen) return null;
 
   return (
-    <div
-      className={`tm-drawer-overlay ${isOpen ? "show" : ""}`}
-      onClick={onClose}
-    >
-      <div className="tm-drawer" onClick={(e) => e.stopPropagation()}>
-        <header className="tm-drawer__header">
-          <button className="close-btn" onClick={onClose}>
-            <X size={24} />
-          </button>
-          <div className="member-profile">
-            <div className="name-section">
-              <h3>
-                {member.name.split(" ")[1]?.toLowerCase() ||
-                  member.name.toLowerCase()}
-              </h3>
-              <div className="actions-container">
-                <button
-                  className="actions-btn"
-                  onClick={() => setShowActions(!showActions)}
-                >
-                  Actions <ChevronDown size={12} />
-                </button>
-                {showActions && (
-                  <div className="actions-menu">
-                    <button
-                      className="actions-item"
-                      onClick={() => {
-                        navigate(`/dashboard/team/edit/${member.id}`);
-                        onClose();
-                      }}
-                    >
-                      Edit
-                    </button>
-                    <button
-                      className="actions-item"
-                      onClick={() => {
-                        onViewCalendar?.(member.id);
-                        onClose();
-                      }}
-                    >
-                      View calendar
-                    </button>
-                    <button
-                      className="actions-item"
-                      onClick={() => {
-                        onViewShifts?.(member.id);
-                        onClose();
-                      }}
-                    >
-                      View scheduled shifts
-                    </button>
-                    <button
-                      className="actions-item"
-                      onClick={() => {
-                        onAddTimeOff?.(member.id);
-                        onClose();
-                      }}
-                    >
-                      Add time off
-                    </button>
-                  </div>
-                )}
+    <div className={`tm-drawer-overlay ${isOpen ? "show" : ""}`} onClick={onClose}>
+      {overlay}
+      <div className="tm-drawer tmd-simple" onClick={(e) => e.stopPropagation()}>
+        <button className="tmd-close" onClick={onClose}>
+          <X size={20} />
+        </button>
+
+        {loading || !member ? (
+          <div className="tmd-loading">Loading staff details…</div>
+        ) : (
+          <>
+            {/* Header */}
+            <div className="tmd-header">
+              <div className="tmd-avatar" style={{ "--avatar-bg": member.avatarColor } as React.CSSProperties}>
+                {member.initials}
+              </div>
+              <div className="tmd-identity">
+                <h3 className="tmd-name">{member.name}</h3>
+                {member.designation && <p className="tmd-designation">{member.designation}</p>}
+                <div className="tmd-meta-row">
+                  <span className={`tmd-status-badge ${member.isActive ? "active" : "inactive"}`}>
+                    {member.isActive ? "Active" : "Inactive"}
+                  </span>
+                  {member.joinedDate && (
+                    <span className="tmd-joined-since">Joined {member.joinedDate}</span>
+                  )}
+                </div>
               </div>
             </div>
-            <div className="avatar" style={{ "--avatar-bg": member.avatarColor } as React.CSSProperties}>
-              {member.initials}
+
+            {/* Quick actions */}
+            <div className="tmd-quick-actions">
+              <button
+                type="button"
+                className="tmd-action-btn"
+                onClick={() => { navigate(`/dashboard/team/${member.id}`); onClose(); }}
+              >
+                <PencilSquare size={13} /> Edit Staff
+              </button>
+              <button
+                type="button"
+                className={`tmd-action-btn ${member.isActive ? "tmd-action-btn--danger" : "tmd-action-btn--success"}`}
+                onClick={handleToggleActive}
+                disabled={togglingActive}
+              >
+                {togglingActive ? "Please wait…" : member.isActive ? "Deactivate" : "Activate"}
+              </button>
             </div>
-          </div>
-        </header>
 
-        <div className="tm-drawer__body">
-          <main className="tm-drawer__content">
-            <div className="personal-tab">
-              <div className="tab-header">
-                <h3>Personal information</h3>
-                <button
-                  className="edit-btn"
-                  onClick={() => navigate(`/dashboard/team/${member.id}`)}
-                >
-                  Edit
-                </button>
-              </div>
+            {/* Info sections */}
+            <div className="tmd-body">
+              <div className="tmd-section-title">Personal Information</div>
+              <InfoRow label="Full Name" value={member.name} />
+              <InfoRow label="Email" value={member.email} />
+              <InfoRow label="Mobile Number" value={member.mobile} />
+              <InfoRow label="Gender" value={member.gender} />
+              <InfoRow label="Date of Birth" value={member.dob} />
+              <InfoRow label="Address" value={member.address} />
+              <InfoRow label="Country" value={member.country} />
 
-              <div className="personal-section">
-                <h4>Profile</h4>
-                <div className="details-grid">
-                  <div className="detail-item">
-                    <label>Full name</label>
-                    <p>{member.name}</p>
-                  </div>
-                  <div className="detail-item">
-                    <label>Email</label>
-                    <p>{member.email}</p>
-                  </div>
-                  <div className="detail-item">
-                    <label>Phone number</label>
-                    <p>{member.phoneDisplay}</p>
-                  </div>
-                  <div className="detail-item">
-                    <label>Date of birth</label>
-                    <p>{member.dob}</p>
-                  </div>
-                  <div className="detail-item">
-                    <label>Country</label>
-                    <p>{member.country}</p>
-                  </div>
-                  <div className="detail-item">
-                    <label>Calendar color</label>
-                    <div className="color-preview">
+              <div className="tmd-section-title tmd-section-title--mt">Employment Details</div>
+              <InfoRow label="Date of Joining" value={member.joinedDate} />
+              <InfoRow label="Employment Type" value={member.employmentType} />
+              <InfoRow label="Designation" value={member.designation} />
+              <InfoRow label="Staff Member ID" value={member.staffMemberId} />
+
+              <div className="tmd-section-title tmd-section-title--mt">Work Information</div>
+              <InfoRow label="Working Hours per Day" value={member.workingHoursPerDay} />
+              <InfoRow label="Weekly Holidays" value={member.weeklyHolidays} />
+              <InfoRow label="Hourly Rate" value={member.hourlyRate} />
+              <InfoRow label="Fixed Salary" value={member.fixedSalary} />
+              <InfoRow
+                label="Calendar Color"
+                value={
+                  member.calendarColor ? (
+                    <span className="tmd-color-value">
                       <span
-                        className="color-dot"
+                        className="tmd-color-dot"
                         style={{ "--avatar-bg": member.avatarColor } as React.CSSProperties}
-                      ></span>
-                      <p>{member.colorLabel}</p>
-                    </div>
-                  </div>
-                  <div className="detail-item">
-                    <label>Job title</label>
-                    <p>{member.jobTitle}</p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="personal-section">
-                <h4>Work details</h4>
-                <div className="details-grid">
-                  <div className="detail-item">
-                    <label>Employment</label>
-                    <p>{member.employment}</p>
-                  </div>
-                  <div className="detail-item">
-                    <label>Employment type</label>
-                    <p>{member.employmentType}</p>
-                  </div>
-                  <div className="detail-item">
-                    <label>Staff member ID</label>
-                    <p>{member.teamMemberId}</p>
-                  </div>
-                </div>
-              </div>
+                      />
+                      {member.calendarColorLabel}
+                    </span>
+                  ) : null
+                }
+              />
             </div>
-          </main>
-        </div>
+          </>
+        )}
       </div>
     </div>
   );

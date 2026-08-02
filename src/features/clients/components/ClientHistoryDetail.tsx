@@ -475,11 +475,50 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
         .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id }))
     );
 
-  // Packages from sale line items
-  const packagesFromSales = sales.flatMap((s) =>
-    (s.items ?? []).filter((it) => it.item_type === "package")
-      .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id }))
-  );
+  // A package purchase produces both a `sales` row and a `packages` (client-package)
+  // row for the same event — match them by name/amount/time so a package entry can
+  // reuse the sale's real invoice for printing, any duplicate "Quick Sale" row for it
+  // can be dropped from Visit History, and (below) its sale-line-item mirror can be
+  // excluded from the Packages tab's own count. Matched on name/amount/time rather
+  // than the sale item's `item_type` field, since the backend sometimes mislabels a
+  // package line item as "service".
+  const packageSaleMatch = useMemo(() => {
+    const usedSaleIds = new Set<string>();
+    const map = new Map<string, SaleRecord>();
+    packages.forEach((pkg) => {
+      const pkgTime = new Date(pkg.created_date).getTime();
+      const pkgAmount = Number(pkg.total_amount) || 0;
+      const matchedSale = sales.find((sale) => {
+        if (usedSaleIds.has(sale.id)) return false;
+        const hasPkgItem = (sale.items ?? []).some((it) => it.name === pkg.package_name);
+        if (!hasPkgItem) return false;
+        if (Math.abs((Number(sale.total_amount) || 0) - pkgAmount) > 0.5) return false;
+        return Math.abs(new Date(sale.created_at).getTime() - pkgTime) < 10 * 60 * 1000;
+      });
+      if (matchedSale) {
+        usedSaleIds.add(matchedSale.id);
+        map.set(pkg.id, matchedSale);
+      }
+    });
+    return map;
+  }, [packages, sales]);
+
+  // Sale ids already accounted for by a real `packages` (client_packages) purchase
+  // record — excludes a package purchase's sale-line-item mirror below (Packages
+  // tab), AND excludes it from the walk-in visit count further down (SCRUM-1109) —
+  // one canonical set, reused by both, instead of two independent computations
+  // that could silently drift apart.
+  const packageSaleIds = new Set([...packageSaleMatch.values()].map((s) => s.id));
+
+  // Packages from sale line items — excludes any sale already matched to a real
+  // client_packages purchase row above (see packageSaleIds), so a package purchase
+  // shows up exactly once in this tab, not once per record that happens to exist for it.
+  const packagesFromSales = sales
+    .filter((s) => !packageSaleIds.has(s.id))
+    .flatMap((s) =>
+      (s.items ?? []).filter((it) => it.item_type === "package")
+        .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id }))
+    );
   const salePackageNames = new Set(packagesFromSales.map((it) => it.name));
 
   // Packages booked directly inside appointments (package_items field)
@@ -637,33 +676,6 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     return map;
   }, [appointments, quickSales]);
 
-  // A package purchase produces both a `sales` row and a `packages` (client-package)
-  // row for the same event — match them by name/amount/time so a package entry can
-  // reuse the sale's real invoice for printing, and any duplicate "Quick Sale" row for
-  // it can be dropped from Visit History. Matched on name/amount/time rather than the
-  // sale item's `item_type` field, since the backend sometimes mislabels a package
-  // line item as "service".
-  const packageSaleMatch = useMemo(() => {
-    const usedSaleIds = new Set<string>();
-    const map = new Map<string, SaleRecord>();
-    packages.forEach((pkg) => {
-      const pkgTime = new Date(pkg.created_date).getTime();
-      const pkgAmount = Number(pkg.total_amount) || 0;
-      const matchedSale = sales.find((sale) => {
-        if (usedSaleIds.has(sale.id)) return false;
-        const hasPkgItem = (sale.items ?? []).some((it) => it.name === pkg.package_name);
-        if (!hasPkgItem) return false;
-        if (Math.abs((Number(sale.total_amount) || 0) - pkgAmount) > 0.5) return false;
-        return Math.abs(new Date(sale.created_at).getTime() - pkgTime) < 10 * 60 * 1000;
-      });
-      if (matchedSale) {
-        usedSaleIds.add(matchedSale.id);
-        map.set(pkg.id, matchedSale);
-      }
-    });
-    return map;
-  }, [packages, sales]);
-
   // Unified, date-sorted Visit History feed: appointments + quick sales + package purchases
   type VisitEntry =
     | { kind: "appointment"; date: string; appt: AppointmentRecord }
@@ -702,8 +714,8 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   // EVERY sale with no appointment — including the sale rows that back a
   // package/membership purchase and any non-completed sale — inflating the
   // number (SCRUM-1109). Exclude package-purchase sale rows (they already show
-  // as a package) and keep only completed walk-ins.
-  const packageSaleIds = new Set([...packageSaleMatch.values()].map((s) => s.id));
+  // as a package) and keep only completed walk-ins. packageSaleIds is declared
+  // earlier (shared with the Packages tab's own dedup — see its comment there).
   const walkInVisitCount = quickSales.filter(
     (s) => s.status === "completed" && !packageSaleIds.has(s.id),
   ).length;
