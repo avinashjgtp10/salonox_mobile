@@ -1,12 +1,11 @@
 // src/components/packages/PackageCreateForm.tsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { User, Loader2, Search, Plus, X } from "lucide-react";
+import { Loader2, Search, Plus, X } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import styles from "./packages.module.scss";
 import type { ClientPackage, PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
 import { useListPackageTemplatesQuery, useCreatePackageTemplateMutation } from "../../services/api/endpoints/packages.endpoints";
 import type { ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
-import ClientSelectorWithAdd from "./ClientSelectorWithAdd";
 import { useCreateClientPackage } from "../../hooks/packages/usePackages";
 import { useServices } from "../../features/catalog/hooks/useServices";
 import type { Service } from "../../features/catalog/types/catalog.types";
@@ -78,10 +77,6 @@ const toBackendPaymentMethod = (label: string) => label.toLowerCase().replace(/\
 const fromBackendPaymentMethod = (id: string) =>
   PKG_PAYMENT_METHODS.find(m => toBackendPaymentMethod(m) === id) ?? "Cash";
 
-function initials(name: string) {
-  return name.split(" ").map(n => n[0]).join("").slice(0, 2).toUpperCase();
-}
-
 function newServiceRow(): NewService {
   return {
     id: Date.now(), name: "", catalogServiceId: null, sessions: 1, sessionsStr: "1", price: 0, priceStr: "",
@@ -90,7 +85,7 @@ function newServiceRow(): NewService {
 }
 
 const PackageCreateForm: React.FC<Props> = ({
-  selectedClient, onClientChange, onCancel, onSaved, onTemplateSaved, templateToLoad,
+  selectedClient, onCancel, onSaved, onTemplateSaved, templateToLoad,
   quickCreateMode = false,
 }) => {
   const { currencySymbol, formatAmount } = useCurrency();
@@ -430,35 +425,6 @@ const PackageCreateForm: React.FC<Props> = ({
             Choose Template
           </button>
         </div>
-      )}
-
-      {/* ── Client ─────────────────────────────────────────────────────────── */}
-      {!isGeneric && (
-      <div className={styles.card} style={{ marginBottom: 12 }}>
-        <div className={styles.cardHead}>
-          <div className={styles.cardTitle}><User size={13} /> Client</div>
-          {selectedClient && (
-            <button onClick={() => onClientChange(null)} className={styles.btnSecondary} style={{ padding: "3px 10px", fontSize: 12 }}>
-              Change
-            </button>
-          )}
-        </div>
-        {selectedClient ? (
-          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px" }}>
-            <div className={`${styles.avatar} ${styles["avatar--md"]}`}>{initials(clientFullName)}</div>
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#111827" }}>{clientFullName}</div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 1 }}>
-                {selectedClient.phone_number}{selectedClient.email ? ` · ${selectedClient.email}` : ""}
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div style={{ padding: "12px 16px" }}>
-            <ClientSelectorWithAdd onSelect={c => onClientChange(c)} placeholder="Search client by name or mobile…" />
-          </div>
-        )}
-      </div>
       )}
 
       {/* ── Package details ─────────────────────────────────────────────────── */}
