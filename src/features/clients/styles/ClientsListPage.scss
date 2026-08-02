@@ -550,7 +550,7 @@
     .table-header,
     .table-row {
       display: grid;
-      grid-template-columns: 72px minmax(0, 2.2fr) minmax(0, 1.3fr) 110px 120px 120px 48px;
+      grid-template-columns: 72px minmax(0, 2fr) 140px minmax(0, 1.2fr) 110px 120px 120px 48px;
       align-items: center;
       padding: 14px 18px;
       font-size: 14px;
@@ -726,10 +726,44 @@
       white-space: nowrap;
     }
 
+    .col-referral {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-width: 0;
+
+      .col-referral__code {
+        font-family: monospace;
+        font-size: 13px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+
+      .col-referral__copy-btn {
+        flex-shrink: 0;
+        width: 24px;
+        height: 24px;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        color: #6b7280;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+
+        &:hover {
+          background: #f3f4f6;
+          color: #111827;
+        }
+      }
+    }
+
     @media (max-width: 1024px) {
       .table-header,
       .table-row {
-        grid-template-columns: 64px minmax(0, 2fr) minmax(0, 1.2fr) 92px 108px 104px 48px;
+        grid-template-columns: 64px minmax(0, 2fr) 120px minmax(0, 1.2fr) 92px 108px 104px 48px;
         column-gap: 10px;
       }
     }
@@ -743,7 +777,8 @@
       }
 
       .col-reviews,
-      .col-created {
+      .col-created,
+      .col-referral {
         display: none;
       }
     }

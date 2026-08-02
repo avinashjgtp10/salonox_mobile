@@ -49,7 +49,7 @@ export const exportStaffPDF = (staff: ExportableStaff[]): Blob => {
     head: [COLS.map((c) => c.header)],
     body: staff.map((s) => COLS.map((c) => c.fn(s))),
     startY: 30,
-    styles: { fontSize: 8.5, cellPadding: 3, overflow: "linebreak", textColor: [30, 30, 30] },
+    styles: { fontSize: 8.5, cellPadding: 3, overflow: "linebreak", textColor: [30, 30, 30], valign: "middle" },
     headStyles: {
       fillColor: [237, 233, 254],
       textColor: [55, 48, 163],
@@ -57,9 +57,24 @@ export const exportStaffPDF = (staff: ExportableStaff[]): Blob => {
       fontSize: 9,
       lineColor: [196, 181, 253],
       lineWidth: 0.3,
+      halign: "left",
     },
     alternateRowStyles: { fillColor: [249, 250, 251] },
     bodyStyles: { lineColor: [229, 231, 235], lineWidth: 0.2 },
+    // Fixed widths per column — without these, autoTable's default "auto"
+    // sizing lets one long value (e.g. a long email) balloon that column
+    // and squeeze the rest, so short-content columns (Role/Status) end up
+    // inconsistently narrow row-to-row and the whole table reads as
+    // unevenly/misaligned. Name/Email get the most room since they're the
+    // most variable-length fields.
+    columnStyles: {
+      0: { cellWidth: 55 }, // Name
+      1: { cellWidth: 70 }, // Email
+      2: { cellWidth: 35 }, // Phone
+      3: { cellWidth: 40 }, // Role
+      4: { cellWidth: 30 }, // Status
+    },
+    tableWidth: "wrap",
   });
 
   return doc.output("blob");

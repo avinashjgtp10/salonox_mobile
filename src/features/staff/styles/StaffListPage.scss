@@ -106,6 +106,15 @@ $radius: 12px;
   white-space: nowrap;
   svg { flex-shrink: 0; }
   &:hover { background: #f9fafb; }
+  // The Export rows render as <Button>s (DownloadButton), whose base class
+  // hardcodes `justify-content-center` — Bootstrap's utility classes compile
+  // with `!important` (`.justify-content-center{justify-content:center
+  // !important}`), so higher selector specificity alone can't beat it; this
+  // override needs `!important` too, or it's silently a no-op.
+  &.btn {
+    justify-content: flex-start !important;
+    text-align: left;
+  }
 }
 
 .slp-option-divider { height: 1px; background: $border; margin: 4px 0; }

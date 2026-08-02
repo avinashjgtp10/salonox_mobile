@@ -29,7 +29,7 @@ export interface DashboardAllResponse {
     status: "completed" | "upcoming" | "partial" | "cancelled" | "no-show" | "deleted";
     amount: number;
   }>;
-  revenueChart: Array<{ month: string; revenue: number; expenses: number }>;
+  revenueChart: Array<{ month: string; fullLabel: string; revenue: number; expenses: number }>;
   topStaff: Array<{
     id: string;
     name: string;
@@ -84,7 +84,7 @@ export const fetchDashboardAll = createAsyncThunk<
 
 // Chart-only reload — called when the period filter changes
 export const fetchRevenueChart = createAsyncThunk<
-  Array<{ month: string; revenue: number; expenses: number }>,
+  Array<{ month: string; fullLabel: string; revenue: number; expenses: number }>,
   { period: string }
 >(
   "dashboard/fetchRevenueChart",

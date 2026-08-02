@@ -149,10 +149,13 @@ function utcHourLabelToLocal(label: string): string {
     const todayUtc = new Date().toISOString().slice(0, 10);
     const dt = new Date(`${todayUtc}T${String(utcH).padStart(2, "0")}:00:00Z`);
     const lh = dt.getHours();
-    if (lh === 0)  return "12AM";
-    if (lh < 12)   return `${lh}AM`;
-    if (lh === 12) return "12PM";
-    return `${lh - 12}PM`;
+    // Always on the hour (chart buckets are hourly) — ":00" is fixed, not
+    // carried over from the input, since only the hour itself ever shifts
+    // across a UTC→local conversion.
+    if (lh === 0)  return "12:00 AM";
+    if (lh < 12)   return `${String(lh).padStart(2, "0")}:00 AM`;
+    if (lh === 12) return "12:00 PM";
+    return `${String(lh - 12).padStart(2, "0")}:00 PM`;
   } catch {
     return label;
   }
@@ -300,9 +303,15 @@ const RevenueTooltip = memo(function RevenueTooltip({ active, payload, label }: 
   const { formatAmount } = useCurrency();
   if (!active || !payload?.length) return null;
   const rev = payload.find((p: any) => p.dataKey === "revenue");
+  // fullLabel carries the complete date/time context ("Tue, 28 Jul 2026" for
+  // weekly, "28 Jul 2026" for monthly, "Jul 2026" for yearly) — the axis
+  // label alone (`label`, e.g. just "Tue" or "28") is deliberately short so
+  // it stays readable across many ticks. Falls back to `label` for any older
+  // payload shape that hasn't been re-fetched with fullLabel yet.
+  const fullLabel = payload[0]?.payload?.fullLabel ?? label;
   return (
     <div className="db-tooltip">
-      <p className="db-tooltip-label">{label}</p>
+      <p className="db-tooltip-label">{fullLabel}</p>
       {rev && (
         <p className="db-tooltip-value">
           {formatAmount(rev.value || 0)}
@@ -652,7 +661,7 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
   onPeriodChange,
   onRetry,
 }: {
-  revenue: Array<{ month: string; revenue: number; expenses: number }>;
+  revenue: Array<{ month: string; fullLabel: string; revenue: number; expenses: number }>;
   chartLoading: boolean;
   error: string | null;
   revPeriod: RevPeriod;
@@ -1290,16 +1299,16 @@ export default function DashboardPage() {
   // A client/appointment/sale created elsewhere (Clients page, Calendar,
   // Quick Sale) never pushes an update into this page's KPI cards (New
   // Clients, Today's Revenue, etc.) — they only ever loaded once, on mount.
-  // Poll periodically, and refresh immediately whenever the tab regains
-  // focus/visibility, so "add a client, come back to Dashboard" reflects
-  // without needing the manual Refresh button.
+  // Refresh whenever the tab regains focus/visibility (i.e. you actually
+  // come back to look at it), so "add a client, come back to Dashboard"
+  // reflects without needing the manual Refresh button. Deliberately NOT a
+  // recurring timer — this used to also poll every 60s in the background
+  // regardless of whether the dashboard was even being looked at.
   useEffect(() => {
-    const interval = setInterval(handleRefresh, 60000);
     const onVisible = () => { if (document.visibilityState === "visible") handleRefresh(); };
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", handleRefresh);
     return () => {
-      clearInterval(interval);
       document.removeEventListener("visibilitychange", onVisible);
       window.removeEventListener("focus", handleRefresh);
     };
@@ -1383,10 +1392,17 @@ export default function DashboardPage() {
   // Revenue Overview must reflect actual completed sales, not quoted/booked
   // appointment amounts (which include upcoming and cancelled appointments
   // and don't match the final billed total). The backend's "today" chart is
-  // bucketed by UTC hour, so only the label needs shifting to local time.
+  // bucketed by UTC hour, so both labels need shifting to local time —
+  // fullLabel equals month for "today" (the hour IS the full context), so it
+  // needs the identical conversion or the tooltip would show the raw UTC
+  // hour while the axis correctly shows local time.
   const displayRevenueChart = useMemo(() => {
     if (revPeriod !== "today") return revenueChart;
-    return revenueChart.map((pt) => ({ ...pt, month: utcHourLabelToLocal(pt.month) }));
+    return revenueChart.map((pt) => ({
+      ...pt,
+      month: utcHourLabelToLocal(pt.month),
+      fullLabel: utcHourLabelToLocal(pt.fullLabel),
+    }));
   }, [revenueChart, revPeriod]);
 
   const today = useMemo(

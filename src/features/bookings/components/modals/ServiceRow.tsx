@@ -916,7 +916,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
             // This field's DISPLAY still needs to reflect the discounted
             // payable amount, though, or the membership badges above look
             // like they did nothing to this row's price.
-            value={displayedRowTotal.toFixed(2)}
+            value={`${currencySymbol}${displayedRowTotal.toFixed(2)}`}
             title={rowTotalTitle}
             className="svc-field__input svc-field__input--readonly"
           />
