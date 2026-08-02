@@ -4,39 +4,39 @@
    SETTINGS PAGE — LAYOUT
    ============================================================ */
 
-// Rendered height of .settings-sticky-header below — kept as one value so
-// the left nav's own sticky offset can sit flush underneath it instead of
-// overlapping once both are stuck to the top of .main's scrollport.
-$settings-header-height: 60px;
+// .main (DashboardLayout.tsx) is the app's own scroll container/shell — it
+// sits below the fixed 70px top navbar and has its own 20px padding on every
+// side. Rather than fight that shared scrollport with position:sticky hacks
+// (fragile — see git history), Settings takes over as its own app-shell:
+// .settings-wrapper fills .main's full available box and stops IT from
+// scrolling, so .settings-sticky-header and .settings-nav are just normal,
+// non-scrolling flex children — they physically cannot move on scroll,
+// regardless of direction. Only .settings-content gets its own scrollbar.
+// (70px navbar + 40px .main padding must stay in sync with DashboardPage.scss.)
+.settings-wrapper {
+  height: calc(100vh - 70px - 40px);
+  display: flex;
+  flex-direction: column;
+  // Cancel .main's own 20px padding so this shell fills the true available
+  // box, then re-add that spacing below on the pieces that actually need it.
+  margin: -20px;
+}
 
 .settings-root {
   display: flex;
   gap: 0;
-  min-height: calc(100vh - 110px);
+  flex: 1;
+  min-height: 0; // required for a flex child to allow its own inner scroll
   max-width: 1280px;
+  width: 100%;
   margin: 0 auto;
+  padding: 0 20px 20px;
+  overflow: hidden;
 }
 
-/* ── Sticky page header ──────────────────────────────────────
-   .main (DashboardLayout.tsx) is the app's own scroll container, already
-   sitting below the fixed 70px top navbar — but it also has its own 20px
-   padding on every side, and `position: sticky; top: 0` is measured
-   against that PADDING edge, not the true top of .main's box. Left as-is,
-   that leaves a permanent 20px strip above the stuck header where .main's
-   padding area sits, and anything else painted in that same region (e.g.
-   .settings-nav/.settings-content scrolling underneath) can visually show
-   through it. Canceling .main's 20px with a matching negative margin/top
-   here — then re-adding it as this element's own padding — pulls the
-   header flush to the actual top and left/right edges of .main, so it's
-   the only thing occupying that space. (20px must stay in sync with
-   .main's own padding in DashboardPage.scss.)
-   */
 .settings-sticky-header {
-  position: sticky;
-  top: -20px;
-  z-index: 20;
+  flex-shrink: 0;
   background: $white;
-  margin: -20px -20px 16px;
   padding: 12px 20px 16px;
   border-bottom: 1px solid $dashboard-border;
 }
@@ -46,14 +46,22 @@ $settings-header-height: 60px;
   width: 240px;
   flex-shrink: 0;
   padding-right: 20px;
-  position: sticky;
-  // Sits just below the stuck header instead of at the very top, so the two
-  // never overlap once both are pinned during scroll. No independent
-  // max-height/overflow here — the nav scrolls as part of the same .main
-  // scrollport as .settings-content, not as its own separate scroll region
-  // (that desynced it from the content pane).
-  top: calc(#{$settings-header-height} + 16px);
-  align-self: flex-start;
+  padding-top: 16px;
+  align-self: stretch;
+  // .settings-root clips overflow so .settings-content can own the scroll —
+  // but on a short viewport, 13 nav items across 5 groups can be taller than
+  // the available height. Without its own scroll here, anything past that
+  // height would be silently clipped and permanently unreachable.
+  overflow-y: auto;
+
+  &::-webkit-scrollbar {
+    width: 4px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 4px;
+  }
 }
 
 .settings-nav-group {
@@ -119,13 +127,17 @@ $settings-header-height: 60px;
   border-top: 1px solid $dashboard-border;
 }
 
-/* ── Right Content ── */
+/* ── Right Content — the ONLY thing that scrolls on the Settings page ── */
 .settings-content {
   flex: 1;
   min-width: 0;
   padding-left: 24px;
+  padding-top: 16px;
   border-left: 1px solid $dashboard-border;
+  overflow-y: auto;
+  height: 100%;
 }
+
 
 /* ── Page Header ── */
 .settings-page-header {
@@ -1124,10 +1136,6 @@ $settings-header-height: 60px;
 /* ============================================================
    SETTINGS LAYOUT
    ============================================================ */
-
-.settings-wrapper {
-  padding: 24px 0;
-}
 
 .settings-heading {
   font-size: 22px;

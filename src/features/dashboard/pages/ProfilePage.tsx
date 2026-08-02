@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+﻿import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
 import {
@@ -16,7 +16,14 @@ import {
 import { getMySalonThunk, updateSalonThunk } from "../../../middleware/salon/salon.thunk";
 import type { UpdateUserPayload } from "../../../types/user.types";
 import type { UpdateSalonPayload } from "../../../types/salon.types";
+import { TAX_ID_MESSAGES } from "../../../constants/message";
 import "../styles/ProfilePage.scss";
+
+const GSTIN_LENGTH = 15;
+const PAN_LENGTH = 10;
+// 2-digit state code + 10-char PAN + 1-digit entity code + "Z" + 1 checksum char.
+const GSTIN_FORMAT_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+const PAN_FORMAT_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -81,12 +88,12 @@ function validateSalonForm(form: UpdateSalonPayload): Errors {
     e.website_url = "Website must start with http:// or https://.";
 
   const gst = String(form.gst_number ?? "").trim().toUpperCase();
-  if (gst && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst))
-    e.gst_number = "Invalid GST format (e.g. 22AAAAA0000A1Z5).";
+  if (gst && !GSTIN_FORMAT_RE.test(gst))
+    e.gst_number = gst.length !== GSTIN_LENGTH ? TAX_ID_MESSAGES.GSTIN_LENGTH : TAX_ID_MESSAGES.GSTIN_FORMAT;
 
   const pan = String(form.pan_number ?? "").trim().toUpperCase();
-  if (pan && !/^[A-Z]{5}[0-9]{4}[A-Z]$/.test(pan))
-    e.pan_number = "Invalid PAN format (e.g. ABCDE1234F).";
+  if (pan && !PAN_FORMAT_RE.test(pan))
+    e.pan_number = pan.length !== PAN_LENGTH ? TAX_ID_MESSAGES.PAN_LENGTH : TAX_ID_MESSAGES.PAN_FORMAT;
 
   const pincode = String(form.pincode ?? "").trim();
   if (pincode && !/^[0-9]{4,10}$/.test(pincode))
@@ -111,12 +118,13 @@ interface FieldProps {
   placeholder?: string;
   readOnly?: boolean;
   error?: string;
+  maxLength?: number;
   onChange: (name: string, value: string) => void;
 }
 
 const ProfileField = ({
   label, value, name, icon, editing, type = "text",
-  placeholder, readOnly = false, error, onChange,
+  placeholder, readOnly = false, error, maxLength, onChange,
 }: FieldProps) => (
   <div className="pp-field">
     <label className="pp-field-label">{label}</label>
@@ -128,6 +136,7 @@ const ProfileField = ({
           className="pp-field-input"
           value={value}
           placeholder={placeholder ?? label}
+          maxLength={maxLength}
           onChange={(e) => onChange(name, e.target.value)}
           autoComplete="off"
         />
@@ -264,6 +273,30 @@ export default function ProfilePage() {
   };
 
   const handleSalonFieldChange = (name: string, value: string) => {
+    if (name === "gst_number") {
+      value = value.toUpperCase().slice(0, GSTIN_LENGTH);
+      setSalonFieldErrors((prev) => ({
+        ...prev,
+        gst_number: value && !GSTIN_FORMAT_RE.test(value)
+          ? (value.length !== GSTIN_LENGTH ? TAX_ID_MESSAGES.GSTIN_LENGTH : TAX_ID_MESSAGES.GSTIN_FORMAT)
+          : "",
+      }));
+      setSalonForm((prev) => ({ ...prev, [name]: value }));
+      return;
+    }
+
+    if (name === "pan_number") {
+      value = value.toUpperCase().slice(0, PAN_LENGTH);
+      setSalonFieldErrors((prev) => ({
+        ...prev,
+        pan_number: value && !PAN_FORMAT_RE.test(value)
+          ? (value.length !== PAN_LENGTH ? TAX_ID_MESSAGES.PAN_LENGTH : TAX_ID_MESSAGES.PAN_FORMAT)
+          : "",
+      }));
+      setSalonForm((prev) => ({ ...prev, [name]: value }));
+      return;
+    }
+
     setSalonForm((prev) => ({ ...prev, [name]: value }));
     if (salonFieldErrors[name]) setSalonFieldErrors((prev) => { const e = { ...prev }; delete e[name]; return e; });
   };
@@ -421,15 +454,6 @@ export default function ProfilePage() {
   return (
     <div className="pp-page">
       {overlay}
-
-      {/* ── PAGE HEADER ── */}
-      <div className="pp-page-header">
-        <button className="pp-back-btn" onClick={handleBack}>
-          <ChevronLeft size={16} /><span>Back</span>
-        </button>
-        <h1 className="pp-page-title">My Profile</h1>
-        <p className="pp-page-sub">Manage your personal information and salon details</p>
-      </div>
 
       <div className="pp-layout">
 
@@ -606,297 +630,6 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
-          </section>
-
-          {/* ── Salon Information ── */}
-          <section className="pp-section">
-            <div className="pp-section-header">
-              <div className="pp-section-icon pp-section-icon--purple">
-                <Building size={16} />
-              </div>
-              <div>
-                <h3 className="pp-section-title">Salon Information</h3>
-                <p className="pp-section-sub">
-                  {salonFetching ? "Loading salon details…" : "Your salon's business details and location"}
-                </p>
-              </div>
-              {!salonFetching && currentSalon && (
-                !salonEditing ? (
-                  <button className="pp-section-toggle" onClick={() => setSalonEditing(true)}>
-                    Edit
-                  </button>
-                ) : (
-                  <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
-                    <button
-                      className="pp-section-toggle pp-section-toggle--open"
-                      onClick={handleSalonSave}
-                      disabled={salonSaving}
-                    >
-                      {salonSaving ? "Saving…" : "Save"}
-                    </button>
-                    <button className="pp-section-toggle" onClick={handleSalonCancel}>
-                      Cancel
-                    </button>
-                  </div>
-                )
-              )}
-            </div>
-
-            {/* Salon banners */}
-            {salonError && (
-              <div className="pp-error-banner" style={{ marginBottom: 16 }}>
-                <XLg size={13} />{salonError}
-                <button className="pp-error-close" onClick={() => setSalonError(null)}><XLg size={11} /></button>
-              </div>
-            )}
-            {salonSaved && (
-              <div className="pp-success-banner" style={{ marginBottom: 16 }}>
-                <CheckCircleFill size={13} /> Salon updated successfully!
-              </div>
-            )}
-
-            {salonFetching && !currentSalon ? (
-              <ProfileSkeleton />
-            ) : currentSalon ? (
-              <>
-                {/* Basic */}
-                <p className="pp-subsection-label">Basic Details</p>
-                <div className="pp-fields-grid" style={{ marginBottom: 20 }}>
-                  <ProfileField
-                    label="Salon Name" value={String(salonForm.business_name ?? "")} name="business_name"
-                    icon={<Building size={14} />} editing={salonEditing}
-                    placeholder="Enter salon name" error={salonFieldErrors.business_name}
-                    onChange={handleSalonFieldChange}
-                  />
-                  <ProfileField
-                    label="Salon Email" value={String(salonForm.email ?? "")} name="email"
-                    icon={<Envelope size={14} />} editing={salonEditing}
-                    type="email" placeholder="salon@example.com" error={salonFieldErrors.email}
-                    onChange={handleSalonFieldChange}
-                  />
-                  <ProfileField
-                    label="Salon Phone" value={String(salonForm.phone ?? "")} name="phone"
-                    icon={<Telephone size={14} />} editing={salonEditing}
-                    type="tel" placeholder="+91 98765 43210" error={salonFieldErrors.phone}
-                    onChange={handleSalonFieldChange}
-                  />
-                  <ProfileField
-                    label="Website" value={String(salonForm.website_url ?? "")} name="website_url"
-                    icon={<Globe size={14} />} editing={salonEditing}
-                    placeholder="https://yoursalon.com" error={salonFieldErrors.website_url}
-                    onChange={handleSalonFieldChange}
-                  />
-                </div>
-
-                {/* Business & Tax */}
-                <p className="pp-subsection-label">Business &amp; Tax</p>
-                <div className="pp-fields-grid" style={{ marginBottom: 20 }}>
-                  <ProfileField
-                    label="GST Number" value={String(salonForm.gst_number ?? "")} name="gst_number"
-                    icon={<Hash size={14} />} editing={salonEditing}
-                    placeholder="22AAAAA0000A1Z5" error={salonFieldErrors.gst_number}
-                    onChange={handleSalonFieldChange}
-                  />
-                  <ProfileField
-                    label="Business Reg. No. (PAN)" value={String(salonForm.pan_number ?? "")} name="pan_number"
-                    icon={<CreditCard size={14} />} editing={salonEditing}
-                    placeholder="AAAAA1234A" error={salonFieldErrors.pan_number}
-                    onChange={handleSalonFieldChange}
-                  />
-                  <ProfileField
-                    label="Business Type" value={String(salonForm.business_type ?? "")} name="business_type"
-                    icon={<Building size={14} />} editing={salonEditing}
-                    placeholder="e.g. Salon, Spa" onChange={handleSalonFieldChange}
-                  />
-                  <ProfileField
-                    label="Business Category" value={String(salonForm.business_category ?? "")} name="business_category"
-                    icon={<Tag size={14} />} editing={salonEditing}
-                    placeholder="e.g. Hair, Beauty" onChange={handleSalonFieldChange}
-                  />
-                </div>
-
-                {/* Location */}
-                <p className="pp-subsection-label">Location</p>
-                <div className="pp-fields-grid" style={{ marginBottom: 20 }}>
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <ProfileField
-                      label="Address" value={String(salonForm.address ?? "")} name="address"
-                      icon={<GeoAlt size={14} />} editing={salonEditing}
-                      placeholder="Street address" onChange={handleSalonFieldChange}
-                    />
-                  </div>
-                  <ProfileField
-                    label="City" value={String(salonForm.city ?? "")} name="city"
-                    icon={<MapFill size={14} />} editing={salonEditing}
-                    placeholder="City" onChange={handleSalonFieldChange}
-                  />
-                  <ProfileField
-                    label="State" value={String(salonForm.state ?? "")} name="state"
-                    icon={<MapFill size={14} />} editing={salonEditing}
-                    placeholder="State" onChange={handleSalonFieldChange}
-                  />
-                  <ProfileField
-                    label="Pincode" value={String(salonForm.pincode ?? "")} name="pincode"
-                    icon={<Hash size={14} />} editing={salonEditing}
-                    placeholder="400001" error={salonFieldErrors.pincode}
-                    onChange={handleSalonFieldChange}
-                  />
-                </div>
-
-                {/* Regional Settings */}
-                <p className="pp-subsection-label">Regional Settings</p>
-                <div className="pp-fields-grid">
-                  <ProfileField
-                    label="Timezone" value={String(salonForm.timezone ?? "")} name="timezone"
-                    icon={<Clock size={14} />} editing={salonEditing}
-                    placeholder="Asia/Kolkata" onChange={handleSalonFieldChange}
-                  />
-                  <div style={{ gridColumn: "1 / -1" }}>
-                    <ProfileField
-                      label="Description" value={String(salonForm.description ?? "")} name="description"
-                      icon={<FileText size={14} />} editing={salonEditing}
-                      placeholder="Brief description of your salon" error={salonFieldErrors.description}
-                      onChange={handleSalonFieldChange}
-                    />
-                  </div>
-                </div>
-              </>
-            ) : (
-              <p style={{ fontSize: 13, color: "#9ca3af", padding: "8px 0" }}>
-                No salon linked to your account.
-              </p>
-            )}
-          </section>
-
-          {/* ── Account & Security ── */}
-          <section className="pp-section">
-            <div className="pp-section-header">
-              <div className="pp-section-icon pp-section-icon--amber">
-                <ShieldLock size={16} />
-              </div>
-              <div>
-                <h3 className="pp-section-title">Account &amp; Security</h3>
-                <p className="pp-section-sub">Manage your password and security settings</p>
-              </div>
-              <button
-                className={`pp-section-toggle ${pwSection ? "pp-section-toggle--open" : ""}`}
-                onClick={() => { setPwSection((v) => !v); setPwError(null); setPwSuccess(false); }}
-              >
-                {pwSection ? "Close" : "Change Password"}
-              </button>
-            </div>
-
-            {pwSection && (
-              <div className="pp-pw-body">
-                {pwSuccess && (
-                  <div className="pp-success-banner">
-                    <CheckCircleFill size={13} /> Password updated successfully.
-                  </div>
-                )}
-                {pwError && (
-                  <div className="pp-error-banner">
-                    <XLg size={13} />
-                    {pwError}
-                    <button className="pp-error-close" aria-label="Dismiss error" title="Dismiss error" onClick={() => setPwError(null)}><XLg size={11} /></button>
-                  </div>
-                )}
-                <div className="pp-pw-fields">
-                  <div className="pp-pw-field">
-                    <label className="pp-field-label">Current Password</label>
-                    <div className="pp-pw-input-wrap">
-                      <ShieldLock size={14} className="pp-pw-icon" />
-                      <input
-                        type={showPwCur ? "text" : "password"}
-                        className="pp-pw-input"
-                        value={pwCurrent}
-                        onChange={(e) => setPwCurrent(e.target.value)}
-                        placeholder="Enter current password"
-                        autoComplete="current-password"
-                      />
-                      <button
-                        className="pp-pw-eye"
-                        aria-label={showPwCur ? "Hide password" : "Show password"}
-                        title={showPwCur ? "Hide password" : "Show password"}
-                        onClick={() => setShowPwCur(v => !v)}
-                      >
-                        {showPwCur ? <EyeSlash size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="pp-pw-field">
-                    <label className="pp-field-label">New Password</label>
-                    <div className="pp-pw-input-wrap">
-                      <ShieldLock size={14} className="pp-pw-icon" />
-                      <input
-                        type={showPwNew ? "text" : "password"}
-                        className="pp-pw-input"
-                        value={pwNew}
-                        onChange={(e) => setPwNew(e.target.value)}
-                        placeholder="Min 8 characters"
-                        autoComplete="new-password"
-                      />
-                      <button
-                        className="pp-pw-eye"
-                        aria-label={showPwNew ? "Hide password" : "Show password"}
-                        title={showPwNew ? "Hide password" : "Show password"}
-                        onClick={() => setShowPwNew(v => !v)}
-                      >
-                        {showPwNew ? <EyeSlash size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                    {pwNew.length > 0 && (
-                      <div className="pp-pw-strength">
-                        {[1, 2, 3, 4].map((i) => (
-                          <div
-                            key={i}
-                            className={`pp-pw-bar ${
-                              pwNew.length >= i * 3
-                                ? pwNew.length >= 10 ? "pp-pw-bar--strong"
-                                : pwNew.length >= 6  ? "pp-pw-bar--medium"
-                                : "pp-pw-bar--weak"
-                                : ""
-                            }`}
-                          />
-                        ))}
-                        <span className="pp-pw-strength-label">
-                          {pwNew.length < 6 ? "Weak" : pwNew.length < 10 ? "Medium" : "Strong"}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                  <div className="pp-pw-field">
-                    <label className="pp-field-label">Confirm New Password</label>
-                    <div className="pp-pw-input-wrap">
-                      <ShieldLock size={14} className="pp-pw-icon" />
-                      <input
-                        type={showPwConf ? "text" : "password"}
-                        className="pp-pw-input"
-                        value={pwConfirm}
-                        onChange={(e) => setPwConfirm(e.target.value)}
-                        placeholder="Re-enter new password"
-                        autoComplete="new-password"
-                      />
-                      <button
-                        className="pp-pw-eye"
-                        aria-label={showPwConf ? "Hide password" : "Show password"}
-                        title={showPwConf ? "Hide password" : "Show password"}
-                        onClick={() => setShowPwConf(v => !v)}
-                      >
-                        {showPwConf ? <EyeSlash size={14} /> : <Eye size={14} />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  className="pp-pw-submit-btn"
-                  onClick={handlePasswordChange}
-                  disabled={changingPw}
-                >
-                  {changingPw ? <span className="pp-spinner" /> : <ShieldLock size={14} />}
-                  {changingPw ? "Updating…" : "Update Password"}
-                </button>
-              </div>
-            )}
           </section>
 
         </div>

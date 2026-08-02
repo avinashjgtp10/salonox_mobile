@@ -1,44 +1,16 @@
-import { lazy, Suspense } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
-import { PageLoader } from "../components/ui/PageLoader";
+import { Routes, Route } from "react-router-dom";
 import SettingsLayout from "../features/settings/components/SettingsLayout";
 
-const ProfileSettingsPage   = lazy(() => import("../features/settings/pages/ProfileSettingsPage"));
-const BusinessSettingsPage  = lazy(() => import("../features/settings/pages/BusinessSettingsPage"));
-const AccountSettingsPage   = lazy(() => import("../features/settings/pages/AccountSettingsPage"));
-const NotificationsPage     = lazy(() => import("../features/settings/pages/NotificationsPage"));
-const RolesPermissionsPage  = lazy(() => import("../features/settings/pages/RolesPermissionsPage"));
-const IntegrationsPage      = lazy(() => import("../features/settings/pages/IntegrationsPage"));
-const BillingPage           = lazy(() => import("../features/settings/pages/BillingPage"));
-const DataPrivacyPage       = lazy(() => import("../features/settings/pages/DataPrivacyPage"));
-const SettingsManagementPage = lazy(() => import("../features/settings/pages/SettingsManagementPage"));
-const CurrencySettingsPage    = lazy(() => import("../features/settings/pages/CurrencySettingsPage"));
-const RewardsSettingsPage    = lazy(() => import("../features/settings/pages/RewardsSettingsPage"));
-const ReferralSettingsPage   = lazy(() => import("../features/settings/pages/ReferralSettingsPage"));
-const CouponsSettingsPage    = lazy(() => import("../features/settings/pages/CouponsSettingsPage"));
-
+// SettingsLayout renders exactly one active section at a time (switched by
+// sidebar click, not routed pages) inside a fixed header/sidebar shell. The
+// sub-paths just keep deep links (e.g. /dashboard/settings/business) working
+// and stay in sync with whichever section is active — SettingsLayout reads
+// the path itself to decide which section to show, both on mount and on
+// browser back/forward.
 export const SettingsRoutes = () => (
-  <Suspense fallback={<PageLoader />}>
-    <Routes>
-      <Route element={<SettingsLayout />}>
-        {/* Default redirect to profile */}
-        <Route index element={<Navigate to="profile" replace />} />
-        <Route path="profile"       element={<ProfileSettingsPage />} />
-        <Route path="business"      element={<BusinessSettingsPage />} />
-        <Route path="account"       element={<AccountSettingsPage />} />
-        <Route path="notifications" element={<NotificationsPage />} />
-        <Route path="roles"         element={<RolesPermissionsPage />} />
-        <Route path="integrations"  element={<IntegrationsPage />} />
-        <Route path="billing"       element={<BillingPage />} />
-        <Route path="data-privacy"  element={<DataPrivacyPage />} />
-        <Route path="tax-mapping"    element={<SettingsManagementPage />} />
-        <Route path="currency"       element={<CurrencySettingsPage />} />
-        <Route path="reward-points" element={<RewardsSettingsPage />} />
-        <Route path="referral"      element={<ReferralSettingsPage />} />
-        <Route path="coupons"       element={<CouponsSettingsPage />} />
-        {/* Catch-all → profile */}
-        <Route path="*"             element={<Navigate to="profile" replace />} />
-      </Route>
-    </Routes>
-  </Suspense>
+  <Routes>
+    <Route index element={<SettingsLayout />} />
+    <Route path=":section" element={<SettingsLayout />} />
+    <Route path="*" element={<SettingsLayout />} />
+  </Routes>
 );
