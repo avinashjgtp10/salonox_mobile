@@ -8,7 +8,24 @@
   &.rp-status-on_leave { background: #f3f4f6; color: #6b7280; }
 }
 
-.rp-att-source {
-  text-transform: capitalize;
+.rp-att-filter-field {
+  min-width: 180px;
+
+  .form-select {
+    height: 36px;
+  }
+}
+
+.rp-att-clear-btn {
+  height: 36px;
+  padding: 0 12px;
+  border: none;
+  background: none;
   color: #6b7280;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  text-decoration: underline;
+
+  &:hover { color: #374151; }
 }

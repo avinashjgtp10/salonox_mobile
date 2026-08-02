@@ -11,6 +11,8 @@ export interface DateRangePickerProps {
   /** "YYYY-MM-DD" */
   endDate: string;
   onChange: (startDate: string, endDate: string) => void;
+  /** Opt-in Today/This Week/This Month quick-pick row, shown above the calendar. */
+  showQuickPresets?: boolean;
 }
 
 function getMonthDays(year: number, month0: number): (string | null)[] {
@@ -24,12 +26,21 @@ function getMonthDays(year: number, month0: number): (string | null)[] {
   return days;
 }
 
+// dd/MM/yyyy, consistently with every report table/export — en-IN's
+// {day:"2-digit",month:"short",year:"numeric"} used to render "30 Jun 2026",
+// inconsistent with the rest of the app.
 const fmtLabel = (iso: string) => {
   const d = new Date(iso + "T12:00:00");
-  return isNaN(d.getTime()) ? iso : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  if (isNaN(d.getTime())) return iso;
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 };
 
-export default function DateRangePicker({ startDate, endDate, onChange }: DateRangePickerProps) {
+const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+export default function DateRangePicker({ startDate, endDate, onChange, showQuickPresets = false }: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [draftStart, setDraftStart] = useState(startDate);
   const [draftEnd, setDraftEnd] = useState(endDate);
@@ -92,6 +103,23 @@ export default function DateRangePicker({ startDate, endDate, onChange }: DateRa
     setOpen(false);
   };
 
+  const today = () => {
+    const iso = toISO(new Date());
+    onChange(iso, iso);
+    setOpen(false);
+  };
+
+  const thisWeek = () => {
+    const now = new Date();
+    // Sunday-start week, matching DAYS_ABBR's Su-Sa header order above.
+    const first = new Date(now);
+    first.setDate(now.getDate() - now.getDay());
+    const last = new Date(first);
+    last.setDate(first.getDate() + 6);
+    onChange(toISO(first), toISO(last));
+    setOpen(false);
+  };
+
   const days = getMonthDays(viewYear, viewMonth0);
 
   return (
@@ -102,6 +130,13 @@ export default function DateRangePicker({ startDate, endDate, onChange }: DateRa
       </button>
       {open && (
         <div className="drp-pop" onMouseDown={e => e.stopPropagation()}>
+          {showQuickPresets && (
+            <div className="drp-quick-presets">
+              <button type="button" className="drp-quick-btn" onClick={today}>Today</button>
+              <button type="button" className="drp-quick-btn" onClick={thisWeek}>This Week</button>
+              <button type="button" className="drp-quick-btn" onClick={thisMonth}>This Month</button>
+            </div>
+          )}
           <div className="drp-nav-row">
             <button type="button" className="drp-nav-btn" onClick={prevMonth}>‹</button>
             <span className="drp-month-label">{MONTHS[viewMonth0]} {viewYear}</span>
