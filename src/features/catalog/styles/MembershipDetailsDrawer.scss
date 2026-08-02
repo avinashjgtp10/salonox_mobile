@@ -96,6 +96,40 @@
           text-transform: uppercase;
           letter-spacing: 0.025em;
         }
+        .type-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 5px;
+          font-size: 0.75rem;
+          font-weight: 600;
+          padding: 3px 10px;
+          border-radius: 20px;
+          white-space: nowrap;
+
+          &::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            flex-shrink: 0;
+          }
+
+          &--value {
+            background: #f0fdf4;
+            color: #16a34a;
+            &::before { background: #16a34a; }
+          }
+          &--percentage {
+            background: #eff6ff;
+            color: #2563eb;
+            &::before { background: #2563eb; }
+          }
+          &--loyalty {
+            background: #fdf4ff;
+            color: #a21caf;
+            &::before { background: #a21caf; }
+          }
+        }
       }
     }
 
@@ -199,50 +233,6 @@
         display: flex;
         align-items: center;
         gap: 6px;
-      }
-    }
-
-    .settings-list {
-      .setting-row {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 8px;
-        font-size: 0.875rem;
-        color: #475569;
-
-        .status-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          background: #cbd5e1;
-          &.active {
-            background: #22c55e;
-          }
-        }
-        .status-text {
-          font-weight: 600;
-        }
-      }
-    }
-
-    .tc-box {
-      background: #f8fafc;
-      border-radius: 12px;
-      padding: 16px;
-      border: 1px dashed #e2e8f0;
-
-      .tc-title {
-        font-size: 0.8125rem;
-        font-weight: 700;
-        color: #0f172a;
-        margin-bottom: 8px;
-      }
-      .tc-text {
-        font-size: 0.8125rem;
-        color: #64748b;
-        margin: 0;
-        white-space: pre-wrap;
       }
     }
   }

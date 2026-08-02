@@ -113,19 +113,31 @@
     margin-bottom: 16px;
   }
 
-  &__section-label {
+  /* ── Section cards (Membership Type / Basic Information /
+     Benefit Configuration / Membership Description) ────────────── */
+  &__card {
+    background: #fff;
+    border: 1px solid #eef1f5;
+    border-radius: 14px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+
+    &:last-child { margin-bottom: 0; }
+  }
+
+  &__card-title {
     font-size: 11px;
     font-weight: 800;
     color: #7c3aed;
     text-transform: uppercase;
     letter-spacing: 0.1em;
-    margin-bottom: 8px;
+    margin: 0 0 12px;
   }
 
-  &__divider {
-    height: 1px;
-    background: #eef1f5;
-    margin: 2px 0;
+  &__card-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
 
   /* ── Type-selector card row ──────────────────────────────────── */
@@ -133,16 +145,15 @@
     display: grid;
     grid-template-columns: repeat(3, 1fr);
     gap: 10px;
-    margin-bottom: 14px;
 
     @media (max-width: 640px) { grid-template-columns: 1fr; }
   }
 
-  /* ── Single-column field list, switches per selected type ────── */
+  /* ── Card list, switches per selected type ────────────────────── */
   &__form {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    gap: 14px;
   }
 
   &__hint {
@@ -152,22 +163,37 @@
     line-height: 1.4;
   }
 
+  // Colours match each type's own badge elsewhere in the membership module
+  // (MembershipsListPage/MembershipDetailsDrawer): green=Wallet, blue=Discount
+  // Balance, purple=Loyalty — was uniformly purple regardless of type before.
   &__wallet-preview {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    background: linear-gradient(135deg, #f5f3ff, #eef2ff);
-    border: 1px solid #e0d7fb;
     border-radius: 11px;
     padding: 8px 15px;
     font-size: 12.5px;
     font-weight: 600;
-    color: #5b21b6;
 
     strong { font-size: 15px; font-weight: 800; }
+
+    &--value {
+      background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+      border: 1px solid #bbf7d0;
+      color: #15803d;
+    }
+
+    &--percentage {
+      background: linear-gradient(135deg, #eff6ff, #eef2ff);
+      border: 1px solid #bfdbfe;
+      color: #1d4ed8;
+    }
   }
 
   /* ── Membership type card ─────────────────────────────────────── */
+  // Each type gets its own accent once selected, matching that type's badge
+  // colour elsewhere in the module (green=Wallet, blue=Discount Balance,
+  // purple=Loyalty) instead of every type sharing the same purple accent.
   &__type-card {
     display: flex;
     align-items: center;
@@ -184,9 +210,20 @@
     &:hover { border-color: #c4b5fd; transform: translateY(-1px); box-shadow: 0 6px 16px rgba(124, 58, 237, 0.10); }
 
     &--on {
-      border-color: #7c3aed;
-      background: linear-gradient(135deg, #f5f3ff, #eef2ff);
-      box-shadow: 0 6px 18px rgba(124, 58, 237, 0.16);
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.12);
+    }
+
+    &--on.amm__type-card--value {
+      border-color: #16a34a;
+      background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+    }
+    &--on.amm__type-card--percentage {
+      border-color: #2563eb;
+      background: linear-gradient(135deg, #eff6ff, #eef2ff);
+    }
+    &--on.amm__type-card--loyalty {
+      border-color: #a21caf;
+      background: linear-gradient(135deg, #fdf4ff, #fdf2f8);
     }
   }
 
@@ -202,8 +239,16 @@
     flex-shrink: 0;
     transition: all 0.18s;
 
-    .amm__type-card--on & {
-      background: linear-gradient(135deg, #7c3aed, #6366f1);
+    .amm__type-card--on.amm__type-card--value & {
+      background: linear-gradient(135deg, #16a34a, #22c55e);
+      color: #fff;
+    }
+    .amm__type-card--on.amm__type-card--percentage & {
+      background: linear-gradient(135deg, #2563eb, #3b82f6);
+      color: #fff;
+    }
+    .amm__type-card--on.amm__type-card--loyalty & {
+      background: linear-gradient(135deg, #a21caf, #c026d3);
       color: #fff;
     }
   }
@@ -217,15 +262,17 @@
     border: 1.5px solid #cbd5e1;
     position: relative;
 
-    .amm__type-card--on & {
-      border-color: #7c3aed;
-      &::after {
-        content: '';
-        position: absolute;
-        inset: 3px;
-        border-radius: 50%;
-        background: #7c3aed;
-      }
+    .amm__type-card--on.amm__type-card--value & {
+      border-color: #16a34a;
+      &::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: #16a34a; }
+    }
+    .amm__type-card--on.amm__type-card--percentage & {
+      border-color: #2563eb;
+      &::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: #2563eb; }
+    }
+    .amm__type-card--on.amm__type-card--loyalty & {
+      border-color: #a21caf;
+      &::after { content: ''; position: absolute; inset: 3px; border-radius: 50%; background: #a21caf; }
     }
   }
 

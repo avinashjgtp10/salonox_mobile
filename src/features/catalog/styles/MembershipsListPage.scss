@@ -481,10 +481,10 @@
     background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 14px;
-    // No overflow set here on purpose: CSS forces overflow-y to compute as
-    // "auto" (clipping) as soon as overflow-x isn't "visible", and either
-    // would clip the row kebab menu's dropdown, which is an absolutely
-    // positioned descendant that intentionally escapes the row's bounds.
+    // No overflow set here on purpose: with the Status column gone the table
+    // fits without scrolling, and the row kebab menu (a portal, see
+    // MembershipsListPage.tsx) no longer needs this to stay unclipped either
+    // way — but leaving overflow unset avoids a scrollbar with nothing to do.
   }
 
   &__table {
@@ -554,17 +554,6 @@
     font-size: 14px;
   }
 
-  &__services {
-    display: block;
-    font-size: 12px;
-    color: #94a3b8;
-    margin-top: 2px;
-    max-width: 260px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   /* ── Membership type badge (Value / Percentage) ─────────────── */
   &__type-badge {
     display: inline-flex;
@@ -603,6 +592,7 @@
     }
   }
 
+  /* ── Status badge ────────────────────────────────────────────── */
   /* ── Muted td ────────────────────────────────────────────────── */
   &__td-muted {
     color: #64748b !important;

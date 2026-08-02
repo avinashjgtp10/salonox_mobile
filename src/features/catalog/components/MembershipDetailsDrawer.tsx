@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { XLg, Pencil, CardList, InfoCircle, PersonFill } from "react-bootstrap-icons";
+import { XLg, Pencil, CardList, PersonFill } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { useCurrency } from "../../../hooks/useCurrency";
 import type { AppDispatch } from "../../../store/store";
+import type { Membership } from "../../../services/api/endpoints/memberships.endpoints";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
 import { selectAllCategories } from "../../../store/selectors/slices.selectors";
+import { getMembershipMeta, TYPE_LABEL, APPLIES_TO_LABEL } from "../utils/membershipMeta";
 import "../styles/MembershipDetailsDrawer.scss";
 
 interface MembershipDetailsDrawerProps {
@@ -24,7 +26,7 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
   const dispatch = useDispatch<AppDispatch>();
   const { formatAmount } = useCurrency();
 
-  const [membership, setMembership] = useState<any>(null);
+  const [membership, setMembership] = useState<Membership | null>(null);
   const [loading,    setLoading]    = useState(false);
 
   const categories = useSelector(selectAllCategories) as { id: string | number; name: string }[];
@@ -82,13 +84,14 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
     }
   }, [isOpen, membershipId]);
 
-  // Parse description JSON
-  const descMeta = (() => {
-    try { return JSON.parse(membership?.description ?? "{}"); } catch { return {}; }
-  })();
-  const bonusCredit  = Number(descMeta.bonusCredit) || 0;
+  const meta = getMembershipMeta(membership ?? {});
+  const bonusCredit  = Number(meta.bonusCredit) || 0;
   const walletValue  = (Number(membership?.price) || 0) + bonusCredit;
   const type: "value" | "percentage" | "loyalty" = membership?.pricingType ?? "value";
+  const appliesToLabel = APPLIES_TO_LABEL[membership?.appliesTo ?? "services"] ?? "Services";
+  const categoriesLabel = membership?.categoryIds?.length
+    ? membership.categoryIds.map((id) => categoryNameById.get(id) ?? id).join(", ")
+    : "All categories";
   if (!isOpen) return null;
 
   return (
@@ -105,16 +108,10 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
             </div>
             <div className="title-section">
               <h3 className="membership-name">{membership?.name || "Loading..."}</h3>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span className="validity-badge">{membership?.validFor || "–"}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
                 {membership && (
-                  <span style={{
-                    fontSize: "0.7rem", fontWeight: 700, padding: "2px 9px",
-                    borderRadius: 20, textTransform: "uppercase", letterSpacing: "0.04em",
-                    background: membership.status === "active" ? "#dcfce7" : "#f1f5f9",
-                    color:      membership.status === "active" ? "#16a34a" : "#64748b",
-                  }}>
-                    {membership.status === "active" ? "Active" : "Inactive"}
+                  <span className={`type-pill type-pill--${type}`}>
+                    {TYPE_LABEL[type] ?? "Wallet"}
                   </span>
                 )}
               </div>
@@ -159,158 +156,114 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
               </section>
             )}
 
-            <section className="mdd__section">
-              <h4 className="section-title">Price & Details</h4>
-              <div className="details-grid">
-                {type === "value" && (
-                  <>
-                    <div className="detail-item">
-                      <span className="label">Customer Pays</span>
-                      <span className="value fw-bold">
-                        {formatAmount(Number(membership?.price || 0))}
-                      </span>
-                    </div>
-                    {bonusCredit > 0 && (
-                      <div className="detail-item">
-                        <span className="label">Bonus Credit</span>
-                        <span className="value" style={{ color: "#16a34a", fontWeight: 700 }}>
-                          +{formatAmount(bonusCredit)}
-                        </span>
-                      </div>
+            {/* ── Wallet ─────────────────────────────────────────────── */}
+            {type === "value" && (
+              <section className="mdd__section">
+                <h4 className="section-title">Wallet Details</h4>
+                <div className="details-grid">
+                  <div className="detail-item">
+                    <span className="label">Membership Fee</span>
+                    <span className="value fw-bold">
+                      {formatAmount(Number(membership?.price || 0))}
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Bonus Credit</span>
+                    <span className="value fw-bold" style={{ color: bonusCredit > 0 ? "#16a34a" : undefined }}>
+                      {bonusCredit > 0 ? `+${formatAmount(bonusCredit)}` : "—"}
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Total Wallet Value</span>
+                    <span className="value fw-bold" style={{ color: "#2563eb" }}>
+                      {formatAmount(walletValue)}
+                    </span>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* ── Discount Balance ───────────────────────────────────── */}
+            {type === "percentage" && (
+              <section className="mdd__section">
+                <h4 className="section-title">Discount Details</h4>
+                <div className="details-grid">
+                  <div className="detail-item">
+                    <span className="label">Membership Fee</span>
+                    <span className="value fw-bold">
+                      {formatAmount(Number(membership?.price || 0))}
+                    </span>
+                  </div>
+                  <div className="detail-item">
+                    <span className="label">Discount Percentage</span>
+                    <span className="value fw-bold" style={{ color: "#2563eb" }}>
+                      {membership?.discountPercent ?? 0}%
+                    </span>
+                  </div>
+                </div>
+              </section>
+            )}
+
+            {/* ── Loyalty ────────────────────────────────────────────── */}
+            {type === "loyalty" && (
+              <>
+                <section className="mdd__section">
+                  <h4 className="section-title">Loyalty Configuration</h4>
+                  <div className="services-list">
+                    {membership?.loyaltyTiers?.length ? (
+                      membership.loyaltyTiers.map((t, i) => (
+                        <div key={i} className="service-tag">
+                          {t.thresholdValue} Visits → {t.discountPercent}%
+                        </div>
+                      ))
+                    ) : (
+                      <div className="empty-services">No tiers configured</div>
                     )}
-                    <div className="detail-item">
-                      <span className="label">Wallet Value</span>
-                      <span className="value fw-bold" style={{ color: "#2563eb" }}>
-                        {formatAmount(walletValue)}
-                      </span>
-                    </div>
-                  </>
-                )}
-
-                {type === "percentage" && (
-                  <>
-                    <div className="detail-item">
-                      <span className="label">Membership Fee</span>
-                      <span className="value fw-bold">
-                        {formatAmount(Number(membership?.price || 0))}
-                      </span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="label">Discount</span>
-                      <span className="value fw-bold" style={{ color: "#2563eb" }}>
-                        {membership?.discountPercent ?? 0}% Off
-                      </span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="label">Discount Balance</span>
-                      <span className="value fw-bold" style={{ color: "#2563eb" }}>
-                        {formatAmount(Number(membership?.discountBalance) || 0)}
-                      </span>
-                    </div>
-                  </>
-                )}
-
-                {type === "loyalty" && (
-                  <>
-                    <div className="detail-item">
-                      <span className="label">Tiers</span>
-                      <span className="value fw-bold" style={{ color: "#a21caf" }}>
-                        {membership?.loyaltyTiers?.length
-                          ? membership.loyaltyTiers.map((t: { thresholdValue: number; discountPercent: number }) =>
-                              `${t.thresholdValue} visits → ${t.discountPercent}%`).join(" · ")
-                          : "No tiers configured"}
-                      </span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="label">Enrollment</span>
-                      <span className="value" style={{ color: "#16a34a", fontWeight: 700 }}>
-                        Free — automatic for every client
-                      </span>
-                    </div>
-                  </>
-                )}
-
-                {type !== "loyalty" && (
-                  <div className="detail-item">
-                    <span className="label">Validity</span>
-                    <span className="value">{membership?.validFor || "–"}</span>
                   </div>
-                )}
-                {!!membership?.categoryIds?.length && (
-                  <div className="detail-item">
-                    <span className="label">Categories</span>
-                    <span className="value">
-                      {membership.categoryIds.map((id: string) => categoryNameById.get(id) ?? id).join(", ")}
-                    </span>
-                  </div>
-                )}
+                </section>
+                <section className="mdd__section">
+                  <h4 className="section-title">Eligibility</h4>
+                  <p className="description-text">Automatic enrollment for all clients.</p>
+                </section>
+              </>
+            )}
+
+            {/* ── Usage (all types) ──────────────────────────────────── */}
+            <section className="mdd__section">
+              <h4 className="section-title">Usage</h4>
+              <div className="details-grid">
                 <div className="detail-item">
-                  <span className="label">Status</span>
-                  <span className="value" style={{ display: "flex", alignItems: "center", gap: 5, fontWeight: 600, color: membership?.status === "active" ? "#16a34a" : "#64748b" }}>
-                    <span style={{ width: 8, height: 8, borderRadius: "50%", flexShrink: 0, display: "inline-block", background: membership?.status === "active" ? "#22c55e" : "#cbd5e1" }} />
-                    {membership?.status === "active" ? "Active" : "Inactive"}
-                  </span>
+                  <span className="label">Applies To</span>
+                  <span className="value">{appliesToLabel}</span>
                 </div>
-                {type === "value" && (
-                  <div className="detail-item">
-                    <span className="label">Visit Limit</span>
-                    <span className="value">
-                      {membership?.sessionType === "unlimited"
-                        ? `No cap (use until balance ${formatAmount(0)})`
-                        : `${membership?.numberOfSessions || 0} visits`}
-                    </span>
-                  </div>
-                )}
-                {type !== "loyalty" && (
-                  <div className="detail-item">
-                    <span className="label">Tax Rate</span>
-                    <span className="value">
-                      {membership?.taxRate ? `${membership.taxRate}%` : "No tax"}
-                    </span>
-                  </div>
-                )}
+                <div className="detail-item">
+                  <span className="label">Categories</span>
+                  <span className="value">{categoriesLabel}</span>
+                </div>
               </div>
             </section>
 
+            {/* ── Validity (all types) ───────────────────────────────── */}
             <section className="mdd__section">
-              <h4 className="section-title">Included Services</h4>
-              <div className="services-list">
-                {membership?.includedServices?.length > 0 ? (
-                  membership.includedServices.map((s: any) => (
-                    <div key={s.serviceId} className="service-tag">{s.serviceName}</div>
-                  ))
-                ) : (
-                  <div className="empty-services">
-                    <InfoCircle size={14} /> All services included
-                  </div>
-                )}
+              <h4 className="section-title">Validity</h4>
+              <div className="details-grid">
+                <div className="detail-item">
+                  <span className="label">Expiry</span>
+                  <span className="value">
+                    {type === "loyalty"
+                      ? (membership?.validFor && membership.validFor !== "lifetime" ? membership.validFor : "Lifetime")
+                      : (membership?.validFor || "–")}
+                  </span>
+                </div>
               </div>
             </section>
 
+            {/* ── Description (all types) ────────────────────────────── */}
             <section className="mdd__section">
-              <h4 className="section-title">Online & T&C</h4>
-              <div className="settings-list">
-                <div className="setting-row">
-                  <span>Online Sales</span>
-                  <span className={`status-dot ${membership?.enableOnlineSales ? "active" : ""}`} />
-                  <span className="status-text">
-                    {membership?.enableOnlineSales ? "Enabled" : "Disabled"}
-                  </span>
-                </div>
-                <div className="setting-row">
-                  <span>Online Redemption</span>
-                  <span className={`status-dot ${membership?.enableOnlineRedemption ? "active" : ""}`} />
-                  <span className="status-text">
-                    {membership?.enableOnlineRedemption ? "Enabled" : "Disabled"}
-                  </span>
-                </div>
-              </div>
-              <div className="tc-box mt-3">
-                <h5 className="tc-title">Terms & Conditions</h5>
-                <p className="tc-text">
-                  {membership?.termsAndConditions || "No terms and conditions provided."}
-                </p>
-              </div>
+              <h4 className="section-title">Description</h4>
+              <p className="description-text">
+                {meta.description?.trim() || "No description provided."}
+              </p>
             </section>
 
           </div>

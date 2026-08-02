@@ -309,7 +309,7 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
   const typeCard = (type: MembershipPricingType, title: string, sub: string, icon: React.ReactNode) => (
     <button
       type="button"
-      className={`amm__type-card${pricingType === type ? " amm__type-card--on" : ""}`}
+      className={`amm__type-card${pricingType === type ? ` amm__type-card--on amm__type-card--${type}` : ""}`}
       onClick={() => setPricingType(type)}
     >
       <span className="amm__type-icon">{icon}</span>
@@ -338,269 +338,281 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
         <div className="amm__body">
           {apiError && <div className="amm__error-banner">{apiError}</div>}
 
-          <div className="amm__section-label">Membership Type</div>
-
-          <div className="amm__type-row">
-            {typeCard("value", "Wallet", "Pay a fee, credit a spendable wallet", <CurrencyIcon size={16} />)}
-            {typeCard("percentage", "Discount Balance", "Pay a fee, get % off every service", <Percent size={15} />)}
-            {typeCard("loyalty", "Loyalty", "Free — unlocks a discount after N visits", <Award size={15} />)}
+          <div className="amm__card">
+            <h4 className="amm__card-title">Membership Type</h4>
+            <div className="amm__type-row">
+              {typeCard("value", "Wallet", "Pay a fee, credit a spendable wallet", <CurrencyIcon size={16} />)}
+              {typeCard("percentage", "Discount Balance", "Pay a fee, get % off every service", <Percent size={15} />)}
+              {typeCard("loyalty", "Loyalty", "Free — unlocks a discount after N visits", <Award size={15} />)}
+            </div>
           </div>
 
           <div className="amm__form">
 
-            <div className="amm__field">
-              <label className="amm__label">Membership Name <span className="amm__req">*</span></label>
-              <input
-                className={`amm__input${errors.name ? " amm__input--err" : ""}`}
-                placeholder="Enter membership name"
-                value={form.name}
-                onChange={(e) => patch({ name: e.target.value })}
-              />
-              {errors.name && <p className="amm__err">{errors.name}</p>}
-            </div>
-
-            <div className="amm__field">
-              <label className="amm__label">Membership Description</label>
-              <div className="amm__textarea-wrap">
-                <textarea
-                  className="amm__textarea"
-                  placeholder="Enter membership description"
-                  maxLength={DESC_MAX}
-                  value={form.description}
-                  onChange={(e) => patch({ description: e.target.value })}
-                />
-                <span className="amm__char-count">{form.description.length}/{DESC_MAX}</span>
-              </div>
-            </div>
-
-            <div className="amm__divider" />
-            <div className="amm__section-label">Benefit Configuration</div>
-
-            {pricingType === "value" && (
-              <>
-                <div className="amm__grid2">
-                  <div className="amm__field">
-                    <label className="amm__label">Membership Fee <span className="amm__req">*</span></label>
-                    <div className="amm__pfx-wrap">
-                      <span className="amm__pfx">{currencySymbol}</span>
-                      <input
-                        type="number" min={0} step={1}
-                        className={`amm__input amm__input--pfx${errors.price ? " amm__input--err" : ""}`}
-                        placeholder="0"
-                        value={form.price}
-                        onChange={(e) => patch({ price: e.target.value })}
-                        onWheel={(e) => e.currentTarget.blur()}
-                      />
-                    </div>
-                    {errors.price && <p className="amm__err">{errors.price}</p>}
-                  </div>
-
-                  <div className="amm__field">
-                    <label className="amm__label">Bonus Credit</label>
-                    <div className="amm__pfx-wrap">
-                      <span className="amm__pfx">{currencySymbol}</span>
-                      <input
-                        type="number" min={0} step={1}
-                        className="amm__input amm__input--pfx"
-                        placeholder="0"
-                        value={form.bonusCredit}
-                        onChange={(e) => patch({ bonusCredit: e.target.value })}
-                        onWheel={(e) => e.currentTarget.blur()}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="amm__wallet-preview">
-                  <span>Total Wallet Value</span>
-                  <strong>{formatAmount(walletValue)}</strong>
-                </div>
-              </>
-            )}
-
-            {pricingType === "percentage" && (
-              <>
-                <div className="amm__grid2">
-                  <div className="amm__field">
-                    <label className="amm__label">Membership Fee <span className="amm__req">*</span></label>
-                    <div className="amm__pfx-wrap">
-                      <span className="amm__pfx">{currencySymbol}</span>
-                      <input
-                        type="number" min={0} step={1}
-                        className={`amm__input amm__input--pfx${errors.price ? " amm__input--err" : ""}`}
-                        placeholder="0"
-                        value={form.price}
-                        onChange={(e) => patch({ price: e.target.value })}
-                        onWheel={(e) => e.currentTarget.blur()}
-                      />
-                    </div>
-                    {errors.price && <p className="amm__err">{errors.price}</p>}
-                  </div>
-
-                  <div className="amm__field">
-                    <label className="amm__label">Discount % <span className="amm__req">*</span></label>
-                    <input
-                      type="number" min={0} max={100} step={1}
-                      className={`amm__input${errors.discount ? " amm__input--err" : ""}`}
-                      placeholder="Enter discount %"
-                      value={form.discount}
-                      onChange={(e) => patch({ discount: e.target.value })}
-                      onWheel={(e) => e.currentTarget.blur()}
-                    />
-                    {errors.discount && <p className="amm__err">{errors.discount}</p>}
-                  </div>
-                </div>
-
-                <div className="amm__wallet-preview">
-                  <span>Discount Balance</span>
-                  <strong>{formatAmount(priceNum)}</strong>
-                </div>
-              </>
-            )}
-
-            {pricingType === "loyalty" && (
-              <div className="amm__tiers">
-                {form.loyaltyTiers.map((tier, i) => (
-                  <div className="amm__tier-row" key={i}>
-                    <div className="amm__field">
-                      <label className="amm__label">Visit Threshold <span className="amm__req">*</span></label>
-                      <input
-                        type="number" min={1} step={1}
-                        className={`amm__input${errors[`tier${i}Threshold`] ? " amm__input--err" : ""}`}
-                        placeholder="e.g. 10"
-                        value={tier.threshold}
-                        onChange={(e) => patchTier(i, { threshold: e.target.value })}
-                        onWheel={(e) => e.currentTarget.blur()}
-                      />
-                      {errors[`tier${i}Threshold`] && <p className="amm__err">{errors[`tier${i}Threshold`]}</p>}
-                    </div>
-
-                    <div className="amm__field">
-                      <label className="amm__label">Discount % <span className="amm__req">*</span></label>
-                      <input
-                        type="number" min={0} max={100} step={1}
-                        className={`amm__input${errors[`tier${i}Discount`] ? " amm__input--err" : ""}`}
-                        placeholder="Enter discount %"
-                        value={tier.discount}
-                        onChange={(e) => patchTier(i, { discount: e.target.value })}
-                        onWheel={(e) => e.currentTarget.blur()}
-                      />
-                      {errors[`tier${i}Discount`] && <p className="amm__err">{errors[`tier${i}Discount`]}</p>}
-                    </div>
-
-                    <button
-                      type="button"
-                      className="amm__tier-remove"
-                      disabled={form.loyaltyTiers.length <= 1}
-                      title="Remove tier"
-                      onClick={() => removeTier(i)}
-                    >
-                      <Trash3 size={13} />
-                    </button>
-                  </div>
-                ))}
-
-                <button type="button" className="amm__tier-add" onClick={addTier}>
-                  <PlusLg size={12} /> Add Tier
-                </button>
-
-                <p className="amm__hint">
-                  Every client is automatically eligible — no purchase or enrollment. Once they reach a tier's
-                  visit count, that tier's discount applies at checkout whenever staff opts them in — the
-                  highest tier crossed wins, tiers don't stack.
-                </p>
-              </div>
-            )}
-
-            <div className="amm__divider" />
-
-            <div className={pricingType !== "loyalty" ? "amm__grid2" : undefined}>
-              <div className="amm__field">
-                <label className="amm__label">Applies To</label>
-                <div className="amm__sel-wrap">
-                  <select
-                    className="amm__select"
-                    value={form.appliesTo}
-                    onChange={(e) => patch({ appliesTo: e.target.value as MembershipAppliesTo })}
-                  >
-                    {APPLIES_TO_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                  </select>
-                  <ChevronDown size={13} className="amm__sel-icon" />
-                </div>
-                <p className="amm__hint">
-                  {pricingType === "value"
-                    ? "What the wallet balance can be spent on."
-                    : "What the discount can be applied to."}
-                </p>
-              </div>
-
-              {pricingType !== "loyalty" && (
+            {/* 1 — Basic Information: name, expiry, applies to, categories */}
+            <div className="amm__card">
+              <h4 className="amm__card-title">Basic Information</h4>
+              <div className="amm__card-body">
                 <div className="amm__field">
-                  <label className="amm__label">Expires On <span className="amm__req">*</span></label>
+                  <label className="amm__label">Membership Name <span className="amm__req">*</span></label>
                   <input
-                    type="date"
-                    className={`amm__input${errors.expiryDate ? " amm__input--err" : ""}`}
-                    min={toIsoDate(addDays(todayMidnight(), 1))}
-                    value={form.expiryDate}
-                    onChange={(e) => patch({ expiryDate: e.target.value })}
+                    className={`amm__input${errors.name ? " amm__input--err" : ""}`}
+                    placeholder="Enter membership name"
+                    value={form.name}
+                    onChange={(e) => patch({ name: e.target.value })}
                   />
-                  {errors.expiryDate
-                    ? <p className="amm__err">{errors.expiryDate}</p>
-                    : <p className="amm__hint">Valid for {Math.max(0, daysFromToday(form.expiryDate))} days from today.</p>}
+                  {errors.name && <p className="amm__err">{errors.name}</p>}
                 </div>
-              )}
+
+                <div className={pricingType !== "loyalty" ? "amm__grid2" : undefined}>
+                  {pricingType !== "loyalty" && (
+                    <div className="amm__field">
+                      <label className="amm__label">Expiry <span className="amm__req">*</span></label>
+                      <input
+                        type="date"
+                        className={`amm__input${errors.expiryDate ? " amm__input--err" : ""}`}
+                        min={toIsoDate(addDays(todayMidnight(), 1))}
+                        value={form.expiryDate}
+                        onChange={(e) => patch({ expiryDate: e.target.value })}
+                      />
+                      {errors.expiryDate
+                        ? <p className="amm__err">{errors.expiryDate}</p>
+                        : <p className="amm__hint">Valid for {Math.max(0, daysFromToday(form.expiryDate))} days from today.</p>}
+                    </div>
+                  )}
+
+                  <div className="amm__field">
+                    <label className="amm__label">Applies To</label>
+                    <div className="amm__sel-wrap">
+                      <select
+                        className="amm__select"
+                        value={form.appliesTo}
+                        onChange={(e) => patch({ appliesTo: e.target.value as MembershipAppliesTo })}
+                      >
+                        {APPLIES_TO_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                      </select>
+                      <ChevronDown size={13} className="amm__sel-icon" />
+                    </div>
+                    <p className="amm__hint">
+                      {pricingType === "value"
+                        ? "What the wallet balance can be spent on."
+                        : "What the discount can be applied to."}
+                    </p>
+                  </div>
+                </div>
+
+                {categories.length > 0 && (
+                  <div className="amm__field">
+                    <label className="amm__label">Categories</label>
+                    <div className="amm__cat-drop" ref={categoryDropRef}>
+                      <button
+                        type="button"
+                        ref={categoryButtonRef}
+                        className="amm__select amm__cat-drop-btn"
+                        onClick={() => setCategoryDropdownOpen((v) => !v)}
+                      >
+                        <span>
+                          {form.categoryIds.length === 0
+                            ? "All categories"
+                            : form.categoryIds.length <= 2
+                              ? form.categoryIds.map((id) => categories.find((c) => String(c.id) === id)?.name ?? id).join(", ")
+                              : `${form.categoryIds.length} categories selected`}
+                        </span>
+                        <ChevronDown size={13} className="amm__sel-icon" />
+                      </button>
+                      {categoryDropdownOpen && categoryMenuPos && createPortal(
+                        <div
+                          ref={categoryPortalRef}
+                          className="amm__cat-drop-menu"
+                          style={{
+                            position: "fixed",
+                            top: categoryMenuPos.top, left: categoryMenuPos.left, width: categoryMenuPos.width,
+                            zIndex: 3000,
+                          }}
+                        >
+                          {categories.map((c) => {
+                            const id = String(c.id);
+                            const on = form.categoryIds.includes(id);
+                            return (
+                              <label className="amm__cat-drop-item" key={id}>
+                                <input type="checkbox" checked={on} onChange={() => toggleCategory(id)} />
+                                {c.name}
+                              </label>
+                            );
+                          })}
+                        </div>,
+                        document.body,
+                      )}
+                    </div>
+                    <p className="amm__hint">
+                      {form.categoryIds.length > 0
+                        ? "Only these categories get the benefit — leave none selected to cover every category."
+                        : "None selected — the benefit applies to every category within Applies To."}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
 
-            {categories.length > 0 && (
-              <div className="amm__field">
-                <label className="amm__label">Categories</label>
-                <div className="amm__cat-drop" ref={categoryDropRef}>
-                  <button
-                    type="button"
-                    ref={categoryButtonRef}
-                    className="amm__select amm__cat-drop-btn"
-                    onClick={() => setCategoryDropdownOpen((v) => !v)}
-                  >
-                    <span>
-                      {form.categoryIds.length === 0
-                        ? "All categories"
-                        : form.categoryIds.length <= 2
-                          ? form.categoryIds.map((id) => categories.find((c) => String(c.id) === id)?.name ?? id).join(", ")
-                          : `${form.categoryIds.length} categories selected`}
-                    </span>
-                    <ChevronDown size={13} className="amm__sel-icon" />
-                  </button>
-                  {categoryDropdownOpen && categoryMenuPos && createPortal(
-                    <div
-                      ref={categoryPortalRef}
-                      className="amm__cat-drop-menu"
-                      style={{
-                        position: "fixed",
-                        top: categoryMenuPos.top, left: categoryMenuPos.left, width: categoryMenuPos.width,
-                        zIndex: 3000,
-                      }}
-                    >
-                      {categories.map((c) => {
-                        const id = String(c.id);
-                        const on = form.categoryIds.includes(id);
-                        return (
-                          <label className="amm__cat-drop-item" key={id}>
-                            <input type="checkbox" checked={on} onChange={() => toggleCategory(id)} />
-                            {c.name}
-                          </label>
-                        );
-                      })}
-                    </div>,
-                    document.body,
-                  )}
-                </div>
-                <p className="amm__hint">
-                  {form.categoryIds.length > 0
-                    ? "Only these categories get the benefit — leave none selected to cover every category."
-                    : "None selected — the benefit applies to every category within Applies To."}
-                </p>
+            {/* 2 — Benefit Configuration: fields switch per selected type */}
+            <div className="amm__card">
+              <h4 className="amm__card-title">Benefit Configuration</h4>
+              <div className="amm__card-body">
+                {pricingType === "value" && (
+                  <>
+                    <div className="amm__grid2">
+                      <div className="amm__field">
+                        <label className="amm__label">Membership Fee <span className="amm__req">*</span></label>
+                        <div className="amm__pfx-wrap">
+                          <span className="amm__pfx">{currencySymbol}</span>
+                          <input
+                            type="number" min={0} step={1}
+                            className={`amm__input amm__input--pfx${errors.price ? " amm__input--err" : ""}`}
+                            placeholder="0"
+                            value={form.price}
+                            onChange={(e) => patch({ price: e.target.value })}
+                            onWheel={(e) => e.currentTarget.blur()}
+                          />
+                        </div>
+                        {errors.price && <p className="amm__err">{errors.price}</p>}
+                      </div>
+
+                      <div className="amm__field">
+                        <label className="amm__label">Bonus Credit</label>
+                        <div className="amm__pfx-wrap">
+                          <span className="amm__pfx">{currencySymbol}</span>
+                          <input
+                            type="number" min={0} step={1}
+                            className="amm__input amm__input--pfx"
+                            placeholder="0"
+                            value={form.bonusCredit}
+                            onChange={(e) => patch({ bonusCredit: e.target.value })}
+                            onWheel={(e) => e.currentTarget.blur()}
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="amm__wallet-preview amm__wallet-preview--value">
+                      <span>Total Wallet Value</span>
+                      <strong>{formatAmount(walletValue)}</strong>
+                    </div>
+                  </>
+                )}
+
+                {pricingType === "percentage" && (
+                  <>
+                    <div className="amm__grid2">
+                      <div className="amm__field">
+                        <label className="amm__label">Membership Fee <span className="amm__req">*</span></label>
+                        <div className="amm__pfx-wrap">
+                          <span className="amm__pfx">{currencySymbol}</span>
+                          <input
+                            type="number" min={0} step={1}
+                            className={`amm__input amm__input--pfx${errors.price ? " amm__input--err" : ""}`}
+                            placeholder="0"
+                            value={form.price}
+                            onChange={(e) => patch({ price: e.target.value })}
+                            onWheel={(e) => e.currentTarget.blur()}
+                          />
+                        </div>
+                        {errors.price && <p className="amm__err">{errors.price}</p>}
+                      </div>
+
+                      <div className="amm__field">
+                        <label className="amm__label">Discount % <span className="amm__req">*</span></label>
+                        <input
+                          type="number" min={0} max={100} step={1}
+                          className={`amm__input${errors.discount ? " amm__input--err" : ""}`}
+                          placeholder="Enter discount %"
+                          value={form.discount}
+                          onChange={(e) => patch({ discount: e.target.value })}
+                          onWheel={(e) => e.currentTarget.blur()}
+                        />
+                        {errors.discount && <p className="amm__err">{errors.discount}</p>}
+                      </div>
+                    </div>
+
+                    <div className="amm__wallet-preview amm__wallet-preview--percentage">
+                      <span>Discount Balance</span>
+                      <strong>{formatAmount(priceNum)}</strong>
+                    </div>
+                  </>
+                )}
+
+                {pricingType === "loyalty" && (
+                  <div className="amm__tiers">
+                    {form.loyaltyTiers.map((tier, i) => (
+                      <div className="amm__tier-row" key={i}>
+                        <div className="amm__field">
+                          <label className="amm__label">Visit Threshold <span className="amm__req">*</span></label>
+                          <input
+                            type="number" min={1} step={1}
+                            className={`amm__input${errors[`tier${i}Threshold`] ? " amm__input--err" : ""}`}
+                            placeholder="e.g. 10"
+                            value={tier.threshold}
+                            onChange={(e) => patchTier(i, { threshold: e.target.value })}
+                            onWheel={(e) => e.currentTarget.blur()}
+                          />
+                          {errors[`tier${i}Threshold`] && <p className="amm__err">{errors[`tier${i}Threshold`]}</p>}
+                        </div>
+
+                        <div className="amm__field">
+                          <label className="amm__label">Discount % <span className="amm__req">*</span></label>
+                          <input
+                            type="number" min={0} max={100} step={1}
+                            className={`amm__input${errors[`tier${i}Discount`] ? " amm__input--err" : ""}`}
+                            placeholder="Enter discount %"
+                            value={tier.discount}
+                            onChange={(e) => patchTier(i, { discount: e.target.value })}
+                            onWheel={(e) => e.currentTarget.blur()}
+                          />
+                          {errors[`tier${i}Discount`] && <p className="amm__err">{errors[`tier${i}Discount`]}</p>}
+                        </div>
+
+                        <button
+                          type="button"
+                          className="amm__tier-remove"
+                          disabled={form.loyaltyTiers.length <= 1}
+                          title="Remove tier"
+                          onClick={() => removeTier(i)}
+                        >
+                          <Trash3 size={13} />
+                        </button>
+                      </div>
+                    ))}
+
+                    <button type="button" className="amm__tier-add" onClick={addTier}>
+                      <PlusLg size={12} /> Add Tier
+                    </button>
+
+                    <p className="amm__hint">
+                      Every client is automatically eligible. Once they reach a tier's visit count, the highest
+                      eligible tier discount is applied during checkout. Tiers do not stack.
+                    </p>
+                  </div>
+                )}
               </div>
-            )}
+            </div>
+
+            {/* 3 — Membership Description: moved to the bottom, after all configuration */}
+            <div className="amm__card">
+              <h4 className="amm__card-title">Membership Description</h4>
+              <div className="amm__card-body">
+                <div className="amm__field">
+                  <div className="amm__textarea-wrap">
+                    <textarea
+                      className="amm__textarea"
+                      placeholder="Enter additional information about this membership plan."
+                      maxLength={DESC_MAX}
+                      value={form.description}
+                      onChange={(e) => patch({ description: e.target.value })}
+                    />
+                    <span className="amm__char-count">{form.description.length} / {DESC_MAX} characters</span>
+                  </div>
+                </div>
+              </div>
+            </div>
 
           </div>
         </div>

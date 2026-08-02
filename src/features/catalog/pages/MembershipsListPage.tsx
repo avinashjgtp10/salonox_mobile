@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
@@ -14,7 +15,6 @@ import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import type { AppDispatch } from "../../../store/store";
-import type { Membership } from "../../../services/api/endpoints/memberships.endpoints";
 import {
   fetchMembershipsThunk,
   deleteMembershipThunk,
@@ -28,10 +28,9 @@ import {
   selectMembershipsError,
   selectMembershipsTotal,
 } from "../../../store/selectors/membership.selectors";
-import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
-import { selectAllCategories } from "../../../store/selectors/slices.selectors";
 import MembershipFilterDrawer from "../components/MembershipFilterDrawer";
 import MembershipDetailsDrawer from "../components/MembershipDetailsDrawer";
+import { getMembershipMeta, TYPE_LABEL, APPLIES_TO_LABEL } from "../utils/membershipMeta";
 import "../styles/MembershipsListPage.scss";
 
 const PAGE_SIZE = 20;
@@ -43,16 +42,12 @@ const DEFAULT_FILTERS: Filters = {
   validFor: "Any period",
 };
 
-interface MembershipMeta {
-  bonusCredit?: number;
+function formatDate(value?: string | Date) {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 }
-const getMembershipMeta = (m: Membership): MembershipMeta => {
-  try { return JSON.parse(m.description ?? "{}"); } catch { return {}; }
-};
-
-const TYPE_LABEL: Record<string, string> = {
-  value: "Wallet", percentage: "Discount Balance", loyalty: "Loyalty",
-};
 
 const MembershipsListPage: React.FC = () => {
   const navigate = useNavigate();
@@ -64,14 +59,6 @@ const MembershipsListPage: React.FC = () => {
   const loading     = useSelector(selectMembershipsLoading);
   const error       = useSelector(selectMembershipsError);
   const total       = useSelector(selectMembershipsTotal);
-  const categories  = useSelector(selectAllCategories) as { id: string | number; name: string }[];
-  const categoryNameById = useMemo(() => {
-    const map = new Map<string, string>();
-    categories.forEach((c) => map.set(String(c.id), c.name));
-    return map;
-  }, [categories]);
-
-  useEffect(() => { dispatch(fetchCategoriesThunk()); }, [dispatch]);
 
   const [search,     setSearch]     = useState("");
   // The input stays controlled by `search` for instant typing feedback, but
@@ -93,6 +80,14 @@ const MembershipsListPage: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
+  // The row kebab menu is rendered via a portal (see render below) so the
+  // table's own horizontal scroll container (needed now that there are 10+
+  // columns) can't clip it — position is computed from the trigger button's
+  // own rect at open time, right-aligned to it via `right` (so we don't need
+  // to know the menu's width up front).
+  const [kebabPos, setKebabPos] = useState<{ top: number; right: number } | null>(null);
+  const kebabPortalRef = useRef<HTMLUListElement>(null);
+  const tableWrapRef = useRef<HTMLDivElement>(null);
   const [selectedMemberships, setSelectedMemberships] = useState<string[]>([]);
   const [membershipsToDelete, setMembershipsToDelete] = useState<string[]>([]);
   const [deleteInput, setDeleteInput] = useState("");
@@ -113,12 +108,27 @@ const MembershipsListPage: React.FC = () => {
   useEffect(() => {
     if (!openRowMenuId) return;
     const handleClickOutside = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest(".msp__dd-wrap")) {
-        setOpenRowMenuId(null);
-      }
+      const target = e.target as HTMLElement;
+      if (target.closest(".msp__dd-wrap")) return;
+      if (kebabPortalRef.current?.contains(target)) return;
+      setOpenRowMenuId(null);
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openRowMenuId]);
+
+  // Closes the menu on scroll instead of tracking/repositioning it — simpler,
+  // and scrolling away from the row it belongs to should dismiss it anyway.
+  useEffect(() => {
+    if (!openRowMenuId) return;
+    const closeOnScroll = () => setOpenRowMenuId(null);
+    const wrap = tableWrapRef.current;
+    wrap?.addEventListener("scroll", closeOnScroll);
+    window.addEventListener("scroll", closeOnScroll, true);
+    return () => {
+      wrap?.removeEventListener("scroll", closeOnScroll);
+      window.removeEventListener("scroll", closeOnScroll, true);
+    };
   }, [openRowMenuId]);
 
   useEffect(() => { setDeleteInput(""); }, [membershipsToDelete]);
@@ -297,7 +307,7 @@ const MembershipsListPage: React.FC = () => {
       </div>
 
       {/* ── Table ───────────────────────────────────────────────────────── */}
-      <div className="msp__table-wrap">
+      <div className="msp__table-wrap" ref={tableWrapRef}>
         {loading && (
           <div className="msp__loading">
             <div className="msp__spinner" /> Loading memberships…
@@ -322,7 +332,10 @@ const MembershipsListPage: React.FC = () => {
                 <th>Membership Name</th>
                 <th>Membership Type</th>
                 <th>Benefit</th>
-                <th>Validity</th>
+                <th>Applies To</th>
+                <th>Membership Fee</th>
+                <th>Expiry</th>
+                <th>Created At</th>
                 <th className="msp__td-actions" />
               </tr>
             </thead>
@@ -343,14 +356,7 @@ const MembershipsListPage: React.FC = () => {
                     <td>
                       <div className="msp__name-cell">
                         <span className="msp__color-dot" style={{ background: color }} />
-                        <div>
-                          <span className="msp__name">{m.name}</span>
-                          <span className="msp__services">
-                            {m.includedServices?.length
-                              ? m.includedServices.map(s => s.serviceName).join(", ")
-                              : "All services"}
-                          </span>
-                        </div>
+                        <span className="msp__name">{m.name}</span>
                       </div>
                     </td>
                     <td>
@@ -359,33 +365,42 @@ const MembershipsListPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="msp__price">
-                      <div>
-                        {type === "percentage"
-                          ? `${m.discountPercent ?? 0}% Off · ${formatAmount(Number(m.discountBalance) || 0)} balance`
-                          : type === "loyalty"
-                            ? (m.loyaltyTiers?.length
-                                ? m.loyaltyTiers.map(t => `${t.thresholdValue} visits → ${t.discountPercent}%`).join(" · ")
-                                : "No tiers configured")
-                            : `${formatAmount((Number(m.price) || 0) + (Number(meta.bonusCredit) || 0))} Wallet`}
-                      </div>
-                      {!!m.categoryIds?.length && (
-                        <div className="msp__td-muted" style={{ fontSize: 11 }}>
-                          {m.categoryIds.map((id) => categoryNameById.get(id) ?? id).join(", ")}
-                        </div>
-                      )}
+                      {type === "percentage"
+                        ? `${m.discountPercent ?? 0}% Discount`
+                        : type === "loyalty"
+                          ? (m.loyaltyTiers?.length
+                              ? m.loyaltyTiers.map(t => `${t.thresholdValue} Visits → ${t.discountPercent}%`).join(", ")
+                              : "No tiers configured")
+                          : `Wallet ${formatAmount(Number(m.price) || 0)}${
+                              Number(meta.bonusCredit) > 0 ? ` (+${formatAmount(Number(meta.bonusCredit))} Bonus)` : ""
+                            }`}
                     </td>
-                    <td className="msp__td-muted">{type === "loyalty" ? "—" : m.validFor}</td>
+                    <td className="msp__td-muted">{APPLIES_TO_LABEL[m.appliesTo ?? "services"] ?? "Services"}</td>
+                    <td className="msp__td-muted">{type === "loyalty" ? "Free" : formatAmount(Number(m.price) || 0)}</td>
+                    <td className="msp__td-muted">{type === "loyalty" ? (m.validFor && m.validFor !== "lifetime" ? m.validFor : "Lifetime") : m.validFor}</td>
+                    <td className="msp__td-muted">{formatDate(m.createdAt)}</td>
                     <td className="msp__td-actions" onClick={e => e.stopPropagation()}>
                       <div className="msp__dd-wrap">
                         <button
                           className="msp__kebab"
                           title="Actions"
-                          onClick={() => setOpenRowMenuId(openRowMenuId === String(m.id) ? null : String(m.id))}
+                          onClick={(e) => {
+                            const isOpen = openRowMenuId === String(m.id);
+                            setOpenRowMenuId(isOpen ? null : String(m.id));
+                            if (!isOpen) {
+                              const r = e.currentTarget.getBoundingClientRect();
+                              setKebabPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+                            }
+                          }}
                         >
                           <ThreeDotsVertical size={16} />
                         </button>
-                        {openRowMenuId === String(m.id) && (
-                          <ul className="msp__dd-menu msp__dd-menu--right">
+                        {openRowMenuId === String(m.id) && kebabPos && createPortal(
+                          <ul
+                            ref={kebabPortalRef}
+                            className="msp__dd-menu msp__dd-menu--portal"
+                            style={{ position: "fixed", top: kebabPos.top, right: kebabPos.right, zIndex: 9999 }}
+                          >
                             <li>
                               <button
                                 className="msp__dd-item"
@@ -402,7 +417,8 @@ const MembershipsListPage: React.FC = () => {
                                 <Trash3 size={13} /> Delete
                               </button>
                             </li>
-                          </ul>
+                          </ul>,
+                          document.body
                         )}
                       </div>
                     </td>
@@ -410,7 +426,7 @@ const MembershipsListPage: React.FC = () => {
                 );
               }) : (
                 <tr>
-                  <td colSpan={6}>
+                  <td colSpan={9}>
                     <div className="msp__empty-state">
                       <Award size={48} className="msp__empty-icon" />
                       <p className="msp__empty-msg">No memberships found.</p>
