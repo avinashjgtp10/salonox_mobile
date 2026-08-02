@@ -2,7 +2,15 @@
 
 .chp-root {
   display: flex;
-  height: 100vh;
+  // The dashboard's topbar is `position: fixed; height: 70px` (see
+  // DashboardPage.scss) and .dashboard-body has no height of its own to
+  // offset it — a plain `100vh` here made this page's real height 70px
+  // taller than the visible viewport, so the whole page (not just the
+  // scrollable panels inside it) became scrollable. Scrolling it moved
+  // everything, including the sidebar's own header, up and behind the fixed
+  // topbar. `calc(100vh - 70px)` matches the same convention already used
+  // by other full-height dashboard sub-pages (see InboxPage.scss).
+  height: calc(100vh - 70px);
   overflow: hidden;
   background: #f4f5f7;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -183,6 +191,13 @@
     padding: 28px 12px;
     text-align: center;
     font-size: 12px;
+    color: #9ca3af;
+  }
+
+  .chp-list-loading-more {
+    padding: 12px;
+    text-align: center;
+    font-size: 11px;
     color: #9ca3af;
   }
 
@@ -547,26 +562,6 @@
     overflow-y: auto;
     padding: 20px;
     background: #f4f5f7;
-  }
-
-  // Shared Pagination component is built for a full-width table footer —
-  // the sidebar here is only 230px, so stack it into a compact column instead
-  // of the default space-between row (which would just wrap awkwardly).
-  .chp-pagination {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-    padding: 10px 12px;
-    flex-shrink: 0;
-    border-radius: 0;
-
-    .ui-pagination__size,
-    .ui-pagination__info,
-    .ui-pagination__controls {
-      width: 100%;
-      justify-content: center;
-      text-align: center;
-    }
   }
 
   .chp-no-data {
@@ -1230,4 +1225,261 @@
       }
     }
   }
+}
+
+// ── Shared per-tab toolbar (search + date-range filter + export) ────────────
+.chp-tab-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+
+  &__search {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    min-width: 200px;
+    max-width: 320px;
+    padding: 8px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    color: #9ca3af;
+
+    input {
+      border: none;
+      outline: none;
+      flex: 1;
+      font-size: 13px;
+      color: #111827;
+      background: transparent;
+      &::placeholder { color: #9ca3af; }
+    }
+  }
+}
+
+// ── Overview tab ──────────────────────────────────────────────────────────────
+.chp-overview {
+  padding: 4px 0 20px;
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 14px;
+    margin-bottom: 24px;
+  }
+
+  // Plain/minimal stat card — matches the Reports pages' KPI cards
+  // (.rp-sra-summary-card) rather than the colorful gradient StatCard used
+  // elsewhere in the app, per explicit request for this screen.
+  .chp-stat-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 14px 16px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  }
+
+  .chp-stat-card__value {
+    font-size: 20px;
+    font-weight: 700;
+    color: #111827;
+    line-height: 1.2;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .chp-stat-card__label {
+    font-size: 12px;
+    color: #6b7280;
+    font-weight: 500;
+  }
+
+  &__info {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 40px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 4px 20px;
+  }
+
+  .chp-overview-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 13px;
+
+    &:nth-last-child(-n+1) { border-bottom: none; }
+
+    .chp-overview-row__label { color: #6b7280; font-weight: 500; }
+    .chp-overview-row__value { color: #111827; font-weight: 600; text-align: right; }
+  }
+}
+
+// ── Notes tab ─────────────────────────────────────────────────────────────────
+.chp-notes {
+  &__form {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+
+    textarea {
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      padding: 10px 12px;
+      font-size: 13px;
+      font-family: inherit;
+      resize: vertical;
+      min-height: 70px;
+      outline: none;
+      &:focus { border-color: #7c3aed; }
+    }
+
+    &-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+  }
+
+  &__item {
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 14px 16px;
+    margin-bottom: 10px;
+
+    &-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+      font-size: 12px;
+      color: #6b7280;
+    }
+
+    &-staff { font-weight: 600; color: #374151; }
+
+    &-source-tag {
+      margin-left: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #f3f4f6;
+      color: #6b7280;
+
+      &--alert { background: #fef3c7; color: #b45309; }
+    }
+
+    &-actions {
+      display: flex;
+      gap: 6px;
+
+      button {
+        background: none;
+        border: none;
+        color: #9ca3af;
+        cursor: pointer;
+        padding: 2px;
+        &:hover { color: #111827; }
+        &.danger:hover { color: #dc2626; }
+      }
+    }
+
+    &-body {
+      font-size: 13.5px;
+      color: #111827;
+      line-height: 1.5;
+      white-space: pre-wrap;
+    }
+  }
+}
+
+// ── Communication tab ─────────────────────────────────────────────────────────
+.chp-comm-unavailable {
+  font-size: 12px;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+// ── ReportExportButton (Download dropdown) ────────────────────────────────────
+// This shared component (src/components/ui/ReportExportButton.tsx) only ships
+// styled via the Reports feature's own stylesheet (_reportDetailBase.scss),
+// which Client History doesn't import — without these, the button/dropdown
+// rendered with no styling at all. Same class names, same rules, so it looks
+// identical wherever it's used (matches $dashboard-primary's #111827).
+.rp-detail-icon-btn {
+  width: 34px;
+  height: 34px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: #6b7280;
+  transition: background 0.15s, color 0.15s;
+
+  &:hover { background: #f3f4f6; color: #111827; }
+}
+
+.rp-download-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 14px;
+  border: none;
+  border-radius: 6px;
+  background: #111827;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { background: #1f2937; }
+}
+
+.rp-detail-export-wrap {
+  position: relative;
+}
+
+.rp-detail-export-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  z-index: 60;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  min-width: 170px;
+  overflow: hidden;
+}
+
+.rp-detail-export-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  font-size: 13px;
+  cursor: pointer;
+  color: #111827;
+
+  &:hover { background: #f3f4f6; }
+
+  svg { flex-shrink: 0; }
 }

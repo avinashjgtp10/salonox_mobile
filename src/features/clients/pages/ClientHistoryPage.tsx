@@ -8,7 +8,6 @@ import { Search, PersonCircle, Funnel, StarFill } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import ClientHistoryDetail from "../components/ClientHistoryDetail";
 import Skeleton from "../../../components/ui/Skeleton";
-import Pagination from "../../../components/ui/Pagination";
 import "../styles/ClientHistoryPage.scss";
 
 // ── Types (sidebar/list concerns only — the detail panel's own types live in
@@ -62,12 +61,18 @@ export default function ClientHistoryPage() {
   const dispatch = useAppDispatch();
   const autoOpenHandled = useRef(false);
 
-  // Client list
+  // Client list — infinite scroll (not paged navigation): the sidebar list
+  // is already its own scroll container, so a separate "page 2/3/4" control
+  // at the bottom was redundant with scrolling further down the same list,
+  // and doubled as a layout bug (it could get pushed below the fold with no
+  // way to reach it but scrolling right past the list that made it
+  // unnecessary in the first place).
   const [clients, setClients] = useState<ClientListItem[]>([]);
-  const [clientsLoading, setClientsLoading] = useState(true);
+  const [clientsLoading, setClientsLoading] = useState(true); // initial/replace load
+  const [loadingMore, setLoadingMore] = useState(false);       // appending next batch
   const [clientsTotal, setClientsTotal] = useState(0);
   const [clientsPage, setClientsPage] = useState(1);
-  const [clientsPageSize, setClientsPageSize] = useState(50);
+  const CLIENTS_PAGE_SIZE = 50;
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -104,12 +109,13 @@ export default function ClientHistoryPage() {
     return () => clearTimeout(t);
   }, [search]);
 
-  // Fetches a single page, replacing whatever was showing — paged navigation
-  // via the shared Pagination component, not the old "load more"/append style.
-  const doFetch = useCallback(async (page: number, pageSize: number) => {
-    setClientsLoading(true);
+  // Fetches one batch — `append: false` replaces the list (first load, or
+  // filters/search changed), `append: true` adds the next batch onto the end
+  // (scrolled near the bottom of the already-loaded list).
+  const doFetch = useCallback(async (page: number, append: boolean) => {
+    if (append) setLoadingMore(true); else setClientsLoading(true);
 
-    const params: Record<string, string> = { page: String(page), limit: String(pageSize) };
+    const params: Record<string, string> = { page: String(page), limit: String(CLIENTS_PAGE_SIZE) };
     if (filters.serviceId !== "all") params.service_id = filters.serviceId;
     if (filters.staffId   !== "all") params.staff_id   = filters.staffId;
     if (filters.gender    !== "all") params.gender      = filters.gender;
@@ -119,26 +125,30 @@ export default function ClientHistoryPage() {
     try {
       const res = await api.get("/api/v1/clients/with-history-stats", { params });
       const d = res.data?.data;
-      setClients(d?.items ?? []);
+      const items: ClientListItem[] = d?.items ?? [];
+      setClients((prev) => (append ? [...prev, ...items] : items));
       setClientsTotal(d?.total ?? d?.count ?? d?.total_count ?? 0);
       setClientsPage(page);
     } catch {
-      setClients([]); setClientsTotal(0);
+      if (!append) { setClients([]); setClientsTotal(0); }
     } finally {
-      setClientsLoading(false);
+      if (append) setLoadingMore(false); else setClientsLoading(false);
     }
   }, [filters, debouncedSearch]);
 
-  // Refetch page 1 whenever filters, page size, or debounced search change
-  useEffect(() => { doFetch(1, clientsPageSize); }, [doFetch, clientsPageSize]);
+  // Reset to the first batch whenever filters or debounced search change
+  useEffect(() => { doFetch(1, false); }, [doFetch]);
 
-  const handleClientsPageChange = useCallback((page: number) => {
-    doFetch(page, clientsPageSize);
-  }, [doFetch, clientsPageSize]);
-
-  const handleClientsPageSizeChange = useCallback((size: number) => {
-    setClientsPageSize(size);
-  }, []);
+  // Fires when the list is scrolled near its bottom — loads the next batch
+  // and appends it, rather than a page-number control.
+  const handleListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    if (clientsLoading || loadingMore) return;
+    if (clients.length >= clientsTotal) return; // everything already loaded
+    const el = e.currentTarget;
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 150) {
+      doFetch(clientsPage + 1, true);
+    }
+  }, [clientsLoading, loadingMore, clients.length, clientsTotal, clientsPage, doFetch]);
 
   // Auto-open a specific client when navigated from the appointment modal
   useEffect(() => {
@@ -275,7 +285,7 @@ export default function ClientHistoryPage() {
           </div>
         </div>
 
-        <div className="chp-client-list">
+        <div className="chp-client-list" onScroll={handleListScroll}>
           {clientsLoading ? (
             Array.from({ length: 8 }).map((_, i) => (
               <div key={i} className="chp-client-row" style={{ cursor: "default" }}>
@@ -289,44 +299,39 @@ export default function ClientHistoryPage() {
           ) : clients.length === 0 ? (
             <div className="chp-list-msg">No clients match these filters</div>
           ) : (
-            clients.map((c) => {
-              const isSelected = selectedClient?.id === c.id;
-              const isGold = parseFloat(c.total_sales) > 5000;
-              return (
-                <div
-                  key={c.id}
-                  className={`chp-client-row ${isSelected ? "active" : ""}`}
-                  onClick={() => { setSelectedClient(c); setSelectVersion((v) => v + 1); }}
-                >
-                  <div className="chp-row-avatar">{getInitials(c.full_name)}</div>
-                  <div className="chp-row-info">
-                    <div className="chp-row-name">{c.full_name}</div>
-                    <div className="chp-row-phone">
-                      {c.phone_country_code} {c.phone_number}
-                    </div>
-                    {isGold && (
-                      <div className="chp-row-meta">
-                        <span className="chp-row-badge">
-                          <StarFill size={8} /> Gold
-                        </span>
+            <>
+              {clients.map((c) => {
+                const isSelected = selectedClient?.id === c.id;
+                const isGold = parseFloat(c.total_sales) > 5000;
+                return (
+                  <div
+                    key={c.id}
+                    className={`chp-client-row ${isSelected ? "active" : ""}`}
+                    onClick={() => { setSelectedClient(c); setSelectVersion((v) => v + 1); }}
+                  >
+                    <div className="chp-row-avatar">{getInitials(c.full_name)}</div>
+                    <div className="chp-row-info">
+                      <div className="chp-row-name">{c.full_name}</div>
+                      <div className="chp-row-phone">
+                        {c.phone_country_code} {c.phone_number}
                       </div>
-                    )}
+                      {isGold && (
+                        <div className="chp-row-meta">
+                          <span className="chp-row-badge">
+                            <StarFill size={8} /> Gold
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              );
-            })
+                );
+              })}
+              {loadingMore && (
+                <div className="chp-list-loading-more">Loading more…</div>
+              )}
+            </>
           )}
         </div>
-
-        <Pagination
-          currentPage={clientsPage}
-          pageSize={clientsPageSize}
-          totalItems={clientsTotal}
-          onPageChange={handleClientsPageChange}
-          onPageSizeChange={handleClientsPageSizeChange}
-          pageSizeOptions={[10, 25, 50, 100]}
-          className="chp-pagination"
-        />
       </div>
 
       {/* ══════════ RIGHT: detail panel ══════════ */}
