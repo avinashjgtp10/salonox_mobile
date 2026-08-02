@@ -79,6 +79,48 @@ export const firstArray = (record: UnknownRecord, keys: string[]): UnknownRecord
 export const getEntryId = (entry: UnknownRecord, fallback: string) =>
   toSafeString(firstValue(entry, ["id", "_id"]), fallback);
 
+const EXPLICIT_SALE_ID_KEYS = ["saleId", "sale_id", "saleID"] as const;
+
+const getSaleIdFromRecord = (record: UnknownRecord, depth: number): string | null => {
+  const directId = toSafeString(firstValue(record, [...EXPLICIT_SALE_ID_KEYS]));
+  if (directId) {
+    return directId;
+  }
+
+  const saleValue = record.sale;
+  const scalarSaleId = toSafeString(saleValue);
+  if (scalarSaleId) {
+    return scalarSaleId;
+  }
+
+  const saleRecord = asRecord(saleValue);
+  const nestedSaleId = toSafeString(
+    firstValue(saleRecord, [...EXPLICIT_SALE_ID_KEYS, "id", "_id"]),
+  );
+  if (nestedSaleId) {
+    return nestedSaleId;
+  }
+
+  if (depth <= 0) {
+    return null;
+  }
+
+  const dataRecord = asRecord(record.data);
+  return Object.keys(dataRecord).length > 0
+    ? getSaleIdFromRecord(dataRecord, depth - 1)
+    : null;
+};
+
+/**
+ * Normalizes sale identifiers without treating an arbitrary record `id` as a
+ * sale ID. This is important for appointment checkout responses, whose root
+ * `id` belongs to the appointment rather than the generated sale.
+ */
+export const normalizeSaleId = (payload: unknown): string | null => {
+  const record = asRecord(payload);
+  return Object.keys(record).length > 0 ? getSaleIdFromRecord(record, 2) : null;
+};
+
 export const getTotalCount = (record: UnknownRecord, fallbackCount: number) =>
   toSafeNumber(firstValue(record, ["totalCount", "total_count", "total", "count"])) ||
   toSafeNumber(firstValue(asRecord(record.pagination), ["totalCount", "total_count", "total"])) ||

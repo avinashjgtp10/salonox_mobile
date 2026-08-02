@@ -1,6 +1,7 @@
 import { api } from "@/services/api";
 import { APPOINTMENT } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
+import { normalizeSaleId } from "@/utils/apiNormalize";
 import type {
   AppointmentApiItem,
   AppointmentDetailApiData,
@@ -574,10 +575,7 @@ export const appointmentService = {
       {},
     );
     const payload = response.data.data;
-    const saleId =
-      !Array.isArray(payload) && "saleId" in payload
-        ? toSafeString(payload.saleId)
-        : "";
+    const saleId = normalizeSaleId(payload);
 
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(payload)),

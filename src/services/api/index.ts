@@ -1,8 +1,10 @@
 import {
   AxiosError,
+  CanceledError,
   create,
   getAdapter,
   isAxiosError,
+  isCancel,
   type AxiosAdapter,
   type AxiosResponse,
   type InternalAxiosRequestConfig,
@@ -230,6 +232,16 @@ const formatErrorMessage = (message: string): string => {
 // "couldn't reach the server" without re-deriving it from raw axios text.
 const OFFLINE_MESSAGE = "Unable to connect. Please check your internet connection and try again.";
 const OFFLINE_MUTATION_MESSAGE = "You are offline. Your changes are still on this screen; reconnect and try again.";
+const LOGOUT_CANCELLATION_MESSAGE = "Protected request cancelled during logout.";
+
+const createLogoutCancellation = () => new CanceledError(LOGOUT_CANCELLATION_MESSAGE);
+
+const isIntentionalLogoutCancellation = (error: unknown) =>
+  isUserLogoutInProgress() &&
+  (isCancel(error) ||
+    (error instanceof Error &&
+      (error.message === LOGOUT_CANCELLATION_MESSAGE ||
+        error.message === "Token refresh cancelled during logout.")));
 
 const waitForOnlineIfNeeded = async (config: InternalAxiosRequestConfig) => {
   if (isNetworkOnline()) {
@@ -303,7 +315,7 @@ const refreshAccessToken = async (reason: string) => {
       const refreshToken = await tokenStorage.getRefreshToken();
 
       if (isUserLogoutInProgress()) {
-        throw new ApiError("Token refresh cancelled during logout.");
+        throw createLogoutCancellation();
       }
 
       if (!refreshToken) {
@@ -324,7 +336,7 @@ const refreshAccessToken = async (reason: string) => {
         const nextRefreshToken = nextTokens.refreshToken ?? refreshToken;
 
         if (isUserLogoutInProgress()) {
-          throw new ApiError("Token refresh cancelled during logout.");
+          throw createLogoutCancellation();
         }
 
         await tokenStorage.setTokens({
@@ -340,6 +352,10 @@ const refreshAccessToken = async (reason: string) => {
 
         return nextTokens.accessToken;
       } catch (refreshError) {
+        if (isIntentionalLogoutCancellation(refreshError)) {
+          throw refreshError;
+        }
+
         const shouldClearSession = shouldInvalidateSession(refreshError);
 
         logAuthEvent("refresh_failed", {
@@ -388,7 +404,7 @@ api.interceptors.request.use(async (config) => {
   }
 
   if (isUserLogoutInProgress()) {
-    throw new ApiError("Protected request cancelled during logout.");
+    throw createLogoutCancellation();
   }
 
   const logoutAbortController = new AbortController();
@@ -401,7 +417,7 @@ api.interceptors.request.use(async (config) => {
   if (isUserLogoutInProgress()) {
     logoutAbortController.abort();
     releaseProtectedRequest(config as RetryableRequestConfig);
-    throw new ApiError("Protected request cancelled during logout.");
+    throw createLogoutCancellation();
   }
 
   if (!accessToken) {
@@ -416,13 +432,17 @@ api.interceptors.request.use(async (config) => {
         const nextAccessToken = await refreshAccessToken(`request:${requestUrl}`);
 
         if (isUserLogoutInProgress()) {
-          throw new ApiError("Protected request cancelled during logout.");
+          throw createLogoutCancellation();
         }
 
         config.headers.Authorization = `Bearer ${nextAccessToken}`;
 
         return config;
       } catch (refreshError) {
+        if (isIntentionalLogoutCancellation(refreshError)) {
+          throw refreshError;
+        }
+
         logAuthEvent("request_refresh_unavailable", {
           requestUrl,
           status: getAuthErrorStatus(refreshError),
@@ -458,6 +478,10 @@ api.interceptors.response.use(
     const requestUrl = originalRequest?.url ?? "";
     const shouldSkipRefresh = shouldSkipRefreshForRequest(requestUrl);
 
+    if (isIntentionalLogoutCancellation(error)) {
+      return Promise.reject(error);
+    }
+
     if (__DEV__) {
       console.error("[API Debug] Axios error", {
         code: error.code,
@@ -485,6 +509,10 @@ api.interceptors.response.use(
 
         return api(originalRequest);
       } catch (refreshError) {
+        if (isIntentionalLogoutCancellation(refreshError)) {
+          return Promise.reject(refreshError);
+        }
+
         logAuthEvent("request_rejected_after_refresh_failure", {
           requestUrl,
           status: getAuthErrorStatus(refreshError),

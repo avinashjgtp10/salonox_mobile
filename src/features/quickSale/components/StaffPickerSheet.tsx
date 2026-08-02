@@ -55,7 +55,7 @@ export function StaffPickerSheet({ onClose, onSelect, selectedStaffId, staff, vi
                       {item.name}
                     </Text>
                     <Text numberOfLines={1} style={styles.staffMeta}>
-                      {item.status}
+                      {item.role ?? item.status}
                     </Text>
                   </View>
                   {isSelected ? <Ionicons name="checkmark-circle" size={20} color={Colors.primary} /> : null}

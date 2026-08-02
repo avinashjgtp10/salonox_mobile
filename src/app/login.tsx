@@ -712,41 +712,39 @@ export default function LoginScreen() {
       </View>
 
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+        <View style={styles.header}>
+          <LuxuryBackButton onPress={() => router.replace("/welcome" as Href)} />
+        </View>
+
         <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.keyboardView}
         >
           <ScrollView
-          ref={scrollViewRef}
-          scrollEnabled={shouldEnableScroll}
-          bounces={false}
-          alwaysBounceVertical={false}
-          overScrollMode="never"
-          onLayout={(event) => setScrollViewHeight(event.nativeEvent.layout.height)}
-          onContentSizeChange={(_, contentHeight) => setScrollContentHeight(contentHeight)}
-          contentContainerStyle={styles.scrollContainer}
-          keyboardDismissMode="none"
-          keyboardShouldPersistTaps="always"
-          showsVerticalScrollIndicator={false}
-          >
-          <Animated.View
-            style={[
-              styles.card,
-              {
-                opacity: cardOpacity,
-                transform: [{ scale: cardScale }],
-              },
+            ref={scrollViewRef}
+            scrollEnabled={shouldEnableScroll}
+            bounces={false}
+            alwaysBounceVertical={false}
+            overScrollMode="never"
+            onLayout={(event) => setScrollViewHeight(event.nativeEvent.layout.height)}
+            onContentSizeChange={(_, contentHeight) => setScrollContentHeight(contentHeight)}
+            contentContainerStyle={[
+              styles.scrollContainer,
+              isRegisterMode && styles.registrationScrollContainer,
             ]}
+            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <View
+            <Animated.View
               style={[
-                styles.topBackButton,
-                isRegisterMode && styles.registrationBackButton,
+                styles.card,
+                {
+                  opacity: cardOpacity,
+                  transform: [{ scale: cardScale }],
+                },
               ]}
             >
-              <LuxuryBackButton onPress={() => router.replace("/welcome" as Href)} />
-            </View>
-
             {/* Branding Section */}
             <View style={styles.brandContainer}>
               <Text style={styles.logoText}>
@@ -1418,8 +1416,7 @@ export default function LoginScreen() {
                 </Text>
               </Text>
             </Pressable>
-          </Animated.View>
-
+            </Animated.View>
           </ScrollView>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -1453,11 +1450,17 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     width: 360,
   },
   keyboardView: {
-    backgroundColor: Colors.bgGradientStart,
     flex: 1,
   },
   safeArea: {
     flex: 1,
+  },
+  header: {
+    alignItems: "flex-start",
+    flexShrink: 0,
+    paddingHorizontal: 24,
+    paddingVertical: 8,
+    zIndex: 1,
   },
   scrollContainer: {
     flexGrow: 1,
@@ -1465,6 +1468,10 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 32,
+  },
+  registrationScrollContainer: {
+    justifyContent: "flex-start",
+    paddingTop: 24,
   },
   floralArtwork: {
     height: 245,
@@ -1480,26 +1487,10 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     width: "100%",
   },
   card: {
-    backgroundColor: Colors.cardBg,
-    borderRadius: 30,
-    elevation: 8,
+    backgroundColor: "transparent",
     paddingHorizontal: 24,
-    paddingTop: 42,
+    paddingTop: 32,
     paddingBottom: 24,
-    shadowColor: "#6B4A2D",
-    shadowOffset: { height: 8, width: 0 },
-    shadowOpacity: 0.08,
-    shadowRadius: 24,
-  },
-  topBackButton: {
-    left: 0,
-    position: "absolute",
-    top: -58,
-  },
-  registrationBackButton: {
-    left: 0,
-    top: -12,
-    zIndex: 2,
   },
   brandContainer: {
     alignItems: "center",

@@ -98,6 +98,9 @@ export type AppointmentApiItem = {
   phone?: string | null;
   price?: number | string | null;
   scheduled_at?: string | null;
+  saleId?: string | number | null;
+  sale_id?: string | number | null;
+  saleID?: string | number | null;
   service?: AppointmentApiService | string | null;
   service_id?: string | number | null;
   service_name?: string | null;
@@ -146,6 +149,10 @@ export type AppointmentDetailApiData =
   | {
       appointment?: AppointmentApiItem | null;
       data?: AppointmentApiItem | null;
+      sale?: AppointmentApiItem | string | number | null;
+      saleId?: string | number | null;
+      sale_id?: string | number | null;
+      saleID?: string | number | null;
     };
 
 export type AppointmentListQuery = {

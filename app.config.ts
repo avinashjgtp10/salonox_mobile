@@ -55,7 +55,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       monochromeImage: "./assets/images/android-launcher-monochrome.png",
     },
     predictiveBackGestureEnabled: false,
-    softwareKeyboardLayoutMode: "pan",
+    softwareKeyboardLayoutMode: "resize",
     permissions: [
       "android.permission.ACCESS_COARSE_LOCATION",
       "android.permission.ACCESS_FINE_LOCATION",

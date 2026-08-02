@@ -4,7 +4,7 @@
 // the API's own validators (see sales.validator.ts / payments.validator.ts).
 export type SaleStatus = "draft" | "completed" | "cancelled" | "refunded";
 export type SalePaymentMethod = "cash" | "card" | "gift_card" | "split" | "upi";
-export type SaleItemType = "service" | "product" | "membership" | "gift_card" | "quick";
+export type SaleItemType = "service" | "product" | "membership" | "gift_card" | "quick" | "package";
 
 // ---- GET /sales/init ---------------------------------------------------
 // The backend genuinely only returns `{ staff, services }` (sales.service.ts
@@ -17,6 +17,7 @@ export type PosStaffMember = {
   id: string;
   initials: string;
   name: string;
+  role: string | null;
   status: string;
 };
 
@@ -53,10 +54,14 @@ export type SaleLineItemRequest = {
 };
 
 export type CreateSaleRequest = {
-  clientId?: string;
+  clientId?: string | null;
+  couponCode?: string | null;
   discountAmount?: number;
+  discountPercent?: number;
+  discountType?: "flat" | "percentage";
+  exCharges?: number;
   items: SaleLineItemRequest[];
-  notes?: string;
+  notes?: string | null;
   paymentMethod?: SalePaymentMethod;
   paymentReference?: string;
   salonId?: string;
@@ -95,6 +100,8 @@ export type SaleLineItem = {
   quantity: number;
   staffId: string | null;
   staffName?: string;
+  taxAmount: number;
+  taxableAmount: number;
   totalPrice: number;
   unitPrice: number;
 };
@@ -115,8 +122,12 @@ export type SaleDetail = {
   clientId: string | null;
   clientName: string;
   clientPhone: string;
+  couponCode: string | null;
   createdDateLabel: string;
   discountAmount: number;
+  discountPercent: number;
+  discountType: "flat" | "percentage" | null;
+  exCharges: number;
   id: string;
   lineItems: SaleLineItem[];
   notes: string | null;
