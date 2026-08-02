@@ -1,8 +1,7 @@
-// Lightweight name/phone/email correction from the Calendar/Quick Sale
-// Client panel — for a typo or wrong number without leaving the booking
-// flow. Full profile edit (birthday, address, gender, referral, avatar...)
-// still lives at AddClientPage via the clients list; this only touches the
-// handful of fields shown in ClientStatCard's header.
+// Lightweight client-detail correction from the Calendar/Quick Sale Client
+// panel — covers the essentials (name, phone, email, DOB, source) without
+// leaving the booking flow. Full profile edit (address, gender, referral,
+// avatar...) still lives at AddClientPage via the clients list.
 // Popup-over-calendar pattern, same shell as ClientHistoryModal/EwalletTopupModal.
 import { useEffect, useState } from "react";
 import { X } from "react-bootstrap-icons";
@@ -19,6 +18,17 @@ interface Props {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Same fallback AddClientPage.tsx uses — a client with a day/month on record
+// but no year still needs a valid full date to populate the native date
+// input, so an arbitrary placeholder year fills the gap.
+const DOB_PLACEHOLDER_YEAR = 2000;
+
+const CLIENT_SOURCE_OPTIONS = [
+  { value: "walk_in", label: "Walk-in" },
+  { value: "instagram", label: "Instagram" },
+  { value: "google", label: "Google" },
+];
+
 export default function QuickEditClientModal({ clientId, onClose, onSaved }: Props) {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -29,6 +39,8 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved }: Pro
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
+  const [dob, setDob] = useState("");
+  const [clientSource, setClientSource] = useState("walk_in");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
@@ -48,6 +60,8 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved }: Pro
         setPhone(c.phone_number || "");
         setPhoneCountryCode(c.phone_country_code || "+91");
         setEmail(c.email || "");
+        setDob(c.birthday_day_month ? `${c.birthday_year || DOB_PLACEHOLDER_YEAR}-${c.birthday_day_month}` : "");
+        setClientSource(c.client_source || "walk_in");
       } catch {
         if (!cancelled) setError("Failed to load client details.");
       } finally {
@@ -59,6 +73,7 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved }: Pro
 
   const phoneValid = /^\d{10}$/.test(phone.trim());
   const emailValid = email.trim() === "" || EMAIL_RE.test(email.trim());
+  const today = new Date().toISOString().slice(0, 10);
 
   const handleSubmit = async () => {
     if (!firstName.trim()) { setError("First name is required."); return; }
@@ -68,15 +83,28 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved }: Pro
     setSubmitting(true);
     setError(null);
     try {
+      // Same split AddClientPage.tsx uses — the backend stores day/month and
+      // year separately so a year-less birthday can still be tracked precisely.
+      let birthday_day_month: string | undefined;
+      let birthday_year: number | undefined;
+      if (dob) {
+        const [y, m, d] = dob.split("-");
+        birthday_day_month = `${m}-${d}`;
+        birthday_year = Number(y);
+      }
+
       // Partial PATCH — only these fields are touched server-side, everything
-      // else on the client record (birthday, address, gender, referral...) is
-      // left exactly as it was.
+      // else on the client record (address, gender, referral...) is left
+      // exactly as it was.
       await api.patch(CLIENT.BY_ID(clientId), {
         first_name: firstName.trim(),
         last_name: lastName.trim() || null,
         phone_number: phone.trim(),
         phone_country_code: phoneCountryCode,
         email: email.trim() || null,
+        birthday_day_month: birthday_day_month ?? null,
+        birthday_year: birthday_year ?? null,
+        client_source: clientSource || null,
       });
       onSaved({ id: clientId, name: `${firstName.trim()} ${lastName.trim()}`.trim(), phone: phone.trim() });
       onClose();
@@ -148,6 +176,26 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved }: Pro
                 onChange={(e) => { setEmail(e.target.value); setError(null); }}
                 onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
               />
+
+              <label className="qec-label">Date of Birth</label>
+              <input
+                className="qec-input"
+                type="date"
+                max={today}
+                value={dob}
+                onChange={(e) => { setDob(e.target.value); setError(null); }}
+              />
+
+              <label className="qec-label">Client Source</label>
+              <select
+                className="qec-input qec-select"
+                value={clientSource}
+                onChange={(e) => { setClientSource(e.target.value); setError(null); }}
+              >
+                {CLIENT_SOURCE_OPTIONS.map((o) => (
+                  <option key={o.value} value={o.value}>{o.label}</option>
+                ))}
+              </select>
 
               {error && <p className="qec-error">{error}</p>}
             </div>

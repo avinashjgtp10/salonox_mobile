@@ -5,6 +5,10 @@ import "../../styles/AppointmentModal.scss";
 
 interface TotalsPanelProps {
   subtotal: number;
+  /** Display-only Subtotal with membership-wallet-covered amounts netted out
+   *  (see pricing.engine.ts's BillTotalsResult doc comment) — falls back to
+   *  `subtotal` when omitted. Never affects Grand Total/Amount to Pay. */
+  displaySubtotal?: number;
   catalogTotal?: number; // pre-item-discount total — compare to subtotal for itemDiscountTotal
   itemDiscountTotal?: number; // ₹ saved by per-row "Disc %" (Services & Items), separate from the bill-level discount below
   serviceTotal: number;
@@ -49,17 +53,20 @@ interface TotalsPanelProps {
   paidLabel?: string;
   dueAmount?: number;
   packageServiceCount?: number;
-  // Authoritative rounded total + the adjustment that produced it, straight
-  // from computeTotals() — passed by callers that already ran it (avoids this
-  // panel re-deriving its own grandTotal and risking drift from the figure
-  // actually used for payment). Falls back to a local (unrounded) calc for
-  // any older caller that doesn't pass these yet.
+  // Authoritative fully-reduced total (Svc Discount, Extra Charges/Tip,
+  // Referral Discount, Membership Wallet, eWallet, Reward Points, Referral
+  // Credit ALL already applied) + the rounding adjustment that produced it,
+  // straight from computeTotals() — passed by callers that already ran it
+  // (avoids this panel re-deriving its own total and risking drift from the
+  // figure actually used for payment). Falls back to a local (unrounded) calc
+  // for any older caller that doesn't pass these yet. There is no longer a
+  // separate "Amount to Pay" concept distinct from this — they're the same number.
   grandTotal?: number;
   roundOff?: number;
 }
 
 const TotalsPanel: React.FC<TotalsPanelProps> = ({
-  subtotal, catalogTotal, itemDiscountTotal = 0,
+  subtotal, displaySubtotal, catalogTotal, itemDiscountTotal = 0,
   serviceTotal, packageTotal, productTotal, membershipTotal,
   exCharges, discount, discountType, manualDiscount, couponDiscount = 0, couponCode,
   referralDiscount = 0, membershipDiscountUsed = 0,
@@ -72,13 +79,35 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   const { currencySymbol } = useCurrency();
   const discountVal = discountType === "Percentage (%)" ? (serviceTotal * discount) / 100 : discount;
   const totalDiscount = totalDiscountProp !== undefined ? totalDiscountProp : Math.min(discountVal, serviceTotal);
-  const taxable = Math.max(0, subtotal - totalDiscount);
-  const rawGrandTotal = taxable + gstAmount + exCharges;
-  const grandTotal = grandTotalProp !== undefined ? grandTotalProp : Math.round(rawGrandTotal);
-  const roundOff = roundOffProp !== undefined ? roundOffProp : grandTotal - rawGrandTotal;
   // Prefer the granular manual/coupon split when the caller provides it — falls
   // back to the single blended totalDiscount line for older callers.
   const hasGranularDiscount = manualDiscount !== undefined;
+  // Svc Discount (manualDiscount) is a POST-tax deduction now (see
+  // pricing.engine.ts computeBillTotals) — it no longer reduces the pre-tax
+  // taxable base, only coupon discount does. The older blended totalDiscount
+  // fallback (no live caller passes just this — AppointmentModal always
+  // supplies the granular split) can't distinguish Svc Discount from coupon,
+  // so it's left subtracting pre-tax as an approximation for a path nothing
+  // currently exercises.
+  const preTaxDiscount = hasGranularDiscount ? couponDiscount : totalDiscount;
+  const taxable = Math.max(0, subtotal - preTaxDiscount);
+  const billTotalBeforeSvcDiscount = taxable + gstAmount;
+  const svcDiscountAmount = hasGranularDiscount ? (manualDiscount ?? 0) : 0;
+  const afterSvcDiscount = Math.max(0, billTotalBeforeSvcDiscount - svcDiscountAmount);
+  // Extra Charges and Tip are excluded from the Svc Discount base above —
+  // added here, after the discount, matching pricing.engine.ts.
+  const withCharges = afterSvcDiscount + exCharges + tip;
+  // Referral Discount is a POST-tax, POST-Svc-Discount deduction — subtracted
+  // here (not folded into the pre-tax coupon discount), matching the engine.
+  // Never itself rounded — only the fully-reduced total below is.
+  const preRedemptionTotal = Math.max(0, withCharges - referralDiscount);
+  // Every remaining deduction (membership wallet/eWallet/reward points/
+  // referral credit) happens here, still unrounded — rounding happens exactly
+  // once, at the very end of the whole waterfall, not partway through.
+  const rawFinalTotal = Math.max(0, preRedemptionTotal
+    - membershipWalletUsed - ewalletUsed - rewardPointsValue - referralCreditUsed);
+  const grandTotal = grandTotalProp !== undefined ? grandTotalProp : Math.round(rawFinalTotal);
+  const roundOff = roundOffProp !== undefined ? roundOffProp : grandTotal - rawFinalTotal;
 
   // Only exclusive taxes add to the amount due — inclusive ones are already
   // inside the item price, shown here just as a breakdown of what it contains.
@@ -122,28 +151,37 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
           { label: "Item Discount", value: `-${currencySymbol}${itemDiscountTotal.toFixed(2)}`, color: "text-danger" },
         ]
       : []),
-    { label: "Subtotal", value: `${currencySymbol}${subtotal.toFixed(2)}`, color: "" },
+    { label: "Subtotal", value: `${currencySymbol}${(displaySubtotal ?? subtotal).toFixed(2)}`, color: "" },
     ...(hasGranularDiscount
-      ? [
-          ...((manualDiscount ?? 0) > 0 ? [{ label: "Svc Discount", value: `-${currencySymbol}${(manualDiscount ?? 0).toFixed(2)}`, color: "text-danger" }] : []),
-          ...(couponDiscount > 0 ? [{ label: `Coupon${couponCode ? ` (${couponCode})` : ""}`, value: `-${currencySymbol}${couponDiscount.toFixed(2)}`, color: "text-danger" }] : []),
-        ]
+      ? (couponDiscount > 0 ? [{ label: `Coupon${couponCode ? ` (${couponCode})` : ""}`, value: `-${currencySymbol}${couponDiscount.toFixed(2)}`, color: "text-danger" }] : [])
       : (totalDiscount > 0 ? [{ label: "Discount", value: `-${currencySymbol}${totalDiscount.toFixed(2)}`, color: "text-danger" }] : [])),
     ...(membershipDiscountUsed > 0 ? [{ label: "Membership Discount", value: `-${currencySymbol}${membershipDiscountUsed.toFixed(2)}`, color: "text-danger" }] : []),
-    ...(referralDiscount > 0 ? [{ label: "Referral Discount", value: `-${currencySymbol}${referralDiscount.toFixed(2)}`, color: "text-danger" }] : []),
     ...(combinedExclusiveTax ? [{ label: `${combinedExclusiveTax.label} (${combinedExclusiveTax.rate}%)`, value: `+${currencySymbol}${combinedExclusiveTax.amount.toFixed(2)}`, color: "" }] : []),
     ...(combinedInclusiveTax ? [{ label: `${combinedInclusiveTax.label} (${combinedInclusiveTax.rate}%, incl.)`, value: `${currencySymbol}${combinedInclusiveTax.amount.toFixed(2)}`, color: "text-secondary" }] : []),
     ...(combinedExclusiveTax ? [{ label: "Total after GST", value: `${currencySymbol}${totalAfterGst.toFixed(2)}`, color: "", bold: true }] : []),
     ...(exCharges     > 0 ? [{ label: "Ex Charges", value: `${currencySymbol}${exCharges.toFixed(2)}`,      color: "" }] : []),
+    ...(tip         > 0 ? [{ label: "Tip (Staff)", value: `${currencySymbol}${tip.toFixed(2)}`,        color: "text-secondary" }] : []),
+    // Svc Discount is a POST-tax deduction now — applied to the bill total
+    // after GST/Extra Charges/Tip (see pricing.engine.ts computeBillTotals),
+    // so it's shown here, below those rows, instead of up by Subtotal/Coupon.
+    ...(hasGranularDiscount && (manualDiscount ?? 0) > 0
+      ? [{ label: "Svc Discount", value: `-${currencySymbol}${(manualDiscount ?? 0).toFixed(2)}`, color: "text-danger" }]
+      : []),
+    // Referral Discount is a POST-tax, POST-Svc-Discount deduction now —
+    // applied here, not folded into the pre-tax coupon discount above.
+    ...(referralDiscount > 0 ? [{ label: "Referral Discount", value: `-${currencySymbol}${referralDiscount.toFixed(2)}`, color: "text-danger" }] : []),
+    ...(membershipWalletUsed > 0 ? [{ label: "Membership Wallet Used", value: `-${currencySymbol}${membershipWalletUsed.toFixed(2)}`, color: "text-success" }] : []),
+    ...(ewalletUsed        > 0 ? [{ label: "eWallet Used",         value: `-${currencySymbol}${ewalletUsed.toFixed(2)}`,        color: "text-success" }] : []),
+    ...(rewardPointsValue  > 0 ? [{ label: "Reward Points Used",   value: `-${currencySymbol}${rewardPointsValue.toFixed(2)}`,  color: "text-success" }] : []),
+    ...(referralCreditUsed > 0 ? [{ label: "Referral Credit Used", value: `-${currencySymbol}${referralCreditUsed.toFixed(2)}`, color: "text-success" }] : []),
     ...(Math.abs(roundOff) >= 0.005
       ? [{ label: "Round Off", value: `${roundOff >= 0 ? "+" : "-"}${currencySymbol}${Math.abs(roundOff).toFixed(2)}`, color: "text-secondary" }]
       : []),
     { label: "Grand Total", value: `${currencySymbol}${grandTotal.toFixed(2)}`, color: "", bold: true },
-    ...(membershipWalletUsed > 0 ? [{ label: "Membership Wallet Applied", value: `-${currencySymbol}${membershipWalletUsed.toFixed(2)}`, color: "text-success" }] : []),
-    ...(ewalletUsed        > 0 ? [{ label: "eWallet Applied",         value: `-${currencySymbol}${ewalletUsed.toFixed(2)}`,        color: "text-success" }] : []),
-    ...(rewardPointsValue  > 0 ? [{ label: "Reward Points Applied",   value: `-${currencySymbol}${rewardPointsValue.toFixed(2)}`,  color: "text-success" }] : []),
-    ...(referralCreditUsed > 0 ? [{ label: "Referral Credit Applied", value: `-${currencySymbol}${referralCreditUsed.toFixed(2)}`, color: "text-success" }] : []),
-    ...(tip         > 0 ? [{ label: "Tip (Staff)", value: `${currencySymbol}${tip.toFixed(2)}`,        color: "text-secondary" }] : []),
+    // Always identical to Grand Total now — the merge eliminated the separate
+    // "gross bill before redemptions" concept (see plan doc). Kept as its own
+    // row since callers/staff still expect an explicit "Amount to Pay" line.
+    { label: "Amount to Pay", value: `${currencySymbol}${grandTotal.toFixed(2)}`, color: "", bold: true },
     ...(alreadyPaid > 0 ? [{ label: paidLabel,     value: `${currencySymbol}${alreadyPaid.toFixed(2)}`, color: "text-success",   bold: false }] : []),
     ...(dueAmount   > 0 ? [{ label: "Due",          value: `${currencySymbol}${dueAmount.toFixed(2)}`,  color: "text-danger",    bold: false }] : []),
   ];

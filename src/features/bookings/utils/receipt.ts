@@ -368,14 +368,15 @@ export function printReceipt(
   const gstAmt      = Number((booking as any).gstAmount     || 0);
   const taxBreakdown = ((booking as any).taxBreakdown || []) as { name: string; rate: number; amount: number; inclusive: boolean }[];
   const grandTotal  = Number(booking.grandTotal || 0);
-  // grandTotal is already rounded to a whole rupee (see computeTotals()) — the
-  // receipt shows the small adjustment that produced it, same as the on-screen
-  // totals panel/summary the client saw moments earlier at checkout.
+  // grandTotal is the fully-reduced figure (Svc Discount, Extra Charges/Tip,
+  // Referral Discount, Membership Wallet, eWallet, Reward Points, Referral
+  // Credit ALL already applied) — Grand Total and Amount to Pay are the same
+  // merged concept now (see pricing.engine.ts's computeBillTotals). The
+  // receipt shows the small rounding adjustment that produced it, same as
+  // the on-screen totals panel/summary the client saw moments earlier.
   const exclusiveTaxTotal = taxBreakdown.length > 0
     ? taxBreakdown.filter((t) => !t.inclusive && t.amount > 0).reduce((s, t) => s + t.amount, 0)
     : gstAmt;
-  const rawGrandTotal = subtotalAmt - manualDisc - couponDisc - referralDisc - membershipDiscountAmt + exCharges + exclusiveTaxTotal;
-  const roundOff = grandTotal - rawGrandTotal;
   const paidAmt     = Number(booking.payingNow  || 0);
   const dueAmt      = Number(booking.dueAmount  || 0);
   const rewardPointsValuePaid = Number((booking as any).rewardPointsValue || 0);
@@ -388,6 +389,26 @@ export function printReceipt(
   const splitDetailsRaw = ((booking as any).splitDetails || {}) as Record<string, unknown>;
   const splitEwallet = Number(Object.entries(splitDetailsRaw).find(([k]) => k.toLowerCase() === "ewallet")?.[1]) || 0;
   const ewalletUsedAmt = Number((booking as any).ewalletUsed || 0) || splitEwallet;
+  // Svc Discount (manualDisc) is a POST-tax deduction — applied to the bill
+  // total after GST, not the pre-tax subtotal (matches pricing.engine.ts's
+  // computeBillTotals). Coupon/membership discounts are unaffected and still
+  // reduce the pre-tax base as before; only manualDisc moved.
+  const billTotalBeforeSvcDiscount = subtotalAmt - couponDisc - membershipDiscountAmt + exclusiveTaxTotal;
+  const afterSvcDiscount = billTotalBeforeSvcDiscount - manualDisc;
+  // Extra Charges and Tip are excluded from the Svc Discount base above —
+  // added here, after the discount. tipAmt was previously missing from this
+  // recompute entirely, silently understating rawGrandTotal (and so
+  // overstating the printed "Round Off") whenever a tip was collected.
+  const withCharges = afterSvcDiscount + exCharges + tipAmt;
+  // Referral Discount is a POST-tax, POST-Svc-Discount deduction now —
+  // subtracted here, not folded into the pre-tax coupon discount above.
+  const preRedemptionTotal = withCharges - referralDisc;
+  // Every remaining deduction happens here, still unrounded — grandTotal
+  // above is the single rounding point, applied once at the very end of the
+  // whole waterfall (matches computeTotals()/computeBillTotals).
+  const rawGrandTotal = preRedemptionTotal
+    - membershipWalletUsedAmt - ewalletUsedAmt - rewardPointsValuePaid - referralCreditUsedAmt;
+  const roundOff = grandTotal - rawGrandTotal;
   // Per-method breakdown of the actual payment (Cash/Card/UPI/Package —
   // eWallet/membership wallet aren't part of this map, they're tracked
   // separately above).
@@ -415,13 +436,9 @@ export function printReceipt(
     itemDiscountAmt > 0 ? sumRow("Items Total",   fmt(itemsCatalogTotal)) : "",
     itemDiscountAmt > 0 ? sumRow("Item Discount", `−${fmt(itemDiscountAmt)}`, false, "#dc2626") : "",
     subtotalAmt > 0 ? sumRow("Subtotal",        fmt(subtotalAmt)) : "",
-    manualDisc  > 0 ? sumRow("Svc Discount",     `−${fmt(manualDisc)}`, false, "#dc2626") : "",
     couponDisc  > 0 ? sumRow(`Coupon${couponCode ? ` (${couponCode})` : ""}`, `−${fmt(couponDisc)}`, false, "#dc2626") : "",
-    referralDisc > 0 ? sumRow("Referral Discount", `−${fmt(referralDisc)}`, false, "#dc2626") : "",
     membershipPercentageDiscountAmt > 0 ? sumRow("Membership Discount", `−${fmt(membershipPercentageDiscountAmt)}`, false, "#dc2626") : "",
     membershipLoyaltyDiscountAmt > 0 ? sumRow("Membership Loyalty", `−${fmt(membershipLoyaltyDiscountAmt)}`, false, "#dc2626") : "",
-    exCharges   > 0 ? sumRow("Extra Charges",    `+${fmt(exCharges)}`) : "",
-    tipAmt      > 0 ? sumRow("Tip (Staff)",       `+${fmt(tipAmt)}`) : "",
     // Itemized per-tax lines (CGST, SGST, etc.) + a "Total Tax" subtotal —
     // e.g. "CGST 9%" / "SGST/UTGST 9%" / "Total Tax". Falls back to the old
     // single blended "GST" line for bookings saved before this. When "Show
@@ -444,14 +461,23 @@ export function printReceipt(
           ),
         ]
       : [gstAmt > 0 ? sumRow(`GST${gstPct > 0 ? ` (${gstPct}%)` : ""}`, `+${fmt(gstAmt)}`) : ""]),
+    exCharges   > 0 ? sumRow("Extra Charges",    `+${fmt(exCharges)}`) : "",
+    tipAmt      > 0 ? sumRow("Tip (Staff)",       `+${fmt(tipAmt)}`) : "",
+    // Svc Discount is applied AFTER GST/Extra Charges/Tip (post-tax
+    // deduction on the bill total) — matching pricing.engine.ts.
+    manualDisc  > 0 ? sumRow("Svc Discount",     `−${fmt(manualDisc)}`, false, "#dc2626") : "",
+    // Referral Discount is a POST-tax, POST-Svc-Discount deduction now —
+    // shown here, not up by Subtotal/Coupon.
+    referralDisc > 0 ? sumRow("Referral Discount", `−${fmt(referralDisc)}`, false, "#dc2626") : "",
+    rewardPointsValuePaid > 0 ? sumRow("Reward Points Used", `−${fmt(rewardPointsValuePaid)}`, false, "#7c3aed") : "",
+    membershipWalletUsedAmt > 0 ? sumRow("Membership Wallet Used", `−${fmt(membershipWalletUsedAmt)}`, false, "#15803d") : "",
+    ewalletUsedAmt > 0 ? sumRow("eWallet Used", `−${fmt(ewalletUsedAmt)}`, false, "#2563eb") : "",
+    referralCreditUsedAmt > 0 ? sumRow("Referral Credit Used", `−${fmt(referralCreditUsedAmt)}`, false, "#0891b2") : "",
     !isPackagePaid && Math.abs(roundOff) >= 0.005
       ? sumRow("Round Off", `${roundOff >= 0 ? "+" : "−"}${fmt(Math.abs(roundOff))}`)
       : "",
     sumRow("Grand Total", fmt(isPackagePaid ? 0 : grandTotal), true, "#111827", true),
-    rewardPointsValuePaid > 0 ? sumRow("Paid from Reward Points", fmt(rewardPointsValuePaid), false, "#7c3aed") : "",
-    membershipWalletUsedAmt > 0 ? sumRow("Paid via Membership Wallet", fmt(membershipWalletUsedAmt), false, "#15803d") : "",
-    ewalletUsedAmt > 0 ? sumRow("Paid via eWallet", fmt(ewalletUsedAmt), false, "#2563eb") : "",
-    referralCreditUsedAmt > 0 ? sumRow("Paid via Referral Credit", fmt(referralCreditUsedAmt), false, "#0891b2") : "",
+    sumRow("Amount to Pay", fmt(isPackagePaid ? 0 : grandTotal), true, "#111827"),
     showPaymentBreakdown
       ? splitEntries.map(([method, amt]) =>
           sumRow(`Paid via ${method}`, fmt(amt), false, METHOD_COLOR[method.toLowerCase()] ?? "#111827")
