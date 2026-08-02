@@ -7,7 +7,7 @@ import api from "../../../services/api/axios";
 import { STAFF_SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
-import Button from "../../../components/ui/Button";
+import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { Pagination } from "../../../components/ui";
@@ -135,9 +135,7 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
           )}
         </div>
         <div className="rp-detail-filter-actions">
-          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
-            Run Report
-          </Button>
+          <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
 

@@ -5,7 +5,7 @@ import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { fetchBranchesThunk } from "../../../middleware/salon/salon.thunk";
 import type { AppDispatch, RootState } from "../../../store/store";
-import Button from "../../../components/ui/Button";
+import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
@@ -131,9 +131,7 @@ export default function ConsumableUsageReport({ onBack, category: reportCategory
           )}
         </div>
         <div className="rp-detail-filter-actions">
-          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
-            Refresh
-          </Button>
+          <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
 

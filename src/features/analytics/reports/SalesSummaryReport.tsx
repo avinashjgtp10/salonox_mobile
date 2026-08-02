@@ -6,6 +6,7 @@ import { SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import Button from "../../../components/ui/Button";
+import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, Loader } from "../../../components/ui";
@@ -406,9 +407,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
           {activeFilterCount > 0 && <span className="rp-ss-filters-badge">{activeFilterCount}</span>}
         </button>
         <div className="rp-detail-filter-actions">
-          <Button variant="dark" className="rp-ss-run-btn" onClick={fetchData} loading={loading}>
-            Run Report
-          </Button>
+          <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
 

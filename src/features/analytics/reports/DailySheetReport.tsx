@@ -3,6 +3,7 @@ import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { DAILY_SHEET_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
+import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
@@ -304,9 +305,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
           {activeFilterCount > 0 && <span className="rp-ds-filters-badge">{activeFilterCount}</span>}
         </button>
         <div className="rp-detail-filter-actions">
-          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
-            Run Report
-          </Button>
+          <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
 

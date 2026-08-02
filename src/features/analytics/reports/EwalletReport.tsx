@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { EWALLET, EWALLET_REPORT } from "../../../services/api/endpoints";
-import Button from "../../../components/ui/Button";
+import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
@@ -156,9 +156,7 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
 
       <div className="rp-detail-filters">
         <div className="rp-detail-filter-actions">
-          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
-            Refresh
-          </Button>
+          <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
 

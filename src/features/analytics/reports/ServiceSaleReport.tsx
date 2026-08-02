@@ -3,6 +3,7 @@ import { Search, ChevronUp, ChevronDown } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SERVICE_SALE_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
+import ReportRefreshButton from "./ReportRefreshButton";
 import Select from "../../../components/ui/Select";
 import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
@@ -236,9 +237,7 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
           {activeFilterCount > 0 && <span className="rp-ss-filters-badge">{activeFilterCount}</span>}
         </button>
         <div className="rp-detail-filter-actions">
-          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
-            Run Report
-          </Button>
+          <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
 
