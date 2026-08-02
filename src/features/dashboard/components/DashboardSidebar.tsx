@@ -69,7 +69,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
       {can("view_calendar") && (
         <NavLink
-          to="calendar"
+          to="/dashboard/calendar"
           className={({ isActive }) => navClass(isActive)}
           onClick={() => onMenuChange(null)}
         >
@@ -183,7 +183,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       <NavLink
-        to="apps"
+        to="/dashboard/apps"
         className={({ isActive }) => navClass(isActive)}
         onClick={() => onMenuChange(null)}
       >
@@ -195,7 +195,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
 
       {can("general_settings") && (
         <NavLink
-          to="settings"
+          to="/dashboard/settings"
           className={({ isActive }) => navClass(isActive)}
           onClick={() => onMenuChange(null)}
         >
@@ -205,7 +205,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       <NavLink
-        to="help"
+        to="/dashboard/help"
         className={({ isActive }) => navClass(isActive)}
         onClick={() => onMenuChange(null)}
       >
