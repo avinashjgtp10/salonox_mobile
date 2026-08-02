@@ -4,6 +4,7 @@ import { useCurrency } from "../../../../hooks/useCurrency";
 import type { ClientStats } from "../../types";
 import type { ClientPackage } from "../../../../services/api/endpoints/packages.endpoints";
 import type { ClientMembership } from "../../../../services/api/endpoints/clientMemberships.endpoints";
+import type { LoyaltyEligibility } from "../../../../services/api/endpoints/memberships.endpoints";
 import Skeleton from "../../../../components/ui/Skeleton";
 import { getPackageExpiryStatus, getExpiryStatus } from "../../utils/packageStatus";
 
@@ -14,6 +15,12 @@ interface Props {
   stats: ClientStats;
   packages?: ClientPackage[];
   memberships?: ClientMembership[];
+  // Loyalty plans are free/automatic and have no purchase row in `memberships`
+  // above (see resolveCategoryRestriction's sibling findLoyaltyEligibility on
+  // the backend) — this is the live "has this client crossed a tier" read,
+  // the only way the Membership cell can know about one. Omit/null means no
+  // salon-wide loyalty plan applies or the client hasn't unlocked one yet.
+  loyaltyEligibility?: LoyaltyEligibility | null;
   onViewHistory?: () => void;
   historyUrl?: string;
   // Opens the "Quick Edit Client" popup for a name/phone/email typo fix
@@ -104,7 +111,7 @@ function usePopover() {
 }
 
 export const ClientStatCard: React.FC<Props> = ({
-  name, phone, address, stats, packages = [], memberships = [], onViewHistory, historyUrl,
+  name, phone, address, stats, packages = [], memberships = [], loyaltyEligibility, onViewHistory, historyUrl,
   historyLoading = false, rewardPointsConfig, onEdit,
 }) => {
   const { formatAmount } = useCurrency();
@@ -113,6 +120,13 @@ export const ClientStatCard: React.FC<Props> = ({
   const rewardPopover = usePopover();
   const pkgPopover = usePopover();
   const memPopover = usePopover();
+  // Which membership card (by id) currently has its description expanded —
+  // at most one at a time, reset whenever the whole Membership popover closes
+  // so it doesn't reappear stale the next time it's opened.
+  const [descOpenId, setDescOpenId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!memPopover.visible) setDescOpenId(null);
+  }, [memPopover.visible]);
 
   const rewardMoneyValue = rewardPointsConfig && rewardPointsConfig.redeem_points > 0
     ? (Number(stats.rewardPoints) / rewardPointsConfig.redeem_points) * rewardPointsConfig.redeem_value
@@ -128,6 +142,11 @@ export const ClientStatCard: React.FC<Props> = ({
   // same guard as packages above.
   const activeMemberships = memberships.filter((m) => m.status === "active" && getExpiryStatus(m.expiresAt) !== "expired");
   const firstMembership = activeMemberships[0];
+  // Loyalty only counts once the client has actually crossed a tier — before
+  // that there's no active benefit to show here (same "eligible" gate the
+  // booking's own benefit card uses).
+  const hasLoyalty = !!loyaltyEligibility?.eligible;
+  const membershipCount = activeMemberships.length + (hasLoyalty ? 1 : 0);
 
   return (
     <>
@@ -316,7 +335,7 @@ export const ClientStatCard: React.FC<Props> = ({
           {/* Membership cell */}
           <div className="info-cell info" ref={memPopover.ref}>
             <span className="info-cell__label">
-              Membership{activeMemberships.length > 1 ? ` (${activeMemberships.length})` : ""}
+              Membership{membershipCount > 1 ? ` (${membershipCount})` : ""}
             </span>
             {firstMembership ? (
               <span className="info-cell__value pkg-cell__value">
@@ -335,16 +354,44 @@ export const ClientStatCard: React.FC<Props> = ({
                   ℹ
                 </button>
               </span>
+            ) : hasLoyalty ? (
+              <span className="info-cell__value pkg-cell__value">
+                <span className="pkg-cell__name">{loyaltyEligibility!.name} (Loyalty)</span>
+                <button
+                  type="button"
+                  className="pkg-info-btn"
+                  title="View membership details"
+                  onMouseEnter={memPopover.onMouseEnter}
+                  onMouseLeave={memPopover.onMouseLeave}
+                  onClick={memPopover.toggle}
+                >
+                  ℹ
+                </button>
+              </span>
             ) : (
               <span className="info-cell__value">N/A</span>
             )}
-            {memPopover.visible && activeMemberships.length > 0 && (
+            {memPopover.visible && membershipCount > 0 && (
               <div className="info-popover info-popover--wide">
                 <div className="pkg-modal__cards">
                   {activeMemberships.map((m) => {
                     const expiryStatus = getExpiryStatus(m.expiresAt);
                     return (
                     <div key={m.id} className="pkg-card">
+                      <button
+                        type="button"
+                        className="pkg-card__desc-btn"
+                        title="View description"
+                        aria-label="View description"
+                        onClick={() => setDescOpenId((id) => (id === m.id ? null : m.id))}
+                      >
+                        ℹ
+                      </button>
+                      {descOpenId === m.id && (
+                        <div className="pkg-card__desc-box">
+                          {m.description?.trim() || "No description provided."}
+                        </div>
+                      )}
                       <div className="pkg-card__row">
                         <span className="pkg-card__lbl">Active Membership:</span>
                         <span className="pkg-card__val">{m.membershipName}</span>
@@ -373,13 +420,69 @@ export const ClientStatCard: React.FC<Props> = ({
                           {m.totalSessions === 0 ? "Unlimited" : `${m.usedSessions} used / ${m.totalSessions} total`}
                         </span>
                       </div>
-                      <div className="pkg-card__row">
-                        <span className="pkg-card__lbl">Balance Amount:</span>
-                        <span className="pkg-card__val">{formatAmount(Number(m.membershipWalletBalance ?? 0))}</span>
-                      </div>
+                      {m.pricingType === "percentage" ? (
+                        <div className="pkg-card__row">
+                          <span className="pkg-card__lbl">Discount Balance Remaining:</span>
+                          <span className="pkg-card__val">
+                            {formatAmount(Number(m.discountBalanceRemaining ?? 0))}
+                            {m.discountPercent ? ` (${m.discountPercent}% off)` : ""}
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="pkg-card__row">
+                          <span className="pkg-card__lbl">Balance Amount:</span>
+                          <span className="pkg-card__val">{formatAmount(Number(m.membershipWalletBalance ?? 0))}</span>
+                        </div>
+                      )}
                     </div>
                     );
                   })}
+                  {hasLoyalty && (
+                    <div className="pkg-card">
+                      <button
+                        type="button"
+                        className="pkg-card__desc-btn"
+                        title="View description"
+                        aria-label="View description"
+                        onClick={() => setDescOpenId((id) => (id === loyaltyEligibility!.membershipId ? null : loyaltyEligibility!.membershipId))}
+                      >
+                        ℹ
+                      </button>
+                      {descOpenId === loyaltyEligibility!.membershipId && (
+                        <div className="pkg-card__desc-box">
+                          {loyaltyEligibility!.description?.trim() || "No description provided."}
+                        </div>
+                      )}
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Active Membership:</span>
+                        <span className="pkg-card__val">{loyaltyEligibility!.name}</span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Type:</span>
+                        <span className="pkg-card__val">Loyalty (Automatic)</span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Status:</span>
+                        <span className="pkg-card__status-badge pkg-card__status-badge--active">Active</span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Visits Completed:</span>
+                        <span className="pkg-card__val">{loyaltyEligibility!.current}</span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Current Discount:</span>
+                        <span className="pkg-card__val">{loyaltyEligibility!.discountPercent}% off</span>
+                      </div>
+                      <div className="pkg-card__row">
+                        <span className="pkg-card__lbl">Next Tier:</span>
+                        <span className="pkg-card__val">
+                          {loyaltyEligibility!.nextTier
+                            ? `${loyaltyEligibility!.nextTier.discountPercent}% at ${loyaltyEligibility!.nextTier.thresholdValue} visits`
+                            : "Highest tier reached"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

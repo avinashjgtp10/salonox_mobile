@@ -84,7 +84,7 @@ const ServicesListPage: React.FC = () => {
     useServices();
   const { createCategory, updateCategory, deleteCategory, loading: catLoading } =
     useCategories();
-  const { filters, activeCount: filterActiveCount } = useServiceFilters();
+  const { filters, activeCount: filterActiveCount, reset: resetServiceFilters } = useServiceFilters();
 
   const categoryLoadingState = useReduxSelector(selectCategoriesLoading);
   const categoriesLoading = categoryLoadingState?.fetchAll ?? false;
@@ -571,6 +571,7 @@ const ServicesListPage: React.FC = () => {
                       onClick: () => {
                         setSearchQuery("");
                         setSelectedCategory("all");
+                        resetServiceFilters();
                       },
                     }
                   : undefined

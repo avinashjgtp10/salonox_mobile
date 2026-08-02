@@ -7,6 +7,7 @@ import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { selectBookings } from "../../../../store/selectors/scheduler.selectors";
 import type { ClientPackage } from "../../../../services/api/endpoints/packages.endpoints";
 import type { ClientMembership } from "../../../../services/api/endpoints/clientMemberships.endpoints";
+import type { LoyaltyEligibility } from "../../../../services/api/endpoints/memberships.endpoints";
 import api from "../../../../services/api/axios";
 import { Button } from "../../../../components/ui";
 import Skeleton from "../../../../components/ui/Skeleton";
@@ -95,6 +96,11 @@ interface Props {
   // ultimately read the same client.
   packages?: ClientPackage[];
   memberships?: ClientMembership[];
+  // Loyalty plans are salon-wide and free — there's no per-client purchase
+  // row for them (see ClientStatCard.tsx), so this live eligibility (fetched
+  // once by AppointmentModal via useLoyaltyEligibility) is the only way the
+  // stat card's Membership cell can know a client has unlocked one.
+  loyaltyEligibility?: LoyaltyEligibility | null;
 }
 
 export const ClientPanel: React.FC<Props> = ({
@@ -102,7 +108,7 @@ export const ClientPanel: React.FC<Props> = ({
   fallbackUnpaidAmt,
   onSelectClient, onClearClient, onStatsLoaded, error, defaultName, defaultPhone, openAddForm,
   refreshKey, rewardPointsConfig, onClientUpdated,
-  packages, memberships,
+  packages, memberships, loyaltyEligibility,
 }) => {
   const [search, setSearch] = useState(selectedClientId === "walk-in" ? "Walk In" : "");
   const [suggestions, setSuggestions] = useState<Client[]>([]);
@@ -585,6 +591,7 @@ export const ClientPanel: React.FC<Props> = ({
             stats={{ ...stats, unpaidAmt }}
             packages={packages ?? []}
             memberships={memberships ?? []}
+            loyaltyEligibility={loyaltyEligibility}
             onViewHistory={onViewHistory}
             historyLoading={historyLoading}
             rewardPointsConfig={rewardPointsConfig}

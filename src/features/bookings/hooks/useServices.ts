@@ -26,6 +26,7 @@ export function useServices(salonId?: string | null) {
         id: String(s.id ?? ""), name: s.name,
         price: parseFloat(String(s.price)) || 0,
         duration: Number(s.duration || s.duration_minutes) || 30,
+        categoryId: s.category_id ?? undefined,
       }))
     ));
   }, [apiServices, dispatch]);
@@ -45,9 +46,16 @@ export function useServices(salonId?: string | null) {
   // Products + memberships mapping (data arrives from on-demand fetches in AppointmentModal)
   useEffect(() => {
     if (!apiMemberships.length) return;
-    dispatch(setMembershipsList(apiMemberships.map((m: any) => ({
-      id: String(m.id || ""), name: m.name, price: m.price || 0,
-    }))));
+    // Loyalty plans are free and unlock automatically off visit count — they
+    // have no price to charge, so they must never appear in the "+ Membership"
+    // row's picker, which sells a plan to the client for its price.
+    dispatch(setMembershipsList(
+      apiMemberships
+        .filter((m: any) => (m.pricingType ?? m.pricing_type) !== "loyalty")
+        .map((m: any) => ({
+          id: String(m.id || ""), name: m.name, price: m.price || 0,
+        }))
+    ));
   }, [apiMemberships, dispatch]);
 
   useEffect(() => {
@@ -63,6 +71,7 @@ export function useServices(salonId?: string | null) {
       retail_price: p.retail_price != null ? parseFloat(String(p.retail_price)) || 0 : null,
       selling_price: p.selling_price != null ? parseFloat(String(p.selling_price)) || 0 : null,
       sellingPriceRaw: p.sellingPrice != null ? parseFloat(String(p.sellingPrice)) || 0 : null,
+      categoryId: p.category_id ?? undefined,
     }))));
   }, [apiProducts, dispatch]);
 }

@@ -7,6 +7,7 @@ import api from "../../../../services/api/axios";
 import type { ServiceItem, PackageItem, ProductItem, MembershipItem } from "../../types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import TimeSelect from "../shared/TimeSelect";
+import NameSelect from "../shared/NameSelect";
 import type { IntervalOption } from "../../types/scheduler-types";
 
 const MIN_SEARCH_LENGTH = 3;
@@ -24,6 +25,7 @@ interface SearchableCatalogItem {
   barcode?: string | null;
   barcodeSearchValues?: Array<string | null | undefined>;
   priceSearchValues?: Array<number | string | null | undefined>;
+  categoryId?: string;
 }
 
 function getProductDisplayPrice(item: any) {
@@ -259,6 +261,7 @@ function mapProductSearchItem(item: any): SearchableCatalogItem {
       item.sku,
     ],
     priceSearchValues: getProductPriceSearchValues(item),
+    categoryId: item.category_id ?? undefined,
   };
 }
 
@@ -407,20 +410,17 @@ function MembershipRow({
     <div className="item-row item-row--membership">
       {/* 1 — Name */}
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <select
-          className={`svc-field__input${memError?.item ? " svc-field__input--error" : ""}`}
+        <NameSelect
+          className={`svc-field__input svc-field__select${memError?.item ? " svc-field__input--error" : ""}`}
           disabled={frozen}
+          placeholder="Select membership..."
           value={(row as any).membershipId || ""}
-          onChange={(e) => {
-            const m = availableMemberships.find((mb: any) => String(mb.id) === e.target.value);
+          options={availableMemberships.map((m: any) => ({ id: m.id, name: m.name }))}
+          onChange={(option) => {
+            const m = availableMemberships.find((mb: any) => String(mb.id) === String(option.id));
             if (m) onUpdateMembership(index, { ...row, membershipId: m.id, membershipName: m.name, price: m.price, qty: 1, discount: 0, total: m.price });
           }}
-        >
-          <option value="">Select membership...</option>
-          {availableMemberships.map((m: any) => (
-            <option key={m.id} value={m.id}>{m.name}</option>
-          ))}
-        </select>
+        />
         {memError?.item && <span className="svc-field__err">Please select a membership</span>}
       </div>
 
@@ -513,6 +513,177 @@ function MembershipRow({
       {/* 9 — Delete */}
       {!frozen
         ? <button className="svc-del-btn" onClick={() => onRemoveMembership(index)}><Trash size={13} /></button>
+        : <span />}
+    </div>
+  );
+}
+
+// Same local-buffer qty/discount pattern as MembershipRow — packages are
+// picked from a plain <select> (like memberships) rather than searched, since
+// a salon's package list is short and named, not something worth free-text
+// filtering.
+interface PackageRowProps {
+  row: PackageItem;
+  index: number;
+  frozen?: boolean;
+  interval: IntervalOption;
+  staffList: { id: string; name: string }[];
+  availablePackages: any[];
+  pkgError?: { item?: boolean; staff?: boolean; time?: boolean };
+  onClearError?: (field: string) => void;
+  onUpdatePackage: (index: number, row: PackageItem) => void;
+  onRemovePackage: (index: number) => void;
+  taxAmount?: number;
+}
+
+function PackageRow({
+  row, index, frozen, interval, staffList, availablePackages, pkgError,
+  onClearError, onUpdatePackage, onRemovePackage, taxAmount,
+}: PackageRowProps) {
+  const { currencySymbol } = useCurrency();
+  const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
+  const [discountInput, setDiscountInput] = useState(getDiscountValue(row.discount));
+
+  useEffect(() => { setQtyInput(String(getSafeQty(row.qty))); }, [row.qty]);
+  useEffect(() => { setDiscountInput(getDiscountValue(row.discount)); }, [row.discount]);
+
+  function handleQtyChange(value: string) {
+    const normalizedValue = value.slice(0, 2);
+    setQtyInput(normalizedValue);
+    if (!normalizedValue) return;
+    const qty = parseInt(normalizedValue, 10);
+    if (Number.isInteger(qty) && qty > 0) {
+      onUpdatePackage(index, { ...row, qty, total: calcTotal(row.price, qty, row.discount || 0) });
+    }
+  }
+
+  function handleQtyBlur() {
+    const qty = parseInt(qtyInput, 10);
+    const clampedQty = Number.isInteger(qty) && qty > 0 ? Math.min(qty, 99) : 1;
+    setQtyInput(String(clampedQty));
+    onUpdatePackage(index, { ...row, qty: clampedQty, total: calcTotal(row.price, clampedQty, row.discount || 0) });
+  }
+
+  function handleDiscountChange(value: string) {
+    const normalizedValue = value.slice(0, 3);
+    setDiscountInput(normalizedValue);
+    const discount = Math.min(100, parseInt(normalizedValue, 10) || 0);
+    onUpdatePackage(index, { ...row, discount, total: calcTotal(row.price, getSafeQty(row.qty), discount) });
+  }
+
+  function handleDiscountBlur() {
+    const discount = Math.min(100, Math.max(0, parseInt(discountInput, 10) || 0));
+    setDiscountInput(discount > 0 ? String(discount) : "");
+    onUpdatePackage(index, { ...row, discount, total: calcTotal(row.price, getSafeQty(row.qty), discount) });
+  }
+
+  return (
+    <div className="item-row item-row--package">
+      {/* 1 — Name */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <NameSelect
+          className={`svc-field__input svc-field__select${pkgError?.item ? " svc-field__input--error" : ""}`}
+          disabled={frozen}
+          placeholder="Select package..."
+          value={row.packageId || ""}
+          options={availablePackages.map((p: any) => ({ id: p.id, name: p.name }))}
+          onChange={(option) => {
+            const p = availablePackages.find((pkg: any) => String(pkg.id) === String(option.id));
+            if (p) onUpdatePackage(index, { ...row, packageId: p.id, packageName: p.name, price: p.price, qty: 1, discount: 0, total: p.price });
+          }}
+        />
+        {pkgError?.item && <span className="svc-field__err">Please select a package</span>}
+      </div>
+
+      {/* 2 — Staff */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <div className={`svc-staff-pill${pkgError?.staff ? " svc-staff-pill--error" : ""}`}>
+          <button
+            type="button"
+            disabled={frozen}
+            className="svc-staff-pill__clear"
+            onClick={() => !frozen && onUpdatePackage(index, { ...row, staffId: "" })}
+          >
+            ×
+          </button>
+          <select
+            disabled={frozen}
+            value={row.staffId || ""}
+            onChange={(e) => { onUpdatePackage(index, { ...row, staffId: e.target.value }); if (e.target.value) onClearError?.("staff"); }}
+            className="svc-staff-pill__select"
+            style={{ color: row.staffId ? "#111827" : "#6b7280" }}
+          >
+            <option value="" disabled style={{ color: "#000", background: "#fff" }}>
+              Select Staff
+            </option>
+            {staffList.map((s) => (
+              <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
+                {fmtName(s.name)}
+              </option>
+            ))}
+          </select>
+        </div>
+        {pkgError?.staff && <span className="svc-field__err">Select staff</span>}
+      </div>
+
+      {/* 3 — Time */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <TimeSelect
+          disabled={frozen}
+          value={row.time || ""}
+          onChange={(value) => onUpdatePackage(index, { ...row, time: value })}
+          interval={interval}
+          className={`svc-field__input svc-field__select${pkgError?.time ? " svc-field__input--error" : ""}`}
+          placeholder="Time"
+        />
+        {pkgError?.time && <span className="svc-field__err">Select time</span>}
+      </div>
+
+      {/* 4 — Price (readonly) */}
+      <input className="svc-field__input svc-field__input--readonly" readOnly value={row.price ? `${currencySymbol}${row.price}` : `${currencySymbol}0`} />
+
+      {/* 5 — Qty */}
+      <input
+        className="svc-field__input"
+        type="text"
+        inputMode="numeric"
+        maxLength={2}
+        disabled={frozen}
+        placeholder="1"
+        value={qtyInput}
+        onChange={(e) => handleQtyChange(e.target.value.replace(/\D/g, ""))}
+        onBlur={handleQtyBlur}
+      />
+
+      {/* 6 — Discount (%) */}
+      <input
+        className="svc-field__input"
+        type="text"
+        inputMode="numeric"
+        maxLength={3}
+        disabled={frozen}
+        placeholder="0"
+        value={discountInput}
+        onChange={(e) => handleDiscountChange(e.target.value.replace(/\D/g, ""))}
+        onBlur={handleDiscountBlur}
+      />
+
+      {/* 7 — Total (readonly) */}
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <input className="svc-field__input svc-field__input--readonly" readOnly value={`${currencySymbol}${row.total.toFixed(2)}`} />
+        {taxAmount !== undefined && taxAmount > 0 && (
+          <span className="svc-field__hint" style={{ color: "#6b7280" }}>
+            +{currencySymbol}{taxAmount.toFixed(2)} GST
+          </span>
+        )}
+      </div>
+
+      {/* 8 — Placeholder (quick-actions column) */}
+      <span />
+
+      {/* 9 — Delete */}
+      {!frozen
+        ? <button className="svc-del-btn" onClick={() => onRemovePackage(index)}><Trash size={13} /></button>
         : <span />}
     </div>
   );
@@ -617,6 +788,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     qty?: number;
     discount?: number;
     total?: number;
+    categoryId?: string;
   }) {
     if (kind === "package") {
       onUpdate({
@@ -639,6 +811,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       qty: patch.qty ?? row.qty,
       discount: patch.discount ?? row.discount,
       total: patch.total ?? row.total,
+      categoryId: "categoryId" in patch ? patch.categoryId : (row as any).categoryId,
     });
   }
 
@@ -795,6 +968,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       selectedName: item.name,
       price,
       total: calcTotal(price, qty, discount),
+      categoryId: item.categoryId,
     });
   }
 
@@ -847,6 +1021,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       price: 0,
       qty: 1,
       total: 0,
+      categoryId: undefined,
     });
   }
 
@@ -901,6 +1076,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
         price: basePrice,
         qty: nextQty,
         total: calcTotal(basePrice, nextQty, existingDiscount),
+        categoryId: matchedItem.categoryId,
       });
 
       if (!row.productId || row.productId !== matchedProductId) {
@@ -925,6 +1101,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       price: matchedPrice,
       qty: 1,
       total: calcTotal(matchedPrice, 1, nextDiscount),
+      categoryId: matchedItem.categoryId,
     });
     setResults([]);
     setShowDrop(false);
@@ -1083,15 +1260,18 @@ function SearchableItemRow(props: SearchableItemRowProps) {
 
       {kind === "product" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <input
-            className="svc-field__input"
-            type="text"
-            inputMode="numeric"
-            disabled={frozen}
-            placeholder="0"
-            value={row.price || ""}
-            onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
-          />
+          <div className="svc-field__input-wrap">
+            <span className="svc-field__prefix">{currencySymbol}</span>
+            <input
+              className="svc-field__input svc-field__input--with-prefix"
+              type="text"
+              inputMode="numeric"
+              disabled={frozen}
+              placeholder="0"
+              value={row.price || ""}
+              onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
+            />
+          </div>
           {!!membershipDiscountAmount && membershipDiscountAmount > 0 && (
             <span className="svc-field__pkg-badge" title="Membership discount — GST is calculated on the price after this reduction">
               ✓ Membership −{currencySymbol}{membershipDiscountAmount.toFixed(2)}
@@ -1186,19 +1366,10 @@ export const ServicesPanel: React.FC<Props> = ({
   const { staffList, interval } = useSchedulerContext();
   const [pendingProductFocusIndex, setPendingProductFocusIndex] = useState<number | null>(null);
 
-  // Memoize mapped catalog arrays so their reference is stable across re-renders.
+  // Memoize the mapped catalog array so its reference is stable across re-renders.
   // Without this, the inline .map() creates a new array every render, causing the
   // search useEffect (which has `items` as a dep) to re-run after every state update
-  // and reopen the dropdown immediately after a product/package is selected.
-  const stablePackageItems = useMemo(() =>
-    availablePackages.map((item: any) => ({
-      id: item.id,
-      name: item.name,
-      price: item.price,
-    })),
-    [availablePackages]
-  );
-
+  // and reopen the dropdown immediately after a product is selected.
   const stableProductItems = useMemo(() =>
     availableProducts.map((item: any) => ({
       id: item.id,
@@ -1208,6 +1379,7 @@ export const ServicesPanel: React.FC<Props> = ({
       barcode: item.barcode,
       barcodeSearchValues: [item.barcode],
       priceSearchValues: getProductPriceSearchValues(item),
+      categoryId: item.categoryId,
     })),
     [availableProducts]
   );
@@ -1238,23 +1410,18 @@ export const ServicesPanel: React.FC<Props> = ({
           <span>Package</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc %</span><span>Total</span><span /><span />
         </div>
         {packageRows.map((row, i) => (
-          <SearchableItemRow
+          <PackageRow
             key={`pkg-${row.packageId || `new-${i}`}`}
             row={row}
+            index={i}
             frozen={frozen}
-            error={pkgErrors?.[i]?.item}
-            staffError={pkgErrors?.[i]?.staff}
-            timeError={pkgErrors?.[i]?.time}
-            kind="package"
-            items={stablePackageItems}
-            placeholder="Search package..."
-            helperText="Type at least 3 characters to search packages."
-            emptyText="No packages found."
-            staffList={staffList}
             interval={interval}
-            onClearError={() => onClearPkgError?.(i, "staff")}
-            onUpdate={(nextRow) => onUpdatePackage(i, nextRow)}
-            onRemove={() => onRemovePackage(i)}
+            staffList={staffList}
+            availablePackages={availablePackages}
+            pkgError={pkgErrors?.[i]}
+            onClearError={(field) => onClearPkgError?.(i, field)}
+            onUpdatePackage={onUpdatePackage}
+            onRemovePackage={onRemovePackage}
             taxAmount={packageTaxByRow?.get((row as any).tempId || String(i))}
           />
         ))}

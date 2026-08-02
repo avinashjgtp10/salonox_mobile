@@ -20,7 +20,7 @@ export interface ClientStat {
 }
 
 // ── Scheduler lookup data ─────────────────────────────────────────────────────
-export interface SchedulerService { id: string; name: string; price: number; duration: number }
+export interface SchedulerService { id: string; name: string; price: number; duration: number; categoryId?: string }
 export interface SchedulerPackage { id: string; name: string; price: number; services: string[] }
 export interface SchedulerProduct {
   id: string;
@@ -33,6 +33,7 @@ export interface SchedulerProduct {
   retail_price?: number | null;
   selling_price?: number | null;
   sellingPriceRaw?: number | null;
+  categoryId?: string;
 }
 export interface SchedulerMembership { id: string; name: string; price: number; sessions: number; validFor: string; colour: string }
 

@@ -34,6 +34,7 @@ interface SearchServiceResult {
   price: number;
   duration: number;
   consumables_used: RawConsumableUsage[];
+  categoryId?: string;
 }
 
 interface RawServiceItem {
@@ -43,6 +44,7 @@ interface RawServiceItem {
   duration?: string | number;
   duration_minutes?: string | number;
   consumables_used?: RawConsumableUsage[];
+  category_id?: string;
 }
 
 interface ConsumableItem {
@@ -101,6 +103,7 @@ function mapServiceSearchResult(service: RawServiceItem): SearchServiceResult {
     price: parseFloat(String(service.price ?? 0)) || 0,
     duration: Number(service.duration ?? service.duration_minutes) || 30,
     consumables_used: service.consumables_used ?? [],
+    categoryId: service.category_id ?? undefined,
   };
 }
 
@@ -400,7 +403,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     }
   }
 
-  function selectService(service: { id?: string; name: string; price: number; duration?: number; consumables_used?: RawConsumableUsage[] }) {
+  function selectService(service: { id?: string; name: string; price: number; duration?: number; consumables_used?: RawConsumableUsage[]; categoryId?: string }) {
     // Every pick creates/fills its own row, even if the same service is
     // already on the bill elsewhere — a client can want the same service from
     // two different staff at once, which a merge-into-existing-row would make
@@ -426,6 +429,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     onChange(row.tempId, "qty", qty);
     onChange(row.tempId, "total", effectiveTotal);
     onChange(row.tempId, "isPackageService", paidQty === 0);
+    onChange(row.tempId, "categoryId", service.categoryId ?? "");
     // Attach the service's configured consumables so they ride along on the
     // appointment payload — deduction happens later, at completion, not here.
     onChange(
@@ -850,15 +854,18 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
 
         <div className="svc-field">
           <span className="svc-field__label">Price</span>
-          <input
-            type="text"
-            disabled={disabled}
-            inputMode="numeric"
-            placeholder="0"
-            value={row.price || ""}
-            className={`svc-field__input${errorFields.price ? " svc-field__input--error" : ""}`}
-            onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
-          />
+          <div className="svc-field__input-wrap">
+            <span className="svc-field__prefix">{currencySymbol}</span>
+            <input
+              type="text"
+              disabled={disabled}
+              inputMode="numeric"
+              placeholder="0"
+              value={row.price || ""}
+              className={`svc-field__input svc-field__input--with-prefix${errorFields.price ? " svc-field__input--error" : ""}`}
+              onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
+            />
+          </div>
           {errorFields.price && <span className="svc-field__err">Enter price</span>}
           {!isPackageCovered && !!membershipDiscountAmount && membershipDiscountAmount > 0 && (
             <span className="svc-field__pkg-badge" title="Membership discount — GST is calculated on the price after this reduction">

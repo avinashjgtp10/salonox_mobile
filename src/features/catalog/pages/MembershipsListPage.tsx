@@ -6,7 +6,7 @@ import {
   PencilSquare, Trash3, FileEarmarkPdf,
   FileEarmarkExcel, FiletypeCsv, CardList,
   Award, CheckCircleFill,
-  ThreeDotsVertical,
+  ThreeDotsVertical, X,
 } from "react-bootstrap-icons";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
@@ -28,6 +28,8 @@ import {
   selectMembershipsError,
   selectMembershipsTotal,
 } from "../../../store/selectors/membership.selectors";
+import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
+import { selectAllCategories } from "../../../store/selectors/slices.selectors";
 import MembershipFilterDrawer from "../components/MembershipFilterDrawer";
 import MembershipDetailsDrawer from "../components/MembershipDetailsDrawer";
 import "../styles/MembershipsListPage.scss";
@@ -62,8 +64,25 @@ const MembershipsListPage: React.FC = () => {
   const loading     = useSelector(selectMembershipsLoading);
   const error       = useSelector(selectMembershipsError);
   const total       = useSelector(selectMembershipsTotal);
+  const categories  = useSelector(selectAllCategories) as { id: string | number; name: string }[];
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach((c) => map.set(String(c.id), c.name));
+    return map;
+  }, [categories]);
+
+  useEffect(() => { dispatch(fetchCategoriesThunk()); }, [dispatch]);
 
   const [search,     setSearch]     = useState("");
+  // The input stays controlled by `search` for instant typing feedback, but
+  // the list only refetches off this debounced copy — without it, every
+  // keystroke fired its own fetchMembershipsThunk (each one flipping
+  // `loading` true/false), which redrew the whole table on every character.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
   const [filters,    setFilters]    = useState<Filters>(DEFAULT_FILTERS);
   const [page,       setPage]       = useState(1);
   const [optOpen,    setOptOpen]    = useState(false);
@@ -74,7 +93,8 @@ const MembershipsListPage: React.FC = () => {
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
-  const [deletingMembership, setDeletingMembership] = useState<{ id: string; name: string } | null>(null);
+  const [selectedMemberships, setSelectedMemberships] = useState<string[]>([]);
+  const [membershipsToDelete, setMembershipsToDelete] = useState<string[]>([]);
   const [deleteInput, setDeleteInput] = useState("");
   const [isDeleting,  setIsDeleting]  = useState(false);
 
@@ -101,32 +121,45 @@ const MembershipsListPage: React.FC = () => {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [openRowMenuId]);
 
-  useEffect(() => { setDeleteInput(""); }, [deletingMembership]);
+  useEffect(() => { setDeleteInput(""); }, [membershipsToDelete]);
 
   // ── plans list ────────────────────────────────────────────────────────────
   const buildQuery = useCallback(() => ({
-    search:      search.trim() || undefined,
+    search:      debouncedSearch.trim() || undefined,
     validFor: filters.validFor !== "Any period" ? filters.validFor : undefined,
     page, limit: PAGE_SIZE,
-  }), [search, filters, page]);
+  }), [debouncedSearch, filters, page]);
 
-  useEffect(() => { dispatch(fetchMembershipsThunk(buildQuery())); }, [dispatch, buildQuery]);
-  useEffect(() => { setPage(1); }, [search, filters]);
+  useEffect(() => {
+    dispatch(fetchMembershipsThunk(buildQuery()));
+    setSelectedMemberships([]);
+  }, [dispatch, buildQuery]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, filters]);
 
-  const openDeleteModal = (m: Membership) => {
+  const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSelectedMemberships(e.target.checked ? memberships.map(m => String(m.id)) : []);
+  };
+
+  const handleSelectMembership = (id: string) => {
+    setSelectedMemberships(prev =>
+      prev.includes(id) ? prev.filter(mId => mId !== id) : [...prev, id]);
+  };
+
+  const openDeleteModal = (ids: string[]) => {
     setOpenRowMenuId(null);
-    setDeletingMembership({ id: String(m.id), name: m.name });
+    setMembershipsToDelete(ids);
   };
 
   const handleConfirmDelete = async () => {
-    if (!deletingMembership) return;
+    if (!membershipsToDelete.length) return;
     setIsDeleting(true);
     try {
-      await dispatch(deleteMembershipThunk(deletingMembership.id));
+      await Promise.all(membershipsToDelete.map(id => dispatch(deleteMembershipThunk(id))));
+      setSelectedMemberships(prev => prev.filter(id => !membershipsToDelete.includes(id)));
       dispatch(fetchMembershipsThunk(buildQuery()));
     } finally {
       setIsDeleting(false);
-      setDeletingMembership(null);
+      setMembershipsToDelete([]);
     }
   };
 
@@ -245,6 +278,22 @@ const MembershipsListPage: React.FC = () => {
           <Sliders size={14} />
           Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
         </button>
+
+        {selectedMemberships.length > 0 && (
+          <div className="msp__bulk-bar">
+            <span className="msp__bulk-count">
+              {selectedMemberships.length === memberships.length
+                ? "All memberships selected"
+                : `${selectedMemberships.length} membership${selectedMemberships.length !== 1 ? "s" : ""} selected`}
+            </span>
+            <button className="msp__bulk-clear" onClick={() => setSelectedMemberships([])} aria-label="Clear selection">
+              <X size={16} />
+            </button>
+            <button className="msp__bulk-delete" onClick={() => openDeleteModal(selectedMemberships)}>
+              <Trash3 size={13} /> Delete
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Table ───────────────────────────────────────────────────────── */}
@@ -263,6 +312,13 @@ const MembershipsListPage: React.FC = () => {
           <table className="msp__table">
             <thead>
               <tr>
+                <th className="msp__td-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={memberships.length > 0 && memberships.every(m => selectedMemberships.includes(String(m.id)))}
+                    onChange={handleSelectAll}
+                  />
+                </th>
                 <th>Membership Name</th>
                 <th>Membership Type</th>
                 <th>Benefit</th>
@@ -277,6 +333,13 @@ const MembershipsListPage: React.FC = () => {
                 const type  = m.pricingType ?? "value";
                 return (
                   <tr key={m.id} onClick={() => { setDrawerId(String(m.id)); setDrawerOpen(true); }}>
+                    <td className="msp__td-checkbox" onClick={e => e.stopPropagation()}>
+                      <input
+                        type="checkbox"
+                        checked={selectedMemberships.includes(String(m.id))}
+                        onChange={() => handleSelectMembership(String(m.id))}
+                      />
+                    </td>
                     <td>
                       <div className="msp__name-cell">
                         <span className="msp__color-dot" style={{ background: color }} />
@@ -296,11 +359,20 @@ const MembershipsListPage: React.FC = () => {
                       </span>
                     </td>
                     <td className="msp__price">
-                      {type === "percentage"
-                        ? `${m.discountPercent ?? 0}% Off · ${formatAmount(Number(m.discountBalance) || 0)} balance`
-                        : type === "loyalty"
-                          ? `${m.discountPercent ?? 0}% after ${m.loyaltyThresholdValue ?? 0} visits`
-                          : `${formatAmount((Number(m.price) || 0) + (Number(meta.bonusCredit) || 0))} Wallet`}
+                      <div>
+                        {type === "percentage"
+                          ? `${m.discountPercent ?? 0}% Off · ${formatAmount(Number(m.discountBalance) || 0)} balance`
+                          : type === "loyalty"
+                            ? (m.loyaltyTiers?.length
+                                ? m.loyaltyTiers.map(t => `${t.thresholdValue} visits → ${t.discountPercent}%`).join(" · ")
+                                : "No tiers configured")
+                            : `${formatAmount((Number(m.price) || 0) + (Number(meta.bonusCredit) || 0))} Wallet`}
+                      </div>
+                      {!!m.categoryIds?.length && (
+                        <div className="msp__td-muted" style={{ fontSize: 11 }}>
+                          {m.categoryIds.map((id) => categoryNameById.get(id) ?? id).join(", ")}
+                        </div>
+                      )}
                     </td>
                     <td className="msp__td-muted">{type === "loyalty" ? "—" : m.validFor}</td>
                     <td className="msp__td-actions" onClick={e => e.stopPropagation()}>
@@ -325,7 +397,7 @@ const MembershipsListPage: React.FC = () => {
                             <li>
                               <button
                                 className="msp__dd-item msp__dd-item--danger"
-                                onClick={() => openDeleteModal(m)}
+                                onClick={() => openDeleteModal([String(m.id)])}
                               >
                                 <Trash3 size={13} /> Delete
                               </button>
@@ -338,7 +410,7 @@ const MembershipsListPage: React.FC = () => {
                 );
               }) : (
                 <tr>
-                  <td colSpan={5}>
+                  <td colSpan={6}>
                     <div className="msp__empty-state">
                       <Award size={48} className="msp__empty-icon" />
                       <p className="msp__empty-msg">No memberships found.</p>
@@ -390,9 +462,9 @@ const MembershipsListPage: React.FC = () => {
 
       {/* ── Delete confirmation ─────────────────────────────────────────── */}
       <Modal
-        show={!!deletingMembership}
-        onClose={() => setDeletingMembership(null)}
-        title="Delete membership?"
+        show={membershipsToDelete.length > 0}
+        onClose={() => setMembershipsToDelete([])}
+        title={membershipsToDelete.length > 1 ? "Delete memberships?" : "Delete membership?"}
         footer={
           <div className="d-flex flex-column gap-2 w-100">
             <Button
@@ -407,7 +479,7 @@ const MembershipsListPage: React.FC = () => {
             <Button
               variant="outline-dark"
               fullWidth
-              onClick={() => setDeletingMembership(null)}
+              onClick={() => setMembershipsToDelete([])}
             >
               Cancel
             </Button>
@@ -415,7 +487,10 @@ const MembershipsListPage: React.FC = () => {
         }
       >
         <p className="text-muted small mb-4">
-          Are you sure you want to delete <strong>{deletingMembership?.name}</strong>?
+          Are you sure you want to delete{" "}
+          {membershipsToDelete.length > 1
+            ? `these ${membershipsToDelete.length} memberships`
+            : <strong>{memberships.find(m => String(m.id) === membershipsToDelete[0])?.name ?? "this membership"}</strong>}?
           This operation can't be undone.
         </p>
         <Input

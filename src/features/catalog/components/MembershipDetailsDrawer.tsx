@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
 import { XLg, Pencil, CardList, InfoCircle, PersonFill } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { useCurrency } from "../../../hooks/useCurrency";
+import type { AppDispatch } from "../../../store/store";
+import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
+import { selectAllCategories } from "../../../store/selectors/slices.selectors";
 import "../styles/MembershipDetailsDrawer.scss";
 
 interface MembershipDetailsDrawerProps {
@@ -17,10 +21,19 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
   onClose,
 }) => {
   const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const { formatAmount } = useCurrency();
 
   const [membership, setMembership] = useState<any>(null);
   const [loading,    setLoading]    = useState(false);
+
+  const categories = useSelector(selectAllCategories) as { id: string | number; name: string }[];
+  useEffect(() => { dispatch(fetchCategoriesThunk()); }, [dispatch]);
+  const categoryNameById = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach((c) => map.set(String(c.id), c.name));
+    return map;
+  }, [categories]);
 
   const [assignedClient, setAssignedClient] = useState<{ id: string | null; name: string; phone: string | null } | null>(null);
 
@@ -200,15 +213,12 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
                 {type === "loyalty" && (
                   <>
                     <div className="detail-item">
-                      <span className="label">Discount</span>
+                      <span className="label">Tiers</span>
                       <span className="value fw-bold" style={{ color: "#a21caf" }}>
-                        {membership?.discountPercent ?? 0}% Off
-                      </span>
-                    </div>
-                    <div className="detail-item">
-                      <span className="label">Unlocks After</span>
-                      <span className="value fw-bold">
-                        {membership?.loyaltyThresholdValue ?? 0} visits
+                        {membership?.loyaltyTiers?.length
+                          ? membership.loyaltyTiers.map((t: { thresholdValue: number; discountPercent: number }) =>
+                              `${t.thresholdValue} visits → ${t.discountPercent}%`).join(" · ")
+                          : "No tiers configured"}
                       </span>
                     </div>
                     <div className="detail-item">
@@ -224,6 +234,14 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
                   <div className="detail-item">
                     <span className="label">Validity</span>
                     <span className="value">{membership?.validFor || "–"}</span>
+                  </div>
+                )}
+                {!!membership?.categoryIds?.length && (
+                  <div className="detail-item">
+                    <span className="label">Categories</span>
+                    <span className="value">
+                      {membership.categoryIds.map((id: string) => categoryNameById.get(id) ?? id).join(", ")}
+                    </span>
                   </div>
                 )}
                 <div className="detail-item">

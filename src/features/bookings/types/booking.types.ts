@@ -31,6 +31,10 @@ export interface ServiceItem {
   duration?: number;
   isFav?: boolean;
   isPackageService?: boolean;
+  // service_categories id, copied from the catalog service when picked — lets
+  // a category-restricted membership benefit (wallet/discount/loyalty) know
+  // whether this row is eligible.
+  categoryId?: string;
   // This row's own real GST, attached at read time once the appointment has
   // a linked, paid sale (see appointmentsService's enrichItemsWithTax) —
   // undefined for an unpaid appointment, which falls back to receipt.ts's
@@ -71,6 +75,10 @@ export interface ProductItem {
   staffId?: string;
   time?: string;
   tax?: number;
+  // service_categories id, copied from the catalog product when picked — lets
+  // a category-restricted membership benefit (wallet/discount/loyalty) know
+  // whether this row is eligible.
+  categoryId?: string;
 }
 
 export interface MembershipItem {
@@ -146,8 +154,10 @@ export interface Booking {
   paymentMode?: PaymentMode;
   membershipWalletUsed?: number; // ₹ amount of this bill previously covered by the client's membership wallet
   applyMembershipWallet?: boolean; // persisted "Apply Membership" checkbox state, independent of payment
-  membershipDiscountUsed?: number; // ₹ amount of this bill previously discounted by a percentage/loyalty membership
-  applyMembershipDiscount?: boolean; // persisted "Apply Membership Discount" checkbox state, independent of payment
+  membershipDiscountUsed?: number; // ₹ amount of this bill previously discounted by a percentage and/or loyalty membership (combined total)
+  membershipPercentageDiscountUsed?: number; // just the Discount Balance (percentage) share of membershipDiscountUsed above — Loyalty's share is the difference
+  applyMembershipDiscount?: boolean; // persisted "Membership Discount" (percentage) checkbox state, independent of payment
+  applyLoyaltyDiscount?: boolean; // persisted "Loyalty Discount" checkbox state — independent sibling, stacks with applyMembershipDiscount above
   ewalletUsed?: number; // ₹ amount of this bill covered by the client's real eWallet balance
   splitDetails?: Record<string, number>; // per-method breakdown of the latest payment (e.g. {Cash: 200, eWallet: 300})
 

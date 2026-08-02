@@ -444,7 +444,12 @@ export function mapApiBooking(
     membershipWalletUsed: parseFloat(String(appt.membership_wallet_used ?? appt.membershipWalletUsed ?? 0)) || 0,
     applyMembershipWallet: !!(appt.apply_membership_wallet ?? appt.applyMembershipWallet),
     membershipDiscountUsed: parseFloat(String(appt.membership_discount_used ?? appt.membershipDiscountUsed ?? 0)) || 0,
+    // Just the Discount Balance (percentage) portion — the rest of
+    // membershipDiscountUsed above is Loyalty's share, derived as the
+    // difference (Loyalty writes no ledger row of its own to read back).
+    membershipPercentageDiscountUsed: parseFloat(String(appt.membership_percentage_discount_used ?? appt.membershipPercentageDiscountUsed ?? 0)) || 0,
     applyMembershipDiscount: !!(appt.apply_membership_discount ?? appt.applyMembershipDiscount),
+    applyLoyaltyDiscount: !!(appt.apply_loyalty_discount ?? appt.applyLoyaltyDiscount),
     // Defaults true when absent (pre-fix rows, or a raw payload that never carried it) —
     // matches the backend column's own DEFAULT TRUE and the checkbox's original on-by-default behavior.
     includeGst: !!(appt.include_gst ?? appt.includeGst ?? true),

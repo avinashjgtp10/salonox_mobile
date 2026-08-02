@@ -27,6 +27,8 @@ export interface ClientMembership {
   membershipWalletBalance: number;
   /** Denormalized from the membership plan at purchase time. */
   appliesTo: MembershipAppliesTo;
+  /** Denormalized plain-text description from the plan at purchase time. */
+  description?: string;
   pricingType?: 'value' | 'percentage' | 'loyalty';
   discountPercent?: number;
   /** 'percentage' only — discount still available to hand out, depletes by discount given. */
