@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Grid3x3Gap, InfoCircle, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
-import Button from "../../../components/ui/Button";
+import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
@@ -131,9 +131,7 @@ export default function WaCampaignReport({ onBack, category, categoryKey }: { on
           )}
         </div>
         <div className="rp-detail-filter-actions">
-          <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
-            Run Report
-          </Button>
+          <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
 

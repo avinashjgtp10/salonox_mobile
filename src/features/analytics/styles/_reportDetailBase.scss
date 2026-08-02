@@ -240,14 +240,14 @@
   align-items: center;
   gap: 6px;
   padding: 7px 14px;
-  border: 1px solid #d1d5db;
+  border: 1px solid #111827;
   border-radius: 6px;
-  background: $white;
+  background: #111827;
   font-size: 13px;
-  color: $dashboard-primary;
+  color: $white;
   cursor: pointer;
 
-  &:hover { background: #f3f4f6; }
+  &:hover { background: #1f2937; border-color: #1f2937; }
 }
 
 .rp-detail-save-btn {
