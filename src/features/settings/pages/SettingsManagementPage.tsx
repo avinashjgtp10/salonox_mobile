@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from "react";
-import { Search } from "react-bootstrap-icons";
+import { Search, Pencil, X, Save } from "react-bootstrap-icons";
+import Button from "../../../components/ui/Button";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
@@ -143,8 +144,21 @@ export default function SettingsManagementPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [form, setForm] = useState<TaxForm>(EMPTY_FORM);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  // Set true by any edit to the currently open tax form (create or select),
+  // reset on select/create/save/cancel — same "did anything actually change"
+  // tracking used on the other settings pages, just page-local here since
+  // this form doesn't map 1:1 to a single saved record until it's created.
+  const [formDirty, setFormDirty] = useState(false);
   const listRef = useRef<HTMLDivElement>(null);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+
+  // Page-level View <-> Edit toggle — everything (GST module config, tax
+  // mapping create/delete, and the open tax form's fields) is read-only
+  // until Edit is clicked, then saves/cancels together as one action.
+  // Browsing the list and viewing a tax mapping's details stays allowed in
+  // View Mode — only *changing* something requires Edit Mode.
+  const [isEditing, setIsEditing] = useState(false);
+  const [pageSaving, setPageSaving] = useState(false);
 
   // ── GST module config (master toggle, invoice prefix, etc.) ────────────────
   const [moduleConfig, setModuleConfig] = useState<TaxModuleConfig>(DEFAULT_TAX_MODULE_CONFIG);
@@ -207,9 +221,11 @@ export default function SettingsManagementPage() {
     if (ok) {
       setModuleConfig(next);
       setSavedModuleConfig(next);
-      showSuccess("Tax settings saved");
     }
-    else showError("Failed to save tax settings");
+    // Success/error messaging now lives in the page-level Save handler below —
+    // this only ever runs as part of that combined save, not from its own
+    // independent button anymore.
+    return ok;
   }
 
   function cancelModuleConfigChanges() {
@@ -241,6 +257,7 @@ export default function SettingsManagementPage() {
     setIsCreating(false);
     setForm(settingToTaxForm(setting));
     setFormErrors({});
+    setFormDirty(false);
   }
 
   function handleCreateNew() {
@@ -248,6 +265,7 @@ export default function SettingsManagementPage() {
     setIsCreating(true);
     setForm(EMPTY_FORM);
     setFormErrors({});
+    setFormDirty(false);
   }
 
   function handleCancel() {
@@ -260,6 +278,7 @@ export default function SettingsManagementPage() {
       setForm(settingToTaxForm(selectedSetting));
       setFormErrors({});
     }
+    setFormDirty(false);
   }
 
   function validate(): boolean {
@@ -271,9 +290,10 @@ export default function SettingsManagementPage() {
     return Object.keys(errs).length === 0;
   }
 
-  async function handleSave() {
-    if (!validate()) return;
+  async function handleSave(): Promise<boolean> {
+    if (!validate()) return false;
     const payload = taxFormToPayload(form);
+    let ok = false;
 
     if (isCreating) {
       const result = await dispatch(createSettingThunk(payload));
@@ -285,6 +305,7 @@ export default function SettingsManagementPage() {
         setIsCreating(false);
         // Populate form from the server response so checkboxes reflect what was saved
         setForm(settingToTaxForm(created));
+        ok = true;
       }
     } else if (selectedId != null) {
       const result = await dispatch(updateSettingThunk({ id: selectedId, data: payload }));
@@ -292,8 +313,12 @@ export default function SettingsManagementPage() {
         await dispatch(fetchSettingsThunk());
         // Populate form from the server response so checkboxes reflect what was saved
         setForm(settingToTaxForm(result.payload as Setting));
+        ok = true;
       }
     }
+
+    if (ok) setFormDirty(false);
+    return ok;
   }
 
   async function handleDelete() {
@@ -303,12 +328,18 @@ export default function SettingsManagementPage() {
       setSelectedId(null);
       setIsCreating(false);
       setForm(EMPTY_FORM);
+      setFormDirty(false);
+      // Deletion is an immediate, completed action rather than a pending
+      // change — resume View Mode instead of leaving Edit Mode open on an
+      // empty form.
+      setIsEditing(false);
       // Re-fetch to ensure list is accurate
       dispatch(fetchSettingsThunk());
     }
   }
 
   function setCheck(field: keyof TaxForm, val: boolean) {
+    setFormDirty(true);
     setForm((f) => ({ ...f, [field]: val }));
   }
 
@@ -318,20 +349,109 @@ export default function SettingsManagementPage() {
       handleSelect(existing);
       return;
     }
+    // No mapping for this type yet — clicking it would start creating one,
+    // which is a mutation and requires Edit Mode.
+    if (!isEditing) return;
     setSelectedId(null);
     setIsCreating(true);
     setForm({ ...EMPTY_FORM, tax_type: type, tax_name: type });
     setFormErrors({});
+    setFormDirty(false);
   }
 
   const showForm = isCreating || selectedId != null;
-  const isSaving = loading.create || loading.update;
   const isDeleting = loading.delete;
   const panelTitle = isCreating ? "Create Tax" : "Tax Details";
+
+  const pageIsDirty = moduleHasChanges || formDirty;
+
+  // Warn on tab close/refresh with unsaved changes still pending.
+  useEffect(() => {
+    if (!isEditing || !pageIsDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isEditing, pageIsDirty]);
+
+  function startEditing() {
+    setIsEditing(true);
+  }
+
+  function handlePageCancel() {
+    if (pageIsDirty && !window.confirm("Discard your unsaved changes?")) return;
+    if (moduleHasChanges) cancelModuleConfigChanges();
+    if (showForm) handleCancel();
+    setFormDirty(false);
+    setIsEditing(false);
+  }
+
+  async function handlePageSave() {
+    if (!pageIsDirty) {
+      // Nothing changed — just leave edit mode instead of firing a no-op save.
+      setIsEditing(false);
+      return;
+    }
+
+    setPageSaving(true);
+    const moduleOk = moduleHasChanges ? await saveModuleConfig() : true;
+    const formOk = showForm && formDirty ? await handleSave() : true;
+    setPageSaving(false);
+
+    if (moduleOk && formOk) {
+      showSuccess("Tax settings saved");
+      setIsEditing(false);
+    } else {
+      showError("Some changes failed to save — please check the highlighted fields and try again.");
+    }
+  }
 
   return (
     <>
       {overlay}
+      {/* Page Header */}
+      <div className="settings-page-header settings-page-header--with-actions">
+        <div>
+          <h2 className="settings-page-title">GST &amp; Tax Settings</h2>
+          <p className="settings-page-subtitle">
+            Configure GST module behavior and manage tax mappings applied across the app.
+          </p>
+        </div>
+        {!isEditing ? (
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={startEditing}
+            iconLeft={<Pencil size={13} />}
+          >
+            Edit
+          </Button>
+        ) : (
+          <div className="settings-section-actions">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handlePageCancel}
+              disabled={pageSaving}
+              iconLeft={<X size={13} />}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              loading={pageSaving}
+              disabled={pageSaving}
+              onClick={handlePageSave}
+              iconLeft={<Save size={14} />}
+            >
+              Save changes
+            </Button>
+          </div>
+        )}
+      </div>
+
       {/* ── GST module config ── */}
       <div className="gst-module">
         <div className="settings-toggle-row">
@@ -348,7 +468,7 @@ export default function SettingsManagementPage() {
               type="checkbox"
               checked={moduleConfig.enabled}
               onChange={(e) => setModuleConfig((c) => ({ ...c, enabled: e.target.checked }))}
-              disabled={moduleSaving}
+              disabled={!isEditing || moduleSaving}
             />
             <span className="settings-toggle-slider" />
           </label>
@@ -365,7 +485,7 @@ export default function SettingsManagementPage() {
                 onChange={(e) => setModuleConfig((c) => ({ ...c, invoice_prefix: e.target.value.toUpperCase() }))}
                 onBlur={() => setModuleConfig((c) => ({ ...c, invoice_prefix: c.invoice_prefix || "INV" }))}
                 placeholder="INV"
-                disabled={moduleSaving}
+                disabled={!isEditing || moduleSaving}
               />
             </div>
 
@@ -374,7 +494,7 @@ export default function SettingsManagementPage() {
                 type="checkbox"
                 checked={moduleConfig.show_breakup_on_invoice}
                 onChange={(e) => setModuleConfig((c) => ({ ...c, show_breakup_on_invoice: e.target.checked }))}
-                disabled={moduleSaving}
+                disabled={!isEditing || moduleSaving}
               />
               Show GST breakup on invoice
             </label>
@@ -384,7 +504,7 @@ export default function SettingsManagementPage() {
                 type="checkbox"
                 checked={moduleConfig.enable_gst_reports}
                 onChange={(e) => setModuleConfig((c) => ({ ...c, enable_gst_reports: e.target.checked }))}
-                disabled={moduleSaving}
+                disabled={!isEditing || moduleSaving}
               />
               Enable GST Reports
             </label>
@@ -402,27 +522,6 @@ export default function SettingsManagementPage() {
             </div>
           </div>
         )}
-
-        <div className="gst-module__actions">
-          {moduleHasChanges && (
-            <button
-              type="button"
-              className="sm-split__btn"
-              onClick={cancelModuleConfigChanges}
-              disabled={moduleSaving}
-            >
-              Cancel
-            </button>
-          )}
-          <button
-            type="button"
-            className="sm-split__btn sm-split__btn--primary"
-            onClick={saveModuleConfig}
-            disabled={!moduleHasChanges || moduleSaving}
-          >
-            {moduleSaving ? "Saving…" : "Save"}
-          </button>
-        </div>
       </div>
 
       <div className="sm-split">
@@ -489,7 +588,7 @@ export default function SettingsManagementPage() {
 
         {/* Create New */}
         <div className="sm-split__footer">
-          <button className="sm-split__create-btn" onClick={handleCreateNew}>
+          <button className="sm-split__create-btn" onClick={handleCreateNew} disabled={!isEditing}>
             Create New
           </button>
         </div>
@@ -514,7 +613,8 @@ export default function SettingsManagementPage() {
                   className={`sm-split__input${formErrors.tax_name ? " sm-split__input--error" : ""}`}
                   placeholder="Enter Tax Name"
                   value={form.tax_name}
-                  onChange={(e) => setForm((f) => ({ ...f, tax_name: e.target.value }))}
+                  onChange={(e) => { setFormDirty(true); setForm((f) => ({ ...f, tax_name: e.target.value })); }}
+                  disabled={!isEditing}
                 />
                 {formErrors.tax_name && (
                   <span className="settings-error">{formErrors.tax_name}</span>
@@ -530,7 +630,8 @@ export default function SettingsManagementPage() {
                     placeholder="Enter Tax Value"
                     value={form.tax_value}
                     min={0}
-                    onChange={(e) => setForm((f) => ({ ...f, tax_value: e.target.value }))}
+                    onChange={(e) => { setFormDirty(true); setForm((f) => ({ ...f, tax_value: e.target.value })); }}
+                    disabled={!isEditing}
                   />
                   <span className="sm-split__value-badge">%</span>
                 </div>
@@ -552,7 +653,8 @@ export default function SettingsManagementPage() {
                     type="radio"
                     name="tax-status"
                     checked={statusFromForm(form) === status}
-                    onChange={() => setForm((f) => applyStatus(f, status))}
+                    onChange={() => { setFormDirty(true); setForm((f) => applyStatus(f, status)); }}
+                    disabled={!isEditing}
                   />
                   {TAX_STATUS_INFO[status].label}
                 </label>
@@ -568,6 +670,7 @@ export default function SettingsManagementPage() {
                   type="checkbox"
                   checked={form.applicable_service}
                   onChange={(e) => setCheck("applicable_service", e.target.checked)}
+                  disabled={!isEditing}
                 />
                 Service
               </label>
@@ -576,6 +679,7 @@ export default function SettingsManagementPage() {
                   type="checkbox"
                   checked={form.applicable_product}
                   onChange={(e) => setCheck("applicable_product", e.target.checked)}
+                  disabled={!isEditing}
                 />
                 Product
               </label>
@@ -584,6 +688,7 @@ export default function SettingsManagementPage() {
                   type="checkbox"
                   checked={form.applicable_membership}
                   onChange={(e) => setCheck("applicable_membership", e.target.checked)}
+                  disabled={!isEditing}
                 />
                 Membership
               </label>
@@ -592,42 +697,31 @@ export default function SettingsManagementPage() {
                   type="checkbox"
                   checked={form.applicable_packages}
                   onChange={(e) => setCheck("applicable_packages", e.target.checked)}
+                  disabled={!isEditing}
                 />
                 Packages
               </label>
             </div>
 
-            <hr className="sm-split__divider" />
-
-            <div className="sm-split__actions">
-              {!isCreating && selectedId != null && (
-                <button
-                  type="button"
-                  className="sm-split__btn sm-split__btn--danger"
-                  onClick={handleDelete}
-                  disabled={isDeleting}
-                  style={{ marginRight: "auto" }}
-                >
-                  {isDeleting ? "Deleting…" : "Delete"}
-                </button>
-              )}
-              <button
-                type="button"
-                className="sm-split__btn"
-                onClick={handleCancel}
-                disabled={isSaving}
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                className="sm-split__btn sm-split__btn--primary"
-                onClick={handleSave}
-                disabled={isSaving}
-              >
-                {isSaving ? "Saving…" : "Save"}
-              </button>
-            </div>
+            {/* Delete stays here as an immediate, standalone action (not a
+                pending change) — Save/Cancel for edits now live in the page
+                header above. */}
+            {isEditing && !isCreating && selectedId != null && (
+              <>
+                <hr className="sm-split__divider" />
+                <div className="sm-split__actions">
+                  <button
+                    type="button"
+                    className="sm-split__btn sm-split__btn--danger"
+                    onClick={handleDelete}
+                    disabled={isDeleting}
+                    style={{ marginRight: "auto" }}
+                  >
+                    {isDeleting ? "Deleting…" : "Delete"}
+                  </button>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>

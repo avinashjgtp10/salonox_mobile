@@ -30,28 +30,6 @@ const PAN_FORMAT_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
 type BusinessForm = Omit<UpdateSalonPayload, "phone" | "address">;
 type FormErrors = Partial<Record<"gst_number" | "pan_number", string>>;
-type SectionKey = "business" | "contact" | "tax" | "operations";
-
-const SECTION_FIELDS: Record<SectionKey, Array<keyof BusinessForm>> = {
-  business: ["business_name", "business_type", "description"],
-  contact: ["email", "website_url"],
-  tax: ["gst_number", "pan_number"],
-  operations: ["location_type", "team_type", "team_size"],
-};
-
-const EMPTY_DIRTY_SECTIONS: Record<SectionKey, boolean> = {
-  business: false,
-  contact: false,
-  tax: false,
-  operations: false,
-};
-
-const EMPTY_EDITING_SECTIONS: Record<SectionKey, boolean> = {
-  business: false,
-  contact: false,
-  tax: false,
-  operations: false,
-};
 
 function salonToForm(salon: Salon): BusinessForm {
   return {
@@ -68,16 +46,18 @@ function salonToForm(salon: Salon): BusinessForm {
   };
 }
 
-function getFieldSection(field: string): SectionKey | null {
-  return (Object.entries(SECTION_FIELDS) as Array<[SectionKey, Array<keyof BusinessForm>]>)
-    .find(([, fields]) => fields.includes(field as keyof BusinessForm))?.[0] ?? null;
-}
-
-function pickSectionPayload(form: BusinessForm, section: SectionKey): UpdateSalonPayload {
-  return SECTION_FIELDS[section].reduce<UpdateSalonPayload>((payload, field) => {
-    return { ...payload, [field]: form[field] };
-  }, {});
-}
+const EMPTY_FORM: BusinessForm = {
+  business_name: "",
+  business_type: "",
+  description: "",
+  email: "",
+  website_url: "",
+  gst_number: "",
+  pan_number: "",
+  location_type: undefined,
+  team_type: undefined,
+  team_size: undefined,
+};
 
 export default function BusinessSettingsPage() {
   const dispatch = useAppDispatch();
@@ -87,45 +67,39 @@ export default function BusinessSettingsPage() {
   // Phone/address are intentionally excluded from this form — they always
   // mirror the owner's Personal Profile (Settings > Profile) now, so they're
   // read-only here rather than a second, independently-editable copy.
-  const [form, setForm] = useState<BusinessForm>({
-    business_name: "",
-    business_type: "",
-    description: "",
-    email: "",
-    website_url: "",
-    gst_number: "",
-    pan_number: "",
-    location_type: undefined,
-    team_type: undefined,
-    team_size: undefined,
-  });
+  const [form, setForm] = useState<BusinessForm>(EMPTY_FORM);
 
-  const [dirtySections, setDirtySections] = useState<Record<SectionKey, boolean>>(EMPTY_DIRTY_SECTIONS);
-  const [editingSections, setEditingSections] = useState<Record<SectionKey, boolean>>(EMPTY_EDITING_SECTIONS);
-  const [savingSection, setSavingSection] = useState<SectionKey | null>(null);
-  const [errors, setErrors] = useState<FormErrors>({});
+  // Single page-level View <-> Edit toggle (not per-section) — every field
+  // across every section becomes editable together, and saves together.
+  const [isEditing, setIsEditing] = useState(false);
+  const [isDirty,   setIsDirty]   = useState(false);
+  const [saving,    setSaving]    = useState(false);
+  const [errors,    setErrors]    = useState<FormErrors>({});
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => {
     dispatch(getMySalonThunk());
   }, [dispatch]);
 
+  // Only re-sync from the server while NOT editing — otherwise a background
+  // refetch (e.g. another tab saving) would silently overwrite in-progress
+  // edits out from under the user.
   useEffect(() => {
-    if (currentSalon) {
-      const nextForm = salonToForm(currentSalon);
-      setForm((prev) => {
-        return (Object.entries(SECTION_FIELDS) as Array<[SectionKey, Array<keyof BusinessForm>]>)
-          .reduce<BusinessForm>((merged, [section, fields]) => {
-            if (dirtySections[section]) {
-              fields.forEach((field) => {
-                merged[field] = prev[field] as never;
-              });
-            }
-            return merged;
-          }, nextForm);
-      });
+    if (currentSalon && !isEditing) {
+      setForm(salonToForm(currentSalon));
     }
-  }, [currentSalon, dirtySections]);
+  }, [currentSalon, isEditing]);
+
+  // Warn on tab close/refresh with unsaved changes still pending.
+  useEffect(() => {
+    if (!isEditing || !isDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isEditing, isDirty]);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>
@@ -154,10 +128,7 @@ export default function BusinessSettingsPage() {
     }
 
     setForm((prev) => ({ ...prev, [name]: value || undefined }));
-    const section = getFieldSection(name);
-    if (section) {
-      setDirtySections((prev) => ({ ...prev, [section]: true }));
-    }
+    setIsDirty(true);
   };
 
   const validateForm = () => {
@@ -181,85 +152,48 @@ export default function BusinessSettingsPage() {
     return Object.keys(nextErrors).length === 0;
   };
 
-  const handleSave = async (section: SectionKey) => {
+  const startEditing = () => {
+    setIsEditing(true);
+    setIsDirty(false);
+    setErrors({});
+  };
+
+  const handleCancel = () => {
+    if (isDirty && !window.confirm("Discard your unsaved changes?")) return;
+    if (currentSalon) setForm(salonToForm(currentSalon));
+    setErrors({});
+    setIsDirty(false);
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
     if (!currentSalon?.id) {
       showError("Salon information not found");
       return;
     }
-
-    if (section === "tax" && !validateForm()) {
+    if (!isDirty) {
+      // Nothing changed — just leave edit mode instead of firing a no-op save.
+      setIsEditing(false);
+      return;
+    }
+    if (!validateForm()) {
       showError("Please fix the highlighted fields before saving");
       return;
     }
 
-    setSavingSection(section);
+    setSaving(true);
     const result = await dispatch(
-      updateSalonThunk({ id: currentSalon.id, payload: pickSectionPayload(form, section) })
+      updateSalonThunk({ id: currentSalon.id, payload: form })
     );
-    setSavingSection(null);
+    setSaving(false);
 
     if (updateSalonThunk.fulfilled.match(result)) {
       showSuccess("Business settings saved");
-      setDirtySections((prev) => ({ ...prev, [section]: false }));
-      setEditingSections((prev) => ({ ...prev, [section]: false }));
+      setIsDirty(false);
+      setIsEditing(false);
     } else {
       showError((result.payload as string) || "Failed to save business settings");
     }
-  };
-
-  const handleReset = (section: SectionKey) => {
-    if (currentSalon) {
-      const savedForm = salonToForm(currentSalon);
-      setForm((prev) => {
-        const next = { ...prev };
-        SECTION_FIELDS[section].forEach((field) => {
-          next[field] = savedForm[field] as never;
-        });
-        return next;
-      });
-      if (section === "tax") setErrors({});
-      setDirtySections((prev) => ({ ...prev, [section]: false }));
-      setEditingSections((prev) => ({ ...prev, [section]: false }));
-    }
-  };
-
-  const renderSectionActions = (section: SectionKey) => {
-    if (!editingSections[section]) {
-      return (
-        <Button
-          variant="outline-secondary"
-          size="sm"
-          onClick={() => setEditingSections((prev) => ({ ...prev, [section]: true }))}
-          disabled={savingSection !== null}
-          iconLeft={<Pencil size={13} />}
-        >
-          Edit
-        </Button>
-      );
-    }
-
-    return (
-      <div className="settings-section-actions">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => handleReset(section)}
-          disabled={savingSection !== null}
-          iconLeft={<X size={13} />}
-        >
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          loading={savingSection === section}
-          onClick={() => handleSave(section)}
-          disabled={!dirtySections[section] || savingSection !== null}
-          iconLeft={<Save size={14} />}
-        >
-          Save changes
-        </Button>
-      </div>
-    );
   };
 
   // Derive initials for the logo placeholder
@@ -274,14 +208,48 @@ export default function BusinessSettingsPage() {
     <>
       {overlay}
       {/* Page Header */}
-      <div className="settings-page-header">
-        <h2 className="settings-page-title">Business Settings</h2>
-        <p className="settings-page-subtitle">
-          Manage your salon's public profile, contact information, and operational details.
-        </p>
+      <div className="settings-page-header settings-page-header--with-actions">
+        <div>
+          <h2 className="settings-page-title">Business Settings</h2>
+          <p className="settings-page-subtitle">
+            Manage your salon's public profile, contact information, and operational details.
+          </p>
+        </div>
+        {!isEditing ? (
+          <Button
+            variant="outline-secondary"
+            size="sm"
+            onClick={startEditing}
+            iconLeft={<Pencil size={13} />}
+          >
+            Edit
+          </Button>
+        ) : (
+          <div className="settings-section-actions">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCancel}
+              disabled={saving}
+              iconLeft={<X size={13} />}
+            >
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              loading={saving}
+              onClick={handleSave}
+              disabled={saving}
+              iconLeft={<Save size={14} />}
+            >
+              Save changes
+            </Button>
+          </div>
+        )}
       </div>
 
-      {/* Logo & Branding */}
+      {/* Logo & Branding — an independent, immediate action (not part of the
+          view/edit form below), so it stays available regardless of edit mode. */}
       <div className="settings-section">
         <div className="settings-section-header">
           <div>
@@ -338,7 +306,6 @@ export default function BusinessSettingsPage() {
               Core details about your business.
             </p>
           </div>
-          {renderSectionActions("business")}
         </div>
         <div className="settings-section-body">
           <div className="settings-form-grid">
@@ -353,7 +320,7 @@ export default function BusinessSettingsPage() {
                 name="business_name"
                 value={form.business_name ?? ""}
                 onChange={handleChange}
-                disabled={!editingSections.business}
+                disabled={!isEditing}
                 placeholder="Glamour Studio"
               />
             </div>
@@ -369,7 +336,7 @@ export default function BusinessSettingsPage() {
                 name="business_type"
                 value={form.business_type ?? ""}
                 onChange={handleChange}
-                disabled={!editingSections.business}
+                disabled={!isEditing}
               >
                 <option value="">Select type</option>
                 <option value="salon">Hair Salon</option>
@@ -394,7 +361,7 @@ export default function BusinessSettingsPage() {
                 name="description"
                 value={form.description ?? ""}
                 onChange={handleChange}
-                disabled={!editingSections.business}
+                disabled={!isEditing}
                 placeholder="Tell clients what makes your business special..."
                 rows={3}
               />
@@ -415,7 +382,6 @@ export default function BusinessSettingsPage() {
               Public contact info shown on your booking page.
             </p>
           </div>
-          {renderSectionActions("contact")}
         </div>
         <div className="settings-section-body">
           <div className="settings-form-grid">
@@ -430,7 +396,7 @@ export default function BusinessSettingsPage() {
                 name="email"
                 value={form.email ?? ""}
                 onChange={handleChange}
-                disabled={!editingSections.contact}
+                disabled={!isEditing}
                 placeholder="hello@yoursalon.com"
               />
             </div>
@@ -464,7 +430,7 @@ export default function BusinessSettingsPage() {
                 name="website_url"
                 value={form.website_url ?? ""}
                 onChange={handleChange}
-                disabled={!editingSections.contact}
+                disabled={!isEditing}
                 placeholder="https://yoursalon.com"
               />
             </div>
@@ -501,7 +467,6 @@ export default function BusinessSettingsPage() {
               Required for invoices and tax filings.
             </p>
           </div>
-          {renderSectionActions("tax")}
         </div>
         <div className="settings-section-body">
           <div className="settings-form-grid">
@@ -516,7 +481,7 @@ export default function BusinessSettingsPage() {
                 value={form.gst_number ?? ""}
                 onChange={handleChange}
                 maxLength={GSTIN_LENGTH}
-                disabled={!editingSections.tax}
+                disabled={!isEditing}
                 placeholder="22AAAAA0000A1Z5"
               />
               {errors.gst_number && <span className="settings-error">{errors.gst_number}</span>}
@@ -533,7 +498,7 @@ export default function BusinessSettingsPage() {
                 value={form.pan_number ?? ""}
                 onChange={handleChange}
                 maxLength={PAN_LENGTH}
-                disabled={!editingSections.tax}
+                disabled={!isEditing}
                 placeholder="AAAAA0000A"
               />
               {errors.pan_number && <span className="settings-error">{errors.pan_number}</span>}
@@ -551,7 +516,6 @@ export default function BusinessSettingsPage() {
               Configure how your business operates.
             </p>
           </div>
-          {renderSectionActions("operations")}
         </div>
         <div className="settings-section-body">
           <div className="settings-form-grid">
@@ -565,7 +529,7 @@ export default function BusinessSettingsPage() {
                 name="location_type"
                 value={form.location_type ?? ""}
                 onChange={handleChange}
-                disabled={!editingSections.operations}
+                disabled={!isEditing}
               >
                 <option value="">Select type</option>
                 <option value="physical">Physical — clients come to you</option>
@@ -584,7 +548,7 @@ export default function BusinessSettingsPage() {
                 name="team_type"
                 value={form.team_type ?? ""}
                 onChange={handleChange}
-                disabled={!editingSections.operations}
+                disabled={!isEditing}
               >
                 <option value="">Select type</option>
                 <option value="independent">Independent — just me</option>
@@ -599,7 +563,7 @@ export default function BusinessSettingsPage() {
                 name="team_size"
                 value={form.team_size ?? ""}
                 onChange={handleChange}
-                disabled={!editingSections.operations}
+                disabled={!isEditing}
               >
                 <option value="">Select size</option>
                 <option value="2-5">2–5 people</option>

@@ -632,6 +632,146 @@ export default function ProfilePage() {
             </div>
           </section>
 
+          {/* ── Salon Information ── */}
+          <section className="pp-section">
+            <div className="pp-section-header">
+              <div className="pp-section-icon pp-section-icon--purple">
+                <Building size={16} />
+              </div>
+              <div>
+                <h3 className="pp-section-title">Salon Information</h3>
+                <p className="pp-section-sub">Your salon's business details and location</p>
+              </div>
+              {!salonEditing ? (
+                <button className="pp-section-toggle" onClick={() => setSalonEditing(true)}>
+                  Edit
+                </button>
+              ) : (
+                <div style={{ display: "flex", gap: 8, marginLeft: "auto" }}>
+                  <button className="pp-section-toggle pp-section-toggle--open" onClick={handleSalonSave} disabled={salonSaving}>
+                    {salonSaving ? "Saving…" : "Save Changes"}
+                  </button>
+                  <button className="pp-section-toggle" onClick={handleSalonCancel}>
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {salonError && (
+              <div className="pp-error-banner">
+                <XLg size={13} />
+                {salonError}
+                <button className="pp-error-close" aria-label="Dismiss error" title="Dismiss error" onClick={() => setSalonError(null)}><XLg size={11} /></button>
+              </div>
+            )}
+            {salonSaved && (
+              <div className="pp-success-banner">
+                <CheckCircleFill size={13} /> Salon information updated successfully!
+              </div>
+            )}
+
+            <p className="pp-subsection-label">Basic Details</p>
+            <div className="pp-fields-grid">
+              <ProfileField
+                label="Salon Name" value={salonForm.business_name ?? ""} name="business_name"
+                icon={<Building size={14} />} editing={salonEditing}
+                placeholder="e.g. Glamour Studio" error={salonFieldErrors.business_name}
+                onChange={handleSalonFieldChange}
+              />
+              <ProfileField
+                label="Salon Email" value={salonForm.email ?? ""} name="email"
+                icon={<Envelope size={14} />} editing={salonEditing}
+                type="email" placeholder="salon@example.com" error={salonFieldErrors.email}
+                onChange={handleSalonFieldChange}
+              />
+              <ProfileField
+                label="Salon Phone" value={salonForm.phone ?? ""} name="phone"
+                icon={<Telephone size={14} />} editing={salonEditing}
+                type="tel" placeholder="+91 98765 43210" error={salonFieldErrors.phone}
+                onChange={handleSalonFieldChange}
+              />
+              <ProfileField
+                label="Website" value={salonForm.website_url ?? ""} name="website_url"
+                icon={<Globe size={14} />} editing={salonEditing}
+                placeholder="https://yoursalon.com" error={salonFieldErrors.website_url}
+                onChange={handleSalonFieldChange}
+              />
+            </div>
+
+            <p className="pp-subsection-label">Business &amp; Tax</p>
+            <div className="pp-fields-grid">
+              <ProfileField
+                label="GST Number" value={salonForm.gst_number ?? ""} name="gst_number"
+                icon={<Hash size={14} />} editing={salonEditing}
+                placeholder="22AAAAA0000A1Z5" error={salonFieldErrors.gst_number}
+                maxLength={GSTIN_LENGTH}
+                onChange={handleSalonFieldChange}
+              />
+              <ProfileField
+                label="Business Reg. No. (PAN)" value={salonForm.pan_number ?? ""} name="pan_number"
+                icon={<CreditCard size={14} />} editing={salonEditing}
+                placeholder="AAAAA0000A" error={salonFieldErrors.pan_number}
+                maxLength={PAN_LENGTH}
+                onChange={handleSalonFieldChange}
+              />
+              <ProfileField
+                label="Business Type" value={salonForm.business_type ?? ""} name="business_type"
+                icon={<Building size={14} />} editing={salonEditing}
+                placeholder="e.g. Salon, Spa" onChange={handleSalonFieldChange}
+              />
+              <ProfileField
+                label="Business Category" value={salonForm.business_category ?? ""} name="business_category"
+                icon={<Tag size={14} />} editing={salonEditing}
+                placeholder="e.g. Hair, Beauty" onChange={handleSalonFieldChange}
+              />
+            </div>
+
+            <p className="pp-subsection-label">Location</p>
+            <div className="pp-fields-grid">
+              <div style={{ gridColumn: "1 / -1" }}>
+                <ProfileField
+                  label="Address" value={salonForm.address ?? ""} name="address"
+                  icon={<GeoAlt size={14} />} editing={salonEditing}
+                  placeholder="Street address" onChange={handleSalonFieldChange}
+                />
+              </div>
+              <ProfileField
+                label="City" value={salonForm.city ?? ""} name="city"
+                icon={<MapFill size={14} />} editing={salonEditing}
+                placeholder="City" onChange={handleSalonFieldChange}
+              />
+              <ProfileField
+                label="State" value={salonForm.state ?? ""} name="state"
+                icon={<MapFill size={14} />} editing={salonEditing}
+                placeholder="State" onChange={handleSalonFieldChange}
+              />
+              <ProfileField
+                label="Pincode" value={salonForm.pincode ?? ""} name="pincode"
+                icon={<Hash size={14} />} editing={salonEditing}
+                placeholder="400001" error={salonFieldErrors.pincode}
+                onChange={handleSalonFieldChange}
+              />
+            </div>
+
+            <p className="pp-subsection-label">Regional Settings</p>
+            <div className="pp-fields-grid">
+              <ProfileField
+                label="Timezone" value={salonForm.timezone ?? ""} name="timezone"
+                icon={<Clock size={14} />} editing={salonEditing}
+                placeholder="Asia/Kolkata" onChange={handleSalonFieldChange}
+              />
+              <div style={{ gridColumn: "1 / -1" }}>
+                <ProfileField
+                  label="Description" value={salonForm.description ?? ""} name="description"
+                  icon={<FileText size={14} />} editing={salonEditing}
+                  placeholder="Brief description of your salon" error={salonFieldErrors.description}
+                  onChange={handleSalonFieldChange}
+                />
+              </div>
+            </div>
+          </section>
+
         </div>
       </div>
     </div>

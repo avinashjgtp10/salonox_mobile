@@ -16,6 +16,7 @@ import {
   Plus,
   Layers,
   ChevronRight,
+  Pencil,
 } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
@@ -139,6 +140,12 @@ export default function CouponsSettingsPage() {
   // with nothing actually changed.
   const [originalForm, setOriginalForm] = useState<CouponForm | null>(null);
   const [formErrors, setFormErrors] = useState<FormErrors>({});
+  // View <-> Edit for the detail panel — viewing a selected coupon starts
+  // read-only; creating one (single or via the separate Bulk Create modal's
+  // own always-usable flow) goes straight to Edit since there's nothing to
+  // view yet. Coupon Preview below stays derived from `form` and keeps
+  // updating live regardless of this flag.
+  const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deletingBatchId, setDeletingBatchId] = useState<string | null>(null);
@@ -220,6 +227,7 @@ export default function CouponsSettingsPage() {
     setForm(snapshot);
     setOriginalForm(snapshot);
     setFormErrors({});
+    setIsEditing(false);
   }
 
   function handleCreateNew() {
@@ -228,6 +236,11 @@ export default function CouponsSettingsPage() {
     setForm(EMPTY_FORM);
     setOriginalForm(null);
     setFormErrors({});
+    setIsEditing(true);
+  }
+
+  function startEditing() {
+    setIsEditing(true);
   }
 
   function handleCancel() {
@@ -242,6 +255,7 @@ export default function CouponsSettingsPage() {
       setOriginalForm(snapshot);
     }
     setFormErrors({});
+    setIsEditing(false);
   }
 
   function validate(): boolean {
@@ -271,6 +285,7 @@ export default function CouponsSettingsPage() {
         await fetchCoupons();
         setSelectedId(created.id);
         setIsCreating(false);
+        setIsEditing(false);
         showSuccess("Coupon created");
       } else if (selectedId) {
         const res = await api.patch(COUPON.BY_ID(selectedId), payload);
@@ -279,6 +294,7 @@ export default function CouponsSettingsPage() {
         const snapshot = couponToForm(updated);
         setForm(snapshot);
         setOriginalForm(snapshot);
+        setIsEditing(false);
         showSuccess("Coupon saved");
       }
     } catch (err: any) {
@@ -297,6 +313,7 @@ export default function CouponsSettingsPage() {
       setSelectedId(null);
       setIsCreating(false);
       setForm(EMPTY_FORM);
+      setIsEditing(false);
       await fetchCoupons();
       showSuccess("Coupon deleted");
     } catch (err: any) {
@@ -398,6 +415,17 @@ export default function CouponsSettingsPage() {
     (key) => form[key as keyof CouponForm] !== originalForm[key as keyof CouponForm]
   );
   const saveDisabled = saving || (!isCreating && !isFormDirty);
+
+  // Warn on tab close/refresh with unsaved changes still pending.
+  useEffect(() => {
+    if (!isEditing || !isFormDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isEditing, isFormDirty]);
 
   const previewValue = form.value.trim() ? Number(form.value) || 0 : 0;
   const previewMinOrder = Number(form.min_order_amount) || 0;
@@ -557,6 +585,7 @@ export default function CouponsSettingsPage() {
                     type="checkbox"
                     checked={form.is_active}
                     onChange={(e) => setField("is_active", e.target.checked)}
+                    disabled={!isEditing}
                   />
                   <span className="cp-toggle__track"><span className="cp-toggle__thumb" /></span>
                   <span className={`cp-toggle__status${!form.is_active ? " cp-toggle__status--off" : ""}`}>
@@ -574,6 +603,7 @@ export default function CouponsSettingsPage() {
                     placeholder="e.g. SAVE10"
                     value={form.code}
                     onChange={(e) => setField("code", e.target.value.toUpperCase())}
+                    disabled={!isEditing}
                   />
                   {formErrors.code ? (
                     <span className="settings-error">{formErrors.code}</span>
@@ -591,6 +621,7 @@ export default function CouponsSettingsPage() {
                       min={0}
                       value={form.value}
                       onChange={(e) => setField("value", e.target.value)}
+                      disabled={!isEditing}
                     />
                     <span className="cp-value-badge">{form.type === "percentage" ? "%" : currencySymbol}</span>
                   </div>
@@ -608,6 +639,7 @@ export default function CouponsSettingsPage() {
                     type="radio"
                     checked={form.type === "percentage"}
                     onChange={() => setField("type", "percentage")}
+                    disabled={!isEditing}
                   />
                   Percentage (%)
                 </label>
@@ -616,6 +648,7 @@ export default function CouponsSettingsPage() {
                     type="radio"
                     checked={form.type === "flat"}
                     onChange={() => setField("type", "flat")}
+                    disabled={!isEditing}
                   />
                   Flat Amount ({currencySymbol})
                 </label>
@@ -631,6 +664,7 @@ export default function CouponsSettingsPage() {
                     placeholder="0.00"
                     value={form.min_order_amount}
                     onChange={(e) => setField("min_order_amount", e.target.value)}
+                    disabled={!isEditing}
                   />
                   <div className="cp-field__hint">Minimum order amount to apply this coupon</div>
                 </div>
@@ -644,6 +678,7 @@ export default function CouponsSettingsPage() {
                     placeholder="Unlimited"
                     value={form.max_uses}
                     onChange={(e) => setField("max_uses", e.target.value)}
+                    disabled={!isEditing}
                   />
                   <div className="cp-field__hint">Maximum number of times this coupon can be used</div>
                 </div>
@@ -657,6 +692,7 @@ export default function CouponsSettingsPage() {
                     className={`cp-input${formErrors.expires_at ? " cp-input--error" : ""}`}
                     value={form.expires_at}
                     onChange={(e) => setField("expires_at", e.target.value)}
+                    disabled={!isEditing}
                   />
                   {formErrors.expires_at ? (
                     <span className="settings-error">{formErrors.expires_at}</span>
@@ -709,21 +745,29 @@ export default function CouponsSettingsPage() {
               </div>
 
               <div className="cp-actions">
-                {!isCreating && selectedId != null && (
-                  <button
-                    className="cp-btn cp-btn--danger cp-btn--push-left"
-                    onClick={handleDelete}
-                    disabled={deleting}
-                  >
-                    <Trash2 size={14} /> {deleting ? "Deleting…" : "Delete Coupon"}
+                {!isEditing ? (
+                  <button className="cp-btn cp-btn--primary" onClick={startEditing}>
+                    <Pencil size={14} /> Edit
                   </button>
+                ) : (
+                  <>
+                    {!isCreating && selectedId != null && (
+                      <button
+                        className="cp-btn cp-btn--danger cp-btn--push-left"
+                        onClick={handleDelete}
+                        disabled={deleting}
+                      >
+                        <Trash2 size={14} /> {deleting ? "Deleting…" : "Delete Coupon"}
+                      </button>
+                    )}
+                    <button className="cp-btn" onClick={handleCancel} disabled={saving}>
+                      Cancel
+                    </button>
+                    <button className="cp-btn cp-btn--primary" onClick={handleSave} disabled={saveDisabled}>
+                      <Save size={14} /> {saving ? "Saving…" : "Save Changes"}
+                    </button>
+                  </>
                 )}
-                <button className="cp-btn" onClick={handleCancel} disabled={saving}>
-                  Cancel
-                </button>
-                <button className="cp-btn cp-btn--primary" onClick={handleSave} disabled={saveDisabled}>
-                  <Save size={14} /> {saving ? "Saving…" : "Save Changes"}
-                </button>
               </div>
             </>
           )}

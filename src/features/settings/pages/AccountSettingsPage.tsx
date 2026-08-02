@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Lock,
   Mail,
@@ -10,6 +10,9 @@ import {
   AlertTriangle,
   LogOut,
   Save,
+  Pencil,
+  X,
+  CheckCircle2,
 } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -117,6 +120,21 @@ export default function AccountSettingsPage() {
   const [showNew, setShowNew] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
 
+  // View -> Edit workflow: password fields stay hidden until Edit is clicked.
+  const [isEditingPassword, setIsEditingPassword] = useState(false);
+  const [justChangedPassword, setJustChangedPassword] = useState(false);
+  const pwIsDirty = !!(pwForm.currentPassword || pwForm.newPassword || pwForm.confirmPassword);
+
+  useEffect(() => {
+    if (!isEditingPassword || !pwIsDirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isEditingPassword, pwIsDirty]);
+
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
 
   const [deleteConfirm, setDeleteConfirm] = useState("");
@@ -169,6 +187,8 @@ export default function AccountSettingsPage() {
       showSuccess("Password updated successfully.");
       setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
       setPwErrors({});
+      setIsEditingPassword(false);
+      setJustChangedPassword(true);
     } else {
       const message = (result.payload as string) || "Failed to change password";
       // A wrong current password is a field-level concern, not a toast.
@@ -178,6 +198,18 @@ export default function AccountSettingsPage() {
         showError(message);
       }
     }
+  };
+
+  const startEditPassword = () => {
+    setIsEditingPassword(true);
+    setJustChangedPassword(false);
+  };
+
+  const handleCancelPassword = () => {
+    if (pwIsDirty && !window.confirm("Discard your unsaved changes?")) return;
+    setPwForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+    setPwErrors({});
+    setIsEditingPassword(false);
   };
 
   const handleLogoutAllDevices = async () => {
@@ -244,87 +276,120 @@ export default function AccountSettingsPage() {
         </div>
       </SettingsSection>
 
-      {/* Change Password */}
+      {/* Change Password — View -> Edit: fields stay hidden until Edit is
+          clicked, matching Business Settings' single-toggle workflow. */}
       <SettingsSection
         title="Change Password"
         desc="Use a strong password that you don't use elsewhere."
+        headerAction={
+          !isEditingPassword ? (
+            <Button
+              variant="outline-secondary"
+              size="sm"
+              onClick={startEditPassword}
+              iconLeft={<Pencil size={13} />}
+            >
+              Edit
+            </Button>
+          ) : undefined
+        }
       >
-        <div className="settings-form-grid">
-          <PasswordField
-            name="currentPassword"
-            label="Current Password"
-            value={pwForm.currentPassword}
-            show={showCurrent}
-            error={pwErrors.currentPassword}
-            onToggle={() => setShowCurrent((v) => !v)}
-            onChange={handlePasswordChange}
-          />
-
-          <div />
-
-          <PasswordField
-            name="newPassword"
-            label="New Password"
-            value={pwForm.newPassword}
-            show={showNew}
-            error={pwErrors.newPassword}
-            onToggle={() => setShowNew((v) => !v)}
-            onChange={handlePasswordChange}
-          />
-
-          <PasswordField
-            name="confirmPassword"
-            label="Confirm New Password"
-            value={pwForm.confirmPassword}
-            show={showConfirm}
-            error={pwErrors.confirmPassword}
-            onToggle={() => setShowConfirm((v) => !v)}
-            onChange={handlePasswordChange}
-          />
-        </div>
-
-        {/* Password Strength Indicator */}
-        {pwForm.newPassword && (
-          <div className="settings-pw-strength">
-            <div className="settings-pw-strength-header">
-              <span>Password strength</span>
-              <span style={{ fontWeight: 600, color: strength.color }}>
-                {strength.label}
-              </span>
+        {!isEditingPassword ? (
+          justChangedPassword && (
+            <div className="settings-pw-success">
+              <CheckCircle2 size={15} />
+              Password updated successfully.
             </div>
-            <div className="settings-pw-strength-track">
-              <div
-                className="settings-pw-strength-fill"
-                style={{ width: `${strength.pct}%`, background: strength.color }}
+          )
+        ) : (
+          <>
+            <div className="settings-form-grid">
+              <PasswordField
+                name="currentPassword"
+                label="Current Password"
+                value={pwForm.currentPassword}
+                show={showCurrent}
+                error={pwErrors.currentPassword}
+                onToggle={() => setShowCurrent((v) => !v)}
+                onChange={handlePasswordChange}
+              />
+
+              <div />
+
+              <PasswordField
+                name="newPassword"
+                label="New Password"
+                value={pwForm.newPassword}
+                show={showNew}
+                error={pwErrors.newPassword}
+                onToggle={() => setShowNew((v) => !v)}
+                onChange={handlePasswordChange}
+              />
+
+              <PasswordField
+                name="confirmPassword"
+                label="Confirm New Password"
+                value={pwForm.confirmPassword}
+                show={showConfirm}
+                error={pwErrors.confirmPassword}
+                onToggle={() => setShowConfirm((v) => !v)}
+                onChange={handlePasswordChange}
               />
             </div>
-            <ul className="settings-pw-strength-list">
-              <li style={{ color: pwForm.newPassword.length >= 8 ? "#10b981" : "#9ca3af" }}>
-                At least 8 characters
-              </li>
-              <li style={{ color: /[A-Z]/.test(pwForm.newPassword) ? "#10b981" : "#9ca3af" }}>
-                Uppercase letter
-              </li>
-              <li style={{ color: /[0-9]/.test(pwForm.newPassword) ? "#10b981" : "#9ca3af" }}>
-                Number
-              </li>
-              <li style={{ color: /[^A-Za-z0-9]/.test(pwForm.newPassword) ? "#10b981" : "#9ca3af" }}>
-                Special character
-              </li>
-            </ul>
-          </div>
-        )}
 
-        <div className="settings-form-actions">
-          <Button
-            size="sm"
-            loading={userLoading.changePassword}
-            onClick={handleSavePassword}
-            iconLeft={<Save size={14} />}
-          >
-            Update password
-          </Button>
-        </div>
+            {/* Password Strength Indicator */}
+            {pwForm.newPassword && (
+              <div className="settings-pw-strength">
+                <div className="settings-pw-strength-header">
+                  <span>Password strength</span>
+                  <span style={{ fontWeight: 600, color: strength.color }}>
+                    {strength.label}
+                  </span>
+                </div>
+                <div className="settings-pw-strength-track">
+                  <div
+                    className="settings-pw-strength-fill"
+                    style={{ width: `${strength.pct}%`, background: strength.color }}
+                  />
+                </div>
+                <ul className="settings-pw-strength-list">
+                  <li style={{ color: pwForm.newPassword.length >= 8 ? "#10b981" : "#9ca3af" }}>
+                    At least 8 characters
+                  </li>
+                  <li style={{ color: /[A-Z]/.test(pwForm.newPassword) ? "#10b981" : "#9ca3af" }}>
+                    Uppercase letter
+                  </li>
+                  <li style={{ color: /[0-9]/.test(pwForm.newPassword) ? "#10b981" : "#9ca3af" }}>
+                    Number
+                  </li>
+                  <li style={{ color: /[^A-Za-z0-9]/.test(pwForm.newPassword) ? "#10b981" : "#9ca3af" }}>
+                    Special character
+                  </li>
+                </ul>
+              </div>
+            )}
+
+            <div className="settings-form-actions">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleCancelPassword}
+                disabled={userLoading.changePassword}
+                iconLeft={<X size={13} />}
+              >
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                loading={userLoading.changePassword}
+                onClick={handleSavePassword}
+                iconLeft={<Save size={14} />}
+              >
+                Save changes
+              </Button>
+            </div>
+          </>
+        )}
       </SettingsSection>
 
       {/* Two-Factor Authentication */}
