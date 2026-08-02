@@ -80,7 +80,7 @@ function mapAppointment(row: any): SaleRow {
   return {
     id: String(row.id ?? ""),
     appointmentId: row.appointment_id ? String(row.appointment_id) : null,
-    invoiceNo: row.invoice_number != null ? String(row.invoice_number) : String(row.id ?? "—"),
+    invoiceNo: row.invoice_number != null ? String(row.invoice_number) : "Not billed yet",
     name: row.client_name ?? "Walk-in",
     contact: row.client_phone ?? "—",
     itemDescription: row.item_description ?? "—",

@@ -267,7 +267,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                 <div className="vbm-header__id text-muted small">
                   {(booking as any).invoiceNumber
                     ? String((booking as any).invoiceNumber)
-                    : `#${String(booking.id).slice(0, 8).toUpperCase()}`}
+                    : "Not billed yet"}
                 </div>
               </div>
             </div>
