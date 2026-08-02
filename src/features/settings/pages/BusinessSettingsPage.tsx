@@ -20,9 +20,13 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { getMySalonThunk, updateSalonThunk } from "../../../middleware/salon/salon.thunk";
 import Button from "../../../components/ui/Button";
 import type { Salon, UpdateSalonPayload } from "../../../types/salon.types";
+import { TAX_ID_MESSAGES } from "../../../constants/message";
 
 const GSTIN_LENGTH = 15;
 const PAN_LENGTH = 10;
+// 2-digit state code + 10-char PAN + 1-digit entity code + "Z" + 1 checksum char.
+const GSTIN_FORMAT_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+const PAN_FORMAT_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
 type BusinessForm = Omit<UpdateSalonPayload, "phone" | "address">;
 type FormErrors = Partial<Record<"gst_number" | "pan_number", string>>;
@@ -133,7 +137,9 @@ export default function BusinessSettingsPage() {
       value = value.toUpperCase().slice(0, GSTIN_LENGTH);
       setErrors((prev) => ({
         ...prev,
-        gst_number: value && value.length !== GSTIN_LENGTH ? "GSTIN must be exactly 15 characters." : undefined,
+        gst_number: value && !GSTIN_FORMAT_RE.test(value)
+          ? (value.length !== GSTIN_LENGTH ? TAX_ID_MESSAGES.GSTIN_LENGTH : TAX_ID_MESSAGES.GSTIN_FORMAT)
+          : undefined,
       }));
     }
 
@@ -141,7 +147,9 @@ export default function BusinessSettingsPage() {
       value = value.toUpperCase().slice(0, PAN_LENGTH);
       setErrors((prev) => ({
         ...prev,
-        pan_number: value && value.length !== PAN_LENGTH ? "PAN must be exactly 10 characters." : undefined,
+        pan_number: value && !PAN_FORMAT_RE.test(value)
+          ? (value.length !== PAN_LENGTH ? TAX_ID_MESSAGES.PAN_LENGTH : TAX_ID_MESSAGES.PAN_FORMAT)
+          : undefined,
       }));
     }
 
@@ -157,12 +165,16 @@ export default function BusinessSettingsPage() {
     const gstNumber = form.gst_number?.trim() ?? "";
     const panNumber = form.pan_number?.trim() ?? "";
 
-    if (gstNumber && gstNumber.length !== GSTIN_LENGTH) {
-      nextErrors.gst_number = "GSTIN must be exactly 15 characters.";
+    if (gstNumber && !GSTIN_FORMAT_RE.test(gstNumber)) {
+      nextErrors.gst_number = gstNumber.length !== GSTIN_LENGTH
+        ? TAX_ID_MESSAGES.GSTIN_LENGTH
+        : TAX_ID_MESSAGES.GSTIN_FORMAT;
     }
 
-    if (panNumber && panNumber.length !== PAN_LENGTH) {
-      nextErrors.pan_number = "PAN must be exactly 10 characters.";
+    if (panNumber && !PAN_FORMAT_RE.test(panNumber)) {
+      nextErrors.pan_number = panNumber.length !== PAN_LENGTH
+        ? TAX_ID_MESSAGES.PAN_LENGTH
+        : TAX_ID_MESSAGES.PAN_FORMAT;
     }
 
     setErrors(nextErrors);

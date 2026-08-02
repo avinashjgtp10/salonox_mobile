@@ -197,3 +197,6 @@ export const COUNTRIES: CountryDef[] = [
 export function getCountryDef(code: string | null | undefined): CountryDef | undefined {
   return COUNTRIES.find((c) => c.code === code);
 }
+
+// Default country for salons that haven't set one yet (matches DEFAULT_CURRENCY_CODE = "INR").
+export const DEFAULT_COUNTRY_CODE = "IN";

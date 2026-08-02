@@ -329,7 +329,15 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
         <select
           className="sp-select"
           value={country}
-          onChange={(e) => setCountry(e.target.value)}
+          onChange={(e) => {
+            const newCountry = e.target.value;
+            setCountry(newCountry);
+            const match = Country.getAllCountries().find((c) => c.name === newCountry);
+            if (match) {
+              const dialCode = match.phonecode.startsWith("+") ? match.phonecode : `+${match.phonecode}`;
+              setPhoneCountryCode(dialCode);
+            }
+          }}
         >
           {COUNTRIES.map((c) => (
             <option key={c} value={c}>{c}</option>

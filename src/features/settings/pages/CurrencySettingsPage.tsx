@@ -4,7 +4,7 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { getMySalonThunk, updateSalonThunk } from "../../../middleware/salon/salon.thunk";
 import { DEFAULT_CURRENCY_CODE } from "../../../config/currencies";
-import { getCountryDef } from "../../../config/countries";
+import { getCountryDef, DEFAULT_COUNTRY_CODE } from "../../../config/countries";
 import { CURRENCY_MESSAGES } from "../../../constants/messages";
 import Button from "../../../components/ui/Button";
 import CurrencySelect from "../../../components/ui/CurrencySelect";
@@ -15,7 +15,7 @@ export default function CurrencySettingsPage() {
   const { currentSalon } = useAppSelector((s) => s.salon);
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
-  const [country, setCountry] = useState("");
+  const [country, setCountry] = useState(DEFAULT_COUNTRY_CODE);
   const [currency, setCurrency] = useState(DEFAULT_CURRENCY_CODE);
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -26,7 +26,7 @@ export default function CurrencySettingsPage() {
 
   useEffect(() => {
     if (currentSalon && !editing) {
-      setCountry(currentSalon.country || "");
+      setCountry(currentSalon.country || DEFAULT_COUNTRY_CODE);
       setCurrency(currentSalon.currency || DEFAULT_CURRENCY_CODE);
     }
   }, [currentSalon, editing]);
@@ -59,7 +59,7 @@ export default function CurrencySettingsPage() {
   };
 
   const handleCancel = () => {
-    setCountry(currentSalon?.country || "");
+    setCountry(currentSalon?.country || DEFAULT_COUNTRY_CODE);
     setCurrency(currentSalon?.currency || DEFAULT_CURRENCY_CODE);
     setEditing(false);
   };
