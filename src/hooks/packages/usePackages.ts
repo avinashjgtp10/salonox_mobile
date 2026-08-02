@@ -57,9 +57,11 @@ export function useUpdatePackage() {
 
 // ─── Client package hooks ─────────────────────────────────────────────────────
 
+// clientId is optional on the backend (/client-packages lists salon-wide
+// when omitted, same as /client-memberships) — no `skip` needed here.
 export function useGetClientPackages(params?: ClientPackagesListQuery) {
   const { data, isLoading, isFetching, isError, error, refetch } =
-    useListClientPackagesQuery(params ?? {}, { skip: !params?.clientId });
+    useListClientPackagesQuery(params ?? {});
 
   return {
     packages:   data?.items ?? [],
