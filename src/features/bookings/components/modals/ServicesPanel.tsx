@@ -1091,15 +1091,18 @@ function SearchableItemRow(props: SearchableItemRowProps) {
 
       {kind === "product" ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <input
-            className="svc-field__input"
-            type="text"
-            inputMode="numeric"
-            disabled={frozen}
-            placeholder="0"
-            value={row.price || ""}
-            onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
-          />
+          <div className="svc-field__input-wrap">
+            <span className="svc-field__prefix">{currencySymbol}</span>
+            <input
+              className="svc-field__input svc-field__input--with-prefix"
+              type="text"
+              inputMode="numeric"
+              disabled={frozen}
+              placeholder="0"
+              value={row.price || ""}
+              onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
+            />
+          </div>
           {!!membershipDiscountAmount && membershipDiscountAmount > 0 && (
             <span className="svc-field__pkg-badge" title="Membership discount — GST is calculated on the price after this reduction">
               ✓ Membership −{currencySymbol}{membershipDiscountAmount.toFixed(2)}

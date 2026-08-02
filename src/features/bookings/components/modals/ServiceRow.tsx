@@ -854,15 +854,18 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
 
         <div className="svc-field">
           <span className="svc-field__label">Price</span>
-          <input
-            type="text"
-            disabled={disabled}
-            inputMode="numeric"
-            placeholder="0"
-            value={row.price || ""}
-            className={`svc-field__input${errorFields.price ? " svc-field__input--error" : ""}`}
-            onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
-          />
+          <div className="svc-field__input-wrap">
+            <span className="svc-field__prefix">{currencySymbol}</span>
+            <input
+              type="text"
+              disabled={disabled}
+              inputMode="numeric"
+              placeholder="0"
+              value={row.price || ""}
+              className={`svc-field__input svc-field__input--with-prefix${errorFields.price ? " svc-field__input--error" : ""}`}
+              onChange={(e) => handlePriceChange(e.target.value.replace(/[^0-9.]/g, ""))}
+            />
+          </div>
           {errorFields.price && <span className="svc-field__err">Enter price</span>}
           {!isPackageCovered && !!membershipDiscountAmount && membershipDiscountAmount > 0 && (
             <span className="svc-field__pkg-badge" title="Membership discount — GST is calculated on the price after this reduction">
