@@ -4,6 +4,8 @@ import api from "../../../services/api/axios";
 import { ATTENDANCE } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
+import Select from "../../../components/ui/Select";
+import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, DateRangePicker } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
@@ -26,11 +28,31 @@ interface AttendanceRow {
   source: string;
 }
 
+interface FilterOption { id: string; label: string; }
+
+const STATUS_OPTIONS: FilterOption[] = [
+  { id: "present", label: "Present" },
+  { id: "absent", label: "Absent" },
+  { id: "late", label: "Late" },
+  { id: "half_day", label: "Half Day" },
+  { id: "on_leave", label: "On Leave" },
+];
+
 const fmtTime = (iso: string | null) => {
   if (!iso) return "—";
   const d = new Date(iso);
   return isNaN(d.getTime()) ? "—" : d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
 };
+
+// dd/MM/yyyy, consistently across the date filter, table and every export.
+function formatDate(input: string): string {
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
 
 const fmtStatusLabel = (s: string) => s.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
@@ -39,9 +61,9 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
   const [dateTo,      setDateTo]      = useState(today);
-  const [staffFilter, setStaffFilter] = useState("All");
-  const [staffOptions, setStaffOptions] = useState<{ label: string; value: string }[]>([{ label: "All Staff", value: "All" }]);
-  const [showStaffDrop, setShowStaffDrop] = useState(false);
+  const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [staffOptions, setStaffOptions] = useState<FilterOption[]>([]);
   const [search,      setSearch]      = useState("");
   const [allRows,     setAllRows]     = useState<AttendanceRow[]>([]);
   const [loading,     setLoading]     = useState(false);
@@ -59,7 +81,7 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
       const data = res.data?.data ?? {};
       const staff: any[] = Array.isArray(data.staff) ? data.staff : [];
       const records: any[] = Array.isArray(data.records) ? data.records : [];
-      setStaffOptions([{ label: "All Staff", value: "All" }, ...staff.map((s: any) => ({ label: s.full_name ?? "—", value: String(s.id ?? "") }))]);
+      setStaffOptions(staff.map((s: any) => ({ id: String(s.id ?? ""), label: s.full_name ?? "—" })));
       setAllRows(records.map((r: any) => ({
         id: String(r.id ?? ""),
         date: String(r.date ?? "").slice(0, 10),
@@ -81,23 +103,27 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    const close = () => setShowStaffDrop(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
   const rows = useMemo(() => {
     let r = allRows;
-    if (staffFilter !== "All") r = r.filter(x => x.staffId === staffFilter);
+    if (staffFilterIds.length > 0) r = r.filter(x => staffFilterIds.includes(x.staffId));
+    if (statusFilter !== "All") r = r.filter(x => x.status === statusFilter);
     if (search.trim()) {
       const q = search.toLowerCase();
       r = r.filter(x => x.staffName.toLowerCase().includes(q) || x.staffRole.toLowerCase().includes(q));
     }
     return r;
-  }, [allRows, staffFilter, search]);
+  }, [allRows, staffFilterIds, statusFilter, search]);
 
   useEffect(() => { setCurrentPage(1); }, [rows.length]);
+
+  const activeFilterCount = [
+    staffFilterIds.length > 0 ? 1 : 0,
+    statusFilter !== "All" ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  const clearFilters = () => {
+    setStaffFilterIds([]); setStatusFilter("All");
+  };
 
   const counts = useMemo(() => {
     const c = { present: 0, absent: 0, late: 0, half_day: 0, on_leave: 0 };
@@ -105,15 +131,25 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
     return c;
   }, [rows]);
 
+  // Total Working Days = every distinct calendar date with at least one
+  // attendance record in the filtered set — "days the roster was tracked",
+  // not the raw row count (one day can have many staff rows).
+  const totalWorkingDays = useMemo(() => new Set(rows.map(r => r.date)).size, [rows]);
+
+  // Present / Total Working Days × 100 — matches the ticket's example
+  // formula. Guards against a 0-day range dividing by zero.
+  const attendancePercent = totalWorkingDays > 0 ? (counts.present / totalWorkingDays) * 100 : 0;
+
   const avgHours = useMemo(() => {
     const worked = rows.filter(r => r.hoursWorked != null);
     if (!worked.length) return 0;
     return worked.reduce((s, r) => s + (r.hoursWorked ?? 0), 0) / worked.length;
   }, [rows]);
 
-  const HEADERS = ["Date", "Staff", "Role", "Status", "Check In", "Check Out", "Hours Worked", "Source"];
-  const exportRows = () => rows.map(r => [r.date, r.staffName, r.staffRole, fmtStatusLabel(r.status), fmtTime(r.checkIn), fmtTime(r.checkOut), r.hoursWorked ?? "—", r.source]);
   const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const HEADERS = ["Date", "Staff", "Status", "Check In", "Check Out", "Hours Worked"];
+  const exportRows = () => rows.map(r => [formatDate(r.date), r.staffName, fmtStatusLabel(r.status), fmtTime(r.checkIn), fmtTime(r.checkOut), r.hoursWorked ?? "—"]);
 
   return (
     <div className="rp-detail-view">
@@ -129,36 +165,42 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
       <div className="rp-detail-filters">
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Date</label>
-          <DateRangePicker startDate={dateFrom} endDate={dateTo} onChange={(s, e) => { setDateFrom(s); setDateTo(e); }} />
+          <DateRangePicker startDate={dateFrom} endDate={dateTo} onChange={(s, e) => { setDateFrom(s); setDateTo(e); }} showQuickPresets />
         </div>
         <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Staff</label>
-          <button className="rp-detail-select" onClick={() => setShowStaffDrop(v => !v)}>
-            {(staffOptions.find(o => o.value === staffFilter)?.label ?? "All Staff").slice(0, 16)}
-            <span className="rp-detail-caret">▼</span>
-          </button>
-          {showStaffDrop && (
-            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {staffOptions.map(o => (
-                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === staffFilter ? "active" : ""}`}
-                  onClick={() => { setStaffFilter(o.value); setShowStaffDrop(false); }}>{o.label}</div>
-              ))}
-            </div>
-          )}
+          <MultiSelectCheckbox
+            label="Staff"
+            containerClass="rp-att-filter-field"
+            options={staffOptions}
+            selected={staffFilterIds}
+            onChange={setStaffFilterIds}
+            placeholder="All staff"
+          />
         </div>
+        <div className="rp-detail-filter-group">
+          <Select label="Status" containerClass="rp-att-filter-field" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+            <option value="All">All</option>
+            {STATUS_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+          </Select>
+        </div>
+        {activeFilterCount > 0 && (
+          <button className="rp-att-clear-btn" onClick={clearFilters}>Clear filters</button>
+        )}
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={6} /> : (
+      {loading ? <SkeletonStatCards count={8} /> : (
         <div className="rp-sra-summary-row">
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{totalWorkingDays}</div><div className="rp-sra-summary-label">Total Working Days</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{counts.present}</div><div className="rp-sra-summary-label">Present</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{counts.absent}</div><div className="rp-sra-summary-label">Absent</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{counts.late}</div><div className="rp-sra-summary-label">Late</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{counts.half_day}</div><div className="rp-sra-summary-label">Half Day</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{counts.on_leave}</div><div className="rp-sra-summary-label">On Leave</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{avgHours.toFixed(1)}</div><div className="rp-sra-summary-label">Avg Hours Worked</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{avgHours.toFixed(1)}</div><div className="rp-sra-summary-label">Average Hours Worked</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{attendancePercent.toFixed(1)}%</div><div className="rp-sra-summary-label">Attendance Percentage</div></div>
         </div>
       )}
 
@@ -173,24 +215,22 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Date</th><th>Staff</th><th>Role</th><th>Status</th><th>Check In</th><th>Check Out</th><th>Hours Worked</th><th>Source</th>
+              <th>Date</th><th>Staff</th><th>Status</th><th>Check In</th><th>Check Out</th><th>Hours Worked</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={8} />
+              <SkeletonTableRows columns={6} />
             ) : paged.length === 0 ? (
-              <tr><td colSpan={8} className="rp-detail-empty-cell">No attendance records found</td></tr>
+              <tr><td colSpan={6} className="rp-detail-empty-cell">No attendance records found</td></tr>
             ) : paged.map((r) => (
               <tr key={r.id}>
-                <td>{r.date}</td>
+                <td>{formatDate(r.date)}</td>
                 <td className="fw-semibold">{r.staffName}</td>
-                <td>{r.staffRole}</td>
                 <td><span className={`rp-status-badge rp-status-${r.status}`}>{fmtStatusLabel(r.status)}</span></td>
                 <td>{fmtTime(r.checkIn)}</td>
                 <td>{fmtTime(r.checkOut)}</td>
                 <td>{r.hoursWorked != null ? r.hoursWorked.toFixed(1) : "—"}</td>
-                <td className="rp-att-source">{fmtStatusLabel(r.source)}</td>
               </tr>
             ))}
           </tbody>
