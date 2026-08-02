@@ -7,7 +7,7 @@ interface Props {
 
 export default function CatalogSubSidebar({ onClose }: Props) {
   return (
-    <div className="sub-sidebar">
+    <div className="sub-sidebar sub-sidebar--catalog">
       <div className="sub-header">
         <h3>Catalog</h3>
 
