@@ -109,10 +109,16 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
 
   const staffName = allStaffNames.join(", ") || "—";
   const payVariant = booking.status === "paid" ? ("success" as const) : booking.status === "partial" ? ("warning" as const) : ("danger" as const);
-  const _vbmGt = (booking as any).grandTotal;
-  const isPackagePaid = (booking as any).paymentMode === "Package" ||
-    (_vbmGt !== null && _vbmGt !== undefined && Number(_vbmGt) === 0) ||
-    (booking.status === "paid" && Number(booking.payingNow) === 0 && Number(booking.dueAmount) === 0);
+  // A real Package-covered booking is the ONLY case that should zero out this
+  // whole display — detected the same explicit way bookingMapper.ts's own
+  // isPackagePaid does (payment_method === "package"), never guessed from
+  // symptoms. The previous "grandTotal === 0" / "payingNow === 0 && due === 0"
+  // fallbacks were meant to catch stale data, but any bill fully covered by
+  // non-cash credit (membership wallet, eWallet, reward points, referral —
+  // paid_amount legitimately 0 with nothing due) satisfies that same
+  // condition, so a real ₹1,147 membership-wallet-covered bill got same as a
+  // ₹0 package and rendered every row and the Grand Total as ₹0.00.
+  const isPackagePaid = String((booking as any).paymentMode || "").toLowerCase() === "package";
 
   return (
     <div className="vbm-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
@@ -145,7 +151,10 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               {activeMembershipsForBill.map((m) => (
                 <div className="vbm-info-row" key={m.id}>
                   <div className="vbm-info-row__label">Membership</div>
-                  <div className="vbm-info-row__value">{m.membershipName} ({currencySymbol}{m.membershipWalletBalance.toFixed(2)} left)</div>
+                  <div className="vbm-info-row__value">
+                    {m.membershipName} ({currencySymbol}
+                    {(m.pricingType === "percentage" ? (m.discountBalanceRemaining ?? 0) : m.membershipWalletBalance).toFixed(2)} left)
+                  </div>
                 </div>
               ))}
               {activePackagesForBill.map((p) => (
@@ -433,6 +442,17 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     const discountAmount = booking.discountAmount || 0;
                     const couponDiscount = booking.couponDiscount || 0;
                     const referralDiscount = booking.referralDiscount || 0;
+                    // Pre-tax price reduction from a Discount Balance/Loyalty
+                    // membership — already baked into grandTotal, so it has to
+                    // be subtracted here too or the gap shows up mislabeled as
+                    // "Round Off" instead of its own line (same fix as receipt.ts).
+                    const membershipDiscountAmount = (booking as any).membershipDiscountUsed || 0;
+                    // Split for display only — the Discount Balance
+                    // (percentage) share has its own ledger figure; Loyalty's
+                    // share is derived as the remainder, since Loyalty never
+                    // writes a ledger row of its own (no balance to track).
+                    const membershipPercentageDiscountAmount = (booking as any).membershipPercentageDiscountUsed || 0;
+                    const membershipLoyaltyDiscountAmount = Math.max(0, membershipDiscountAmount - membershipPercentageDiscountAmount);
                     const exCharges = booking.exCharges || 0;
                     const tipAmount = booking.tipAmount || 0;
                     const grandTotal = isPackagePaid ? 0 : (booking.grandTotal || 0);
@@ -468,7 +488,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                       : null;
                     const totalTaxAmount = (combinedExclusiveTax?.amount ?? legacyGst?.amount ?? 0);
 
-                    const taxable = Math.max(0, subtotal - discountAmount - couponDiscount - referralDiscount);
+                    const taxable = Math.max(0, subtotal - discountAmount - couponDiscount - referralDiscount - membershipDiscountAmount);
                     const rawTotal = taxable + totalTaxAmount + exCharges + tipAmount;
                     const roundOff = grandTotal - rawTotal;
 
@@ -477,6 +497,8 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                       discountAmount ? ["Discount", `−${currencySymbol}${discountAmount.toFixed(2)}`, "#ef4444"] : null,
                       couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${couponDiscount.toFixed(2)}`, "#22c55e"] : null,
                       referralDiscount ? ["Referral Discount", `−${currencySymbol}${referralDiscount.toFixed(2)}`, "#22c55e"] : null,
+                      membershipPercentageDiscountAmount ? ["Membership Discount", `−${currencySymbol}${membershipPercentageDiscountAmount.toFixed(2)}`, "#ef4444"] : null,
+                      membershipLoyaltyDiscountAmount ? ["Membership Loyalty", `−${currencySymbol}${membershipLoyaltyDiscountAmount.toFixed(2)}`, "#ef4444"] : null,
                       combinedExclusiveTax ? [`${combinedExclusiveTax.label} (${combinedExclusiveTax.rate}%)`, `+${currencySymbol}${combinedExclusiveTax.amount.toFixed(2)}`, "#374151"] : null,
                       combinedInclusiveTax ? [`${combinedInclusiveTax.label} (${combinedInclusiveTax.rate}%, incl.)`, `${currencySymbol}${combinedInclusiveTax.amount.toFixed(2)}`, "#6b7280"] : null,
                       legacyGst ? [`${legacyGst.label}${legacyGst.rate ? ` (${legacyGst.rate}%)` : ""}`, `+${currencySymbol}${legacyGst.amount.toFixed(2)}`, "#374151"] : null,
@@ -499,6 +521,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   <div className="vbm-breakdown-row vbm-breakdown-row--grand"><span>Grand Total</span><span>{currencySymbol}{(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}</span></div>
                   {(booking.rewardPointsValue || 0) > 0 && (
                     <div className="vbm-breakdown-row" style={{ color: "#7c3aed" }}><span>🎁 Paid from Reward Points</span><span>{currencySymbol}{(booking.rewardPointsValue || 0).toFixed(2)}</span></div>
+                  )}
+                  {((booking as any).membershipWalletUsed || 0) > 0 && (
+                    <div className="vbm-breakdown-row" style={{ color: "#15803d" }}><span>Paid via Membership Wallet</span><span>{currencySymbol}{((booking as any).membershipWalletUsed || 0).toFixed(2)}</span></div>
                   )}
                   <div className="vbm-breakdown-row vbm-breakdown-row--paid"><span>Paid</span><span>{currencySymbol}{(booking.payingNow || 0).toFixed(2)}</span></div>
                   {(booking.dueAmount || 0) > 0 && (

@@ -85,7 +85,13 @@ function mapAppointment(row: any): SaleRow {
     itemDescription: row.item_description ?? "—",
     itemTypes: row.item_types ?? "—",
     staffName: row.staff_name ?? "—",
-    bill: Math.round(Number(row.price) || 0),
+    // The gross pre-discount subtotal (what was actually sold), not
+    // row.price — that field is net-of-discount (e.g. 1139.40 or even ~0 for
+    // a fully membership-covered bill), which read as a confusingly small
+    // "Bill" the moment a real membership discount was involved. Reconciles
+    // as Bill − Discount + GST = Paid + Membership + eWallet + Rewards +
+    // Referral + Due, same composition the rest of this row already implies.
+    bill: Math.round(Number(row.actual_price) || 0),
     discountAmount: Number(row.discount_amount) || 0,
     taxAmount: Number(row.tax_amount) || 0,
     paid,

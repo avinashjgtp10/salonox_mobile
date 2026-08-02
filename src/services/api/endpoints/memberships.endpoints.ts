@@ -16,6 +16,12 @@ export type MembershipPricingType = 'value' | 'percentage' | 'loyalty';
 /** Which line items a membership's benefit is eligible to cover. */
 export type MembershipAppliesTo = 'services' | 'products' | 'both';
 
+/** One rung of a loyalty plan's tier ladder — e.g. 10 visits unlocks 20% off. */
+export interface LoyaltyTier {
+  thresholdValue: number;
+  discountPercent: number;
+}
+
 export interface Membership {
   id: string;
   name: string;
@@ -32,12 +38,15 @@ export interface Membership {
   termsAndConditions?: string;
   /** Defaults to 'services' server-side when omitted. */
   appliesTo?: MembershipAppliesTo;
+  /** Optional narrowing of appliesTo to specific service_categories ids —
+   *  empty/omitted means unrestricted (every category within appliesTo's scope). */
+  categoryIds?: string[];
   pricingType?: MembershipPricingType;
   discountPercent?: number;
   /** 'percentage' only — the depleting pool of discount this plan may hand out. */
   discountBalance?: number;
-  /** 'loyalty' only — how many visits have to accumulate before the discount unlocks. */
-  loyaltyThresholdValue?: number;
+  /** 'loyalty' only — the tier ladder (visits → discount%), ascending by thresholdValue. */
+  loyaltyTiers?: LoyaltyTier[];
   createdAt: Date;
   updatedAt: Date;
   // Optional client association (if backend supports it)
@@ -62,12 +71,15 @@ export interface CreateMembershipDTO {
   termsAndConditions?: string;
   /** Defaults to 'services' server-side when omitted. */
   appliesTo?: MembershipAppliesTo;
+  /** Optional narrowing of appliesTo to specific service_categories ids —
+   *  empty/omitted means unrestricted (every category within appliesTo's scope). */
+  categoryIds?: string[];
   pricingType?: MembershipPricingType;
   discountPercent?: number;
   /** 'percentage' only — the depleting pool of discount this plan may hand out. */
   discountBalance?: number;
-  /** 'loyalty' only — how many visits have to accumulate before the discount unlocks. */
-  loyaltyThresholdValue?: number;
+  /** 'loyalty' only — the tier ladder (visits → discount%), ascending by thresholdValue. */
+  loyaltyTiers?: LoyaltyTier[];
   clientId?: string;
   clientName?: string;
   clientPhone?: string;
@@ -97,10 +109,21 @@ export interface ApiResponse<T> {
 export interface LoyaltyEligibility {
   membershipId: string;
   name: string;
-  discountPercent: number;
-  thresholdValue: number;
+  /** Plain-text description pulled out of the plan's JSON-encoded description field. */
+  description?: string;
   /** Visits accumulated so far. */
   current: number;
+  /** True once the client has crossed at least the first tier. */
   eligible: boolean;
+  /** The highest tier crossed so far — its discountPercent is what actually
+   *  applies (tiers never stack). Null when not yet eligible. */
+  currentTier: LoyaltyTier | null;
+  /** The next tier still to unlock, for progress display. Null once the
+   *  client has crossed every tier the plan defines. */
+  nextTier: LoyaltyTier | null;
+  /** Pass-through of currentTier.discountPercent (0 when ineligible). */
+  discountPercent: number;
   appliesTo: MembershipAppliesTo;
+  /** Optional narrowing of appliesTo to specific service_categories ids — empty means unrestricted. */
+  categoryIds: string[];
 }

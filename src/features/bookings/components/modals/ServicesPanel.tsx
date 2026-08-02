@@ -24,6 +24,7 @@ interface SearchableCatalogItem {
   barcode?: string | null;
   barcodeSearchValues?: Array<string | null | undefined>;
   priceSearchValues?: Array<number | string | null | undefined>;
+  categoryId?: string;
 }
 
 function getProductDisplayPrice(item: any) {
@@ -259,6 +260,7 @@ function mapProductSearchItem(item: any): SearchableCatalogItem {
       item.sku,
     ],
     priceSearchValues: getProductPriceSearchValues(item),
+    categoryId: item.category_id ?? undefined,
   };
 }
 
@@ -617,6 +619,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     qty?: number;
     discount?: number;
     total?: number;
+    categoryId?: string;
   }) {
     if (kind === "package") {
       onUpdate({
@@ -639,6 +642,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       qty: patch.qty ?? row.qty,
       discount: patch.discount ?? row.discount,
       total: patch.total ?? row.total,
+      categoryId: "categoryId" in patch ? patch.categoryId : (row as any).categoryId,
     });
   }
 
@@ -795,6 +799,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       selectedName: item.name,
       price,
       total: calcTotal(price, qty, discount),
+      categoryId: item.categoryId,
     });
   }
 
@@ -847,6 +852,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       price: 0,
       qty: 1,
       total: 0,
+      categoryId: undefined,
     });
   }
 
@@ -901,6 +907,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
         price: basePrice,
         qty: nextQty,
         total: calcTotal(basePrice, nextQty, existingDiscount),
+        categoryId: matchedItem.categoryId,
       });
 
       if (!row.productId || row.productId !== matchedProductId) {
@@ -925,6 +932,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       price: matchedPrice,
       qty: 1,
       total: calcTotal(matchedPrice, 1, nextDiscount),
+      categoryId: matchedItem.categoryId,
     });
     setResults([]);
     setShowDrop(false);
@@ -1208,6 +1216,7 @@ export const ServicesPanel: React.FC<Props> = ({
       barcode: item.barcode,
       barcodeSearchValues: [item.barcode],
       priceSearchValues: getProductPriceSearchValues(item),
+      categoryId: item.categoryId,
     })),
     [availableProducts]
   );

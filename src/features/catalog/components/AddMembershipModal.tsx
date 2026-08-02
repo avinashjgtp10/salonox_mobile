@@ -11,11 +11,13 @@
 //   (percentage)           GIVEN depletes an independently-configurable pool.
 //   Loyalty              — free/automatic; unlocks N% off once a client
 //                          crosses a visit-count threshold.
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  ChevronDown, InfoCircleFill, X,
+  ChevronDown, X,
   AwardFill, Percent, Award,
+  PlusLg, Trash3,
 } from "react-bootstrap-icons";
 import type { AppDispatch } from "../../../store/store";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -23,20 +25,59 @@ import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import { createMembershipThunk, updateMembershipThunk } from "../../../middleware/membership/membership.thunk";
 import { selectMembershipsSubmitting, selectMembershipsError } from "../../../store/selectors/membership.selectors";
 import { clearMembershipError } from "../../../store/membershipSlice";
-import type { MembershipPricingType, MembershipAppliesTo } from "../../../services/api/endpoints/memberships.endpoints";
+import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
+import { selectAllCategories } from "../../../store/selectors/slices.selectors";
+import type { MembershipPricingType, MembershipAppliesTo, LoyaltyTier } from "../../../services/api/endpoints/memberships.endpoints";
 import api from "../../../services/api/axios";
 import "../styles/AddMembershipModal.scss";
 
 const DEFAULT_COLOUR = "#1a1a2e";
 const DESC_MAX = 250;
 
-const VALIDITY_OPTIONS = [
-  { label: "1 Month",   value: "1 month"  },
-  { label: "3 Months",  value: "3 months" },
-  { label: "6 Months",  value: "6 months" },
-  { label: "12 Months", value: "1 year"   },
-  { label: "Lifetime",  value: "lifetime" },
-];
+function todayMidnight(): Date {
+  const d = new Date();
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function addDays(date: Date, days: number): Date {
+  const d = new Date(date);
+  d.setDate(d.getDate() + days);
+  return d;
+}
+
+function toIsoDate(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+// The plan's expiry is stored as a relative "valid for N days" duration (the
+// backend applies it from whenever a client actually buys it, not from now) —
+// picking a calendar date here is just a friendlier way to say "N days from
+// today" than asking staff to do the day-count math themselves.
+function daysFromToday(isoDate: string): number {
+  if (!isoDate) return 0;
+  const picked = new Date(`${isoDate}T00:00:00`);
+  return Math.round((picked.getTime() - todayMidnight().getTime()) / 86400000);
+}
+
+// Reads an existing plan's stored validFor back into a calendar date for the
+// picker — handles the new "N days" format plus the legacy fixed buckets
+// older plans may still carry.
+function parseValidForToDate(validFor: string | undefined | null): string {
+  const daysMatch = /^(\d+)\s*days?$/i.exec((validFor ?? "").trim());
+  if (daysMatch) return toIsoDate(addDays(todayMidnight(), parseInt(daysMatch[1], 10)));
+  switch (validFor) {
+    case "1 month":  return toIsoDate(addDays(todayMidnight(), 30));
+    case "3 months": return toIsoDate(addDays(todayMidnight(), 90));
+    case "6 months": return toIsoDate(addDays(todayMidnight(), 180));
+    case "1 year":   return toIsoDate(addDays(todayMidnight(), 365));
+    case "lifetime": return toIsoDate(addDays(todayMidnight(), 365 * 50));
+    default:          return toIsoDate(addDays(todayMidnight(), 365));
+  }
+}
 
 const APPLIES_TO_OPTIONS: { label: string; value: MembershipAppliesTo }[] = [
   { label: "Services only", value: "services" },
@@ -44,22 +85,37 @@ const APPLIES_TO_OPTIONS: { label: string; value: MembershipAppliesTo }[] = [
   { label: "Both",          value: "both"     },
 ];
 
+/** One tier row as edited in the form — parsed to numbers on save. */
+interface LoyaltyTierInput {
+  threshold: string;
+  discount: string;
+}
+
+const emptyTier = (): LoyaltyTierInput => ({ threshold: "", discount: "" });
+
 interface FormState {
   name: string;
   description: string;
   price: string;             // value: price paid; percentage: membership fee
   bonusCredit: string;       // value only — extra wallet credit on top of price
-  discount: string;          // percentage + loyalty
-  discountBalance: string;   // percentage only
-  loyaltyThresholdValue: string;
-  validity: string;          // value + percentage only — loyalty has no expiry
+  discount: string;          // percentage only — loyalty uses loyaltyTiers instead
+  loyaltyTiers: LoyaltyTierInput[];
+  /** ISO date (yyyy-mm-dd) picked via the Expire calendar — value + percentage
+   *  only, loyalty has no expiry. Converted to a "N days from today" duration
+   *  on save; see daysFromToday(). */
+  expiryDate: string;
   appliesTo: MembershipAppliesTo;
+  /** Optional narrowing of appliesTo to specific service_categories ids —
+   *  empty means unrestricted (every category within appliesTo's scope). */
+  categoryIds: string[];
 }
 
 const emptyForm = (): FormState => ({
   name: "", description: "", price: "", bonusCredit: "", discount: "",
-  discountBalance: "", loyaltyThresholdValue: "",
-  validity: "1 year", appliesTo: "services",
+  loyaltyTiers: [emptyTier()],
+  expiryDate: toIsoDate(addDays(todayMidnight(), 365)),
+  appliesTo: "services",
+  categoryIds: [],
 });
 
 interface Props {
@@ -75,11 +131,49 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
 
   const submitting = useSelector(selectMembershipsSubmitting);
   const apiError   = useSelector(selectMembershipsError);
+  const categories = useSelector(selectAllCategories) as { id: string | number; name: string }[];
 
   useEffect(() => () => { dispatch(clearMembershipError()); }, [dispatch]);
+  useEffect(() => { dispatch(fetchCategoriesThunk()); }, [dispatch]);
 
   const [pricingType, setPricingType] = useState<MembershipPricingType>("value");
   const [form, setForm] = useState<FormState>(emptyForm());
+  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
+  const categoryDropRef = useRef<HTMLDivElement>(null);
+  const categoryButtonRef = useRef<HTMLButtonElement>(null);
+  const categoryPortalRef = useRef<HTMLDivElement>(null);
+
+  // Rendered via a portal (see below) since the modal body scrolls
+  // (overflow-y: auto), which would otherwise clip the menu — position is
+  // tracked in fixed/viewport coordinates and recomputed on scroll/resize so
+  // it doesn't visually detach from the button.
+  const [categoryMenuPos, setCategoryMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  useEffect(() => {
+    if (!categoryDropdownOpen) { setCategoryMenuPos(null); return; }
+    function updatePos() {
+      if (!categoryButtonRef.current) return;
+      const r = categoryButtonRef.current.getBoundingClientRect();
+      setCategoryMenuPos({ top: r.bottom + 4, left: r.left, width: r.width });
+    }
+    updatePos();
+    window.addEventListener("scroll", updatePos, true);
+    window.addEventListener("resize", updatePos);
+    return () => {
+      window.removeEventListener("scroll", updatePos, true);
+      window.removeEventListener("resize", updatePos);
+    };
+  }, [categoryDropdownOpen]);
+
+  useEffect(() => {
+    if (!categoryDropdownOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const inButton = categoryDropRef.current?.contains(e.target as Node);
+      const inMenu = categoryPortalRef.current?.contains(e.target as Node);
+      if (!inButton && !inMenu) setCategoryDropdownOpen(false);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [categoryDropdownOpen]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const patch = (p: Partial<FormState>) => setForm((prev) => ({ ...prev, ...p }));
@@ -99,16 +193,19 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
       const type: MembershipPricingType =
         d.pricingType === "percentage" ? "percentage" : d.pricingType === "loyalty" ? "loyalty" : "value";
       setPricingType(type);
+      const loyaltyTiers: LoyaltyTierInput[] = (d.loyaltyTiers as LoyaltyTier[] | undefined)?.length
+        ? d.loyaltyTiers.map((t: LoyaltyTier) => ({ threshold: String(t.thresholdValue), discount: String(t.discountPercent) }))
+        : [emptyTier()];
       setForm({
         name: d.name ?? "",
         description,
         price: String(d.price ?? ""),
         bonusCredit,
-        discount: d.discountPercent ? String(d.discountPercent) : "",
-        discountBalance: d.discountBalance ? String(d.discountBalance) : "",
-        loyaltyThresholdValue: d.loyaltyThresholdValue ? String(d.loyaltyThresholdValue) : "",
-        validity: d.validFor ?? "1 year",
+        discount: type === "percentage" && d.discountPercent ? String(d.discountPercent) : "",
+        loyaltyTiers,
+        expiryDate: parseValidForToDate(d.validFor),
         appliesTo: d.appliesTo ?? "services",
+        categoryIds: Array.isArray(d.categoryIds) ? d.categoryIds : [],
       });
     }).catch(() => {});
   }, [editId]);
@@ -116,9 +213,18 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
   const priceNum           = parseFloat(form.price)                 || 0;
   const bonusCreditNum     = parseFloat(form.bonusCredit)            || 0;
   const discountNum        = parseFloat(form.discount)               || 0;
-  const discountBalanceNum = parseFloat(form.discountBalance)        || 0;
-  const thresholdValueNum  = parseInt(form.loyaltyThresholdValue, 10) || 0;
   const walletValue        = priceNum + bonusCreditNum;
+
+  const addTier = () => patch({ loyaltyTiers: [...form.loyaltyTiers, emptyTier()] });
+  const removeTier = (i: number) => patch({ loyaltyTiers: form.loyaltyTiers.filter((_, idx) => idx !== i) });
+  const patchTier = (i: number, p: Partial<LoyaltyTierInput>) =>
+    patch({ loyaltyTiers: form.loyaltyTiers.map((t, idx) => (idx === i ? { ...t, ...p } : t)) });
+
+  const toggleCategory = (id: string) => patch({
+    categoryIds: form.categoryIds.includes(id)
+      ? form.categoryIds.filter((c) => c !== id)
+      : [...form.categoryIds, id],
+  });
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -130,11 +236,20 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
     if (pricingType === "percentage") {
       if (!priceNum || priceNum <= 0) e.price = "Membership fee must be greater than 0";
       if (!discountNum || discountNum <= 0 || discountNum > 100) e.discount = "Enter a valid discount %";
-      if (!discountBalanceNum || discountBalanceNum <= 0) e.discountBalance = "Discount balance must be greater than 0";
     }
     if (pricingType === "loyalty") {
-      if (!discountNum || discountNum <= 0 || discountNum > 100) e.discount = "Enter a valid discount %";
-      if (!thresholdValueNum || thresholdValueNum <= 0) e.loyaltyThresholdValue = "Enter a valid threshold";
+      let prevThreshold = 0;
+      form.loyaltyTiers.forEach((tier, i) => {
+        const threshold = parseInt(tier.threshold, 10) || 0;
+        const percent = parseFloat(tier.discount) || 0;
+        if (!threshold || threshold <= 0) e[`tier${i}Threshold`] = "Enter a valid threshold";
+        else if (threshold <= prevThreshold) e[`tier${i}Threshold`] = "Must be greater than the previous tier";
+        if (!percent || percent <= 0 || percent > 100) e[`tier${i}Discount`] = "Enter a valid discount %";
+        prevThreshold = threshold || prevThreshold;
+      });
+    }
+    if (pricingType !== "loyalty") {
+      if (!form.expiryDate || daysFromToday(form.expiryDate) < 1) e.expiryDate = "Pick a future expiry date";
     }
 
     setErrors(e);
@@ -155,19 +270,30 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
       includedServices: [],
       sessionType: "unlimited",
       // Loyalty has no expiry concept (free, evergreen) — "lifetime" satisfies
-      // the backend's required validFor without exposing an Expire field.
-      validFor: pricingType === "loyalty" ? "lifetime" : form.validity,
+      // the backend's required validFor without exposing an Expire field. Other
+      // types send the picked calendar date as a "N days" duration — the
+      // backend applies it from whenever a client actually buys the plan.
+      validFor: pricingType === "loyalty" ? "lifetime" : `${daysFromToday(form.expiryDate)} days`,
       price: pricingType === "loyalty" ? 0 : priceNum,
       taxRate: undefined,
       colour: DEFAULT_COLOUR,
       pricingType,
-      discountPercent: pricingType !== "value" ? discountNum : undefined,
-      discountBalance: pricingType === "percentage" ? discountBalanceNum : undefined,
-      loyaltyThresholdValue: pricingType === "loyalty" ? thresholdValueNum : undefined,
+      discountPercent: pricingType === "percentage" ? discountNum : undefined,
+      // The discount pool always equals the fee paid — not an independently
+      // set number — so a ₹5,000 plan gives out ₹5,000 of discount (at 20%
+      // off, whatever that adds up to) before it runs out.
+      discountBalance: pricingType === "percentage" ? priceNum : undefined,
+      loyaltyTiers: pricingType === "loyalty"
+        ? form.loyaltyTiers.map((t) => ({
+            thresholdValue: parseInt(t.threshold, 10) || 0,
+            discountPercent: parseFloat(t.discount) || 0,
+          }))
+        : undefined,
       enableOnlineSales: true,
       enableOnlineRedemption: true,
       termsAndConditions: undefined,
       appliesTo: form.appliesTo,
+      categoryIds: form.categoryIds.length ? form.categoryIds : undefined,
     };
 
     const result = editId
@@ -216,7 +342,7 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
 
           <div className="amm__type-row">
             {typeCard("value", "Wallet", "Pay a fee, credit a spendable wallet", <CurrencyIcon size={16} />)}
-            {typeCard("percentage", "Discount Balance", "% off every service from a discount pool", <Percent size={15} />)}
+            {typeCard("percentage", "Discount Balance", "Pay a fee, get % off every service", <Percent size={15} />)}
             {typeCard("loyalty", "Loyalty", "Free — unlocks a discount after N visits", <Award size={15} />)}
           </div>
 
@@ -247,11 +373,14 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
               </div>
             </div>
 
+            <div className="amm__divider" />
+            <div className="amm__section-label">Benefit Configuration</div>
+
             {pricingType === "value" && (
               <>
                 <div className="amm__grid2">
                   <div className="amm__field">
-                    <label className="amm__label">Price <span className="amm__req">*</span></label>
+                    <label className="amm__label">Membership Fee <span className="amm__req">*</span></label>
                     <div className="amm__pfx-wrap">
                       <span className="amm__pfx">{currencySymbol}</span>
                       <input
@@ -322,100 +451,157 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                   </div>
                 </div>
 
-                <div className="amm__field">
-                  <label className="amm__label">Discount Balance <span className="amm__req">*</span></label>
-                  <div className="amm__pfx-wrap">
-                    <span className="amm__pfx">{currencySymbol}</span>
-                    <input
-                      type="number" min={0} step={1}
-                      className={`amm__input amm__input--pfx${errors.discountBalance ? " amm__input--err" : ""}`}
-                      placeholder="0"
-                      value={form.discountBalance}
-                      onChange={(e) => patch({ discountBalance: e.target.value })}
-                      onWheel={(e) => e.currentTarget.blur()}
-                    />
-                  </div>
-                  {errors.discountBalance && <p className="amm__err">{errors.discountBalance}</p>}
-                  <p className="amm__hint">Total discount this plan may give out before it runs out — doesn't have to match the fee.</p>
+                <div className="amm__wallet-preview">
+                  <span>Discount Balance</span>
+                  <strong>{formatAmount(priceNum)}</strong>
                 </div>
               </>
             )}
 
             {pricingType === "loyalty" && (
-              <div className="amm__grid2">
-                <div className="amm__field">
-                  <label className="amm__label">Discount % <span className="amm__req">*</span></label>
-                  <input
-                    type="number" min={0} max={100} step={1}
-                    className={`amm__input${errors.discount ? " amm__input--err" : ""}`}
-                    placeholder="Enter discount %"
-                    value={form.discount}
-                    onChange={(e) => patch({ discount: e.target.value })}
-                    onWheel={(e) => e.currentTarget.blur()}
-                  />
-                  {errors.discount && <p className="amm__err">{errors.discount}</p>}
-                </div>
+              <div className="amm__tiers">
+                {form.loyaltyTiers.map((tier, i) => (
+                  <div className="amm__tier-row" key={i}>
+                    <div className="amm__field">
+                      <label className="amm__label">Visit Threshold <span className="amm__req">*</span></label>
+                      <input
+                        type="number" min={1} step={1}
+                        className={`amm__input${errors[`tier${i}Threshold`] ? " amm__input--err" : ""}`}
+                        placeholder="e.g. 10"
+                        value={tier.threshold}
+                        onChange={(e) => patchTier(i, { threshold: e.target.value })}
+                        onWheel={(e) => e.currentTarget.blur()}
+                      />
+                      {errors[`tier${i}Threshold`] && <p className="amm__err">{errors[`tier${i}Threshold`]}</p>}
+                    </div>
 
-                <div className="amm__field">
-                  <label className="amm__label">Visit Threshold <span className="amm__req">*</span></label>
-                  <input
-                    type="number" min={1} step={1}
-                    className={`amm__input${errors.loyaltyThresholdValue ? " amm__input--err" : ""}`}
-                    placeholder="e.g. 10"
-                    value={form.loyaltyThresholdValue}
-                    onChange={(e) => patch({ loyaltyThresholdValue: e.target.value })}
-                    onWheel={(e) => e.currentTarget.blur()}
-                  />
-                  {errors.loyaltyThresholdValue && <p className="amm__err">{errors.loyaltyThresholdValue}</p>}
-                </div>
+                    <div className="amm__field">
+                      <label className="amm__label">Discount % <span className="amm__req">*</span></label>
+                      <input
+                        type="number" min={0} max={100} step={1}
+                        className={`amm__input${errors[`tier${i}Discount`] ? " amm__input--err" : ""}`}
+                        placeholder="Enter discount %"
+                        value={tier.discount}
+                        onChange={(e) => patchTier(i, { discount: e.target.value })}
+                        onWheel={(e) => e.currentTarget.blur()}
+                      />
+                      {errors[`tier${i}Discount`] && <p className="amm__err">{errors[`tier${i}Discount`]}</p>}
+                    </div>
 
-                <p className="amm__hint" style={{ gridColumn: "1 / -1" }}>
-                  Every client is automatically eligible — no purchase or enrollment. Once they reach this many
-                  visits, the discount applies at checkout whenever staff opts them in.
+                    <button
+                      type="button"
+                      className="amm__tier-remove"
+                      disabled={form.loyaltyTiers.length <= 1}
+                      title="Remove tier"
+                      onClick={() => removeTier(i)}
+                    >
+                      <Trash3 size={13} />
+                    </button>
+                  </div>
+                ))}
+
+                <button type="button" className="amm__tier-add" onClick={addTier}>
+                  <PlusLg size={12} /> Add Tier
+                </button>
+
+                <p className="amm__hint">
+                  Every client is automatically eligible — no purchase or enrollment. Once they reach a tier's
+                  visit count, that tier's discount applies at checkout whenever staff opts them in — the
+                  highest tier crossed wins, tiers don't stack.
                 </p>
               </div>
             )}
 
-            <div className="amm__field">
-              <label className="amm__label">Applies To</label>
-              <div className="amm__sel-wrap">
-                <select
-                  className="amm__select"
-                  value={form.appliesTo}
-                  onChange={(e) => patch({ appliesTo: e.target.value as MembershipAppliesTo })}
-                >
-                  {APPLIES_TO_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
-                <ChevronDown size={13} className="amm__sel-icon" />
-              </div>
-              <p className="amm__hint">
-                {pricingType === "value"
-                  ? "What the wallet balance can be spent on."
-                  : "What the discount can be applied to."}
-              </p>
-            </div>
+            <div className="amm__divider" />
 
-            {pricingType !== "loyalty" && (
+            <div className={pricingType !== "loyalty" ? "amm__grid2" : undefined}>
               <div className="amm__field">
-                <label className="amm__label">Expire <span className="amm__req">*</span></label>
+                <label className="amm__label">Applies To</label>
                 <div className="amm__sel-wrap">
-                  <select className="amm__select" value={form.validity} onChange={(e) => patch({ validity: e.target.value })}>
-                    {VALIDITY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  <select
+                    className="amm__select"
+                    value={form.appliesTo}
+                    onChange={(e) => patch({ appliesTo: e.target.value as MembershipAppliesTo })}
+                  >
+                    {APPLIES_TO_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </select>
                   <ChevronDown size={13} className="amm__sel-icon" />
                 </div>
+                <p className="amm__hint">
+                  {pricingType === "value"
+                    ? "What the wallet balance can be spent on."
+                    : "What the discount can be applied to."}
+                </p>
+              </div>
+
+              {pricingType !== "loyalty" && (
+                <div className="amm__field">
+                  <label className="amm__label">Expires On <span className="amm__req">*</span></label>
+                  <input
+                    type="date"
+                    className={`amm__input${errors.expiryDate ? " amm__input--err" : ""}`}
+                    min={toIsoDate(addDays(todayMidnight(), 1))}
+                    value={form.expiryDate}
+                    onChange={(e) => patch({ expiryDate: e.target.value })}
+                  />
+                  {errors.expiryDate
+                    ? <p className="amm__err">{errors.expiryDate}</p>
+                    : <p className="amm__hint">Valid for {Math.max(0, daysFromToday(form.expiryDate))} days from today.</p>}
+                </div>
+              )}
+            </div>
+
+            {categories.length > 0 && (
+              <div className="amm__field">
+                <label className="amm__label">Categories</label>
+                <div className="amm__cat-drop" ref={categoryDropRef}>
+                  <button
+                    type="button"
+                    ref={categoryButtonRef}
+                    className="amm__select amm__cat-drop-btn"
+                    onClick={() => setCategoryDropdownOpen((v) => !v)}
+                  >
+                    <span>
+                      {form.categoryIds.length === 0
+                        ? "All categories"
+                        : form.categoryIds.length <= 2
+                          ? form.categoryIds.map((id) => categories.find((c) => String(c.id) === id)?.name ?? id).join(", ")
+                          : `${form.categoryIds.length} categories selected`}
+                    </span>
+                    <ChevronDown size={13} className="amm__sel-icon" />
+                  </button>
+                  {categoryDropdownOpen && categoryMenuPos && createPortal(
+                    <div
+                      ref={categoryPortalRef}
+                      className="amm__cat-drop-menu"
+                      style={{
+                        position: "fixed",
+                        top: categoryMenuPos.top, left: categoryMenuPos.left, width: categoryMenuPos.width,
+                        zIndex: 3000,
+                      }}
+                    >
+                      {categories.map((c) => {
+                        const id = String(c.id);
+                        const on = form.categoryIds.includes(id);
+                        return (
+                          <label className="amm__cat-drop-item" key={id}>
+                            <input type="checkbox" checked={on} onChange={() => toggleCategory(id)} />
+                            {c.name}
+                          </label>
+                        );
+                      })}
+                    </div>,
+                    document.body,
+                  )}
+                </div>
+                <p className="amm__hint">
+                  {form.categoryIds.length > 0
+                    ? "Only these categories get the benefit — leave none selected to cover every category."
+                    : "None selected — the benefit applies to every category within Applies To."}
+                </p>
               </div>
             )}
 
-          </div>
-
-          <div className="amm__info-banner">
-            <InfoCircleFill size={15} className="amm__info-icon" />
-            <p>
-              {pricingType === "value" && "Client pays the price and the wallet (price + bonus credit) is credited to spend on services — deducted at face value until it runs out."}
-              {pricingType === "percentage" && "Client pays the fee and gets the discount % off every service. The DISCOUNT AMOUNT GIVEN — not the service price — is deducted from the discount balance until it runs out."}
-              {pricingType === "loyalty" && "Free for every client — once they cross the visit threshold, staff can apply the discount at checkout indefinitely. Never applied automatically."}
-            </p>
           </div>
         </div>
 

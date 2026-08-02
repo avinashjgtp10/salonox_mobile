@@ -517,22 +517,56 @@ export const AppointmentModal: React.FC<Props> = ({
     [clientMemberships],
   );
 
+  // Per-row membership discount (Discount Balance/Loyalty) from the live
+  // pricing preview — index-aligned with serviceRows/productRows. Declared
+  // here (ahead of membershipEligibleTotal/membershipWalletMap below) because
+  // both need it: wallet coverage must only ever be offered against what's
+  // left on a row AFTER its own discount, never the full pre-discount price —
+  // otherwise a row already 40% covered by Discount Balance + Loyalty looks
+  // like it still has its full value free for the wallet to also claim.
+  const [rowMembershipDiscountPreview, setRowMembershipDiscountPreview] = useState<{ service: number[]; product: number[] } | null>(null);
+  const serviceMembershipDiscountByRow = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!rowMembershipDiscountPreview) return map;
+    serviceRows.forEach((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      map.set(tempId, rowMembershipDiscountPreview.service[i] ?? 0);
+    });
+    return map;
+  }, [rowMembershipDiscountPreview, serviceRows]);
+  const productMembershipDiscountByRow = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!rowMembershipDiscountPreview) return map;
+    productRows.forEach((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      map.set(tempId, rowMembershipDiscountPreview.product[i] ?? 0);
+    });
+    return map;
+  }, [rowMembershipDiscountPreview, productRows]);
+
   // Most the membership wallet could ever usefully cover — capped by both the
   // wallet's own balance and by how much eligible service (+ product, when
-  // enabled) value there is to apply it against (no point defaulting an
-  // input higher than that).
+  // enabled) value there is to apply it against, NET of any Discount
+  // Balance/Loyalty discount already reducing that row (no point defaulting
+  // an input higher than what's actually still owed).
   const membershipEligibleTotal = useMemo(() => {
     const serviceTotal = membershipCoversServices
-      ? serviceRows.reduce((s, row) => {
+      ? serviceRows.reduce((s, row, i) => {
           if (!row.service.trim() || (row as any).isPackageService) return s;
-          return s + (Number(row.total) || 0);
+          const tempId = (row as any).tempId || String(i);
+          const alreadyDiscounted = serviceMembershipDiscountByRow.get(tempId) ?? 0;
+          return s + Math.max(0, (Number(row.total) || 0) - alreadyDiscounted);
         }, 0)
       : 0;
     const productTotal = membershipCoversProducts
-      ? productRows.reduce((s, row) => s + (Number(row.total) || 0), 0)
+      ? productRows.reduce((s, row, i) => {
+          const tempId = (row as any).tempId || String(i);
+          const alreadyDiscounted = productMembershipDiscountByRow.get(tempId) ?? 0;
+          return s + Math.max(0, (Number(row.total) || 0) - alreadyDiscounted);
+        }, 0)
       : 0;
     return serviceTotal + productTotal;
-  }, [serviceRows, productRows, membershipCoversServices, membershipCoversProducts]);
+  }, [serviceRows, productRows, membershipCoversServices, membershipCoversProducts, serviceMembershipDiscountByRow, productMembershipDiscountByRow]);
   const membershipMaxUsable = Math.min(membershipTotalBalance, membershipEligibleTotal);
 
   // How much of the membership wallet staff has chosen to apply — defaults to
@@ -564,7 +598,12 @@ export const AppointmentModal: React.FC<Props> = ({
       serviceRows.forEach((row, i) => {
         const tempId = (row as any).tempId || String(i);
         if (!row.service.trim() || (row as any).isPackageService) return;
-        const rowTotal = Number(row.total) || 0;
+        // Wallet only ever covers what's left AFTER any Discount Balance/
+        // Loyalty discount already reduced this row — otherwise a row that's
+        // already 40% off looks like it still has its full pre-discount price
+        // free for the wallet to claim too, over-drawing the balance.
+        const alreadyDiscounted = serviceMembershipDiscountByRow.get(tempId) ?? 0;
+        const rowTotal = Math.max(0, (Number(row.total) || 0) - alreadyDiscounted);
         if (rowTotal <= 0 || remaining <= 0) return;
         const used = Math.min(remaining, rowTotal);
         remaining -= used;
@@ -575,7 +614,8 @@ export const AppointmentModal: React.FC<Props> = ({
       productRows.forEach((row, i) => {
         const tempId = (row as any).tempId || String(i);
         if (!row.productId || remaining <= 0) return;
-        const rowTotal = Number(row.total) || 0;
+        const alreadyDiscounted = productMembershipDiscountByRow.get(tempId) ?? 0;
+        const rowTotal = Math.max(0, (Number(row.total) || 0) - alreadyDiscounted);
         if (rowTotal <= 0) return;
         const used = Math.min(remaining, rowTotal);
         remaining -= used;
@@ -583,36 +623,44 @@ export const AppointmentModal: React.FC<Props> = ({
       });
     }
     return map;
-  }, [serviceRows, productRows, membershipTotalBalance, applyMembership, membershipWalletAmt, membershipCoversServices, membershipCoversProducts]);
+  }, [serviceRows, productRows, membershipTotalBalance, applyMembership, membershipWalletAmt, membershipCoversServices, membershipCoversProducts, serviceMembershipDiscountByRow, productMembershipDiscountByRow]);
   const membershipWalletUsedTotal = useMemo(
     () => Array.from(membershipWalletMap.values()).reduce((s, v) => s + v.walletUsed, 0),
     [membershipWalletMap],
   );
   const membershipWalletRemaining = Math.max(0, membershipTotalBalance - membershipWalletUsedTotal);
 
-  // ── Membership discount: percentage balance, or a salon-wide loyalty
+  // ── Membership discount: percentage balance, and/or a salon-wide loyalty
   // unlock ─────────────────────────────────────────────────────────────────
-  // A client's own purchased percentage membership always wins over loyalty —
-  // stacking both on one bill has no coherent meaning — matching the same
-  // precedence payments.service.ts uses server-side (resolveMembershipDiscount).
-  // Genuinely separate from the wallet above: this is a pre-tax price
-  // reduction, not a redemption, and the amount is fully determined by the
-  // discount %, the eligible rows, and any balance left — there's nothing for
-  // staff to type, only opt in or out of.
+  // Discount Balance and Loyalty are independently toggled by staff (two
+  // separate benefit chips) and stack additively when both are checked — see
+  // payments.service.ts's applyMembershipDiscountForBooking for the same
+  // contract at actual charge time. Genuinely separate from the wallet above:
+  // this is a pre-tax price reduction, not a redemption, and each amount is
+  // fully determined by its own discount %, the eligible rows, and (for
+  // percentage) any balance left — there's nothing for staff to type, only
+  // opt in or out of.
   const percentageMembership = useMemo(
     () => clientMemberships.find((m) => m.pricingType === "percentage" && (m.discountBalanceRemaining ?? 0) > 0),
     [clientMemberships],
   );
   const { eligibility: loyaltyEligibility } = useLoyaltyEligibility(clientIdForPkg, clientRefreshKey);
-  const membershipDiscountSource = percentageMembership
+  const percentageDiscountSource = percentageMembership
     ? {
         name: percentageMembership.membershipName,
         discountPercent: percentageMembership.discountPercent ?? 0,
         balanceRemaining: percentageMembership.discountBalanceRemaining,
       }
-    : (loyaltyEligibility?.eligible
-        ? { name: loyaltyEligibility.name, discountPercent: loyaltyEligibility.discountPercent, balanceRemaining: undefined }
-        : null);
+    : null;
+  const loyaltyDiscountSource = loyaltyEligibility?.eligible
+    ? {
+        name: loyaltyEligibility.name,
+        discountPercent: loyaltyEligibility.discountPercent,
+        nextTierHint: loyaltyEligibility.nextTier
+          ? `next: ${loyaltyEligibility.nextTier.discountPercent}% at ${loyaltyEligibility.nextTier.thresholdValue} visits`
+          : undefined,
+      }
+    : null;
 
   // Restored to checked when reopening a booking previously saved with this
   // discount applied — same reasoning as applyMembership above.
@@ -621,16 +669,23 @@ export const AppointmentModal: React.FC<Props> = ({
       !!existingBooking.applyMembershipDiscount || Number(existingBooking.membershipDiscountUsed) > 0
     )
   );
+  const [applyLoyaltyDiscount, setApplyLoyaltyDiscount] = useState(
+    () => !!existingBooking?.applyLoyaltyDiscount
+  );
   const applyMembershipDiscountMounted = useRef(false);
   useEffect(() => {
     if (!applyMembershipDiscountMounted.current) { applyMembershipDiscountMounted.current = true; return; }
     setApplyMembershipDiscount(false);
+    setApplyLoyaltyDiscount(false);
   }, [clientIdForPkg]);
   // Nothing left to apply it to (plan changed, balance ran out) — don't leave
   // a stale checked box that would silently apply ₹0.
   useEffect(() => {
-    if (!membershipDiscountSource) setApplyMembershipDiscount(false);
-  }, [membershipDiscountSource]);
+    if (!percentageDiscountSource) setApplyMembershipDiscount(false);
+  }, [percentageDiscountSource]);
+  useEffect(() => {
+    if (!loyaltyDiscountSource) setApplyLoyaltyDiscount(false);
+  }, [loyaltyDiscountSource]);
 
   // Marks package sessions as complete for each covered service row after appointment is done.
   // appointmentId links each consumed session back to the sale that used it (for audit/reporting).
@@ -727,11 +782,6 @@ export const AppointmentModal: React.FC<Props> = ({
   // so the live sale-building screen can show each item's own tax — same real
   // figure that gets stored per sale_item at checkout.
   const [rowTaxPreview, setRowTaxPreview] = useState<{ service: number[]; packages: number[]; product: number[]; membership: number[] } | null>(null);
-  // Per-row membership discount (Discount Balance/Loyalty) from the same
-  // preview call — index-aligned with serviceRows/productRows, same fill-in-
-  // order split already folded into rowTaxPreview above, so the Price box
-  // can show exactly what reduced that row instead of only a bill-level total.
-  const [rowMembershipDiscountPreview, setRowMembershipDiscountPreview] = useState<{ service: number[]; product: number[] } | null>(null);
   // Per-service-row GST keyed by tempId — the pricing preview returns rowTax
   // index-aligned with the serviceRows we sent (same order), so map each
   // row's own tax back onto its tempId for the live per-row display.
@@ -779,28 +829,6 @@ export const AppointmentModal: React.FC<Props> = ({
     return map;
   }, [rowTaxPreview, membershipRows]);
 
-  // Per-service-row membership discount (Discount Balance/Loyalty) keyed by
-  // tempId, same indexing convention as serviceTaxByRow above.
-  const serviceMembershipDiscountByRow = useMemo(() => {
-    const map = new Map<string, number>();
-    if (!rowMembershipDiscountPreview) return map;
-    serviceRows.forEach((row, i) => {
-      const tempId = (row as any).tempId || String(i);
-      map.set(tempId, rowMembershipDiscountPreview.service[i] ?? 0);
-    });
-    return map;
-  }, [rowMembershipDiscountPreview, serviceRows]);
-
-  const productMembershipDiscountByRow = useMemo(() => {
-    const map = new Map<string, number>();
-    if (!rowMembershipDiscountPreview) return map;
-    productRows.forEach((row, i) => {
-      const tempId = (row as any).tempId || String(i);
-      map.set(tempId, rowMembershipDiscountPreview.product[i] ?? 0);
-    });
-    return map;
-  }, [rowMembershipDiscountPreview, productRows]);
-
   useEffect(() => {
     setTotalsConfirmed(false);
     setTotalsError(false);
@@ -829,6 +857,7 @@ export const AppointmentModal: React.FC<Props> = ({
           applyMembershipWallet: applyMembership,
           membershipWalletRequested: applyMembership ? membershipWalletAmt : 0,
           applyMembershipDiscount,
+          applyLoyaltyDiscount,
           applyRewardPoints: useRewardPoints,
           rewardPointsToRedeem: useRewardPoints ? rewardPointsToRedeem : 0,
           applyReferralCredit: useReferralCredit,
@@ -871,7 +900,7 @@ export const AppointmentModal: React.FC<Props> = ({
     // preview stays stuck at its pre-link value (usually ₹0) until some
     // unrelated field happens to change and coincidentally retriggers this effect.
     referral.applied,
-    useEWallet, eWalletAmt, applyMembership, membershipWalletAmt, applyMembershipDiscount,
+    useEWallet, eWalletAmt, applyMembership, membershipWalletAmt, applyMembershipDiscount, applyLoyaltyDiscount,
     useRewardPoints, rewardPointsToRedeem, useReferralCredit, referralCreditAmt,
     selectedClient?.id, existingBooking?.id, apiAppointmentId,
   ]);
@@ -1304,6 +1333,7 @@ export const AppointmentModal: React.FC<Props> = ({
       isPackageAppointment: isPackageZero,
       applyMembershipWallet: applyMembership,
       applyMembershipDiscount,
+      applyLoyaltyDiscount,
       includeGst,
     };
   }
@@ -1417,6 +1447,7 @@ export const AppointmentModal: React.FC<Props> = ({
       applyMembershipWallet: applyMembership,
       membershipWalletRequested: membershipWalletAmt,
       applyMembershipDiscount,
+      applyLoyaltyDiscount,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
       includeGst,
@@ -1571,6 +1602,7 @@ export const AppointmentModal: React.FC<Props> = ({
       applyMembershipWallet: applyMembership,
       membershipWalletRequested: membershipWalletAmt,
       applyMembershipDiscount,
+      applyLoyaltyDiscount,
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
       includeGst,
@@ -1647,6 +1679,7 @@ export const AppointmentModal: React.FC<Props> = ({
         onClientUpdated={() => setClientRefreshKey((k) => k + 1)}
         packages={nonExpiredPackages}
         memberships={clientMemberships}
+        loyaltyEligibility={loyaltyEligibility}
       />
     </div>
   );
@@ -1853,18 +1886,33 @@ export const AppointmentModal: React.FC<Props> = ({
       });
     }
 
-    if (membershipDiscountSource) {
+    // Two independent chips — staff picks either or both; checking both
+    // stacks their discounts additively (see applyMembershipDiscountForBooking).
+    if (percentageDiscountSource) {
       cards.push({
         key: "membership-discount",
         icon: Percent,
         variantClass: "benefit-card--membership",
-        title: percentageMembership ? "Membership Discount" : "Loyalty Discount",
-        value: `${membershipDiscountSource.discountPercent}% Off`,
-        subtitle: percentageMembership
-          ? `${membershipDiscountSource.name} · ${formatAmount(membershipDiscountSource.balanceRemaining ?? 0)} balance left`
-          : membershipDiscountSource.name,
+        title: "Membership Discount",
+        value: `${percentageDiscountSource.discountPercent}% Off`,
+        subtitle: `${percentageDiscountSource.name} · ${formatAmount(percentageDiscountSource.balanceRemaining ?? 0)} balance left`,
         checked: applyMembershipDiscount,
         onToggle: setApplyMembershipDiscount,
+      });
+    }
+
+    if (loyaltyDiscountSource) {
+      cards.push({
+        key: "loyalty-discount",
+        icon: Percent,
+        variantClass: "benefit-card--membership",
+        title: "Loyalty Discount",
+        value: `${loyaltyDiscountSource.discountPercent}% Off`,
+        subtitle: loyaltyDiscountSource.nextTierHint
+          ? `${loyaltyDiscountSource.name} · ${loyaltyDiscountSource.nextTierHint}`
+          : loyaltyDiscountSource.name,
+        checked: applyLoyaltyDiscount,
+        onToggle: setApplyLoyaltyDiscount,
       });
     }
 
@@ -1959,7 +2007,7 @@ export const AppointmentModal: React.FC<Props> = ({
     coveredServices, firstActivePkg, hasPackageEligibleRow, applyPackage,
     clientMemberships, membershipTotalBalance, primaryMembership, applyMembership,
     membershipWalletAmt, membershipMaxUsable, membershipWalletUsedTotal, handleSetMembershipWalletAmt,
-    membershipDiscountSource, percentageMembership, applyMembershipDiscount, formatAmount,
+    percentageDiscountSource, loyaltyDiscountSource, applyMembershipDiscount, applyLoyaltyDiscount, formatAmount,
     clientStats, useEWallet, eWalletAmt, eWalletMaxAmt, remainingAfterMembership, handleSetEWalletAmt,
     useRewardPoints, rewardPointsToRedeem, rewardPointsMaxRedeem, rewardPointsRedeemedValue, remainingAfterEWallet, handleSetRewardPointsToRedeem,
     useReferralCredit, referralCreditAmt, referralCreditMaxAmt, remainingAfterRewardPoints, handleSetReferralCreditAmt,

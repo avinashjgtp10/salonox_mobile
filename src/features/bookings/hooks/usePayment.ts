@@ -52,6 +52,9 @@ interface CompletePaymentParams {
   // the plan's percentage, the eligible line total, and any discount balance
   // left, same reasoning as reward points/referral credit below.
   applyMembershipDiscount?: boolean;
+  // Independent sibling flag for the salon-wide Loyalty discount — stacks
+  // additively with applyMembershipDiscount above when both are checked.
+  applyLoyaltyDiscount?: boolean;
   // Own dedicated, spendable balances now — not folded into eWallet.
   rewardPointsToRedeem?: number; // points count
   referralCreditAmt?: number;    // ₹
@@ -79,7 +82,7 @@ export function usePayment() {
       alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, selectedDueIds, useEWallet, applyMembershipWallet,
-      membershipWalletRequested, applyMembershipDiscount,
+      membershipWalletRequested, applyMembershipDiscount, applyLoyaltyDiscount,
       gstAmount, taxBreakdown, rewardPointsToRedeem, referralCreditAmt,
       includeGst,
     } = params;
@@ -164,6 +167,7 @@ export function usePayment() {
         apply_membership_wallet: !!applyMembershipWallet,
         membership_wallet_requested: applyMembershipWallet ? membershipWalletRequested : undefined,
         apply_membership_discount: !!applyMembershipDiscount,
+        apply_loyalty_discount: !!applyLoyaltyDiscount,
         tax_breakdown: taxBreakdown && taxBreakdown.length > 0 ? taxBreakdown : undefined,
         reward_points_used: rewardPointsToRedeem || undefined,
         referral_credit_used: referralCreditAmt || undefined,
