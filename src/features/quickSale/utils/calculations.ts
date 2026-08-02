@@ -1,4 +1,5 @@
 import type { CartItem } from "@/features/quickSale/types";
+import { getPackageCoveredQuantity } from "@/features/quickSale/utils/packageCoverage";
 
 export type BillTotals = {
   couponDiscount: number;
@@ -21,9 +22,7 @@ export type BillInputs = {
 };
 
 export const getCartItemBillableQuantity = (item: CartItem) =>
-  item.itemType === "service" && item.packageCoverageRemaining
-    ? Math.max(0, item.quantity - item.packageCoverageRemaining)
-    : item.quantity;
+  Math.max(0, item.quantity - getPackageCoveredQuantity(item));
 
 // Mirrors the backend's own arithmetic exactly (sales.repository.ts `create`):
 //   per item:  total_price  = quantity * unit_price - item.discount_amount

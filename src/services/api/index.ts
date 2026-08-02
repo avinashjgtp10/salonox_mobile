@@ -1,13 +1,16 @@
 import {
   AxiosError,
+  CanceledError,
   create,
   getAdapter,
   isAxiosError,
+  isCancel,
   type AxiosAdapter,
   type AxiosResponse,
   type InternalAxiosRequestConfig,
 } from "axios";
 
+import { appEnv, environmentConfig } from "@/config/environment";
 import {
   getAuthErrorMessage,
   getAuthErrorStatus,
@@ -16,13 +19,15 @@ import {
   shouldInvalidateSession,
   shouldRefreshToken,
 } from "@/services/authSession";
+import { isUserLogoutInProgress } from "@/services/authLifecycle";
 import { isNetworkOnline, waitForNetworkOnline } from "@/services/networkStatus";
 import { tokenStorage } from "@/services/tokenStorage";
 import type { ApiResponse, RefreshTokenResponseData } from "@/types/auth";
 
-export const API_BASE_URL = "http://192.168.31.114:3000/api/v1";
+export const API_BASE_URL = environmentConfig.apiBaseUrl;
 
 type RetryableRequestConfig = InternalAxiosRequestConfig & {
+  _logoutAbortController?: AbortController;
   _networkRetry?: boolean;
   _retry?: boolean;
 };
@@ -34,6 +39,7 @@ type ApiErrorPayload = {
 };
 
 export class ApiError extends Error {
+  code?: string;
   status?: number;
   details?: ApiErrorPayload["errors"];
   responseData?: unknown;
@@ -43,13 +49,41 @@ export class ApiError extends Error {
     status?: number,
     details?: ApiErrorPayload["errors"],
     responseData?: unknown,
+    code?: string,
   ) {
     super(message);
     this.name = "ApiError";
     this.status = status;
     this.details = details;
     this.responseData = responseData;
+    this.code = code;
   }
+}
+
+const redactDebugValue = (value: unknown): unknown => {
+  if (Array.isArray(value)) {
+    return value.map(redactDebugValue);
+  }
+
+  if (!value || typeof value !== "object") {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
+      key,
+      /authorization|password|refresh.?token|access.?token/i.test(key)
+        ? "[REDACTED]"
+        : redactDebugValue(entry),
+    ]),
+  );
+};
+
+if (__DEV__) {
+  console.log("[API Debug] Runtime configuration", {
+    appEnv,
+    apiBaseUrl: API_BASE_URL,
+  });
 }
 
 const refreshClient = create({
@@ -69,8 +103,10 @@ export const api = create({
 });
 
 let refreshAccessTokenPromise: Promise<string> | null = null;
+let refreshAbortController: AbortController | null = null;
 const defaultApiAdapter = getAdapter(api.defaults.adapter) as AxiosAdapter;
 const inFlightSafeRequests = new Map<string, Promise<AxiosResponse>>();
+const protectedRequestControllers = new Set<AbortController>();
 
 const SAFE_RETRY_METHODS = new Set(["get", "head", "options"]);
 
@@ -196,6 +232,16 @@ const formatErrorMessage = (message: string): string => {
 // "couldn't reach the server" without re-deriving it from raw axios text.
 const OFFLINE_MESSAGE = "Unable to connect. Please check your internet connection and try again.";
 const OFFLINE_MUTATION_MESSAGE = "You are offline. Your changes are still on this screen; reconnect and try again.";
+const LOGOUT_CANCELLATION_MESSAGE = "Protected request cancelled during logout.";
+
+const createLogoutCancellation = () => new CanceledError(LOGOUT_CANCELLATION_MESSAGE);
+
+const isIntentionalLogoutCancellation = (error: unknown) =>
+  isUserLogoutInProgress() &&
+  (isCancel(error) ||
+    (error instanceof Error &&
+      (error.message === LOGOUT_CANCELLATION_MESSAGE ||
+        error.message === "Token refresh cancelled during logout.")));
 
 const waitForOnlineIfNeeded = async (config: InternalAxiosRequestConfig) => {
   if (isNetworkOnline()) {
@@ -213,7 +259,7 @@ const waitForOnlineIfNeeded = async (config: InternalAxiosRequestConfig) => {
 const toApiError = (error: unknown) => {
   if (isAxiosError<ApiErrorPayload>(error)) {
     if (!error.response) {
-      return new ApiError(OFFLINE_MESSAGE, undefined, undefined, undefined);
+      return new ApiError(OFFLINE_MESSAGE, undefined, undefined, undefined, error.code);
     }
 
     const rawMessage =
@@ -228,6 +274,7 @@ const toApiError = (error: unknown) => {
       error.response?.status,
       error.response?.data?.errors,
       error.response?.data,
+      error.code,
     );
   }
 
@@ -244,10 +291,32 @@ const shouldSkipRefreshForRequest = (requestUrl: string) =>
   requestUrl.includes("/auth/logout") ||
   requestUrl.includes("/auth/forgot-password");
 
+const releaseProtectedRequest = (config?: RetryableRequestConfig) => {
+  const controller = config?._logoutAbortController;
+
+  if (controller) {
+    protectedRequestControllers.delete(controller);
+    delete config._logoutAbortController;
+  }
+};
+
+export const cancelProtectedApiRequests = () => {
+  refreshAbortController?.abort();
+  refreshAbortController = null;
+  protectedRequestControllers.forEach((controller) => controller.abort());
+  protectedRequestControllers.clear();
+};
+
 const refreshAccessToken = async (reason: string) => {
   if (!refreshAccessTokenPromise) {
     refreshAccessTokenPromise = (async () => {
+      const controller = new AbortController();
+      refreshAbortController = controller;
       const refreshToken = await tokenStorage.getRefreshToken();
+
+      if (isUserLogoutInProgress()) {
+        throw createLogoutCancellation();
+      }
 
       if (!refreshToken) {
         logAuthEvent("refresh_missing_refresh_token", { reason });
@@ -261,9 +330,14 @@ const refreshAccessToken = async (reason: string) => {
         const response = await refreshClient.post<ApiResponse<RefreshTokenResponseData>>(
           "/auth/refresh",
           { refreshToken },
+          { signal: controller.signal },
         );
         const nextTokens = response.data.data;
         const nextRefreshToken = nextTokens.refreshToken ?? refreshToken;
+
+        if (isUserLogoutInProgress()) {
+          throw createLogoutCancellation();
+        }
 
         await tokenStorage.setTokens({
           accessToken: nextTokens.accessToken,
@@ -278,6 +352,10 @@ const refreshAccessToken = async (reason: string) => {
 
         return nextTokens.accessToken;
       } catch (refreshError) {
+        if (isIntentionalLogoutCancellation(refreshError)) {
+          throw refreshError;
+        }
+
         const shouldClearSession = shouldInvalidateSession(refreshError);
 
         logAuthEvent("refresh_failed", {
@@ -293,6 +371,9 @@ const refreshAccessToken = async (reason: string) => {
 
         throw toApiError(refreshError);
       } finally {
+        if (refreshAbortController === controller) {
+          refreshAbortController = null;
+        }
         refreshAccessTokenPromise = null;
       }
     })();
@@ -306,11 +387,38 @@ api.interceptors.request.use(async (config) => {
 
   await waitForOnlineIfNeeded(config);
 
+  if (__DEV__) {
+    console.log("[API Debug] Request", {
+      baseURL: config.baseURL,
+      fullUrl: api.getUri(config),
+      headers: redactDebugValue(config.headers),
+      method: config.method?.toUpperCase(),
+      params: redactDebugValue(config.params),
+      payload: redactDebugValue(config.data),
+      timeout: config.timeout,
+    });
+  }
+
   if (shouldSkipRefreshForRequest(requestUrl)) {
     return config;
   }
 
+  if (isUserLogoutInProgress()) {
+    throw createLogoutCancellation();
+  }
+
+  const logoutAbortController = new AbortController();
+  config.signal = logoutAbortController.signal;
+  (config as RetryableRequestConfig)._logoutAbortController = logoutAbortController;
+  protectedRequestControllers.add(logoutAbortController);
+
   const accessToken = await tokenStorage.getAccessToken();
+
+  if (isUserLogoutInProgress()) {
+    logoutAbortController.abort();
+    releaseProtectedRequest(config as RetryableRequestConfig);
+    throw createLogoutCancellation();
+  }
 
   if (!accessToken) {
     return config;
@@ -322,10 +430,19 @@ api.interceptors.request.use(async (config) => {
     if (refreshToken) {
       try {
         const nextAccessToken = await refreshAccessToken(`request:${requestUrl}`);
+
+        if (isUserLogoutInProgress()) {
+          throw createLogoutCancellation();
+        }
+
         config.headers.Authorization = `Bearer ${nextAccessToken}`;
 
         return config;
       } catch (refreshError) {
+        if (isIntentionalLogoutCancellation(refreshError)) {
+          throw refreshError;
+        }
+
         logAuthEvent("request_refresh_unavailable", {
           requestUrl,
           status: getAuthErrorStatus(refreshError),
@@ -341,12 +458,46 @@ api.interceptors.request.use(async (config) => {
 });
 
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    releaseProtectedRequest(response.config as RetryableRequestConfig);
+
+    if (__DEV__) {
+      console.log("[API Debug] Response", {
+        data: redactDebugValue(response.data),
+        status: response.status,
+        url: api.getUri(response.config),
+      });
+    }
+
+    return response;
+  },
   async (error: AxiosError<ApiErrorPayload>) => {
     const originalRequest = error.config as RetryableRequestConfig | undefined;
+    releaseProtectedRequest(originalRequest);
     const status = error.response?.status;
     const requestUrl = originalRequest?.url ?? "";
     const shouldSkipRefresh = shouldSkipRefreshForRequest(requestUrl);
+
+    if (isIntentionalLogoutCancellation(error)) {
+      return Promise.reject(error);
+    }
+
+    if (__DEV__) {
+      console.error("[API Debug] Axios error", {
+        code: error.code,
+        error,
+        message: error.message,
+        request: error.request,
+        response: error.response
+          ? {
+              data: redactDebugValue(error.response.data),
+              headers: redactDebugValue(error.response.headers),
+              status: error.response.status,
+            }
+          : undefined,
+        url: originalRequest ? api.getUri(originalRequest) : requestUrl,
+      });
+    }
 
     if (status === 401 && originalRequest && !originalRequest._retry && !shouldSkipRefresh) {
       originalRequest._retry = true;
@@ -358,6 +509,10 @@ api.interceptors.response.use(
 
         return api(originalRequest);
       } catch (refreshError) {
+        if (isIntentionalLogoutCancellation(refreshError)) {
+          return Promise.reject(refreshError);
+        }
+
         logAuthEvent("request_rejected_after_refresh_failure", {
           requestUrl,
           status: getAuthErrorStatus(refreshError),

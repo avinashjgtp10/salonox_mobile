@@ -1,6 +1,7 @@
 import { api } from "@/services/api";
 import { SALES } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
+import { normalizeSaleId } from "@/utils/apiNormalize";
 import type {
   CheckoutSaleRequest,
   CheckoutSaleResponse,
@@ -33,6 +34,7 @@ type SaleApiData =
   | UnknownRecord
   | {
       data?: UnknownRecord | null;
+      items?: UnknownRecord[] | null;
       sale?: UnknownRecord | null;
     };
 type SaleApiResponse = ApiResponse<SaleApiData>;
@@ -60,7 +62,7 @@ const AVATAR_PALETTE = [
   { background: "#F2EFE9", color: "#1C1917" },
 ] as const;
 
-const VALID_SALE_ITEM_TYPES: SaleItemType[] = ["service", "product", "membership", "gift_card", "quick"];
+const VALID_SALE_ITEM_TYPES: SaleItemType[] = ["service", "product", "membership", "gift_card", "quick", "package"];
 
 const asRecord = (value: unknown): UnknownRecord =>
   typeof value === "object" && value !== null && !Array.isArray(value)
@@ -148,8 +150,49 @@ const getInitials = (name: string, fallback = "??") => {
 const getEntryName = (entry: UnknownRecord, fallback: string) =>
   toSafeString(firstValue(entry, ["name", "full_name", "fullName", "title"]), fallback);
 
+const getStaffName = (entry: UnknownRecord) => {
+  const user = asRecord(firstValue(entry, ["user", "profile"]));
+  const firstName =
+    toSafeString(firstValue(entry, ["first_name", "firstName"])) ||
+    toSafeString(firstValue(user, ["first_name", "firstName"]));
+  const lastName =
+    toSafeString(firstValue(entry, ["last_name", "lastName"])) ||
+    toSafeString(firstValue(user, ["last_name", "lastName"]));
+  const composedName = [firstName, lastName].filter(Boolean).join(" ");
+
+  return (
+    toSafeString(firstValue(entry, ["name", "full_name", "fullName", "display_name", "displayName"])) ||
+    toSafeString(firstValue(user, ["name", "full_name", "fullName", "display_name", "displayName"])) ||
+    composedName ||
+    "Staff"
+  );
+};
+
+const getStaffRole = (entry: UnknownRecord) => {
+  const roleValue = firstValue(entry, [
+    "role",
+    "staff_role",
+    "staffRole",
+    "role_name",
+    "roleName",
+    "designation",
+    "job_title",
+    "jobTitle",
+    "position",
+  ]);
+  const role = asRecord(roleValue);
+
+  return toSafeString(roleValue) || toSafeString(firstValue(role, ["name", "title", "label"])) || null;
+};
+
 const getEntryId = (entry: UnknownRecord, fallbackName: string) =>
   toSafeString(firstValue(entry, ["id", "_id"]), fallbackName.toLowerCase().replace(/\s+/g, "-"));
+
+const getStaffId = (entry: UnknownRecord, fallbackName: string) =>
+  toSafeString(
+    firstValue(entry, ["id", "_id", "staff_id", "staffId", "uuid", "staff_uuid"]),
+    fallbackName.toLowerCase().replace(/\s+/g, "-"),
+  );
 
 const toDurationLabel = (value: unknown): string | undefined => {
   if (typeof value === "string" && value.trim()) {
@@ -162,8 +205,8 @@ const toDurationLabel = (value: unknown): string | undefined => {
 };
 
 const normalizeStaffMember = (entry: UnknownRecord): PosStaffMember => {
-  const name = getEntryName(entry, "Staff");
-  const id = getEntryId(entry, name);
+  const name = getStaffName(entry);
+  const id = getStaffId(entry, name);
   const tone = getAvatarTone(id);
 
   return {
@@ -172,6 +215,7 @@ const normalizeStaffMember = (entry: UnknownRecord): PosStaffMember => {
     id,
     initials: getInitials(name, "ST"),
     name,
+    role: getStaffRole(entry),
     status: toSafeString(firstValue(entry, ["status", "availability"]), "Available"),
   };
 };
@@ -211,12 +255,19 @@ const formatSaleTime = (value: unknown): string => {
 
 const isSaleEnvelope = (
   payload: SaleApiData,
-): payload is { data?: UnknownRecord | null; sale?: UnknownRecord | null } =>
+): payload is {
+  data?: UnknownRecord | null;
+  items?: UnknownRecord[] | null;
+  sale?: UnknownRecord | null;
+} =>
   Boolean(payload) && typeof payload === "object" && ("data" in payload || "sale" in payload);
 
 const getSaleFromEnvelope = (payload: SaleApiData): UnknownRecord => {
   if (isSaleEnvelope(payload)) {
-    return payload.sale ?? payload.data ?? {};
+    const sale = payload.sale ?? payload.data ?? {};
+    const items = Array.isArray(payload.items) ? payload.items : undefined;
+
+    return items ? { ...sale, items } : sale;
   }
 
   return payload;
@@ -277,7 +328,8 @@ const toSaleItemType = (value: unknown): SaleItemType => {
 
 const normalizeSaleLineItem = (entry: UnknownRecord, index: number): SaleLineItem => {
   const staffValue = firstValue(entry, ["staff_name", "staffName", "staff"]);
-  const staffName = toSafeString(staffValue) || toSafeString(asRecord(staffValue).name) || undefined;
+  const staffRecord = asRecord(staffValue);
+  const staffName = toSafeString(staffValue) || toSafeString(staffRecord.name) || undefined;
 
   return {
     discountAmount: toSafeNumber(firstValue(entry, ["discount_amount", "discountAmount"])),
@@ -286,8 +338,13 @@ const normalizeSaleLineItem = (entry: UnknownRecord, index: number): SaleLineIte
     itemType: toSaleItemType(firstValue(entry, ["item_type", "itemType"])),
     name: getEntryName(entry, "Item"),
     quantity: toSafeNumber(firstValue(entry, ["quantity", "qty"])) || 1,
-    staffId: toSafeString(firstValue(entry, ["staff_id", "staffId"])) || null,
+    staffId:
+      toSafeString(firstValue(entry, ["staff_id", "staffId"])) ||
+      toSafeString(firstValue(staffRecord, ["id", "_id"])) ||
+      null,
     ...(staffName ? { staffName } : {}),
+    taxAmount: toSafeNumber(firstValue(entry, ["tax_amount", "taxAmount"])),
+    taxableAmount: toSafeNumber(firstValue(entry, ["taxable_amount", "taxableAmount"])),
     totalPrice: toSafeNumber(firstValue(entry, ["total_price", "totalPrice"])),
     unitPrice: toSafeNumber(firstValue(entry, ["unit_price", "unitPrice"])),
   };
@@ -299,7 +356,7 @@ const normalizeSaleListItem = (entry: UnknownRecord): SaleListItem => {
   return {
     clientName: getSaleClientName(entry),
     createdDateLabel: formatSaleTime(firstValue(entry, ["created_at", "createdAt"])),
-    id: toSafeString(firstValue(entry, ["id", "_id"])),
+    id: normalizeSaleId({ sale: entry }) ?? "",
     itemCount: lineItems.length || toSafeNumber(firstValue(entry, ["item_count", "itemCount"])),
     paymentMethod: toSafeString(firstValue(entry, ["payment_method", "paymentMethod"]), "-"),
     receiptNumber: toSafeString(firstValue(entry, ["invoice_number", "invoiceNumber"])),
@@ -317,15 +374,25 @@ const normalizeSaleDetail = (entry: UnknownRecord): SaleDetail => {
 
   return {
     amountPaid,
-    clientId: toSafeString(firstValue(entry, ["client_id", "clientId"])) || null,
+    clientId:
+      toSafeString(firstValue(entry, ["client_id", "clientId"])) ||
+      toSafeString(firstValue(clientRecord, ["id", "_id"])) ||
+      null,
     clientName: getSaleClientName(entry),
     clientPhone: toSafeString(
       firstValue(entry, ["client_phone", "clientPhone"]) ?? firstValue(clientRecord, ["phone_number", "phone"]),
       "-",
     ),
+    couponCode: toSafeString(firstValue(entry, ["coupon_code", "couponCode"])) || null,
     createdDateLabel: formatSaleTime(firstValue(entry, ["created_at", "createdAt"])),
     discountAmount: toSafeNumber(firstValue(entry, ["discount_amount", "discountAmount"])),
-    id: toSafeString(firstValue(entry, ["id", "_id"])),
+    discountPercent: toSafeNumber(firstValue(entry, ["discount_percent", "discountPercent"])),
+    discountType: (() => {
+      const value = toSafeString(firstValue(entry, ["discount_type", "discountType"])).toLowerCase();
+      return value === "flat" || value === "percentage" ? value : null;
+    })(),
+    exCharges: toSafeNumber(firstValue(entry, ["ex_charges", "exCharges"])),
+    id: normalizeSaleId({ sale: entry }) ?? "",
     lineItems,
     notes: toSafeString(firstValue(entry, ["notes", "note"])) || null,
     outstandingAmount: toSafeNumber(
@@ -355,7 +422,7 @@ const buildSaleRequestBody = (payload: CreateSaleRequest | UpdateSaleRequest) =>
   const requestBody: UnknownRecord = {};
 
   if (payload.clientId !== undefined) {
-    requestBody.client_id = payload.clientId || undefined;
+    requestBody.client_id = payload.clientId;
   }
 
   if (payload.staffId !== undefined) {
@@ -372,6 +439,22 @@ const buildSaleRequestBody = (payload: CreateSaleRequest | UpdateSaleRequest) =>
 
   if (payload.discountAmount !== undefined) {
     requestBody.discount_amount = toMoneyString(payload.discountAmount);
+  }
+
+  if (payload.discountPercent !== undefined) {
+    requestBody.discount_percent = toMoneyString(payload.discountPercent);
+  }
+
+  if (payload.discountType !== undefined) {
+    requestBody.discount_type = payload.discountType;
+  }
+
+  if (payload.couponCode !== undefined) {
+    requestBody.coupon_code = payload.couponCode;
+  }
+
+  if (payload.exCharges !== undefined) {
+    requestBody.ex_charges = toMoneyString(payload.exCharges);
   }
 
   if (payload.taxAmount !== undefined) {

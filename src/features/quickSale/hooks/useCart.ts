@@ -1,9 +1,13 @@
 import { useCallback, useMemo, useReducer } from "react";
 
 import type { CartItem, CartItemSource } from "@/features/quickSale/types";
+import { getPackageCoverageAllocations } from "@/features/quickSale/utils/packageCoverage";
+import { clampCartItemQuantity, normalizeAvailableStock } from "@/features/quickSale/utils/stock";
+import type { ClientPackage } from "@/types/package";
 import type { SaleLineItemRequest } from "@/types/sales";
 
 export type AddItemInput = {
+  availableStock?: number;
   category?: string | null;
   defaultStaffId?: string | null;
   defaultStaffName?: string | null;
@@ -30,6 +34,9 @@ type CartAction =
   | { lineId: string; type: "duplicate" }
   | { unitPrice: number; lineId: string; type: "setPrice" }
   | { input: AddItemInput; lineId: string; type: "replace" }
+  | { stockByProductId: Record<string, number>; type: "setProductStock" }
+  | { packages: ClientPackage[]; type: "recalculatePackageCoverage" }
+  | { items: CartItem[]; type: "hydrate" }
   | { type: "clear" };
 
 let lineIdCounter = 0;
@@ -37,9 +44,6 @@ const nextLineId = () => {
   lineIdCounter += 1;
   return `cart-line-${lineIdCounter}`;
 };
-
-const isSaleLineItem = (item: CartItem): item is CartItem & { itemType: Exclude<CartItemSource, "package"> } =>
-  item.itemType !== "package";
 
 const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
   switch (action.type) {
@@ -49,12 +53,40 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
       );
 
       if (existing) {
-        return state.map((item) =>
-          item.lineId === existing.lineId ? { ...item, quantity: item.quantity + 1 } : item,
-        );
+        return state.map((item) => {
+          if (item.lineId !== existing.lineId) {
+            return item;
+          }
+
+          const itemWithLatestStock =
+            item.itemType === "product"
+              ? {
+                  ...item,
+                  availableStock: normalizeAvailableStock(
+                    action.input.availableStock ?? item.availableStock ?? 0,
+                  ),
+                }
+              : item;
+
+          return {
+            ...itemWithLatestStock,
+            quantity: clampCartItemQuantity(itemWithLatestStock, item.quantity + 1),
+          };
+        });
+      }
+
+      if (
+        action.input.itemType === "product" &&
+        normalizeAvailableStock(action.input.availableStock ?? 0) === 0
+      ) {
+        return state;
       }
 
       const newItem: CartItem = {
+        availableStock:
+          action.input.itemType === "product"
+            ? normalizeAvailableStock(action.input.availableStock ?? 0)
+            : undefined,
         category: action.input.category ?? null,
         discountAmount: 0,
         duration: action.input.duration,
@@ -88,21 +120,39 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
 
       if (existing) {
         return state.map((item) =>
-          item.lineId === existing.lineId ? { ...item, quantity: item.quantity + action.item.quantity } : item,
+          item.lineId === existing.lineId
+            ? { ...item, quantity: clampCartItemQuantity(item, item.quantity + action.item.quantity) }
+            : item,
         );
       }
 
+      const restoredQuantity = clampCartItemQuantity(action.item, action.item.quantity);
+
+      if (restoredQuantity === 0) {
+        return state;
+      }
+
       const next = [...state];
-      next.splice(Math.min(action.index, next.length), 0, action.item);
+      next.splice(Math.min(action.index, next.length), 0, {
+        ...action.item,
+        quantity: restoredQuantity,
+      });
       return next;
     }
 
-    case "setQuantity":
-      return state.map((item) =>
-        item.lineId === action.lineId
-          ? { ...item, quantity: Math.max(1, Math.round(action.quantity)) }
-          : item,
-      );
+    case "setQuantity": {
+      const target = state.find((item) => item.lineId === action.lineId);
+
+      if (!target) {
+        return state;
+      }
+
+      const quantity = clampCartItemQuantity(target, action.quantity);
+
+      return quantity === 0
+        ? state.filter((item) => item.lineId !== action.lineId)
+        : state.map((item) => (item.lineId === action.lineId ? { ...item, quantity } : item));
+    }
 
     case "setStaff":
       return state.map((item) =>
@@ -137,7 +187,9 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
       }
 
       return state.map((item) =>
-        item.lineId === source.lineId ? { ...item, quantity: item.quantity + 1 } : item,
+        item.lineId === source.lineId
+          ? { ...item, quantity: clampCartItemQuantity(item, item.quantity + 1) }
+          : item,
       );
     }
 
@@ -159,7 +211,9 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
         return state
           .filter((item) => item.lineId !== action.lineId)
           .map((item) =>
-            item.lineId === existing.lineId ? { ...item, quantity: item.quantity + target.quantity } : item,
+            item.lineId === existing.lineId
+              ? { ...item, quantity: clampCartItemQuantity(item, item.quantity + target.quantity) }
+              : item,
           );
       }
 
@@ -182,6 +236,43 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
           : item,
       );
     }
+
+    case "setProductStock":
+      return state.map((item) =>
+        item.itemType === "product" && item.itemId in action.stockByProductId
+          ? {
+              ...item,
+              availableStock: normalizeAvailableStock(action.stockByProductId[item.itemId]),
+            }
+          : item,
+      );
+
+    case "recalculatePackageCoverage":
+      return state.map((item) => {
+        if (item.itemType !== "service") {
+          return item;
+        }
+
+        const allocations = getPackageCoverageAllocations(item, action.packages);
+        const primaryAllocation = allocations[0];
+
+        return {
+          ...item,
+          packageCoverageAllocations: allocations.length > 0 ? allocations : undefined,
+          packageCoverageClientPackageId: primaryAllocation?.clientPackageId,
+          packageCoverageRemaining: allocations.reduce(
+            (total, allocation) => total + allocation.remainingSessions,
+            0,
+          ) || undefined,
+          packageCoverageServiceId: primaryAllocation?.serviceId,
+        };
+      });
+
+    case "hydrate":
+      return action.items.map((item) => ({
+        ...item,
+        lineId: item.lineId || nextLineId(),
+      }));
 
     case "clear":
       return [];
@@ -239,6 +330,12 @@ export const useCart = () => {
     [],
   );
 
+  const setProductStock = useCallback(
+    (stockByProductId: Record<string, number>) =>
+      dispatch({ stockByProductId, type: "setProductStock" }),
+    [],
+  );
+
   const duplicateItem = useCallback((lineId: string) => dispatch({ lineId, type: "duplicate" }), []);
 
   const replaceItem = useCallback(
@@ -246,10 +343,18 @@ export const useCart = () => {
     [],
   );
 
+  const recalculatePackageCoverage = useCallback(
+    (packages: ClientPackage[]) => dispatch({ packages, type: "recalculatePackageCoverage" }),
+    [],
+  );
+
   const clearCart = useCallback(() => dispatch({ type: "clear" }), []);
+  const hydrateCart = useCallback((draftItems: CartItem[]) => {
+    dispatch({ items: draftItems, type: "hydrate" });
+  }, []);
 
   const toSaleLineItemRequests = useCallback((): SaleLineItemRequest[] => {
-    return items.filter(isSaleLineItem).map((item) => ({
+    return items.map((item) => ({
       discountAmount: item.discountAmount || undefined,
       itemId: item.itemId || undefined,
       itemType: item.itemType,
@@ -266,14 +371,17 @@ export const useCart = () => {
     addItem,
     clearCart,
     duplicateItem,
+    hydrateCart,
     itemCount,
     items,
+    recalculatePackageCoverage,
     removeItem,
     replaceItem,
     restoreItem,
     setDiscount,
     setNote,
     setPrice,
+    setProductStock,
     setQuantity,
     setStaff,
     toSaleLineItemRequests,

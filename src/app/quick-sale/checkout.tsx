@@ -1,7 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router, useLocalSearchParams, type Href } from "expo-router";
-import { useEffect, useMemo } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { router, Stack, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ActivityIndicator,
+  BackHandler,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -11,10 +19,19 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import { fetchSaleByIdThunk } from "@/middleware/sales/sales.thunk";
-import { selectSaleDetail } from "@/store/sales/sales.slice";
-import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { useAppDispatch } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import type { SaleDetail } from "@/types/sales";
+import { normalizeSaleId } from "@/utils/apiNormalize";
 import { formatInvoiceNumber } from "@/utils/receipt";
+
+type ReceiptLoadStatus = "initial" | "loading" | "loaded" | "failed" | "retrying";
+
+type ReceiptLoadState = {
+  error: string | null;
+  sale: SaleDetail | null;
+  status: ReceiptLoadStatus;
+};
 
 function formatCurrency(amount: number) {
   return `₹${amount.toLocaleString("en-IN")}`;
@@ -31,48 +48,150 @@ export default function QuickSaleCheckoutScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const params = useLocalSearchParams<{
-    amountPaid?: string;
+    draftId?: string;
     mode?: string;
-    paymentMethod?: string;
-    receipt?: string;
     saleId?: string;
-    total?: string;
   }>();
+  const normalizedSaleId = useMemo(
+    () => normalizeSaleId({ saleId: params.saleId }),
+    [params.saleId],
+  );
   const dispatch = useAppDispatch();
-  const saleDetail = useAppSelector(selectSaleDetail);
-
-  // Params render instantly; the authoritative record (once loaded) refreshes
-  // the numbers in the background without blocking this confirmation screen.
-  useEffect(() => {
-    if (params.saleId) {
-      void dispatch(fetchSaleByIdThunk(params.saleId));
-    }
-  }, [dispatch, params.saleId]);
-
-  const authoritativeSale =
-    saleDetail && params.saleId && saleDetail.id === params.saleId ? saleDetail : null;
+  const hasTerminalNavigationStartedRef = useRef(false);
+  const receiptRequestIdRef = useRef(0);
+  const receiptRequestInFlightRef = useRef(false);
+  const [receiptLoadState, setReceiptLoadState] = useState<ReceiptLoadState>({
+    error: null,
+    sale: null,
+    status: "initial",
+  });
 
   const isPreview = params.mode === "preview";
-  const receipt = formatInvoiceNumber(authoritativeSale?.receiptNumber ?? params.receipt) ?? "—";
-  const amountPaid = authoritativeSale?.amountPaid ?? Number(params.amountPaid ?? 0);
-  const total = authoritativeSale?.total ?? Number(params.total ?? amountPaid);
-  const paymentMethod = authoritativeSale?.paymentMethod ?? params.paymentMethod ?? "Cash";
-  const lineItems = authoritativeSale?.lineItems ?? [];
-  const clientName = authoritativeSale?.clientName ?? "Walk-In";
-  const createdDateLabel = authoritativeSale?.createdDateLabel ?? "Just now";
-  const itemCount =
-    lineItems.length > 0 ? lineItems.reduce((count, item) => count + item.quantity, 0) : 0;
-  const outstandingAmount = authoritativeSale?.outstandingAmount ?? Math.max(0, total - amountPaid);
 
-  const handleStartNewSale = () => {
-    router.replace({
+  const loadReceipt = useCallback(
+    async (retry = false) => {
+      const saleId = normalizedSaleId;
+      if (!saleId) {
+        setReceiptLoadState({
+          error: "No sale reference was provided, so receipt details cannot be requested.",
+          sale: null,
+          status: "failed",
+        });
+        return;
+      }
+
+      if (receiptRequestInFlightRef.current) {
+        return;
+      }
+
+      const requestId = ++receiptRequestIdRef.current;
+      receiptRequestInFlightRef.current = true;
+      setReceiptLoadState({
+        error: null,
+        sale: null,
+        status: retry ? "retrying" : "loading",
+      });
+
+      const result = await dispatch(fetchSaleByIdThunk(saleId));
+      if (requestId !== receiptRequestIdRef.current) {
+        return;
+      }
+
+      if (fetchSaleByIdThunk.fulfilled.match(result) && result.payload.id === saleId) {
+        setReceiptLoadState({
+          error: null,
+          sale: result.payload,
+          status: "loaded",
+        });
+      } else {
+        const payloadMessage =
+          result.payload && typeof result.payload === "object" && "message" in result.payload
+            ? result.payload.message
+            : null;
+        setReceiptLoadState({
+          error:
+            typeof payloadMessage === "string" && payloadMessage.trim()
+              ? payloadMessage
+              : fetchSaleByIdThunk.fulfilled.match(result)
+                ? "The server returned receipt details for a different sale."
+                : result.error.message ?? "Unable to load receipt details.",
+          sale: null,
+          status: "failed",
+        });
+      }
+
+      if (requestId === receiptRequestIdRef.current) {
+        receiptRequestInFlightRef.current = false;
+      }
+    },
+    [dispatch, normalizedSaleId],
+  );
+
+  useEffect(() => {
+    void loadReceipt();
+
+    return () => {
+      receiptRequestIdRef.current += 1;
+      receiptRequestInFlightRef.current = false;
+    };
+  }, [loadReceipt]);
+
+  const authoritativeSale = receiptLoadState.sale;
+  const receipt = formatInvoiceNumber(authoritativeSale?.receiptNumber) ?? "—";
+  const total = authoritativeSale?.total ?? 0;
+  const paymentMethod = authoritativeSale?.paymentMethod ?? "-";
+  const lineItems = authoritativeSale?.lineItems ?? [];
+  const clientName = authoritativeSale?.clientName ?? "-";
+  const createdDateLabel = authoritativeSale?.createdDateLabel ?? "-";
+  const itemCount = lineItems.reduce((count, item) => count + item.quantity, 0);
+  const outstandingAmount = authoritativeSale?.outstandingAmount ?? 0;
+
+  const replaceOnce = useCallback((href: Href) => {
+    if (hasTerminalNavigationStartedRef.current) {
+      return;
+    }
+
+    hasTerminalNavigationStartedRef.current = true;
+    router.replace(href);
+  }, []);
+
+  const handleStartNewSale = useCallback(() => {
+    replaceOnce({
       pathname: "/quick-sale",
       params: { resetSale: String(Date.now()) },
     });
-  };
+  }, [replaceOnce]);
+
+  const handleBackToDraft = useCallback(() => {
+    replaceOnce({
+      params: { draftId: params.draftId },
+      pathname: "/quick-sale",
+    });
+  }, [params.draftId, replaceOnce]);
+
+  const handleExitToDashboard = useCallback(() => {
+    replaceOnce("/dashboard" as Href);
+  }, [replaceOnce]);
+
+  useFocusEffect(
+    useCallback(() => {
+      const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
+        if (isPreview) {
+          handleBackToDraft();
+        } else {
+          handleExitToDashboard();
+        }
+
+        return true;
+      });
+
+      return () => subscription.remove();
+    }, [handleBackToDraft, handleExitToDashboard, isPreview]),
+  );
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+      <Stack.Screen options={{ gestureEnabled: false }} />
       <AppStatusBar />
 
       <View style={styles.container}>
@@ -80,7 +199,7 @@ export default function QuickSaleCheckoutScreen() {
           <TouchableOpacity
             activeOpacity={0.86}
             accessibilityLabel="Back to dashboard"
-            onPress={() => router.replace("/dashboard" as Href)}
+            onPress={handleExitToDashboard}
             style={styles.headerIconButton}
           >
             <Ionicons name="close" size={20} color={Colors.heading} />
@@ -94,6 +213,52 @@ export default function QuickSaleCheckoutScreen() {
           showsVerticalScrollIndicator={false}
           style={styles.scroll}
         >
+          {receiptLoadState.status === "initial" ||
+          receiptLoadState.status === "loading" ||
+          receiptLoadState.status === "retrying" ? (
+            <View style={styles.receiptStateCard}>
+              <ActivityIndicator color={Colors.primary} size="large" />
+              <Text style={styles.receiptStateTitle}>
+                {receiptLoadState.status === "retrying"
+                  ? "Retrying receipt details"
+                  : "Loading receipt details"}
+              </Text>
+              <Text style={styles.receiptStateMessage}>
+                {isPreview
+                  ? "The draft is saved. Waiting for the authoritative receipt preview from the server."
+                  : "The sale is complete. Waiting for the authoritative receipt from the server."}
+              </Text>
+            </View>
+          ) : receiptLoadState.status === "failed" ? (
+            <View style={[styles.receiptStateCard, styles.receiptErrorCard]}>
+              <View style={[styles.iconWrap, styles.errorIconWrap]}>
+                <Ionicons name="alert-circle-outline" size={34} color={Colors.error} />
+              </View>
+              <Text style={styles.receiptStateTitle}>
+                {isPreview ? "Receipt preview unavailable" : "Receipt details unavailable"}
+              </Text>
+              <Text style={styles.receiptStateMessage}>
+                {isPreview
+                  ? "The draft was saved successfully, but receipt preview details could not be loaded."
+                  : "The sale was completed successfully, but receipt details could not be loaded."}
+              </Text>
+              {receiptLoadState.error ? (
+                <Text style={styles.receiptErrorDetail}>{receiptLoadState.error}</Text>
+              ) : null}
+              {normalizedSaleId ? (
+                <TouchableOpacity
+                  accessibilityLabel="Retry loading receipt details"
+                  activeOpacity={0.86}
+                  onPress={() => void loadReceipt(true)}
+                  style={styles.retryButton}
+                >
+                  <Ionicons name="refresh" size={17} color={Colors.onPrimary} />
+                  <Text style={styles.retryButtonText}>Retry Receipt</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : authoritativeSale ? (
+            <>
           <View style={styles.successBlock}>
             <View style={styles.iconWrap}>
               <Ionicons
@@ -150,29 +315,29 @@ export default function QuickSaleCheckoutScreen() {
             <ReceiptAction icon="mail-outline" label="Email Receipt" />
           </View>
 
-          {params.saleId ? (
-            <TouchableOpacity
-              activeOpacity={0.86}
-              onPress={() => router.push(`/sales/${params.saleId}` as Href)}
-              style={styles.optionalButton}
-            >
-              <Ionicons name="document-text-outline" size={17} color={Colors.primaryDark} />
-              <Text style={styles.optionalButtonText}>View Invoice</Text>
-            </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.86}
+                onPress={() => router.push(`/sales/${authoritativeSale.id}` as Href)}
+                style={styles.optionalButton}
+              >
+                <Ionicons name="document-text-outline" size={17} color={Colors.primaryDark} />
+                <Text style={styles.optionalButtonText}>View Invoice</Text>
+              </TouchableOpacity>
+            </>
           ) : null}
         </ScrollView>
 
         <View style={styles.footer}>
           <TouchableOpacity
             activeOpacity={0.86}
-            onPress={isPreview ? () => router.back() : handleStartNewSale}
+            onPress={isPreview ? handleBackToDraft : handleStartNewSale}
             style={styles.primaryButton}
           >
             <Text style={styles.primaryButtonText}>{isPreview ? "Back to Sale" : "Start New Sale"}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.86}
-            onPress={() => router.replace("/dashboard" as Href)}
+            onPress={handleExitToDashboard}
             style={styles.secondaryButton}
           >
             <Text style={styles.secondaryButtonText}>Back to Dashboard</Text>
@@ -259,6 +424,60 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     marginBottom: Spacing.md,
     padding: Spacing.xl,
+  },
+  receiptStateCard: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: Radius.xl,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 280,
+    padding: Spacing.xl,
+  },
+  receiptErrorCard: {
+    borderColor: Colors.error,
+  },
+  receiptStateTitle: {
+    color: Colors.heading,
+    fontSize: 18,
+    fontWeight: "900",
+    marginTop: Spacing.md,
+    textAlign: "center",
+  },
+  receiptStateMessage: {
+    color: Colors.text2,
+    fontSize: 13,
+    lineHeight: 20,
+    marginTop: Spacing.sm,
+    textAlign: "center",
+  },
+  receiptErrorDetail: {
+    color: Colors.error,
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 17,
+    marginTop: Spacing.md,
+    textAlign: "center",
+  },
+  errorIconWrap: {
+    backgroundColor: Colors.errorBg,
+  },
+  retryButton: {
+    alignItems: "center",
+    backgroundColor: Colors.primaryDark,
+    borderRadius: Radius.full,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    marginTop: Spacing.lg,
+    minHeight: 46,
+    paddingHorizontal: Spacing.lg,
+  },
+  retryButtonText: {
+    color: Colors.onPrimary,
+    fontSize: 13,
+    fontWeight: "900",
   },
   iconWrap: {
     alignItems: "center",

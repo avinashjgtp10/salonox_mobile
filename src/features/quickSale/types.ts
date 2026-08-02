@@ -5,7 +5,14 @@ import type { SaleItemType } from "@/types/sales";
 // "quick" item_type — a real, first-class value, not an invented one).
 export type CartItemSource = Extract<SaleItemType, "service" | "product" | "membership" | "quick"> | "package";
 
+export type PackageCoverageAllocation = {
+  clientPackageId: string;
+  remainingSessions: number;
+  serviceId: string;
+};
+
 export type CartItem = {
+  availableStock?: number;
   category: string | null;
   discountAmount: number;
   duration?: string;
@@ -15,6 +22,7 @@ export type CartItem = {
   name: string;
   note: string;
   originalUnitPrice: number;
+  packageCoverageAllocations?: PackageCoverageAllocation[];
   packageCoverageClientPackageId?: string;
   packageCoverageRemaining?: number;
   packageCoverageServiceId?: string;

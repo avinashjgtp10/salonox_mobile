@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { memo, useEffect, useMemo, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -27,7 +27,9 @@ import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColor
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
 import type { QuickSaleClient, CartItem } from "@/features/quickSale/types";
 import { getCartItemBillableQuantity, type BillTotals } from "@/features/quickSale/utils/calculations";
+import { getPackageCoveredQuantity } from "@/features/quickSale/utils/packageCoverage";
 import { formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
+import { getMissingStaffMessage } from "@/features/quickSale/utils/staffAssignment";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ValidateCouponResult } from "@/types/coupon";
 import type { CheckoutSaleSplitEntry, PosStaffMember, SalePaymentMethod } from "@/types/sales";
@@ -67,7 +69,11 @@ type CheckoutSheetProps = {
   onChangeCouponCode: (value: string) => void;
   onChangeCustomer: () => void;
   onChangeExtraCharge: (key: ExtraChargeKey, value: string) => void;
-  onChangeOverallDiscount: (value: string) => void;
+  onChangeOverallDiscount: (
+    value: string,
+    type: "flat" | "percentage",
+    percentage: number,
+  ) => void;
   onChangeTip: (value: string) => void;
   onClose: () => void;
   onCompleteSale: (payment: { method: SalePaymentMethod; splitEntries?: CheckoutSaleSplitEntry[] }) => void;
@@ -77,6 +83,9 @@ type CheckoutSheetProps = {
   onSetQuantity: (lineId: string, quantity: number) => void;
   onToggleIncludeGst: () => void;
   overallDiscountInput: string;
+  overallDiscountPercent: number;
+  overallDiscountType: "flat" | "percentage";
+  productStockErrors: Record<string, string>;
   selectedClient: QuickSaleClient;
   staffOptions: PosStaffMember[];
   submitError: string | null;
@@ -115,6 +124,9 @@ function CheckoutSheetComponent({
   onSetQuantity,
   onToggleIncludeGst,
   overallDiscountInput,
+  overallDiscountPercent,
+  overallDiscountType,
+  productStockErrors,
   selectedClient,
   staffOptions,
   submitError,
@@ -132,11 +144,36 @@ function CheckoutSheetComponent({
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod>("cash");
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({});
   const [amountReceivedInput, setAmountReceivedInput] = useState("");
-  const [discountMode, setDiscountMode] = useState<DiscountMode>("percent");
-  const [discountDraft, setDiscountDraft] = useState(overallDiscountInput);
+  const [discountMode, setDiscountMode] = useState<DiscountMode>(
+    overallDiscountType === "percentage" ? "percent" : "amount",
+  );
+  const [discountDraft, setDiscountDraft] = useState(
+    overallDiscountType === "percentage" ? String(overallDiscountPercent || "") : overallDiscountInput,
+  );
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>(initialStep);
   const [customTipVisible, setCustomTipVisible] = useState(Boolean(tipInput));
   const [staffPickerLineId, setStaffPickerLineId] = useState<string | null>(null);
+
+  const resetCheckoutState = useCallback(() => {
+    setPaymentMethod("cash");
+    setSplitAmounts({});
+    setAmountReceivedInput("");
+    setDiscountMode(overallDiscountType === "percentage" ? "percent" : "amount");
+    setDiscountDraft(
+      overallDiscountType === "percentage"
+        ? String(overallDiscountPercent || "")
+        : overallDiscountInput,
+    );
+    setCheckoutStep(initialStep);
+    setCustomTipVisible(Boolean(tipInput));
+    setStaffPickerLineId(null);
+  }, [
+    initialStep,
+    overallDiscountInput,
+    overallDiscountPercent,
+    overallDiscountType,
+    tipInput,
+  ]);
 
   useEffect(() => {
     if (discountMode === "amount") {
@@ -193,7 +230,7 @@ function CheckoutSheetComponent({
 
   useEffect(() => {
     if (visible) {
-      setCheckoutStep(initialStep);
+      resetCheckoutState();
       setIsMounted(true);
       requestAnimationFrame(runOpen);
       return;
@@ -283,7 +320,7 @@ function CheckoutSheetComponent({
   const discountExceedsSubtotal = totals.overallDiscount + totals.couponDiscount > totals.subtotal + 0.005;
   const customTipInvalid = customTipVisible && tipInput.trim().length === 0;
   const chargesInvalid = discountExceedsSubtotal || invalidDiscountPercentage || customTipInvalid;
-  const isBusy = isSaving || isCheckingOut || isSuccess;
+  const isBusy = isSaving || isCheckingOut || isApplyingCoupon || isSuccess;
   // Every catalog line (service/package/product/membership) must carry its
   // own staff before an appointment can be created — mirrors the web Quick
   // Sale's per-row validation. "quick" is a free-typed custom charge with no
@@ -292,6 +329,7 @@ function CheckoutSheetComponent({
     () => items.filter((item) => item.itemType !== "quick" && !item.staffId).length,
     [items],
   );
+  const missingServiceStaffMessage = useMemo(() => getMissingStaffMessage(items), [items]);
   const hasMissingStaff = missingStaffCount > 0;
   const activeStaffItem = useMemo(
     () => (staffPickerLineId ? items.find((item) => item.lineId === staffPickerLineId) ?? null : null),
@@ -323,11 +361,15 @@ function CheckoutSheetComponent({
 
     if (discountMode === "percent") {
       const percent = Math.min(100, parseAmount(value));
-      onChangeOverallDiscount(String(Math.round(totals.subtotal * percent) / 100));
+      onChangeOverallDiscount(
+        String(Math.round(totals.subtotal * percent) / 100),
+        "percentage",
+        percent,
+      );
       return;
     }
 
-    onChangeOverallDiscount(value);
+    onChangeOverallDiscount(value, "flat", 0);
   };
 
   const handleDiscountModeChange = (mode: "amount" | "percent") => {
@@ -336,10 +378,12 @@ function CheckoutSheetComponent({
     if (mode === "percent") {
       const percent = totals.subtotal > 0 ? (parseAmount(overallDiscountInput) / totals.subtotal) * 100 : 0;
       setDiscountDraft(percent ? String(Math.round(percent * 100) / 100) : "");
+      onChangeOverallDiscount(overallDiscountInput, "percentage", percent);
       return;
     }
 
     setDiscountDraft(overallDiscountInput);
+    onChangeOverallDiscount(overallDiscountInput, "flat", 0);
   };
 
   const handleComplete = () => {
@@ -412,6 +456,7 @@ function CheckoutSheetComponent({
           style={styles.keyboardAvoiding}
         >
           <Animated.View
+            accessibilityState={{ busy: isBusy }}
             style={[
               styles.sheet,
               {
@@ -442,7 +487,12 @@ function CheckoutSheetComponent({
                     : `Payment due ${formatCurrency(totals.grandTotal)}`}
                 </Text>
               </View>
-              <TouchableOpacity activeOpacity={0.84} onPress={requestClose} style={styles.closeButton}>
+              <TouchableOpacity
+                activeOpacity={isBusy ? 1 : 0.84}
+                disabled={isBusy}
+                onPress={requestClose}
+                style={[styles.closeButton, isBusy && styles.buttonDisabled]}
+              >
                 <Ionicons name="close" size={20} color={Colors.heading} />
               </TouchableOpacity>
             </View>
@@ -450,6 +500,7 @@ function CheckoutSheetComponent({
             <ScrollView
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
+              pointerEvents={isBusy ? "none" : "auto"}
               showsVerticalScrollIndicator={false}
               style={styles.scroll}
             >
@@ -502,6 +553,7 @@ function CheckoutSheetComponent({
                               animateItemLayout();
                               onRemoveItem(item.lineId);
                             }}
+                            stockError={productStockErrors[item.lineId]}
                           />
                         ))}
                       </View>
@@ -512,8 +564,10 @@ function CheckoutSheetComponent({
                     <View style={styles.staffWarningBanner}>
                       <Ionicons name="alert-circle-outline" size={16} color={Colors.error} />
                       <Text style={styles.staffWarningText}>
-                        Assign a staff member to {missingStaffCount} item{missingStaffCount === 1 ? "" : "s"} before
-                        checkout.
+                        {missingServiceStaffMessage ??
+                          `Assign a staff member to ${missingStaffCount} item${
+                            missingStaffCount === 1 ? "" : "s"
+                          } before checkout.`}
                       </Text>
                     </View>
                   ) : null}
@@ -971,7 +1025,10 @@ function CheckoutSheetComponent({
                   ]}
                 >
                   {isCheckingOut ? (
-                    <ActivityIndicator color={Colors.onPrimary} size="small" />
+                    <>
+                      <ActivityIndicator color={Colors.onPrimary} size="small" />
+                      <Text style={styles.completeButtonText}>Processing sale...</Text>
+                    </>
                   ) : isSuccess ? (
                     <>
                       <Text style={styles.completeButtonText}>Completed</Text>
@@ -1071,6 +1128,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
   onIncrease,
   onPressStaff,
   onRemove,
+  stockError,
 }: {
   item: CartItem;
   onClearStaff: () => void;
@@ -1078,11 +1136,15 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
   onIncrease: () => void;
   onPressStaff: () => void;
   onRemove: () => void;
+  stockError?: string;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const scale = useRef(new Animated.Value(1)).current;
   const lineTotal = item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount;
+  const packageCoveredQuantity = getPackageCoveredQuantity(item);
+  const increaseDisabled =
+    item.itemType === "product" && item.quantity >= Math.max(0, item.availableStock ?? 0);
 
   useEffect(() => {
     Animated.sequence([
@@ -1102,7 +1164,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
   }, [item.quantity, scale]);
 
   return (
-    <Animated.View style={[styles.itemCard, { transform: [{ scale }] }]}>
+    <Animated.View style={[styles.itemCard, stockError && styles.itemCardError, { transform: [{ scale }] }]}>
       <View style={styles.itemMedia}>
         <Ionicons
           name={item.itemType === "service" ? "cut-outline" : item.itemType === "membership" ? "card-outline" : "cube-outline"}
@@ -1119,8 +1181,16 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
           <Text style={styles.itemTotal}>{formatCurrency(lineTotal)}</Text>
         </View>
         <Text numberOfLines={1} style={styles.itemMeta}>
-          {[item.packageCoverageRemaining ? "Package covered" : null, item.duration].filter(Boolean).join(" - ")}
+          {[
+            packageCoveredQuantity > 0
+              ? packageCoveredQuantity === item.quantity
+                ? "Package covered"
+                : `${packageCoveredQuantity} of ${item.quantity} package covered`
+              : null,
+            item.duration,
+          ].filter(Boolean).join(" - ")}
         </Text>
+        {stockError ? <Text style={styles.stockErrorText}>{stockError}</Text> : null}
         {item.itemType !== "quick" ? (
           <StaffAssignmentChip
             hasError={!item.staffId}
@@ -1143,11 +1213,16 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
             <Text style={styles.quantityValue}>{item.quantity}</Text>
             <TouchableOpacity
               accessibilityLabel={`Increase ${item.name} quantity`}
-              activeOpacity={0.82}
+              activeOpacity={increaseDisabled ? 1 : 0.82}
+              disabled={increaseDisabled}
               onPress={onIncrease}
-              style={styles.stepperButton}
+              style={[styles.stepperButton, increaseDisabled && styles.stepperButtonDisabled]}
             >
-              <Ionicons name="add" size={14} color={Colors.primaryDark} />
+              <Ionicons
+                name="add"
+                size={14}
+                color={increaseDisabled ? Colors.text2 : Colors.primaryDark}
+              />
             </TouchableOpacity>
           </View>
           <TouchableOpacity
@@ -1404,6 +1479,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowRadius: 14,
     elevation: 1,
   },
+  itemCardError: {
+    borderColor: Colors.error,
+  },
   itemMedia: {
     alignItems: "center",
     backgroundColor: Colors.successBg,
@@ -1432,6 +1510,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.text2,
     fontSize: 11,
     marginTop: 3,
+  },
+  stockErrorText: {
+    color: Colors.error,
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 4,
   },
   staffChip: {
     alignItems: "center",
@@ -1518,6 +1602,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "900",
     minWidth: 18,
     textAlign: "center",
+  },
+  stepperButtonDisabled: {
+    opacity: 0.45,
   },
   removeIconButton: {
     alignItems: "center",
