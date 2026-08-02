@@ -29,6 +29,9 @@ interface SavePayload {
   // what staff opted into, the requested figure only ever travels with the
   // payment call.
   applyMembershipDiscount?: boolean;
+  // Independent sibling flag for the salon-wide Loyalty discount — stacks
+  // additively with applyMembershipDiscount above when both are checked.
+  applyLoyaltyDiscount?: boolean;
   includeGst?: boolean;
 }
 
@@ -88,6 +91,7 @@ function buildServiceApiItems(
         discount: Number((s as any).discount) || 0,
         duration: s.duration || 30,
         ...(isPackageService ? { is_package_service: true } : {}),
+        category_id: (s as any).categoryId || undefined,
         // Attached but not deducted — stock deduction is not implemented
         // client-side yet (no backend endpoint exists for it).
         consumables: (s.consumables ?? []).map((c) => ({
@@ -120,6 +124,7 @@ export function useAppointment() {
       isPackageAppointment: _isPackageAppointment,
       applyMembershipWallet,
       applyMembershipDiscount,
+      applyLoyaltyDiscount,
       includeGst,
     } = payload;
 
@@ -217,6 +222,7 @@ export function useAppointment() {
             staff_id: (p as any).staffId ? toApiStaffId((p as any).staffId) : undefined,
             staff_name: staffMember?.name || staffMember?.full_name || staffMember?.fullName || undefined,
             start_time: new Date(startMs).toISOString(),
+            category_id: (p as any).categoryId || undefined,
           };
         }),
         membership_items: membershipRows.filter((m) => (m as any).membershipId).map((m) => {
@@ -249,6 +255,7 @@ export function useAppointment() {
         gst_percent:    (booking as any).gst ?? 0,
         apply_membership_wallet: applyMembershipWallet ?? false,
         apply_membership_discount: applyMembershipDiscount ?? false,
+        apply_loyalty_discount: applyLoyaltyDiscount ?? false,
         include_gst:    includeGst ?? true,
       };
 

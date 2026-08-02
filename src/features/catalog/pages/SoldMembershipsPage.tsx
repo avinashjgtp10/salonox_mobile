@@ -62,6 +62,15 @@ const SoldMembershipsPage: React.FC = () => {
   );
 
   const [search,     setSearch]     = useState("");
+  // Input stays controlled by `search` for instant typing; the list only
+  // refetches off this debounced copy — see MembershipsListPage.tsx's
+  // identical fix for why an undebounced value here re-fetches (and flashes
+  // the loading state) on every single keystroke.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
   const [statusFilt, setStatusFilt] = useState("");
   const [page,       setPage]       = useState(1);
   const [detailId,   setDetailId]   = useState<string | null>(null);
@@ -69,16 +78,16 @@ const SoldMembershipsPage: React.FC = () => {
   const [errBanner,  setErrBanner]  = useState<string | null>(null);
 
   const buildQuery = useCallback(() => ({
-    search:  search.trim() || undefined,
+    search:  debouncedSearch.trim() || undefined,
     status:  statusFilt   || undefined,
     page, limit: PAGE_SIZE,
-  }), [search, statusFilt, page]);
+  }), [debouncedSearch, statusFilt, page]);
 
   useEffect(() => {
     dispatch(fetchClientMembershipsThunk(buildQuery()));
   }, [dispatch, buildQuery]);
 
-  useEffect(() => { setPage(1); }, [search, statusFilt]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, statusFilt]);
 
   useEffect(() => {
     if (error) { setErrBanner(error); dispatch(clearError()); }

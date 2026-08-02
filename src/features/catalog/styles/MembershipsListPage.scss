@@ -428,6 +428,54 @@
     pointer-events: none;
   }
 
+  /* ── Bulk selection bar ──────────────────────────────────────── */
+  &__bulk-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: auto;
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 7px 10px 7px 14px;
+  }
+
+  &__bulk-count {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #0f172a;
+    white-space: nowrap;
+  }
+
+  &__bulk-clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: transparent;
+    color: #64748b;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 3px;
+    &:hover { background: #eef2f7; color: #0f172a; }
+  }
+
+  &__bulk-delete {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    background: transparent;
+    color: #ef4444;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+    padding: 6px 10px;
+    border-radius: 8px;
+    border-left: 1px solid #e2e8f0;
+    &:hover { background: #fef2f2; }
+  }
+
   /* ── Table ───────────────────────────────────────────────────── */
   &__table-wrap {
     background: #fff;
@@ -573,6 +621,19 @@
     padding-left: 40px !important;
     padding-right: 20px !important;
     white-space: nowrap;
+  }
+
+  &__td-checkbox {
+    width: 1%;
+    padding-left: 20px !important;
+    padding-right: 0 !important;
+
+    input[type="checkbox"] {
+      width: 15px;
+      height: 15px;
+      cursor: pointer;
+      accent-color: #1a1a2e;
+    }
   }
 
 

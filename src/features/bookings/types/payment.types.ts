@@ -33,6 +33,9 @@ export interface PaymentPayload {
   // "requested" field: the amount is fully determined server-side by the
   // plan's percentage, the eligible line total, and any discount balance left.
   apply_membership_discount?: boolean;
+  // Independent sibling flag for the salon-wide Loyalty discount — stacks
+  // additively with apply_membership_discount above when both are checked.
+  apply_loyalty_discount?: boolean;
   // Own dedicated, spendable balances now — not folded into eWallet.
   reward_points_used?: number; // points count
   referral_credit_used?: number; // ₹

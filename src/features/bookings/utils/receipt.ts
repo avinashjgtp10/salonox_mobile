@@ -220,10 +220,14 @@ export function printReceipt(
   const PAY_BG:    Record<string, string> = { Paid: "#dcfce7", Partial: "#ede9fe", Unpaid: "#fef3c7", Cancelled: "#fee2e2" };
   const payColor = PAY_COLOR[rawPs] ?? "#b45309";
   const payBg    = PAY_BG[rawPs]    ?? "#fef3c7";
-  const _printGt = (booking as any).grandTotal;
-  const isPackagePaid = (booking as any).paymentMode === "Package" ||
-    (_printGt !== null && _printGt !== undefined && Number(_printGt) === 0) ||
-    (booking.status === "paid" && Number(booking.payingNow) === 0 && Number(booking.dueAmount) === 0);
+  // A real Package-covered booking is the ONLY case that should zero out this
+  // whole receipt — detected the same explicit way bookingMapper.ts's own
+  // isPackagePaid does (payment_method === "package"), never guessed from
+  // symptoms. A "grandTotal === 0" / "payingNow === 0 && due === 0" heuristic
+  // also matches any bill fully covered by non-cash credit (membership
+  // wallet, eWallet, reward points, referral), so a real ₹1,147
+  // membership-wallet-covered bill printed as ₹0.00 across every row.
+  const isPackagePaid = String((booking as any).paymentMode || "").toLowerCase() === "package";
 
   const allStaffIds = Array.from(new Set(
     [booking.staffId, ...(booking.services || []).map((s: any) => s.staffId)].filter(Boolean)
@@ -349,6 +353,15 @@ export function printReceipt(
   const couponDisc  = Number((booking as any).couponDiscount || 0);
   const couponCode  = (booking as any).couponCode || "";
   const referralDisc = Number((booking as any).referralDiscount || 0);
+  // Pre-tax price reduction from a Discount Balance/Loyalty membership —
+  // already baked into grandTotal (see payments.service.ts), so it has to be
+  // subtracted here too or the gap between the un-adjusted rawGrandTotal and
+  // the real grandTotal gets mislabeled as "Round Off" below instead of
+  // showing as its own line.
+  const membershipDiscountAmt = Number((booking as any).membershipDiscountUsed || 0);
+  // Split for display only — see ViewBillModal.tsx's identical split for why.
+  const membershipPercentageDiscountAmt = Number((booking as any).membershipPercentageDiscountUsed || 0);
+  const membershipLoyaltyDiscountAmt = Math.max(0, membershipDiscountAmt - membershipPercentageDiscountAmt);
   const exCharges   = Number((booking as any).exCharges     || 0);
   const tipAmt      = Number((booking as any).tipAmount     || 0);
   const gstPct      = Number((booking as any).gst           || 0);
@@ -361,7 +374,7 @@ export function printReceipt(
   const exclusiveTaxTotal = taxBreakdown.length > 0
     ? taxBreakdown.filter((t) => !t.inclusive && t.amount > 0).reduce((s, t) => s + t.amount, 0)
     : gstAmt;
-  const rawGrandTotal = subtotalAmt - manualDisc - couponDisc - referralDisc + exCharges + exclusiveTaxTotal;
+  const rawGrandTotal = subtotalAmt - manualDisc - couponDisc - referralDisc - membershipDiscountAmt + exCharges + exclusiveTaxTotal;
   const roundOff = grandTotal - rawGrandTotal;
   const paidAmt     = Number(booking.payingNow  || 0);
   const dueAmt      = Number(booking.dueAmount  || 0);
@@ -405,6 +418,8 @@ export function printReceipt(
     manualDisc  > 0 ? sumRow("Svc Discount",     `−${fmt(manualDisc)}`, false, "#dc2626") : "",
     couponDisc  > 0 ? sumRow(`Coupon${couponCode ? ` (${couponCode})` : ""}`, `−${fmt(couponDisc)}`, false, "#dc2626") : "",
     referralDisc > 0 ? sumRow("Referral Discount", `−${fmt(referralDisc)}`, false, "#dc2626") : "",
+    membershipPercentageDiscountAmt > 0 ? sumRow("Membership Discount", `−${fmt(membershipPercentageDiscountAmt)}`, false, "#dc2626") : "",
+    membershipLoyaltyDiscountAmt > 0 ? sumRow("Membership Loyalty", `−${fmt(membershipLoyaltyDiscountAmt)}`, false, "#dc2626") : "",
     exCharges   > 0 ? sumRow("Extra Charges",    `+${fmt(exCharges)}`) : "",
     tipAmt      > 0 ? sumRow("Tip (Staff)",       `+${fmt(tipAmt)}`) : "",
     // Itemized per-tax lines (CGST, SGST, etc.) + a "Total Tax" subtotal —
