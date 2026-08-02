@@ -3,6 +3,8 @@ import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PACKAGE_SALE_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
+import Select from "../../../components/ui/Select";
+import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
@@ -15,14 +17,50 @@ const REPORT_NAME = "Package Sale";
 
 interface PackageSaleRow {
   date: string;
+  invoiceNo: string;
   client: string;
   clientId: string;
+  staff: string;
   packageName: string;
   totalAmount: number;
   paidAmount: number;
   pendingAmount: number;
   paymentStatus: string;
+  paymentMethod: string;
+  status: string;
   gstAmount: number;
+}
+
+interface FilterOption { id: string; label: string; }
+
+const PACKAGE_STATUS_OPTIONS: FilterOption[] = [
+  { id: "Active", label: "Active" },
+  { id: "Completed", label: "Completed" },
+];
+
+const PAYMENT_STATUS_OPTIONS: FilterOption[] = [
+  { id: "Paid", label: "Paid" },
+  { id: "Partial", label: "Partial" },
+  { id: "Unpaid", label: "Unpaid" },
+];
+
+const PAYMENT_METHOD_OPTIONS: FilterOption[] = [
+  { id: "cash", label: "Cash" },
+  { id: "card", label: "Card" },
+  { id: "upi", label: "UPI" },
+  { id: "net_banking", label: "Net banking" },
+  { id: "split", label: "Split" },
+];
+
+// dd/MM/yyyy, consistently across the table and every export (CSV/Excel/PDF
+// all read the same r.date via exportRows).
+function formatDate(input: string): string {
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
 }
 
 // Maps a row from the independent Package Sale API
@@ -30,14 +68,18 @@ interface PackageSaleRow {
 // the Appointment API) to the table's existing PackageSaleRow shape.
 function mapRow(row: any): PackageSaleRow {
   return {
-    date: row.date || "—",
+    date: row.date ? formatDate(row.date) : "—",
+    invoiceNo: row.invoice_no ?? "—",
     client: row.client_name || "—",
     clientId: row.client_id ? String(row.client_id) : "",
+    staff: row.staff_name || "—",
     packageName: row.package_name || "—",
     totalAmount: Number(row.total_amount) || 0,
     paidAmount: Number(row.paid_amount) || 0,
     pendingAmount: Number(row.pending_amount) || 0,
     paymentStatus: row.payment_status || "unpaid",
+    paymentMethod: row.payment_method || "N/A",
+    status: row.status || "—",
     gstAmount: Number(row.gst_amount) || 0,
   };
 }
@@ -50,9 +92,22 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
   const [dateTo,      setDateTo]      = useState(today);
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
+  const [packageFilter,  setPackageFilter]  = useState("All");
+  const [packageStatusFilter, setPackageStatusFilter] = useState("All");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("All");
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState("All");
+  const [minAmount,       setMinAmount]       = useState("");
+  const [maxAmount,       setMaxAmount]       = useState("");
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [rows,        setRows]        = useState<PackageSaleRow[]>([]);
   const [total,       setTotal]       = useState(0);
-  const [stats,       setStats]       = useState({ packagesSold: 0, totalSaleValue: 0, totalReceived: 0, uniquePackages: 0 });
+  const [stats,       setStats]       = useState({ packagesSold: 0, totalSaleValue: 0, totalReceived: 0, outstandingBalance: 0, distinctPackagesSold: 0 });
+  // No separate /staff or /packages API call — the package-sale API itself
+  // returns filters_available.staff/packages, so options stay complete
+  // regardless of the current date/filter selection.
+  const [staffOptions,   setStaffOptions]   = useState<FilterOption[]>([]);
+  const [packageOptions, setPackageOptions] = useState<string[]>([]);
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
@@ -78,6 +133,13 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
         page: currentPage, limit: pageSize,
       };
       if (debouncedSearch) body.search = debouncedSearch;
+      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+      if (packageFilter !== "All") body.package_name = packageFilter;
+      if (packageStatusFilter !== "All") body.package_status = packageStatusFilter;
+      if (paymentStatusFilter !== "All") body.payment_status = paymentStatusFilter;
+      if (paymentMethodFilter !== "All") body.payment_method = paymentMethodFilter;
+      if (minAmount !== "") body.min_amount = Number(minAmount);
+      if (maxAmount !== "") body.max_amount = Number(maxAmount);
       const res = await api.post(PACKAGE_SALE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -88,23 +150,46 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
         packagesSold: Number(s.packages_sold) || 0,
         totalSaleValue: Number(s.total_sale_value) || 0,
         totalReceived: Number(s.total_received) || 0,
-        uniquePackages: Number(s.unique_packages) || 0,
+        outstandingBalance: Number(s.outstanding_balance) || 0,
+        distinctPackagesSold: Number(s.unique_packages) || 0,
       });
+      const avail = data?.filters_available ?? {};
+      if (Array.isArray(avail.staff)) setStaffOptions(avail.staff);
+      if (Array.isArray(avail.packages)) setPackageOptions(avail.packages);
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
         setRows([]); setTotal(0);
-        setStats({ packagesSold: 0, totalSaleValue: 0, totalReceived: 0, uniquePackages: 0 });
+        setStats({ packagesSold: 0, totalSaleValue: 0, totalReceived: 0, outstandingBalance: 0, distinctPackagesSold: 0 });
       }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, currentPage, pageSize]);
+  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, packageFilter, packageStatusFilter, paymentStatusFilter, paymentMethodFilter, minAmount, maxAmount, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch]);
 
-  const HEADERS = ["Date", "Client", "Package Name", `Total Amount (${currencySymbol})`, `GST (${currencySymbol})`, `Paid (${currencySymbol})`, `Balance Due (${currencySymbol})`, "Status"];
-  const exportRows = () => rows.map(r => [r.date, r.client, r.packageName, r.totalAmount, r.gstAmount, r.paidAmount, r.pendingAmount, r.paymentStatus]);
+  // Filter/search changes go back to page 1 — page/pageSize changes
+  // themselves should not reset back to page 1.
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, packageFilter, packageStatusFilter, paymentStatusFilter, paymentMethodFilter, minAmount, maxAmount]);
+
+  const activeFilterCount = [
+    staffFilterIds.length > 0 ? 1 : 0,
+    packageFilter !== "All" ? 1 : 0,
+    packageStatusFilter !== "All" ? 1 : 0,
+    paymentStatusFilter !== "All" ? 1 : 0,
+    paymentMethodFilter !== "All" ? 1 : 0,
+    minAmount !== "" ? 1 : 0,
+    maxAmount !== "" ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  const clearFilters = () => {
+    setStaffFilterIds([]); setPackageFilter("All");
+    setPackageStatusFilter("All"); setPaymentStatusFilter("All"); setPaymentMethodFilter("All");
+    setMinAmount(""); setMaxAmount("");
+  };
+
+  const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Package Name", `Total Amount (${currencySymbol})`, `GST (${currencySymbol})`, `Paid (${currencySymbol})`, `Balance Due (${currencySymbol})`, "Payment Method", "Status"];
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.packageName, r.totalAmount, r.gstAmount, r.paidAmount, r.pendingAmount, r.paymentMethod, r.status]);
 
   return (
     <div className="rp-detail-view">
@@ -126,6 +211,10 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
             <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
           </div>
         </div>
+        <button className="rp-pkg-filters-btn" onClick={() => setShowFiltersPanel(true)}>
+          Filters
+          {activeFilterCount > 0 && <span className="rp-pkg-filters-badge">{activeFilterCount}</span>}
+        </button>
         <div className="rp-detail-filter-actions">
           <Button variant="ghost" className="rp-detail-refresh-btn" onClick={fetchData} loading={loading}>
             Run Report
@@ -133,12 +222,13 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={4} /> : (
+      {loading ? <SkeletonStatCards count={5} /> : (
         <div className="rp-sra-summary-row">
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.packagesSold}</div><div className="rp-sra-summary-label">Packages Sold</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalSaleValue)}</div><div className="rp-sra-summary-label">Total Sale Value</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalReceived)}</div><div className="rp-sra-summary-label">Total Received</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.uniquePackages}</div><div className="rp-sra-summary-label">Unique Packages</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.outstandingBalance)}</div><div className="rp-sra-summary-label">Outstanding Balance</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.distinctPackagesSold}</div><div className="rp-sra-summary-label">Distinct Packages Sold</div></div>
         </div>
       )}
 
@@ -153,28 +243,33 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Date</th><th>Client</th><th>Package Name</th><th>Total Amount ({currencySymbol})</th><th>GST ({currencySymbol})</th><th>Paid ({currencySymbol})</th><th>Balance Due ({currencySymbol})</th><th>Status</th>
+              <th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Package Name</th>
+              <th>Total Amount ({currencySymbol})</th><th>GST ({currencySymbol})</th><th>Paid ({currencySymbol})</th>
+              <th>Balance Due ({currencySymbol})</th><th>Payment Method</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={8} />
+              <SkeletonTableRows columns={11} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={8} className="rp-detail-empty-cell">No package sales found</td></tr>
+              <tr><td colSpan={11} className="rp-detail-empty-cell">No package sales found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.clientId ? "rp-appt-row" : undefined}
                 onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
-                <td>{r.date || "—"}</td>
+                <td>{r.date}</td>
+                <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td className="fw-semibold">{r.client}</td>
-                <td>{r.packageName}</td>
+                <td>{r.staff}</td>
+                <td className="fw-semibold rp-pkg-name" title={r.packageName}>{r.packageName}</td>
                 <td>{formatAmount(r.totalAmount)}</td>
                 <td>{formatAmount(r.gstAmount)}</td>
                 <td>{formatAmount(r.paidAmount)}</td>
                 <td>{formatAmount(r.pendingAmount)}</td>
-                <td><span className={`rp-status-badge rp-status-${(r.paymentStatus ?? "").toLowerCase()}`}>{r.paymentStatus}</span></td>
+                <td className="rp-pkg-payment">{r.paymentMethod}</td>
+                <td><span className={`rp-status-badge rp-status-${(r.status ?? "").toLowerCase()}`}>{r.status}</span></td>
               </tr>
             ))}
           </tbody>
@@ -186,6 +281,61 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="packages" />
+      )}
+
+      {showFiltersPanel && (
+        <div className="rp-pkg-filters-overlay" onClick={() => setShowFiltersPanel(false)}>
+          <div className="rp-pkg-filters-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Filters</h3>
+            </div>
+
+            <div className="rp-pkg-filters-body">
+              <MultiSelectCheckbox
+                label="Staff"
+                containerClass="rp-pkg-filter-field"
+                options={staffOptions}
+                selected={staffFilterIds}
+                onChange={setStaffFilterIds}
+                placeholder="All staff"
+              />
+
+              <Select label="Package" containerClass="rp-pkg-filter-field" value={packageFilter} onChange={e => setPackageFilter(e.target.value)}>
+                <option value="All">All packages</option>
+                {packageOptions.map(p => <option key={p} value={p}>{p}</option>)}
+              </Select>
+
+              <Select label="Package Status" containerClass="rp-pkg-filter-field" value={packageStatusFilter} onChange={e => setPackageStatusFilter(e.target.value)}>
+                <option value="All">All</option>
+                {PACKAGE_STATUS_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </Select>
+
+              <Select label="Payment Status" containerClass="rp-pkg-filter-field" value={paymentStatusFilter} onChange={e => setPaymentStatusFilter(e.target.value)}>
+                <option value="All">All</option>
+                {PAYMENT_STATUS_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </Select>
+
+              <Select label="Payment Method" containerClass="rp-pkg-filter-field" value={paymentMethodFilter} onChange={e => setPaymentMethodFilter(e.target.value)}>
+                <option value="All">All payment methods</option>
+                {PAYMENT_METHOD_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+              </Select>
+
+              <div className="rp-pkg-filter-field">
+                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Amount Range</label>
+                <div className="rp-pkg-amount-range">
+                  <input type="number" min={0} placeholder="Min" value={minAmount} onChange={e => setMinAmount(e.target.value)} />
+                  <span>—</span>
+                  <input type="number" min={0} placeholder="Max" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="rp-pkg-filters-actions">
+              <Button variant="ghost" onClick={() => { clearFilters(); }}>Clear</Button>
+              <Button variant="dark" onClick={() => { setShowFiltersPanel(false); fetchData(); }}>Apply</Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

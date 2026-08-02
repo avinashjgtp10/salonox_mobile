@@ -1,6 +1,7 @@
 // src/components/packages/PackageCreateForm.tsx
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { User, Loader2, Search, Plus, X } from "lucide-react";
+import { useSelector, useDispatch } from "react-redux";
 import styles from "./packages.module.scss";
 import type { ClientPackage, PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
 import { useListPackageTemplatesQuery, useCreatePackageTemplateMutation } from "../../services/api/endpoints/packages.endpoints";
@@ -11,6 +12,9 @@ import { useServices } from "../../features/catalog/hooks/useServices";
 import type { Service } from "../../features/catalog/types/catalog.types";
 import { PaymentMethodPicker, type PaymentSplitEntry } from "../shared/PaymentMethodPicker";
 import { useCurrency } from "../../hooks/useCurrency";
+import { selectAllStaff } from "../../store/selectors/slices.selectors";
+import { fetchStaffThunk } from "../../middleware/staff/staff.thunk";
+import type { AppDispatch } from "../../store/store";
 
 interface NewService {
   id: number;
@@ -106,6 +110,7 @@ const PackageCreateForm: React.FC<Props> = ({
   const [pkgPrice,          setPkgPrice]         = useState(0);
   const [pkgPriceStr,       setPkgPriceStr]      = useState("");
   const [pkgPriceManual,    setPkgPriceManual]   = useState(false);
+  const [staffId,           setStaffId]          = useState("");
   const [paymentMode,       setPaymentMode]      = useState<"single" | "split">("single");
   const [singleMethod,      setSingleMethod]     = useState<string | null>("Cash");
   const [splitEntries,      setSplitEntries]     = useState<PaymentSplitEntry[]>([{ method: "Cash", amount: "" }]);
@@ -128,7 +133,21 @@ const PackageCreateForm: React.FC<Props> = ({
   const [createTemplate, { isLoading: isSavingTemplate }] = useCreatePackageTemplateMutation();
   const { services: apiServices, loading: servicesLoading, fetchServices } = useServices();
 
+  const dispatch = useDispatch<AppDispatch>();
+  const staffRaw = useSelector(selectAllStaff) || [];
+  const staffOptions = useMemo(() => {
+    const arr = Array.isArray(staffRaw) ? staffRaw
+      : Array.isArray((staffRaw as any).data)  ? (staffRaw as any).data
+      : Array.isArray((staffRaw as any).items) ? (staffRaw as any).items
+      : [];
+    return arr.map((s: any) => ({
+      id: String(s.id),
+      name: s.fullName || `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.trim(),
+    })).filter((s: { id: string; name: string }) => s.name);
+  }, [staffRaw]);
+
   useEffect(() => { fetchServices({ limit: 200 }); }, []);
+  useEffect(() => { dispatch(fetchStaffThunk()); }, [dispatch]);
 
   // Update one service row — always a single setState so both fields apply atomically
   const updateService = (id: number, patch: Partial<NewService>) =>
@@ -224,6 +243,7 @@ const PackageCreateForm: React.FC<Props> = ({
         gstPercentage: gstPct,
         discount:      discountVal,
         paymentMethod: paymentMode === "split" ? "split" : toBackendPaymentMethod(singleMethod!),
+        staffId:       staffId || undefined,
         services: validServices.map(s => ({
           serviceId:     s.catalogServiceId ?? undefined,
           serviceName:   s.name,
@@ -482,6 +502,18 @@ const PackageCreateForm: React.FC<Props> = ({
               </label>
             </div>
           </div>
+
+          {!isGeneric && !quickCreateMode && (
+            <div className={styles.formField} style={{ marginTop: 12 }}>
+              <label className={styles.formLabel}>Sold by (Staff)</label>
+              <select value={staffId} onChange={e => setStaffId(e.target.value)} className={styles.select}>
+                <option value="">Select staff…</option>
+                {staffOptions.map((s: { id: string; name: string }) => (
+                  <option key={s.id} value={s.id}>{s.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <label
             style={{

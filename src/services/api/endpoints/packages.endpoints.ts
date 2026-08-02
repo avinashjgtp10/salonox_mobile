@@ -198,6 +198,8 @@ export interface CreateClientPackageDTO {
   gstPercentage: number;
   discount: number;
   paymentMethod: string;
+  /** Staff member who sold this package — feeds the Package Sale report's Staff column. */
+  staffId?: string;
   services: Array<{
     /** Real catalog services.id, when picked from the catalog search. */
     serviceId?: string;
