@@ -256,28 +256,25 @@ export function mapApiBooking(
   // and never accounts for the bill-level discount on its own.
   const computedGrandTotal = appt.computed_grand_total ?? (appt as any).computedGrandTotal;
   // Once a real payment exists, reconstruct the TRUE grand total (subtotal −
-  // discount + tax + exCharges + tip, i.e. the full bill BEFORE any wallet/
-  // points/referral coverage) from what was actually recorded, instead of
+  // discount + tax + exCharges + tip − referral discount − membership
+  // wallet/eWallet/reward-points/referral-credit, i.e. the fully-reduced
+  // merged Grand Total/Amount-to-Pay figure — see pricing.engine.ts's
+  // computeBillTotals) from what was actually recorded, instead of
   // re-deriving it from scratch. `computedTotal + taxFromBreakdown` (the old
   // fallback below) silently dropped the bill-level Discount, Extra Charges,
   // and Tip entirely — and every OTHER screen that tried its own from-scratch
   // recompute (tooltip, receipt, Sales Summary Report) landed on a different
   // wrong number too, since each used a different formula/base for the
-  // discount. The real relationship (see payments.service.ts's `effectiveBill`):
-  // paid_amount ≈ grandTotal − ewallet_used − membership_wallet_used −
-  // reward_points_value − referral_credit_used. Adding those four back to
-  // what's actually been collected (paid_amount) plus whatever's still due
-  // reconstructs the exact original grandTotal with zero guessing — every
-  // field used here is already present on this same API response.
+  // discount. Grand Total is the fully-reduced concept now (Grand Total and
+  // Amount to Pay were merged), so what's actually been collected
+  // (paid_amount) plus whatever's still due already IS the grand total —
+  // wallet/eWallet/points/referral-credit have already been subtracted out
+  // server-side by the time paid_amount/due_amount were recorded, so adding
+  // them back here would double-count and overstate the reconstructed total.
   const rawPaidAmount = Number(appt.paid_amount ?? 0) || 0;
-  const walletUsageSum =
-    (Number(appt.ewallet_used ?? appt.ewalletUsed ?? 0) || 0) +
-    (Number(appt.membership_wallet_used ?? appt.membershipWalletUsed ?? 0) || 0) +
-    (Number(appt.reward_points_value ?? appt.rewardPointsValue ?? 0) || 0) +
-    (Number(appt.referral_credit_used ?? appt.referralCreditUsed ?? 0) || 0);
   const rawDueAmount = Number(appt.due_amount ?? appt.dueAmount ?? 0) || 0;
   const reconstructedFromPayment = rawPaidAmount > 0
-    ? rawPaidAmount + rawDueAmount + walletUsageSum
+    ? rawPaidAmount + rawDueAmount
     : 0;
   const grandTotalVal = isPackagePaid ? 0
     : hasPerServicePackage

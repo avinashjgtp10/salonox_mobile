@@ -19,6 +19,11 @@ export interface TotalsInput {
   exCharges: number;
   tip: number;
   couponDiscount: number;
+  // First-bill referral welcome discount — unlike couponDiscount above, this
+  // is a POST-tax, POST-Svc-Discount deduction (applied after GST and after
+  // the manual Svc Discount, before membership wallet/eWallet/reward points).
+  // See preRedemptionTotal on TotalsResult for exactly where this lands.
+  referralDiscount?: number;
   eWalletUsed: number;
   membershipWalletUsed?: number;
   // Split of membershipWalletUsed by bucket (services vs products — membership
@@ -66,13 +71,25 @@ export interface TotalsResult {
   // item price, so they don't add anything here (see taxBreakdown for both).
   gstAmount: number;
   taxBreakdown: TaxBreakdownEntry[];
-  // Rounded to the nearest whole rupee — the actual amount the client is
-  // billed. roundOff is the (small, +/-) adjustment that got folded in to
-  // reach that whole number, shown as its own line wherever the bill breaks
-  // down its total (TotalsPanel, quick-sale summary, printed receipt).
+  // The fully-reduced bill total — Svc Discount, Extra Charges/Tip, Referral
+  // Discount, Membership Wallet, eWallet, and Reward Points have ALL already
+  // been applied by the time this is produced. Rounded to the nearest whole
+  // rupee — the single rounding point in the whole waterfall (see
+  // preRedemptionTotal below). This IS what used to be a separate
+  // `effectiveTotal`/"Amount to Pay" — there is no longer a distinct
+  // "gross bill before redemptions" concept on this type.
   grandTotal: number;
   roundOff: number;
-  effectiveTotal: number; // grandTotal - eWalletUsed
+  // Raw (unrounded) bill total after Svc Discount + Extra Charges/Tip +
+  // Referral Discount, but BEFORE membership wallet/eWallet/reward points are
+  // subtracted. Callers use this (not grandTotal) as the ceiling to
+  // sequentially cap those redemptions against what's actually still owed.
+  // Never rounded, never shown as its own Sale Summary row.
+  preRedemptionTotal: number;
+  // Display-only: subtotal with membership-wallet-covered amounts already
+  // netted out, so a service fully paid via membership wallet reads ₹0 here
+  // too, matching its own row's ₹0 total.
+  displaySubtotal: number;
 }
 
 function rowsTotal(rows: LineItem[]): number {
@@ -132,7 +149,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const {
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, taxes,
-    exCharges, tip, couponDiscount, eWalletUsed, membershipWalletUsed = 0,
+    exCharges, tip, couponDiscount, referralDiscount = 0, eWalletUsed, membershipWalletUsed = 0,
     membershipServiceWalletUsed = 0, membershipProductWalletUsed = 0,
     rewardPointsRedeemedValue = 0, referralCreditUsed = 0,
   } = input;
@@ -147,19 +164,17 @@ export function computeTotals(input: TotalsInput): TotalsResult {
     + rowsCatalogTotal(productRows) + rowsCatalogTotal(membershipRows);
   const itemDiscountTotal = Math.max(0, catalogTotal - subtotal);
 
-  const serviceTotal = serviceBase + packageBase + membershipBase;
-  const itemDisc =
-    discountType === "Percentage (%)"
-      ? (serviceTotal * discountValue) / 100
-      : discountValue;
-
-  const manualDiscount = Math.max(0, itemDisc);
-  const totalDisc = manualDiscount + Math.max(0, couponDiscount);
+  // "Svc Discount" (discountType/discountValue) is a POST-tax deduction —
+  // applied to the bill total AFTER GST, not the pre-tax subtotal — matching
+  // the backend's pricing.engine.ts computeBillTotals. Coupon discount is
+  // unaffected and still reduces the taxable base as before; only this field
+  // moved (see manualDiscount/billTotal below, after the tax bucket loop).
+  const totalDisc = Math.max(0, couponDiscount);
   const taxable   = Math.max(0, subtotal - totalDisc);
 
-  // Allocate the total discount proportionally across item types (by share of
+  // Allocate the coupon discount proportionally across item types (by share of
   // subtotal) so each bucket's post-discount amount is taxed, not its raw
-  // pre-discount price. Bucket taxable amounts sum back to `taxable` exactly.
+  // pre-discount price. Svc Discount no longer participates here (post-tax now).
   const discRatio = subtotal > 0 ? Math.min(1, totalDisc / subtotal) : 0;
   const buckets: { type: BucketType; base: number }[] = [
     { type: "service",    base: serviceBase },
@@ -169,6 +184,10 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   ];
 
   let gstAmount = 0;
+  // Exclusive-tax add-on for service+packages+membership only (never product)
+  // — feeds the percentage-type Svc Discount's base below, which (matching
+  // the pre-existing "never product" rule) needs to be a POST-tax figure now.
+  let nonProductExclusiveGst = 0;
   let allBreakdown: TaxBreakdownEntry[] = [];
   buckets.forEach(({ type, base }) => {
     if (base <= 0) return;
@@ -184,17 +203,54 @@ export function computeTotals(input: TotalsInput): TotalsResult {
     bucketTaxable = Math.max(0, bucketTaxable);
     const { addOn, breakdown } = computeBucketTax(bucketTaxable, type, taxes);
     gstAmount += addOn;
+    if (type !== "product") nonProductExclusiveGst += addOn;
     allBreakdown = allBreakdown.concat(breakdown);
   });
 
   const taxBreakdown = mergeBreakdown(allBreakdown);
-  // Tip is collected from the client alongside the bill, but passed straight
-  // through to staff — it must be part of what's actually charged here, even
-  // though it's excluded from salon revenue further downstream (sales.total_amount).
-  const rawGrandTotal = taxable + gstAmount + exCharges + tip;
-  const grandTotal = Math.round(rawGrandTotal);
-  const roundOff = grandTotal - rawGrandTotal;
-  const effectiveTotal = Math.max(0, grandTotal - eWalletUsed - membershipWalletUsed - rewardPointsRedeemedValue - referralCreditUsed);
 
-  return { catalogTotal, itemDiscountTotal, subtotal, manualDiscount, totalDisc, taxable, gstAmount, taxBreakdown, grandTotal, roundOff, effectiveTotal };
+  // "Bill Total" — subtotal (after coupon discount) plus GST, BEFORE Svc
+  // Discount. Svc Discount is a bill-level deduction applied here, after tax.
+  const billTotal = taxable + gstAmount;
+  // Nets out membership-wallet coverage already excluded from the tax base
+  // above, so a row already fully covered by the wallet doesn't inflate the
+  // % base for a discount that has nothing left to reduce there.
+  const serviceTotal = (serviceBase - membershipServiceWalletUsed) + packageBase + membershipBase;
+  const svcDiscountBase = serviceTotal + nonProductExclusiveGst;
+  const itemDisc =
+    discountType === "Percentage (%)"
+      ? (svcDiscountBase * discountValue) / 100
+      : discountValue;
+  const manualDiscount = Math.max(0, itemDisc);
+
+  const afterSvcDiscount = Math.max(0, billTotal - manualDiscount);
+  // Extra Charges and Tip are both excluded from the Svc Discount base above
+  // — added here, after the discount, not before. Tip is collected from the
+  // client alongside the bill, passed straight through to staff — it must be
+  // part of what's actually charged here, even though it's excluded from
+  // salon revenue further downstream (sales.total_amount).
+  const withCharges = afterSvcDiscount + exCharges + tip;
+
+  // Referral Discount is a POST-tax, POST-Svc-Discount deduction — applied
+  // here, not folded into the pre-tax coupon discount above.
+  const referralDisc = Math.max(0, referralDiscount);
+  // Raw (unrounded) ceiling for the sequential Membership Wallet → eWallet →
+  // Reward Points → Referral Credit capping done by callers. Never rounded,
+  // never shown as its own Sale Summary row.
+  const preRedemptionTotal = Math.max(0, withCharges - referralDisc);
+
+  // Every remaining deduction happens here, still in raw/unrounded form —
+  // rounding happens exactly once, at the very end, not partway through.
+  const rawFinalTotal = Math.max(0, preRedemptionTotal
+    - membershipWalletUsed - eWalletUsed - rewardPointsRedeemedValue - referralCreditUsed);
+  const grandTotal = Math.round(rawFinalTotal);
+  const roundOff = grandTotal - rawFinalTotal;
+
+  // Display-only — see TotalsResult.displaySubtotal doc comment.
+  const displaySubtotal = Math.max(0, subtotal - membershipWalletUsed);
+
+  return {
+    catalogTotal, itemDiscountTotal, subtotal, manualDiscount, totalDisc: manualDiscount + totalDisc,
+    taxable, gstAmount, taxBreakdown, grandTotal, roundOff, preRedemptionTotal, displaySubtotal,
+  };
 }

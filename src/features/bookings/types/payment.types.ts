@@ -14,7 +14,14 @@ export interface PaymentPayload {
   appointment_id: string | number;
   client_id?: string;
   gross_amount: number;
+  // Combined manual Svc Discount + coupon discount — kept for backward compat
+  // and revenue netting; prefer manual_discount_amount below to isolate the
+  // manual-only portion so the backend can keep coupon on its own pre-tax
+  // channel (see payments.service.ts's frontendCouponDiscount derivation).
   discount_amount?: number;
+  // Manual Svc Discount ONLY, excluding coupon — when omitted, the backend
+  // treats the whole of discount_amount as manual (older-client fallback).
+  manual_discount_amount?: number;
   ewallet_used?: number;
   net_amount: number;
   paid_amount: number;

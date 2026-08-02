@@ -175,16 +175,16 @@ export const PaymentPanel: React.FC<Props> = ({
           Package/Membership) — this panel just displays the automatic
           Membership Wallet confirmation and handles payment method/coupon. */}
 
-      {/* Membership wallet — automatic, informational only */}
-      {membershipWalletUsed > 0 && (
-        <div className="pay-ewallet pay-ewallet--active" style={{ cursor: "default" }}>
-          <span>Membership Wallet Applied</span>
-          <span className="pay-ewallet__deducted">-{currencySymbol}{membershipWalletUsed.toFixed(2)}</span>
-          {membershipWalletRemaining != null && (
-            <span style={{ marginLeft: "auto", fontSize: 12, opacity: 0.75 }}>
-              Remaining Balance: {currencySymbol}{membershipWalletRemaining.toFixed(2)}
-            </span>
-          )}
+      {/* Membership Wallet's "Applied" indicator already shows on the Service
+          Row badge, and its ₹ deduction already shows in the Sale Summary —
+          repeating both here was the duplicate "Membership Applied" users saw
+          twice. Remaining Balance isn't shown anywhere else, so that's the
+          only thing kept here. */}
+      {membershipWalletUsed > 0 && membershipWalletRemaining != null && (
+        <div className="pay-ewallet" style={{ cursor: "default" }}>
+          <span style={{ fontSize: 12, opacity: 0.75 }}>
+            Membership Wallet Remaining Balance: {currencySymbol}{membershipWalletRemaining.toFixed(2)}
+          </span>
         </div>
       )}
 

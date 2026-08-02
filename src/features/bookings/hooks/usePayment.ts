@@ -14,8 +14,11 @@ interface CompletePaymentParams {
   clientId?: string | null;
   salonId?: string;
   // Totals
-  grandTotal: number;       // post-discount net total (used for UI + net_amount)
-  effectiveTotal: number;   // grandTotal - eWalletUsed
+  // Fully-reduced bill total (Svc Discount, Extra Charges/Tip, Referral
+  // Discount, Membership Wallet, eWallet, Reward Points ALL already applied)
+  // — used for UI display, net_amount, and remainingDue. There is no longer a
+  // separate "gross bill before redemptions" concept passed here.
+  grandTotal: number;
   subtotal?: number;        // pre-discount subtotal → sent as gross_amount to backend
   // Item-level manual discount ONLY (totals.manualDiscount) — must exclude
   // coupon, since couponDiscount below is added separately; combining
@@ -78,7 +81,7 @@ export function usePayment() {
   const completePayment = useCallback(async (params: CompletePaymentParams): Promise<boolean> => {
     const {
       appointmentId, clientId, salonId,
-      grandTotal, effectiveTotal, subtotal, manualDiscountAmt,
+      grandTotal, subtotal, manualDiscountAmt,
       alreadyPaidAmount, eWalletAmt, couponDiscount, couponApplied,
       paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, selectedDueIds, useEWallet, applyMembershipWallet,
@@ -96,7 +99,7 @@ export function usePayment() {
     setPayError(null);
 
     try {
-      const remainingDue  = Math.max(0, effectiveTotal - alreadyPaidAmount);
+      const remainingDue  = Math.max(0, grandTotal - alreadyPaidAmount);
       const amountToCharge = includeClearDue ? remainingDue + priorDueAmt : remainingDue;
 
       // ── Build methods map ───────────────────────────────────────────────
@@ -125,8 +128,9 @@ export function usePayment() {
         }
       }
 
-      // remainingDue is already net of eWallet (effectiveTotal = grandTotal -
-      // eWalletUsed - membershipWalletUsed), but `methods` re-adds the eWallet
+      // remainingDue is already net of eWallet (grandTotal here is the
+      // fully-reduced total, already minus eWalletUsed/membershipWalletUsed),
+      // but `methods` re-adds the eWallet
       // leg on top of the Cash/Card/UPI legs — so capping totalPaid against
       // remainingDue alone would silently drop the eWallet contribution from
       // paid_amount (e.g. a bill fully covered by eWallet would post paid_amount
@@ -156,8 +160,15 @@ export function usePayment() {
         client_id:        (clientId && isRealId(clientId)) ? clientId : undefined,
         gross_amount:     payloadGross,
         discount_amount:  alreadyPaidAmount > 0 ? 0 : payloadDiscount,
+        // Isolates manual Svc Discount from the coupon portion of
+        // discount_amount above — lets the backend keep coupon on its own
+        // pre-tax channel instead of folding it into the post-tax Svc
+        // Discount channel (see payments.service.ts's frontendCouponDiscount
+        // derivation). Gated the same way as discount_amount above: no
+        // discount is re-applied on a top-up payment for an already-partial booking.
+        manual_discount_amount: alreadyPaidAmount > 0 ? 0 : (manualDiscountAmt || 0),
         ewallet_used:     useEWallet ? eWalletAmt : 0,
-        net_amount:       effectiveTotal,
+        net_amount:       grandTotal,
         paid_amount:      currentCharge,
         due_amount:       newDue,
         coupon_code:      alreadyPaidAmount > 0 ? undefined : (couponApplied || undefined),
@@ -213,7 +224,7 @@ export function usePayment() {
         status: finalStatus,
         payingNow: alreadyPaidAmount + finalPaid,
         dueAmount: finalDue,
-        grandTotal: effectiveTotal,
+        grandTotal,
         paymentMode: methodLabel,
         gstAmount,
         taxBreakdown,

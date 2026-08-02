@@ -544,6 +544,40 @@ export const AppointmentModal: React.FC<Props> = ({
     return map;
   }, [rowMembershipDiscountPreview, productRows]);
 
+  // Per-row membership WALLET coverage — same server-confirmed fill-in-order
+  // split (services first, then products) already baked into rowTaxPreview
+  // above. Sourced from the backend (not re-derived locally) because the real
+  // fill order shares one balance across BOTH service and product rows — a
+  // service added anywhere in the bill can silently take over wallet coverage
+  // that used to belong to a product row. A local re-simulation of that same
+  // fill order previously drove the "Membership Applied" badge/Total display,
+  // and could disagree with the real, authoritative split the moment a
+  // service and product both competed for the same balance — the product's
+  // badge kept showing its OLD coverage while the tax preview (server-
+  // confirmed) correctly reflected the NEW, smaller share, i.e. a ₹0 Total
+  // sitting next to nonzero GST. Using the server's own numbers for the
+  // display too makes that mismatch structurally impossible: both now update
+  // from the exact same response, in the exact same tick.
+  const [rowMembershipWalletPreview, setRowMembershipWalletPreview] = useState<{ service: number[]; product: number[] } | null>(null);
+  const serviceMembershipWalletByRow = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!rowMembershipWalletPreview) return map;
+    serviceRows.forEach((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      map.set(tempId, rowMembershipWalletPreview.service[i] ?? 0);
+    });
+    return map;
+  }, [rowMembershipWalletPreview, serviceRows]);
+  const productMembershipWalletByRow = useMemo(() => {
+    const map = new Map<string, number>();
+    if (!rowMembershipWalletPreview) return map;
+    productRows.forEach((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      map.set(tempId, rowMembershipWalletPreview.product[i] ?? 0);
+    });
+    return map;
+  }, [rowMembershipWalletPreview, productRows]);
+
   // Most the membership wallet could ever usefully cover — capped by both the
   // wallet's own balance and by how much eligible service (+ product, when
   // enabled) value there is to apply it against, NET of any Discount
@@ -589,41 +623,30 @@ export const AppointmentModal: React.FC<Props> = ({
     setMembershipWalletAmt(Math.max(0, Math.min(v, membershipMaxUsable)));
   }, [membershipMaxUsable]);
 
+  // Built directly from the server-confirmed per-row split above — see
+  // rowMembershipWalletPreview's doc comment for why this used to be a local
+  // re-simulation of the fill order (and the bug that caused).
   const membershipWalletMap = useMemo(() => {
     const map = new Map<string, { walletUsed: number; payable: number }>();
     if (!applyMembership) return map;
-    let remaining = Math.min(membershipTotalBalance, membershipWalletAmt);
-    if (remaining <= 0) return map;
-    if (membershipCoversServices) {
-      serviceRows.forEach((row, i) => {
-        const tempId = (row as any).tempId || String(i);
-        if (!row.service.trim() || (row as any).isPackageService) return;
-        // Wallet only ever covers what's left AFTER any Discount Balance/
-        // Loyalty discount already reduced this row — otherwise a row that's
-        // already 40% off looks like it still has its full pre-discount price
-        // free for the wallet to claim too, over-drawing the balance.
-        const alreadyDiscounted = serviceMembershipDiscountByRow.get(tempId) ?? 0;
-        const rowTotal = Math.max(0, (Number(row.total) || 0) - alreadyDiscounted);
-        if (rowTotal <= 0 || remaining <= 0) return;
-        const used = Math.min(remaining, rowTotal);
-        remaining -= used;
-        map.set(tempId, { walletUsed: used, payable: rowTotal - used });
-      });
-    }
-    if (membershipCoversProducts) {
-      productRows.forEach((row, i) => {
-        const tempId = (row as any).tempId || String(i);
-        if (!row.productId || remaining <= 0) return;
-        const alreadyDiscounted = productMembershipDiscountByRow.get(tempId) ?? 0;
-        const rowTotal = Math.max(0, (Number(row.total) || 0) - alreadyDiscounted);
-        if (rowTotal <= 0) return;
-        const used = Math.min(remaining, rowTotal);
-        remaining -= used;
-        map.set(`product:${tempId}`, { walletUsed: used, payable: rowTotal - used });
-      });
-    }
+    serviceRows.forEach((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      const used = serviceMembershipWalletByRow.get(tempId) ?? 0;
+      if (used <= 0) return;
+      const alreadyDiscounted = serviceMembershipDiscountByRow.get(tempId) ?? 0;
+      const rowTotal = Math.max(0, (Number(row.total) || 0) - alreadyDiscounted);
+      map.set(tempId, { walletUsed: used, payable: Math.max(0, rowTotal - used) });
+    });
+    productRows.forEach((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      const used = productMembershipWalletByRow.get(tempId) ?? 0;
+      if (used <= 0) return;
+      const alreadyDiscounted = productMembershipDiscountByRow.get(tempId) ?? 0;
+      const rowTotal = Math.max(0, (Number(row.total) || 0) - alreadyDiscounted);
+      map.set(`product:${tempId}`, { walletUsed: used, payable: Math.max(0, rowTotal - used) });
+    });
     return map;
-  }, [serviceRows, productRows, membershipTotalBalance, applyMembership, membershipWalletAmt, membershipCoversServices, membershipCoversProducts, serviceMembershipDiscountByRow, productMembershipDiscountByRow]);
+  }, [serviceRows, productRows, applyMembership, serviceMembershipWalletByRow, productMembershipWalletByRow, serviceMembershipDiscountByRow, productMembershipDiscountByRow]);
   const membershipWalletUsedTotal = useMemo(
     () => Array.from(membershipWalletMap.values()).reduce((s, v) => s + v.walletUsed, 0),
     [membershipWalletMap],
@@ -766,7 +789,8 @@ export const AppointmentModal: React.FC<Props> = ({
   // never fire against a stale-vs-current total.
   const ZERO_TOTALS: TotalsResult = {
     catalogTotal: 0, itemDiscountTotal: 0, subtotal: 0, manualDiscount: 0, totalDisc: 0,
-    taxable: 0, gstAmount: 0, taxBreakdown: [], grandTotal: 0, roundOff: 0, effectiveTotal: 0,
+    taxable: 0, gstAmount: 0, taxBreakdown: [], grandTotal: 0, roundOff: 0, preRedemptionTotal: 0,
+    displaySubtotal: 0,
   };
   const [totals, setTotals] = useState<TotalsResult>(ZERO_TOTALS);
   const [totalsConfirmed, setTotalsConfirmed] = useState(false);
@@ -833,7 +857,22 @@ export const AppointmentModal: React.FC<Props> = ({
     setTotalsConfirmed(false);
     setTotalsError(false);
     const hasAnyRowsNow = serviceRows.length + packageRows.length + productRows.length + membershipRows.length > 0;
-    if (!hasAnyRowsNow) return;
+    if (!hasAnyRowsNow) {
+      // No rows left on the bill — the pricing request below never even fires
+      // for an empty bill, so falling through here used to leave `totals`
+      // (and eWallet/membership/referral preview amounts) stuck at whatever
+      // they were before the last row was deleted, forever — the exact stale
+      // "eWallet Used" / stale Subtotal-Grand Total bug. The correct total for
+      // zero rows is trivially zero, no network round-trip needed to confirm it.
+      setTotals(ZERO_TOTALS);
+      setReferralDiscountPreview(0);
+      setAppliedMembershipDiscount(0);
+      setRowTaxPreview(null);
+      setRowMembershipDiscountPreview(null);
+      setRowMembershipWalletPreview(null);
+      setTotalsConfirmed(true);
+      return;
+    }
 
     const ctrl = new AbortController();
     const timer = setTimeout(async () => {
@@ -869,12 +908,14 @@ export const AppointmentModal: React.FC<Props> = ({
             catalogTotal: data.catalogTotal, itemDiscountTotal: data.itemDiscountTotal,
             subtotal: data.subtotal, manualDiscount: data.manualDiscount, totalDisc: data.totalDisc,
             taxable: data.taxable, gstAmount: data.gstAmount, taxBreakdown: data.taxBreakdown ?? [],
-            grandTotal: data.grandTotal, roundOff: data.roundOff, effectiveTotal: data.effectiveTotal,
+            grandTotal: data.grandTotal, roundOff: data.roundOff, preRedemptionTotal: data.preRedemptionTotal,
+            displaySubtotal: data.displaySubtotal ?? data.subtotal,
           });
           setReferralDiscountPreview(data.referralDiscountPreview ?? 0);
           setAppliedMembershipDiscount(data.appliedMembershipDiscount ?? 0);
           setRowTaxPreview(data.rowTax ?? null);
           setRowMembershipDiscountPreview(data.rowMembershipDiscount ?? null);
+          setRowMembershipWalletPreview(data.rowMembershipWallet ?? null);
           setTotalsConfirmed(true);
         }
       } catch (err: any) {
@@ -918,7 +959,7 @@ export const AppointmentModal: React.FC<Props> = ({
   const hasAnyRowsForTotals = serviceRows.length + packageRows.length + productRows.length + membershipRows.length > 0;
   const totalsNotReady = hasAnyRowsForTotals && (!totalsConfirmed || totalsError);
 
-  // The debounced backend totals.effectiveTotal can lag a beat behind an edit
+  // The debounced backend totals.preRedemptionTotal can lag a beat behind an edit
   // to any locally-editable "how much of this benefit to use" amount
   // (membership wallet, eWallet, reward points, referral credit) — reconciling
   // it locally against the currently-displayed deduction lines means "Amount
@@ -926,13 +967,20 @@ export const AppointmentModal: React.FC<Props> = ({
   // "Membership Wallet Used"/"eWallet Used"/etc. rows directly above it, and —
   // more importantly — staff are never silently skipped past collecting a
   // real remaining balance because the preview hadn't caught up yet.
-  // totals.grandTotal only depends on tax/discount, not these wallet-style
-  // inputs, so it's a much narrower staleness window to inherit from the backend.
-  const reconciledEffectiveTotal = Math.max(0, totals.grandTotal
+  // totals.preRedemptionTotal only depends on tax/discount/referral-discount,
+  // not these wallet-style redemptions, so it's a much narrower staleness
+  // window to inherit from the backend. (totals.grandTotal already has all
+  // four subtracted server-side — using it here would double-subtract.)
+  // Rounded to the nearest whole rupee — matches the single rounding point at
+  // the very end of the backend's waterfall (pricing.engine.ts computeBillTotals),
+  // now that Grand Total and Amount to Pay are the same merged figure.
+  const rawReconciledTotal = Math.max(0, totals.preRedemptionTotal
     - membershipWalletUsedTotal
     - (useEWallet ? eWalletAmt : 0)
     - rewardPointsRedeemedValue
     - (useReferralCredit ? referralCreditAmt : 0));
+  const reconciledEffectiveTotal = Math.round(rawReconciledTotal);
+  const reconciledRoundOff = reconciledEffectiveTotal - rawReconciledTotal;
 
   const alreadyPaidAmount   = existingBooking?.payingNow ?? 0;
   // For partial bookings, trust the API's dueAmount directly — payingNow can be unreliable
@@ -1078,7 +1126,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // (pricing.service.ts): Membership → eWallet → Reward Points → Referral
   // Credit, each capped against what's still left AFTER the ones before it,
   // not the original bill.
-  const remainingAfterMembership = Math.max(0, totals.grandTotal - membershipWalletUsedTotal);
+  const remainingAfterMembership = Math.max(0, totals.preRedemptionTotal - membershipWalletUsedTotal);
 
   // ── eWallet cap: most the client is allowed to apply to what's left after membership ──
   const eWalletMaxAmt = useMemo(() => {
@@ -1317,7 +1365,11 @@ export const AppointmentModal: React.FC<Props> = ({
         date:          calDate,
         startTime:     serviceRows[0]?.time || defaultTime || "10:00",
         status:        (existingBooking?.status || "booked") as any,
-        grandTotal:    totals.grandTotal,
+        // Fully-reduced figure (Svc Discount, Extra Charges/Tip, Referral
+        // Discount, Membership Wallet, eWallet, Reward Points ALL already
+        // applied) — Grand Total is the merged, post-redemption concept
+        // everywhere now, including this persisted booking field.
+        grandTotal:    reconciledEffectiveTotal,
         discount:      discountValue,
         discountType,
         exCharges,
@@ -1360,7 +1412,7 @@ export const AppointmentModal: React.FC<Props> = ({
       onClose();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [save, dispatch, totals.grandTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
+  }, [save, dispatch, reconciledEffectiveTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
       discountType, discountValue, exCharges, tip, activeTaxes, totals,
       onRefresh, onClose]);
@@ -1431,8 +1483,7 @@ export const AppointmentModal: React.FC<Props> = ({
       appointmentId: apptId,
       clientId:      selectedClient?.id,
       salonId,
-      grandTotal:        totals.grandTotal,
-      effectiveTotal:    reconciledEffectiveTotal,
+      grandTotal:        reconciledEffectiveTotal,
       subtotal:          totals.subtotal,
       manualDiscountAmt: totals.manualDiscount,
       alreadyPaidAmount,
@@ -1586,8 +1637,7 @@ export const AppointmentModal: React.FC<Props> = ({
       appointmentId: id,
       clientId:      selectedClient?.id,
       salonId,
-      grandTotal:        totals.grandTotal,
-      effectiveTotal:    reconciledEffectiveTotal,
+      grandTotal:        reconciledEffectiveTotal,
       subtotal:          totals.subtotal,
       manualDiscountAmt: totals.manualDiscount,
       alreadyPaidAmount: 0,
@@ -2235,10 +2285,7 @@ export const AppointmentModal: React.FC<Props> = ({
                       <div className="qs-summary-row qs-summary-row--discount"><span>Item Discount</span><span>-{currencySymbol}{totals.itemDiscountTotal.toFixed(2)}</span></div>
                     </>
                   )}
-                  <div className="qs-summary-row"><span>Subtotal</span><span>{currencySymbol}{totals.subtotal.toFixed(2)}</span></div>
-                  {totals.manualDiscount > 0 && (
-                    <div className="qs-summary-row qs-summary-row--discount"><span>Svc Discount</span><span>-{currencySymbol}{totals.manualDiscount.toFixed(2)}</span></div>
-                  )}
+                  <div className="qs-summary-row"><span>Subtotal</span><span>{currencySymbol}{totals.displaySubtotal.toFixed(2)}</span></div>
                   {coupon.discount > 0 && (
                     <div className="qs-summary-row qs-summary-row--discount"><span>Coupon{coupon.applied ? ` (${coupon.applied})` : ""}</span><span>-{currencySymbol}{coupon.discount.toFixed(2)}</span></div>
                   )}
@@ -2260,12 +2307,18 @@ export const AppointmentModal: React.FC<Props> = ({
                     <div className="qs-summary-row" key={`${t.name}-incl`}><span>{t.name} ({t.rate}%, incl.)</span><span>{currencySymbol}{t.amount.toFixed(2)}</span></div>
                   ))}
                   <div className="qs-summary-row"><span>Extra Charges</span><span>+{currencySymbol}{exCharges.toFixed(2)}</span></div>
-                  {Math.abs(totals.roundOff) >= 0.005 && (
-                    <div className="qs-summary-row"><span>Round Off</span><span>{totals.roundOff >= 0 ? "+" : "-"}{currencySymbol}{Math.abs(totals.roundOff).toFixed(2)}</span></div>
-                  )}
-                  <div className="qs-summary-row qs-summary-row--total"><span>Grand Total</span><span>{currencySymbol}{totals.grandTotal.toFixed(2)}</span></div>
                   {tip > 0 && (
                     <div className="qs-summary-row"><span>Tip (Staff)</span><span>+{currencySymbol}{tip.toFixed(2)}</span></div>
+                  )}
+                  {/* Svc Discount is a POST-tax deduction — applied to the bill total
+                      after GST/Extra Charges/Tip (see pricing.engine.ts computeBillTotals). */}
+                  {totals.manualDiscount > 0 && (
+                    <div className="qs-summary-row qs-summary-row--discount"><span>Svc Discount</span><span>-{currencySymbol}{totals.manualDiscount.toFixed(2)}</span></div>
+                  )}
+                  {/* Referral Discount is a POST-tax, POST-Svc-Discount deduction now —
+                      applied here, not folded into the pre-tax coupon discount above. */}
+                  {referralDiscountPreview > 0 && (
+                    <div className="qs-summary-row qs-summary-row--discount"><span>Referral Discount</span><span>-{currencySymbol}{referralDiscountPreview.toFixed(2)}</span></div>
                   )}
                   {membershipWalletUsedTotal > 0 && (
                     <div className="qs-summary-row qs-summary-row--discount"><span>Membership Wallet Used</span><span>-{currencySymbol}{membershipWalletUsedTotal.toFixed(2)}</span></div>
@@ -2279,6 +2332,10 @@ export const AppointmentModal: React.FC<Props> = ({
                   {(useReferralCredit && referralCreditAmt > 0) && (
                     <div className="qs-summary-row qs-summary-row--discount"><span>Referral Credit Used</span><span>-{currencySymbol}{referralCreditAmt.toFixed(2)}</span></div>
                   )}
+                  {Math.abs(reconciledRoundOff) >= 0.005 && (
+                    <div className="qs-summary-row"><span>Round Off</span><span>{reconciledRoundOff >= 0 ? "+" : "-"}{currencySymbol}{Math.abs(reconciledRoundOff).toFixed(2)}</span></div>
+                  )}
+                  <div className="qs-summary-row qs-summary-row--total"><span>Grand Total</span><span>{currencySymbol}{reconciledEffectiveTotal.toFixed(2)}</span></div>
                   <div className="qs-summary-row qs-summary-row--total"><span>Amount to Pay</span><span>{currencySymbol}{reconciledEffectiveTotal.toFixed(2)}</span></div>
                 </div>
 
@@ -2391,6 +2448,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     <div className="pn-layout__right">
                       <TotalsPanel
                         subtotal={totals.subtotal}
+                        displaySubtotal={totals.displaySubtotal}
                         catalogTotal={totals.catalogTotal}
                         itemDiscountTotal={totals.itemDiscountTotal}
                         serviceTotal={serviceRows.filter(r => !r.isPackageService).reduce((s, r) => s + r.total, 0)}
@@ -2416,8 +2474,8 @@ export const AppointmentModal: React.FC<Props> = ({
                         referralCreditUsed={useReferralCredit ? referralCreditAmt : 0}
                         alreadyPaid={alreadyPaidAmount}
                         dueAmount={remainingDue}
-                        grandTotal={totals.grandTotal}
-                        roundOff={totals.roundOff}
+                        grandTotal={reconciledEffectiveTotal}
+                        roundOff={reconciledRoundOff}
                       />
                     </div>
                   </div>
@@ -2447,6 +2505,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     <div style={{ marginBottom: 12 }}>
                       <TotalsPanel
                         subtotal={totals.subtotal}
+                        displaySubtotal={totals.displaySubtotal}
                         catalogTotal={totals.catalogTotal}
                         itemDiscountTotal={totals.itemDiscountTotal}
                         serviceTotal={serviceRows.filter(r => !r.isPackageService).reduce((s, r) => s + r.total, 0)}
@@ -2473,8 +2532,8 @@ export const AppointmentModal: React.FC<Props> = ({
                         alreadyPaid={livePaidAmount}
                         paidLabel="Paid (incl. this payment)"
                         dueAmount={liveDueAmount}
-                        grandTotal={totals.grandTotal}
-                        roundOff={totals.roundOff}
+                        grandTotal={reconciledEffectiveTotal}
+                        roundOff={reconciledRoundOff}
                       />
                     </div>
                   )}
