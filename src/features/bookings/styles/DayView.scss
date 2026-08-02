@@ -36,6 +36,33 @@
   width: 100%;
   overflow: auto;
   position: relative;
+
+  // The app hides scrollbars globally (src/index.css) so scrolling stays
+  // functional without a visible track everywhere — but when there are too
+  // many staff columns to fit (see COL_WIDTH's 160px floor in DayView.tsx),
+  // that horizontal overflow needs a visible affordance or the extra columns
+  // look completely inaccessible. `overflow: auto` above already means no
+  // scrollbar shows at all unless content actually overflows, so this only
+  // ever appears once staff columns don't fit. Scoped to just the horizontal
+  // bar (WebKit's :horizontal/:vertical) so vertical time-slot scrolling
+  // stays hidden like everywhere else in the app.
+  &::-webkit-scrollbar {
+    display: block;
+    height: 8px;
+  }
+  &::-webkit-scrollbar:vertical {
+    display: none;
+  }
+  &::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+  }
+  &::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
 }
 
 .dv-scroll-content {
