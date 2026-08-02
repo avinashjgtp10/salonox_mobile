@@ -267,14 +267,24 @@
       &.cell--category {
         font-weight: 500;
         color: #111827;
+        max-width: 140px;
         white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
 
+      // Truncated to a single line + ellipsis instead of wrapping — a long
+      // name like "Aroma Essential Oil - Orange 10ml" used to wrap across
+      // 3-4 lines, making that row's height wildly inconsistent with every
+      // other row. Full name is still available via the title tooltip.
       &.cell--name {
         font-weight: 500;
         color: #111827;
-        max-width: 180px;
-        word-break: break-word;
+        max-width: 200px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        cursor: default;
       }
 
       &.cell--num {

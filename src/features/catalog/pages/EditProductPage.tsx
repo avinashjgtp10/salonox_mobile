@@ -64,6 +64,16 @@ const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string }[] = [
   { value: "both", label: "Both" },
 ];
 
+// The backend always lowercases measure_unit on save (products.validator.ts),
+// so "L" round-trips as "l" — but PRODUCT_UNITS' canonical casing is "L".
+// A case-sensitive <select value> match against that would leave the
+// dropdown blank even with the right value loaded, so re-map to whichever
+// PRODUCT_UNITS entry matches case-insensitively.
+const normalizeUnit = (value: unknown): ProductUnit | "" => {
+  if (typeof value !== "string" || !value) return "";
+  return PRODUCT_UNITS.find((u) => u.toLowerCase() === value.toLowerCase()) ?? "";
+};
+
 const EditProductPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -132,7 +142,11 @@ const EditProductPage: React.FC = () => {
         retailSalesEnabled: product.retail_sales_enabled ?? true,
         retailPrice: product.retail_price != null ? String(product.retail_price) : "",
         productType: (product.product_type as ProductType) || "retail",
-        unit: (product.unit as ProductUnit) || "",
+        // API responses use `measure_unit` (see products.repository.ts's
+        // PRODUCT_COLUMNS) — `product.unit` doesn't exist on the fetched
+        // object, so this always fell back to "" and the dropdown showed
+        // "Select a unit" even for products with a saved value.
+        unit: normalizeUnit(product.measure_unit),
         sizeValue: product.size ? String(parseFloat(product.size)) : "",
         taxType: (product.tax_type as TaxType) || "no_tax",
         customTaxRate: product.custom_tax_rate != null ? String(product.custom_tax_rate) : "",

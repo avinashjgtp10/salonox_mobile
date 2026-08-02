@@ -423,10 +423,10 @@ const StockReconciliationPage: React.FC = () => {
                     className={row.isDirty ? "row--dirty" : ""}
                   >
                     {/* Category */}
-                    <td className="cell--category">{row.category_name}</td>
+                    <td className="cell--category" title={row.category_name}>{row.category_name}</td>
 
                     {/* Item Name */}
-                    <td className="cell--name">{row.item_name}</td>
+                    <td className="cell--name" title={row.item_name}>{row.item_name}</td>
 
                     {/* Actual Stock (read-only) */}
                     <td className="text-center cell--num">{row.actual_stock}</td>
