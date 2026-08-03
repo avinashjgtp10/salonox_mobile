@@ -20,6 +20,14 @@ function computeAmount(appt: any): number {
   return Math.round(taxableAmount + taxAmount + (Number(appt.tip_amount) || 0));
 }
 
+// This one service line's own price (row.total when set — carries any
+// per-row "Disc %" — else price × qty), used as its dashboard row amount.
+function computeServiceAmount(svc: any): number {
+  const qty = Number(svc.qty ?? svc.quantity) || 1;
+  const t = Number(svc.total);
+  return (svc.total !== undefined && svc.total !== null && isFinite(t)) ? t : (Number(svc.price) || 0) * qty;
+}
+
 // The backend never auto-flags a booking as "no-show" once its slot passes —
 // that's a display-only inference the calendar computes itself (see
 // bookingStatusUtils.computeChipStatusClass). Replicated here so a dashboard
@@ -92,24 +100,45 @@ export function useTodayAppointments() {
         Array.isArray(raw?.data)  ? raw.data  :
         Array.isArray(raw)        ? raw        : [];
 
-      const mapped: TodayAppointment[] = appts.map((appt) => {
-        const svcName =
-          appt.services?.[0]?.name ?? appt.services?.[0]?.service_name ??
-          appt.product_items?.[0]?.name ?? "Appointment";
-        const extra = (appt.services?.length ?? 0) - 1;
-        return {
-          id: appt.id,
-          clientName: appt.client_name ?? "Walk-in",
-          serviceName: extra > 0 ? `${svcName} +${extra} more` : svcName,
-          staffName: appt.staff_name ?? "—",
-          startTime: appt.scheduled_at ? toUtcAmPm(appt.scheduled_at) : "—",
-          status: computeStatus(appt),
-          amount: computeAmount(appt),
-          // appointments.repository.ts's listBySalonId already sums this
-          // across payments (status IN completed/partial) per appointment —
-          // used to show "₹X of ₹Y" instead of implying the full bill was paid.
-          paidAmount: Number(appt.paid_amount) || 0,
-        };
+      // One row per SERVICE, not per appointment — a booking with multiple
+      // services (each with its own staff/time) used to collapse into a
+      // single "Hair Spa +1 more" row showing only the first service and the
+      // appointment-level staff, hiding who actually did the second service
+      // and when. Products/packages/memberships/wallet items are deliberately
+      // excluded — an appointment with none of its own `services` produces no
+      // row at all.
+      const mapped: TodayAppointment[] = appts.flatMap((appt) => {
+        const services: any[] = Array.isArray(appt.services) ? appt.services : [];
+        if (services.length === 0) return [];
+
+        const status = computeStatus(appt);
+        const totalPaid = Number(appt.paid_amount) || 0;
+        const billTotal = computeAmount(appt);
+
+        return services.map((svc, idx) => {
+          const svcAmount = computeServiceAmount(svc);
+          // Splits the appointment's overall paid amount proportionally by
+          // each service's own share of the bill — so "₹X of ₹Y" per row
+          // still sums back to what was actually collected on this booking,
+          // instead of repeating the full appointment-level paid amount on
+          // every one of its service rows.
+          const svcPaid = billTotal > 0 ? Math.round(totalPaid * (svcAmount / billTotal)) : 0;
+          return {
+            id: `${appt.id}-${svc.service_id ?? idx}`,
+            clientName: appt.client_name ?? "Walk-in",
+            serviceName: svc.name || svc.service_name || "Service",
+            staffName: svc.staff_name || appt.staff_name || "—",
+            startTime: svc.start_time
+              ? toUtcAmPm(svc.start_time)
+              : (appt.scheduled_at ? toUtcAmPm(appt.scheduled_at) : "—"),
+            status,
+            amount: svcAmount,
+            // appointments.repository.ts's listBySalonId already sums this
+            // across payments (status IN completed/partial) per appointment —
+            // used to show "₹X of ₹Y" instead of implying the full bill was paid.
+            paidAmount: svcPaid,
+          };
+        });
       });
       setAppointments(mapped);
     } catch (e: any) {

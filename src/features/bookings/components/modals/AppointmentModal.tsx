@@ -140,7 +140,7 @@ export const AppointmentModal: React.FC<Props> = ({
   useEffect(() => {
     if (existingBooking?.packageItems?.length && !pkgRequested.current) {
       pkgRequested.current = true;
-      triggerPackages({});
+      triggerPackages({ status: "Active" });
       triggerTemplates();
     }
     if ((existingBooking as any)?.productItems?.length && !prodRequested.current) {
@@ -159,10 +159,16 @@ export const AppointmentModal: React.FC<Props> = ({
     const fromCatalog = (packagesData?.items || []).map((p: any) => ({
       id: String(p.id || ""), name: p.name || "", price: p.basePrice || 0, services: [] as string[],
     }));
-    const fromTemplates = templates.map((t: any) => ({
-      id: String(t.id || ""), name: t.name || "", price: t.basePrice || 0,
-      services: (t.services || []).map((s: any) => s.serviceName),
-    }));
+    // A template with a real (non-"never expires") expiry of 0 days or less is
+    // mis-configured — any instance purchased from it today would be born
+    // already expired (expiry_date = purchase date + expiryDays). Never offer
+    // it as a purchase option in Quick Sale/Calendar's "+Package" row.
+    const fromTemplates = templates
+      .filter((t: any) => t.neverExpires || t.expiryDays == null || t.expiryDays > 0)
+      .map((t: any) => ({
+        id: String(t.id || ""), name: t.name || "", price: t.basePrice || 0,
+        services: (t.services || []).map((s: any) => s.serviceName),
+      }));
     const templateNames = new Set(fromTemplates.map((t: any) => t.name.toLowerCase()));
     const merged = [...fromTemplates, ...fromCatalog.filter((c: any) => !templateNames.has(c.name.toLowerCase()))];
     if (merged.length > 0) dispatch(setPackagesList(merged));
@@ -1771,7 +1777,7 @@ export const AppointmentModal: React.FC<Props> = ({
           onAddPackage={() => {
             if (!pkgRequested.current) {
               pkgRequested.current = true;
-              triggerPackages({});
+              triggerPackages({ status: "Active" });
               triggerTemplates();
             }
             setPackageRows((rows) => [...rows, { id: "", packageId: "", packageName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: "", time: serviceRows[0]?.time || defaultTime || "" }]);

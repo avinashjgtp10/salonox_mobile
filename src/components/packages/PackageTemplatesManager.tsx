@@ -839,6 +839,15 @@ const PackageTemplatesManager: React.FC = () => {
   const handleSave = useCallback(async () => {
     if (!form.name.trim()) { setFormError("Template name is required."); return; }
     if (!form.neverExpires && !form.expiryDate) { setFormError("Please select an expiry date, or check 'Never expires'."); return; }
+    // A same-day (or earlier) expiry relative to the anchor means any package
+    // purchased from this template would be born already expired — reject it
+    // here rather than silently saving expiryDays <= 0 (see PKG 18/pac 27 in
+    // prod data: both got saved with expiryDays: 0 and were still showing up
+    // as sellable, already-expired-on-arrival packages in Quick Sale/Calendar).
+    if (!form.neverExpires && form.expiryDate && (dateToDays(form.expiryDate, anchorDateRef.current) ?? 0) <= 0) {
+      setFormError("Expiry date must be after the template's creation date.");
+      return;
+    }
     const validServices = form.services.filter(s => s.serviceName.trim());
     if (!validServices.length) { setFormError("Add at least one service."); return; }
 
