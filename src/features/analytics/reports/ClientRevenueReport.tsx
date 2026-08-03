@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search } from "react-bootstrap-icons";
+import { Search, X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT_REVENUE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import Select from "../../../components/ui/Select";
+import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -38,12 +40,80 @@ function mapRow(row: any): ClientRevenueRow {
   };
 }
 
+function formatDate(input: string): string {
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
+const SORT_OPTIONS: { label: string; sortBy: string; sortDir: "asc" | "desc" }[] = [
+  { label: "Latest Visit", sortBy: "last_visit", sortDir: "desc" },
+  { label: "Oldest Visit", sortBy: "last_visit", sortDir: "asc" },
+  { label: "Highest Revenue", sortBy: "total_spend", sortDir: "desc" },
+  { label: "Lowest Revenue", sortBy: "total_spend", sortDir: "asc" },
+  { label: "Most Visits", sortBy: "visits", sortDir: "desc" },
+  { label: "Least Visits", sortBy: "visits", sortDir: "asc" },
+  { label: "Highest Average Ticket", sortBy: "avg_ticket", sortDir: "desc" },
+  { label: "Client Name (A–Z)", sortBy: "client_name", sortDir: "asc" },
+  { label: "Client Name (Z–A)", sortBy: "client_name", sortDir: "desc" },
+];
+
+const LAST_VISIT_PRESET_LABELS: Record<string, string> = {
+  today: "Today",
+  yesterday: "Yesterday",
+  last7: "Last 7 Days",
+  last30: "Last 30 Days",
+  custom: "Custom Date Range",
+};
+
+function lastVisitPresetRange(preset: string): { from: string; to: string } | null {
+  const now = new Date();
+  const iso = (d: Date) => d.toISOString().slice(0, 10);
+  if (preset === "today") return { from: iso(now), to: iso(now) };
+  if (preset === "yesterday") {
+    const y = new Date(now);
+    y.setDate(y.getDate() - 1);
+    return { from: iso(y), to: iso(y) };
+  }
+  if (preset === "last7") {
+    const s = new Date(now);
+    s.setDate(s.getDate() - 6);
+    return { from: iso(s), to: iso(now) };
+  }
+  if (preset === "last30") {
+    const s = new Date(now);
+    s.setDate(s.getDate() - 29);
+    return { from: iso(s), to: iso(now) };
+  }
+  return null;
+}
+
 export default function ClientRevenueReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
   const today   = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
   const [dateTo,      setDateTo]      = useState(today);
+  const [genderFilter, setGenderFilter] = useState("All");
+  const [membershipFilter, setMembershipFilter] = useState("All");
+  const [lastVisitPreset, setLastVisitPreset] = useState("All");
+  const [lastVisitFrom, setLastVisitFrom] = useState("");
+  const [lastVisitTo, setLastVisitTo] = useState("");
+  const [sortBy, setSortBy] = useState("last_visit");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  // Draft copies of the filter fields, edited while the modal is open. They
+  // only overwrite the applied state (above) when Apply is clicked; opening
+  // the modal seeds them from the currently-applied values, and closing via
+  // the X/overlay discards them without touching the applied state.
+  const [draftGender, setDraftGender] = useState("All");
+  const [draftMembership, setDraftMembership] = useState("All");
+  const [draftLastVisitPreset, setDraftLastVisitPreset] = useState("All");
+  const [draftLastVisitFrom, setDraftLastVisitFrom] = useState("");
+  const [draftLastVisitTo, setDraftLastVisitTo] = useState("");
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [rows,        setRows]        = useState<ClientRevenueRow[]>([]);
@@ -55,6 +125,10 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
+    ? "To Date must be greater than or equal to From Date"
+    : "";
+
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
     return () => clearTimeout(t);
@@ -64,6 +138,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
   // only that page's rows come back, along with stats computed by the
   // backend over the WHOLE filtered set (not just the current page).
   const fetchData = useCallback(async () => {
+    if (dateRangeError) return;
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -74,6 +149,14 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
         page: currentPage, limit: pageSize,
       };
       if (debouncedSearch) body.search = debouncedSearch;
+      if (genderFilter !== "All") body.gender = genderFilter.toLowerCase();
+      if (membershipFilter !== "All") body.membership_status = membershipFilter;
+      const lv = lastVisitPreset === "custom"
+        ? (lastVisitFrom && lastVisitTo ? { from: lastVisitFrom, to: lastVisitTo } : null)
+        : lastVisitPresetRange(lastVisitPreset);
+      if (lv) { body.last_visit_from = lv.from; body.last_visit_to = lv.to; }
+      body.sort_by = sortBy;
+      body.sort_dir = sortDir;
       const res = await api.post(CLIENT_REVENUE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -94,13 +177,63 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, currentPage, pageSize]);
+  }, [
+    dateFrom, dateTo, debouncedSearch,
+    genderFilter, membershipFilter, lastVisitPreset, lastVisitFrom, lastVisitTo,
+    sortBy, sortDir, currentPage, pageSize,
+  ]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    dateFrom, dateTo, debouncedSearch,
+    genderFilter, membershipFilter, lastVisitPreset, lastVisitFrom, lastVisitTo,
+    sortBy, sortDir,
+  ]);
 
-  const HEADERS = ["Client", "Contact", "Visits", `Total Spend (${currencySymbol})`, `Avg Ticket (${currencySymbol})`, "Last Visit"];
-  const exportRows = () => rows.map(r => [r.client, r.contact, r.visits, r.totalSpend, r.avgTicket, r.lastVisit]);
+  const activeFilterCount = [
+    genderFilter !== "All" ? 1 : 0,
+    membershipFilter !== "All" ? 1 : 0,
+    lastVisitPreset !== "All" ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  const openFiltersPanel = () => {
+    setDraftGender(genderFilter);
+    setDraftMembership(membershipFilter);
+    setDraftLastVisitPreset(lastVisitPreset);
+    setDraftLastVisitFrom(lastVisitFrom);
+    setDraftLastVisitTo(lastVisitTo);
+    setShowFiltersPanel(true);
+  };
+
+  const cancelFiltersPanel = () => setShowFiltersPanel(false);
+
+  const clearDraftFilters = () => {
+    setDraftGender("All");
+    setDraftMembership("All");
+    setDraftLastVisitPreset("All");
+    setDraftLastVisitFrom("");
+    setDraftLastVisitTo("");
+  };
+
+  const applyFilters = () => {
+    setGenderFilter(draftGender);
+    setMembershipFilter(draftMembership);
+    setLastVisitPreset(draftLastVisitPreset);
+    setLastVisitFrom(draftLastVisitFrom);
+    setLastVisitTo(draftLastVisitTo);
+    setShowFiltersPanel(false);
+  };
+
+  const currentSortLabel = SORT_OPTIONS.find(o => o.sortBy === sortBy && o.sortDir === sortDir)?.label ?? SORT_OPTIONS[0].label;
+  const handleSortChange = (label: string) => {
+    const opt = SORT_OPTIONS.find(o => o.label === label);
+    if (opt) { setSortBy(opt.sortBy); setSortDir(opt.sortDir); }
+  };
+
+  const HEADERS = ["Client Name", "Contact", "Total Visits", `Total Spend (${currencySymbol})`, `Average Ticket Size (${currencySymbol})`, "Last Visit"];
+  const exportRows = () => rows.map(r => [r.client, r.contact, r.visits, r.totalSpend, r.avgTicket, r.lastVisit ? formatDate(r.lastVisit) : "—"]);
 
   return (
     <div className="rp-detail-view">
@@ -108,7 +241,29 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`client-revenue-${dateFrom}-${dateTo}`} variant="button" csv />
+            <ReportExportButton
+              title={REPORT_NAME}
+              headers={HEADERS}
+              rows={exportRows}
+              filename={`client-revenue-${dateFrom}-${dateTo}`}
+              variant="button"
+              csv
+              disabled={!!dateRangeError}
+              dateRangeLabel={`${formatDate(dateFrom)} - ${formatDate(dateTo)}`}
+              filterLines={[
+                ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
+                ...(genderFilter !== "All" ? [`Gender: ${genderFilter}`] : []),
+                ...(membershipFilter !== "All" ? [`Membership: ${membershipFilter === "member" ? "Member" : "Non-Member"}`] : []),
+                ...(lastVisitPreset !== "All" ? [`Last Visit: ${LAST_VISIT_PRESET_LABELS[lastVisitPreset] ?? lastVisitPreset}`] : []),
+                `Sort: ${currentSortLabel}`,
+              ]}
+              summaryLines={[
+                `Total Clients: ${stats.totalClients}`,
+                `Total Revenue: ${formatAmount(stats.totalRevenue)}`,
+                `Average Spend / Client: ${formatAmount(stats.avgSpend)}`,
+                `Top Client: ${stats.topClient}`,
+              ]}
+            />
           </div>
         </div>
       </div>
@@ -117,11 +272,16 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Date</label>
           <div className="rp-detail-date-range">
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
+            <input type="date" value={dateFrom} max={dateTo || undefined} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
             <span className="rp-detail-date-sep">-</span>
-            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
+            <input type="date" value={dateTo}   min={dateFrom || undefined} onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
           </div>
+          {dateRangeError && <div className="rp-detail-date-error">{dateRangeError}</div>}
         </div>
+        <button className="rp-cr-filters-btn" onClick={openFiltersPanel}>
+          Filters
+          {activeFilterCount > 0 && <span className="rp-cr-filters-badge">{activeFilterCount}</span>}
+        </button>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -131,7 +291,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
         <div className="rp-sra-summary-row">
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalClients}</div><div className="rp-sra-summary-label">Total Clients</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalRevenue)}</div><div className="rp-sra-summary-label">Total Revenue</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.avgSpend)}</div><div className="rp-sra-summary-label">Avg Spend / Client</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.avgSpend)}</div><div className="rp-sra-summary-label">Average Spend / Client</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val rp-cr-top">{stats.topClient}</div><div className="rp-sra-summary-label">Top Client</div></div>
         </div>
       )}
@@ -141,12 +301,15 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
           <Search size={13} className="rp-detail-search-ic" />
           <input type="text" className="rp-detail-search-input" placeholder="Client name or phone" value={search} onChange={e => setSearchInput(e.target.value)} />
         </div>
+        <Select containerClass="rp-cr-sort-field" value={currentSortLabel} onChange={e => handleSortChange(e.target.value)}>
+          {SORT_OPTIONS.map(o => <option key={o.label} value={o.label}>{o.label}</option>)}
+        </Select>
       </div>
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
-            <tr><th>Client</th><th>Contact</th><th>Visits</th><th>Total Spend ({currencySymbol})</th><th>Avg Ticket ({currencySymbol})</th><th>Last Visit</th></tr>
+            <tr><th>Client Name</th><th>Contact</th><th>Total Visits</th><th>Total Spend ({currencySymbol})</th><th>Average Ticket Size ({currencySymbol})</th><th>Last Visit</th></tr>
           </thead>
           <tbody>
             {loading ? (
@@ -164,7 +327,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
                 <td>{r.visits}</td>
                 <td className="fw-semibold">{formatAmount(r.totalSpend)}</td>
                 <td>{formatAmount(r.avgTicket)}</td>
-                <td>{r.lastVisit || "—"}</td>
+                <td>{r.lastVisit ? formatDate(r.lastVisit) : "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -176,6 +339,56 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="history" />
+      )}
+
+      {showFiltersPanel && (
+        <div className="rp-cr-filters-overlay" onClick={cancelFiltersPanel}>
+          <div className="rp-cr-filters-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Filters</h3>
+              <button type="button" className="rp-cr-filters-close" aria-label="Close" onClick={cancelFiltersPanel}>
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="rp-cr-filters-body">
+              <Select label="Gender" containerClass="rp-cr-filter-field" value={draftGender} onChange={e => setDraftGender(e.target.value)}>
+                <option value="All">All</option>
+                <option value="Male">Male</option>
+                <option value="Female">Female</option>
+              </Select>
+
+              <Select label="Membership Status" containerClass="rp-cr-filter-field" value={draftMembership} onChange={e => setDraftMembership(e.target.value)}>
+                <option value="All">All</option>
+                <option value="member">Member</option>
+                <option value="non_member">Non-Member</option>
+              </Select>
+
+              <Select label="Last Visit" containerClass="rp-cr-filter-field" value={draftLastVisitPreset} onChange={e => setDraftLastVisitPreset(e.target.value)}>
+                <option value="All">All</option>
+                <option value="today">Today</option>
+                <option value="yesterday">Yesterday</option>
+                <option value="last7">Last 7 Days</option>
+                <option value="last30">Last 30 Days</option>
+                <option value="custom">Custom Date Range</option>
+              </Select>
+              {draftLastVisitPreset === "custom" && (
+                <div className="rp-cr-filter-field">
+                  <div className="rp-detail-date-range">
+                    <input type="date" value={draftLastVisitFrom} max={draftLastVisitTo || undefined} onChange={e => setDraftLastVisitFrom(e.target.value)} className="rp-detail-date-input" />
+                    <span className="rp-detail-date-sep">-</span>
+                    <input type="date" value={draftLastVisitTo} min={draftLastVisitFrom || undefined} onChange={e => setDraftLastVisitTo(e.target.value)} className="rp-detail-date-input" />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="rp-cr-filters-actions">
+              <Button variant="ghost" onClick={clearDraftFilters}>Clear</Button>
+              <Button variant="dark" onClick={applyFilters}>Apply</Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

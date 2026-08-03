@@ -17,9 +17,20 @@ interface ReportExportButtonProps {
   variant?: "icon" | "button";
   /** Show a CSV export option in the dropdown */
   csv?: boolean;
+  /** Disables the trigger button and dropdown (e.g. while filters are in an invalid state) */
+  disabled?: boolean;
+  /** Optional "From - To" date range label rendered in the PDF header */
+  dateRangeLabel?: string;
+  /** Optional list of applied-filter description lines rendered in the PDF header */
+  filterLines?: string[];
+  /** Optional summary/stat lines rendered in the PDF header, above the table */
+  summaryLines?: string[];
 }
 
-const ReportExportButton = ({ title, headers, rows, filename, variant = "icon", csv = false }: ReportExportButtonProps) => {
+const ReportExportButton = ({
+  title, headers, rows, filename, variant = "icon", csv = false,
+  disabled = false, dateRangeLabel, filterLines = [], summaryLines = [],
+}: ReportExportButtonProps) => {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement>(null);
 
@@ -76,10 +87,28 @@ const ReportExportButton = ({ title, headers, rows, filename, variant = "icon", 
     doc.setFont("helvetica", "bold");
     doc.text(title, 14, 16);
 
+    // Optional metadata block (date range / filters / summary) — only present
+    // when the caller passes these props, so startY collapses back to the
+    // original static 22 for every report that doesn't opt in.
+    let y = 16;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(80, 80, 80);
+    if (dateRangeLabel) { y += 6; doc.text(`Date Range: ${dateRangeLabel}`, 14, y); }
+    filterLines.forEach(line => { y += 5; doc.text(line, 14, y); });
+    if (summaryLines.length) {
+      y += 6;
+      doc.setFont("helvetica", "bold");
+      doc.text("Summary", 14, y);
+      doc.setFont("helvetica", "normal");
+      summaryLines.forEach(line => { y += 5; doc.text(line, 14, y); });
+    }
+    doc.setTextColor(30, 30, 30);
+
     autoTable(doc, {
       head: [headers],
       body: data.map(r => r.map(c => String(c ?? ""))),
-      startY: 22,
+      startY: y + 6,
       styles: { fontSize: 7.5, cellPadding: 3, overflow: "linebreak", textColor: [30, 30, 30] },
       headStyles: {
         fillColor: [243, 244, 246],
@@ -100,15 +129,15 @@ const ReportExportButton = ({ title, headers, rows, filename, variant = "icon", 
   return (
     <div className="rp-detail-export-wrap" ref={wrapRef}>
       {variant === "button" ? (
-        <button className="rp-download-btn" onClick={() => setOpen(v => !v)}>
+        <button className="rp-download-btn" onClick={() => setOpen(v => !v)} disabled={disabled}>
           <BoxArrowUp size={14} /> Download <ChevronDown size={11} />
         </button>
       ) : (
-        <button className="rp-detail-icon-btn" title="Export" onClick={() => setOpen(v => !v)}>
+        <button className="rp-detail-icon-btn" title="Export" onClick={() => setOpen(v => !v)} disabled={disabled}>
           <BoxArrowUp size={16} />
         </button>
       )}
-      {open && (
+      {!disabled && open && (
         <div className="rp-detail-export-dropdown">
           {csv && (
             <div className="rp-detail-export-item" onClick={exportCsv}>
