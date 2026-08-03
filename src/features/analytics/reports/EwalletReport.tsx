@@ -39,8 +39,19 @@ interface LedgerRow {
 
 const EMPTY_BREAKDOWN: Breakdown = { balance: 0, referral_rewards: 0, reward_credits: 0, other_credits: 0, wallet_debits: 0 };
 
+function formatDate(input: string): string {
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 export default function EwalletReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
+  const today   = new Date().toISOString().slice(0, 10);
+  const [asOfDate,    setAsOfDate]    = useState(today);
   const [rows,        setRows]        = useState<ClientRow[]>([]);
   const [total,       setTotal]       = useState(0);
   const [stats,       setStats]       = useState({ totalClients: 0, withBalance: 0, totalValue: 0, avgBalance: 0 });
@@ -71,7 +82,10 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = { page: currentPage, limit: pageSize };
+      const body: Record<string, any> = {
+        as_of_date: asOfDate,
+        page: currentPage, limit: pageSize,
+      };
       if (debouncedSearch) body.search = debouncedSearch;
       const res = await api.post(EWALLET_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -99,10 +113,10 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [debouncedSearch, currentPage, pageSize]);
+  }, [asOfDate, debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [debouncedSearch]);
+  useEffect(() => { setCurrentPage(1); }, [asOfDate, debouncedSearch]);
 
   const openDrawer = useCallback(async (row: ClientRow) => {
     setSelected(row);
@@ -149,12 +163,35 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename="ewallet-balances" variant="button" csv />
+            <ReportExportButton
+              title={REPORT_NAME}
+              headers={HEADERS}
+              rows={exportRows}
+              filename={`ewallet-balances-${asOfDate}`}
+              variant="button"
+              csv
+              dateRangeLabel={`As of ${formatDate(asOfDate)}`}
+              filterLines={[
+                ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
+              ]}
+              summaryLines={[
+                `Total Clients: ${stats.totalClients}`,
+                `With Wallet Balance: ${stats.withBalance}`,
+                `Total Wallet Value: ${formatAmount(stats.totalValue)}`,
+                `Average Balance: ${formatAmount(stats.avgBalance)}`,
+              ]}
+            />
           </div>
         </div>
       </div>
 
       <div className="rp-detail-filters">
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">As of Date</label>
+          <div className="rp-detail-date-range">
+            <input type="date" value={asOfDate} max={today} onChange={e => setAsOfDate(e.target.value)} className="rp-detail-date-input" />
+          </div>
+        </div>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -258,7 +295,7 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
                     <div className="rp-ew-drawer-ledger">
                       {ledger.map((l, i) => (
                         <div key={i} className="rp-appt-drawer-meta-row">
-                          <span className="rp-appt-drawer-meta-label">{l.date || "—"} · <span className="rp-ew-type">{l.type}</span></span>
+                          <span className="rp-appt-drawer-meta-label">{l.date ? formatDate(l.date) : "—"} · <span className="rp-ew-type">{l.type}</span></span>
                           <span className={`rp-appt-drawer-meta-val ${l.amount >= 0 ? "rp-ew-credit" : "rp-ew-debit"}`}>
                             {l.amount >= 0 ? `+${formatAmount(l.amount)}` : `-${formatAmount(Math.abs(l.amount))}`}
                           </span>
