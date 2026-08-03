@@ -27,6 +27,16 @@ function buildStats(d: ClientDetails): ClientStats {
     lastVisit:    formatDate(d.last_visit_date ?? d.last_visit_at),
     totalRevenue: Number(d.total_revenue ?? 0),
     noShow:       Number(d.no_show_count ?? 0),
+
+    serviceRevenue:    Number(d.service_revenue ?? 0),
+    productRevenue:    Number(d.product_revenue ?? 0),
+    packageRevenue:    Number(d.package_revenue ?? 0),
+    membershipRevenue: Number(d.membership_revenue ?? 0),
+    serviceCount:      Number(d.service_count ?? 0),
+    productCount:      Number(d.product_count ?? 0),
+    activePackageCount: Number(d.active_package_count ?? 0),
+    activeMembershipName: d.active_membership_name ?? null,
+    activeMembershipExpiresAt: d.active_membership_expires_at ?? null,
   };
 }
 
@@ -172,6 +182,45 @@ export function useClientDetails(clientId: string | null | undefined, refreshKey
 
           const totalBilled = paidRevenue + partialRevenue + packageRevenue + membershipRevenue;
 
+          // ── Revenue-by-category breakdown for the Overview tab's cards ──────
+          // Catalog-value sums (each item's own total/price, pre-discount and
+          // pre-wallet-adjustment) across paid+partial appointments — NOT a
+          // decomposition of paidRevenue/partialRevenue above, which use the
+          // payment's net_amount (already wallet/discount-adjusted) and can't
+          // be split back out by item type without knowing which portion of
+          // a wallet covered which item. These four won't sum to exactly
+          // totalBilled as a result; they're a directional "where did this
+          // client's spend go" breakdown, not a penny-reconciled one.
+          const sumApptItemsByType = (getItems: (a: any) => any[]): number =>
+            [...paidAppts, ...partialAppts].reduce((sum, a) => {
+              const items = getItems(a);
+              return sum + (Array.isArray(items)
+                ? items.reduce((s: number, i: any) => s + Number(i.total ?? i.price ?? 0), 0)
+                : 0);
+            }, 0);
+          const serviceRevenue = sumApptItemsByType(a => a.services ?? []);
+          // Products/packages/memberships sold as a Quick Sale (no appointment)
+          // aren't in histData.appointments at all, so those are undercounted
+          // here the same way they're already undercounted in totalBilled above.
+          const productRevenue = sumApptItemsByType(a => a.product_items ?? a.productItems ?? []);
+          const packageRevenueTotal = sumApptItemsByType(a => a.package_items ?? a.packageItems ?? []) + packageRevenue;
+          const membershipRevenueTotal = sumApptItemsByType(a => a.membership_items ?? a.membershipItems ?? []) + membershipRevenue;
+
+          const countApptItemsByType = (getItems: (a: any) => any[]): number =>
+            [...paidAppts, ...partialAppts].reduce((count, a) => {
+              const items = getItems(a);
+              return count + (Array.isArray(items) ? items.length : 0);
+            }, 0);
+          const serviceCount = countApptItemsByType(a => a.services ?? []);
+          const productCount = countApptItemsByType(a => a.product_items ?? a.productItems ?? []);
+
+          const activePackageCount = Array.isArray(pkgItems)
+            ? pkgItems.filter((p: any) => (p.status ?? "").toLowerCase() === "active").length
+            : 0;
+          const activeMembership = Array.isArray(memItems)
+            ? memItems.find((m: any) => (m.status ?? "").toLowerCase() === "active")
+            : null;
+
           // Unpaid amount = due portion of PARTIALLY-paid appointments only. A booked/
           // confirmed appointment that simply hasn't happened/been paid yet is not "unpaid
           // debt" — it shouldn't count here until the client has actually made a partial
@@ -195,6 +244,15 @@ export function useClientDetails(clientId: string | null | undefined, refreshKey
               total_revenue:   totalBilled,
               last_visit_date: lastPaidAt ?? prev.last_visit_date ?? null,
               unpaid_amount:   unpaidFromHistory > 0 ? unpaidFromHistory : (prev.unpaid_amount ?? 0),
+              service_revenue:    serviceRevenue,
+              product_revenue:    productRevenue,
+              package_revenue:    packageRevenueTotal,
+              membership_revenue: membershipRevenueTotal,
+              service_count: serviceCount,
+              product_count: productCount,
+              active_package_count: activePackageCount,
+              active_membership_name: activeMembership?.membershipName ?? activeMembership?.membership_name ?? null,
+              active_membership_expires_at: activeMembership?.expiresAt ?? activeMembership?.expires_at ?? null,
             };
             setStats(buildStats(updated));
             return updated;

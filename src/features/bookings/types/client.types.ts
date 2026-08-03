@@ -48,6 +48,20 @@ export interface ClientDetails {
   cancelled_count?: number;
   total_revenue?: number;
   no_show_count?: number;
+
+  // Revenue-by-category breakdown (Phase 2) — catalog-value sums (pre
+  // discount/wallet-adjustment), not a wallet-adjusted reconciliation of
+  // total_revenue above; see useClientDetails.ts for why an exact split
+  // isn't possible without deeper backend support.
+  service_revenue?: number;
+  product_revenue?: number;
+  package_revenue?: number;
+  membership_revenue?: number;
+  service_count?: number;
+  product_count?: number;
+  active_package_count?: number;
+  active_membership_name?: string | null;
+  active_membership_expires_at?: string | null;
 }
 
 // ─── Derived stat card values (computed in useClientDetails) ──────────────────
@@ -66,6 +80,17 @@ export interface ClientStats {
   lastVisit: string; // formatted display string e.g. "22 Jun 2026"
   totalRevenue: number;
   noShow: number;
+
+  // Revenue-by-category breakdown — see ClientDetails for the same caveat.
+  serviceRevenue: number;
+  productRevenue: number;
+  packageRevenue: number;
+  membershipRevenue: number;
+  serviceCount: number;
+  productCount: number;
+  activePackageCount: number;
+  activeMembershipName: string | null;
+  activeMembershipExpiresAt: string | null;
 }
 
 // ─── History stats shape (from GET /api/v1/clients/:id/history) ──────────────
