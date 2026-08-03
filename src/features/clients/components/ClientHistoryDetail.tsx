@@ -97,6 +97,10 @@ interface SaleRecord {
   payment_reference: string | null;
   created_at: string;
   appointment_id: string | null;
+  coupon_code: string | null;
+  manual_discount_amount: string | null;
+  coupon_discount_amount: string | null;
+  referral_discount_amount: string | null;
   items: SaleItem[] | null;
 }
 
@@ -1158,6 +1162,14 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       membershipWalletUsed: appt.membership_wallet_used,
       rewardPointsValue: (appt as any).reward_points_value,
       referralCreditUsed: (appt as any).referral_credit_used,
+      // Sourced from the linked sale's own saved record (never live checkout
+      // state) — so reprinting from Client History shows the same coupon/
+      // referral figures the client actually saw, instead of them
+      // disappearing after the original checkout session ended.
+      manualDiscount: Number(linkedSale?.manual_discount_amount) || 0,
+      couponDiscount: Number(linkedSale?.coupon_discount_amount) || 0,
+      couponCode: linkedSale?.coupon_code,
+      referralDiscount: Number(linkedSale?.referral_discount_amount) || 0,
     });
     printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
   };
@@ -1176,6 +1188,10 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       paymentMethod: formatPaymentMode(s.payment_method, s.payment_reference),
       invoiceNumber: s.invoice_number,
       grandTotalOverride: Number(s.total_amount) || 0,
+      manualDiscount: Number(s.manual_discount_amount) || 0,
+      couponDiscount: Number(s.coupon_discount_amount) || 0,
+      couponCode: s.coupon_code,
+      referralDiscount: Number(s.referral_discount_amount) || 0,
     });
     printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
   };
@@ -1208,6 +1224,10 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       paymentMethod: matchedSale ? formatPaymentMode(matchedSale.payment_method, matchedSale.payment_reference) : null,
       invoiceNumber: matchedSale?.invoice_number,
       grandTotalOverride: matchedSale ? Number(matchedSale.total_amount) : (Number(pkg.total_amount) || 0),
+      manualDiscount: Number(matchedSale?.manual_discount_amount) || 0,
+      couponDiscount: Number(matchedSale?.coupon_discount_amount) || 0,
+      couponCode: matchedSale?.coupon_code,
+      referralDiscount: Number(matchedSale?.referral_discount_amount) || 0,
     });
     printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
   };
@@ -2027,12 +2047,15 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               searchPlaceholder="Search payments..."
               exportConfig={{
                 title: "Payment History",
-                headers: ["Invoice", "Date", "Items", "Method", "Status", "Amount"],
+                headers: ["Invoice", "Date", "Items", "Method", "Coupon Code", "Coupon Discount", "Referral Discount", "Status", "Amount"],
                 rows: () => paymentsSearch.filteredSortedRows.map((s) => [
                   s.invoice_number ?? `#${s.id.slice(-6).toUpperCase()}`,
                   fmtDMY(s.created_at),
                   (s.items ?? []).map((it) => `${it.quantity > 1 ? `${it.quantity}x ` : ""}${it.name}`).join(", "),
                   formatPaymentMode(s.payment_method, s.payment_reference),
+                  s.coupon_code ?? "",
+                  Number(s.coupon_discount_amount) > 0 ? formatAmount(Number(s.coupon_discount_amount)) : "",
+                  Number(s.referral_discount_amount) > 0 ? formatAmount(Number(s.referral_discount_amount)) : "",
                   s.status,
                   formatAmount(Number(s.total_amount)),
                 ]),
@@ -2051,6 +2074,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                     <th onClick={() => paymentsSearch.toggleSort("created_at")} style={{ cursor: "pointer" }}>Date</th>
                     <th>Items</th>
                     <th>Method</th>
+                    <th>Discount</th>
                     <th>Status</th>
                     <th style={{ textAlign: "right" }}>Amount</th>
                   </tr>
@@ -2074,6 +2098,22 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                         </div>
                       </td>
                       <td>{formatPaymentMode(s.payment_method, s.payment_reference)}</td>
+                      <td>
+                        {/* Coupon Code / Coupon Discount / Referral Discount —
+                            all sourced from the saved sale record. */}
+                        {(Number(s.coupon_discount_amount) > 0 || Number(s.referral_discount_amount) > 0) ? (
+                          <div className="chp-chips">
+                            {Number(s.coupon_discount_amount) > 0 && (
+                              <span className="chp-chip" title={s.coupon_code ? `Coupon ${s.coupon_code}` : "Coupon"}>
+                                {s.coupon_code ? `${s.coupon_code} ` : "Coupon "}-{formatAmount(Number(s.coupon_discount_amount))}
+                              </span>
+                            )}
+                            {Number(s.referral_discount_amount) > 0 && (
+                              <span className="chp-chip">Referral -{formatAmount(Number(s.referral_discount_amount))}</span>
+                            )}
+                          </div>
+                        ) : "—"}
+                      </td>
                       <td>
                         <span className={`chp-status-badge chp-status-badge--${s.status}`}>
                           {s.status}

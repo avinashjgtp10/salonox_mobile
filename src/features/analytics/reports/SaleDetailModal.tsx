@@ -99,9 +99,30 @@ export default function SaleDetailModal({ saleId, onClose }: { saleId: string; o
 
             <div className="sd-totals">
               <div className="sd-row"><span>Subtotal</span><span>{money(data.sale.subtotal)}</span></div>
-              <div className="sd-row"><span>Discount</span><span>{money(data.sale.discount_amount)}</span></div>
+              {/* Granular breakdown — stored on the sale itself at checkout
+                  (payments.service.ts), never recomputed here. Falls back to
+                  the single combined "Discount" figure for a sale saved
+                  before this breakdown existed (manual/coupon/referral all 0
+                  but discount_amount > 0). */}
+              {(data.sale.manual_discount_amount > 0 || data.sale.coupon_discount_amount > 0 || data.sale.referral_discount_amount > 0) ? (
+                <>
+                  {data.sale.manual_discount_amount > 0 && (
+                    <div className="sd-row"><span>Service Discount</span><span>-{money(data.sale.manual_discount_amount)}</span></div>
+                  )}
+                  {data.sale.coupon_discount_amount > 0 && (
+                    <div className="sd-row"><span>Coupon Discount{data.sale.coupon_code ? ` (${data.sale.coupon_code})` : ""}</span><span>-{money(data.sale.coupon_discount_amount)}</span></div>
+                  )}
+                  {data.sale.referral_discount_amount > 0 && (
+                    <div className="sd-row"><span>Referral Discount</span><span>-{money(data.sale.referral_discount_amount)}</span></div>
+                  )}
+                </>
+              ) : data.sale.discount_amount > 0 && (
+                <div className="sd-row"><span>Discount</span><span>-{money(data.sale.discount_amount)}</span></div>
+              )}
               <div className="sd-row"><span>Tax</span><span>{money(data.sale.tax_amount)}</span></div>
-              <div className="sd-row"><span>Tip</span><span>{money(data.sale.tip_amount)}</span></div>
+              {data.sale.ex_charges > 0 && (
+                <div className="sd-row"><span>Extra Charges</span><span>+{money(data.sale.ex_charges)}</span></div>
+              )}
               <div className="sd-row sd-row--total"><span>Total</span><span>{money(data.sale.total_amount)}</span></div>
             </div>
 
@@ -120,8 +141,12 @@ export default function SaleDetailModal({ saleId, onClose }: { saleId: string; o
                   <div className="sd-row"><span>E-Wallet</span><span>{money(data.payment.ewallet_used)}</span></div>
                   <div className="sd-row"><span>Membership</span><span>{money(data.payment.membership_wallet_used)}</span></div>
                   <div className="sd-row"><span>Rewards</span><span>{money(data.payment.reward_points_value)}</span></div>
-                  <div className="sd-row"><span>Referral</span><span>{money(data.payment.referral_credit_used)}</span></div>
+                  <div className="sd-row"><span>Referral Credit</span><span>{money(data.payment.referral_credit_used)}</span></div>
                 </>
+              )}
+              {/* Display/record-only — never part of Total/Paid/Due above. */}
+              {data.sale.tip_amount > 0 && (
+                <div className="sd-row"><span>Staff Tip</span><span>{money(data.sale.tip_amount)}</span></div>
               )}
             </div>
 

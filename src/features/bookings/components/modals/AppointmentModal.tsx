@@ -2122,7 +2122,7 @@ export const AppointmentModal: React.FC<Props> = ({
             }} />
         </div>
         <div className="field-group">
-          <label>Svc Discount</label>
+          <label>Bill Discount</label>
           <input className="fg-input" type="text" inputMode="decimal"
             value={focusedField === "discountValue" && discountValue === 0 ? "" : discountValue}
             onFocus={() => setFocusedField("discountValue")}
@@ -2276,7 +2276,7 @@ export const AppointmentModal: React.FC<Props> = ({
               <div className="qs-layout__right">
                 <div className="qs-summary-card">
                   <div className="qs-summary-card__title">Sale Summary</div>
-                  {/* Item-level "Disc %" and the bill-level "Svc Discount" can both be
+                  {/* Item-level "Disc %" and the bill-level "Bill Discount" can both be
                       active at once and stack — broken out explicitly (instead of one
                       blended "Discount" line) so it's clear how much came from each. */}
                   {totals.itemDiscountTotal > 0 && (
@@ -2307,13 +2307,10 @@ export const AppointmentModal: React.FC<Props> = ({
                     <div className="qs-summary-row" key={`${t.name}-incl`}><span>{t.name} ({t.rate}%, incl.)</span><span>{currencySymbol}{t.amount.toFixed(2)}</span></div>
                   ))}
                   <div className="qs-summary-row"><span>Extra Charges</span><span>+{currencySymbol}{exCharges.toFixed(2)}</span></div>
-                  {tip > 0 && (
-                    <div className="qs-summary-row"><span>Tip (Staff)</span><span>+{currencySymbol}{tip.toFixed(2)}</span></div>
-                  )}
-                  {/* Svc Discount is a POST-tax deduction — applied to the bill total
-                      after GST/Extra Charges/Tip (see pricing.engine.ts computeBillTotals). */}
+                  {/* Bill Discount is a POST-tax deduction — applied to the bill total
+                      after GST/Extra Charges (see pricing.engine.ts computeBillTotals). */}
                   {totals.manualDiscount > 0 && (
-                    <div className="qs-summary-row qs-summary-row--discount"><span>Svc Discount</span><span>-{currencySymbol}{totals.manualDiscount.toFixed(2)}</span></div>
+                    <div className="qs-summary-row qs-summary-row--discount"><span>Bill Discount</span><span>-{currencySymbol}{totals.manualDiscount.toFixed(2)}</span></div>
                   )}
                   {/* Referral Discount is a POST-tax, POST-Svc-Discount deduction now —
                       applied here, not folded into the pre-tax coupon discount above. */}
@@ -2337,6 +2334,13 @@ export const AppointmentModal: React.FC<Props> = ({
                   )}
                   <div className="qs-summary-row qs-summary-row--total"><span>Grand Total</span><span>{currencySymbol}{reconciledEffectiveTotal.toFixed(2)}</span></div>
                   <div className="qs-summary-row qs-summary-row--total"><span>Amount to Pay</span><span>{currencySymbol}{reconciledEffectiveTotal.toFixed(2)}</span></div>
+                  {/* Display/record-only — never part of Grand Total/Amount to Pay
+                      above (totals.grandTotal deliberately never adds `tip`, see
+                      totalsUtils.ts). Placed after every bill-total row so it
+                      reads as separate info, not part of the running total. */}
+                  {tip > 0 && (
+                    <div className="qs-summary-row"><span>Staff Tip</span><span>{currencySymbol}{tip.toFixed(2)}</span></div>
+                  )}
                 </div>
 
                 {showFullyCoveredBanner ? (
