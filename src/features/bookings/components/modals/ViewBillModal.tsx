@@ -202,11 +202,12 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               booking.couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${booking.couponDiscount.toFixed(2)}`, "#22c55e", false] : null,
               booking.referralDiscount ? ["Referral Discount", `−${currencySymbol}${booking.referralDiscount.toFixed(2)}`, "#22c55e", false] : null,
               booking.exCharges      ? ["Extra Charges", `${currencySymbol}${booking.exCharges.toFixed(2)}`, "#374151", false] : null,
-              booking.tipAmount      ? ["Tip", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
               ["Total", `${currencySymbol}${(isPackagePaid ? 0 : (booking.grandTotal || 0)).toFixed(2)}`, "#111827", true],
               (booking.rewardPointsValue || 0) > 0 ? ["🎁 Paid from Reward Points", `${currencySymbol}${(booking.rewardPointsValue || 0).toFixed(2)}`, "#7c3aed", false] : null,
               ["Paid",  `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}`, "#111827", false],
               (booking.dueAmount || 0) > 0 ? ["Due", `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}`, "#ef4444", false] : null,
+              // Display/record-only — never part of Total/Paid/Due above.
+              booking.tipAmount      ? ["Staff Tip", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
             ].filter((row): row is [string, string, string, boolean] => row !== null).map(([l, v, c, bold]) => (
               <div key={l as string} className={`vbm-summary-row${bold ? " vbm-summary-row--bold" : ""}`} style={{ color: c as string }}>
                 <span>{l as string}</span>
@@ -455,7 +456,6 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     const membershipPercentageDiscountAmount = (booking as any).membershipPercentageDiscountUsed || 0;
                     const membershipLoyaltyDiscountAmount = Math.max(0, membershipDiscountAmount - membershipPercentageDiscountAmount);
                     const exCharges = booking.exCharges || 0;
-                    const tipAmount = booking.tipAmount || 0;
                     const membershipWalletUsed = (booking as any).membershipWalletUsed || 0;
                     const ewalletUsed = booking.ewalletUsed || 0;
                     const rewardPointsValue = booking.rewardPointsValue || 0;
@@ -492,19 +492,21 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                       : null;
                     const totalTaxAmount = (combinedExclusiveTax?.amount ?? legacyGst?.amount ?? 0);
 
-                    // Svc Discount (discountAmount) and Referral Discount are
+                    // Bill Discount (discountAmount) and Referral Discount are
                     // POST-tax deductions now — applied after GST/Extra
-                    // Charges/Tip, not reducing the pre-tax taxable base.
+                    // Charges, not reducing the pre-tax taxable base.
                     // Membership Wallet/eWallet/Reward Points are subtracted
                     // after that, with rounding applied once at the very end
                     // — matching pricing.engine.ts's computeBillTotals
                     // waterfall (referralCreditUsed isn't tracked on this
                     // view's Booking type, so it's not part of this specific
                     // reconstruction — a pre-existing gap, not a regression).
+                    // tipAmount (Staff Tip) is deliberately excluded — it's
+                    // display/record-only, never part of what the client owes.
                     const taxable = Math.max(0, subtotal - couponDiscount - membershipDiscountAmount);
                     const billTotal = taxable + totalTaxAmount;
                     const afterSvcDiscount = Math.max(0, billTotal - discountAmount);
-                    const withCharges = afterSvcDiscount + exCharges + tipAmount;
+                    const withCharges = afterSvcDiscount + exCharges;
                     const afterReferral = Math.max(0, withCharges - referralDiscount);
                     const rawTotal = Math.max(0, afterReferral - membershipWalletUsed - ewalletUsed - rewardPointsValue);
                     const roundOff = grandTotal - rawTotal;
@@ -521,7 +523,6 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                       // Always shown (even ₹0.00) for consistency with a
                       // standard GST invoice's line-item presentation.
                       ["Extra Charges", `+${currencySymbol}${exCharges.toFixed(2)}`, "#374151"],
-                      tipAmount ? ["Tip", `${currencySymbol}${tipAmount.toFixed(2)}`, "#374151"] : null,
                       discountAmount ? ["Discount", `−${currencySymbol}${discountAmount.toFixed(2)}`, "#ef4444"] : null,
                       referralDiscount ? ["Referral Discount", `−${currencySymbol}${referralDiscount.toFixed(2)}`, "#22c55e"] : null,
                       membershipWalletUsed ? ["Membership Wallet Used", `−${currencySymbol}${membershipWalletUsed.toFixed(2)}`, "#15803d"] : null,
@@ -542,6 +543,10 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   <div className="vbm-breakdown-row vbm-breakdown-row--paid"><span>Paid</span><span>{currencySymbol}{(booking.payingNow || 0).toFixed(2)}</span></div>
                   {(booking.dueAmount || 0) > 0 && (
                     <div className="vbm-breakdown-row vbm-breakdown-row--due"><span>Balance Due</span><span>{currencySymbol}{(booking.dueAmount || 0).toFixed(2)}</span></div>
+                  )}
+                  {/* Display/record-only — never part of Grand Total/Paid/Due above. */}
+                  {(booking.tipAmount || 0) > 0 && (
+                    <div className="vbm-breakdown-row"><span>Staff Tip</span><span>{currencySymbol}{(booking.tipAmount || 0).toFixed(2)}</span></div>
                   )}
                 </div>
               </div>

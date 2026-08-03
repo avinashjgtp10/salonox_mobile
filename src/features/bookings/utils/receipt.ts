@@ -59,6 +59,16 @@ export interface BuildPrintableBookingParams {
   rewardPointsValue?: number;
   /** ₹ referral credit balance spent on this bill. */
   referralCreditUsed?: number;
+  /** Bill-level manual/Service Discount — see totalsUtils.ts's withCharges. */
+  manualDiscount?: number;
+  /** ₹ discount contributed by a coupon code, and the code itself for the
+   *  "Coupon (CODE)" line — both sourced from the saved sale record
+   *  (sales.coupon_discount_amount/coupon_code), not live checkout state, so
+   *  a reprint from Client History shows the same figures the client saw. */
+  couponDiscount?: number;
+  couponCode?: string | null;
+  /** ₹ Refer & Earn welcome discount applied on this bill (sales.referral_discount_amount) — distinct from referralCreditUsed above (a spent balance, not a discount). */
+  referralDiscount?: number;
 }
 
 /**
@@ -133,6 +143,10 @@ export function buildPrintableBooking(params: BuildPrintableBookingParams): any 
     ewalletUsed,
     rewardPointsValue: Number(params.rewardPointsValue) || 0,
     referralCreditUsed: Number(params.referralCreditUsed) || 0,
+    discountAmount: Number(params.manualDiscount) || 0,
+    couponDiscount: Number(params.couponDiscount) || 0,
+    couponCode: params.couponCode || undefined,
+    referralDiscount: Number(params.referralDiscount) || 0,
   };
 }
 
@@ -368,12 +382,13 @@ export function printReceipt(
   const gstAmt      = Number((booking as any).gstAmount     || 0);
   const taxBreakdown = ((booking as any).taxBreakdown || []) as { name: string; rate: number; amount: number; inclusive: boolean }[];
   const grandTotal  = Number(booking.grandTotal || 0);
-  // grandTotal is the fully-reduced figure (Svc Discount, Extra Charges/Tip,
+  // grandTotal is the fully-reduced figure (Bill Discount, Extra Charges,
   // Referral Discount, Membership Wallet, eWallet, Reward Points, Referral
-  // Credit ALL already applied) — Grand Total and Amount to Pay are the same
-  // merged concept now (see pricing.engine.ts's computeBillTotals). The
-  // receipt shows the small rounding adjustment that produced it, same as
-  // the on-screen totals panel/summary the client saw moments earlier.
+  // Credit ALL already applied — Staff Tip is NEVER included, it's
+  // display/record-only) — Grand Total and Amount to Pay are the same merged
+  // concept now (see pricing.engine.ts's computeBillTotals). The receipt
+  // shows the small rounding adjustment that produced it, same as the
+  // on-screen totals panel/summary the client saw moments earlier.
   const exclusiveTaxTotal = taxBreakdown.length > 0
     ? taxBreakdown.filter((t) => !t.inclusive && t.amount > 0).reduce((s, t) => s + t.amount, 0)
     : gstAmt;
@@ -389,17 +404,17 @@ export function printReceipt(
   const splitDetailsRaw = ((booking as any).splitDetails || {}) as Record<string, unknown>;
   const splitEwallet = Number(Object.entries(splitDetailsRaw).find(([k]) => k.toLowerCase() === "ewallet")?.[1]) || 0;
   const ewalletUsedAmt = Number((booking as any).ewalletUsed || 0) || splitEwallet;
-  // Svc Discount (manualDisc) is a POST-tax deduction — applied to the bill
+  // Bill Discount (manualDisc) is a POST-tax deduction — applied to the bill
   // total after GST, not the pre-tax subtotal (matches pricing.engine.ts's
   // computeBillTotals). Coupon/membership discounts are unaffected and still
   // reduce the pre-tax base as before; only manualDisc moved.
   const billTotalBeforeSvcDiscount = subtotalAmt - couponDisc - membershipDiscountAmt + exclusiveTaxTotal;
   const afterSvcDiscount = billTotalBeforeSvcDiscount - manualDisc;
-  // Extra Charges and Tip are excluded from the Svc Discount base above —
-  // added here, after the discount. tipAmt was previously missing from this
-  // recompute entirely, silently understating rawGrandTotal (and so
-  // overstating the printed "Round Off") whenever a tip was collected.
-  const withCharges = afterSvcDiscount + exCharges + tipAmt;
+  // Extra Charges are excluded from the Bill Discount base above — added
+  // here, after the discount. tipAmt is deliberately NOT added — Staff Tip
+  // is display/record-only and never part of what the client is charged
+  // (matches pricing.engine.ts's computeBillTotals).
+  const withCharges = afterSvcDiscount + exCharges;
   // Referral Discount is a POST-tax, POST-Svc-Discount deduction now —
   // subtracted here, not folded into the pre-tax coupon discount above.
   const preRedemptionTotal = withCharges - referralDisc;
@@ -462,10 +477,9 @@ export function printReceipt(
         ]
       : [gstAmt > 0 ? sumRow(`GST${gstPct > 0 ? ` (${gstPct}%)` : ""}`, `+${fmt(gstAmt)}`) : ""]),
     exCharges   > 0 ? sumRow("Extra Charges",    `+${fmt(exCharges)}`) : "",
-    tipAmt      > 0 ? sumRow("Tip (Staff)",       `+${fmt(tipAmt)}`) : "",
-    // Svc Discount is applied AFTER GST/Extra Charges/Tip (post-tax
-    // deduction on the bill total) — matching pricing.engine.ts.
-    manualDisc  > 0 ? sumRow("Svc Discount",     `−${fmt(manualDisc)}`, false, "#dc2626") : "",
+    // Bill Discount is applied AFTER GST/Extra Charges (post-tax deduction
+    // on the bill total) — matching pricing.engine.ts.
+    manualDisc  > 0 ? sumRow("Bill Discount",     `−${fmt(manualDisc)}`, false, "#dc2626") : "",
     // Referral Discount is a POST-tax, POST-Svc-Discount deduction now —
     // shown here, not up by Subtotal/Coupon.
     referralDisc > 0 ? sumRow("Referral Discount", `−${fmt(referralDisc)}`, false, "#dc2626") : "",
@@ -478,6 +492,9 @@ export function printReceipt(
       : "",
     sumRow("Grand Total", fmt(isPackagePaid ? 0 : grandTotal), true, "#111827", true),
     sumRow("Amount to Pay", fmt(isPackagePaid ? 0 : grandTotal), true, "#111827"),
+    // Display/record-only — never part of Grand Total/Amount to Pay above.
+    // Placed after every bill-total row so it reads as separate info.
+    tipAmt > 0 ? sumRow("Staff Tip", fmt(tipAmt), false, "#6b7280") : "",
     showPaymentBreakdown
       ? splitEntries.map(([method, amt]) =>
           sumRow(`Paid via ${method}`, fmt(amt), false, METHOD_COLOR[method.toLowerCase()] ?? "#111827")

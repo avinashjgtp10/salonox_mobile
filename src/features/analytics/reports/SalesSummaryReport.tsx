@@ -32,6 +32,9 @@ interface SaleRow {
   staffName: string;
   bill: number;
   discountAmount: number;
+  couponCode: string;
+  couponDiscount: number;
+  referralDiscount: number;
   taxAmount: number;
   paid: number;
   dueAmount: number;
@@ -105,7 +108,14 @@ function mapAppointment(row: any): SaleRow {
     // as Bill − Discount + GST = Paid + Membership + eWallet + Rewards +
     // Referral + Due, same composition the rest of this row already implies.
     bill: Math.round(Number(row.actual_price) || 0),
+    // Bill-level manual discount only (matches the existing "Discount" column's
+    // pre-existing scope) — coupon/referral, now stored on the sale itself
+    // (payments.service.ts), are broken out as their own fields instead of
+    // being silently folded into this figure.
     discountAmount: Number(row.discount_amount) || 0,
+    couponCode: row.coupon_code ?? "",
+    couponDiscount: Number(row.coupon_discount_amount) || 0,
+    referralDiscount: Number(row.referral_discount_amount) || 0,
     taxAmount: Number(row.tax_amount) || 0,
     paid,
     dueAmount: Number(row.due_amount) || 0,
@@ -272,8 +282,8 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     setPaymentStatusFilter("All"); setItemTypeFilter("All"); setServiceFilter("All");
   };
 
-  const HEADERS = ["Date", "Invoice No", "Name", "Contact", "Item Types", "Staff Name", "Bill", "Discount", "GST", "Paid", "Membership", "E-Wallet", "Rewards", "Referral", "Due Amount", "Modes", "Status", "Description"];
-  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.name, r.contact, r.itemTypes, r.staffName, r.bill, r.discountAmount, r.taxAmount, r.paid, r.membershipWalletUsed, r.ewalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.description]);
+  const HEADERS = ["Date", "Invoice No", "Name", "Contact", "Item Types", "Staff Name", "Bill", "Discount", "Coupon Code", "Coupon Discount", "Referral Discount", "GST", "Paid", "Membership", "E-Wallet", "Rewards", "Referral Credit", "Due Amount", "Modes", "Status", "Description"];
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.name, r.contact, r.itemTypes, r.staffName, r.bill, r.discountAmount, r.couponCode, r.couponDiscount, r.referralDiscount, r.taxAmount, r.paid, r.membershipWalletUsed, r.ewalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.description]);
   const paged = rows;
 
   return (
@@ -400,7 +410,18 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.itemTypes}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.staffName}</td>
                 <td className="fw-semibold" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.bill)}</td>
-                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.discountAmount)}</td>
+                <td
+                  onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}
+                  title={[
+                    r.couponDiscount > 0 ? `Coupon${r.couponCode ? ` (${r.couponCode})` : ""}: -${money(r.couponDiscount)}` : null,
+                    r.referralDiscount > 0 ? `Referral: -${money(r.referralDiscount)}` : null,
+                  ].filter(Boolean).join(" · ") || undefined}
+                >
+                  {money(r.discountAmount)}
+                  {(r.couponDiscount > 0 || r.referralDiscount > 0) && (
+                    <span style={{ marginLeft: 4, fontSize: 10, color: "#7c3aed", fontWeight: 700 }}>+</span>
+                  )}
+                </td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.taxAmount)}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.paid)}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.membershipWalletUsed > 0 ? money(r.membershipWalletUsed) : "—"}</td>

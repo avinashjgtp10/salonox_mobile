@@ -149,7 +149,9 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const {
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, taxes,
-    exCharges, tip, couponDiscount, referralDiscount = 0, eWalletUsed, membershipWalletUsed = 0,
+    // `tip` (Staff Tip) is intentionally not destructured — it's display/
+    // record-only and never affects any total computed here.
+    exCharges, couponDiscount, referralDiscount = 0, eWalletUsed, membershipWalletUsed = 0,
     membershipServiceWalletUsed = 0, membershipProductWalletUsed = 0,
     rewardPointsRedeemedValue = 0, referralCreditUsed = 0,
   } = input;
@@ -224,12 +226,13 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const manualDiscount = Math.max(0, itemDisc);
 
   const afterSvcDiscount = Math.max(0, billTotal - manualDiscount);
-  // Extra Charges and Tip are both excluded from the Svc Discount base above
-  // — added here, after the discount, not before. Tip is collected from the
-  // client alongside the bill, passed straight through to staff — it must be
-  // part of what's actually charged here, even though it's excluded from
-  // salon revenue further downstream (sales.total_amount).
-  const withCharges = afterSvcDiscount + exCharges + tip;
+  // Extra Charges are excluded from the Bill Discount base above — added here,
+  // after the discount, not before. `tip` (Staff Tip) is deliberately NOT
+  // added — it's a display-only, record-only figure shown as its own Sale
+  // Summary row, never collected as part of the bill and never affecting
+  // Grand Total, matching sales.total_amount (revenue) which already
+  // excludes it on the backend.
+  const withCharges = afterSvcDiscount + exCharges;
 
   // Referral Discount is a POST-tax, POST-Svc-Discount deduction — applied
   // here, not folded into the pre-tax coupon discount above.

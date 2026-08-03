@@ -18,7 +18,7 @@ interface TotalsPanelProps {
   exCharges: number;
   discount: number;
   discountType: string;
-  manualDiscount?: number; // bill-level "Svc Discount" only, excludes coupon
+  manualDiscount?: number; // bill-level "Bill Discount" only, excludes coupon
   couponDiscount?: number;
   couponCode?: string;
   /** First-bill referral welcome discount (see referralDiscountPreview in
@@ -34,6 +34,9 @@ interface TotalsPanelProps {
   totalDiscount?: number;
   gstAmount?: number;
   taxBreakdown?: TaxBreakdownEntry[];
+  /** Staff Tip — display/record-only, never added into Grand Total/Amount to
+   *  Pay (see withCharges below). Shown as its own row purely so the tip
+   *  given to staff is recorded and visible on the receipt/summary. */
   tip?: number;
   // ₹ drawn from the client's balances for this bill — each shown as its own
   // deduction line so the discount is visible in the summary itself, not just
@@ -53,9 +56,10 @@ interface TotalsPanelProps {
   paidLabel?: string;
   dueAmount?: number;
   packageServiceCount?: number;
-  // Authoritative fully-reduced total (Svc Discount, Extra Charges/Tip,
+  // Authoritative fully-reduced total (Bill Discount, Extra Charges,
   // Referral Discount, Membership Wallet, eWallet, Reward Points, Referral
-  // Credit ALL already applied) + the rounding adjustment that produced it,
+  // Credit ALL already applied — Staff Tip is NEVER included) + the rounding
+  // adjustment that produced it,
   // straight from computeTotals() — passed by callers that already ran it
   // (avoids this panel re-deriving its own total and risking drift from the
   // figure actually used for payment). Falls back to a local (unrounded) calc
@@ -94,9 +98,10 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   const billTotalBeforeSvcDiscount = taxable + gstAmount;
   const svcDiscountAmount = hasGranularDiscount ? (manualDiscount ?? 0) : 0;
   const afterSvcDiscount = Math.max(0, billTotalBeforeSvcDiscount - svcDiscountAmount);
-  // Extra Charges and Tip are excluded from the Svc Discount base above —
-  // added here, after the discount, matching pricing.engine.ts.
-  const withCharges = afterSvcDiscount + exCharges + tip;
+  // Extra Charges are excluded from the Bill Discount base above — added
+  // here, after the discount, matching pricing.engine.ts. Staff Tip
+  // (`tip`) is display/record-only and deliberately never added here.
+  const withCharges = afterSvcDiscount + exCharges;
   // Referral Discount is a POST-tax, POST-Svc-Discount deduction — subtracted
   // here (not folded into the pre-tax coupon discount), matching the engine.
   // Never itself rounded — only the fully-reduced total below is.
@@ -160,12 +165,11 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
     ...(combinedInclusiveTax ? [{ label: `${combinedInclusiveTax.label} (${combinedInclusiveTax.rate}%, incl.)`, value: `${currencySymbol}${combinedInclusiveTax.amount.toFixed(2)}`, color: "text-secondary" }] : []),
     ...(combinedExclusiveTax ? [{ label: "Total after GST", value: `${currencySymbol}${totalAfterGst.toFixed(2)}`, color: "", bold: true }] : []),
     ...(exCharges     > 0 ? [{ label: "Ex Charges", value: `${currencySymbol}${exCharges.toFixed(2)}`,      color: "" }] : []),
-    ...(tip         > 0 ? [{ label: "Tip (Staff)", value: `${currencySymbol}${tip.toFixed(2)}`,        color: "text-secondary" }] : []),
-    // Svc Discount is a POST-tax deduction now — applied to the bill total
-    // after GST/Extra Charges/Tip (see pricing.engine.ts computeBillTotals),
-    // so it's shown here, below those rows, instead of up by Subtotal/Coupon.
+    // Bill Discount is a POST-tax deduction now — applied to the bill total
+    // after GST/Extra Charges (see pricing.engine.ts computeBillTotals), so
+    // it's shown here, below those rows, instead of up by Subtotal/Coupon.
     ...(hasGranularDiscount && (manualDiscount ?? 0) > 0
-      ? [{ label: "Svc Discount", value: `-${currencySymbol}${(manualDiscount ?? 0).toFixed(2)}`, color: "text-danger" }]
+      ? [{ label: "Bill Discount", value: `-${currencySymbol}${(manualDiscount ?? 0).toFixed(2)}`, color: "text-danger" }]
       : []),
     // Referral Discount is a POST-tax, POST-Svc-Discount deduction now —
     // applied here, not folded into the pre-tax coupon discount above.
@@ -184,6 +188,11 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
     { label: "Amount to Pay", value: `${currencySymbol}${grandTotal.toFixed(2)}`, color: "", bold: true },
     ...(alreadyPaid > 0 ? [{ label: paidLabel,     value: `${currencySymbol}${alreadyPaid.toFixed(2)}`, color: "text-success",   bold: false }] : []),
     ...(dueAmount   > 0 ? [{ label: "Due",          value: `${currencySymbol}${dueAmount.toFixed(2)}`,  color: "text-danger",    bold: false }] : []),
+    // Display/record-only — never part of Grand Total/Amount to Pay above
+    // (see withCharges, which deliberately never adds `tip`). Placed after
+    // every bill-total row so it reads as separate info, not part of the
+    // running total.
+    ...(tip > 0 ? [{ label: "Staff Tip", value: `${currencySymbol}${tip.toFixed(2)}`, color: "text-secondary", bold: false }] : []),
   ];
 
   return (
