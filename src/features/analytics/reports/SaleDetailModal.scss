@@ -1,0 +1,129 @@
+// ── Sale detail modal — shared by Sales Summary and Staff Sales reports ────
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal-box {
+  background: #fff;
+  border-radius: 16px;
+  width: 480px;
+  max-width: 95vw;
+  max-height: 90vh;
+  overflow-y: auto;
+  padding: 24px;
+
+  .modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 24px;
+
+    h3 { margin: 0; font-size: 16px; font-weight: 600; }
+
+    .modal-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: #f3f4f6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+  }
+}
+
+.sd-modal-box {
+  width: 720px;
+}
+
+.sd-error {
+  padding: 32px 0;
+  text-align: center;
+  color: #6b7280;
+  font-size: 13.5px;
+}
+
+.sd-header-row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.sd-label {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #9ca3af;
+  margin-bottom: 4px;
+}
+
+.sd-value {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.sd-sub {
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.sd-items-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 16px;
+  font-size: 12.5px;
+
+  th, td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  th {
+    color: #6b7280;
+    font-weight: 600;
+    font-size: 11px;
+    text-transform: uppercase;
+  }
+}
+
+.sd-empty-cell {
+  text-align: center;
+  color: #9ca3af;
+  padding: 16px;
+}
+
+.sd-totals, .sd-payment, .sd-notes {
+  margin-bottom: 16px;
+}
+
+.sd-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 6px 0;
+  font-size: 13px;
+  border-bottom: 1px solid #f9fafb;
+
+  &--total {
+    font-weight: 700;
+    border-top: 1px solid #e5e7eb;
+    border-bottom: none;
+  }
+}
+
+.sd-no-payment {
+  font-size: 12.5px;
+  color: #9ca3af;
+  padding: 8px 0;
+}
