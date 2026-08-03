@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { BoxArrowUpRight } from "react-bootstrap-icons";
+import { BoxArrowUpRight, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { GST_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -19,6 +19,8 @@ interface InvoiceTaxRow {
   date: string;
   invoiceNo: string;
   client: string;
+  serviceAmount: number;
+  productAmount: number;
   taxableAmount: number;
   // sales.tax_amount is a single flat number — there is no per-tax-name
   // breakdown at the sales level (only payments.tax_breakdown has that, and
@@ -28,14 +30,27 @@ interface InvoiceTaxRow {
   total: number;
 }
 
+// dd/MM/yyyy, consistently across the table and every export (CSV/Excel/PDF
+// all read the same r.date via exportRows).
+function formatDate(input: string): string {
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 // Maps a row from the independent GST report API
 // (POST /api/report/gst — reads sales directly, never the Appointment API)
 // to the table's existing InvoiceTaxRow shape.
 function mapRow(row: any): InvoiceTaxRow {
   return {
-    date: row.date || "—",
+    date: row.date ? formatDate(row.date) : "—",
     invoiceNo: row.invoice_no ?? "—",
     client: row.client_name || "Walk-in",
+    serviceAmount: Number(row.service_amount) || 0,
+    productAmount: Number(row.product_amount) || 0,
     taxableAmount: Number(row.taxable_amount) || 0,
     taxAmount: Number(row.tax_amount) || 0,
     total: Number(row.total) || 0,
@@ -125,8 +140,10 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
 
   const selectedStaffLabel = staffOptions.find(o => o.value === staffFilter)?.label ?? "All";
 
-  const HEADERS = ["Invoice No.", "Date", "Customer", `Taxable Value (${currencySymbol})`, `Tax Amount (${currencySymbol})`, `Total (${currencySymbol})`];
-  const exportRows = () => rows.map(r => [r.invoiceNo, r.date, r.client, r.taxableAmount, r.taxAmount, r.total]);
+  const avgTaxPerInvoice = stats.invoicesWithTax > 0 ? stats.totalTax / stats.invoicesWithTax : 0;
+
+  const HEADERS = ["Date", "Invoice No", "Customer", `Service Amount (${currencySymbol})`, `Product Amount (${currencySymbol})`, `Taxable Amount (${currencySymbol})`, `GST Amount (${currencySymbol})`, `Total Amount (${currencySymbol})`];
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.serviceAmount, r.productAmount, r.taxableAmount, r.taxAmount, r.total]);
 
   return (
     <div className="rp-detail-view">
@@ -171,28 +188,32 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
             </div>
           )}
         </div>
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Customer</label>
-          <input
-            type="text"
-            className="rp-detail-date-input"
-            placeholder="Search customer…"
-            value={customerFilter}
-            onChange={e => setCustomerFilterInput(e.target.value)}
-          />
-        </div>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={3} /> : (
+      {loading ? <SkeletonStatCards count={4} /> : (
       <div className="rp-sra-summary-row">
         <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.invoicesWithTax}</div><div className="rp-sra-summary-label">Invoices with Tax</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalTax)}</div><div className="rp-sra-summary-label">Total Tax Collected</div></div>
-        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalCollected)}</div><div className="rp-sra-summary-label">Total Amount Collected</div></div>
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalCollected)}</div><div className="rp-sra-summary-label">Total Amount</div></div>
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalTax)}</div><div className="rp-sra-summary-label">Total Tax</div></div>
+        <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(avgTaxPerInvoice)}</div><div className="rp-sra-summary-label">Average Tax per Invoice</div></div>
       </div>
       )}
+
+      <div className="rp-detail-toolbar">
+        <div className="rp-detail-search-wrap">
+          <Search size={13} className="rp-detail-search-ic" />
+          <input
+            type="text"
+            className="rp-detail-search-input"
+            placeholder="Search by customer name or invoice no…"
+            value={customerFilter}
+            onChange={e => setCustomerFilterInput(e.target.value)}
+          />
+        </div>
+      </div>
 
       {!loading && <div className="rp-detail-drag-hint">{total} invoice{total !== 1 ? "s" : ""}</div>}
 
@@ -200,21 +221,25 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Invoice No.</th><th>Date</th><th>Customer</th><th>Taxable Value ({currencySymbol})</th>
-              <th>Tax Amount ({currencySymbol})</th>
-              <th>Total ({currencySymbol})</th>
+              <th>Date</th><th>Invoice No</th><th>Customer</th>
+              <th>Service Amount ({currencySymbol})</th><th>Product Amount ({currencySymbol})</th>
+              <th>Taxable Amount ({currencySymbol})</th>
+              <th>GST Amount ({currencySymbol})</th>
+              <th>Total Amount ({currencySymbol})</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={6} />
+              <SkeletonTableRows columns={8} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={6} className="rp-detail-empty-cell">No tax data found</td></tr>
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No tax data found</td></tr>
             ) : rows.map((r, i) => (
               <tr key={i}>
-                <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td>{r.date}</td>
+                <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td>{r.client}</td>
+                <td>{formatAmount(r.serviceAmount)}</td>
+                <td>{formatAmount(r.productAmount)}</td>
                 <td>{formatAmount(r.taxableAmount)}</td>
                 <td>{formatAmount(r.taxAmount)}</td>
                 <td className="fw-semibold">{formatAmount(r.total)}</td>
