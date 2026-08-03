@@ -115,6 +115,8 @@ interface PackageRecord {
   expiry_date: string;
   created_date: string;
   staff_id?: string | null;
+  sale_id?: string | null;
+  appointment_id?: string | null;
   services: PackageService[] | null;
 }
 
@@ -747,15 +749,34 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const packageSaleMatch = useMemo(() => {
     const usedSaleIds = new Set<string>();
     const map = new Map<string, SaleRecord>();
+    const salesById = new Map(sales.map((s) => [s.id, s]));
     packages.forEach((pkg) => {
+      // Prefer the real client_packages.sale_id link — the package's own
+      // total_amount only ever matches a bundled sale's total_amount by
+      // coincidence (a sale can legitimately include other items/tax
+      // alongside the package, e.g. a membership discount balance line),
+      // which is exactly what made the amount-tolerance fallback below
+      // silently fail to match and show this package as two Visit History
+      // entries (its own "Package Sold" row AND the underlying sale/
+      // appointment row, unmatched and therefore not excluded from either).
+      const linkedSale = pkg.sale_id ? salesById.get(pkg.sale_id) : undefined;
+      if (linkedSale && !usedSaleIds.has(linkedSale.id)) {
+        usedSaleIds.add(linkedSale.id);
+        map.set(pkg.id, linkedSale);
+        return;
+      }
+
+      // Fallback for packages predating the sale_id column being populated —
+      // match against the package's own line item price, not the sale's
+      // total (same bundling reason as above).
       const pkgTime = new Date(pkg.created_date).getTime();
       const pkgAmount = Number(pkg.total_amount) || 0;
       const matchedSale = sales.find((sale) => {
         if (usedSaleIds.has(sale.id)) return false;
-        const hasPkgItem = (sale.items ?? []).some((it) => it.name === pkg.package_name);
-        if (!hasPkgItem) return false;
-        if (Math.abs((Number(sale.total_amount) || 0) - pkgAmount) > 0.5) return false;
-        return Math.abs(new Date(sale.created_at).getTime() - pkgTime) < 10 * 60 * 1000;
+        const pkgItem = (sale.items ?? []).find((it) => it.name === pkg.package_name && it.item_type === "package");
+        if (!pkgItem) return false;
+        if (Math.abs((Number(pkgItem.total_price) || 0) - pkgAmount) > 0.5) return false;
+        return Math.abs(new Date(sale.created_at).getTime() - pkgTime) < 24 * 60 * 60 * 1000;
       });
       if (matchedSale) {
         usedSaleIds.add(matchedSale.id);

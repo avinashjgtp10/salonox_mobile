@@ -1235,6 +1235,14 @@
   margin-bottom: 14px;
   flex-wrap: wrap;
 
+  // Pushes the export button (the toolbar's last child, after search and any
+  // optional date-range picker) to the far right — search's own max-width
+  // stops it from filling the row on its own, so this is needed instead of
+  // relying on flex-grow alone.
+  > :last-child {
+    margin-left: auto;
+  }
+
   &__search {
     display: flex;
     align-items: center;

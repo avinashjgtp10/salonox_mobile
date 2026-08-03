@@ -173,10 +173,13 @@ const PackageCreateForm: React.FC<Props> = ({
 
   const frozenStyle = isFromTemplate ? { opacity: 0.6, cursor: "not-allowed" as const, background: "#f9fafb" } : undefined;
 
-  // Local (not UTC) today, in the yyyy-mm-dd shape <input type="date"> expects —
-  // an expiry date can't be a day that's already passed.
-  const today = new Date();
-  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  // Earliest selectable expiry — must be strictly AFTER today, not today
+  // itself: a same-day expiry means the package/template is born already
+  // expired (expiry_date = purchase date + 0 days), which is exactly the
+  // PKG 18/pac 27 data bug this validation exists to prevent.
+  const minExpiryDate = new Date();
+  minExpiryDate.setDate(minExpiryDate.getDate() + 1);
+  const minExpiryStr = `${minExpiryDate.getFullYear()}-${String(minExpiryDate.getMonth() + 1).padStart(2, "0")}-${String(minExpiryDate.getDate()).padStart(2, "0")}`;
 
   const clientFullName = selectedClient
     ? `${selectedClient.first_name} ${selectedClient.last_name ?? ""}`.trim()
@@ -189,7 +192,7 @@ const PackageCreateForm: React.FC<Props> = ({
     // Inline validation
     if (!pkgName.trim())                       { setApiError("Package name is required."); return; }
     if (!neverExpires && !expiry)              { setApiError("Set an expiry date or check 'Never expires'."); return; }
-    if (!neverExpires && expiry < todayStr)    { setApiError("Expiry date cannot be in the past."); return; }
+    if (!neverExpires && expiry < minExpiryStr) { setApiError("Expiry date must be after today."); return; }
     const validServices = services.filter(s => s.name.trim());
     if (validServices.length === 0)            { setApiError("Add at least one service."); return; }
     const methodMissing = !quickCreateMode && (paymentMode === "single"
@@ -337,11 +340,11 @@ const PackageCreateForm: React.FC<Props> = ({
               </button>
             </div>
             <div style={{ overflowY: "auto", padding: 16, display: "flex", flexDirection: "column", gap: 10 }}>
-              {templates.length === 0 ? (
+              {templates.filter(t => t.neverExpires || t.expiryDays == null || t.expiryDays > 0).length === 0 ? (
                 <div style={{ textAlign: "center", padding: "32px 20px", color: "#6b7280", fontSize: 13 }}>
                   No templates yet. Create templates from the <strong>Templates</strong> tab.
                 </div>
-              ) : templates.map(t => {
+              ) : templates.filter(t => t.neverExpires || t.expiryDays == null || t.expiryDays > 0).map(t => {
                 const total = t.basePrice - t.discount + (t.basePrice - t.discount) * t.gstPercentage / 100;
                 return (
                   <div
@@ -450,7 +453,7 @@ const PackageCreateForm: React.FC<Props> = ({
               <input
                 type="date"
                 value={expiry}
-                min={todayStr}
+                min={minExpiryStr}
                 onChange={e => setExpiry(e.target.value)}
                 className={styles.input}
                 disabled={neverExpires || isFromTemplate}
