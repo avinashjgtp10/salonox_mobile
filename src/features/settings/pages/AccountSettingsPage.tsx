@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Lock,
   Mail,
@@ -43,7 +43,6 @@ interface PasswordErrors {
 const validateNewPassword = (pw: string): string | undefined => {
   if (pw.length < 8) return "Password must be at least 8 characters";
   if (!/[A-Z]/.test(pw)) return "Password must contain at least one uppercase letter";
-  if (!/[a-z]/.test(pw)) return "Password must contain at least one lowercase letter";
   if (!/[0-9]/.test(pw)) return "Password must contain at least one number";
   return undefined;
 };
@@ -124,16 +123,6 @@ export default function AccountSettingsPage() {
   const [isEditingPassword, setIsEditingPassword] = useState(false);
   const [justChangedPassword, setJustChangedPassword] = useState(false);
   const pwIsDirty = !!(pwForm.currentPassword || pwForm.newPassword || pwForm.confirmPassword);
-
-  useEffect(() => {
-    if (!isEditingPassword || !pwIsDirty) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [isEditingPassword, pwIsDirty]);
 
   const [twoFAEnabled, setTwoFAEnabled] = useState(false);
 
