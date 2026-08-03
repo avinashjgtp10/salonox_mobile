@@ -1,3 +1,10 @@
+// Guarantees the dropdown below always has a positioned ancestor to anchor
+// to, regardless of whether the caller's own containerClass sets position —
+// several report filter-field classes (e.g. rp-pkg-filter-field) don't.
+.msc-field {
+  position: relative;
+}
+
 .msc-trigger {
   display: flex;
   align-items: center;
@@ -16,8 +23,11 @@
 }
 
 .msc-dropdown {
-  position: relative;
-  margin-top: 4px;
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 50;
   max-height: 200px;
   overflow-y: auto;
   border: 1px solid #e5e7eb;
