@@ -23,6 +23,9 @@ import {
   Printer,
   Receipt,
   X,
+  Trash,
+  Check2,
+  XLg,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { printReceipt, buildPrintableBooking } from "../../bookings/utils/receipt";
@@ -30,6 +33,12 @@ import AppointmentDetailModal from "../../bookings/components/modals/Appointment
 import { getPackageExpiryStatus } from "../../bookings/utils/packageStatus";
 import Pagination from "../../../components/ui/Pagination";
 import Skeleton from "../../../components/ui/Skeleton";
+import PlainStatCard from "./PlainStatCard";
+import TabToolbar from "./TabToolbar";
+import EwalletTab from "./EwalletTab";
+import ReferralsRewardsTab from "./ReferralsRewardsTab";
+import CommunicationTab from "./CommunicationTab";
+import { useTableSearchSort } from "../hooks/useTableSearchSort";
 import "../styles/ClientHistoryPage.scss";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -42,6 +51,7 @@ interface AppointmentRecord {
   payment_status: string;
   duration_minutes: number;
   notes: string | null;
+  staff_alert: string | null;
   cancel_reason: string | null;
   amount_paid: number;
   // Authoritative remaining balance for this appointment (already net of
@@ -75,6 +85,7 @@ interface SaleItem {
   quantity: number;
   unit_price: string;
   total_price: string;
+  staff_id?: string | null;
 }
 interface SaleRecord {
   id: string;
@@ -101,6 +112,7 @@ interface PackageRecord {
   payment_status: string;
   expiry_date: string;
   created_date: string;
+  staff_id?: string | null;
   services: PackageService[] | null;
 }
 
@@ -114,6 +126,42 @@ interface MembershipRecord {
   total_sessions: number;
   used_sessions: number;
   membership_wallet_balance: string;
+  staff_id?: string | null;
+  discount_balance_remaining?: string | null;
+}
+
+interface ClientNoteRecord {
+  id: string;
+  staff_name: string | null;
+  note: string;
+  created_at: string;
+  updated_at: string;
+}
+
+// Shared shape across the E-Wallet / Reward Points / Referral Credit ledgers —
+// all three backend tables (ewallet_ledger, reward_points_ledger, referral_ledger)
+// use the identical earn/redeem/adjust + balance_after convention.
+interface LedgerEntry {
+  id: string;
+  type: string; // 'credit'|'debit' (e-wallet) or 'earn'|'redeem'|'adjust' (points/referral)
+  amount?: number;   // e-wallet field name
+  points?: number;   // reward-points field name
+  balance_after: number;
+  source_type: string | null;
+  source_id: string | null;
+  note: string | null;
+  created_at: string;
+}
+
+interface CommunicationEntry {
+  channel: "whatsapp";
+  source: "automation" | "campaign";
+  label: string;
+  status: string;
+  sent_at: string | null;
+  delivered_at: string | null;
+  read_at: string | null;
+  created_at: string;
 }
 
 interface HistoryStats {
@@ -124,6 +172,7 @@ interface HistoryStats {
   lifetime_spend: number;
   total_sales: number;
   active_packages: number;
+  active_memberships: number;
 }
 
 interface ClientInfo {
@@ -137,6 +186,17 @@ interface ClientInfo {
   is_active: boolean;
   created_at: string;
   avatar_url: string | null;
+  gender: string | null;
+  wallet_balance: number;
+  reward_points_balance: number;
+  referral_balance: number;
+  referral_code: string | null;
+  total_referral_earnings: number;
+  total_successful_referrals: number;
+  client_source: string | null;
+  birthday_day_month: string | null; // "MM-DD"
+  birthday_year: number | null;
+  referred_by: { id: string; full_name: string } | null;
 }
 
 interface HistoryData {
@@ -149,12 +209,17 @@ interface HistoryData {
 }
 
 export type TabKey =
+  | "overview"
   | "history"
   | "services"
   | "memberships"
   | "packages"
   | "products"
-  | "payments";
+  | "payments"
+  | "notes"
+  | "ewallet"
+  | "referrals"
+  | "communication";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const fmtDate = (iso: string) => {
@@ -171,6 +236,36 @@ const fmtDateShort = (iso: string) =>
   new Date(iso).toLocaleDateString("en-IN", {
     day: "2-digit", month: "short", year: "numeric",
   });
+
+// dd/MM/yyyy — the app's standard date format (matches DateRangePicker.tsx's
+// own label formatter), used across the new Overview/Notes/E-Wallet/
+// Referrals & Rewards/Communication tabs and their exports.
+const fmtDMY = (iso: string | null | undefined) => {
+  if (!iso) return "–";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "–";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()}`;
+};
+
+const fmtDMYTime = (iso: string | null | undefined) => {
+  if (!iso) return "–";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "–";
+  const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  return `${fmtDMY(iso)} ${time}`;
+};
+
+// Birthday is stored split as "MM-DD" + an optional year (a birthday may have
+// no year on file) — same convention/format as ClientDetailsDrawer.tsx's
+// formatBirthday, just dd/MM/yyyy here to match this page's date format.
+const fmtBirthday = (dayMonth: string | null, year: number | null) => {
+  if (!dayMonth) return "–";
+  const [mm, dd] = dayMonth.split("-");
+  if (!mm || !dd) return "–";
+  return year ? `${dd}/${mm}/${year}` : `${dd}/${mm}`;
+};
 
 const getInitials = (name: string) =>
   name
@@ -199,12 +294,17 @@ const openWhatsApp = (country_code: string | null, phone: string | null) => {
 };
 
 const TABS: { key: TabKey; label: string }[] = [
+  { key: "overview", label: "Overview" },
   { key: "history", label: "History" },
   { key: "services", label: "Services" },
   { key: "memberships", label: "Memberships" },
   { key: "packages", label: "Packages" },
   { key: "products", label: "Products" },
   { key: "payments", label: "Payments" },
+  { key: "notes", label: "Notes" },
+  { key: "ewallet", label: "E-Wallet" },
+  { key: "referrals", label: "Referrals & Rewards" },
+  { key: "communication", label: "Communication" },
 ];
 
 export interface ClientHistoryDetailProps {
@@ -224,6 +324,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const { formatAmount } = useCurrency();
   const fmtRupees = (v: number | string) => formatAmount(Number(v));
   const currentSalon = useAppSelector((s: any) => s.salon.currentSalon);
+  const currentUserProfile = useAppSelector((s: any) => s.user.profile);
   const reduxStaff = useAppSelector((s: any) => s.staff.items ?? []);
   const settingItems = useAppSelector((s: any) => s.setting.items);
   useEffect(() => { dispatch(fetchSettingsThunk()); }, [dispatch]);
@@ -246,7 +347,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const [standalonePkgRevenue, setStandalonePkgRevenue] = useState(0);
   const [standaloneMemRevenue, setStandaloneMemRevenue] = useState(0);
   const [historyLoading, setHistoryLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? "history");
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab ?? "overview");
   // loadHistory() unconditionally lands on "history" — that's the right default when the
   // full Client History page switches between clients, but the very first load should
   // honor initialTab (e.g. a report deep-linking straight into the Products tab).
@@ -264,14 +365,48 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   // Services/Memberships/Products/Payments tabs — each paginated independently.
   const [servicesPage, setServicesPage] = useState(1);
   const [servicesPageSize, setServicesPageSize] = useState(10);
-  const [membershipsPage, setMembershipsPage] = useState(1);
-  const [membershipsPageSize, setMembershipsPageSize] = useState(10);
   const [productsPage, setProductsPage] = useState(1);
   const [productsPageSize, setProductsPageSize] = useState(10);
   const [paymentsPage, setPaymentsPage] = useState(1);
   const [paymentsPageSize, setPaymentsPageSize] = useState(10);
-  const [packageBookingsPage, setPackageBookingsPage] = useState(1);
-  const [packageBookingsPageSize, setPackageBookingsPageSize] = useState(10);
+  const [membershipsPage, setMembershipsPage] = useState(1);
+  const [membershipsPageSize, setMembershipsPageSize] = useState(10);
+  const [packagesPage, setPackagesPage] = useState(1);
+  const [packagesPageSize, setPackagesPageSize] = useState(10);
+
+  // New tabs (Notes/E-Wallet/Referrals & Rewards/Communication) — each
+  // paginated independently, same convention as the tabs above.
+  const [notesPage, setNotesPage] = useState(1);
+  const [notesPageSize, setNotesPageSize] = useState(10);
+  const [ewalletPage, setEwalletPage] = useState(1);
+  const [ewalletPageSize, setEwalletPageSize] = useState(10);
+  const [rewardsPage, setRewardsPage] = useState(1);
+  const [rewardsPageSize, setRewardsPageSize] = useState(10);
+  const [referralLedgerPage, setReferralLedgerPage] = useState(1);
+  const [referralLedgerPageSize, setReferralLedgerPageSize] = useState(10);
+  const [commPage, setCommPage] = useState(1);
+  const [commPageSize, setCommPageSize] = useState(10);
+
+  // Lazy-fetched per-tab data — each only loads the first time its own tab is
+  // opened (not on initial mount), so viewing a client's history doesn't
+  // always pay for 4 extra API calls it may never need.
+  const [notes, setNotes] = useState<ClientNoteRecord[]>([]);
+  const [notesLoaded, setNotesLoaded] = useState(false);
+  const [noteText, setNoteText] = useState("");
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
+  const [editingNoteText, setEditingNoteText] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+
+  const [ewalletLedger, setEwalletLedger] = useState<LedgerEntry[]>([]);
+  const [ewalletLoaded, setEwalletLoaded] = useState(false);
+
+  const [rewardLedger, setRewardLedger] = useState<LedgerEntry[]>([]);
+  const [rewardLoaded, setRewardLoaded] = useState(false);
+  const [referralLedger, setReferralLedger] = useState<LedgerEntry[]>([]);
+  const [referralLoaded, setReferralLoaded] = useState(false);
+
+  const [communications, setCommunications] = useState<CommunicationEntry[]>([]);
+  const [commLoaded, setCommLoaded] = useState(false);
 
   // Global filter — applies across all tabs
   const [showGlobalFilter, setShowGlobalFilter] = useState(false);
@@ -286,10 +421,10 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   useEffect(() => {
     setHistoryPage(1);
     setServicesPage(1);
-    setMembershipsPage(1);
     setProductsPage(1);
     setPaymentsPage(1);
-    setPackageBookingsPage(1);
+    setMembershipsPage(1);
+    setPackagesPage(1);
   }, [globalDatePreset, globalCalDay, globalServiceFilter, globalStaffFilter]);
 
   // Same standalone-purchase revenue useClientDetails.ts computes from these
@@ -320,17 +455,29 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     setData(null);
     setHistoryLoading(true);
     if (initialTabAppliedRef.current) {
-      setActiveTab("history");
+      setActiveTab("overview");
     } else {
-      setActiveTab(initialTab ?? "history");
+      setActiveTab(initialTab ?? "overview");
       initialTabAppliedRef.current = true;
     }
     setHistoryPage(1);
     setServicesPage(1);
-    setMembershipsPage(1);
     setProductsPage(1);
     setPaymentsPage(1);
-    setPackageBookingsPage(1);
+    setMembershipsPage(1);
+    setPackagesPage(1);
+    setNotesPage(1);
+    setEwalletPage(1);
+    setRewardsPage(1);
+    setReferralLedgerPage(1);
+    setCommPage(1);
+    // Switching clients invalidates every lazy-loaded tab's cached data —
+    // each tab's own effect (below) re-fetches the next time it's opened.
+    setNotesLoaded(false);
+    setEwalletLoaded(false);
+    setRewardLoaded(false);
+    setReferralLoaded(false);
+    setCommLoaded(false);
     setGlobalCalDay(null);
     setGlobalDatePreset("all");
     setGlobalServiceFilter("all");
@@ -348,6 +495,88 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   }, [initialTab, fetchStandaloneRevenue]);
 
   useEffect(() => { loadHistory(clientId); }, [clientId, loadHistory]);
+
+  // Lazy-load each new tab's own data the first time it's opened for this
+  // client — avoids adding 4 mandatory API calls to every single Client
+  // History open when most visits only ever look at a couple of tabs.
+  useEffect(() => {
+    if (activeTab === "notes" && !notesLoaded) {
+      setNotesLoaded(true);
+      api.get(`/api/v1/clients/${clientId}/notes`)
+        .then((res) => setNotes(res.data?.data ?? []))
+        .catch(() => setNotes([]));
+    }
+    if (activeTab === "ewallet" && !ewalletLoaded) {
+      setEwalletLoaded(true);
+      api.get(`/api/v1/ewallet/${clientId}/ledger`)
+        .then((res) => setEwalletLedger(res.data?.data ?? []))
+        .catch(() => setEwalletLedger([]));
+    }
+    if (activeTab === "referrals") {
+      if (!rewardLoaded) {
+        setRewardLoaded(true);
+        api.get(`/api/v1/reward-points/${clientId}/ledger`)
+          .then((res) => setRewardLedger(res.data?.data ?? []))
+          .catch(() => setRewardLedger([]));
+      }
+      if (!referralLoaded) {
+        setReferralLoaded(true);
+        api.get(`/api/v1/referral/${clientId}/ledger`)
+          .then((res) => setReferralLedger(res.data?.data ?? []))
+          .catch(() => setReferralLedger([]));
+      }
+    }
+    if (activeTab === "communication" && !commLoaded) {
+      setCommLoaded(true);
+      api.get(`/api/v1/clients/${clientId}/communications`)
+        .then((res) => setCommunications(res.data?.data ?? []))
+        .catch(() => setCommunications([]));
+    }
+  }, [activeTab, clientId, notesLoaded, ewalletLoaded, rewardLoaded, referralLoaded, commLoaded]);
+
+  // ── Notes CRUD ─────────────────────────────────────────────────────────────
+  const refetchNotes = useCallback(() => {
+    api.get(`/api/v1/clients/${clientId}/notes`)
+      .then((res) => setNotes(res.data?.data ?? []))
+      .catch(() => {});
+  }, [clientId]);
+
+  const handleAddNote = useCallback(async () => {
+    if (!noteText.trim() || savingNote) return;
+    setSavingNote(true);
+    try {
+      await api.post(`/api/v1/clients/${clientId}/notes`, {
+        note: noteText.trim(),
+        staff_name: currentUserProfile?.fullName || undefined,
+      });
+      setNoteText("");
+      refetchNotes();
+    } catch {
+      // Best-effort — the form simply stays filled in so staff can retry.
+    } finally {
+      setSavingNote(false);
+    }
+  }, [clientId, noteText, savingNote, currentUserProfile, refetchNotes]);
+
+  const handleSaveEditNote = useCallback(async (id: string) => {
+    if (!editingNoteText.trim()) return;
+    try {
+      await api.patch(`/api/v1/clients/${clientId}/notes/${id}`, { note: editingNoteText.trim() });
+      setEditingNoteId(null);
+      refetchNotes();
+    } catch {
+      // Keep the row in edit mode so staff can retry.
+    }
+  }, [clientId, editingNoteText, refetchNotes]);
+
+  const handleDeleteNote = useCallback(async (id: string) => {
+    try {
+      await api.delete(`/api/v1/clients/${clientId}/notes/${id}`);
+      refetchNotes();
+    } catch {
+      // Best-effort — note stays visible if the delete failed.
+    }
+  }, [clientId, refetchNotes]);
 
   // Unlike ClientHistoryModal (which fully unmounts/remounts on every open,
   // so it always gets a fresh fetch), this component mounts once per
@@ -383,6 +612,37 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const sales = data?.sales ?? [];
   const packages = data?.packages ?? [];
   const realMemberships = data?.memberships ?? [];
+
+  // Notes tab shows more than just the manually-added client_notes rows —
+  // staff also enter "Notes" and "Staff Alert" text directly on a booking
+  // (Quick Sale / AppointmentModal's "Payment & Notes" section, persisted to
+  // appointments.notes/staff_alert), and that's exactly what staff expect to
+  // see here too, not just notes added from this tab's own form. Merged in
+  // as read-only rows (editing/deleting a booking's own note belongs on the
+  // booking, not here) tagged by source so it's clear where each came from.
+  const combinedNotes = useMemo(() => {
+    const manual = notes.map((n) => ({
+      id: n.id, date: n.created_at, staffName: n.staff_name, text: n.note,
+      source: "manual" as const,
+    }));
+    const bookingNotes = appointments.flatMap((a) => {
+      const staffMember = staffList.find((st) => st.id === (a.staff_id ?? a.staff?.id));
+      const staffName = staffMember?.full_name || a.staff?.full_name || null;
+      const rows: typeof manual = [];
+      if (a.staff_alert?.trim()) {
+        rows.push({ id: `alert-${a.id}`, date: a.scheduled_at, staffName, text: a.staff_alert, source: "staffAlert" as any });
+      }
+      if (a.notes?.trim()) {
+        rows.push({ id: `booking-${a.id}`, date: a.scheduled_at, staffName, text: a.notes, source: "bookingNote" as any });
+      }
+      return rows;
+    });
+    return [...manual, ...bookingNotes].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [notes, appointments, staffList]);
+
+  const notesSearch = useTableSearchSort<typeof combinedNotes[number]>({
+    rows: combinedNotes, searchFields: ["text", "staffName"], defaultSortKey: "date",
+  });
 
   const now = new Date();
 
@@ -472,7 +732,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     .filter((s) => s.status === "completed")
     .flatMap((s) =>
       (s.items ?? []).filter((it) => it.item_type === "service")
-        .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id }))
+        .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id, invoice_number: s.invoice_number }))
     );
 
   // A package purchase produces both a `sales` row and a `packages` (client-package)
@@ -517,7 +777,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     .filter((s) => !packageSaleIds.has(s.id))
     .flatMap((s) =>
       (s.items ?? []).filter((it) => it.item_type === "package")
-        .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id }))
+        .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id, invoice_number: s.invoice_number }))
     );
   const salePackageNames = new Set(packagesFromSales.map((it) => it.name));
 
@@ -536,7 +796,6 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
         sale_id: p.appt.id,
       }))
   );
-  const allPackageItems = [...packagesFromSales, ...packagesFromAppointments];
   const apptPackageNames = new Set(packagesFromAppointments.map((p) => p.name));
 
   // Services from appointments (not captured in sales items; exclude items that are actually packages)
@@ -553,17 +812,17 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
         total_price: String(s.price ?? 0),
         sale_date: a.scheduled_at,
         sale_id: a.id,
+        // Appointment-derived (not from a `sales` row), so there's no
+        // invoice — kept explicit (not omitted) so this matches
+        // servicesFromSales's shape and the two can share one array type.
+        invoice_number: null as string | null,
       }))
   );
 
   const allServices = [...servicesFromSales, ...servicesFromAppointments];
   const productsFromSales = sales.flatMap((s) =>
     (s.items ?? []).filter((it) => it.item_type === "product")
-      .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id }))
-  );
-  const membershipsFromSales = sales.flatMap((s) =>
-    (s.items ?? []).filter((it) => it.item_type === "membership")
-      .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id }))
+      .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id, invoice_number: s.invoice_number }))
   );
 
   const isGoldMember = computedLifetimeSpend > 5000;
@@ -577,6 +836,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     });
     return map;
   }, [appointments]);
+
+  // Resolves a display name for whichever staff handled a row — direct
+  // staff_id when the row carries one (sales/client_packages/client_memberships
+  // rows), falling back to the parent appointment's staff for appointment-
+  // derived rows (sale_id holds the appointment id in that case).
+  const resolveStaffName = (row: { staff_id?: string | null; sale_id?: string }) => {
+    const sid = row.staff_id ?? (row.sale_id ? appointmentStaffMap.get(row.sale_id) : undefined);
+    if (!sid) return "–";
+    return staffList.find((st) => st.id === sid)?.full_name || "–";
+  };
 
   // appointment id → service names array
   const appointmentServicesMap = useMemo(() => {
@@ -608,7 +877,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   // Apply global filters across all tab data at once
   const {
     visibleAppointments, visibleQuickSales, filteredAllServices,
-    filteredProductsFromSales, filteredMembershipsFromSales, filteredPackages, filteredRealMemberships, filteredPackageItems, filteredSales,
+    filteredProductsFromSales, filteredPackages, filteredRealMemberships, filteredSales,
   } = useMemo(() => {
     const matchDate = (dateStr: string): boolean => {
       if (globalCalDay) return dateStr.slice(0, 10) === globalCalDay;
@@ -632,10 +901,8 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
         matchDate(it.sale_date) && (globalServiceFilter === "all" || it.name === globalServiceFilter)
       ),
       filteredProductsFromSales: productsFromSales.filter((it) => matchDate(it.sale_date)),
-      filteredMembershipsFromSales: membershipsFromSales.filter((it) => matchDate(it.sale_date)),
       filteredPackages: packages.filter((pkg) => matchDate(pkg.created_date)),
       filteredRealMemberships: realMemberships.filter((m) => matchDate(m.purchased_at)),
-      filteredPackageItems: allPackageItems.filter((it) => matchDate(it.sale_date)),
       filteredSales: sales.filter((s) => {
         if (!matchDate(s.created_at)) return false;
         if (globalServiceFilter !== "all") {
@@ -651,10 +918,31 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       }),
     };
   }, [
-    appointments, quickSales, allServices, productsFromSales, membershipsFromSales, packages, realMemberships, sales,
+    appointments, quickSales, allServices, productsFromSales, packages, realMemberships, sales,
     globalCalDay, globalDatePreset, globalServiceFilter, globalStaffFilter,
     appointmentServicesMap, appointmentStaffMap,
   ]);
+
+  // Per-tab search+sort for the tabs that already existed before this
+  // redesign — layered on top of the existing global-date/service/staff
+  // filter above (matchDate etc.), not replacing it. Kept as a thin
+  // additional narrowing so the already-working filter/pagination logic for
+  // these tabs stays untouched.
+  const servicesSearch = useTableSearchSort<typeof filteredAllServices[number]>({
+    rows: filteredAllServices, searchFields: ["name", "invoice_number"], defaultSortKey: "sale_date",
+  });
+  const productsSearch = useTableSearchSort<typeof filteredProductsFromSales[number]>({
+    rows: filteredProductsFromSales, searchFields: ["name", "invoice_number"], defaultSortKey: "sale_date",
+  });
+  const membershipsSearch = useTableSearchSort<typeof filteredRealMemberships[number]>({
+    rows: filteredRealMemberships, searchFields: ["membership_name", "status"], defaultSortKey: "purchased_at",
+  });
+  const packagesSearch = useTableSearchSort<typeof filteredPackages[number]>({
+    rows: filteredPackages, searchFields: ["package_name", "status"], defaultSortKey: "created_date",
+  });
+  const paymentsSearch = useTableSearchSort<typeof filteredSales[number]>({
+    rows: filteredSales, searchFields: ["invoice_number", "payment_method", "status"], defaultSortKey: "created_at",
+  });
 
   // Calendar dot map — always built from full unfiltered data (the calendar IS the filter)
   const calendarDotMap = useMemo(() => {
@@ -708,6 +996,57 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     ];
     return entries.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [visibleAppointments, visibleQuickSales, filteredPackages, packageSaleMatch, saleByAppointmentId]);
+
+  // Flattened, searchable/exportable view of visitHistoryEntries — one row
+  // shape across all 3 entry kinds (appointment/quickSale/package), so the
+  // shared search+export toolbar can work generically. The rich per-kind
+  // JSX below still renders from `entry` (kept on each row) — this is only
+  // for filtering/sorting/export, not a replacement for that render logic.
+  const historyRows = useMemo(() => visitHistoryEntries.map((entry) => {
+    if (entry.kind === "package") {
+      const pkg = entry.pkg;
+      return {
+        id: `pkg-${pkg.id}`, entry,
+        name: pkg.package_name, date: pkg.created_date,
+        staff: "Package Sold",
+        status: (pkg.payment_status || "").toLowerCase() === "paid" ? "Paid" : (pkg.payment_status || "Unpaid"),
+        amount: Number(pkg.total_amount) || 0,
+        invoice: entry.sale?.invoice_number ?? "–",
+      };
+    }
+    if (entry.kind === "quickSale") {
+      const s = entry.sale;
+      const firstName = (s.items ?? []).find((it) => it.item_type === "service")?.name || (s.items ?? [])[0]?.name || "Quick Sale";
+      return {
+        id: s.id, entry,
+        name: firstName, date: s.created_at,
+        staff: "Quick Sale",
+        status: s.status === "completed" ? "Paid" : s.status,
+        amount: Number(s.total_amount) || 0,
+        invoice: s.invoice_number ?? "–",
+      };
+    }
+    const appt = entry.appt;
+    const linkedSale = saleByAppointmentId.get(appt.id);
+    const isPaid = linkedSale ? linkedSale.status === "completed" : appt.payment_status === "paid" || Number(appt.amount_paid) > 0;
+    const svcName =
+      appt.services?.[0]?.name || appt.services?.[0]?.service_name ||
+      appt.product_items?.[0]?.name || appt.package_items?.[0]?.name || appt.package_items?.[0]?.package_name ||
+      appt.membership_items?.[0]?.name || appt.linked_package_name || appt.linked_membership_name || "Appointment";
+    const staffMember = staffList.find((st) => st.id === (appt.staff_id ?? appt.staff?.id));
+    return {
+      id: appt.id, entry,
+      name: svcName, date: appt.scheduled_at,
+      staff: staffMember?.full_name || appt.staff?.full_name || "–",
+      status: isPaid ? "Paid" : (appt.payment_status || "Unpaid"),
+      amount: linkedSale ? Number(linkedSale.total_amount) : Number(appt.amount_paid) || 0,
+      invoice: linkedSale?.invoice_number ?? "–",
+    };
+  }), [visitHistoryEntries, saleByAppointmentId, staffList]);
+
+  const historySearch = useTableSearchSort<typeof historyRows[number]>({
+    rows: historyRows, searchFields: ["name", "staff", "status", "invoice"], defaultSortKey: "date",
+  });
 
   // Total Visits = paid/partial appointments (from the backend stat) + genuine
   // walk-in quick sales. The old count used quickSales.length, which counted
@@ -1018,24 +1357,113 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       <div className="chp-body-row">
         <div className="chp-tab-content">
 
+        {/* OVERVIEW tab (default) */}
+        {activeTab === "overview" && client && (
+          <div className="chp-overview">
+            <div className="chp-overview__stats">
+              <PlainStatCard label="Total Visits" value={totalVisitsCount} />
+              <PlainStatCard label="Total Revenue" value={fmtRupees(computedLifetimeSpend)} />
+              <PlainStatCard label="Avg. Ticket Size" value={fmtRupees(avgTicket)} />
+              <PlainStatCard label="E-Wallet Balance" value={fmtRupees(client.wallet_balance)} />
+              <PlainStatCard label="Reward Points Balance" value={client.reward_points_balance} />
+              {client.referral_code && (
+                <PlainStatCard label="Referral Balance" value={fmtRupees(client.referral_balance)} />
+              )}
+            </div>
+
+            <div className="chp-overview__info">
+              <div className="chp-overview-row">
+                <span className="chp-overview-row__label">Client Name</span>
+                <span className="chp-overview-row__value">{client.full_name}</span>
+              </div>
+              <div className="chp-overview-row">
+                <span className="chp-overview-row__label">Mobile Number</span>
+                <span className="chp-overview-row__value">
+                  {client.phone_number ? `${client.phone_country_code ?? ""} ${client.phone_number}` : "–"}
+                </span>
+              </div>
+              <div className="chp-overview-row">
+                <span className="chp-overview-row__label">Email</span>
+                <span className="chp-overview-row__value">{client.email || "–"}</span>
+              </div>
+              <div className="chp-overview-row">
+                <span className="chp-overview-row__label">Gender</span>
+                <span className="chp-overview-row__value">{client.gender || "–"}</span>
+              </div>
+              <div className="chp-overview-row">
+                <span className="chp-overview-row__label">Birth Date</span>
+                <span className="chp-overview-row__value">{fmtBirthday(client.birthday_day_month, client.birthday_year)}</span>
+              </div>
+              <div className="chp-overview-row">
+                <span className="chp-overview-row__label">Member Since</span>
+                <span className="chp-overview-row__value">{fmtDMY(client.created_at)}</span>
+              </div>
+              <div className="chp-overview-row">
+                <span className="chp-overview-row__label">Last Visit</span>
+                <span className="chp-overview-row__value">{lastVisit ? fmtDMY(lastVisit) : "–"}</span>
+              </div>
+              <div className="chp-overview-row">
+                <span className="chp-overview-row__label">Next Appointment</span>
+                <span className="chp-overview-row__value">{nextAppt ? fmtDMY(nextAppt) : "–"}</span>
+              </div>
+              <div className="chp-overview-row">
+                <span className="chp-overview-row__label">Active Memberships</span>
+                <span className="chp-overview-row__value">{stats?.active_memberships ?? 0}</span>
+              </div>
+              <div className="chp-overview-row">
+                <span className="chp-overview-row__label">Active Packages</span>
+                <span className="chp-overview-row__value">{stats?.active_packages ?? 0}</span>
+              </div>
+              <div className="chp-overview-row">
+                <span className="chp-overview-row__label">Source</span>
+                <span className="chp-overview-row__value">{client.client_source || "–"}</span>
+              </div>
+              {client.referred_by && (
+                <div className="chp-overview-row">
+                  <span className="chp-overview-row__label">Referred By</span>
+                  <span className="chp-overview-row__value">{client.referred_by.full_name}</span>
+                </div>
+              )}
+              {client.referral_code && (
+                <div className="chp-overview-row">
+                  <span className="chp-overview-row__label">Referral Code</span>
+                  <span className="chp-overview-row__value">{client.referral_code}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* HISTORY tab */}
         {activeTab === "history" && (
           <div className="chp-card">
             <div className="chp-card-header">
               <span className="chp-card-title">
-                Visit History{hasGlobalFilter ? ` (${visitHistoryEntries.length} filtered)` : ""}
+                Visit History{hasGlobalFilter ? ` (${historySearch.filteredSortedRows.length} filtered)` : ""}
               </span>
             </div>
+            <TabToolbar
+              searchValue={historySearch.search}
+              onSearchChange={historySearch.setSearch}
+              searchPlaceholder="Search visit history..."
+              exportConfig={{
+                title: "Visit History",
+                headers: ["Invoice Number", "Visit Date", "Staff", "Status", "Bill Amount"],
+                rows: () => historySearch.filteredSortedRows.map((r) => [r.invoice, fmtDMY(r.date), r.staff, r.status, fmtRupees(r.amount)]),
+                filename: "visit-history",
+              }}
+            />
 
               {appointments.length === 0 && quickSales.length === 0 && packages.length === 0 ? (
                 <div className="chp-no-data">No visits found</div>
-              ) : visitHistoryEntries.length === 0 ? (
+              ) : historySearch.filteredSortedRows.length === 0 ? (
                 <div className="chp-no-data">No visits match the current filter</div>
               ) : (
                 <div className="chp-visit-list">
-                  {visitHistoryEntries
+                  {historySearch.filteredSortedRows
                     .slice((historyPage - 1) * historyPageSize, historyPage * historyPageSize)
-                    .map((entry) => {
+                    .map((row) => {
+                    const entry = row.entry;
                     if (entry.kind === "package") {
                       const pkg = entry.pkg;
                       const isPkgPaid = (pkg.payment_status || "").toLowerCase() === "paid";
@@ -1203,11 +1631,11 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   })}
                 </div>
               )}
-              {visitHistoryEntries.length > 0 && (
+              {historySearch.filteredSortedRows.length > 0 && (
                 <Pagination
                   currentPage={historyPage}
                   pageSize={historyPageSize}
-                  totalItems={visitHistoryEntries.length}
+                  totalItems={historySearch.filteredSortedRows.length}
                   onPageChange={setHistoryPage}
                   onPageSizeChange={(sz) => { setHistoryPageSize(sz); setHistoryPage(1); }}
                   pageSizeOptions={[10, 25, 50, 100]}
@@ -1221,29 +1649,44 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
           <div className="chp-card">
             <div className="chp-card-header">
               <span className="chp-card-title">
-                Services availed ({filteredAllServices.length}{hasGlobalFilter && filteredAllServices.length !== allServices.length ? ` of ${allServices.length}` : ""})
+                Services availed ({servicesSearch.filteredSortedRows.length}{hasGlobalFilter && filteredAllServices.length !== allServices.length ? ` of ${allServices.length}` : ""})
               </span>
             </div>
-            {filteredAllServices.length === 0 ? (
+            <TabToolbar
+              searchValue={servicesSearch.search}
+              onSearchChange={servicesSearch.setSearch}
+              searchPlaceholder="Search services..."
+              exportConfig={{
+                title: "Services Availed",
+                headers: ["Date", "Invoice No", "Service Name", "Staff", "Quantity", "Unit Price", "Total"],
+                rows: () => servicesSearch.filteredSortedRows.map((it) => [
+                  fmtDMY(it.sale_date), it.invoice_number || "–", it.name, resolveStaffName(it), it.quantity, fmtRupees(it.unit_price), fmtRupees(it.total_price),
+                ]),
+                filename: "services-availed",
+              }}
+            />
+            {servicesSearch.filteredSortedRows.length === 0 ? (
               <div className="chp-no-data">{allServices.length === 0 ? "No services availed yet" : "No services match the current filter"}</div>
             ) : (
               <table className="chp-table">
                 <thead>
                   <tr>
-                    <th>Service</th>
-                    <th>Date</th>
+                    <th onClick={() => servicesSearch.toggleSort("name")} style={{ cursor: "pointer" }}>Service</th>
+                    <th onClick={() => servicesSearch.toggleSort("sale_date")} style={{ cursor: "pointer" }}>Date</th>
+                    <th>Staff</th>
                     <th style={{ textAlign: "center" }}>Qty</th>
                     <th style={{ textAlign: "right" }}>Unit Price</th>
                     <th style={{ textAlign: "right" }}>Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredAllServices
+                  {servicesSearch.filteredSortedRows
                     .slice((servicesPage - 1) * servicesPageSize, servicesPage * servicesPageSize)
                     .map((it, i) => (
                     <tr key={i}>
                       <td className="chp-inv">{it.name}</td>
                       <td>{fmtDateShort(it.sale_date)}</td>
+                      <td>{resolveStaffName(it)}</td>
                       <td style={{ textAlign: "center" }}>{it.quantity}</td>
                       <td style={{ textAlign: "right" }}>{fmtRupees(it.unit_price)}</td>
                       <td style={{ textAlign: "right", fontWeight: 700 }}>{fmtRupees(it.total_price)}</td>
@@ -1252,11 +1695,11 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                 </tbody>
               </table>
             )}
-            {filteredAllServices.length > 0 && (
+            {servicesSearch.filteredSortedRows.length > 0 && (
               <Pagination
                 currentPage={servicesPage}
                 pageSize={servicesPageSize}
-                totalItems={filteredAllServices.length}
+                totalItems={servicesSearch.filteredSortedRows.length}
                 onPageChange={setServicesPage}
                 onPageSizeChange={(sz) => { setServicesPageSize(sz); setServicesPage(1); }}
                 pageSizeOptions={[10, 25, 50, 100]}
@@ -1268,80 +1711,69 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
         {/* MEMBERSHIPS tab */}
         {activeTab === "memberships" && (
           <div className="chp-card">
-            {filteredRealMemberships.length > 0 && (
-              <>
-                <div className="chp-card-header">
-                  <span className="chp-card-title">Active memberships ({filteredRealMemberships.length})</span>
-                </div>
-                {filteredRealMemberships.map((m) => {
-                  const expiryStatus = getPackageExpiryStatus(m.expires_at);
-                  const displayStatus = expiryStatus === "active" ? m.status : expiryStatus;
-                  return (
-                    <div key={m.id} className="chp-pkg-card">
-                      <div className="chp-pkg-top">
-                        <div className="chp-pkg-name">{m.membership_name}</div>
-                        <span className={`chp-status-badge chp-status-badge--${displayStatus}`}>
-                          {displayStatus === "expiring-soon" ? "Expiring Soon" : displayStatus}
-                        </span>
-                      </div>
-                      <div className="chp-pkg-meta">
-                        Purchased {fmtDateShort(m.purchased_at)}
-                        {m.expires_at ? ` · Expires ${fmtDateShort(m.expires_at)}` : ""}
-                      </div>
-                      <div className="chp-pkg-svc">
-                        <div className="chp-pkg-svc-row">
-                          <span>Sessions</span>
-                          <span>{m.total_sessions === 0 ? "Unlimited" : `${m.used_sessions}/${m.total_sessions}`}</span>
-                        </div>
-                        {m.total_sessions > 0 && (
-                          <div className="chp-progress-bar">
-                            <div className="chp-progress-fill" style={{ width: `${Math.round((m.used_sessions / m.total_sessions) * 100)}%` }} />
-                          </div>
-                        )}
-                      </div>
-                      <div className="chp-pkg-footer">
-                        <span className="chp-pkg-amount">Wallet Balance: {formatAmount(Number(m.membership_wallet_balance))}</span>
-                        <span className="chp-pkg-amount">{formatAmount(Number(m.price_paid))}</span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </>
-            )}
             <div className="chp-card-header">
-              <span className="chp-card-title">
-                Memberships purchased ({filteredMembershipsFromSales.length}{hasGlobalFilter && filteredMembershipsFromSales.length !== membershipsFromSales.length ? ` of ${membershipsFromSales.length}` : ""})
-              </span>
+              <span className="chp-card-title">Memberships purchased ({membershipsSearch.filteredSortedRows.length})</span>
             </div>
-            {filteredMembershipsFromSales.length === 0 ? (
-              <div className="chp-no-data">{membershipsFromSales.length === 0 ? "No memberships purchased yet" : "No memberships match the current filter"}</div>
+            <TabToolbar
+              searchValue={membershipsSearch.search}
+              onSearchChange={membershipsSearch.setSearch}
+              searchPlaceholder="Search memberships..."
+              exportConfig={{
+                title: "Memberships",
+                headers: ["Membership Name", "Purchase Date", "Valid Until", "Sessions", "Remaining Balance", "Value", "Status"],
+                rows: () => membershipsSearch.filteredSortedRows.map((m) => [
+                  m.membership_name, fmtDMY(m.purchased_at), m.expires_at ? fmtDMY(m.expires_at) : "–",
+                  m.total_sessions === 0 ? "Unlimited" : `${m.used_sessions}/${m.total_sessions}`,
+                  formatAmount(Number(m.membership_wallet_balance)), fmtRupees(m.price_paid), m.status,
+                ]),
+                filename: "memberships",
+              }}
+            />
+            {membershipsSearch.filteredSortedRows.length === 0 ? (
+              <div className="chp-no-data">No memberships purchased yet</div>
             ) : (
               <table className="chp-table">
                 <thead>
                   <tr>
-                    <th>Membership</th>
-                    <th>Purchased</th>
+                    <th onClick={() => membershipsSearch.toggleSort("membership_name")} style={{ cursor: "pointer" }}>Membership</th>
+                    <th onClick={() => membershipsSearch.toggleSort("purchased_at")} style={{ cursor: "pointer" }}>Purchased</th>
+                    <th>Valid Until</th>
+                    <th>Sessions</th>
+                    <th style={{ textAlign: "right" }}>Remaining Balance</th>
                     <th style={{ textAlign: "right" }}>Amount</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredMembershipsFromSales
+                  {membershipsSearch.filteredSortedRows
                     .slice((membershipsPage - 1) * membershipsPageSize, membershipsPage * membershipsPageSize)
-                    .map((it, i) => (
-                    <tr key={i}>
-                      <td className="chp-inv">{it.name}</td>
-                      <td>{fmtDateShort(it.sale_date)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 700 }}>{fmtRupees(it.total_price)}</td>
-                    </tr>
-                  ))}
+                    .map((m) => {
+                      const expiryStatus = getPackageExpiryStatus(m.expires_at);
+                      const displayStatus = expiryStatus === "active" ? m.status : expiryStatus;
+                      return (
+                        <tr key={m.id}>
+                          <td className="chp-inv">{m.membership_name}</td>
+                          <td>{fmtDateShort(m.purchased_at)}</td>
+                          <td>{m.expires_at ? fmtDateShort(m.expires_at) : "No expiry"}</td>
+                          <td>{m.total_sessions === 0 ? "Unlimited" : `${m.used_sessions}/${m.total_sessions}`}</td>
+                          <td style={{ textAlign: "right" }}>{formatAmount(Number(m.membership_wallet_balance))}</td>
+                          <td style={{ textAlign: "right", fontWeight: 700 }}>{formatAmount(Number(m.price_paid))}</td>
+                          <td>
+                            <span className={`chp-status-badge chp-status-badge--${displayStatus}`}>
+                              {displayStatus === "expiring-soon" ? "Expiring Soon" : displayStatus}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             )}
-            {filteredMembershipsFromSales.length > 0 && (
+            {membershipsSearch.filteredSortedRows.length > 0 && (
               <Pagination
                 currentPage={membershipsPage}
                 pageSize={membershipsPageSize}
-                totalItems={filteredMembershipsFromSales.length}
+                totalItems={membershipsSearch.filteredSortedRows.length}
                 onPageChange={setMembershipsPage}
                 onPageSizeChange={(sz) => { setMembershipsPageSize(sz); setMembershipsPage(1); }}
                 pageSizeOptions={[10, 25, 50, 100]}
@@ -1352,99 +1784,92 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
 
         {/* PACKAGES tab */}
         {activeTab === "packages" && (
-          <div className="chp-pkg-grid">
-            {/* One-time package bookings from appointments */}
-            {filteredPackageItems.length > 0 && (
-              <div className="chp-card" style={{ gridColumn: "1 / -1" }}>
-                <div className="chp-card-header">
-                  <span className="chp-card-title">Package bookings ({filteredPackageItems.length})</span>
-                </div>
-                <table className="chp-table">
-                  <thead><tr><th>Package</th><th>Date</th><th>Amount</th></tr></thead>
-                  <tbody>
-                    {filteredPackageItems
-                      .slice((packageBookingsPage - 1) * packageBookingsPageSize, packageBookingsPage * packageBookingsPageSize)
-                      .map((it, i) => (
-                      <tr key={i}>
-                        <td>{it.name}</td>
-                        <td>{fmtDateShort(it.sale_date)}</td>
-                        <td>{formatAmount(Number(it.total_price || 0))}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                <Pagination
-                  currentPage={packageBookingsPage}
-                  pageSize={packageBookingsPageSize}
-                  totalItems={filteredPackageItems.length}
-                  onPageChange={setPackageBookingsPage}
-                  onPageSizeChange={(sz) => { setPackageBookingsPageSize(sz); setPackageBookingsPage(1); }}
-                  pageSizeOptions={[10, 25, 50, 100]}
-                />
-              </div>
-            )}
-            {filteredPackages.length === 0 && filteredPackageItems.length === 0 ? (
-              // Matches the Memberships tab's empty state: a proper chp-card
-              // with its own header, not bare unwrapped text — this used to
-              // render with no card/header at all, the one visible difference
-              // between the two tabs' presentation (SCRUM-1092).
-              <div className="chp-card" style={{ gridColumn: "1 / -1" }}>
-                <div className="chp-card-header">
-                  <span className="chp-card-title">Packages purchased (0)</span>
-                </div>
-                <div className="chp-no-data">No packages found</div>
-              </div>
-            ) : filteredPackages.length === 0 ? null : (
-              filteredPackages.map((pkg) => {
-                const expiryStatus = getPackageExpiryStatus(pkg.expiry_date);
-                const displayStatus = expiryStatus === "active" ? pkg.status : expiryStatus;
-                return (
-                  <div key={pkg.id} className="chp-pkg-card">
-                    <div className="chp-pkg-top">
-                      <div className="chp-pkg-name">{pkg.package_name}</div>
-                      <span className={`chp-status-badge chp-status-badge--${displayStatus}`}>
-                        {displayStatus === "expiring-soon" ? "Expiring Soon" : displayStatus}
-                      </span>
-                    </div>
-                    <div className="chp-pkg-meta">
-                      Purchased {fmtDateShort(pkg.created_date)} · Expires {fmtDateShort(pkg.expiry_date)}
-                    </div>
-                    {(pkg.services ?? []).map((svc, i) => {
-                      const pct = svc.total_sessions > 0
-                        ? Math.round((svc.completed_sessions / svc.total_sessions) * 100)
-                        : 0;
+          <div className="chp-card">
+            <div className="chp-card-header">
+              <span className="chp-card-title">Packages purchased ({packagesSearch.filteredSortedRows.length})</span>
+            </div>
+            <TabToolbar
+              searchValue={packagesSearch.search}
+              onSearchChange={packagesSearch.setSearch}
+              searchPlaceholder="Search packages..."
+              exportConfig={{
+                title: "Packages Purchased",
+                headers: ["Package Name", "Purchase Date", "Valid Until", "Sessions", "Remaining Amount", "Amount", "Status"],
+                rows: () => packagesSearch.filteredSortedRows.map((pkg) => {
+                  const totalSessions = (pkg.services ?? []).reduce((s, sv) => s + sv.total_sessions, 0);
+                  const usedSessions = (pkg.services ?? []).reduce((s, sv) => s + sv.completed_sessions, 0);
+                  return [
+                    pkg.package_name, fmtDMY(pkg.created_date), fmtDMY(pkg.expiry_date),
+                    `${usedSessions}/${totalSessions}`,
+                    formatAmount(Number(pkg.pending_amount) || 0), fmtRupees(pkg.total_amount), pkg.status,
+                  ];
+                }),
+                filename: "packages-purchased",
+              }}
+            />
+            {packagesSearch.filteredSortedRows.length === 0 ? (
+              <div className="chp-no-data">No packages purchased yet</div>
+            ) : (
+              <table className="chp-table">
+                <thead>
+                  <tr>
+                    <th onClick={() => packagesSearch.toggleSort("package_name")} style={{ cursor: "pointer" }}>Package</th>
+                    <th onClick={() => packagesSearch.toggleSort("created_date")} style={{ cursor: "pointer" }}>Purchased</th>
+                    <th>Valid Until</th>
+                    <th>Sessions</th>
+                    <th style={{ textAlign: "right" }}>Remaining Amount</th>
+                    <th style={{ textAlign: "right" }}>Amount</th>
+                    <th>Status</th>
+                    <th></th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {packagesSearch.filteredSortedRows
+                    .slice((packagesPage - 1) * packagesPageSize, packagesPage * packagesPageSize)
+                    .map((pkg) => {
+                      const expiryStatus = getPackageExpiryStatus(pkg.expiry_date);
+                      const displayStatus = expiryStatus === "active" ? pkg.status : expiryStatus;
+                      const totalSessions = (pkg.services ?? []).reduce((s, sv) => s + sv.total_sessions, 0);
+                      const usedSessions = (pkg.services ?? []).reduce((s, sv) => s + sv.completed_sessions, 0);
                       return (
-                        <div key={i} className="chp-pkg-svc">
-                          <div className="chp-pkg-svc-row">
-                            <span>{svc.service_name}</span>
-                            <span>{svc.completed_sessions}/{svc.total_sessions}</span>
-                          </div>
-                          <div className="chp-progress-bar">
-                            <div className="chp-progress-fill" style={{ width: `${pct}%` }} />
-                          </div>
-                        </div>
+                        <tr key={pkg.id}>
+                          <td className="chp-inv">{pkg.package_name}</td>
+                          <td>{fmtDateShort(pkg.created_date)}</td>
+                          <td>{fmtDateShort(pkg.expiry_date)}</td>
+                          <td>{usedSessions}/{totalSessions}</td>
+                          <td style={{ textAlign: "right" }}>
+                            {Number(pkg.pending_amount) > 0 ? formatAmount(Number(pkg.pending_amount)) : "Fully Paid"}
+                          </td>
+                          <td style={{ textAlign: "right", fontWeight: 700 }}>{formatAmount(Number(pkg.total_amount))}</td>
+                          <td>
+                            <span className={`chp-status-badge chp-status-badge--${displayStatus}`}>
+                              {displayStatus === "expiring-soon" ? "Expiring Soon" : displayStatus}
+                            </span>
+                          </td>
+                          <td>
+                            <button
+                              className="chp-print-btn"
+                              title="Print bill"
+                              onClick={(e) => { e.stopPropagation(); printPackageBill(pkg, packageSaleMatch.get(pkg.id)); }}
+                            >
+                              <Printer size={13} />
+                            </button>
+                          </td>
+                        </tr>
                       );
                     })}
-                    <div className="chp-pkg-footer">
-                      <span className={`chp-status-badge chp-status-badge--${pkg.payment_status}`}>
-                        {pkg.payment_status}
-                      </span>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span className="chp-pkg-amount">
-                          {formatAmount(Number(pkg.total_amount))}
-                        </span>
-                        <button
-                          className="chp-print-btn"
-                          title="Print bill"
-                          onClick={(e) => { e.stopPropagation(); printPackageBill(pkg, packageSaleMatch.get(pkg.id)); }}
-                        >
-                          <Printer size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })
+                </tbody>
+              </table>
+            )}
+            {packagesSearch.filteredSortedRows.length > 0 && (
+              <Pagination
+                currentPage={packagesPage}
+                pageSize={packagesPageSize}
+                totalItems={packagesSearch.filteredSortedRows.length}
+                onPageChange={setPackagesPage}
+                onPageSizeChange={(sz) => { setPackagesPageSize(sz); setPackagesPage(1); }}
+                pageSizeOptions={[10, 25, 50, 100]}
+              />
             )}
           </div>
         )}
@@ -1454,29 +1879,44 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
           <div className="chp-card">
             <div className="chp-card-header">
               <span className="chp-card-title">
-                Products purchased ({filteredProductsFromSales.length}{hasGlobalFilter && filteredProductsFromSales.length !== productsFromSales.length ? ` of ${productsFromSales.length}` : ""})
+                Products purchased ({productsSearch.filteredSortedRows.length}{hasGlobalFilter && filteredProductsFromSales.length !== productsFromSales.length ? ` of ${productsFromSales.length}` : ""})
               </span>
             </div>
-            {filteredProductsFromSales.length === 0 ? (
+            <TabToolbar
+              searchValue={productsSearch.search}
+              onSearchChange={productsSearch.setSearch}
+              searchPlaceholder="Search products..."
+              exportConfig={{
+                title: "Products Purchased",
+                headers: ["Date", "Invoice No", "Product Name", "Staff", "Quantity", "Unit Price", "Total"],
+                rows: () => productsSearch.filteredSortedRows.map((it) => [
+                  fmtDMY(it.sale_date), it.invoice_number || "–", it.name, resolveStaffName(it), it.quantity, fmtRupees(it.unit_price), fmtRupees(it.total_price),
+                ]),
+                filename: "products-purchased",
+              }}
+            />
+            {productsSearch.filteredSortedRows.length === 0 ? (
               <div className="chp-no-data">{productsFromSales.length === 0 ? "No products purchased yet" : "No products match the current filter"}</div>
             ) : (
               <table className="chp-table">
                 <thead>
                   <tr>
-                    <th>Product</th>
-                    <th>Date</th>
+                    <th onClick={() => productsSearch.toggleSort("name")} style={{ cursor: "pointer" }}>Product</th>
+                    <th onClick={() => productsSearch.toggleSort("sale_date")} style={{ cursor: "pointer" }}>Date</th>
+                    <th>Staff</th>
                     <th style={{ textAlign: "center" }}>Qty</th>
                     <th style={{ textAlign: "right" }}>Unit Price</th>
                     <th style={{ textAlign: "right" }}>Total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredProductsFromSales
+                  {productsSearch.filteredSortedRows
                     .slice((productsPage - 1) * productsPageSize, productsPage * productsPageSize)
                     .map((it, i) => (
                     <tr key={i}>
                       <td className="chp-inv">{it.name}</td>
                       <td>{fmtDateShort(it.sale_date)}</td>
+                      <td>{resolveStaffName(it)}</td>
                       <td style={{ textAlign: "center" }}>{it.quantity}</td>
                       <td style={{ textAlign: "right" }}>{fmtRupees(it.unit_price)}</td>
                       <td style={{ textAlign: "right", fontWeight: 700 }}>{fmtRupees(it.total_price)}</td>
@@ -1485,11 +1925,11 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                 </tbody>
               </table>
             )}
-            {filteredProductsFromSales.length > 0 && (
+            {productsSearch.filteredSortedRows.length > 0 && (
               <Pagination
                 currentPage={productsPage}
                 pageSize={productsPageSize}
-                totalItems={filteredProductsFromSales.length}
+                totalItems={productsSearch.filteredSortedRows.length}
                 onPageChange={setProductsPage}
                 onPageSizeChange={(sz) => { setProductsPageSize(sz); setProductsPage(1); }}
                 pageSizeOptions={[10, 25, 50, 100]}
@@ -1503,10 +1943,28 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
           <div className="chp-card">
             <div className="chp-card-header">
               <span className="chp-card-title">
-                Payment history ({filteredSales.length}{filteredSales.length !== sales.length ? ` of ${sales.length}` : ""})
+                Payment history ({paymentsSearch.filteredSortedRows.length}{filteredSales.length !== sales.length ? ` of ${sales.length}` : ""})
               </span>
             </div>
-            {filteredSales.length === 0 ? (
+            <TabToolbar
+              searchValue={paymentsSearch.search}
+              onSearchChange={paymentsSearch.setSearch}
+              searchPlaceholder="Search payments..."
+              exportConfig={{
+                title: "Payment History",
+                headers: ["Invoice", "Date", "Items", "Method", "Status", "Amount"],
+                rows: () => paymentsSearch.filteredSortedRows.map((s) => [
+                  s.invoice_number ?? `#${s.id.slice(-6).toUpperCase()}`,
+                  fmtDMY(s.created_at),
+                  (s.items ?? []).map((it) => `${it.quantity > 1 ? `${it.quantity}x ` : ""}${it.name}`).join(", "),
+                  s.payment_method ?? "–",
+                  s.status,
+                  formatAmount(Number(s.total_amount)),
+                ]),
+                filename: "payment-history",
+              }}
+            />
+            {paymentsSearch.filteredSortedRows.length === 0 ? (
               <div className="chp-no-data">
                 {sales.length === 0 ? "No payments found" : "No payments match these filters"}
               </div>
@@ -1515,7 +1973,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                 <thead>
                   <tr>
                     <th>Invoice</th>
-                    <th>Date</th>
+                    <th onClick={() => paymentsSearch.toggleSort("created_at")} style={{ cursor: "pointer" }}>Date</th>
                     <th>Items</th>
                     <th>Method</th>
                     <th>Status</th>
@@ -1523,7 +1981,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredSales
+                  {paymentsSearch.filteredSortedRows
                     .slice((paymentsPage - 1) * paymentsPageSize, paymentsPage * paymentsPageSize)
                     .map((s) => (
                     <tr key={s.id}>
@@ -1554,17 +2012,157 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                 </tbody>
               </table>
             )}
-            {filteredSales.length > 0 && (
+            {paymentsSearch.filteredSortedRows.length > 0 && (
               <Pagination
                 currentPage={paymentsPage}
                 pageSize={paymentsPageSize}
-                totalItems={filteredSales.length}
+                totalItems={paymentsSearch.filteredSortedRows.length}
                 onPageChange={setPaymentsPage}
                 onPageSizeChange={(sz) => { setPaymentsPageSize(sz); setPaymentsPage(1); }}
                 pageSizeOptions={[10, 25, 50, 100]}
               />
             )}
           </div>
+        )}
+
+        {/* NOTES tab */}
+        {activeTab === "notes" && (
+          <div className="chp-card chp-notes">
+            <div className="chp-card-header">
+              <span className="chp-card-title">Notes ({combinedNotes.length})</span>
+            </div>
+            <div className="chp-notes__form">
+              <textarea
+                value={noteText}
+                onChange={(e) => setNoteText(e.target.value)}
+                placeholder="Add a note about this client..."
+              />
+              <div className="chp-notes__form-actions">
+                <button
+                  className="chp-btn chp-btn--purple"
+                  disabled={!noteText.trim() || savingNote}
+                  onClick={handleAddNote}
+                >
+                  {savingNote ? "Saving…" : "Add Note"}
+                </button>
+              </div>
+            </div>
+            <TabToolbar
+              searchValue={notesSearch.search}
+              onSearchChange={notesSearch.setSearch}
+              searchPlaceholder="Search notes..."
+              exportConfig={{
+                title: "Client Notes",
+                headers: ["Date", "Staff", "Source", "Note"],
+                rows: () => notesSearch.filteredSortedRows.map((n) => [
+                  fmtDMYTime(n.date), n.staffName || "Staff",
+                  n.source === "manual" ? "Manual" : n.source === "staffAlert" ? "Staff Alert" : "Booking Note",
+                  n.text,
+                ]),
+                filename: "client-notes",
+              }}
+            />
+            {notesSearch.filteredSortedRows.length === 0 ? (
+              <div className="chp-no-data">No notes yet</div>
+            ) : (
+              notesSearch.filteredSortedRows
+                .slice((notesPage - 1) * notesPageSize, notesPage * notesPageSize)
+                .map((n) => (
+                  <div key={n.id} className="chp-notes__item">
+                    <div className="chp-notes__item-head">
+                      <span className="chp-notes__item-staff">
+                        {n.staffName || "Staff"}
+                        {n.source !== "manual" && (
+                          <span className={`chp-notes__item-source-tag${n.source === "staffAlert" ? " chp-notes__item-source-tag--alert" : ""}`}>
+                            {n.source === "staffAlert" ? "Staff Alert" : "Booking Note"}
+                          </span>
+                        )}
+                      </span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <span>{fmtDMYTime(n.date)}</span>
+                        {n.source === "manual" && (
+                          editingNoteId === n.id ? (
+                            <div className="chp-notes__item-actions">
+                              <button onClick={() => handleSaveEditNote(n.id)} title="Save"><Check2 size={14} /></button>
+                              <button onClick={() => setEditingNoteId(null)} title="Cancel"><XLg size={12} /></button>
+                            </div>
+                          ) : (
+                            <div className="chp-notes__item-actions">
+                              <button
+                                onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.text); }}
+                                title="Edit"
+                              >
+                                <PencilSquare size={13} />
+                              </button>
+                              <button className="danger" onClick={() => handleDeleteNote(n.id)} title="Delete">
+                                <Trash size={13} />
+                              </button>
+                            </div>
+                          )
+                        )}
+                      </div>
+                    </div>
+                    {n.source === "manual" && editingNoteId === n.id ? (
+                      <textarea
+                        className="chp-notes__form textarea"
+                        style={{ width: "100%" }}
+                        value={editingNoteText}
+                        onChange={(e) => setEditingNoteText(e.target.value)}
+                      />
+                    ) : (
+                      <div className="chp-notes__item-body">{n.text}</div>
+                    )}
+                  </div>
+                ))
+            )}
+            {notesSearch.filteredSortedRows.length > 0 && (
+              <Pagination
+                currentPage={notesPage}
+                pageSize={notesPageSize}
+                totalItems={notesSearch.filteredSortedRows.length}
+                onPageChange={setNotesPage}
+                onPageSizeChange={(sz) => { setNotesPageSize(sz); setNotesPage(1); }}
+              />
+            )}
+          </div>
+        )}
+
+        {/* E-WALLET tab */}
+        {activeTab === "ewallet" && client && (
+          <EwalletTab
+            balance={client.wallet_balance}
+            ledger={ewalletLedger}
+            formatAmount={formatAmount}
+            page={ewalletPage} pageSize={ewalletPageSize}
+            onPageChange={setEwalletPage}
+            onPageSizeChange={(sz) => { setEwalletPageSize(sz); setEwalletPage(1); }}
+          />
+        )}
+
+        {/* REFERRALS & REWARDS tab */}
+        {activeTab === "referrals" && client && (
+          <ReferralsRewardsTab
+            client={client}
+            rewardLedger={rewardLedger}
+            referralLedger={referralLedger}
+            formatAmount={formatAmount}
+            rewardsPage={rewardsPage} rewardsPageSize={rewardsPageSize}
+            onRewardsPageChange={setRewardsPage}
+            onRewardsPageSizeChange={(sz) => { setRewardsPageSize(sz); setRewardsPage(1); }}
+            referralPage={referralLedgerPage} referralPageSize={referralLedgerPageSize}
+            onReferralPageChange={setReferralLedgerPage}
+            onReferralPageSizeChange={(sz) => { setReferralLedgerPageSize(sz); setReferralLedgerPage(1); }}
+          />
+        )}
+
+        {/* COMMUNICATION tab */}
+        {activeTab === "communication" && (
+          <CommunicationTab
+            entries={communications}
+            page={commPage} pageSize={commPageSize}
+            onPageChange={setCommPage}
+            onPageSizeChange={(sz) => { setCommPageSize(sz); setCommPage(1); }}
+          />
         )}
 
         </div>{/* end chp-tab-content */}
