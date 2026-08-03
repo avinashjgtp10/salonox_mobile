@@ -5,12 +5,21 @@ import api from "../../../services/api/axios";
 import { PRODUCTS } from "../../../services/api/endpoints";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+interface ImportIssue {
+  row: number;
+  name?: string;
+  status: "failed" | "skipped";
+  reason: string;
+  suggestion?: string;
+}
+
 interface ImportResult {
   total_rows: number;
   imported: number;
   skipped: number;
   failed?: number;
-  errors: string[];
+  categoriesCreated: string[];
+  issues: ImportIssue[];
 }
 
 // ─── Template ─────────────────────────────────────────────────────────────────
@@ -82,6 +91,27 @@ function downloadTemplate() {
   URL.revokeObjectURL(url);
 }
 
+const csvCell = (v: string | number | undefined) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+
+function downloadErrorReport(issues: ImportIssue[]) {
+  const header = ["Row", "Product Name", "Status", "Reason", "Suggested Fix"];
+  const lines = issues.map((iss) => [
+    iss.row || "",
+    iss.name || "",
+    iss.status === "skipped" ? "Skipped" : "Failed",
+    iss.reason,
+    iss.suggestion || "",
+  ].map(csvCell).join(","));
+  const csv = [header.map(csvCell).join(","), ...lines].join("\n");
+  const blob = new Blob([csv], { type: "text/csv" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "product_import_error_report.csv";
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function ImportProductsPage() {
   const navigate = useNavigate();
@@ -127,12 +157,18 @@ export default function ImportProductsPage() {
       });
       const data = res.data?.data ?? res.data;
       setResult({
-        total_rows: (data.success ?? 0) + (data.failed ?? 0) + (data.skipped ?? 0),
+        total_rows: data.total ?? (data.success ?? 0) + (data.failed ?? 0) + (data.skipped ?? 0),
         imported: data.success ?? data.imported ?? 0,
         skipped: data.skipped ?? 0,
         failed: data.failed ?? 0,
-        errors: (data.errors ?? []).map((e: any) =>
-          typeof e === "string" ? e : `Row ${e.row}: ${e.reason}`
+        categoriesCreated: data.categoriesCreated ?? [],
+        // Backend now returns rich per-row issues (row, name, status,
+        // reason, suggestion) instead of a bare {row, reason} pair — falls
+        // back to the old `errors` shape if an older API build is still live.
+        issues: (data.issues ?? data.errors ?? []).map((e: any): ImportIssue =>
+          typeof e === "string"
+            ? { row: 0, status: "failed", reason: e }
+            : { row: e.row, name: e.name, status: e.status ?? "failed", reason: e.reason, suggestion: e.suggestion }
         ),
       });
     } catch (err: any) {
@@ -269,14 +305,60 @@ export default function ImportProductsPage() {
                   </div>
                 )}
               </div>
-              {result.errors?.length > 0 && (
-                <div className="pip-errors-wrap">
-                  <p className="pip-errors-title">Errors ({result.errors.length})</p>
-                  <ul className="pip-errors-list">
-                    {result.errors.map((e, i) => (
-                      <li key={i} className="pip-error-item">{e}</li>
+              {result.categoriesCreated?.length > 0 && (
+                <div className="pip-categories-wrap">
+                  <p className="pip-categories-title">
+                    New categories created ({result.categoriesCreated.length})
+                  </p>
+                  <div className="pip-columns-list">
+                    {result.categoriesCreated.map((name) => (
+                      <span key={name} className="pip-col-chip">{name}</span>
                     ))}
-                  </ul>
+                  </div>
+                </div>
+              )}
+              {result.issues?.length > 0 && (
+                <div className="pip-errors-wrap">
+                  <div className="pip-errors-head">
+                    <p className="pip-errors-title">
+                      Rows needing attention ({result.issues.length})
+                    </p>
+                    <button
+                      type="button"
+                      className="pip-report-btn"
+                      onClick={() => downloadErrorReport(result.issues)}
+                    >
+                      <Download size={12} /> Download error report (CSV)
+                    </button>
+                  </div>
+                  <div className="pip-issues-table-wrap">
+                    <table className="pip-issues-table">
+                      <thead>
+                        <tr>
+                          <th>Row</th>
+                          <th>Product</th>
+                          <th>Status</th>
+                          <th>Reason</th>
+                          <th>Suggested fix</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {result.issues.map((iss, i) => (
+                          <tr key={i}>
+                            <td>{iss.row || "—"}</td>
+                            <td>{iss.name || "—"}</td>
+                            <td>
+                              <span className={`pip-status-chip pip-status-chip--${iss.status}`}>
+                                {iss.status === "skipped" ? "Skipped" : "Failed"}
+                              </span>
+                            </td>
+                            <td>{iss.reason}</td>
+                            <td>{iss.suggestion || "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
               )}
             </div>
@@ -371,10 +453,21 @@ export default function ImportProductsPage() {
         .pip-stat--success .pip-stat-value { color:#16a34a; }
         .pip-stat--warn .pip-stat-value { color:#d97706; }
         .pip-stat--error .pip-stat-value { color:#dc2626; }
+        .pip-categories-wrap { background:#eff6ff; border:1px solid #bfdbfe; border-radius:8px; padding:12px; margin-bottom:12px; }
+        .pip-categories-title { font-size:12px; font-weight:600; color:#1e40af; margin:0 0 8px; }
         .pip-errors-wrap { background:#fef9c3; border:1px solid #fde68a; border-radius:8px; padding:12px; }
-        .pip-errors-title { font-size:12px; font-weight:600; color:#92400e; margin:0 0 8px; }
-        .pip-errors-list { margin:0; padding-left:16px; }
-        .pip-error-item { font-size:12px; color:#92400e; margin-bottom:4px; }
+        .pip-errors-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+        .pip-errors-title { font-size:12px; font-weight:600; color:#92400e; margin:0; }
+        .pip-report-btn { display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:#92400e; background:#fff; border:1px solid #fde68a; border-radius:6px; padding:5px 10px; cursor:pointer; white-space:nowrap; transition:background .15s; }
+        .pip-report-btn:hover { background:#fef3c7; }
+        .pip-issues-table-wrap { max-height:280px; overflow-y:auto; overflow-x:auto; border:1px solid #fde68a; border-radius:6px; background:#fffdf5; }
+        .pip-issues-table { width:100%; border-collapse:collapse; font-size:12px; }
+        .pip-issues-table thead th { position:sticky; top:0; background:#fef3c7; color:#92400e; text-align:left; font-weight:600; padding:7px 10px; white-space:nowrap; border-bottom:1px solid #fde68a; }
+        .pip-issues-table tbody td { padding:7px 10px; color:#78350f; border-bottom:1px solid #fef3c7; vertical-align:top; }
+        .pip-issues-table tbody tr:last-child td { border-bottom:none; }
+        .pip-status-chip { display:inline-block; font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:999px; white-space:nowrap; }
+        .pip-status-chip--failed { background:#fee2e2; color:#b91c1c; }
+        .pip-status-chip--skipped { background:#fef3c7; color:#b45309; }
 
         /* Footer */
         .pip-footer { display:flex; gap:10px; justify-content:flex-end; }
