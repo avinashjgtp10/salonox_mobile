@@ -139,7 +139,7 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
             <button className="rp-detail-icon-btn" title="Column view"><Grid3x3Gap size={16} /></button>
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`${REPORT_NAME}-${dateFrom}-${dateTo}`} csv />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`${REPORT_NAME}-${dateFrom}-${dateTo}`} variant="button" csv />
             <button className="rp-detail-icon-btn" title="Info"><InfoCircle size={16} /></button>
           </div>
         </div>
