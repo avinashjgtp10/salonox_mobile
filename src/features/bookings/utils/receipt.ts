@@ -193,12 +193,12 @@ export function printReceipt(
   };
 
   // invoiceNumber now already carries the full "INV-00002"-style value from
-  // the linked sale (see appointments.repository.ts/bookingMapper.ts) — no
-  // longer a bare sequence number that needs its own INV- prefix/padding here.
+  // the linked sale (see appointments.repository.ts/bookingMapper.ts) — the
+  // real, sequential one. No sale yet (not checked out/billed) means there
+  // genuinely is no invoice number — show that plainly instead of fabricating
+  // one from the appointment's own id.
   const invoiceSeq = (booking as any).invoiceNumber || (booking as any).invoice_number;
-  const invoiceNo  = invoiceSeq
-    ? String(invoiceSeq)
-    : `INV-${String(booking.id).slice(0, 8).toUpperCase()}`;
+  const invoiceNo  = invoiceSeq ? String(invoiceSeq) : "Not billed yet";
   // Always derived from the appointment's own id — genuinely distinct from
   // Invoice No (the sales/billing record's own sequence, which only exists
   // once the visit is actually billed). Previously this reused invoiceSeq
