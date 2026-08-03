@@ -39,7 +39,7 @@ const MultiSelectCheckbox: React.FC<MultiSelectCheckboxProps> = ({
       : `${selected.length} selected`;
 
   return (
-    <div className={containerClass} ref={rootRef}>
+    <div className={`msc-field ${containerClass}`} ref={rootRef}>
       {label && (
         <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>
           {label}

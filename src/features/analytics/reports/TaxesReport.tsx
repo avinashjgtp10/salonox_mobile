@@ -6,6 +6,7 @@ import { GST_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
+import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
@@ -21,6 +22,8 @@ interface InvoiceTaxRow {
   client: string;
   serviceAmount: number;
   productAmount: number;
+  packageAmount: number;
+  membershipAmount: number;
   taxableAmount: number;
   // sales.tax_amount is a single flat number — there is no per-tax-name
   // breakdown at the sales level (only payments.tax_breakdown has that, and
@@ -51,6 +54,8 @@ function mapRow(row: any): InvoiceTaxRow {
     client: row.client_name || "Walk-in",
     serviceAmount: Number(row.service_amount) || 0,
     productAmount: Number(row.product_amount) || 0,
+    packageAmount: Number(row.package_amount) || 0,
+    membershipAmount: Number(row.membership_amount) || 0,
     taxableAmount: Number(row.taxable_amount) || 0,
     taxAmount: Number(row.tax_amount) || 0,
     total: Number(row.total) || 0,
@@ -64,9 +69,8 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
   const [dateTo,      setDateTo]      = useState(today);
-  const [staffFilter,   setStaffFilter]   = useState("All");
-  const [staffOptions,  setStaffOptions]  = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
-  const [showStaffDrop, setShowStaffDrop] = useState(false);
+  const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
+  const [staffOptions,   setStaffOptions]   = useState<{ id: string; label: string }[]>([]);
   const [customerFilter, setCustomerFilterInput] = useState("");
   const [debouncedCustomerFilter, setDebouncedCustomerFilter] = useState("");
   const [rows,        setRows]        = useState<InvoiceTaxRow[]>([]);
@@ -81,17 +85,11 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
     dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
       const opts = list.map((s: any) => ({
         label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
-        value: String(s.id ?? ""),
-      })).filter((o: any) => o.label && o.value);
-      setStaffOptions([{ label: "All", value: "All" }, ...opts]);
+        id: String(s.id ?? ""),
+      })).filter((o: any) => o.label && o.id);
+      setStaffOptions(opts);
     }).catch(() => {});
   }, [dispatch]);
-
-  useEffect(() => {
-    const close = () => setShowStaffDrop(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedCustomerFilter(customerFilter.trim()), 300);
@@ -111,7 +109,7 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
         start_date: dateFrom, end_date: dateTo,
         page: currentPage, limit: pageSize,
       };
-      if (staffFilter !== "All") body.staff_id = staffFilter;
+      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
       if (debouncedCustomerFilter) body.search = debouncedCustomerFilter;
       const res = await api.post(GST_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -132,18 +130,16 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilter, debouncedCustomerFilter, currentPage, pageSize]);
+  }, [dateFrom, dateTo, staffFilterIds, debouncedCustomerFilter, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilter, debouncedCustomerFilter]);
-
-  const selectedStaffLabel = staffOptions.find(o => o.value === staffFilter)?.label ?? "All";
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, debouncedCustomerFilter]);
 
   const avgTaxPerInvoice = stats.invoicesWithTax > 0 ? stats.totalTax / stats.invoicesWithTax : 0;
 
-  const HEADERS = ["Date", "Invoice No", "Customer", `Service Amount (${currencySymbol})`, `Product Amount (${currencySymbol})`, `Taxable Amount (${currencySymbol})`, `GST Amount (${currencySymbol})`, `Total Amount (${currencySymbol})`];
-  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.serviceAmount, r.productAmount, r.taxableAmount, r.taxAmount, r.total]);
+  const HEADERS = ["Date", "Invoice No", "Customer", `Service Amount (${currencySymbol})`, `Product Amount (${currencySymbol})`, `Package Amount (${currencySymbol})`, `Membership Amount (${currencySymbol})`, `Taxable Amount (${currencySymbol})`, `GST Amount (${currencySymbol})`, `Total Amount (${currencySymbol})`];
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.serviceAmount, r.productAmount, r.packageAmount, r.membershipAmount, r.taxableAmount, r.taxAmount, r.total]);
 
   return (
     <div className="rp-detail-view">
@@ -173,21 +169,14 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
             <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
           </div>
         </div>
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Staff</label>
-          <button className="rp-detail-select" onClick={() => setShowStaffDrop(v => !v)}>
-            {selectedStaffLabel.length > 16 ? selectedStaffLabel.slice(0, 16) + "…" : selectedStaffLabel}
-            <span className="rp-detail-caret">▼</span>
-          </button>
-          {showStaffDrop && (
-            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {staffOptions.map(o => (
-                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === staffFilter ? "active" : ""}`}
-                  onClick={() => { setStaffFilter(o.value); setShowStaffDrop(false); }}>{o.label}</div>
-              ))}
-            </div>
-          )}
-        </div>
+        <MultiSelectCheckbox
+          label="Staff"
+          containerClass="rp-detail-filter-group"
+          options={staffOptions}
+          selected={staffFilterIds}
+          onChange={setStaffFilterIds}
+          placeholder="All staff"
+        />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -223,6 +212,7 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
             <tr>
               <th>Date</th><th>Invoice No</th><th>Customer</th>
               <th>Service Amount ({currencySymbol})</th><th>Product Amount ({currencySymbol})</th>
+              <th>Package Amount ({currencySymbol})</th><th>Membership Amount ({currencySymbol})</th>
               <th>Taxable Amount ({currencySymbol})</th>
               <th>GST Amount ({currencySymbol})</th>
               <th>Total Amount ({currencySymbol})</th>
@@ -230,9 +220,9 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={8} />
+              <SkeletonTableRows columns={10} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={8} className="rp-detail-empty-cell">No tax data found</td></tr>
+              <tr><td colSpan={10} className="rp-detail-empty-cell">No tax data found</td></tr>
             ) : rows.map((r, i) => (
               <tr key={i}>
                 <td>{r.date}</td>
@@ -240,6 +230,8 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
                 <td>{r.client}</td>
                 <td>{formatAmount(r.serviceAmount)}</td>
                 <td>{formatAmount(r.productAmount)}</td>
+                <td>{formatAmount(r.packageAmount)}</td>
+                <td>{formatAmount(r.membershipAmount)}</td>
                 <td>{formatAmount(r.taxableAmount)}</td>
                 <td>{formatAmount(r.taxAmount)}</td>
                 <td className="fw-semibold">{formatAmount(r.total)}</td>
