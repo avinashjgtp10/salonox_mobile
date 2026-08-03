@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Gift, Save, X, Pencil, ArrowRight, BarChart3, ShoppingCart, Star, Wallet, Info, Eye } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Gift, Save, X, ArrowRight, BarChart3, ShoppingCart, Star, Wallet, Info, Eye } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
@@ -49,24 +49,18 @@ export default function RewardsSettingsPage() {
   const { items: settingItems } = useAppSelector((s) => s.setting);
 
   const [config, setConfig] = useState<RewardPointsConfig>(DEFAULT_REWARD_POINTS_CONFIG);
+  const [savedConfig, setSavedConfig] = useState<RewardPointsConfig>(DEFAULT_REWARD_POINTS_CONFIG);
   const [inputs, setInputs] = useState<Record<FieldKey, string>>(toInputs(DEFAULT_REWARD_POINTS_CONFIG));
   const [errors, setErrors] = useState<FormErrors>({});
   const [settingId, setSettingId] = useState<EntityId | null>(null);
   const [saving, setSaving] = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
-  // Page-level View <-> Edit toggle — fields are read-only until Edit is
-  // clicked. Reward Summary / Live Preview below are purely derived from
-  // `config` and keep updating live in both modes, unchanged.
-  const [isEditing, setIsEditing] = useState(false);
-  const [isDirty, setIsDirty] = useState(false);
-
   useEffect(() => {
     dispatch(fetchSettingsThunk());
   }, [dispatch]);
 
-  // Loads the saved config from Redux exactly once — see ReferralSettingsPage.tsx
-  // for why this must not resync unconditionally on every settingItems change.
+  // Loads the saved config from Redux exactly once.
   useEffect(() => {
     if (settingId) return;
     const found = findRewardPointsSetting(settingItems);
@@ -74,43 +68,30 @@ export default function RewardsSettingsPage() {
     setSettingId(found.id);
     const parsed = parseRewardPointsValue(found.value);
     setConfig(parsed);
+    setSavedConfig(parsed);
     setInputs(toInputs(parsed));
   }, [settingItems, settingId]);
 
-  // Warn on tab close/refresh with unsaved changes still pending.
-  useEffect(() => {
-    if (!isEditing || !isDirty) return;
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", handler);
-    return () => window.removeEventListener("beforeunload", handler);
-  }, [isEditing, isDirty]);
-
-  function startEditing() {
-    setIsEditing(true);
-    setIsDirty(false);
-  }
+  const hasChanges = useMemo(
+    () => JSON.stringify(config) !== JSON.stringify(savedConfig),
+    [config, savedConfig]
+  );
 
   function handleCancel() {
-    if (isDirty && !window.confirm("Discard your unsaved changes?")) return;
     const found = findRewardPointsSetting(settingItems);
     const parsed = found ? parseRewardPointsValue(found.value) : DEFAULT_REWARD_POINTS_CONFIG;
     setConfig(parsed);
+    setSavedConfig(parsed);
     setInputs(toInputs(parsed));
     setErrors({});
-    setIsDirty(false);
-    setIsEditing(false);
   }
 
   function handleInputChange(field: FieldKey, raw: string) {
     const digits = raw.replace(/[^0-9]/g, "");
     setInputs((prev) => ({ ...prev, [field]: digits }));
     if (errors[field]) setErrors((prev) => ({ ...prev, [field]: undefined }));
-    setIsDirty(true);
-    // Live-update config as they type (not just on blur) so the Reward
-    // Summary / Live Preview panels react immediately, matching the design.
+    // Live-update config as they type so the Reward Summary / Live Preview
+    // panels react immediately, matching the design.
     setConfig((c) => ({ ...c, [field]: Math.max(0, parseInt(digits, 10) || 0) }));
   }
 
@@ -134,11 +115,7 @@ export default function RewardsSettingsPage() {
   }
 
   async function handleSave() {
-    if (!isDirty) {
-      // Nothing changed — just leave edit mode instead of firing a no-op save.
-      setIsEditing(false);
-      return;
-    }
+    if (!hasChanges) return;
     if (!validate()) return;
     setSaving(true);
     const value = JSON.stringify(config);
@@ -160,8 +137,7 @@ export default function RewardsSettingsPage() {
     setSaving(false);
     if (ok) {
       showSuccess("Reward points settings saved");
-      setIsDirty(false);
-      setIsEditing(false);
+      setSavedConfig(config);
     } else {
       showError("Failed to save reward points settings");
     }
@@ -196,17 +172,13 @@ export default function RewardsSettingsPage() {
           <input
             type="checkbox"
             checked={config.active}
-            onChange={() => { setIsDirty(true); setConfig((c) => ({ ...c, active: !c.active })); }}
-            disabled={!isEditing}
+            onChange={() => setConfig((c) => ({ ...c, active: !c.active }))}
           />
           <span className="rp-header__toggle-track"><span className="rp-header__toggle-thumb" /></span>
-          <span className="rp-header__toggle-label">{config.active ? "Enabled" : "Disabled"}</span>
+          <span className={`rp-header__toggle-status${!config.active ? " rp-header__toggle-status--off" : ""}`}>
+            {config.active ? "Active" : "Inactive"}
+          </span>
         </label>
-        {!isEditing && (
-          <button className="rp-btn" onClick={startEditing} style={{ marginLeft: 12 }}>
-            <Pencil size={14} /> Edit
-          </button>
-        )}
       </div>
 
       <div className={`rp-grid${!config.active ? " rp-disabled" : ""}`}>
@@ -230,7 +202,6 @@ export default function RewardsSettingsPage() {
                     value={inputs.spend_amount}
                     onChange={(e) => handleInputChange("spend_amount", e.target.value)}
                     onBlur={() => handleInputBlur("spend_amount", 1)}
-                    disabled={!isEditing}
                   />
                 </div>
                 {errors.spend_amount && <span className="settings-error">{errors.spend_amount}</span>}
@@ -244,7 +215,6 @@ export default function RewardsSettingsPage() {
                     value={inputs.points_earned}
                     onChange={(e) => handleInputChange("points_earned", e.target.value)}
                     onBlur={() => handleInputBlur("points_earned", 1)}
-                    disabled={!isEditing}
                   />
                   <span>Points</span>
                 </div>
@@ -279,7 +249,6 @@ export default function RewardsSettingsPage() {
                     value={inputs.redeem_points}
                     onChange={(e) => handleInputChange("redeem_points", e.target.value)}
                     onBlur={() => handleInputBlur("redeem_points", 1)}
-                    disabled={!isEditing}
                   />
                   <span>Points</span>
                 </div>
@@ -295,7 +264,6 @@ export default function RewardsSettingsPage() {
                     value={inputs.redeem_value}
                     onChange={(e) => handleInputChange("redeem_value", e.target.value)}
                     onBlur={() => handleInputBlur("redeem_value", 1)}
-                    disabled={!isEditing}
                   />
                   <span>Wallet Value</span>
                 </div>
@@ -424,18 +392,22 @@ export default function RewardsSettingsPage() {
         </div>
       </div>
 
-      {/* ── Footer — only in Edit Mode; View Mode's only action is the
-          header's Edit button ── */}
-      {isEditing && (
-        <div className="rp-footer">
-          <button className="rp-btn" onClick={handleCancel} disabled={saving}>
-            <X size={14} /> Cancel
-          </button>
-          <button className="rp-btn rp-btn--primary" onClick={handleSave} disabled={saving}>
-            <Save size={14} /> {saving ? "Saving…" : "Save Changes"}
-          </button>
-        </div>
-      )}
+      <div className="rp-footer">
+        {!config.active && !hasChanges && (
+          <p className="rp-footer__message">Activate Reward Points to save reward settings.</p>
+        )}
+        <button className="rp-btn" onClick={handleCancel} disabled={saving || !hasChanges}>
+          <X size={14} /> Cancel
+        </button>
+        <button
+          className="rp-btn rp-btn--primary"
+          onClick={handleSave}
+          disabled={saving || !hasChanges || (!config.active && !savedConfig.active)}
+          title={!config.active && !savedConfig.active ? "Enable Reward Points to save settings" : undefined}
+        >
+          <Save size={14} /> {saving ? "Saving…" : "Save Changes"}
+        </button>
+      </div>
     </div>
   );
 }

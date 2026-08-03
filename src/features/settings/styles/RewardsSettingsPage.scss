@@ -110,10 +110,29 @@ $rp-blue-text: #2563eb;
   transform: translateX(18px);
 }
 
-.rp-header__toggle-label {
-  font-size: 13.5px;
+.rp-header__toggle-status {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
   font-weight: 600;
-  color: $dashboard-primary;
+  color: $rp-green-text;
+
+  &::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: $rp-green-text;
+  }
+
+  &--off {
+    color: $dashboard-secondary;
+
+    &::before {
+      background: #9ca3af;
+    }
+  }
 }
 
 /* ── Two-column grid ── */
@@ -567,8 +586,16 @@ $rp-blue-text: #2563eb;
 /* ── Footer ── */
 .rp-footer {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.rp-footer__message {
+  margin: 0 auto 0 0;
+  color: $dashboard-secondary;
+  font-size: 13px;
+  font-weight: 600;
 }
 
 .rp-btn {
@@ -591,6 +618,11 @@ $rp-blue-text: #2563eb;
     border-color: #9ca3af;
   }
 
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   &--primary {
     background: $rp-primary;
     border-color: $rp-primary;
@@ -599,11 +631,6 @@ $rp-blue-text: #2563eb;
     &:hover {
       background: $rp-primary-dark;
       border-color: $rp-primary-dark;
-    }
-
-    &:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
     }
   }
 }

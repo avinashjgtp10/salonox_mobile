@@ -390,7 +390,7 @@ export default function ReferralSettingsPage() {
         {!config.active && !hasChanges && (
           <p className="rf-footer__message">Activate Refer &amp; Earn to save referral settings.</p>
         )}
-        <button className="rf-btn" onClick={handleCancel} disabled={saving}>
+        <button className="rf-btn" onClick={handleCancel} disabled={saving || !hasChanges}>
           <X size={14} /> Cancel
         </button>
         <button
