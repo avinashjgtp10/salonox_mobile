@@ -8,16 +8,19 @@ import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import { Pagination, DateRangePicker } from "../../../components/ui";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
 import SaleDetailModal from "./SaleDetailModal";
+import StaffHistoryModal from "./StaffHistoryModal";
 import "./StaffSalesReport.scss";
 
 const REPORT_NAME = "Staff Sales";
 
 interface StaffSaleRow {
   id: string;
+  staffId: string | null;
   staffName: string;
   // >1 means this sale had multiple staff attributed across its line items
   // (e.g. one staff on the service, another on a retail product) —
@@ -52,6 +55,7 @@ function formatDate(input: string): string {
 function mapRow(row: any): StaffSaleRow {
   return {
     id: String(row.id ?? ""),
+    staffId: row.staff_id ? String(row.staff_id) : null,
     staffName: row.staff_name || "—",
     staffCount: Number(row.staff_count) || 1,
     isUnbilled: Boolean(row.is_unbilled),
@@ -75,27 +79,30 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,       setDateFrom]       = useState(monthStart);
   const [dateTo,         setDateTo]         = useState(today);
-  const [staffFilter,    setStaffFilter]    = useState("All");
-  const [staffOptions,   setStaffOptions]   = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
-  const [showStaffDrop,  setShowStaffDrop]  = useState(false);
+  const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
+  const [staffOptions,   setStaffOptions]   = useState<{ id: string; label: string }[]>([]);
   const [search,         setSearchInput]    = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading,        setLoading]        = useState(false);
   const [rows,           setRows]           = useState<StaffSaleRow[]>([]);
   const [total,          setTotal]          = useState(0);
-  const [stats,          setStats]          = useState({ totalSale: 0, totalPaid: 0, totalDue: 0, totalCommission: 0 });
+  const [stats,          setStats]          = useState({
+    totalSale: 0, totalPaid: 0, totalDue: 0, totalCommission: 0,
+    serviceRevenue: 0, productRevenue: 0, packageRevenue: 0, membershipRevenue: 0,
+  });
   const [currentPage,    setCurrentPage]    = useState(1);
   const [pageSize,       setPageSize]       = useState(25);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+  const [selectedStaff,  setSelectedStaff]  = useState<{ id: string; name: string } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
       const opts = list.map((s: any) => ({
         label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
-        value: String(s.id ?? ""),
-      })).filter((o: any) => o.label && o.value);
-      setStaffOptions([{ label: "All", value: "All" }, ...opts]);
+        id: String(s.id ?? ""),
+      })).filter((o: any) => o.label && o.id);
+      setStaffOptions(opts);
     }).catch(() => {});
   }, [dispatch]);
 
@@ -114,7 +121,7 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
         start_date: dateFrom, end_date: dateTo,
         page: currentPage, limit: pageSize,
       };
-      if (staffFilter !== "All") body.staff_id = staffFilter;
+      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
       if (debouncedSearch) body.search = debouncedSearch;
       const res = await api.post(STAFF_SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -127,27 +134,23 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
         totalPaid: Number(s.total_paid) || 0,
         totalDue: Number(s.total_due) || 0,
         totalCommission: Number(s.total_commission) || 0,
+        serviceRevenue: Number(s.service_revenue) || 0,
+        productRevenue: Number(s.product_revenue) || 0,
+        packageRevenue: Number(s.package_revenue) || 0,
+        membershipRevenue: Number(s.membership_revenue) || 0,
       });
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
         setRows([]); setTotal(0);
-        setStats({ totalSale: 0, totalPaid: 0, totalDue: 0, totalCommission: 0 });
+        setStats({ totalSale: 0, totalPaid: 0, totalDue: 0, totalCommission: 0, serviceRevenue: 0, productRevenue: 0, packageRevenue: 0, membershipRevenue: 0 });
       }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilter, debouncedSearch, currentPage, pageSize]);
+  }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilter, debouncedSearch]);
-
-  useEffect(() => {
-    const close = () => setShowStaffDrop(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
-  const selectedStaffLabel = staffOptions.find(o => o.value === staffFilter)?.label ?? "All";
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, debouncedSearch]);
 
   const HEADERS = ["Staff Name", "Contact", "Item Type", "Description", `Total Sales (${currencySymbol})`, `Paid (${currencySymbol})`, `Due Amount (${currencySymbol})`, `Commission (${currencySymbol})`, "Payment Mode", "Status", "Date"];
   const exportRows = () => rows.map(r => [r.staffName, r.contact, r.itemType, r.description, r.totalSales, r.paid, r.due, r.commission, r.paymentMode, r.status, r.date]);
@@ -168,21 +171,14 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
           <label className="rp-detail-filter-label">Date Range</label>
           <DateRangePicker startDate={dateFrom} endDate={dateTo} onChange={(s, e) => { setDateFrom(s); setDateTo(e); }} showQuickPresets />
         </div>
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Staff Member</label>
-          <button className="rp-detail-select" onClick={() => setShowStaffDrop(v => !v)}>
-            {selectedStaffLabel.length > 16 ? selectedStaffLabel.slice(0, 16) + "…" : selectedStaffLabel}
-            <span className="rp-detail-caret">▼</span>
-          </button>
-          {showStaffDrop && (
-            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {staffOptions.map(o => (
-                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === staffFilter ? "active" : ""}`}
-                  onClick={() => { setStaffFilter(o.value); setShowStaffDrop(false); }}>{o.label}</div>
-              ))}
-            </div>
-          )}
-        </div>
+        <MultiSelectCheckbox
+          label="Staff Member"
+          containerClass="rp-detail-filter-group"
+          options={staffOptions}
+          selected={staffFilterIds}
+          onChange={setStaffFilterIds}
+          placeholder="All staff"
+        />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -198,6 +194,22 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
           ].map(c => (
             <div key={c.label} className="rp-sra-summary-card">
               <div className="rp-sra-summary-val rp-ss-val--total">{c.value}</div>
+              <div className="rp-sra-summary-label">{c.label}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {loading ? <SkeletonStatCards count={4} /> : (
+        <div className="rp-sra-summary-row">
+          {[
+            { label: "Service Revenue",    value: formatAmount(stats.serviceRevenue) },
+            { label: "Product Revenue",    value: formatAmount(stats.productRevenue) },
+            { label: "Package Revenue",    value: formatAmount(stats.packageRevenue) },
+            { label: "Membership Revenue", value: formatAmount(stats.membershipRevenue) },
+          ].map(c => (
+            <div key={c.label} className="rp-sra-summary-card">
+              <div className="rp-sra-summary-val">{c.value}</div>
               <div className="rp-sra-summary-label">{c.label}</div>
             </div>
           ))}
@@ -243,7 +255,17 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
               >
                 <td className="rp-ss-idx">#{(currentPage - 1) * pageSize + i + 1}</td>
                 <td className="fw-semibold">
-                  {r.staffName}
+                  <span
+                    className={r.staffId ? "rp-detail-link" : undefined}
+                    title={r.staffId ? `View ${r.staffName}'s sales history` : undefined}
+                    onClick={e => {
+                      if (!r.staffId) return;
+                      e.stopPropagation();
+                      setSelectedStaff({ id: r.staffId, name: r.staffName });
+                    }}
+                  >
+                    {r.staffName}
+                  </span>
                   {r.staffCount > 1 && <span className="rp-ss-multi-staff-badge">+{r.staffCount - 1} more</span>}
                 </td>
                 <td>{r.contact}</td>
@@ -266,6 +288,16 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
 
       {selectedSaleId && (
         <SaleDetailModal saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} />
+      )}
+
+      {selectedStaff && (
+        <StaffHistoryModal
+          staffId={selectedStaff.id}
+          staffName={selectedStaff.name}
+          dateFrom={dateFrom}
+          dateTo={dateTo}
+          onClose={() => setSelectedStaff(null)}
+        />
       )}
     </div>
   );

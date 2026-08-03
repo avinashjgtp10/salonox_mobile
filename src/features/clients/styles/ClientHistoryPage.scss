@@ -1299,6 +1299,15 @@
     font-weight: 500;
   }
 
+  .chp-stat-card__sub {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   &__info {
     display: grid;
     grid-template-columns: 1fr 1fr;

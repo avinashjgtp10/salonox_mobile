@@ -825,6 +825,34 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id, invoice_number: s.invoice_number }))
   );
 
+  // ── Overview tab's revenue-by-category cards ────────────────────────────
+  // Reuses the same already-deduplicated arrays the Services/Products tabs
+  // display (allServices, productsFromSales) rather than re-deriving from
+  // raw appointments/sales — keeps this screen's category breakdown exactly
+  // consistent with what those tabs individually show, including the
+  // package/membership de-dup already applied above (packageSaleMatch etc.),
+  // so a package sold as a line item never double-counts against a real
+  // client_packages row like the SCRUM package-duplicate bug did before.
+  const serviceRevenue = allServices.reduce((sum, it) => sum + (Number((it as any).total_price ?? (it as any).price) || 0), 0);
+  const productRevenue = productsFromSales.reduce((sum, it) => sum + (Number(it.total_price) || 0), 0);
+  // Package/Membership revenue comes from the real client_packages/
+  // client_memberships purchase records (`packages`/`realMemberships`) —
+  // the canonical source the Packages/Memberships tabs themselves total up,
+  // not packagesFromSales/packagesFromAppointments (those exist only to
+  // display a package sale that never got matched to a real purchase row,
+  // an edge case, not the common one this card is meant to represent).
+  const packageRevenueTotal = packages.reduce((sum, p) => sum + (Number(p.total_amount) || 0), 0);
+  const membershipRevenueTotal = realMemberships.reduce((sum, m) => sum + (Number(m.price_paid) || 0), 0);
+
+  const displayPkgStatus = (p: { status: string; expiry_date?: string | null }) => {
+    const expiryStatus = getPackageExpiryStatus(p.expiry_date);
+    return (expiryStatus === "active" ? p.status : expiryStatus) || "";
+  };
+  const activePackageCount = packages.filter((p) => displayPkgStatus(p).toLowerCase() === "active").length;
+  const activeMembership = realMemberships.find(
+    (m) => displayPkgStatus({ status: m.status, expiry_date: m.expires_at }).toLowerCase() === "active"
+  );
+
   const isGoldMember = computedLifetimeSpend > 5000;
 
   // appointment id → staff id (from the history API response)
@@ -1369,6 +1397,34 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               {client.referral_code && (
                 <PlainStatCard label="Referral Balance" value={fmtRupees(client.referral_balance)} />
               )}
+            </div>
+
+            {/* Revenue-by-category breakdown — reuses the same de-duplicated
+                arrays the Services/Products/Packages/Memberships tabs each
+                display, so this never drifts from what those tabs show. */}
+            <div className="chp-overview__stats">
+              <PlainStatCard
+                label="Service Revenue"
+                value={fmtRupees(serviceRevenue)}
+                sub={`${allServices.length} service${allServices.length !== 1 ? "s" : ""}`}
+              />
+              <PlainStatCard
+                label="Product Revenue"
+                value={fmtRupees(productRevenue)}
+                sub={`${productsFromSales.length} product${productsFromSales.length !== 1 ? "s" : ""}`}
+              />
+              <PlainStatCard
+                label="Package Revenue"
+                value={fmtRupees(packageRevenueTotal)}
+                sub={`${activePackageCount} active of ${packages.length}`}
+              />
+              <PlainStatCard
+                label="Membership Revenue"
+                value={fmtRupees(membershipRevenueTotal)}
+                sub={activeMembership
+                  ? `Active · ${activeMembership.membership_name}${activeMembership.expires_at ? ` · expires ${fmtDMY(activeMembership.expires_at)}` : ""}`
+                  : "No active membership"}
+              />
             </div>
 
             <div className="chp-overview__info">
