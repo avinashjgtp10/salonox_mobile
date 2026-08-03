@@ -511,6 +511,8 @@
   &.rp-status-active      { background: #dcfce7; color: #166534; }
   &.rp-status-expired     { background: #f3f4f6; color: #6b7280; }
   &.rp-status-inactive    { background: #f3f4f6; color: #6b7280; }
+  &.rp-status-expiry_soon { background: #fef3c7; color: #92400e; }
+  &.rp-status-complete    { background: #dbeafe; color: #1d4ed8; }
 }
 
 /* Pagination (legacy — new reports use the shared <Pagination/> component instead) */
