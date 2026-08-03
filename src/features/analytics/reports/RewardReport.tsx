@@ -1,8 +1,10 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { REWARD_POINTS_REPORT } from "../../../services/api/endpoints";
+import Button from "../../../components/ui/Button";
 import ReportRefreshButton from "./ReportRefreshButton";
+import Select from "../../../components/ui/Select";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
@@ -21,6 +23,17 @@ interface RewardClientRow {
   lastActivityAt: string | null;
 }
 
+// dd/MM/yyyy, consistently across the table and every export (CSV/Excel/PDF
+// all read the same r.lastActivityAt via exportRows).
+function formatDate(input: string): string {
+  const d = new Date(input);
+  if (isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  const yyyy = d.getFullYear();
+  return `${dd}/${mm}/${yyyy}`;
+}
+
 // Maps a row from the independent Reward Points API
 // (POST /api/report/reward-points — reads clients/reward_points_ledger
 // directly, never the Appointment API) to the table's existing row shape.
@@ -37,15 +50,32 @@ function mapRow(row: any): RewardClientRow {
 }
 
 export default function RewardReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
+  const today   = new Date().toISOString().slice(0, 10);
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
+  const [dateFrom,    setDateFrom]    = useState(monthStart);
+  const [dateTo,      setDateTo]      = useState(today);
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("All");
+  const [minAvailable, setMinAvailable] = useState("");
+  const [maxAvailable, setMaxAvailable] = useState("");
+  const [minRedeemed,  setMinRedeemed]  = useState("");
+  const [maxRedeemed,  setMaxRedeemed]  = useState("");
+  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [rows,        setRows]        = useState<RewardClientRow[]>([]);
   const [total,       setTotal]       = useState(0);
-  const [stats,       setStats]       = useState({ totalAvailable: 0, totalEarned: 0, totalRedeemed: 0 });
+  const [stats,       setStats]       = useState({ totalAvailable: 0, totalEarned: 0, totalRedeemed: 0, activeClients: 0 });
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
   const abortRef = useRef<AbortController | null>(null);
+
+  const dateRangeError = useMemo(() => {
+    if (!dateFrom || !dateTo) return null;
+    if (isNaN(new Date(dateFrom).getTime()) || isNaN(new Date(dateTo).getTime())) return "Enter valid dates.";
+    if (dateFrom > dateTo) return "From Date cannot be after To Date.";
+    return null;
+  }, [dateFrom, dateTo]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
@@ -56,13 +86,22 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
   // only that page's rows come back, along with stats computed by the
   // backend over the WHOLE filtered set (not just the current page).
   const fetchData = useCallback(async () => {
+    if (dateRangeError) return;
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const body: Record<string, any> = { page: currentPage, limit: pageSize };
+      const body: Record<string, any> = {
+        start_date: dateFrom, end_date: dateTo,
+        page: currentPage, limit: pageSize,
+      };
       if (debouncedSearch) body.search = debouncedSearch;
+      if (statusFilter !== "All") body.status = statusFilter;
+      if (minAvailable !== "") body.points_available_min = Number(minAvailable);
+      if (maxAvailable !== "") body.points_available_max = Number(maxAvailable);
+      if (minRedeemed !== "") body.points_redeemed_min = Number(minRedeemed);
+      if (maxRedeemed !== "") body.points_redeemed_max = Number(maxRedeemed);
       const res = await api.post(REWARD_POINTS_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -73,24 +112,35 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
         totalAvailable: Number(s.points_available) || 0,
         totalEarned: Number(s.total_points_earned) || 0,
         totalRedeemed: Number(s.total_points_redeemed) || 0,
+        activeClients: Number(s.active_reward_clients) || 0,
       });
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
         setRows([]); setTotal(0);
-        setStats({ totalAvailable: 0, totalEarned: 0, totalRedeemed: 0 });
+        setStats({ totalAvailable: 0, totalEarned: 0, totalRedeemed: 0, activeClients: 0 });
       }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [debouncedSearch, currentPage, pageSize]);
+  }, [dateFrom, dateTo, dateRangeError, debouncedSearch, statusFilter, minAvailable, maxAvailable, minRedeemed, maxRedeemed, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [debouncedSearch]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, statusFilter, minAvailable, maxAvailable, minRedeemed, maxRedeemed]);
+
+  const activeFilterCount = [
+    statusFilter !== "All" ? 1 : 0,
+    minAvailable !== "" || maxAvailable !== "" ? 1 : 0,
+    minRedeemed !== "" || maxRedeemed !== "" ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
+
+  const clearFilters = () => {
+    setStatusFilter("All"); setMinAvailable(""); setMaxAvailable(""); setMinRedeemed(""); setMaxRedeemed("");
+  };
 
   const HEADERS = ["Client", "Mobile", "Points Available", "Points Earned", "Points Redeemed", "Last Activity"];
   const exportRows = () => rows.map(r => [
     r.clientName, r.mobile, r.pointsAvailable, r.pointsEarned, r.pointsRedeemed,
-    r.lastActivityAt ? String(r.lastActivityAt).slice(0, 10) : "—",
+    r.lastActivityAt ? formatDate(r.lastActivityAt) : "—",
   ]);
 
   return (
@@ -99,37 +149,52 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`reward-points-${new Date().toISOString().slice(0, 10)}`} variant="button" csv />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`reward-points-${dateFrom}-${dateTo}`} variant="button" csv />
           </div>
         </div>
       </div>
 
       <div className="rp-detail-filters">
-        <div className="rp-detail-filter-group" style={{ minWidth: 260 }}>
-          <label className="rp-detail-filter-label">Client</label>
-          <div className="rp-detail-search-wrap">
-            <Search size={14} className="rp-detail-search-ic" />
-            <input
-              type="text"
-              className="rp-detail-search-input"
-              placeholder="Search by name or mobile…"
-              value={search}
-              onChange={e => setSearchInput(e.target.value)}
-            />
-          </div>
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">From Date</label>
+          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
         </div>
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">To Date</label>
+          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="rp-detail-date-input" />
+        </div>
+        <button className="rp-rw-filters-btn" onClick={() => setShowFiltersPanel(true)}>
+          Filters
+          {activeFilterCount > 0 && <span className="rp-rw-filters-badge">{activeFilterCount}</span>}
+        </button>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={3} /> : (
-        <div className="rp-sra-summary-row">
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalAvailable.toLocaleString()}</div><div className="rp-sra-summary-label">Points Available</div></div>
+      {dateRangeError && <div className="rp-rw-date-error">{dateRangeError}</div>}
+
+      {loading ? <SkeletonStatCards count={4} /> : (
+        <div className="rp-sra-summary-row rp-rw-summary-row">
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalAvailable.toLocaleString()}</div><div className="rp-sra-summary-label">Available Points</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalEarned.toLocaleString()}</div><div className="rp-sra-summary-label">Total Points Earned</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalRedeemed.toLocaleString()}</div><div className="rp-sra-summary-label">Total Points Redeemed</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.activeClients.toLocaleString()}</div><div className="rp-sra-summary-label">Active Reward Clients</div></div>
         </div>
       )}
+
+      <div className="rp-detail-toolbar">
+        <div className="rp-detail-search-wrap">
+          <Search size={13} className="rp-detail-search-ic" />
+          <input
+            type="text"
+            className="rp-detail-search-input"
+            placeholder="Search by name or mobile…"
+            value={search}
+            onChange={e => setSearchInput(e.target.value)}
+          />
+        </div>
+      </div>
 
       <div className="rp-detail-drag-hint">{total} client{total !== 1 ? "s" : ""} with reward point activity</div>
 
@@ -153,7 +218,7 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
                 <td className="fw-semibold">{r.pointsAvailable.toLocaleString()}</td>
                 <td>{r.pointsEarned.toLocaleString()}</td>
                 <td>{r.pointsRedeemed.toLocaleString()}</td>
-                <td>{r.lastActivityAt ? String(r.lastActivityAt).slice(0, 10) : "—"}</td>
+                <td>{r.lastActivityAt ? formatDate(r.lastActivityAt) : "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -162,6 +227,47 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+
+      {showFiltersPanel && (
+        <div className="rp-rw-filters-overlay" onClick={() => setShowFiltersPanel(false)}>
+          <div className="rp-rw-filters-modal" onClick={e => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3>Filters</h3>
+            </div>
+
+            <div className="rp-rw-filters-body">
+              <Select label="Reward Status" containerClass="rp-rw-filter-field" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+                <option value="All">All</option>
+                <option value="active">Active (has balance)</option>
+                <option value="inactive">Inactive (no balance)</option>
+              </Select>
+
+              <div className="rp-rw-filter-field">
+                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Available Points</label>
+                <div className="rp-rw-range-inputs">
+                  <input type="number" min={0} placeholder="Min" value={minAvailable} onChange={e => setMinAvailable(e.target.value)} />
+                  <span>—</span>
+                  <input type="number" min={0} placeholder="Max" value={maxAvailable} onChange={e => setMaxAvailable(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="rp-rw-filter-field">
+                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Redeemed Points</label>
+                <div className="rp-rw-range-inputs">
+                  <input type="number" min={0} placeholder="Min" value={minRedeemed} onChange={e => setMinRedeemed(e.target.value)} />
+                  <span>—</span>
+                  <input type="number" min={0} placeholder="Max" value={maxRedeemed} onChange={e => setMaxRedeemed(e.target.value)} />
+                </div>
+              </div>
+            </div>
+
+            <div className="rp-rw-filters-actions">
+              <Button variant="ghost" onClick={() => { clearFilters(); }}>Clear</Button>
+              <Button variant="dark" onClick={() => { setShowFiltersPanel(false); fetchData(); }}>Apply</Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
