@@ -76,6 +76,13 @@ export const STAFF_SALES_REPORT = {
   SUMMARY: () => `/api/report/staff-sales`,
 } as const;
 
+// Independent Staff Performance reporting API — one row per staff member,
+// reads sales/sale_items directly, never through the Appointment API.
+// Mounted at /api/report.
+export const STAFF_PERFORMANCE_REPORT = {
+  SUMMARY: () => `/api/report/staff-performance`,
+} as const;
+
 // Independent Staff Item Sales reporting API — reads sale_items directly,
 // never through the Appointment API. Mounted at /api/report.
 export const STAFF_ITEM_SALES_REPORT = {
