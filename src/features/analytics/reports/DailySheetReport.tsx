@@ -14,6 +14,7 @@ import AppointmentDetailModal from "../../bookings/components/modals/Appointment
 import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
 import { BulkDeleteBar } from "./BulkDeleteBar";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatPaymentMode } from "../../../utils/paymentMode";
 import "./DailySheetReport.scss";
 
 const REPORT_NAME = "Daily Sheet";
@@ -48,7 +49,7 @@ function mapRow(row: any): DailyRow {
     itemType: row.item_type || "—",
     staff: row.staff || "—",
     amount: Number(row.amount) || 0,
-    paymentMethod: row.payment_method || "N/A",
+    paymentMethod: formatPaymentMode(row.payment_method, row.payment_reference),
     status: row.status ?? "booked",
   };
 }
@@ -251,7 +252,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
       setStaffOptions(Array.isArray(data?.filters_available?.staff) ? data.filters_available.staff : []);
       const modes = data?.filters_available?.payment_modes;
       if (Array.isArray(modes)) {
-        setPaymentModeOptions([{ label: "All", value: "All" }, ...modes.map((m: any) => ({ label: String(m), value: String(m) }))]);
+        setPaymentModeOptions([{ label: "All", value: "All" }, ...modes.map((m: any) => ({ label: formatPaymentMode(String(m)), value: String(m) }))]);
       }
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {

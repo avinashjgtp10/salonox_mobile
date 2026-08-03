@@ -4,6 +4,7 @@ import api from "../../../services/api/axios";
 import { SALES_REPORT } from "../../../services/api/endpoints";
 import { Loader } from "../../../components/ui";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatPaymentMode } from "../../../utils/paymentMode";
 import "./SaleDetailModal.scss";
 
 function formatDate(input: string): string {
@@ -106,6 +107,7 @@ export default function SaleDetailModal({ saleId, onClose }: { saleId: string; o
 
             <div className="sd-payment">
               <div className="sd-label">Payment Breakdown</div>
+              <div className="sd-row"><span>Payment Mode</span><span>{formatPaymentMode(data.sale.payment_method, data.sale.payment_reference)}</span></div>
               {data.payment == null ? (
                 <div className="sd-no-payment">
                   No linked payment record — this sale has no linked appointment,

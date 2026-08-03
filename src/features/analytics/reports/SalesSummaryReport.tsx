@@ -15,6 +15,7 @@ import AppointmentDetailModal from "../../bookings/components/modals/Appointment
 import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
 import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatPaymentMode } from "../../../utils/paymentMode";
 import SaleDetailModal from "./SaleDetailModal";
 import "./SalesSummaryReport.scss";
 
@@ -68,7 +69,17 @@ function mapAppointment(row: any): SaleRow {
   const rewardPointsValue    = Number(row.reward_points_value) || 0;
   const referralCreditUsed   = Number(row.referral_credit_used) || 0;
 
-  const isPackagePayment = String(row.payment_method ?? "").toLowerCase() === "package";
+  // 'split' now also covers Package/Membership combined with real money (e.g.
+  // "Package + Cash") — see payment-method.util.ts's normalizePaymentMethod().
+  // Package has no dedicated numeric column like membership_wallet_used
+  // below, so its presence has to be read off payment_reference's leg names
+  // whenever the method isn't the plain single-source 'package' value.
+  const paymentReferenceKeys: string[] = (() => {
+    if (!row.payment_reference) return [];
+    try { return Object.keys(JSON.parse(row.payment_reference)); } catch { return []; }
+  })();
+  const isPackagePayment = String(row.payment_method ?? "").toLowerCase() === "package"
+    || paymentReferenceKeys.includes("Package");
   const paymentSources = [
     isPackagePayment           ? "Package"       : null,
     membershipWalletUsed > 0   ? "Membership"    : null,
@@ -99,7 +110,7 @@ function mapAppointment(row: any): SaleRow {
     paid,
     dueAmount: Number(row.due_amount) || 0,
     description,
-    modes: row.payment_method ?? "—",
+    modes: formatPaymentMode(row.payment_method, row.payment_reference),
     status: row.status ?? "booked",
     date: row.created_at ? formatDate(row.created_at) : "—",
     tip: Number(row.tip_amount) || 0,
@@ -224,7 +235,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       if (Array.isArray(avail.payment_modes)) {
         setPaymentModeOptions([
           { label: "All", value: "All" },
-          ...avail.payment_modes.map((m: any) => ({ label: String(m), value: String(m) })),
+          ...avail.payment_modes.map((m: any) => ({ label: formatPaymentMode(String(m)), value: String(m) })),
         ]);
       }
       if (Array.isArray(avail.services)) {

@@ -28,6 +28,7 @@ import {
   XLg,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
+import { formatPaymentMode, isPackageCoveredSale } from "../../../utils/paymentMode";
 import { printReceipt, buildPrintableBooking } from "../../bookings/utils/receipt";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { getPackageExpiryStatus } from "../../bookings/utils/packageStatus";
@@ -93,6 +94,7 @@ interface SaleRecord {
   status: string;
   total_amount: string;
   payment_method: string | null;
+  payment_reference: string | null;
   created_at: string;
   appointment_id: string | null;
   items: SaleItem[] | null;
@@ -1016,7 +1018,22 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     );
 
     const entries: VisitEntry[] = [
-      ...visibleAppointments.filter(isApptPaidOrPartial).map((appt) => ({ kind: "appointment" as const, date: appt.scheduled_at, appt })),
+      ...visibleAppointments
+        .filter(isApptPaidOrPartial)
+        // Same exclusion as visibleQuickSales below, just reached through the
+        // appointment's linked sale instead of the sale's own id directly —
+        // a package sold as a line item on an appointment (not a standalone
+        // Quick Sale) produces both an appointment record AND a matching
+        // client_packages purchase row for the exact same event; without
+        // this, packageEntries already shows it once and this appointment
+        // showed it again, so a single package purchase appeared twice in
+        // Visit History with two different amounts (the package's own price
+        // vs the linked sale's full total).
+        .filter((appt) => {
+          const linkedSale = saleByAppointmentId.get(appt.id);
+          return !(linkedSale && usedSaleIds.has(linkedSale.id));
+        })
+        .map((appt) => ({ kind: "appointment" as const, date: appt.scheduled_at, appt })),
       ...visibleQuickSales
         .filter((sale) => !usedSaleIds.has(sale.id) && sale.status === "completed")
         .map((sale) => ({ kind: "quickSale" as const, date: sale.created_at, sale })),
@@ -1120,7 +1137,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       extraServices: (appt.services ?? []).map((s) => ({ name: s.name || s.service_name || "", price: s.price ?? 0 })),
       status: appt.status,
       rawPaymentStatus: linkedSale?.status ?? appt.payment_status,
-      paymentMethod: linkedSale?.payment_method ?? (appt as any).payment_method,
+      paymentMethod: linkedSale
+        ? formatPaymentMode(linkedSale.payment_method, linkedSale.payment_reference)
+        : (appt as any).payment_method,
       invoiceNumber: linkedSale?.invoice_number,
       // No linked sale yet means this appointment isn't fully settled (a sale
       // row is only auto-created once a payment completes it) — that's
@@ -1154,7 +1173,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       items: s.items ?? [],
       status: s.status,
       rawPaymentStatus: s.status,
-      paymentMethod: s.payment_method,
+      paymentMethod: formatPaymentMode(s.payment_method, s.payment_reference),
       invoiceNumber: s.invoice_number,
       grandTotalOverride: Number(s.total_amount) || 0,
     });
@@ -1186,7 +1205,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       items,
       status: matchedSale?.status ?? pkg.status,
       rawPaymentStatus: matchedSale?.status ?? pkg.payment_status,
-      paymentMethod: matchedSale?.payment_method ?? null,
+      paymentMethod: matchedSale ? formatPaymentMode(matchedSale.payment_method, matchedSale.payment_reference) : null,
       invoiceNumber: matchedSale?.invoice_number,
       grandTotalOverride: matchedSale ? Number(matchedSale.total_amount) : (Number(pkg.total_amount) || 0),
     });
@@ -1562,7 +1581,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                         || (s.items ?? [])[0]?.name
                         || "Quick Sale";
                       const extraItems = (s.items?.length ?? 0) - 1;
-                      const isSalePackagePaid = (s.payment_method || "").toLowerCase() === "package";
+                      const isSalePackagePaid = isPackageCoveredSale(s.payment_method, s.payment_reference);
                       return (
                         <div key={s.id} className="chp-visit-row">
                           <div className="chp-visit-dot" style={{ background: "#a78bfa" }} />
@@ -1636,7 +1655,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                       ? linkedSale.status === "completed"
                       : appt.payment_status === "paid" || Number(appt.amount_paid) > 0;
                     const isPackagePaid = linkedSale
-                      ? (linkedSale.payment_method || "").toLowerCase() === "package"
+                      ? isPackageCoveredSale(linkedSale.payment_method, linkedSale.payment_reference)
                       : (appt.payment_method || appt.paymentMode || appt.payment_mode || "").toLowerCase() === "package";
                     const isMembershipPaid = Number(appt.membership_wallet_used) > 0;
                     return (
@@ -2013,7 +2032,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   s.invoice_number ?? `#${s.id.slice(-6).toUpperCase()}`,
                   fmtDMY(s.created_at),
                   (s.items ?? []).map((it) => `${it.quantity > 1 ? `${it.quantity}x ` : ""}${it.name}`).join(", "),
-                  s.payment_method ?? "–",
+                  formatPaymentMode(s.payment_method, s.payment_reference),
                   s.status,
                   formatAmount(Number(s.total_amount)),
                 ]),
@@ -2054,7 +2073,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                           ))}
                         </div>
                       </td>
-                      <td>{s.payment_method ?? "—"}</td>
+                      <td>{formatPaymentMode(s.payment_method, s.payment_reference)}</td>
                       <td>
                         <span className={`chp-status-badge chp-status-badge--${s.status}`}>
                           {s.status}
