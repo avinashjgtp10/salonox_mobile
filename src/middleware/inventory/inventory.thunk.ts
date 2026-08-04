@@ -15,6 +15,13 @@ import type {
   StockReconciliationPayload,
   StockReconciliationItemPayload,
   ConsumableUsagePayload,
+  ConsumableListFilters,
+  ConsumableListRow,
+  ConsumableKpis,
+  ConsumableDetail,
+  AdjustStockPayload,
+  UsageHistoryFilters,
+  UsageHistoryRow,
 } from "../../types/inventory.types";
 
 // ── Fetch all stocktakes ──────────────────────────────────────────────────────
@@ -272,5 +279,93 @@ export const saveConsumableUsageThunk = createAsyncThunk<
   } catch (err: any) {
     console.error("saveConsumableUsageThunk error:", err?.response?.data || err?.message);
     return rejectWithValue(err?.response?.data?.error?.message || "Failed to save consumable usage");
+  }
+});
+
+// ─── Consumable Inventory (dedicated module) ──────────────────────────────────
+
+export interface ConsumableListResult {
+  data: ConsumableListRow[];
+  page: number;
+  pageSize: number;
+  totalRecords: number;
+  totalPages: number;
+}
+
+export const fetchConsumablesThunk = createAsyncThunk<
+  ConsumableListResult,
+  ConsumableListFilters,
+  { rejectValue: string }
+>("inventory/fetchConsumables", async (filters, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<ConsumableListResult>>(INVENTORY.CONSUMABLES, { params: filters });
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchConsumablesThunk error:", err?.response?.data || err?.message);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch consumables");
+  }
+});
+
+export const fetchConsumableKpisThunk = createAsyncThunk<
+  ConsumableKpis,
+  void,
+  { rejectValue: string }
+>("inventory/fetchConsumableKpis", async (_arg, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<ConsumableKpis>>(INVENTORY.CONSUMABLES_KPIS);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchConsumableKpisThunk error:", err?.response?.data || err?.message);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch consumable KPIs");
+  }
+});
+
+export const fetchConsumableByIdThunk = createAsyncThunk<
+  ConsumableDetail,
+  string,
+  { rejectValue: string }
+>("inventory/fetchConsumableById", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<ConsumableDetail>>(INVENTORY.CONSUMABLE_BY_ID(id));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchConsumableByIdThunk error:", err?.response?.data || err?.message);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch consumable detail");
+  }
+});
+
+export const adjustConsumableStockThunk = createAsyncThunk<
+  { id: string },
+  { id: string; payload: AdjustStockPayload },
+  { rejectValue: string }
+>("inventory/adjustConsumableStock", async ({ id, payload }, { rejectWithValue }) => {
+  try {
+    await api.post(INVENTORY.CONSUMABLE_ADJUST(id), payload);
+    return { id };
+  } catch (err: any) {
+    console.error("adjustConsumableStockThunk error:", err?.response?.data || err?.message);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to adjust stock");
+  }
+});
+
+export interface UsageHistoryResult {
+  data: UsageHistoryRow[];
+  page: number;
+  pageSize: number;
+  totalRecords: number;
+  totalPages: number;
+}
+
+export const fetchUsageHistoryThunk = createAsyncThunk<
+  UsageHistoryResult,
+  UsageHistoryFilters,
+  { rejectValue: string }
+>("inventory/fetchUsageHistory", async (filters, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<UsageHistoryResult>>(INVENTORY.CONSUMABLES_USAGE_HISTORY, { params: filters });
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchUsageHistoryThunk error:", err?.response?.data || err?.message);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch usage history");
   }
 });

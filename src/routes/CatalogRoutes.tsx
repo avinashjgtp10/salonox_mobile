@@ -23,11 +23,8 @@ const ProductsListPage = lazy(
 const ProductsLandingPage = lazy(
   () => import("../features/catalog/pages/ProductsLandingPage"),
 );
-const CreateProductPage = lazy(
-  () => import("../features/catalog/pages/CreateProductPage"),
-);
-const EditProductPage = lazy(
-  () => import("../features/catalog/pages/EditProductPage"),
+const ProductFormPage = lazy(
+  () => import("../features/catalog/pages/ProductFormPage"),
 );
 const ImportProductsPage = lazy(
   () => import("../features/catalog/pages/ImportProductsPage"),
@@ -62,8 +59,11 @@ const EditServicePage = lazy(
 const SoldMembershipsPage = lazy(
   () => import("../features/catalog/pages/SoldMembershipsPage"),
 );
-const StockReconciliationPage = lazy(
-  () => import("../features/catalog/pages/StockReconciliationPage"),
+const ConsumableInventoryPage = lazy(
+  () => import("../features/catalog/pages/ConsumableInventoryPage"),
+);
+const ConsumableUsageHistoryPage = lazy(
+  () => import("../features/catalog/pages/ConsumableUsageHistoryPage"),
 );
 
 import { PageLoader } from "../components/ui";
@@ -94,8 +94,8 @@ export const CatalogRoutes = () => (
         <Route path="memberships/create" element={<CreateMembershipPage />} />
         <Route path="memberships/edit/:id" element={<CreateMembershipPage />} />
         <Route path="packages/:id" element={<EditPackagePage />} />
-        <Route path="products/create" element={<CreateProductPage />} />
-        <Route path="products/edit/:id" element={<EditProductPage />} />
+        <Route path="products/create" element={<ProductFormPage />} />
+        <Route path="products/edit/:id" element={<ProductFormPage />} />
         <Route path="products/import" element={<ImportProductsPage />} />
       </Route>
 
@@ -114,7 +114,12 @@ export const CatalogRoutes = () => (
         <Route path="inventory/suppliers" element={<SuppliersListPage />} />
         <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
         <Route path="inventory/suppliers/edit/:id" element={<AddSupplierPage />} />
-        <Route path="inventory/stock-reconciliation" element={<StockReconciliationPage />} />
+        <Route path="inventory/consumables" element={<ConsumableInventoryPage />} />
+        <Route path="inventory/consumables/add" element={<ProductFormPage />} />
+        <Route path="inventory/consumables/edit/:id" element={<ProductFormPage />} />
+        <Route path="inventory/consumables/usage-history" element={<ConsumableUsageHistoryPage />} />
+        {/* Redesigned as Consumable Inventory — old URL kept working */}
+        <Route path="inventory/stock-reconciliation" element={<Navigate to="/dashboard/catalog/inventory/consumables" replace />} />
       </Route>
 
       {/* Catch-all → service menu */}

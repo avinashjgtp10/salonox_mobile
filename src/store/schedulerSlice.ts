@@ -20,7 +20,14 @@ export interface ClientStat {
 }
 
 // ── Scheduler lookup data ─────────────────────────────────────────────────────
-export interface SchedulerService { id: string; name: string; price: number; duration: number; categoryId?: string }
+export interface SchedulerService {
+  id: string; name: string; price: number; duration: number; categoryId?: string;
+  // Carried through so ServiceRow's search dropdown (which prefers this
+  // cached entry over a fresh API result for any service it already knows
+  // about — see mergeServiceResults) doesn't silently serve a stale, empty
+  // recipe for a service whose consumables were just configured.
+  consumables_used?: { product_id: string; product_name?: string; qty: number; unit?: string }[];
+}
 export interface SchedulerPackage { id: string; name: string; price: number; services: string[] }
 export interface SchedulerProduct {
   id: string;

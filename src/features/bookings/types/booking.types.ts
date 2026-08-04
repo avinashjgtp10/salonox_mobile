@@ -40,14 +40,19 @@ export interface ServiceItem {
   // undefined for an unpaid appointment, which falls back to receipt.ts's
   // blended bill-level rate approximation.
   tax?: number;
-  // Copied from the service's own configured consumables when it's picked
-  // (see ServiceRow.selectService) — carried on the appointment payload but
-  // only actually deducted from stock at completion (ConsumableDeductionModal).
+  // Copied from the service's own configured recipe when it's picked (see
+  // ServiceRow.selectService) — `qty` is that configured/standard amount,
+  // read-only in the Consumables panel. `actualQty` is what staff actually
+  // used, editable per appointment (defaults to `qty` until touched).
+  // Carried on the appointment save payload but never sent to
+  // calculate-totals — consumables never affect billing — and only actually
+  // deducted from stock server-side once the appointment is paid.
   consumables?: {
     productId: string;
     productName: string;
     qty: number;
     unit: string;
+    actualQty?: number;
   }[];
 }
 

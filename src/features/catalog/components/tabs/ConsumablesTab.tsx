@@ -74,7 +74,12 @@ const ConsumablesTab: React.FC<Props> = ({ data, onChange }) => {
     updateRow(rowId, {
       productId: product.id,
       productName: product.name,
-      unit: product.unit || "",
+      // API responses use `measure_unit` (see products.repository.ts's
+      // PRODUCT_COLUMNS) — `unit` is never actually populated on raw
+      // product data, only on shapes something has explicitly remapped
+      // (e.g. EditProductPage's normalizeUnit). Read both so this doesn't
+      // silently show "no unit" for a product that has one configured.
+      unit: product.unit || product.measure_unit || "",
     });
     setQueries((prev) => ({ ...prev, [rowId]: product.name }));
     setOpenDropdown(null);
@@ -164,7 +169,7 @@ const ConsumablesTab: React.FC<Props> = ({ data, onChange }) => {
                         cursor: "pointer",
                       }}
                     >
-                      {p.name} <span style={{ color: "#9ca3af" }}>({p.unit || "no unit"})</span>
+                      {p.name} <span style={{ color: "#9ca3af" }}>({p.unit || p.measure_unit || "no unit"})</span>
                     </button>
                   ))}
                 </div>

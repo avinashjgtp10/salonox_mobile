@@ -17,4 +17,11 @@ export const INVENTORY = {
 
   // Consumable usage (from calendar appointments)
   CONSUMABLE_USAGE: "/api/v1/inventory/consumable-usage",
+
+  // Consumable Inventory (dedicated module)
+  CONSUMABLES: "/api/v1/inventory/consumables",
+  CONSUMABLES_KPIS: "/api/v1/inventory/consumables/kpis",
+  CONSUMABLES_USAGE_HISTORY: "/api/v1/inventory/consumables/usage-history",
+  CONSUMABLE_BY_ID: (id: string) => `/api/v1/inventory/consumables/${id}`,
+  CONSUMABLE_ADJUST: (id: string) => `/api/v1/inventory/consumables/${id}/adjust`,
 } as const;

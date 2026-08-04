@@ -92,12 +92,18 @@ function buildServiceApiItems(
         duration: s.duration || 30,
         ...(isPackageService ? { is_package_service: true } : {}),
         category_id: (s as any).categoryId || undefined,
-        // Attached but not deducted — stock deduction is not implemented
-        // client-side yet (no backend endpoint exists for it).
+        // Configured (qty) and actual (actualQty) usage both ride along on
+        // the normal appointment save — no separate save API. Consumables
+        // never affect billing/calculate-totals; actual deduction happens
+        // server-side, only once the appointment is paid (see
+        // appointments.service.ts::assignServiceRowIds / payments.service.ts).
+        // actualQty defaults to the configured qty until staff edit it.
         consumables: (s.consumables ?? []).map((c) => ({
           product_id: c.productId,
+          product_name: c.productName,
           qty: c.qty,
           unit: c.unit,
+          actual_qty: c.actualQty ?? c.qty,
         })),
       };
     });

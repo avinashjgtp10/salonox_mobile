@@ -1,0 +1,190 @@
+@keyframes ciSlideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+
+.ci-panel-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 1040;
+}
+
+.ci-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 460px;
+  max-width: 100vw;
+  background: #fff;
+  display: flex;
+  flex-direction: column;
+  z-index: 1050;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.1);
+  animation: ciSlideInRight 0.22s ease;
+
+  &__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 20px;
+    border-bottom: 1px solid #e5e7eb;
+
+    h3 { margin: 0; font-size: 17px; font-weight: 700; color: #111827; }
+  }
+  &__subtitle { font-size: 12.5px; color: #6b7280; }
+  &__header-actions { display: flex; align-items: center; gap: 8px; }
+  &__close {
+    background: none; border: none; cursor: pointer; color: #6b7280; padding: 4px;
+    &:hover { color: #111827; }
+  }
+
+  &__loading { padding: 40px; text-align: center; color: #9ca3af; }
+
+  &__body { flex: 1; overflow-y: auto; padding: 4px 20px 24px; }
+
+  &__section {
+    padding: 16px 0;
+    border-bottom: 1px solid #f3f4f6;
+    &:last-child { border-bottom: none; }
+
+    h4 { margin: 0 0 10px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.4px; color: #6b7280; }
+  }
+
+  &__section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    h4 { margin: 0; }
+  }
+
+  &__field-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 5px 0;
+    font-size: 13.5px;
+
+    span:first-child { color: #6b7280; }
+    span:last-child { color: #111827; font-weight: 600; }
+  }
+
+  &__empty { font-size: 13px; color: #9ca3af; margin: 0; }
+
+  &__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  &__chip {
+    background: #f3f4f6;
+    color: #374151;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 999px;
+  }
+
+  &__mini-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 12.5px;
+
+    th { text-align: left; color: #9ca3af; font-weight: 600; padding: 4px 6px; }
+    td { padding: 5px 6px; color: #374151; border-top: 1px solid #f3f4f6; }
+  }
+
+  &__timeline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  &__timeline-point {
+    display: flex;
+    flex-direction: column;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 12px;
+
+    &--warn { background: #fef2f2; border-color: #fecaca; color: #b91c1c; font-weight: 600; padding: 8px 12px; }
+  }
+  &__timeline-label { color: #9ca3af; font-size: 11px; }
+  &__timeline-val { color: #111827; font-weight: 700; font-size: 13px; }
+  &__timeline-arrow { color: #9ca3af; }
+}
+
+// ── Stock Adjustment modal ──────────────────────────────────────────────────
+.ci-adjust-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ci-adjust-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 380px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+
+  h3 { margin: 0 0 16px; font-size: 16px; font-weight: 700; color: #111827; text-align: center; }
+
+  &__direction {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 14px;
+
+    button {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      height: 38px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      background: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      color: #374151;
+      cursor: pointer;
+
+      &.active { border-color: #111827; background: #111827; color: #fff; }
+    }
+  }
+
+  label {
+    display: block;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #6b7280;
+    margin-bottom: 12px;
+
+    input, select {
+      display: block;
+      width: 100%;
+      height: 36px;
+      margin-top: 4px;
+      padding: 0 10px;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: inherit;
+      color: #111827;
+      box-sizing: border-box;
+    }
+  }
+
+  &__error { font-size: 12px; color: #ef4444; margin: 0 0 12px; }
+
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 4px;
+  }
+}

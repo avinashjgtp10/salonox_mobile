@@ -1,0 +1,162 @@
+.ci-page {
+  padding: 24px;
+}
+
+.ci-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 20px;
+
+  &__title { margin: 0; font-size: 22px; font-weight: 700; color: #111827; }
+  &__subtitle { margin: 4px 0 0; font-size: 13px; color: #6b7280; }
+  &__actions { display: flex; gap: 10px; }
+}
+
+.ci-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 38px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: all 0.15s;
+
+  &--primary { background: #111827; color: #fff; &:hover { background: #1f2937; } }
+  &--outline { background: #fff; color: #111827; border-color: #d1d5db; &:hover { border-color: #9ca3af; } }
+  &--sm { height: 30px; padding: 0 10px; font-size: 12px; background: #fff; border-color: #d1d5db; &:hover { border-color: #9ca3af; } }
+
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+// Reuses the Reports pages' KPI-card class name for visual consistency, but
+// defined locally here rather than importing the analytics feature's SCSS
+// partial — keeps this page self-contained, matching ProductDrawer.scss's
+// existing convention of no cross-feature style dependencies.
+.rp-sra-summary-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+  margin-bottom: 20px;
+}
+.rp-sra-summary-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  padding: 16px;
+}
+.rp-sra-summary-val { font-size: 22px; font-weight: 700; color: #111827; }
+.rp-sra-summary-label { font-size: 12px; color: #6b7280; margin-top: 4px; }
+
+.ci-kpi--warn .rp-sra-summary-val { color: #b45309; }
+.ci-kpi--danger .rp-sra-summary-val { color: #b91c1c; }
+
+.ci-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-bottom: 16px;
+
+  select, .ci-search {
+    height: 36px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #111827;
+    background: #fff;
+  }
+  select { padding: 0 10px; }
+}
+
+.ci-search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  min-width: 220px;
+  color: #6b7280;
+
+  input {
+    border: none;
+    outline: none;
+    font-size: 13px;
+    color: #111827;
+    flex: 1;
+    &::placeholder { color: #9ca3af; }
+  }
+}
+
+.ci-table-wrap {
+  overflow-x: auto;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  background: #fff;
+}
+
+.ci-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th {
+    text-align: left;
+    padding: 10px 12px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    border-bottom: 1px solid #e5e7eb;
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 10px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    color: #374151;
+    white-space: nowrap;
+  }
+
+  tbody tr {
+    cursor: pointer;
+    &:hover { background: #f9fafb; }
+    &:last-child td { border-bottom: none; }
+  }
+
+  &__name { font-weight: 600; color: #111827; }
+}
+
+.ci-empty {
+  text-align: center;
+  color: #9ca3af;
+  padding: 32px 0 !important;
+  cursor: default !important;
+}
+
+.ci-status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+
+  &--healthy { background: #ecfdf5; color: #059669; }
+  &--low { background: #fffbeb; color: #b45309; }
+  &--out_of_stock { background: #fef2f2; color: #b91c1c; }
+}
+
+.ci-row-actions-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #6b7280;
+  padding: 4px;
+  border-radius: 6px;
+  &:hover { background: #f3f4f6; }
+  &::after { display: none; }
+}

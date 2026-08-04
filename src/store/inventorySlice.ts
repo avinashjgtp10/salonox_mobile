@@ -11,8 +11,14 @@ import {
   fetchStockReconciliationThunk,
   saveStockReconciliationThunk,
   saveReconciliationRowThunk,
+  fetchConsumablesThunk,
+  fetchConsumableKpisThunk,
+  fetchConsumableByIdThunk,
 } from "../middleware/inventory/inventory.thunk";
-import type { Stocktake, Supplier, StockReconciliationRow } from "../types/inventory.types";
+import type {
+  Stocktake, Supplier, StockReconciliationRow,
+  ConsumableListRow, ConsumableKpis, ConsumableDetail,
+} from "../types/inventory.types";
 
 interface InventoryState {
   stocktakes: Stocktake[];
@@ -23,6 +29,18 @@ interface InventoryState {
   reconciliationSaving: boolean;
   loading: boolean;
   error: string | null;
+
+  // Consumable Inventory
+  consumables: ConsumableListRow[];
+  consumablesPage: number;
+  consumablesPageSize: number;
+  consumablesTotalRecords: number;
+  consumablesTotalPages: number;
+  consumablesLoading: boolean;
+  consumableKpis: ConsumableKpis | null;
+  consumableKpisLoading: boolean;
+  consumableDetail: ConsumableDetail | null;
+  consumableDetailLoading: boolean;
 }
 
 const initialState: InventoryState = {
@@ -34,6 +52,17 @@ const initialState: InventoryState = {
   reconciliationSaving: false,
   loading: false,
   error: null,
+
+  consumables: [],
+  consumablesPage: 1,
+  consumablesPageSize: 20,
+  consumablesTotalRecords: 0,
+  consumablesTotalPages: 0,
+  consumablesLoading: false,
+  consumableKpis: null,
+  consumableKpisLoading: false,
+  consumableDetail: null,
+  consumableDetailLoading: false,
 };
 
 const inventorySlice = createSlice({
@@ -45,6 +74,9 @@ const inventorySlice = createSlice({
     },
     setCurrentStocktake: (state, action: PayloadAction<Stocktake | null>) => {
       state.currentStocktake = action.payload;
+    },
+    clearConsumableDetail: (state) => {
+      state.consumableDetail = null;
     },
   },
   extraReducers: (builder) => {
@@ -152,8 +184,52 @@ const inventorySlice = createSlice({
         state.reconciliationRows[idx] = action.payload;
       }
     });
+
+    // Consumable Inventory: list
+    builder.addCase(fetchConsumablesThunk.pending, (state) => {
+      state.consumablesLoading = true;
+      state.error = null;
+    });
+    builder.addCase(fetchConsumablesThunk.fulfilled, (state, action) => {
+      state.consumablesLoading = false;
+      state.consumables = action.payload.data;
+      state.consumablesPage = action.payload.page;
+      state.consumablesPageSize = action.payload.pageSize;
+      state.consumablesTotalRecords = action.payload.totalRecords;
+      state.consumablesTotalPages = action.payload.totalPages;
+    });
+    builder.addCase(fetchConsumablesThunk.rejected, (state, action) => {
+      state.consumablesLoading = false;
+      state.error = action.payload as string;
+    });
+
+    // Consumable Inventory: KPIs
+    builder.addCase(fetchConsumableKpisThunk.pending, (state) => {
+      state.consumableKpisLoading = true;
+    });
+    builder.addCase(fetchConsumableKpisThunk.fulfilled, (state, action) => {
+      state.consumableKpisLoading = false;
+      state.consumableKpis = action.payload;
+    });
+    builder.addCase(fetchConsumableKpisThunk.rejected, (state, action) => {
+      state.consumableKpisLoading = false;
+      state.error = action.payload as string;
+    });
+
+    // Consumable Inventory: detail (side panel)
+    builder.addCase(fetchConsumableByIdThunk.pending, (state) => {
+      state.consumableDetailLoading = true;
+    });
+    builder.addCase(fetchConsumableByIdThunk.fulfilled, (state, action) => {
+      state.consumableDetailLoading = false;
+      state.consumableDetail = action.payload;
+    });
+    builder.addCase(fetchConsumableByIdThunk.rejected, (state, action) => {
+      state.consumableDetailLoading = false;
+      state.error = action.payload as string;
+    });
   },
 });
 
-export const { clearInventoryError, setCurrentStocktake } = inventorySlice.actions;
+export const { clearInventoryError, setCurrentStocktake, clearConsumableDetail } = inventorySlice.actions;
 export default inventorySlice.reducer;
