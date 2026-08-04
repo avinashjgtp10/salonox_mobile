@@ -192,8 +192,6 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
   const { currencySymbol, formatAmount } = useCurrency();
   const today = new Date().toISOString().slice(0, 10);
   const [date,            setDate]            = useState(today);
-  const [timeFrom,        setTimeFrom]        = useState("");
-  const [timeTo,          setTimeTo]          = useState("");
   const [serviceFilter,   setServiceFilter]   = useState<string>("All");
   const [staffFilters,    setStaffFilters]    = useState<string[]>([]);
   const [paymentModeFilter, setPaymentModeFilter] = useState<string>("All");
@@ -228,8 +226,6 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
     setLoading(true);
     try {
       const body: Record<string, any> = { date, page: currentPage, limit: pageSize };
-      if (timeFrom) body.time_from = timeFrom;
-      if (timeTo) body.time_to = timeTo;
       if (serviceFilter !== "All") body.service_id = serviceFilter;
       if (staffFilters.length > 0) body.staff_ids = staffFilters;
       if (paymentModeFilter !== "All") body.payment_mode = paymentModeFilter;
@@ -262,7 +258,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [date, timeFrom, timeTo, serviceFilter, staffFilters, paymentModeFilter, statusFilter, itemTypeFilter, search, currentPage, pageSize]);
+  }, [date, serviceFilter, staffFilters, paymentModeFilter, statusFilter, itemTypeFilter, search, currentPage, pageSize]);
 
   const bulkDelete = useBulkAppointmentDelete(fetchData);
   const deletableIds = rows.filter(r => r.appointmentId).map(r => r.appointmentId as string);
@@ -271,7 +267,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
 
   // Filter changes go back to page 1 — page/pageSize changes themselves
   // should not reset back to page 1.
-  useEffect(() => { setCurrentPage(1); }, [date, timeFrom, timeTo, serviceFilter, staffFilters, paymentModeFilter, statusFilter, itemTypeFilter, search]);
+  useEffect(() => { setCurrentPage(1); }, [date, serviceFilter, staffFilters, paymentModeFilter, statusFilter, itemTypeFilter, search]);
 
   const activeFilterCount = [
     serviceFilter !== "All" ? 1 : 0,
@@ -304,14 +300,6 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Date</label>
           <input type="date" value={date} onChange={e => setDate(e.target.value)} className="rp-detail-date-input rp-detail-date-input--boxed" />
-        </div>
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Time</label>
-          <div className="rp-detail-date-range">
-            <input type="time" value={timeFrom} onChange={e => setTimeFrom(e.target.value)} className="rp-detail-date-input rp-detail-date-input--boxed" />
-            <span className="rp-detail-date-sep">-</span>
-            <input type="time" value={timeTo} onChange={e => setTimeTo(e.target.value)} className="rp-detail-date-input rp-detail-date-input--boxed" />
-          </div>
         </div>
         <button className="rp-ds-filters-btn" onClick={() => setShowFiltersPanel(true)}>
           Filters

@@ -7,6 +7,7 @@ import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import DateRangeFields from "../../../components/ui/DateRangeFields";
 import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
@@ -381,15 +382,11 @@ export default function WaCampaignReport({ onBack, category, categoryKey }: { on
                 searchable
               />
 
-              <div className="rp-cr-filter-field">
-                <label className="rp-detail-filter-label">Date Range</label>
-                <div className="rp-detail-date-range">
-                  <input type="date" value={draftDateFrom} max={draftDateTo || undefined} onChange={e => setDraftDateFrom(e.target.value)} className="rp-detail-date-input" />
-                  <span className="rp-detail-date-sep">-</span>
-                  <input type="date" value={draftDateTo} min={draftDateFrom || undefined} onChange={e => setDraftDateTo(e.target.value)} className="rp-detail-date-input" />
-                </div>
-                {draftDateRangeError && <div className="rp-detail-date-error">{draftDateRangeError}</div>}
-              </div>
+              <DateRangeFields
+                from={draftDateFrom} to={draftDateTo}
+                onFromChange={setDraftDateFrom} onToChange={setDraftDateTo}
+                containerClassName="rp-cr-filter-field"
+              />
 
               <Select label="Delivery Status" containerClass="rp-cr-filter-field" value={draftDeliveryBucket} onChange={e => setDraftDeliveryBucket(e.target.value)}>
                 {BUCKET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}

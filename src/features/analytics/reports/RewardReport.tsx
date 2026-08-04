@@ -9,6 +9,7 @@ import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import DateRangeFields from "../../../components/ui/DateRangeFields";
 import "./RewardReport.scss";
 
 const REPORT_NAME = "Reward";
@@ -155,14 +156,7 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
       </div>
 
       <div className="rp-detail-filters">
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">From Date</label>
-          <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
-        </div>
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">To Date</label>
-          <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} className="rp-detail-date-input" />
-        </div>
+        <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} hideLabel />
         <button className="rp-rw-filters-btn" onClick={() => setShowFiltersPanel(true)}>
           Filters
           {activeFilterCount > 0 && <span className="rp-rw-filters-badge">{activeFilterCount}</span>}
@@ -171,8 +165,6 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
-
-      {dateRangeError && <div className="rp-rw-date-error">{dateRangeError}</div>}
 
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row rp-rw-summary-row">

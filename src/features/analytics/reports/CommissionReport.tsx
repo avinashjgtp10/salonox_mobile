@@ -10,6 +10,7 @@ import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import DateRangeFields from "../../../components/ui/DateRangeFields";
 import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
@@ -261,13 +262,8 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
             {Object.entries(DATE_PRESET_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
           </Select>
           {datePreset === "custom" && (
-            <div className="rp-detail-date-range">
-              <input type="date" value={dateFrom} max={dateTo || undefined} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
-              <span className="rp-detail-date-sep">-</span>
-              <input type="date" value={dateTo}   min={dateFrom || undefined} onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
-            </div>
+            <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} hideLabel bare />
           )}
-          {dateRangeError && <div className="rp-detail-date-error">{dateRangeError}</div>}
         </div>
         <button className="rp-cr-filters-btn" onClick={openFiltersPanel}>
           Filters
