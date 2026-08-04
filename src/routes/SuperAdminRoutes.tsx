@@ -13,6 +13,7 @@ const PermissionsPage     = lazy(() => import("../features/super-admin/pages/Per
 const SubscriptionPermissionsPage = lazy(() => import("../features/super-admin/pages/SubscriptionPermissionsPage"));
 const SupportPage         = lazy(() => import("../features/super-admin/pages/SupportPage"));
 const DemoInquiriesPage   = lazy(() => import("../features/super-admin/pages/DemoInquiriesPage"));
+const DeploymentAnnouncementsPage = lazy(() => import("../features/super-admin/pages/DeploymentAnnouncementsPage"));
 
 export const SuperAdminRoutes = (
   <>
@@ -29,6 +30,7 @@ export const SuperAdminRoutes = (
         <Route path="subscription-permissions" element={<SubscriptionPermissionsPage />} />
         <Route path="support"      element={<SupportPage />} />
         <Route path="demo-inquiries" element={<DemoInquiriesPage />} />
+        <Route path="deployment-announcements" element={<DeploymentAnnouncementsPage />} />
       </Route>
     </Route>
   </>

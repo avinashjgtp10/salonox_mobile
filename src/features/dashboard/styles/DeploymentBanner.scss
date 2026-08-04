@@ -1,0 +1,30 @@
+.deployment-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 20px;
+  background: #fef3c7;
+  border-bottom: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 13px;
+  flex-shrink: 0;
+  position: fixed;
+  top: 70px; // sits directly below the fixed topbar (DashboardPage.scss .topbar height)
+  left: 0;
+  width: 100%;
+  z-index: 999; // below the topbar (1000), above page content
+  box-sizing: border-box;
+
+  &__icon {
+    font-size: 15px;
+    flex-shrink: 0;
+  }
+
+  &__text {
+    line-height: 1.4;
+
+    strong {
+      font-weight: 700;
+    }
+  }
+}

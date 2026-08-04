@@ -34,6 +34,7 @@ export * from "./attendance.endpoints";
 export * from "./device.endpoints";
 export * from "./superAdmin.endpoints";
 export * from "./demoRequests.endpoints";
+export * from "./deploymentAnnouncements.endpoints";
 export * from "./notifications.endpoints";
 export * from "./wa-automation.endpoints";
 export * from "./reviews.endpoints";

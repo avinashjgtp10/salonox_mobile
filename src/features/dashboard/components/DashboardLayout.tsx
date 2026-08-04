@@ -8,6 +8,7 @@ import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import "../styles/DashboardPage.scss";
 
 import DashboardTopbar from "./DashboardTopbar";
+import DeploymentBanner from "./DeploymentBanner";
 import DashboardSidebar from "./DashboardSidebar";
 import OnlineBookingSubSidebar from "./OnlineBookingSubSidebar";
 import CatalogSubSidebar from "./CatalogSubSidebar";
@@ -70,6 +71,7 @@ export default function DashboardLayout() {
 
   return (
     <div className="dashboard">
+      <DeploymentBanner />
       <DashboardTopbar onLogout={handleLogout} />
 
       <div className="dashboard-body">
