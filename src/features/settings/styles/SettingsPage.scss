@@ -2099,6 +2099,11 @@
     align-self: center;
   }
 
+  &__status-badge {
+    vertical-align: middle;
+    margin-left: 2px;
+  }
+
   &__gstin {
     font-size: 13px;
     color: $dashboard-primary;
@@ -2275,15 +2280,20 @@
   font-size: 13.5px;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background 0.15s, opacity 0.15s;
   letter-spacing: 0.01em;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: #1d4ed8;
   }
 
-  &:active {
+  &:active:not(:disabled) {
     background: #1e40af;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
   }
 }
 

@@ -103,7 +103,16 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <button
           type="button"
           className={menuClass("catalog")}
-          onClick={() => onMenuChange(openMenu === "catalog" ? null : "catalog")}
+          onClick={() => {
+            const opening = openMenu !== "catalog";
+            onMenuChange(opening ? "catalog" : null);
+            // Same pattern as Clients above — jump to the section's default
+            // page (Service menu) when entering it from elsewhere, instead of
+            // just opening the flyout submenu and leaving the current page.
+            if (opening && !location.pathname.startsWith("/dashboard/catalog")) {
+              navigate("/dashboard/catalog/services");
+            }
+          }}
         >
           <Book size={26} />
           <span className="nav-label">Catalog</span>
