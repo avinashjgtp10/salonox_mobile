@@ -228,6 +228,8 @@ export default function NotificationsScreen({
   };
 
   const handlePressNotification = (notification: NotificationItem) => {
+    // Optimistic: the Redux slice immediately decrements unreadCount and marks
+    // the item as read locally — the badge updates without waiting for the API.
     if (!notification.isRead) {
       void dispatch(markNotificationReadThunk(notification.id));
     }

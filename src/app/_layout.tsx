@@ -1,5 +1,6 @@
 import { DarkTheme, DefaultTheme, ThemeProvider as NavigationThemeProvider, type Theme } from '@react-navigation/native';
 import { Stack, usePathname, useRootNavigationState, useRouter, useSegments, type Href } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -26,6 +27,8 @@ import {
   isStaffRouteGroup,
   resolveAuthenticatedRoute,
 } from '@/utils/routeResolver';
+
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 export const unstable_settings = {
   initialRouteName: 'login',
@@ -71,22 +74,14 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
       return;
     }
 
-    // The session check (and, on the very first run, the redirect below) has
-    // now resolved — safe to let the splash overlay hand off to whichever
-    // screen we land on, instead of hiding on a fixed timer regardless of
-    // whether auth actually finished checking.
-    onReady();
-
     const topLevelSegment = segments[0] ?? "index";
     const isPublicRoute = PUBLIC_ROUTES.has(topLevelSegment);
     const isOnboardingRoute = topLevelSegment === "onboarding";
     const isVerifyEmailRoute = topLevelSegment === "verify-email";
 
     if (isAuthenticated) {
-      // Email verification is an authenticated-only screen that manages its own
-      // exit navigation (verify / resend / "verify later"). Don't let the guard
-      // bounce the user off it in either onboarding state.
       if (isVerifyEmailRoute) {
+        onReady();
         return;
       }
 
@@ -99,10 +94,16 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
 
         if (isPublicRoute || isOnboardingRoute || isWrongAuthenticatedApp) {
           router.replace(resolveAuthenticatedRoute(user));
+        } else {
+          // The target authenticated route (dashboard/home) is now active in the navigator.
+          onReady();
         }
       } else {
         if (!isOnboardingRoute) {
           router.replace(resolveAuthenticatedRoute(user));
+        } else {
+          // The onboarding route is now active in the navigator.
+          onReady();
         }
       }
     } else {
@@ -111,6 +112,9 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
           router.dismissAll();
         }
         router.replace("/login" as Href);
+      } else {
+        // The public route (login/welcome) is active in the navigator.
+        onReady();
       }
     }
   }, [isAuthenticated, isLoading, onReady, user, pathname, rootNavigationState?.key, router, segments]);
