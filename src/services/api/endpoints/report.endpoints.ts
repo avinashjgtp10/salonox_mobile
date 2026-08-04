@@ -120,3 +120,10 @@ export const MEMBER_SALE_REPORT = {
 export const APPOINTMENT_DETAIL_REPORT = {
   SUMMARY: () => `/api/report/appointment-detail`,
 } as const;
+
+// Independent WA Marketing Campaign reporting API — reads wa_campaigns
+// directly, never through the campaigns HTTP API/service. Mounted at
+// /api/report.
+export const WA_CAMPAIGN_REPORT = {
+  SUMMARY: () => `/api/report/wa-campaign`,
+} as const;
