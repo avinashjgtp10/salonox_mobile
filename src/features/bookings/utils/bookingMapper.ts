@@ -140,6 +140,21 @@ export function mapApiBooking(
       // sale_items.tax_amount) — undefined for an unpaid appointment, which
       // receipt.ts falls back to its own blended-rate approximation for.
       tax: s.tax_amount !== undefined ? parseFloat(String(s.tax_amount)) || 0 : undefined,
+      // Backend read-time enrichment (appointmentsService::attachConsumables)
+      // sends snake_case (product_id/product_name/qty/unit/actual_qty) —
+      // normalize explicitly rather than relying on the `...s` spread above,
+      // which would otherwise leave a raw, un-normalized shape on reload
+      // that doesn't match what selectService() produces for a freshly-added
+      // row (camelCase productId/productName/actualQty).
+      consumables: Array.isArray(s.consumables)
+        ? s.consumables.map((c: any) => ({
+            productId: c.productId ?? c.product_id,
+            productName: c.productName ?? c.product_name ?? "",
+            qty: Number(c.qty) || 0,
+            unit: c.unit ?? "",
+            actualQty: c.actualQty ?? (c.actual_qty !== undefined ? Number(c.actual_qty) : undefined),
+          }))
+        : undefined,
     };
   });
 

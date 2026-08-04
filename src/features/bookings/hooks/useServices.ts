@@ -27,6 +27,12 @@ export function useServices(salonId?: string | null) {
         price: parseFloat(String(s.price)) || 0,
         duration: Number(s.duration || s.duration_minutes) || 30,
         categoryId: s.category_id ?? undefined,
+        // Without this, ServiceRow's search dropdown keeps serving an empty
+        // recipe for any service it already has cached (mergeServiceResults
+        // prefers this local entry over a fresh API result on id match) —
+        // configuring a service's consumables would silently never show up
+        // in the appointment flow until the whole modal was closed/reopened.
+        consumables_used: s.consumables_used ?? [],
       }))
     ));
   }, [apiServices, dispatch]);

@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
 import { createPortal } from "react-dom";
-import { useSelector } from "react-redux";
 import type { ServiceItem } from "../../types/scheduler-types";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import { useSchedulerContext } from "../../store/SchedulerContext";
@@ -8,9 +7,7 @@ import TimeSelect from "../shared/TimeSelect";
 import { Trash } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
 import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
-import { INVENTORY } from "../../../../services/api/endpoints/inventory.endpoints";
 import { IconClock, IconBox, IconTag } from "../../../../components/shared/QuickSaleIcons";
-import type { RootState } from "../../../../store/store";
 import "../../styles/AppointmentModal.scss";
 
 const MIN_SEARCH_LENGTH = 3;
@@ -47,17 +44,6 @@ interface RawServiceItem {
   category_id?: string;
 }
 
-interface ConsumableItem {
-  tempId: string;
-  productId: string;
-  name: string;
-  qty: string;
-  unit: string;
-  showDrop: boolean;
-  results: Array<{ id: string; name: string }>;
-  isSearching: boolean;
-}
-
 interface ServiceRowProps {
   row: ServiceItem & { tempId: string };
   onChange: (id: string, field: string, value: string | number | boolean | ServiceItem["consumables"]) => void;
@@ -81,6 +67,14 @@ interface ServiceRowProps {
    *  excluded from this row's own taxable base server-side, shown here so
    *  it's visible against the price it actually reduced. */
   membershipDiscountAmount?: number;
+  /** Live Actual Qty edits for this row's consumables, keyed by productId —
+   *  a sibling of row.consumables (see AppointmentModal's consumableActuals
+   *  state), read here to render the current value; edits are reported back
+   *  via onConsumableActualChange rather than through the normal onChange
+   *  path, since that path patches serviceRows directly and would re-trigger
+   *  calculate-totals. */
+  consumableActuals?: Record<string, number>;
+  onConsumableActualChange?: (productId: string, actualQty: number) => void;
 }
 
 function fmtName(name: string) {
@@ -168,19 +162,24 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   membershipWalletInfo,
   taxAmount,
   membershipDiscountAmount,
+  consumableActuals,
+  onConsumableActualChange,
 }) => {
   const { currencySymbol } = useCurrency();
   const schedulerContext = useSchedulerContext();
-  const salonBranches = useSelector((s: RootState) => s.salon?.branches ?? []);
-  const currentSalon = useSelector((s: RootState) => s.salon?.currentSalon ?? null);
-  const activeBranchId =
-    salonBranches.find((b: any) => b.is_main === true)?.id ??
-    salonBranches[0]?.id ??
-    "";
 
   const interval = schedulerContext.interval;
   const staffList = schedulerContext.staffList as StaffDto[] | undefined;
   const servicesList = schedulerContext.servicesList as RawServiceItem[] | undefined;
+  // Current on-hand stock per product (same cached list the "+ Product" row
+  // picker already uses) — for the Consumables panel's Remaining Stock
+  // column and the over-stock warning, without a separate fetch.
+  const productsList = schedulerContext.productsList as Array<{ id: string; stock: number }> | undefined;
+  const productStockById = React.useMemo(() => {
+    const map = new Map<string, number>();
+    (productsList ?? []).forEach((p) => map.set(String(p.id), Number(p.stock) || 0));
+    return map;
+  }, [productsList]);
   const [serviceSearch, setServiceSearch] = useState(row.service || "");
   const [showDrop, setShowDrop] = useState(false);
   const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
@@ -221,12 +220,10 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   const [savedComplimentaryRemark, setSavedComplimentaryRemark] = useState("");
   const [compApplied, setCompApplied] = useState(false);
 
-  // ── Consumable items modal state ──────────────────────────────────────────────
+  // ── Consumables recipe panel state ──────────────────────────────────────────────
+  // Just an open/closed toggle now — the list itself is row.consumables
+  // (read-only Product/Configured/Unit, editable Actual Qty), not local state.
   const [showConsumableModal, setShowConsumableModal] = useState(false);
-  const [consumableItems, setConsumableItems] = useState<ConsumableItem[]>([]);
-  const [consumableError, setConsumableError] = useState("");
-  const [savedConsumableCount, setSavedConsumableCount] = useState(0);
-  const consumableDebounceRefs = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const dropRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -564,7 +561,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     setComplimentaryError("");
   }
 
-  // ── Consumable handlers ───────────────────────────────────────────────────────
+  // ── Consumables recipe panel handlers ───────────────────────────────────────────
   function openConsumableModal() {
     setShowConsumableModal(true);
   }
@@ -573,102 +570,123 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     setShowConsumableModal(false);
   }
 
-  function makeCId() {
-    return Math.random().toString(36).slice(2, 9);
+  // Reads back the current Actual Qty for a product: a live (unsaved) edit
+  // from AppointmentModal's consumableActuals if there is one, else this
+  // row's own last-saved actualQty, else the configured/standard qty.
+  function getActualQty(c: NonNullable<ServiceItem["consumables"]>[number]): number {
+    return consumableActuals?.[c.productId] ?? c.actualQty ?? c.qty;
   }
 
-  function addConsumableItem() {
-    setConsumableItems((prev) => [
-      ...prev,
-      { tempId: makeCId(), productId: "", name: "", qty: "1", unit: "", showDrop: false, results: [], isSearching: false },
-    ]);
+  function handleActualQtyChange(productId: string, raw: string) {
+    const n = parseFloat(raw);
+    onConsumableActualChange?.(productId, Number.isFinite(n) && n >= 0 ? n : 0);
   }
 
-  function removeConsumableItem(cid: string) {
-    const timer = consumableDebounceRefs.current.get(cid);
-    if (timer) { clearTimeout(timer); consumableDebounceRefs.current.delete(cid); }
-    setConsumableItems((prev) => prev.filter((c) => c.tempId !== cid));
+  // A qty input showing "0" and cursor-after-zero made typing "1" then "2"
+  // produce "012" instead of "12" (the browser appends rather than replacing
+  // when the displayed value is literally "0") — select the existing value
+  // on focus so any typing replaces it instead, the standard fix for this.
+  function selectOnFocus(e: React.FocusEvent<HTMLInputElement>) {
+    e.target.select();
   }
 
-  function updateConsumableItem(cid: string, patch: Partial<ConsumableItem>) {
-    setConsumableItems((prev) => prev.map((c) => c.tempId === cid ? { ...c, ...patch } : c));
+  // ── Add-to-recipe (from the appointment) ────────────────────────────────────
+  // Deliberately writes to the SERVICE's recipe (service_consumables via the
+  // existing PATCH /services/:id endpoint), not a one-off for this
+  // appointment only — confirmed with the user: fixing "no consumables
+  // configured" here should fix it for every future booking of this
+  // service too, same data ConsumablesTab (Services catalog) edits.
+  const [addDraft, setAddDraft] = useState<{
+    productId: string; productName: string; searchText: string;
+    unit: string; qty: string; showDrop: boolean;
+    results: Array<{ id: string; name: string; unit: string }>; isSearching: boolean;
+  } | null>(null);
+  const [addError, setAddError] = useState("");
+  const [addSaving, setAddSaving] = useState(false);
+  const addDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  function startAddConsumable() {
+    setAddDraft({ productId: "", productName: "", searchText: "", unit: "", qty: "1", showDrop: false, results: [], isSearching: false });
+    setAddError("");
   }
 
-  async function loadInitialProducts(cid: string) {
-    updateConsumableItem(cid, { isSearching: true, showDrop: true });
+  function cancelAddConsumable() {
+    if (addDebounceRef.current) clearTimeout(addDebounceRef.current);
+    setAddDraft(null);
+    setAddError("");
+  }
+
+  async function runAddProductSearch(term: string) {
+    setAddDraft((prev) => (prev ? { ...prev, isSearching: true, showDrop: true } : prev));
     try {
-      const res = await api.get("/api/v1/products?limit=20");
+      const url = term.trim()
+        ? `/api/v1/products?search=${encodeURIComponent(term.trim())}&limit=20`
+        : `/api/v1/products?limit=20`;
+      const res = await api.get(url);
       const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
-      const results = Array.isArray(raw) ? raw.map((p: any) => ({ id: String(p.id), name: String(p.name) })) : [];
-      updateConsumableItem(cid, { results, isSearching: false });
+      // Recipe-only editing still means "only real consumable products" —
+      // same isConsumableType() rule the Services catalog's ConsumablesTab
+      // already applies, just re-checked here since this endpoint doesn't
+      // support filtering by product_type IN (consumable, both) server-side.
+      // API responses use `measure_unit`, not `unit` (see
+      // products.repository.ts's PRODUCT_COLUMNS) — read both, same fix
+      // applied to ConsumablesTab, so the unit auto-fills below instead of
+      // silently coming through blank.
+      const results = raw
+        .filter((p) => p.product_type === "consumable" || p.product_type === "both")
+        .map((p: any) => ({ id: String(p.id), name: String(p.name), unit: String(p.unit || p.measure_unit || "") }));
+      setAddDraft((prev) => (prev ? { ...prev, results, isSearching: false } : prev));
     } catch {
-      updateConsumableItem(cid, { results: [], isSearching: false });
+      setAddDraft((prev) => (prev ? { ...prev, results: [], isSearching: false } : prev));
     }
   }
 
-  function handleConsumableSearch(cid: string, term: string) {
-    updateConsumableItem(cid, { name: term, productId: "", showDrop: true });
-
-    const existing = consumableDebounceRefs.current.get(cid);
-    if (existing) clearTimeout(existing);
-
-    if (!term.trim()) {
-      loadInitialProducts(cid);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      updateConsumableItem(cid, { isSearching: true });
-      try {
-        const res = await api.get(`/api/v1/products?search=${encodeURIComponent(term.trim())}&limit=20`);
-        const raw: any[] = res.data?.data?.data ?? res.data?.data ?? [];
-        const results = Array.isArray(raw) ? raw.map((p: any) => ({ id: String(p.id), name: String(p.name) })) : [];
-        updateConsumableItem(cid, { results, isSearching: false });
-      } catch {
-        updateConsumableItem(cid, { results: [], isSearching: false });
-      }
-      consumableDebounceRefs.current.delete(cid);
-    }, 300);
-
-    consumableDebounceRefs.current.set(cid, timer);
+  function handleAddSearchChange(term: string) {
+    setAddDraft((prev) => (prev ? { ...prev, searchText: term, productId: "", showDrop: true } : prev));
+    if (addDebounceRef.current) clearTimeout(addDebounceRef.current);
+    addDebounceRef.current = setTimeout(() => runAddProductSearch(term), 300);
   }
 
-  function selectConsumableProduct(cid: string, product: { id: string; name: string }) {
-    updateConsumableItem(cid, { productId: product.id, name: product.name, showDrop: false, results: [] });
+  // The backend always lowercases measure_unit on save (products.validator.ts
+  // in salon_mgm_backend), so "L" round-trips as "l" — case-insensitively
+  // re-match it against this row's own <option> values, or the <select>
+  // silently shows its placeholder instead of the product's real unit.
+  const ADD_UNIT_OPTIONS = ["ml", "L", "g", "kg", "oz", "pcs"];
+  function normalizeAddUnit(value: string): string {
+    return ADD_UNIT_OPTIONS.find((u) => u.toLowerCase() === value.toLowerCase()) ?? value;
   }
 
-  function handleConsumableUpdate() {
-    const invalid = consumableItems.some(
-      (c) => !c.name.trim() || !c.qty.trim() || parseInt(c.qty, 10) <= 0
-    );
-    if (invalid) {
-      setConsumableError("Please enter valid quantity for all consumables");
-      return;
-    }
-    setConsumableError("");
-    setSavedConsumableCount(consumableItems.filter((c) => c.name.trim()).length);
+  function selectAddProduct(product: { id: string; name: string; unit: string }) {
+    setAddDraft((prev) => (prev ? { ...prev, productId: product.id, productName: product.name, unit: product.unit ? normalizeAddUnit(product.unit) : prev.unit, searchText: product.name, showDrop: false, results: [] } : prev));
+  }
 
-    // Persist consumable usage to inventory (non-blocking)
-    const validItems = consumableItems.filter(
-      (c) => c.productId && c.name.trim() && parseInt(c.qty, 10) > 0
-    );
-    if (validItems.length > 0 && activeBranchId) {
-      api
-        .post(INVENTORY.CONSUMABLE_USAGE, {
-          branch_id: activeBranchId,
-          items: validItems.map((c) => ({
-            product_id: c.productId,
-            product_name: c.name,
-            qty: parseInt(c.qty, 10),
-            unit: c.unit || "pcs",
-          })),
-        })
-        .catch(() => {
-          // Non-blocking — consumable sync failure should not disrupt appointment flow
-        });
-    }
+  async function confirmAddConsumable() {
+    if (!addDraft) return;
+    const qty = parseFloat(addDraft.qty);
+    if (!addDraft.productId) { setAddError("Pick a product first"); return; }
+    if (!Number.isFinite(qty) || qty <= 0) { setAddError("Enter a valid quantity"); return; }
 
-    closeConsumableModal();
+    const serviceId = (row as any).service_id || row.id;
+    if (!serviceId) { setAddError("Save this row's service first"); return; }
+
+    setAddSaving(true);
+    setAddError("");
+    try {
+      const existingRecipe = (row.consumables ?? []).map((c) => ({ product_id: c.productId, qty: c.qty, unit: c.unit }));
+      const newRecipeItem = { product_id: addDraft.productId, qty, unit: addDraft.unit || undefined };
+      await api.patch(SERVICES.BY_ID(serviceId), { consumables_used: [...existingRecipe, newRecipeItem] });
+
+      const newRowConsumables = [
+        ...(row.consumables ?? []),
+        { productId: addDraft.productId, productName: addDraft.productName, qty, unit: addDraft.unit, actualQty: qty },
+      ];
+      onChange(row.tempId, "consumables", newRowConsumables);
+      setAddDraft(null);
+    } catch (err: any) {
+      setAddError(err?.response?.data?.error?.message || "Failed to save — try again");
+    } finally {
+      setAddSaving(false);
+    }
   }
 
   async function handleReminderSubmit() {
@@ -964,13 +982,13 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                 </button>
                 <button
                   type="button"
-                  className={`svc-quick-btn svc-quick-btn--consumable${savedConsumableCount > 0 ? " svc-quick-btn--itm" : ""}`}
-                  title="Update Consumable Items"
+                  className={`svc-quick-btn svc-quick-btn--consumable${(row.consumables?.length ?? 0) > 0 ? " svc-quick-btn--itm" : ""}`}
+                  title="Consumables"
                   onClick={openConsumableModal}
                 >
-                  {savedConsumableCount > 0 ? (
+                  {(row.consumables?.length ?? 0) > 0 ? (
                     <>
-                      <span className="svc-quick-btn__day-val">{savedConsumableCount}</span>
+                      <span className="svc-quick-btn__day-val">{row.consumables!.length}</span>
                       <span className="svc-quick-btn__day-lbl">Itm</span>
                     </>
                   ) : (
@@ -992,133 +1010,142 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
       </div>
 
-      {/* ── Consumable Items Modal ──────────────────────────────────────────── */}
+      {/* ── Consumables Panel ────────────────────────────────────────────────── */}
+      {/* Recipe-only: shows exactly the products configured on this service's
+          recipe (row.consumables, copied in at selectService() time). Product/
+          Configured/Unit are read-only; Actual Qty is the only editable field,
+          and edits go through onConsumableActualChange — never the normal
+          onChange path — so they can never reach serviceRows/calculate-totals. */}
       {showConsumableModal && (
         <div className="svc-reminder-overlay" onClick={closeConsumableModal}>
           <div className="svc-consumable-modal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="svc-consumable-modal__title">Update Consumable Items</h3>
+            <h3 className="svc-consumable-modal__title">Consumables</h3>
 
-            {/* Header row */}
-            {consumableItems.length > 0 && (
-              <div className="svc-consumable-header">
-                <span>Sr.</span>
-                <span>Name</span>
-                <span>Quantity</span>
-                <span>Unit</span>
-                <span>Action</span>
-              </div>
-            )}
-
-            <div className="svc-consumable-modal__list">
-              {consumableItems.map((item, idx) => (
-                <div key={item.tempId} className="svc-consumable-row">
-                  <span className="svc-consumable-row__num">{idx + 1}</span>
-
-                  <div className="svc-consumable-row__search-wrap">
-                    <input
-                      className="svc-consumable-row__input"
-                      placeholder="Search By Name"
-                      value={item.name}
-                      autoFocus={idx === consumableItems.length - 1}
-                      onChange={(e) => {
-                        handleConsumableSearch(item.tempId, e.target.value);
-                        if (consumableError) setConsumableError("");
-                      }}
-                      onFocus={() => {
-                        if (!item.name.trim() && item.results.length === 0) {
-                          loadInitialProducts(item.tempId);
-                        } else {
-                          updateConsumableItem(item.tempId, { showDrop: true });
-                        }
-                      }}
-                      onBlur={() =>
-                        setTimeout(() => updateConsumableItem(item.tempId, { showDrop: false }), 180)
-                      }
-                    />
-                    <span className="svc-consumable-row__search-icon">
-                      <svg width="13" height="13" viewBox="0 0 16 16" fill="#9ca3af">
-                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/>
-                      </svg>
-                    </span>
-                    {item.showDrop && (
-                      <div className="svc-consumable-drop">
-                        {item.isSearching ? (
-                          <div className="svc-consumable-drop__msg">Searching…</div>
-                        ) : item.results.length > 0 ? (
-                          item.results.map((r) => (
-                            <div
-                              key={r.id}
-                              className="svc-consumable-drop__item"
-                              onMouseDown={() => selectConsumableProduct(item.tempId, r)}
-                            >
-                              {r.name}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="svc-consumable-drop__msg">No products found</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <input
-                    className="svc-consumable-row__input svc-consumable-row__input--sm"
-                    type="number"
-                    min={0}
-                    value={item.qty}
-                    onChange={(e) => {
-                      updateConsumableItem(item.tempId, { qty: e.target.value });
-                      if (consumableError) setConsumableError("");
-                    }}
-                  />
-
-                  <select
-                    className="svc-consumable-row__input svc-consumable-row__input--sm svc-consumable-row__unit-select"
-                    value={item.unit}
-                    onChange={(e) => updateConsumableItem(item.tempId, { unit: e.target.value })}
-                  >
-                    <option value="">Unit</option>
-                    <option value="ml">ml</option>
-                    <option value="L">L</option>
-                    <option value="g">g</option>
-                    <option value="kg">kg</option>
-                    <option value="oz">oz</option>
-                    <option value="pcs">pcs</option>
-                    <option value="strips">strips</option>
-                    <option value="sheets">sheets</option>
-                    <option value="drops">drops</option>
-                  </select>
-
-                  <button
-                    type="button"
-                    className="svc-consumable-row__del"
-                    onClick={() => removeConsumableItem(item.tempId)}
-                  >
-                    <Trash size={14} />
-                  </button>
+            {row.consumables?.length ? (
+              <>
+                <div className="svc-recipe-header">
+                  <span>Product</span>
+                  <span>Standard</span>
+                  <span>Remaining Stock</span>
+                  <span>Used Qty</span>
                 </div>
-              ))}
-            </div>
-
-            {consumableError && (
-              <p className="svc-consumable-modal__error">{consumableError}</p>
+                <div className="svc-consumable-modal__list">
+                  {row.consumables.map((c) => {
+                    const actualQty = getActualQty(c);
+                    const remainingStock = productStockById.get(c.productId);
+                    const overStock = remainingStock !== undefined && actualQty > remainingStock;
+                    return (
+                      <div key={c.productId} className="svc-recipe-row">
+                        <span className="svc-recipe-row__name">{c.productName || "—"}</span>
+                        <span className="svc-recipe-row__configured">{c.qty} {c.unit || ""}</span>
+                        <span className="svc-recipe-row__unit">
+                          {remainingStock !== undefined ? `${remainingStock} ${c.unit || ""}` : "—"}
+                        </span>
+                        <div>
+                          <input
+                            className={`svc-recipe-row__actual-input${overStock ? " svc-recipe-row__actual-input--error" : ""}`}
+                            type="number"
+                            min={0}
+                            disabled={disabled}
+                            value={actualQty}
+                            onFocus={selectOnFocus}
+                            onChange={(e) => handleActualQtyChange(c.productId, e.target.value)}
+                          />
+                          {overStock && (
+                            <span className="svc-recipe-row__warning">Only {remainingStock} {c.unit} in stock</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            ) : (
+              <p className="svc-recipe-empty">This service has no consumables configured.</p>
             )}
+
+            {/* Adding here updates the SERVICE's own recipe (same data
+                ConsumablesTab in the Services catalog edits) — not a one-off
+                for just this appointment, so it fixes "no consumables
+                configured" for every future booking of this service too. */}
+            {addDraft ? (
+              <div className="svc-recipe-add-row">
+                <div className="svc-recipe-add-row__search-wrap">
+                  <input
+                    className="svc-consumable-row__input"
+                    placeholder="Search consumable product…"
+                    value={addDraft.searchText}
+                    autoFocus
+                    onChange={(e) => { handleAddSearchChange(e.target.value); if (addError) setAddError(""); }}
+                    onFocus={() => {
+                      if (!addDraft.searchText.trim() && addDraft.results.length === 0) runAddProductSearch("");
+                      else setAddDraft((p) => (p ? { ...p, showDrop: true } : p));
+                    }}
+                    onBlur={() => setTimeout(() => setAddDraft((p) => (p ? { ...p, showDrop: false } : p)), 180)}
+                  />
+                  {addDraft.showDrop && (
+                    <div className="svc-consumable-drop">
+                      {addDraft.isSearching ? (
+                        <div className="svc-consumable-drop__msg">Searching…</div>
+                      ) : addDraft.results.length > 0 ? (
+                        addDraft.results.map((r) => (
+                          <div key={r.id} className="svc-consumable-drop__item" onMouseDown={() => selectAddProduct(r)}>
+                            {r.name}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="svc-consumable-drop__msg">No consumable products found</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+                <input
+                  className="svc-consumable-row__input svc-consumable-row__input--sm"
+                  type="number"
+                  min={0}
+                  value={addDraft.qty}
+                  onChange={(e) => { setAddDraft((p) => (p ? { ...p, qty: e.target.value } : p)); if (addError) setAddError(""); }}
+                />
+                <select
+                  className="svc-consumable-row__input svc-consumable-row__input--sm svc-consumable-row__unit-select"
+                  value={addDraft.unit}
+                  onChange={(e) => setAddDraft((p) => (p ? { ...p, unit: e.target.value } : p))}
+                >
+                  <option value="">Unit</option>
+                  <option value="ml">ml</option>
+                  <option value="L">L</option>
+                  <option value="g">g</option>
+                  <option value="kg">kg</option>
+                  <option value="oz">oz</option>
+                  <option value="pcs">pcs</option>
+                </select>
+                <button
+                  type="button"
+                  className="svc-consumable-modal__btn svc-consumable-modal__btn--add"
+                  disabled={addSaving}
+                  onClick={confirmAddConsumable}
+                >
+                  {addSaving ? "Saving…" : "Save"}
+                </button>
+                <button type="button" className="svc-consumable-row__del" onClick={cancelAddConsumable} title="Cancel">
+                  <Trash size={14} />
+                </button>
+              </div>
+            ) : (
+              !disabled && (
+                <button
+                  type="button"
+                  className="svc-recipe-add-trigger"
+                  onClick={startAddConsumable}
+                >
+                  + Add Consumable
+                </button>
+              )
+            )}
+
+            {addError && <p className="svc-consumable-modal__error">{addError}</p>}
 
             <div className="svc-consumable-modal__actions">
-              <button
-                type="button"
-                className="svc-consumable-modal__btn svc-consumable-modal__btn--add"
-                onClick={addConsumableItem}
-              >
-                Add Item
-              </button>
-              <button
-                type="button"
-                className="svc-consumable-modal__btn svc-consumable-modal__btn--add"
-                onClick={handleConsumableUpdate}
-              >
-                Update
-              </button>
               <button
                 type="button"
                 className="svc-consumable-modal__btn svc-consumable-modal__btn--close"

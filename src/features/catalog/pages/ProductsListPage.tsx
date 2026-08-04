@@ -472,6 +472,7 @@ const ProductsListPage: React.FC = () => {
                 <th>Category</th>
                 <th>Supplier</th>
                 <th>Type</th>
+                <th>Unit Size</th>
                 <th>Stock  Left</th>
                 <th>Retail price</th>
                 <th className="actions-cell" style={{ width: "56px" }} />
@@ -493,6 +494,7 @@ const ProductsListPage: React.FC = () => {
                   <td><Skeleton width="60%" height={12} /></td>
                   <td><Skeleton width="50%" height={12} /></td>
                   <td><Skeleton width="50%" height={12} /></td>
+                  <td><Skeleton width="40%" height={12} /></td>
                   <td><Skeleton width="40%" height={12} /></td>
                   <td><Skeleton width="50%" height={12} /></td>
                   <td className="actions-cell" />
@@ -521,6 +523,7 @@ const ProductsListPage: React.FC = () => {
                 <th>Category</th>
                 <th>Supplier</th>
                 <th>Type</th>
+                <th>Unit Size</th>
                 <th>Stock  Left</th>
                 <th>Retail price</th>
                 <th className="actions-cell" style={{ width: "56px" }} />
@@ -590,10 +593,23 @@ const ProductsListPage: React.FC = () => {
                         );
                       })()}
                     </td>
+                    <td className="unit-size-cell">
+                      {(() => {
+                        const bottleSize = parseFloat(p.bottle_size);
+                        if (!isNaN(bottleSize) && bottleSize > 0) return `${bottleSize} ${p.measure_unit ?? ""}`.trim();
+                        return p.size || "—";
+                      })()}
+                    </td>
                     <td className="stock-cell">
                       {(() => {
-                        const rawQty = parseFloat(p.amount);
-                        const qty = isNaN(rawQty) ? 0 : rawQty;
+                        const rawAmount = parseFloat(p.amount);
+                        const amount = isNaN(rawAmount) ? 0 : rawAmount;
+                        const bottleSize = parseFloat(p.bottle_size);
+                        // Bottle-tracked products (e.g. 100ml/bottle): show the
+                        // derived bottle count here, not the raw remaining
+                        // volume — same CEIL rule the Consumable Inventory page
+                        // uses (a partially-used bottle still counts as 1).
+                        const qty = (!isNaN(bottleSize) && bottleSize > 0) ? Math.ceil(amount / bottleSize) : amount;
                         if (qty <= 0) return (
                           <span style={{ display: "inline-block", background: "#fee2e2", color: "#dc2626", fontWeight: 600, fontSize: "12px", padding: "4px 10px", borderRadius: "12px" }}>
                             Out of stock
@@ -667,7 +683,7 @@ const ProductsListPage: React.FC = () => {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={8} className="text-center py-5">
+                  <td colSpan={9} className="text-center py-5">
                     No products found.
                   </td>
                 </tr>

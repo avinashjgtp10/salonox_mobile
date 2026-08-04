@@ -152,3 +152,113 @@ export interface ConsumableUsagePayload {
   service_id?: string;
   items: ConsumableUsageItem[];
 }
+
+// ─── Consumable Inventory (dedicated module) ─────────────────────────────────
+
+export type ConsumableStatus = "healthy" | "low" | "out_of_stock";
+
+export interface ConsumableListFilters {
+  search?: string;
+  category_id?: string;
+  brand_id?: string;
+  supplier_id?: string;
+  status?: ConsumableStatus | "all";
+  unit?: string;
+  service_id?: string;
+  sort_by?: "newest" | "lowest_stock" | "most_used" | "a_z";
+  page?: number;
+  limit?: number;
+}
+
+export interface ConsumableListRow {
+  product_id: string;
+  name: string;
+  category_name: string | null;
+  brand_name: string | null;
+  supplier_name: string | null;
+  unit: string;
+  unit_size: number | null;
+  product_qty: number;
+  total_stock: number;
+  remaining_stock: number;
+  qty_alert: number | null;
+  used_today: number;
+  used_this_month: number;
+  assigned_services_count: number;
+  status: ConsumableStatus;
+}
+
+export interface ConsumableKpis {
+  total_consumables: number;
+  total_available_stock: number;
+  low_stock_items: number;
+  out_of_stock_items: number;
+  inventory_value: number;
+  todays_consumption: number;
+}
+
+export interface AssignedServiceRow {
+  service_id: string;
+  name: string;
+  qty: number;
+  unit: string | null;
+}
+
+export interface RecentConsumptionRow {
+  date: string;
+  service_name: string | null;
+  staff_name: string | null;
+  qty: number;
+  direction: "deduct" | "return";
+}
+
+export interface ConsumableUsageStats {
+  used_today: number;
+  used_this_week: number;
+  used_this_month: number;
+  average_per_service: number;
+  estimated_services_remaining: number | null;
+}
+
+export interface ConsumableDetail extends ConsumableListRow {
+  bottle_size: number | null;
+  supply_price: number | null;
+  measure_unit: string;
+  usage_stats: ConsumableUsageStats;
+  assigned_services: AssignedServiceRow[];
+  recent_consumption: RecentConsumptionRow[];
+  stock_timeline: { label: string; remaining: number }[];
+}
+
+export type AdjustStockReason = "purchase" | "damage" | "expired" | "manual_correction";
+
+export interface AdjustStockPayload {
+  direction: "increase" | "decrease";
+  qty: number;
+  reason: AdjustStockReason;
+  note?: string;
+  branch_id?: string;
+}
+
+export interface UsageHistoryFilters {
+  product_id?: string;
+  service_id?: string;
+  direction?: "deduct" | "return";
+  from?: string;
+  to?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface UsageHistoryRow {
+  id: string;
+  date: string;
+  product_id: string;
+  product_name: string;
+  unit: string | null;
+  service_name: string | null;
+  staff_name: string | null;
+  qty: number;
+  direction: "deduct" | "return";
+  source: string | null;
+}

@@ -221,6 +221,33 @@ export const AppointmentModal: React.FC<Props> = ({
   const [productRows, setProductRows]       = useState<ProductItem[]>((existingBooking as any)?.productItems ?? []);
   const [membershipRows, setMembershipRows] = useState<MembershipItem[]>((existingBooking as any)?.membershipItems ?? []);
 
+  // Actual-qty edits for each row's consumables — deliberately a SIBLING
+  // state, never merged into serviceRows itself. serviceRows is a dependency
+  // of the calculate-totals effect below; consumables never affect billing,
+  // so an Actual Qty edit must never be able to re-trigger that request.
+  // Keyed the same way every other per-row preview map in this file already
+  // is (row tempId, falling back to array index — see ServicesPanel.tsx),
+  // merged into a save-only copy of serviceRows in buildSavePayload().
+  const [consumableActuals, setConsumableActuals] = useState<Record<string, Record<string, number>>>(() => {
+    const seed: Record<string, Record<string, number>> = {};
+    (existingBooking?.services ?? []).forEach((row: any, i: number) => {
+      const tempId = row.tempId || String(i);
+      (row.consumables ?? []).forEach((c: any) => {
+        if (c.actualQty === undefined || c.actualQty === null) return;
+        seed[tempId] = seed[tempId] || {};
+        seed[tempId][c.productId] = Number(c.actualQty);
+      });
+    });
+    return seed;
+  });
+
+  const handleConsumableActualChange = useCallback((rowKey: string, productId: string, actualQty: number) => {
+    setConsumableActuals((prev) => ({
+      ...prev,
+      [rowKey]: { ...prev[rowKey], [productId]: actualQty },
+    }));
+  }, []);
+
   // ── Charges / Discounts ───────────────────────────────────────────────────
   const [discountType, setDiscountType]   = useState<DiscountType>(existingBooking?.discountType || "Percentage (%)");
   const [discountValue, setDiscountValue] = useState(existingBooking?.discount ?? 0);
@@ -1362,6 +1389,22 @@ export const AppointmentModal: React.FC<Props> = ({
 
   function buildSavePayload() {
     const isWalkIn = !selectedClient || selectedClient.id === "walk-in";
+    // The one and only place consumableActuals and serviceRows combine — a
+    // save-only copy, built fresh here rather than stored anywhere, so the
+    // live serviceRows state (and the calculate-totals effect that depends
+    // on it) is never touched by a consumable Actual Qty edit.
+    const serviceRowsForSave = serviceRows.map((row, i) => {
+      const tempId = (row as any).tempId || String(i);
+      const actuals = consumableActuals[tempId];
+      if (!actuals || !row.consumables?.length) return row;
+      return {
+        ...row,
+        consumables: row.consumables.map((c) => ({
+          ...c,
+          actualQty: actuals[c.productId] ?? c.actualQty ?? c.qty,
+        })),
+      };
+    });
     return {
       booking: {
         clientId:      isWalkIn ? undefined : selectedClient?.id,
@@ -1384,7 +1427,7 @@ export const AppointmentModal: React.FC<Props> = ({
         gstAmount:     totals.gstAmount,
         taxBreakdown:  totals.taxBreakdown,
       } as Partial<Booking>,
-      serviceRows, packageRows, productRows, membershipRows,
+      serviceRows: serviceRowsForSave, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId,
       clientId:             selectedClient?.id ?? null,
       existingBooking:      existingBooking ?? null,
@@ -1811,6 +1854,8 @@ export const AppointmentModal: React.FC<Props> = ({
           packageRemainingByRow={perRowCoveredRemaining}
           membershipWalletInfo={membershipWalletMap}
           serviceTaxByRow={serviceTaxByRow}
+          consumableActuals={consumableActuals}
+          onConsumableActualChange={handleConsumableActualChange}
           packageTaxByRow={packageTaxByRow}
           productTaxByRow={productTaxByRow}
           membershipTaxByRow={membershipTaxByRow}

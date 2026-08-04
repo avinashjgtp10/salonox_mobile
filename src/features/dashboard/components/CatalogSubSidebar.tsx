@@ -64,12 +64,12 @@ export default function CatalogSubSidebar({ onClose }: Props) {
           Suppliers
         </NavLink>
         <NavLink
-          to="/dashboard/catalog/inventory/stock-reconciliation"
+          to="/dashboard/catalog/inventory/consumables"
           className={({ isActive }) =>
             isActive ? "sub-link active" : "sub-link"
           }
         >
-          Stock Reconciliation
+          Consumable Inventory
         </NavLink>
       </div>
     </div>

@@ -100,6 +100,12 @@ interface Props {
   // real per-item tax each row will carry once the sale is saved. One map
   // per billable item type, same shape as the backend's rowTax.
   serviceTaxByRow?: Map<string, number>;
+  // Actual-qty edits for each row's consumables (keyed by row tempId, then
+  // productId) — a sibling of serviceRows, never merged into it (see
+  // AppointmentModal's declaration for why: it must never trigger the
+  // calculate-totals effect). Threaded straight through to ServiceRow.
+  consumableActuals?: Record<string, Record<string, number>>;
+  onConsumableActualChange?: (rowKey: string, productId: string, actualQty: number) => void;
   packageTaxByRow?: Map<string, number>;
   productTaxByRow?: Map<string, number>;
   membershipTaxByRow?: Map<string, number>;
@@ -1358,6 +1364,7 @@ export const ServicesPanel: React.FC<Props> = ({
   onSellPackage, onSellMembership, onTopupEwallet,
   availablePackages, availableProducts, availableMemberships,
   frozen, packageRemainingByRow, membershipWalletInfo, serviceTaxByRow,
+  consumableActuals, onConsumableActualChange,
   packageTaxByRow, productTaxByRow, membershipTaxByRow,
   serviceMembershipDiscountByRow, productMembershipDiscountByRow,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
@@ -1401,6 +1408,8 @@ export const ServicesPanel: React.FC<Props> = ({
         membershipWalletInfo={membershipWalletInfo?.get((row as any).tempId || String(i))}
         taxAmount={serviceTaxByRow?.get((row as any).tempId || String(i))}
         membershipDiscountAmount={serviceMembershipDiscountByRow?.get((row as any).tempId || String(i))}
+        consumableActuals={consumableActuals?.[(row as any).tempId || String(i)]}
+        onConsumableActualChange={(productId, actualQty) => onConsumableActualChange?.((row as any).tempId || String(i), productId, actualQty)}
       />
     ))}
 
