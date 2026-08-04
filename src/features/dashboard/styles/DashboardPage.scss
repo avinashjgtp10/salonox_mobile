@@ -97,7 +97,7 @@ body {
 /* ================= BODY ================= */
 .dashboard-body {
   display: flex;
-  margin-top: 70px;
+  margin-top: calc(70px + var(--deployment-banner-height, 0px));
 }
 
 /* ================= SIDEBAR ================= */
@@ -108,10 +108,10 @@ body {
   flex-direction: column;
   align-items: center;
   padding-top: 20px;
-  height: calc(100vh - 70px);
+  height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
   position: fixed;
   left: 0;
-  top: 70px;
+  top: calc(70px + var(--deployment-banner-height, 0px));
   z-index: 100;
 }
 
@@ -190,9 +190,9 @@ body {
 .sub-sidebar {
   position: fixed;
   left: 90px;
-  top: 70px;
+  top: calc(70px + var(--deployment-banner-height, 0px));
   width: 320px;
-  height: calc(100vh - 70px);
+  height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
   display: flex;
   flex-direction: column;
   background: $dashboard-card-bg;
@@ -298,7 +298,7 @@ body {
   margin-left: 90px;
   padding: 20px;
   background: #f9fafb;
-  height: calc(100vh - 70px);
+  height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
   overflow-y: auto;
   transition: margin 0.25s ease;
   &.shifted { margin-left: 410px; }
@@ -320,16 +320,16 @@ body {
 .main--calendar {
   padding: 0;
   overflow: hidden;
-  height: calc(100vh - 70px);
-  max-height: calc(100vh - 70px);
+  height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
+  max-height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
   min-height: 0;
 }
 
 .main--inbox {
   padding: 0;
   overflow: hidden;
-  height: calc(100vh - 70px);
-  max-height: calc(100vh - 70px);
+  height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
+  max-height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
   min-height: 0;
 }
 
