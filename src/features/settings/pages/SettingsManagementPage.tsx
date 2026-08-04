@@ -372,7 +372,6 @@ export default function SettingsManagementPage() {
 
   function handlePageCancel() {
     if (!pageIsDirty) return;
-    if (!window.confirm("Discard your unsaved changes?")) return;
     if (moduleHasChanges) cancelModuleConfigChanges();
     if (showForm) handleCancel();
     setFormDirty(false);
@@ -397,32 +396,12 @@ export default function SettingsManagementPage() {
     <>
       {overlay}
       {/* Page Header */}
-      <div className="settings-page-header settings-page-header--with-actions">
+      <div className="settings-page-header">
         <div>
           <h2 className="settings-page-title">GST &amp; Tax Settings</h2>
           <p className="settings-page-subtitle">
             Configure GST module behavior and manage tax mappings applied across the app.
           </p>
-        </div>
-        <div className="settings-section-actions">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handlePageCancel}
-            disabled={pageSaving || !pageIsDirty}
-            iconLeft={<X size={13} />}
-          >
-            Cancel
-          </Button>
-          <Button
-            size="sm"
-            loading={pageSaving}
-            disabled={pageSaving || !pageIsDirty}
-            onClick={handlePageSave}
-            iconLeft={<Save size={14} />}
-          >
-            Save changes
-          </Button>
         </div>
       </div>
 
@@ -704,6 +683,26 @@ export default function SettingsManagementPage() {
           </>
         )}
       </div>
+      </div>
+      
+      <div className="settings-action-footer" style={{ display: "flex", justifyContent: "flex-end", gap: "12px", marginTop: "24px", paddingTop: "20px", borderTop: "1px solid var(--border-color, #eaeaea)" }}>
+        <Button
+          variant="outline-dark"
+          onClick={handlePageCancel}
+          disabled={pageSaving || !pageIsDirty}
+          iconLeft={<X size={14} />}
+        >
+          Cancel
+        </Button>
+        <Button
+          variant="primary"
+          loading={pageSaving}
+          disabled={pageSaving || !pageIsDirty}
+          onClick={handlePageSave}
+          iconLeft={<Save size={14} />}
+        >
+          Save Changes
+        </Button>
       </div>
     </>
   );
