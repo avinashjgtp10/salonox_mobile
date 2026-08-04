@@ -35,6 +35,7 @@ import {
   fetchAttendanceOverviewThunk,
 } from "@/middleware/attendance/attendance.thunk";
 import { fetchNotificationsThunk, fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
+import { NotificationBadge } from "@/components/notifications/NotificationBadge";
 import { resolveCurrentStaffThunk } from "@/middleware/staff/staff.thunk";
 import {
   selectAppointments,
@@ -434,11 +435,7 @@ export default function StaffHomeRoute() {
               style={styles.headerIconButton}
             >
               <Ionicons name="notifications-outline" size={26} color={DASHBOARD.text} />
-              {unreadCount > 0 ? (
-                <View style={styles.unreadBadge}>
-                  <Text style={styles.unreadBadgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
-                </View>
-              ) : null}
+              <NotificationBadge count={unreadCount} style={{ borderColor: DASHBOARD.black }} />
             </TouchableOpacity>
             <TouchableOpacity
               accessibilityLabel="Open profile"
@@ -939,22 +936,7 @@ const createStyles = (_Colors: ThemeColors, width = 393, bottomInset = 0) =>
       marginTop: 6,
       flexShrink: 0,
     },
-    unreadBadge: {
-      alignItems: "center",
-      backgroundColor: "#F04B2B",
-      borderRadius: Radius.full,
-      height: 22,
-      justifyContent: "center",
-      position: "absolute",
-      right: 2,
-      top: 0,
-      width: 22,
-    },
-    unreadBadgeText: {
-      color: DASHBOARD.text,
-      fontSize: 12,
-      fontWeight: "900",
-    },
+
   });
 
 const cardShadow = {
