@@ -168,7 +168,7 @@ export default function NotificationsScreen({
   const currentStaffError = useAppSelector(selectCurrentStaffError);
   const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const [filter, setFilter] = useState<"all" | "unread">("all");
+  const [filter, setFilter] = useState<"all" | "unread">("unread");
   const staffIdentityReady = !requireStaffIdentity || Boolean(currentStaff?.id);
   const blockingError =
     requireStaffIdentity && !currentStaff?.id && !currentStaffLoading
@@ -275,8 +275,8 @@ export default function NotificationsScreen({
           activeKey={filter}
           onChange={setFilter}
           segments={[
-            { key: "all", label: "All" },
             { key: "unread", label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}` },
+            { key: "all", label: "All" },
           ]}
         />
       </View>

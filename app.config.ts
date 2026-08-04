@@ -35,7 +35,6 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   owner: "salonox-tech",
   name: env.appName,
-  owner: "salonox-tech",
   slug: "SalonOX",
   version: "1.0.0",
   orientation: "portrait",
