@@ -21,7 +21,6 @@ import { validatePhoneNumberLength, isValidPhoneNumber } from "libphonenumber-js
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
-import { LuxuryBackButton } from "@/components/auth/LuxuryAuth";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
 import { PhoneInput } from "@/components/ui/PhoneInput";
@@ -712,10 +711,6 @@ export default function LoginScreen() {
       </View>
 
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <View style={styles.header}>
-          <LuxuryBackButton onPress={() => router.replace("/welcome" as Href)} />
-        </View>
-
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           style={styles.keyboardView}

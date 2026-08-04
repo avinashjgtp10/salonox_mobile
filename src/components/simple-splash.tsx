@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
+import * as SplashScreen from 'expo-splash-screen';
 
 type SimpleSplashProps = {
   // Resolved from the active theme so this overlay never flashes the wrong
@@ -19,6 +20,7 @@ export default function SimpleSplash({ backgroundColor, isReady }: SimpleSplashP
 
   useEffect(() => {
     if (isReady) {
+      SplashScreen.hideAsync().catch(() => {});
       setVisible(false);
     }
   }, [isReady]);
