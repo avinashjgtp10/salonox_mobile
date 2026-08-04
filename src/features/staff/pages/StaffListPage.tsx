@@ -707,33 +707,37 @@ export default function StaffListPage() {
         show={!!deleteConfirm}
         onClose={() => setDeleteConfirm(null)}
         title={deleteConfirm?.mode === "bulk" ? "Delete staff members?" : "Delete staff member?"}
-        size="sm"
+        footer={
+          <div className="d-flex flex-column gap-2 w-100">
+            <Button
+              variant="danger"
+              fullWidth
+              disabled={deleteInput !== "DELETE"}
+              onClick={handleConfirmDelete}
+            >
+              Delete
+            </Button>
+            <Button
+              variant="outline-dark"
+              fullWidth
+              onClick={() => setDeleteConfirm(null)}
+            >
+              Cancel
+            </Button>
+          </div>
+        }
       >
-        <p className="mb-0">
+        <p className="text-muted small mb-4">
           {deleteConfirm?.mode === "bulk"
             ? `Are you sure you want to delete ${selectedIds.length} selected staff member${selectedIds.length === 1 ? "" : "s"}? This operation can't be undone.`
             : "Are you sure you want to delete this staff member? This operation can't be undone."}
         </p>
-        <div className="mt-3">
-          <Input
-            label="Type DELETE to confirm"
-            placeholder="DELETE"
-            value={deleteInput}
-            onChange={(e) => setDeleteInput(e.target.value)}
-          />
-        </div>
-        <div className="d-flex justify-content-end gap-2 mt-3">
-          <button className="btn btn-outline-secondary" onClick={() => setDeleteConfirm(null)}>
-            Cancel
-          </button>
-          <button
-            className="btn btn-danger"
-            disabled={deleteInput !== "DELETE"}
-            onClick={handleConfirmDelete}
-          >
-            Delete
-          </button>
-        </div>
+        <Input
+          label="Type DELETE to confirm"
+          placeholder="DELETE"
+          value={deleteInput}
+          onChange={(e) => setDeleteInput(e.target.value)}
+        />
       </Modal>
 
       {/* ===== FOOTER / PAGINATION ===== */}
