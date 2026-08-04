@@ -18,7 +18,6 @@ interface Props {
 
 type SortKey =
   | "date"
-  | "createdBy"
   | "openingBalance"
   | "cashRevenue"
   | "cashExpense"
@@ -91,7 +90,7 @@ export default function CashManagementTransactionsTab({
         if (sharedDateTo && rowDate && rowDate > new Date(`${sharedDateTo}T23:59:59`)) return false;
         if (!query) return true;
 
-        return [row.id, row.createdBy, row.status, row.remarks ?? ""].some((value) =>
+        return [row.id, row.status, row.remarks ?? ""].some((value) =>
           String(value).toLowerCase().includes(query),
         );
       })
@@ -117,7 +116,7 @@ export default function CashManagementTransactionsTab({
       return;
     }
     setSortKey(key);
-    setSortDirection(key === "createdBy" || key === "status" ? "asc" : "desc");
+    setSortDirection(key === "status" ? "asc" : "desc");
   };
 
   const getStatusTime = (row: CashTransactionRecord) => {
@@ -145,7 +144,6 @@ export default function CashManagementTransactionsTab({
       title: "Transactions",
       columns: [
         "Date",
-        "Created By",
         `Opening Balance (${currencySymbol})`,
         `Cash Revenue (${currencySymbol})`,
         `Cash Expense (${currencySymbol})`,
@@ -159,7 +157,6 @@ export default function CashManagementTransactionsTab({
         const statusValue = row.status === "open" ? "Open" : "Closed";
         return [
           formatDate(getRowDisplayDate(row)),
-          row.createdBy,
           formatAmount(row.openingBalance ?? 0),
           formatAmount(row.cashRevenue ?? 0),
           formatAmount(row.cashExpense ?? 0),
@@ -227,7 +224,6 @@ export default function CashManagementTransactionsTab({
             <tr>
               {[
                 ["date", "Date"],
-                ["createdBy", "Created By"],
                 ["openingBalance", "Opening Balance"],
                 ["cashRevenue", "Cash Revenue"],
                 ["cashExpense", "Cash Expense"],
@@ -258,7 +254,7 @@ export default function CashManagementTransactionsTab({
           <tbody>
             {!loading && paged.length === 0 && (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={8}>
                   <div className="cash-mgmt__empty-state">
                     <h3 className="cash-mgmt__empty-title">No transactions found</h3>
                     <p className="cash-mgmt__empty-text">
@@ -275,7 +271,6 @@ export default function CashManagementTransactionsTab({
               return (
                 <tr key={row.id}>
                   <td>{formatDate(getRowDisplayDate(row))}</td>
-                  <td>{row.createdBy}</td>
                   <td>{formatAmount(row.openingBalance)}</td>
                   <td>{formatAmount(row.cashRevenue)}</td>
                   <td>{formatAmount(row.cashExpense)}</td>
