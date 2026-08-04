@@ -26,7 +26,7 @@ interface Props {
   onDelete: (expense: CashExpenseRecord) => void;
 }
 
-type SortKey = "expenseDate" | "expenseType" | "description" | "amount" | "createdBy";
+type SortKey = "expenseDate" | "expenseType" | "description" | "amount";
 
 const formatDate = (value: string) => {
   if (!value) return "--";
@@ -90,7 +90,7 @@ export default function CashManagementExpensesTab({
         if (sharedDateFrom && rowDate && rowDate < new Date(`${sharedDateFrom}T00:00:00`)) return false;
         if (sharedDateTo && rowDate && rowDate > new Date(`${sharedDateTo}T23:59:59`)) return false;
         if (!query) return true;
-        return [row.expenseType, row.description, row.createdBy].some((value) =>
+        return [row.expenseType, row.description].some((value) =>
           value.toLowerCase().includes(query),
         );
       })
@@ -136,7 +136,6 @@ export default function CashManagementExpensesTab({
         "Expense Type",
         "Description",
         `Amount (${currencySymbol})`,
-        "Created By",
         "Status",
       ],
       rows: filtered.map((row) => {
@@ -153,7 +152,6 @@ export default function CashManagementExpensesTab({
           row.expenseType,
           row.description,
           formatAmount(row.amount ?? 0),
-          row.createdBy,
           isRowOpen
             ? `Open (Opened at ${transactionTime || "--"})`
             : `Closed (Closed at ${transactionTime || "--"})`,
@@ -212,7 +210,6 @@ export default function CashManagementExpensesTab({
                 ["expenseType", "Expense Type"],
                 ["description", "Description"],
                 ["amount", "Amount"],
-                ["createdBy", "Created By"],
                 ["status", "Status"],
               ].map(([key, label]) => (
                 <th key={key}>
@@ -242,7 +239,7 @@ export default function CashManagementExpensesTab({
           <tbody>
             {!loading && paged.length === 0 && (
               <tr>
-                <td colSpan={7}>
+                <td colSpan={6}>
                   <div className="cash-mgmt__empty-state">
                     <h3 className="cash-mgmt__empty-title">No expenses found</h3>
                     <p className="cash-mgmt__empty-text">
@@ -272,7 +269,6 @@ export default function CashManagementExpensesTab({
                   <td>{row.expenseType}</td>
                   <td>{row.description}</td>
                   <td>{formatAmount(row.amount)}</td>
-                  <td>{row.createdBy}</td>
                   <td>
                     <div className="cash-mgmt__status-cell">
                       <span
