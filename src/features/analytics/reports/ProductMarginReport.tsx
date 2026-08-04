@@ -6,6 +6,7 @@ import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import DateRangeFields from "../../../components/ui/DateRangeFields";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "./ProductMarginReport.scss";
 
@@ -52,6 +53,7 @@ export default function ProductMarginReport({ onBack, category, categoryKey }: {
   // only that page's rows come back, along with stats computed by the
   // backend over the WHOLE filtered set (not just the current page).
   const fetchData = useCallback(async () => {
+    if (dateTo && dateFrom && dateTo < dateFrom) return;
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -101,14 +103,7 @@ export default function ProductMarginReport({ onBack, category, categoryKey }: {
       </div>
 
       <div className="rp-detail-filters">
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Date</label>
-          <div className="rp-detail-date-range">
-            <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} className="rp-detail-date-input" />
-            <span className="rp-detail-date-sep">-</span>
-            <input type="date" value={dateTo}   onChange={e => setDateTo(e.target.value)}   className="rp-detail-date-input" />
-          </div>
-        </div>
+        <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>

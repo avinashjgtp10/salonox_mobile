@@ -8,6 +8,7 @@ import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import DateRangeFields from "../../../components/ui/DateRangeFields";
 import Select from "../../../components/ui/Select";
 import Button from "../../../components/ui/Button";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -343,12 +344,11 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
 
               <div className="rp-cr-filter-field">
                 <label className="rp-detail-filter-label">Date Added</label>
-                <div className="rp-detail-date-range">
-                  <input type="date" value={draftDateFrom} max={draftDateTo || undefined} onChange={e => setDraftDateFrom(e.target.value)} className="rp-detail-date-input" />
-                  <span className="rp-detail-date-sep">-</span>
-                  <input type="date" value={draftDateTo} min={draftDateFrom || undefined} onChange={e => setDraftDateTo(e.target.value)} className="rp-detail-date-input" />
-                </div>
-                {draftDateRangeError && <div className="rp-detail-date-error">{draftDateRangeError}</div>}
+                <DateRangeFields
+                  from={draftDateFrom} to={draftDateTo}
+                  onFromChange={setDraftDateFrom} onToChange={setDraftDateTo}
+                  hideLabel bare
+                />
               </div>
             </div>
 
