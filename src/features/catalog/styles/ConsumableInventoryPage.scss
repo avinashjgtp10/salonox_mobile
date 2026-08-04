@@ -96,6 +96,38 @@
   border: 1px solid #e5e7eb;
   border-radius: 10px;
   background: #fff;
+  // Leaves room so the horizontal scrollbar renders as its own visible
+  // strip below the table instead of overlapping the last row — some
+  // browsers draw an overlay scrollbar on top of content otherwise, easy
+  // to miss against a white background.
+  padding-bottom: 4px;
+
+  // Firefox doesn't support ::-webkit-scrollbar at all — without this,
+  // the table silently used Firefox's default (often near-invisible,
+  // hover-only overlay) scrollbar instead of a styled, always-visible one.
+  scrollbar-width: auto;
+  scrollbar-color: #94a3b8 #f1f5f9;
+
+  // Chrome / Edge / Safari
+  &::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 5px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #94a3b8;
+    border-radius: 5px;
+    border: 2px solid #f1f5f9;
+
+    &:hover {
+      background: #64748b;
+    }
+  }
 }
 
 .ci-table {
