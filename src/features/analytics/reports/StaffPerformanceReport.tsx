@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF_PERFORMANCE_REPORT } from "../../../services/api/endpoints";
 import Button from "../../../components/ui/Button";
@@ -49,15 +50,10 @@ interface StaffPerformanceRow {
 }
 
 interface FiltersState {
-  dateFrom: string;
-  dateTo: string;
   staffIds: string[];
-  branchId: string;
   paymentMode: string;
   paymentStatus: string;
   itemType: string;
-  serviceId: string;
-  productId: string;
   packageId: string;
   membershipId: string;
 }
@@ -91,13 +87,13 @@ function mapRow(row: any): StaffPerformanceRow {
 
 export default function StaffPerformanceReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
+  // No date-range control in the UI — always scoped to the current month.
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
 
   const defaultFilters: FiltersState = {
-    dateFrom: monthStart, dateTo: today,
-    staffIds: [], branchId: "All", paymentMode: "All", paymentStatus: "All",
-    itemType: "All", serviceId: "All", productId: "All", packageId: "All", membershipId: "All",
+    staffIds: [], paymentMode: "All", paymentStatus: "All",
+    itemType: "All", packageId: "All", membershipId: "All",
   };
 
   // Filters only take effect once "Apply" is clicked — draftFilters is what
@@ -107,11 +103,11 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
   const [appliedFilters, setAppliedFilters] = useState<FiltersState>(defaultFilters);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
 
+  const [search, setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+
   const [staffOptions, setStaffOptions] = useState<FilterOption[]>([]);
-  const [branchOptions, setBranchOptions] = useState<FilterOption[]>([]);
   const [paymentModeOptions, setPaymentModeOptions] = useState<string[]>([]);
-  const [serviceOptions, setServiceOptions] = useState<FilterOption[]>([]);
-  const [productOptions, setProductOptions] = useState<FilterOption[]>([]);
   const [packageOptions, setPackageOptions] = useState<FilterOption[]>([]);
   const [membershipOptions, setMembershipOptions] = useState<FilterOption[]>([]);
 
@@ -127,6 +123,11 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
   const [selectedStaff, setSelectedStaff] = useState<{ id: string; name: string } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
   const fetchData = useCallback(async () => {
     abortRef.current?.abort();
     const ctrl = new AbortController();
@@ -135,16 +136,14 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     try {
       const f = appliedFilters;
       const body: Record<string, any> = {
-        start_date: f.dateFrom, end_date: f.dateTo,
+        start_date: monthStart, end_date: today,
         page: currentPage, limit: pageSize,
       };
+      if (debouncedSearch) body.search = debouncedSearch;
       if (f.staffIds.length > 0) body.staff_ids = f.staffIds;
-      if (f.branchId !== "All") body.branch_id = f.branchId;
       if (f.paymentMode !== "All") body.payment_mode = f.paymentMode;
       if (f.paymentStatus !== "All") body.payment_status = f.paymentStatus;
       if (f.itemType !== "All") body.item_type = f.itemType;
-      if (f.serviceId !== "All") body.service_id = f.serviceId;
-      if (f.productId !== "All") body.product_id = f.productId;
       if (f.packageId !== "All") body.package_id = f.packageId;
       if (f.membershipId !== "All") body.membership_id = f.membershipId;
 
@@ -166,10 +165,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
       });
       const avail = data?.filters_available ?? {};
       if (Array.isArray(avail.staff)) setStaffOptions(avail.staff);
-      if (Array.isArray(avail.branches)) setBranchOptions(avail.branches);
       if (Array.isArray(avail.payment_modes)) setPaymentModeOptions(avail.payment_modes);
-      if (Array.isArray(avail.services)) setServiceOptions(avail.services);
-      if (Array.isArray(avail.products)) setProductOptions(avail.products);
       if (Array.isArray(avail.packages)) setPackageOptions(avail.packages);
       if (Array.isArray(avail.memberships)) setMembershipOptions(avail.memberships);
     } catch (e: any) {
@@ -180,26 +176,29 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [appliedFilters, currentPage, pageSize]);
+  }, [appliedFilters, debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [appliedFilters]);
+  useEffect(() => { setCurrentPage(1); }, [appliedFilters, debouncedSearch]);
 
   const activeFilterCount = [
     appliedFilters.staffIds.length > 0 ? 1 : 0,
-    appliedFilters.branchId !== "All" ? 1 : 0,
     appliedFilters.paymentMode !== "All" ? 1 : 0,
     appliedFilters.paymentStatus !== "All" ? 1 : 0,
     appliedFilters.itemType !== "All" ? 1 : 0,
-    appliedFilters.serviceId !== "All" ? 1 : 0,
-    appliedFilters.productId !== "All" ? 1 : 0,
     appliedFilters.packageId !== "All" ? 1 : 0,
     appliedFilters.membershipId !== "All" ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
   const openFiltersPanel = () => { setDraftFilters(appliedFilters); setShowFiltersPanel(true); };
   const applyFilters = () => { setAppliedFilters(draftFilters); setShowFiltersPanel(false); };
-  const clearFilters = () => { setDraftFilters(defaultFilters); };
+  // Clear applies immediately (not just the draft) — resets the actually
+  // applied filters and refetches, same as Clear-then-Apply in one step.
+  const clearFilters = () => {
+    setDraftFilters(defaultFilters);
+    setAppliedFilters(defaultFilters);
+    setShowFiltersPanel(false);
+  };
 
   const countRev = (count: number, revenue: number) => `${count} (${formatAmount(revenue)})`;
 
@@ -207,7 +206,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     "Staff Name", "Contact", "Invoice Count", "Services Sold", "Products Sold",
     "Packages Sold", "Memberships Sold", `Total Revenue (${currencySymbol})`,
     `Avg Bill (${currencySymbol})`, `Commission (${currencySymbol})`,
-    `Collected (${currencySymbol})`, `Due Amount (${currencySymbol})`,
+    `Due Amount (${currencySymbol})`,
   ];
   const exportRows = () => rows.map(r => [
     r.staffName, r.contact, r.invoiceCount,
@@ -215,7 +214,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     countRev(r.productCount, r.productRevenue),
     countRev(r.packageCount, r.packageRevenue),
     countRev(r.membershipCount, r.membershipRevenue),
-    r.totalRevenue, r.avgBill, r.commission, r.collected, r.due,
+    r.totalRevenue, r.avgBill, r.commission, r.due,
   ]);
 
   return (
@@ -224,15 +223,21 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-performance-${appliedFilters.dateFrom}-${appliedFilters.dateTo}`} variant="button" csv />
+            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`staff-performance-${monthStart}-${today}`} variant="button" csv />
           </div>
         </div>
       </div>
 
       <div className="rp-detail-filters">
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Applied Date Range</label>
-          <div className="rp-sp-applied-range">{appliedFilters.dateFrom} – {appliedFilters.dateTo}</div>
+        <div className="rp-detail-search-wrap">
+          <Search size={13} className="rp-detail-search-ic" />
+          <input
+            type="text"
+            className="rp-detail-search-input"
+            placeholder="Search service or product name"
+            value={search}
+            onChange={e => setSearchInput(e.target.value)}
+          />
         </div>
         <button className="rp-sp-filters-btn" onClick={openFiltersPanel}>
           Filters
@@ -270,15 +275,14 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
               <th>Total Revenue ({currencySymbol})</th>
               <th>Avg Bill ({currencySymbol})</th>
               <th>Commission ({currencySymbol})</th>
-              <th>Collected ({currencySymbol})</th>
               <th>Due Amount ({currencySymbol})</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={12} />
+              <SkeletonTableRows columns={11} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={12} className="rp-detail-empty-cell">No staff performance data available for the selected date/filter.</td></tr>
+              <tr><td colSpan={11} className="rp-detail-empty-cell">No staff performance data available for the selected date/filter.</td></tr>
             ) : rows.map(r => (
               <tr
                 key={r.staffId}
@@ -303,7 +307,6 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
                 <td className="fw-semibold">{formatAmount(r.totalRevenue)}</td>
                 <td>{formatAmount(r.avgBill)}</td>
                 <td>{formatAmount(r.commission)}</td>
-                <td>{formatAmount(r.collected)}</td>
                 <td>{formatAmount(r.due)}</td>
               </tr>
             ))}
@@ -318,8 +321,8 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
         <StaffHistoryModal
           staffId={selectedStaff.id}
           staffName={selectedStaff.name}
-          dateFrom={appliedFilters.dateFrom}
-          dateTo={appliedFilters.dateTo}
+          dateFrom={monthStart}
+          dateTo={today}
           onClose={() => setSelectedStaff(null)}
         />
       )}
@@ -332,15 +335,6 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
             </div>
 
             <div className="rp-sp-filters-body">
-              <div className="rp-sp-filter-field">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Date Range</label>
-                <div className="rp-sp-date-range">
-                  <input type="date" value={draftFilters.dateFrom} onChange={e => setDraftFilters(f => ({ ...f, dateFrom: e.target.value }))} />
-                  <span>—</span>
-                  <input type="date" value={draftFilters.dateTo} onChange={e => setDraftFilters(f => ({ ...f, dateTo: e.target.value }))} />
-                </div>
-              </div>
-
               <MultiSelectCheckbox
                 label="Staff"
                 containerClass="rp-sp-filter-field"
@@ -349,11 +343,6 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
                 onChange={ids => setDraftFilters(f => ({ ...f, staffIds: ids }))}
                 placeholder="All staff"
               />
-
-              <Select label="Branch" containerClass="rp-sp-filter-field" value={draftFilters.branchId} onChange={e => setDraftFilters(f => ({ ...f, branchId: e.target.value }))}>
-                <option value="All">All branches</option>
-                {branchOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
 
               <Select label="Payment Mode" containerClass="rp-sp-filter-field" value={draftFilters.paymentMode} onChange={e => setDraftFilters(f => ({ ...f, paymentMode: e.target.value }))}>
                 <option value="All">All payment modes</option>
@@ -368,16 +357,6 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
               <Select label="Item Type" containerClass="rp-sp-filter-field" value={draftFilters.itemType} onChange={e => setDraftFilters(f => ({ ...f, itemType: e.target.value }))}>
                 <option value="All">All item types</option>
                 {ITEM_TYPE_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-
-              <Select label="Service" containerClass="rp-sp-filter-field" value={draftFilters.serviceId} onChange={e => setDraftFilters(f => ({ ...f, serviceId: e.target.value }))}>
-                <option value="All">All services</option>
-                {serviceOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-
-              <Select label="Product" containerClass="rp-sp-filter-field" value={draftFilters.productId} onChange={e => setDraftFilters(f => ({ ...f, productId: e.target.value }))}>
-                <option value="All">All products</option>
-                {productOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
               </Select>
 
               <Select label="Package" containerClass="rp-sp-filter-field" value={draftFilters.packageId} onChange={e => setDraftFilters(f => ({ ...f, packageId: e.target.value }))}>
