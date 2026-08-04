@@ -1,21 +1,29 @@
 .cf-page {
+  // Sized to exactly fill the dashboard's own content area (matches
+  // `.main`'s own `height: calc(100vh - 70px)` in DashboardPage.scss), and
+  // scrolls itself internally instead of relying on `.main` + `position:
+  // sticky` for the topbar — that combination was letting scrolled content
+  // bleed through above the topbar (AddSupplierPage.scss hit and fixed the
+  // same issue). The topbar is now a plain flex item (always visible, no
+  // sticky needed) and only &-body scrolls.
   max-width: 720px;
   margin: 0 auto;
-  padding: 0 0 60px;
+  height: calc(100vh - 70px);
+  display: flex;
+  flex-direction: column;
+  background: #fff;
 
   &--loading { padding: 60px; text-align: center; color: #9ca3af; }
 }
 
 .cf-topbar {
+  flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 18px 24px;
   border-bottom: 1px solid #e5e7eb;
-  position: sticky;
-  top: 0;
   background: #fff;
-  z-index: 10;
 
   h1 { margin: 0; font-size: 17px; font-weight: 700; color: #111827; }
 }
@@ -28,7 +36,37 @@
   &:hover { color: #111827; }
 }
 
+.cf-save-btn {
+  height: 38px;
+  padding: 0 18px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: #111827;
+  color: #fff;
+  font-size: 13.5px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover:not(:disabled) { background: #1f2937; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+}
+
+.cf-status {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+
+  &--healthy { background: #ecfdf5; color: #059669; }
+  &--low { background: #fffbeb; color: #b45309; }
+  &--out_of_stock { background: #fef2f2; color: #b91c1c; }
+}
+
 .cf-error-banner {
+  flex-shrink: 0;
   margin: 16px 24px 0;
   padding: 10px 14px;
   background: #fef2f2;
@@ -38,7 +76,9 @@
 }
 
 .cf-body {
-  padding: 20px 24px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px 24px 60px;
   display: flex;
   flex-direction: column;
   gap: 16px;

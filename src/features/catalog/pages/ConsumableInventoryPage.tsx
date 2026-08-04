@@ -61,6 +61,20 @@ const ConsumableInventoryPage: React.FC = () => {
     dispatch(fetchConsumablesThunk(filters));
   }, [dispatch, filters]);
 
+  // Stock changes on this page whenever an appointment elsewhere gets paid
+  // (consumable deduction happens server-side, not through any action this
+  // page dispatches) — refetch whenever the tab regains focus so numbers
+  // don't sit stale if this page was left open in the background while a
+  // sale was completed on the Calendar in another tab/window.
+  useEffect(() => {
+    function onFocus() {
+      dispatch(fetchConsumablesThunk(filters));
+      dispatch(fetchConsumableKpisThunk());
+    }
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [dispatch, filters]);
+
   // Debounced search — same 400ms pattern as ProductsListPage.
   useEffect(() => {
     const t = setTimeout(() => {
