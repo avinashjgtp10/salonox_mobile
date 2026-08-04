@@ -376,7 +376,7 @@ const ProductFormPage: React.FC = () => {
       <div className="cf-topbar">
         <button className="cf-close" onClick={() => navigate(listPath)}><X size={20} /></button>
         <h1>{isEdit ? "Edit Product" : "Add Product"}</h1>
-        <button className="ci-btn ci-btn--primary" disabled={saving} onClick={handleSubmit}>
+        <button className="cf-save-btn" disabled={saving} onClick={handleSubmit}>
           {saving ? "Saving…" : "Save"}
         </button>
       </div>
@@ -594,7 +594,7 @@ const ProductFormPage: React.FC = () => {
           )}
           <div className="cf-preview-row">
             <span>Status</span>
-            <span className={`ci-status ci-status--${previewStatus}`}>
+            <span className={`cf-status cf-status--${previewStatus}`}>
               {previewStatus === "healthy" ? "Healthy" : previewStatus === "low" ? "Low Stock" : "Out of Stock"}
             </span>
           </div>
