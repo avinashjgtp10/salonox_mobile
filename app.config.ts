@@ -33,6 +33,7 @@ if (!googleServicesFile) {
 
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
+  owner: "salonox-tech",
   name: env.appName,
   slug: "SalonOX",
   version: "1.0.0",

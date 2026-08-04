@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import { BranchSelectorSheet } from "@/components/dashboard/BranchSelectorSheet";
+import { NotificationBadge } from "@/components/notifications/NotificationBadge";
 import {
   DashboardTypography as Typography,
   type ThemeColors,
@@ -87,7 +88,7 @@ export default function DashboardHero() {
             style={styles.bell}
           >
             <Ionicons name="notifications-outline" size={28} color={Colors.heading} />
-            {unreadNotificationCount > 0 ? <View style={styles.bellDot} /> : null}
+            <NotificationBadge count={unreadNotificationCount} style={{ right: 10, top: 10, borderColor: Colors.card }} />
           </TouchableOpacity>
           <TouchableOpacity
             accessibilityLabel="Open profile"
@@ -198,17 +199,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowRadius: 12,
     width: 64,
   },
-  bellDot: {
-    backgroundColor: Colors.heading,
-    borderColor: Colors.card,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    height: 10,
-    position: "absolute",
-    right: 17,
-    top: 17,
-    width: 10,
-  },
+
   avatar: {
     alignItems: "center",
     backgroundColor: Colors.backgroundElement,
