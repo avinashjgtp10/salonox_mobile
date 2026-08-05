@@ -298,7 +298,18 @@ export const fetchConsumablesThunk = createAsyncThunk<
   { rejectValue: string }
 >("inventory/fetchConsumables", async (filters, { rejectWithValue }) => {
   try {
-    const res = await api.get<InventoryResponse<ConsumableListResult>>(INVENTORY.CONSUMABLES, { params: filters });
+    // Multi-select filter fields are arrays in app state (see
+    // ConsumableListFilters) — joined into a single comma-separated query
+    // param per field here rather than relying on axios's array param
+    // serialization convention, which the backend would then have to guess
+    // at matching exactly.
+    const ARRAY_FILTER_KEYS = ["category_id", "brand_id", "supplier_id", "unit", "service_id", "status", "product_type"] as const;
+    const params: Record<string, unknown> = { ...filters };
+    ARRAY_FILTER_KEYS.forEach((key) => {
+      const value = (filters as any)[key];
+      params[key] = Array.isArray(value) && value.length ? value.join(",") : undefined;
+    });
+    const res = await api.get<InventoryResponse<ConsumableListResult>>(INVENTORY.CONSUMABLES, { params });
     return res.data.data;
   } catch (err: any) {
     console.error("fetchConsumablesThunk error:", err?.response?.data || err?.message);

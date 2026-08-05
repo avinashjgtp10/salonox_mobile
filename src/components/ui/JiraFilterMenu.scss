@@ -1,0 +1,231 @@
+// Single "Filter" trigger + two-pane panel (field names left, active
+// field's search+checkboxes right) — mirrors Jira's own backlog filter
+// panel. Palette/radius matches ConsumableInventoryPage.scss so it looks
+// native wherever it's dropped in.
+.jfm-root {
+  position: relative;
+  display: inline-block;
+}
+
+.jfm-trigger {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover { border-color: #9ca3af; }
+
+  &--active {
+    border-color: #6c5ce7;
+    color: #6c5ce7;
+  }
+}
+
+.jfm-trigger__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  background: #6c5ce7;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.jfm-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: 460px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.16);
+  overflow: hidden;
+}
+
+// Single-field mode (no names pane) doesn't need the full two-pane width or
+// fixed height — shrinks down to essentially the old standalone dropdown.
+.jfm-panel--single {
+  width: 250px;
+
+  .jfm-panel__body { height: auto; }
+  .jfm-panel__list { max-height: 220px; }
+}
+
+.jfm-panel__body {
+  display: flex;
+  height: 300px;
+}
+
+.jfm-panel__names {
+  width: 170px;
+  flex-shrink: 0;
+  border-right: 1px solid #f1f1f2;
+  overflow-y: auto;
+  padding: 6px;
+  background: #fafafa;
+}
+
+.jfm-name {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover { background: #f0f0f2; }
+
+  &--active {
+    background: #eef2ff;
+    color: #4338ca;
+    font-weight: 700;
+  }
+}
+
+.jfm-name__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 999px;
+  background: #4338ca;
+  color: #fff;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.jfm-panel__options {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.jfm-panel__search {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 12px;
+  border-bottom: 1px solid #f1f1f2;
+  color: #9ca3af;
+  flex-shrink: 0;
+
+  input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    color: #111827;
+    &::placeholder { color: #9ca3af; }
+  }
+}
+
+.jfm-panel__list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 6px;
+}
+
+.jfm-panel__empty {
+  padding: 16px 10px;
+  font-size: 12.5px;
+  color: #9ca3af;
+  text-align: center;
+}
+
+.jfm-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 8px;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #111827;
+  cursor: pointer;
+
+  &:hover { background: #f9fafb; }
+
+  input[type="checkbox"] {
+    width: 15px;
+    height: 15px;
+    accent-color: #6c5ce7;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.jfm-panel__clear-field {
+  flex-shrink: 0;
+  margin: 4px 10px 10px;
+  align-self: flex-start;
+  border: none;
+  background: transparent;
+  color: #6c5ce7;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  &:hover { text-decoration: underline; }
+}
+
+.jfm-panel__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 10px 12px;
+  border-top: 1px solid #f1f1f2;
+  background: #fafafa;
+}
+
+.jfm-panel__btn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+
+  &--clear {
+    background: #fff;
+    color: #6b7280;
+    border-color: #d1d5db;
+    &:hover { border-color: #9ca3af; color: #111827; }
+  }
+
+  &--apply {
+    background: #6c5ce7;
+    color: #fff;
+    margin-left: auto;
+    &:hover { background: #5b4bd1; }
+  }
+}

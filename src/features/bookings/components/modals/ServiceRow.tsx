@@ -88,6 +88,23 @@ function getSafeQty(qty?: number) {
   return Number.isInteger(qty) && (qty ?? 0) > 0 ? Number(qty) : 1;
 }
 
+// Rescales each consumable's Standard Qty to unitQty × newRowQty whenever the
+// service row's billed Qty changes, so "100ml shampoo × 2 sessions = 200ml"
+// stays correct instead of the recipe's flat per-session rate being deducted
+// regardless of how many sessions were actually billed. Any manually-entered
+// Actual Qty override is left untouched — it's a deliberate staff correction
+// (e.g. wastage), not something a later Qty edit should silently overwrite.
+function rescaleConsumables(
+  consumables: NonNullable<ServiceItem["consumables"]> | undefined,
+  newRowQty: number,
+): NonNullable<ServiceItem["consumables"]> | undefined {
+  if (!consumables?.length) return consumables;
+  return consumables.map((c) => {
+    const unitQty = c.unitQty ?? c.qty;
+    return { ...c, unitQty, qty: unitQty * newRowQty };
+  });
+}
+
 function formatPriceForSearch(value: number) {
   const fixed = value.toFixed(2);
   return fixed.endsWith(".00") ? String(Math.trunc(value)) : fixed.replace(/0+$/, "").replace(/\.$/, "");
@@ -188,6 +205,14 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   const [showDrop, setShowDrop] = useState(false);
   const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
   const [discountInput, setDiscountInput] = useState(String(row.discount || ""));
+  // Local typed-text buffer for the Consumable Usage modal's Actual Qty
+  // inputs, keyed by productId — same reasoning as qtyInput/discountInput
+  // above: binding straight to the numeric value made a "0" impossible to
+  // clean-edit (relying on the input's focus-select() to highlight it before
+  // typing wasn't reliable, so a keystroke landed after the existing "0"
+  // instead of replacing it, e.g. typing "20" produced "020"). Starting the
+  // buffer blank on focus when the value is 0 sidesteps that entirely.
+  const [actualQtyDrafts, setActualQtyDrafts] = useState<Record<string, string>>({});
   const [apiResults, setApiResults] = useState<SearchServiceResult[] | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -437,13 +462,17 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     onChange(row.tempId, "categoryId", service.categoryId ?? "");
     // Attach the service's configured consumables so they ride along on the
     // appointment payload — deduction happens later, at completion, not here.
+    // qty here is the row's currently billed session count (`qty` local var
+    // above) — a service picked while Qty is already 2 starts with Standard
+    // Qty = recipe rate × 2, not the flat per-session rate.
     onChange(
       row.tempId,
       "consumables",
       (service.consumables_used ?? []).map((c) => ({
         productId: c.product_id,
         productName: c.product_name ?? "",
-        qty: c.qty,
+        qty: c.qty * qty,
+        unitQty: c.qty,
         unit: c.unit,
       })),
     );
@@ -482,6 +511,8 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
       const paidQty = remaining > 0 ? Math.max(0, qty - remaining) : qty;
       onChange(row.tempId, "qty", qty);
       onChange(row.tempId, "total", calcTotal(catalogPrice, paidQty, discount));
+      const rescaled = rescaleConsumables(row.consumables, qty);
+      if (rescaled) onChange(row.tempId, "consumables", rescaled);
       onClearError?.(row.tempId, "qty");
     }
   }
@@ -498,6 +529,8 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     const catalogPrice = catalogPriceRef.current || (row.price || 0);
     const paidQty = remaining > 0 ? Math.max(0, clampedQty - remaining) : clampedQty;
     onChange(row.tempId, "total", calcTotal(catalogPrice, paidQty, discount));
+    const rescaled = rescaleConsumables(row.consumables, clampedQty);
+    if (rescaled) onChange(row.tempId, "consumables", rescaled);
     onClearError?.(row.tempId, "qty");
   }
 
@@ -608,8 +641,30 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   }
 
   function handleActualQtyChange(productId: string, raw: string) {
+    setActualQtyDrafts((prev) => ({ ...prev, [productId]: raw }));
     const n = parseFloat(raw);
     onConsumableActualChange?.(productId, Number.isFinite(n) && n >= 0 ? n : 0);
+  }
+
+  function handleActualQtyFocus(productId: string, currentValue: number, e: React.FocusEvent<HTMLInputElement>) {
+    selectOnFocus(e);
+    // Blank the buffer instead of leaving "0" for the user to select —
+    // select() highlighting a single "0" character isn't reliably honored by
+    // every browser before the next keystroke lands, which is what let a
+    // typed "2","0" append after the existing "0" rather than replace it.
+    setActualQtyDrafts((prev) => ({ ...prev, [productId]: currentValue === 0 ? "" : String(currentValue) }));
+  }
+
+  function handleActualQtyBlur(productId: string) {
+    // Drop the draft so the field reverts to reflecting the authoritative
+    // (parsed) value via getActualQty — self-corrects anything the raw
+    // buffer text left in a weird state (e.g. a trailing ".").
+    setActualQtyDrafts((prev) => {
+      if (!(productId in prev)) return prev;
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
   }
 
   // Removes a consumable from THIS sale only — never touches the product,
@@ -749,13 +804,17 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     setAddSaving(true);
     setAddError("");
     try {
-      const existingRecipe = (row.consumables ?? []).map((c) => ({ product_id: c.productId, qty: c.qty, unit: c.unit }));
+      // c.qty on an existing row entry is the STANDARD qty already scaled by
+      // this row's billed Qty (see rescaleConsumables) — the catalog recipe
+      // being patched here wants the flat per-session rate back, i.e. unitQty.
+      const existingRecipe = (row.consumables ?? []).map((c) => ({ product_id: c.productId, qty: c.unitQty ?? c.qty, unit: c.unit }));
       const newRecipeItem = { product_id: addDraft.productId, qty, unit: addDraft.unit || undefined };
       await api.patch(SERVICES.BY_ID(serviceId), { consumables_used: [...existingRecipe, newRecipeItem] });
 
+      const rowQty = getSafeQty(row.qty);
       const newRowConsumables = [
         ...(row.consumables ?? []),
-        { productId: addDraft.productId, productName: addDraft.productName, qty, unit: addDraft.unit, actualQty: qty },
+        { productId: addDraft.productId, productName: addDraft.productName, qty: qty * rowQty, unitQty: qty, unit: addDraft.unit },
       ];
       onChange(row.tempId, "consumables", newRowConsumables);
       setAddDraft(null);
@@ -1138,9 +1197,10 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                             min={0}
                             step="any"
                             disabled={disabled}
-                            value={actualQty}
-                            onFocus={selectOnFocus}
+                            value={actualQtyDrafts[c.productId] ?? actualQty}
+                            onFocus={(e) => handleActualQtyFocus(c.productId, actualQty, e)}
                             onChange={(e) => handleActualQtyChange(c.productId, e.target.value)}
+                            onBlur={() => handleActualQtyBlur(c.productId)}
                           />
                           {overStock && (
                             <span className="svc-recipe-row__warning">Only {availableStock} {c.unit} in stock</span>

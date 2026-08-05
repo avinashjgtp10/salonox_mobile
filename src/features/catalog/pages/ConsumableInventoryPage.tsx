@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Dropdown } from "react-bootstrap";
-import { Search, ThreeDotsVertical, PlusLg } from "react-bootstrap-icons";
+import { Search, PlusLg, X, ThreeDotsVertical } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
@@ -11,12 +11,89 @@ import {
 } from "../../../middleware/inventory/inventory.thunk";
 import { fetchBrandsThunk, fetchCategoriesThunk, updateProductThunk } from "../../../middleware/catalog/products.thunk";
 import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { FilterDropdownOption, JiraFilterField } from "../../../components/ui";
 import Skeleton from "../../../components/ui/Skeleton";
 import type { ConsumableListFilters, ConsumableStatus } from "../../../types/inventory.types";
 import ConsumableDetailPanel from "../components/ConsumableDetailPanel";
 import AssignedServicesPopup from "../components/AssignedServicesPopup";
 import "../styles/ConsumableInventoryPage.scss";
+
+interface RowActionItem {
+  label: string;
+  onClick: () => void;
+  danger?: boolean;
+}
+
+// "⋮" row-actions menu, local to this page — a plain absolutely-positioned
+// dropdown (even react-bootstrap's Dropdown with popperConfig strategy:
+// "fixed") gets clipped or mispositioned here: the table wrapper needs
+// overflow-x:auto for horizontal scroll (which clips it), and "fixed" itself
+// stops being relative to the viewport the moment any ancestor up the page's
+// layout has a transform (which one does, elsewhere in the app). Rendering
+// into a portal on document.body and positioning from the trigger's own
+// getBoundingClientRect() sidesteps both problems regardless of what's above
+// it in the DOM.
+const RowActionsMenu: React.FC<{ items: RowActionItem[] }> = ({ items }) => {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const toggle = () => {
+    if (!open && btnRef.current) {
+      const rect = btnRef.current.getBoundingClientRect();
+      setCoords({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setOpen((v) => !v);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (btnRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    // capture:true — scroll events don't bubble, but a capture-phase
+    // listener on window still sees scroll on any descendant container
+    // (e.g. the table's own overflow-x scrollbar), so a stale-positioned
+    // menu closes instead of drifting away from its trigger.
+    const onScroll = () => setOpen(false);
+    const onEscape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDocClick);
+    window.addEventListener("scroll", onScroll, true);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      window.removeEventListener("scroll", onScroll, true);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button type="button" ref={btnRef} className="ci-row-actions-btn" onClick={toggle}>
+        <ThreeDotsVertical size={16} />
+      </button>
+      {open && coords && createPortal(
+        <div ref={menuRef} className="ci-row-actions-menu" style={{ top: coords.top, right: coords.right }}>
+          {items.map((item, i) => (
+            <button
+              type="button"
+              key={i}
+              className={`ci-row-actions-menu__item${item.danger ? " ci-row-actions-menu__item--danger" : ""}`}
+              onClick={() => { item.onClick(); setOpen(false); }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
+};
 
 const DEBOUNCE_MS = 400;
 
@@ -24,11 +101,13 @@ const STATUS_LABEL: Record<ConsumableStatus, string> = {
   healthy: "Healthy",
   low: "Low Stock",
   out_of_stock: "Out of Stock",
+  deactivated: "Deactivated",
 };
 const STATUS_DOT: Record<ConsumableStatus, string> = {
   healthy: "🟢",
   low: "🟠",
   out_of_stock: "🔴",
+  deactivated: "⚫",
 };
 
 const SORT_OPTIONS: { value: NonNullable<ConsumableListFilters["sort_by"]>; label: string }[] = [
@@ -39,6 +118,18 @@ const SORT_OPTIONS: { value: NonNullable<ConsumableListFilters["sort_by"]>; labe
 ];
 
 const UNIT_OPTIONS = ["ml", "l", "g", "kg", "pcs"];
+
+const STATUS_OPTIONS: FilterDropdownOption[] = [
+  { id: "healthy", label: "Healthy" },
+  { id: "low", label: "Low Stock" },
+  { id: "out_of_stock", label: "Out of Stock" },
+  { id: "deactivated", label: "Deactivated" },
+];
+const UNIT_FILTER_OPTIONS: FilterDropdownOption[] = UNIT_OPTIONS.map((u) => ({ id: u, label: u }));
+const PRODUCT_TYPE_OPTIONS: FilterDropdownOption[] = [
+  { id: "consumable", label: "Consumable" },
+  { id: "both", label: "Both" },
+];
 
 // "Today 10:30 AM" / "Yesterday" / "Never Used" — matches the Consumable
 // Usage modal's spec wording exactly.
@@ -112,6 +203,104 @@ const ConsumableInventoryPage: React.FC = () => {
     setFilters((prev) => ({ ...prev, [key]: value || undefined, page: 1 }));
   }, []);
 
+  // The single Filter menu's own Apply Filters button hands back the WHOLE
+  // draft (every field, changed or not) in one call — one state update, one
+  // fetch, covering however many fields the user touched before clicking
+  // Apply, per the "single API call only when the user clicks Apply
+  // Filters" requirement.
+  const applyAllFilters = useCallback((next: Record<string, string[]>) => {
+    setFilters((prev) => ({
+      ...prev,
+      page: 1,
+      category_id: next.category_id?.length ? next.category_id : undefined,
+      brand_id: next.brand_id?.length ? next.brand_id : undefined,
+      supplier_id: next.supplier_id?.length ? next.supplier_id : undefined,
+      unit: next.unit?.length ? next.unit : undefined,
+      service_id: next.service_id?.length ? next.service_id : undefined,
+      status: next.status?.length ? (next.status as ConsumableStatus[]) : undefined,
+      product_type: next.product_type?.length ? (next.product_type as ("consumable" | "both")[]) : undefined,
+    }));
+  }, []);
+
+  const removeChip = useCallback(
+    <K extends keyof Pick<ConsumableListFilters, "category_id" | "brand_id" | "supplier_id" | "unit" | "service_id" | "status" | "product_type">>(
+      key: K, id: string,
+    ) => {
+      setFilters((prev) => {
+        const remaining = ((prev[key] as string[] | undefined) ?? []).filter((v) => v !== id);
+        return { ...prev, [key]: remaining.length ? (remaining as ConsumableListFilters[K]) : undefined, page: 1 };
+      });
+    },
+    [],
+  );
+
+  const clearAllFilters = useCallback(() => {
+    setFilters((prev) => ({
+      page: 1, limit: prev.limit, sort_by: prev.sort_by,
+      category_id: undefined, brand_id: undefined, supplier_id: undefined,
+      unit: undefined, service_id: undefined, status: undefined, product_type: undefined,
+    }));
+  }, []);
+
+  const categoryOptions: FilterDropdownOption[] = useMemo(
+    () => categories.map((c: any) => ({ id: c.id, label: c.name })), [categories],
+  );
+  const brandOptions: FilterDropdownOption[] = useMemo(
+    () => brands.map((b: any) => ({ id: b.id, label: b.name })), [brands],
+  );
+  const supplierOptions: FilterDropdownOption[] = useMemo(
+    () => suppliers.map((s: any) => ({ id: s.id, label: s.name })), [suppliers],
+  );
+  const serviceOptions: FilterDropdownOption[] = useMemo(
+    () => servicesList.map((s: any) => ({ id: s.id, label: s.name })), [servicesList],
+  );
+
+  // Chip row after Apply — needs a label lookup per filter since ids alone
+  // aren't readable. Built once from the same option lists the dropdowns use.
+  const chipLabelMaps = useMemo(() => {
+    const toMap = (opts: FilterDropdownOption[]) => new Map(opts.map((o) => [o.id, o.label]));
+    return {
+      category_id: toMap(categoryOptions),
+      brand_id: toMap(brandOptions),
+      supplier_id: toMap(supplierOptions),
+      service_id: toMap(serviceOptions),
+      unit: toMap(UNIT_FILTER_OPTIONS),
+      status: toMap(STATUS_OPTIONS),
+      product_type: toMap(PRODUCT_TYPE_OPTIONS),
+    };
+  }, [categoryOptions, brandOptions, supplierOptions, serviceOptions]);
+
+  const activeChips = useMemo(() => {
+    const chipKeys = ["category_id", "brand_id", "supplier_id", "unit", "service_id", "status", "product_type"] as const;
+    return chipKeys.flatMap((key) =>
+      ((filters[key] as string[] | undefined) ?? []).map((id) => ({
+        key, id, label: chipLabelMaps[key].get(id) ?? id,
+      })),
+    );
+  }, [filters, chipLabelMaps]);
+
+  // Single "Filter" menu's field list — one entry per name shown in its
+  // left pane, in the order given in the spec.
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "category_id", label: "Category", options: categoryOptions, searchable: true },
+    { key: "brand_id", label: "Brand", options: brandOptions, searchable: true },
+    { key: "supplier_id", label: "Supplier", options: supplierOptions, searchable: true },
+    { key: "service_id", label: "Assigned Service", options: serviceOptions, searchable: true },
+    { key: "status", label: "Stock Status", options: STATUS_OPTIONS },
+    { key: "unit", label: "Base Unit", options: UNIT_FILTER_OPTIONS },
+    { key: "product_type", label: "Product Type", options: PRODUCT_TYPE_OPTIONS },
+  ], [categoryOptions, brandOptions, supplierOptions, serviceOptions]);
+
+  const filterMenuSelected = useMemo(() => ({
+    category_id: filters.category_id ?? [],
+    brand_id: filters.brand_id ?? [],
+    supplier_id: filters.supplier_id ?? [],
+    service_id: filters.service_id ?? [],
+    status: filters.status ?? [],
+    unit: filters.unit ?? [],
+    product_type: filters.product_type ?? [],
+  }), [filters]);
+
   const refresh = useCallback(() => {
     dispatch(fetchConsumablesThunk(filters));
     dispatch(fetchConsumableKpisThunk());
@@ -127,6 +316,14 @@ const ConsumableInventoryPage: React.FC = () => {
     } finally {
       setDeactivating(false);
     }
+  }
+
+  // No confirmation step — reactivating is non-destructive (unlike
+  // Deactivate, which hides the product from every picker/list), so there's
+  // nothing risky enough here to warrant an extra click.
+  async function handleReactivate(productId: string) {
+    await dispatch(updateProductThunk({ id: productId, data: { is_active: true } })).unwrap();
+    refresh();
   }
 
   return (
@@ -159,15 +356,15 @@ const ConsumableInventoryPage: React.FC = () => {
           <>
             <div className="rp-sra-summary-card">
               <div className="rp-sra-summary-val">{consumableKpis.total_consumables}</div>
-              <div className="rp-sra-summary-label">Total Consumables</div>
-            </div>
-            <div className="rp-sra-summary-card">
-              <div className="rp-sra-summary-val">{consumableKpis.total_available_stock.toLocaleString()}</div>
-              <div className="rp-sra-summary-label">Available Stock</div>
+              <div className="rp-sra-summary-label">Total Consumable Products</div>
             </div>
             <div className="rp-sra-summary-card ci-kpi--warn">
               <div className="rp-sra-summary-val">{consumableKpis.low_stock_items}</div>
               <div className="rp-sra-summary-label">Low Stock</div>
+            </div>
+            <div className="rp-sra-summary-card ci-kpi--danger">
+              <div className="rp-sra-summary-val">{consumableKpis.out_of_stock_items}</div>
+              <div className="rp-sra-summary-label">Out of Stock</div>
             </div>
             <div className="rp-sra-summary-card">
               <div className="rp-sra-summary-val">{consumableKpis.assigned_services}</div>
@@ -183,36 +380,31 @@ const ConsumableInventoryPage: React.FC = () => {
           <Search size={14} />
           <input placeholder="Search consumable products…" value={searchInput} onChange={(e) => setSearchInput(e.target.value)} />
         </div>
-        <select value={filters.category_id ?? ""} onChange={(e) => updateFilter("category_id", e.target.value)}>
-          <option value="">Category</option>
-          {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </select>
-        <select value={filters.brand_id ?? ""} onChange={(e) => updateFilter("brand_id", e.target.value)}>
-          <option value="">Brand</option>
-          {brands.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </select>
-        <select value={filters.supplier_id ?? ""} onChange={(e) => updateFilter("supplier_id", e.target.value)}>
-          <option value="">Supplier</option>
-          {suppliers.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <select value={filters.unit ?? ""} onChange={(e) => updateFilter("unit", e.target.value)}>
-          <option value="">Unit</option>
-          {UNIT_OPTIONS.map((u) => <option key={u} value={u}>{u}</option>)}
-        </select>
-        <select value={filters.service_id ?? ""} onChange={(e) => updateFilter("service_id", e.target.value)}>
-          <option value="">Assigned Service</option>
-          {servicesList.map((s: any) => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
-        <select value={filters.status ?? ""} onChange={(e) => updateFilter("status", e.target.value as ConsumableStatus)}>
-          <option value="">Status</option>
-          <option value="healthy">Healthy</option>
-          <option value="low">Low Stock</option>
-          <option value="out_of_stock">Out of Stock</option>
-        </select>
+        <JiraFilterMenu
+          fields={filterFields}
+          selected={filterMenuSelected}
+          onApply={applyAllFilters}
+        />
         <select value={filters.sort_by ?? "newest"} onChange={(e) => updateFilter("sort_by", e.target.value as any)}>
           {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
+
+      {activeChips.length > 0 && (
+        <div className="ci-chip-row">
+          {activeChips.map((chip) => (
+            <span className="ci-chip" key={`${chip.key}-${chip.id}`}>
+              {chip.label}
+              <button type="button" onClick={() => removeChip(chip.key, chip.id)} aria-label={`Remove ${chip.label}`}>
+                <X size={11} />
+              </button>
+            </span>
+          ))}
+          <button type="button" className="ci-chip-row__clear" onClick={clearAllFilters}>
+            Clear all
+          </button>
+        </div>
+      )}
 
       {/* ── Table ─────────────────────────────────────────────────────────── */}
       <div className="ci-table-wrap">
@@ -232,7 +424,11 @@ const ConsumableInventoryPage: React.FC = () => {
               <tr><td colSpan={9} className="ci-empty">No consumables found.</td></tr>
             ) : (
               consumables.map((row) => (
-                <tr key={row.product_id} onClick={() => setSelectedProductId(row.product_id)}>
+                <tr
+                  key={row.product_id}
+                  className={row.status === "deactivated" ? "ci-table-row--deactivated" : undefined}
+                  onClick={() => setSelectedProductId(row.product_id)}
+                >
                   <td className="ci-table__name">
                     {row.name}
                     {row.brand_name && <span className="ci-table__brand">{row.brand_name}</span>}
@@ -259,15 +455,22 @@ const ConsumableInventoryPage: React.FC = () => {
                   <td>{formatLastUsed(row.last_used_at)}</td>
                   <td><span className={`ci-status ci-status--${row.status}`}>{STATUS_DOT[row.status]} {STATUS_LABEL[row.status]}</span></td>
                   <td onClick={(e) => e.stopPropagation()}>
-                    <Dropdown>
-                      <Dropdown.Toggle as="button" className="ci-row-actions-btn"><ThreeDotsVertical size={16} /></Dropdown.Toggle>
-                      <Dropdown.Menu align="end">
-                        <Dropdown.Item onClick={() => setSelectedProductId(row.product_id)}>View Details</Dropdown.Item>
-                        <Dropdown.Item onClick={() => navigate(`/dashboard/catalog/inventory/consumables/edit/${row.product_id}`)}>Edit Product</Dropdown.Item>
-                        <Dropdown.Item onClick={() => setSelectedProductId(row.product_id)}>Adjust Stock</Dropdown.Item>
-                        <Dropdown.Item className="ci-row-actions-btn--danger" onClick={() => setDeactivateTarget({ id: row.product_id, name: row.name })}>Deactivate</Dropdown.Item>
-                      </Dropdown.Menu>
-                    </Dropdown>
+                    {/* Portaled to document.body and positioned from the
+                        trigger's own screen coordinates — see the
+                        RowActionsMenu component above for why a plain
+                        react-bootstrap Dropdown (even with strategy:"fixed")
+                        isn't reliable inside this horizontally-scrollable
+                        table. */}
+                    <RowActionsMenu
+                      items={[
+                        { label: "View Details", onClick: () => setSelectedProductId(row.product_id) },
+                        { label: "Edit Product", onClick: () => navigate(`/dashboard/catalog/inventory/consumables/edit/${row.product_id}`) },
+                        { label: "Adjust Stock", onClick: () => setSelectedProductId(row.product_id) },
+                        row.status === "deactivated"
+                          ? { label: "Reactivate", onClick: () => handleReactivate(row.product_id) }
+                          : { label: "Deactivate", danger: true, onClick: () => setDeactivateTarget({ id: row.product_id, name: row.name }) },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))
