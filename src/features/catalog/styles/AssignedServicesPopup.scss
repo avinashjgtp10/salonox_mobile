@@ -1,0 +1,65 @@
+.asp-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1200;
+}
+
+.asp-modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 22px;
+  width: 420px;
+  max-width: calc(100vw - 32px);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.18);
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    h3 { margin: 0; font-size: 16px; font-weight: 700; color: #111827; }
+  }
+
+  &__close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    padding: 2px;
+    &:hover { color: #111827; }
+  }
+
+  &__subtitle { margin: 2px 0 14px; font-size: 12.5px; color: #6b7280; }
+  &__empty { text-align: center; color: #9ca3af; font-size: 13px; padding: 16px 0; }
+  &__error { color: #ef4444; font-size: 12.5px; margin: 0 0 8px; }
+}
+
+.asp-table {
+  display: flex;
+  flex-direction: column;
+
+  &__header {
+    display: flex;
+    justify-content: space-between;
+    padding: 0 0 6px;
+    border-bottom: 1px solid #e5e7eb;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    padding: 9px 0;
+    border-bottom: 1px solid #f3f4f6;
+    font-size: 13px;
+    color: #111827;
+    &:last-child { border-bottom: none; }
+  }
+}

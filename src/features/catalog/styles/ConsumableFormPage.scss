@@ -301,6 +301,17 @@
   gap: 8px;
 
   &__name { flex: 1; font-size: 13px; color: #111827; font-weight: 500; }
+  // Unit Conversion rows reuse this class on a real <input> (Assigned
+  // Services uses it on a plain <span>) — give it input chrome only when
+  // it actually is one.
+  input.cf-assigned-row__name {
+    height: 32px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    padding: 0 8px;
+    font-family: inherit;
+    &:focus { outline: none; border-color: #111827; }
+  }
   &__qty { width: 70px; height: 32px; border: 1px solid #d1d5db; border-radius: 6px; padding: 0 8px; font-size: 12.5px; }
   &__unit { font-size: 12px; color: #6b7280; min-width: 24px; }
 

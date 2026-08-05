@@ -57,6 +57,7 @@ export interface Product {
   unit: ProductUnit | null;
   size: string | null;
   bottle_size: number | null;
+  is_active: boolean;
   tax_type: TaxType;
   custom_tax_rate: number | null;
   hsn_sac: string | null;

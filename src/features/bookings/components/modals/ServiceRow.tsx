@@ -75,6 +75,9 @@ interface ServiceRowProps {
    *  calculate-totals. */
   consumableActuals?: Record<string, number>;
   onConsumableActualChange?: (productId: string, actualQty: number) => void;
+  /** Appointment's client name, for the Consumable Usage modal's header —
+   *  ServiceRow only otherwise knows this row's own staff, not the client. */
+  clientName?: string;
 }
 
 function fmtName(name: string) {
@@ -164,6 +167,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   membershipDiscountAmount,
   consumableActuals,
   onConsumableActualChange,
+  clientName,
 }) => {
   const { currencySymbol } = useCurrency();
   const schedulerContext = useSchedulerContext();
@@ -221,9 +225,13 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   const [compApplied, setCompApplied] = useState(false);
 
   // ── Consumables recipe panel state ──────────────────────────────────────────────
-  // Just an open/closed toggle now — the list itself is row.consumables
-  // (read-only Product/Configured/Unit, editable Actual Qty), not local state.
+  // The list itself is row.consumables (read-only Product/Standard/Unit,
+  // editable Actual Qty), not local state — but Cancel needs to be able to
+  // revert live Actual Qty edits made during this modal session, so a
+  // snapshot of consumableActuals is taken at open time and restored on Cancel.
   const [showConsumableModal, setShowConsumableModal] = useState(false);
+  const consumableSnapshotRef = useRef<Record<string, number>>({});
+  const [deleteConfirmProductId, setDeleteConfirmProductId] = useState<string | null>(null);
 
   const dropRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -563,11 +571,33 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
 
   // ── Consumables recipe panel handlers ───────────────────────────────────────────
   function openConsumableModal() {
+    // Snapshot every current-in-effect Actual Qty so Cancel can restore them —
+    // edits go straight into AppointmentModal's consumableActuals live (there's
+    // no separate "staged" copy), so reverting means writing the old values back.
+    const snapshot: Record<string, number> = {};
+    (row.consumables ?? []).forEach((c) => { snapshot[c.productId] = getActualQty(c); });
+    consumableSnapshotRef.current = snapshot;
+    setDeleteConfirmProductId(null);
     setShowConsumableModal(true);
   }
 
   function closeConsumableModal() {
     setShowConsumableModal(false);
+    setDeleteConfirmProductId(null);
+    cancelAddConsumable();
+  }
+
+  // "Update & Continue" — edits are already live, so this just closes.
+  function confirmConsumableModal() {
+    closeConsumableModal();
+  }
+
+  // "Cancel" — restores every Actual Qty to what it was when the modal opened.
+  function cancelConsumableModal() {
+    Object.entries(consumableSnapshotRef.current).forEach(([productId, qty]) => {
+      onConsumableActualChange?.(productId, qty);
+    });
+    closeConsumableModal();
   }
 
   // Reads back the current Actual Qty for a product: a live (unsaved) edit
@@ -581,6 +611,44 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     const n = parseFloat(raw);
     onConsumableActualChange?.(productId, Number.isFinite(n) && n >= 0 ? n : 0);
   }
+
+  // Removes a consumable from THIS sale only — never touches the product,
+  // inventory, or the service's own recipe (service_consumables), which is
+  // exactly what "+ Add Consumable" writes to. A one-off removal here is
+  // the appointment-row-local mirror of that: row.consumables is per-
+  // appointment state, distinct from the service's configured recipe.
+  function removeConsumableRow(productId: string) {
+    const next = (row.consumables ?? []).filter((c) => c.productId !== productId);
+    onChange(row.tempId, "consumables", next);
+    setDeleteConfirmProductId(null);
+  }
+
+  const actualQtyInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
+  function focusActualQtyInput(productId: string) {
+    const el = actualQtyInputRefs.current[productId];
+    el?.focus();
+    el?.select();
+  }
+
+  type ConsumableStatus = "healthy" | "low" | "out_of_stock";
+  function getConsumableStatus(availableStock: number | undefined, remainingStock: number): ConsumableStatus {
+    if (remainingStock <= 0) return "out_of_stock";
+    // No qty_alert threshold is available on the cached productsList here
+    // (see schedulerContext.productsList) — 10% of on-hand stock is a
+    // reasonable stand-in low-water mark until that's threaded through.
+    if (availableStock !== undefined && availableStock > 0 && remainingStock <= availableStock * 0.1) return "low";
+    return "healthy";
+  }
+  const STATUS_LABEL: Record<ConsumableStatus, string> = {
+    healthy: "Healthy",
+    low: "Low Stock",
+    out_of_stock: "Out of Stock",
+  };
+  const STATUS_DOT: Record<ConsumableStatus, string> = {
+    healthy: "🟢",
+    low: "🟠",
+    out_of_stock: "🔴",
+  };
 
   // A qty input showing "0" and cursor-after-zero made typing "1" then "2"
   // produce "012" instead of "12" (the browser appends rather than replacing
@@ -665,6 +733,15 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     const qty = parseFloat(addDraft.qty);
     if (!addDraft.productId) { setAddError("Pick a product first"); return; }
     if (!Number.isFinite(qty) || qty <= 0) { setAddError("Enter a valid quantity"); return; }
+    if ((row.consumables ?? []).some((c) => c.productId === addDraft.productId)) {
+      setAddError("This consumable is already added.");
+      return;
+    }
+    const available = productStockById.get(addDraft.productId);
+    if (available !== undefined && qty > available) {
+      setAddError(`Insufficient stock. Required: ${qty} ${addDraft.unit || ""}, Total Stock: ${available} ${addDraft.unit || ""}`);
+      return;
+    }
 
     const serviceId = (row as any).service_id || row.id;
     if (!serviceId) { setAddError("Save this row's service first"); return; }
@@ -1010,51 +1087,84 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
       </div>
 
-      {/* ── Consumables Panel ────────────────────────────────────────────────── */}
-      {/* Recipe-only: shows exactly the products configured on this service's
-          recipe (row.consumables, copied in at selectService() time). Product/
-          Configured/Unit are read-only; Actual Qty is the only editable field,
-          and edits go through onConsumableActualChange — never the normal
-          onChange path — so they can never reach serviceRows/calculate-totals. */}
+      {/* ── Consumable Usage Modal ───────────────────────────────────────────── */}
+      {/* Standard/Unit come from the service's recipe (row.consumables, copied
+          in at selectService() time) and are read-only. Actual Qty is edited
+          live via onConsumableActualChange — never the normal onChange path —
+          so it can never reach serviceRows/calculate-totals; Cancel restores
+          the snapshot taken at open time, Update & Continue just closes since
+          the edits are already in effect. */}
       {showConsumableModal && (
-        <div className="svc-reminder-overlay" onClick={closeConsumableModal}>
-          <div className="svc-consumable-modal" onClick={(e) => e.stopPropagation()}>
-            <h3 className="svc-consumable-modal__title">Consumables</h3>
+        <div className="svc-reminder-overlay" onClick={cancelConsumableModal}>
+          <div className="svc-consumable-modal svc-consumable-modal--wide" onClick={(e) => e.stopPropagation()}>
+            <h3 className="svc-consumable-modal__title">Consumable Usage</h3>
+            <div className="svc-consumable-modal__meta">
+              <div><span>Service</span><strong>{row.service || "—"}</strong></div>
+              <div><span>Client</span><strong>{clientName || "Walk-In"}</strong></div>
+              <div><span>Staff</span><strong>{row.staff || "—"}</strong></div>
+            </div>
 
             {row.consumables?.length ? (
               <>
-                <div className="svc-recipe-header">
+                <div className="svc-recipe-header svc-recipe-header--full">
                   <span>Product</span>
-                  <span>Standard</span>
+                  <span>Total Stock</span>
+                  <span>Standard Qty</span>
+                  <span>Actual Qty</span>
+                  <span>Unit</span>
                   <span>Remaining Stock</span>
-                  <span>Used Qty</span>
+                  <span>Status</span>
+                  <span>Action</span>
                 </div>
                 <div className="svc-consumable-modal__list">
                   {row.consumables.map((c) => {
                     const actualQty = getActualQty(c);
-                    const remainingStock = productStockById.get(c.productId);
-                    const overStock = remainingStock !== undefined && actualQty > remainingStock;
+                    const availableStock = productStockById.get(c.productId);
+                    const remainingStock = (availableStock ?? 0) - actualQty;
+                    const overStock = availableStock !== undefined && actualQty > availableStock;
+                    const status = getConsumableStatus(availableStock, remainingStock);
                     return (
-                      <div key={c.productId} className="svc-recipe-row">
+                      <div key={c.productId} className="svc-recipe-row svc-recipe-row--full">
                         <span className="svc-recipe-row__name">{c.productName || "—"}</span>
-                        <span className="svc-recipe-row__configured">{c.qty} {c.unit || ""}</span>
-                        <span className="svc-recipe-row__unit">
-                          {remainingStock !== undefined ? `${remainingStock} ${c.unit || ""}` : "—"}
+                        <span className="svc-recipe-row__configured">
+                          {availableStock !== undefined ? `${availableStock} ${c.unit || ""}` : "—"}
                         </span>
+                        <span className="svc-recipe-row__configured">{c.qty} {c.unit || ""}</span>
                         <div>
                           <input
+                            ref={(el) => { actualQtyInputRefs.current[c.productId] = el; }}
                             className={`svc-recipe-row__actual-input${overStock ? " svc-recipe-row__actual-input--error" : ""}`}
                             type="number"
                             min={0}
+                            step="any"
                             disabled={disabled}
                             value={actualQty}
                             onFocus={selectOnFocus}
                             onChange={(e) => handleActualQtyChange(c.productId, e.target.value)}
                           />
                           {overStock && (
-                            <span className="svc-recipe-row__warning">Only {remainingStock} {c.unit} in stock</span>
+                            <span className="svc-recipe-row__warning">Only {availableStock} {c.unit} in stock</span>
                           )}
                         </div>
+                        <span className="svc-recipe-row__configured">{c.unit || "—"}</span>
+                        <span className="svc-recipe-row__configured">
+                          {availableStock !== undefined ? `${remainingStock} ${c.unit || ""}` : "—"}
+                        </span>
+                        <span className={`svc-consumable-status svc-consumable-status--${status}`}>
+                          {STATUS_DOT[status]} {STATUS_LABEL[status]}
+                        </span>
+                        <span className="svc-recipe-row__row-actions">
+                          {!disabled && (
+                            <>
+                              <button type="button" className="svc-recipe-row__icon-btn" title="Edit Actual Qty" onClick={() => focusActualQtyInput(c.productId)}>
+                                ✏
+                              </button>
+                              <button type="button" className="svc-recipe-row__icon-btn svc-recipe-row__icon-btn--danger" title="Remove" onClick={() => setDeleteConfirmProductId(c.productId)}>
+                                <Trash size={13} />
+                              </button>
+                            </>
+                          )}
+                        </span>
                       </div>
                     );
                   })}
@@ -1064,12 +1174,33 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
               <p className="svc-recipe-empty">This service has no consumables configured.</p>
             )}
 
+            {/* Delete confirmation */}
+            {deleteConfirmProductId && (() => {
+              const target = row.consumables?.find((c) => c.productId === deleteConfirmProductId);
+              return (
+                <div className="svc-consumable-confirm">
+                  <p className="svc-consumable-confirm__title">Remove Consumable?</p>
+                  <p className="svc-consumable-confirm__body">
+                    <strong>{target?.productName || "This consumable"}</strong> will be removed from this sale.
+                  </p>
+                  <div className="svc-consumable-confirm__actions">
+                    <button type="button" className="svc-consumable-modal__btn svc-consumable-modal__btn--close" onClick={() => setDeleteConfirmProductId(null)}>
+                      Cancel
+                    </button>
+                    <button type="button" className="svc-consumable-modal__btn svc-consumable-modal__btn--danger" onClick={() => removeConsumableRow(deleteConfirmProductId)}>
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
+
             {/* Adding here updates the SERVICE's own recipe (same data
                 ConsumablesTab in the Services catalog edits) — not a one-off
                 for just this appointment, so it fixes "no consumables
                 configured" for every future booking of this service too. */}
             {addDraft ? (
-              <div className="svc-recipe-add-row">
+              <div className="svc-recipe-add-row svc-recipe-add-row--wrap">
                 <div className="svc-recipe-add-row__search-wrap">
                   <input
                     className="svc-consumable-row__input"
@@ -1099,10 +1230,17 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                     </div>
                   )}
                 </div>
+                {addDraft.productId && (
+                  <span className="svc-recipe-add-row__available">
+                    Total Stock: {productStockById.get(addDraft.productId) ?? "—"} {addDraft.unit || ""}
+                  </span>
+                )}
                 <input
                   className="svc-consumable-row__input svc-consumable-row__input--sm"
                   type="number"
                   min={0}
+                  step="any"
+                  placeholder="Qty"
                   value={addDraft.qty}
                   onChange={(e) => { setAddDraft((p) => (p ? { ...p, qty: e.target.value } : p)); if (addError) setAddError(""); }}
                 />
@@ -1125,7 +1263,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                   disabled={addSaving}
                   onClick={confirmAddConsumable}
                 >
-                  {addSaving ? "Saving…" : "Save"}
+                  {addSaving ? "Saving…" : "Add Consumable"}
                 </button>
                 <button type="button" className="svc-consumable-row__del" onClick={cancelAddConsumable} title="Cancel">
                   <Trash size={14} />
@@ -1149,9 +1287,20 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
               <button
                 type="button"
                 className="svc-consumable-modal__btn svc-consumable-modal__btn--close"
-                onClick={closeConsumableModal}
+                onClick={cancelConsumableModal}
               >
-                Close
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="svc-consumable-modal__btn svc-consumable-modal__btn--add"
+                disabled={!!deleteConfirmProductId || (row.consumables ?? []).some((c) => {
+                  const avail = productStockById.get(c.productId);
+                  return avail !== undefined && getActualQty(c) > avail;
+                })}
+                onClick={confirmConsumableModal}
+              >
+                Update &amp; Continue
               </button>
             </div>
           </div>

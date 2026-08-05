@@ -80,18 +80,43 @@ const ConsumableDetailPanel: React.FC<Props> = ({ productId, onClose, onAdjusted
               <div className="ci-panel__field-row">
                 <span>Supplier</span><span>{detail.supplier_name || "—"}</span>
               </div>
+              <div className="ci-panel__field-row">
+                <span>Category</span><span>{detail.category_name || "—"}</span>
+              </div>
+              <div className="ci-panel__field-row">
+                <span>Base Unit</span><span>{detail.unit}</span>
+              </div>
             </section>
 
             <section className="ci-panel__section">
               <div className="ci-panel__section-header">
-                <h4>Inventory</h4>
+                <h4>Inventory Details</h4>
                 <button className="ci-btn ci-btn--sm" onClick={() => setShowAdjust(true)}>Adjust Stock</button>
               </div>
               <div className="ci-panel__field-row"><span>Product Quantity</span><span>{detail.product_qty}</span></div>
-              <div className="ci-panel__field-row"><span>Unit Size</span><span>{detail.unit_size ? `${detail.unit_size} ${detail.unit}` : "—"}</span></div>
+              <div className="ci-panel__field-row"><span>Package Size</span><span>{detail.unit_size ? `${detail.unit_size} ${detail.unit}` : "—"}</span></div>
               <div className="ci-panel__field-row"><span>Total Stock</span><span>{detail.total_stock.toLocaleString()} {detail.unit}</span></div>
-              <div className="ci-panel__field-row"><span>Remaining</span><span>{detail.remaining_stock.toLocaleString()} {detail.unit}</span></div>
-              <div className="ci-panel__field-row"><span>Low Stock Alert</span><span>{detail.qty_alert ?? "—"}</span></div>
+              <div className="ci-panel__field-row"><span>Available Stock</span><span>{detail.remaining_stock.toLocaleString()} {detail.unit}</span></div>
+              <div className="ci-panel__field-row"><span>Low Stock Alert</span><span>{detail.qty_alert != null ? `${detail.qty_alert} ${detail.unit}` : "—"}</span></div>
+            </section>
+
+            <section className="ci-panel__section">
+              <h4>Unit Conversion</h4>
+              {detail.unit_conversions.length === 0 ? (
+                <p className="ci-panel__empty">No custom units configured — edit this consumable to add some (e.g. Bottle, Sachet).</p>
+              ) : (
+                <table className="ci-panel__mini-table">
+                  <thead><tr><th>Unit</th><th>Conversion</th></tr></thead>
+                  <tbody>
+                    {detail.unit_conversions.map((c) => (
+                      <tr key={c.id}>
+                        <td>{c.unit_name}</td>
+                        <td>1 {c.unit_name} = {c.conversion_to_base.toLocaleString()} {detail.unit}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
             </section>
 
             <section className="ci-panel__section">
@@ -108,16 +133,24 @@ const ConsumableDetailPanel: React.FC<Props> = ({ productId, onClose, onAdjusted
               {detail.assigned_services.length === 0 ? (
                 <p className="ci-panel__empty">No services use this product yet.</p>
               ) : (
-                <div className="ci-panel__chips">
-                  {detail.assigned_services.map((s) => <span key={s.service_id} className="ci-panel__chip">{s.name}</span>)}
-                </div>
+                <table className="ci-panel__mini-table">
+                  <thead><tr><th>Service</th><th>Standard Usage</th></tr></thead>
+                  <tbody>
+                    {detail.assigned_services.map((s) => (
+                      <tr key={s.service_id}>
+                        <td>{s.name}</td>
+                        <td>{s.qty} {s.unit || detail.unit}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
               )}
             </section>
 
             <section className="ci-panel__section">
               <h4>Recent Consumption</h4>
               {detail.recent_consumption.length === 0 ? (
-                <p className="ci-panel__empty">No usage recorded yet.</p>
+                <p className="ci-panel__empty">No consumption recorded yet.</p>
               ) : (
                 <table className="ci-panel__mini-table">
                   <thead><tr><th>Date</th><th>Service</th><th>Staff</th><th>Used</th></tr></thead>
