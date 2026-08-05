@@ -51,18 +51,18 @@ export default function RuleCard({ group, staffNames, onOpenDetail, onEdit, onDe
           <span className={`rc-status rc-status--${rule.status}`}>{rule.status}</span>
         </div>
         <div className="rc-card__menu-wrap" ref={menuWrapRef} onClick={(e) => e.stopPropagation()}>
-          <button className="rc-card__menu-btn" onClick={() => setMenuOpen(!menuOpen)}>
+          <button className="rc-card__menu-btn" title="Rule options" onClick={() => setMenuOpen(!menuOpen)}>
             <ThreeDots size={15} />
           </button>
           {menuOpen && (
             <div className="rc-card__menu">
-              <button onClick={() => { onEdit(group); setMenuOpen(false); }}>
+              <button title="Edit rule configuration" onClick={() => { onEdit(group); setMenuOpen(false); }}>
                 <Pencil size={12} /> Edit
               </button>
-              <button disabled={toggling} onClick={() => { onToggleStatus(group); setMenuOpen(false); }}>
+              <button title={rule.status === "active" ? "Deactivate this rule" : "Activate this rule"} disabled={toggling} onClick={() => { onToggleStatus(group); setMenuOpen(false); }}>
                 <ToggleOn size={12} /> {rule.status === "active" ? "Deactivate" : "Activate"}
               </button>
-              <button className="rc-card__menu-danger" onClick={() => { onDelete(group); setMenuOpen(false); }}>
+              <button className="rc-card__menu-danger" title="Delete this rule" onClick={() => { onDelete(group); setMenuOpen(false); }}>
                 <Trash size={12} /> Delete
               </button>
             </div>

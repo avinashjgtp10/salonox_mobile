@@ -225,7 +225,10 @@ $radius:  12px;
   font-family: $font; cursor: pointer; border: 1px solid $border;
   background: $white; color: $muted; transition: all .15s;
   &:hover { border-color: $purple; color: $purple; }
-  &--active { background: $purple; color: $white; border-color: $purple; }
+  &--active {
+    background: $purple; color: $white; border-color: $purple;
+    &:hover { color: $white; background: #5b2ec7; border-color: #5b2ec7; }
+  }
 }
 .cm-pill-count { font-weight: 400; opacity: .8; }
 

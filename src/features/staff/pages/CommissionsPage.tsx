@@ -902,14 +902,20 @@ export default function CommissionsPage() {
               <p className="cm-section-sub">Set rules for services, products, memberships and packages</p>
             </div>
             <div className="cm-cat-pills">
-              <button className={`cm-pill ${sourceFilter === "all" ? "cm-pill--active" : ""}`}
-                onClick={() => setSourceFilter("all")}>
+              <button
+                className={`cm-pill ${sourceFilter === "all" ? "cm-pill--active" : ""}`}
+                title={`Show all commission rules (${ruleGroups.length})`}
+                onClick={() => setSourceFilter("all")}
+              >
                 All Rules <span className="cm-pill-count">({ruleGroups.length})</span>
               </button>
               {(Object.keys(SOURCE_META) as CommissionRuleSource[]).map((key) => (
-                <button key={key}
+                <button
+                  key={key}
                   className={`cm-pill ${sourceFilter === key ? "cm-pill--active" : ""}`}
-                  onClick={() => setSourceFilter(key)}>
+                  title={`Filter by ${SOURCE_META[key].label} rules (${sourceCounts[key] ?? 0})`}
+                  onClick={() => setSourceFilter(key)}
+                >
                   {SOURCE_META[key].label} <span className="cm-pill-count">({sourceCounts[key] ?? 0})</span>
                 </button>
               ))}
