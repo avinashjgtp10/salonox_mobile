@@ -331,7 +331,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
 
       {selectedClientId && (
-        <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="history" />
+        <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />
       )}
 
       {showFiltersPanel && (
