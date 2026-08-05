@@ -17,19 +17,33 @@ interface ServiceCardProps {
   onDelete: (id: string | number) => void;
   onClick: (id: string | number) => void;
   highlighted?: boolean;
+  isSelected?: boolean;
+  onSelect?: (id: string | number, checked: boolean) => void;
 }
 
 const ServiceCard: React.FC<ServiceCardProps> = React.memo(
-  ({ service, openMenuId, onMenuToggle, onEdit, onDelete, onClick, highlighted = false }) => {
+  ({ service, openMenuId, onMenuToggle, onEdit, onDelete, onClick, highlighted = false, isSelected = false, onSelect }) => {
     const { currencyCode } = useCurrency();
     const CurrencyIcon = getCurrencyIcon(currencyCode);
     return (
     <div
       id={`service-card-${service.id}`}
-      className={`slp__service-card ${highlighted ? "slp__service-card--highlighted" : ""}`}
+      className={`slp__service-card ${highlighted ? "slp__service-card--highlighted" : ""} ${isSelected ? "slp__service-card--selected" : ""}`}
       onClick={() => onClick(service.id)}
     >
       <div className="slp__svc-left">
+        {onSelect && (
+          <input
+            type="checkbox"
+            className="slp__svc-checkbox"
+            checked={isSelected}
+            onChange={(e) => {
+              e.stopPropagation();
+              onSelect(service.id, e.target.checked);
+            }}
+            onClick={(e) => e.stopPropagation()}
+          />
+        )}
         <div className="slp__svc-avatar">
           {(service.name ?? "S").charAt(0).toUpperCase()}
         </div>

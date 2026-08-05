@@ -18,10 +18,27 @@ export class ErrorBoundary extends Component<Props, State> {
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[ErrorBoundary]", error.message, info.componentStack);
+    
+    // Detect Vite dynamic import chunk failure (e.g. stale hash after build/dev server restart)
+    const isChunkError = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(
+      error?.message || ""
+    );
+
+    if (isChunkError) {
+      const reloadKey = "chunk_reload_" + window.location.pathname;
+      if (!sessionStorage.getItem(reloadKey)) {
+        sessionStorage.setItem(reloadKey, "true");
+        window.location.reload();
+      }
+    }
   }
 
   render() {
     if (this.state.hasError) {
+      const isChunkError = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(
+        this.state.error?.message || ""
+      );
+
       return (
         <div style={{
           display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
@@ -38,13 +55,18 @@ export class ErrorBoundary extends Component<Props, State> {
             </div>
             <h2 style={{ margin: "0 0 8px", fontSize: 17, fontWeight: 700, color: "#0f172a" }}>Something went wrong</h2>
             <p style={{ margin: "0 0 6px", color: "#64748b", fontSize: 13.5 }}>
-              {this.state.error?.message ?? "An unexpected error occurred."}
+              {isChunkError
+                ? "A new version of the app is available or the network was interrupted."
+                : (this.state.error?.message ?? "An unexpected error occurred.")}
             </p>
             <p style={{ margin: "0 0 24px", color: "#94a3b8", fontSize: 12 }}>
-              If this keeps happening, try restarting the dev server.
+              Click below to reload and fetch the latest modules.
             </p>
             <button
-              onClick={() => window.location.reload()}
+              onClick={() => {
+                sessionStorage.clear();
+                window.location.reload();
+              }}
               style={{
                 padding: "10px 28px", background: "#6366f1", color: "#fff", border: "none",
                 borderRadius: 9, fontSize: 14, fontWeight: 600, cursor: "pointer",
