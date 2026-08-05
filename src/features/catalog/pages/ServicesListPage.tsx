@@ -30,6 +30,8 @@ import { useServiceFilters } from "../hooks/useServiceFilters.ts";
 import { useSelector as useReduxSelector } from "react-redux";
 import {
   selectCategoriesLoading,
+  selectCurrentSalon,
+  selectUserProfile,
 } from "../../../store/selectors/slices.selectors";
 import type { ServiceFiltersState } from "../../../store/serviceFiltersSlice";
 import ServiceFilterDrawer from "../components/ServiceFilterDrawer.tsx";
@@ -88,6 +90,9 @@ const ServicesListPage: React.FC = () => {
 
   const categoryLoadingState = useReduxSelector(selectCategoriesLoading);
   const categoriesLoading = categoryLoadingState?.fetchAll ?? false;
+
+  const currentSalon = useReduxSelector(selectCurrentSalon);
+  const userProfile = useReduxSelector(selectUserProfile);
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [showFilterDrawer, setShowFilterDrawer]   = useState(false);
@@ -258,9 +263,16 @@ const ServicesListPage: React.FC = () => {
 
   const handleDownloadPdf = useCallback(async () => {
     setShowOptMenu(false);
-    try { exportServicesPDF(await fetchFilteredServicesForExport()); }
-    catch (err) { console.error("[ServicesListPage] PDF export failed:", err); }
-  }, [fetchFilteredServicesForExport]);
+    try {
+      const filteredServices = await fetchFilteredServicesForExport();
+      exportServicesPDF(filteredServices, {
+        salon: currentSalon,
+        user: userProfile,
+      });
+    } catch (err) {
+      console.error("[ServicesListPage] PDF export failed:", err);
+    }
+  }, [fetchFilteredServicesForExport, currentSalon, userProfile]);
 
   const handleDownloadExcel = useCallback(async () => {
     setShowOptMenu(false);
@@ -724,6 +736,7 @@ const ServicesListPage: React.FC = () => {
         onClose={() => setShowImport(false)}
         onSuccess={fetchServices}
       />
+
 
       {/* ── EDIT CATEGORY MODAL ────────────────────────────────────────────── */}
       {editingCategory && (
