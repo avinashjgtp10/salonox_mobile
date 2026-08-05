@@ -26,8 +26,7 @@ interface StaffProfileProps {
   setBirthdayDayMonth?: (val: string) => void;
   birthdayYear?: string;
   setBirthdayYear?: (val: string) => void;
-  calendarColor?: string;
-  setCalendarColor?: (val: string) => void;
+
   jobTitle?: string;
   setJobTitle?: (val: string) => void;
   startDateDayMonth?: string;
@@ -57,22 +56,7 @@ interface StaffProfileProps {
   isConfirmPasswordInvalid?: boolean;
 }
 
-const CALENDAR_COLORS: { key: string; hex: string; label: string }[] = [
-  { key: "light_blue",  hex: "#7dd3fc", label: "Light Blue" },
-  { key: "blue",        hex: "#3b82f6", label: "Blue" },
-  { key: "dark_blue",   hex: "#1d4ed8", label: "Dark Blue" },
-  { key: "purple",      hex: "#a855f7", label: "Purple" },
-  { key: "violet",      hex: "#7c3aed", label: "Violet" },
-  { key: "pink",        hex: "#f472b6", label: "Pink" },
-  { key: "hot_pink",    hex: "#ec4899", label: "Hot Pink" },
-  { key: "rose",        hex: "#f43f5e", label: "Rose" },
-  { key: "orange",      hex: "#f97316", label: "Orange" },
-  { key: "yellow",      hex: "#eab308", label: "Yellow" },
-  { key: "lime",        hex: "#84cc16", label: "Lime" },
-  { key: "green",       hex: "#22c55e", label: "Green" },
-  { key: "teal",        hex: "#14b8a6", label: "Teal" },
-  { key: "cyan",        hex: "#06b6d4", label: "Cyan" },
-];
+
 
 const COUNTRIES = Country.getAllCountries().map((c) => c.name).sort();
 
@@ -95,7 +79,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
   country = "India", setCountry = () => { },
   birthdayDayMonth = "", setBirthdayDayMonth = () => { },
   birthdayYear = "", setBirthdayYear = () => { },
-  calendarColor = "#3b82f6", setCalendarColor = () => { },
+
   jobTitle = "", setJobTitle = () => { },
   startDateDayMonth = "", setStartDateDayMonth = () => { },
   startDateYear = "2026", setStartDateYear = () => { },
@@ -116,9 +100,7 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const selectedColor = CALENDAR_COLORS.find((c) => c.key === calendarColor);
-  const selectedColorHex   = selectedColor?.hex   ?? "#3b82f6";
-  const selectedColorLabel = selectedColor?.label ?? calendarColor;
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -367,32 +349,6 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
             onChange={(e) => setBirthdayYear(e.target.value)}
           />
         </div>
-      </div>
-
-      {/* Calendar Color */}
-      <div className="sp-field">
-        <label className="sp-label">Calendar color</label>
-        <div className="sp-color-preview">
-          <span
-            className="sp-color-preview__swatch"
-            style={{ "--swatch-bg": selectedColorHex } as React.CSSProperties}
-          />
-          <span className="sp-color-preview__label">{selectedColorLabel}</span>
-        </div>
-        <div className="sp-color-picker">
-          {CALENDAR_COLORS.map(({ key, hex, label }) => (
-            <button
-              key={key}
-              type="button"
-              title={label}
-              className={`sp-color-swatch${calendarColor === key ? " sp-color-swatch--selected" : ""}`}
-              style={{ "--swatch-bg": hex } as React.CSSProperties}
-              onClick={() => setCalendarColor(key)}
-              aria-label={label}
-            />
-          ))}
-        </div>
-        <p className="sp-hint">Shown on the calendar and schedule views</p>
       </div>
 
       <hr className="sp-divider" />
