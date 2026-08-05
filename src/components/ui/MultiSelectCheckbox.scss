@@ -26,7 +26,11 @@
   position: absolute;
   top: calc(100% + 4px);
   left: 0;
-  right: 0;
+  // Wide enough to fit the trigger, but free to grow past it up to a cap so
+  // long staff/client names aren't squeezed onto multiple wrapped lines.
+  min-width: 100%;
+  width: max-content;
+  max-width: min(320px, 90vw);
   z-index: 50;
   max-height: 200px;
   overflow-y: auto;
@@ -34,6 +38,11 @@
   border-radius: 6px;
   background: #fff;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+
+  &.msc-dropdown--up {
+    top: auto;
+    bottom: calc(100% + 4px);
+  }
 }
 
 .msc-option {
@@ -46,7 +55,9 @@
 
   &:hover { background: #f9fafb; }
 
-  input[type="checkbox"] { margin: 0; }
+  input[type="checkbox"] { margin: 0; flex-shrink: 0; }
+
+  span { overflow-wrap: break-word; }
 }
 
 .msc-empty {

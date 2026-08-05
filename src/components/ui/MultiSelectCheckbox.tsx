@@ -13,11 +13,21 @@ interface MultiSelectCheckboxProps {
   placeholder?: string;
 }
 
+// Rough per-row height used to estimate the dropdown's rendered height before
+// it's actually in the DOM (can't measure a closed dropdown), so the flip
+// decision below can run synchronously in the same click that opens it
+// rather than flickering open-then-flip a frame later.
+const OPTION_ROW_HEIGHT = 32;
+const DROPDOWN_CHROME = 20; // border + margin from the trigger
+const DROPDOWN_MAX_HEIGHT = 200;
+
 const MultiSelectCheckbox: React.FC<MultiSelectCheckboxProps> = ({
   label, options, selected, onChange, containerClass = "", placeholder = "All",
 }) => {
   const [open, setOpen] = useState(false);
+  const [openUpward, setOpenUpward] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -30,6 +40,23 @@ const MultiSelectCheckbox: React.FC<MultiSelectCheckboxProps> = ({
 
   const toggle = (id: string) => {
     onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id]);
+  };
+
+  const handleTriggerClick = () => {
+    setOpen(v => {
+      const next = !v;
+      if (next && triggerRef.current) {
+        const estimatedHeight = Math.min(DROPDOWN_MAX_HEIGHT, options.length * OPTION_ROW_HEIGHT) + DROPDOWN_CHROME;
+        const { top, bottom } = triggerRef.current.getBoundingClientRect();
+        const spaceBelow = window.innerHeight - bottom;
+        const spaceAbove = top;
+        // Prefer opening downward (its usual position); only flip up when
+        // there isn't room below AND there's actually more room above —
+        // otherwise a very short viewport would flip it up into no space too.
+        setOpenUpward(spaceBelow < estimatedHeight && spaceAbove > spaceBelow);
+      }
+      return next;
+    });
   };
 
   const summary = selected.length === 0
@@ -45,12 +72,12 @@ const MultiSelectCheckbox: React.FC<MultiSelectCheckboxProps> = ({
           {label}
         </label>
       )}
-      <button type="button" className="msc-trigger" onClick={() => setOpen(v => !v)}>
+      <button type="button" ref={triggerRef} className="msc-trigger" onClick={handleTriggerClick}>
         <span>{summary}</span>
         <ChevronDown size={12} />
       </button>
       {open && (
-        <div className="msc-dropdown">
+        <div className={`msc-dropdown${openUpward ? " msc-dropdown--up" : ""}`}>
           {options.length === 0 ? (
             <div className="msc-empty">No options</div>
           ) : options.map(o => (
