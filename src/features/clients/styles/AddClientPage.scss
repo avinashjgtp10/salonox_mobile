@@ -22,6 +22,7 @@ $transition:      0.18s ease;
   flex-direction: column;
   background: #ffffff;
   font-family: 'Inter', -apple-system, sans-serif;
+  min-height: calc(100vh - 70px);
 
   &__header {
     height: 60px;

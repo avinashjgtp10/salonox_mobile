@@ -198,7 +198,7 @@ body {
   background: $dashboard-card-bg;
   border-right: 1px solid $dashboard-border;
   padding: 28px 24px;
-  z-index: 90;
+  z-index: 110;
   box-shadow: $card-shadow;
 
   &--team {
@@ -301,6 +301,12 @@ body {
   height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
   overflow-y: auto;
   transition: margin 0.25s ease;
+
+  &.main--flush,
+  &:has(.add-staff),
+  &:has(.add-client) {
+    padding: 0;
+  }
   &.shifted { margin-left: 410px; }
   &.shifted--team { margin-left: 350px; }
   &.shifted--marketing { margin-left: 360px; }

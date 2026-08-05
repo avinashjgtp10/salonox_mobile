@@ -69,6 +69,13 @@ export default function DashboardLayout() {
     navigate("/login");
   };
 
+  const isFlushPage =
+    location.pathname.includes("/team/add") ||
+    location.pathname.includes("/clients/add") ||
+    location.pathname.startsWith("/dashboard/settings") ||
+    (location.pathname.startsWith("/dashboard/team/") && !["members", "dashboard", "shifts", "payroll", "payruns", "commissions", "attendance", "history"].some((p) => location.pathname.endsWith(p))) ||
+    (location.pathname.startsWith("/dashboard/clients/") && !["list", "groups", "reviews", "import"].some((p) => location.pathname.endsWith(p)));
+
   return (
     <div className="dashboard">
       <DeploymentBanner />
@@ -93,7 +100,7 @@ export default function DashboardLayout() {
           <TeamSubSidebar onClose={() => setOpenMenu(null)} />
         )}
 
-        <main className={`main ${openMenu === "team" ? "shifted--team" : openMenu === "marketing" ? "shifted--marketing" : openMenu === "clients" ? "shifted--clients" : openMenu === "catalog" ? "shifted--catalog" : openMenu ? "shifted" : ""} ${location.pathname === "/dashboard/calendar" ? "main--calendar" : ""} ${location.pathname.startsWith("/dashboard/marketing/inbox") ? "main--inbox" : ""}`}>
+        <main className={`main ${openMenu === "team" ? "shifted--team" : openMenu === "marketing" ? "shifted--marketing" : openMenu === "clients" ? "shifted--clients" : openMenu === "catalog" ? "shifted--catalog" : openMenu ? "shifted" : ""} ${location.pathname === "/dashboard/calendar" ? "main--calendar" : ""} ${location.pathname.startsWith("/dashboard/marketing/inbox") ? "main--inbox" : ""} ${isFlushPage ? "main--flush" : ""}`}>
           <Outlet />
         </main>
       </div>
