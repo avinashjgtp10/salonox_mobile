@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
-import { Country } from "country-state-city";
 import { Camera, Eye, EyeSlash } from "react-bootstrap-icons";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddStaffPage.scss";
@@ -14,6 +13,7 @@ import {
   permsToRecord,
   type Permission,
 } from "../../settings/data/permissionMatrix";
+import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
 
 const ROLE_TO_LEVEL: Record<string, string> = {
   "No access": "no_access", Basic: "basic", Low: "low", Medium: "medium", High: "high", Manager: "manager",
@@ -22,14 +22,6 @@ const LEVEL_TO_ROLE: Record<string, string> = {
   no_access: "No access", basic: "Basic", low: "Low", medium: "Medium", high: "High", manager: "Manager",
 };
 
-const PHONE_CODES = Country.getAllCountries()
-  .map((c) => ({
-    code: c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`,
-    label: `${c.isoCode} (${c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`})`,
-  }))
-  .filter((v, i, a) => a.findIndex((t) => t.label === v.label) === i)
-  .sort((a, b) => a.label.localeCompare(b.label));
-
 const DOB_PLACEHOLDER_YEAR = 2000;
 
 const AddStaffPage: React.FC = () => {
@@ -37,8 +29,10 @@ const AddStaffPage: React.FC = () => {
   const navigate = useNavigate();
   const isEdit = !!id && id !== "undefined" && id !== "add";
 
+  const today = new Date().toISOString().slice(0, 10);
+
   const [form, setForm] = useState({
-    name: "", email: "", dob: "", doj: "",
+    name: "", email: "", dob: "", doj: today,
     phone: "", phoneCountryCode: "+91",
     address: "", gender: "", designation: "",
     hourlyRate: "", fixedSalary: "", workingHoursPerDay: "", holidays: "",
@@ -81,9 +75,9 @@ const AddStaffPage: React.FC = () => {
           name: [staff.first_name, staff.last_name].filter(Boolean).join(" "),
           email: staff.email || "",
           dob: staff.birthday_day && staff.birthday_month
-            ? `${DOB_PLACEHOLDER_YEAR}-${String(staff.birthday_month).padStart(2, "0")}-${String(staff.birthday_day).padStart(2, "0")}`
+            ? `${staff.birthday_year || DOB_PLACEHOLDER_YEAR}-${String(staff.birthday_month).padStart(2, "0")}-${String(staff.birthday_day).padStart(2, "0")}`
             : "",
-          doj: staff.joined_date ? String(staff.joined_date).slice(0, 10) : "",
+          doj: staff.joined_date ? String(staff.joined_date).slice(0, 10) : today,
           phone: staff.phone_number || staff.phone || "",
           phoneCountryCode: staff.phone_country_code || "+91",
           address: staff.address || "",
@@ -122,8 +116,6 @@ const AddStaffPage: React.FC = () => {
   }, [id, isEdit]);
 
   // ── Field validation ─────────────────────────────────────────────────────────
-  const today = new Date().toISOString().slice(0, 10);
-
   const isNameInvalid = attemptedSubmit && form.name.trim() === "";
 
   const emailFormatValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email.trim());
@@ -135,7 +127,7 @@ const AddStaffPage: React.FC = () => {
 
   const isDobInvalid = attemptedSubmit && !!form.dob && form.dob > today;
 
-  const isDojInvalid = attemptedSubmit && form.doj.trim() === "";
+  const isDojInvalid = attemptedSubmit && (form.doj.trim() === "" || form.doj > today);
 
   const isPhoneInvalid = attemptedSubmit && (form.phone.trim() === "" || !/^\d{10}$/.test(form.phone.trim()));
   const phoneErrorMessage = form.phone.trim() === "" ? "Contact is required" : "Enter a valid 10-digit phone number";
@@ -206,7 +198,6 @@ const AddStaffPage: React.FC = () => {
       isHourlyRateInvalid || isFixedSalaryInvalid || isCompensationConflict || isWorkingHoursInvalid || isHolidaysInvalid ||
       isPasswordInvalid || isConfirmPasswordInvalid
     ) {
-      showError("Please fix the highlighted fields");
       return;
     }
 
@@ -344,18 +335,20 @@ const AddStaffPage: React.FC = () => {
             <h6 className="emp-card__title">Details</h6>
             <div className="emp-details-grid">
               <div className="emp-field">
+                <label className="emp-field__label">Name<span className="text-danger">*</span></label>
                 <input
                   className={`emp-input ${isNameInvalid ? "emp-input--invalid" : ""}`}
-                  placeholder="Name*"
+                  placeholder="Name"
                   value={form.name}
                   onChange={(e) => setField("name")(e.target.value)}
                 />
                 {isNameInvalid && <span className="emp-field__error">Name is required</span>}
               </div>
               <div className="emp-field">
+                <label className="emp-field__label">Email<span className="text-danger">*</span></label>
                 <input
                   className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
-                  placeholder="Email*"
+                  placeholder="Email"
                   type="email"
                   value={form.email}
                   onChange={(e) => setField("email")(e.target.value)}
@@ -371,34 +364,41 @@ const AddStaffPage: React.FC = () => {
                   max={today}
                   value={form.dob}
                   onChange={(e) => setField("dob")(e.target.value)}
+                  onFocus={() => {
+                    if (!form.dob) {
+                      const defaultYear = new Date().getFullYear() - 25;
+                      setField("dob")(`${defaultYear}-01-01`);
+                    }
+                  }}
                 />
                 {isDobInvalid && <span className="emp-field__error">Date of birth cannot be in the future</span>}
               </div>
               <div className="emp-field">
-                <label className="emp-field__label">Date of Joining*</label>
+                <label className="emp-field__label">Date of Joining<span className="text-danger">*</span></label>
                 <input
                   className={`emp-input ${isDojInvalid ? "emp-input--invalid" : ""}`}
                   type="date"
+                  max={today}
                   value={form.doj}
                   onChange={(e) => setField("doj")(e.target.value)}
                 />
-                {isDojInvalid && <span className="emp-field__error">Date of joining is required</span>}
+                {isDojInvalid && (
+                  <span className="emp-field__error">
+                    {form.doj.trim() === "" ? "Date of joining is required" : "Date of joining cannot be in the future"}
+                  </span>
+                )}
               </div>
 
               <div className="emp-field">
+                <label className="emp-field__label">Contact<span className="text-danger">*</span></label>
                 <div className={`emp-phone-group ${isPhoneInvalid ? "emp-input--invalid" : ""}`}>
-                  <select
-                    className="emp-phone-code"
+                  <CountryCodeSelect
                     value={form.phoneCountryCode}
-                    onChange={(e) => setField("phoneCountryCode")(e.target.value)}
-                  >
-                    {PHONE_CODES.map((c) => (
-                      <option key={c.label} value={c.code}>{c.code}</option>
-                    ))}
-                  </select>
+                    onChange={(code) => setField("phoneCountryCode")(code)}
+                  />
                   <input
                     className="emp-input emp-phone-input"
-                    placeholder="Contact*"
+                    placeholder="Contact"
                     value={form.phone}
                     onChange={(e) => setField("phone")(e.target.value.replace(/\D/g, ""))}
                     maxLength={10}
@@ -407,6 +407,7 @@ const AddStaffPage: React.FC = () => {
                 {isPhoneInvalid && <span className="emp-field__error">{phoneErrorMessage}</span>}
               </div>
               <div className="emp-field">
+                <label className="emp-field__label">Address</label>
                 <input
                   className="emp-input"
                   placeholder="Address"
@@ -416,12 +417,13 @@ const AddStaffPage: React.FC = () => {
               </div>
 
               <div className="emp-field">
+                <label className="emp-field__label">Gender<span className="text-danger">*</span></label>
                 <select
                   className={`emp-input emp-select ${isGenderInvalid ? "emp-input--invalid" : ""}`}
                   value={form.gender}
                   onChange={(e) => setField("gender")(e.target.value)}
                 >
-                  <option value="">Gender*</option>
+                  <option value="">Gender</option>
                   <option value="male">Male</option>
                   <option value="female">Female</option>
                   <option value="other">Other</option>
@@ -429,6 +431,7 @@ const AddStaffPage: React.FC = () => {
                 {isGenderInvalid && <span className="emp-field__error">Gender is required</span>}
               </div>
               <div className="emp-field">
+                <label className="emp-field__label">Designation</label>
                 <input
                   className="emp-input"
                   placeholder="Designation"
@@ -447,6 +450,7 @@ const AddStaffPage: React.FC = () => {
                     that matter for this quick choice — the "Staff
                     Permissions" matrix below still allows finer-grained
                     customization independent of this. */}
+                <label className="emp-field__label">Role</label>
                 <select
                   className="emp-input emp-select"
                   value={permissionLevel === "Manager" ? "Manager" : "Staff"}
@@ -458,6 +462,7 @@ const AddStaffPage: React.FC = () => {
               </div>
 
               <div className="emp-field">
+                <label className="emp-field__label">Hourly Rate</label>
                 <input
                   className={`emp-input ${isHourlyRateInvalid || isCompensationConflict ? "emp-input--invalid" : ""}`}
                   placeholder="Hourly Rate"
@@ -472,6 +477,7 @@ const AddStaffPage: React.FC = () => {
                 )}
               </div>
               <div className="emp-field">
+                <label className="emp-field__label">Fixed Salary</label>
                 <input
                   className={`emp-input ${isFixedSalaryInvalid || isCompensationConflict ? "emp-input--invalid" : ""}`}
                   placeholder="Fixed Salary"
@@ -487,6 +493,7 @@ const AddStaffPage: React.FC = () => {
               </div>
 
               <div className="emp-field">
+                <label className="emp-field__label">Working Hours/Day</label>
                 <input
                   className={`emp-input ${isWorkingHoursInvalid ? "emp-input--invalid" : ""}`}
                   placeholder="Working Hours/Day"
@@ -499,6 +506,7 @@ const AddStaffPage: React.FC = () => {
                 {isWorkingHoursInvalid && <span className="emp-field__error">Must be between 0 and 24</span>}
               </div>
               <div className="emp-field">
+                <label className="emp-field__label">Holidays</label>
                 <input
                   className={`emp-input ${isHolidaysInvalid ? "emp-input--invalid" : ""}`}
                   placeholder="Holidays"
@@ -556,6 +564,7 @@ const AddStaffPage: React.FC = () => {
             <>
               <div className="emp-login-grid">
                 <div className="emp-field">
+                  <label className="emp-field__label">Password</label>
                   <div className={`emp-password-group ${isPasswordInvalid ? "emp-input--invalid" : ""}`}>
                     <input
                       className="emp-input emp-password-input"
@@ -571,6 +580,7 @@ const AddStaffPage: React.FC = () => {
                   {isPasswordInvalid && <span className="emp-field__error">Password must be at least 8 characters</span>}
                 </div>
                 <div className="emp-field">
+                  <label className="emp-field__label">Confirm Password</label>
                   <div className={`emp-password-group ${isConfirmPasswordInvalid ? "emp-input--invalid" : ""}`}>
                     <input
                       className="emp-input emp-password-input"
