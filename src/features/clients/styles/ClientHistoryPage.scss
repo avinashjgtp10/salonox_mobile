@@ -700,8 +700,9 @@
     font-weight: 600;
     margin-top: 3px;
 
-    &.paid   { color: #16a34a; }
-    &.unpaid { color: #dc2626; }
+    &.paid    { color: #16a34a; }
+    &.unpaid  { color: #dc2626; }
+    &.partial { color: #a16207; }
   }
 
   .chp-visit-package-tag {
@@ -717,6 +718,11 @@
     &--membership {
       color: #b45309;
       background: #fef3c7;
+    }
+
+    &--due {
+      color: #dc2626;
+      background: #fee2e2;
     }
   }
 

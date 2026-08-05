@@ -86,6 +86,8 @@ interface SaleItem {
   quantity: number;
   unit_price: string;
   total_price: string;
+  discount_amount?: string;
+  tax_amount?: string;
   staff_id?: string | null;
 }
 interface SaleRecord {
@@ -136,6 +138,8 @@ interface MembershipRecord {
   membership_wallet_balance: string;
   staff_id?: string | null;
   discount_balance_remaining?: string | null;
+  sale_id?: string | null;
+  appointment_id?: string | null;
 }
 
 interface ClientNoteRecord {
@@ -740,7 +744,10 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     .filter((s) => s.status === "completed")
     .flatMap((s) =>
       (s.items ?? []).filter((it) => it.item_type === "service")
-        .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id, invoice_number: s.invoice_number }))
+        // Already filtered to s.status === "completed" above, so every row
+        // reaching the Services tab genuinely is a completed visit — same
+        // reasoning as servicesFromAppointments' isApptPaid filter below.
+        .map((it) => ({ ...it, sale_date: s.created_at, sale_id: s.id, invoice_number: s.invoice_number, status: "completed" as const }))
     );
 
   // A package purchase produces both a `sales` row and a `packages` (client-package)
@@ -789,6 +796,22 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     });
     return map;
   }, [packages, sales]);
+
+  // Resolves each membership purchase's real invoice number for the
+  // Memberships tab — same sale_id-first, appointment_id-fallback pattern as
+  // packageSaleMatch above, just without that one's dedup/exclusion bookkeeping
+  // (there's no separate "memberships from sale line items" view to keep in sync with).
+  const membershipSaleMatch = useMemo(() => {
+    const map = new Map<string, SaleRecord>();
+    const salesById = new Map(sales.map((s) => [s.id, s]));
+    realMemberships.forEach((m) => {
+      const linkedSale = m.sale_id ? salesById.get(m.sale_id) : undefined;
+      if (linkedSale) { map.set(m.id, linkedSale); return; }
+      const apptSale = m.appointment_id ? sales.find((s) => s.appointment_id === m.appointment_id) : undefined;
+      if (apptSale) map.set(m.id, apptSale);
+    });
+    return map;
+  }, [realMemberships, sales]);
 
   // Sale ids already accounted for by a real `packages` (client_packages) purchase
   // record — excludes a package purchase's sale-line-item mirror below (Packages
@@ -843,6 +866,14 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
         // invoice — kept explicit (not omitted) so this matches
         // servicesFromSales's shape and the two can share one array type.
         invoice_number: null as string | null,
+        // No sale_items row backs this entry, so no real per-item
+        // discount/tax figure exists for it — left undefined (rendered as
+        // "–") rather than a misleading 0, same convention as invoice_number.
+        discount_amount: undefined as string | undefined,
+        tax_amount: undefined as string | undefined,
+        // isApptPaid already filtered this appointment to a genuinely paid
+        // visit — same "completed" convention as servicesFromSales above.
+        status: "completed" as const,
       }))
   );
 
@@ -881,6 +912,32 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   );
 
   const isGoldMember = computedLifetimeSpend > 5000;
+
+  const appointmentsById = useMemo(() => new Map(appointments.map((a) => [a.id, a])), [appointments]);
+
+  // Payments tab's real per-invoice status — a sale's own `status` can say
+  // "completed" (the invoice is finalized) even while its linked appointment
+  // is still genuinely only partially paid (same mismatch fixed for the
+  // Visit History Paid/Due badge above — appt.status is the authoritative
+  // payment state). Standalone sales with no appointment_id (quick sales,
+  // package/membership purchases) have no such split source, so their own
+  // sale status is already the ground truth for them.
+  const resolveSaleStatus = (s: SaleRecord): string => {
+    const linkedAppt = s.appointment_id ? appointmentsById.get(s.appointment_id) : undefined;
+    if (!linkedAppt) return s.status;
+    if (linkedAppt.status === "paid") return "completed";
+    if (linkedAppt.status === "partial") return "partial";
+    return linkedAppt.status;
+  };
+
+  // Balance still owed on a partial invoice — same due_amount field the
+  // appointment's own drawer (ViewBillModal) already shows, 0/undefined for
+  // anything not genuinely partial.
+  const resolveSaleDue = (s: SaleRecord): number => {
+    const linkedAppt = s.appointment_id ? appointmentsById.get(s.appointment_id) : undefined;
+    if (!linkedAppt || linkedAppt.status !== "partial") return 0;
+    return linkedAppt.due_amount ?? Math.max(0, Number(s.total_amount) - Number(linkedAppt.amount_paid || 0));
+  };
 
   // appointment id → staff id (from the history API response)
   const appointmentStaffMap = useMemo(() => {
@@ -1098,7 +1155,11 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     }
     const appt = entry.appt;
     const linkedSale = saleByAppointmentId.get(appt.id);
-    const isPaid = linkedSale ? linkedSale.status === "completed" : appt.payment_status === "paid" || Number(appt.amount_paid) > 0;
+    // Same fix as the card render below: appt.status is authoritative, a
+    // linked sale's own "completed" status doesn't mean the appointment
+    // itself is fully paid (see the isPaid comment further down this file).
+    const isPaid = appt.status === "paid";
+    const isPartial = appt.status === "partial";
     const svcName =
       appt.services?.[0]?.name || appt.services?.[0]?.service_name ||
       appt.product_items?.[0]?.name || appt.package_items?.[0]?.name || appt.package_items?.[0]?.package_name ||
@@ -1108,7 +1169,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       id: appt.id, entry,
       name: svcName, date: appt.scheduled_at,
       staff: staffMember?.full_name || appt.staff?.full_name || "–",
-      status: isPaid ? "Paid" : (appt.payment_status || "Unpaid"),
+      status: isPaid ? "Paid" : isPartial ? "Partial" : (appt.payment_status || "Unpaid"),
       amount: linkedSale ? Number(linkedSale.total_amount) : Number(appt.amount_paid) || 0,
       invoice: linkedSale?.invoice_number ?? "–",
     };
@@ -1692,9 +1753,13 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                       (appt.product_items?.length ?? 0) +
                       (appt.membership_items?.length ?? 0);
                     const extraSvcs = Math.max(0, totalItemCount - 1);
-                    const isPaid = linkedSale
-                      ? linkedSale.status === "completed"
-                      : appt.payment_status === "paid" || Number(appt.amount_paid) > 0;
+                    // appt.status is the authoritative payment state (backend comment on
+                    // the /history query: "a.status IS the payment state now"). A sale's
+                    // own status can say "completed" (the invoice is finalized) even while
+                    // its appointment is still genuinely partial — deferring to linkedSale
+                    // here previously showed a ₹631-of-₹1631-paid visit as fully "Paid".
+                    const isPaid = appt.status === "paid";
+                    const isPartial = appt.status === "partial";
                     const isPackagePaid = linkedSale
                       ? isPackageCoveredSale(linkedSale.payment_method, linkedSale.payment_reference)
                       : (appt.payment_method || appt.paymentMode || appt.payment_mode || "").toLowerCase() === "package";
@@ -1718,9 +1783,14 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                         </div>
                         <div className="chp-visit-right">
                           <div className="chp-visit-amount">{fmtRupees(displayAmount)}</div>
-                          <div className={`chp-visit-badge ${isPaid ? "paid" : "unpaid"}`}>
-                            {isPaid ? "Paid" : appt.payment_status || "Unpaid"}
+                          <div className={`chp-visit-badge ${isPaid ? "paid" : isPartial ? "partial" : "unpaid"}`}>
+                            {isPaid ? "Paid" : isPartial ? "Partial" : appt.payment_status || "Unpaid"}
                           </div>
+                          {isPartial && (
+                            <div className="chp-visit-package-tag chp-visit-package-tag--due">
+                              Due {fmtRupees(appt.due_amount ?? Math.max(0, Number(displayAmount) - Number(appt.amount_paid || 0)))}
+                            </div>
+                          )}
                           {isPaid && isPackagePaid && (
                             <div className="chp-visit-package-tag">via Package</div>
                           )}
@@ -1774,9 +1844,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               searchPlaceholder="Search services..."
               exportConfig={{
                 title: "Services Availed",
-                headers: ["Date", "Invoice No", "Service Name", "Staff", "Quantity", "Unit Price", "Total"],
+                headers: ["Invoice", "Date", "Service", "Staff", "Status"],
                 rows: () => servicesSearch.filteredSortedRows.map((it) => [
-                  fmtDMY(it.sale_date), it.invoice_number || "–", it.name, resolveStaffName(it), it.quantity, fmtRupees(it.unit_price), fmtRupees(it.total_price),
+                  it.invoice_number || "–", fmtDMY(it.sale_date), it.name, resolveStaffName(it), "Completed",
                 ]),
                 filename: "services-availed",
               }}
@@ -1787,12 +1857,11 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               <table className="chp-table">
                 <thead>
                   <tr>
-                    <th onClick={() => servicesSearch.toggleSort("name")} style={{ cursor: "pointer" }}>Service</th>
+                    <th>Invoice</th>
                     <th onClick={() => servicesSearch.toggleSort("sale_date")} style={{ cursor: "pointer" }}>Date</th>
+                    <th onClick={() => servicesSearch.toggleSort("name")} style={{ cursor: "pointer" }}>Service</th>
                     <th>Staff</th>
-                    <th style={{ textAlign: "center" }}>Qty</th>
-                    <th style={{ textAlign: "right" }}>Unit Price</th>
-                    <th style={{ textAlign: "right" }}>Total</th>
+                    <th>Status</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1800,12 +1869,13 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                     .slice((servicesPage - 1) * servicesPageSize, servicesPage * servicesPageSize)
                     .map((it, i) => (
                     <tr key={i}>
-                      <td className="chp-inv">{it.name}</td>
+                      <td className="chp-inv">{it.invoice_number || "–"}</td>
                       <td>{fmtDateShort(it.sale_date)}</td>
+                      <td>{it.name}</td>
                       <td>{resolveStaffName(it)}</td>
-                      <td style={{ textAlign: "center" }}>{it.quantity}</td>
-                      <td style={{ textAlign: "right" }}>{fmtRupees(it.unit_price)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 700 }}>{fmtRupees(it.total_price)}</td>
+                      <td>
+                        <span className="chp-status-badge chp-status-badge--completed">Completed</span>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1836,12 +1906,17 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               searchPlaceholder="Search memberships..."
               exportConfig={{
                 title: "Memberships",
-                headers: ["Membership Name", "Purchase Date", "Valid Until", "Sessions", "Remaining Balance", "Value", "Status"],
-                rows: () => membershipsSearch.filteredSortedRows.map((m) => [
-                  m.membership_name, fmtDMY(m.purchased_at), m.expires_at ? fmtDMY(m.expires_at) : "–",
-                  m.total_sessions === 0 ? "Unlimited" : `${m.used_sessions}/${m.total_sessions}`,
-                  formatAmount(Number(m.membership_wallet_balance)), fmtRupees(m.price_paid), m.status,
-                ]),
+                headers: ["Membership", "Purchased On", "Valid Until", "Balance", "Status", "Invoice"],
+                rows: () => membershipsSearch.filteredSortedRows.map((m) => {
+                  const expiryStatus = getPackageExpiryStatus(m.expires_at);
+                  const displayStatus = expiryStatus === "active" ? m.status : expiryStatus;
+                  return [
+                    m.membership_name, fmtDMY(m.purchased_at), m.expires_at ? fmtDMY(m.expires_at) : "–",
+                    formatAmount(Number(m.membership_wallet_balance)),
+                    displayStatus === "expiring-soon" ? "Expiring Soon" : displayStatus,
+                    membershipSaleMatch.get(m.id)?.invoice_number || "–",
+                  ];
+                }),
                 filename: "memberships",
               }}
             />
@@ -1852,12 +1927,11 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                 <thead>
                   <tr>
                     <th onClick={() => membershipsSearch.toggleSort("membership_name")} style={{ cursor: "pointer" }}>Membership</th>
-                    <th onClick={() => membershipsSearch.toggleSort("purchased_at")} style={{ cursor: "pointer" }}>Purchased</th>
+                    <th onClick={() => membershipsSearch.toggleSort("purchased_at")} style={{ cursor: "pointer" }}>Purchased On</th>
                     <th>Valid Until</th>
-                    <th>Sessions</th>
-                    <th style={{ textAlign: "right" }}>Remaining Balance</th>
-                    <th style={{ textAlign: "right" }}>Amount</th>
+                    <th style={{ textAlign: "right" }}>Balance</th>
                     <th>Status</th>
+                    <th>Invoice</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -1871,14 +1945,13 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                           <td className="chp-inv">{m.membership_name}</td>
                           <td>{fmtDateShort(m.purchased_at)}</td>
                           <td>{m.expires_at ? fmtDateShort(m.expires_at) : "No expiry"}</td>
-                          <td>{m.total_sessions === 0 ? "Unlimited" : `${m.used_sessions}/${m.total_sessions}`}</td>
                           <td style={{ textAlign: "right" }}>{formatAmount(Number(m.membership_wallet_balance))}</td>
-                          <td style={{ textAlign: "right", fontWeight: 700 }}>{formatAmount(Number(m.price_paid))}</td>
                           <td>
                             <span className={`chp-status-badge chp-status-badge--${displayStatus}`}>
                               {displayStatus === "expiring-soon" ? "Expiring Soon" : displayStatus}
                             </span>
                           </td>
+                          <td>{membershipSaleMatch.get(m.id)?.invoice_number || "–"}</td>
                         </tr>
                       );
                     })}
@@ -1910,14 +1983,17 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               searchPlaceholder="Search packages..."
               exportConfig={{
                 title: "Packages Purchased",
-                headers: ["Package Name", "Purchase Date", "Valid Until", "Sessions", "Remaining Amount", "Amount", "Status"],
+                headers: ["Package", "Purchased On", "Valid Until", "Sessions Left", "Status", "Invoice"],
                 rows: () => packagesSearch.filteredSortedRows.map((pkg) => {
                   const totalSessions = (pkg.services ?? []).reduce((s, sv) => s + sv.total_sessions, 0);
                   const usedSessions = (pkg.services ?? []).reduce((s, sv) => s + sv.completed_sessions, 0);
+                  const expiryStatus = getPackageExpiryStatus(pkg.expiry_date);
+                  const displayStatus = expiryStatus === "active" ? pkg.status : expiryStatus;
                   return [
                     pkg.package_name, fmtDMY(pkg.created_date), fmtDMY(pkg.expiry_date),
-                    `${usedSessions}/${totalSessions}`,
-                    formatAmount(Number(pkg.pending_amount) || 0), fmtRupees(pkg.total_amount), pkg.status,
+                    `${totalSessions - usedSessions} / ${totalSessions}`,
+                    displayStatus === "expiring-soon" ? "Expiring Soon" : displayStatus,
+                    packageSaleMatch.get(pkg.id)?.invoice_number || "–",
                   ];
                 }),
                 filename: "packages-purchased",
@@ -1930,12 +2006,11 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                 <thead>
                   <tr>
                     <th onClick={() => packagesSearch.toggleSort("package_name")} style={{ cursor: "pointer" }}>Package</th>
-                    <th onClick={() => packagesSearch.toggleSort("created_date")} style={{ cursor: "pointer" }}>Purchased</th>
+                    <th onClick={() => packagesSearch.toggleSort("created_date")} style={{ cursor: "pointer" }}>Purchased On</th>
                     <th>Valid Until</th>
-                    <th>Sessions</th>
-                    <th style={{ textAlign: "right" }}>Remaining Amount</th>
-                    <th style={{ textAlign: "right" }}>Amount</th>
+                    <th>Sessions Left</th>
                     <th>Status</th>
+                    <th>Invoice</th>
                     <th></th>
                   </tr>
                 </thead>
@@ -1952,16 +2027,13 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                           <td className="chp-inv">{pkg.package_name}</td>
                           <td>{fmtDateShort(pkg.created_date)}</td>
                           <td>{fmtDateShort(pkg.expiry_date)}</td>
-                          <td>{usedSessions}/{totalSessions}</td>
-                          <td style={{ textAlign: "right" }}>
-                            {Number(pkg.pending_amount) > 0 ? formatAmount(Number(pkg.pending_amount)) : "Fully Paid"}
-                          </td>
-                          <td style={{ textAlign: "right", fontWeight: 700 }}>{formatAmount(Number(pkg.total_amount))}</td>
+                          <td>{totalSessions - usedSessions} / {totalSessions}</td>
                           <td>
                             <span className={`chp-status-badge chp-status-badge--${displayStatus}`}>
                               {displayStatus === "expiring-soon" ? "Expiring Soon" : displayStatus}
                             </span>
                           </td>
+                          <td>{packageSaleMatch.get(pkg.id)?.invoice_number || "–"}</td>
                           <td>
                             <button
                               className="chp-print-btn"
@@ -2004,9 +2076,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               searchPlaceholder="Search products..."
               exportConfig={{
                 title: "Products Purchased",
-                headers: ["Date", "Invoice No", "Product Name", "Staff", "Quantity", "Unit Price", "Total"],
+                headers: ["Invoice", "Date", "Product", "Staff", "Qty"],
                 rows: () => productsSearch.filteredSortedRows.map((it) => [
-                  fmtDMY(it.sale_date), it.invoice_number || "–", it.name, resolveStaffName(it), it.quantity, fmtRupees(it.unit_price), fmtRupees(it.total_price),
+                  it.invoice_number || "–", fmtDMY(it.sale_date), it.name, resolveStaffName(it), it.quantity,
                 ]),
                 filename: "products-purchased",
               }}
@@ -2017,12 +2089,11 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               <table className="chp-table">
                 <thead>
                   <tr>
-                    <th onClick={() => productsSearch.toggleSort("name")} style={{ cursor: "pointer" }}>Product</th>
+                    <th>Invoice</th>
                     <th onClick={() => productsSearch.toggleSort("sale_date")} style={{ cursor: "pointer" }}>Date</th>
+                    <th onClick={() => productsSearch.toggleSort("name")} style={{ cursor: "pointer" }}>Product</th>
                     <th>Staff</th>
                     <th style={{ textAlign: "center" }}>Qty</th>
-                    <th style={{ textAlign: "right" }}>Unit Price</th>
-                    <th style={{ textAlign: "right" }}>Total</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -2030,12 +2101,11 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                     .slice((productsPage - 1) * productsPageSize, productsPage * productsPageSize)
                     .map((it, i) => (
                     <tr key={i}>
-                      <td className="chp-inv">{it.name}</td>
+                      <td className="chp-inv">{it.invoice_number || "–"}</td>
                       <td>{fmtDateShort(it.sale_date)}</td>
+                      <td>{it.name}</td>
                       <td>{resolveStaffName(it)}</td>
                       <td style={{ textAlign: "center" }}>{it.quantity}</td>
-                      <td style={{ textAlign: "right" }}>{fmtRupees(it.unit_price)}</td>
-                      <td style={{ textAlign: "right", fontWeight: 700 }}>{fmtRupees(it.total_price)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -2068,7 +2138,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               searchPlaceholder="Search payments..."
               exportConfig={{
                 title: "Payment History",
-                headers: ["Invoice", "Date", "Items", "Method", "Coupon Code", "Coupon Discount", "Referral Discount", "Status", "Amount"],
+                headers: ["Invoice", "Date", "Items", "Method", "Coupon Code", "Coupon Discount", "Referral Discount", "Status", "Amount", "Due"],
                 rows: () => paymentsSearch.filteredSortedRows.map((s) => [
                   s.invoice_number ?? `#${s.id.slice(-6).toUpperCase()}`,
                   fmtDMY(s.created_at),
@@ -2077,8 +2147,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                   s.coupon_code ?? "",
                   Number(s.coupon_discount_amount) > 0 ? formatAmount(Number(s.coupon_discount_amount)) : "",
                   Number(s.referral_discount_amount) > 0 ? formatAmount(Number(s.referral_discount_amount)) : "",
-                  s.status,
+                  resolveSaleStatus(s),
                   formatAmount(Number(s.total_amount)),
+                  resolveSaleDue(s) > 0 ? formatAmount(resolveSaleDue(s)) : "",
                 ]),
                 filename: "payment-history",
               }}
@@ -2136,12 +2207,22 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                         ) : "—"}
                       </td>
                       <td>
-                        <span className={`chp-status-badge chp-status-badge--${s.status}`}>
-                          {s.status}
-                        </span>
+                        {(() => {
+                          const displayStatus = resolveSaleStatus(s);
+                          return (
+                            <span className={`chp-status-badge chp-status-badge--${displayStatus}`}>
+                              {displayStatus}
+                            </span>
+                          );
+                        })()}
                       </td>
-                      <td style={{ textAlign: "right", fontWeight: 700 }}>
-                        {formatAmount(Number(s.total_amount))}
+                      <td style={{ textAlign: "right" }}>
+                        <div style={{ fontWeight: 700 }}>{formatAmount(Number(s.total_amount))}</div>
+                        {resolveSaleDue(s) > 0 && (
+                          <div className="chp-visit-package-tag chp-visit-package-tag--due" style={{ marginTop: 4, display: "inline-block" }}>
+                            Due {formatAmount(resolveSaleDue(s))}
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
