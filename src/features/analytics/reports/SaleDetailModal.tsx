@@ -73,29 +73,31 @@ export default function SaleDetailModal({ saleId, onClose }: { saleId: string; o
               </div>
             </div>
 
-            <table className="sd-items-table">
-              <thead>
-                <tr>
-                  <th>Item</th><th>Type</th><th>Qty</th><th>Unit Price</th>
-                  <th>Discount</th><th>Total</th><th>Staff</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(!data.items || data.items.length === 0) ? (
-                  <tr><td colSpan={7} className="sd-empty-cell">No line items</td></tr>
-                ) : data.items.map((it: any) => (
-                  <tr key={it.id}>
-                    <td>{it.name}</td>
-                    <td>{it.item_type}</td>
-                    <td>{it.quantity}</td>
-                    <td>{money(it.unit_price)}</td>
-                    <td>{money(it.discount_amount)}</td>
-                    <td>{money(it.total_price)}</td>
-                    <td>{it.staff_name ?? "—"}</td>
+            <div className="sd-items-table-wrap">
+              <table className="sd-items-table">
+                <thead>
+                  <tr>
+                    <th>Item</th><th>Type</th><th>Qty</th><th>Unit Price</th>
+                    <th>Discount</th><th>Total</th><th>Staff</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {(!data.items || data.items.length === 0) ? (
+                    <tr><td colSpan={7} className="sd-empty-cell">No line items</td></tr>
+                  ) : data.items.map((it: any) => (
+                    <tr key={it.id}>
+                      <td>{it.name}</td>
+                      <td>{it.item_type}</td>
+                      <td>{it.quantity}</td>
+                      <td>{money(it.unit_price)}</td>
+                      <td>{money(it.discount_amount)}</td>
+                      <td>{money(it.total_price)}</td>
+                      <td>{it.staff_name ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
 
             <div className="sd-totals">
               <div className="sd-row"><span>Subtotal</span><span>{money(data.sale.subtotal)}</span></div>

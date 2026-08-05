@@ -217,7 +217,7 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
     setShowFiltersPanel(false);
   };
 
-  const statusOf = (r: EarnedRow) => r.pending > 0 && r.paid > 0 ? "Partial" : r.pending > 0 ? "Pending" : r.paid > 0 ? "Paid" : "—";
+  const statusOf = (r: EarnedRow) => r.pending > 0 && r.paid > 0 ? "Partial" : r.pending > 0 ? "Unpaid" : r.paid > 0 ? "Paid" : "—";
   const HEADERS = ["Staff", "Item", "Transactions", `Revenue (${currencySymbol})`, `Commission Earned (${currencySymbol})`, `Pending (${currencySymbol})`, `Paid (${currencySymbol})`, "Status"];
   const exportRows = () => filteredRows.map(r => [r.staffName, r.items.join(", "), r.transactions, r.revenue, r.earned, r.pending, r.paid, statusOf(r)]);
   const paged = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
@@ -352,7 +352,7 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
               <Select label="Commission Status" containerClass="rp-cr-filter-field" value={draftStatus} onChange={e => setDraftStatus(e.target.value)}>
                 <option value="All">All</option>
                 <option value="paid">Paid</option>
-                <option value="pending">Pending</option>
+                <option value="pending">Unpaid</option>
                 <option value="partial">Partial</option>
               </Select>
             </div>
