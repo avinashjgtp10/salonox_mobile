@@ -16,7 +16,6 @@ import { formatPaymentMode } from "../../../utils/paymentMode";
 import { useDraftFilters } from "./useDraftFilters";
 import ReportFiltersModal from "./ReportFiltersModal";
 import SaleDetailModal from "./SaleDetailModal";
-import StaffHistoryModal from "./StaffHistoryModal";
 import "./StaffSalesReport.scss";
 
 const REPORT_NAME = "Staff Sales";
@@ -176,7 +175,6 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
   const [currentPage,    setCurrentPage]    = useState(1);
   const [pageSize,       setPageSize]       = useState(25);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
-  const [selectedStaff,  setSelectedStaff]  = useState<{ id: string; name: string } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -357,17 +355,7 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
               >
                 <td className="rp-ss-idx">#{(currentPage - 1) * pageSize + i + 1}</td>
                 <td className="fw-semibold">
-                  <span
-                    className={r.staffId ? "rp-detail-link" : undefined}
-                    title={r.staffId ? `View ${r.staffName}'s sales history` : undefined}
-                    onClick={e => {
-                      if (!r.staffId) return;
-                      e.stopPropagation();
-                      setSelectedStaff({ id: r.staffId, name: r.staffName });
-                    }}
-                  >
-                    {r.staffName}
-                  </span>
+                  {r.staffName}
                   {r.staffCount > 1 && <span className="rp-ss-multi-staff-badge">+{r.staffCount - 1} more</span>}
                 </td>
                 <td>{r.contact}</td>
@@ -390,16 +378,6 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
 
       {selectedSaleId && (
         <SaleDetailModal saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} />
-      )}
-
-      {selectedStaff && (
-        <StaffHistoryModal
-          staffId={selectedStaff.id}
-          staffName={selectedStaff.name}
-          dateFrom={dateFrom}
-          dateTo={dateTo}
-          onClose={() => setSelectedStaff(null)}
-        />
       )}
 
       <ReportFiltersModal
