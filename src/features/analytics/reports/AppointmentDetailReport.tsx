@@ -37,7 +37,8 @@ interface AppointmentRow {
 }
 
 const APPT_STATUSES = ["booked", "paid", "partial", "cancelled", "no-show", "deleted"];
-const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet"];
+const ALL_STATUSES_ID = "__all__";
+const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Membership", "Package"];
 const fmtLabel = (s: string) => s.replace(/[_-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
 const ITEM_TYPE_LABELS: Record<string, string> = {
@@ -168,7 +169,14 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
   ].reduce((a, b) => a + b, 0);
 
   const openFiltersPanel = () => {
-    setDraftStatuses(selectedStatuses);
+    // Reflect "All" as checked when every real status is already applied,
+    // so reopening the panel after picking All (or after manually checking
+    // every box) shows it in the same state the user left it in.
+    setDraftStatuses(
+      selectedStatuses.length === APPT_STATUSES.length
+        ? [ALL_STATUSES_ID, ...selectedStatuses]
+        : selectedStatuses
+    );
     setDraftPaymentMethods(paymentMethods);
     setDraftStaffIds(staffFilterIds);
     setShowFiltersPanel(true);
@@ -176,14 +184,45 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
 
   const cancelFiltersPanel = () => setShowFiltersPanel(false);
 
+  // Matches the shared useDraftFilters hook's clear() semantics used by the
+  // rest of this reports module: Clear resets both the in-modal draft AND
+  // the already-applied filters (not just the draft, which Cancel/× already
+  // discards on its own) and closes the panel — otherwise nothing in the
+  // table actually changes unless Apply is clicked afterward.
   const clearDraftFilters = () => {
     setDraftStatuses([]);
     setDraftPaymentMethods([]);
     setDraftStaffIds([]);
+    setSelectedStatuses([]);
+    setPaymentMethods([]);
+    setStaffFilterIds([]);
+    setShowFiltersPanel(false);
+  };
+
+  // "All" is a UI-only pseudo-status, not a real appointment status — the
+  // backend has no status called "all". Checking it selects every real
+  // status (so the request explicitly asks for everything, including
+  // deleted); unchecking it clears the rest. Checking every real status by
+  // hand also auto-checks "All" to keep the two in sync.
+  const handleDraftStatusChange = (ids: string[]) => {
+    const hadAll = draftStatuses.includes(ALL_STATUSES_ID);
+    const hasAll = ids.includes(ALL_STATUSES_ID);
+    if (hasAll && !hadAll) {
+      setDraftStatuses([ALL_STATUSES_ID, ...APPT_STATUSES]);
+    } else if (!hasAll && hadAll) {
+      setDraftStatuses([]);
+    } else {
+      const withoutAll = ids.filter(id => id !== ALL_STATUSES_ID);
+      setDraftStatuses(
+        withoutAll.length === APPT_STATUSES.length
+          ? [ALL_STATUSES_ID, ...withoutAll]
+          : withoutAll
+      );
+    }
   };
 
   const applyFilters = () => {
-    setSelectedStatuses(draftStatuses);
+    setSelectedStatuses(draftStatuses.filter(s => s !== ALL_STATUSES_ID));
     setPaymentMethods(draftPaymentMethods);
     setStaffFilterIds(draftStaffIds);
     setShowFiltersPanel(false);
@@ -207,7 +246,9 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
               csv
               filterLines={[
                 ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
-                ...(selectedStatuses.length > 0 ? [`Appointment Status: ${selectedStatuses.map(fmtLabel).join(", ")}`] : []),
+                ...(selectedStatuses.length > 0
+                  ? [`Appointment Status: ${selectedStatuses.length === APPT_STATUSES.length ? "All" : selectedStatuses.map(fmtLabel).join(", ")}`]
+                  : []),
                 ...(paymentMethods.length > 0 ? [`Payment Method: ${paymentMethods.join(", ")}`] : []),
                 ...(staffFilterIds.length > 0
                   ? [`Staff: ${staffOptions.filter(o => staffFilterIds.includes(o.id)).map(o => o.label).join(", ")}`]
@@ -249,7 +290,7 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
           <input
             type="text"
             className="rp-detail-search-input"
-            placeholder="Search client name, mobile number, invoice number or item name"
+            placeholder="Search client name, item name or staff name"
             value={search}
             onChange={e => setSearchInput(e.target.value)}
           />
@@ -350,10 +391,10 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
               <MultiSelectCheckbox
                 label="Appointment Status"
                 containerClass="rp-cr-filter-field"
-                options={APPT_STATUSES.map(s => ({ id: s, label: fmtLabel(s) }))}
+                options={[{ id: ALL_STATUSES_ID, label: "All" }, ...APPT_STATUSES.map(s => ({ id: s, label: fmtLabel(s) }))]}
                 selected={draftStatuses}
-                onChange={setDraftStatuses}
-                placeholder="All statuses"
+                onChange={handleDraftStatusChange}
+                placeholder="All Status"
               />
 
               <MultiSelectCheckbox
