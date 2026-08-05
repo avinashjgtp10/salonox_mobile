@@ -118,6 +118,12 @@ const ServicesListPage: React.FC = () => {
   const [deleteLoading, setDeleteLoading]       = useState(false);
   const [highlightedIndex, setHighlightedIndex] = useState(-1);
 
+  // Bulk selection state
+  const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string | number>>(new Set());
+  const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
+  const [deleteBulkInput, setDeleteBulkInput]         = useState("");
+  const [deleteBulkLoading, setDeleteBulkLoading]     = useState(false);
+
   const optMenuRef = useRef<HTMLDivElement>(null);
   const [showOptMenu, setShowOptMenu] = useState(false);
 
@@ -370,6 +376,41 @@ const ServicesListPage: React.FC = () => {
   const hasActiveSearch = searchQuery.trim() !== "";
   const hasActiveFilters = filterActiveCount > 0 || selectedCategory !== "all" || hasActiveSearch;
 
+  const handleToggleSelectService = useCallback((id: string | number, checked: boolean) => {
+    setSelectedServiceIds((prev) => {
+      const next = new Set(prev);
+      if (checked) {
+        next.add(id);
+      } else {
+        next.delete(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleToggleSelectAllServices = useCallback((checked: boolean) => {
+    if (checked) {
+      const allIds = services.map((s) => s.id);
+      setSelectedServiceIds(new Set(allIds));
+    } else {
+      setSelectedServiceIds(new Set());
+    }
+  }, [services]);
+
+  const handleToggleGroupServices = useCallback((groupServicesList: Service[], checked: boolean) => {
+    setSelectedServiceIds((prev) => {
+      const next = new Set(prev);
+      groupServicesList.forEach((s) => {
+        if (checked) {
+          next.add(s.id);
+        } else {
+          next.delete(s.id);
+        }
+      });
+      return next;
+    });
+  }, []);
+
   return (
     <div className="slp">
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
@@ -469,6 +510,42 @@ const ServicesListPage: React.FC = () => {
           <ArrowDownUp size={15} /> Manage order
         </button> */}
       </div>
+
+      {/* ── BULK ACTION BAR ─────────────────────────────────────────────────── */}
+      {selectedServiceIds.size > 0 && (
+        <div className="slp__bulk-bar">
+          <div className="slp__bulk-left">
+            <label className="slp__bulk-select-all">
+              <input
+                type="checkbox"
+                checked={services.length > 0 && services.every((s) => selectedServiceIds.has(s.id))}
+                onChange={(e) => handleToggleSelectAllServices(e.target.checked)}
+              />
+              Select all on page ({services.length})
+            </label>
+            <span className="slp__bulk-count">
+              {selectedServiceIds.size} service{selectedServiceIds.size > 1 ? "s" : ""} selected
+            </span>
+          </div>
+          <div className="slp__bulk-actions">
+            <button
+              className="slp__btn slp__btn--ghost"
+              onClick={() => setSelectedServiceIds(new Set())}
+            >
+              Clear selection
+            </button>
+            <button
+              className="slp__btn slp__btn--danger"
+              onClick={() => {
+                setDeleteBulkInput("");
+                setShowBulkDeleteModal(true);
+              }}
+            >
+              <Trash3 size={14} /> Delete selected ({selectedServiceIds.size})
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* ── BODY ───────────────────────────────────────────────────────────── */}
       <div className={`slp__body${selectedService ? " slp__body--panel-open" : ""}`}>
@@ -603,6 +680,18 @@ const ServicesListPage: React.FC = () => {
               <div key={group.id} className="slp__group">
                 <div className="slp__group-header">
                   <div className="d-flex align-items-center gap-2">
+                    <input
+                      type="checkbox"
+                      className="slp__svc-checkbox"
+                      checked={
+                        group.services.length > 0 &&
+                        group.services.every((s) => selectedServiceIds.has(s.id))
+                      }
+                      onChange={(e) =>
+                        handleToggleGroupServices(group.services, e.target.checked)
+                      }
+                      title="Select all in category"
+                    />
                     {group.color && (
                       <span
                         className="slp__group-dot"
@@ -662,6 +751,8 @@ const ServicesListPage: React.FC = () => {
                     <ServiceCard
                       key={svc.id}
                       service={svc}
+                      isSelected={selectedServiceIds.has(svc.id)}
+                      onSelect={handleToggleSelectService}
                       openMenuId={openCardMenu}
                       onMenuToggle={setOpenCardMenu}
                       onEdit={(id) =>
@@ -919,6 +1010,73 @@ const ServicesListPage: React.FC = () => {
                 }}
               >
                 {deleteLoading ? "Deleting…" : "Delete service"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BULK DELETE MODAL ────────────────────────────────────────────── */}
+      {showBulkDeleteModal && (
+        <div className="slp__overlay" onClick={() => setShowBulkDeleteModal(false)}>
+          <div className="slp__modal" onClick={(e) => e.stopPropagation()}>
+            <div className="slp__modal-header">
+              <h4>Delete selected services</h4>
+              <button
+                className="slp__modal-close"
+                onClick={() => setShowBulkDeleteModal(false)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="slp__modal-body">
+              <p style={{ margin: "0 0 12px", color: "#374151" }}>
+                Are you sure you want to delete <strong>{selectedServiceIds.size}</strong> selected service(s)?
+                This action cannot be undone.
+              </p>
+              <div className="slp__field">
+                <label>
+                  Type <strong>DELETE</strong> to confirm:
+                </label>
+                <input
+                  className="slp__input"
+                  placeholder="Type DELETE"
+                  value={deleteBulkInput}
+                  onChange={(e) => setDeleteBulkInput(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="slp__modal-footer">
+              <button
+                className="slp__btn slp__btn--ghost"
+                onClick={() => setShowBulkDeleteModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                className="slp__btn slp__btn--danger"
+                disabled={deleteBulkInput !== "DELETE" || deleteBulkLoading}
+                onClick={async () => {
+                  setDeleteBulkLoading(true);
+                  const idsToDelete = Array.from(selectedServiceIds);
+                  await Promise.allSettled(
+                    idsToDelete.map((id) => dispatch(deleteServiceThunk(id)))
+                  );
+                  setDeleteBulkLoading(false);
+                  setShowBulkDeleteModal(false);
+                  setSelectedServiceIds(new Set());
+                  fetchServices({
+                    page: currentPage,
+                    limit: pageSize,
+                    search: searchQuery || undefined,
+                    categoryId:
+                      selectedCategory !== "all" ? selectedCategory : undefined,
+                    ...buildFilterParams(filters),
+                  });
+                }}
+              >
+                {deleteBulkLoading ? "Deleting…" : `Delete ${selectedServiceIds.size} service(s)`}
               </button>
             </div>
           </div>
