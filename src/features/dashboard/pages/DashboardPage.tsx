@@ -653,6 +653,41 @@ const BottomStatCards = memo(function BottomStatCards({
 
 // ─── Section: Revenue Chart ───────────────────────────────────────────────────
 
+const PeakDotLabel = memo(function PeakDotLabel(props: any) {
+  const { x, y, value, isFirst, isLast } = props;
+  if (x == null || y == null) return null;
+
+  let textAnchor: "start" | "middle" | "end" = "middle";
+  let dx = 0;
+
+  // If peak is at the first point, anchor to start and offset right so label doesn't bleed into Y-axis ticks
+  if (isFirst) {
+    textAnchor = "start";
+    dx = 8;
+  } else if (isLast) {
+    // If peak is at the last point, anchor to end and offset left so label doesn't get clipped on the right edge
+    textAnchor = "end";
+    dx = -8;
+  }
+
+  // If point is near top of chart area, shift label below dot to prevent top clipping
+  const dy = y < 35 ? 16 : -10;
+
+  return (
+    <text
+      x={x + dx}
+      y={y + dy}
+      fill="#4f46e5"
+      fontSize={11}
+      fontWeight={700}
+      textAnchor={textAnchor}
+      className="db-peak-label"
+    >
+      {value}
+    </text>
+  );
+});
+
 const RevenueChartPanel = memo(function RevenueChartPanel({
   revenue,
   chartLoading,
@@ -677,11 +712,21 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
     [localRevenue]
   );
 
-  // Highlight the single best-performing point on the chart instead of
-  // leaving the line to speak for itself.
-  const peak = useMemo(() => {
+  // Highlight the single best-performing point on the chart and track its index position
+  const peakInfo = useMemo(() => {
     if (!localRevenue.length) return null;
-    return localRevenue.reduce((best, r) => (r.revenue > best.revenue ? r : best), localRevenue[0]);
+    let maxIdx = 0;
+    for (let i = 1; i < localRevenue.length; i++) {
+      if (localRevenue[i].revenue > localRevenue[maxIdx].revenue) {
+        maxIdx = i;
+      }
+    }
+    const peakItem = localRevenue[maxIdx];
+    return {
+      peak: peakItem,
+      isFirst: maxIdx === 0,
+      isLast: maxIdx === localRevenue.length - 1,
+    };
   }, [localRevenue]);
 
   // Hourly/daily buckets can run past a couple dozen points — thin the
@@ -732,7 +777,7 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
         </div>
       ) : (
         <ResponsiveContainer width="100%" height={240}>
-          <AreaChart data={localRevenue} margin={{ top: 20, right: 10, left: 0, bottom: 0 }}>
+          <AreaChart data={localRevenue} margin={{ top: 25, right: 35, left: 10, bottom: 0 }}>
             <defs>
               <linearGradient id="revGrad" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="5%"  stopColor="#4f46e5" stopOpacity={0.25} />
@@ -748,7 +793,8 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
               interval={tickInterval}
             />
             <YAxis
-              tick={{ fontSize: 12, fill: "#9ca3af" }}
+              width={60}
+              tick={{ fontSize: 11, fill: "#9ca3af", dx: -4 }}
               axisLine={false}
               tickLine={false}
               tickFormatter={(v) => v >= 1000 ? `${currencySymbol}${(v / 1000).toFixed(0)}k` : `${currencySymbol}${v}`}
@@ -764,21 +810,21 @@ const RevenueChartPanel = memo(function RevenueChartPanel({
               dot={false}
               activeDot={{ r: 5, fill: "#4f46e5", stroke: "#fff", strokeWidth: 2 }}
             />
-            {peak && peak.revenue > 0 && (
+            {peakInfo && peakInfo.peak.revenue > 0 && (
               <ReferenceDot
-                x={peak.month}
-                y={peak.revenue}
+                x={peakInfo.peak.month}
+                y={peakInfo.peak.revenue}
                 r={5}
                 fill="#4f46e5"
                 stroke="#fff"
                 strokeWidth={2}
-                label={{
-                  value: fmt(peak.revenue),
-                  position: "top",
-                  fontSize: 11,
-                  fontWeight: 700,
-                  fill: "#4f46e5",
-                }}
+                label={
+                  <PeakDotLabel
+                    value={fmt(peakInfo.peak.revenue)}
+                    isFirst={peakInfo.isFirst}
+                    isLast={peakInfo.isLast}
+                  />
+                }
               />
             )}
           </AreaChart>
@@ -814,13 +860,13 @@ const AppointmentSummaryPanel = memo(function AppointmentSummaryPanel({
           <ResponsiveContainer width="100%" height={240}>
             <BarChart
               data={apptChartData}
-              margin={{ top: 5, right: 10, left: -20, bottom: 0 }}
+              margin={{ top: 15, right: 15, left: 0, bottom: 0 }}
               barSize={22}
               barGap={4}
             >
               <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
               <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
+              <YAxis width={35} tick={{ fontSize: 12, fill: "#9ca3af", dx: -4 }} axisLine={false} tickLine={false} allowDecimals={false} />
               <Tooltip content={<ApptTooltip />} />
               <Bar dataKey="completed" name="Completed" fill="#111827" radius={[4, 4, 0, 0]} />
               <Bar dataKey="pending"   name="Upcoming"  fill="#d1d5db" radius={[4, 4, 0, 0]} />
