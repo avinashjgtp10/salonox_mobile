@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, ChevronDown } from "react-bootstrap-icons";
 import { useServiceFilters } from "../hooks/useServiceFilters";
+import { useServices } from "../hooks/useServices";
 import type { ServiceFiltersState } from "../../../store/serviceFiltersSlice";
 import "../styles/ServiceFilterDrawer.scss";
 
@@ -12,6 +13,7 @@ const ServiceFilterDrawer: React.FC<Props> = ({
   onClose,
 }) => {
   const { filters: reduxFilters, apply, reset, activeCount } = useServiceFilters();
+  const { categories } = useServices();
 
   // Local draft state — user edits here before pressing Apply
   const [draft, setDraft] = useState<ServiceFiltersState>(reduxFilters);
@@ -43,11 +45,50 @@ const ServiceFilterDrawer: React.FC<Props> = ({
             )}
           </div>
           <button className="close-icon-btn" onClick={onClose}>
-            <X size={28} />
+            <X size={24} />
           </button>
         </header>
 
         <div className="service-filters-modal__body">
+          {/* Categories */}
+          <div className="filter-group">
+            <label>Categories</label>
+            <div className="select-wrapper">
+              <select
+                className="form-select-custom"
+                value={draft.categoryId}
+                onChange={(e) => set("categoryId", e.target.value)}
+              >
+                <option value="all">All categories</option>
+                {categories.map((cat) => (
+                  <option key={cat.id} value={String(cat.id)}>
+                    {cat.name}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown className="select-chevron" size={14} />
+            </div>
+          </div>
+
+          {/* Duration */}
+          <div className="filter-group">
+            <label>Duration</label>
+            <div className="select-wrapper">
+              <select
+                className="form-select-custom"
+                value={draft.durationRange}
+                onChange={(e) => set("durationRange", e.target.value)}
+              >
+                <option value="all">All durations</option>
+                <option value="0-30">Under 30 min (0-30 min)</option>
+                <option value="30-60">30-60 min</option>
+                <option value="60-120">60-120 min (1-2 hours)</option>
+                <option value="120+">120+ min (Over 2 hours)</option>
+              </select>
+              <ChevronDown className="select-chevron" size={14} />
+            </div>
+          </div>
+
           {/* Online bookings */}
           <div className="filter-group">
             <label>Online bookings</label>
@@ -102,7 +143,7 @@ const ServiceFilterDrawer: React.FC<Props> = ({
 
         <footer className="service-filters-modal__footer">
           <button className="btn-clear-rounded" onClick={handleClear}>
-            Clear all
+            Clear filters
           </button>
           <button className="btn-apply-rounded" onClick={handleApply}>
             Apply
