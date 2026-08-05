@@ -228,8 +228,27 @@ export const ClientPanel: React.FC<Props> = ({
   // stale index from a previous search never lands on the wrong client.
   useEffect(() => { setActiveIndex(-1); }, [suggestions]);
 
+  // Enter with zero matches ("no clients found for X") used to just do
+  // nothing — same action as clicking the "No clients found" prompt: reveal
+  // the Add Client form below, already prefilled with whatever was typed
+  // (the search effect above fills addFirst/addPhone as soon as noResults
+  // goes true), instead of silently swallowing the keystroke.
+  function openAddFormFromSearch() {
+    skipNextClear.current = true;
+    setSearch("");
+    setShowDrop(false);
+    setNoResults(false);
+    setShowAddForm(true);
+  }
+
   function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
-    if (!showDrop || suggestions.length === 0) return;
+    if (!showDrop) return;
+    if (e.key === "Enter" && noResults) {
+      e.preventDefault();
+      openAddFormFromSearch();
+      return;
+    }
+    if (suggestions.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
       setActiveIndex((i) => (i + 1) % suggestions.length);
@@ -385,11 +404,7 @@ export const ClientPanel: React.FC<Props> = ({
                 className="client-dropdown__no-results"
                 onMouseDown={(e) => {
                   e.preventDefault();
-                  skipNextClear.current = true;
-                  setSearch("");
-                  setShowDrop(false);
-                  setNoResults(false);
-                  setShowAddForm(true);
+                  openAddFormFromSearch();
                 }}
               >
                 <svg className="client-dropdown__no-results-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
