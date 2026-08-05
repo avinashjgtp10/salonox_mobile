@@ -34,3 +34,5 @@ export { default as SuccessOverlay } from "./SuccessOverlay";
 export { default as ErrorOverlay } from "./ErrorOverlay";
 export { default as MultiSelectCheckbox } from "./MultiSelectCheckbox";
 export type { FilterOption } from "./MultiSelectCheckbox";
+export { default as JiraFilterMenu } from "./JiraFilterMenu";
+export type { JiraFilterField, FilterDropdownOption } from "./JiraFilterMenu";

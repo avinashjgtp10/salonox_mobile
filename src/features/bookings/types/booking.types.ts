@@ -41,9 +41,16 @@ export interface ServiceItem {
   // blended bill-level rate approximation.
   tax?: number;
   // Copied from the service's own configured recipe when it's picked (see
-  // ServiceRow.selectService) — `qty` is that configured/standard amount,
-  // read-only in the Consumables panel. `actualQty` is what staff actually
-  // used, editable per appointment (defaults to `qty` until touched).
+  // ServiceRow.selectService) — `qty` is the STANDARD usage for this row at
+  // its CURRENT billed quantity (unitQty × row.qty, kept in sync whenever
+  // row.qty changes — see ServiceRow's rescaleConsumables), read-only in the
+  // Consumables panel. `unitQty` is the immutable per-single-session recipe
+  // rate that `qty` is rescaled from; never sent on the save payload, purely
+  // a frontend bookkeeping field so a later qty change has a stable base to
+  // multiply from instead of compounding off the already-scaled `qty`.
+  // `actualQty` is what staff actually used, editable per appointment
+  // (defaults to `qty` until manually touched, then stays put across further
+  // qty changes since it now represents a deliberate override).
   // Carried on the appointment save payload but never sent to
   // calculate-totals — consumables never affect billing — and only actually
   // deducted from stock server-side once the appointment is paid.
@@ -51,6 +58,7 @@ export interface ServiceItem {
     productId: string;
     productName: string;
     qty: number;
+    unitQty?: number;
     unit: string;
     actualQty?: number;
   }[];

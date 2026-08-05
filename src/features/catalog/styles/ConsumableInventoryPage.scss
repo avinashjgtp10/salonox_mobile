@@ -35,7 +35,41 @@
   &:disabled { opacity: 0.6; cursor: not-allowed; }
 }
 
-.ci-row-actions-btn--danger { color: #ef4444 !important; }
+// Portaled to document.body and positioned inline per-instance from the
+// trigger's own getBoundingClientRect() — see RowActionsMenu in
+// ConsumableInventoryPage.tsx.
+.ci-row-actions-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 170px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.16);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+}
+
+.ci-row-actions-menu__item {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 13px;
+  color: #111827;
+  cursor: pointer;
+
+  &:hover { background: #f9fafb; }
+
+  &--danger {
+    color: #dc2626;
+    &:hover { background: #fef2f2; }
+  }
+}
 
 .ci-confirm-overlay {
   position: fixed;
@@ -120,6 +154,52 @@
     flex: 1;
     &::placeholder { color: #9ca3af; }
   }
+}
+
+.ci-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: -6px 0 16px;
+}
+
+.ci-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  padding: 0 6px 0 10px;
+  border-radius: 999px;
+  background: #f3f4f6;
+  color: #111827;
+  font-size: 12px;
+  font-weight: 500;
+
+  button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    &:hover { background: #e5e7eb; color: #111827; }
+  }
+}
+
+.ci-chip-row__clear {
+  border: none;
+  background: transparent;
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  &:hover { color: #111827; }
 }
 
 .ci-table-wrap {
@@ -233,6 +313,11 @@
   &--healthy { background: #ecfdf5; color: #059669; }
   &--low { background: #fffbeb; color: #b45309; }
   &--out_of_stock { background: #fef2f2; color: #b91c1c; }
+  &--deactivated { background: #f3f4f6; color: #6b7280; }
+}
+
+.ci-table-row--deactivated {
+  opacity: 0.55;
 }
 
 .ci-row-actions-btn {

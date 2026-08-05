@@ -155,16 +155,21 @@ export interface ConsumableUsagePayload {
 
 // ─── Consumable Inventory (dedicated module) ─────────────────────────────────
 
-export type ConsumableStatus = "healthy" | "low" | "out_of_stock";
+export type ConsumableStatus = "healthy" | "low" | "out_of_stock" | "deactivated";
 
+// Every filter below is multi-select (Jira-style filter panel on the
+// Consumable Inventory page) — array of 1+ values, absent/empty means no
+// restriction. Serialized as a comma-joined string per field when sent to
+// the API (see fetchConsumablesThunk) — the backend splits it back apart.
 export interface ConsumableListFilters {
   search?: string;
-  category_id?: string;
-  brand_id?: string;
-  supplier_id?: string;
-  status?: ConsumableStatus | "all";
-  unit?: string;
-  service_id?: string;
+  category_id?: string[];
+  brand_id?: string[];
+  supplier_id?: string[];
+  status?: ConsumableStatus[];
+  unit?: string[];
+  service_id?: string[];
+  product_type?: ("consumable" | "both")[];
   sort_by?: "newest" | "lowest_stock" | "most_used" | "a_z";
   page?: number;
   limit?: number;
@@ -193,6 +198,7 @@ export interface ConsumableKpis {
   total_consumables: number;
   total_available_stock: number;
   low_stock_items: number;
+  out_of_stock_items: number;
   assigned_services: number;
 }
 
