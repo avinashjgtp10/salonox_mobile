@@ -12,11 +12,90 @@ import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import { Pagination, DateRangePicker } from "../../../components/ui";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatPaymentMode } from "../../../utils/paymentMode";
+import { useDraftFilters } from "./useDraftFilters";
+import ReportFiltersModal from "./ReportFiltersModal";
 import SaleDetailModal from "./SaleDetailModal";
 import StaffHistoryModal from "./StaffHistoryModal";
 import "./StaffSalesReport.scss";
 
 const REPORT_NAME = "Staff Sales";
+
+interface StaffSalesFilterValues {
+  paymentMode: string;
+  itemType: string;
+  paymentStatus: string;
+  sort: string;
+}
+
+const STAFF_SALES_FILTER_DEFAULTS: StaffSalesFilterValues = {
+  paymentMode: "All", itemType: "All", paymentStatus: "All", sort: "None",
+};
+
+const ITEM_TYPE_OPTIONS = [
+  { label: "All", value: "All" },
+  { label: "Service", value: "service" },
+  { label: "Product", value: "product" },
+  { label: "Package", value: "package" },
+  { label: "Membership", value: "membership" },
+];
+
+const PAYMENT_STATUS_OPTIONS = [
+  { label: "All", value: "All" },
+  { label: "Paid", value: "paid" },
+  { label: "Booked", value: "booked" },
+  { label: "Cancelled", value: "cancelled" },
+  { label: "Refunded", value: "refunded" },
+];
+
+const SORT_OPTIONS = [
+  { label: "None", value: "None" },
+  { label: "Most Staff Sales", value: "sales_desc" },
+  { label: "Least Staff Sales", value: "sales_asc" },
+];
+
+// Reused Daily Sheet's own FilterField (a searchable single-select dropdown)
+// rather than importing across report files — small, self-contained, and
+// each report's Filters modal already reuses ReportFiltersModal/useDraftFilters
+// while keeping its own field renderers per the existing convention.
+function FilterField({ label, value, options, onChange }: {
+  label: string;
+  value: string;
+  options: { label: string; value: string }[];
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+
+  return (
+    <div className="rp-detail-filter-group rp-ds-filter-field" ref={wrapRef}>
+      <label className="rp-detail-filter-label">{label}</label>
+      <button type="button" className="rp-detail-select rp-ds-filter-select" onClick={() => setOpen(v => !v)}>
+        {options.find(o => o.value === value)?.label ?? "All"}
+        <span className="rp-detail-caret">▼</span>
+      </button>
+      {open && (
+        <div className="rp-ds-filter-dropdown-wrap">
+          <div className="rp-ds-filter-list">
+            {options.map(o => (
+              <div key={o.value} className={`rp-detail-dropdown-item ${o.value === value ? "active" : ""}`}
+                onClick={() => { onChange(o.value); setOpen(false); }}>{o.label}</div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface StaffSaleRow {
   id: string;
@@ -83,6 +162,10 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
   const [staffOptions,   setStaffOptions]   = useState<{ id: string; label: string }[]>([]);
   const [search,         setSearchInput]    = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [committedFilters, setCommittedFilters] = useState<StaffSalesFilterValues>(STAFF_SALES_FILTER_DEFAULTS);
+  const { paymentMode: paymentModeFilter, itemType: itemTypeFilter, paymentStatus: paymentStatusFilter, sort: sortFilter } = committedFilters;
+  const filtersPanel = useDraftFilters(committedFilters, setCommittedFilters, STAFF_SALES_FILTER_DEFAULTS);
+  const [paymentModeOptions, setPaymentModeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
   const [loading,        setLoading]        = useState(false);
   const [rows,           setRows]           = useState<StaffSaleRow[]>([]);
   const [total,          setTotal]          = useState(0);
@@ -123,11 +206,19 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
       };
       if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
       if (debouncedSearch) body.search = debouncedSearch;
+      if (paymentModeFilter !== "All") body.payment_mode = paymentModeFilter;
+      if (itemTypeFilter !== "All") body.item_type = itemTypeFilter;
+      if (paymentStatusFilter !== "All") body.payment_status = paymentStatusFilter;
+      if (sortFilter !== "None") body.sort = sortFilter;
       const res = await api.post(STAFF_SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
       setRows(raw.map(mapRow));
       setTotal(Number(data?.pagination?.total) || 0);
+      const modes = data?.filters_available?.payment_modes;
+      if (Array.isArray(modes)) {
+        setPaymentModeOptions([{ label: "All", value: "All" }, ...modes.map((m: any) => ({ label: formatPaymentMode(String(m)), value: String(m) }))]);
+      }
       const s = data?.stats ?? {};
       setStats({
         totalSale: Number(s.total_sale) || 0,
@@ -147,10 +238,17 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, currentPage, pageSize]);
+  }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, currentPage, pageSize, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, debouncedSearch]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, debouncedSearch, paymentModeFilter, itemTypeFilter, paymentStatusFilter, sortFilter]);
+
+  const activeFilterCount = [
+    paymentModeFilter !== "All" ? 1 : 0,
+    itemTypeFilter !== "All" ? 1 : 0,
+    paymentStatusFilter !== "All" ? 1 : 0,
+    sortFilter !== "None" ? 1 : 0,
+  ].reduce((a, b) => a + b, 0);
 
   const HEADERS = ["Staff Name", "Contact", "Item Type", "Description", `Total Sales (${currencySymbol})`, `Paid (${currencySymbol})`, `Due Amount (${currencySymbol})`, `Commission (${currencySymbol})`, "Payment Mode", "Status", "Date"];
   const exportRows = () => rows.map(r => [r.staffName, r.contact, r.itemType, r.description, r.totalSales, r.paid, r.due, r.commission, r.paymentMode, r.status, r.date]);
@@ -179,6 +277,10 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
           onChange={setStaffFilterIds}
           placeholder="All staff"
         />
+        <button className="rp-ds-filters-btn" onClick={filtersPanel.openPanel}>
+          Filters
+          {activeFilterCount > 0 && <span className="rp-ds-filters-badge">{activeFilterCount}</span>}
+        </button>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -270,7 +372,7 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
                 </td>
                 <td>{r.contact}</td>
                 <td>{r.itemType}</td>
-                <td>{r.description}</td>
+                <td className="rp-ss-description" title={r.description}>{r.description}</td>
                 <td>{formatAmount(r.totalSales)}</td>
                 <td>{formatAmount(r.paid)}</td>
                 <td>{formatAmount(r.due)}</td>
@@ -299,6 +401,19 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
           onClose={() => setSelectedStaff(null)}
         />
       )}
+
+      <ReportFiltersModal
+        open={filtersPanel.isOpen}
+        onClose={filtersPanel.closePanel}
+        onClear={filtersPanel.clear}
+        onApply={filtersPanel.apply}
+        classPrefix="rp-ds"
+      >
+        <FilterField label="Payment Mode" value={filtersPanel.draft.paymentMode} options={paymentModeOptions} onChange={v => filtersPanel.setDraftField("paymentMode", v)} />
+        <FilterField label="Item Type" value={filtersPanel.draft.itemType} options={ITEM_TYPE_OPTIONS} onChange={v => filtersPanel.setDraftField("itemType", v)} />
+        <FilterField label="Payment Status" value={filtersPanel.draft.paymentStatus} options={PAYMENT_STATUS_OPTIONS} onChange={v => filtersPanel.setDraftField("paymentStatus", v)} />
+        <FilterField label="Sort By" value={filtersPanel.draft.sort} options={SORT_OPTIONS} onChange={v => filtersPanel.setDraftField("sort", v)} />
+      </ReportFiltersModal>
     </div>
   );
 }
