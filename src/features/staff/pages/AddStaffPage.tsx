@@ -374,7 +374,7 @@ const AddStaffPage: React.FC = () => {
                 {isDobInvalid && <span className="emp-field__error">Date of birth cannot be in the future</span>}
               </div>
               <div className="emp-field">
-                <label className="emp-field__label">Date of Joining<span className="text-danger">*</span></label>
+                <label className="emp-field__label">Date of Joining</label>
                 <input
                   className={`emp-input ${isDojInvalid ? "emp-input--invalid" : ""}`}
                   type="date"
