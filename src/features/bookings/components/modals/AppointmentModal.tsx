@@ -221,6 +221,21 @@ export const AppointmentModal: React.FC<Props> = ({
   const [productRows, setProductRows]       = useState<ProductItem[]>((existingBooking as any)?.productItems ?? []);
   const [membershipRows, setMembershipRows] = useState<MembershipItem[]>((existingBooking as any)?.membershipItems ?? []);
 
+  // Consumables panel (ServiceRow.tsx) shows Available/Remaining Stock from
+  // schedulerContext.productsList — but that list was previously only ever
+  // fetched for retail Product rows (or an existing booking that already had
+  // some), never just from picking a service with a consumables recipe, so a
+  // brand-new appointment/Quick Sale with only services left it empty and
+  // every consumable showed "—"/Out of Stock regardless of real stock.
+  useEffect(() => {
+    if (prodRequested.current) return;
+    const hasConsumables = serviceRows.some((r) => (r.consumables?.length ?? 0) > 0);
+    if (hasConsumables) {
+      prodRequested.current = true;
+      dispatch(fetchProductsThunk());
+    }
+  }, [serviceRows, dispatch]);
+
   // Actual-qty edits for each row's consumables — deliberately a SIBLING
   // state, never merged into serviceRows itself. serviceRows is a dependency
   // of the calculate-totals effect below; consumables never affect billing,
@@ -1856,6 +1871,7 @@ export const AppointmentModal: React.FC<Props> = ({
           serviceTaxByRow={serviceTaxByRow}
           consumableActuals={consumableActuals}
           onConsumableActualChange={handleConsumableActualChange}
+          clientName={selectedClient && selectedClient.id !== "walk-in" ? selectedClient.name : "Walk-In"}
           packageTaxByRow={packageTaxByRow}
           productTaxByRow={productTaxByRow}
           membershipTaxByRow={membershipTaxByRow}

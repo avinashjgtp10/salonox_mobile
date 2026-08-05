@@ -185,6 +185,7 @@ export interface ConsumableListRow {
   used_today: number;
   used_this_month: number;
   assigned_services_count: number;
+  last_used_at: string | null;
   status: ConsumableStatus;
 }
 
@@ -192,9 +193,13 @@ export interface ConsumableKpis {
   total_consumables: number;
   total_available_stock: number;
   low_stock_items: number;
-  out_of_stock_items: number;
-  inventory_value: number;
-  todays_consumption: number;
+  assigned_services: number;
+}
+
+export interface UnitConversion {
+  id: string;
+  unit_name: string;
+  conversion_to_base: number;
 }
 
 export interface AssignedServiceRow {
@@ -224,10 +229,12 @@ export interface ConsumableDetail extends ConsumableListRow {
   bottle_size: number | null;
   supply_price: number | null;
   measure_unit: string;
+  is_active: boolean;
   usage_stats: ConsumableUsageStats;
   assigned_services: AssignedServiceRow[];
   recent_consumption: RecentConsumptionRow[];
   stock_timeline: { label: string; remaining: number }[];
+  unit_conversions: UnitConversion[];
 }
 
 export type AdjustStockReason = "purchase" | "damage" | "expired" | "manual_correction";

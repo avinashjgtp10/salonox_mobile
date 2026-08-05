@@ -8,6 +8,7 @@ import { fetchSuppliersThunk, createSupplierThunk } from "../../../middleware/in
 import api from "../../../services/api/axios";
 import { PRODUCTS } from "../../../services/api/endpoints/products.endpoints";
 import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
+import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { PRODUCT_UNITS, TAX_TYPE_OPTIONS, type ProductType, type ProductUnit, type TaxType } from "../types/product.types";
 import type { ConsumableDetail } from "../../../types/inventory.types";
 import "../styles/ConsumableFormPage.scss";
@@ -17,6 +18,11 @@ interface AssignedServiceDraft {
   name: string;
   qty: string;
   unit: string;
+}
+
+interface UnitConversionDraft {
+  unit_name: string;
+  conversion_to_base: string;
 }
 
 const MIN_SEARCH_LENGTH = 2;
@@ -158,6 +164,13 @@ const ProductFormPage: React.FC = () => {
   const isConsumable = productType === "consumable" || productType === "both";
   const sellsRetail = productType === "retail" || productType === "both";
 
+  // ── Unit conversion (consumable/both only) ──────────────────────────────
+  // Named units (e.g. "Bottle" = 1000 ml) staff can log usage in, alongside
+  // the base unit — display/entry only, inventory itself always stays in
+  // the base unit. Saved to product_unit_conversions after the product
+  // itself is created/updated (needs a real product id).
+  const [unitConversions, setUnitConversions] = useState<UnitConversionDraft[]>([]);
+
   // ── Service assignment (consumable/both only) ───────────────────────────
   const [assignedServices, setAssignedServices] = useState<AssignedServiceDraft[]>([]);
   const [originalAssignedIds, setOriginalAssignedIds] = useState<Set<string>>(new Set());
@@ -225,6 +238,7 @@ const ProductFormPage: React.FC = () => {
           const drafts = detail.assigned_services.map((s) => ({ service_id: s.service_id, name: s.name, qty: String(s.qty), unit: s.unit || "" }));
           setAssignedServices(drafts);
           setOriginalAssignedIds(new Set(drafts.map((d) => d.service_id)));
+          setUnitConversions(detail.unit_conversions.map((c) => ({ unit_name: c.unit_name, conversion_to_base: String(c.conversion_to_base) })));
         }
       } catch {
         setError("Failed to load this product — try again.");
@@ -271,6 +285,29 @@ const ProductFormPage: React.FC = () => {
   async function handleAddSupplier(name: string) {
     const result = await dispatch(createSupplierThunk({ name })).unwrap();
     if (result?.id) setSupplierId(result.id);
+  }
+
+  function addUnitConversionRow() {
+    setUnitConversions((prev) => [...prev, { unit_name: "", conversion_to_base: "" }]);
+  }
+
+  function updateUnitConversionRow(index: number, field: keyof UnitConversionDraft, value: string) {
+    setUnitConversions((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+  }
+
+  function removeUnitConversionRow(index: number) {
+    setUnitConversions((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function syncUnitConversions(productId: string) {
+    // Blank rows (left over from clicking "+ Add" without filling it in) are
+    // silently dropped rather than blocked as a validation error — this
+    // section is optional, so an incomplete row shouldn't hold up saving
+    // the rest of the product.
+    const valid = unitConversions
+      .map((c) => ({ unit_name: c.unit_name.trim(), conversion_to_base: parseFloat(c.conversion_to_base) }))
+      .filter((c) => c.unit_name && Number.isFinite(c.conversion_to_base) && c.conversion_to_base > 0);
+    await api.put(INVENTORY.CONSUMABLE_UNIT_CONVERSIONS(productId), { unit_conversions: valid });
   }
 
   function removeAssignedService(serviceId: string) {
@@ -359,7 +396,10 @@ const ProductFormPage: React.FC = () => {
         productId = created.id;
       }
 
-      if (isConsumable && productId) await syncServiceAssignments(productId);
+      if (isConsumable && productId) {
+        await syncServiceAssignments(productId);
+        await syncUnitConversions(productId);
+      }
 
       navigate(listPath);
     } catch (err: any) {
@@ -504,6 +544,41 @@ const ProductFormPage: React.FC = () => {
             </>
           )}
         </section>
+
+        {/* Unit Conversion — consumable/both only */}
+        {isConsumable && (
+          <section className="cf-card">
+            <h3>Unit Conversion</h3>
+            <p className="cf-hint">
+              Optional named units staff can log usage in (e.g. Bottle, Sachet) — inventory itself always stays in
+              the base unit ({unit}) above.
+            </p>
+            {unitConversions.length > 0 && (
+              <div className="cf-assigned-list">
+                {unitConversions.map((row, i) => (
+                  <div key={i} className="cf-assigned-row">
+                    <input
+                      className="cf-assigned-row__name"
+                      placeholder="Unit name (e.g. Bottle)"
+                      value={row.unit_name}
+                      onChange={(e) => updateUnitConversionRow(i, "unit_name", e.target.value)}
+                    />
+                    <span>1 {row.unit_name || "unit"} =</span>
+                    <input
+                      type="number" min={0} className="cf-assigned-row__qty"
+                      placeholder="0"
+                      value={row.conversion_to_base}
+                      onChange={(e) => updateUnitConversionRow(i, "conversion_to_base", e.target.value)}
+                    />
+                    <span className="cf-assigned-row__unit">{unit}</span>
+                    <button type="button" onClick={() => removeUnitConversionRow(i)}><Trash size={13} /></button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <button type="button" className="cf-quick-add-link" onClick={addUnitConversionRow}>+ Add a unit</button>
+          </section>
+        )}
 
         {/* 3. Service Assignment — consumable/both only */}
         {isConsumable && (

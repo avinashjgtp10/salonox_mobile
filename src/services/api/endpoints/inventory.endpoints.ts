@@ -24,4 +24,6 @@ export const INVENTORY = {
   CONSUMABLES_USAGE_HISTORY: "/api/v1/inventory/consumables/usage-history",
   CONSUMABLE_BY_ID: (id: string) => `/api/v1/inventory/consumables/${id}`,
   CONSUMABLE_ADJUST: (id: string) => `/api/v1/inventory/consumables/${id}/adjust`,
+  CONSUMABLE_ASSIGNED_SERVICES: (id: string) => `/api/v1/inventory/consumables/${id}/assigned-services`,
+  CONSUMABLE_UNIT_CONVERSIONS: (id: string) => `/api/v1/inventory/consumables/${id}/unit-conversions`,
 } as const;

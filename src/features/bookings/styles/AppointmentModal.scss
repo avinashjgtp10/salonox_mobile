@@ -2024,12 +2024,13 @@ $success:    #22c55e;
     font-family: inherit;
     cursor: pointer;
     transition: all 0.15s;
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
 
     &--add {
       background: #3b82f6;
       color: $white;
       border: 1px solid #3b82f6;
-      &:hover { background: #2563eb; border-color: #2563eb; }
+      &:hover:not(:disabled) { background: #2563eb; border-color: #2563eb; }
     }
 
     &--close {
@@ -2258,6 +2259,137 @@ $success:    #22c55e;
   .svc-consumable-row__input--sm {
     flex: 0 0 64px;
   }
+
+  &--wrap {
+    flex-wrap: wrap;
+  }
+
+  &__available {
+    font-size: 11.5px;
+    color: $secondary;
+    white-space: nowrap;
+  }
+}
+
+// ── Consumable Usage modal (Quick Sale / Calendar) ──────────────────────────────
+// Wider variant of .svc-consumable-modal — the redesigned 8-column table
+// (Product/Available/Standard/Actual/Unit/Remaining/Status/Action) needs more
+// room than the old 4-column recipe-only layout.
+.svc-consumable-modal--wide {
+  width: 860px;
+}
+
+.svc-consumable-modal__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  padding: 10px 14px;
+  margin-bottom: 14px;
+  background: #f9fafb;
+  border-radius: 8px;
+
+  div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  span {
+    font-size: 10.5px;
+    font-weight: 700;
+    color: $secondary;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+  strong {
+    font-size: 13px;
+    color: $primary;
+    font-weight: 600;
+  }
+}
+
+.svc-recipe-header--full,
+.svc-recipe-row--full {
+  grid-template-columns: 1.4fr 100px 90px 100px 60px 100px 110px 70px;
+}
+
+.svc-recipe-row--full {
+  align-items: center;
+
+  .svc-recipe-row__name,
+  .svc-recipe-row__configured {
+    padding-top: 0;
+  }
+}
+
+.svc-recipe-row__row-actions {
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+}
+
+.svc-recipe-row__icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: $secondary;
+  padding: 5px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  font-size: 12px;
+  &:hover { background: #f3f4f6; color: $primary; }
+
+  &--danger {
+    color: #ef4444;
+    &:hover { background: #fef2f2; color: #dc2626; }
+  }
+}
+
+.svc-consumable-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+
+  &--healthy { color: #059669; }
+  &--low { color: #b45309; }
+  &--out_of_stock { color: #b91c1c; }
+}
+
+.svc-consumable-confirm {
+  margin: 4px 0 12px;
+  padding: 14px 16px;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+
+  &__title {
+    margin: 0 0 4px;
+    font-size: 13.5px;
+    font-weight: 700;
+    color: #991b1b;
+  }
+  &__body {
+    margin: 0 0 12px;
+    font-size: 12.5px;
+    color: $primary;
+  }
+  &__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+}
+
+.svc-consumable-modal__btn--danger {
+  background: #ef4444;
+  color: $white;
+  border: 1px solid #ef4444;
+  &:hover { background: #dc2626; border-color: #dc2626; }
 }
 
 .svc-consumable-drop {

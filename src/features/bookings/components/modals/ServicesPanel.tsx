@@ -106,6 +106,10 @@ interface Props {
   // calculate-totals effect). Threaded straight through to ServiceRow.
   consumableActuals?: Record<string, Record<string, number>>;
   onConsumableActualChange?: (rowKey: string, productId: string, actualQty: number) => void;
+  // Shown in the Consumable Usage modal's header (Service/Client/Staff) —
+  // ServiceRow itself only knows the row's own staff, not the appointment's
+  // client, so this is threaded down from AppointmentModal's selectedClient.
+  clientName?: string;
   packageTaxByRow?: Map<string, number>;
   productTaxByRow?: Map<string, number>;
   membershipTaxByRow?: Map<string, number>;
@@ -1364,7 +1368,7 @@ export const ServicesPanel: React.FC<Props> = ({
   onSellPackage, onSellMembership, onTopupEwallet,
   availablePackages, availableProducts, availableMemberships,
   frozen, packageRemainingByRow, membershipWalletInfo, serviceTaxByRow,
-  consumableActuals, onConsumableActualChange,
+  consumableActuals, onConsumableActualChange, clientName,
   packageTaxByRow, productTaxByRow, membershipTaxByRow,
   serviceMembershipDiscountByRow, productMembershipDiscountByRow,
   svcErrors, pkgErrors, prodErrors, memErrors, onClearSvcError,
@@ -1410,6 +1414,7 @@ export const ServicesPanel: React.FC<Props> = ({
         membershipDiscountAmount={serviceMembershipDiscountByRow?.get((row as any).tempId || String(i))}
         consumableActuals={consumableActuals?.[(row as any).tempId || String(i)]}
         onConsumableActualChange={(productId, actualQty) => onConsumableActualChange?.((row as any).tempId || String(i), productId, actualQty)}
+        clientName={clientName}
       />
     ))}
 
