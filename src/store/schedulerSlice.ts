@@ -41,6 +41,11 @@ export interface SchedulerProduct {
   selling_price?: number | null;
   sellingPriceRaw?: number | null;
   categoryId?: string;
+  // "retail" | "consumable" | "both" — needed to exclude pure-consumable
+  // products from the sellable "+ Product" row picker (Quick Sale/Calendar),
+  // while still keeping them in this same list for the Consumables panel's
+  // stock lookups (ServiceRow.tsx reads this list unfiltered for that).
+  productType?: string;
 }
 export interface SchedulerMembership { id: string; name: string; price: number; sessions: number; validFor: string; colour: string }
 

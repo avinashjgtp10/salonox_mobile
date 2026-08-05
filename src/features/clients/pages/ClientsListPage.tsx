@@ -96,12 +96,13 @@ export default function ClientsListPage() {
     try {
       const { sort_by, sort_order } = sortMap[sort] ?? { sort_by: "created_at", sort_order: "desc" };
       const resolvedPageSize = ps ?? pageSizeRef.current;
-      // Deleted/blocked clients are soft-archived (is_active=false) so their
-      // appointment/payment history stays intact for reporting — but that
-      // means "delete" must also stop them appearing here, or it looks like
+      // Deleted clients are soft-archived (is_active=false) so their
+      // appointment/payment history stays intact for reporting — that means
+      // "delete" must also stop them appearing here, or it looks like
       // deletion did nothing. Omitting `inactive` lets the backend's default
       // (active-only) apply; there's no "show archived" toggle in this UI to
-      // preserve.
+      // preserve. Blocked clients are a SEPARATE, independent flag
+      // (is_blocked) — unlike deleted ones, they stay fully visible here.
       const params: Record<string, any> = {
         page,
         pageSize: resolvedPageSize,
@@ -119,9 +120,7 @@ export default function ClientsListPage() {
       const res = await api.get(CLIENT.BASE, { params });
       const payload = res.data?.data;
       const items = payload?.items ?? [];
-      const mapped = Array.isArray(items)
-        ? items.map((c: any) => ({ ...c, is_blocked: !c.is_active }))
-        : [];
+      const mapped = Array.isArray(items) ? items : [];
       setClients(mapped);
       setTotal(payload?.totalRecords ?? payload?.total ?? 0);
       setCurrentPage(page);
