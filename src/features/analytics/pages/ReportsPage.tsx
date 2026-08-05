@@ -52,7 +52,7 @@ const CATEGORIES: { key: CategoryKey; label: string; description: string; icon: 
   { key: "staff",        label: "Staff",        description: "Staff performance, commissions, attendance and productivity",     icon: PersonBadge },
   { key: "appointments", label: "Appointments", description: "Booking trends, cancellations, no-shows and appointment analytics", icon: CalendarCheck },
   { key: "inventory",    label: "Inventory",    description: "Stock, usage, low stock alerts and inventory valuation",          icon: BoxSeam },
-  { key: "packages",     label: "Packages",     description: "Package sales, usage and membership analytics",                  icon: Tag },
+  { key: "packages",     label: "Package and Membership", description: "Package sales, usage and membership analytics",           icon: Tag },
   { key: "marketing",    label: "Marketing",    description: "Campaign performance, leads and marketing insights",             icon: Megaphone },
 ];
 

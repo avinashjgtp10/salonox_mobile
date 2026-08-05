@@ -13,11 +13,15 @@ import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
 import { useCurrency } from "../../../hooks/useCurrency";
+import SaleDetailModal from "./SaleDetailModal";
+import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import "./TaxesReport.scss";
 
 const REPORT_NAME = "GST Report";
 
 interface InvoiceTaxRow {
+  id: string;
+  appointmentId: string | null;
   date: string;
   invoiceNo: string;
   client: string;
@@ -50,6 +54,8 @@ function formatDate(input: string): string {
 // to the table's existing InvoiceTaxRow shape.
 function mapRow(row: any): InvoiceTaxRow {
   return {
+    id: String(row.sale_id ?? ""),
+    appointmentId: row.appointment_id ? String(row.appointment_id) : null,
     date: row.date ? formatDate(row.date) : "—",
     invoiceNo: row.invoice_no ?? "—",
     client: row.client_name || "Walk-in",
@@ -80,6 +86,7 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
+  const [selectedRow, setSelectedRow] = useState<{ saleId: string; appointmentId: string | null } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -219,7 +226,12 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
             ) : rows.length === 0 ? (
               <tr><td colSpan={10} className="rp-detail-empty-cell">No tax data found</td></tr>
             ) : rows.map((r, i) => (
-              <tr key={i}>
+              <tr
+                key={r.id || i}
+                className={r.id ? "rp-ss-clickable-row" : undefined}
+                title={r.id ? "Click to view the full bill" : undefined}
+                onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}
+              >
                 <td>{r.date}</td>
                 <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td>{r.client}</td>
@@ -238,6 +250,20 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+
+      {selectedRow && (
+        selectedRow.appointmentId ? (
+          <AppointmentDetailModal
+            appointmentId={selectedRow.appointmentId}
+            onClose={() => setSelectedRow(null)}
+          />
+        ) : (
+          <SaleDetailModal
+            saleId={selectedRow.saleId}
+            onClose={() => setSelectedRow(null)}
+          />
+        )
+      )}
     </div>
   );
 }

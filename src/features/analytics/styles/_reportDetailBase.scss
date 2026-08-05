@@ -490,6 +490,14 @@
   &:hover { text-decoration: underline; }
 }
 
+// Whole-row click target (opens a detail modal — sale/appointment/bill).
+// Shared across every report that makes its rows clickable (Staff Sales,
+// Staff Performance, GST Report, ...) instead of duplicating this per report.
+.rp-ss-clickable-row {
+  cursor: pointer;
+  &:hover { background: #f9fafb; }
+}
+
 .rp-detail-loading-cell,
 .rp-detail-empty-cell {
   text-align: center;
