@@ -171,7 +171,11 @@ const ServicesListPage: React.FC = () => {
       page: currentPage,
       limit: pageSize,
       search: searchQuery || undefined,
-      categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
+      categoryId: filters.categoryId && filters.categoryId !== "all"
+        ? filters.categoryId
+        : selectedCategory !== "all"
+        ? selectedCategory
+        : undefined,
       ...buildFilterParams(filters),
     });
   }, [currentPage, pageSize, selectedCategory, filters, fetchServices, categoryFiltersKey]);
@@ -191,7 +195,11 @@ const ServicesListPage: React.FC = () => {
         page: 1,
         limit,
         search: searchQuery || undefined,
-        categoryId: cat !== "all" ? cat : undefined,
+        categoryId: f.categoryId && f.categoryId !== "all"
+          ? f.categoryId
+          : cat !== "all"
+          ? cat
+          : undefined,
         ...buildFilterParams(f),
       });
     }, 400);
@@ -233,7 +241,8 @@ const ServicesListPage: React.FC = () => {
     const filterParams = buildFilterParams(filters);
 
     if (searchQuery) queryParts.push(`search=${encodeURIComponent(searchQuery)}`);
-    if (selectedCategory !== "all") queryParts.push(`category_id=${selectedCategory}`);
+    const exportCatId = filters.categoryId && filters.categoryId !== "all" ? filters.categoryId : selectedCategory;
+    if (exportCatId !== "all") queryParts.push(`category_id=${exportCatId}`);
     if (filterParams.isActive !== undefined) queryParts.push(`is_active=${filterParams.isActive}`);
     if (filterParams.onlineBooking !== undefined) queryParts.push(`online_booking=${filterParams.onlineBooking}`);
     if (filterParams.commissionEnabled !== undefined) queryParts.push(`commission_enabled=${filterParams.commissionEnabled}`);
@@ -258,10 +267,14 @@ const ServicesListPage: React.FC = () => {
         continue;
       }
 
-      const pageData = Array.isArray(payload?.data) ? (payload.data as Service[]) : [];
-      allServices.push(...pageData);
-      totalPages = payload?.pagination?.total_pages ?? 1;
-      page += 1;
+      if (payload && Array.isArray(payload.data)) {
+        allServices.push(...payload.data);
+        totalPages = payload.pagination?.total_pages ?? totalPages;
+        page += 1;
+        continue;
+      }
+
+      break;
     }
 
     return allServices;
@@ -292,6 +305,29 @@ const ServicesListPage: React.FC = () => {
     catch (err) { console.error("[ServicesListPage] CSV export failed:", err); }
   }, [fetchFilteredServicesForExport]);
 
+  // ── Client-side filtering for Duration, Price Range, and Category ─────────
+  const filteredServices = useMemo(() => {
+    return services.filter((svc: Service) => {
+      // 1. Category filter from modal
+      if (filters.categoryId && filters.categoryId !== "all") {
+        if (String(svc.category_id) !== String(filters.categoryId)) {
+          return false;
+        }
+      }
+
+      // 2. Duration filter
+      if (filters.durationRange && filters.durationRange !== "all") {
+        const dur = Number(svc.duration) || 0;
+        if (filters.durationRange === "0-30" && (dur < 0 || dur > 30)) return false;
+        if (filters.durationRange === "30-60" && (dur < 30 || dur > 60)) return false;
+        if (filters.durationRange === "60-120" && (dur < 60 || dur > 120)) return false;
+        if (filters.durationRange === "120+" && dur < 120) return false;
+      }
+
+      return true;
+    });
+  }, [services, filters]);
+
   // ── Group services by category for display ───────────────────────────────────
   const groupedServices = useMemo(() => {
     const groups: Record<
@@ -308,7 +344,7 @@ const ServicesListPage: React.FC = () => {
       };
     });
 
-    services.forEach((svc: Service) => {
+    filteredServices.forEach((svc: Service) => {
       const key = String(svc.category_id);
       if (groups[key]) {
         groups[key].services.push(svc);
@@ -321,7 +357,7 @@ const ServicesListPage: React.FC = () => {
     });
 
     return Object.values(groups).filter((g) => g.services.length > 0);
-  }, [services, categories]);
+  }, [filteredServices, categories]);
 
   // Flat, visual-order list of every rendered service — powers arrow-key
   // navigation across group boundaries.
