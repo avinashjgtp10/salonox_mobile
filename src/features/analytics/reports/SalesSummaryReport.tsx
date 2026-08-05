@@ -32,6 +32,7 @@ interface SaleRow {
   itemTypes: string;
   staffName: string;
   bill: number;
+  grandTotal: number;
   discountAmount: number;
   couponCode: string;
   couponDiscount: number;
@@ -109,6 +110,9 @@ function mapAppointment(row: any): SaleRow {
     // as Bill − Discount + GST = Paid + Membership + eWallet + Rewards +
     // Referral + Due, same composition the rest of this row already implies.
     bill: Math.round(Number(row.actual_price) || 0),
+    // The actual invoice total — net-of-discount, GST-inclusive — same figure
+    // the receipt's own "Grand Total" line shows (row.price = s.total_amount).
+    grandTotal: Number(row.price) || 0,
     // Bill-level manual discount only (matches the existing "Discount" column's
     // pre-existing scope) — coupon/referral, now stored on the sale itself
     // (payments.service.ts), are broken out as their own fields instead of
@@ -167,6 +171,15 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const [serviceFilter, setServiceFilter] = useState("All");
   const [serviceOptions, setServiceOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  // Draft copies edited inside the Filters modal — nothing here affects the
+  // report until Apply commits them back to the real filter state above.
+  // Cancel/×/overlay-click just discards the drafts and closes.
+  const [draftStaffFilter, setDraftStaffFilter] = useState("All");
+  const [draftCategoryFilter, setDraftCategoryFilter] = useState("All");
+  const [draftPaymentModeFilter, setDraftPaymentModeFilter] = useState("All");
+  const [draftPaymentStatusFilter, setDraftPaymentStatusFilter] = useState("All");
+  const [draftItemTypeFilter, setDraftItemTypeFilter] = useState("All");
+  const [draftServiceFilter, setDraftServiceFilter] = useState("All");
   const [search,        setSearch]        = useState("");
   const [rows,          setRows]          = useState<SaleRow[]>([]);
   const [stats,         setStats]         = useState({
@@ -279,13 +292,8 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const activeFilterCount = [staffFilter, categoryFilter, paymentModeFilter, paymentStatusFilter, itemTypeFilter, serviceFilter]
     .filter(v => v !== "All").length;
 
-  const clearFilters = () => {
-    setStaffFilter("All"); setCategoryFilter("All"); setPaymentModeFilter("All");
-    setPaymentStatusFilter("All"); setItemTypeFilter("All"); setServiceFilter("All");
-  };
-
-  const HEADERS = ["Date", "Invoice No", "Name", "Contact", "Item Types", "Staff Name", "Bill", "Discount", "Coupon Code", "Coupon Discount", "Referral Discount", "GST", "Paid", "Membership", "E-Wallet", "Rewards", "Referral Credit", "Due Amount", "Modes", "Status", "Description"];
-  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.name, r.contact, r.itemTypes, r.staffName, r.bill, r.discountAmount, r.couponCode, r.couponDiscount, r.referralDiscount, r.taxAmount, r.paid, r.membershipWalletUsed, r.ewalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.description]);
+  const HEADERS = ["Date", "Invoice No", "Name", "Contact", "Item Types", "Staff Name", "Discount", "Coupon Code", "Coupon Discount", "Referral Discount", "GST", "Grand Total", "Paid", "Membership", "E-Wallet", "Rewards", "Referral Credit", "Due Amount", "Modes", "Status", "Description"];
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.name, r.contact, r.itemTypes, r.staffName, r.discountAmount, r.couponCode, r.couponDiscount, r.referralDiscount, r.taxAmount, r.grandTotal, r.paid, r.membershipWalletUsed, r.ewalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.description]);
   const paged = rows;
 
   return (
@@ -301,7 +309,15 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
-        <button className="rp-ss-filters-btn" onClick={() => setShowFiltersPanel(true)}>
+        <button className="rp-ss-filters-btn" onClick={() => {
+          setDraftStaffFilter(staffFilter);
+          setDraftCategoryFilter(categoryFilter);
+          setDraftPaymentModeFilter(paymentModeFilter);
+          setDraftPaymentStatusFilter(paymentStatusFilter);
+          setDraftItemTypeFilter(itemTypeFilter);
+          setDraftServiceFilter(serviceFilter);
+          setShowFiltersPanel(true);
+        }}>
           Filters
           {activeFilterCount > 0 && <span className="rp-ss-filters-badge">{activeFilterCount}</span>}
         </button>
@@ -310,18 +326,15 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={9} className="rp-sales-stat-row" /> : (
+      {loading ? <SkeletonStatCards count={6} className="rp-sales-stat-row" /> : (
         <div className="rp-sra-summary-row rp-sales-stat-row">
           {[
             { label: "Total Bill",        value: stats.totalBill.toString() },
-            { label: "Bill Average",      value: money(stats.billAverage) },
             { label: "Total Sale",        value: money(stats.totalSale) },
             { label: "Received Amount",   value: money(stats.received) },
             // Return Sales removed — no per-appointment refund data is currently
             // surfaced by GET /api/v1/appointments; revisit if/when that's added.
-            { label: "Total Tip",         value: money(stats.totalTip) },
             { label: "Total E-Wallet",    value: money(stats.totalEwallet) },
-            { label: "Total Membership",  value: money(stats.totalMembershipWallet) },
             { label: "Total Rewards",     value: money(stats.totalRewardValue) },
             { label: "Total Referral",    value: money(stats.totalReferralCredit) },
           ].map(c => (
@@ -367,9 +380,9 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
               <th>Contact</th>
               <th>Item Types</th>
               <th>Staff Name</th>
-              <th>Bill</th>
               <th>Discount</th>
               <th>GST</th>
+              <th>Grand Total</th>
               <th>Paid</th>
               <th>Membership</th>
               <th>E-Wallet</th>
@@ -404,7 +417,6 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.contact}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.itemTypes}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.staffName}</td>
-                <td className="fw-semibold" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.bill)}</td>
                 <td
                   onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}
                   title={[
@@ -418,6 +430,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
                   )}
                 </td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.taxAmount)}</td>
+                <td className="fw-semibold" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.grandTotal)}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.paid)}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.membershipWalletUsed > 0 ? money(r.membershipWalletUsed) : "—"}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.ewalletUsed > 0 ? money(r.ewalletUsed) : "—"}</td>
@@ -467,20 +480,50 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
           <div className="rp-ss-filters-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Filters</h3>
+              <button
+                type="button"
+                aria-label="Close"
+                className="rp-ss-filters-close"
+                onClick={() => setShowFiltersPanel(false)}
+              >
+                ×
+              </button>
             </div>
 
             <div className="rp-ss-filters-body">
-              <FilterField label="Staff" value={staffFilter} options={staffOptions} onChange={setStaffFilter} />
-              <FilterField label="Service Category" value={categoryFilter} options={categoryOptions} onChange={setCategoryFilter} />
-              <FilterField label="Payment Mode" value={paymentModeFilter} options={paymentModeOptions} onChange={setPaymentModeFilter} />
-              <FilterField label="Payment Status" value={paymentStatusFilter} options={paymentStatusOptions} onChange={setPaymentStatusFilter} />
-              <FilterField label="Item Type" value={itemTypeFilter} options={itemTypeOptions} onChange={setItemTypeFilter} />
-              <FilterField label="Service" value={serviceFilter} options={serviceOptions} onChange={setServiceFilter} />
+              <FilterField label="Staff" value={draftStaffFilter} options={staffOptions} onChange={setDraftStaffFilter} />
+              <FilterField label="Service Category" value={draftCategoryFilter} options={categoryOptions} onChange={setDraftCategoryFilter} />
+              <FilterField label="Payment Mode" value={draftPaymentModeFilter} options={paymentModeOptions} onChange={setDraftPaymentModeFilter} />
+              <FilterField label="Payment Status" value={draftPaymentStatusFilter} options={paymentStatusOptions} onChange={setDraftPaymentStatusFilter} />
+              <FilterField label="Item Type" value={draftItemTypeFilter} options={itemTypeOptions} onChange={setDraftItemTypeFilter} />
+              <FilterField label="Service" value={draftServiceFilter} options={serviceOptions} onChange={setDraftServiceFilter} />
             </div>
 
             <div className="rp-ss-filters-actions">
-              <Button variant="ghost" onClick={() => { clearFilters(); }}>Clear</Button>
-              <Button variant="dark" onClick={() => { setShowFiltersPanel(false); fetchData(); }}>Apply</Button>
+              <Button variant="ghost" onClick={() => {
+                setDraftStaffFilter("All");
+                setDraftCategoryFilter("All");
+                setDraftPaymentModeFilter("All");
+                setDraftPaymentStatusFilter("All");
+                setDraftItemTypeFilter("All");
+                setDraftServiceFilter("All");
+                setStaffFilter("All");
+                setCategoryFilter("All");
+                setPaymentModeFilter("All");
+                setPaymentStatusFilter("All");
+                setItemTypeFilter("All");
+                setServiceFilter("All");
+                setShowFiltersPanel(false);
+              }}>Clear</Button>
+              <Button variant="dark" onClick={() => {
+                setStaffFilter(draftStaffFilter);
+                setCategoryFilter(draftCategoryFilter);
+                setPaymentModeFilter(draftPaymentModeFilter);
+                setPaymentStatusFilter(draftPaymentStatusFilter);
+                setItemTypeFilter(draftItemTypeFilter);
+                setServiceFilter(draftServiceFilter);
+                setShowFiltersPanel(false);
+              }}>Apply</Button>
             </div>
           </div>
         </div>
