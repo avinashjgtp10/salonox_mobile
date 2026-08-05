@@ -14,9 +14,24 @@ import DateRangeFields from "../../../components/ui/DateRangeFields";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useServices } from "../../catalog/hooks/useServices";
+import { useDraftFilters } from "./useDraftFilters";
+import ReportFiltersModal from "./ReportFiltersModal";
 import "./ServiceSaleReport.scss";
 
 const REPORT_NAME = "Service Sale";
+
+interface ServiceSaleFilterValues {
+  category: string;
+  service: string;
+  minPrice: string;
+  maxPrice: string;
+  staffIds: string[];
+  paymentMethod: string;
+}
+
+const SERVICE_SALE_FILTER_DEFAULTS: ServiceSaleFilterValues = {
+  category: "All", service: "All", minPrice: "", maxPrice: "", staffIds: [], paymentMethod: "All",
+};
 
 interface ServiceSaleRow {
   date: string;
@@ -28,6 +43,7 @@ interface ServiceSaleRow {
   category: string;
   price: number;
   taxAmount: number;
+  paidAmount: number;
   paymentMethod: string;
   status: string;
 }
@@ -69,6 +85,7 @@ function mapRow(row: any): ServiceSaleRow {
     category: row.category_name || "—",
     price: Number(row.price) || 0,
     taxAmount: Number(row.tax_amount) || 0,
+    paidAmount: Number(row.paid_amount) || 0,
     paymentMethod: row.payment_method || "N/A",
     status: row.status || "—",
   };
@@ -87,13 +104,12 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
   const [dateTo,      setDateTo]      = useState(today);
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [serviceFilter,  setServiceFilter]  = useState("All");
-  const [minPrice,       setMinPrice]       = useState("");
-  const [maxPrice,       setMaxPrice]       = useState("");
-  const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState("All");
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const [committedFilters, setCommittedFilters] = useState<ServiceSaleFilterValues>(SERVICE_SALE_FILTER_DEFAULTS);
+  const {
+    category: categoryFilter, service: serviceFilter, minPrice, maxPrice,
+    staffIds: staffFilterIds, paymentMethod: paymentMethodFilter,
+  } = committedFilters;
+  const filtersPanel = useDraftFilters(committedFilters, setCommittedFilters, SERVICE_SALE_FILTER_DEFAULTS);
   const [sortBy,  setSortBy]  = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [rows,        setRows]        = useState<ServiceSaleRow[]>([]);
@@ -118,18 +134,20 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
 
-  // Service dropdown narrows to the selected category (optional convenience);
-  // falls back to the full catalog list when no category is selected.
-  const serviceOptionsForCategory = categoryFilter === "All"
+  // Service dropdown narrows to the selected (draft) category (optional
+  // convenience); falls back to the full catalog list when no category is
+  // selected. Operates on the modal's draft state, not the committed filter,
+  // since that's what the dropdowns inside the modal actually edit.
+  const serviceOptionsForCategory = filtersPanel.draft.category === "All"
     ? services
-    : services.filter((sv: any) => String(sv.category_id ?? sv.categoryId) === categoryFilter);
+    : services.filter((sv: any) => String(sv.category_id ?? sv.categoryId) === filtersPanel.draft.category);
 
   useEffect(() => {
-    if (serviceFilter === "All") return;
-    const stillValid = serviceOptionsForCategory.some((sv: any) => String(sv.id) === serviceFilter);
-    if (!stillValid) setServiceFilter("All");
+    if (filtersPanel.draft.service === "All") return;
+    const stillValid = serviceOptionsForCategory.some((sv: any) => String(sv.id) === filtersPanel.draft.service);
+    if (!stillValid) filtersPanel.setDraftField("service", "All");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryFilter]);
+  }, [filtersPanel.draft.category]);
 
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
@@ -194,13 +212,6 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
     paymentMethodFilter !== "All" ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
-  const clearFilters = () => {
-    setCategoryFilter("All"); setServiceFilter("All");
-    setMinPrice(""); setMaxPrice("");
-    setStaffFilterIds([]);
-    setPaymentMethodFilter("All");
-  };
-
   const handleSortClick = (field: SortField) => {
     if (sortBy !== field) { setSortBy(field); setSortDir("asc"); return; }
     if (sortDir === "asc") { setSortDir("desc"); return; }
@@ -210,9 +221,9 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
   const sortIcon = (field: SortField) =>
     sortBy === field ? (sortDir === "asc" ? <ChevronUp size={11} /> : <ChevronDown size={11} />) : null;
 
-  const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Service Name", "Category", `Bill (${currencySymbol})`, `GST (${currencySymbol})`, `Total (${currencySymbol})`, "Payment Method", "Status"];
+  const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Service Name", "Category", `Total (${currencySymbol})`, `Paid Amount (${currencySymbol})`, "Payment Method", "Status"];
   // Total column is gross = line base + its own GST.
-  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.serviceName, r.category, r.price, r.taxAmount, r.price + r.taxAmount, r.paymentMethod, r.status]);
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.serviceName, r.category, r.price + r.taxAmount, r.paidAmount, r.paymentMethod, r.status]);
 
   return (
     <div className="rp-detail-view">
@@ -227,7 +238,7 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
-        <button className="rp-ss-filters-btn" onClick={() => setShowFiltersPanel(true)}>
+        <button className="rp-ss-filters-btn" onClick={filtersPanel.openPanel}>
           Filters
           {activeFilterCount > 0 && <span className="rp-ss-filters-badge">{activeFilterCount}</span>}
         </button>
@@ -265,18 +276,17 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
               <th className="rp-ss-sortable" onClick={() => handleSortClick("staff_name")}>Staff {sortIcon("staff_name")}</th>
               <th className="rp-ss-sortable" onClick={() => handleSortClick("service_name")}>Service Name {sortIcon("service_name")}</th>
               <th>Category</th>
-              <th className="rp-ss-sortable" onClick={() => handleSortClick("price")}>Bill ({currencySymbol}) {sortIcon("price")}</th>
-              <th>GST ({currencySymbol})</th>
               <th className="rp-ss-sortable" onClick={() => handleSortClick("total")}>Total ({currencySymbol}) {sortIcon("total")}</th>
+              <th>Paid Amount ({currencySymbol})</th>
               <th>Payment Method</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={11} />
+              <SkeletonTableRows columns={10} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={11} className="rp-detail-empty-cell">No service sales found</td></tr>
+              <tr><td colSpan={10} className="rp-detail-empty-cell">No service sales found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -289,9 +299,8 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
                 <td>{r.staff}</td>
                 <td className="fw-semibold rp-ss-service" title={r.serviceName}>{r.serviceName}</td>
                 <td>{r.category}</td>
-                <td>{formatAmount(r.price)}</td>
-                <td>{formatAmount(r.taxAmount)}</td>
                 <td className="fw-semibold">{formatAmount(r.price + r.taxAmount)}</td>
+                <td>{formatAmount(r.paidAmount)}</td>
                 <td className="rp-ss-payment">{r.paymentMethod}</td>
                 <td><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
               </tr>
@@ -307,55 +316,46 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="services" />
       )}
 
-      {showFiltersPanel && (
-        <div className="rp-ss-filters-overlay" onClick={() => setShowFiltersPanel(false)}>
-          <div className="rp-ss-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-            </div>
+      <ReportFiltersModal
+        open={filtersPanel.isOpen}
+        onClose={filtersPanel.closePanel}
+        onClear={filtersPanel.clear}
+        onApply={filtersPanel.apply}
+        classPrefix="rp-ss"
+      >
+        <Select label="Category" containerClass="rp-ss-filter-field" value={filtersPanel.draft.category} onChange={e => filtersPanel.setDraftField("category", e.target.value)}>
+          <option value="All">All categories</option>
+          {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </Select>
 
-            <div className="rp-ss-filters-body">
-              <Select label="Category" containerClass="rp-ss-filter-field" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
-                <option value="All">All categories</option>
-                {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
+        <Select label="Service" containerClass="rp-ss-filter-field" value={filtersPanel.draft.service} onChange={e => filtersPanel.setDraftField("service", e.target.value)}>
+          <option value="All">All services</option>
+          {serviceOptionsForCategory.map((sv: any) => <option key={sv.id} value={sv.id}>{sv.name}</option>)}
+        </Select>
 
-              <Select label="Service" containerClass="rp-ss-filter-field" value={serviceFilter} onChange={e => setServiceFilter(e.target.value)}>
-                <option value="All">All services</option>
-                {serviceOptionsForCategory.map((sv: any) => <option key={sv.id} value={sv.id}>{sv.name}</option>)}
-              </Select>
-
-              <div className="rp-ss-filter-field">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Price Range</label>
-                <div className="rp-ss-price-range">
-                  <input type="number" min={0} placeholder="Min" value={minPrice} onChange={e => setMinPrice(e.target.value)} />
-                  <span>—</span>
-                  <input type="number" min={0} placeholder="Max" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} />
-                </div>
-              </div>
-
-              <MultiSelectCheckbox
-                label="Staff"
-                containerClass="rp-ss-filter-field"
-                options={staffOptions}
-                selected={staffFilterIds}
-                onChange={setStaffFilterIds}
-                placeholder="All staff"
-              />
-
-              <Select label="Payment Method" containerClass="rp-ss-filter-field" value={paymentMethodFilter} onChange={e => setPaymentMethodFilter(e.target.value)}>
-                <option value="All">All payment methods</option>
-                {PAYMENT_METHOD_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-            </div>
-
-            <div className="rp-ss-filters-actions">
-              <Button variant="ghost" onClick={() => { clearFilters(); }}>Clear</Button>
-              <Button variant="dark" onClick={() => { setShowFiltersPanel(false); fetchData(); }}>Apply</Button>
-            </div>
+        <div className="rp-ss-filter-field">
+          <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Price Range</label>
+          <div className="rp-ss-price-range">
+            <input type="number" min={0} placeholder="Min" value={filtersPanel.draft.minPrice} onChange={e => filtersPanel.setDraftField("minPrice", e.target.value)} />
+            <span>—</span>
+            <input type="number" min={0} placeholder="Max" value={filtersPanel.draft.maxPrice} onChange={e => filtersPanel.setDraftField("maxPrice", e.target.value)} />
           </div>
         </div>
-      )}
+
+        <MultiSelectCheckbox
+          label="Staff"
+          containerClass="rp-ss-filter-field"
+          options={staffOptions}
+          selected={filtersPanel.draft.staffIds}
+          onChange={v => filtersPanel.setDraftField("staffIds", v)}
+          placeholder="All staff"
+        />
+
+        <Select label="Payment Method" containerClass="rp-ss-filter-field" value={filtersPanel.draft.paymentMethod} onChange={e => filtersPanel.setDraftField("paymentMethod", e.target.value)}>
+          <option value="All">All payment methods</option>
+          {PAYMENT_METHOD_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+        </Select>
+      </ReportFiltersModal>
     </div>
   );
 }

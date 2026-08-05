@@ -18,9 +18,24 @@ import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { formatPaymentMode } from "../../../utils/paymentMode";
 import SaleDetailModal from "./SaleDetailModal";
+import { useDraftFilters } from "./useDraftFilters";
+import ReportFiltersModal from "./ReportFiltersModal";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
+
+interface SalesSummaryFilterValues {
+  staff: string;
+  category: string;
+  paymentMode: string;
+  paymentStatus: string;
+  itemType: string;
+  service: string;
+}
+
+const SALES_SUMMARY_FILTER_DEFAULTS: SalesSummaryFilterValues = {
+  staff: "All", category: "All", paymentMode: "All", paymentStatus: "All", itemType: "All", service: "All",
+};
 
 interface SaleRow {
   id: string;
@@ -143,22 +158,17 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const weekAgo   = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const [dateFrom,      setDateFrom]      = useState(weekAgo);
   const [dateTo,        setDateTo]        = useState(today);
-  const [staffFilter,   setStaffFilter]   = useState("All");
   const [staffOptions,  setStaffOptions]  = useState<{ label: string; value: string }[]>([{ label: "All Staff", value: "All" }]);
-  const [categoryFilter,  setCategoryFilter]  = useState("All");
   // Populated from filters_available.service_categories on every fetch — every
   // service category in the salon (not just ones with sales), same convention
   // as Daily Sheet's service/staff dropdowns.
   const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string }[]>([{ label: "All Categories", value: "All" }]);
-  const [paymentModeFilter, setPaymentModeFilter] = useState("All");
   const [paymentModeOptions, setPaymentModeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState("All");
   const paymentStatusOptions = [
     { label: "All", value: "All" },
     { label: "Paid", value: "paid" },
     { label: "Partial", value: "partial" },
   ];
-  const [itemTypeFilter, setItemTypeFilter] = useState("All");
   const itemTypeOptions = [
     { label: "All", value: "All" },
     { label: "Service", value: "service" },
@@ -168,18 +178,13 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     { label: "Quick", value: "quick" },
     { label: "Package", value: "package" },
   ];
-  const [serviceFilter, setServiceFilter] = useState("All");
   const [serviceOptions, setServiceOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
-  // Draft copies edited inside the Filters modal — nothing here affects the
-  // report until Apply commits them back to the real filter state above.
-  // Cancel/×/overlay-click just discards the drafts and closes.
-  const [draftStaffFilter, setDraftStaffFilter] = useState("All");
-  const [draftCategoryFilter, setDraftCategoryFilter] = useState("All");
-  const [draftPaymentModeFilter, setDraftPaymentModeFilter] = useState("All");
-  const [draftPaymentStatusFilter, setDraftPaymentStatusFilter] = useState("All");
-  const [draftItemTypeFilter, setDraftItemTypeFilter] = useState("All");
-  const [draftServiceFilter, setDraftServiceFilter] = useState("All");
+  const [committedFilters, setCommittedFilters] = useState<SalesSummaryFilterValues>(SALES_SUMMARY_FILTER_DEFAULTS);
+  const {
+    staff: staffFilter, category: categoryFilter, paymentMode: paymentModeFilter,
+    paymentStatus: paymentStatusFilter, itemType: itemTypeFilter, service: serviceFilter,
+  } = committedFilters;
+  const filtersPanel = useDraftFilters(committedFilters, setCommittedFilters, SALES_SUMMARY_FILTER_DEFAULTS);
   const [search,        setSearch]        = useState("");
   const [rows,          setRows]          = useState<SaleRow[]>([]);
   const [stats,         setStats]         = useState({
@@ -309,15 +314,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
-        <button className="rp-ss-filters-btn" onClick={() => {
-          setDraftStaffFilter(staffFilter);
-          setDraftCategoryFilter(categoryFilter);
-          setDraftPaymentModeFilter(paymentModeFilter);
-          setDraftPaymentStatusFilter(paymentStatusFilter);
-          setDraftItemTypeFilter(itemTypeFilter);
-          setDraftServiceFilter(serviceFilter);
-          setShowFiltersPanel(true);
-        }}>
+        <button className="rp-ss-filters-btn" onClick={filtersPanel.openPanel}>
           Filters
           {activeFilterCount > 0 && <span className="rp-ss-filters-badge">{activeFilterCount}</span>}
         </button>
@@ -475,59 +472,20 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         onConfirm={bulkDelete.confirmDelete}
       />
 
-      {showFiltersPanel && (
-        <div className="rp-ss-filters-overlay" onClick={() => setShowFiltersPanel(false)}>
-          <div className="rp-ss-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-              <button
-                type="button"
-                aria-label="Close"
-                className="rp-ss-filters-close"
-                onClick={() => setShowFiltersPanel(false)}
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="rp-ss-filters-body">
-              <FilterField label="Staff" value={draftStaffFilter} options={staffOptions} onChange={setDraftStaffFilter} />
-              <FilterField label="Service Category" value={draftCategoryFilter} options={categoryOptions} onChange={setDraftCategoryFilter} />
-              <FilterField label="Payment Mode" value={draftPaymentModeFilter} options={paymentModeOptions} onChange={setDraftPaymentModeFilter} />
-              <FilterField label="Payment Status" value={draftPaymentStatusFilter} options={paymentStatusOptions} onChange={setDraftPaymentStatusFilter} />
-              <FilterField label="Item Type" value={draftItemTypeFilter} options={itemTypeOptions} onChange={setDraftItemTypeFilter} />
-              <FilterField label="Service" value={draftServiceFilter} options={serviceOptions} onChange={setDraftServiceFilter} />
-            </div>
-
-            <div className="rp-ss-filters-actions">
-              <Button variant="ghost" onClick={() => {
-                setDraftStaffFilter("All");
-                setDraftCategoryFilter("All");
-                setDraftPaymentModeFilter("All");
-                setDraftPaymentStatusFilter("All");
-                setDraftItemTypeFilter("All");
-                setDraftServiceFilter("All");
-                setStaffFilter("All");
-                setCategoryFilter("All");
-                setPaymentModeFilter("All");
-                setPaymentStatusFilter("All");
-                setItemTypeFilter("All");
-                setServiceFilter("All");
-                setShowFiltersPanel(false);
-              }}>Clear</Button>
-              <Button variant="dark" onClick={() => {
-                setStaffFilter(draftStaffFilter);
-                setCategoryFilter(draftCategoryFilter);
-                setPaymentModeFilter(draftPaymentModeFilter);
-                setPaymentStatusFilter(draftPaymentStatusFilter);
-                setItemTypeFilter(draftItemTypeFilter);
-                setServiceFilter(draftServiceFilter);
-                setShowFiltersPanel(false);
-              }}>Apply</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ReportFiltersModal
+        open={filtersPanel.isOpen}
+        onClose={filtersPanel.closePanel}
+        onClear={filtersPanel.clear}
+        onApply={filtersPanel.apply}
+        classPrefix="rp-ss"
+      >
+        <FilterField label="Staff" value={filtersPanel.draft.staff} options={staffOptions} onChange={v => filtersPanel.setDraftField("staff", v)} />
+        <FilterField label="Service Category" value={filtersPanel.draft.category} options={categoryOptions} onChange={v => filtersPanel.setDraftField("category", v)} />
+        <FilterField label="Payment Mode" value={filtersPanel.draft.paymentMode} options={paymentModeOptions} onChange={v => filtersPanel.setDraftField("paymentMode", v)} />
+        <FilterField label="Payment Status" value={filtersPanel.draft.paymentStatus} options={paymentStatusOptions} onChange={v => filtersPanel.setDraftField("paymentStatus", v)} />
+        <FilterField label="Item Type" value={filtersPanel.draft.itemType} options={itemTypeOptions} onChange={v => filtersPanel.setDraftField("itemType", v)} />
+        <FilterField label="Service" value={filtersPanel.draft.service} options={serviceOptions} onChange={v => filtersPanel.setDraftField("service", v)} />
+      </ReportFiltersModal>
     </div>
   );
 }
