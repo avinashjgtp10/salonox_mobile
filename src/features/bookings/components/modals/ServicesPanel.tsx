@@ -283,6 +283,14 @@ function extractProductSearchResults(response: any): any[] {
   return [];
 }
 
+// Pure-consumable products (used only inside a service's recipe) aren't
+// sellable on their own — this "+ Product" row is for retail sale, so any
+// live server search result must be filtered the same way the cached
+// availableProducts list already is (see AppointmentModal.tsx).
+function filterSellableProducts(items: any[]): any[] {
+  return items.filter((item) => !item.product_type || item.product_type === "retail" || item.product_type === "both");
+}
+
 function extractProductSearchTotalPages(response: any) {
   const payload = response?.data?.data ?? response?.data ?? {};
   const totalPages = Number(
@@ -306,7 +314,7 @@ async function fetchProductSearchItems(searchValue: string, isNumericPriceSearch
       params: { search: searchValue, limit: 100 },
     }).catch(() => null);
 
-    extractProductSearchResults(response)
+    filterSellableProducts(extractProductSearchResults(response))
       .map(mapProductSearchItem)
       .forEach((item) => {
         if (!collected.some((existing) => String(existing.id) === String(item.id))) {
@@ -327,7 +335,7 @@ async function fetchProductSearchItems(searchValue: string, isNumericPriceSearch
 
     if (!response) break;
 
-    extractProductSearchResults(response)
+    filterSellableProducts(extractProductSearchResults(response))
       .map(mapProductSearchItem)
       .forEach((item) => {
         if (!collected.some((existing) => String(existing.id) === String(item.id))) {
@@ -344,7 +352,7 @@ async function fetchProductSearchItems(searchValue: string, isNumericPriceSearch
       params: { limit: 100, pageSize: 100 },
     }).catch(() => null);
 
-    extractProductSearchResults(response)
+    filterSellableProducts(extractProductSearchResults(response))
       .map(mapProductSearchItem)
       .forEach((item) => {
         if (!collected.some((existing) => String(existing.id) === String(item.id))) {
@@ -1052,7 +1060,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       try {
         const res = await api.get(`/api/v1/products?search=${encodeURIComponent(trimmedSearch)}&limit=20`);
         const raw = res.data?.data?.data ?? res.data?.data ?? [];
-        const mapped = Array.isArray(raw) ? raw.map(mapProductSearchItem) : [];
+        const mapped = Array.isArray(raw) ? filterSellableProducts(raw).map(mapProductSearchItem) : [];
         matchedItem = mapped.find((item) => matchesProductBarcode(item, trimmedSearch));
         if (mapped.length > 0) {
           setResults(mapped);

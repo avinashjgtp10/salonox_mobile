@@ -78,6 +78,7 @@ export function useServices(salonId?: string | null) {
       selling_price: p.selling_price != null ? parseFloat(String(p.selling_price)) || 0 : null,
       sellingPriceRaw: p.sellingPrice != null ? parseFloat(String(p.sellingPrice)) || 0 : null,
       categoryId: p.category_id ?? undefined,
+      productType: p.product_type ?? undefined,
     }))));
   }, [apiProducts, dispatch]);
 }

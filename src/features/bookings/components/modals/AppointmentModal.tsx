@@ -175,7 +175,13 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [packagesData, packageTemplatesRaw, dispatch]);
 
   const availablePackages    = useAppSelector(selectPackagesList);
-  const availableProducts    = useAppSelector(selectProductsList);
+  // Pure-consumable products (used only inside a service's recipe) aren't
+  // sellable on their own — this list feeds ONLY the "+ Product" retail row
+  // picker, so it's filtered to retail/both here. ServiceRow.tsx's
+  // Consumables panel reads the unfiltered schedulerContext.productsList
+  // directly for its own stock lookups, so this filter doesn't touch that.
+  const availableProducts    = useAppSelector(selectProductsList)
+    .filter((p: any) => !p.productType || p.productType === "retail" || p.productType === "both");
   const availableMemberships = useAppSelector(selectMembershipsList);
   const allBookings          = useAppSelector(selectBookings);
   const blockedTimes   = useAppSelector((s: any) => s.scheduler?.blockedTimes ?? []);
