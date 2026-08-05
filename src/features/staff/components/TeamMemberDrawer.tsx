@@ -205,20 +205,6 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
               <InfoRow label="Weekly Holidays" value={member.weeklyHolidays} />
               <InfoRow label="Hourly Rate" value={member.hourlyRate} />
               <InfoRow label="Fixed Salary" value={member.fixedSalary} />
-              <InfoRow
-                label="Calendar Color"
-                value={
-                  member.calendarColor ? (
-                    <span className="tmd-color-value">
-                      <span
-                        className="tmd-color-dot"
-                        style={{ "--avatar-bg": member.avatarColor } as React.CSSProperties}
-                      />
-                      {member.calendarColorLabel}
-                    </span>
-                  ) : null
-                }
-              />
             </div>
           </>
         )}
