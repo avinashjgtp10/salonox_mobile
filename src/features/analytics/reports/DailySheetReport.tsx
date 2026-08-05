@@ -30,6 +30,9 @@ interface DailyRow {
   itemType: string;
   staff: string;
   amount: number;
+  paidAmount: number;
+  dueAmount: number;
+  grandTotal: number;
   paymentMethod: string;
   status: string;
 }
@@ -49,6 +52,11 @@ function mapRow(row: any): DailyRow {
     itemType: row.item_type || "—",
     staff: row.staff || "—",
     amount: Number(row.amount) || 0,
+    paidAmount: Number(row.paid_amount) || 0,
+    dueAmount: Number(row.due_amount) || 0,
+    // Reconciled invoice total — same Paid + Due composition Sales Summary's
+    // Grand Total uses, matching the receipt's own Grand Total line.
+    grandTotal: (Number(row.paid_amount) || 0) + (Number(row.due_amount) || 0),
     paymentMethod: formatPaymentMode(row.payment_method, row.payment_reference),
     status: row.status ?? "booked",
   };
@@ -206,9 +214,20 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
   const [staffOptions,    setStaffOptions]    = useState<FilterOption[]>([]);
   const [paymentModeOptions, setPaymentModeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
   const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  // Draft copies edited inside the Filters modal — nothing here affects the
+  // report until Apply commits them back to the real filter state below.
+  // Cancel/×/overlay-click just discards the drafts and closes.
+  const [draftServiceFilter, setDraftServiceFilter] = useState<string>("All");
+  const [draftStaffFilters, setDraftStaffFilters] = useState<string[]>([]);
+  const [draftPaymentModeFilter, setDraftPaymentModeFilter] = useState<string>("All");
+  const [draftStatusFilter, setDraftStatusFilter] = useState<string>("All");
+  const [draftItemTypeFilter, setDraftItemTypeFilter] = useState<string>("All");
   const [rows,            setRows]            = useState<DailyRow[]>([]);
   const [total,           setTotal]            = useState(0);
-  const [stats, setStats] = useState({ invoiceCount: 0, clientCount: 0, itemsCount: 0, staffCount: 0, totalRevenue: 0 });
+  const [stats, setStats] = useState({
+    invoiceCount: 0, clientCount: 0, itemsCount: 0, staffCount: 0,
+    totalPaid: 0, totalDue: 0, pendingPaymentCount: 0, fullyPaidCount: 0,
+  });
   const [loading,         setLoading]         = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
@@ -242,7 +261,10 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
         clientCount: Number(data?.client_count) || 0,
         itemsCount: Number(data?.items_count) || 0,
         staffCount: Number(data?.staff_count) || 0,
-        totalRevenue: Number(data?.total_amount) || 0,
+        totalPaid: Number(data?.total_paid) || 0,
+        totalDue: Number(data?.total_due) || 0,
+        pendingPaymentCount: Number(data?.pending_payment_count) || 0,
+        fullyPaidCount: Number(data?.fully_paid_count) || 0,
       });
       setServiceOptions(Array.isArray(data?.filters_available?.services) ? data.filters_available.services : []);
       setStaffOptions(Array.isArray(data?.filters_available?.staff) ? data.filters_available.staff : []);
@@ -253,7 +275,10 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
         setRows([]); setTotal(0);
-        setStats({ invoiceCount: 0, clientCount: 0, itemsCount: 0, staffCount: 0, totalRevenue: 0 });
+        setStats({
+          invoiceCount: 0, clientCount: 0, itemsCount: 0, staffCount: 0,
+          totalPaid: 0, totalDue: 0, pendingPaymentCount: 0, fullyPaidCount: 0,
+        });
       }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
@@ -277,13 +302,8 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
     itemTypeFilter !== "All" ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
-  const clearFilters = () => {
-    setServiceFilter("All"); setStaffFilters([]);
-    setPaymentModeFilter("All"); setStatusFilter("All"); setItemTypeFilter("All");
-  };
-
-  const HEADERS = ["Time", "Invoice No", "Client Name", "Items", "Staff", `Amount (${currencySymbol})`, "Payment Method", "Status"];
-  const exportRows = () => rows.map(r => [r.time, r.invoiceNo, r.clientName, r.items, r.staff, r.amount, r.paymentMethod, r.status]);
+  const HEADERS = ["Time", "Invoice No", "Client Name", "Items", "Staff", `Grand Total (${currencySymbol})`, `Paid Amount (${currencySymbol})`, `Due Amount (${currencySymbol})`, "Payment Method", "Status"];
+  const exportRows = () => rows.map(r => [r.time, r.invoiceNo, r.clientName, r.items, r.staff, r.grandTotal, r.paidAmount, r.dueAmount, r.paymentMethod, r.status]);
 
   return (
     <div className="rp-detail-view">
@@ -301,7 +321,14 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
           <label className="rp-detail-filter-label">Date</label>
           <input type="date" value={date} onChange={e => setDate(e.target.value)} className="rp-detail-date-input rp-detail-date-input--boxed" />
         </div>
-        <button className="rp-ds-filters-btn" onClick={() => setShowFiltersPanel(true)}>
+        <button className="rp-ds-filters-btn" onClick={() => {
+          setDraftServiceFilter(serviceFilter);
+          setDraftStaffFilters(staffFilters);
+          setDraftPaymentModeFilter(paymentModeFilter);
+          setDraftStatusFilter(statusFilter);
+          setDraftItemTypeFilter(itemTypeFilter);
+          setShowFiltersPanel(true);
+        }}>
           Filters
           {activeFilterCount > 0 && <span className="rp-ds-filters-badge">{activeFilterCount}</span>}
         </button>
@@ -310,14 +337,16 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={5} className="rp-ds-stat-row" /> : (
+      {loading ? <SkeletonStatCards count={7} className="rp-ds-stat-row" /> : (
         <div className="rp-sra-summary-row rp-ds-stat-row">
           {[
             { label: "Invoice Count", value: stats.invoiceCount.toString() },
             { label: "Client Count",  value: stats.clientCount.toString() },
             { label: "Items Count",   value: stats.itemsCount.toString() },
             { label: "Staff Count",   value: stats.staffCount.toString() },
-            { label: "Total Revenue", value: formatAmount(stats.totalRevenue) },
+            { label: "Paid Amount",   value: formatAmount(stats.totalPaid) },
+            { label: "Due Amount",    value: formatAmount(stats.totalDue) },
+            { label: "Payment Status", value: `${stats.fullyPaidCount} Paid / ${stats.pendingPaymentCount} Pending` },
           ].map(c => (
             <div key={c.label} className="rp-sra-summary-card">
               <div className="rp-sra-summary-val">{c.value}</div>
@@ -360,16 +389,18 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
               <th>Client Name</th>
               <th>Items</th>
               <th>Staff</th>
-              <th>Amount ({currencySymbol})</th>
+              <th>Grand Total ({currencySymbol})</th>
+              <th>Paid Amount ({currencySymbol})</th>
+              <th>Due Amount ({currencySymbol})</th>
               <th>Payment Method</th>
               <th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={9} />
+              <SkeletonTableRows columns={11} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={9} className="rp-detail-empty-cell">No data available</td></tr>
+              <tr><td colSpan={11} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.map((r, i) => (
               <tr key={i} className={r.appointmentId ? "rp-appt-row" : undefined}>
                 <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
@@ -389,7 +420,9 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
                 <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}><span className="rp-detail-link">{r.clientName || "Walk-in"}</span></td>
                 <td className="rp-ds-items" title={r.items} onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.items}</td>
                 <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.staff}</td>
-                <td className="fw-semibold" onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{formatAmount(r.amount)}</td>
+                <td className="fw-semibold" onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{formatAmount(r.grandTotal)}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{formatAmount(r.paidAmount)}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{formatAmount(r.dueAmount)}</td>
                 <td className="rp-ds-payment" onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.paymentMethod}</td>
                 <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
               </tr>
@@ -459,19 +492,46 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
           <div className="rp-ds-filters-modal" onClick={e => e.stopPropagation()}>
             <div className="modal-header">
               <h3>Filters</h3>
+              <button
+                type="button"
+                aria-label="Close"
+                className="rp-ds-filters-close"
+                onClick={() => setShowFiltersPanel(false)}
+              >
+                ×
+              </button>
             </div>
 
             <div className="rp-ds-filters-body">
-              <FilterField label="Service" value={serviceFilter} options={[{ label: "All", value: "All" }, ...serviceOptions.map(o => ({ label: o.label, value: o.id }))]} onChange={setServiceFilter} />
-              <MultiStaffField options={staffOptions} selected={staffFilters} onChange={setStaffFilters} />
-              <FilterField label="Payment Method" value={paymentModeFilter} options={paymentModeOptions} onChange={setPaymentModeFilter} />
-              <FilterField label="Status" value={statusFilter} options={STATUS_OPTIONS} onChange={setStatusFilter} />
-              <FilterField label="Item Type" value={itemTypeFilter} options={ITEM_TYPE_OPTIONS} onChange={setItemTypeFilter} />
+              <FilterField label="Service" value={draftServiceFilter} options={[{ label: "All", value: "All" }, ...serviceOptions.map(o => ({ label: o.label, value: o.id }))]} onChange={setDraftServiceFilter} />
+              <MultiStaffField options={staffOptions} selected={draftStaffFilters} onChange={setDraftStaffFilters} />
+              <FilterField label="Payment Method" value={draftPaymentModeFilter} options={paymentModeOptions} onChange={setDraftPaymentModeFilter} />
+              <FilterField label="Status" value={draftStatusFilter} options={STATUS_OPTIONS} onChange={setDraftStatusFilter} />
+              <FilterField label="Item Type" value={draftItemTypeFilter} options={ITEM_TYPE_OPTIONS} onChange={setDraftItemTypeFilter} />
             </div>
 
             <div className="rp-ds-filters-actions">
-              <Button variant="ghost" onClick={() => { clearFilters(); }}>Clear</Button>
-              <Button variant="dark" onClick={() => { setShowFiltersPanel(false); fetchData(); }}>Apply</Button>
+              <Button variant="ghost" onClick={() => {
+                setDraftServiceFilter("All");
+                setDraftStaffFilters([]);
+                setDraftPaymentModeFilter("All");
+                setDraftStatusFilter("All");
+                setDraftItemTypeFilter("All");
+                setServiceFilter("All");
+                setStaffFilters([]);
+                setPaymentModeFilter("All");
+                setStatusFilter("All");
+                setItemTypeFilter("All");
+                setShowFiltersPanel(false);
+              }}>Clear</Button>
+              <Button variant="dark" onClick={() => {
+                setServiceFilter(draftServiceFilter);
+                setStaffFilters(draftStaffFilters);
+                setPaymentModeFilter(draftPaymentModeFilter);
+                setStatusFilter(draftStatusFilter);
+                setItemTypeFilter(draftItemTypeFilter);
+                setShowFiltersPanel(false);
+              }}>Apply</Button>
             </div>
           </div>
         </div>
