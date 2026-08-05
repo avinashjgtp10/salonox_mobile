@@ -14,9 +14,21 @@ import DateRangeFields from "../../../components/ui/DateRangeFields";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useProducts } from "../../catalog/hooks/useProducts";
+import { useDraftFilters } from "./useDraftFilters";
+import ReportFiltersModal from "./ReportFiltersModal";
 import "./ProductSaleReport.scss";
 
 const REPORT_NAME = "Product Retail";
+
+interface ProductRetailFilterValues {
+  staffIds: string[];
+  brand: string;
+  category: string;
+}
+
+const PRODUCT_RETAIL_FILTER_DEFAULTS: ProductRetailFilterValues = {
+  staffIds: [], brand: "All", category: "All",
+};
 
 interface ProductSaleRow {
   date: string;
@@ -31,6 +43,7 @@ interface ProductSaleRow {
   bill: number;
   total: number;
   taxAmount: number;
+  paidAmount: number;
   paymentMethod: string;
   status: string;
 }
@@ -63,6 +76,7 @@ function mapRow(row: any): ProductSaleRow {
     bill: Number(row.price) || 0,
     total: Number(row.total) || 0,
     taxAmount: Number(row.tax_amount) || 0,
+    paidAmount: Number(row.paid_amount) || 0,
     paymentMethod: row.payment_method || "N/A",
     status: row.status || "—",
   };
@@ -83,10 +97,9 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
   const [dateTo,      setDateTo]      = useState(today);
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
-  const [brandFilter,    setBrandFilter]    = useState("All");
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const [committedFilters, setCommittedFilters] = useState<ProductRetailFilterValues>(PRODUCT_RETAIL_FILTER_DEFAULTS);
+  const { staffIds: staffFilterIds, brand: brandFilter, category: categoryFilter } = committedFilters;
+  const filtersPanel = useDraftFilters(committedFilters, setCommittedFilters, PRODUCT_RETAIL_FILTER_DEFAULTS);
   const [rows,        setRows]        = useState<ProductSaleRow[]>([]);
   const [total,       setTotal]       = useState(0);
   const [stats,       setStats]       = useState({ totalQty: 0, totalRev: 0, productsSold: 0, totalTransactions: 0 });
@@ -161,13 +174,9 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
     categoryFilter !== "All" ? 1 : 0,
   ].reduce((a, b) => a + b, 0);
 
-  const clearFilters = () => {
-    setStaffFilterIds([]); setBrandFilter("All"); setCategoryFilter("All");
-  };
-
-  const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Product Name", "Category", "Brand", "Quantity", `Bill (${currencySymbol})`, `GST (${currencySymbol})`, `Total (${currencySymbol})`, "Payment Method", "Status"];
+  const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Product Name", "Category", "Brand", "Quantity", `Total (${currencySymbol})`, `Paid Amount (${currencySymbol})`, "Payment Method", "Status"];
   // Total column is gross = line base + its own GST (so ₹399 @ 5% reads ₹418.95).
-  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.productName, r.category, r.brand, r.quantity, r.bill, r.taxAmount, r.total + r.taxAmount, r.paymentMethod, r.status]);
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.productName, r.category, r.brand, r.quantity, r.total + r.taxAmount, r.paidAmount, r.paymentMethod, r.status]);
 
   return (
     <div className="rp-detail-view">
@@ -182,7 +191,7 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
-        <button className="rp-ps-filters-btn" onClick={() => setShowFiltersPanel(true)}>
+        <button className="rp-ps-filters-btn" onClick={filtersPanel.openPanel}>
           Filters
           {activeFilterCount > 0 && <span className="rp-ps-filters-badge">{activeFilterCount}</span>}
         </button>
@@ -212,15 +221,15 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
           <thead>
             <tr>
               <th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Product Name</th>
-              <th>Category</th><th>Brand</th><th>Quantity</th><th>Bill ({currencySymbol})</th>
-              <th>GST ({currencySymbol})</th><th>Total ({currencySymbol})</th><th>Payment Method</th><th>Status</th>
+              <th>Category</th><th>Brand</th><th>Quantity</th><th>Total ({currencySymbol})</th>
+              <th>Paid Amount ({currencySymbol})</th><th>Payment Method</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={13} />
+              <SkeletonTableRows columns={12} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={13} className="rp-detail-empty-cell">No product sales found</td></tr>
+              <tr><td colSpan={12} className="rp-detail-empty-cell">No product sales found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -235,9 +244,8 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
                 <td>{r.category}</td>
                 <td>{r.brand}</td>
                 <td>{r.quantity}</td>
-                <td>{formatAmount(r.bill)}</td>
-                <td>{formatAmount(r.taxAmount)}</td>
                 <td className="fw-semibold">{formatAmount(r.total + r.taxAmount)}</td>
+                <td>{formatAmount(r.paidAmount)}</td>
                 <td className="rp-ps-payment">{r.paymentMethod}</td>
                 <td><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
               </tr>
@@ -253,39 +261,30 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="products" />
       )}
 
-      {showFiltersPanel && (
-        <div className="rp-ps-filters-overlay" onClick={() => setShowFiltersPanel(false)}>
-          <div className="rp-ps-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-            </div>
-
-            <div className="rp-ps-filters-body">
-              <MultiSelectCheckbox
-                label="Staff"
-                containerClass="rp-ps-filter-field"
-                options={staffOptions}
-                selected={staffFilterIds}
-                onChange={setStaffFilterIds}
-                placeholder="All staff"
-              />
-              <Select label="Brand" containerClass="rp-ps-filter-field" value={brandFilter} onChange={e => setBrandFilter(e.target.value)}>
-                <option value="All">All brands</option>
-                {brands.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </Select>
-              <Select label="Category" containerClass="rp-ps-filter-field" value={categoryFilter} onChange={e => setCategoryFilter(e.target.value)}>
-                <option value="All">All categories</option>
-                {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-            </div>
-
-            <div className="rp-ps-filters-actions">
-              <Button variant="ghost" onClick={() => { clearFilters(); }}>Clear</Button>
-              <Button variant="dark" onClick={() => { setShowFiltersPanel(false); fetchData(); }}>Apply</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ReportFiltersModal
+        open={filtersPanel.isOpen}
+        onClose={filtersPanel.closePanel}
+        onClear={filtersPanel.clear}
+        onApply={filtersPanel.apply}
+        classPrefix="rp-ps"
+      >
+        <MultiSelectCheckbox
+          label="Staff"
+          containerClass="rp-ps-filter-field"
+          options={staffOptions}
+          selected={filtersPanel.draft.staffIds}
+          onChange={v => filtersPanel.setDraftField("staffIds", v)}
+          placeholder="All staff"
+        />
+        <Select label="Brand" containerClass="rp-ps-filter-field" value={filtersPanel.draft.brand} onChange={e => filtersPanel.setDraftField("brand", e.target.value)}>
+          <option value="All">All brands</option>
+          {brands.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
+        </Select>
+        <Select label="Category" containerClass="rp-ps-filter-field" value={filtersPanel.draft.category} onChange={e => filtersPanel.setDraftField("category", e.target.value)}>
+          <option value="All">All categories</option>
+          {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </Select>
+      </ReportFiltersModal>
     </div>
   );
 }

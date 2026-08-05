@@ -15,9 +15,23 @@ import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
 import { BulkDeleteBar } from "./BulkDeleteBar";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { formatPaymentMode } from "../../../utils/paymentMode";
+import { useDraftFilters } from "./useDraftFilters";
+import ReportFiltersModal from "./ReportFiltersModal";
 import "./DailySheetReport.scss";
 
 const REPORT_NAME = "Daily Sheet";
+
+interface DailySheetFilterValues {
+  service: string;
+  staff: string[];
+  paymentMode: string;
+  status: string;
+  itemType: string;
+}
+
+const DAILY_SHEET_FILTER_DEFAULTS: DailySheetFilterValues = {
+  service: "All", staff: [], paymentMode: "All", status: "All", itemType: "All",
+};
 
 interface DailyRow {
   appointmentId: string | null;
@@ -200,11 +214,9 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
   const { currencySymbol, formatAmount } = useCurrency();
   const today = new Date().toISOString().slice(0, 10);
   const [date,            setDate]            = useState(today);
-  const [serviceFilter,   setServiceFilter]   = useState<string>("All");
-  const [staffFilters,    setStaffFilters]    = useState<string[]>([]);
-  const [paymentModeFilter, setPaymentModeFilter] = useState<string>("All");
-  const [statusFilter,    setStatusFilter]    = useState<string>("All");
-  const [itemTypeFilter,  setItemTypeFilter]  = useState<string>("All");
+  const [committedFilters, setCommittedFilters] = useState<DailySheetFilterValues>(DAILY_SHEET_FILTER_DEFAULTS);
+  const { service: serviceFilter, staff: staffFilters, paymentMode: paymentModeFilter, status: statusFilter, itemType: itemTypeFilter } = committedFilters;
+  const filtersPanel = useDraftFilters(committedFilters, setCommittedFilters, DAILY_SHEET_FILTER_DEFAULTS);
   const [search,          setSearch]          = useState("");
   // No separate /services or /staff calls — the daily-sheet API itself
   // returns filters_available (every service/staff that has ever appeared
@@ -213,15 +225,6 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
   const [serviceOptions,  setServiceOptions]  = useState<FilterOption[]>([]);
   const [staffOptions,    setStaffOptions]    = useState<FilterOption[]>([]);
   const [paymentModeOptions, setPaymentModeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
-  // Draft copies edited inside the Filters modal — nothing here affects the
-  // report until Apply commits them back to the real filter state below.
-  // Cancel/×/overlay-click just discards the drafts and closes.
-  const [draftServiceFilter, setDraftServiceFilter] = useState<string>("All");
-  const [draftStaffFilters, setDraftStaffFilters] = useState<string[]>([]);
-  const [draftPaymentModeFilter, setDraftPaymentModeFilter] = useState<string>("All");
-  const [draftStatusFilter, setDraftStatusFilter] = useState<string>("All");
-  const [draftItemTypeFilter, setDraftItemTypeFilter] = useState<string>("All");
   const [rows,            setRows]            = useState<DailyRow[]>([]);
   const [total,           setTotal]            = useState(0);
   const [stats, setStats] = useState({
@@ -321,14 +324,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
           <label className="rp-detail-filter-label">Date</label>
           <input type="date" value={date} onChange={e => setDate(e.target.value)} className="rp-detail-date-input rp-detail-date-input--boxed" />
         </div>
-        <button className="rp-ds-filters-btn" onClick={() => {
-          setDraftServiceFilter(serviceFilter);
-          setDraftStaffFilters(staffFilters);
-          setDraftPaymentModeFilter(paymentModeFilter);
-          setDraftStatusFilter(statusFilter);
-          setDraftItemTypeFilter(itemTypeFilter);
-          setShowFiltersPanel(true);
-        }}>
+        <button className="rp-ds-filters-btn" onClick={filtersPanel.openPanel}>
           Filters
           {activeFilterCount > 0 && <span className="rp-ds-filters-badge">{activeFilterCount}</span>}
         </button>
@@ -487,55 +483,19 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
         {bulkDelete.error && <p style={{ color: "#dc2626", fontSize: 13, margin: 0 }}>{bulkDelete.error}</p>}
       </Modal>
 
-      {showFiltersPanel && (
-        <div className="rp-ds-filters-overlay" onClick={() => setShowFiltersPanel(false)}>
-          <div className="rp-ds-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-              <button
-                type="button"
-                aria-label="Close"
-                className="rp-ds-filters-close"
-                onClick={() => setShowFiltersPanel(false)}
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="rp-ds-filters-body">
-              <FilterField label="Service" value={draftServiceFilter} options={[{ label: "All", value: "All" }, ...serviceOptions.map(o => ({ label: o.label, value: o.id }))]} onChange={setDraftServiceFilter} />
-              <MultiStaffField options={staffOptions} selected={draftStaffFilters} onChange={setDraftStaffFilters} />
-              <FilterField label="Payment Method" value={draftPaymentModeFilter} options={paymentModeOptions} onChange={setDraftPaymentModeFilter} />
-              <FilterField label="Status" value={draftStatusFilter} options={STATUS_OPTIONS} onChange={setDraftStatusFilter} />
-              <FilterField label="Item Type" value={draftItemTypeFilter} options={ITEM_TYPE_OPTIONS} onChange={setDraftItemTypeFilter} />
-            </div>
-
-            <div className="rp-ds-filters-actions">
-              <Button variant="ghost" onClick={() => {
-                setDraftServiceFilter("All");
-                setDraftStaffFilters([]);
-                setDraftPaymentModeFilter("All");
-                setDraftStatusFilter("All");
-                setDraftItemTypeFilter("All");
-                setServiceFilter("All");
-                setStaffFilters([]);
-                setPaymentModeFilter("All");
-                setStatusFilter("All");
-                setItemTypeFilter("All");
-                setShowFiltersPanel(false);
-              }}>Clear</Button>
-              <Button variant="dark" onClick={() => {
-                setServiceFilter(draftServiceFilter);
-                setStaffFilters(draftStaffFilters);
-                setPaymentModeFilter(draftPaymentModeFilter);
-                setStatusFilter(draftStatusFilter);
-                setItemTypeFilter(draftItemTypeFilter);
-                setShowFiltersPanel(false);
-              }}>Apply</Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ReportFiltersModal
+        open={filtersPanel.isOpen}
+        onClose={filtersPanel.closePanel}
+        onClear={filtersPanel.clear}
+        onApply={filtersPanel.apply}
+        classPrefix="rp-ds"
+      >
+        <FilterField label="Service" value={filtersPanel.draft.service} options={[{ label: "All", value: "All" }, ...serviceOptions.map(o => ({ label: o.label, value: o.id }))]} onChange={v => filtersPanel.setDraftField("service", v)} />
+        <MultiStaffField options={staffOptions} selected={filtersPanel.draft.staff} onChange={v => filtersPanel.setDraftField("staff", v)} />
+        <FilterField label="Payment Method" value={filtersPanel.draft.paymentMode} options={paymentModeOptions} onChange={v => filtersPanel.setDraftField("paymentMode", v)} />
+        <FilterField label="Status" value={filtersPanel.draft.status} options={STATUS_OPTIONS} onChange={v => filtersPanel.setDraftField("status", v)} />
+        <FilterField label="Item Type" value={filtersPanel.draft.itemType} options={ITEM_TYPE_OPTIONS} onChange={v => filtersPanel.setDraftField("itemType", v)} />
+      </ReportFiltersModal>
     </div>
   );
 }

@@ -84,6 +84,18 @@
   }
 }
 
+.rp-ss-filters-close {
+  background: none;
+  border: none;
+  font-size: 22px;
+  line-height: 1;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0 4px;
+
+  &:hover { color: #0f172a; }
+}
+
 .rp-ss-filters-body {
   display: flex;
   flex-direction: column;
