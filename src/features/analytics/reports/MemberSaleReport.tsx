@@ -1,14 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { MEMBER_SALE_REPORT } from "../../../services/api/endpoints";
-import Button from "../../../components/ui/Button";
 import ReportRefreshButton from "./ReportRefreshButton";
-import Select from "../../../components/ui/Select";
-import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
@@ -88,13 +86,12 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
   const [dateTo,      setDateTo]      = useState(today);
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter,     setStatusFilter]     = useState("All");
-  const [membershipFilter, setMembershipFilter] = useState("All");
-  const [pricingTypeFilter, setPricingTypeFilter] = useState("All");
+  const [statusFilter,     setStatusFilter]     = useState<string[]>([]);
+  const [membershipFilter, setMembershipFilter] = useState<string[]>([]);
+  const [pricingTypeFilter, setPricingTypeFilter] = useState<string[]>([]);
   const [staffFilterIds,   setStaffFilterIds]   = useState<string[]>([]);
   const [minPrice,         setMinPrice]         = useState("");
   const [maxPrice,         setMaxPrice]         = useState("");
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [rows,        setRows]        = useState<MemberSaleRow[]>([]);
   const [total,       setTotal]       = useState(0);
   const [stats,       setStats]       = useState({
@@ -133,9 +130,9 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
         page: currentPage, limit: pageSize,
       };
       if (debouncedSearch) body.search = debouncedSearch;
-      if (statusFilter !== "All") body.status = statusFilter;
-      if (membershipFilter !== "All") body.membership_id = membershipFilter;
-      if (pricingTypeFilter !== "All") body.pricing_type = pricingTypeFilter;
+      if (statusFilter.length > 0) body.statuses = statusFilter;
+      if (membershipFilter.length > 0) body.membership_ids = membershipFilter;
+      if (pricingTypeFilter.length > 0) body.pricing_types = pricingTypeFilter;
       if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
       if (minPrice !== "") body.price_min = Number(minPrice);
       if (maxPrice !== "") body.price_max = Number(maxPrice);
@@ -170,18 +167,25 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, statusFilter, membershipFilter, pricingTypeFilter, staffFilterIds, minPrice, maxPrice]);
 
-  const activeFilterCount = [
-    statusFilter !== "All" ? 1 : 0,
-    membershipFilter !== "All" ? 1 : 0,
-    pricingTypeFilter !== "All" ? 1 : 0,
-    staffFilterIds.length > 0 ? 1 : 0,
-    minPrice !== "" ? 1 : 0,
-    maxPrice !== "" ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "status", label: "Status", options: STATUS_OPTIONS },
+    { key: "membership", label: "Membership", options: membershipOptions, searchable: true },
+    { key: "pricing_type", label: "Membership Type", options: pricingTypeOptions.map(t => ({ id: t, label: PRICING_TYPE_LABELS[t] ?? t })) },
+    { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+  ], [membershipOptions, pricingTypeOptions, staffOptions]);
 
-  const clearFilters = () => {
-    setStatusFilter("All"); setMembershipFilter("All"); setPricingTypeFilter("All");
-    setStaffFilterIds([]); setMinPrice(""); setMaxPrice("");
+  const filterMenuSelected = useMemo(() => ({
+    status: statusFilter,
+    membership: membershipFilter,
+    pricing_type: pricingTypeFilter,
+    staff: staffFilterIds,
+  }), [statusFilter, membershipFilter, pricingTypeFilter, staffFilterIds]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStatusFilter(next.status ?? []);
+    setMembershipFilter(next.membership ?? []);
+    setPricingTypeFilter(next.pricing_type ?? []);
+    setStaffFilterIds(next.staff ?? []);
   };
 
   const formatValue = (r: MemberSaleRow) => {
@@ -211,10 +215,15 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
-        <button className="rp-ms-filters-btn" onClick={() => setShowFiltersPanel(true)}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-ms-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Price Range ({currencySymbol})</label>
+          <div className="rp-ms-price-range">
+            <input type="number" min={0} placeholder="Min" value={minPrice} onChange={e => setMinPrice(e.target.value)} />
+            <span>—</span>
+            <input type="number" min={0} placeholder="Max" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} />
+          </div>
+        </div>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -279,56 +288,6 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="memberships" />
-      )}
-
-      {showFiltersPanel && (
-        <div className="rp-ms-filters-overlay" onClick={() => setShowFiltersPanel(false)}>
-          <div className="rp-ms-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-            </div>
-
-            <div className="rp-ms-filters-body">
-              <Select label="Status" containerClass="rp-ms-filter-field" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                <option value="All">All</option>
-                {STATUS_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-
-              <Select label="Membership" containerClass="rp-ms-filter-field" value={membershipFilter} onChange={e => setMembershipFilter(e.target.value)}>
-                <option value="All">All memberships</option>
-                {membershipOptions.map(m => <option key={m.id} value={m.id}>{m.label}</option>)}
-              </Select>
-
-              <Select label="Membership Type" containerClass="rp-ms-filter-field" value={pricingTypeFilter} onChange={e => setPricingTypeFilter(e.target.value)}>
-                <option value="All">All types</option>
-                {pricingTypeOptions.map(t => <option key={t} value={t}>{PRICING_TYPE_LABELS[t] ?? t}</option>)}
-              </Select>
-
-              <MultiSelectCheckbox
-                label="Staff"
-                containerClass="rp-ms-filter-field"
-                options={staffOptions}
-                selected={staffFilterIds}
-                onChange={setStaffFilterIds}
-                placeholder="All staff"
-              />
-
-              <div className="rp-ms-filter-field">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Price Range ({currencySymbol})</label>
-                <div className="rp-ms-price-range">
-                  <input type="number" min={0} placeholder="Min" value={minPrice} onChange={e => setMinPrice(e.target.value)} />
-                  <span>—</span>
-                  <input type="number" min={0} placeholder="Max" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} />
-                </div>
-              </div>
-            </div>
-
-            <div className="rp-ms-filters-actions">
-              <Button variant="ghost" onClick={() => { clearFilters(); }}>Clear</Button>
-              <Button variant="dark" onClick={() => { setShowFiltersPanel(false); fetchData(); }}>Apply</Button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

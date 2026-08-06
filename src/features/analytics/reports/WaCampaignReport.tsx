@@ -1,16 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, X } from "react-bootstrap-icons";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { WA_CAMPAIGN_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
-import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
-import Select from "../../../components/ui/Select";
-import Button from "../../../components/ui/Button";
 import "./WaCampaignReport.scss";
 
 const REPORT_NAME = "WA Marketing Campaign";
@@ -40,11 +38,10 @@ const STATUS_OPTIONS = [
 const STATUS_LABELS: Record<string, string> = Object.fromEntries(STATUS_OPTIONS.map(o => [o.id, o.label]));
 
 const BUCKET_OPTIONS = [
-  { value: "", label: "All" },
-  { value: "high", label: "High (≥90%)" },
-  { value: "medium", label: "Medium (50-89%)" },
-  { value: "low", label: "Low (<50%)" },
-  { value: "none", label: "No Deliveries" },
+  { id: "high", label: "High (≥90%)" },
+  { id: "medium", label: "Medium (50-89%)" },
+  { id: "low", label: "Low (<50%)" },
+  { id: "none", label: "No Deliveries" },
 ];
 
 function mapRow(row: any): CampaignPerfRow {
@@ -82,21 +79,9 @@ export default function WaCampaignReport({ onBack, category, categoryKey }: { on
   const [dateTo, setDateTo] = useState("");
   const [statuses, setStatuses] = useState<string[]>([]);
   const [templateIds, setTemplateIds] = useState<string[]>([]);
-  const [deliveryBucket, setDeliveryBucket] = useState("");
-  const [readBucket, setReadBucket] = useState("");
+  const [deliveryBucketFilter, setDeliveryBucketFilter] = useState<string[]>([]);
+  const [readBucketFilter, setReadBucketFilter] = useState<string[]>([]);
   const [templateOptions, setTemplateOptions] = useState<{ id: string; label: string }[]>([]);
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
-
-  // Draft copies edited while the modal is open; only committed to the
-  // applied filter state above when Apply is clicked. Closing via the X or
-  // the overlay discards them, matching the Client Revenue/Commission
-  // filter modal pattern.
-  const [draftDateFrom, setDraftDateFrom] = useState("");
-  const [draftDateTo, setDraftDateTo] = useState("");
-  const [draftStatuses, setDraftStatuses] = useState<string[]>([]);
-  const [draftTemplateIds, setDraftTemplateIds] = useState<string[]>([]);
-  const [draftDeliveryBucket, setDraftDeliveryBucket] = useState("");
-  const [draftReadBucket, setDraftReadBucket] = useState("");
 
   const [rows, setRows] = useState<CampaignPerfRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -110,9 +95,6 @@ export default function WaCampaignReport({ onBack, category, categoryKey }: { on
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
-    ? "To Date must be greater than or equal to From Date"
-    : "";
-  const draftDateRangeError = draftDateFrom && draftDateTo && draftDateTo < draftDateFrom
     ? "To Date must be greater than or equal to From Date"
     : "";
 
@@ -134,8 +116,10 @@ export default function WaCampaignReport({ onBack, category, categoryKey }: { on
       if (templateIds.length > 0) body.template_ids = templateIds;
       if (dateFrom) body.date_from = dateFrom;
       if (dateTo) body.date_to = dateTo;
-      if (deliveryBucket) body.delivery_bucket = deliveryBucket;
-      if (readBucket) body.read_bucket = readBucket;
+      // Backend delivery_bucket/read_bucket are single-value only — only send
+      // when exactly one option is checked; 0 or 2+ selected means "All".
+      if (deliveryBucketFilter.length === 1) body.delivery_bucket = deliveryBucketFilter[0];
+      if (readBucketFilter.length === 1) body.read_bucket = readBucketFilter[0];
 
       const res = await api.post(WA_CAMPAIGN_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -164,59 +148,32 @@ export default function WaCampaignReport({ onBack, category, categoryKey }: { on
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [debouncedSearch, statuses, templateIds, dateFrom, dateTo, deliveryBucket, readBucket, currentPage, pageSize, dateRangeError]);
+  }, [debouncedSearch, statuses, templateIds, dateFrom, dateTo, deliveryBucketFilter, readBucketFilter, currentPage, pageSize, dateRangeError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, statuses, templateIds, dateFrom, dateTo, deliveryBucket, readBucket]);
+  }, [debouncedSearch, statuses, templateIds, dateFrom, dateTo, deliveryBucketFilter, readBucketFilter]);
 
-  const activeFilterCount = [
-    statuses.length > 0 ? 1 : 0,
-    templateIds.length > 0 ? 1 : 0,
-    dateFrom || dateTo ? 1 : 0,
-    deliveryBucket ? 1 : 0,
-    readBucket ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "status", label: "Campaign Status", options: STATUS_OPTIONS },
+    { key: "template", label: "Template", options: templateOptions, searchable: true },
+    { key: "delivery_bucket", label: "Delivery Status", options: BUCKET_OPTIONS },
+    { key: "read_bucket", label: "Read Status", options: BUCKET_OPTIONS },
+  ], [templateOptions]);
 
-  const openFiltersPanel = () => {
-    setDraftDateFrom(dateFrom);
-    setDraftDateTo(dateTo);
-    setDraftStatuses(statuses);
-    setDraftTemplateIds(templateIds);
-    setDraftDeliveryBucket(deliveryBucket);
-    setDraftReadBucket(readBucket);
-    setShowFiltersPanel(true);
-  };
+  const filterMenuSelected = useMemo(() => ({
+    status: statuses,
+    template: templateIds,
+    delivery_bucket: deliveryBucketFilter,
+    read_bucket: readBucketFilter,
+  }), [statuses, templateIds, deliveryBucketFilter, readBucketFilter]);
 
-  const cancelFiltersPanel = () => setShowFiltersPanel(false);
-
-  const clearDraftFilters = () => {
-    setDraftDateFrom("");
-    setDraftDateTo("");
-    setDraftStatuses([]);
-    setDraftTemplateIds([]);
-    setDraftDeliveryBucket("");
-    setDraftReadBucket("");
-    // Clear applies immediately (not just the draft) — resets the actually
-    // applied filters and refetches, same as Clear-then-Apply in one step.
-    setDateFrom("");
-    setDateTo("");
-    setStatuses([]);
-    setTemplateIds([]);
-    setDeliveryBucket("");
-    setReadBucket("");
-    setShowFiltersPanel(false);
-  };
-
-  const applyFilters = () => {
-    setDateFrom(draftDateFrom);
-    setDateTo(draftDateTo);
-    setStatuses(draftStatuses);
-    setTemplateIds(draftTemplateIds);
-    setDeliveryBucket(draftDeliveryBucket);
-    setReadBucket(draftReadBucket);
-    setShowFiltersPanel(false);
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStatuses(next.status ?? []);
+    setTemplateIds(next.template ?? []);
+    setDeliveryBucketFilter(next.delivery_bucket ?? []);
+    setReadBucketFilter(next.read_bucket ?? []);
   };
 
   const pct = (n: number, total: number) => total > 0 ? `${Math.round((n / total) * 100)}%` : "0%";
@@ -250,8 +207,12 @@ export default function WaCampaignReport({ onBack, category, categoryKey }: { on
                 ...(templateIds.length > 0
                   ? [`Template: ${templateOptions.filter(o => templateIds.includes(o.id)).map(o => o.label).join(", ")}`]
                   : []),
-                ...(deliveryBucket ? [`Delivery Status: ${BUCKET_OPTIONS.find(b => b.value === deliveryBucket)?.label}`] : []),
-                ...(readBucket ? [`Read Status: ${BUCKET_OPTIONS.find(b => b.value === readBucket)?.label}`] : []),
+                ...(deliveryBucketFilter.length > 0
+                  ? [`Delivery Status: ${deliveryBucketFilter.map(v => BUCKET_OPTIONS.find(b => b.id === v)?.label ?? v).join(", ")}`]
+                  : []),
+                ...(readBucketFilter.length > 0
+                  ? [`Read Status: ${readBucketFilter.map(v => BUCKET_OPTIONS.find(b => b.id === v)?.label ?? v).join(", ")}`]
+                  : []),
               ]}
               summaryLines={[
                 `Total Campaigns: ${stats.totalCampaigns}`,
@@ -270,14 +231,13 @@ export default function WaCampaignReport({ onBack, category, categoryKey }: { on
       </div>
 
       <div className="rp-detail-filters">
-        <button className="rp-cr-filters-btn" onClick={openFiltersPanel}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-cr-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
+      {dateRangeError && <div className="rp-detail-date-error">{dateRangeError}</div>}
 
       {loading ? <SkeletonStatCards count={9} /> : (
         <div className="rp-sra-summary-row">
@@ -351,59 +311,6 @@ export default function WaCampaignReport({ onBack, category, categoryKey }: { on
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
-
-      {showFiltersPanel && (
-        <div className="rp-cr-filters-overlay" onClick={cancelFiltersPanel}>
-          <div className="rp-cr-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-              <button type="button" className="rp-cr-filters-close" aria-label="Close" onClick={cancelFiltersPanel}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="rp-cr-filters-body">
-              <MultiSelectCheckbox
-                label="Campaign Status"
-                containerClass="rp-cr-filter-field"
-                options={STATUS_OPTIONS}
-                selected={draftStatuses}
-                onChange={setDraftStatuses}
-                placeholder="All statuses"
-              />
-
-              <MultiSelectCheckbox
-                label="Template"
-                containerClass="rp-cr-filter-field"
-                options={templateOptions}
-                selected={draftTemplateIds}
-                onChange={setDraftTemplateIds}
-                placeholder="All templates"
-                searchable
-              />
-
-              <DateRangeFields
-                from={draftDateFrom} to={draftDateTo}
-                onFromChange={setDraftDateFrom} onToChange={setDraftDateTo}
-                containerClassName="rp-cr-filter-field"
-              />
-
-              <Select label="Delivery Status" containerClass="rp-cr-filter-field" value={draftDeliveryBucket} onChange={e => setDraftDeliveryBucket(e.target.value)}>
-                {BUCKET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </Select>
-
-              <Select label="Read Status" containerClass="rp-cr-filter-field" value={draftReadBucket} onChange={e => setDraftReadBucket(e.target.value)}>
-                {BUCKET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </Select>
-            </div>
-
-            <div className="rp-cr-filters-actions">
-              <Button variant="ghost" onClick={clearDraftFilters}>Clear</Button>
-              <Button variant="dark" onClick={applyFilters} disabled={!!draftDateRangeError}>Apply</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
