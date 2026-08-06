@@ -13,6 +13,7 @@ import {
   saveReconciliationRowThunk,
   fetchConsumablesThunk,
   fetchConsumableKpisThunk,
+  fetchConsumablesDashboardThunk,
   fetchConsumableByIdThunk,
 } from "../middleware/inventory/inventory.thunk";
 import type {
@@ -200,6 +201,30 @@ const inventorySlice = createSlice({
     });
     builder.addCase(fetchConsumablesThunk.rejected, (state, action) => {
       state.consumablesLoading = false;
+      state.error = action.payload as string;
+    });
+
+    // Consumable Inventory: combined list + KPIs (single request) — updates
+    // exactly the same state fields as fetchConsumablesThunk/
+    // fetchConsumableKpisThunk above, just from one response instead of two.
+    builder.addCase(fetchConsumablesDashboardThunk.pending, (state) => {
+      state.consumablesLoading = true;
+      state.consumableKpisLoading = true;
+      state.error = null;
+    });
+    builder.addCase(fetchConsumablesDashboardThunk.fulfilled, (state, action) => {
+      state.consumablesLoading = false;
+      state.consumableKpisLoading = false;
+      state.consumables = action.payload.list.data;
+      state.consumablesPage = action.payload.list.page;
+      state.consumablesPageSize = action.payload.list.pageSize;
+      state.consumablesTotalRecords = action.payload.list.totalRecords;
+      state.consumablesTotalPages = action.payload.list.totalPages;
+      state.consumableKpis = action.payload.kpis;
+    });
+    builder.addCase(fetchConsumablesDashboardThunk.rejected, (state, action) => {
+      state.consumablesLoading = false;
+      state.consumableKpisLoading = false;
       state.error = action.payload as string;
     });
 

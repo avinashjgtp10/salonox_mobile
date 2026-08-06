@@ -243,6 +243,8 @@
     font-size: 13px;
     cursor: pointer;
     &:hover { background: #f3f4f6; }
+
+    &--active { background: #eef2ff; }
   }
 
   &__empty {

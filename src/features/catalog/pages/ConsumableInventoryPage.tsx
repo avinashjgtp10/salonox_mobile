@@ -5,8 +5,7 @@ import { Search, PlusLg, X, ThreeDotsVertical } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
-  fetchConsumablesThunk,
-  fetchConsumableKpisThunk,
+  fetchConsumablesDashboardThunk,
   fetchSuppliersThunk,
 } from "../../../middleware/inventory/inventory.thunk";
 import { fetchBrandsThunk, fetchCategoriesThunk, updateProductThunk } from "../../../middleware/catalog/products.thunk";
@@ -96,6 +95,7 @@ const RowActionsMenu: React.FC<{ items: RowActionItem[] }> = ({ items }) => {
 };
 
 const DEBOUNCE_MS = 400;
+const FOCUS_REFRESH_MIN_INTERVAL_MS = 15000;
 
 const STATUS_LABEL: Record<ConsumableStatus, string> = {
   healthy: "Healthy",
@@ -131,21 +131,6 @@ const PRODUCT_TYPE_OPTIONS: FilterDropdownOption[] = [
   { id: "both", label: "Both" },
 ];
 
-// "Today 10:30 AM" / "Yesterday" / "Never Used" — matches the Consumable
-// Usage modal's spec wording exactly.
-function formatLastUsed(iso: string | null): string {
-  if (!iso) return "Never Used";
-  const date = new Date(iso);
-  const now = new Date();
-  const isToday = date.toDateString() === now.toDateString();
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  const isYesterday = date.toDateString() === yesterday.toDateString();
-  if (isToday) return `Today ${date.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit" })}`;
-  if (isYesterday) return "Yesterday";
-  return date.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-}
-
 const ConsumableInventoryPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
@@ -165,36 +150,71 @@ const ConsumableInventoryPage: React.FC = () => {
   const [deactivateTarget, setDeactivateTarget] = useState<{ id: string; name: string } | null>(null);
   const [deactivating, setDeactivating] = useState(false);
 
+  // Categories/brands/suppliers/services are shared reference data used
+  // across Products, Services, and here — if another page already loaded
+  // them into Redux this session, re-fetching on every visit to THIS page
+  // is pure waste. Only dispatch for whichever of these actually came back
+  // empty.
   useEffect(() => {
-    dispatch(fetchCategoriesThunk());
-    dispatch(fetchBrandsThunk());
-    dispatch(fetchSuppliersThunk());
-    dispatch(fetchServicesThunk({ limit: 200, isActive: true } as any));
-    dispatch(fetchConsumableKpisThunk());
-  }, [dispatch]);
+    if (categories.length === 0) dispatch(fetchCategoriesThunk());
+    if (brands.length === 0) dispatch(fetchBrandsThunk());
+    if (suppliers.length === 0) dispatch(fetchSuppliersThunk());
+    if (servicesList.length === 0) dispatch(fetchServicesThunk({ limit: 200, isActive: true } as any));
+  }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const lastFetchedAtRef = useRef(0);
+
+  // Single combined request for both the table rows and the KPI cards —
+  // see consumable-inventory.service.ts::getDashboard(). Previously two
+  // separate HTTP calls (fetchConsumablesThunk + fetchConsumableKpisThunk)
+  // fired together on every mount/filter/search/page change.
   useEffect(() => {
-    dispatch(fetchConsumablesThunk(filters));
+    dispatch(fetchConsumablesDashboardThunk(filters));
+    lastFetchedAtRef.current = Date.now();
   }, [dispatch, filters]);
 
   // Stock changes on this page whenever an appointment elsewhere gets paid
   // (consumable deduction happens server-side, not through any action this
-  // page dispatches) — refetch whenever the tab regains focus so numbers
-  // don't sit stale if this page was left open in the background while a
-  // sale was completed on the Calendar in another tab/window.
+  // page dispatches) — refetch when you actually come back to this TAB after
+  // it sat hidden for a while, so numbers don't stay stale if a sale was
+  // completed on the Calendar in another tab/window while this one was in
+  // the background.
+  //
+  // Deliberately `document.visibilitychange` (fires only when this tab's
+  // own visibility flips — switching tabs, minimizing) rather than
+  // `window.addEventListener("focus", ...)`, which fires on every OS-level
+  // window focus change: clicking into an undocked DevTools window and
+  // back, alt-tabbing to another app and back, even while this tab was
+  // never actually hidden. That's what was making the whole page
+  // (KPI cards + table) flash back to loading skeletons on ordinary clicks
+  // while testing with DevTools open. The 15s floor stays as a second guard
+  // against firing again immediately after the initial load.
   useEffect(() => {
-    function onFocus() {
-      dispatch(fetchConsumablesThunk(filters));
-      dispatch(fetchConsumableKpisThunk());
+    function onVisible() {
+      if (document.visibilityState !== "visible") return;
+      if (Date.now() - lastFetchedAtRef.current < FOCUS_REFRESH_MIN_INTERVAL_MS) return;
+      dispatch(fetchConsumablesDashboardThunk(filters));
+      lastFetchedAtRef.current = Date.now();
     }
-    window.addEventListener("focus", onFocus);
-    return () => window.removeEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
   }, [dispatch, filters]);
 
-  // Debounced search — same 400ms pattern as ProductsListPage.
+  // Debounced search — same 400ms pattern as ProductsListPage. This effect
+  // also fires on mount (searchInput starts as ""), which used to
+  // unconditionally build a NEW filters object 400ms later even when
+  // nothing had actually changed (search was already undefined, page was
+  // already 1) — a new object reference still re-triggers the
+  // [dispatch, filters] fetch effect below, firing a second, redundant
+  // /consumables request on every page load. Returning `prev` unchanged
+  // when there's really nothing to update keeps the reference stable.
   useEffect(() => {
     const t = setTimeout(() => {
-      setFilters((prev) => ({ ...prev, search: searchInput || undefined, page: 1 }));
+      setFilters((prev) => {
+        const nextSearch = searchInput || undefined;
+        if (prev.search === nextSearch && prev.page === 1) return prev;
+        return { ...prev, search: nextSearch, page: 1 };
+      });
     }, DEBOUNCE_MS);
     return () => clearTimeout(t);
   }, [searchInput]);
@@ -302,8 +322,8 @@ const ConsumableInventoryPage: React.FC = () => {
   }), [filters]);
 
   const refresh = useCallback(() => {
-    dispatch(fetchConsumablesThunk(filters));
-    dispatch(fetchConsumableKpisThunk());
+    dispatch(fetchConsumablesDashboardThunk(filters));
+    lastFetchedAtRef.current = Date.now();
   }, [dispatch, filters]);
 
   async function confirmDeactivate() {
@@ -411,17 +431,17 @@ const ConsumableInventoryPage: React.FC = () => {
         <table className="ci-table">
           <thead>
             <tr>
-              <th>Product</th><th>Category</th><th>Supplier</th><th>Stock</th>
-              <th>Available Stock</th><th>Assigned Services</th><th>Last Used</th><th>Status</th><th></th>
+              <th>Product</th><th>Category</th><th>Supplier</th><th>Stock</th><th>Unit</th>
+              <th>Available Stock</th><th>Used (Month)</th><th>Assigned Services</th><th>Status</th><th></th>
             </tr>
           </thead>
           <tbody>
             {consumablesLoading ? (
               Array.from({ length: 6 }).map((_, i) => (
-                <tr key={i}>{Array.from({ length: 9 }).map((__, j) => <td key={j}><Skeleton height={14} /></td>)}</tr>
+                <tr key={i}>{Array.from({ length: 10 }).map((__, j) => <td key={j}><Skeleton height={14} /></td>)}</tr>
               ))
             ) : consumables.length === 0 ? (
-              <tr><td colSpan={9} className="ci-empty">No consumables found.</td></tr>
+              <tr><td colSpan={10} className="ci-empty">No consumables found.</td></tr>
             ) : (
               consumables.map((row) => (
                 <tr
@@ -435,10 +455,13 @@ const ConsumableInventoryPage: React.FC = () => {
                   </td>
                   <td>{row.category_name || "—"}</td>
                   <td>{row.supplier_name || "—"}</td>
-                  <td>
-                    {row.unit_size ? `${row.product_qty} × ${row.unit_size} ${row.unit}` : `${row.total_stock.toLocaleString()} ${row.unit}`}
-                  </td>
+                  {/* Stock = package/bottle count (1, 2, 3…); Unit = the
+                      configured package size itself (e.g. "100 ml" per
+                      Bottle) — never the multiplied total across all stock. */}
+                  <td>{row.product_qty.toLocaleString()}</td>
+                  <td>{row.unit_size ? `${row.unit_size.toLocaleString()} ${row.unit}` : "—"}</td>
                   <td>{row.remaining_stock.toLocaleString()} {row.unit}</td>
+                  <td>{row.used_this_month.toLocaleString()} {row.unit}</td>
                   <td>
                     {row.assigned_services_count > 0 ? (
                       <button
@@ -452,7 +475,6 @@ const ConsumableInventoryPage: React.FC = () => {
                       <span>0 Services</span>
                     )}
                   </td>
-                  <td>{formatLastUsed(row.last_used_at)}</td>
                   <td><span className={`ci-status ci-status--${row.status}`}>{STATUS_DOT[row.status]} {STATUS_LABEL[row.status]}</span></td>
                   <td onClick={(e) => e.stopPropagation()}>
                     {/* Portaled to document.body and positioned from the

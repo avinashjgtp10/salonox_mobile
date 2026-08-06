@@ -331,6 +331,36 @@ export const fetchConsumableKpisThunk = createAsyncThunk<
   }
 });
 
+export interface ConsumableDashboardResult {
+  kpis: ConsumableKpis;
+  list: ConsumableListResult;
+}
+
+// Combined list + KPIs in one request — the Consumable Inventory page's
+// initial load and every filter/search/page change previously fired
+// fetchConsumablesThunk and fetchConsumableKpisThunk as two separate HTTP
+// calls; the backend now runs both queries concurrently and returns them
+// together (consumable-inventory.service.ts::getDashboard).
+export const fetchConsumablesDashboardThunk = createAsyncThunk<
+  ConsumableDashboardResult,
+  ConsumableListFilters,
+  { rejectValue: string }
+>("inventory/fetchConsumablesDashboard", async (filters, { rejectWithValue }) => {
+  try {
+    const ARRAY_FILTER_KEYS = ["category_id", "brand_id", "supplier_id", "unit", "service_id", "status", "product_type"] as const;
+    const params: Record<string, unknown> = { ...filters };
+    ARRAY_FILTER_KEYS.forEach((key) => {
+      const value = (filters as any)[key];
+      params[key] = Array.isArray(value) && value.length ? value.join(",") : undefined;
+    });
+    const res = await api.get<InventoryResponse<ConsumableDashboardResult>>(INVENTORY.CONSUMABLES_DASHBOARD, { params });
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchConsumablesDashboardThunk error:", err?.response?.data || err?.message);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch consumable dashboard");
+  }
+});
+
 export const fetchConsumableByIdThunk = createAsyncThunk<
   ConsumableDetail,
   string,
