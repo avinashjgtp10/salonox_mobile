@@ -1,16 +1,22 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { EWALLET, EWALLET_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "./EwalletReport.scss";
 
 const REPORT_NAME = "Ewallet";
+
+const STATUS_OPTIONS = [
+  { id: "with_balance", label: "With Balance" },
+  { id: "no_balance", label: "No Balance" },
+];
 
 interface ClientRow {
   id: string;
@@ -58,6 +64,9 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
   const [loading,     setLoading]     = useState(false);
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [minBalance,  setMinBalance]  = useState("");
+  const [maxBalance,  setMaxBalance]  = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
   const abortRef = useRef<AbortController | null>(null);
@@ -87,6 +96,12 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
         page: currentPage, limit: pageSize,
       };
       if (debouncedSearch) body.search = debouncedSearch;
+      // Backend's status knob is a single value — checking exactly one of
+      // the two options narrows normally; checking both (or neither) means
+      // "no filter", so nothing is sent (same pattern as Reward Report).
+      if (statusFilter.length === 1) body.status = statusFilter[0];
+      if (minBalance !== "") body.balance_min = Number(minBalance);
+      if (maxBalance !== "") body.balance_max = Number(maxBalance);
       const res = await api.post(EWALLET_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -113,10 +128,20 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [asOfDate, debouncedSearch, currentPage, pageSize]);
+  }, [asOfDate, debouncedSearch, statusFilter, minBalance, maxBalance, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [asOfDate, debouncedSearch]);
+  useEffect(() => { setCurrentPage(1); }, [asOfDate, debouncedSearch, statusFilter, minBalance, maxBalance]);
+
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "status", label: "Balance Status", options: STATUS_OPTIONS },
+  ], []);
+
+  const filterMenuSelected = useMemo(() => ({ status: statusFilter }), [statusFilter]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStatusFilter(next.status ?? []);
+  };
 
   const openDrawer = useCallback(async (row: ClientRow) => {
     setSelected(row);
@@ -190,6 +215,15 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
           <label className="rp-detail-filter-label">As of Date</label>
           <div className="rp-detail-date-range">
             <input type="date" value={asOfDate} max={today} onChange={e => setAsOfDate(e.target.value)} className="rp-detail-date-input" />
+          </div>
+        </div>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Balance Status" />
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Balance Range</label>
+          <div className="rp-ew-range-inputs">
+            <input type="number" min={0} placeholder="Min" value={minBalance} onChange={e => setMinBalance(e.target.value)} />
+            <span>—</span>
+            <input type="number" min={0} placeholder="Max" value={maxBalance} onChange={e => setMaxBalance(e.target.value)} />
           </div>
         </div>
         <div className="rp-detail-filter-actions">
