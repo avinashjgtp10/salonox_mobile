@@ -1,13 +1,16 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PRODUCT_MARGIN_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { useProducts } from "../../catalog/hooks/useProducts";
 import "./ProductMarginReport.scss";
 
 const REPORT_NAME = "Product Margin";
@@ -37,10 +40,18 @@ function mapRow(row: any): MarginRow {
 
 export default function ProductMarginReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
+  // Same Brand/Category source as Catalog → Products and the Product Retail
+  // report — the full catalog list, not just brands/categories that happen
+  // to appear in sold line items.
+  const { brands, categories, fetchBrands, fetchCategories } = useProducts();
   const today   = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
   const [dateTo,      setDateTo]      = useState(today);
+  const [search,      setSearchInput] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [brandIds,    setBrandIds]    = useState<string[]>([]);
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [rows,        setRows]        = useState<MarginRow[]>([]);
   const [total,       setTotal]       = useState(0);
   const [stats,       setStats]       = useState({ totalRevenue: 0, totalCost: 0, totalProfit: 0, avgMargin: 0 });
@@ -48,6 +59,13 @@ export default function ProductMarginReport({ onBack, category, categoryKey }: {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  useEffect(() => { fetchBrands(); fetchCategories(); }, [fetchBrands, fetchCategories]);
 
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
@@ -63,6 +81,9 @@ export default function ProductMarginReport({ onBack, category, categoryKey }: {
         start_date: dateFrom, end_date: dateTo,
         page: currentPage, limit: pageSize,
       };
+      if (debouncedSearch) body.search = debouncedSearch;
+      if (brandIds.length > 0) body.brand_ids = brandIds;
+      if (categoryIds.length > 0) body.category_ids = categoryIds;
       const res = await api.post(PRODUCT_MARGIN_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -83,10 +104,29 @@ export default function ProductMarginReport({ onBack, category, categoryKey }: {
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, currentPage, pageSize]);
+  }, [dateFrom, dateTo, debouncedSearch, brandIds, categoryIds, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, brandIds, categoryIds]);
+
+  // Brand/Category weren't in the original filter set (there was no filter
+  // beyond Date Range at all) — added since the report already reads
+  // products.brand_id/category_id for cost lookup, so filtering by them is
+  // a natural, low-risk extension of what the query already joins.
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "brand", label: "Brand", options: brands.map((b: any) => ({ id: String(b.id), label: String(b.name) })), searchable: true },
+    { key: "category", label: "Category", options: categories.map((c: any) => ({ id: String(c.id), label: String(c.name) })), searchable: true },
+  ], [brands, categories]);
+
+  const filterMenuSelected = useMemo(() => ({
+    brand: brandIds,
+    category: categoryIds,
+  }), [brandIds, categoryIds]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setBrandIds(next.brand ?? []);
+    setCategoryIds(next.category ?? []);
+  };
 
   const HEADERS = ["Product Name", "Quantity Sold", `Revenue (${currencySymbol})`, `Cost (${currencySymbol})`, `Profit (${currencySymbol})`, "Margin (%)"];
   const exportRows = () => rows.map(r => [r.productName, r.quantity, r.revenue, r.cost, r.profit, r.marginPct]);
@@ -104,8 +144,22 @@ export default function ProductMarginReport({ onBack, category, categoryKey }: {
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
+        </div>
+      </div>
+
+      <div className="rp-detail-toolbar">
+        <div className="rp-detail-search-wrap">
+          <Search size={13} className="rp-detail-search-ic" />
+          <input
+            type="text"
+            className="rp-detail-search-input"
+            placeholder="Search product name"
+            value={search}
+            onChange={e => setSearchInput(e.target.value)}
+          />
         </div>
       </div>
 
