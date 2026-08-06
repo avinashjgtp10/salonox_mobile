@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useDispatch } from "react-redux";
-import { Search, X } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -8,16 +8,28 @@ import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
-import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import Select from "../../../components/ui/Select";
-import Button from "../../../components/ui/Button";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "./CommissionReport.scss";
 
 const REPORT_NAME = "Commission Report";
+
+const ITEM_OPTIONS = [
+  { id: "services", label: "Service" },
+  { id: "products", label: "Product" },
+  { id: "memberships", label: "Membership" },
+  { id: "packages", label: "Package" },
+];
+
+const STATUS_OPTIONS = [
+  { id: "paid", label: "Paid" },
+  { id: "pending", label: "Unpaid" },
+  { id: "partial", label: "Partial" },
+];
 
 interface EarnedRow {
   staffId: string;
@@ -101,23 +113,15 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
   const [dateTo,      setDateTo]      = useState(today);
   const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
   const [staffOptions,   setStaffOptions]   = useState<{ id: string; label: string }[]>([]);
-  const [itemFilter, setItemFilter] = useState("All");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [itemFilter, setItemFilter] = useState<string[]>([]);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [search,      setSearch]      = useState("");
   const [rows,        setRows]        = useState<EarnedRow[]>([]);
   const [summary,     setSummary]     = useState<Summary>({ totalCommission: 0, totalRevenue: 0, pendingCommission: 0, paidCommission: 0 });
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(25);
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-
-  // Draft copies edited while the modal is open; only committed to the
-  // applied filter state above when Apply is clicked. Closing via the X or
-  // the overlay discards them, matching the Client Revenue filter modal.
-  const [draftStaffIds, setDraftStaffIds] = useState<string[]>([]);
-  const [draftItem, setDraftItem] = useState("All");
-  const [draftStatus, setDraftStatus] = useState("All");
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
     ? "To Date must be greater than or equal to From Date"
@@ -148,11 +152,13 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
     try {
       const params: Record<string, any> = { start_date: dateFrom, end_date: dateTo };
       if (staffFilterIds.length > 0) params.staff_ids = staffFilterIds.join(",");
-      if (itemFilter !== "All") params.category = itemFilter;
-      if (statusFilter !== "All") params.status = statusFilter;
+      // Backend only accepts a single category/status value — only send one
+      // when exactly one checkbox is selected; 0 or 2+ selected means "All".
+      if (itemFilter.length === 1) params.category = itemFilter[0];
+      if (statusFilter.length === 1) params.status = statusFilter[0];
       const [earnedRes, summaryRes] = await Promise.all([
         api.get(`${STAFF.BASE}/commissions/earned`, { params, signal: ctrl.signal }),
-        api.get(`${STAFF.BASE}/commissions/summary`, { params: { start_date: dateFrom, end_date: dateTo, ...(staffFilterIds.length > 0 ? { staff_ids: staffFilterIds.join(",") } : {}), ...(itemFilter !== "All" ? { category: itemFilter } : {}) }, signal: ctrl.signal }),
+        api.get(`${STAFF.BASE}/commissions/summary`, { params: { start_date: dateFrom, end_date: dateTo, ...(staffFilterIds.length > 0 ? { staff_ids: staffFilterIds.join(",") } : {}), ...(itemFilter.length === 1 ? { category: itemFilter[0] } : {}) }, signal: ctrl.signal }),
       ]);
       const earned: any[] = Array.isArray(earnedRes.data?.data) ? earnedRes.data.data : [];
       setRows(earned.map((r: any) => ({
@@ -189,32 +195,22 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
 
   useEffect(() => { setCurrentPage(1); }, [filteredRows.length]);
 
-  const activeFilterCount = [
-    staffFilterIds.length > 0 ? 1 : 0,
-    itemFilter !== "All" ? 1 : 0,
-    statusFilter !== "All" ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "staff", label: "Staff Member", options: staffOptions, searchable: true },
+    { key: "item", label: "Item", options: ITEM_OPTIONS },
+    { key: "status", label: "Commission Status", options: STATUS_OPTIONS },
+  ], [staffOptions]);
 
-  const openFiltersPanel = () => {
-    setDraftStaffIds(staffFilterIds);
-    setDraftItem(itemFilter);
-    setDraftStatus(statusFilter);
-    setShowFiltersPanel(true);
-  };
+  const filterMenuSelected = useMemo(() => ({
+    staff: staffFilterIds,
+    item: itemFilter,
+    status: statusFilter,
+  }), [staffFilterIds, itemFilter, statusFilter]);
 
-  const cancelFiltersPanel = () => setShowFiltersPanel(false);
-
-  const clearDraftFilters = () => {
-    setDraftStaffIds([]);
-    setDraftItem("All");
-    setDraftStatus("All");
-  };
-
-  const applyFilters = () => {
-    setStaffFilterIds(draftStaffIds);
-    setItemFilter(draftItem);
-    setStatusFilter(draftStatus);
-    setShowFiltersPanel(false);
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStaffFilterIds(next.staff ?? []);
+    setItemFilter(next.item ?? []);
+    setStatusFilter(next.status ?? []);
   };
 
   const statusOf = (r: EarnedRow) => r.pending > 0 && r.paid > 0 ? "Partial" : r.pending > 0 ? "Unpaid" : r.paid > 0 ? "Paid" : "—";
@@ -241,8 +237,12 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
                 ...(staffFilterIds.length > 0
                   ? [`Staff: ${staffOptions.filter(o => staffFilterIds.includes(o.id)).map(o => o.label).join(", ")}`]
                   : []),
-                ...(itemFilter !== "All" ? [`Item: ${CATEGORY_LABELS[itemFilter] ?? itemFilter}`] : []),
-                ...(statusFilter !== "All" ? [`Status: ${statusFilter.charAt(0).toUpperCase()}${statusFilter.slice(1)}`] : []),
+                ...(itemFilter.length > 0
+                  ? [`Item: ${itemFilter.map(v => CATEGORY_LABELS[v] ?? v).join(", ")}`]
+                  : []),
+                ...(statusFilter.length > 0
+                  ? [`Status: ${statusFilter.map(v => STATUS_OPTIONS.find(o => o.id === v)?.label ?? v).join(", ")}`]
+                  : []),
               ]}
               summaryLines={[
                 `Total Revenue: ${formatAmount(summary.totalRevenue)}`,
@@ -265,10 +265,7 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
             <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} hideLabel bare />
           )}
         </div>
-        <button className="rp-cr-filters-btn" onClick={openFiltersPanel}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-cr-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -320,50 +317,6 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={filteredRows.length}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
-
-      {showFiltersPanel && (
-        <div className="rp-cr-filters-overlay" onClick={cancelFiltersPanel}>
-          <div className="rp-cr-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-              <button type="button" className="rp-cr-filters-close" aria-label="Close" onClick={cancelFiltersPanel}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="rp-cr-filters-body">
-              <MultiSelectCheckbox
-                label="Staff Member"
-                containerClass="rp-cr-filter-field"
-                options={staffOptions}
-                selected={draftStaffIds}
-                onChange={setDraftStaffIds}
-                placeholder="All staff"
-              />
-
-              <Select label="Item" containerClass="rp-cr-filter-field" value={draftItem} onChange={e => setDraftItem(e.target.value)}>
-                <option value="All">All</option>
-                <option value="services">Service</option>
-                <option value="products">Product</option>
-                <option value="memberships">Membership</option>
-                <option value="packages">Package</option>
-              </Select>
-
-              <Select label="Commission Status" containerClass="rp-cr-filter-field" value={draftStatus} onChange={e => setDraftStatus(e.target.value)}>
-                <option value="All">All</option>
-                <option value="paid">Paid</option>
-                <option value="pending">Unpaid</option>
-                <option value="partial">Partial</option>
-              </Select>
-            </div>
-
-            <div className="rp-cr-filters-actions">
-              <Button variant="ghost" onClick={clearDraftFilters}>Clear</Button>
-              <Button variant="dark" onClick={applyFilters}>Apply</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -4,10 +4,9 @@ import api from "../../../services/api/axios";
 import { ATTENDANCE } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
-import Select from "../../../components/ui/Select";
-import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination, DateRangePicker } from "../../../components/ui";
+import { Pagination, DateRangePicker, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import "./AttendanceReport.scss";
 
@@ -62,7 +61,7 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
   const [dateFrom,    setDateFrom]    = useState(monthStart);
   const [dateTo,      setDateTo]      = useState(today);
   const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [staffOptions, setStaffOptions] = useState<FilterOption[]>([]);
   const [search,      setSearch]      = useState("");
   const [allRows,     setAllRows]     = useState<AttendanceRow[]>([]);
@@ -106,7 +105,7 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
   const rows = useMemo(() => {
     let r = allRows;
     if (staffFilterIds.length > 0) r = r.filter(x => staffFilterIds.includes(x.staffId));
-    if (statusFilter !== "All") r = r.filter(x => x.status === statusFilter);
+    if (statusFilter.length > 0) r = r.filter(x => statusFilter.includes(x.status));
     if (search.trim()) {
       const q = search.toLowerCase();
       r = r.filter(x => x.staffName.toLowerCase().includes(q) || x.staffRole.toLowerCase().includes(q));
@@ -116,13 +115,19 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
 
   useEffect(() => { setCurrentPage(1); }, [rows.length]);
 
-  const activeFilterCount = [
-    staffFilterIds.length > 0 ? 1 : 0,
-    statusFilter !== "All" ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+    { key: "status", label: "Status", options: STATUS_OPTIONS },
+  ], [staffOptions]);
 
-  const clearFilters = () => {
-    setStaffFilterIds([]); setStatusFilter("All");
+  const filterMenuSelected = useMemo(() => ({
+    staff: staffFilterIds,
+    status: statusFilter,
+  }), [staffFilterIds, statusFilter]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStaffFilterIds(next.staff ?? []);
+    setStatusFilter(next.status ?? []);
   };
 
   const counts = useMemo(() => {
@@ -167,25 +172,7 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
           <label className="rp-detail-filter-label">Date</label>
           <DateRangePicker startDate={dateFrom} endDate={dateTo} onChange={(s, e) => { setDateFrom(s); setDateTo(e); }} showQuickPresets />
         </div>
-        <div className="rp-detail-filter-group">
-          <MultiSelectCheckbox
-            label="Staff"
-            containerClass="rp-att-filter-field"
-            options={staffOptions}
-            selected={staffFilterIds}
-            onChange={setStaffFilterIds}
-            placeholder="All staff"
-          />
-        </div>
-        <div className="rp-detail-filter-group">
-          <Select label="Status" containerClass="rp-att-filter-field" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-            <option value="All">All</option>
-            {STATUS_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-          </Select>
-        </div>
-        {activeFilterCount > 0 && (
-          <button className="rp-att-clear-btn" onClick={clearFilters}>Clear filters</button>
-        )}
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>

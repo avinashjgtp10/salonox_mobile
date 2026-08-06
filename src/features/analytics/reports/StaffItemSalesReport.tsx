@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
@@ -8,7 +8,8 @@ import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination, DateRangePicker } from "../../../components/ui";
+import { Pagination, DateRangePicker, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "./StaffItemSalesReport.scss";
@@ -57,9 +58,8 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
   const [dateFrom,      setDateFrom]      = useState(monthStart);
   const [dateTo,        setDateTo]        = useState(today);
   const [itemType,      setItemType]      = useState<ItemType>("service");
-  const [staffFilter,   setStaffFilter]   = useState("All");
-  const [staffOptions,  setStaffOptions]  = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
-  const [showStaffDrop, setShowStaffDrop] = useState(false);
+  const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
+  const [staffOptions,  setStaffOptions]  = useState<{ id: string; label: string }[]>([]);
   const [search,        setSearchInput]   = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [loading,       setLoading]       = useState(false);
@@ -74,9 +74,9 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
     dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
       const opts = list.map((s: any) => ({
         label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
-        value: String(s.id ?? ""),
-      })).filter((o: any) => o.label && o.value);
-      setStaffOptions([{ label: "All", value: "All" }, ...opts]);
+        id: String(s.id ?? ""),
+      })).filter((o: any) => o.label && o.id);
+      setStaffOptions(opts);
     }).catch(() => {});
   }, [dispatch]);
 
@@ -98,7 +98,7 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
         start_date: dateFrom, end_date: dateTo, item_type: itemType,
         page: currentPage, limit: pageSize,
       };
-      if (staffFilter !== "All") body.staff_id = staffFilter;
+      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
       if (debouncedSearch) body.search = debouncedSearch;
       const res = await api.post(STAFF_ITEM_SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -120,16 +120,20 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, itemType, staffFilter, debouncedSearch, currentPage, pageSize]);
+  }, [dateFrom, dateTo, itemType, staffFilterIds, debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, itemType, staffFilter, debouncedSearch]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, itemType, staffFilterIds, debouncedSearch]);
 
-  useEffect(() => {
-    const close = () => setShowStaffDrop(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "staff", label: "Staff Member", options: staffOptions, searchable: true },
+  ], [staffOptions]);
+
+  const filterMenuSelected = useMemo(() => ({ staff: staffFilterIds }), [staffFilterIds]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStaffFilterIds(next.staff ?? []);
+  };
 
   const itemColLabel =
     itemType === "service"    ? "Service Name" :
@@ -170,21 +174,7 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
           <label className="rp-detail-filter-label">Date Range</label>
           <DateRangePicker startDate={dateFrom} endDate={dateTo} onChange={(s, e) => { setDateFrom(s); setDateTo(e); }} showQuickPresets />
         </div>
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Staff Member</label>
-          <button className="rp-detail-select" onClick={() => setShowStaffDrop(v => !v)}>
-            {(staffOptions.find(o => o.value === staffFilter)?.label ?? "All").slice(0, 16)}
-            <span className="rp-detail-caret">▼</span>
-          </button>
-          {showStaffDrop && (
-            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {staffOptions.map(o => (
-                <div key={o.value} className={`rp-detail-dropdown-item ${o.value === staffFilter ? "active" : ""}`}
-                  onClick={() => { setStaffFilter(o.value); setShowStaffDrop(false); }}>{o.label}</div>
-              ))}
-            </div>
-          )}
-        </div>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
