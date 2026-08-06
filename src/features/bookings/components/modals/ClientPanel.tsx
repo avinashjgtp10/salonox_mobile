@@ -228,6 +228,13 @@ export const ClientPanel: React.FC<Props> = ({
   // stale index from a previous search never lands on the wrong client.
   useEffect(() => { setActiveIndex(-1); }, [suggestions]);
 
+  // Keep the highlighted row visible — without this, arrowing past the
+  // bottom of the scroll container moves the highlight out of sight.
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
+  useEffect(() => {
+    if (activeIndex >= 0) itemRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
+
   // Enter with zero matches ("no clients found for X") used to just do
   // nothing — same action as clicking the "No clients found" prompt: reveal
   // the Add Client form below, already prefilled with whatever was typed
@@ -251,10 +258,12 @@ export const ClientPanel: React.FC<Props> = ({
     if (suggestions.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIndex((i) => (i + 1) % suggestions.length);
+      // Clamped, not wrapped — jumping back to the first row after the last
+      // reads as the list being stuck in a loop rather than reaching the end.
+      setActiveIndex((i) => Math.min(i + 1, suggestions.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActiveIndex((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
+      setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter") {
       if (activeIndex >= 0 && activeIndex < suggestions.length) {
         e.preventDefault();
@@ -429,6 +438,7 @@ export const ClientPanel: React.FC<Props> = ({
               {suggestions.map((c, i) => (
                 <div
                   key={c.id}
+                  ref={(el) => { itemRefs.current[i] = el; }}
                   id={`client-option-${c.id}`}
                   role="option"
                   aria-selected={i === activeIndex}

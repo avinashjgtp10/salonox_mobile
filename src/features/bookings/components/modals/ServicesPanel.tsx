@@ -928,16 +928,25 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   // Reset the keyboard-highlighted result whenever the result set changes.
   useEffect(() => { setActiveIndex(-1); }, [results]);
 
+  // Keep the highlighted row visible — without this, arrowing past the
+  // bottom of the scroll container moves the highlight out of sight.
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  useEffect(() => {
+    if (activeIndex >= 0) itemRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
+
   function handleSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (showDrop && results.length > 0) {
       if (e.key === "ArrowDown") {
         e.preventDefault();
-        setActiveIndex((i) => (i + 1) % results.length);
+        // Clamped, not wrapped — jumping back to the first row after the last
+        // reads as the list being stuck in a loop rather than reaching the end.
+        setActiveIndex((i) => Math.min(i + 1, results.length - 1));
         return;
       }
       if (e.key === "ArrowUp") {
         e.preventDefault();
-        setActiveIndex((i) => (i <= 0 ? results.length - 1 : i - 1));
+        setActiveIndex((i) => Math.max(i - 1, 0));
         return;
       }
       if (e.key === "Enter" && activeIndex >= 0 && activeIndex < results.length) {
@@ -961,12 +970,9 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   }
 
   function handleSelect(item: SearchableCatalogItem) {
-    if (kind === "product" && item.stock !== undefined && item.stock <= 0) {
-      setScanMessage("This product is out of stock and cannot be added.");
-      setResults([]);
-      setShowDrop(false);
-      return;
-    }
+    // Out-of-stock products are selectable — being out of stock must never
+    // block a sale. The dropdown still labels them "(Out of stock)" in red so
+    // the shortfall is visible; it's a warning, not a gate.
     userTypedRef.current = false;
     const qty = getSafeQty(row.qty);
     const discount = parseInt(discountInput, 10) || 0;
@@ -1189,15 +1195,14 @@ function SearchableItemRow(props: SearchableItemRowProps) {
                     <button
                       type="button"
                       key={`${kind}-${item.id}`}
+                      ref={(el) => { itemRefs.current[i] = el; }}
                       id={`${kind}-search-option-${item.id}`}
                       role="option"
                       aria-selected={i === activeIndex}
                       className={`svc-dropdown__item${i === activeIndex ? " svc-dropdown__item--active" : ""}`}
                       onMouseDown={() => handleSelect(item)}
                       onMouseEnter={() => setActiveIndex(i)}
-                      disabled={isOutOfStock}
-                      style={isOutOfStock ? { cursor: "not-allowed", opacity: 0.6 } : undefined}
-                      title={isOutOfStock ? "Out of stock" : undefined}
+                      title={isOutOfStock ? "Out of stock — can still be sold" : undefined}
                     >
                       <span className="svc-dropdown__name" style={isOutOfStock ? { color: "#dc2626" } : undefined}>
                         {item.name}

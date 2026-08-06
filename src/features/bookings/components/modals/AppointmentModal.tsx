@@ -834,8 +834,8 @@ export const AppointmentModal: React.FC<Props> = ({
   // never fire against a stale-vs-current total.
   const ZERO_TOTALS: TotalsResult = {
     catalogTotal: 0, itemDiscountTotal: 0, subtotal: 0, manualDiscount: 0, totalDisc: 0,
-    taxable: 0, gstAmount: 0, taxBreakdown: [], grandTotal: 0, roundOff: 0, preRedemptionTotal: 0,
-    displaySubtotal: 0,
+    taxable: 0, gstAmount: 0, taxBreakdown: [], billTotal: 0, grandTotal: 0, roundOff: 0,
+    preRedemptionTotal: 0, displaySubtotal: 0,
   };
   const [totals, setTotals] = useState<TotalsResult>(ZERO_TOTALS);
   const [totalsConfirmed, setTotalsConfirmed] = useState(false);
@@ -953,6 +953,10 @@ export const AppointmentModal: React.FC<Props> = ({
             catalogTotal: data.catalogTotal, itemDiscountTotal: data.itemDiscountTotal,
             subtotal: data.subtotal, manualDiscount: data.manualDiscount, totalDisc: data.totalDisc,
             taxable: data.taxable, gstAmount: data.gstAmount, taxBreakdown: data.taxBreakdown ?? [],
+            // Falls back to the same taxable+GST sum the engine uses, so an
+            // older backend that doesn't send the field still renders a
+            // correct "Total Bill" row rather than ₹0.00.
+            billTotal: data.billTotal ?? ((data.taxable ?? 0) + (data.gstAmount ?? 0)),
             grandTotal: data.grandTotal, roundOff: data.roundOff, preRedemptionTotal: data.preRedemptionTotal,
             displaySubtotal: data.displaySubtotal ?? data.subtotal,
           });
@@ -2377,6 +2381,11 @@ export const AppointmentModal: React.FC<Props> = ({
                   {totals.taxBreakdown.filter((t) => t.inclusive && t.amount > 0).map((t) => (
                     <div className="qs-summary-row" key={`${t.name}-incl`}><span>{t.name} ({t.rate}%, incl.)</span><span>{currencySymbol}{t.amount.toFixed(2)}</span></div>
                   ))}
+                  {/* Running total at the tax line — everything below it (Extra
+                      Charges, Bill/Referral Discount, wallets, points, round off)
+                      is a post-tax adjustment, so this is the last figure that is
+                      purely "items + tax". */}
+                  <div className="qs-summary-row qs-summary-row--subtotal"><span>Total Bill</span><span>{currencySymbol}{totals.billTotal.toFixed(2)}</span></div>
                   <div className="qs-summary-row"><span>Extra Charges</span><span>+{currencySymbol}{exCharges.toFixed(2)}</span></div>
                   {/* Bill Discount is a POST-tax deduction — applied to the bill total
                       after GST/Extra Charges (see pricing.engine.ts computeBillTotals). */}

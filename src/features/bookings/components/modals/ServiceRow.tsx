@@ -413,14 +413,23 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   // Reset the keyboard-highlighted result whenever the result set changes.
   useEffect(() => { setActiveIndex(-1); }, [apiResults]);
 
+  // Keep the highlighted row visible — without this, arrowing past the
+  // bottom of the scroll container moves the highlight out of sight.
+  const serviceItemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+  useEffect(() => {
+    if (activeIndex >= 0) serviceItemRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
+
   function handleServiceSearchKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (!showDrop || !apiResults || apiResults.length === 0) return;
     if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActiveIndex((i) => (i + 1) % apiResults.length);
+      // Clamped, not wrapped — jumping back to the first row after the last
+      // reads as the list being stuck in a loop rather than reaching the end.
+      setActiveIndex((i) => Math.min(i + 1, apiResults.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
-      setActiveIndex((i) => (i <= 0 ? apiResults.length - 1 : i - 1));
+      setActiveIndex((i) => Math.max(i - 1, 0));
     } else if (e.key === "Enter" && activeIndex >= 0 && activeIndex < apiResults.length) {
       e.preventDefault();
       selectService(apiResults[activeIndex]);
@@ -792,31 +801,47 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
       setAddError("This consumable is already added.");
       return;
     }
-    const available = productStockById.get(addDraft.productId);
-    if (available !== undefined && qty > available) {
-      setAddError(`Insufficient stock. Required: ${qty} ${addDraft.unit || ""}, Total Stock: ${available} ${addDraft.unit || ""}`);
-      return;
-    }
-
-    const serviceId = (row as any).service_id || row.id;
-    if (!serviceId) { setAddError("Save this row's service first"); return; }
+    // Deliberately NOT blocked on stock — an out-of-stock consumable must not
+    // stop staff recording what they actually used, or billing the service.
+    // The row still shows a red "Only N in stock" warning (see the Actual Qty
+    // input below) and the backend deducts with allowNegative, flooring
+    // products.amount at 0 instead of refusing the payment.
 
     setAddSaving(true);
     setAddError("");
     try {
-      // c.qty on an existing row entry is the STANDARD qty already scaled by
-      // this row's billed Qty (see rescaleConsumables) — the catalog recipe
-      // being patched here wants the flat per-session rate back, i.e. unitQty.
-      const existingRecipe = (row.consumables ?? []).map((c) => ({ product_id: c.productId, qty: c.unitQty ?? c.qty, unit: c.unit }));
-      const newRecipeItem = { product_id: addDraft.productId, qty, unit: addDraft.unit || undefined };
-      await api.patch(SERVICES.BY_ID(serviceId), { consumables_used: [...existingRecipe, newRecipeItem] });
-
+      // The consumable is added to THIS row first and unconditionally — it
+      // rides along on the normal appointment save (see useAppointment.ts's
+      // buildServiceApiItems), so it never needs a saved catalog service to
+      // be recorded against this bill. Requiring one used to block the whole
+      // action with "Save this row's service first".
       const rowQty = getSafeQty(row.qty);
       const newRowConsumables = [
         ...(row.consumables ?? []),
         { productId: addDraft.productId, productName: addDraft.productName, qty: qty * rowQty, unitQty: qty, unit: addDraft.unit },
       ];
       onChange(row.tempId, "consumables", newRowConsumables);
+
+      // Best-effort catalog sync: when this row already points at a saved
+      // catalog service, also fold the new item into that service's stored
+      // recipe so future bookings inherit it. Skipped (not an error) when the
+      // row has no service yet — nothing to patch — and a failure here must
+      // not discard the row-level addition above, which is what actually
+      // drives this bill's stock deduction.
+      const serviceId = (row as any).service_id || row.id;
+      if (serviceId) {
+        // c.qty on an existing row entry is the STANDARD qty already scaled by
+        // this row's billed Qty (see rescaleConsumables) — the catalog recipe
+        // being patched here wants the flat per-session rate back, i.e. unitQty.
+        const existingRecipe = (row.consumables ?? []).map((c) => ({ product_id: c.productId, qty: c.unitQty ?? c.qty, unit: c.unit }));
+        const newRecipeItem = { product_id: addDraft.productId, qty, unit: addDraft.unit || undefined };
+        try {
+          await api.patch(SERVICES.BY_ID(serviceId), { consumables_used: [...existingRecipe, newRecipeItem] });
+        } catch {
+          // Non-fatal — the consumable is already on this row/bill.
+        }
+      }
+
       setAddDraft(null);
     } catch (err: any) {
       setAddError(err?.response?.data?.error?.message || "Failed to save — try again");
@@ -921,6 +946,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                     <button
                       type="button"
                       key={service.id || service.name}
+                      ref={(el) => { serviceItemRefs.current[i] = el; }}
                       id={`service-search-option-${row.tempId}-${i}`}
                       role="option"
                       aria-selected={i === activeIndex}
