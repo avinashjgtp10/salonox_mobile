@@ -301,6 +301,96 @@
     border-color: #6366f1 !important;
     box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.1) !important;
   }
+
+  // ── Checkbox column ──────────────────────────────────────────────────────────
+  .checkbox-cell {
+    width: 48px !important;
+    min-width: 48px !important;
+    padding-right: 0 !important;
+    vertical-align: middle;
+
+    // Custom, oversized checkbox — replaces the tiny browser default.
+    // Border darkened from the original #d0d5dd (too close to the white
+    // table background to read at a glance) and enlarged from 18px so it's
+    // easy to spot and click for bulk-select.
+    input[type="checkbox"] {
+      appearance: none;
+      -webkit-appearance: none;
+      display: block;
+      width: 20px;
+      height: 20px;
+      min-width: 20px;
+      border: 2px solid #9198a5;
+      border-radius: 5px;
+      background: #fff;
+      cursor: pointer;
+      position: relative;
+      transition: border-color 0.15s, background 0.15s, box-shadow 0.15s;
+      flex-shrink: 0;
+
+      &:hover {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.14);
+      }
+
+      &:focus-visible {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.22);
+      }
+
+      // Checked state — solid indigo fill with a white checkmark
+      &:checked {
+        background: #4f46e5;
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.18);
+
+        &::after {
+          content: "";
+          position: absolute;
+          top: 2px;
+          left: 6px;
+          width: 6px;
+          height: 10px;
+          border: 2px solid #fff;
+          border-top: none;
+          border-left: none;
+          transform: rotate(45deg);
+        }
+      }
+
+      // Indeterminate state (select-all when only some rows are selected)
+      &:indeterminate {
+        background: #4f46e5;
+        border-color: #4f46e5;
+
+        &::after {
+          content: "";
+          position: absolute;
+          top: 50%;
+          left: 4px;
+          right: 4px;
+          height: 2px;
+          background: #fff;
+          transform: translateY(-50%);
+          border-radius: 1px;
+        }
+      }
+    }
+  }
+
+  // Row highlight when selected
+  .product-table tbody tr.selected-row {
+    background: rgba(99, 102, 241, 0.05) !important;
+
+    &:hover {
+      background: rgba(99, 102, 241, 0.09) !important;
+    }
+
+    td {
+      border-bottom-color: rgba(99, 102, 241, 0.12);
+    }
+  }
 }
 
 // ── Custom filter dropdown (Category / Brand) ──────────────────────────────────
