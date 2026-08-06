@@ -2,17 +2,21 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { REWARD_POINTS_REPORT } from "../../../services/api/endpoints";
-import Button from "../../../components/ui/Button";
 import ReportRefreshButton from "./ReportRefreshButton";
-import Select from "../../../components/ui/Select";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
 import "./RewardReport.scss";
 
 const REPORT_NAME = "Reward";
+
+const STATUS_OPTIONS = [
+  { id: "active", label: "Active (has balance)" },
+  { id: "inactive", label: "Inactive (no balance)" },
+];
 
 interface RewardClientRow {
   clientId: string;
@@ -57,12 +61,11 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
   const [dateTo,      setDateTo]      = useState(today);
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [minAvailable, setMinAvailable] = useState("");
   const [maxAvailable, setMaxAvailable] = useState("");
   const [minRedeemed,  setMinRedeemed]  = useState("");
   const [maxRedeemed,  setMaxRedeemed]  = useState("");
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [rows,        setRows]        = useState<RewardClientRow[]>([]);
   const [total,       setTotal]       = useState(0);
   const [stats,       setStats]       = useState({ totalAvailable: 0, totalEarned: 0, totalRedeemed: 0, activeClients: 0 });
@@ -98,7 +101,10 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
         page: currentPage, limit: pageSize,
       };
       if (debouncedSearch) body.search = debouncedSearch;
-      if (statusFilter !== "All") body.status = statusFilter;
+      // The backend's status knob is a single value (active | inactive) —
+      // checking exactly one of the two options narrows normally; checking
+      // both (or neither) is equivalent to "no filter", so nothing is sent.
+      if (statusFilter.length === 1) body.status = statusFilter[0];
       if (minAvailable !== "") body.points_available_min = Number(minAvailable);
       if (maxAvailable !== "") body.points_available_max = Number(maxAvailable);
       if (minRedeemed !== "") body.points_redeemed_min = Number(minRedeemed);
@@ -128,14 +134,14 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, statusFilter, minAvailable, maxAvailable, minRedeemed, maxRedeemed]);
 
-  const activeFilterCount = [
-    statusFilter !== "All" ? 1 : 0,
-    minAvailable !== "" || maxAvailable !== "" ? 1 : 0,
-    minRedeemed !== "" || maxRedeemed !== "" ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "status", label: "Reward Status", options: STATUS_OPTIONS },
+  ], []);
 
-  const clearFilters = () => {
-    setStatusFilter("All"); setMinAvailable(""); setMaxAvailable(""); setMinRedeemed(""); setMaxRedeemed("");
+  const filterMenuSelected = useMemo(() => ({ status: statusFilter }), [statusFilter]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStatusFilter(next.status ?? []);
   };
 
   const HEADERS = ["Client", "Mobile", "Points Available", "Points Earned", "Points Redeemed", "Last Activity"];
@@ -157,10 +163,23 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} hideLabel />
-        <button className="rp-rw-filters-btn" onClick={() => setShowFiltersPanel(true)}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-rw-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Reward Status" />
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Available Points</label>
+          <div className="rp-rw-range-inputs">
+            <input type="number" min={0} placeholder="Min" value={minAvailable} onChange={e => setMinAvailable(e.target.value)} />
+            <span>—</span>
+            <input type="number" min={0} placeholder="Max" value={maxAvailable} onChange={e => setMaxAvailable(e.target.value)} />
+          </div>
+        </div>
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Redeemed Points</label>
+          <div className="rp-rw-range-inputs">
+            <input type="number" min={0} placeholder="Min" value={minRedeemed} onChange={e => setMinRedeemed(e.target.value)} />
+            <span>—</span>
+            <input type="number" min={0} placeholder="Max" value={maxRedeemed} onChange={e => setMaxRedeemed(e.target.value)} />
+          </div>
+        </div>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -220,46 +239,6 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
 
-      {showFiltersPanel && (
-        <div className="rp-rw-filters-overlay" onClick={() => setShowFiltersPanel(false)}>
-          <div className="rp-rw-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-            </div>
-
-            <div className="rp-rw-filters-body">
-              <Select label="Reward Status" containerClass="rp-rw-filter-field" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                <option value="All">All</option>
-                <option value="active">Active (has balance)</option>
-                <option value="inactive">Inactive (no balance)</option>
-              </Select>
-
-              <div className="rp-rw-filter-field">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Available Points</label>
-                <div className="rp-rw-range-inputs">
-                  <input type="number" min={0} placeholder="Min" value={minAvailable} onChange={e => setMinAvailable(e.target.value)} />
-                  <span>—</span>
-                  <input type="number" min={0} placeholder="Max" value={maxAvailable} onChange={e => setMaxAvailable(e.target.value)} />
-                </div>
-              </div>
-
-              <div className="rp-rw-filter-field">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Redeemed Points</label>
-                <div className="rp-rw-range-inputs">
-                  <input type="number" min={0} placeholder="Min" value={minRedeemed} onChange={e => setMinRedeemed(e.target.value)} />
-                  <span>—</span>
-                  <input type="number" min={0} placeholder="Max" value={maxRedeemed} onChange={e => setMaxRedeemed(e.target.value)} />
-                </div>
-              </div>
-            </div>
-
-            <div className="rp-rw-filters-actions">
-              <Button variant="ghost" onClick={() => { clearFilters(); }}>Clear</Button>
-              <Button variant="dark" onClick={() => { setShowFiltersPanel(false); fetchData(); }}>Apply</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -16,84 +16,6 @@
   @media (max-width: 480px) { grid-template-columns: 1fr; }
 }
 
-// ── Combined Filters panel ──────────────────────────────────────────────────
-
-.rp-rw-filters-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  color: #111827;
-  cursor: pointer;
-
-  &:hover { background: #f9fafb; }
-}
-
-.rp-rw-filters-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: #111827;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.rp-rw-filters-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 3000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rp-rw-filters-modal {
-  width: 460px;
-  max-width: 95vw;
-  max-height: 90vh;
-  overflow-y: auto;
-  background: #fff;
-  border-radius: 16px;
-  padding: 24px;
-
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-
-    h3 { margin: 0; font-size: 16px; font-weight: 600; }
-  }
-}
-
-.rp-rw-filters-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-bottom: 20px;
-}
-
-.rp-rw-filter-field {
-  width: 100%;
-
-  .form-select {
-    width: 100%;
-  }
-}
-
 .rp-rw-range-inputs {
   display: flex;
   align-items: center;
@@ -109,10 +31,4 @@
   }
 
   span { color: #9ca3af; font-size: 12px; }
-}
-
-.rp-rw-filters-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
 }

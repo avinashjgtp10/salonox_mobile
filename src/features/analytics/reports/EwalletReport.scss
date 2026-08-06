@@ -5,6 +5,23 @@
 .rp-ew-debit  { color: #ef4444; font-weight: 600; }
 .rp-ew-type   { text-transform: capitalize; }
 
+.rp-ew-range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  input[type="number"] {
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+
+  span { color: #9ca3af; font-size: 12px; }
+}
+
 .rp-ew-drawer-phone {
   font-size: 12.5px;
   color: rgba(255, 255, 255, 0.75);
