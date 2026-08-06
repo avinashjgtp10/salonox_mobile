@@ -24,11 +24,13 @@ function formatRemaining(endTime: string): string {
 }
 
 // Persistent, non-dismissible banner shown on every dashboard page while a
-// Super Admin deployment announcement is active — polled rather than pushed
-// over Socket.IO (that infra is salon-room-scoped, not built for a global
-// broadcast), so there's up to one poll interval of latency both when a
-// deployment starts and when it's stopped/elapses. Renders nothing when no
-// announcement is active.
+// Super Admin deployment announcement is active — pushed rather than a
+// Socket.IO event (that infra is salon-room-scoped, not built for a global
+// broadcast). To avoid hitting /active on a fixed interval for the entire
+// session regardless of whether anything is ever announced, this only
+// checks once per mount; if that check finds an active announcement, it
+// then polls every POLL_INTERVAL_MS solely to detect when that announcement
+// ends, and stops polling again once it's gone.
 export default function DeploymentBanner() {
   const [announcement, setAnnouncement] = useState<ActiveAnnouncement | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -44,11 +46,17 @@ export default function DeploymentBanner() {
     }
   }, []);
 
+  useEffect(() => { checkActive(); }, [checkActive]);
+
   useEffect(() => {
-    checkActive();
-    intervalRef.current = setInterval(checkActive, POLL_INTERVAL_MS);
+    if (announcement) {
+      intervalRef.current = setInterval(checkActive, POLL_INTERVAL_MS);
+    } else if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
     return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [checkActive]);
+  }, [announcement, checkActive]);
 
   // The banner is position:fixed (so it stacks above the also-fixed topbar
   // instead of being hidden behind it) — push the topbar/body down by its
