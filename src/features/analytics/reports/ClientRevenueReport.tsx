@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, X } from "react-bootstrap-icons";
+import { Search, X, StarFill, Star } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT_REVENUE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
@@ -24,6 +24,21 @@ interface ClientRevenueRow {
   totalSpend: number;
   avgTicket: number;
   lastVisit: string;
+  avgRating: number | null;
+  reviewCount: number;
+}
+
+function StarRating({ value }: { value: number }) {
+  return (
+    <span style={{ display: "inline-flex", gap: 1, alignItems: "center" }}>
+      {[1, 2, 3, 4, 5].map(i =>
+        i <= Math.round(value)
+          ? <StarFill key={i} size={12} color="#F59E0B" />
+          : <Star key={i} size={12} color="#d1d5db" />
+      )}
+      <span style={{ marginLeft: 4, fontSize: 12, fontWeight: 500 }}>{value.toFixed(1)}</span>
+    </span>
+  );
 }
 
 // Maps a row from the independent Client Revenue API
@@ -38,6 +53,8 @@ function mapRow(row: any): ClientRevenueRow {
     totalSpend: Number(row.total_spend) || 0,
     avgTicket: Number(row.avg_ticket) || 0,
     lastVisit: row.last_visit || "",
+    avgRating: row.avg_rating != null ? Number(row.avg_rating) : null,
+    reviewCount: Number(row.review_count) || 0,
   };
 }
 
@@ -233,8 +250,8 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
     if (opt) { setSortBy(opt.sortBy); setSortDir(opt.sortDir); }
   };
 
-  const HEADERS = ["Client Name", "Contact", "Total Visits", `Total Spend (${currencySymbol})`, `Average Ticket Size (${currencySymbol})`, "Last Visit"];
-  const exportRows = () => rows.map(r => [r.client, r.contact, r.visits, r.totalSpend, r.avgTicket, r.lastVisit ? formatDate(r.lastVisit) : "—"]);
+  const HEADERS = ["Client Name", "Contact", "Total Visits", `Total Spend (${currencySymbol})`, `Average Ticket Size (${currencySymbol})`, "Last Visit", "Marketing Feedback"];
+  const exportRows = () => rows.map(r => [r.client, r.contact, r.visits, r.totalSpend, r.avgTicket, r.lastVisit ? formatDate(r.lastVisit) : "—", r.avgRating != null ? `${r.avgRating} ★ (${r.reviewCount})` : "—"]);
 
   return (
     <div className="rp-detail-view">
@@ -302,13 +319,13 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
-            <tr><th>Client Name</th><th>Contact</th><th>Total Visits</th><th>Total Spend ({currencySymbol})</th><th>Average Ticket Size ({currencySymbol})</th><th>Last Visit</th></tr>
+            <tr><th>Client Name</th><th>Contact</th><th>Total Visits</th><th>Total Spend ({currencySymbol})</th><th>Average Ticket Size ({currencySymbol})</th><th>Last Visit</th><th>Marketing Feedback</th></tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={6} />
+              <SkeletonTableRows columns={7} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={6} className="rp-detail-empty-cell">No client revenue data found</td></tr>
+              <tr><td colSpan={7} className="rp-detail-empty-cell">No client revenue data found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -321,6 +338,13 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
                 <td className="fw-semibold">{formatAmount(r.totalSpend)}</td>
                 <td>{formatAmount(r.avgTicket)}</td>
                 <td>{r.lastVisit ? formatDate(r.lastVisit) : "—"}</td>
+                <td>
+                  {r.avgRating != null ? (
+                    <StarRating value={r.avgRating} />
+                  ) : (
+                    <span style={{ color: "#9ca3af" }}>No feedback</span>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
