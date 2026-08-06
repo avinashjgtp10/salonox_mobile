@@ -6,7 +6,7 @@ import { deactivateStaffThunk, activateStaffThunk } from "../../../middleware/st
 import {
   ArrowLeft, PencilSquare, PersonX, PersonCheck, TelephoneFill, Calendar2Check,
   GraphUp, CashCoin, ClockHistory, Scissors, CreditCard2Front,
-  ChatSquareText, Wallet2, ExclamationCircle, Search as SearchIcon, ChevronLeft, ChevronRight,
+  ChatSquareText, Wallet2, ExclamationCircle, Search as SearchIcon, ChevronLeft, ChevronRight, ChevronDown,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF, SALE, ATTENDANCE, REVIEWS } from "../../../services/api/endpoints";
@@ -156,25 +156,45 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
   );
 }
 
+const PAGE_SIZE_OPTIONS = [10, 20, 25, 50];
+
 function PaginationControls({
   currentPage,
   totalPages,
   totalItems,
   pageSize,
   onPageChange,
+  onPageSizeChange,
 }: {
   currentPage: number;
   totalPages: number;
   totalItems: number;
   pageSize: number;
   onPageChange: (page: number) => void;
+  onPageSizeChange?: (size: number) => void;
 }) {
-  if (totalItems <= pageSize) return null;
-  const start = (currentPage - 1) * pageSize + 1;
+  if (totalItems <= Math.min(...PAGE_SIZE_OPTIONS) && !onPageSizeChange) return null;
+  const start = totalItems === 0 ? 0 : (currentPage - 1) * pageSize + 1;
   const end = Math.min(currentPage * pageSize, totalItems);
 
   return (
     <div className="shp-pagination">
+      {onPageSizeChange && (
+        <div className="shp-pagination-size">
+          <span>Rows per page:</span>
+          <div className="shp-pagination-size-wrap">
+            <select
+              value={pageSize}
+              onChange={(e) => onPageSizeChange(Number(e.target.value))}
+            >
+              {PAGE_SIZE_OPTIONS.map((sz) => (
+                <option key={sz} value={sz}>{sz}</option>
+              ))}
+            </select>
+            <ChevronDown size={12} className="shp-pagination-size-icon" />
+          </div>
+        </div>
+      )}
       <div className="shp-pagination-info">
         Showing {start} to {end} of {totalItems} items
       </div>
@@ -332,6 +352,7 @@ function TimelineTab({ staffId }: { staffId: string }) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(TAB_PAGE_SIZE);
 
   const { data: items, loading, error, retry } = useFetch<SaleItemRow[]>(
     () => api.get(SALE.STAFF_ITEMS(staffId), { params: { limit: 100 } }).then((r) => r.data?.data?.items ?? []),
@@ -372,13 +393,13 @@ function TimelineTab({ staffId }: { staffId: string }) {
     });
   }, [events, typeFilter, startDate, endDate]);
 
-  useEffect(() => { setCurrentPage(1); }, [typeFilter, startDate, endDate]);
+  useEffect(() => { setCurrentPage(1); }, [typeFilter, startDate, endDate, pageSize]);
 
-  const totalPages = Math.ceil(filteredEvents.length / TAB_PAGE_SIZE) || 1;
+  const totalPages = Math.ceil(filteredEvents.length / pageSize) || 1;
   const paginatedEvents = useMemo(() => {
-    const start = (currentPage - 1) * TAB_PAGE_SIZE;
-    return filteredEvents.slice(start, start + TAB_PAGE_SIZE);
-  }, [filteredEvents, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filteredEvents.slice(start, start + pageSize);
+  }, [filteredEvents, currentPage, pageSize]);
 
   if (loading || attLoading) return <LoadingState />;
   if (error || attError) return <ErrorState onRetry={retry} />;
@@ -424,8 +445,9 @@ function TimelineTab({ staffId }: { staffId: string }) {
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={filteredEvents.length}
-            pageSize={TAB_PAGE_SIZE}
+            pageSize={pageSize}
             onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
         </>
       )}
@@ -442,6 +464,7 @@ function ServicesTab({ staffId }: { staffId: string }) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(TAB_PAGE_SIZE);
 
   const { data, loading, error, retry } = useFetch<SaleItemRow[]>(
     () => api.get(SALE.STAFF_ITEMS(staffId), { params: { item_type: "service", limit: 200 } }).then((r) => r.data?.data?.items ?? []),
@@ -471,13 +494,13 @@ function ServicesTab({ staffId }: { staffId: string }) {
     });
   }, [data, search, sourceFilter, startDate, endDate]);
 
-  useEffect(() => { setCurrentPage(1); }, [search, sourceFilter, startDate, endDate]);
+  useEffect(() => { setCurrentPage(1); }, [search, sourceFilter, startDate, endDate, pageSize]);
 
-  const totalPages = Math.ceil(filtered.length / TAB_PAGE_SIZE) || 1;
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * TAB_PAGE_SIZE;
-    return filtered.slice(start, start + TAB_PAGE_SIZE);
-  }, [filtered, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState onRetry={retry} />;
@@ -536,8 +559,9 @@ function ServicesTab({ staffId }: { staffId: string }) {
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={filtered.length}
-            pageSize={TAB_PAGE_SIZE}
+            pageSize={pageSize}
             onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
         </>
       )}
@@ -555,6 +579,7 @@ function SalesTab({ staffId }: { staffId: string }) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(TAB_PAGE_SIZE);
 
   const { data, loading, error, retry } = useFetch<SaleRow[]>(
     () => api.get(SALE.BASE, { params: { staff_id: staffId, limit: 200 } }).then((r) => r.data?.data?.items ?? []),
@@ -579,13 +604,13 @@ function SalesTab({ staffId }: { staffId: string }) {
     });
   }, [data, search, statusFilter, paymentFilter, startDate, endDate]);
 
-  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, paymentFilter, startDate, endDate]);
+  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, paymentFilter, startDate, endDate, pageSize]);
 
-  const totalPages = Math.ceil(filtered.length / TAB_PAGE_SIZE) || 1;
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * TAB_PAGE_SIZE;
-    return filtered.slice(start, start + TAB_PAGE_SIZE);
-  }, [filtered, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState onRetry={retry} />;
@@ -653,8 +678,9 @@ function SalesTab({ staffId }: { staffId: string }) {
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={filtered.length}
-            pageSize={TAB_PAGE_SIZE}
+            pageSize={pageSize}
             onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
         </>
       )}
@@ -670,6 +696,7 @@ function CommissionTab({ staffId }: { staffId: string }) {
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(TAB_PAGE_SIZE);
 
   const { data, loading, error, retry } = useFetch<CommissionRow[]>(
     () => api.get(`${STAFF.BY_ID(staffId)}/commissions/history`, { params: { month } }).then((r) => r.data?.data?.items ?? []),
@@ -684,14 +711,14 @@ function CommissionTab({ staffId }: { staffId: string }) {
     });
   }, [data, categoryFilter, statusFilter]);
 
-  useEffect(() => { setCurrentPage(1); }, [categoryFilter, statusFilter, month]);
+  useEffect(() => { setCurrentPage(1); }, [categoryFilter, statusFilter, month, pageSize]);
 
   const total = useMemo(() => filtered.reduce((s, r) => s + Number(r.commission_amount), 0), [filtered]);
-  const totalPages = Math.ceil(filtered.length / TAB_PAGE_SIZE) || 1;
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * TAB_PAGE_SIZE;
-    return filtered.slice(start, start + TAB_PAGE_SIZE);
-  }, [filtered, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState onRetry={retry} />;
@@ -748,8 +775,9 @@ function CommissionTab({ staffId }: { staffId: string }) {
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={filtered.length}
-            pageSize={TAB_PAGE_SIZE}
+            pageSize={pageSize}
             onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
         </>
       )}
@@ -777,6 +805,7 @@ function ReviewsTab({ staffId }: { staffId: string }) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(TAB_PAGE_SIZE);
 
   const { data, loading, error, retry } = useFetch<ReviewRow[]>(
     () => api.get(REVIEWS.BASE, { params: { staff_id: staffId } }).then((r) => r.data?.data ?? []),
@@ -797,13 +826,13 @@ function ReviewsTab({ staffId }: { staffId: string }) {
     });
   }, [data, ratingFilter, startDate, endDate]);
 
-  useEffect(() => { setCurrentPage(1); }, [ratingFilter, startDate, endDate]);
+  useEffect(() => { setCurrentPage(1); }, [ratingFilter, startDate, endDate, pageSize]);
 
-  const totalPages = Math.ceil(filtered.length / TAB_PAGE_SIZE) || 1;
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * TAB_PAGE_SIZE;
-    return filtered.slice(start, start + TAB_PAGE_SIZE);
-  }, [filtered, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState onRetry={retry} />;
@@ -857,8 +886,9 @@ function ReviewsTab({ staffId }: { staffId: string }) {
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={filtered.length}
-            pageSize={TAB_PAGE_SIZE}
+            pageSize={pageSize}
             onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
         </>
       )}
@@ -873,6 +903,7 @@ function AttendanceTab({ staffId }: { staffId: string }) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(TAB_PAGE_SIZE);
 
   const { data, loading, error, retry } = useFetch<AttendanceRow[]>(
     () => api.get(ATTENDANCE.FOR_STAFF(staffId), { params: { limit: 200 } }).then((r) => r.data?.data?.items ?? []),
@@ -889,13 +920,13 @@ function AttendanceTab({ staffId }: { staffId: string }) {
     });
   }, [data, statusFilter, startDate, endDate]);
 
-  useEffect(() => { setCurrentPage(1); }, [statusFilter, startDate, endDate]);
+  useEffect(() => { setCurrentPage(1); }, [statusFilter, startDate, endDate, pageSize]);
 
-  const totalPages = Math.ceil(filtered.length / TAB_PAGE_SIZE) || 1;
+  const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * TAB_PAGE_SIZE;
-    return filtered.slice(start, start + TAB_PAGE_SIZE);
-  }, [filtered, currentPage]);
+    const start = (currentPage - 1) * pageSize;
+    return filtered.slice(start, start + pageSize);
+  }, [filtered, currentPage, pageSize]);
 
   if (loading) return <LoadingState />;
   if (error) return <ErrorState onRetry={retry} />;
@@ -946,8 +977,9 @@ function AttendanceTab({ staffId }: { staffId: string }) {
             currentPage={currentPage}
             totalPages={totalPages}
             totalItems={filtered.length}
-            pageSize={TAB_PAGE_SIZE}
+            pageSize={pageSize}
             onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
           />
         </>
       )}
