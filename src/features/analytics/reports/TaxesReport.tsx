@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { BoxArrowUpRight, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
@@ -6,10 +6,10 @@ import { GST_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
-import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -18,6 +18,20 @@ import AppointmentDetailModal from "../../bookings/components/modals/Appointment
 import "./TaxesReport.scss";
 
 const REPORT_NAME = "GST Report";
+
+const ITEM_TYPE_OPTIONS = [
+  { id: "service", label: "Service" },
+  { id: "product", label: "Product" },
+  { id: "package", label: "Package" },
+  { id: "membership", label: "Membership" },
+];
+
+const PAYMENT_METHOD_OPTIONS = [
+  { id: "cash", label: "Cash" },
+  { id: "card", label: "Card" },
+  { id: "upi", label: "UPI" },
+  { id: "wallet", label: "Wallet" },
+];
 
 interface InvoiceTaxRow {
   id: string;
@@ -78,6 +92,8 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
   const [dateTo,      setDateTo]      = useState(today);
   const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
   const [staffOptions,   setStaffOptions]   = useState<{ id: string; label: string }[]>([]);
+  const [itemTypes,      setItemTypes]      = useState<string[]>([]);
+  const [paymentMethods, setPaymentMethods] = useState<string[]>([]);
   const [customerFilter, setCustomerFilterInput] = useState("");
   const [debouncedCustomerFilter, setDebouncedCustomerFilter] = useState("");
   const [rows,        setRows]        = useState<InvoiceTaxRow[]>([]);
@@ -119,6 +135,8 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
         page: currentPage, limit: pageSize,
       };
       if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+      if (itemTypes.length > 0) body.item_types = itemTypes;
+      if (paymentMethods.length > 0) body.payment_methods = paymentMethods;
       if (debouncedCustomerFilter) body.search = debouncedCustomerFilter;
       const res = await api.post(GST_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -139,11 +157,35 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilterIds, debouncedCustomerFilter, currentPage, pageSize]);
+  }, [dateFrom, dateTo, staffFilterIds, itemTypes, paymentMethods, debouncedCustomerFilter, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, debouncedCustomerFilter]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, itemTypes, paymentMethods, debouncedCustomerFilter]);
+
+  // Item Type and Payment Method weren't in the original filter set — added
+  // since they're both already surfaced as columns/data on this report
+  // (Service/Product/Package/Membership Amount, and payment method is on
+  // every invoice) and the backend already supports the same array-filter
+  // pattern used everywhere else in this rollout, so adding them here is
+  // low-risk and keeps this report from being the one with barely any filters.
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+    { key: "item_type", label: "Item Type", options: ITEM_TYPE_OPTIONS },
+    { key: "payment_method", label: "Payment Method", options: PAYMENT_METHOD_OPTIONS },
+  ], [staffOptions]);
+
+  const filterMenuSelected = useMemo(() => ({
+    staff: staffFilterIds,
+    item_type: itemTypes,
+    payment_method: paymentMethods,
+  }), [staffFilterIds, itemTypes, paymentMethods]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStaffFilterIds(next.staff ?? []);
+    setItemTypes(next.item_type ?? []);
+    setPaymentMethods(next.payment_method ?? []);
+  };
 
   const avgTaxPerInvoice = stats.invoicesWithTax > 0 ? stats.totalTax / stats.invoicesWithTax : 0;
 
@@ -171,14 +213,7 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
-        <MultiSelectCheckbox
-          label="Staff"
-          containerClass="rp-detail-filter-group"
-          options={staffOptions}
-          selected={staffFilterIds}
-          onChange={setStaffFilterIds}
-          placeholder="All staff"
-        />
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
