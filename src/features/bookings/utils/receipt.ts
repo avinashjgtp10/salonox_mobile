@@ -30,6 +30,11 @@ export interface BuildPrintableBookingParams {
   staffId?: string | null;
   /** ISO timestamp the visit/sale happened at (appointment's scheduled_at, or sale's created_at). */
   dateIso: string;
+  /** Total service duration in minutes, used to compute the printed end time
+   *  (startTime + durationMinutes). Omit for a standalone sale/package
+   *  purchase with no timed-service duration — the end time then falls back
+   *  to the start time. */
+  durationMinutes?: number;
   /** Priced line items (e.g. from a linked sale) — services/packages/products/memberships. */
   items: ReceiptLineItem[];
   /** Services present on the appointment itself but not already covered by `items`
@@ -82,6 +87,9 @@ export function buildPrintableBooking(params: BuildPrintableBookingParams): any 
   const time = `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
   const dateStr = params.dateIso.slice(0, 10);
 
+  const endD = params.durationMinutes ? new Date(d.getTime() + params.durationMinutes * 60000) : d;
+  const endTime = `${String(endD.getHours()).padStart(2, "0")}:${String(endD.getMinutes()).padStart(2, "0")}`;
+
   const byType = (type: string) => params.items
     .filter((it) => it.item_type === type)
     .map((it) => ({
@@ -123,7 +131,7 @@ export function buildPrintableBooking(params: BuildPrintableBookingParams): any 
     date: dateStr,
     billDate: dateStr,
     startTime: time,
-    endTime: time,
+    endTime,
     services: [...byType("service"), ...extraServiceRows],
     packageItems: byType("package"),
     productItems: byType("product"),
