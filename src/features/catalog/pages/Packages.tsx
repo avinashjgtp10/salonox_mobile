@@ -35,10 +35,7 @@ import {
 } from "../../../middleware/package/package.thunk";
 import { useServices } from "../hooks/useServices";
 import type { Service as ApiService } from "../types/catalog.types";
-import {
-  selectAllStaff,
-} from "../../../store/selectors/slices.selectors";
-import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+
 import ClientSearchInput, { type ClientSearchResult } from "../../clients/components/ClientSearchInput";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "./Packages.scss";
@@ -822,8 +819,6 @@ const CustomPackageView: React.FC<NavProps> = ({ onNavigate }) => {
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [pkgCategory, setPkgCategory] = useState("");
   const [businessUnit, setBusinessUnit] = useState("Default BU");
-  const [saleBy, setSaleBy] = useState("");
-  const [expert, setExpert] = useState("");
   const [sacCode, setSacCode] = useState("");
   const [showDesc, setShowDesc] = useState(false);
   const [description, setDescription] = useState("");
@@ -840,23 +835,12 @@ const CustomPackageView: React.FC<NavProps> = ({ onNavigate }) => {
   const [saving, setSaving] = useState(false);
   
   const dispatch = useDispatch<AppDispatch>();
-  const staff = useSelector(selectAllStaff) || [];
   const { data: templates } = useListPackagesQuery({});
   const [createPackage] = useCreatePackageMutation();
 
   useEffect(() => {
-    dispatch(fetchStaffThunk());
+    // no staff fetch needed any more – staff is recorded at transaction time
   }, [dispatch]);
-
-  // Safely resolve staff to array regardless of paginated vs plain response shape
-  const staffList = useMemo(() => {
-    if (Array.isArray(staff)) return staff;
-    if (staff && typeof staff === "object") {
-      if (Array.isArray((staff as any).data))  return (staff as any).data;
-      if (Array.isArray((staff as any).items)) return (staff as any).items;
-    }
-    return [];
-  }, [staff]);
 
 
 
@@ -1154,38 +1138,6 @@ const CustomPackageView: React.FC<NavProps> = ({ onNavigate }) => {
                       <option value="Default BU">Default BU</option>
                       <option value="Center 1">Center 1</option>
                       <option value="Center 2">Center 2</option>
-                    </select>
-                  </div>
-
-                  <div className="col-md-6">
-                    <label className="pkg-create__label">Expert</label>
-                    <select 
-                      className="form-select pkg-create__select"
-                      value={expert}
-                      onChange={(e) => setExpert(e.target.value)}
-                    >
-                      <option value="">Select the expert</option>
-                      {staffList.map((s: any) => (
-                        <option key={s.id} value={s.id}>
-                          {s.fullName || `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.trim()}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="col-md-6">
-                    <label className="pkg-create__label">Sale by</label>
-                    <select 
-                      className="form-select pkg-create__select"
-                      value={saleBy}
-                      onChange={(e) => setSaleBy(e.target.value)}
-                    >
-                      <option value="">Select Employee</option>
-                      {staffList.map((s: any) => (
-                        <option key={s.id} value={s.id}>
-                          {s.fullName || `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.trim()}
-                        </option>
-                      ))}
                     </select>
                   </div>
 
