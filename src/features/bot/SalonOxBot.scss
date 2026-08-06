@@ -6,7 +6,7 @@ $green-darker: #085041;
 // ── Floating Button ───────────────────────────────────────────────────────────
 .sbot-fab {
   position: fixed;
-  bottom: 28px;
+  bottom: 90px;
   right: 28px;
   // Below every modal/drawer in the app (which run 1000-2000+) so an open
   // modal's own buttons are never covered by this floating widget — it was
@@ -48,7 +48,7 @@ $green-darker: #085041;
 // ── Chat Window ───────────────────────────────────────────────────────────────
 .sbot-window {
   position: fixed;
-  bottom: 92px;
+  bottom: 154px;
   right: 28px;
   z-index: 899; // see .sbot-fab above — kept below all modals
   width: 380px;
