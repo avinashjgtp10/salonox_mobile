@@ -284,7 +284,9 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
                   <td onClick={() => setSelectedId(row.id)}>{row.clientName || "—"}</td>
                   <td className="rp-adr-service" title={row.itemName} onClick={() => setSelectedId(row.id)}>
                     {row.itemName}
-                    <span className="rp-adr-item-type">{ITEM_TYPE_LABELS[row.itemType] ?? row.itemType}</span>
+                    <span className="rp-adr-item-type">
+                      {row.itemType.split(", ").map(t => ITEM_TYPE_LABELS[t] ?? t).join(", ")}
+                    </span>
                   </td>
                   <td onClick={() => setSelectedId(row.id)}>{row.staffName || "—"}</td>
                   <td onClick={() => setSelectedId(row.id)}>{row.amount > 0 ? formatAmount(Number(row.amount)) : "—"}</td>
