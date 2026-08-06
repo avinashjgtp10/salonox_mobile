@@ -7,6 +7,13 @@ export interface PaymentSplitEntry {
   amount: string; // string so the input can be empty/partial while typing
 }
 
+/** Sum of every split row's amount — shared by the picker's own UI and by
+ *  callers that need to gate checkout on the same total (e.g. block saving
+ *  a transaction whose split rows overpay the bill). */
+export function computeSplitTotal(entries: PaymentSplitEntry[]): number {
+  return entries.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
+}
+
 export interface PaymentMethodPickerProps {
   /** Payment method options shown as buttons, e.g. ["Cash", "Card", "UPI"]. */
   methods: string[];
@@ -166,70 +173,106 @@ export const PaymentMethodPicker: React.FC<PaymentMethodPickerProps> = ({
             )}
           </>
         ) : (
-          <div className="pay-split">
-            {splitEntries.map((entry, i) => (
-              <div key={i} className="pay-split__row">
-                <div className="pay-split__methods">
-                  {methods.map((m) => (
-                    <button
-                      key={m}
-                      type="button"
-                      className={`pay-split__method-btn${entry.method === m ? " active" : ""}`}
-                      onClick={() => {
-                        const updated = [...splitEntries];
-                        updated[i] = { ...entry, method: m };
-                        onSetSplitEntries(updated);
-                      }}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-                <div className="pay-split__amt-field">
-                  <span className="pay-split__symbol">{currencySymbol}</span>
-                  <input
-                    type="number"
-                    className="pay-split__input"
-                    min={0}
-                    step={0.01}
-                    placeholder="Amount"
-                    value={entry.amount}
-                    onChange={(e) => {
-                      const updated = [...splitEntries];
-                      updated[i] = { ...entry, amount: e.target.value };
-                      onSetSplitEntries(updated);
-                    }}
-                  />
-                </div>
-                <button
-                  type="button"
-                  className="pay-split__remove"
-                  onClick={() => onSetSplitEntries(splitEntries.filter((_, idx) => idx !== i))}
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-            <div className="pay-split__footer">
-              <button
-                type="button"
-                className="pay-split__add"
-                onClick={() => onSetSplitEntries([...splitEntries, { method: methods[0] ?? "", amount: "" }])}
-              >
-                + Add Method
-              </button>
-              {(() => {
-                const splitTotal = splitEntries.reduce((sum, e) => sum + (parseFloat(e.amount) || 0), 0);
-                const rem = (splitCollectBase ?? totalToCollect) - splitTotal;
-                return (
+          (() => {
+            const splitBase = splitCollectBase ?? totalToCollect;
+            const usedMethods = new Set(splitEntries.map((e) => e.method));
+            const unusedMethods = methods.filter((m) => !usedMethods.has(m));
+            const othersTotal = (excludeIdx: number) =>
+              splitEntries.reduce((sum, e, idx) => sum + (idx === excludeIdx ? 0 : (parseFloat(e.amount) || 0)), 0);
+            const splitTotal = computeSplitTotal(splitEntries);
+            // Small epsilon guards against float rounding (e.g. 0.1 + 0.2) ever
+            // flagging a fully-covered split as still over/short.
+            const isOver = splitTotal - splitBase > 0.005;
+            return (
+              <div className="pay-split">
+                {splitEntries.map((entry, i) => {
+                  const rowMax = Math.max(0, splitBase - othersTotal(i));
+                  const rowMethods = methods.filter((m) => m === entry.method || !usedMethods.has(m));
+                  return (
+                    <div key={i} className="pay-split__row">
+                      <div className="pay-split__methods">
+                        {rowMethods.map((m) => (
+                          <button
+                            key={m}
+                            type="button"
+                            className={`pay-split__method-btn${entry.method === m ? " active" : ""}`}
+                            onClick={() => {
+                              const updated = [...splitEntries];
+                              updated[i] = { ...entry, method: m };
+                              onSetSplitEntries(updated);
+                            }}
+                          >
+                            {m}
+                          </button>
+                        ))}
+                      </div>
+                      <div className="pay-split__amt-field">
+                        <span className="pay-split__symbol">{currencySymbol}</span>
+                        <input
+                          type="number"
+                          className="pay-split__input"
+                          min={0}
+                          step={0.01}
+                          placeholder="Amount"
+                          value={entry.amount}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const updated = [...splitEntries];
+                            if (raw === "") { updated[i] = { ...entry, amount: "" }; onSetSplitEntries(updated); return; }
+                            const val = parseFloat(raw);
+                            // Clamp instead of rejecting outright — an amount that would
+                            // push the split total past the bill is capped to whatever's
+                            // still actually owed, so overpayment can't be typed in at all.
+                            updated[i] = { ...entry, amount: (!isNaN(val) && val > rowMax) ? rowMax.toFixed(2) : raw };
+                            onSetSplitEntries(updated);
+                          }}
+                        />
+                      </div>
+                      {rowMax > 0 && parseFloat(entry.amount || "0") !== rowMax && (
+                        <button
+                          type="button"
+                          className="pay-split__fill-remaining"
+                          onClick={() => {
+                            const updated = [...splitEntries];
+                            updated[i] = { ...entry, amount: rowMax.toFixed(2) };
+                            onSetSplitEntries(updated);
+                          }}
+                        >
+                          Fill Remaining
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        className="pay-split__remove"
+                        onClick={() => onSetSplitEntries(splitEntries.filter((_, idx) => idx !== i))}
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  );
+                })}
+                <div className="pay-split__footer">
+                  <button
+                    type="button"
+                    className="pay-split__add"
+                    disabled={unusedMethods.length === 0}
+                    onClick={() => onSetSplitEntries([...splitEntries, { method: unusedMethods[0] ?? "", amount: "" }])}
+                  >
+                    + Add Method
+                  </button>
                   <div className="pay-split__totals">
-                    Total: <span className={rem <= 0 ? "ok" : "short"}>{currencySymbol}{splitTotal.toFixed(2)}</span>
-                    {rem > 0 && <span className="rem"> {currencySymbol}{rem.toFixed(2)} remaining</span>}
+                    Total: <span className={isOver ? "over" : splitTotal < splitBase ? "short" : "ok"}>{currencySymbol}{splitTotal.toFixed(2)}</span>
+                    {!isOver && splitBase - splitTotal > 0.005 && (
+                      <span className="rem"> {currencySymbol}{(splitBase - splitTotal).toFixed(2)} remaining</span>
+                    )}
                   </div>
-                );
-              })()}
-            </div>
-          </div>
+                </div>
+                {isOver && (
+                  <div className="pay-split__error">Entered amount exceeds the remaining balance.</div>
+                )}
+              </div>
+            );
+          })()
         )}
       </div>
 
