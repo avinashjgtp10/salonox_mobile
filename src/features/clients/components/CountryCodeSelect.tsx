@@ -44,7 +44,7 @@ interface Props {
 export default function CountryCodeSelect({ value, onChange, disabled, className }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [pos, setPos] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [pos, setPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -63,13 +63,15 @@ export default function CountryCodeSelect({ value, onChange, disabled, className
     function updatePos() {
       const r = triggerRef.current?.getBoundingClientRect();
       if (!r) return;
-      const panelHeight = 320;
-      const spaceBelow = window.innerHeight - r.bottom;
-      const openUp = spaceBelow < panelHeight && r.top > spaceBelow;
+      // Always opens downward — clamp the height to whatever viewport space
+      // remains below the trigger instead of flipping above it, so the panel
+      // never covers the field the user just clicked.
+      const maxHeight = Math.max(160, Math.min(320, window.innerHeight - r.bottom - 12));
       setPos({
-        top: openUp ? r.top - panelHeight - 4 : r.bottom + 4,
+        top: r.bottom + 4,
         left: Math.min(r.left, window.innerWidth - 280 - 8),
         width: Math.max(r.width, 260),
+        maxHeight,
       });
     }
     updatePos();
@@ -140,7 +142,7 @@ export default function CountryCodeSelect({ value, onChange, disabled, className
           className="ccs-panel"
           ref={panelRef}
           role="listbox"
-          style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width }}
+          style={{ position: "fixed", top: pos.top, left: pos.left, width: pos.width, maxHeight: pos.maxHeight }}
         >
           <div className="ccs-search-wrap">
             <Search size={12} className="ccs-search-icon" />
