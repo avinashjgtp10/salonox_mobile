@@ -133,3 +133,10 @@ export const APPOINTMENT_DETAIL_REPORT = {
 export const WA_CAMPAIGN_REPORT = {
   SUMMARY: () => `/api/report/wa-campaign`,
 } as const;
+
+// Independent Client Rating reporting API — reads the reviews table
+// directly, never through the reviews module's own /api/v1/reviews API.
+// Mounted at /api/report.
+export const CLIENT_RATING_REPORT = {
+  SUMMARY: () => `/api/report/client-rating`,
+} as const;
