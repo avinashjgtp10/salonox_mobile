@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
-import { Search, X } from "react-bootstrap-icons";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { APPOINTMENT_DETAIL_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -8,11 +8,10 @@ import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
-import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
-import Button from "../../../components/ui/Button";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
 import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
@@ -37,7 +36,6 @@ interface AppointmentRow {
 }
 
 const APPT_STATUSES = ["booked", "paid", "partial", "cancelled", "no-show", "deleted"];
-const ALL_STATUSES_ID = "__all__";
 const PAYMENT_METHODS = ["Cash", "Card", "UPI", "Wallet", "Membership", "Package"];
 const fmtLabel = (s: string) => s.replace(/[_-]/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 
@@ -92,21 +90,12 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
   const [paymentMethods,    setPaymentMethods]    = useState<string[]>([]);
   const [staffFilterIds,    setStaffFilterIds]    = useState<string[]>([]);
   const [staffOptions,      setStaffOptions]      = useState<{ id: string; label: string }[]>([]);
-  const [showFiltersPanel,  setShowFiltersPanel]  = useState(false);
   const [rows,              setRows]              = useState<AppointmentRow[]>([]);
   const [total,             setTotal]              = useState(0);
   const [loading,           setLoading]           = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
-
-  // Draft copies edited while the modal is open; only committed to the
-  // applied filter state above when Apply is clicked. Closing via the X or
-  // the overlay discards them, matching the Client Revenue/Commission
-  // filter modal pattern.
-  const [draftStatuses, setDraftStatuses] = useState<string[]>([]);
-  const [draftPaymentMethods, setDraftPaymentMethods] = useState<string[]>([]);
-  const [draftStaffIds, setDraftStaffIds] = useState<string[]>([]);
 
   useEffect(() => {
     dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
@@ -162,70 +151,28 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
     setCurrentPage(1);
   }, [dateFrom, dateTo, debouncedSearch, selectedStatuses, paymentMethods, staffFilterIds]);
 
-  const activeFilterCount = [
-    selectedStatuses.length > 0 ? 1 : 0,
-    paymentMethods.length > 0 ? 1 : 0,
-    staffFilterIds.length > 0 ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  // One shared Jira-style filter menu covering all three multi-select
+  // fields — replaces the old separate MultiSelectCheckbox-per-field modal.
+  // No "All" pseudo-status needed here (unlike the old modal): the backend
+  // already treats an empty status selection as "every status, including
+  // deleted" (see getAppointmentDetailReport), so leaving Status unchecked
+  // is already equivalent to what "All" used to mean.
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "status", label: "Appointment Status", options: APPT_STATUSES.map(s => ({ id: s, label: fmtLabel(s) })) },
+    { key: "payment_method", label: "Payment Method", options: PAYMENT_METHODS.map(m => ({ id: m, label: m })) },
+    { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+  ], [staffOptions]);
 
-  const openFiltersPanel = () => {
-    // Reflect "All" as checked when every real status is already applied,
-    // so reopening the panel after picking All (or after manually checking
-    // every box) shows it in the same state the user left it in.
-    setDraftStatuses(
-      selectedStatuses.length === APPT_STATUSES.length
-        ? [ALL_STATUSES_ID, ...selectedStatuses]
-        : selectedStatuses
-    );
-    setDraftPaymentMethods(paymentMethods);
-    setDraftStaffIds(staffFilterIds);
-    setShowFiltersPanel(true);
-  };
+  const filterMenuSelected = useMemo(() => ({
+    status: selectedStatuses,
+    payment_method: paymentMethods,
+    staff: staffFilterIds,
+  }), [selectedStatuses, paymentMethods, staffFilterIds]);
 
-  const cancelFiltersPanel = () => setShowFiltersPanel(false);
-
-  // Matches the shared useDraftFilters hook's clear() semantics used by the
-  // rest of this reports module: Clear resets both the in-modal draft AND
-  // the already-applied filters (not just the draft, which Cancel/× already
-  // discards on its own) and closes the panel — otherwise nothing in the
-  // table actually changes unless Apply is clicked afterward.
-  const clearDraftFilters = () => {
-    setDraftStatuses([]);
-    setDraftPaymentMethods([]);
-    setDraftStaffIds([]);
-    setSelectedStatuses([]);
-    setPaymentMethods([]);
-    setStaffFilterIds([]);
-    setShowFiltersPanel(false);
-  };
-
-  // "All" is a UI-only pseudo-status, not a real appointment status — the
-  // backend has no status called "all". Checking it selects every real
-  // status (so the request explicitly asks for everything, including
-  // deleted); unchecking it clears the rest. Checking every real status by
-  // hand also auto-checks "All" to keep the two in sync.
-  const handleDraftStatusChange = (ids: string[]) => {
-    const hadAll = draftStatuses.includes(ALL_STATUSES_ID);
-    const hasAll = ids.includes(ALL_STATUSES_ID);
-    if (hasAll && !hadAll) {
-      setDraftStatuses([ALL_STATUSES_ID, ...APPT_STATUSES]);
-    } else if (!hasAll && hadAll) {
-      setDraftStatuses([]);
-    } else {
-      const withoutAll = ids.filter(id => id !== ALL_STATUSES_ID);
-      setDraftStatuses(
-        withoutAll.length === APPT_STATUSES.length
-          ? [ALL_STATUSES_ID, ...withoutAll]
-          : withoutAll
-      );
-    }
-  };
-
-  const applyFilters = () => {
-    setSelectedStatuses(draftStatuses.filter(s => s !== ALL_STATUSES_ID));
-    setPaymentMethods(draftPaymentMethods);
-    setStaffFilterIds(draftStaffIds);
-    setShowFiltersPanel(false);
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setSelectedStatuses(next.status ?? []);
+    setPaymentMethods(next.payment_method ?? []);
+    setStaffFilterIds(next.staff ?? []);
   };
 
   const HEADERS = ["Booked Date", "Time", "Client Name", "Item Name", "Staff Name", `Amount (${currencySymbol})`, "Payment Method", "Appointment Status"];
@@ -262,10 +209,7 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
 
-        <button className="rp-cr-filters-btn" onClick={openFiltersPanel}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-cr-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
 
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
@@ -376,53 +320,6 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
         onCancel={() => { bulkDelete.setShowConfirm(false); bulkDelete.setError(null); }}
         onConfirm={bulkDelete.confirmDelete}
       />
-
-      {showFiltersPanel && (
-        <div className="rp-cr-filters-overlay" onClick={cancelFiltersPanel}>
-          <div className="rp-cr-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-              <button type="button" className="rp-cr-filters-close" aria-label="Close" onClick={cancelFiltersPanel}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="rp-cr-filters-body">
-              <MultiSelectCheckbox
-                label="Appointment Status"
-                containerClass="rp-cr-filter-field"
-                options={[{ id: ALL_STATUSES_ID, label: "All" }, ...APPT_STATUSES.map(s => ({ id: s, label: fmtLabel(s) }))]}
-                selected={draftStatuses}
-                onChange={handleDraftStatusChange}
-                placeholder="All Status"
-              />
-
-              <MultiSelectCheckbox
-                label="Payment Method"
-                containerClass="rp-cr-filter-field"
-                options={PAYMENT_METHODS.map(m => ({ id: m, label: m }))}
-                selected={draftPaymentMethods}
-                onChange={setDraftPaymentMethods}
-                placeholder="All payment methods"
-              />
-
-              <MultiSelectCheckbox
-                label="Staff"
-                containerClass="rp-cr-filter-field"
-                options={staffOptions}
-                selected={draftStaffIds}
-                onChange={setDraftStaffIds}
-                placeholder="All staff"
-              />
-            </div>
-
-            <div className="rp-cr-filters-actions">
-              <Button variant="ghost" onClick={clearDraftFilters}>Clear</Button>
-              <Button variant="dark" onClick={applyFilters}>Apply</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

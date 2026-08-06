@@ -85,7 +85,16 @@ const JiraFilterMenu: React.FC<JiraFilterMenuProps> = ({ fields, selected, onApp
   };
 
   const clearActive = () => setDraft((prev) => ({ ...prev, [activeKey]: [] }));
-  const clearAll = () => setDraft({});
+  // Unlike clearActive (a within-panel convenience while still adjusting
+  // other fields), "Clear all"/"Clear" is a footer action presented next to
+  // Apply — it reads as final, so it must actually commit the cleared state
+  // and close, not just reset the draft and leave the applied filters (and
+  // the table) untouched until a separate Apply click.
+  const clearAll = () => {
+    setDraft({});
+    onApply({});
+    setOpen(false);
+  };
 
   const resolvedTriggerLabel = triggerLabel ?? (isSingle ? fields[0]?.label ?? "Filter" : "Filter");
 
