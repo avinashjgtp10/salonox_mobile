@@ -89,7 +89,8 @@ export default function StaffListPage() {
   // Using loading boolean depending on structure (usually boolean, but sometimes object)
   const loading = typeof loadingState === "boolean" ? loadingState : (loadingState as any)?.fetch || false;
   
-  const PAGE_SIZE = 12;
+  const PAGE_SIZE_OPTIONS = [10, 12, 20, 25, 50];
+  const [pageSize, setPageSize] = useState(12);
   const [currentPage, setCurrentPage] = useState(1);
 
   const [searchTerm, setSearchTerm] = useState("");
@@ -260,17 +261,17 @@ export default function StaffListPage() {
     return 0;
   });
 
-  const totalPages = Math.max(1, Math.ceil(sorted.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
   const pagedSorted = useMemo(
-    () => sorted.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-    [sorted, currentPage, PAGE_SIZE]
+    () => sorted.slice((currentPage - 1) * pageSize, currentPage * pageSize),
+    [sorted, currentPage, pageSize]
   );
 
-  // Reset to page 1 when search / filter / sort changes
-  useEffect(() => { setCurrentPage(1); }, [searchTerm, selectedSort, bookable, nonBookable, selectedStatus]);
+  // Reset to page 1 when search / filter / sort / page size changes
+  useEffect(() => { setCurrentPage(1); }, [searchTerm, selectedSort, bookable, nonBookable, selectedStatus, pageSize]);
 
-  const rangeFrom = sorted.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
-  const rangeTo = Math.min(currentPage * PAGE_SIZE, sorted.length);
+  const rangeFrom = sorted.length === 0 ? 0 : (currentPage - 1) * pageSize + 1;
+  const rangeTo = Math.min(currentPage * pageSize, sorted.length);
 
   return (
     <div className="staff-list-page">
@@ -738,6 +739,21 @@ export default function StaffListPage() {
       {/* ===== FOOTER / PAGINATION ===== */}
       {!loading && sorted.length > 0 && (
         <div className="slp-footer">
+          <div className="slp-footer-size">
+            <span>Rows per page:</span>
+            <div className="slp-footer-size-wrap">
+              <select
+                value={pageSize}
+                onChange={(e) => setPageSize(Number(e.target.value))}
+              >
+                {PAGE_SIZE_OPTIONS.map((sz) => (
+                  <option key={sz} value={sz}>{sz}</option>
+                ))}
+              </select>
+              <ChevronDown size={12} className="slp-footer-size-icon" />
+            </div>
+          </div>
+
           <span className="slp-footer-results">
             Showing <strong>{rangeFrom}–{rangeTo}</strong> of <strong>{sorted.length}</strong> staff members
           </span>

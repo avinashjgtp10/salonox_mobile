@@ -573,6 +573,44 @@ $radius: 12px;
 
 .slp-footer-results { font-size: 12px; color: $muted; strong { color: #1e293b; } }
 
+.slp-footer-size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: $muted;
+}
+
+.slp-footer-size-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  select {
+    height: 30px;
+    padding: 0 26px 0 10px;
+    border: 1px solid $border;
+    border-radius: 7px;
+    font-size: 12px;
+    font-weight: 600;
+    color: $primary;
+    background: $white;
+    cursor: pointer;
+    outline: none;
+    appearance: none;
+    font-family: $font;
+
+    &:focus { border-color: $accent; }
+  }
+}
+
+.slp-footer-size-icon {
+  position: absolute;
+  right: 8px;
+  color: $muted;
+  pointer-events: none;
+}
+
 .slp-pagination {
   display: flex;
   align-items: center;
