@@ -1,14 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF_PERFORMANCE_REPORT } from "../../../services/api/endpoints";
-import Button from "../../../components/ui/Button";
 import ReportRefreshButton from "./ReportRefreshButton";
-import Select from "../../../components/ui/Select";
-import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import { Pagination, Avatar } from "../../../components/ui";
+import { Pagination, Avatar, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
 import StaffHistoryModal from "./StaffHistoryModal";
@@ -49,15 +47,6 @@ interface StaffPerformanceRow {
   due: number;
 }
 
-interface FiltersState {
-  staffIds: string[];
-  paymentMode: string;
-  paymentStatus: string;
-  itemType: string;
-  packageId: string;
-  membershipId: string;
-}
-
 function initialsOf(name: string): string {
   return name.split(" ").filter(Boolean).map(w => w[0]).slice(0, 2).join("");
 }
@@ -91,17 +80,12 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
   const today = new Date().toISOString().slice(0, 10);
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
 
-  const defaultFilters: FiltersState = {
-    staffIds: [], paymentMode: "All", paymentStatus: "All",
-    itemType: "All", packageId: "All", membershipId: "All",
-  };
-
-  // Filters only take effect once "Apply" is clicked — draftFilters is what
-  // the panel's inputs are bound to, appliedFilters is what fetchData
-  // actually sends. Refresh re-runs with appliedFilters unchanged.
-  const [draftFilters, setDraftFilters] = useState<FiltersState>(defaultFilters);
-  const [appliedFilters, setAppliedFilters] = useState<FiltersState>(defaultFilters);
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
+  const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
+  const [paymentModeFilter, setPaymentModeFilter] = useState<string[]>([]);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
+  const [itemTypeFilter, setItemTypeFilter] = useState<string[]>([]);
+  const [packageFilter, setPackageFilter] = useState<string[]>([]);
+  const [membershipFilter, setMembershipFilter] = useState<string[]>([]);
 
   const [search, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -134,18 +118,17 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     abortRef.current = ctrl;
     setLoading(true);
     try {
-      const f = appliedFilters;
       const body: Record<string, any> = {
         start_date: monthStart, end_date: today,
         page: currentPage, limit: pageSize,
       };
       if (debouncedSearch) body.search = debouncedSearch;
-      if (f.staffIds.length > 0) body.staff_ids = f.staffIds;
-      if (f.paymentMode !== "All") body.payment_mode = f.paymentMode;
-      if (f.paymentStatus !== "All") body.payment_status = f.paymentStatus;
-      if (f.itemType !== "All") body.item_type = f.itemType;
-      if (f.packageId !== "All") body.package_id = f.packageId;
-      if (f.membershipId !== "All") body.membership_id = f.membershipId;
+      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+      if (paymentModeFilter.length > 0) body.payment_modes = paymentModeFilter;
+      if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
+      if (itemTypeFilter.length > 0) body.item_types = itemTypeFilter;
+      if (packageFilter.length > 0) body.package_ids = packageFilter;
+      if (membershipFilter.length > 0) body.membership_ids = membershipFilter;
 
       const res = await api.post(STAFF_PERFORMANCE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -176,28 +159,38 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [appliedFilters, debouncedSearch, currentPage, pageSize]);
+  }, [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [appliedFilters, debouncedSearch]);
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, debouncedSearch]);
 
-  const activeFilterCount = [
-    appliedFilters.staffIds.length > 0 ? 1 : 0,
-    appliedFilters.paymentMode !== "All" ? 1 : 0,
-    appliedFilters.paymentStatus !== "All" ? 1 : 0,
-    appliedFilters.itemType !== "All" ? 1 : 0,
-    appliedFilters.packageId !== "All" ? 1 : 0,
-    appliedFilters.membershipId !== "All" ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+    { key: "payment_mode", label: "Payment Mode", options: paymentModeOptions.map(m => ({ id: m, label: m })) },
+    { key: "payment_status", label: "Payment Status", options: PAYMENT_STATUS_OPTIONS },
+    { key: "item_type", label: "Item Type", options: ITEM_TYPE_OPTIONS },
+    { key: "package", label: "Package", options: packageOptions, searchable: true },
+    { key: "membership", label: "Membership", options: membershipOptions, searchable: true },
+  ], [staffOptions, paymentModeOptions, packageOptions, membershipOptions]);
 
-  const openFiltersPanel = () => { setDraftFilters(appliedFilters); setShowFiltersPanel(true); };
-  const applyFilters = () => { setAppliedFilters(draftFilters); setShowFiltersPanel(false); };
-  // Clear applies immediately (not just the draft) — resets the actually
-  // applied filters and refetches, same as Clear-then-Apply in one step.
-  const clearFilters = () => {
-    setDraftFilters(defaultFilters);
-    setAppliedFilters(defaultFilters);
-    setShowFiltersPanel(false);
+  const filterMenuSelected = useMemo(() => ({
+    staff: staffFilterIds,
+    payment_mode: paymentModeFilter,
+    payment_status: paymentStatusFilter,
+    item_type: itemTypeFilter,
+    package: packageFilter,
+    membership: membershipFilter,
+  }), [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStaffFilterIds(next.staff ?? []);
+    setPaymentModeFilter(next.payment_mode ?? []);
+    setPaymentStatusFilter(next.payment_status ?? []);
+    setItemTypeFilter(next.item_type ?? []);
+    setPackageFilter(next.package ?? []);
+    setMembershipFilter(next.membership ?? []);
   };
 
   const countRev = (count: number, revenue: number) => `${count} (${formatAmount(revenue)})`;
@@ -239,10 +232,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
             onChange={e => setSearchInput(e.target.value)}
           />
         </div>
-        <button className="rp-sp-filters-btn" onClick={openFiltersPanel}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-sp-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -327,56 +317,6 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
         />
       )}
 
-      {showFiltersPanel && (
-        <div className="rp-sp-filters-overlay" onClick={() => setShowFiltersPanel(false)}>
-          <div className="rp-sp-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-            </div>
-
-            <div className="rp-sp-filters-body">
-              <MultiSelectCheckbox
-                label="Staff"
-                containerClass="rp-sp-filter-field"
-                options={staffOptions}
-                selected={draftFilters.staffIds}
-                onChange={ids => setDraftFilters(f => ({ ...f, staffIds: ids }))}
-                placeholder="All staff"
-              />
-
-              <Select label="Payment Mode" containerClass="rp-sp-filter-field" value={draftFilters.paymentMode} onChange={e => setDraftFilters(f => ({ ...f, paymentMode: e.target.value }))}>
-                <option value="All">All payment modes</option>
-                {paymentModeOptions.map(m => <option key={m} value={m}>{m}</option>)}
-              </Select>
-
-              <Select label="Payment Status" containerClass="rp-sp-filter-field" value={draftFilters.paymentStatus} onChange={e => setDraftFilters(f => ({ ...f, paymentStatus: e.target.value }))}>
-                <option value="All">All</option>
-                {PAYMENT_STATUS_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-
-              <Select label="Item Type" containerClass="rp-sp-filter-field" value={draftFilters.itemType} onChange={e => setDraftFilters(f => ({ ...f, itemType: e.target.value }))}>
-                <option value="All">All item types</option>
-                {ITEM_TYPE_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-
-              <Select label="Package" containerClass="rp-sp-filter-field" value={draftFilters.packageId} onChange={e => setDraftFilters(f => ({ ...f, packageId: e.target.value }))}>
-                <option value="All">All packages</option>
-                {packageOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-
-              <Select label="Membership" containerClass="rp-sp-filter-field" value={draftFilters.membershipId} onChange={e => setDraftFilters(f => ({ ...f, membershipId: e.target.value }))}>
-                <option value="All">All memberships</option>
-                {membershipOptions.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-            </div>
-
-            <div className="rp-sp-filters-actions">
-              <Button variant="ghost" onClick={clearFilters}>Clear</Button>
-              <Button variant="dark" onClick={applyFilters}>Apply</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

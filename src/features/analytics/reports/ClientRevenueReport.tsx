@@ -1,20 +1,33 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, X } from "react-bootstrap-icons";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useDispatch } from "react-redux";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT_REVENUE_REPORT } from "../../../services/api/endpoints";
+import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
+import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
 import Select from "../../../components/ui/Select";
-import Button from "../../../components/ui/Button";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "./ClientRevenueReport.scss";
 
 const REPORT_NAME = "Client Revenue";
+
+const GENDER_OPTIONS = [
+  { id: "male", label: "Male" },
+  { id: "female", label: "Female" },
+];
+
+const MEMBERSHIP_OPTIONS = [
+  { id: "member", label: "Member" },
+  { id: "non_member", label: "Non-Member" },
+];
 
 interface ClientRevenueRow {
   client: string;
@@ -98,23 +111,16 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
   const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
   const [dateFrom,    setDateFrom]    = useState(monthStart);
   const [dateTo,      setDateTo]      = useState(today);
-  const [genderFilter, setGenderFilter] = useState("All");
-  const [membershipFilter, setMembershipFilter] = useState("All");
+  const dispatch = useDispatch<AppDispatch>();
+  const [genderFilter, setGenderFilter] = useState<string[]>([]);
+  const [membershipFilter, setMembershipFilter] = useState<string[]>([]);
+  const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
+  const [staffOptions, setStaffOptions] = useState<{ id: string; label: string }[]>([]);
   const [lastVisitPreset, setLastVisitPreset] = useState("All");
   const [lastVisitFrom, setLastVisitFrom] = useState("");
   const [lastVisitTo, setLastVisitTo] = useState("");
   const [sortBy, setSortBy] = useState("last_visit");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
-  // Draft copies of the filter fields, edited while the modal is open. They
-  // only overwrite the applied state (above) when Apply is clicked; opening
-  // the modal seeds them from the currently-applied values, and closing via
-  // the X/overlay discards them without touching the applied state.
-  const [draftGender, setDraftGender] = useState("All");
-  const [draftMembership, setDraftMembership] = useState("All");
-  const [draftLastVisitPreset, setDraftLastVisitPreset] = useState("All");
-  const [draftLastVisitFrom, setDraftLastVisitFrom] = useState("");
-  const [draftLastVisitTo, setDraftLastVisitTo] = useState("");
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [rows,        setRows]        = useState<ClientRevenueRow[]>([]);
@@ -125,6 +131,16 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
   const [pageSize,    setPageSize]    = useState(25);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
+      const opts = list.map((s: any) => ({
+        label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
+        id: String(s.id ?? ""),
+      })).filter((o: any) => o.label && o.id);
+      setStaffOptions(opts);
+    }).catch(() => {});
+  }, [dispatch]);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
     ? "To Date must be greater than or equal to From Date"
@@ -150,8 +166,13 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
         page: currentPage, limit: pageSize,
       };
       if (debouncedSearch) body.search = debouncedSearch;
-      if (genderFilter !== "All") body.gender = genderFilter.toLowerCase();
-      if (membershipFilter !== "All") body.membership_status = membershipFilter;
+      // Backend's gender/membership_status knobs are single values —
+      // checking exactly one option narrows normally; checking both (or
+      // neither) means "no filter", so nothing is sent (same pattern used
+      // for Reward Status / Ewallet Balance Status).
+      if (genderFilter.length === 1) body.gender = genderFilter[0];
+      if (membershipFilter.length === 1) body.membership_status = membershipFilter[0];
+      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
       const lv = lastVisitPreset === "custom"
         ? (lastVisitFrom && lastVisitTo ? { from: lastVisitFrom, to: lastVisitTo } : null)
         : lastVisitPresetRange(lastVisitPreset);
@@ -180,7 +201,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
     }
   }, [
     dateFrom, dateTo, debouncedSearch,
-    genderFilter, membershipFilter, lastVisitPreset, lastVisitFrom, lastVisitTo,
+    genderFilter, membershipFilter, staffFilterIds, lastVisitPreset, lastVisitFrom, lastVisitTo,
     sortBy, sortDir, currentPage, pageSize,
   ]);
 
@@ -189,42 +210,26 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
     setCurrentPage(1);
   }, [
     dateFrom, dateTo, debouncedSearch,
-    genderFilter, membershipFilter, lastVisitPreset, lastVisitFrom, lastVisitTo,
+    genderFilter, membershipFilter, staffFilterIds, lastVisitPreset, lastVisitFrom, lastVisitTo,
     sortBy, sortDir,
   ]);
 
-  const activeFilterCount = [
-    genderFilter !== "All" ? 1 : 0,
-    membershipFilter !== "All" ? 1 : 0,
-    lastVisitPreset !== "All" ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "gender", label: "Gender", options: GENDER_OPTIONS },
+    { key: "membership", label: "Membership Status", options: MEMBERSHIP_OPTIONS },
+    { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+  ], [staffOptions]);
 
-  const openFiltersPanel = () => {
-    setDraftGender(genderFilter);
-    setDraftMembership(membershipFilter);
-    setDraftLastVisitPreset(lastVisitPreset);
-    setDraftLastVisitFrom(lastVisitFrom);
-    setDraftLastVisitTo(lastVisitTo);
-    setShowFiltersPanel(true);
-  };
+  const filterMenuSelected = useMemo(() => ({
+    gender: genderFilter,
+    membership: membershipFilter,
+    staff: staffFilterIds,
+  }), [genderFilter, membershipFilter, staffFilterIds]);
 
-  const cancelFiltersPanel = () => setShowFiltersPanel(false);
-
-  const clearDraftFilters = () => {
-    setDraftGender("All");
-    setDraftMembership("All");
-    setDraftLastVisitPreset("All");
-    setDraftLastVisitFrom("");
-    setDraftLastVisitTo("");
-  };
-
-  const applyFilters = () => {
-    setGenderFilter(draftGender);
-    setMembershipFilter(draftMembership);
-    setLastVisitPreset(draftLastVisitPreset);
-    setLastVisitFrom(draftLastVisitFrom);
-    setLastVisitTo(draftLastVisitTo);
-    setShowFiltersPanel(false);
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setGenderFilter(next.gender ?? []);
+    setMembershipFilter(next.membership ?? []);
+    setStaffFilterIds(next.staff ?? []);
   };
 
   const currentSortLabel = SORT_OPTIONS.find(o => o.sortBy === sortBy && o.sortDir === sortDir)?.label ?? SORT_OPTIONS[0].label;
@@ -253,8 +258,11 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
               dateRangeLabel={`${formatDate(dateFrom)} - ${formatDate(dateTo)}`}
               filterLines={[
                 ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
-                ...(genderFilter !== "All" ? [`Gender: ${genderFilter}`] : []),
-                ...(membershipFilter !== "All" ? [`Membership: ${membershipFilter === "member" ? "Member" : "Non-Member"}`] : []),
+                ...(genderFilter.length === 1 ? [`Gender: ${genderFilter[0]}`] : []),
+                ...(membershipFilter.length === 1 ? [`Membership: ${membershipFilter[0] === "member" ? "Member" : "Non-Member"}`] : []),
+                ...(staffFilterIds.length > 0
+                  ? [`Staff: ${staffOptions.filter(o => staffFilterIds.includes(o.id)).map(o => o.label).join(", ")}`]
+                  : []),
                 ...(lastVisitPreset !== "All" ? [`Last Visit: ${LAST_VISIT_PRESET_LABELS[lastVisitPreset] ?? lastVisitPreset}`] : []),
                 `Sort: ${currentSortLabel}`,
               ]}
@@ -271,10 +279,22 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
-        <button className="rp-cr-filters-btn" onClick={openFiltersPanel}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-cr-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
+        <Select containerClass="rp-cr-filter-field" value={lastVisitPreset} onChange={e => setLastVisitPreset(e.target.value)}>
+          <option value="All">Last Visit: All</option>
+          <option value="today">Today</option>
+          <option value="yesterday">Yesterday</option>
+          <option value="last7">Last 7 Days</option>
+          <option value="last30">Last 30 Days</option>
+          <option value="custom">Custom Date Range</option>
+        </Select>
+        {lastVisitPreset === "custom" && (
+          <DateRangeFields
+            from={lastVisitFrom} to={lastVisitTo}
+            onFromChange={setLastVisitFrom} onToChange={setLastVisitTo}
+            hideLabel containerClassName="rp-cr-filter-field"
+          />
+        )}
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -334,53 +354,6 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />
       )}
 
-      {showFiltersPanel && (
-        <div className="rp-cr-filters-overlay" onClick={cancelFiltersPanel}>
-          <div className="rp-cr-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-              <button type="button" className="rp-cr-filters-close" aria-label="Close" onClick={cancelFiltersPanel}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="rp-cr-filters-body">
-              <Select label="Gender" containerClass="rp-cr-filter-field" value={draftGender} onChange={e => setDraftGender(e.target.value)}>
-                <option value="All">All</option>
-                <option value="Male">Male</option>
-                <option value="Female">Female</option>
-              </Select>
-
-              <Select label="Membership Status" containerClass="rp-cr-filter-field" value={draftMembership} onChange={e => setDraftMembership(e.target.value)}>
-                <option value="All">All</option>
-                <option value="member">Member</option>
-                <option value="non_member">Non-Member</option>
-              </Select>
-
-              <Select label="Last Visit" containerClass="rp-cr-filter-field" value={draftLastVisitPreset} onChange={e => setDraftLastVisitPreset(e.target.value)}>
-                <option value="All">All</option>
-                <option value="today">Today</option>
-                <option value="yesterday">Yesterday</option>
-                <option value="last7">Last 7 Days</option>
-                <option value="last30">Last 30 Days</option>
-                <option value="custom">Custom Date Range</option>
-              </Select>
-              {draftLastVisitPreset === "custom" && (
-                <DateRangeFields
-                  from={draftLastVisitFrom} to={draftLastVisitTo}
-                  onFromChange={setDraftLastVisitFrom} onToChange={setDraftLastVisitTo}
-                  hideLabel containerClassName="rp-cr-filter-field"
-                />
-              )}
-            </div>
-
-            <div className="rp-cr-filters-actions">
-              <Button variant="ghost" onClick={clearDraftFilters}>Clear</Button>
-              <Button variant="dark" onClick={applyFilters}>Apply</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
