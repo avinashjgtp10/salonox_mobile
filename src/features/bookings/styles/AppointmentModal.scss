@@ -2319,6 +2319,14 @@ $success:    #22c55e;
   .svc-recipe-row__configured {
     padding-top: 0;
   }
+
+  .svc-recipe-row__name--truncate {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
 }
 
 .svc-recipe-row__row-actions {

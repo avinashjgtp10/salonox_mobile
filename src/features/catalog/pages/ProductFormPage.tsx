@@ -10,6 +10,7 @@ import { PRODUCTS } from "../../../services/api/endpoints/products.endpoints";
 import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { PRODUCT_UNITS, TAX_TYPE_OPTIONS, type ProductType, type ProductUnit, type TaxType } from "../types/product.types";
+import { getCompatibleUnits, FAMILY_HINT, getUnitFamily } from "../utils/unitFamilies";
 import type { ConsumableDetail } from "../../../types/inventory.types";
 import "../styles/ConsumableFormPage.scss";
 
@@ -42,11 +43,60 @@ const SearchSelect: React.FC<{
 }> = ({ value, options, placeholder, onChange, onBlur, allowNone }) => {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(-1);
+  const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
   const selected = options.find((o) => o.id === value);
   const displayValue = open ? query : (selected?.name ?? (value === "" && allowNone ? "None" : ""));
   const filtered = query.trim()
     ? options.filter((o) => o.name.toLowerCase().includes(query.trim().toLowerCase()))
     : options;
+  // "None" (when offered) occupies index 0 of the keyboard-navigable list,
+  // ahead of every real option.
+  const rowCount = filtered.length + (allowNone ? 1 : 0);
+
+  // Reset the highlighted row whenever the option set changes (typing
+  // narrows/widens `filtered`) — a stale index could otherwise point at a
+  // row that's no longer there, or the wrong one.
+  useEffect(() => { setActiveIndex(-1); }, [query, open]);
+
+  // The dropdown scrolls (max-height + overflow-y: auto — see .cf-search-
+  // select__drop) but arrowing past the visible rows never scrolled the
+  // highlighted one INTO view, so it looked like the list just stopped
+  // responding once you went past row ~5. "nearest" only scrolls the
+  // minimum needed, so it doesn't jump the list around on every keypress.
+  useEffect(() => {
+    if (activeIndex < 0) return;
+    itemRefs.current[activeIndex]?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
+
+  function pick(id: string, _name: string) {
+    onChange(id);
+    setQuery("");
+    setOpen(false);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (!open || rowCount === 0) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      // Clamped, not wrapped — cycling back to row 1 after the last row
+      // (or vice versa) reads as the list being stuck in a loop rather than
+      // reaching the end.
+      setActiveIndex((i) => Math.min(i + 1, rowCount - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((i) => Math.max(i - 1, 0));
+    } else if (e.key === "Enter") {
+      if (activeIndex < 0) return;
+      e.preventDefault();
+      if (allowNone && activeIndex === 0) { pick("", ""); return; }
+      const opt = filtered[activeIndex - (allowNone ? 1 : 0)];
+      if (opt) pick(opt.id, opt.name);
+    } else if (e.key === "Escape") {
+      e.stopPropagation();
+      setOpen(false);
+    }
+  }
 
   return (
     <div className="cf-search-select">
@@ -56,18 +106,40 @@ const SearchSelect: React.FC<{
         onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
         onFocus={() => { setQuery(""); setOpen(true); }}
         onBlur={() => { setTimeout(() => { setOpen(false); onBlur?.(); }, 180); }}
+        onKeyDown={handleKeyDown}
+        role="combobox"
+        aria-expanded={open}
+        aria-haspopup="listbox"
       />
       {open && (
-        <div className="cf-search-select__drop">
+        <div className="cf-search-select__drop" role="listbox">
           {allowNone && (
-            <div className="cf-search-select__item" onMouseDown={() => { onChange(""); setQuery(""); setOpen(false); }}>None</div>
+            <div
+              ref={(el) => { itemRefs.current[0] = el; }}
+              className={`cf-search-select__item${activeIndex === 0 ? " cf-search-select__item--active" : ""}`}
+              onMouseDown={() => pick("", "")}
+              onMouseEnter={() => setActiveIndex(0)}
+            >
+              None
+            </div>
           )}
           {filtered.length === 0 ? (
             <div className="cf-search-select__empty">No matches</div>
           ) : (
-            filtered.map((o) => (
-              <div key={o.id} className="cf-search-select__item" onMouseDown={() => { onChange(o.id); setQuery(""); setOpen(false); }}>{o.name}</div>
-            ))
+            filtered.map((o, i) => {
+              const rowIndex = i + (allowNone ? 1 : 0);
+              return (
+                <div
+                  key={o.id}
+                  ref={(el) => { itemRefs.current[rowIndex] = el; }}
+                  className={`cf-search-select__item${activeIndex === rowIndex ? " cf-search-select__item--active" : ""}`}
+                  onMouseDown={() => pick(o.id, o.name)}
+                  onMouseEnter={() => setActiveIndex(rowIndex)}
+                >
+                  {o.name}
+                </div>
+              );
+            })
           )}
         </div>
       )}
@@ -287,12 +359,46 @@ const ProductFormPage: React.FC = () => {
     if (result?.id) setSupplierId(result.id);
   }
 
+  // Switching Base Unit to a different measurement family (e.g. ml → gm)
+  // invalidates any already-added conversion rows from the old family
+  // (Bottle/Tube/Sachet are volume-only) — drop them rather than silently
+  // saving a now-cross-family row the backend would reject anyway.
+  useEffect(() => {
+    setUnitConversions((prev) => prev.filter((row) =>
+      getCompatibleUnits(unit).some((cu) => cu.name.toLowerCase() === row.unit_name.toLowerCase())
+    ));
+  }, [unit]);
+
+  // Only units compatible with the product's own Base Unit family (Volume:
+  // ml/L, Weight: gm/kg, Count: pcs) are ever offered — the same restriction
+  // the backend enforces (unit-families.ts), so nothing entered here can
+  // fail validation on save.
+  const compatibleUnits = getCompatibleUnits(unit);
+  const availableCompatibleUnits = compatibleUnits.filter(
+    (cu) => !unitConversions.some((row) => row.unit_name.toLowerCase() === cu.name.toLowerCase())
+  );
+
   function addUnitConversionRow() {
-    setUnitConversions((prev) => [...prev, { unit_name: "", conversion_to_base: "" }]);
+    const next = availableCompatibleUnits[0];
+    if (!next) return; // every compatible unit for this base already added
+    setUnitConversions((prev) => [
+      ...prev,
+      { unit_name: next.name, conversion_to_base: next.fixedRatio !== undefined ? String(next.fixedRatio) : "" },
+    ]);
   }
 
   function updateUnitConversionRow(index: number, field: keyof UnitConversionDraft, value: string) {
-    setUnitConversions((prev) => prev.map((row, i) => (i === index ? { ...row, [field]: value } : row)));
+    setUnitConversions((prev) => prev.map((row, i) => {
+      if (i !== index) return row;
+      if (field === "unit_name") {
+        // Switching the dropdown to a system-fixed unit (L, kg) locks the
+        // ratio to its real value instead of whatever was typed for the
+        // previously-selected row.
+        const picked = compatibleUnits.find((cu) => cu.name === value);
+        return { unit_name: value, conversion_to_base: picked?.fixedRatio !== undefined ? String(picked.fixedRatio) : "" };
+      }
+      return { ...row, [field]: value };
+    }));
   }
 
   function removeUnitConversionRow(index: number) {
@@ -550,33 +656,49 @@ const ProductFormPage: React.FC = () => {
           <section className="cf-card">
             <h3>Unit Conversion</h3>
             <p className="cf-hint">
-              Optional named units staff can log usage in (e.g. Bottle, Sachet) — inventory itself always stays in
-              the base unit ({unit}) above.
+              Display units staff can log usage in (e.g. Bottle, Sachet) — inventory itself always stays in the
+              base unit ({unit}) above. Only units in the same measurement family as the base unit are allowed
+              ({FAMILY_HINT[getUnitFamily(unit)]}).
             </p>
             {unitConversions.length > 0 && (
               <div className="cf-assigned-list">
-                {unitConversions.map((row, i) => (
-                  <div key={i} className="cf-assigned-row">
-                    <input
-                      className="cf-assigned-row__name"
-                      placeholder="Unit name (e.g. Bottle)"
-                      value={row.unit_name}
-                      onChange={(e) => updateUnitConversionRow(i, "unit_name", e.target.value)}
-                    />
-                    <span>1 {row.unit_name || "unit"} =</span>
-                    <input
-                      type="number" min={0} className="cf-assigned-row__qty"
-                      placeholder="0"
-                      value={row.conversion_to_base}
-                      onChange={(e) => updateUnitConversionRow(i, "conversion_to_base", e.target.value)}
-                    />
-                    <span className="cf-assigned-row__unit">{unit}</span>
-                    <button type="button" onClick={() => removeUnitConversionRow(i)}><Trash size={13} /></button>
-                  </div>
-                ))}
+                {unitConversions.map((row, i) => {
+                  const picked = compatibleUnits.find((cu) => cu.name === row.unit_name);
+                  const isFixed = picked?.fixedRatio !== undefined;
+                  // The currently-selected unit must stay in its own dropdown's
+                  // options even though it's "already used" (excluded from
+                  // availableCompatibleUnits), or picking it would make it vanish.
+                  const rowOptions = picked ? [picked, ...availableCompatibleUnits] : availableCompatibleUnits;
+                  return (
+                    <div key={i} className="cf-assigned-row">
+                      <select
+                        className="cf-assigned-row__name"
+                        value={row.unit_name}
+                        onChange={(e) => updateUnitConversionRow(i, "unit_name", e.target.value)}
+                      >
+                        {rowOptions.map((cu) => <option key={cu.name} value={cu.name}>{cu.name}</option>)}
+                      </select>
+                      <span>1 {row.unit_name || "unit"} =</span>
+                      <input
+                        type="number" min={0} className="cf-assigned-row__qty"
+                        placeholder="0"
+                        value={row.conversion_to_base}
+                        disabled={isFixed}
+                        title={isFixed ? "Fixed system conversion — not editable" : undefined}
+                        onChange={(e) => updateUnitConversionRow(i, "conversion_to_base", e.target.value)}
+                      />
+                      <span className="cf-assigned-row__unit">{unit}</span>
+                      <button type="button" onClick={() => removeUnitConversionRow(i)}><Trash size={13} /></button>
+                    </div>
+                  );
+                })}
               </div>
             )}
-            <button type="button" className="cf-quick-add-link" onClick={addUnitConversionRow}>+ Add a unit</button>
+            {availableCompatibleUnits.length > 0 ? (
+              <button type="button" className="cf-quick-add-link" onClick={addUnitConversionRow}>+ Add a unit</button>
+            ) : (
+              <p className="cf-hint" style={{ margin: 0 }}>All compatible units for {unit} have been added.</p>
+            )}
           </section>
         )}
 
@@ -657,7 +779,14 @@ const ProductFormPage: React.FC = () => {
         {/* 5. Inventory Preview */}
         <section className="cf-card">
           <h3>Inventory Preview</h3>
-          <div className="cf-preview-row"><span>Available Stock</span><span>{totalAvailable.toLocaleString()} {unit}</span></div>
+          {/* Stock = package/bottle count (1, 2, 3…); Total Unit = that count
+              converted into the base unit's volume/weight (1000 ml, 1 L,
+              200 gm…) — two different things, kept on separate rows rather
+              than folded into one "Available Stock" figure. */}
+          <div className="cf-preview-row"><span>Stock</span><span>{qtyNum.toLocaleString()}</span></div>
+          {isConsumable && sizeNum > 0 && (
+            <div className="cf-preview-row"><span>Total Unit</span><span>{totalAvailable.toLocaleString()} {unit}</span></div>
+          )}
           {isConsumable && (
             <>
               <div className="cf-preview-row">

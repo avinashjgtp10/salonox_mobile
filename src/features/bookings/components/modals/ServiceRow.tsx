@@ -1184,7 +1184,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                     const status = getConsumableStatus(availableStock, remainingStock);
                     return (
                       <div key={c.productId} className="svc-recipe-row svc-recipe-row--full">
-                        <span className="svc-recipe-row__name">{c.productName || "—"}</span>
+                        <span className="svc-recipe-row__name svc-recipe-row__name--truncate" title={c.productName || "—"}>{c.productName || "—"}</span>
                         <span className="svc-recipe-row__configured">
                           {availableStock !== undefined ? `${availableStock} ${c.unit || ""}` : "—"}
                         </span>
