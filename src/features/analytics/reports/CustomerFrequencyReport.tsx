@@ -22,18 +22,21 @@ const REPORT_NAME = "Customer Frequency";
 // applies one at a time — picking a second option replaces the first, same
 // convention as Commission Report's Status dropdown, just hosted inside
 // JiraFilterMenu per this report's own spec). 'most_frequent'/'least_frequent'
-// are a sort (by visit count) rather than a segment bucket; 'new'/'old'/'lost'
+// are a sort (by visit count) and 'most_spending'/'least_spending' are a
+// sort (by total spend) rather than segment buckets; 'new'/'old'/'lost'
 // filter to that customer_type segment — see the backend's
 // CustomerFrequencyReportFilters for the exact rules.
 const CUSTOMER_TYPE_OPTIONS = [
   { id: "most_frequent",  label: "Most Frequent" },
   { id: "least_frequent", label: "Least Frequent" },
+  { id: "most_spending",  label: "Most Spending" },
+  { id: "least_spending", label: "Least Spending" },
   { id: "new",             label: "New" },
   { id: "old",             label: "Old" },
   { id: "lost",            label: "Lost" },
 ];
 
-type CustomerType = "most_frequent" | "least_frequent" | "new" | "old" | "lost";
+type CustomerType = "most_frequent" | "least_frequent" | "most_spending" | "least_spending" | "new" | "old" | "lost";
 
 interface CustomerRow {
   clientId: string;
