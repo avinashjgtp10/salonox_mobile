@@ -1,37 +1,20 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Search, ChevronUp, ChevronDown } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SERVICE_SALE_REPORT } from "../../../services/api/endpoints";
-import Button from "../../../components/ui/Button";
 import ReportRefreshButton from "./ReportRefreshButton";
-import Select from "../../../components/ui/Select";
-import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useServices } from "../../catalog/hooks/useServices";
-import { useDraftFilters } from "./useDraftFilters";
-import ReportFiltersModal from "./ReportFiltersModal";
 import "./ServiceSaleReport.scss";
 
 const REPORT_NAME = "Service Sale";
-
-interface ServiceSaleFilterValues {
-  category: string;
-  service: string;
-  minPrice: string;
-  maxPrice: string;
-  staffIds: string[];
-  paymentMethod: string;
-}
-
-const SERVICE_SALE_FILTER_DEFAULTS: ServiceSaleFilterValues = {
-  category: "All", service: "All", minPrice: "", maxPrice: "", staffIds: [], paymentMethod: "All",
-};
 
 interface ServiceSaleRow {
   date: string;
@@ -104,12 +87,12 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
   const [dateTo,      setDateTo]      = useState(today);
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [committedFilters, setCommittedFilters] = useState<ServiceSaleFilterValues>(SERVICE_SALE_FILTER_DEFAULTS);
-  const {
-    category: categoryFilter, service: serviceFilter, minPrice, maxPrice,
-    staffIds: staffFilterIds, paymentMethod: paymentMethodFilter,
-  } = committedFilters;
-  const filtersPanel = useDraftFilters(committedFilters, setCommittedFilters, SERVICE_SALE_FILTER_DEFAULTS);
+  const [categoryIds,     setCategoryIds]     = useState<string[]>([]);
+  const [serviceIds,      setServiceIds]      = useState<string[]>([]);
+  const [minPrice,        setMinPrice]        = useState("");
+  const [maxPrice,        setMaxPrice]        = useState("");
+  const [staffFilterIds,  setStaffFilterIds]  = useState<string[]>([]);
+  const [paymentMethods,  setPaymentMethods]  = useState<string[]>([]);
   const [sortBy,  setSortBy]  = useState<SortField>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
   const [rows,        setRows]        = useState<ServiceSaleRow[]>([]);
@@ -134,21 +117,6 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
 
   useEffect(() => { fetchServices(); }, [fetchServices]);
 
-  // Service dropdown narrows to the selected (draft) category (optional
-  // convenience); falls back to the full catalog list when no category is
-  // selected. Operates on the modal's draft state, not the committed filter,
-  // since that's what the dropdowns inside the modal actually edit.
-  const serviceOptionsForCategory = filtersPanel.draft.category === "All"
-    ? services
-    : services.filter((sv: any) => String(sv.category_id ?? sv.categoryId) === filtersPanel.draft.category);
-
-  useEffect(() => {
-    if (filtersPanel.draft.service === "All") return;
-    const stillValid = serviceOptionsForCategory.some((sv: any) => String(sv.id) === filtersPanel.draft.service);
-    if (!stillValid) filtersPanel.setDraftField("service", "All");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filtersPanel.draft.category]);
-
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
   // backend over the WHOLE filtered set (not just the current page).
@@ -165,12 +133,12 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
         sort_by: sortBy, sort_dir: sortDir,
       };
       if (debouncedSearch) body.search = debouncedSearch;
-      if (categoryFilter !== "All") body.category_id = categoryFilter;
-      if (serviceFilter !== "All") body.service_id = serviceFilter;
+      if (categoryIds.length > 0) body.category_ids = categoryIds;
+      if (serviceIds.length > 0) body.service_ids = serviceIds;
       if (minPrice !== "") body.min_price = Number(minPrice);
       if (maxPrice !== "") body.max_price = Number(maxPrice);
       if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (paymentMethodFilter !== "All") body.payment_method = paymentMethodFilter;
+      if (paymentMethods.length > 0) body.payment_methods = paymentMethods;
       const res = await api.post(SERVICE_SALE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -195,22 +163,34 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, categoryFilter, serviceFilter, minPrice, maxPrice, staffFilterIds, paymentMethodFilter, sortBy, sortDir, currentPage, pageSize]);
+  }, [dateFrom, dateTo, debouncedSearch, categoryIds, serviceIds, minPrice, maxPrice, staffFilterIds, paymentMethods, sortBy, sortDir, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Filter/search/sort changes go back to page 1 — page/pageSize changes
   // themselves should not reset back to page 1.
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, categoryFilter, serviceFilter, minPrice, maxPrice, staffFilterIds, paymentMethodFilter, sortBy, sortDir]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, categoryIds, serviceIds, minPrice, maxPrice, staffFilterIds, paymentMethods, sortBy, sortDir]);
 
-  const activeFilterCount = [
-    categoryFilter !== "All" ? 1 : 0,
-    serviceFilter !== "All" ? 1 : 0,
-    minPrice !== "" ? 1 : 0,
-    maxPrice !== "" ? 1 : 0,
-    staffFilterIds.length > 0 ? 1 : 0,
-    paymentMethodFilter !== "All" ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "category", label: "Category", options: categories.map((c: any) => ({ id: String(c.id), label: String(c.name) })), searchable: true },
+    { key: "service", label: "Service", options: services.map((sv: any) => ({ id: String(sv.id), label: String(sv.name) })), searchable: true },
+    { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+    { key: "payment_method", label: "Payment Method", options: PAYMENT_METHOD_OPTIONS },
+  ], [categories, services, staffOptions]);
+
+  const filterMenuSelected = useMemo(() => ({
+    category: categoryIds,
+    service: serviceIds,
+    staff: staffFilterIds,
+    payment_method: paymentMethods,
+  }), [categoryIds, serviceIds, staffFilterIds, paymentMethods]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setCategoryIds(next.category ?? []);
+    setServiceIds(next.service ?? []);
+    setStaffFilterIds(next.staff ?? []);
+    setPaymentMethods(next.payment_method ?? []);
+  };
 
   const handleSortClick = (field: SortField) => {
     if (sortBy !== field) { setSortBy(field); setSortDir("asc"); return; }
@@ -238,10 +218,15 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
-        <button className="rp-ss-filters-btn" onClick={filtersPanel.openPanel}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-ss-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Price Range</label>
+          <div className="rp-ss-price-range">
+            <input type="number" min={0} placeholder="Min" value={minPrice} onChange={e => setMinPrice(e.target.value)} />
+            <span>—</span>
+            <input type="number" min={0} placeholder="Max" value={maxPrice} onChange={e => setMaxPrice(e.target.value)} />
+          </div>
+        </div>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -316,46 +301,6 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="services" />
       )}
 
-      <ReportFiltersModal
-        open={filtersPanel.isOpen}
-        onClose={filtersPanel.closePanel}
-        onClear={filtersPanel.clear}
-        onApply={filtersPanel.apply}
-        classPrefix="rp-ss"
-      >
-        <Select label="Category" containerClass="rp-ss-filter-field" value={filtersPanel.draft.category} onChange={e => filtersPanel.setDraftField("category", e.target.value)}>
-          <option value="All">All categories</option>
-          {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </Select>
-
-        <Select label="Service" containerClass="rp-ss-filter-field" value={filtersPanel.draft.service} onChange={e => filtersPanel.setDraftField("service", e.target.value)}>
-          <option value="All">All services</option>
-          {serviceOptionsForCategory.map((sv: any) => <option key={sv.id} value={sv.id}>{sv.name}</option>)}
-        </Select>
-
-        <div className="rp-ss-filter-field">
-          <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Price Range</label>
-          <div className="rp-ss-price-range">
-            <input type="number" min={0} placeholder="Min" value={filtersPanel.draft.minPrice} onChange={e => filtersPanel.setDraftField("minPrice", e.target.value)} />
-            <span>—</span>
-            <input type="number" min={0} placeholder="Max" value={filtersPanel.draft.maxPrice} onChange={e => filtersPanel.setDraftField("maxPrice", e.target.value)} />
-          </div>
-        </div>
-
-        <MultiSelectCheckbox
-          label="Staff"
-          containerClass="rp-ss-filter-field"
-          options={staffOptions}
-          selected={filtersPanel.draft.staffIds}
-          onChange={v => filtersPanel.setDraftField("staffIds", v)}
-          placeholder="All staff"
-        />
-
-        <Select label="Payment Method" containerClass="rp-ss-filter-field" value={filtersPanel.draft.paymentMethod} onChange={e => filtersPanel.setDraftField("paymentMethod", e.target.value)}>
-          <option value="All">All payment methods</option>
-          {PAYMENT_METHOD_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-        </Select>
-      </ReportFiltersModal>
     </div>
   );
 }
