@@ -1,34 +1,20 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PRODUCT_RETAIL_REPORT } from "../../../services/api/endpoints";
-import Button from "../../../components/ui/Button";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
-import Select from "../../../components/ui/Select";
-import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useProducts } from "../../catalog/hooks/useProducts";
-import { useDraftFilters } from "./useDraftFilters";
-import ReportFiltersModal from "./ReportFiltersModal";
 import "./ProductSaleReport.scss";
 
 const REPORT_NAME = "Product Retail";
-
-interface ProductRetailFilterValues {
-  staffIds: string[];
-  brand: string;
-  category: string;
-}
-
-const PRODUCT_RETAIL_FILTER_DEFAULTS: ProductRetailFilterValues = {
-  staffIds: [], brand: "All", category: "All",
-};
 
 interface ProductSaleRow {
   date: string;
@@ -97,9 +83,9 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
   const [dateTo,      setDateTo]      = useState(today);
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [committedFilters, setCommittedFilters] = useState<ProductRetailFilterValues>(PRODUCT_RETAIL_FILTER_DEFAULTS);
-  const { staffIds: staffFilterIds, brand: brandFilter, category: categoryFilter } = committedFilters;
-  const filtersPanel = useDraftFilters(committedFilters, setCommittedFilters, PRODUCT_RETAIL_FILTER_DEFAULTS);
+  const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
+  const [brandIds,       setBrandIds]       = useState<string[]>([]);
+  const [categoryIds,    setCategoryIds]    = useState<string[]>([]);
   const [rows,        setRows]        = useState<ProductSaleRow[]>([]);
   const [total,       setTotal]       = useState(0);
   const [stats,       setStats]       = useState({ totalQty: 0, totalRev: 0, productsSold: 0, totalTransactions: 0 });
@@ -136,8 +122,8 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
       };
       if (debouncedSearch) body.search = debouncedSearch;
       if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (brandFilter !== "All") body.brand_id = brandFilter;
-      if (categoryFilter !== "All") body.category_id = categoryFilter;
+      if (brandIds.length > 0) body.brand_ids = brandIds;
+      if (categoryIds.length > 0) body.category_ids = categoryIds;
       const res = await api.post(PRODUCT_RETAIL_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -160,19 +146,31 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, brandFilter, categoryFilter, currentPage, pageSize]);
+  }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, brandIds, categoryIds, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   // Filter/search changes go back to page 1 — page/pageSize changes
   // themselves should not reset back to page 1.
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, brandFilter, categoryFilter]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, brandIds, categoryIds]);
 
-  const activeFilterCount = [
-    staffFilterIds.length > 0 ? 1 : 0,
-    brandFilter !== "All" ? 1 : 0,
-    categoryFilter !== "All" ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+    { key: "brand", label: "Brand", options: brands.map((b: any) => ({ id: String(b.id), label: String(b.name) })), searchable: true },
+    { key: "category", label: "Category", options: categories.map((c: any) => ({ id: String(c.id), label: String(c.name) })), searchable: true },
+  ], [staffOptions, brands, categories]);
+
+  const filterMenuSelected = useMemo(() => ({
+    staff: staffFilterIds,
+    brand: brandIds,
+    category: categoryIds,
+  }), [staffFilterIds, brandIds, categoryIds]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStaffFilterIds(next.staff ?? []);
+    setBrandIds(next.brand ?? []);
+    setCategoryIds(next.category ?? []);
+  };
 
   const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Product Name", "Category", "Brand", "Quantity", `Total (${currencySymbol})`, `Paid Amount (${currencySymbol})`, "Payment Method", "Status"];
   // Total column is gross = line base + its own GST (so ₹399 @ 5% reads ₹418.95).
@@ -191,10 +189,7 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
-        <button className="rp-ps-filters-btn" onClick={filtersPanel.openPanel}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-ps-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -261,30 +256,6 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="products" />
       )}
 
-      <ReportFiltersModal
-        open={filtersPanel.isOpen}
-        onClose={filtersPanel.closePanel}
-        onClear={filtersPanel.clear}
-        onApply={filtersPanel.apply}
-        classPrefix="rp-ps"
-      >
-        <MultiSelectCheckbox
-          label="Staff"
-          containerClass="rp-ps-filter-field"
-          options={staffOptions}
-          selected={filtersPanel.draft.staffIds}
-          onChange={v => filtersPanel.setDraftField("staffIds", v)}
-          placeholder="All staff"
-        />
-        <Select label="Brand" containerClass="rp-ps-filter-field" value={filtersPanel.draft.brand} onChange={e => filtersPanel.setDraftField("brand", e.target.value)}>
-          <option value="All">All brands</option>
-          {brands.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-        </Select>
-        <Select label="Category" containerClass="rp-ps-filter-field" value={filtersPanel.draft.category} onChange={e => filtersPanel.setDraftField("category", e.target.value)}>
-          <option value="All">All categories</option>
-          {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-        </Select>
-      </ReportFiltersModal>
     </div>
   );
 }
