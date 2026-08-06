@@ -234,13 +234,17 @@ export type TabKey =
   | "communication";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
-const fmtDate = (iso: string) => {
+const fmtDate = (iso: string, durationMinutes?: number) => {
   const d = new Date(iso);
+  const endTime = durationMinutes
+    ? new Date(d.getTime() + durationMinutes * 60000).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })
+    : undefined;
   return {
     day: d.getDate().toString().padStart(2, "0"),
     month: d.toLocaleString("en-IN", { month: "short" }).toUpperCase(),
     year: d.getFullYear(),
     time: d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" }),
+    endTime,
   };
 };
 
@@ -1219,6 +1223,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       clientEmail: client?.email,
       staffId: appointmentStaffMap.get(appt.id),
       dateIso: appt.scheduled_at,
+      durationMinutes: appt.duration_minutes,
       items: linkedSale?.items ?? [],
       extraServices: (appt.services ?? []).map((s) => ({ name: s.name || s.service_name || "", price: s.price ?? 0 })),
       status: appt.status,
@@ -1721,7 +1726,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                       );
                     }
                     const appt = entry.appt;
-                    const d = fmtDate(appt.scheduled_at);
+                    const d = fmtDate(appt.scheduled_at, appt.duration_minutes);
                     const linkedSale = saleByAppointmentId.get(appt.id);
                     const displayAmount = linkedSale
                       ? Number(linkedSale.total_amount)
@@ -1778,7 +1783,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
                           </div>
                           <div className="chp-visit-staff">Status: {appt.status}</div>
                           <div className="chp-visit-time">
-                            <Clock size={10} /> {d.time}
+                            <Clock size={10} /> {d.time}{d.endTime ? ` – ${d.endTime}` : ""}
                           </div>
                         </div>
                         <div className="chp-visit-right">
