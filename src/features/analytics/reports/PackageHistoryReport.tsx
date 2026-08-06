@@ -1,17 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PACKAGE_HISTORY_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
-import Button from "../../../components/ui/Button";
 import ReportRefreshButton from "./ReportRefreshButton";
-import Select from "../../../components/ui/Select";
-import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
@@ -75,11 +73,10 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
   const [dateTo,   setDateTo]   = useState(today);
   const [search,   setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [packageFilter, setPackageFilter] = useState("All");
-  const [serviceFilter, setServiceFilter] = useState("All");
-  const [statusFilter,  setStatusFilter]  = useState("All");
+  const [packageFilter, setPackageFilter] = useState<string[]>([]);
+  const [serviceFilter, setServiceFilter] = useState<string[]>([]);
+  const [statusFilter,  setStatusFilter]  = useState<string[]>([]);
   const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [rows,     setRows]     = useState<HistoryRow[]>([]);
   const [total,    setTotal]    = useState(0);
   const [stats,    setStats]    = useState({
@@ -130,9 +127,9 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
         page: currentPage, limit: pageSize,
       };
       if (debouncedSearch) body.search = debouncedSearch;
-      if (packageFilter !== "All") body.package_name = packageFilter;
-      if (serviceFilter !== "All") body.service_name = serviceFilter;
-      if (statusFilter !== "All") body.status = statusFilter;
+      if (packageFilter.length > 0) body.package_names = packageFilter;
+      if (serviceFilter.length > 0) body.service_names = serviceFilter;
+      if (statusFilter.length > 0) body.statuses = statusFilter;
       if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
       const res = await api.post(PACKAGE_HISTORY_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -164,15 +161,25 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, packageFilter, serviceFilter, statusFilter, staffFilterIds]);
 
-  const activeFilterCount = [
-    packageFilter !== "All" ? 1 : 0,
-    serviceFilter !== "All" ? 1 : 0,
-    statusFilter !== "All" ? 1 : 0,
-    staffFilterIds.length > 0 ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "package", label: "Package", options: packageOptions.map(p => ({ id: p, label: p })), searchable: true },
+    { key: "service", label: "Service", options: serviceOptions.map(s => ({ id: s, label: s })), searchable: true },
+    { key: "status", label: "Status", options: STATUS_OPTIONS },
+    { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+  ], [packageOptions, serviceOptions, staffOptions]);
 
-  const clearFilters = () => {
-    setPackageFilter("All"); setServiceFilter("All"); setStatusFilter("All"); setStaffFilterIds([]);
+  const filterMenuSelected = useMemo(() => ({
+    package: packageFilter,
+    service: serviceFilter,
+    status: statusFilter,
+    staff: staffFilterIds,
+  }), [packageFilter, serviceFilter, statusFilter, staffFilterIds]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setPackageFilter(next.package ?? []);
+    setServiceFilter(next.service ?? []);
+    setStatusFilter(next.status ?? []);
+    setStaffFilterIds(next.staff ?? []);
   };
 
   const statusLabel = (s: string) => STATUS_OPTIONS.find(o => o.id === s)?.label ?? s;
@@ -193,10 +200,7 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
-        <button className="rp-ph-filters-btn" onClick={() => setShowFiltersPanel(true)}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-ph-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -258,47 +262,6 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="packages" />
-      )}
-
-      {showFiltersPanel && (
-        <div className="rp-ph-filters-overlay" onClick={() => setShowFiltersPanel(false)}>
-          <div className="rp-ph-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-            </div>
-
-            <div className="rp-ph-filters-body">
-              <Select label="Package" containerClass="rp-ph-filter-field" value={packageFilter} onChange={e => setPackageFilter(e.target.value)}>
-                <option value="All">All packages</option>
-                {packageOptions.map(p => <option key={p} value={p}>{p}</option>)}
-              </Select>
-
-              <Select label="Service" containerClass="rp-ph-filter-field" value={serviceFilter} onChange={e => setServiceFilter(e.target.value)}>
-                <option value="All">All services</option>
-                {serviceOptions.map(s => <option key={s} value={s}>{s}</option>)}
-              </Select>
-
-              <Select label="Status" containerClass="rp-ph-filter-field" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-                <option value="All">All</option>
-                {STATUS_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-
-              <MultiSelectCheckbox
-                label="Staff"
-                containerClass="rp-ph-filter-field"
-                options={staffOptions}
-                selected={staffFilterIds}
-                onChange={setStaffFilterIds}
-                placeholder="All staff"
-              />
-            </div>
-
-            <div className="rp-ph-filters-actions">
-              <Button variant="ghost" onClick={() => { clearFilters(); }}>Clear</Button>
-              <Button variant="dark" onClick={() => { setShowFiltersPanel(false); fetchData(); }}>Apply</Button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

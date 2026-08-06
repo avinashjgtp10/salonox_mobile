@@ -1,14 +1,12 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PACKAGE_SALE_REPORT } from "../../../services/api/endpoints";
-import Button from "../../../components/ui/Button";
 import ReportRefreshButton from "./ReportRefreshButton";
-import Select from "../../../components/ui/Select";
-import MultiSelectCheckbox from "../../../components/ui/MultiSelectCheckbox";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
@@ -95,13 +93,12 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
-  const [packageFilter,  setPackageFilter]  = useState("All");
-  const [packageStatusFilter, setPackageStatusFilter] = useState("All");
-  const [paymentStatusFilter, setPaymentStatusFilter] = useState("All");
-  const [paymentMethodFilter, setPaymentMethodFilter] = useState("All");
+  const [packageFilter,  setPackageFilter]  = useState<string[]>([]);
+  const [packageStatusFilter, setPackageStatusFilter] = useState<string[]>([]);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string[]>([]);
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string[]>([]);
   const [minAmount,       setMinAmount]       = useState("");
   const [maxAmount,       setMaxAmount]       = useState("");
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
   const [rows,        setRows]        = useState<PackageSaleRow[]>([]);
   const [total,       setTotal]       = useState(0);
   const [stats,       setStats]       = useState({ packagesSold: 0, totalSaleValue: 0, totalReceived: 0, outstandingBalance: 0, distinctPackagesSold: 0 });
@@ -137,10 +134,10 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
       };
       if (debouncedSearch) body.search = debouncedSearch;
       if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      if (packageFilter !== "All") body.package_name = packageFilter;
-      if (packageStatusFilter !== "All") body.package_status = packageStatusFilter;
-      if (paymentStatusFilter !== "All") body.payment_status = paymentStatusFilter;
-      if (paymentMethodFilter !== "All") body.payment_method = paymentMethodFilter;
+      if (packageFilter.length > 0) body.package_names = packageFilter;
+      if (packageStatusFilter.length > 0) body.package_statuses = packageStatusFilter;
+      if (paymentStatusFilter.length > 0) body.payment_statuses = paymentStatusFilter;
+      if (paymentMethodFilter.length > 0) body.payment_methods = paymentMethodFilter;
       if (minAmount !== "") body.min_amount = Number(minAmount);
       if (maxAmount !== "") body.max_amount = Number(maxAmount);
       const res = await api.post(PACKAGE_SALE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
@@ -175,20 +172,28 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
   // themselves should not reset back to page 1.
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, staffFilterIds, packageFilter, packageStatusFilter, paymentStatusFilter, paymentMethodFilter, minAmount, maxAmount]);
 
-  const activeFilterCount = [
-    staffFilterIds.length > 0 ? 1 : 0,
-    packageFilter !== "All" ? 1 : 0,
-    packageStatusFilter !== "All" ? 1 : 0,
-    paymentStatusFilter !== "All" ? 1 : 0,
-    paymentMethodFilter !== "All" ? 1 : 0,
-    minAmount !== "" ? 1 : 0,
-    maxAmount !== "" ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+    { key: "package", label: "Package", options: packageOptions.map(p => ({ id: p, label: p })), searchable: true },
+    { key: "package_status", label: "Package Status", options: PACKAGE_STATUS_OPTIONS },
+    { key: "payment_status", label: "Payment Status", options: PAYMENT_STATUS_OPTIONS },
+    { key: "payment_method", label: "Payment Method", options: PAYMENT_METHOD_OPTIONS },
+  ], [staffOptions, packageOptions]);
 
-  const clearFilters = () => {
-    setStaffFilterIds([]); setPackageFilter("All");
-    setPackageStatusFilter("All"); setPaymentStatusFilter("All"); setPaymentMethodFilter("All");
-    setMinAmount(""); setMaxAmount("");
+  const filterMenuSelected = useMemo(() => ({
+    staff: staffFilterIds,
+    package: packageFilter,
+    package_status: packageStatusFilter,
+    payment_status: paymentStatusFilter,
+    payment_method: paymentMethodFilter,
+  }), [staffFilterIds, packageFilter, packageStatusFilter, paymentStatusFilter, paymentMethodFilter]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStaffFilterIds(next.staff ?? []);
+    setPackageFilter(next.package ?? []);
+    setPackageStatusFilter(next.package_status ?? []);
+    setPaymentStatusFilter(next.payment_status ?? []);
+    setPaymentMethodFilter(next.payment_method ?? []);
   };
 
   const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Package Name", `Total Amount (${currencySymbol})`, `GST (${currencySymbol})`, `Paid (${currencySymbol})`, `Balance Due (${currencySymbol})`, "Payment Method", "Status"];
@@ -207,10 +212,15 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
-        <button className="rp-pkg-filters-btn" onClick={() => setShowFiltersPanel(true)}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-pkg-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Amount Range ({currencySymbol})</label>
+          <div className="rp-pkg-amount-range">
+            <input type="number" min={0} placeholder="Min" value={minAmount} onChange={e => setMinAmount(e.target.value)} />
+            <span>—</span>
+            <input type="number" min={0} placeholder="Max" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} />
+          </div>
+        </div>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -275,61 +285,6 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="packages" />
-      )}
-
-      {showFiltersPanel && (
-        <div className="rp-pkg-filters-overlay" onClick={() => setShowFiltersPanel(false)}>
-          <div className="rp-pkg-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-            </div>
-
-            <div className="rp-pkg-filters-body">
-              <MultiSelectCheckbox
-                label="Staff"
-                containerClass="rp-pkg-filter-field"
-                options={staffOptions}
-                selected={staffFilterIds}
-                onChange={setStaffFilterIds}
-                placeholder="All staff"
-              />
-
-              <Select label="Package" containerClass="rp-pkg-filter-field" value={packageFilter} onChange={e => setPackageFilter(e.target.value)}>
-                <option value="All">All packages</option>
-                {packageOptions.map(p => <option key={p} value={p}>{p}</option>)}
-              </Select>
-
-              <Select label="Package Status" containerClass="rp-pkg-filter-field" value={packageStatusFilter} onChange={e => setPackageStatusFilter(e.target.value)}>
-                <option value="All">All</option>
-                {PACKAGE_STATUS_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-
-              <Select label="Payment Status" containerClass="rp-pkg-filter-field" value={paymentStatusFilter} onChange={e => setPaymentStatusFilter(e.target.value)}>
-                <option value="All">All</option>
-                {PAYMENT_STATUS_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-
-              <Select label="Payment Method" containerClass="rp-pkg-filter-field" value={paymentMethodFilter} onChange={e => setPaymentMethodFilter(e.target.value)}>
-                <option value="All">All payment methods</option>
-                {PAYMENT_METHOD_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
-              </Select>
-
-              <div className="rp-pkg-filter-field">
-                <label className="form-label fw-semibold" style={{ fontSize: "13px" }}>Amount Range</label>
-                <div className="rp-pkg-amount-range">
-                  <input type="number" min={0} placeholder="Min" value={minAmount} onChange={e => setMinAmount(e.target.value)} />
-                  <span>—</span>
-                  <input type="number" min={0} placeholder="Max" value={maxAmount} onChange={e => setMaxAmount(e.target.value)} />
-                </div>
-              </div>
-            </div>
-
-            <div className="rp-pkg-filters-actions">
-              <Button variant="ghost" onClick={() => { clearFilters(); }}>Clear</Button>
-              <Button variant="dark" onClick={() => { setShowFiltersPanel(false); fetchData(); }}>Apply</Button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
