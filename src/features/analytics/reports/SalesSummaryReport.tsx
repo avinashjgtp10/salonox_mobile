@@ -1,15 +1,15 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SALES_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
-import Button from "../../../components/ui/Button";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
@@ -18,24 +18,23 @@ import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { formatPaymentMode } from "../../../utils/paymentMode";
 import SaleDetailModal from "./SaleDetailModal";
-import { useDraftFilters } from "./useDraftFilters";
-import ReportFiltersModal from "./ReportFiltersModal";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
 
-interface SalesSummaryFilterValues {
-  staff: string;
-  category: string;
-  paymentMode: string;
-  paymentStatus: string;
-  itemType: string;
-  service: string;
-}
+const PAYMENT_STATUS_OPTIONS = [
+  { id: "paid", label: "Paid" },
+  { id: "partial", label: "Partial" },
+];
 
-const SALES_SUMMARY_FILTER_DEFAULTS: SalesSummaryFilterValues = {
-  staff: "All", category: "All", paymentMode: "All", paymentStatus: "All", itemType: "All", service: "All",
-};
+const ITEM_TYPE_OPTIONS = [
+  { id: "service", label: "Service" },
+  { id: "product", label: "Product" },
+  { id: "membership", label: "Membership" },
+  { id: "gift_card", label: "Gift Card" },
+  { id: "quick", label: "Quick" },
+  { id: "package", label: "Package" },
+];
 
 interface SaleRow {
   id: string;
@@ -158,33 +157,19 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const weekAgo   = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const [dateFrom,      setDateFrom]      = useState(weekAgo);
   const [dateTo,        setDateTo]        = useState(today);
-  const [staffOptions,  setStaffOptions]  = useState<{ label: string; value: string }[]>([{ label: "All Staff", value: "All" }]);
+  const [staffOptions,  setStaffOptions]  = useState<{ id: string; label: string }[]>([]);
   // Populated from filters_available.service_categories on every fetch — every
   // service category in the salon (not just ones with sales), same convention
   // as Daily Sheet's service/staff dropdowns.
-  const [categoryOptions, setCategoryOptions] = useState<{ label: string; value: string }[]>([{ label: "All Categories", value: "All" }]);
-  const [paymentModeOptions, setPaymentModeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
-  const paymentStatusOptions = [
-    { label: "All", value: "All" },
-    { label: "Paid", value: "paid" },
-    { label: "Partial", value: "partial" },
-  ];
-  const itemTypeOptions = [
-    { label: "All", value: "All" },
-    { label: "Service", value: "service" },
-    { label: "Product", value: "product" },
-    { label: "Membership", value: "membership" },
-    { label: "Gift Card", value: "gift_card" },
-    { label: "Quick", value: "quick" },
-    { label: "Package", value: "package" },
-  ];
-  const [serviceOptions, setServiceOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
-  const [committedFilters, setCommittedFilters] = useState<SalesSummaryFilterValues>(SALES_SUMMARY_FILTER_DEFAULTS);
-  const {
-    staff: staffFilter, category: categoryFilter, paymentMode: paymentModeFilter,
-    paymentStatus: paymentStatusFilter, itemType: itemTypeFilter, service: serviceFilter,
-  } = committedFilters;
-  const filtersPanel = useDraftFilters(committedFilters, setCommittedFilters, SALES_SUMMARY_FILTER_DEFAULTS);
+  const [categoryOptions, setCategoryOptions] = useState<{ id: string; label: string }[]>([]);
+  const [paymentModeOptions, setPaymentModeOptions] = useState<{ id: string; label: string }[]>([]);
+  const [serviceOptions, setServiceOptions] = useState<{ id: string; label: string }[]>([]);
+  const [staffFilterIds,      setStaffFilterIds]      = useState<string[]>([]);
+  const [categoryIds,         setCategoryIds]         = useState<string[]>([]);
+  const [paymentModes,        setPaymentModes]        = useState<string[]>([]);
+  const [paymentStatuses,     setPaymentStatuses]     = useState<string[]>([]);
+  const [itemTypes,           setItemTypes]           = useState<string[]>([]);
+  const [serviceIds,          setServiceIds]          = useState<string[]>([]);
   const [search,        setSearch]        = useState("");
   const [rows,          setRows]          = useState<SaleRow[]>([]);
   const [stats,         setStats]         = useState({
@@ -202,9 +187,9 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
       const opts = list.map((s: any) => ({
         label: `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.name || "",
-        value: String(s.id ?? ""),
-      })).filter((o: any) => o.label && o.value);
-      setStaffOptions([{ label: "All Staff", value: "All" }, ...opts]);
+        id: String(s.id ?? ""),
+      })).filter((o: any) => o.label && o.id);
+      setStaffOptions(opts);
     }).catch(() => {});
   }, [dispatch]);
 
@@ -222,26 +207,24 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       // are actual revenue. Upcoming/Cancelled/No Show/Deleted etc. must
       // never contribute to rows or the server-computed stats totals. The
       // Payment Status filter narrows within that same paid/partial set.
-      const statuses = paymentStatusFilter === "All" ? ["paid", "partial"] : [paymentStatusFilter];
+      // Now enforced server-side (payment_statuses, both stats and rows), so
+      // no client-side re-filter of the response is needed anymore.
+      const effectiveStatuses = paymentStatuses.length > 0 ? paymentStatuses : ["paid", "partial"];
       const body: Record<string, any> = {
         start_date: dateFrom, end_date: dateTo,
         page: currentPage, limit: pageSize,
-        statuses,
+        payment_statuses: effectiveStatuses,
       };
-      if (staffFilter !== "All") body.staff_id = staffFilter;
-      if (categoryFilter !== "All") body.category_id = categoryFilter;
-      if (paymentModeFilter !== "All") body.payment_mode = paymentModeFilter;
-      if (itemTypeFilter !== "All") body.item_type = itemTypeFilter;
-      if (serviceFilter !== "All") body.service_id = serviceFilter;
+      if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+      if (categoryIds.length > 0) body.category_ids = categoryIds;
+      if (paymentModes.length > 0) body.payment_modes = paymentModes;
+      if (itemTypes.length > 0) body.item_types = itemTypes;
+      if (serviceIds.length > 0) body.service_ids = serviceIds;
       if (search.trim()) body.search = search.trim();
       const res = await api.post(SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const list: any[] = Array.isArray(data?.rows) ? data.rows : [];
-      // Defensive client-side filter in addition to the statuses param above —
-      // only Paid/Partial Payment sales are revenue and belong in this report
-      // (table + export), regardless of what the backend returns.
-      const eligible = list.filter(r => statuses.includes(String(r.status ?? "").toLowerCase()));
-      setRows(eligible.map(mapAppointment));
+      setRows(list.map(mapAppointment));
       setTotal(Number(data?.pagination?.total) || 0);
       const s = data?.stats ?? {};
       setStats({
@@ -257,22 +240,13 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       });
       const avail = data?.filters_available ?? {};
       if (Array.isArray(avail.service_categories)) {
-        setCategoryOptions([
-          { label: "All Categories", value: "All" },
-          ...avail.service_categories.map((c: any) => ({ label: String(c.label ?? ""), value: String(c.id ?? "") })),
-        ]);
+        setCategoryOptions(avail.service_categories.map((c: any) => ({ label: String(c.label ?? ""), id: String(c.id ?? "") })));
       }
       if (Array.isArray(avail.payment_modes)) {
-        setPaymentModeOptions([
-          { label: "All", value: "All" },
-          ...avail.payment_modes.map((m: any) => ({ label: formatPaymentMode(String(m)), value: String(m) })),
-        ]);
+        setPaymentModeOptions(avail.payment_modes.map((m: any) => ({ label: formatPaymentMode(String(m)), id: String(m) })));
       }
       if (Array.isArray(avail.services)) {
-        setServiceOptions([
-          { label: "All", value: "All" },
-          ...avail.services.map((s2: any) => ({ label: String(s2.label ?? ""), value: String(s2.id ?? "") })),
-        ]);
+        setServiceOptions(avail.services.map((s2: any) => ({ label: String(s2.label ?? ""), id: String(s2.id ?? "") })));
       }
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
@@ -281,7 +255,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilter, categoryFilter, paymentModeFilter, paymentStatusFilter, itemTypeFilter, serviceFilter, search, currentPage, pageSize]);
+  }, [dateFrom, dateTo, staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, search, currentPage, pageSize]);
 
   const bulkDelete = useBulkAppointmentDelete(fetchData);
   // Only sale rows linked to a real appointment can be bulk-deleted — walk-in
@@ -292,10 +266,34 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
 
   // Filter/search changes go back to page 1 — page/pageSize changes
   // themselves should not reset back to page 1.
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilter, categoryFilter, paymentModeFilter, paymentStatusFilter, itemTypeFilter, serviceFilter, search]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, search]);
 
-  const activeFilterCount = [staffFilter, categoryFilter, paymentModeFilter, paymentStatusFilter, itemTypeFilter, serviceFilter]
-    .filter(v => v !== "All").length;
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+    { key: "category", label: "Service Category", options: categoryOptions, searchable: true },
+    { key: "payment_mode", label: "Payment Mode", options: paymentModeOptions },
+    { key: "payment_status", label: "Payment Status", options: PAYMENT_STATUS_OPTIONS },
+    { key: "item_type", label: "Item Type", options: ITEM_TYPE_OPTIONS },
+    { key: "service", label: "Service", options: serviceOptions, searchable: true },
+  ], [staffOptions, categoryOptions, paymentModeOptions, serviceOptions]);
+
+  const filterMenuSelected = useMemo(() => ({
+    staff: staffFilterIds,
+    category: categoryIds,
+    payment_mode: paymentModes,
+    payment_status: paymentStatuses,
+    item_type: itemTypes,
+    service: serviceIds,
+  }), [staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStaffFilterIds(next.staff ?? []);
+    setCategoryIds(next.category ?? []);
+    setPaymentModes(next.payment_mode ?? []);
+    setPaymentStatuses(next.payment_status ?? []);
+    setItemTypes(next.item_type ?? []);
+    setServiceIds(next.service ?? []);
+  };
 
   const HEADERS = ["Date", "Invoice No", "Name", "Contact", "Item Types", "Staff Name", "Discount", "Coupon Code", "Coupon Discount", "Referral Discount", "GST", "Grand Total", "Paid", "Membership", "E-Wallet", "Rewards", "Referral Credit", "Due Amount", "Modes", "Status", "Description"];
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.name, r.contact, r.itemTypes, r.staffName, r.discountAmount, r.couponCode, r.couponDiscount, r.referralDiscount, r.taxAmount, r.grandTotal, r.paid, r.membershipWalletUsed, r.ewalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.description]);
@@ -314,10 +312,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
 
       <div className="rp-detail-filters">
         <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
-        <button className="rp-ss-filters-btn" onClick={filtersPanel.openPanel}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-ss-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -472,80 +467,6 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         onConfirm={bulkDelete.confirmDelete}
       />
 
-      <ReportFiltersModal
-        open={filtersPanel.isOpen}
-        onClose={filtersPanel.closePanel}
-        onClear={filtersPanel.clear}
-        onApply={filtersPanel.apply}
-        classPrefix="rp-ss"
-      >
-        <FilterField label="Staff" value={filtersPanel.draft.staff} options={staffOptions} onChange={v => filtersPanel.setDraftField("staff", v)} />
-        <FilterField label="Service Category" value={filtersPanel.draft.category} options={categoryOptions} onChange={v => filtersPanel.setDraftField("category", v)} />
-        <FilterField label="Payment Mode" value={filtersPanel.draft.paymentMode} options={paymentModeOptions} onChange={v => filtersPanel.setDraftField("paymentMode", v)} />
-        <FilterField label="Payment Status" value={filtersPanel.draft.paymentStatus} options={paymentStatusOptions} onChange={v => filtersPanel.setDraftField("paymentStatus", v)} />
-        <FilterField label="Item Type" value={filtersPanel.draft.itemType} options={itemTypeOptions} onChange={v => filtersPanel.setDraftField("itemType", v)} />
-        <FilterField label="Service" value={filtersPanel.draft.service} options={serviceOptions} onChange={v => filtersPanel.setDraftField("service", v)} />
-      </ReportFiltersModal>
-    </div>
-  );
-}
-
-function FilterField({ label, value, options, onChange }: {
-  label: string;
-  value: string;
-  options: { label: string; value: string }[];
-  onChange: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
-
-  useEffect(() => {
-    if (open) { setQuery(""); searchRef.current?.focus(); }
-  }, [open]);
-
-  const filtered = query.trim()
-    ? options.filter(o => o.label.toLowerCase().includes(query.trim().toLowerCase()))
-    : options;
-
-  return (
-    <div className="rp-detail-filter-group rp-ss-filter-field" ref={wrapRef}>
-      <label className="rp-detail-filter-label">{label}</label>
-      <button type="button" className="rp-detail-select rp-ss-filter-select" onClick={() => setOpen(v => !v)}>
-        {options.find(o => o.value === value)?.label ?? "All"}
-        <span className="rp-detail-caret">▼</span>
-      </button>
-      {open && (
-        <div className="rp-ss-filter-dropdown-wrap">
-          <input
-            ref={searchRef}
-            type="text"
-            className="rp-ss-filter-search"
-            placeholder={`Search ${label.toLowerCase()}...`}
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onClick={e => e.stopPropagation()}
-          />
-          <div className="rp-ss-filter-list">
-            {filtered.length === 0 ? (
-              <div className="rp-ss-filter-no-match">No matches</div>
-            ) : filtered.map(o => (
-              <div key={o.value} className={`rp-detail-dropdown-item ${o.value === value ? "active" : ""}`}
-                onClick={() => { onChange(o.value); setOpen(false); }}>{o.label}</div>
-            ))}
-          </div>
-        </div>
-      )}
     </div>
   );
 }
