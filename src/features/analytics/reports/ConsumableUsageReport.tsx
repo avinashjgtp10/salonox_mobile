@@ -8,7 +8,8 @@ import type { AppDispatch, RootState } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import "./ConsumableUsageReport.scss";
 
@@ -29,8 +30,7 @@ export default function ConsumableUsageReport({ onBack, category: reportCategory
   const dispatch = useDispatch<AppDispatch>();
   const { currentSalon, branches } = useSelector((s: RootState) => s.salon);
 
-  const [category,    setCategory]    = useState("All");
-  const [showCatDrop, setShowCatDrop] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [search,      setSearch]      = useState("");
   const [allRows,     setAllRows]     = useState<UsageRow[]>([]);
   const [loading,     setLoading]     = useState(false);
@@ -78,24 +78,31 @@ export default function ConsumableUsageReport({ onBack, category: reportCategory
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  useEffect(() => {
-    const close = () => setShowCatDrop(false);
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, []);
-
-  const categoryOptions = useMemo(() => ["All", ...new Set(allRows.map(r => r.category))], [allRows]);
+  const categoryOptions = useMemo(
+    () => Array.from(new Set(allRows.map(r => r.category))).map(c => ({ id: c, label: c })),
+    [allRows],
+  );
 
   const rows = useMemo(() => {
-    let r = category === "All" ? allRows : allRows.filter(x => x.category === category);
+    let r = categoryFilter.length > 0 ? allRows.filter(x => categoryFilter.includes(x.category)) : allRows;
     if (search.trim()) {
       const q = search.toLowerCase();
       r = r.filter(x => x.product.toLowerCase().includes(q));
     }
     return r;
-  }, [allRows, category, search]);
+  }, [allRows, categoryFilter, search]);
 
   useEffect(() => { setCurrentPage(1); }, [rows]);
+
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "category", label: "Category", options: categoryOptions, searchable: true },
+  ], [categoryOptions]);
+
+  const filterMenuSelected = useMemo(() => ({ category: categoryFilter }), [categoryFilter]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setCategoryFilter(next.category ?? []);
+  };
 
   const totalConsumed = rows.reduce((s, r) => s + r.consumed, 0);
   const uniqueCategories = new Set(rows.map(r => r.category)).size;
@@ -116,20 +123,7 @@ export default function ConsumableUsageReport({ onBack, category: reportCategory
       </div>
 
       <div className="rp-detail-filters">
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Category</label>
-          <button className="rp-detail-select" onClick={() => setShowCatDrop(v => !v)}>
-            {category} <span className="rp-detail-caret">▼</span>
-          </button>
-          {showCatDrop && (
-            <div className="rp-detail-dropdown" onMouseDown={e => e.stopPropagation()}>
-              {categoryOptions.map(c => (
-                <div key={c} className={`rp-detail-dropdown-item ${c === category ? "active" : ""}`}
-                  onClick={() => { setCategory(c); setShowCatDrop(false); }}>{c}</div>
-              ))}
-            </div>
-          )}
-        </div>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>

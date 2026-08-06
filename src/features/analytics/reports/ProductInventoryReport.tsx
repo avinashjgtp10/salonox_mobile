@@ -1,20 +1,25 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import { Search, X } from "react-bootstrap-icons";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PRODUCT_INVENTORY_REPORT } from "../../../services/api/endpoints";
 import { useProducts } from "../../catalog/hooks/useProducts";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import DateRangeFields from "../../../components/ui/DateRangeFields";
-import Select from "../../../components/ui/Select";
-import Button from "../../../components/ui/Button";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "./ProductInventoryReport.scss";
 
 const REPORT_NAME = "Product Inventory";
+
+const STOCK_STATUS_OPTIONS = [
+  { id: "in_stock", label: "In Stock" },
+  { id: "low_stock", label: "Low Stock" },
+  { id: "out_of_stock", label: "Out of Stock" },
+];
 
 interface InventoryRow {
   productId: string;
@@ -74,22 +79,11 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
 
   const [search,      setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("All");
-  const [brandFilter,    setBrandFilter]    = useState("All");
-  const [stockStatusFilter, setStockStatusFilter] = useState("All");
+  const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
+  const [brandFilter,    setBrandFilter]    = useState<string[]>([]);
+  const [stockStatusFilter, setStockStatusFilter] = useState<string[]>([]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo,   setDateTo]   = useState("");
-  const [showFiltersPanel, setShowFiltersPanel] = useState(false);
-
-  // Draft copies edited while the modal is open; only committed to the
-  // applied filter state above when Apply is clicked. Closing via the X or
-  // the overlay discards them, matching the Client Revenue/Commission
-  // filter modal pattern.
-  const [draftCategory, setDraftCategory] = useState("All");
-  const [draftBrand,    setDraftBrand]    = useState("All");
-  const [draftStockStatus, setDraftStockStatus] = useState("All");
-  const [draftDateFrom, setDraftDateFrom] = useState("");
-  const [draftDateTo,   setDraftDateTo]   = useState("");
 
   const [rows,        setRows]        = useState<InventoryRow[]>([]);
   const [total,       setTotal]       = useState(0);
@@ -122,9 +116,11 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
     try {
       const body: Record<string, any> = { page: currentPage, limit: pageSize };
       if (debouncedSearch) body.search = debouncedSearch;
-      if (categoryFilter !== "All") body.category_id = categoryFilter;
-      if (brandFilter !== "All") body.brand_id = brandFilter;
-      if (stockStatusFilter !== "All") body.stock_status = stockStatusFilter;
+      if (categoryFilter.length > 0) body.category_ids = categoryFilter;
+      if (brandFilter.length > 0) body.brand_ids = brandFilter;
+      // Backend stock_status is a single enum — only send it when exactly
+      // one option is checked; 0 or 2+ selected means "All".
+      if (stockStatusFilter.length === 1) body.stock_status = stockStatusFilter[0];
       if (dateFrom) body.date_from = dateFrom;
       if (dateTo) body.date_to = dateTo;
       const res = await api.post(PRODUCT_INVENTORY_REPORT.SUMMARY(), body, { signal: ctrl.signal });
@@ -154,44 +150,23 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
     setCurrentPage(1);
   }, [debouncedSearch, categoryFilter, brandFilter, stockStatusFilter, dateFrom, dateTo]);
 
-  const activeFilterCount = [
-    categoryFilter !== "All" ? 1 : 0,
-    brandFilter !== "All" ? 1 : 0,
-    stockStatusFilter !== "All" ? 1 : 0,
-    dateFrom || dateTo ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "category", label: "Category", options: categories.map((c: any) => ({ id: c.id, label: c.name })), searchable: true },
+    { key: "brand", label: "Brand", options: brands.map((b: any) => ({ id: b.id, label: b.name })), searchable: true },
+    { key: "stock_status", label: "Stock Status", options: STOCK_STATUS_OPTIONS },
+  ], [categories, brands]);
 
-  const openFiltersPanel = () => {
-    setDraftCategory(categoryFilter);
-    setDraftBrand(brandFilter);
-    setDraftStockStatus(stockStatusFilter);
-    setDraftDateFrom(dateFrom);
-    setDraftDateTo(dateTo);
-    setShowFiltersPanel(true);
+  const filterMenuSelected = useMemo(() => ({
+    category: categoryFilter,
+    brand: brandFilter,
+    stock_status: stockStatusFilter,
+  }), [categoryFilter, brandFilter, stockStatusFilter]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setCategoryFilter(next.category ?? []);
+    setBrandFilter(next.brand ?? []);
+    setStockStatusFilter(next.stock_status ?? []);
   };
-
-  const cancelFiltersPanel = () => setShowFiltersPanel(false);
-
-  const clearDraftFilters = () => {
-    setDraftCategory("All");
-    setDraftBrand("All");
-    setDraftStockStatus("All");
-    setDraftDateFrom("");
-    setDraftDateTo("");
-  };
-
-  const applyFilters = () => {
-    setCategoryFilter(draftCategory);
-    setBrandFilter(draftBrand);
-    setStockStatusFilter(draftStockStatus);
-    setDateFrom(draftDateFrom);
-    setDateTo(draftDateTo);
-    setShowFiltersPanel(false);
-  };
-
-  const draftDateRangeError = draftDateFrom && draftDateTo && draftDateTo < draftDateFrom
-    ? "To Date must be greater than or equal to From Date"
-    : "";
 
   const HEADERS = ["Product", "Category", "Brand", "SKU", "Current Stock", "Reorder Level", `Unit Cost (${currencySymbol})`, `Total Value (${currencySymbol})`, "Sales", "Status"];
   const exportRows = () => rows.map(r => [
@@ -221,9 +196,15 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
               dateRangeLabel={dateFrom || dateTo ? `${dateFrom ? formatDate(dateFrom) : "…"} - ${dateTo ? formatDate(dateTo) : "…"}` : undefined}
               filterLines={[
                 ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
-                ...(categoryFilter !== "All" ? [`Category: ${categories.find((c: any) => c.id === categoryFilter)?.name ?? categoryFilter}`] : []),
-                ...(brandFilter !== "All" ? [`Brand: ${brands.find((b: any) => b.id === brandFilter)?.name ?? brandFilter}`] : []),
-                ...(stockStatusFilter !== "All" ? [`Stock Status: ${STATUS_LABELS[stockStatusFilter] ?? stockStatusFilter}`] : []),
+                ...(categoryFilter.length > 0
+                  ? [`Category: ${categoryFilter.map(id => categories.find((c: any) => c.id === id)?.name ?? id).join(", ")}`]
+                  : []),
+                ...(brandFilter.length > 0
+                  ? [`Brand: ${brandFilter.map(id => brands.find((b: any) => b.id === id)?.name ?? id).join(", ")}`]
+                  : []),
+                ...(stockStatusFilter.length > 0
+                  ? [`Stock Status: ${stockStatusFilter.map(v => STATUS_LABELS[v] ?? v).join(", ")}`]
+                  : []),
               ]}
               summaryLines={[
                 `Total Products: ${stats.totalProducts}`,
@@ -237,14 +218,16 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
       </div>
 
       <div className="rp-detail-filters">
-        <button className="rp-cr-filters-btn" onClick={openFiltersPanel}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-cr-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Date Added</label>
+          <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} hideLabel bare />
+        </div>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
+      {dateRangeError && <div className="rp-detail-date-error">{dateRangeError}</div>}
 
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
@@ -313,52 +296,6 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
-
-      {showFiltersPanel && (
-        <div className="rp-cr-filters-overlay" onClick={cancelFiltersPanel}>
-          <div className="rp-cr-filters-modal" onClick={e => e.stopPropagation()}>
-            <div className="modal-header">
-              <h3>Filters</h3>
-              <button type="button" className="rp-cr-filters-close" aria-label="Close" onClick={cancelFiltersPanel}>
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="rp-cr-filters-body">
-              <Select label="Category" containerClass="rp-cr-filter-field" value={draftCategory} onChange={e => setDraftCategory(e.target.value)}>
-                <option value="All">All</option>
-                {categories.map((c: any) => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </Select>
-
-              <Select label="Brand" containerClass="rp-cr-filter-field" value={draftBrand} onChange={e => setDraftBrand(e.target.value)}>
-                <option value="All">All</option>
-                {brands.map((b: any) => <option key={b.id} value={b.id}>{b.name}</option>)}
-              </Select>
-
-              <Select label="Stock Status" containerClass="rp-cr-filter-field" value={draftStockStatus} onChange={e => setDraftStockStatus(e.target.value)}>
-                <option value="All">All</option>
-                <option value="in_stock">In Stock</option>
-                <option value="low_stock">Low Stock</option>
-                <option value="out_of_stock">Out of Stock</option>
-              </Select>
-
-              <div className="rp-cr-filter-field">
-                <label className="rp-detail-filter-label">Date Added</label>
-                <DateRangeFields
-                  from={draftDateFrom} to={draftDateTo}
-                  onFromChange={setDraftDateFrom} onToChange={setDraftDateTo}
-                  hideLabel bare
-                />
-              </div>
-            </div>
-
-            <div className="rp-cr-filters-actions">
-              <Button variant="ghost" onClick={clearDraftFilters}>Clear</Button>
-              <Button variant="dark" onClick={applyFilters} disabled={!!draftDateRangeError}>Apply</Button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
