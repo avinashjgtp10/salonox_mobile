@@ -547,27 +547,42 @@ export default function StaffListPage() {
           )}
         </div>
       ) : (
-        <div className="slp-card-grid">
+        <div className="slp-table-card">
+          {/* Table Header */}
+          <div className="slp-table-header">
+            <div className="slp-col-check">
+              <input
+                type="checkbox"
+                className="slp-checkbox"
+                checked={selectedIds.length === sorted.length && sorted.length > 0}
+                onChange={handleSelectAll}
+              />
+            </div>
+            <div className="slp-col-member">Staff member</div>
+            <div className="slp-col-contact">Contact</div>
+            <div className="slp-col-role">Role</div>
+            <div className="slp-col-status">Status</div>
+            <div className="slp-col-actions" />
+          </div>
+
+          {/* Table Rows */}
           {pagedSorted.map((member) => {
             const isChecked = selectedIds.includes(member.id);
             const isActive = member.is_active ?? true;
             const initials = `${(member.first_name?.[0] || "").toUpperCase()}${(member.last_name?.[0] || "").toUpperCase()}` || "??";
             const fullName = `${member.first_name || ""} ${member.last_name || ""}`.trim();
-            const m = member as any;
-            const jobTitle = m.job_title || m.jobTitle || "Staff";
 
             return (
               <div
                 key={member.id}
-                className={`slp-card ${isChecked ? "slp-card--selected" : ""} ${deletingId === member.id ? "slp-card--deleting" : ""}`}
+                className={`slp-table-row ${isChecked ? "slp-table-row--selected" : ""} ${deletingId === member.id ? "slp-table-row--deleting" : ""}`}
                 onClick={() => {
                   if (!member.id) return;
                   setSelectedMemberId(member.id);
                   setIsDrawerOpen(true);
                 }}
               >
-                {/* Checkbox overlay */}
-                <div className="slp-card__check" onClick={(e) => e.stopPropagation()}>
+                <div className="slp-col-check" onClick={(e) => e.stopPropagation()}>
                   <input
                     type="checkbox"
                     className="slp-checkbox"
@@ -577,67 +592,89 @@ export default function StaffListPage() {
                   />
                 </div>
 
-                {/* Avatar */}
-                <div
-                  className="slp-card__avatar"
-                  style={{ background: member.calendar_color ? resolveColor(member.calendar_color) : getGradient(member.id) }}
-                >
-                  {initials}
+                <div className="slp-col-member">
+                  <div
+                    className="slp-avatar"
+                    style={{ "--avatar-bg": member.calendar_color ? resolveColor(member.calendar_color) : getGradient(member.id) } as React.CSSProperties}
+                  >
+                    <span className="slp-avatar-initials">{initials}</span>
+                  </div>
+                  <div className="slp-member-info">
+                    <div className="slp-member-name">{fullName || "Unknown"}</div>
+                    <div className="slp-member-email">
+                      <EnvelopeFill size={10} className="me-1" />
+                      {member.email || "—"}
+                    </div>
+                  </div>
                 </div>
 
-                {/* Info */}
-                <div className="slp-card__info">
-                  <div className="slp-card__name">{fullName || "Unknown"}</div>
-                  <div className="slp-card__role">{jobTitle}</div>
-                  {(member.phone_number || member.phone) && (
-                    <div className="slp-card__phone">
-                      <TelephoneFill size={10} />
+                <div className="slp-col-contact">
+                  {(member.phone_number || member.phone) ? (
+                    <div className="slp-contact-phone">
+                      <TelephoneFill size={11} className="me-1" />
                       {member.phone_number || member.phone}
                     </div>
+                  ) : (
+                    <span className="slp-no-data">—</span>
                   )}
                 </div>
 
-                {/* Status badge */}
-                <span className={`slp-card__status ${isActive ? "active" : "inactive"}`}>
-                  {isActive ? "Active" : "Inactive"}
-                </span>
+                <div className="slp-col-role">
+                  {(() => {
+                    const m = member as any;
+                    const jobTitle = m.job_title || m.jobTitle;
+                    const permKey = m.permission_level || m.permissionLevel || m.access_level || m.role;
+                    const isManager = String(permKey || "").toLowerCase() === "manager";
+                    if (jobTitle) return <span className="slp-role-tag">{jobTitle}</span>;
+                    if (isManager) return <span className="slp-role-tag slp-role-tag--perm">Manager</span>;
+                    return <span className="slp-role-tag slp-role-tag--default">Staff</span>;
+                  })()}
+                </div>
 
-                {/* Action menu */}
-                <div className="slp-card__actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="slp-more-btn"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActionMenuId(actionMenuId === member.id ? null : member.id);
-                    }}
-                    title="More actions"
-                  >
-                    <ThreeDots size={14} />
-                  </button>
-                  {actionMenuId === member.id && (
-                    <div className="slp-action-menu slp-action-menu--card">
-                      <button
-                        className="slp-action-item"
-                        onClick={() => { member.id && navigate(`/dashboard/team/${member.id}`); setActionMenuId(null); }}
-                      >
-                        <Pencil size={13} /> Edit profile
-                      </button>
-                      <button
-                        className="slp-action-item"
-                        onClick={() => handleToggleStatus(member)}
-                      >
-                        <ToggleOn size={13} /> {isActive ? "Deactivate" : "Activate"}
-                      </button>
-                      <div className="slp-action-divider" />
-                      <button
-                        className="slp-action-item slp-action-item--danger"
-                        onClick={() => { setDeleteConfirm({ mode: "single", id: member.id }); setActionMenuId(null); }}
-                        disabled={deletingId === member.id}
-                      >
-                        <Trash size={13} /> {deletingId === member.id ? "Deleting..." : "Delete"}
-                      </button>
-                    </div>
-                  )}
+                <div className="slp-col-status">
+                  <span className={`slp-status-badge ${isActive ? "slp-status-badge--active" : "slp-status-badge--inactive"}`}>
+                    <span className="slp-status-dot" />
+                    {isActive ? "Active" : "Inactive"}
+                  </span>
+                </div>
+
+                <div className="slp-col-actions" onClick={(e) => e.stopPropagation()}>
+                  <div className="slp-action-wrap">
+                    <button
+                      className="slp-more-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActionMenuId(actionMenuId === member.id ? null : member.id);
+                      }}
+                      title="More actions"
+                    >
+                      <ThreeDots size={16} />
+                    </button>
+                    {actionMenuId === member.id && (
+                      <div className="slp-action-menu">
+                        <button
+                          className="slp-action-item"
+                          onClick={() => { member.id && navigate(`/dashboard/team/${member.id}`); setActionMenuId(null); }}
+                        >
+                          <Pencil size={13} /> Edit profile
+                        </button>
+                        <button
+                          className="slp-action-item"
+                          onClick={() => handleToggleStatus(member)}
+                        >
+                          <ToggleOn size={13} /> {isActive ? "Deactivate" : "Activate"}
+                        </button>
+                        <div className="slp-action-divider" />
+                        <button
+                          className="slp-action-item slp-action-item--danger"
+                          onClick={() => { setDeleteConfirm({ mode: "single", id: member.id }); setActionMenuId(null); }}
+                          disabled={deletingId === member.id}
+                        >
+                          <Trash size={13} /> {deletingId === member.id ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             );
