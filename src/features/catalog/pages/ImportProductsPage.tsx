@@ -183,11 +183,27 @@ export default function ImportProductsPage() {
     }
   }
 
+  function handleReimport() {
+    setResult(null);
+    setFile(null);
+    setError(null);
+    setTimeout(() => fileRef.current?.click(), 80);
+  }
+
   const isCSV = file?.name.toLowerCase().endsWith(".csv");
   const importedCount = result?.imported ?? 0;
 
   return (
     <div className="pip-page">
+      {/* Hidden File Input */}
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".csv,.xlsx,.xls"
+        style={{ display: "none" }}
+        onChange={(e) => e.target.files?.[0] && pickFile(e.target.files[0])}
+      />
+
       {/* ── Top bar ─────────────────────────────────────────────────────────── */}
       <div className="pip-topbar">
         <span className="pip-topbar-title">Import Products</span>
@@ -231,13 +247,6 @@ export default function ImportProductsPage() {
               onDrop={onDrop}
               onClick={() => !file && fileRef.current?.click()}
             >
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".csv,.xlsx,.xls"
-                style={{ display: "none" }}
-                onChange={(e) => e.target.files?.[0] && pickFile(e.target.files[0])}
-              />
               {file ? (
                 <div className="pip-selected-file">
                   {isCSV
@@ -323,13 +332,22 @@ export default function ImportProductsPage() {
                     <p className="pip-errors-title">
                       Rows needing attention ({result.issues.length})
                     </p>
-                    <button
-                      type="button"
-                      className="pip-report-btn"
-                      onClick={() => downloadErrorReport(result.issues)}
-                    >
-                      <Download size={12} /> Download error report (CSV)
-                    </button>
+                    <div className="pip-errors-head-right">
+                      <button
+                        type="button"
+                        className="pip-report-btn"
+                        onClick={() => downloadErrorReport(result.issues)}
+                      >
+                        <Download size={12} /> Download error report (CSV)
+                      </button>
+                      <button
+                        type="button"
+                        className="pip-reimport-btn"
+                        onClick={handleReimport}
+                      >
+                        <CloudUpload size={13} /> Re-import
+                      </button>
+                    </div>
                   </div>
                   <div className="pip-issues-table-wrap">
                     <table className="pip-issues-table">
@@ -374,12 +392,23 @@ export default function ImportProductsPage() {
               Cancel
             </button>
             {result ? (
-              <button
-                className="pip-btn pip-btn--primary"
-                onClick={() => navigate("/dashboard/catalog/products")}
-              >
-                Done
-              </button>
+              <>
+                {((result.failed ?? 0) > 0 || (result.skipped ?? 0) > 0 || (result.issues?.length ?? 0) > 0) && (
+                  <button
+                    type="button"
+                    className="pip-btn pip-btn--reimport"
+                    onClick={handleReimport}
+                  >
+                    <CloudUpload size={14} /> Re-import
+                  </button>
+                )}
+                <button
+                  className="pip-btn pip-btn--primary"
+                  onClick={() => navigate("/dashboard/catalog/products")}
+                >
+                  Done
+                </button>
+              </>
             ) : (
               <button
                 className="pip-btn pip-btn--primary"
@@ -457,9 +486,12 @@ export default function ImportProductsPage() {
         .pip-categories-title { font-size:12px; font-weight:600; color:#1e40af; margin:0 0 8px; }
         .pip-errors-wrap { background:#fef9c3; border:1px solid #fde68a; border-radius:8px; padding:12px; }
         .pip-errors-head { display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:8px; flex-wrap:wrap; }
+        .pip-errors-head-right { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
         .pip-errors-title { font-size:12px; font-weight:600; color:#92400e; margin:0; }
         .pip-report-btn { display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:#92400e; background:#fff; border:1px solid #fde68a; border-radius:6px; padding:5px 10px; cursor:pointer; white-space:nowrap; transition:background .15s; }
         .pip-report-btn:hover { background:#fef3c7; }
+        .pip-reimport-btn { display:flex; align-items:center; gap:5px; font-size:11.5px; font-weight:600; color:#4f46e5; background:#fff; border:1px solid #c7d2fe; border-radius:6px; padding:5px 10px; cursor:pointer; white-space:nowrap; transition:background .15s; }
+        .pip-reimport-btn:hover { background:#eef2ff; }
         .pip-issues-table-wrap { max-height:280px; overflow-y:auto; overflow-x:auto; border:1px solid #fde68a; border-radius:6px; background:#fffdf5; }
         .pip-issues-table { width:100%; border-collapse:collapse; font-size:12px; }
         .pip-issues-table thead th { position:sticky; top:0; background:#fef3c7; color:#92400e; text-align:left; font-weight:600; padding:7px 10px; white-space:nowrap; border-bottom:1px solid #fde68a; }
@@ -477,6 +509,8 @@ export default function ImportProductsPage() {
         .pip-btn--primary:disabled { opacity:.5; cursor:not-allowed; }
         .pip-btn--ghost { background:transparent; color:#374151; border:1px solid #d1d5db; }
         .pip-btn--ghost:hover:not(:disabled) { background:#f3f4f6; }
+        .pip-btn--reimport { display:flex; align-items:center; gap:6px; background:#fff; color:#4f46e5; border:1px solid #c7d2fe; }
+        .pip-btn--reimport:hover { background:#eef2ff; }
       `}</style>
     </div>
   );
