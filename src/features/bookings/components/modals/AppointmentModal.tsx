@@ -40,6 +40,7 @@ import { ServicesPanel } from "./ServicesPanel";
 import { AvailableBenefitsPanel, type BenefitCardConfig } from "./AvailableBenefitsPanel";
 import EwalletTopupModal from "../../../clients/components/EwalletTopupModal";
 import { PaymentPanel }  from "./PaymentPanel";
+import { computeSplitTotal } from "../../../../components/shared/PaymentMethodPicker";
 import TotalsPanel       from "./TotalsPanel";
 import PaymentButton     from "../shared/PaymentButton";
 import { printReceipt }  from "../../utils/receipt";
@@ -1530,6 +1531,12 @@ export const AppointmentModal: React.FC<Props> = ({
       setPayMethodError(true);
       return; // ← hard stop, no processing
     }
+    // Split rows are clamped as they're typed so this can't normally happen,
+    // but block the save anyway — belt-and-braces against stale state (e.g.
+    // a row edited before the bill total itself changed).
+    if (paymentMode === "split" && computeSplitTotal(splitEntries) - remainingDue > 0.005) {
+      return;
+    }
     setPayMethodError(false);
 
     // Persist whatever was edited in this session (services/prices/discounts)
@@ -1654,7 +1661,10 @@ export const AppointmentModal: React.FC<Props> = ({
     // everything to due) — nothing to collect via a method either way.
     const methodMissing = amountThisTxn > 0 && paymentMode === "single" && !singleMethod;
     setPayMethodError(methodMissing);
-    if (!formOk || methodMissing) return;
+    // Split rows are clamped as they're typed so this can't normally happen,
+    // but block the save anyway — belt-and-braces against stale state.
+    const splitOverpay = paymentMode === "split" && computeSplitTotal(splitEntries) - remainingDue > 0.005;
+    if (!formOk || methodMissing || splitOverpay) return;
 
     const id = await save(buildSavePayload());
     if (!id) return;
