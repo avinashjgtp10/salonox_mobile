@@ -473,7 +473,7 @@ const AddStaffPage: React.FC = () => {
                 />
                 {isHourlyRateInvalid && <span className="emp-field__error">Hourly rate must be greater than 0</span>}
                 {!isHourlyRateInvalid && isCompensationConflict && (
-                  <span className="emp-field__error">A Fixed Salary is already set below — clear it to switch this employee to an Hourly Rate</span>
+                  <span className="emp-field__error">A Fixed Salary is already set below — clear it to switch this staff member to an Hourly Rate</span>
                 )}
               </div>
               <div className="emp-field">
@@ -488,7 +488,7 @@ const AddStaffPage: React.FC = () => {
                 />
                 {isFixedSalaryInvalid && <span className="emp-field__error">Fixed salary must be greater than 0</span>}
                 {!isFixedSalaryInvalid && isCompensationConflict && (
-                  <span className="emp-field__error">An Hourly Rate is already set above — clear it to switch this employee to a Fixed Salary</span>
+                  <span className="emp-field__error">An Hourly Rate is already set above — clear it to switch this staff member to a Fixed Salary</span>
                 )}
               </div>
 
@@ -597,7 +597,7 @@ const AddStaffPage: React.FC = () => {
                 </div>
               </div>
               <p className="emp-field__hint">
-                Set a password so this employee can log in with their email above right away. Leave blank to send an email invite instead — they'll set their own password and get the same permissions once they accept it.
+                Set a password so this staff member can log in with their email above right away. Leave blank to send an email invite instead — they'll set their own password and get the same permissions once they accept it.
               </p>
             </>
           )}
