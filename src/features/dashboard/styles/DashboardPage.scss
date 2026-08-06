@@ -11,29 +11,37 @@ body {
   background: $dashboard-bg;
 }
 
+:root {
+  --topbar-height: 56px;
+}
+
 /* ================= TOPBAR ================= */
 .topbar {
-  height: 70px;
+  height: var(--topbar-height, 56px);
   width: 100%;
   background: $dashboard-card-bg;
   border-bottom: 1px solid $dashboard-border;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 16px;
+  padding: 0 20px;
   position: fixed;
   top: 0;
   left: 0;
   z-index: 1000;
   box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    padding: 0 12px;
+  }
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 18px;
-  font-weight: 600;
+  font-size: 17px;
+  font-weight: 700;
   color: $dashboard-primary;
   margin: 0;
 }
@@ -55,49 +63,60 @@ body {
 .topbar-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
 
 .topbar-icon-btn {
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: $dashboard-primary;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 8px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  transition: background 0.2s;
-  &:hover { background: $dashboard-bg; }
+  transition: all 0.18s ease;
+  position: relative;
+  &:hover {
+    background: #f3f4f6;
+    border-color: #e5e7eb;
+  }
 }
 
 .topbar-date {
-  font-size: 15px;
+  font-size: 13px;
   font-weight: 500;
-  color: $dashboard-primary;
-  opacity: 1.27;
+  color: #4b5563;
+  background: #f3f4f6;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
   white-space: nowrap;
 
+  @media (max-width: 640px) {
+    display: none;
+  }
 }
 
 .profile {
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   background: $dashboard-border;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 600;
-  font-size: 12px;
+  font-size: 13px;
   color: $dashboard-primary;
 }
 
 /* ================= BODY ================= */
 .dashboard-body {
   display: flex;
-  margin-top: calc(70px + var(--deployment-banner-height, 0px));
+  margin-top: calc(var(--topbar-height, 56px) + var(--deployment-banner-height, 0px));
 }
 
 /* ================= SIDEBAR ================= */
@@ -107,11 +126,11 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding-top: 20px;
-  height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
+  padding-top: 16px;
+  height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
   position: fixed;
   left: 0;
-  top: calc(70px + var(--deployment-banner-height, 0px));
+  top: calc(var(--topbar-height, 56px) + var(--deployment-banner-height, 0px));
   z-index: 100;
 }
 
@@ -190,9 +209,9 @@ body {
 .sub-sidebar {
   position: fixed;
   left: 90px;
-  top: calc(70px + var(--deployment-banner-height, 0px));
+  top: calc(var(--topbar-height, 56px) + var(--deployment-banner-height, 0px));
   width: 320px;
-  height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
+  height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
   display: flex;
   flex-direction: column;
   background: $dashboard-card-bg;
@@ -298,7 +317,7 @@ body {
   margin-left: 90px;
   padding: 20px;
   background: #f9fafb;
-  height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
+  height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
   overflow-y: auto;
   transition: margin 0.25s ease;
 
@@ -326,16 +345,16 @@ body {
 .main--calendar {
   padding: 0;
   overflow: hidden;
-  height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
-  max-height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
+  height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
+  max-height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
   min-height: 0;
 }
 
 .main--inbox {
   padding: 0;
   overflow: hidden;
-  height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
-  max-height: calc(100vh - 70px - var(--deployment-banner-height, 0px));
+  height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
+  max-height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
   min-height: 0;
 }
 

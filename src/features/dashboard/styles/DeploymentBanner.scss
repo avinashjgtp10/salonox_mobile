@@ -9,7 +9,7 @@
   font-size: 13px;
   flex-shrink: 0;
   position: fixed;
-  top: 70px; // sits directly below the fixed topbar (DashboardPage.scss .topbar height)
+  top: var(--topbar-height, 56px); // sits directly below the fixed topbar (DashboardPage.scss .topbar height)
   left: 0;
   width: 100%;
   z-index: 999; // below the topbar (1000), above page content
