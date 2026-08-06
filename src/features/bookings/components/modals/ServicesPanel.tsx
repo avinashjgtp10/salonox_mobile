@@ -77,11 +77,6 @@ interface Props {
   onRemoveMembership: (index: number) => void;
   onAddMembership: () => void;
 
-  // Opens the "sell a new package/membership" popup over the calendar
-  // (separate from onAddPackage/onAddMembership, which redeem an existing
-  // one against this bill) — omit to hide these triggers entirely.
-  onSellPackage?: () => void;
-  onSellMembership?: () => void;
   // Opens the manual eWallet top-up popup — omit to hide the trigger.
   onTopupEwallet?: () => void;
 
@@ -1373,7 +1368,7 @@ export const ServicesPanel: React.FC<Props> = ({
   packageRows, onUpdatePackage, onRemovePackage, onAddPackage,
   productRows, onUpdateProduct, onRemoveProduct, onAddProduct,
   membershipRows, onUpdateMembership, onRemoveMembership, onAddMembership,
-  onSellPackage, onSellMembership, onTopupEwallet,
+  onTopupEwallet,
   availablePackages, availableProducts, availableMemberships,
   frozen, packageRemainingByRow, membershipWalletInfo, serviceTaxByRow,
   consumableActuals, onConsumableActualChange, clientName,
@@ -1517,12 +1512,6 @@ export const ServicesPanel: React.FC<Props> = ({
         <button className="add-row-btn" onClick={onAddPackage}>+ Package</button>
         <button className="add-row-btn" onClick={onAddProduct}>+ Product</button>
         <button className="add-row-btn" onClick={onAddMembership}>+ Membership</button>
-        {onSellPackage && (
-          <button className="add-row-btn add-row-btn--sell" onClick={onSellPackage}>+ Sell Package</button>
-        )}
-        {onSellMembership && (
-          <button className="add-row-btn add-row-btn--sell" onClick={onSellMembership}>+ Sell Membership</button>
-        )}
         {onTopupEwallet && (
           <button className="add-row-btn add-row-btn--sell" onClick={onTopupEwallet}>+ Topup eWallet</button>
         )}
