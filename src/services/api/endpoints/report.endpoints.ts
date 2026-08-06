@@ -77,6 +77,12 @@ export const CLIENT_REVENUE_REPORT = {
   SUMMARY: () => `/api/report/client-revenue`,
 } as const;
 
+// Independent Customer Frequency reporting API — reads clients/sales
+// directly, never through the Appointment API. Mounted at /api/report.
+export const CUSTOMER_FREQUENCY_REPORT = {
+  SUMMARY: () => `/api/report/customer-frequency`,
+} as const;
+
 // Independent Staff Sales reporting API — reads sale_items/sales directly,
 // never through the Appointment API. Mounted at /api/report.
 export const STAFF_SALES_REPORT = {
