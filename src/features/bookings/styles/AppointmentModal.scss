@@ -106,6 +106,16 @@ $success:    #22c55e;
 
   &--discount span:last-child { color: $success; }
 
+  // Mid-weight running total (the "Total Bill" line at the tax boundary) —
+  // deliberately lighter than --total so Grand Total stays the visual anchor.
+  &--subtotal {
+    border-top: 1px solid $border;
+    margin-top: 4px;
+    padding-top: 8px;
+    font-weight: 600;
+    color: $primary;
+  }
+
   &--total {
     border-top: 1px solid $border;
     margin-top: 6px;
