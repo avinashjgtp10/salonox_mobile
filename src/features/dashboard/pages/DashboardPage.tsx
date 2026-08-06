@@ -1463,7 +1463,7 @@ export default function DashboardPage() {
   const goToClients   = useCallback(() => navigate("/dashboard/clients/add"),     [navigate]);
   const goToSales     = useCallback(() => navigate("/dashboard/sales/quick"),      [navigate]);
   const goToMarketing = useCallback(() => navigate("/dashboard/marketing"),        [navigate]);
-  const goToStaff     = useCallback(() => navigate("/dashboard/team/staff"),       [navigate]);
+  const goToStaff     = useCallback(() => navigate("/dashboard/team/members"),     [navigate]);
   const goToQuickWhatsApp = useCallback(() => navigate("/dashboard/marketing/quick-whatsapp"), [navigate]);
   const goToSalesSummary = useCallback(
     () => navigate("/reports/sales/sales-summary"),
