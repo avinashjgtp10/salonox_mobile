@@ -21,96 +21,6 @@
   &:hover { background: #f3f4f6; }
 }
 
-// ── Combined Filters panel ──────────────────────────────────────────────────
-
-.rp-ss-filters-btn {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 36px;
-  padding: 0 14px;
-  border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #fff;
-  font-size: 13px;
-  font-weight: 600;
-  color: #111827;
-  cursor: pointer;
-
-  &:hover { background: #f9fafb; }
-}
-
-.rp-ss-filters-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 18px;
-  height: 18px;
-  padding: 0 5px;
-  border-radius: 9px;
-  background: #111827;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-}
-
-.rp-ss-filters-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.45);
-  z-index: 3000;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.rp-ss-filters-modal {
-  width: 460px;
-  max-width: 95vw;
-  max-height: 90vh;
-  overflow-y: auto;
-  background: #fff;
-  border-radius: 16px;
-  padding: 24px;
-
-  .modal-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 24px;
-
-    h3 { margin: 0; font-size: 16px; font-weight: 600; }
-  }
-}
-
-.rp-ss-filters-close {
-  background: none;
-  border: none;
-  font-size: 22px;
-  line-height: 1;
-  color: #64748b;
-  cursor: pointer;
-  padding: 0 4px;
-
-  &:hover { color: #0f172a; }
-}
-
-.rp-ss-filters-body {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-bottom: 20px;
-}
-
-.rp-ss-filter-field {
-  width: 100%;
-
-  .form-select {
-    width: 100%;
-  }
-}
-
 .rp-ss-price-range {
   display: flex;
   align-items: center;
@@ -128,11 +38,3 @@
   span { color: #9ca3af; font-size: 12px; }
 }
 
-.rp-ss-filters-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-}
-
-// MultiSelectCheckbox (staff filter) styles live in
-// components/ui/MultiSelectCheckbox.scss, imported by the component itself.
