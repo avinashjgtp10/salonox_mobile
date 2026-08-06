@@ -38,10 +38,7 @@ import {
 import { ClientPanel }   from "./ClientPanel";
 import { ServicesPanel } from "./ServicesPanel";
 import { AvailableBenefitsPanel, type BenefitCardConfig } from "./AvailableBenefitsPanel";
-import SellPackageModal from "../../../../components/packages/SellPackageModal";
-import SellMembershipCalendarModal from "../../../catalog/components/SellMembershipCalendarModal";
 import EwalletTopupModal from "../../../clients/components/EwalletTopupModal";
-import type { ClientSearchResult } from "../../../clients/components/ClientSearchInput";
 import { PaymentPanel }  from "./PaymentPanel";
 import TotalsPanel       from "./TotalsPanel";
 import PaymentButton     from "../shared/PaymentButton";
@@ -200,19 +197,12 @@ export const AppointmentModal: React.FC<Props> = ({
   );
   const [clientStats, setClientStats]       = useState<ClientStats | null>(null);
 
-  // Sell a brand-new package/membership as a popup over the calendar instead
-  // of navigating away to the Catalog page — same pattern as ClientHistoryModal.
-  const [showSellPackageModal, setShowSellPackageModal] = useState(false);
-  const [showSellMembershipModal, setShowSellMembershipModal] = useState(false);
   const [showTopupModal, setShowTopupModal] = useState(false);
   // Bumped after a successful top-up to force ClientPanel to refetch this
   // client's real balance from the backend — the eWallet figure on the card
   // is driven by ClientPanel's own useClientDetails() fetch, not clientStats.
   const [clientRefreshKey, setClientRefreshKey] = useState(0);
   const isSellableClient = !!selectedClient && selectedClient.id !== "walk-in";
-  const sellInitialClient: ClientSearchResult | null = isSellableClient
-    ? { id: selectedClient!.id, first_name: selectedClient!.name, phone_number: selectedClient!.phone }
-    : null;
 
   // ── Date ─────────────────────────────────────────────────────────────────
   const [calDate, setCalDate] = useState(defaultDate || new Date().toISOString().slice(0, 10));
@@ -1866,8 +1856,6 @@ export const AppointmentModal: React.FC<Props> = ({
             }
             setMembershipRows((rows) => [...rows, { id: "", membershipId: "", membershipName: "", price: 0, qty: 1, total: 0, staffId: "", time: serviceRows[0]?.time || defaultTime || "" }]);
           }}
-          onSellPackage={isSellableClient ? () => setShowSellPackageModal(true) : undefined}
-          onSellMembership={isSellableClient ? () => setShowSellMembershipModal(true) : undefined}
           onTopupEwallet={isSellableClient ? () => setShowTopupModal(true) : undefined}
           availablePackages={availablePackages}
           availableProducts={availableProducts}
@@ -2785,22 +2773,6 @@ export const AppointmentModal: React.FC<Props> = ({
       )}
 
       {paymentOverlay}
-
-      {showSellPackageModal && sellInitialClient && (
-        <SellPackageModal
-          initialClient={sellInitialClient}
-          onClose={() => setShowSellPackageModal(false)}
-          onSaved={() => { setShowSellPackageModal(false); setClientRefreshKey((k) => k + 1); }}
-        />
-      )}
-
-      {showSellMembershipModal && sellInitialClient && (
-        <SellMembershipCalendarModal
-          initialClient={sellInitialClient}
-          onClose={() => setShowSellMembershipModal(false)}
-          onSaved={() => { setShowSellMembershipModal(false); setClientRefreshKey((k) => k + 1); }}
-        />
-      )}
 
       {showTopupModal && isSellableClient && (
         <EwalletTopupModal

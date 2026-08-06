@@ -7,7 +7,7 @@
 // fake "negative topup" or losing the record of what happened — both
 // directions go through the same server-side ledger (ewallet_ledger) as
 // every other credit/debit on this wallet.
-// Popup-over-calendar pattern, same shell as ClientHistoryModal/SellPackageModal.
+// Popup-over-calendar pattern, same shell as ClientHistoryModal.
 import { useEffect, useState } from "react";
 import { X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
