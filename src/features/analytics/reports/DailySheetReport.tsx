@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { DAILY_SHEET_REPORT } from "../../../services/api/endpoints";
@@ -8,30 +8,17 @@ import Breadcrumb from "../../../components/ui/Breadcrumb";
 import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
 import { SkeletonTableRows, SkeletonStatCards } from "./ReportSkeleton";
-import { Pagination } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
 import { BulkDeleteBar } from "./BulkDeleteBar";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { formatPaymentMode } from "../../../utils/paymentMode";
-import { useDraftFilters } from "./useDraftFilters";
-import ReportFiltersModal from "./ReportFiltersModal";
 import "./DailySheetReport.scss";
 
 const REPORT_NAME = "Daily Sheet";
-
-interface DailySheetFilterValues {
-  service: string;
-  staff: string[];
-  paymentMode: string;
-  status: string;
-  itemType: string;
-}
-
-const DAILY_SHEET_FILTER_DEFAULTS: DailySheetFilterValues = {
-  service: "All", staff: [], paymentMode: "All", status: "All", itemType: "All",
-};
 
 interface DailyRow {
   appointmentId: string | null;
@@ -79,144 +66,30 @@ function mapRow(row: any): DailyRow {
 interface FilterOption { id: string; label: string; }
 
 const STATUS_OPTIONS = [
-  { label: "All", value: "All" },
-  { label: "Booked", value: "booked" },
-  { label: "Paid", value: "paid" },
-  { label: "Partial", value: "partial" },
-  { label: "Cancelled", value: "cancelled" },
-  { label: "No Show", value: "no-show" },
-  { label: "Deleted", value: "deleted" },
+  { id: "booked", label: "Booked" },
+  { id: "paid", label: "Paid" },
+  { id: "partial", label: "Partial" },
+  { id: "cancelled", label: "Cancelled" },
+  { id: "no-show", label: "No Show" },
+  { id: "deleted", label: "Deleted" },
 ];
 
 const ITEM_TYPE_OPTIONS = [
-  { label: "All", value: "All" },
-  { label: "Service", value: "service" },
-  { label: "Product", value: "product" },
-  { label: "Package", value: "package" },
-  { label: "Membership", value: "membership" },
+  { id: "service", label: "Service" },
+  { id: "product", label: "Product" },
+  { id: "package", label: "Package" },
+  { id: "membership", label: "Membership" },
 ];
-
-function FilterField({ label, value, options, onChange }: {
-  label: string;
-  value: string;
-  options: { label: string; value: string }[];
-  onChange: (value: string) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
-
-  useEffect(() => {
-    if (open) { setQuery(""); searchRef.current?.focus(); }
-  }, [open]);
-
-  const filtered = query.trim()
-    ? options.filter(o => o.label.toLowerCase().includes(query.trim().toLowerCase()))
-    : options;
-
-  return (
-    <div className="rp-detail-filter-group rp-ds-filter-field" ref={wrapRef}>
-      <label className="rp-detail-filter-label">{label}</label>
-      <button type="button" className="rp-detail-select rp-ds-filter-select" onClick={() => setOpen(v => !v)}>
-        {options.find(o => o.value === value)?.label ?? "All"}
-        <span className="rp-detail-caret">▼</span>
-      </button>
-      {open && (
-        <div className="rp-ds-filter-dropdown-wrap">
-          <input
-            ref={searchRef}
-            type="text"
-            className="rp-ds-filter-search"
-            placeholder={`Search ${label.toLowerCase()}...`}
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onClick={e => e.stopPropagation()}
-          />
-          <div className="rp-ds-filter-list">
-            {filtered.length === 0 ? (
-              <div className="rp-ds-filter-no-match">No matches</div>
-            ) : filtered.map(o => (
-              <div key={o.value} className={`rp-detail-dropdown-item ${o.value === value ? "active" : ""}`}
-                onClick={() => { onChange(o.value); setOpen(false); }}>{o.label}</div>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MultiStaffField({ options, selected, onChange }: {
-  options: FilterOption[];
-  selected: string[];
-  onChange: (ids: string[]) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const close = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
-    };
-    document.addEventListener("mousedown", close);
-    return () => document.removeEventListener("mousedown", close);
-  }, [open]);
-
-  const label = selected.length === 0
-    ? "All Staff"
-    : selected.length === 1
-      ? (options.find(o => o.id === selected[0])?.label ?? "1 selected")
-      : `${selected.length} selected`;
-
-  const toggle = (id: string) => {
-    onChange(selected.includes(id) ? selected.filter(s => s !== id) : [...selected, id]);
-  };
-
-  return (
-    <div className="rp-detail-filter-group rp-ds-filter-field" ref={wrapRef}>
-      <label className="rp-detail-filter-label">Staff</label>
-      <button type="button" className="rp-detail-select rp-ds-filter-select" onClick={() => setOpen(v => !v)}>
-        {label}
-        <span className="rp-detail-caret">▼</span>
-      </button>
-      {open && (
-        <div className="rp-ds-filter-dropdown-wrap">
-          <div className="rp-ds-filter-list">
-            <label className="rp-ds-checkbox-item">
-              <input type="checkbox" checked={selected.length === 0} onChange={() => onChange([])} />
-              All Staff
-            </label>
-            {options.map(o => (
-              <label key={o.id} className="rp-ds-checkbox-item">
-                <input type="checkbox" checked={selected.includes(o.id)} onChange={() => toggle(o.id)} />
-                {o.label}
-              </label>
-            ))}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function DailySheetReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
   const today = new Date().toISOString().slice(0, 10);
   const [date,            setDate]            = useState(today);
-  const [committedFilters, setCommittedFilters] = useState<DailySheetFilterValues>(DAILY_SHEET_FILTER_DEFAULTS);
-  const { service: serviceFilter, staff: staffFilters, paymentMode: paymentModeFilter, status: statusFilter, itemType: itemTypeFilter } = committedFilters;
-  const filtersPanel = useDraftFilters(committedFilters, setCommittedFilters, DAILY_SHEET_FILTER_DEFAULTS);
+  const [serviceFilterIds, setServiceFilterIds] = useState<string[]>([]);
+  const [staffFilters,     setStaffFilters]     = useState<string[]>([]);
+  const [paymentModes,     setPaymentModes]     = useState<string[]>([]);
+  const [statuses,         setStatuses]         = useState<string[]>([]);
+  const [itemTypes,        setItemTypes]        = useState<string[]>([]);
   const [search,          setSearch]          = useState("");
   // No separate /services or /staff calls — the daily-sheet API itself
   // returns filters_available (every service/staff that has ever appeared
@@ -224,7 +97,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
   // the current date/filter selection.
   const [serviceOptions,  setServiceOptions]  = useState<FilterOption[]>([]);
   const [staffOptions,    setStaffOptions]    = useState<FilterOption[]>([]);
-  const [paymentModeOptions, setPaymentModeOptions] = useState<{ label: string; value: string }[]>([{ label: "All", value: "All" }]);
+  const [paymentModeOptions, setPaymentModeOptions] = useState<FilterOption[]>([]);
   const [rows,            setRows]            = useState<DailyRow[]>([]);
   const [total,           setTotal]            = useState(0);
   const [stats, setStats] = useState({
@@ -248,11 +121,11 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
     setLoading(true);
     try {
       const body: Record<string, any> = { date, page: currentPage, limit: pageSize };
-      if (serviceFilter !== "All") body.service_id = serviceFilter;
+      if (serviceFilterIds.length > 0) body.service_ids = serviceFilterIds;
       if (staffFilters.length > 0) body.staff_ids = staffFilters;
-      if (paymentModeFilter !== "All") body.payment_mode = paymentModeFilter;
-      if (statusFilter !== "All") body.status = statusFilter;
-      if (itemTypeFilter !== "All") body.item_type = itemTypeFilter;
+      if (paymentModes.length > 0) body.payment_modes = paymentModes;
+      if (statuses.length > 0) body.statuses = statuses;
+      if (itemTypes.length > 0) body.item_types = itemTypes;
       if (search.trim()) body.search = search.trim();
       const res = await api.post(DAILY_SHEET_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -273,7 +146,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
       setStaffOptions(Array.isArray(data?.filters_available?.staff) ? data.filters_available.staff : []);
       const modes = data?.filters_available?.payment_modes;
       if (Array.isArray(modes)) {
-        setPaymentModeOptions([{ label: "All", value: "All" }, ...modes.map((m: any) => ({ label: formatPaymentMode(String(m)), value: String(m) }))]);
+        setPaymentModeOptions(modes.map((m: any) => ({ label: formatPaymentMode(String(m)), id: String(m) })));
       }
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
@@ -286,7 +159,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [date, serviceFilter, staffFilters, paymentModeFilter, statusFilter, itemTypeFilter, search, currentPage, pageSize]);
+  }, [date, serviceFilterIds, staffFilters, paymentModes, statuses, itemTypes, search, currentPage, pageSize]);
 
   const bulkDelete = useBulkAppointmentDelete(fetchData);
   const deletableIds = rows.filter(r => r.appointmentId).map(r => r.appointmentId as string);
@@ -295,15 +168,31 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
 
   // Filter changes go back to page 1 — page/pageSize changes themselves
   // should not reset back to page 1.
-  useEffect(() => { setCurrentPage(1); }, [date, serviceFilter, staffFilters, paymentModeFilter, statusFilter, itemTypeFilter, search]);
+  useEffect(() => { setCurrentPage(1); }, [date, serviceFilterIds, staffFilters, paymentModes, statuses, itemTypes, search]);
 
-  const activeFilterCount = [
-    serviceFilter !== "All" ? 1 : 0,
-    staffFilters.length > 0 ? 1 : 0,
-    paymentModeFilter !== "All" ? 1 : 0,
-    statusFilter !== "All" ? 1 : 0,
-    itemTypeFilter !== "All" ? 1 : 0,
-  ].reduce((a, b) => a + b, 0);
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "service", label: "Service", options: serviceOptions, searchable: true },
+    { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+    { key: "payment_mode", label: "Payment Method", options: paymentModeOptions },
+    { key: "status", label: "Status", options: STATUS_OPTIONS },
+    { key: "item_type", label: "Item Type", options: ITEM_TYPE_OPTIONS },
+  ], [serviceOptions, staffOptions, paymentModeOptions]);
+
+  const filterMenuSelected = useMemo(() => ({
+    service: serviceFilterIds,
+    staff: staffFilters,
+    payment_mode: paymentModes,
+    status: statuses,
+    item_type: itemTypes,
+  }), [serviceFilterIds, staffFilters, paymentModes, statuses, itemTypes]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setServiceFilterIds(next.service ?? []);
+    setStaffFilters(next.staff ?? []);
+    setPaymentModes(next.payment_mode ?? []);
+    setStatuses(next.status ?? []);
+    setItemTypes(next.item_type ?? []);
+  };
 
   const HEADERS = ["Time", "Invoice No", "Client Name", "Items", "Staff", `Grand Total (${currencySymbol})`, `Paid Amount (${currencySymbol})`, `Due Amount (${currencySymbol})`, "Payment Method", "Status"];
   const exportRows = () => rows.map(r => [r.time, r.invoiceNo, r.clientName, r.items, r.staff, r.grandTotal, r.paidAmount, r.dueAmount, r.paymentMethod, r.status]);
@@ -324,10 +213,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
           <label className="rp-detail-filter-label">Date</label>
           <input type="date" value={date} onChange={e => setDate(e.target.value)} className="rp-detail-date-input rp-detail-date-input--boxed" />
         </div>
-        <button className="rp-ds-filters-btn" onClick={filtersPanel.openPanel}>
-          Filters
-          {activeFilterCount > 0 && <span className="rp-ds-filters-badge">{activeFilterCount}</span>}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
@@ -483,19 +369,6 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
         {bulkDelete.error && <p style={{ color: "#dc2626", fontSize: 13, margin: 0 }}>{bulkDelete.error}</p>}
       </Modal>
 
-      <ReportFiltersModal
-        open={filtersPanel.isOpen}
-        onClose={filtersPanel.closePanel}
-        onClear={filtersPanel.clear}
-        onApply={filtersPanel.apply}
-        classPrefix="rp-ds"
-      >
-        <FilterField label="Service" value={filtersPanel.draft.service} options={[{ label: "All", value: "All" }, ...serviceOptions.map(o => ({ label: o.label, value: o.id }))]} onChange={v => filtersPanel.setDraftField("service", v)} />
-        <MultiStaffField options={staffOptions} selected={filtersPanel.draft.staff} onChange={v => filtersPanel.setDraftField("staff", v)} />
-        <FilterField label="Payment Method" value={filtersPanel.draft.paymentMode} options={paymentModeOptions} onChange={v => filtersPanel.setDraftField("paymentMode", v)} />
-        <FilterField label="Status" value={filtersPanel.draft.status} options={STATUS_OPTIONS} onChange={v => filtersPanel.setDraftField("status", v)} />
-        <FilterField label="Item Type" value={filtersPanel.draft.itemType} options={ITEM_TYPE_OPTIONS} onChange={v => filtersPanel.setDraftField("itemType", v)} />
-      </ReportFiltersModal>
     </div>
   );
 }
