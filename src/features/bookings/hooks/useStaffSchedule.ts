@@ -37,8 +37,13 @@ export function useStaffSchedule(salonId?: string | null) {
   const staffList       = useAppSelector((s: any) => s.scheduler?.staffList ?? []);
 
   // ── Fetch staff list + extract blocked times from staff API response ─────
+  // The `initialized` ref is scoped to this hook INSTANCE, so navigating
+  // Calendar → Quick Sale (two separately-mounted components, each calling
+  // this hook) re-fetches staff even though the Calendar just loaded it
+  // moments earlier — supplemented with a Redux-state check so it's treated
+  // as session-cached instead.
   useEffect(() => {
-    if (!salonId || initialized.current === salonId) return;
+    if (!salonId || initialized.current === salonId || staffList.length > 0) return;
     initialized.current = salonId;
     (dispatch(fetchStaffThunk()) as any).then((action: any) => {
       if (fetchStaffThunk.fulfilled.match(action)) {

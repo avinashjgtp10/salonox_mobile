@@ -82,8 +82,18 @@ export function useTodayAppointments() {
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
+  // Mount, document.visibilitychange, and window's "focus" event can each
+  // independently call refetch() — the latter two commonly fire together on
+  // a single tab-switch, and React StrictMode double-invokes the mount
+  // effect in dev — so without this, a still-in-flight call kept getting
+  // aborted-and-restarted by a second trigger firing milliseconds later,
+  // showing up as a wasted, visibly "failed" cancelled request even though
+  // nothing had actually changed between the two triggers. Skipping the
+  // restart when one's already running coalesces those into a single real
+  // request, while a later, genuinely separate trigger (nothing in flight
+  // by then) still refetches normally.
   const refetch = useCallback(async () => {
-    abortRef.current?.abort();
+    if (abortRef.current) return;
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
@@ -147,7 +157,8 @@ export function useTodayAppointments() {
         setError(e?.response?.data?.message || e?.message || "Failed to load today's appointments");
       }
     } finally {
-      if (!ctrl.signal.aborted) setLoading(false);
+      setLoading(false);
+      abortRef.current = null;
     }
   }, []);
 

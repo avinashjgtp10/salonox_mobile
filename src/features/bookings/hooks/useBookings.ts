@@ -7,7 +7,10 @@ import { selectCurrentDate, selectViewMode, selectServicesList, selectClientsLis
 import { getWeekDays } from "../utils/timeUtils";
 import { getSocket } from "../../../services/socket/socket";
 
-function getViewRange(viewMode: string, date: string): { startDate: string; endDate: string } {
+// Exported for Scheduler.tsx's handleRefresh, which needs the same
+// view-aware range (previously hardcoded to a single day regardless of
+// viewMode — see the comment at its call site).
+export function getViewRange(viewMode: string, date: string): { startDate: string; endDate: string } {
   if (viewMode === "Week" || viewMode === "List Week") {
     const days = getWeekDays(date);
     return { startDate: days[0], endDate: days[6] };
@@ -128,24 +131,43 @@ export function useBookings(skip = false) {
   // already established by DashboardTopbar for the notification bell; this
   // just also refetches the visible range so the calendar doesn't require
   // a manual page refresh to show bookings made from another channel.
+  //
+  // Scoped to the currently-visible date range: previously ANY appointment/
+  // payment event anywhere in the salon forced a refetch regardless of its
+  // own date, so one staff member paying an appointment on a totally
+  // different day made every other staff member's Calendar refetch whatever
+  // date THEY happened to be looking at. The event payload now carries the
+  // affected appointment's scheduled_at (see notifications.service.ts /
+  // payments.service.ts) — skip the refresh when that date falls outside
+  // this session's visible range. Fails open (refreshes anyway) when
+  // scheduled_at is missing, so an old-backend/new-frontend rollout mismatch
+  // never under-refreshes.
   useEffect(() => {
     if (skip) return;
     const socket = getSocket();
-    const onNotification = (notification: { type?: string }) => {
-      if (notification?.type === "appointment") refresh();
+    const isEventInVisibleRange = (scheduled_at?: string): boolean => {
+      if (!scheduled_at) return true; // fail open — no date info to check against
+      const { startDate, endDate } = getViewRange(viewMode, currentDate);
+      const eventDate = toLocalDateStr(scheduled_at);
+      return eventDate >= startDate && eventDate <= endDate;
+    };
+    const onNotification = (notification: { type?: string; scheduled_at?: string }) => {
+      if (notification?.type === "appointment" && isEventInVisibleRange(notification.scheduled_at)) refresh();
     };
     // payments.service.ts emits this directly (no bell-notification DB row,
     // unlike "notification" above — a payment happens far more often than a
     // create/cancel) so a Paid/Partial status change on another device also
     // live-updates this calendar instead of needing a manual refresh.
-    const onPaymentUpdated = () => refresh();
+    const onPaymentUpdated = (payload?: { scheduled_at?: string }) => {
+      if (isEventInVisibleRange(payload?.scheduled_at)) refresh();
+    };
     socket.on("notification", onNotification);
     socket.on("payment_updated", onPaymentUpdated);
     return () => {
       socket.off("notification", onNotification);
       socket.off("payment_updated", onPaymentUpdated);
     };
-  }, [skip, refresh]);
+  }, [skip, refresh, viewMode, currentDate]);
 
   return { refresh, loading };
 }
