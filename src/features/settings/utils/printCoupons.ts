@@ -45,21 +45,31 @@ export function printCoupons(
 <style>
   *{box-sizing:border-box;margin:0;padding:0}
   body{font-family:'Segoe UI',Helvetica,Arial,sans-serif;background:#d1d5db;-webkit-print-color-adjust:exact;print-color-adjust:exact;padding-top:50px}
-  .sheet{width:210mm;min-height:297mm;margin:12mm auto;background:#fff;padding:14mm;display:grid;grid-template-columns:1fr 1fr;gap:6mm}
+  // Fixed physical column width (90mm) instead of 1fr — 1fr only guarantees
+  // columns are equal to *each other*, not that a card is the same size
+  // across print runs (a batch of 1 coupon vs. a full grid of them still
+  // renders identically now). justify-content centers the row(s) so a
+  // partial last row doesn't stretch to fill the sheet.
+  .sheet{width:210mm;min-height:297mm;margin:12mm auto;background:#fff;padding:14mm;display:grid;grid-template-columns:repeat(2,90mm);justify-content:center;gap:6mm}
 
   .voucher{
+    width:90mm;box-sizing:border-box;
     border:2px dashed #9ca3af;border-radius:10px;padding:16px;
     display:flex;flex-direction:column;align-items:center;text-align:center;gap:6px;
     break-inside:avoid;
   }
-  .voucher__salon{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.4px}
-  .voucher__salon img{width:20px;height:20px;border-radius:4px;object-fit:cover}
-  .voucher__value{font-size:22px;font-weight:800;color:#111827;margin-top:4px}
+  // Long business names / coupon codes wrap or truncate instead of
+  // overflowing the fixed-width card and throwing off its dimensions.
+  .voucher__salon{display:flex;align-items:center;gap:6px;max-width:100%;font-size:11px;font-weight:700;color:#374151;text-transform:uppercase;letter-spacing:0.4px}
+  .voucher__salon img{width:20px;height:20px;border-radius:4px;object-fit:cover;flex-shrink:0}
+  .voucher__salon span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .voucher__value{font-size:22px;font-weight:800;color:#111827;margin-top:4px;max-width:100%;overflow-wrap:break-word}
   .voucher__code{
     font-size:20px;font-weight:800;letter-spacing:2px;color:#fff;background:#111827;
     padding:6px 18px;border-radius:6px;margin:6px 0;font-family:'Courier New',monospace;
+    max-width:100%;overflow-wrap:break-word;word-break:break-word;
   }
-  .voucher__min{font-size:11px;color:#6b7280}
+  .voucher__min{font-size:11px;color:#6b7280;max-width:100%;overflow-wrap:break-word}
   .voucher__expiry{font-size:11px;color:#9ca3af}
 
   .print-toolbar{position:fixed;top:0;left:0;right:0;height:50px;background:#111827;display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:9999}
