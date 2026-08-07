@@ -14,6 +14,19 @@ import {
   type Permission,
 } from "../../settings/data/permissionMatrix";
 import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
+import ClientSelect from "../../clients/components/ClientSelect";
+
+const GENDER_OPTIONS = [
+  { value: "", label: "Gender" },
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+  { value: "other", label: "Other" },
+];
+
+const ROLE_OPTIONS = [
+  { value: "Staff", label: "Staff" },
+  { value: "Manager", label: "Manager" },
+];
 
 const ROLE_TO_LEVEL: Record<string, string> = {
   "No access": "no_access", Basic: "basic", Low: "low", Medium: "medium", High: "high", Manager: "manager",
@@ -418,16 +431,15 @@ const AddStaffPage: React.FC = () => {
 
               <div className="emp-field">
                 <label className="emp-field__label">Gender<span className="text-danger">*</span></label>
-                <select
-                  className={`emp-input emp-select ${isGenderInvalid ? "emp-input--invalid" : ""}`}
+                <ClientSelect
                   value={form.gender}
-                  onChange={(e) => setField("gender")(e.target.value)}
-                >
-                  <option value="">Gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="other">Other</option>
-                </select>
+                  onChange={(val: string) => setField("gender")(val)}
+                  options={GENDER_OPTIONS}
+                  placeholder="Gender"
+                  searchPlaceholder="Search gender..."
+                  invalid={isGenderInvalid}
+                  className="emp-input emp-select"
+                />
                 {isGenderInvalid && <span className="emp-field__error">Gender is required</span>}
               </div>
               <div className="emp-field">
@@ -440,25 +452,15 @@ const AddStaffPage: React.FC = () => {
                 />
               </div>
               <div className="emp-field">
-                {/* permissionLevel already existed as state (feeding
-                    permission_level in the save payload) but had no control
-                    anywhere in this form to actually change it — every new
-                    staff member silently saved as "Low" regardless of intent,
-                    which is also why the staff list showed "Low" as their
-                    role. Collapses the underlying 6-tier permission_level
-                    (No access/Basic/Low/Medium/High/Manager) down to the two
-                    that matter for this quick choice — the "Staff
-                    Permissions" matrix below still allows finer-grained
-                    customization independent of this. */}
                 <label className="emp-field__label">Role</label>
-                <select
-                  className="emp-input emp-select"
+                <ClientSelect
                   value={permissionLevel === "Manager" ? "Manager" : "Staff"}
-                  onChange={(e) => setPermissionLevel(e.target.value === "Manager" ? "Manager" : "Low")}
-                >
-                  <option value="Staff">Staff</option>
-                  <option value="Manager">Manager</option>
-                </select>
+                  onChange={(val: string) => setPermissionLevel(val === "Manager" ? "Manager" : "Low")}
+                  options={ROLE_OPTIONS}
+                  placeholder="Select role"
+                  searchPlaceholder="Search role..."
+                  className="emp-input emp-select"
+                />
               </div>
 
               <div className="emp-field">
