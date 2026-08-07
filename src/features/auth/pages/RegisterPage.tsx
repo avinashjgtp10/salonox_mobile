@@ -133,7 +133,7 @@ export default function RegisterPage() {
     }
   };
 
-  const TEXT_ONLY_FIELDS = new Set(["fullName", "businessName", "address"]);
+  const TEXT_ONLY_FIELDS = new Set(["fullName", "businessName"]);
 
   const handleChange = (
     e: ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
