@@ -6,6 +6,8 @@ const SuperAdminLoginPage = lazy(() => import("../features/super-admin/pages/Sup
 const SuperAdminLayout    = lazy(() => import("../features/super-admin/components/SuperAdminLayout"));
 const OverviewPage        = lazy(() => import("../features/super-admin/pages/OverviewPage"));
 const SalonsPage          = lazy(() => import("../features/super-admin/pages/SalonsPage"));
+const SalonDetailPage     = lazy(() => import("../features/super-admin/pages/SalonDetailPage"));
+const VisitedPage         = lazy(() => import("../features/super-admin/pages/VisitedPage"));
 const UsersPage           = lazy(() => import("../features/super-admin/pages/UsersPage"));
 const PaymentsPage        = lazy(() => import("../features/super-admin/pages/PaymentsPage"));
 const BillingPage         = lazy(() => import("../features/super-admin/pages/BillingPage"));
@@ -23,6 +25,8 @@ export const SuperAdminRoutes = (
       <Route path="/super-admin" element={<SuperAdminLayout />}>
         <Route index               element={<OverviewPage />} />
         <Route path="salons"       element={<SalonsPage />} />
+        <Route path="salons/:salonId" element={<SalonDetailPage />} />
+        <Route path="visited"      element={<VisitedPage />} />
         <Route path="users"        element={<UsersPage />} />
         <Route path="payments"     element={<PaymentsPage />} />
         <Route path="billing"      element={<BillingPage />} />
