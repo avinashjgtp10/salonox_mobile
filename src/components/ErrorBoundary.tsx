@@ -19,8 +19,8 @@ export class ErrorBoundary extends Component<Props, State> {
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error("[ErrorBoundary]", error.message, info.componentStack);
     
-    // Detect Vite dynamic import chunk failure (e.g. stale hash after build/dev server restart)
-    const isChunkError = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(
+    // Detect Vite dynamic import / asset chunk failure (e.g. stale hash after build/dev server restart)
+    const isChunkError = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS/i.test(
       error?.message || ""
     );
 
@@ -35,7 +35,7 @@ export class ErrorBoundary extends Component<Props, State> {
 
   render() {
     if (this.state.hasError) {
-      const isChunkError = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module/i.test(
+      const isChunkError = /Failed to fetch dynamically imported module|Importing a module script failed|error loading dynamically imported module|Unable to preload CSS/i.test(
         this.state.error?.message || ""
       );
 
