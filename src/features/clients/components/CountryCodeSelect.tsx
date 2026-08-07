@@ -44,10 +44,12 @@ interface Props {
 export default function CountryCodeSelect({ value, onChange, disabled, className }: Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [activeIndex, setActiveIndex] = useState(0);
   const [pos, setPos] = useState<{ top: number; left: number; width: number; maxHeight: number } | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const panelRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
   const selected =
@@ -97,7 +99,7 @@ export default function CountryCodeSelect({ value, onChange, disabled, className
       setOpen(false);
     }
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") { e.stopPropagation(); setOpen(false); }
+      if (e.key === "Escape") { e.stopPropagation(); setOpen(false); triggerRef.current?.focus(); }
     }
     document.addEventListener("mousedown", onDocMouseDown);
     document.addEventListener("keydown", onKeyDown);
@@ -118,6 +120,53 @@ export default function CountryCodeSelect({ value, onChange, disabled, className
     );
   }, [search]);
 
+  // Sync activeIndex to the selected item when opened or search changes
+  useEffect(() => {
+    if (!open) return;
+    const idx = filtered.findIndex((c) => c.dialCode === selected?.dialCode);
+    setActiveIndex(idx >= 0 ? idx : 0);
+  }, [open, filtered, selected?.dialCode]);
+
+  // Auto-scroll highlighted option into view
+  useEffect(() => {
+    if (!open || !listRef.current) return;
+    const item = listRef.current.querySelector(`[data-idx="${activeIndex}"]`);
+    if (item) {
+      (item as HTMLElement).scrollIntoView({ block: "nearest" });
+    }
+  }, [open, activeIndex]);
+
+  const handleSearchKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setActiveIndex((prev) => Math.min(filtered.length - 1, prev + 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setActiveIndex((prev) => Math.max(0, prev - 1));
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (filtered[activeIndex]) {
+        onChange(filtered[activeIndex].dialCode);
+        setOpen(false);
+        triggerRef.current?.focus();
+      }
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      setOpen(false);
+      triggerRef.current?.focus();
+    }
+  };
+
+  const handleTriggerKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp" || e.key === "Enter" || e.key === " ") {
+      if (!open) {
+        e.preventDefault();
+        setSearch("");
+        setOpen(true);
+      }
+    }
+  };
+
   return (
     <div className="ccs-root" ref={rootRef}>
       <button
@@ -129,6 +178,7 @@ export default function CountryCodeSelect({ value, onChange, disabled, className
           if (!open) setSearch("");
           setOpen(!open);
         }}
+        onKeyDown={handleTriggerKeyDown}
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -152,27 +202,34 @@ export default function CountryCodeSelect({ value, onChange, disabled, className
               placeholder="Search country, ISO or code..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
             />
           </div>
-          <div className="ccs-list">
+          <div className="ccs-list" ref={listRef}>
             {filtered.length === 0 ? (
               <div className="ccs-empty">No countries found</div>
             ) : (
-              filtered.map((c) => (
-                <button
-                  type="button"
-                  key={c.isoCode}
-                  className={`ccs-option${c.dialCode === selected?.dialCode ? " ccs-option--active" : ""}`}
-                  role="option"
-                  aria-selected={c.dialCode === selected?.dialCode}
-                  onClick={() => { onChange(c.dialCode); setOpen(false); }}
-                >
-                  <span className="ccs-option__flag">{c.flag}</span>
-                  <span className="ccs-option__name">{c.name}</span>
-                  <span className="ccs-option__iso">{c.isoCode}</span>
-                  <span className="ccs-option__dial">{c.dialCode}</span>
-                </button>
-              ))
+              filtered.map((c, i) => {
+                const isSelected = c.dialCode === selected?.dialCode;
+                const isActive = i === activeIndex;
+                return (
+                  <button
+                    type="button"
+                    key={c.isoCode}
+                    data-idx={i}
+                    className={`ccs-option${isSelected ? " ccs-option--selected" : ""}${isActive ? " ccs-option--active" : ""}`}
+                    role="option"
+                    aria-selected={isSelected}
+                    onMouseEnter={() => setActiveIndex(i)}
+                    onClick={() => { onChange(c.dialCode); setOpen(false); triggerRef.current?.focus(); }}
+                  >
+                    <span className="ccs-option__flag">{c.flag}</span>
+                    <span className="ccs-option__name">{c.name}</span>
+                    <span className="ccs-option__iso">{c.isoCode}</span>
+                    <span className="ccs-option__dial">{c.dialCode}</span>
+                  </button>
+                );
+              })
             )}
           </div>
         </div>,
