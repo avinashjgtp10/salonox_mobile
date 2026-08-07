@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
+import CountryCodeSelect from "./CountryCodeSelect";
+import ClientSelect from "./ClientSelect";
 import "../styles/ClientHistoryModal.scss";
 import "./QuickEditClientModal.scss";
 
@@ -157,7 +159,10 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved }: Pro
 
               <label className="qec-label">Phone<span className="qec-req-star">*</span></label>
               <div className="qec-phone-wrap">
-                <span className="qec-phone-code">{phoneCountryCode}</span>
+                <CountryCodeSelect
+                  value={phoneCountryCode}
+                  onChange={(code) => setPhoneCountryCode(code)}
+                />
                 <input
                   className="qec-input qec-phone-input"
                   inputMode="numeric"
@@ -187,15 +192,13 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved }: Pro
               />
 
               <label className="qec-label">Client Source</label>
-              <select
-                className="qec-input qec-select"
+              <ClientSelect
                 value={clientSource}
-                onChange={(e) => { setClientSource(e.target.value); setError(null); }}
-              >
-                {CLIENT_SOURCE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>{o.label}</option>
-                ))}
-              </select>
+                onChange={(val) => { setClientSource(val); setError(null); }}
+                options={CLIENT_SOURCE_OPTIONS}
+                placeholder="Select source"
+                searchPlaceholder="Search source..."
+              />
 
               {error && <p className="qec-error">{error}</p>}
             </div>

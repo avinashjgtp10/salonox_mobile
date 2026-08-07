@@ -7,8 +7,21 @@ import "../styles/AddClientPage.scss";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import CountryCodeSelect from "../components/CountryCodeSelect";
+import ClientSelect from "../components/ClientSelect";
 
 const DOB_PLACEHOLDER_YEAR = 2000;
+
+const GENDER_OPTIONS = [
+  { value: "Female", label: "Female" },
+  { value: "Male", label: "Male" },
+  { value: "Other", label: "Other" },
+];
+
+const CLIENT_SOURCE_OPTIONS = [
+  { value: "walk_in", label: "Walk-in" },
+  { value: "instagram", label: "Instagram" },
+  { value: "google", label: "Google" },
+];
 
 const AddClientPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -412,16 +425,14 @@ const AddClientPage: React.FC = () => {
                 <label className="cli-field__label">
                   Gender <span style={{ color: "#dc2626" }}>*</span>
                 </label>
-                <select
-                  className={`cli-input cli-select ${isGenderInvalid ? "cli-input--invalid" : ""}`}
+                <ClientSelect
                   value={form.gender}
-                  onChange={(e) => setField("gender")(e.target.value)}
-                >
-                  <option value="" disabled hidden>Select gender</option>
-                  <option value="Female">Female</option>
-                  <option value="Male">Male</option>
-                  <option value="Other">Other</option>
-                </select>
+                  onChange={(val) => setField("gender")(val)}
+                  options={GENDER_OPTIONS}
+                  placeholder="Select gender"
+                  searchPlaceholder="Search gender..."
+                  invalid={isGenderInvalid}
+                />
                 {isGenderInvalid && <span className="cli-field__error">Gender is required</span>}
               </div>
               <div className="cli-field">
@@ -458,15 +469,13 @@ const AddClientPage: React.FC = () => {
 
               <div className="cli-field">
                 <label className="cli-field__label">Client source</label>
-                <select
-                  className="cli-input cli-select"
+                <ClientSelect
                   value={form.clientSource}
-                  onChange={(e) => setField("clientSource")(e.target.value)}
-                >
-                  <option value="walk_in">Walk-in</option>
-                  <option value="instagram">Instagram</option>
-                  <option value="google">Google</option>
-                </select>
+                  onChange={(val) => setField("clientSource")(val)}
+                  options={CLIENT_SOURCE_OPTIONS}
+                  placeholder="Select source"
+                  searchPlaceholder="Search source..."
+                />
               </div>
               <div className="cli-field">
                 <label className="cli-field__label">Referred by</label>
