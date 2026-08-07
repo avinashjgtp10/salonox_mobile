@@ -3,6 +3,24 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { setServicesList, setMembershipsList, setProductsList, setClientsList } from "../../../store/schedulerSlice";
 import type { Client } from "../types";
 
+// Membership `description` is JSON-encoded on wallet-style plans —
+// {"description": "...", "bonusCredit": N} — same convention/parsing as the
+// backend's own client-memberships.repository.ts. A plain-text description
+// (no bonus credit) just fails JSON.parse and passes through as-is.
+function parseMembershipDescription(raw: unknown): { description?: string; bonusCredit?: number } {
+  if (typeof raw !== "string" || !raw) return {};
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed === "object") {
+      return {
+        description: typeof parsed.description === "string" ? parsed.description : undefined,
+        bonusCredit: Number(parsed.bonusCredit) || undefined,
+      };
+    }
+  } catch { /* plain text description */ }
+  return { description: raw };
+}
+
 // salonId is no longer read here (services are now fetched purely on-demand
 // by ServiceRow's own search, not eagerly per-salon on mount) — kept in the
 // signature so call sites don't need updating.
@@ -62,9 +80,13 @@ export function useServices(_salonId?: string | null) {
     dispatch(setMembershipsList(
       apiMemberships
         .filter((m: any) => (m.pricingType ?? m.pricing_type) !== "loyalty")
-        .map((m: any) => ({
-          id: String(m.id || ""), name: m.name, price: m.price || 0,
-        }))
+        .map((m: any) => {
+          const { description, bonusCredit } = parseMembershipDescription(m.description);
+          return {
+            id: String(m.id || ""), name: m.name, price: m.price || 0,
+            description, bonusCredit,
+          };
+        })
     ));
   }, [apiMemberships, dispatch]);
 

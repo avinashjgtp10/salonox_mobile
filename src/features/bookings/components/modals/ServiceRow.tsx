@@ -4,7 +4,7 @@ import type { ServiceItem } from "../../types/scheduler-types";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import TimeSelect from "../shared/TimeSelect";
-import { Trash } from "react-bootstrap-icons";
+import { Trash, Pencil } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
 import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
 import { IconClock, IconBox, IconTag } from "../../../../components/shared/QuickSaleIcons";
@@ -1243,7 +1243,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                           {!disabled && (
                             <>
                               <button type="button" className="svc-recipe-row__icon-btn" title="Edit Actual Qty" onClick={() => focusActualQtyInput(c.productId)}>
-                                ✏
+                                <Pencil size={13} />
                               </button>
                               <button type="button" className="svc-recipe-row__icon-btn svc-recipe-row__icon-btn--danger" title="Remove" onClick={() => setDeleteConfirmProductId(c.productId)}>
                                 <Trash size={13} />

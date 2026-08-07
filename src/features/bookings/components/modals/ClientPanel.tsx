@@ -387,17 +387,30 @@ export const ClientPanel: React.FC<Props> = ({
               aria-controls="client-suggestions-listbox"
               aria-activedescendant={activeIndex >= 0 ? `client-option-${suggestions[activeIndex]?.id}` : undefined}
             />
-            {searching
-              ? <span className="client-search-spinner" />
-              : (search || selectedClientId) && (
-                  <button
-                    className="client-search-clear"
-                    type="button"
-                    aria-label="Clear client search"
-                    onMouseDown={(e) => { e.preventDefault(); setSearch(""); onClearClient(); setSuggestions([]); setTotalFound(0); setShowDrop(false); setNoResults(false); clearPrefill(); }}
-                  >×</button>
-                )
-            }
+            {searching ? (
+              <span className="client-search-spinner" />
+            ) : showDrop && (suggestions.length > 0 || noResults) ? (
+              // Staff kept typing a name and clicking elsewhere instead of
+              // pressing Enter/clicking a result, leaving no client selected
+              // with no indication why — same "Ctrl + /" badge treatment as
+              // ReportsPage.tsx's search box, so the required action is
+              // visible instead of relying on staff already knowing it.
+              // Also shown when noResults — Enter there opens the pre-filled
+              // Add Client form (see handleSearchKeyDown), a genuinely new
+              // client, not just an existing one to pick.
+              // Takes over the clear button's spot while a result is
+              // selectable — clearing via backspace still works.
+              <span className="client-search-kbd">Enter</span>
+            ) : (
+              (search || selectedClientId) && (
+                <button
+                  className="client-search-clear"
+                  type="button"
+                  aria-label="Clear client search"
+                  onMouseDown={(e) => { e.preventDefault(); setSearch(""); onClearClient(); setSuggestions([]); setTotalFound(0); setShowDrop(false); setNoResults(false); clearPrefill(); }}
+                >×</button>
+              )
+            )}
           </div>
           {showDrop && searching && (
             <div className="client-dropdown">
