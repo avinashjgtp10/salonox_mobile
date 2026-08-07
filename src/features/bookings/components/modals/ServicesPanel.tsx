@@ -385,9 +385,17 @@ function MembershipRow({
   const { currencySymbol } = useCurrency();
   const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
   const [discountInput, setDiscountInput] = useState(getDiscountValue(row.discount));
+  // Toggled by the "i" button next to the picker — lets staff read what this
+  // membership actually includes before selling it, instead of having to
+  // already know (or go check the catalog separately).
+  const [showDesc, setShowDesc] = useState(false);
+  const selectedMembership = availableMemberships.find(
+    (m: any) => String(m.id) === String((row as any).membershipId),
+  );
 
   useEffect(() => { setQtyInput(String(getSafeQty(row.qty))); }, [row.qty]);
   useEffect(() => { setDiscountInput(getDiscountValue(row.discount)); }, [row.discount]);
+  useEffect(() => { setShowDesc(false); }, [(row as any).membershipId]);
 
   function handleQtyChange(value: string) {
     const normalizedValue = value.slice(0, 2);
@@ -520,8 +528,30 @@ function MembershipRow({
         )}
       </div>
 
-      {/* 8 — Placeholder (quick-actions column) */}
-      <span />
+      {/* 8 — Quick-actions column: membership description */}
+      <div style={{ position: "relative" }}>
+        {(row as any).membershipId && (
+          <button
+            type="button"
+            className="pkg-info-btn"
+            title="View membership description"
+            aria-label="View membership description"
+            onClick={() => setShowDesc((v) => !v)}
+          >
+            ℹ
+          </button>
+        )}
+        {showDesc && (row as any).membershipId && (
+          <div className="membership-row__desc-box">
+            {!!selectedMembership?.bonusCredit && (
+              <div className="membership-row__desc-bonus">
+                Bonus Credit: {currencySymbol}{selectedMembership.bonusCredit.toLocaleString("en-IN")}
+              </div>
+            )}
+            <div>{selectedMembership?.description?.trim() || "No description provided."}</div>
+          </div>
+        )}
+      </div>
 
       {/* 9 — Delete */}
       {!frozen

@@ -278,6 +278,17 @@
     color: #111827;
     display: flex;
     flex-direction: column;
+    // Was unconstrained, so a very long product name (e.g. a long variant
+    // title) stretched the whole table and forced a horizontal scrollbar —
+    // cap it and truncate with an ellipsis instead; the full name is still
+    // available via the title attribute on hover.
+    max-width: 160px;
+  }
+
+  &__name-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   &__brand {

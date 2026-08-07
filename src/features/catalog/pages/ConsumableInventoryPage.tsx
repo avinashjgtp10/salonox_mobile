@@ -450,7 +450,7 @@ const ConsumableInventoryPage: React.FC = () => {
                   onClick={() => setSelectedProductId(row.product_id)}
                 >
                   <td className="ci-table__name">
-                    {row.name}
+                    <span className="ci-table__name-text" title={row.name}>{row.name}</span>
                     {row.brand_name && <span className="ci-table__brand">{row.brand_name}</span>}
                   </td>
                   <td>{row.category_name || "—"}</td>

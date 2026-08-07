@@ -47,7 +47,7 @@ export interface SchedulerProduct {
   // stock lookups (ServiceRow.tsx reads this list unfiltered for that).
   productType?: string;
 }
-export interface SchedulerMembership { id: string; name: string; price: number; sessions: number; validFor: string; colour: string }
+export interface SchedulerMembership { id: string; name: string; price: number; sessions: number; validFor: string; colour: string; description?: string; bonusCredit?: number }
 
 // ── Staff schedule shape ──────────────────────────────────────────────────────
 export interface StaffDaySchedule {
