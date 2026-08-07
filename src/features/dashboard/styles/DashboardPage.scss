@@ -320,11 +320,8 @@ body {
   background: #f9fafb;
   height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
   overflow-y: auto;
-  // A wide child (a table before its own internal scroll container kicks
-  // in, an unconstrained grid, etc.) previously wasn't clipped here, so it
-  // widened the whole page instead of just this pane — dragging content out
-  // past the fixed sidebar/topbar instead of scrolling within its own box.
   overflow-x: hidden;
+  box-sizing: border-box;
   transition: margin 0.25s ease;
 
   &.main--flush,
@@ -345,6 +342,13 @@ body {
   // as a mobile off-canvas nav.
   @media (max-width: 1024px) {
     &.shifted, &.shifted--team, &.shifted--marketing, &.shifted--clients, &.shifted--catalog { margin-left: 90px; }
+  }
+
+  @media (max-width: 768px) {
+    margin-left: 64px;
+    padding: 12px;
+
+    &.shifted, &.shifted--team, &.shifted--marketing, &.shifted--clients, &.shifted--catalog { margin-left: 64px; }
   }
 }
 
