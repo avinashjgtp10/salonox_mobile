@@ -1,7 +1,7 @@
-import React, { useState, useRef, useEffect } from "react";
-import { ChevronDown } from "react-bootstrap-icons";
+import React, { useState } from "react";
 import { useDispatch } from "react-redux";
 import Input from "../../../../components/ui/Input";
+import ClientSelect from "../../../clients/components/ClientSelect";
 import type { BasicDetailsData } from "../../types/catalog.types.ts";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import type { AppDispatch } from "../../../../store/store";
@@ -20,11 +20,32 @@ interface Props {
   categories?: CategoryOption[];
 }
 
+const GENDER_PREFERENCE_OPTIONS = [
+  { value: "", label: "No preference" },
+  { value: "male", label: "Male" },
+  { value: "female", label: "Female" },
+  { value: "other", label: "Other" },
+];
+
+const PRICE_TYPE_OPTIONS = [
+  { value: "Fixed", label: "Fixed" },
+  { value: "Variable", label: "Variable" },
+];
+
+const DURATION_OPTIONS = [
+  { value: "15", label: "15 min" },
+  { value: "30", label: "30 min" },
+  { value: "45", label: "45 min" },
+  { value: "60", label: "1 h" },
+  { value: "90", label: "1 h 30 min" },
+  { value: "120", label: "2 h" },
+  { value: "150", label: "2 h 30 min" },
+  { value: "180", label: "3 h" },
+];
+
 const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categories = [] }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { currencySymbol } = useCurrency();
-  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
-  const categoryRef = useRef<HTMLDivElement>(null);
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [newCategory, setNewCategory] = useState("");
   const [savingCategory, setSavingCategory] = useState(false);
@@ -37,7 +58,6 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
     if (createCategoryThunk.fulfilled.match(result)) {
       update("categoryId", String(result.payload.id));
       dispatch(fetchCategoriesThunk());
-      setShowCategoryMenu(false);
     }
     setNewCategory("");
     setShowAddCategory(false);
@@ -49,20 +69,10 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
   const hasError = (field: string) =>
     errors.some((err) => err.toLowerCase().includes(field.toLowerCase()));
 
-  const selectedCategory = categories.find((cat) => String(cat.id) === String(data.categoryId));
-
-  // Close the category dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (categoryRef.current && !categoryRef.current.contains(e.target as Node)) {
-        setShowCategoryMenu(false);
-        setShowAddCategory(false);
-        setNewCategory("");
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const categoryOptions = categories.map((cat) => ({
+    value: String(cat.id),
+    label: cat.name,
+  }));
 
   return (
     <div className="tab-content-panel">
@@ -85,40 +95,16 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
             />
           </div>
 
-          <div className="col-md-6" ref={categoryRef}>
+          <div className="col-md-6">
             <label className="form-label">Menu category <span className="text-danger">*</span></label>
-            <div className="custom-select-wrapper category-select">
-              <button
-                type="button"
-                className={`form-select text-start ${hasError("category") ? "border-danger" : ""}`}
-                onClick={() => setShowCategoryMenu((v) => !v)}
-              >
-                {selectedCategory ? selectedCategory.name : "Select category"}
-              </button>
-              <ChevronDown className="select-icon" />
-
-              {showCategoryMenu && (
-                <div className="category-dropdown-menu shadow-sm rounded-3 border-0 p-1">
-                  <button
-                    type="button"
-                    className="dropdown-item rounded-2 py-2"
-                    onClick={() => { update("categoryId", ""); setShowCategoryMenu(false); }}
-                  >
-                    Select category
-                  </button>
-                  {categories.map((cat) => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      className={`dropdown-item rounded-2 py-2 ${String(cat.id) === String(data.categoryId) ? "active" : ""}`}
-                      onClick={() => { update("categoryId", String(cat.id)); setShowCategoryMenu(false); }}
-                    >
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ClientSelect
+              value={data.categoryId ? String(data.categoryId) : ""}
+              onChange={(val: string) => update("categoryId", val)}
+              options={categoryOptions}
+              placeholder="Select category"
+              searchPlaceholder="Search category..."
+              invalid={hasError("category")}
+            />
 
             {hasError("category") && (
               <div className="text-danger small mt-1">Category is required</div>
@@ -166,19 +152,13 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
 
           <div className="col-md-6">
             <label className="form-label">Gender preference (Optional)</label>
-            <div className="custom-select-wrapper">
-              <select
-                className="form-select"
-                value={data.genderPreference ?? ""}
-                onChange={(e) => update("genderPreference" as any, e.target.value || null)}
-              >
-                <option value="">No preference</option>
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-                <option value="other">Other</option>
-              </select>
-              <ChevronDown className="select-icon" />
-            </div>
+            <ClientSelect
+              value={data.genderPreference ?? ""}
+              onChange={(val: string) => update("genderPreference" as any, val || null)}
+              options={GENDER_PREFERENCE_OPTIONS}
+              placeholder="No preference"
+              searchPlaceholder="Search gender preference..."
+            />
             <div className="text-muted extra-small mt-2">
               Service availability preference for clients
             </div>
@@ -206,13 +186,13 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
         <div className="row g-3">
           <div className="col-md-4">
             <label className="form-label">Price type</label>
-            <div className="custom-select-wrapper">
-              <select className="form-select" defaultValue="Fixed">
-                <option value="Fixed">Fixed</option>
-                <option value="Variable">Variable</option>
-              </select>
-              <ChevronDown className="select-icon" />
-            </div>
+            <ClientSelect
+              value={data.priceType || "Fixed"}
+              onChange={(val: string) => update("priceType" as any, val)}
+              options={PRICE_TYPE_OPTIONS}
+              placeholder="Select price type"
+              searchPlaceholder="Search price type..."
+            />
           </div>
 
           <div className="col-md-4">
@@ -253,23 +233,13 @@ const BasicDetailsTab: React.FC<Props> = ({ data, onChange, errors = [], categor
 
           <div className="col-md-4">
             <label className="form-label">Duration</label>
-            <div className="custom-select-wrapper">
-              <select
-                className="form-select"
-                value={data.duration}
-                onChange={(e) => update("duration", Number(e.target.value))}
-              >
-                <option value={15}>15 min</option>
-                <option value={30}>30 min</option>
-                <option value={45}>45 min</option>
-                <option value={60}>1 h</option>
-                <option value={90}>1 h 30 min</option>
-                <option value={120}>2 h</option>
-                <option value={150}>2 h 30 min</option>
-                <option value={180}>3 h</option>
-              </select>
-              <ChevronDown className="select-icon" />
-            </div>
+            <ClientSelect
+              value={String(data.duration)}
+              onChange={(val: string) => update("duration", Number(val))}
+              options={DURATION_OPTIONS}
+              placeholder="Select duration"
+              searchPlaceholder="Search duration..."
+            />
           </div>
         </div>
       </div>
