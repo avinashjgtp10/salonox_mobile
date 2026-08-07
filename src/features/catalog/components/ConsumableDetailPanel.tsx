@@ -12,6 +12,10 @@ interface Props {
   onClose: () => void;
   onAdjusted?: () => void;
   onEdit?: () => void;
+  /** Opens the Stock Adjustment modal immediately on mount — set by the
+   *  table's "Adjust Stock" row action, which otherwise just dropped the user
+   *  on the panel and made them find the same button a second time. */
+  openAdjustOnMount?: boolean;
 }
 
 const REASON_OPTIONS: { value: AdjustStockReason; label: string }[] = [
@@ -21,11 +25,11 @@ const REASON_OPTIONS: { value: AdjustStockReason; label: string }[] = [
   { value: "manual_correction", label: "Manual Correction" },
 ];
 
-const ConsumableDetailPanel: React.FC<Props> = ({ productId, onClose, onAdjusted, onEdit }) => {
+const ConsumableDetailPanel: React.FC<Props> = ({ productId, onClose, onAdjusted, onEdit, openAdjustOnMount = false }) => {
   const dispatch = useDispatch<AppDispatch>();
   const { consumableDetail: detail, consumableDetailLoading: loading } = useSelector((s: RootState) => s.inventory);
 
-  const [showAdjust, setShowAdjust] = useState(false);
+  const [showAdjust, setShowAdjust] = useState(openAdjustOnMount);
   const [adjustDirection, setAdjustDirection] = useState<"increase" | "decrease">("increase");
   const [adjustQty, setAdjustQty] = useState("");
   const [adjustReason, setAdjustReason] = useState<AdjustStockReason>("purchase");

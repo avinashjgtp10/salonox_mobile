@@ -8,16 +8,11 @@ import {
   createSupplierThunk,
   updateSupplierThunk,
   deleteSupplierThunk,
-  fetchStockReconciliationThunk,
-  saveStockReconciliationThunk,
-  saveReconciliationRowThunk,
-  fetchConsumablesThunk,
-  fetchConsumableKpisThunk,
   fetchConsumablesDashboardThunk,
   fetchConsumableByIdThunk,
 } from "../middleware/inventory/inventory.thunk";
 import type {
-  Stocktake, Supplier, StockReconciliationRow,
+  Stocktake, Supplier,
   ConsumableListRow, ConsumableKpis, ConsumableDetail,
 } from "../types/inventory.types";
 
@@ -25,9 +20,6 @@ interface InventoryState {
   stocktakes: Stocktake[];
   suppliers: Supplier[];
   currentStocktake: Stocktake | null;
-  reconciliationRows: StockReconciliationRow[];
-  reconciliationLoading: boolean;
-  reconciliationSaving: boolean;
   loading: boolean;
   error: string | null;
 
@@ -48,9 +40,6 @@ const initialState: InventoryState = {
   stocktakes: [],
   suppliers: [],
   currentStocktake: null,
-  reconciliationRows: [],
-  reconciliationLoading: false,
-  reconciliationSaving: false,
   loading: false,
   error: null,
 
@@ -150,63 +139,8 @@ const inventorySlice = createSlice({
       state.suppliers = state.suppliers.filter((s) => s.id !== action.payload);
     });
 
-    // Fetch Stock Reconciliation
-    builder.addCase(fetchStockReconciliationThunk.pending, (state) => {
-      state.reconciliationLoading = true;
-      state.error = null;
-    });
-    builder.addCase(fetchStockReconciliationThunk.fulfilled, (state, action) => {
-      state.reconciliationLoading = false;
-      state.reconciliationRows = action.payload;
-    });
-    builder.addCase(fetchStockReconciliationThunk.rejected, (state, action) => {
-      state.reconciliationLoading = false;
-      state.error = action.payload as string;
-    });
-
-    // Save All Reconciliation
-    builder.addCase(saveStockReconciliationThunk.pending, (state) => {
-      state.reconciliationSaving = true;
-    });
-    builder.addCase(saveStockReconciliationThunk.fulfilled, (state) => {
-      state.reconciliationSaving = false;
-    });
-    builder.addCase(saveStockReconciliationThunk.rejected, (state, action) => {
-      state.reconciliationSaving = false;
-      state.error = action.payload as string;
-    });
-
-    // Save Single Reconciliation Row
-    builder.addCase(saveReconciliationRowThunk.fulfilled, (state, action) => {
-      const idx = state.reconciliationRows.findIndex(
-        (r) => r.product_id === action.payload.product_id
-      );
-      if (idx !== -1) {
-        state.reconciliationRows[idx] = action.payload;
-      }
-    });
-
-    // Consumable Inventory: list
-    builder.addCase(fetchConsumablesThunk.pending, (state) => {
-      state.consumablesLoading = true;
-      state.error = null;
-    });
-    builder.addCase(fetchConsumablesThunk.fulfilled, (state, action) => {
-      state.consumablesLoading = false;
-      state.consumables = action.payload.data;
-      state.consumablesPage = action.payload.page;
-      state.consumablesPageSize = action.payload.pageSize;
-      state.consumablesTotalRecords = action.payload.totalRecords;
-      state.consumablesTotalPages = action.payload.totalPages;
-    });
-    builder.addCase(fetchConsumablesThunk.rejected, (state, action) => {
-      state.consumablesLoading = false;
-      state.error = action.payload as string;
-    });
-
-    // Consumable Inventory: combined list + KPIs (single request) — updates
-    // exactly the same state fields as fetchConsumablesThunk/
-    // fetchConsumableKpisThunk above, just from one response instead of two.
+    // Consumable Inventory: combined list + KPIs, the single request behind
+    // the whole page — table rows, pagination, and KPI cards all land here.
     builder.addCase(fetchConsumablesDashboardThunk.pending, (state) => {
       state.consumablesLoading = true;
       state.consumableKpisLoading = true;
@@ -224,19 +158,6 @@ const inventorySlice = createSlice({
     });
     builder.addCase(fetchConsumablesDashboardThunk.rejected, (state, action) => {
       state.consumablesLoading = false;
-      state.consumableKpisLoading = false;
-      state.error = action.payload as string;
-    });
-
-    // Consumable Inventory: KPIs
-    builder.addCase(fetchConsumableKpisThunk.pending, (state) => {
-      state.consumableKpisLoading = true;
-    });
-    builder.addCase(fetchConsumableKpisThunk.fulfilled, (state, action) => {
-      state.consumableKpisLoading = false;
-      state.consumableKpis = action.payload;
-    });
-    builder.addCase(fetchConsumableKpisThunk.rejected, (state, action) => {
       state.consumableKpisLoading = false;
       state.error = action.payload as string;
     });

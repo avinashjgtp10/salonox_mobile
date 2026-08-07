@@ -102,7 +102,9 @@ export interface CreateSupplierPayload {
 
 export type UpdateSupplierPayload = Partial<CreateSupplierPayload>;
 
-// ─── Stock Reconciliation ─────────────────────────────────────────────────────
+// ─── Back-bar consumption totals (Consumable Usage report) ───────────────────
+// Read-only now: the editable Stock Reconciliation page these were shaped for
+// has been removed, and only the report reads this endpoint.
 
 export interface StockReconciliationRow {
   product_id: string;
@@ -117,40 +119,6 @@ export interface StockReconciliationRow {
   unit: string;
   consumable_difference: number;
   remark: string;
-}
-
-export interface StockReconciliationItemPayload {
-  product_id: string;
-  adjust_stock: number;
-  adjust_consumable: number;
-  remark?: string;
-}
-
-export interface StockReconciliationPayload {
-  branch_id: string;
-  items: StockReconciliationItemPayload[];
-}
-
-export interface StockReconciliationResponse {
-  success: boolean;
-  message: string;
-  data: StockReconciliationRow[];
-}
-
-// ─── Consumable Usage (from Calendar/Appointments) ───────────────────────────
-
-export interface ConsumableUsageItem {
-  product_id: string;
-  product_name: string;
-  qty: number;
-  unit: string;
-}
-
-export interface ConsumableUsagePayload {
-  branch_id: string;
-  booking_id?: string;
-  service_id?: string;
-  items: ConsumableUsageItem[];
 }
 
 // ─── Consumable Inventory (dedicated module) ─────────────────────────────────
@@ -196,7 +164,6 @@ export interface ConsumableListRow {
 
 export interface ConsumableKpis {
   total_consumables: number;
-  total_available_stock: number;
   low_stock_items: number;
   out_of_stock_items: number;
   assigned_services: number;
@@ -232,10 +199,7 @@ export interface ConsumableUsageStats {
 }
 
 export interface ConsumableDetail extends ConsumableListRow {
-  bottle_size: number | null;
   supply_price: number | null;
-  measure_unit: string;
-  is_active: boolean;
   usage_stats: ConsumableUsageStats;
   assigned_services: AssignedServiceRow[];
   recent_consumption: RecentConsumptionRow[];
@@ -255,7 +219,6 @@ export interface AdjustStockPayload {
 
 export interface UsageHistoryFilters {
   product_id?: string;
-  service_id?: string;
   direction?: "deduct" | "return";
   from?: string;
   to?: string;
