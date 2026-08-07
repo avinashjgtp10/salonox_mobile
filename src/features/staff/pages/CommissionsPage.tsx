@@ -21,6 +21,7 @@ import { SuccessOverlay } from "../../../components/ui";
 import RuleCard from "../components/commission/RuleCard";
 import RuleWizard from "../components/commission/RuleWizard";
 import RuleDetailModal from "../components/commission/RuleDetailModal";
+import SettleCommissionModal from "../components/commission/SettleCommissionModal";
 import { SOURCE_META, groupCommissionRules } from "../components/commission/commissionRuleMeta";
 import { exportCommissionsPDF } from "../utils/commissionExport";
 import type { CommissionRule, CommissionRuleFormData, CommissionRuleSource, RuleGroup } from "../types/commissionRules.types";
@@ -621,6 +622,7 @@ export default function CommissionsPage() {
   const [summaryMonth,     setSummaryMonth]     = useState(() => new Date().toISOString().slice(0, 7)); // YYYY-MM
   const [historyStaffId,   setHistoryStaffId]   = useState<string | null>(null);
   const [settlingId,  setSettlingId]  = useState<string | null>(null);
+  const [settleTarget, setSettleTarget] = useState<{ staffId: string; name: string; pending: number } | null>(null);
 
   // ── New commission rules engine ─────────────────────────────────────────────
   const [commissionRules, setCommissionRules] = useState<CommissionRule[]>([]);
@@ -769,8 +771,12 @@ export default function CommissionsPage() {
   const handleSettle = async (staffId: string, name: string, amount: number) => {
     setSettlingId(staffId);
     try {
+      // Settlement flow/endpoint unchanged — it still settles the full
+      // pending amount for this staff member. `amount` is only used here to
+      // reflect what the user confirmed in the modal's toast message.
       await api.post(STAFF.SETTLE_COMMISSION(staffId));
       showSuccess(`${formatAmount(amount)} settled for ${name}`);
+      setSettleTarget(null);
       const [summaryRes, earnedRes] = await Promise.all([
         api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&month=${summaryMonth}`),
         api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&month=${summaryMonth}`),
@@ -890,7 +896,7 @@ export default function CommissionsPage() {
           earnedByStaff={earnedByStaff}
           summaryMonth={summaryMonth}
           onMonthChange={(m) => { setSummaryMonth(m); }}
-          onSettle={handleSettle}
+          onSettle={(staffId, name, pending) => setSettleTarget({ staffId, name, pending })}
           settlingId={settlingId}
           onOpenHistory={(staffId) => setHistoryStaffId(staffId)}
         />
@@ -986,6 +992,16 @@ export default function CommissionsPage() {
             : "Staff"}
           summaryMonth={summaryMonth}
           onClose={() => setHistoryStaffId(null)}
+        />
+      )}
+
+      {settleTarget && (
+        <SettleCommissionModal
+          staffName={settleTarget.name}
+          totalUnpaid={settleTarget.pending}
+          formatAmount={formatAmount}
+          onConfirm={(amount) => handleSettle(settleTarget.staffId, settleTarget.name, amount)}
+          onClose={() => setSettleTarget(null)}
         />
       )}
 
