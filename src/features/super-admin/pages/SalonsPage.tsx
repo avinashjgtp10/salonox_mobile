@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSuperAdminSalonsThunk, setSalonStatusThunk, forceOnboardingThunk, impersonateSalonThunk, deleteSalonThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
 import Pagination from "../components/Pagination";
@@ -73,6 +74,7 @@ function ConfirmDeleteModal({ salonName, onConfirm, onCancel, loading }: { salon
 
 export default function SalonsPage() {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
   const { salons, loading } = useAppSelector((s) => s.superAdmin);
   const [search, setSearch]   = useState("");
   const [actionId, setActionId] = useState<string | null>(null);
@@ -204,11 +206,12 @@ export default function SalonsPage() {
               <tr><td colSpan={10} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No salons found</td></tr>
             ) : (
               sortedSalons.slice((page - 1) * perPage, page * perPage).map((s: any) => (
-                <tr key={s.id} style={{ borderTop: "1px solid #f1f5f9", transition: "background 0.1s" }}
+                <tr key={s.id} style={{ borderTop: "1px solid #f1f5f9", transition: "background 0.1s", cursor: "pointer" }}
+                  onClick={() => navigate(`/super-admin/salons/${s.id}`)}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
                   <td style={{ padding: "13px 16px" }}>
-                    <div style={{ color: "#0f172a", fontWeight: 700, fontSize: 13.5 }}>{s.name}</div>
+                    <span style={{ color: "#0f172a", fontWeight: 700, fontSize: 13.5 }}>{s.name}</span>
                   </td>
                   <td style={{ padding: "13px 16px" }}>
                     <div style={{ color: "#374151", fontSize: 13 }}>{s.owner_name || "—"}</div>
@@ -227,7 +230,7 @@ export default function SalonsPage() {
                       ? <span style={{ color: "#16a34a", fontSize: 12.5, fontWeight: 600 }}>✓ Done</span>
                       : <span style={{ color: "#d97706", fontSize: 12.5, fontWeight: 600 }}>⚠ Pending</span>}
                   </td>
-                  <td style={{ padding: "13px 16px" }}>
+                  <td style={{ padding: "13px 16px" }} onClick={(e) => e.stopPropagation()}>
                     <div style={{ display: "flex", gap: 5, flexWrap: "wrap" }}>
                       {s.status === "active"
                         ? <ActionBtn label="Deactivate" color="#dc2626" bg="#fef2f2" onClick={() => handleStatus(s.id, false)} disabled={actionId === s.id} />
