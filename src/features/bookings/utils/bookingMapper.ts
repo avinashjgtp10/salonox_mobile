@@ -428,7 +428,19 @@ export function mapApiBooking(
     taxBreakdown,
     gstAmount: gstAmountVal,
     membershipName,
-    staffId: (() => { const raw = appt.staffId || appt.staff_id || packageItems.find((p: any) => p.staffId)?.staffId; return raw ? String(raw) : undefined; })(),
+    // Falls back through package, membership, AND product rows (not just
+    // package) — a membership- or product-only sale (no services, no
+    // packages) previously left this undefined, since only packageItems was
+    // checked here. With no staffId, the calendar grid (staff-column-based
+    // layout, see DayView.tsx) has nowhere valid to position the chip, so it
+    // silently never rendered.
+    staffId: (() => {
+      const raw = appt.staffId || appt.staff_id
+        || packageItems.find((p: any) => p.staffId)?.staffId
+        || membershipItems.find((m: any) => m.staffId)?.staffId
+        || productItems.find((p: any) => p.staffId)?.staffId;
+      return raw ? String(raw) : undefined;
+    })(),
     clientId: String(appt.clientId ?? appt.client_id ?? appt.client?.id ?? ""),
     date: appt.date
       ? toLocalDateStr(appt.date)
