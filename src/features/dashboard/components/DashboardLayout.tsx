@@ -73,6 +73,13 @@ export default function DashboardLayout() {
     location.pathname.includes("/team/add") ||
     location.pathname.includes("/clients/add") ||
     location.pathname.startsWith("/dashboard/settings") ||
+    // Add/Edit Product is a self-contained shell (own header + own
+    // `calc(100vh - ...)` height, see ConsumableFormPage.scss) built on the
+    // same "sits flush, no padding from .main" assumption as Team/Clients
+    // "add" — without this it renders with a stray gray margin around it
+    // that Create Staff's flush header doesn't have.
+    location.pathname.startsWith("/dashboard/catalog/products/create") ||
+    location.pathname.startsWith("/dashboard/catalog/products/edit/") ||
     (location.pathname.startsWith("/dashboard/team/") && !["members", "dashboard", "shifts", "payroll", "payruns", "commissions", "attendance", "history"].some((p) => location.pathname.endsWith(p))) ||
     (location.pathname.startsWith("/dashboard/clients/") && !["list", "groups", "reviews", "import"].some((p) => location.pathname.endsWith(p)));
 

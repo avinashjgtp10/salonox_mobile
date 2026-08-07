@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { X, Trash } from "react-bootstrap-icons";
+import { Trash } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import { fetchBrandsThunk, fetchCategoriesThunk, createProductThunk, updateProductThunk, createBrandThunk, createCategoryThunk } from "../../../middleware/catalog/products.thunk";
@@ -520,11 +520,13 @@ const ProductFormPage: React.FC = () => {
   return (
     <div className="cf-page">
       <div className="cf-topbar">
-        <button className="cf-close" onClick={() => navigate(listPath)}><X size={20} /></button>
         <h1>{isEdit ? "Edit Product" : "Add Product"}</h1>
-        <button className="cf-save-btn" disabled={saving} onClick={handleSubmit}>
-          {saving ? "Saving…" : "Save"}
-        </button>
+        <div className="cf-topbar-actions">
+          <button className="cf-close" onClick={() => navigate(listPath)}>Close</button>
+          <button className="cf-save-btn" disabled={saving} onClick={handleSubmit}>
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
       </div>
 
       {error && <div className="cf-error-banner">{error}</div>}

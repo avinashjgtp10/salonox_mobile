@@ -6,8 +6,11 @@
   // bleed through above the topbar (AddSupplierPage.scss hit and fixed the
   // same issue). The topbar is now a plain flex item (always visible, no
   // sticky needed) and only &-body scrolls.
-  max-width: 720px;
-  margin: 0 auto;
+  //
+  // No max-width here (unlike before) — the topbar now spans the page's
+  // full width edge-to-edge, matching Create Staff's header. The 720px
+  // reading-width cap moved down onto &-body instead, so the header looks
+  // full-width while the form fields inside it don't stretch absurdly wide.
   height: calc(100vh - 70px);
   display: flex;
   flex-direction: column;
@@ -16,41 +19,88 @@
   &--loading { padding: 60px; text-align: center; color: #9ca3af; }
 }
 
+// Matches Create Staff's header (`.add-staff__header` in AddStaffPage.scss)
+// — full-width, title left-aligned, Close/Save grouped as pill buttons on
+// the right, both vertically centered — for consistency across the app's
+// "add/edit" screens. Taller than the 56px main app topbar so it reads as
+// this page's own dedicated action bar.
 .cf-topbar {
+  height: 72px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 18px 24px;
+  gap: 16px;
+  padding: 0 32px;
   border-bottom: 1px solid #e5e7eb;
   background: #fff;
 
-  h1 { margin: 0; font-size: 17px; font-weight: 700; color: #111827; }
+  h1 {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 17px;
+    font-weight: 700;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0 16px;
+    gap: 8px;
+  }
+}
+
+.cf-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    gap: 6px;
+  }
 }
 
 .cf-close {
-  background: none;
-  border: none;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  padding: 8px 20px;
+  border-radius: 20px;
+  font-weight: 600;
+  font-size: 13px;
+  font-family: inherit;
+  color: #111827;
   cursor: pointer;
-  color: #6b7280;
-  &:hover { color: #111827; }
+  transition: all 0.2s;
+  white-space: nowrap;
+
+  &:hover {
+    background: #f9fafb;
+    border-color: #d1d5db;
+  }
+
+  @media (max-width: 480px) { padding: 8px 14px; }
 }
 
 .cf-save-btn {
-  height: 38px;
-  padding: 0 18px;
-  border: 1px solid transparent;
-  border-radius: 8px;
+  border: none;
+  padding: 8px 28px;
+  border-radius: 20px;
   background: #111827;
   color: #fff;
-  font-size: 13.5px;
+  font-size: 13px;
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: all 0.2s;
+  white-space: nowrap;
 
-  &:hover:not(:disabled) { background: #1f2937; }
-  &:disabled { opacity: 0.6; cursor: not-allowed; }
+  &:hover:not(:disabled) { opacity: 0.9; }
+  &:disabled { background: #9ca3af; cursor: not-allowed; }
+
+  @media (max-width: 480px) { padding: 8px 18px; }
 }
 
 .cf-status {
@@ -78,10 +128,17 @@
 .cf-body {
   flex: 1;
   overflow-y: auto;
-  padding: 20px 24px 60px;
+  // Reading-width cap that used to live on .cf-page itself — kept here so
+  // the form fields don't stretch edge-to-edge now that the topbar above
+  // spans the page's full width.
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 24px 60px;
   display: flex;
   flex-direction: column;
   gap: 16px;
+  box-sizing: border-box;
 }
 
 .cf-card {
