@@ -2,7 +2,25 @@ import { useRef, useState } from "react";
 import type { FC } from "react";
 import { Country } from "country-state-city";
 import { Person, Pencil, Eye, EyeSlash } from "react-bootstrap-icons";
+import ClientSelect from "../../clients/components/ClientSelect";
+import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
 import "../styles/StaffProfileSection.scss";
+
+const JOB_TITLE_OPTIONS = [
+  { value: "", label: "Select a role" },
+  { value: "admin", label: "Admin" },
+  { value: "staff", label: "Staff" },
+  { value: "manager", label: "Manager" },
+];
+
+const EMPLOYMENT_TYPE_OPTIONS = [
+  { value: "", label: "Select an option" },
+  { value: "full_time", label: "Full-time" },
+  { value: "part_time", label: "Part-time" },
+  { value: "contract", label: "Contract" },
+  { value: "intern", label: "Intern" },
+  { value: "freelance", label: "Freelance" },
+];
 
 
 interface StaffProfileProps {
@@ -59,14 +77,6 @@ interface StaffProfileProps {
 
 
 const COUNTRIES = Country.getAllCountries().map((c) => c.name).sort();
-
-const PHONE_CODES = Country.getAllCountries()
-  .map((c) => ({
-    code: c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`,
-    label: `${c.isoCode} (${c.phonecode.startsWith("+") ? c.phonecode : `+${c.phonecode}`})`,
-  }))
-  .filter((v, i, a) => a.findIndex((t) => t.label === v.label) === i)
-  .sort((a, b) => a.label.localeCompare(b.label));
 
 const StaffProfileSection: FC<StaffProfileProps> = ({
   firstName = "", setFirstName = () => { },
@@ -164,16 +174,14 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
       {/* Job Title / Role */}
       <div className="sp-field">
         <label className="sp-label">Job title / Role</label>
-        <select
-          className="sp-select"
+        <ClientSelect
           value={jobTitle}
-          onChange={(e) => setJobTitle(e.target.value)}
-        >
-          <option value="">Select a role</option>
-          <option value="admin">Admin</option>
-          <option value="staff">Staff</option>
-          <option value="manager">Manager</option>
-        </select>
+          onChange={(val: string) => setJobTitle(val)}
+          options={JOB_TITLE_OPTIONS}
+          placeholder="Select a role"
+          searchPlaceholder="Search role..."
+          className="sp-select"
+        />
         <p className="sp-hint">Visible to clients online and shown in the staff member list</p>
       </div>
 
@@ -251,15 +259,10 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
       <div className="sp-field">
         <label className="sp-label">Phone number <span className="sp-required">*</span></label>
         <div className="sp-phone-group">
-          <select
-            className="sp-select sp-select--narrow"
+          <CountryCodeSelect
             value={phoneCountryCode}
-            onChange={(e) => setPhoneCountryCode(e.target.value)}
-          >
-            {PHONE_CODES.map((p) => (
-              <option key={p.label} value={p.code}>{p.label}</option>
-            ))}
-          </select>
+            onChange={(code: string) => setPhoneCountryCode(code)}
+          />
           <input
             type="tel"
             className={`sp-input sp-input--flex ${isPhoneInvalid ? "sp-input--invalid" : ""}`}
@@ -280,15 +283,10 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
       <div className="sp-field">
         <label className="sp-label">Additional phone number</label>
         <div className="sp-phone-group">
-          <select
-            className="sp-select sp-select--narrow"
+          <CountryCodeSelect
             value={additionalPhoneCountryCode}
-            onChange={(e) => setAdditionalPhoneCountryCode(e.target.value)}
-          >
-            {PHONE_CODES.map((p) => (
-              <option key={p.label} value={p.code}>{p.label}</option>
-            ))}
-          </select>
+            onChange={(code: string) => setAdditionalPhoneCountryCode(code)}
+          />
           <input
             type="tel"
             className={`sp-input sp-input--flex ${isAdditionalPhoneInvalid ? "sp-input--invalid" : ""}`}
@@ -308,11 +306,9 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
       {/* Country */}
       <div className="sp-field">
         <label className="sp-label">Country</label>
-        <select
-          className="sp-select"
+        <ClientSelect
           value={country}
-          onChange={(e) => {
-            const newCountry = e.target.value;
+          onChange={(newCountry: string) => {
             setCountry(newCountry);
             const match = Country.getAllCountries().find((c) => c.name === newCountry);
             if (match) {
@@ -320,11 +316,11 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
               setPhoneCountryCode(dialCode);
             }
           }}
-        >
-          {COUNTRIES.map((c) => (
-            <option key={c} value={c}>{c}</option>
-          ))}
-        </select>
+          options={COUNTRIES.map((c) => ({ value: c, label: c }))}
+          placeholder="Select country"
+          searchPlaceholder="Search country..."
+          className="sp-select"
+        />
       </div>
 
       {/* Birthday */}
@@ -409,18 +405,14 @@ const StaffProfileSection: FC<StaffProfileProps> = ({
       <div className="sp-field-row">
         <div className="sp-field sp-field--half">
           <label className="sp-label">Employment type</label>
-          <select
-            className="sp-select"
+          <ClientSelect
             value={employmentType}
-            onChange={(e) => setEmploymentType(e.target.value)}
-          >
-            <option value="">Select an option</option>
-            <option value="full_time">Full-time</option>
-            <option value="part_time">Part-time</option>
-            <option value="contract">Contract</option>
-            <option value="intern">Intern</option>
-            <option value="freelance">Freelance</option>
-          </select>
+            onChange={(val: string) => setEmploymentType(val)}
+            options={EMPLOYMENT_TYPE_OPTIONS}
+            placeholder="Select an option"
+            searchPlaceholder="Search employment type..."
+            className="sp-select"
+          />
         </div>
         <div className="sp-field sp-field--half">
           <label className="sp-label">Staff member ID</label>

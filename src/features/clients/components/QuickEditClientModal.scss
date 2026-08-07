@@ -86,14 +86,22 @@
   align-items: center;
   gap: 8px;
 
-  .qec-phone-code {
+  .ccs-root {
+    display: flex;
+  }
+
+  .ccs-trigger {
     border: 1px solid #d1d5db;
     border-radius: 8px;
-    padding: 10px 10px;
-    font-size: 14px;
-    color: #6b7280;
+    height: 42px;
+    padding: 0 8px;
     background: #f9fafb;
-    flex-shrink: 0;
+    width: 95px;
+    font-size: 14px;
+
+    &:hover {
+      border-color: #9ca3af;
+    }
   }
 
   .qec-phone-input { flex: 1; }

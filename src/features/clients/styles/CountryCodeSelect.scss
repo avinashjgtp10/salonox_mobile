@@ -90,6 +90,22 @@
 .ccs-list {
   overflow-y: auto;
   flex: 1;
+
+  /* Visible custom scrollbar */
+  &::-webkit-scrollbar {
+    width: 6px;
+  }
+  &::-webkit-scrollbar-track {
+    background: #f3f4f6;
+  }
+  &::-webkit-scrollbar-thumb {
+    background: #d1d5db;
+    border-radius: 3px;
+
+    &:hover {
+      background: #9ca3af;
+    }
+  }
 }
 
 .ccs-empty {
@@ -114,6 +130,7 @@
 
   &:hover { background: #f9fafb; }
   &--active { background: #f3f0fd; }
+  &--selected { font-weight: 600; color: #6c3ce1; }
 
   &__flag { font-size: 15px; flex-shrink: 0; }
 
