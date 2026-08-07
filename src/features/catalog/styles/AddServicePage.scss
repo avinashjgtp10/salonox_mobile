@@ -1151,3 +1151,120 @@
   }
 }
 
+// ── Consumables recipe row (ConsumablesTab) ─────────────────────────────────
+// Same column concept (Product / Total Stock / Qty / Unit / Action) and
+// add-then-lock interaction as the Consumable Usage panel in Quick Sale and
+// the Appointment modal (ServiceRow.tsx's .svc-recipe-* / .svc-consumable-drop
+// in AppointmentModal.scss) — kept as its own block, not a shared import,
+// since this page has its own design system ($sao-*-prefixed) the booking
+// modal doesn't share. Keep the two in sync by eye if either changes.
+.sao-recipe-header,
+.sao-recipe-row {
+  display: grid;
+  grid-template-columns: 1fr 110px 90px 70px 30px;
+  gap: 10px;
+  align-items: center;
+}
+
+.sao-recipe-header {
+  padding: 0 0 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+
+  span { text-align: center; }
+  span:first-child { text-align: left; }
+}
+
+.sao-recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.sao-recipe-row {
+  padding: 6px 0;
+
+  &__name {
+    font-size: 13px;
+    color: #111827;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  &__stock,
+  &__unit {
+    font-size: 12.5px;
+    color: #6b7280;
+    text-align: center;
+  }
+}
+
+// The search row itself — a single click on a dropdown result both picks
+// AND adds the row (see ConsumablesTab.tsx's pickProduct), so this is just
+// the search box plus a cancel affordance, not a multi-field draft form.
+.sao-recipe-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.sao-recipe-add-row__search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.sao-recipe-drop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  max-height: 220px;
+  overflow-y: auto;
+
+  &__item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: #111827;
+    cursor: pointer;
+    &:hover { background: #f9fafb; }
+    &--active { background: #f3e8ff; }
+  }
+
+  &__unit { color: #9ca3af; }
+
+  &__empty {
+    padding: 8px 12px;
+    font-size: 12.5px;
+    color: #9ca3af;
+  }
+}
+
+.sao-recipe-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #ef4444;
+}
+
