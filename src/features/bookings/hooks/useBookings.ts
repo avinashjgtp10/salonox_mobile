@@ -29,6 +29,29 @@ export function getViewRange(viewMode: string, date: string): { startDate: strin
   return { startDate: date, endDate: date };
 }
 
+// Module-scoped (not per-hook-instance) so the "already fetched" bookkeeping
+// survives Scheduler.tsx unmounting/remounting on navigation away and back —
+// previously these were useRefs inside the hook, so every remount forgot
+// everything and re-ran the full sequential paginated fetch from scratch
+// even though Redux already had the data, which is what made navigating
+// away from Calendar and back take ~1 minute on a busy week/month.
+//
+// `cachedRawBookings` must be module-scoped too, alongside the two Sets
+// above, not just per-mount useState — setBookings() below REPLACES Redux's
+// whole bookings array rather than merging it. If only the two Sets were
+// module-scoped, a fresh mount's local accumulator would start at [], so
+// fetching a brand-new (never-cached) range after a remount would dispatch
+// ONLY that range's items and silently wipe out every other range's
+// bookings that Redux still claimed (via the Sets) to have already fetched
+// — the calendar would then show blank for any previously-visited date
+// until a full page reload. Keeping the accumulated raw items themselves at
+// module scope means a fresh mount always re-dispatches everything fetched
+// so far this session, so Redux and the "already fetched" bookkeeping never
+// drift apart.
+const fetchedRangesRef: { current: Set<string> } = { current: new Set() };
+const pendingRangesRef: { current: Set<string> } = { current: new Set() };
+let cachedRawBookings: any[] = [];
+
 export function useBookings(skip = false) {
   const dispatch     = useAppDispatch();
   const currentDate  = useAppSelector(selectCurrentDate);
@@ -37,10 +60,15 @@ export function useBookings(skip = false) {
   const apiClients   = useAppSelector(selectClientsList);
   const servicesList = useAppSelector(selectServicesList);
 
-  // Raw API items accumulated across all fetched ranges
-  const [rawApiBookings, setRawApiBookings] = useState<any[]>([]);
-  const fetchedRangesRef = useRef<Set<string>>(new Set());
-  const pendingRangesRef = useRef<Set<string>>(new Set());
+  // Raw API items accumulated across all fetched ranges — seeded from the
+  // module-scoped cache so a remount immediately re-syncs Redux with
+  // everything already fetched this session (see comment above).
+  const [rawApiBookings, setRawApiBookings] = useState<any[]>(() => cachedRawBookings);
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
+  }, []);
   // True only while the CURRENTLY-VIEWED range has never been fetched before —
   // i.e. first load of a date/view the user hasn't visited yet. Manual
   // refresh() and socket-triggered refetches always run silently (the range
@@ -89,19 +117,28 @@ export function useBookings(skip = false) {
         if (page >= totalPages || items.length === 0) break;
       }
       fetchedRangesRef.current.add(rangeKey);
-      setRawApiBookings((prev) => {
-        // Replace items for dates within this range; keep everything outside it
-        const filtered = prev.filter((p: any) => {
-          const pDate = p.scheduled_at
-            ? toLocalDateStr(p.scheduled_at)
-            : String(p.date || "").slice(0, 10);
-          return pDate < startDate || pDate > endDate;
-        });
-        return [...filtered, ...allItems];
+      // Merge against the module-scoped accumulator (not this instance's
+      // local `prev` state) so the result is correct even if this fetch was
+      // started by a since-unmounted instance, or a fresher mount already
+      // holds newer accumulated data than this instance's own closure.
+      const filtered = cachedRawBookings.filter((p: any) => {
+        const pDate = p.scheduled_at
+          ? toLocalDateStr(p.scheduled_at)
+          : String(p.date || "").slice(0, 10);
+        return pDate < startDate || pDate > endDate;
       });
+      cachedRawBookings = [...filtered, ...allItems];
+      // The component that started this fetch may have unmounted (nav away)
+      // before the sequential page loop above finished — the module-scoped
+      // cache above is updated regardless (so the NEXT mount picks it up),
+      // but skip touching this instance's own state to avoid a "set state
+      // on unmounted component" warning.
+      if (isMountedRef.current) {
+        setRawApiBookings(cachedRawBookings);
+      }
     } finally {
       pendingRangesRef.current.delete(rangeKey);
-      if (!opts?.silent) setLoading(false);
+      if (!opts?.silent && isMountedRef.current) setLoading(false);
     }
   }, [dispatch]);
 

@@ -133,7 +133,14 @@ export function useStaffSchedule(salonId?: string | null) {
     dispatch(setStaffSchedules(schedules));
   }, [apiStaff, dispatch]);
 
-  // staffReady = fetch was dispatched for this salon AND is no longer loading
-  const staffReady = initialized.current === salonId && !staffFetching;
+  // staffReady = usable staff data exists AND nothing's in flight. Checking
+  // ONLY `initialized.current === salonId` broke on remount: when staffList
+  // is already in Redux, the fetch effect above deliberately skips
+  // dispatching (see its `staffList.length > 0` guard) and so never sets
+  // `initialized` for THIS mount instance — staffReady would then stay
+  // false forever and the calendar would be stuck on its skeleton even
+  // though the data was already there. Falling back to `staffList.length`
+  // treats already-cached data as ready too.
+  const staffReady = (initialized.current === salonId || staffList.length > 0) && !staffFetching;
   return { staffReady, hasStaff: staffList.length > 0 };
 }
