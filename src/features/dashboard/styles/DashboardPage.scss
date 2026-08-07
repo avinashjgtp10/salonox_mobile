@@ -314,11 +314,17 @@ body {
 /* ================= MAIN ================= */
 .main {
   flex: 1;
+  min-width: 0; // lets a flex child actually shrink instead of forcing the row wider
   margin-left: 90px;
   padding: 20px;
   background: #f9fafb;
   height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
   overflow-y: auto;
+  // A wide child (a table before its own internal scroll container kicks
+  // in, an unconstrained grid, etc.) previously wasn't clipped here, so it
+  // widened the whole page instead of just this pane — dragging content out
+  // past the fixed sidebar/topbar instead of scrolling within its own box.
+  overflow-x: hidden;
   transition: margin 0.25s ease;
 
   &.main--flush,
