@@ -1,11 +1,26 @@
 import React from "react";
-import { ChevronDown, InfoCircle } from "react-bootstrap-icons";
+import { InfoCircle } from "react-bootstrap-icons";
+import ClientSelect from "../../../clients/components/ClientSelect";
 import type { OnlineBookingData } from "../../types/catalog.types.ts";
 
 interface Props {
   data: OnlineBookingData;
   onChange: (data: OnlineBookingData) => void;
 }
+
+const MAX_ADVANCE_OPTIONS = [
+  { value: "30", label: "1 month" },
+  { value: "60", label: "2 months" },
+  { value: "90", label: "3 months" },
+  { value: "180", label: "6 months" },
+];
+
+const MIN_NOTICE_OPTIONS = [
+  { value: "0", label: "No notice required" },
+  { value: "1", label: "1 hour" },
+  { value: "4", label: "4 hours" },
+  { value: "24", label: "24 hours" },
+];
 
 const OnlineBookingTab: React.FC<Props> = ({ data, onChange }) => {
   const update = (key: keyof OnlineBookingData, value: any) =>
@@ -57,40 +72,24 @@ const OnlineBookingTab: React.FC<Props> = ({ data, onChange }) => {
               <label className="form-label fw-bold">
                 Maximum advance booking
               </label>
-              <div className="custom-select-wrapper">
-                <select
-                  className="form-select"
-                  value={data.maxAdvanceDays}
-                  onChange={(e) =>
-                    update("maxAdvanceDays", Number(e.target.value))
-                  }
-                >
-                  <option value={30}>1 month</option>
-                  <option value={60}>2 months</option>
-                  <option value={90}>3 months</option>
-                  <option value={180}>6 months</option>
-                </select>
-                <ChevronDown className="select-icon" />
-              </div>
+              <ClientSelect
+                value={String(data.maxAdvanceDays)}
+                onChange={(val: string) => update("maxAdvanceDays", Number(val))}
+                options={MAX_ADVANCE_OPTIONS}
+                placeholder="Select maximum advance booking"
+                searchPlaceholder="Search booking advance..."
+              />
             </div>
 
             <div className="col-md-6">
               <label className="form-label fw-bold">Minimum notice</label>
-              <div className="custom-select-wrapper">
-                <select
-                  className="form-select"
-                  value={data.minNoticeHours}
-                  onChange={(e) =>
-                    update("minNoticeHours", Number(e.target.value))
-                  }
-                >
-                  <option value={0}>No notice required</option>
-                  <option value={1}>1 hour</option>
-                  <option value={4}>4 hours</option>
-                  <option value={24}>24 hours</option>
-                </select>
-                <ChevronDown className="select-icon" />
-              </div>
+              <ClientSelect
+                value={String(data.minNoticeHours)}
+                onChange={(val: string) => update("minNoticeHours", Number(val))}
+                options={MIN_NOTICE_OPTIONS}
+                placeholder="Select minimum notice"
+                searchPlaceholder="Search minimum notice..."
+              />
             </div>
           </div>
 

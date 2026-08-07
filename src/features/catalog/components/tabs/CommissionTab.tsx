@@ -1,5 +1,6 @@
 import React, { useState } from "react";
-import { ChevronDown, InfoCircle } from "react-bootstrap-icons";
+import { InfoCircle } from "react-bootstrap-icons";
+import ClientSelect from "../../../clients/components/ClientSelect";
 import type {
   CommissionData,
   MemberCommission,
@@ -9,6 +10,16 @@ interface Props {
   data: CommissionData;
   onChange: (data: CommissionData) => void;
 }
+
+const COMMISSION_TYPE_OPTIONS = [
+  { value: "percentage", label: "Percentage (%)" },
+  { value: "flat", label: "Flat" },
+];
+
+const MEMBER_COMMISSION_TYPE_OPTIONS = [
+  { value: "percentage", label: "%" },
+  { value: "flat", label: "$" },
+];
 
 const CommissionTab: React.FC<Props> = ({ data, onChange }) => {
   const [filterStaff] = useState("all");
@@ -64,22 +75,18 @@ const CommissionTab: React.FC<Props> = ({ data, onChange }) => {
             <label className="form-label small fw-medium mb-1">
               Commission type
             </label>
-            <div className="custom-select-wrapper">
-              <select
-                className="form-select premium-input"
-                value={data.defaultType}
-                onChange={(e) =>
-                  onChange({
-                    ...data,
-                    defaultType: e.target.value as "percentage" | "flat",
-                  })
-                }
-              >
-                <option value="percentage">Percentage (%)</option>
-                <option value="flat">Flat </option>
-              </select>
-              <ChevronDown className="select-icon" />
-            </div>
+            <ClientSelect
+              value={data.defaultType}
+              onChange={(val: string) =>
+                onChange({
+                  ...data,
+                  defaultType: val as "percentage" | "flat",
+                })
+              }
+              options={COMMISSION_TYPE_OPTIONS}
+              placeholder="Select type"
+              searchPlaceholder="Search commission type..."
+            />
           </div>
           <div className="col-sm-6">
             <label className="form-label small fw-medium mb-1">Value</label>
@@ -137,24 +144,19 @@ const CommissionTab: React.FC<Props> = ({ data, onChange }) => {
             </span>
 
             <div className="d-flex gap-2">
-              <div className="custom-select-wrapper" style={{ width: "80px" }}>
-                <select
-                  className="form-select form-select-sm premium-input"
+              <div style={{ width: "90px" }}>
+                <ClientSelect
                   value={mc.commissionType}
-                  onChange={(e) =>
+                  onChange={(val: string) =>
                     updateMemberCommission(
                       mc.memberId,
-                      e.target.value as "percentage" | "flat",
+                      val as "percentage" | "flat",
                       mc.commissionValue,
                     )
                   }
-                >
-                  <option value="percentage">%</option>
-                  <option value="flat">$</option>
-                </select>
-                <ChevronDown
-                  className="select-icon"
-                  style={{ right: "8px", fontSize: "10px" }}
+                  options={MEMBER_COMMISSION_TYPE_OPTIONS}
+                  placeholder="Select"
+                  searchPlaceholder="Search..."
                 />
               </div>
               <input

@@ -51,6 +51,7 @@ export interface BasicDetailsData {
   categoryId: string;
   duration: number;
   price: number;
+  priceType?: string;
   discountedPrice?: number | null;
   paddingBefore: number;
   paddingAfter: number;

@@ -1,5 +1,6 @@
 import React from "react";
 import { InfoCircle } from "react-bootstrap-icons";
+import ClientSelect from "../../../clients/components/ClientSelect";
 import type { SettingsData } from "../../types/catalog.types.ts";
 import { useCurrency } from "../../../../hooks/useCurrency";
 
@@ -11,6 +12,15 @@ interface Props {
 const COLORS = [
   "#6366f1", "#ec4899", "#f59e0b", "#10b981",
   "#3b82f6", "#ef4444", "#8b5cf6", "#14b8a6", "#34495e",
+];
+
+const CANCELLATION_NOTICE_OPTIONS = [
+  { value: "0", label: "No notice required" },
+  { value: "1", label: "1 hour" },
+  { value: "4", label: "4 hours" },
+  { value: "24", label: "24 hours" },
+  { value: "48", label: "48 hours" },
+  { value: "72", label: "72 hours" },
 ];
 
 const SettingsTab: React.FC<Props> = ({ data, onChange }) => {
@@ -28,18 +38,13 @@ const SettingsTab: React.FC<Props> = ({ data, onChange }) => {
 
         <div className="st-field">
           <label className="st-field__label">Cancellation notice</label>
-          <select
-            className="st-select"
-            value={data.cancellationNoticeHours}
-            onChange={(e) => update("cancellationNoticeHours", Number(e.target.value))}
-          >
-            <option value={0}>No notice required</option>
-            <option value={1}>1 hour</option>
-            <option value={4}>4 hours</option>
-            <option value={24}>24 hours</option>
-            <option value={48}>48 hours</option>
-            <option value={72}>72 hours</option>
-          </select>
+          <ClientSelect
+            value={String(data.cancellationNoticeHours)}
+            onChange={(val: string) => update("cancellationNoticeHours", Number(val))}
+            options={CANCELLATION_NOTICE_OPTIONS}
+            placeholder="Select cancellation notice"
+            searchPlaceholder="Search cancellation notice..."
+          />
         </div>
 
         <label className="st-toggle">
