@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import PhoneInput from 'react-phone-number-input';
 import flags from 'react-phone-number-input/flags';
 import {
@@ -19,19 +19,78 @@ type BookDemoProps = {
   demoSubmitted: boolean;
   demoSubmitting: boolean;
   demoError: string;
+  nameTouched: boolean;
+  nameError: string;
+  emailTouched: boolean;
+  emailError: string;
   phoneTouched: boolean;
   phoneError: string;
+  salonTouched: boolean;
+  salonError: string;
   cityTouched: boolean;
   cityError: string;
+  locationsTouched: boolean;
+  locationsError: string;
   handleDemoChange: (field: keyof Omit<DemoForm, 'phone'>) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
+  handleNameBlur: () => void;
+  handleEmailBlur: () => void;
+  handleSalonBlur: () => void;
   handleCityBlur: () => void;
+  handleLocationsBlur: () => void;
   handlePhoneChange: (value?: string) => void;
   handlePhoneBlur: () => void;
   handlePhoneCountryChange: (country?: import('react-phone-number-input').Country) => void;
   handleDemoSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
 };
 
-const BookDemo: React.FC<BookDemoProps> = ({ demoForm, demoSubmitted, demoSubmitting, demoError, phoneTouched, phoneError, cityTouched, cityError, handleDemoChange, handleCityBlur, handlePhoneChange, handlePhoneBlur, handlePhoneCountryChange, handleDemoSubmit }) => (
+const BookDemo: React.FC<BookDemoProps> = ({
+  demoForm,
+  demoSubmitted,
+  demoSubmitting,
+  demoError,
+  nameTouched,
+  nameError,
+  emailTouched,
+  emailError,
+  phoneTouched,
+  phoneError,
+  salonTouched,
+  salonError,
+  cityTouched,
+  cityError,
+  locationsTouched,
+  locationsError,
+  handleDemoChange,
+  handleNameBlur,
+  handleEmailBlur,
+  handleSalonBlur,
+  handleCityBlur,
+  handleLocationsBlur,
+  handlePhoneChange,
+  handlePhoneBlur,
+  handlePhoneCountryChange,
+  handleDemoSubmit,
+}) => {
+  const [isMobileBookDemo, setIsMobileBookDemo] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const mediaQuery = window.matchMedia('(max-width: 767px)');
+    const updateBookDemoLayout = () => setIsMobileBookDemo(mediaQuery.matches);
+
+    updateBookDemoLayout();
+
+    if (typeof mediaQuery.addEventListener === 'function') {
+      mediaQuery.addEventListener('change', updateBookDemoLayout);
+      return () => mediaQuery.removeEventListener('change', updateBookDemoLayout);
+    }
+
+    mediaQuery.addListener(updateBookDemoLayout);
+    return () => mediaQuery.removeListener(updateBookDemoLayout);
+  }, []);
+
+  return (
   <section id="book-demo" className="demo-section">
     <SectionTransition from="light" />
     <SectionArtwork variant="contact" />
@@ -140,8 +199,8 @@ const BookDemo: React.FC<BookDemoProps> = ({ demoForm, demoSubmitted, demoSubmit
         </div>
       </Reveal>
 
-      <Reveal delay={1} className="demo-card-wrap">
-        <div className="demo-card">
+      <Reveal delay={1} className={`demo-card-wrap${isMobileBookDemo ? ' demo-card-wrap--mobile' : ''}`}>
+        <div className={`demo-card${isMobileBookDemo ? ' demo-card--mobile' : ''}`}>
           {demoSubmitted ? (
             <div className="demo-success">
               <span className="demo-success-icon"><Icon.Check /></span>
@@ -150,6 +209,11 @@ const BookDemo: React.FC<BookDemoProps> = ({ demoForm, demoSubmitted, demoSubmit
             </div>
           ) : (
             <>
+              {isMobileBookDemo && (
+                <div className="demo-mobile-intro">
+                  <span className="demo-mobile-pill">Mobile booking</span>
+                </div>
+              )}
               <h3>Schedule a Free Demo</h3>
               <p>See SalonOX live in action and ask all your questions.</p>
               <form className="demo-form" onSubmit={handleDemoSubmit}>
@@ -161,7 +225,15 @@ const BookDemo: React.FC<BookDemoProps> = ({ demoForm, demoSubmitted, demoSubmit
                     placeholder="e.g. Jordan Lee"
                     value={demoForm.name}
                     onChange={handleDemoChange('name')}
+                    onBlur={handleNameBlur}
+                    autoFocus={isMobileBookDemo}
+                    className={nameTouched && nameError ? 'is-invalid' : ''}
+                    aria-invalid={nameTouched && !!nameError}
+                    aria-describedby={nameTouched && nameError ? 'demo-name-error' : undefined}
                   />
+                  {nameTouched && nameError && (
+                    <span className="demo-field-error" id="demo-name-error" role="alert">{nameError}</span>
+                  )}
                 </label>
                 <label className="demo-field">
                   <span>Work Email</span>
@@ -171,7 +243,14 @@ const BookDemo: React.FC<BookDemoProps> = ({ demoForm, demoSubmitted, demoSubmit
                     placeholder="you@yoursalon.com"
                     value={demoForm.email}
                     onChange={handleDemoChange('email')}
+                    onBlur={handleEmailBlur}
+                    className={emailTouched && emailError ? 'is-invalid' : ''}
+                    aria-invalid={emailTouched && !!emailError}
+                    aria-describedby={emailTouched && emailError ? 'demo-email-error' : undefined}
                   />
+                  {emailTouched && emailError && (
+                    <span className="demo-field-error" id="demo-email-error" role="alert">{emailError}</span>
+                  )}
                 </label>
                 {/* A `<div>`, not a `<label>` — the country dropdown below contains a
                     search input and clickable options, and a wrapping `<label>` forwards
@@ -208,7 +287,14 @@ const BookDemo: React.FC<BookDemoProps> = ({ demoForm, demoSubmitted, demoSubmit
                     placeholder="e.g. The Glow Room"
                     value={demoForm.salon}
                     onChange={handleDemoChange('salon')}
+                    onBlur={handleSalonBlur}
+                    className={salonTouched && salonError ? 'is-invalid' : ''}
+                    aria-invalid={salonTouched && !!salonError}
+                    aria-describedby={salonTouched && salonError ? 'demo-salon-error' : undefined}
                   />
+                  {salonTouched && salonError && (
+                    <span className="demo-field-error" id="demo-salon-error" role="alert">{salonError}</span>
+                  )}
                 </label>
                 <label className="demo-field">
                   <span>City</span>
@@ -229,13 +315,24 @@ const BookDemo: React.FC<BookDemoProps> = ({ demoForm, demoSubmitted, demoSubmit
                 </label>
                 <label className="demo-field">
                   <span>Locations</span>
-                  <select required value={demoForm.locations} onChange={handleDemoChange('locations')}>
+                  <select
+                    required
+                    value={demoForm.locations}
+                    onChange={handleDemoChange('locations')}
+                    onBlur={handleLocationsBlur}
+                    className={locationsTouched && locationsError ? 'is-invalid' : ''}
+                    aria-invalid={locationsTouched && !!locationsError}
+                    aria-describedby={locationsTouched && locationsError ? 'demo-locations-error' : undefined}
+                  >
                     <option value="" disabled>Select locations count</option>
                     <option value="1">1 location</option>
                     <option value="2-5">2–5 locations</option>
                     <option value="6-15">6–15 locations</option>
                     <option value="16+">16+ locations</option>
                   </select>
+                  {locationsTouched && locationsError && (
+                    <span className="demo-field-error" id="demo-locations-error" role="alert">{locationsError}</span>
+                  )}
                 </label>
                 {demoError && <p className="demo-error" role="alert">{demoError}</p>}
                 <button type="submit" className="btn btn-primary btn-block" disabled={demoSubmitting}>
@@ -263,6 +360,7 @@ const BookDemo: React.FC<BookDemoProps> = ({ demoForm, demoSubmitted, demoSubmit
       <span><i><Icon.Check /></i><strong>No Commitment</strong><em>Absolutely free</em></span>
     </div>
   </section>
-);
+  );
+};
 
 export default React.memo(BookDemo);

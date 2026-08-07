@@ -14,6 +14,7 @@ import {
   DEMO_PHONE_DEFAULT_COUNTRY,
   DEMO_SUBMIT_URL,
   DEMO_VIDEO_EMBED_URL,
+  EMAIL_REGEX,
   FeatureProductPreview,
   Icon,
   LANDING_SECTION_IDS,
@@ -145,6 +146,16 @@ const buildDemoNotificationEmail = (rows: DemoNotificationRow[]) => {
 
 const appendFormSubmitField = (formData: FormData, field: string, value: string) => {
   formData.append(field, value.trim());
+};
+
+// The scroll-lock effect (mobileOpen/selectedWhyFeature/videoModalMounted) hides overflow
+// on BOTH <html> and <body> with !important. Nav clicks flip mobileOpen synchronously and
+// then call scrollIntoView in the same tick, but that effect's cleanup only runs on the
+// next commit — so without this, the page is still scroll-locked at the moment scrollIntoView
+// fires and the browser silently no-ops the scroll. Called eagerly, in sync, before scrolling.
+const unlockPageScrollForNavigation = () => {
+  document.documentElement.style.setProperty('overflow-y', 'auto', 'important');
+  document.body.style.setProperty('overflow', 'visible', 'important');
 };
 
 const LandingPage: React.FC = () => {
@@ -453,7 +464,16 @@ const LandingPage: React.FC = () => {
         }
       }
 
-      section.scrollIntoView({
+      // #book-demo's own content (contact info, office map) sits above the actual
+      // form in the section's mobile single-column layout, so aligning the section's
+      // top edge to the header leaves the "Schedule a Free Demo" card scrolled out of
+      // view below the fold. Scroll to the card itself when it's present; fall back to
+      // the section for every other target (and for the section's own focus target).
+      const scrollTarget = id === 'book-demo'
+        ? section.querySelector<HTMLElement>('.demo-card') ?? section
+        : section;
+
+      scrollTarget.scrollIntoView({
         behavior: reduceMotion ? 'auto' : 'smooth',
         block: 'start',
         inline: 'nearest',
@@ -534,7 +554,7 @@ const LandingPage: React.FC = () => {
 
       setMobileOpen(false);
       setSelectedWhyFeature(null);
-      document.body.style.overflow = '';
+      unlockPageScrollForNavigation();
 
       if (isContentPage) {
         navigate(`/#${id}`);
@@ -546,10 +566,18 @@ const LandingPage: React.FC = () => {
     [isContentPage, navigate, scrollToIdSettled]
   );
 
+  const handleBookDemoNavigation = useCallback(
+    (e: React.MouseEvent<HTMLElement>) => {
+      scrollToSection('book-demo')(e);
+    },
+    [scrollToSection]
+  );
+
   const jumpToSection = useCallback(
     (id: string) => {
       setSelectedWhyFeature(null);
       setMobileOpen(false);
+      unlockPageScrollForNavigation();
 
       if (isContentPage) {
         navigate(`/#${id}`);
@@ -565,6 +593,7 @@ const LandingPage: React.FC = () => {
     (path: string) => (e: React.MouseEvent<HTMLAnchorElement>) => {
       setMobileOpen(false);
       setSelectedWhyFeature(null);
+      unlockPageScrollForNavigation();
 
       if (location.pathname === path) {
         e.preventDefault();
@@ -591,6 +620,7 @@ const LandingPage: React.FC = () => {
       e.preventDefault();
       setMobileOpen(false);
       setSelectedWhyFeature(null);
+      unlockPageScrollForNavigation();
 
       if (location.pathname === '/') {
         scrollToIdSettled('book-demo');
@@ -619,6 +649,14 @@ const LandingPage: React.FC = () => {
   const [phoneTouched, setPhoneTouched] = useState(false);
   const [cityError, setCityError] = useState('');
   const [cityTouched, setCityTouched] = useState(false);
+  const [nameError, setNameError] = useState('');
+  const [nameTouched, setNameTouched] = useState(false);
+  const [emailError, setEmailError] = useState('');
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [salonError, setSalonError] = useState('');
+  const [salonTouched, setSalonTouched] = useState(false);
+  const [locationsError, setLocationsError] = useState('');
+  const [locationsTouched, setLocationsTouched] = useState(false);
 
   const handleDemoChange = useCallback(
     (field: keyof Omit<DemoForm, 'phone'>) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -634,6 +672,22 @@ const LandingPage: React.FC = () => {
 
   const handleCityBlur = useCallback(() => {
     setCityTouched(true);
+  }, []);
+
+  const handleNameBlur = useCallback(() => {
+    setNameTouched(true);
+  }, []);
+
+  const handleEmailBlur = useCallback(() => {
+    setEmailTouched(true);
+  }, []);
+
+  const handleSalonBlur = useCallback(() => {
+    setSalonTouched(true);
+  }, []);
+
+  const handleLocationsBlur = useCallback(() => {
+    setLocationsTouched(true);
   }, []);
 
   const validatePhone = useCallback((value: string, country: Country | undefined) => {
@@ -655,6 +709,30 @@ const LandingPage: React.FC = () => {
     return '';
   }, []);
 
+  const validateName = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return 'Full name is required.';
+    if (trimmed.length < 2) return 'Name must be at least 2 characters.';
+    return '';
+  }, []);
+
+  const validateEmail = useCallback((value: string) => {
+    const trimmed = value.trim();
+    if (!trimmed) return 'Work email is required.';
+    if (!EMAIL_REGEX.test(trimmed)) return 'Enter a valid email address.';
+    return '';
+  }, []);
+
+  const validateSalon = useCallback((value: string) => {
+    if (!value.trim()) return 'Salon name is required.';
+    return '';
+  }, []);
+
+  const validateLocations = useCallback((value: string) => {
+    if (!value) return 'Select the number of locations.';
+    return '';
+  }, []);
+
   // Re-runs off committed state (not handler closures) so a country switch —
   // which renormalizes the stored E.164 value on its own render cycle — always
   // gets validated against the pairing that actually lands, never a stale one.
@@ -667,6 +745,26 @@ const LandingPage: React.FC = () => {
     if (!cityTouched) return;
     setCityError(validateCity(demoForm.city));
   }, [demoForm.city, cityTouched, validateCity]);
+
+  useEffect(() => {
+    if (!nameTouched) return;
+    setNameError(validateName(demoForm.name));
+  }, [demoForm.name, nameTouched, validateName]);
+
+  useEffect(() => {
+    if (!emailTouched) return;
+    setEmailError(validateEmail(demoForm.email));
+  }, [demoForm.email, emailTouched, validateEmail]);
+
+  useEffect(() => {
+    if (!salonTouched) return;
+    setSalonError(validateSalon(demoForm.salon));
+  }, [demoForm.salon, salonTouched, validateSalon]);
+
+  useEffect(() => {
+    if (!locationsTouched) return;
+    setLocationsError(validateLocations(demoForm.locations));
+  }, [demoForm.locations, locationsTouched, validateLocations]);
 
   const handlePhoneChange = useCallback((value?: string) => {
     setDemoForm((prev) => ({ ...prev, phone: value || '' }));
@@ -685,14 +783,33 @@ const LandingPage: React.FC = () => {
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
 
+      const nameValidationError = validateName(demoForm.name);
+      const emailValidationError = validateEmail(demoForm.email);
       const phoneValidationError = validatePhone(demoForm.phone, phoneCountry);
+      const salonValidationError = validateSalon(demoForm.salon);
       const cityValidationError = validateCity(demoForm.city);
+      const locationsValidationError = validateLocations(demoForm.locations);
 
-      if (phoneValidationError || cityValidationError) {
+      if (
+        nameValidationError ||
+        emailValidationError ||
+        phoneValidationError ||
+        salonValidationError ||
+        cityValidationError ||
+        locationsValidationError
+      ) {
+        setNameTouched(true);
+        setNameError(nameValidationError);
+        setEmailTouched(true);
+        setEmailError(emailValidationError);
         setPhoneTouched(true);
         setPhoneError(phoneValidationError);
+        setSalonTouched(true);
+        setSalonError(salonValidationError);
         setCityTouched(true);
         setCityError(cityValidationError);
+        setLocationsTouched(true);
+        setLocationsError(locationsValidationError);
         return;
       }
 
@@ -789,7 +906,7 @@ const LandingPage: React.FC = () => {
         setDemoSubmitting(false);
       }
     },
-    [demoForm, phoneCountry, validatePhone, validateCity]
+    [demoForm, phoneCountry, validateName, validateEmail, validatePhone, validateSalon, validateCity, validateLocations]
   );
 
   return (
@@ -815,7 +932,7 @@ const LandingPage: React.FC = () => {
 
           <div className="nav-actions">
             <Link to="/login" className="btn btn-ghost btn-sm nav-desktop-cta">Log in</Link>
-            <a href="#book-demo" className={`btn btn-primary btn-sm nav-desktop-cta${activeSection === 'book-demo' ? ' is-active' : ''}`} aria-current={activeSection === 'book-demo' ? 'location' : undefined} onClick={scrollToSection('book-demo')}>Book Demo</a>
+            <a href="#book-demo" className={`btn btn-primary btn-sm nav-desktop-cta${activeSection === 'book-demo' ? ' is-active' : ''}`} aria-current={activeSection === 'book-demo' ? 'location' : undefined} onClick={handleBookDemoNavigation}>Book Demo</a>
             <button
               ref={navBurgerRef}
               className={`nav-burger ${mobileOpen ? 'is-open' : ''}`}
@@ -856,13 +973,13 @@ const LandingPage: React.FC = () => {
           <a href="#pricing" className={`mobile-link${activeSection === 'pricing' ? ' is-active' : ''}`} aria-current={activeSection === 'pricing' ? 'location' : undefined} onClick={scrollToSection('pricing')}>Pricing</a>
           <div className="mobile-cta">
             <Link to="/login" className="btn btn-ghost btn-block" onClick={() => setMobileOpen(false)}>Log in</Link>
-            <a href="#book-demo" className={`btn btn-primary btn-block${activeSection === 'book-demo' ? ' is-active' : ''}`} aria-current={activeSection === 'book-demo' ? 'location' : undefined} onClick={scrollToSection('book-demo')}>Book Demo</a>
+            <a href="#book-demo" className={`btn btn-primary btn-block${activeSection === 'book-demo' ? ' is-active' : ''}`} aria-current={activeSection === 'book-demo' ? 'location' : undefined} onClick={handleBookDemoNavigation}>Book Demo</a>
           </div>
         </div>
       </div>
 
       {isContentPage ? (
-        isTermsPage ? <TermsContent /> : isPrivacyPage ? <PrivacyContent /> : <AboutContent onNavigateToBookDemo={scrollToSection('book-demo')} />
+        isTermsPage ? <TermsContent /> : isPrivacyPage ? <PrivacyContent /> : <AboutContent onNavigateToBookDemo={handleBookDemoNavigation} />
       ) : (
         <>
       <Hero
@@ -892,12 +1009,24 @@ const LandingPage: React.FC = () => {
         demoSubmitted={demoSubmitted}
         demoSubmitting={demoSubmitting}
         demoError={demoError}
+        nameTouched={nameTouched}
+        nameError={nameError}
+        emailTouched={emailTouched}
+        emailError={emailError}
         phoneTouched={phoneTouched}
         phoneError={phoneError}
+        salonTouched={salonTouched}
+        salonError={salonError}
         cityTouched={cityTouched}
         cityError={cityError}
+        locationsTouched={locationsTouched}
+        locationsError={locationsError}
         handleDemoChange={handleDemoChange}
+        handleNameBlur={handleNameBlur}
+        handleEmailBlur={handleEmailBlur}
+        handleSalonBlur={handleSalonBlur}
         handleCityBlur={handleCityBlur}
+        handleLocationsBlur={handleLocationsBlur}
         handlePhoneChange={handlePhoneChange}
         handlePhoneBlur={handlePhoneBlur}
         handlePhoneCountryChange={handlePhoneCountryChange}
