@@ -22,7 +22,12 @@ function formatDate(input: string): string {
 // retail product — becomes visible instead of collapsing to a single name).
 // Fetches GET /api/report/sales-summary/:saleId directly (never the
 // Appointment API), since walk-in sales have no appointment to look up.
-export default function SaleDetailModal({ saleId, onClose }: { saleId: string; onClose: () => void }) {
+// staffName, when passed, scopes the items table to just that staff member's
+// line items — used by Staff Sales report, where each row is already one
+// staff's contribution to the sale, not the whole invoice. Other callers
+// that omit it still see every line item (their rows represent the whole
+// sale, not one staff's slice of it).
+export default function SaleDetailModal({ saleId, staffName, onClose }: { saleId: string; staffName?: string | null; onClose: () => void }) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -61,7 +66,7 @@ export default function SaleDetailModal({ saleId, onClose }: { saleId: string; o
               </div>
               <div>
                 <div className="sd-label">Staff</div>
-                <div className="sd-value">{data.sale.staff_name ?? "—"}</div>
+                <div className="sd-value">{staffName ?? data.sale.staff_name ?? "—"}</div>
               </div>
               <div>
                 <div className="sd-label">Date</div>
@@ -82,9 +87,13 @@ export default function SaleDetailModal({ saleId, onClose }: { saleId: string; o
                   </tr>
                 </thead>
                 <tbody>
-                  {(!data.items || data.items.length === 0) ? (
-                    <tr><td colSpan={7} className="sd-empty-cell">No line items</td></tr>
-                  ) : data.items.map((it: any) => (
+                  {(() => {
+                    const items = staffName
+                      ? (data.items ?? []).filter((it: any) => it.staff_name === staffName)
+                      : (data.items ?? []);
+                    return items.length === 0 ? (
+                      <tr><td colSpan={7} className="sd-empty-cell">No line items</td></tr>
+                    ) : items.map((it: any) => (
                     <tr key={it.id}>
                       <td>{it.name}</td>
                       <td>{it.item_type}</td>
@@ -94,7 +103,8 @@ export default function SaleDetailModal({ saleId, onClose }: { saleId: string; o
                       <td>{money(it.total_price)}</td>
                       <td>{it.staff_name ?? "—"}</td>
                     </tr>
-                  ))}
+                  ));
+                  })()}
                 </tbody>
               </table>
             </div>

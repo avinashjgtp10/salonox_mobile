@@ -43,10 +43,6 @@ interface StaffSaleRow {
   id: string;
   staffId: string | null;
   staffName: string;
-  // >1 means this sale had multiple staff attributed across its line items
-  // (e.g. one staff on the service, another on a retail product) —
-  // staffName above only ever shows the first one found.
-  staffCount: number;
   isUnbilled: boolean;
   contact: string;
   itemType: string;
@@ -78,7 +74,6 @@ function mapRow(row: any): StaffSaleRow {
     id: String(row.id ?? ""),
     staffId: row.staff_id ? String(row.staff_id) : null,
     staffName: row.staff_name || "—",
-    staffCount: Number(row.staff_count) || 1,
     isUnbilled: Boolean(row.is_unbilled),
     contact: row.client_phone || "—",
     itemType: row.item_types || "—",
@@ -119,6 +114,7 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
   const [currentPage,    setCurrentPage]    = useState(1);
   const [pageSize,       setPageSize]       = useState(25);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
+  const [selectedStaffName, setSelectedStaffName] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -300,14 +296,11 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
               <tr
                 key={r.id || i}
                 className={!r.isUnbilled ? "rp-ss-clickable-row" : undefined}
-                title={!r.isUnbilled ? "Click to view full staff/item breakdown for this sale" : undefined}
-                onClick={() => { if (!r.isUnbilled && r.id) setSelectedSaleId(r.id); }}
+                title={!r.isUnbilled ? "Click to view this staff member's items on the sale" : undefined}
+                onClick={() => { if (!r.isUnbilled && r.id) { setSelectedSaleId(r.id); setSelectedStaffName(r.staffName); } }}
               >
                 <td className="rp-ss-idx">#{(currentPage - 1) * pageSize + i + 1}</td>
-                <td className="fw-semibold">
-                  {r.staffName}
-                  {r.staffCount > 1 && <span className="rp-ss-multi-staff-badge">+{r.staffCount - 1} more</span>}
-                </td>
+                <td className="fw-semibold">{r.staffName}</td>
                 <td>{r.contact}</td>
                 <td>{r.itemType}</td>
                 <td className="rp-ss-description" title={r.description}>{r.description}</td>
@@ -327,7 +320,11 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
 
       {selectedSaleId && (
-        <SaleDetailModal saleId={selectedSaleId} onClose={() => setSelectedSaleId(null)} />
+        <SaleDetailModal
+          saleId={selectedSaleId}
+          staffName={selectedStaffName}
+          onClose={() => { setSelectedSaleId(null); setSelectedStaffName(null); }}
+        />
       )}
 
     </div>
