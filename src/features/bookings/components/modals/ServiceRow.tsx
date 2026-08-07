@@ -694,24 +694,31 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     el?.select();
   }
 
-  type ConsumableStatus = "healthy" | "low" | "out_of_stock";
+  type ConsumableStatus = "healthy" | "low" | "out_of_stock" | "unknown";
   function getConsumableStatus(availableStock: number | undefined, remainingStock: number): ConsumableStatus {
+    // Product not in the cached productsList — we genuinely don't know its
+    // stock. Without this the remainingStock passed in is `0 - actualQty`,
+    // i.e. negative, and every such row claimed "Out of Stock" in red while
+    // the Total Stock and Remaining Stock cells beside it correctly showed "—".
+    if (availableStock === undefined) return "unknown";
     if (remainingStock <= 0) return "out_of_stock";
     // No qty_alert threshold is available on the cached productsList here
     // (see schedulerContext.productsList) — 10% of on-hand stock is a
     // reasonable stand-in low-water mark until that's threaded through.
-    if (availableStock !== undefined && availableStock > 0 && remainingStock <= availableStock * 0.1) return "low";
+    if (availableStock > 0 && remainingStock <= availableStock * 0.1) return "low";
     return "healthy";
   }
   const STATUS_LABEL: Record<ConsumableStatus, string> = {
     healthy: "Healthy",
     low: "Low Stock",
     out_of_stock: "Out of Stock",
+    unknown: "Stock Unknown",
   };
   const STATUS_DOT: Record<ConsumableStatus, string> = {
     healthy: "🟢",
     low: "🟠",
     out_of_stock: "🔴",
+    unknown: "⚪",
   };
 
   // A qty input showing "0" and cursor-after-zero made typing "1" then "2"
@@ -865,7 +872,13 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     setSavedReminderDays(days);
     closeReminderModal();
 
-    const serviceId = (row as any).id;
+    // `service_id` first, same as confirmAddConsumable below: on a row loaded
+    // from a saved appointment, row.id is the appointment-service ROW id and
+    // only service_id is the catalog service (see useAppointment.ts's
+    // buildServiceApiItems). Reading row.id alone PATCHed
+    // /services/<appointment-row-id>/reminder — a service that doesn't exist,
+    // silently swallowed by the catch below.
+    const serviceId = (row as any).service_id || row.id;
     if (serviceId) {
       try {
         await api.patch(`${SERVICES.BY_ID(serviceId)}/reminder`, { reminder_days: days });

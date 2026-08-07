@@ -11,16 +11,13 @@ export const INVENTORY = {
 
   PROCESS_STOCK_TAKE: "/api/v1/inventory/stock-take",
 
-  // Stock Reconciliation
+  // Back-bar consumption totals per product — read-only, powers the
+  // Consumable Usage report (the editable reconciliation page it was built
+  // for is gone; that URL now redirects to Consumable Inventory).
   STOCK_RECONCILIATION: "/api/v1/inventory/stock-reconciliation",
-  STOCK_RECONCILIATION_ROW: (productId: string) => `/api/v1/inventory/stock-reconciliation/${productId}`,
-
-  // Consumable usage (from calendar appointments)
-  CONSUMABLE_USAGE: "/api/v1/inventory/consumable-usage",
 
   // Consumable Inventory (dedicated module)
   CONSUMABLES: "/api/v1/inventory/consumables",
-  CONSUMABLES_KPIS: "/api/v1/inventory/consumables/kpis",
   CONSUMABLES_DASHBOARD: "/api/v1/inventory/consumables/dashboard",
   CONSUMABLES_USAGE_HISTORY: "/api/v1/inventory/consumables/usage-history",
   CONSUMABLE_BY_ID: (id: string) => `/api/v1/inventory/consumables/${id}`,

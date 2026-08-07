@@ -11,10 +11,6 @@ import type {
   Supplier,
   CreateSupplierPayload,
   UpdateSupplierPayload,
-  StockReconciliationRow,
-  StockReconciliationPayload,
-  StockReconciliationItemPayload,
-  ConsumableUsagePayload,
   ConsumableListFilters,
   ConsumableListRow,
   ConsumableKpis,
@@ -210,78 +206,6 @@ export const deleteSupplierThunk = createAsyncThunk<
   }
 });
 
-// ─── Fetch stock reconciliation data ─────────────────────────────────────────
-export const fetchStockReconciliationThunk = createAsyncThunk<
-  StockReconciliationRow[],
-  { branchId: string; search?: string; categoryId?: string },
-  { rejectValue: string }
->("inventory/fetchStockReconciliation", async ({ branchId, search, categoryId }, { rejectWithValue }) => {
-  try {
-    const params: Record<string, string> = { branch_id: branchId };
-    if (search) params.search = search;
-    if (categoryId) params.category_id = categoryId;
-
-    const res = await api.get<InventoryResponse<StockReconciliationRow[]>>(
-      INVENTORY.STOCK_RECONCILIATION,
-      { params }
-    );
-    return res.data.data ?? [];
-  } catch (err: any) {
-    console.error("fetchStockReconciliationThunk error:", err?.response?.data || err?.message);
-    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch stock reconciliation data");
-  }
-});
-
-// ─── Save all reconciliation rows at once ────────────────────────────────────
-export const saveStockReconciliationThunk = createAsyncThunk<
-  { processed: number },
-  StockReconciliationPayload,
-  { rejectValue: string }
->("inventory/saveStockReconciliation", async (payload, { rejectWithValue }) => {
-  try {
-    const res = await api.post<InventoryResponse<{ processed: number }>>(
-      INVENTORY.STOCK_RECONCILIATION,
-      payload
-    );
-    return res.data.data;
-  } catch (err: any) {
-    console.error("saveStockReconciliationThunk error:", err?.response?.data || err?.message);
-    return rejectWithValue(err?.response?.data?.error?.message || "Failed to save stock reconciliation");
-  }
-});
-
-// ─── Save a single reconciliation row ────────────────────────────────────────
-export const saveReconciliationRowThunk = createAsyncThunk<
-  StockReconciliationRow,
-  { branchId: string; item: StockReconciliationItemPayload },
-  { rejectValue: string }
->("inventory/saveReconciliationRow", async ({ branchId, item }, { rejectWithValue }) => {
-  try {
-    const res = await api.patch<InventoryResponse<StockReconciliationRow>>(
-      INVENTORY.STOCK_RECONCILIATION_ROW(item.product_id),
-      { branch_id: branchId, ...item }
-    );
-    return res.data.data;
-  } catch (err: any) {
-    console.error("saveReconciliationRowThunk error:", err?.response?.data || err?.message);
-    return rejectWithValue(err?.response?.data?.error?.message || "Failed to save row");
-  }
-});
-
-// ─── Save consumable usage from calendar appointments ────────────────────────
-export const saveConsumableUsageThunk = createAsyncThunk<
-  void,
-  ConsumableUsagePayload,
-  { rejectValue: string }
->("inventory/saveConsumableUsage", async (payload, { rejectWithValue }) => {
-  try {
-    await api.post(INVENTORY.CONSUMABLE_USAGE, payload);
-  } catch (err: any) {
-    console.error("saveConsumableUsageThunk error:", err?.response?.data || err?.message);
-    return rejectWithValue(err?.response?.data?.error?.message || "Failed to save consumable usage");
-  }
-});
-
 // ─── Consumable Inventory (dedicated module) ──────────────────────────────────
 
 export interface ConsumableListResult {
@@ -292,61 +216,27 @@ export interface ConsumableListResult {
   totalPages: number;
 }
 
-export const fetchConsumablesThunk = createAsyncThunk<
-  ConsumableListResult,
-  ConsumableListFilters,
-  { rejectValue: string }
->("inventory/fetchConsumables", async (filters, { rejectWithValue }) => {
-  try {
-    // Multi-select filter fields are arrays in app state (see
-    // ConsumableListFilters) — joined into a single comma-separated query
-    // param per field here rather than relying on axios's array param
-    // serialization convention, which the backend would then have to guess
-    // at matching exactly.
-    const ARRAY_FILTER_KEYS = ["category_id", "brand_id", "supplier_id", "unit", "service_id", "status", "product_type"] as const;
-    const params: Record<string, unknown> = { ...filters };
-    ARRAY_FILTER_KEYS.forEach((key) => {
-      const value = (filters as any)[key];
-      params[key] = Array.isArray(value) && value.length ? value.join(",") : undefined;
-    });
-    const res = await api.get<InventoryResponse<ConsumableListResult>>(INVENTORY.CONSUMABLES, { params });
-    return res.data.data;
-  } catch (err: any) {
-    console.error("fetchConsumablesThunk error:", err?.response?.data || err?.message);
-    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch consumables");
-  }
-});
-
-export const fetchConsumableKpisThunk = createAsyncThunk<
-  ConsumableKpis,
-  void,
-  { rejectValue: string }
->("inventory/fetchConsumableKpis", async (_arg, { rejectWithValue }) => {
-  try {
-    const res = await api.get<InventoryResponse<ConsumableKpis>>(INVENTORY.CONSUMABLES_KPIS);
-    return res.data.data;
-  } catch (err: any) {
-    console.error("fetchConsumableKpisThunk error:", err?.response?.data || err?.message);
-    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch consumable KPIs");
-  }
-});
-
 export interface ConsumableDashboardResult {
   kpis: ConsumableKpis;
   list: ConsumableListResult;
 }
 
 // Combined list + KPIs in one request — the Consumable Inventory page's
-// initial load and every filter/search/page change previously fired
-// fetchConsumablesThunk and fetchConsumableKpisThunk as two separate HTTP
-// calls; the backend now runs both queries concurrently and returns them
-// together (consumable-inventory.service.ts::getDashboard).
+// initial load and every filter/search/page change previously fired a list
+// call and a KPI call as two separate HTTP requests; the backend now runs
+// both queries concurrently and returns them together
+// (consumable-inventory.service.ts::getDashboard).
 export const fetchConsumablesDashboardThunk = createAsyncThunk<
   ConsumableDashboardResult,
   ConsumableListFilters,
   { rejectValue: string }
 >("inventory/fetchConsumablesDashboard", async (filters, { rejectWithValue }) => {
   try {
+    // Multi-select filter fields are arrays in app state (see
+    // ConsumableListFilters) — joined into a single comma-separated query
+    // param per field here rather than relying on axios's array param
+    // serialization convention, which the backend would then have to guess
+    // at matching exactly.
     const ARRAY_FILTER_KEYS = ["category_id", "brand_id", "supplier_id", "unit", "service_id", "status", "product_type"] as const;
     const params: Record<string, unknown> = { ...filters };
     ARRAY_FILTER_KEYS.forEach((key) => {

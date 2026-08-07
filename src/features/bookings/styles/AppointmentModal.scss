@@ -2411,6 +2411,9 @@ $success:    #22c55e;
   &--healthy { color: #059669; }
   &--low { color: #b45309; }
   &--out_of_stock { color: #b91c1c; }
+  // Product missing from the cached products list — stock genuinely unknown,
+  // deliberately neutral rather than alarming.
+  &--unknown { color: #6b7280; }
 }
 
 .svc-consumable-confirm {

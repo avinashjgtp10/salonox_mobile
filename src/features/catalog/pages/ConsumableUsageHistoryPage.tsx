@@ -1,10 +1,13 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "react-bootstrap-icons";
-import { useDispatch, useSelector } from "react-redux";
-import type { AppDispatch, RootState } from "../../../store/store";
-import { fetchUsageHistoryThunk, fetchConsumablesThunk } from "../../../middleware/inventory/inventory.thunk";
-import type { UsageHistoryFilters, UsageHistoryRow } from "../../../types/inventory.types";
+import { useDispatch } from "react-redux";
+import type { AppDispatch } from "../../../store/store";
+import api from "../../../services/api/axios";
+import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
+import { fetchUsageHistoryThunk } from "../../../middleware/inventory/inventory.thunk";
+import type { ConsumableListResult } from "../../../middleware/inventory/inventory.thunk";
+import type { InventoryResponse, UsageHistoryFilters, UsageHistoryRow } from "../../../types/inventory.types";
 import { Pagination } from "../../../components/ui";
 import Skeleton from "../../../components/ui/Skeleton";
 import "../styles/ConsumableInventoryPage.scss";
@@ -20,7 +23,12 @@ const ConsumableUsageHistoryPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const [searchParams] = useSearchParams();
-  const { consumables } = useSelector((s: RootState) => s.inventory);
+
+  // Page-local, deliberately NOT the shared inventory.consumables slice: this
+  // is only a name lookup for the filter dropdown, and writing a flat 200-row
+  // fetch into that slice also overwrote the Consumable Inventory table's own
+  // rows and all four of its pagination fields.
+  const [productOptions, setProductOptions] = useState<{ product_id: string; name: string }[]>([]);
 
   const [rows, setRows] = useState<UsageHistoryRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -49,12 +57,20 @@ const ConsumableUsageHistoryPage: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters, page, pageSize]);
 
-  // The product filter dropdown reuses the already-fetched consumables list
-  // from the main page — but if a user lands here directly (e.g. a bookmark),
-  // that list may still be empty, so fetch it defensively.
   useEffect(() => {
-    if (consumables.length === 0) dispatch(fetchConsumablesThunk({ limit: 200 }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get<InventoryResponse<ConsumableListResult>>(
+          INVENTORY.CONSUMABLES, { params: { limit: 200 } },
+        );
+        const list = res.data?.data?.data ?? [];
+        if (!cancelled) setProductOptions(list.map((c) => ({ product_id: c.product_id, name: c.name })));
+      } catch {
+        if (!cancelled) setProductOptions([]);
+      }
+    })();
+    return () => { cancelled = true; };
   }, []);
 
   const updateFilter = <K extends keyof UsageHistoryFilters>(key: K, value: UsageHistoryFilters[K]) => {
@@ -63,7 +79,7 @@ const ConsumableUsageHistoryPage: React.FC = () => {
   };
 
   const selectedProductName = filters.product_id
-    ? consumables.find((c) => c.product_id === filters.product_id)?.name
+    ? productOptions.find((c) => c.product_id === filters.product_id)?.name
     : undefined;
 
   return (
@@ -83,7 +99,7 @@ const ConsumableUsageHistoryPage: React.FC = () => {
       <div className="ci-filters">
         <select value={filters.product_id ?? ""} onChange={(e) => updateFilter("product_id", e.target.value)}>
           <option value="">All products</option>
-          {consumables.map((c) => <option key={c.product_id} value={c.product_id}>{c.name}</option>)}
+          {productOptions.map((c) => <option key={c.product_id} value={c.product_id}>{c.name}</option>)}
         </select>
         <select value={filters.direction ?? ""} onChange={(e) => updateFilter("direction", e.target.value as any)}>
           <option value="">Deduct + Return</option>

@@ -145,7 +145,10 @@ const ConsumableInventoryPage: React.FC = () => {
 
   const [searchInput, setSearchInput] = useState("");
   const [filters, setFilters] = useState<ConsumableListFilters>({ page: 1, limit: 20, sort_by: "newest" });
-  const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  // `openAdjust` distinguishes the "Adjust Stock" row action from plain
+  // View Details — both open the same panel, but the former should land
+  // straight on the Stock Adjustment modal.
+  const [selectedProduct, setSelectedProduct] = useState<{ id: string; openAdjust: boolean } | null>(null);
   const [assignedServicesFor, setAssignedServicesFor] = useState<{ id: string; name: string } | null>(null);
   const [deactivateTarget, setDeactivateTarget] = useState<{ id: string; name: string } | null>(null);
   const [deactivating, setDeactivating] = useState(false);
@@ -254,7 +257,12 @@ const ConsumableInventoryPage: React.FC = () => {
     [],
   );
 
+  // Clears the search box too — this rebuilds `filters` from scratch, so
+  // `search` is dropped either way; leaving searchInput alone left the box
+  // still showing its text next to an unfiltered table, and the debounce
+  // effect below only reacts to searchInput changes so it never reconciled.
   const clearAllFilters = useCallback(() => {
+    setSearchInput("");
     setFilters((prev) => ({
       page: 1, limit: prev.limit, sort_by: prev.sort_by,
       category_id: undefined, brand_id: undefined, supplier_id: undefined,
@@ -447,7 +455,7 @@ const ConsumableInventoryPage: React.FC = () => {
                 <tr
                   key={row.product_id}
                   className={row.status === "deactivated" ? "ci-table-row--deactivated" : undefined}
-                  onClick={() => setSelectedProductId(row.product_id)}
+                  onClick={() => setSelectedProduct({ id: row.product_id, openAdjust: false })}
                 >
                   <td className="ci-table__name">
                     <span className="ci-table__name-text" title={row.name}>{row.name}</span>
@@ -485,9 +493,9 @@ const ConsumableInventoryPage: React.FC = () => {
                         table. */}
                     <RowActionsMenu
                       items={[
-                        { label: "View Details", onClick: () => setSelectedProductId(row.product_id) },
+                        { label: "View Details", onClick: () => setSelectedProduct({ id: row.product_id, openAdjust: false }) },
                         { label: "Edit Product", onClick: () => navigate(`/dashboard/catalog/inventory/consumables/edit/${row.product_id}`) },
-                        { label: "Adjust Stock", onClick: () => setSelectedProductId(row.product_id) },
+                        { label: "Adjust Stock", onClick: () => setSelectedProduct({ id: row.product_id, openAdjust: true }) },
                         row.status === "deactivated"
                           ? { label: "Reactivate", onClick: () => handleReactivate(row.product_id) }
                           : { label: "Deactivate", danger: true, onClick: () => setDeactivateTarget({ id: row.product_id, name: row.name }) },
@@ -509,12 +517,13 @@ const ConsumableInventoryPage: React.FC = () => {
         onPageSizeChange={(size) => setFilters((prev) => ({ ...prev, limit: size, page: 1 }))}
       />
 
-      {selectedProductId && (
+      {selectedProduct && (
         <ConsumableDetailPanel
-          productId={selectedProductId}
-          onClose={() => setSelectedProductId(null)}
+          productId={selectedProduct.id}
+          openAdjustOnMount={selectedProduct.openAdjust}
+          onClose={() => setSelectedProduct(null)}
           onAdjusted={refresh}
-          onEdit={() => navigate(`/dashboard/catalog/inventory/consumables/edit/${selectedProductId}`)}
+          onEdit={() => navigate(`/dashboard/catalog/inventory/consumables/edit/${selectedProduct.id}`)}
         />
       )}
 
