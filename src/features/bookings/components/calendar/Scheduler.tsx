@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, lazy, Suspense } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSingleClick } from "../../../../utils/singleClick";
 import type { Booking, BlockedTime } from "../../types/booking.types";
@@ -18,12 +18,20 @@ import DayView       from "./DayView";
 import WeekView      from "./WeekView";
 import MonthView     from "./MonthView";
 import ListWeekView  from "./ListWeekView";
-// ── NEW: AppointmentModal replaces NewAppointmentModal ────────────────────────
-import AppointmentModal from "../modals/AppointmentModal";
-import ViewBillModal    from "../modals/ViewBillModal";
-import BlockTimeModal   from "../modals/BlockTimeModal";
 import CalendarSkeleton from "./CalendarSkeleton";
+import { PageLoader } from "../../../../components/ui";
 import "../../styles/Scheduler.scss";
+
+// ── NEW: AppointmentModal replaces NewAppointmentModal ────────────────────────
+// Lazy — these three are only ever rendered conditionally (New Appointment /
+// Block Time / View Bill clicks), but AppointmentModal alone is a 2800+ line
+// component pulling in ~10 hooks and 4 sub-panels. Being static imports here
+// forced the WHOLE tree to be part of Scheduler's own chunk, so every first
+// visit to the Calendar paid to transform/load all three modals' code before
+// the grid could even paint — even though most visits never open any of them.
+const AppointmentModal = lazy(() => import("../modals/AppointmentModal"));
+const ViewBillModal    = lazy(() => import("../modals/ViewBillModal"));
+const BlockTimeModal   = lazy(() => import("../modals/BlockTimeModal"));
 
 // Stable fallbacks — prevent new [] reference on every selector call when slice is undefined
 const EMPTY_ARR: never[] = [];
@@ -362,41 +370,50 @@ const SchedulerContent: React.FC = () => {
       </div>
 
       {/* ── AppointmentModal replaces NewAppointmentModal ── */}
+      {/* Suspense per-modal (not one wrapping all three) — each only ever
+          mounts on its own trigger, so there's no reason a New Appointment
+          click should wait on ViewBillModal's chunk too. */}
       {showNewAppt && (
-        <AppointmentModal
-          isOpen={showNewAppt}
-          salonId={salonId}
-          onClose={handleCloseAppt}
-          onRefresh={handleRefresh}
-          defaultStaffId={apptDefaults.staffId}
-          defaultTime={apptDefaults.defaultTime}
-          /* Falls back to the currently-viewed calendar date, not today —
-             otherwise "Add Appointment" (or clicking an empty slot) after
-             navigating to a different day always opened the form on today's
-             date instead of the date actually being viewed. */
-          defaultDate={editingBooking?.date || currentDate || undefined}
-          existingBooking={editingBooking || undefined}
-          defaultClientId={defaultClient?.id}
-          defaultClientName={defaultClient?.name}
-          defaultClientPhone={defaultClient?.phone}
-          onCancelBooking={handleCancelBooking}
-          onDeleteBooking={handleDeleteBooking}
-        />
+        <Suspense fallback={<PageLoader />}>
+          <AppointmentModal
+            isOpen={showNewAppt}
+            salonId={salonId}
+            onClose={handleCloseAppt}
+            onRefresh={handleRefresh}
+            defaultStaffId={apptDefaults.staffId}
+            defaultTime={apptDefaults.defaultTime}
+            /* Falls back to the currently-viewed calendar date, not today —
+               otherwise "Add Appointment" (or clicking an empty slot) after
+               navigating to a different day always opened the form on today's
+               date instead of the date actually being viewed. */
+            defaultDate={editingBooking?.date || currentDate || undefined}
+            existingBooking={editingBooking || undefined}
+            defaultClientId={defaultClient?.id}
+            defaultClientName={defaultClient?.name}
+            defaultClientPhone={defaultClient?.phone}
+            onCancelBooking={handleCancelBooking}
+            onDeleteBooking={handleDeleteBooking}
+          />
+        </Suspense>
       )}
       {showBlockTime && (
-        <BlockTimeModal
-          onClose={() => { setShowBlockTime(false); setEditingBlockTime(undefined); }}
-          defaultStaffId={blockStaffId}
-          editingBlock={editingBlockTime}
-        />
+        <Suspense fallback={<PageLoader />}>
+          <BlockTimeModal
+            onClose={() => { setShowBlockTime(false); setEditingBlockTime(undefined); }}
+            defaultStaffId={blockStaffId}
+            editingBlock={editingBlockTime}
+          />
+        </Suspense>
       )}
       {viewingBooking && (
-        <ViewBillModal
-          booking={viewingBooking}
-          onClose={() => setViewingBooking(null)}
-          onEdit={(b) => handleForceEdit(b)}
-          onCollectDue={handleForceEdit}
-        />
+        <Suspense fallback={<PageLoader />}>
+          <ViewBillModal
+            booking={viewingBooking}
+            onClose={() => setViewingBooking(null)}
+            onEdit={(b) => handleForceEdit(b)}
+            onCollectDue={handleForceEdit}
+          />
+        </Suspense>
       )}
     </div>
   );
