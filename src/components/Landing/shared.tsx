@@ -187,6 +187,9 @@ export const DEMO_PHONE_DEFAULT_COUNTRY: Country = 'IN';
 // Allows international letters/marks (accents, Devanagari, Arabic, etc.), spaces,
 // hyphens, apostrophes, and periods — covers city names like "Mumbai", "Saint-Étienne", "St. Louis".
 export const CITY_NAME_REGEX = /^[\p{L}\p{M}][\p{L}\p{M}\s'.-]*$/u;
+// Deliberately permissive (no TLD length/character-class enforcement) — catches missing
+// "@", missing domain, and stray whitespace without rejecting valid-but-unusual addresses.
+export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 const countryDisplayNames = typeof Intl.DisplayNames === 'function'
   ? new Intl.DisplayNames(['en'], { type: 'region' })
@@ -360,14 +363,14 @@ export const TESTIMONIALS = [
   { name: 'Rutuja Pagale', role: 'Founder, Studio Beauty', quote: 'Clients love the booking page and our front desk loves how little they have to manage manually.', initials: 'RP' },
   { name: 'Shivani Dhumal', role: 'Manager, Glow Wellness', quote: 'The multi-branch dashboard is a game-changer. Managing three locations has become incredibly easy.', initials: 'SD' },
   { name: 'Avinash Jagtap', role: 'Owner, Lakme Salon', quote: 'Customer retention improved significantly thanks to the marketing automation features.', initials: 'AJ' },
-  { name: 'Shravani Gaware', role: 'Owner, Elegance Salon', quote: 'SalonOX has made managing appointments, staff, and daily operations effortless. The booking experience is smooth, and our clients love how simple everything has become.', initials: 'SG' },
+  { name: 'Shivani Gaware', role: 'Owner, Elegance Salon', quote: 'SalonOX has made managing appointments, staff, and daily operations effortless. The booking experience is smooth, and our clients love how simple everything has become.', initials: 'SG' },
 ];
 
 export const DEMO_EMAIL = 'support@salonox.com';
 export const DEMO_SUBMIT_URL = `https://formsubmit.co/ajax/${DEMO_EMAIL}`;
 export const WHATSAPP_DEMO_URL = 'https://wa.me/919503302647?text=Hi%20SalonOX%20Team,%20I%20am%20interested%20in%20SalonOX.%20Please%20share%20more%20details%20and%20schedule%20a%20demo.';
-export const OFFICE_MAP_URL = 'https://share.google/U3QQcmaK7o8znKKzM';
-export const OFFICE_MAP_EMBED_URL = 'https://www.google.com/maps?q=18.16244,74.5814658&z=16&output=embed';
+export const OFFICE_MAP_URL = 'https://www.google.com/maps/search/?api=1&query=SalonOX+Tech+Baramati+Maharashtra+413102';
+export const OFFICE_MAP_EMBED_URL = 'https://www.google.com/maps?q=18.16244,74.5814658&z=16&output=embed&hl=en';
 export const DEMO_VIDEO_EMBED_URL = 'https://www.youtube.com/embed/nbyWMKwCYtA?autoplay=1&rel=0';
 
 export type TermsSection = {
