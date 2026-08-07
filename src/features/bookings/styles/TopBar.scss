@@ -19,24 +19,18 @@
   box-sizing: border-box;
 }
 
-// BEM child selectors — referenced as className="topbar__*" in TopBar.tsx
-.topbar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-family: inherit;
-
-  &__arrow {
+.cal-topbar {
+  .topbar__arrow {
     font-size: 9px;
     opacity: 0.6;
 
     &--faint { opacity: 0.5; }
   }
 
-  &__spacer { flex: 1; min-width: 0; }
+  .topbar__spacer { flex: 1; min-width: 0; }
 
   /* View dropdown trigger */
-  &__view-btn {
+  .topbar__view-btn {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -57,7 +51,7 @@
   }
 
   /* Prev / Next */
-  &__nav-btn {
+  .topbar__nav-btn {
     flex-shrink: 0;
     background: none;
     border: 1px solid $dashboard-border;
@@ -74,7 +68,7 @@
   }
 
   /* Date picker trigger */
-  &__date-btn {
+  .topbar__date-btn {
     font-size: 13px;
     font-weight: 600;
     color: #111827;
@@ -98,7 +92,7 @@
   }
 
   /* Today */
-  &__today-btn {
+  .topbar__today-btn {
     flex-shrink: 0;
     border: 1px solid $info;
     border-radius: 6px;
@@ -120,7 +114,7 @@
   }
 
   /* Interval pills group */
-  &__interval-group {
+  .topbar__interval-group {
     display: flex;
     gap: 2px;
     background: #f3f4f6;
@@ -129,7 +123,7 @@
     flex-shrink: 0;
   }
 
-  &__interval-btn {
+  .topbar__interval-btn {
     padding: 4px 8px;
     font-size: 11px;
     font-weight: 600;
@@ -149,7 +143,7 @@
   }
 
   /* Add button */
-  &__add-btn {
+  .topbar__add-btn {
     flex-shrink: 0;
     background: $dashboard-primary;
     color: $white;
@@ -167,7 +161,7 @@
   }
 
   /* Block time button */
-  &__block-btn {
+  .topbar__block-btn {
     flex-shrink: 0;
     border: 1px solid #d1d5db;
     border-radius: 6px;

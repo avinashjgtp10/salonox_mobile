@@ -8,7 +8,9 @@ export interface ClientSelectOption {
   label: string;
 }
 
-interface ClientSelectProps {
+export type SelectOption = ClientSelectOption;
+
+export interface ClientSelectProps {
   value: string;
   onChange: (value: string) => void;
   options: ClientSelectOption[];
