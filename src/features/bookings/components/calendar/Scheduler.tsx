@@ -8,7 +8,7 @@ import { setBookings, clearDragPatch, deleteBooking } from "../../../../store/sc
 import { store } from "../../../../store/store";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 // ── NEW: 2 focused hooks replace useSchedulerInit ─────────────────────────────
-import { useBookings }      from "../../hooks/useBookings";
+import { useBookings, getViewRange } from "../../hooks/useBookings";
 import { useStaffSchedule } from "../../hooks/useStaffSchedule";
 // ── NEW: mapApiBooking now lives in utils ─────────────────────────────────────
 import { mapApiBooking } from "../../utils/bookingMapper";
@@ -203,12 +203,26 @@ const SchedulerContent: React.FC = () => {
   });
 
   const handleRefresh = useSingleClick(async () => {
+    // Was always a single-day fetch regardless of viewMode, so in Week/Month
+    // view a save/pay/cancel only refreshed the single focused date, leaving
+    // the rest of the visible week/month stale until a full page reload —
+    // now uses the same view-aware range useBookings.ts's own refresh() does.
     const dateStr = currentDate || new Date().toISOString().slice(0, 10);
-    const action = await (dispatch(fetchBookingsThunk({ startDate: dateStr, endDate: dateStr })) as any);
-    if (!fetchBookingsThunk.fulfilled.match(action)) return;
+    const { startDate, endDate } = getViewRange(viewMode, dateStr);
 
-    const payload = action.payload as any;
-    const fresh: Booking[] = (Array.isArray(payload) ? payload : (payload?.data ?? [])) as Booking[];
+    // A week/month range can exceed the backend's 200-record page cap where a
+    // single day rarely would — page through it the same way useBookings.ts's
+    // fetchRange does, capped at 10 pages (2000 records) as a sanity limit.
+    let fresh: Booking[] = [];
+    for (let page = 1; page <= 10; page++) {
+      const action = await (dispatch(fetchBookingsThunk({ startDate, endDate, limit: 200, page })) as any);
+      if (!fetchBookingsThunk.fulfilled.match(action)) break;
+      const payload = action.payload as any;
+      const items: Booking[] = (Array.isArray(payload) ? payload : (payload?.data ?? [])) as Booking[];
+      fresh = fresh.concat(items);
+      const totalPages = payload?.totalPages ?? 1;
+      if (page >= totalPages || items.length === 0) break;
+    }
     const freshIds = new Set(fresh.map((fb) => String(fb.id)));
     const schedulerState = store.getState().scheduler as any;
     const latestBookings: Booking[] = schedulerState.bookings;

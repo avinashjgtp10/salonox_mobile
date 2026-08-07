@@ -6,7 +6,6 @@ import { useAppointment }    from "../../hooks/useAppointment";
 import { usePayment }        from "../../hooks/usePayment";
 import { useCoupon }         from "../../hooks/useCoupon";
 import { useReferral }       from "../../hooks/useReferral";
-import { usePackageSessions } from "../../hooks/usePackageSessions";
 import { useServices }       from "../../hooks/useServices";
 import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery, useListClientPackagesQuery, useCompleteClientPackageSessionMutation } from "../../../../services/api/endpoints/packages.endpoints";
 import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
@@ -119,9 +118,16 @@ export const AppointmentModal: React.FC<Props> = ({
   // Always fetch services + clients when modal opens
   useServices(salonId);
 
-  // Active taxes from Tax Mapping settings, for bill calculation
-  useEffect(() => { dispatch(fetchSettingsThunk()); }, [dispatch]);
+  // Active taxes from Tax Mapping settings, for bill calculation. Settings
+  // change rarely — skip refetching if this session already has them, so
+  // a Quick Sale doesn't silently re-download them after every single sale
+  // (the modal remounts per sale via QuickSalePage's key={saleKey}). This is
+  // also the root cause a prior spinner-loop incident's own comment
+  // documented but never fixed — see PermissionGuard.tsx.
   const settingItems = useAppSelector((s) => s.setting.items);
+  useEffect(() => {
+    if (settingItems.length === 0) dispatch(fetchSettingsThunk());
+  }, [dispatch, settingItems.length]);
   const activeTaxes  = useMemo(() => getActiveTaxes(settingItems), [settingItems]);
   const showTaxBreakupOnInvoice = useMemo(() => getTaxModuleConfig(settingItems).show_breakup_on_invoice, [settingItems]);
   const rewardPointsConfig = useMemo(() => getRewardPointsConfig(settingItems), [settingItems]);
@@ -134,18 +140,23 @@ export const AppointmentModal: React.FC<Props> = ({
   const prodRequested = useRef(false);
   const memRequested  = useRef(false);
 
-  // In edit mode, pre-fetch data for item types that already exist on the booking
+  // In edit mode, pre-fetch data for item types that already exist on the booking.
+  // Packages/memberships are catalog reference data (name/price only, no live
+  // mutable fields) — safe to treat as session-cached, so the ref guard is
+  // supplemented with a Redux-state check: the ref alone resets on every Quick
+  // Sale remount (key={saleKey}) and would otherwise re-fetch after every sale
+  // even though the catalog was already loaded moments earlier.
   useEffect(() => {
-    if (existingBooking?.packageItems?.length && !pkgRequested.current) {
+    if (existingBooking?.packageItems?.length && !pkgRequested.current && availablePackages.length === 0) {
       pkgRequested.current = true;
       triggerPackages({ status: "Active" });
       triggerTemplates();
     }
-    if ((existingBooking as any)?.productItems?.length && !prodRequested.current) {
+    if ((existingBooking as any)?.productItems?.length && !prodRequested.current && availableProducts.length === 0) {
       prodRequested.current = true;
       dispatch(fetchProductsThunk());
     }
-    if ((existingBooking as any)?.membershipItems?.length && !memRequested.current) {
+    if ((existingBooking as any)?.membershipItems?.length && !memRequested.current && availableMemberships.length === 0) {
       memRequested.current = true;
       dispatch(fetchMembershipsThunk());
     }
@@ -178,8 +189,15 @@ export const AppointmentModal: React.FC<Props> = ({
   // picker, so it's filtered to retail/both here. ServiceRow.tsx's
   // Consumables panel reads the unfiltered schedulerContext.productsList
   // directly for its own stock lookups, so this filter doesn't touch that.
-  const availableProducts    = useAppSelector(selectProductsList)
-    .filter((p: any) => !p.productType || p.productType === "retail" || p.productType === "both");
+  const productsFromSelector = useAppSelector(selectProductsList);
+  // Memoized — without this, the .filter() below allocated a brand-new array
+  // on every render (every keystroke anywhere in the modal), which defeated
+  // ServicesPanel.tsx's own stableProductItems useMemo one layer down (it
+  // depends on this array's reference staying stable, per its own comment).
+  const availableProducts = useMemo(
+    () => productsFromSelector.filter((p: any) => !p.productType || p.productType === "retail" || p.productType === "both"),
+    [productsFromSelector],
+  );
   const availableMemberships = useAppSelector(selectMembershipsList);
   const allBookings          = useAppSelector(selectBookings);
   const blockedTimes   = useAppSelector((s: any) => s.scheduler?.blockedTimes ?? []);
@@ -225,13 +243,13 @@ export const AppointmentModal: React.FC<Props> = ({
   // brand-new appointment/Quick Sale with only services left it empty and
   // every consumable showed "—"/Out of Stock regardless of real stock.
   useEffect(() => {
-    if (prodRequested.current) return;
+    if (prodRequested.current || availableProducts.length > 0) return;
     const hasConsumables = serviceRows.some((r) => (r.consumables?.length ?? 0) > 0);
     if (hasConsumables) {
       prodRequested.current = true;
       dispatch(fetchProductsThunk());
     }
-  }, [serviceRows, dispatch]);
+  }, [serviceRows, dispatch, availableProducts.length]);
 
   // Actual-qty edits for each row's consumables — deliberately a SIBLING
   // state, never merged into serviceRows itself. serviceRows is a dependency
@@ -361,7 +379,6 @@ export const AppointmentModal: React.FC<Props> = ({
   const { completePayment, isProcessing, payError, paymentOverlay } = usePayment();
   const coupon = useCoupon(salonId);
   const referral = useReferral();
-  usePackageSessions(selectedClient?.id ?? null);
   const [completePackageSession] = useCompleteClientPackageSessionMutation();
 
   // Fetch client's active packages to check which services are pre-paid (price = 0)
@@ -759,6 +776,14 @@ export const AppointmentModal: React.FC<Props> = ({
   // appointmentId links each consumed session back to the sale that used it (for audit/reporting).
   async function markPackageSessions(appointmentId?: string) {
     const pkgs = nonExpiredPackages;
+    // Every call's parameters are fully determined up front from the static
+    // `pkgs` snapshot (nothing here re-reads remainingSessions between
+    // calls), so the calls themselves are mutually independent — collected
+    // into one flat list first (pure, no awaits), then fired together below
+    // instead of one at a time. A checkout with several package-covered rows
+    // spanning multiple packages used to serialize every one of these,
+    // directly adding to checkout latency.
+    const calls: Array<{ id: string; body: { serviceId: string; staffName: string; appointmentId?: string } }> = [];
     for (let idx = 0; idx < serviceRows.length; idx++) {
       const row = serviceRows[idx];
       const rowCatalogId = row.id || null;
@@ -792,18 +817,14 @@ export const AppointmentModal: React.FC<Props> = ({
         if (!svc) continue;
         const sessionsFromThisPkg = Math.min(sessionsLeftToMark, svc.remainingSessions);
         for (let i = 0; i < sessionsFromThisPkg; i++) {
-          try {
-            await completePackageSession({
-              id: pkg.id,
-              body: { serviceId: svc.serviceId, staffName: row.staff || "Staff", appointmentId },
-            }).unwrap();
-          } catch {
-            // don't block the appointment flow on session-mark failure
-          }
+          calls.push({ id: pkg.id, body: { serviceId: svc.serviceId, staffName: row.staff || "Staff", appointmentId } });
         }
         sessionsLeftToMark -= sessionsFromThisPkg;
       }
     }
+    // allSettled, not all — one failed session-mark must never block the
+    // rest from landing, same as the per-call try/catch this replaces.
+    await Promise.allSettled(calls.map((call) => completePackageSession(call).unwrap()));
   }
 
   // Only offer referral-code entry for a genuinely new client: no referrer
@@ -898,6 +919,30 @@ export const AppointmentModal: React.FC<Props> = ({
     return map;
   }, [rowTaxPreview, membershipRows]);
 
+  // Picking Staff or Time on a row (ServiceRow.tsx's handleStaffChange /
+  // TimeSelect onChange) doesn't affect price at all, but both go through the
+  // same onUpdateService/onUpdatePackage/etc. path as a real billing-relevant
+  // edit (qty, price, discount, service selection) — every field edit
+  // produces a new row-array reference, so without this projection every
+  // Staff/Time pick retriggered the 350ms-debounced calculate-totals POST for
+  // no reason. Stringified so the effect's dependency array gets a stable
+  // primitive that only actually changes when a price-relevant field does —
+  // the effect body below still reads the live serviceRows/etc via closure,
+  // so it always sends the current staff/time even though picking them alone
+  // won't cause it to re-fire.
+  const pricingRelevantSignature = useMemo(() => {
+    const project = (rows: any[]) =>
+      rows.map((r) => ({
+        id: r.serviceId ?? r.packageId ?? r.productId ?? r.membershipId ?? r.id,
+        price: r.price, qty: r.qty, discount: r.discount, total: r.total,
+        isPackageService: r.isPackageService,
+      }));
+    return JSON.stringify({
+      s: project(serviceRows), p: project(packageRows),
+      pr: project(productRows), m: project(membershipRows),
+    });
+  }, [serviceRows, packageRows, productRows, membershipRows]);
+
   useEffect(() => {
     setTotalsConfirmed(false);
     setTotalsError(false);
@@ -981,7 +1026,7 @@ export const AppointmentModal: React.FC<Props> = ({
     return () => { ctrl.abort(); clearTimeout(timer); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    serviceRows, packageRows, productRows, membershipRows,
+    pricingRelevantSignature,
     discountType, discountValue, exCharges, tip, includeGst,
     coupon.applied, coupon.discount,
     // referral.applied: linking a client to a referrer (the "Apply" button on
@@ -1843,7 +1888,7 @@ export const AppointmentModal: React.FC<Props> = ({
           onUpdatePackage={(i, r) => setPackageRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
           onRemovePackage={(i) => setPackageRows((rows) => rows.filter((_, idx) => idx !== i))}
           onAddPackage={() => {
-            if (!pkgRequested.current) {
+            if (!pkgRequested.current && availablePackages.length === 0) {
               pkgRequested.current = true;
               triggerPackages({ status: "Active" });
               triggerTemplates();
@@ -1854,7 +1899,7 @@ export const AppointmentModal: React.FC<Props> = ({
           onUpdateProduct={(i, r) => setProductRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
           onRemoveProduct={(i) => setProductRows((rows) => rows.filter((_, idx) => idx !== i))}
           onAddProduct={() => {
-            if (!prodRequested.current) {
+            if (!prodRequested.current && availableProducts.length === 0) {
               prodRequested.current = true;
               dispatch(fetchProductsThunk());
             }
@@ -1864,7 +1909,7 @@ export const AppointmentModal: React.FC<Props> = ({
           onUpdateMembership={(i, r) => setMembershipRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
           onRemoveMembership={(i) => setMembershipRows((rows) => rows.filter((_, idx) => idx !== i))}
           onAddMembership={() => {
-            if (!memRequested.current) {
+            if (!memRequested.current && availableMemberships.length === 0) {
               memRequested.current = true;
               dispatch(fetchMembershipsThunk());
             }

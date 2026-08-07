@@ -1,10 +1,12 @@
 import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { setServicesList, setMembershipsList, setProductsList, setClientsList } from "../../../store/schedulerSlice";
-import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
 import type { Client } from "../types";
 
-export function useServices(salonId?: string | null) {
+// salonId is no longer read here (services are now fetched purely on-demand
+// by ServiceRow's own search, not eagerly per-salon on mount) — kept in the
+// signature so call sites don't need updating.
+export function useServices(_salonId?: string | null) {
   const dispatch = useAppDispatch();
 
   const apiServices    = useAppSelector((s: any) => s.catalog?.services ?? s.services?.items ?? []);
@@ -12,11 +14,13 @@ export function useServices(salonId?: string | null) {
   const apiMemberships = useAppSelector((s: any) => s.membership?.memberships ?? s.memberships?.items ?? []);
   const apiProducts    = useAppSelector((s: any) => s.products?.products ?? s.products?.items ?? []);
 
-  // Fetch only services on modal open — client search uses its own /clients/search endpoint
-  useEffect(() => {
-    if (!salonId) return;
-    dispatch(fetchServicesThunk({ isActive: true }));
-  }, [dispatch, salonId]); // eslint-disable-line react-hooks/exhaustive-deps
+  // No eager full-catalog fetch — ServiceRow's own search box already hits
+  // the services API directly and on demand (debounced, live). The only
+  // consumers of scheduler.servicesList (bookingMapper.ts's name/duration
+  // fallback, ServiceRow's local-search-merge cache) both have their own
+  // independent fallbacks and degrade gracefully when this stays empty, so
+  // there's no need to eagerly download the whole catalog on every modal
+  // open just to seed a cache nothing actually depends on being pre-filled.
 
   // Map raw API data → scheduler lists (fires whenever Redux updates from any fetch)
   useEffect(() => {

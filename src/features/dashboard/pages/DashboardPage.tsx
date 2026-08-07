@@ -1335,8 +1335,13 @@ export default function DashboardPage() {
 
   const handleRefresh = useCallback(() => {
     const today = new Date().toISOString().split("T")[0];
+    // fetchDashboardAll already returns revenueChart as part of its bundled
+    // response (see salon-dashboard.repository.ts's getAll()) — the separate
+    // fetchRevenueChart call here was fetching the exact same data a second
+    // time on every refresh/tab-focus. Its own chartLoading isn't needed
+    // either: the chart's loading prop already ORs in the general dashLoading
+    // flag (see chartLoading={dashLoading || chartLoading} below).
     dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
-    dispatch(fetchRevenueChart({ period: revPeriod }));
     dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
     refetchAppts();
     refetchPending();
