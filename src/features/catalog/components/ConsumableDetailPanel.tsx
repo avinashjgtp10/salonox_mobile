@@ -101,7 +101,19 @@ const ConsumableDetailPanel: React.FC<Props> = ({ productId, onClose, onAdjusted
               <div className="ci-panel__field-row"><span>Package Size</span><span>{detail.unit_size ? `${detail.unit_size} ${detail.unit}` : "—"}</span></div>
               <div className="ci-panel__field-row"><span>Total Stock</span><span>{detail.total_stock.toLocaleString()} {detail.unit}</span></div>
               <div className="ci-panel__field-row"><span>Available Stock</span><span>{detail.remaining_stock.toLocaleString()} {detail.unit}</span></div>
-              <div className="ci-panel__field-row"><span>Low Stock Alert</span><span>{detail.qty_alert != null ? `${detail.qty_alert} ${detail.unit}` : "—"}</span></div>
+              {/* qty_alert is entered as a PACKAGE count ("Low Stock Alert (in
+                  bottles/units)"), so rendering it with the base unit turned a
+                  2-bottle threshold into a nonsensical "2 ml". */}
+              <div className="ci-panel__field-row">
+                <span>Low Stock Alert</span>
+                <span>
+                  {detail.qty_alert == null
+                    ? "—"
+                    : detail.unit_size
+                      ? `${detail.qty_alert.toLocaleString()} × ${detail.unit_size.toLocaleString()} ${detail.unit}`
+                      : `${detail.qty_alert.toLocaleString()} ${detail.unit}`}
+                </span>
+              </div>
             </section>
 
             <section className="ci-panel__section">

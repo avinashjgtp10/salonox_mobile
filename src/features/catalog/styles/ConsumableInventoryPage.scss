@@ -296,6 +296,20 @@
     font-size: 11.5px;
     color: #9ca3af;
   }
+
+  // Same treatment as &__name above, for the free-text columns that can also
+  // carry an arbitrarily long value (Category, Supplier). Applied to a block
+  // span rather than the <td> itself: with the default table-layout: auto a
+  // max-width on a cell is only a hint the browser may ignore, whereas a
+  // block-level child honours it reliably. The full value stays reachable via
+  // the title attribute on hover.
+  &__truncate {
+    display: block;
+    max-width: 140px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
 }
 
 .ci-assigned-link {

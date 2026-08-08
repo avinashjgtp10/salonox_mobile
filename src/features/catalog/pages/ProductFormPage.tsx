@@ -5,6 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import { fetchBrandsThunk, fetchCategoriesThunk, createProductThunk, updateProductThunk, createBrandThunk, createCategoryThunk } from "../../../middleware/catalog/products.thunk";
 import { fetchSuppliersThunk, createSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
+import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
 import api from "../../../services/api/axios";
 import { PRODUCTS } from "../../../services/api/endpoints/products.endpoints";
 import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
@@ -440,8 +441,16 @@ const ProductFormPage: React.FC = () => {
   const unitSizeError = submitAttempted && isConsumable && !unitSize ? "Unit size is required" : "";
   const retailPriceError = submitAttempted && sellsRetail && (!retailPrice || parseFloat(retailPrice) <= 0)
     ? "Retail price is required" : "";
+  // Both figures are package counts here (Product Quantity is in bottles for a
+  // consumable, and the alert is labelled "in bottles/units"), so they compare
+  // directly. The backend enforces the same rule — surfacing it inline just
+  // saves a round-trip that previously only rejected retail products anyway,
+  // since its own check compared bottles against base units.
+  const alertError = submitAttempted && qtyAlert.trim() !== "" && qtyNum > 0 && alertNum >= qtyNum
+    ? "Low Stock Alert must be less than the Product Quantity" : "";
   const isValid = !!name.trim() && !!categoryId && !!productQty && qtyNum >= 0
-    && (!isConsumable || !!unitSize) && (!sellsRetail || (!!retailPrice && parseFloat(retailPrice) > 0));
+    && (!isConsumable || !!unitSize) && (!sellsRetail || (!!retailPrice && parseFloat(retailPrice) > 0))
+    && !(qtyAlert.trim() !== "" && qtyNum > 0 && alertNum >= qtyNum);
 
   async function syncServiceAssignments(productId: string) {
     const currentIds = new Set(assignedServices.map((a) => a.service_id));
@@ -505,6 +514,15 @@ const ProductFormPage: React.FC = () => {
       if (isConsumable && productId) {
         await syncServiceAssignments(productId);
         await syncUnitConversions(productId);
+        // syncServiceAssignments PATCHes consumables_used straight onto the
+        // affected SERVICES over raw axios, so the services slice — which
+        // scheduler.servicesList (and therefore Quick Sale / the Appointment
+        // modal) is derived from — still holds the pre-edit recipes. Refresh
+        // it here so every consumer sees the new assignment without having to
+        // revisit a page that happens to refetch services. Deliberately not
+        // .unwrap()'d: a failed refresh must not surface as "Failed to save"
+        // when the save itself already succeeded.
+        await dispatch(fetchServicesThunk({ limit: 200, isActive: true }));
       }
 
       navigate(listPath);
@@ -636,6 +654,7 @@ const ProductFormPage: React.FC = () => {
               <div className="cf-field">
                 <label>Low Stock Alert (in bottles/units)</label>
                 <input type="number" min={0} value={qtyAlert} onChange={(e) => setQtyAlert(e.target.value)} />
+                {alertError && <span className="cf-field__error">{alertError}</span>}
               </div>
             </>
           ) : (
@@ -648,6 +667,7 @@ const ProductFormPage: React.FC = () => {
               <div className="cf-field">
                 <label>Low Stock Alert</label>
                 <input type="number" min={0} step={1} value={qtyAlert} onChange={(e) => setQtyAlert(e.target.value)} />
+                {alertError && <span className="cf-field__error">{alertError}</span>}
               </div>
             </>
           )}

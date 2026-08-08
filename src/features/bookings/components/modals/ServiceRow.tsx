@@ -156,6 +156,9 @@ function extractServiceTotalPages(response: any) {
   return Number.isFinite(totalPages) && totalPages > 0 ? totalPages : 1;
 }
 
+// Dedupes by id (falling back to name): `base` WINS on collision, `incoming`
+// only contributes services base didn't already have. Callers pick the order
+// accordingly — whichever list is more trustworthy goes first.
 function mergeServiceResults(
   base: SearchServiceResult[],
   incoming: SearchServiceResult[],
@@ -357,7 +360,16 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
       }
 
       if (abortRef.current === controller) {
-        setApiResults(mergeServiceResults(localMatches, apiMatches));
+        // API results FIRST so they win on id collision (see
+        // mergeServiceResults) — the cached schedulerContext.servicesList
+        // entry we built localMatches from can be arbitrarily stale, and its
+        // consumables_used is what selectService() copies onto the row. Edit a
+        // consumable's service assignments elsewhere in the app and nothing
+        // invalidates that cache, so the other order silently served the OLD
+        // recipe here even though the fresh one had just come back from this
+        // very request. Local matches still fill in anything the server search
+        // didn't return.
+        setApiResults(mergeServiceResults(apiMatches, localMatches));
       }
     } catch {
       if (abortRef.current === controller) {
