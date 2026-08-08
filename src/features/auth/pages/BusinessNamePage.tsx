@@ -14,8 +14,16 @@ export default function BusinessNamePage() {
   const [businessName, setBusinessName] = useState("");
   const [website, setWebsite] = useState("");
   const [submitted, setSubmitted] = useState(false);
+  const [touched, setTouched] = useState({ businessName: false, website: false });
 
-  const isValid = businessName.trim().length >= 3;
+  const isBusinessNameValid = businessName.trim().length >= 3;
+  const websiteRx = /^([\w-]+\.)+[a-zA-Z]{2,}(\/\S*)?$/;
+  const isWebsiteValid = website.trim() === "" || websiteRx.test(website.trim());
+
+  const showBusinessNameError = (touched.businessName || submitted) && !isBusinessNameValid;
+  const showWebsiteError = (touched.website || submitted) && !isWebsiteValid;
+
+  const isValid = isBusinessNameValid && isWebsiteValid;
 
   const handleContinue = () => {
     setSubmitted(true);
@@ -45,12 +53,13 @@ export default function BusinessNamePage() {
             </label>
             <input
               type="text"
-              className={`ob-input ${submitted && !isValid ? "is-invalid" : ""}`}
+              className={`ob-input ${showBusinessNameError ? "is-invalid" : ""}`}
               placeholder="e.g. Glamour Salon"
               value={businessName}
               onChange={(e) => setBusinessName(e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, businessName: true }))}
             />
-            {submitted && !isValid && (
+            {showBusinessNameError && (
               <div className="invalid-feedback d-block ob-invalid-msg">
                 Business name must be at least 3 characters
               </div>
@@ -64,10 +73,16 @@ export default function BusinessNamePage() {
             <input
               type="text"
               placeholder="www.yoursite.com"
-              className="ob-input"
+              className={`ob-input ${showWebsiteError ? "is-invalid" : ""}`}
               value={website}
               onChange={(e) => setWebsite(e.target.value)}
+              onBlur={() => setTouched((t) => ({ ...t, website: true }))}
             />
+            {showWebsiteError && (
+              <div className="invalid-feedback d-block ob-invalid-msg">
+                Enter a valid website address
+              </div>
+            )}
           </div>
 
           <button className="ob-btn-primary w-100" onClick={handleContinue}>
