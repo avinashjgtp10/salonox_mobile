@@ -358,12 +358,12 @@ export const SHOWCASE = [
 ];
 
 export const TESTIMONIALS = [
-  { name: 'Shubham Bagal', role: 'Owner, Elite Salon', quote: 'Bookings have never been smoother. Our no-show rate dropped by half within the first month.', initials: 'SB' },
-  { name: 'Nishant Zanzane', role: 'Director, Premium Spa Co.', quote: 'The reporting alone paid for the subscription. We finally know which services actually drive revenue.', initials: 'NZ' },
-  { name: 'Rutuja Pagale', role: 'Founder, Studio Beauty', quote: 'Clients love the booking page and our front desk loves how little they have to manage manually.', initials: 'RP' },
-  { name: 'Shivani Dhumal', role: 'Manager, Glow Wellness', quote: 'The multi-branch dashboard is a game-changer. Managing three locations has become incredibly easy.', initials: 'SD' },
-  { name: 'Avinash Jagtap', role: 'Owner, Lakme Salon', quote: 'Customer retention improved significantly thanks to the marketing automation features.', initials: 'AJ' },
-  { name: 'Shivani Gaware', role: 'Owner, Elegance Salon', quote: 'SalonOX has made managing appointments, staff, and daily operations effortless. The booking experience is smooth, and our clients love how simple everything has become.', initials: 'SG' },
+  { name: 'Emma Carter', role: 'Owner, Velvet Studio', quote: 'Bookings have never been smoother. Our no-show rate dropped by half within the first month.', initials: 'EC' },
+  { name: 'Olivia Bennett', role: 'Founder, Bloom & Co.', quote: 'The reporting alone paid for the subscription. We finally know which services actually drive revenue.', initials: 'OB' },
+  { name: 'Sophia Reed', role: 'Director, Lumière Salon', quote: 'Clients love the booking page and our front desk loves how little they have to manage manually.', initials: 'SR' },
+  { name: 'Mia Brooks', role: 'Owner, The Glow Room', quote: 'The multi-branch dashboard is a game-changer. Managing three locations has become incredibly easy.', initials: 'MB' },
+  { name: 'Isabella Hayes', role: 'Founder, Maison Hair', quote: 'Customer retention improved significantly thanks to the marketing automation features.', initials: 'IH' },
+  { name: 'Chloe Foster', role: 'Owner, Studio Luxe', quote: 'SalonOX has made managing appointments, staff, and daily operations effortless. The booking experience is smooth, and our clients love how simple everything has become.', initials: 'CF' },
 ];
 
 export const DEMO_EMAIL = 'support@salonox.com';
