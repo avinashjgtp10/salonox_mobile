@@ -44,6 +44,12 @@ const AddStaffPage: React.FC = () => {
 
   const today = new Date().toISOString().slice(0, 10);
 
+  const minAdultDob = (() => {
+    const d = new Date();
+    d.setFullYear(d.getFullYear() - 18);
+    return d.toISOString().slice(0, 10);
+  })();
+
   const [form, setForm] = useState({
     name: "", email: "", dob: "", doj: today,
     phone: "", phoneCountryCode: "+91",
@@ -138,7 +144,12 @@ const AddStaffPage: React.FC = () => {
   const emailErrorMessage =
     duplicateEmailMessage || (form.email.trim() === "" ? "Email is required" : "Enter a valid email address");
 
-  const isDobInvalid = attemptedSubmit && !!form.dob && form.dob > today;
+  const isDobFuture = !!form.dob && form.dob > today;
+  const isDobUnderage = !!form.dob && !isDobFuture && form.dob > minAdultDob;
+  const isDobInvalid = attemptedSubmit && !!form.dob && (isDobFuture || isDobUnderage);
+  const dobErrorMessage = isDobFuture
+    ? "Date of birth cannot be in the future"
+    : "Staff must be at least 18 years old";
 
   const isDojInvalid = attemptedSubmit && (form.doj.trim() === "" || form.doj > today);
 
@@ -374,7 +385,7 @@ const AddStaffPage: React.FC = () => {
                 <input
                   className={`emp-input ${isDobInvalid ? "emp-input--invalid" : ""}`}
                   type="date"
-                  max={today}
+                  max={minAdultDob}
                   value={form.dob}
                   onChange={(e) => setField("dob")(e.target.value)}
                   onFocus={() => {
@@ -384,7 +395,7 @@ const AddStaffPage: React.FC = () => {
                     }
                   }}
                 />
-                {isDobInvalid && <span className="emp-field__error">Date of birth cannot be in the future</span>}
+                {isDobInvalid && <span className="emp-field__error">{dobErrorMessage}</span>}
               </div>
               <div className="emp-field">
                 <label className="emp-field__label">Date of Joining</label>

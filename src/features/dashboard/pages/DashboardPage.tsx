@@ -595,14 +595,14 @@ const RecentActivityCard = memo(function RecentActivityCard({
 // ─── Section: Bottom Stat Cards (Pending Payments / Birthdays / Inactive Clients) ──
 
 const BottomStatCards = memo(function BottomStatCards({
-  pendingPayments, birthdays, loading, pendingLoading, onNavigateWhatsApp, onNavigateSalesSummary,
+  pendingPayments, birthdays, loading, pendingLoading, onNavigateWhatsApp, onNavigatePendingAppointments,
 }: {
   pendingPayments: { count: number; amount: number } | undefined;
   birthdays: { count: number; clients: Array<{ id: string; name: string }> } | undefined;
   loading: boolean;
   pendingLoading: boolean;
   onNavigateWhatsApp: () => void;
-  onNavigateSalesSummary: () => void;
+  onNavigatePendingAppointments: () => void;
 }) {
   const { formatAmount } = useCurrency();
   const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
@@ -614,7 +614,7 @@ const BottomStatCards = memo(function BottomStatCards({
       icon: <CreditCard2Front size={18} />,
       tone: "danger",
       cta: "Collect Now",
-      onClick: onNavigateSalesSummary,
+      onClick: onNavigatePendingAppointments,
       loading: pendingLoading,
     },
     {
@@ -1470,8 +1470,11 @@ export default function DashboardPage() {
   const goToMarketing = useCallback(() => navigate("/dashboard/marketing"),        [navigate]);
   const goToStaff     = useCallback(() => navigate("/dashboard/team/members"),     [navigate]);
   const goToQuickWhatsApp = useCallback(() => navigate("/dashboard/marketing/quick-whatsapp"), [navigate]);
-  const goToSalesSummary = useCallback(
-    () => navigate("/reports/sales/sales-summary"),
+  // "Collect Now" on the Pending Payments card — goes to the Detailed
+  // Appointment Report pre-filtered to unpaid/partially-paid appointments,
+  // not the Sales Summary report (which has no pending/unpaid status).
+  const goToPendingAppointments = useCallback(
+    () => navigate("/reports/appointments/appointment-detail?status=booked,partial"),
     [navigate]
   );
 
@@ -1568,7 +1571,7 @@ export default function DashboardPage() {
         loading={dashLoading}
         pendingLoading={pendingLoading}
         onNavigateWhatsApp={goToQuickWhatsApp}
-        onNavigateSalesSummary={goToSalesSummary}
+        onNavigatePendingAppointments={goToPendingAppointments}
       />
 
       {/* ── STAFF REVENUE / TOP STAFF / RECENT ACTIVITY ── */}
