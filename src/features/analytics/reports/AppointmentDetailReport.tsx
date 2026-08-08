@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useDispatch } from "react-redux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
@@ -82,11 +83,20 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
   const today     = new Date().toISOString().slice(0, 10);
   const monthAgo  = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const abortRef = useRef<AbortController | null>(null);
+  const [searchParams] = useSearchParams();
+  // Deep-link support: /reports/appointments/appointment-detail?status=booked,partial
+  // pre-applies the Appointment Status filter — used by the dashboard's
+  // "Collect Now" (Pending Payments) shortcut.
+  const initialStatuses = useMemo(() => {
+    const raw = searchParams.get("status");
+    if (!raw) return [];
+    return raw.split(",").map(s => s.trim()).filter(s => APPT_STATUSES.includes(s));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [dateFrom,          setDateFrom]          = useState(monthAgo);
   const [dateTo,            setDateTo]            = useState(today);
   const [search,            setSearchInput]       = useState("");
   const [debouncedSearch,   setDebouncedSearch]   = useState("");
-  const [selectedStatuses,  setSelectedStatuses]  = useState<string[]>([]);
+  const [selectedStatuses,  setSelectedStatuses]  = useState<string[]>(initialStatuses);
   const [paymentMethods,    setPaymentMethods]    = useState<string[]>([]);
   const [staffFilterIds,    setStaffFilterIds]    = useState<string[]>([]);
   const [staffOptions,      setStaffOptions]      = useState<{ id: string; label: string }[]>([]);
