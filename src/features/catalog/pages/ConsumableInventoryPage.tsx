@@ -365,11 +365,24 @@ const ConsumableInventoryPage: React.FC = () => {
           </p>
         </div>
         <div className="ci-header__actions">
-          <button className="ci-btn ci-btn--primary" onClick={() => navigate("/dashboard/catalog/inventory/consumables/add")}>
-            <PlusLg size={14} /> Add Consumable
+          {/* Labels are deliberately short; title/aria-label carry the full
+              wording so the buttons still read unambiguously to screen readers
+              and on hover. */}
+          <button
+            className="ci-btn ci-btn--primary"
+            title="Add Consumable"
+            aria-label="Add Consumable"
+            onClick={() => navigate("/dashboard/catalog/inventory/consumables/add")}
+          >
+            <PlusLg size={14} /> Add
           </button>
-          <button className="ci-btn ci-btn--outline" onClick={() => navigate("/dashboard/catalog/inventory/consumables/usage-history")}>
-            Usage History
+          <button
+            className="ci-btn ci-btn--outline"
+            title="Usage History"
+            aria-label="Usage History"
+            onClick={() => navigate("/dashboard/catalog/inventory/consumables/usage-history")}
+          >
+            Usage
           </button>
         </div>
       </div>
@@ -461,8 +474,18 @@ const ConsumableInventoryPage: React.FC = () => {
                     <span className="ci-table__name-text" title={row.name}>{row.name}</span>
                     {row.brand_name && <span className="ci-table__brand">{row.brand_name}</span>}
                   </td>
-                  <td>{row.category_name || "—"}</td>
-                  <td>{row.supplier_name || "—"}</td>
+                  {/* title only when there's a real value — otherwise hovering
+                      an empty cell shows a pointless "—" tooltip. */}
+                  <td>
+                    <span className="ci-table__truncate" title={row.category_name || undefined}>
+                      {row.category_name || "—"}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="ci-table__truncate" title={row.supplier_name || undefined}>
+                      {row.supplier_name || "—"}
+                    </span>
+                  </td>
                   {/* Stock = package/bottle count (1, 2, 3…); Unit = the
                       configured package size itself (e.g. "100 ml" per
                       Bottle) — never the multiplied total across all stock. */}

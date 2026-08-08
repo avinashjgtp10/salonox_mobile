@@ -49,6 +49,8 @@ function mapRow(row: any): InventoryRow {
     product: row.product_name || "—",
     category: row.category_name || "—",
     brand: row.brand_name || "—",
+    // Backend aliases products.barcode AS sku (reports.repository.ts); the
+    // column is labelled "Barcode" in the UI to match the Add Product form.
     sku: row.sku || "—",
     dateAdded: row.date_added || "",
     currentStock: Number(row.current_stock) || 0,
@@ -168,7 +170,11 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
     setStockStatusFilter(next.stock_status ?? []);
   };
 
-  const HEADERS = ["Product", "Category", "Brand", "SKU", "Current Stock", "Reorder Level", `Unit Cost (${currencySymbol})`, `Total Value (${currencySymbol})`, "Sales", "Status"];
+  // Column names match the Add/Edit Product form's own field labels so the
+  // same number isn't called two different things in two places — "Barcode"
+  // and "Low Stock Alert" there, not "SKU"/"Reorder Level". Keep this list and
+  // the <thead> below in step; this one is what the Download export writes.
+  const HEADERS = ["Product", "Category", "Brand", "Barcode", "Current Stock", "Low Stock Alert", `Unit Cost (${currencySymbol})`, `Total Value (${currencySymbol})`, "Sales", "Status"];
   const exportRows = () => rows.map(r => [
     r.product, r.category, r.brand, r.sku,
     r.currentStock, r.reorderLevel, r.unitCost, r.totalValue,
@@ -244,7 +250,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
           <input
             type="text"
             className="rp-detail-search-input"
-            placeholder="Search product, SKU, barcode, brand or category"
+            placeholder="Search product, barcode, brand or category"
             value={search}
             onChange={e => setSearchInput(e.target.value)}
           />
@@ -258,9 +264,9 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
               <th className="rp-inv-col-product">Product</th>
               <th>Category</th>
               <th>Brand</th>
-              <th>SKU</th>
+              <th>Barcode</th>
               <th>Current Stock</th>
-              <th>Reorder Level</th>
+              <th>Low Stock Alert</th>
               <th>Unit Cost ({currencySymbol})</th>
               <th>Total Value ({currencySymbol})</th>
               <th>Sales</th>
