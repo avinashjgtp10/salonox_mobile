@@ -481,10 +481,12 @@
     background: #fff;
     border: 1px solid #e2e8f0;
     border-radius: 14px;
-    // No overflow set here on purpose: with the Status column gone the table
-    // fits without scrolling, and the row kebab menu (a portal, see
-    // MembershipsListPage.tsx) no longer needs this to stay unclipped either
-    // way — but leaving overflow unset avoids a scrollbar with nothing to do.
+    // Was unset, which let the table render wider than this bordered card and
+    // spill the last column outside it. `auto` (not `hidden`) on purpose: if
+    // the content ever does exceed the width again it scrolls instead of
+    // clipping the row-actions button out of reach. The kebab menu itself is
+    // a portal (see MembershipsListPage.tsx), so it isn't clipped by this.
+    overflow-x: auto;
   }
 
   &__table {
@@ -504,13 +506,13 @@
       border-bottom: 1px solid #e2e8f0;
 
       th {
-        padding: 12px 20px;
+        padding: 10px 14px;
         text-align: left;
-        font-size: 12px;
+        font-size: 11px;
         font-weight: 600;
         color: #64748b;
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.04em;
         white-space: nowrap;
       }
     }
@@ -524,34 +526,32 @@
       &:last-child { border-bottom: none; }
 
       td {
-        padding: 15px 20px;
-        font-size: 13.5px;
+        padding: 10px 14px;
+        font-size: 12.5px;
         color: #0f172a;
         vertical-align: middle;
+        // Every cell here holds a short single value; wrapping was what made
+        // the Benefit column four lines tall and dragged the whole row with
+        // it. Anything genuinely long truncates instead — see &__benefit and
+        // &__name, which carry the full text on a title attribute.
+        white-space: nowrap;
       }
     }
   }
 
   /* ── Name cell ───────────────────────────────────────────────── */
-  &__name-cell {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-  }
-
-  &__color-dot {
-    width: 38px;
-    height: 38px;
-    border-radius: 10px;
-    flex-shrink: 0;
-    opacity: 0.88;
-  }
-
+  // The colour swatch that used to sit here is gone: `colour` is optional and
+  // almost never set, so it rendered the same dark default square on every
+  // row — carrying no information while setting the row height on its own.
   &__name {
     display: block;
     font-weight: 600;
     color: #0f172a;
-    font-size: 14px;
+    font-size: 13px;
+    max-width: 190px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   /* ── Membership type badge (Value / Percentage) ─────────────── */
@@ -596,26 +596,52 @@
   /* ── Muted td ────────────────────────────────────────────────── */
   &__td-muted {
     color: #64748b !important;
-    font-size: 13.5px;
+    font-size: 12.5px;
   }
 
   &__price {
-    font-weight: 700;
     color: #0f172a !important;
-    font-size: 14px !important;
+  }
+
+  // Benefit cell: the figure and its bonus sit on one line, with the bonus
+  // demoted so the amount that matters still reads first. Capped and clipped
+  // so a Loyalty plan's tier list (which is genuinely open-ended) can't widen
+  // the table — the full string is on the cell's title attribute.
+  &__benefit {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 600;
+    font-size: 12.5px;
+  }
+
+  &__benefit-sub {
+    font-weight: 500;
+    font-size: 11.5px;
+    color: #64748b;
+    flex-shrink: 0;
   }
 
   /* ── Row actions ─────────────────────────────────────────────── */
+  // The 40px left padding here was pushing the kebab past the table's own
+  // right edge, so it rendered outside the bordered card. It only ever
+  // existed to hold the column apart from a wider Created At cell; the
+  // column's `width: 1%` already keeps it hard right.
   &__td-actions {
     width: 1%;
-    padding-left: 40px !important;
-    padding-right: 20px !important;
+    padding-left: 8px !important;
+    padding-right: 12px !important;
     white-space: nowrap;
+    text-align: right;
   }
 
   &__td-checkbox {
     width: 1%;
-    padding-left: 20px !important;
+    padding-left: 14px !important;
     padding-right: 0 !important;
 
     input[type="checkbox"] {
@@ -674,48 +700,8 @@
     margin: 0 0 12px;
   }
 
-  /* ── Pagination ──────────────────────────────────────────────── */
-  &__pagination {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 20px;
-    padding: 14px 20px;
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 12px;
-  }
-
-  &__page-info {
-    font-size: 13px;
-    color: #64748b;
-    font-weight: 500;
-  }
-
-  &__page-btns {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  &__page-btn {
-    background: #fff;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 6px 16px;
-    font-size: 13px;
-    font-weight: 600;
-    color: #334155;
-    cursor: pointer;
-    transition: all 0.1s;
-
-    &:hover:not(:disabled) { background: #f8fafc; border-color: #cbd5e1; }
-    &:disabled { opacity: 0.4; cursor: not-allowed; }
-  }
-
-  &__page-cur {
-    font-size: 13px;
-    color: #64748b;
-    font-weight: 500;
-  }
+  /* Pagination is the shared components/ui/Pagination now — its own
+     styles/Pagination.scss owns the look, so this page's Prev/Next pager
+     rules (&__pagination, &__page-info, &__page-btns, &__page-btn,
+     &__page-cur) are gone with the markup that used them. */
 }

@@ -3,7 +3,7 @@ import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
-  Search, PlusLg, Sliders, ChevronDown,
+  Search, PlusLg, ChevronDown,
   PencilSquare, Trash3, FileEarmarkPdf,
   FileEarmarkExcel, FiletypeCsv, CardList,
   Award, CheckCircleFill,
@@ -28,19 +28,48 @@ import {
   selectMembershipsError,
   selectMembershipsTotal,
 } from "../../../store/selectors/membership.selectors";
-import MembershipFilterDrawer from "../components/MembershipFilterDrawer";
 import MembershipDetailsDrawer from "../components/MembershipDetailsDrawer";
-import { getMembershipMeta, TYPE_LABEL, APPLIES_TO_LABEL } from "../utils/membershipMeta";
+import api from "../../../services/api/axios";
+import { JiraFilterMenu, Pagination } from "../../../components/ui";
+import type { FilterDropdownOption, JiraFilterField } from "../../../components/ui";
+import { getMembershipMeta, TYPE_LABEL, APPLIES_TO_LABEL, loyaltyBenefit, walletBenefit } from "../utils/membershipMeta";
 import "../styles/MembershipsListPage.scss";
 
-const PAGE_SIZE = 20;
+// Starting page size only — the shared Pagination lets the user change it, so
+// the live value lives in state (see `pageSize` below) rather than this const.
+const DEFAULT_PAGE_SIZE = 20;
 
+// Every field is multi-select, matching the shared JiraFilterMenu's contract
+// (Record<string, string[]>) — an empty array means "no restriction". Sent to
+// the API comma-joined per field; see splitMulti() in the backend's
+// memberships.repository.ts.
 interface Filters {
-  validFor: string;
+  validFor: string[];
+  pricingType: string[];
+  appliesTo: string[];
 }
 const DEFAULT_FILTERS: Filters = {
-  validFor: "Any period",
+  validFor: [],
+  pricingType: [],
+  appliesTo: [],
 };
+
+const PRICING_TYPE_OPTIONS: FilterDropdownOption[] = [
+  { id: "value", label: "Wallet" },
+  { id: "percentage", label: "Discount Balance" },
+  { id: "loyalty", label: "Loyalty" },
+];
+
+const APPLIES_TO_OPTIONS: FilterDropdownOption[] = [
+  { id: "services", label: "Services" },
+  { id: "products", label: "Products" },
+  { id: "both", label: "Services & Products" },
+];
+
+// Expiry options are NOT hardcoded: valid_for is free-form text holding
+// whatever duration string each plan was saved with ("1 year", "365 days",
+// "3 months", "lifetime", even "367 days"), so a fixed list would silently
+// match nothing. Fetched per salon from /memberships/filter-options.
 
 function formatDate(value?: string | Date) {
   if (!value) return "—";
@@ -74,7 +103,23 @@ const MembershipsListPage: React.FC = () => {
   const [page,       setPage]       = useState(1);
   const [optOpen,    setOptOpen]    = useState(false);
   const [exporting,  setExporting]  = useState<"csv" | "excel" | "pdf" | null>(null);
-  const [filterOpen, setFilterOpen] = useState(false);
+  const [pageSize,   setPageSize]   = useState(DEFAULT_PAGE_SIZE);
+  const [validForOptions, setValidForOptions] = useState<string[]>([]);
+
+  // Distinct valid_for values for this salon — see the note above
+  // PRICING_TYPE_OPTIONS for why these can't be a fixed list.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get("/api/v1/memberships/filter-options");
+        if (!cancelled) setValidForOptions(res.data?.data?.validFor ?? []);
+      } catch {
+        if (!cancelled) setValidForOptions([]);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   const [drawerId,   setDrawerId]   = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -134,11 +179,16 @@ const MembershipsListPage: React.FC = () => {
   useEffect(() => { setDeleteInput(""); }, [membershipsToDelete]);
 
   // ── plans list ────────────────────────────────────────────────────────────
+  // Arrays are joined by cleanParams' String(v) in membership.thunk.ts, and an
+  // empty one stringifies to "" which that same helper drops — so absent
+  // filters never reach the query string.
   const buildQuery = useCallback(() => ({
     search:      debouncedSearch.trim() || undefined,
-    validFor: filters.validFor !== "Any period" ? filters.validFor : undefined,
-    page, limit: PAGE_SIZE,
-  }), [debouncedSearch, filters, page]);
+    validFor:    filters.validFor.length ? filters.validFor.join(",") : undefined,
+    pricingType: filters.pricingType.length ? filters.pricingType.join(",") : undefined,
+    appliesTo:   filters.appliesTo.length ? filters.appliesTo.join(",") : undefined,
+    page, limit: pageSize,
+  }), [debouncedSearch, filters, page, pageSize]);
 
   useEffect(() => {
     dispatch(fetchMembershipsThunk(buildQuery()));
@@ -181,8 +231,28 @@ const MembershipsListPage: React.FC = () => {
     setExporting(null);
   };
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const activeFilterCount = filters.validFor !== "Any period" ? 1 : 0;
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "pricingType", label: "Membership Type", options: PRICING_TYPE_OPTIONS },
+    { key: "appliesTo", label: "Applies To", options: APPLIES_TO_OPTIONS },
+    {
+      key: "validFor",
+      label: "Expiry",
+      options: validForOptions.map((v) => ({ id: v, label: v === "lifetime" ? "Lifetime" : v })),
+      searchable: validForOptions.length > 8,
+    },
+  ], [validForOptions]);
+
+  // JiraFilterMenu hands back the WHOLE draft on Apply (every field, changed or
+  // not) in one call — one state update, one fetch, however many fields were
+  // touched before clicking.
+  const applyAllFilters = useCallback((next: Record<string, string[]>) => {
+    setFilters({
+      pricingType: next.pricingType ?? [],
+      appliesTo: next.appliesTo ?? [],
+      validFor: next.validFor ?? [],
+    });
+    setPage(1);
+  }, []);
 
   const stats = useMemo(() => ({
     revenue: memberships.reduce((s, m) => s + (Number(m.price) || 0), 0),
@@ -278,16 +348,14 @@ const MembershipsListPage: React.FC = () => {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <button
-          className={`msp__btn msp__btn--outline${activeFilterCount > 0 ? " msp__btn--active" : ""}`}
-          onClick={() => {
-            setOptOpen(false);
-            setFilterOpen(true);
-          }}
-        >
-          <Sliders size={14} />
-          Filters {activeFilterCount > 0 && `(${activeFilterCount})`}
-        </button>
+        {/* Shared filter menu (components/ui) — same two-pane panel and
+            single-Apply behaviour as the Consumable Inventory page, replacing
+            this page's own one-field drawer. */}
+        <JiraFilterMenu
+          fields={filterFields}
+          selected={filters as unknown as Record<string, string[]>}
+          onApply={applyAllFilters}
+        />
 
         {selectedMemberships.length > 0 && (
           <div className="msp__bulk-bar">
@@ -341,7 +409,6 @@ const MembershipsListPage: React.FC = () => {
             </thead>
             <tbody>
               {memberships.length > 0 ? memberships.map(m => {
-                const color = m.colour || "#1a1a2e";
                 const meta  = getMembershipMeta(m);
                 const type  = m.pricingType ?? "value";
                 return (
@@ -354,26 +421,38 @@ const MembershipsListPage: React.FC = () => {
                       />
                     </td>
                     <td>
-                      <div className="msp__name-cell">
-                        <span className="msp__color-dot" style={{ background: color }} />
-                        <span className="msp__name">{m.name}</span>
-                      </div>
+                      <span className="msp__name" title={m.name}>{m.name}</span>
                     </td>
                     <td>
                       <span className={`msp__type-badge msp__type-badge--${type}`}>
                         {TYPE_LABEL[type] ?? "Wallet"}
                       </span>
                     </td>
+                    {/* The "Wallet"/"Discount" prefix this used to repeat is
+                        already the column immediately to the left, and it was
+                        most of what pushed this cell to four wrapped lines —
+                        so the benefit itself is all that's shown, with the
+                        bonus demoted to a muted suffix. Full text stays on
+                        the title attribute for anything that still overflows. */}
                     <td className="msp__price">
-                      {type === "percentage"
-                        ? `${m.discountPercent ?? 0}% Discount`
-                        : type === "loyalty"
-                          ? (m.loyaltyTiers?.length
-                              ? m.loyaltyTiers.map(t => `${t.thresholdValue} Visits → ${t.discountPercent}%`).join(", ")
-                              : "No tiers configured")
-                          : `Wallet ${formatAmount(Number(m.price) || 0)}${
-                              Number(meta.bonusCredit) > 0 ? ` (+${formatAmount(Number(meta.bonusCredit))} Bonus)` : ""
-                            }`}
+                      {type === "percentage" ? (
+                        <span className="msp__benefit" title={`${m.discountPercent ?? 0}% Discount`}>
+                          {m.discountPercent ?? 0}% Discount
+                        </span>
+                      ) : type === "loyalty" ? (
+                        <span className="msp__benefit" title={loyaltyBenefit(m)}>
+                          {loyaltyBenefit(m)}
+                        </span>
+                      ) : (
+                        <span className="msp__benefit" title={walletBenefit(m, meta, formatAmount)}>
+                          {formatAmount(Number(m.price) || 0)}
+                          {Number(meta.bonusCredit) > 0 && (
+                            <span className="msp__benefit-sub">
+                              +{formatAmount(Number(meta.bonusCredit))} bonus
+                            </span>
+                          )}
+                        </span>
+                      )}
                     </td>
                     <td className="msp__td-muted">{APPLIES_TO_LABEL[m.appliesTo ?? "services"] ?? "Services"}</td>
                     <td className="msp__td-muted">{type === "loyalty" ? "Free" : formatAmount(Number(m.price) || 0)}</td>
@@ -451,24 +530,18 @@ const MembershipsListPage: React.FC = () => {
       </div>
 
       {/* ── Pagination ──────────────────────────────────────────────────── */}
-      {!loading && memberships.length > 0 && (
-        <div className="msp__pagination">
-          <span className="msp__page-info">Showing {memberships.length} of {total} memberships</span>
-          <div className="msp__page-btns">
-            <button className="msp__page-btn" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>‹ Prev</button>
-            <span className="msp__page-cur">Page {page} of {totalPages}</span>
-            <button className="msp__page-btn" disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next ›</button>
-          </div>
-        </div>
-      )}
-
-      {filterOpen && (
-        <MembershipFilterDrawer
-          onClose={() => setFilterOpen(false)}
-          onApply={f => { setFilters(f); setPage(1); setFilterOpen(false); }}
-          initialFilters={filters}
-        />
-      )}
+      {/* Shared component (components/ui), same as the Reports pages and
+          Consumable Inventory — numbered pages and a page-size selector,
+          replacing this page's own Prev/Next-only pager. It renders nothing
+          when totalItems is 0, so the previous empty/loading guard is no
+          longer needed here. */}
+      <Pagination
+        currentPage={page}
+        pageSize={pageSize}
+        totalItems={total}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+      />
 
       <MembershipDetailsDrawer
         membershipId={drawerId}
