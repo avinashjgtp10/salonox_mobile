@@ -6,13 +6,15 @@ import styles from "./packages.module.scss";
 import type { ClientPackage, PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
 import { useListPackageTemplatesQuery, useCreatePackageTemplateMutation } from "../../services/api/endpoints/packages.endpoints";
 import type { ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
+import ClientSelectorWithAdd from "./ClientSelectorWithAdd";
 import { useCreateClientPackage } from "../../hooks/packages/usePackages";
+import { fetchStaffThunk } from "../../middleware/staff/staff.thunk";
 import { useServices } from "../../features/catalog/hooks/useServices";
 import type { Service } from "../../features/catalog/types/catalog.types";
 import { PaymentMethodPicker, type PaymentSplitEntry } from "../shared/PaymentMethodPicker";
 import { useCurrency } from "../../hooks/useCurrency";
 
-import type { AppDispatch } from "../../store/store";
+import type { AppDispatch, RootState } from "../../store/store";
 
 interface NewService {
   id: number;
@@ -35,6 +37,13 @@ interface Props {
   selectedClient:   ClientSearchResult | null;
   onClientChange:   (client: ClientSearchResult | null) => void;
   onCancel:         () => void;
+  /** Shows the client search / inline "add new client" picker inside the form
+   *  itself (used by the Custom Package flow, where no client is pre-selected
+   *  before this form opens). */
+  showClientPicker?: boolean;
+  /** Shows a "Staff" dropdown (existing staff only) inside the form — feeds
+   *  CreateClientPackageDTO.staffId for the Package Sale report's Staff column. */
+  showStaffPicker?: boolean;
   onSaved:          (pkg: ClientPackage) => void;
   /** Called instead of onSaved when the "Generic package" toggle is on and a
    *  reusable Package Template was created rather than a client-specific package. */
@@ -84,8 +93,8 @@ function newServiceRow(): NewService {
 }
 
 const PackageCreateForm: React.FC<Props> = ({
-  selectedClient, onCancel, onSaved, onTemplateSaved, templateToLoad,
-  quickCreateMode = false,
+  selectedClient, onClientChange, onCancel, onSaved, onTemplateSaved, templateToLoad,
+  quickCreateMode = false, showClientPicker = false, showStaffPicker = false,
 }) => {
   const { currencySymbol, formatAmount } = useCurrency();
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -122,14 +131,17 @@ const PackageCreateForm: React.FC<Props> = ({
   // point or the in-form "Choose Template" picker), everything except the
   // payment method is locked to what the template defines.
   const [isFromTemplate,    setIsFromTemplate]   = useState(false);
+  const [staffId,           setStaffId]          = useState("");
 
   const { createClientPackage, isLoading } = useCreateClientPackage();
   const [createTemplate, { isLoading: isSavingTemplate }] = useCreatePackageTemplateMutation();
   const { services: apiServices, loading: servicesLoading, fetchServices } = useServices();
 
   const dispatch = useDispatch<AppDispatch>();
+  const staffMembers = useSelector((s: RootState) => (s as any).staff?.items ?? []);
 
   useEffect(() => { fetchServices({ limit: 200 }); }, []);
+  useEffect(() => { if (showStaffPicker) dispatch(fetchStaffThunk()); }, [showStaffPicker]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update one service row — always a single setState so both fields apply atomically
   const updateService = (id: number, patch: Partial<NewService>) =>
@@ -228,6 +240,7 @@ const PackageCreateForm: React.FC<Props> = ({
         gstPercentage: gstPct,
         discount:      discountVal,
         paymentMethod: paymentMode === "split" ? "split" : toBackendPaymentMethod(singleMethod!),
+        staffId:       staffId || undefined,
         services: validServices.map(s => ({
           serviceId:     s.catalogServiceId ?? undefined,
           serviceName:   s.name,
@@ -422,6 +435,30 @@ const PackageCreateForm: React.FC<Props> = ({
           <div className={styles.cardTitle}>Package details</div>
         </div>
         <div className={styles.cardBody}>
+          {showClientPicker && !isGeneric && (
+            <div className={styles.formField} style={{ marginBottom: 14 }}>
+              <label className={`${styles.formLabel} ${styles.formLabelRequired}`}>Client</label>
+              <ClientSelectorWithAdd
+                defaultClient={selectedClient}
+                onSelect={onClientChange}
+                onClear={() => onClientChange(null)}
+                placeholder="Search client by name or phone…"
+              />
+            </div>
+          )}
+          {showStaffPicker && (
+            <div className={styles.formField} style={{ marginBottom: 14 }}>
+              <label className={styles.formLabel}>Staff</label>
+              <StaffSearchInput
+                value={staffId}
+                options={staffMembers.map((s: any) => ({
+                  id: s.id,
+                  name: s.fullName || `${s.first_name || ""} ${s.last_name || ""}`.trim() || "Unnamed Staff",
+                }))}
+                onChange={setStaffId}
+              />
+            </div>
+          )}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div className={styles.formField}>
               <label className={`${styles.formLabel} ${styles.formLabelRequired}`}>Package name</label>
@@ -813,6 +850,76 @@ const ServiceSearchInput: React.FC<{
               >
                 <span style={{ color: isSelected ? "#7c3aed" : "#111827", fontWeight: isSelected ? 600 : 400 }}>{name}</span>
                 {price > 0 && <span style={{ fontSize: 12, color: "#6b7280", fontWeight: 500 }}>{formatAmount(price)}</span>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+// ── Searchable staff picker (client-side filter, same scrollable dropdown as
+// ServiceSearchInput above — staff list is small and already in Redux). ─────
+const StaffSearchInput: React.FC<{
+  value: string;
+  options: { id: string | number; name: string }[];
+  onChange: (id: string) => void;
+}> = ({ value, options, onChange }) => {
+  const [query, setQuery] = useState("");
+  const [open,  setOpen]  = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const selected = options.find(o => String(o.id) === value);
+  const displayValue = open ? query : (selected?.name ?? "");
+
+  useEffect(() => {
+    function onOutside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", onOutside);
+    return () => document.removeEventListener("mousedown", onOutside);
+  }, []);
+
+  const filtered = query.trim()
+    ? options.filter(o => o.name.toLowerCase().includes(query.trim().toLowerCase()))
+    : options;
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <div style={{ position: "relative" }}>
+        <Search size={12} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "#9ca3af", pointerEvents: "none" }} />
+        <input
+          className={styles.input}
+          style={{ paddingLeft: 28 }}
+          value={displayValue}
+          placeholder="Search staff…"
+          onChange={e => { setQuery(e.target.value); setOpen(true); }}
+          onFocus={() => { setQuery(""); setOpen(true); }}
+        />
+      </div>
+      {open && (
+        <div style={{ position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, background: "#fff", border: "1px solid #e5e7eb", borderRadius: 8, boxShadow: "0 4px 16px rgba(0,0,0,.10)", zIndex: 200, maxHeight: 200, overflowY: "auto" }}>
+          <div
+            onMouseDown={() => { onChange(""); setQuery(""); setOpen(false); }}
+            style={{ padding: "9px 12px", fontSize: 13, cursor: "pointer", color: "#6b7280" }}
+            onMouseEnter={e => (e.currentTarget as HTMLDivElement).style.background = "#f9fafb"}
+            onMouseLeave={e => (e.currentTarget as HTMLDivElement).style.background = ""}
+          >
+            Choose a staff member…
+          </div>
+          {filtered.length === 0 && <div style={{ padding: "10px 12px", fontSize: 12, color: "#9ca3af" }}>No staff found</div>}
+          {filtered.map(o => {
+            const isSelected = String(o.id) === value;
+            return (
+              <div
+                key={String(o.id)}
+                onMouseDown={() => { onChange(String(o.id)); setQuery(""); setOpen(false); }}
+                style={{ padding: "9px 12px", fontSize: 13, cursor: "pointer", background: isSelected ? "#f5f3ff" : undefined }}
+                onMouseEnter={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = "#f9fafb"; }}
+                onMouseLeave={e => { if (!isSelected) (e.currentTarget as HTMLDivElement).style.background = isSelected ? "#f5f3ff" : ""; }}
+              >
+                <span style={{ color: isSelected ? "#7c3aed" : "#111827", fontWeight: isSelected ? 600 : 400 }}>{o.name}</span>
               </div>
             );
           })}

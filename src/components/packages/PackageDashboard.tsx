@@ -1,15 +1,12 @@
 // src/components/packages/PackageDashboard.tsx
 import React, { useState, useMemo, useEffect } from "react";
-import { Package, CheckCircle2, Clock, Target, Search, CheckCheck, History, X, Loader2, Sparkles, PenLine, ChevronRight, ChevronDown, ChevronUp, Layers } from "lucide-react";
+import { Package, CheckCircle2, Clock, Target, Search, History, X, Loader2, Sparkles, PenLine, ChevronRight, Layers } from "lucide-react";
 import styles from "./packages.module.scss";
+import { Pagination } from "../ui/Pagination";
 import type { ClientPackage, PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
 import { useListPackageTemplatesQuery } from "../../services/api/endpoints/packages.endpoints";
 import type { ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
-import { useGetClientPackages, useCompleteSession } from "../../hooks/packages/usePackages";
-import { useSelector, useDispatch } from "react-redux";
-import { selectAllStaff } from "../../store/selectors/slices.selectors";
-import { fetchStaffThunk } from "../../middleware/staff/staff.thunk";
-import type { AppDispatch } from "../../store/store";
+import { useGetClientPackages } from "../../hooks/packages/usePackages";
 import { useCurrency } from "../../hooks/useCurrency";
 
 interface Props {
@@ -30,10 +27,7 @@ const PackageDashboard: React.FC<Props> = ({
   selectedClient, onCreateNew, onCreateFromTemplate,
 }) => {
   const { formatAmount } = useCurrency();
-  const [selService,      setSelService]      = useState("");
-  const [selStaff,        setSelStaff]        = useState("");
   const [activeTab,       setActiveTab]       = useState("");
-  const [toast,           setToast]           = useState<{ msg: string; type: "success" | "error" } | null>(null);
 
   // List is salon-wide now (like Sold Memberships) — no client selection
   // gates it. `search` stays controlled for instant typing; the query only
@@ -48,37 +42,17 @@ const PackageDashboard: React.FC<Props> = ({
   const [statusFilter,    setStatusFilter]    = useState("all");
   const [sortBy,          setSortBy]          = useState("newest");
   const [page,            setPage]            = useState(1);
+  const [pageSize,        setPageSize]        = useState(PAGE_SIZE);
   const [expandedId,      setExpandedId]      = useState<string | null>(null);
   const [showChoice,      setShowChoice]      = useState(false);
   const [showTmplPicker,  setShowTmplPicker]  = useState(false);
 
-  useEffect(() => { setPage(1); }, [debouncedSearch]);
+  useEffect(() => { setPage(1); }, [debouncedSearch, pageSize]);
 
   const { data: templates = [] } = useListPackageTemplatesQuery();
 
-  const dispatch = useDispatch<AppDispatch>();
-
-  // Load staff from Redux store
-  const staffRaw = useSelector(selectAllStaff) || [];
-  const staffList: string[] = useMemo(() => {
-    const arr = Array.isArray(staffRaw) ? staffRaw
-      : Array.isArray((staffRaw as any).data)  ? (staffRaw as any).data
-      : Array.isArray((staffRaw as any).items) ? (staffRaw as any).items
-      : [];
-    return arr.map((s: any) =>
-      s.fullName ||
-      `${s.first_name || s.firstName || ""} ${s.last_name || s.lastName || ""}`.trim()
-    ).filter(Boolean);
-  }, [staffRaw]);
-
-  useEffect(() => {
-    dispatch(fetchStaffThunk());
-  }, [dispatch]);
-
   const { packages: allPkgs, total, isLoading, isError, refetch } =
-    useGetClientPackages({ search: debouncedSearch.trim() || undefined, page, limit: PAGE_SIZE });
-
-  const { completeSession, isLoading: completing } = useCompleteSession();
+    useGetClientPackages({ search: debouncedSearch.trim() || undefined, page, limit: pageSize });
 
   // expiry is a derived concept (computed from expiryDate), not trusted from
   // the stored `status` column — mirrors the previous per-client logic, just
@@ -102,37 +76,22 @@ const PackageDashboard: React.FC<Props> = ({
   const expiredPkgs = allPkgs.length - activePkgs;
   const totalRem    = allPkgs.reduce((a, p) => a + p.services.reduce((s, sv) => s + sv.remainingSessions, 0), 0);
 
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-
-  const showToast = (msg: string, type: "success" | "error" = "success") => {
-    setToast({ msg, type });
-    setTimeout(() => setToast(null), 2600);
-  };
-
-  const handleComplete = async (pkgId: string) => {
-    if (!selService) { showToast("Select a service first", "error"); return; }
-    if (!selStaff)   { showToast("Select a staff member", "error"); return; }
-    const pkg = clientPkgs.find(p => p.id === pkgId);
-    const svc = pkg?.services.find(s => s.serviceId === selService);
-    if (!svc || svc.remainingSessions <= 0) { showToast("No sessions remaining for this service", "error"); return; }
-
-    try {
-      await completeSession(pkgId, { serviceId: selService, staffName: selStaff });
-      setActiveTab(selService);
-      setSelService("");
-      setSelStaff("");
-      showToast(`Session completed — ${svc.serviceName}`);
-      refetch();
-    } catch {
-      showToast("Failed to complete session", "error");
+  // One row per client — groups all of the client's packages FROM THE CURRENT
+  // PAGE together (pagination is still server-side per-package, so a client
+  // whose packages straddle a page boundary will show a partial group on each
+  // page — same tradeoff the existing page-scoped stats above already accept).
+  const clientGroups = useMemo(() => {
+    const map = new Map<string, ClientPackage[]>();
+    for (const pkg of clientPkgs) {
+      const list = map.get(pkg.clientId);
+      if (list) list.push(pkg); else map.set(pkg.clientId, [pkg]);
     }
-  };
+    return Array.from(map.values());
+  }, [clientPkgs]);
 
-  const toggleExpand = (id: string) => {
-    setExpandedId(prev => (prev === id ? null : id));
+  const toggleExpand = (clientId: string) => {
+    setExpandedId(prev => (prev === clientId ? null : clientId));
     setActiveTab("");
-    setSelService("");
-    setSelStaff("");
   };
 
   const STAT_CARDS = [
@@ -142,14 +101,10 @@ const PackageDashboard: React.FC<Props> = ({
     { label: "Sessions Remaining", value: totalRem,     icon: <Target size={16} />,       variant: "indigo"  as const },
   ];
 
-  const expandedPkg = expandedId ? clientPkgs.find(p => p.id === expandedId) ?? null : null;
+  const expandedGroup = expandedId ? clientGroups.find(g => g[0].clientId === expandedId) ?? null : null;
 
   return (
     <>
-      {toast && (
-        <div className={`${styles.toast} ${styles[`toast--${toast.type}`]}`}>{toast.msg}</div>
-      )}
-
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
@@ -244,42 +199,35 @@ const PackageDashboard: React.FC<Props> = ({
           <div className={styles.card} style={{ overflow: "hidden" }}>
             <table className={styles.table}>
               <thead>
-                <tr>{["Client", "Package", "Sessions", "Remaining", "Status", "Purchased", ""].map(h => <th key={h} className={styles.tableTh}>{h}</th>)}</tr>
+                <tr>{["Client", "Packages"].map(h => <th key={h} className={styles.tableTh}>{h}</th>)}</tr>
               </thead>
               <tbody>
-                {clientPkgs.map(pkg => {
-                  const expired      = daysUntil(pkg.expiryDate) < 0;
-                  const isOpen       = expandedId === pkg.id;
-                  const totalSess    = pkg.services.reduce((s, sv) => s + sv.totalSessions, 0);
-                  const remainingSess = pkg.services.reduce((s, sv) => s + sv.remainingSessions, 0);
+                {clientGroups.map(group => {
+                  const first   = group[0];
+                  const isOpen  = expandedId === first.clientId;
+                  const names   = group.map(p => p.packageName).join(", ");
                   return (
                     <tr
-                      key={pkg.id}
-                      onClick={() => toggleExpand(pkg.id)}
+                      key={first.clientId}
+                      onClick={() => toggleExpand(first.clientId)}
                       className={`${styles.tableRow} ${styles["tableRow--clickable"]} ${isOpen ? styles["tableRow--active"] : ""}`}
                     >
                       <td className={styles.tableTd}>
-                        <div style={{ fontWeight: 600, color: "#111827" }}>{pkg.clientName}</div>
-                        {pkg.mobile && <div style={{ fontSize: 11, color: "#6b7280" }}>{pkg.mobile}</div>}
+                        <div style={{ fontWeight: 600, color: "#111827" }}>{first.clientName}</div>
+                        {first.mobile && <div style={{ fontSize: 11, color: "#6b7280" }}>{first.mobile}</div>}
                       </td>
                       <td className={styles.tableTd}>
-                        <div style={{ fontWeight: 600 }}>{pkg.packageName}</div>
-                        <div style={{ fontSize: 11, color: "#6b7280" }}>{pkg.category}</div>
-                      </td>
-                      <td className={styles.tableTd}>{totalSess === 0 ? "∞" : totalSess}</td>
-                      <td className={styles.tableTd} style={{ fontWeight: 700, color: "#7c3aed" }}>
-                        {totalSess === 0 ? "∞" : remainingSess}
-                      </td>
-                      <td className={styles.tableTd}>
-                        <span className={`${styles.badge} ${expired ? styles["badge--red"] : styles["badge--green"]}`}>
-                          <span className={styles.badgeDot} /> {expired ? "EXPIRED" : pkg.status}
+                        <span className={styles.badge} style={{ marginRight: 8 }}>{group.length} package{group.length !== 1 ? "s" : ""}</span>
+                        <span
+                          style={{
+                            display: "inline-block", maxWidth: 280, verticalAlign: "middle",
+                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                            fontSize: 12, color: "#6b7280",
+                          }}
+                          title={names}
+                        >
+                          {names}
                         </span>
-                      </td>
-                      <td className={styles.tableTd} style={{ color: "#6b7280" }}>
-                        {new Date(pkg.createdDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}
-                      </td>
-                      <td className={styles.tableTd}>
-                        {isOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                       </td>
                     </tr>
                   );
@@ -292,232 +240,192 @@ const PackageDashboard: React.FC<Props> = ({
 
       {/* Pagination */}
       {!isLoading && !isError && clientPkgs.length > 0 && (
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 12, fontSize: 13, color: "#6b7280" }}>
-          <span>Showing {allPkgs.length} of {total}</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <button className={styles.btnSecondary} disabled={page <= 1} onClick={() => setPage(p => p - 1)}>‹ Prev</button>
-            <span>Page {page} of {totalPages}</span>
-            <button className={styles.btnSecondary} disabled={page >= totalPages} onClick={() => setPage(p => p + 1)}>Next ›</button>
-          </div>
-        </div>
+        <Pagination
+          currentPage={page}
+          pageSize={pageSize}
+          totalItems={total}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+          className="packages-pagination"
+        />
       )}
 
-      {/* Expanded package detail — mark session / breakdown / history */}
-      {expandedPkg && (() => {
-        const pkg           = expandedPkg;
-        const expired       = daysUntil(pkg.expiryDate) < 0;
-        const days          = daysUntil(pkg.expiryDate);
-        const expiringSoon  = !expired && days <= 30;
-        const currentTabId  = activeTab || pkg.services[0]?.serviceId;
-        const histSvc       = pkg.services.find(s => s.serviceId === currentTabId) ?? pkg.services[0];
-        const expiryFmt     = pkg.expiryDate
-          ? new Date(pkg.expiryDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-          : "Never expires";
-
-        return (
-          <React.Fragment key={pkg.id}>
-
-            {/* Mark session — hidden for expired packages */}
-            {expired || pkg.status?.toLowerCase() === "expired" ? (
-              <div className={styles.card}>
-                <div style={{
-                  display: "flex", alignItems: "center", gap: 14,
-                  padding: "16px 20px",
-                  background: "linear-gradient(135deg,#fff7ed,#fef3c7)",
-                  borderRadius: 10,
-                  border: "1px solid #fde68a",
-                }}>
-                  <div style={{
-                    width: 40, height: 40, borderRadius: 10, flexShrink: 0,
-                    background: "#f59e0b", display: "flex", alignItems: "center", justifyContent: "center",
-                  }}>
-                    <Clock size={20} color="#fff" />
-                  </div>
-                  <div>
-                    <div style={{ fontSize: 14, fontWeight: 700, color: "#92400e" }}>
-                      Package Expired
-                    </div>
-                    <div style={{ fontSize: 13, color: "#b45309", marginTop: 2 }}>
-                      This package expired on <strong>{new Date(pkg.expiryDate!).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}</strong>. Sessions can no longer be marked as completed.
-                    </div>
-                  </div>
-                </div>
+      {/* Client detail — right-side sliding panel, one card per package */}
+      {expandedGroup && (
+        <>
+          <div
+            style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", zIndex: 1050 }}
+            onClick={() => toggleExpand(expandedGroup[0].clientId)}
+          />
+          <div
+            style={{
+              position: "fixed", top: 0, right: 0, bottom: 0,
+              width: "min(560px, 100vw)",
+              background: "#f9fafb",
+              zIndex: 1060,
+              display: "flex", flexDirection: "column",
+              boxShadow: "-10px 0 30px rgba(0,0,0,.15)",
+              overflowY: "auto",
+              overflowX: "hidden",
+              padding: 20,
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>{expandedGroup[0].clientName}</div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>{expandedGroup.length} package{expandedGroup.length !== 1 ? "s" : ""}</div>
               </div>
-            ) : (
-              <div className={styles.card}>
-                <div className={styles.cardHead}>
-                  <div className={styles.cardTitle}><CheckCheck size={14} /> Mark session as completed</div>
-                </div>
-                <div className={styles.markSession}>
-                  <div className={styles.formField}>
-                    <label className={styles.formLabel}>Service</label>
-                    <select value={selService} onChange={e => setSelService(e.target.value)} className={styles.select}>
-                      <option value="">Choose service…</option>
-                      {pkg.services.map(s => (
-                        <option key={s.serviceId} value={s.serviceId} disabled={s.remainingSessions <= 0}>
-                          {s.serviceName} ({s.remainingSessions} remaining)
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className={styles.formField}>
-                    <label className={styles.formLabel}>Staff</label>
-                    <select value={selStaff} onChange={e => setSelStaff(e.target.value)} className={styles.select}>
-                      <option value="">Select staff…</option>
-                      {staffList.length > 0
-                        ? staffList.map(name => <option key={name}>{name}</option>)
-                        : <option disabled>No staff loaded</option>
-                      }
-                    </select>
-                  </div>
-                  <button
-                    onClick={() => handleComplete(pkg.id)}
-                    className={styles.btnPrimary}
-                    disabled={completing}
-                  >
-                    {completing ? <><Loader2 size={13} className={styles.spin} /> Saving…</> : "Mark complete"}
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Package detail card */}
-            <div className={styles.card}>
-              <div className={styles.cardHead}>
-                <div className={styles.cardTitle}>
-                  {pkg.packageName}
-                  <span className={styles.pkgMeta}>
-                    {pkg.clientName} · {pkg.id} · {pkg.category} · {pkg.branch}
-                  </span>
-                </div>
-                <div className={styles.pkgHeaderRight}>
-                  {expiringSoon && (
-                    <span className={`${styles.badge} ${styles["badge--warning"]}`}>
-                      <span className={styles.badgeDot} /> Expires in {days}d
-                    </span>
-                  )}
-                  <span className={`${styles.badge} ${expired ? styles["badge--red"] : styles["badge--green"]}`}>
-                    <span className={styles.badgeDot} /> {expired ? "EXPIRED" : pkg.status}
-                  </span>
-                  <span className={styles.pkgExpiry}>
-                    Expires <strong className={styles.pkgExpiryValue}>{expiryFmt}</strong>
-                  </span>
-                </div>
-              </div>
-
-              <div className={styles.metaGrid}>
-                {[["Package name", pkg.packageName], ["Category", pkg.category], ["Branch", pkg.branch]].map(([l, v]) => (
-                  <div key={l} className={styles.metaCell}>
-                    <div className={styles.metaCellLabel}>{l}</div>
-                    <div className={styles.metaCellValue}>{v}</div>
-                  </div>
-                ))}
-              </div>
-
-              <table className={styles.table}>
-                <thead>
-                  <tr>{["Service","Total","Completed","Remaining","Progress","Amount"].map(h => <th key={h} className={styles.tableTh}>{h}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {pkg.services.map(svc => {
-                    const pct   = svc.totalSessions ? Math.round(svc.completedSessions / svc.totalSessions * 100) : 0;
-                    const isSel = svc.serviceId === currentTabId;
-                    return (
-                      <tr
-                        key={svc.serviceId}
-                        onClick={() => setActiveTab(svc.serviceId)}
-                        className={`${styles.tableRow} ${styles["tableRow--clickable"]} ${isSel ? styles["tableRow--active"] : ""}`}
-                      >
-                        <td className={styles.tableTd} style={{ fontWeight: 600 }}>{svc.serviceName}</td>
-                        <td className={styles.tableTd}>{svc.totalSessions}</td>
-                        <td className={styles.tableTd}>{svc.completedSessions}</td>
-                        <td className={styles.tableTd} style={{ fontWeight: 700, color: "#7c3aed" }}>{svc.remainingSessions}</td>
-                        <td className={styles.tableTd}>
-                          <div className={styles.progressWrap}>
-                            <div className={styles.progressTrack}>
-                              <div className={styles.progressFill} style={{ width: `${pct}%` }} />
-                            </div>
-                            <span className={styles.progressLabel}>{pct}%</span>
-                          </div>
-                        </td>
-                        <td className={styles.tableTd}>
-                          {svc.price != null && !isNaN(Number(svc.price))
-                            ? formatAmount(Number(svc.price))
-                            : '—'}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-
-              <div className={styles.paymentGrid}>
-                {[
-                  ["Total amount",  formatAmount(pkg.totalAmount)],
-                  ["Paid amount",   formatAmount(pkg.paidAmount)],
-                  ["Pending",       formatAmount(pkg.pendingAmount)],
-                  ["Mode",          pkg.paymentMethod],
-                ].map(([l, v]) => (
-                  <div key={l}>
-                    <div className={styles.paymentItemLabel}>{l}</div>
-                    <div className={styles.paymentItemValue}>{v}</div>
-                  </div>
-                ))}
-                <div>
-                  <div className={styles.paymentItemLabel}>Status</div>
-                  <span className={`${styles.badge} ${pkg.paymentStatus === "PAID" ? styles["badge--green"] : styles["badge--red"]}`}>
-                    {pkg.paymentStatus}
-                  </span>
-                </div>
-              </div>
+              <button
+                onClick={() => toggleExpand(expandedGroup[0].clientId)}
+                style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280", flexShrink: 0 }}
+              >
+                <X size={16} />
+              </button>
             </div>
 
-            {/* Session timeline */}
-            <div className={styles.card}>
-              <div className={styles.cardHead}>
-                <div className={styles.cardTitle}><History size={14} /> Session history</div>
-                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {pkg.services.map(s => (
-                    <button
-                      key={s.serviceId}
-                      onClick={() => setActiveTab(s.serviceId)}
-                      className={`${styles.btnTab} ${s.serviceId === currentTabId ? styles["btnTab--active"] : ""}`}
-                    >
-                      {s.serviceName.split(" ").slice(0, 2).join(" ")}
-                      <span style={{ marginLeft: 4, opacity: .65, fontSize: 10 }}>{s.completedSessions}/{s.totalSessions}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
+            {expandedGroup.map(pkg => {
+              const expired       = daysUntil(pkg.expiryDate) < 0;
+              const days          = daysUntil(pkg.expiryDate);
+              const expiringSoon  = !expired && days <= 30;
+              const currentTabId  = activeTab.startsWith(`${pkg.id}:`) ? activeTab.slice(pkg.id.length + 1) : (pkg.services[0]?.serviceId ?? "");
+              const histSvc       = pkg.services.find(s => s.serviceId === currentTabId) ?? pkg.services[0];
+              const expiryFmt     = pkg.expiryDate
+                ? new Date(pkg.expiryDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+                : "Never expires";
 
-              {histSvc && histSvc.sessionHistory.length > 0 ? (
-                <div className={styles.timeline}>
-                  {[...histSvc.sessionHistory].reverse().map(h => (
-                    <div key={h.sessionNo} className={styles.timelineItem}>
-                      <div className={styles.timelineDot}>{h.sessionNo}</div>
-                      <div className={styles.timelineContent}>
-                        <div className={styles.timelineDate}>{h.date}</div>
-                        <div className={styles.timelineMeta}>
-                          Staff: <strong>{h.staff}</strong>
-                          <span style={{ marginLeft: 10 }}>
-                            <span className={`${styles.badge} ${styles["badge--green"]}`}>{h.status}</span>
+              return (
+                <React.Fragment key={pkg.id}>
+
+                  {/* Package detail card */}
+                  <div className={styles.card}>
+                    <div className={styles.cardHead}>
+                      <div className={styles.cardTitle}>
+                        {pkg.packageName}
+                        <span className={styles.pkgMeta}>{pkg.id}</span>
+                      </div>
+                      <div className={styles.pkgHeaderRight}>
+                        {expiringSoon && (
+                          <span className={`${styles.badge} ${styles["badge--warning"]}`}>
+                            <span className={styles.badgeDot} /> Expires in {days}d
                           </span>
-                        </div>
+                        )}
+                        <span className={`${styles.badge} ${expired ? styles["badge--red"] : styles["badge--green"]}`}>
+                          <span className={styles.badgeDot} /> {expired ? "EXPIRED" : pkg.status}
+                        </span>
+                        <span className={styles.pkgExpiry}>
+                          Expires <strong className={styles.pkgExpiryValue}>{expiryFmt}</strong>
+                        </span>
                       </div>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className={styles.empty} style={{ padding: "24px 20px" }}>
-                  <div className={styles.emptyIcon}><History size={28} strokeWidth={1.2} /></div>
-                  <div className={styles.emptyText} style={{ fontSize: 13 }}>No sessions completed yet.</div>
-                </div>
-              )}
-            </div>
 
-          </React.Fragment>
-        );
-      })()}
+                    <div style={{ overflowX: "auto" }}>
+                    <table className={styles.table}>
+                      <thead>
+                        <tr>{["Service","Total","Remaining","Progress","Amount"].map(h => <th key={h} className={styles.tableTh} style={{ padding: "10px 8px" }}>{h}</th>)}</tr>
+                      </thead>
+                      <tbody>
+                        {pkg.services.map(svc => {
+                          const pct   = svc.totalSessions ? Math.round(svc.completedSessions / svc.totalSessions * 100) : 0;
+                          const isSel = svc.serviceId === currentTabId;
+                          return (
+                            <tr
+                              key={svc.serviceId}
+                              onClick={() => setActiveTab(`${pkg.id}:${svc.serviceId}`)}
+                              className={`${styles.tableRow} ${styles["tableRow--clickable"]} ${isSel ? styles["tableRow--active"] : ""}`}
+                            >
+                              <td className={styles.tableTd} style={{ fontWeight: 600, padding: "10px 8px" }}>{svc.serviceName}</td>
+                              <td className={styles.tableTd} style={{ padding: "10px 8px" }}>{svc.totalSessions}</td>
+                              <td className={styles.tableTd} style={{ fontWeight: 700, color: "#7c3aed", padding: "10px 8px" }}>{svc.remainingSessions}</td>
+                              <td className={styles.tableTd} style={{ padding: "10px 8px" }}>
+                                <div className={styles.progressWrap}>
+                                  <div className={styles.progressTrack} style={{ flex: "0 0 40px" }}>
+                                    <div className={styles.progressFill} style={{ width: `${pct}%` }} />
+                                  </div>
+                                  <span className={styles.progressLabel}>{pct}%</span>
+                                </div>
+                              </td>
+                              <td className={styles.tableTd} style={{ padding: "10px 8px", whiteSpace: "nowrap" }}>
+                                {svc.price != null && !isNaN(Number(svc.price))
+                                  ? formatAmount(Number(svc.price))
+                                  : '—'}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                    </div>
+
+                    <div className={styles.paymentGrid}>
+                      {[
+                        ["Total amount",  formatAmount(pkg.totalAmount)],
+                        ["Paid amount",   formatAmount(pkg.paidAmount)],
+                        ["Pending",       formatAmount(pkg.pendingAmount)],
+                        ["Mode",          pkg.paymentMethod],
+                      ].map(([l, v]) => (
+                        <div key={l}>
+                          <div className={styles.paymentItemLabel}>{l}</div>
+                          <div className={styles.paymentItemValue}>{v}</div>
+                        </div>
+                      ))}
+                      <div>
+                        <div className={styles.paymentItemLabel}>Status</div>
+                        <span className={`${styles.badge} ${pkg.paymentStatus === "PAID" ? styles["badge--green"] : styles["badge--red"]}`}>
+                          {pkg.paymentStatus}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Session timeline */}
+                  <div className={styles.card}>
+                    <div className={styles.cardHead}>
+                      <div className={styles.cardTitle}><History size={14} /> Session history</div>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        {pkg.services.map(s => (
+                          <button
+                            key={s.serviceId}
+                            onClick={() => setActiveTab(`${pkg.id}:${s.serviceId}`)}
+                            className={`${styles.btnTab} ${s.serviceId === currentTabId ? styles["btnTab--active"] : ""}`}
+                          >
+                            {s.serviceName.split(" ").slice(0, 2).join(" ")}
+                            <span style={{ marginLeft: 4, opacity: .65, fontSize: 10 }}>{s.completedSessions}/{s.totalSessions}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {histSvc && histSvc.sessionHistory.length > 0 ? (
+                      <div className={styles.timeline}>
+                        {[...histSvc.sessionHistory].reverse().map(h => (
+                          <div key={h.sessionNo} className={styles.timelineItem}>
+                            <div className={styles.timelineDot}>{h.sessionNo}</div>
+                            <div className={styles.timelineContent}>
+                              <div className={styles.timelineDate}>{h.date}</div>
+                              <div className={styles.timelineMeta}>
+                                Staff: <strong>{h.staff}</strong>
+                                <span style={{ marginLeft: 10 }}>
+                                  <span className={`${styles.badge} ${styles["badge--green"]}`}>{h.status}</span>
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={styles.empty} style={{ padding: "24px 20px" }}>
+                        <div className={styles.emptyIcon}><History size={28} strokeWidth={1.2} /></div>
+                        <div className={styles.emptyText} style={{ fontSize: 13 }}>No sessions completed yet.</div>
+                      </div>
+                    )}
+                  </div>
+
+                </React.Fragment>
+              );
+            })}
+          </div>
+        </>
+      )}
 
       {/* ── Choice modal ─────────────────────────────────────────────────────── */}
       {showChoice && (

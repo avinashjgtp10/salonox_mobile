@@ -96,6 +96,8 @@ const PackageModule: React.FC = () => {
             onSaved={handlePackageCreated}
             onTemplateSaved={handleTemplateCreated}
             templateToLoad={templateToLoad}
+            showClientPicker
+            showStaffPicker
           />
         </div>
       )}
