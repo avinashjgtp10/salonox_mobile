@@ -61,6 +61,14 @@ export interface ServiceItem {
     unitQty?: number;
     unit: string;
     actualQty?: number;
+    // The product's on-hand stock in BASE units, sent alongside the recipe by
+    // the services API (CONSUMABLES_USED_SUBQUERY). Authoritative when
+    // present — the Consumables panel used to resolve stock only through the
+    // frontend's shared products cache, which is paged, shared with the retail
+    // picker and replaced wholesale on every fetch, so a consumable outside
+    // the cached page showed no stock at all. Optional because the reopened-
+    // appointment path doesn't carry it yet; the cache remains the fallback.
+    stock?: number;
   }[];
 }
 

@@ -23,6 +23,9 @@ interface RawConsumableUsage {
   product_name?: string;
   qty: number;
   unit: string;
+  /** On-hand stock in base units, enriched onto the recipe by the services
+   *  API — see CONSUMABLES_USED_SUBQUERY in services.repository.ts. */
+  stock?: number;
 }
 
 interface SearchServiceResult {
@@ -495,6 +498,9 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         qty: c.qty * qty,
         unitQty: c.qty,
         unit: c.unit,
+        // Carried from the API alongside the recipe so the Consumables panel
+        // has a stock figure without depending on the shared products cache.
+        stock: c.stock,
       })),
     );
 
@@ -1229,7 +1235,12 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                 <div className="svc-consumable-modal__list">
                   {row.consumables.map((c) => {
                     const actualQty = getActualQty(c);
-                    const availableStock = productStockById.get(c.productId);
+                    // The stock the API sent with the recipe wins; the shared
+                    // products cache is only a fallback now (it's paged and
+                    // replaced wholesale, so it frequently doesn't hold this
+                    // product at all). ?? not || so a genuine 0 isn't treated
+                    // as "unknown" and pushed to the cache lookup.
+                    const availableStock = c.stock ?? productStockById.get(c.productId);
                     const remainingStock = (availableStock ?? 0) - actualQty;
                     const overStock = availableStock !== undefined && actualQty > availableStock;
                     const status = getConsumableStatus(availableStock, remainingStock);

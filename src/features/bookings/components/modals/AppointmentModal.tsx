@@ -47,6 +47,23 @@ import { store }         from "../../../../store/store";
 import { useFocusTrap }  from "../../../../hooks/useFocusTrap";
 import "../../styles/AppointmentModal.scss";
 
+// The products slice holds ONE shared list — productsSlice replaces
+// `state.items` wholesale on every fetch — and it feeds both the "+ Product"
+// picker and the Consumable Usage modal's Total/Remaining Stock lookup (see
+// productStockById in ServiceRow.tsx). All three fetch sites below share the
+// `prodRequested` guard, so whichever fires first decides what's cached for
+// everything.
+//
+// Called with no params, the backend applies its own `limit ?? 20` ordered by
+// created_at DESC (products.repository.ts), so only the 20 most recently
+// created products ever had a known stock figure. Every consumable outside
+// that window showed "—" and "Stock Unknown" in the usage modal no matter how
+// carefully its stock was set up in the Consumables section.
+//
+// Deliberately NOT narrowed to product_type=consumable: it's the same shared
+// list the retail picker reads, and filtering it here would empty that picker.
+const PRODUCT_FETCH_PAGE_SIZE = 200;
+
 import type {
   Booking, Client, ClientStats,
   ServiceItem, PackageItem, ProductItem, MembershipItem,
@@ -154,7 +171,7 @@ export const AppointmentModal: React.FC<Props> = ({
     }
     if ((existingBooking as any)?.productItems?.length && !prodRequested.current && availableProducts.length === 0) {
       prodRequested.current = true;
-      dispatch(fetchProductsThunk());
+      dispatch(fetchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
     }
     if ((existingBooking as any)?.membershipItems?.length && !memRequested.current && availableMemberships.length === 0) {
       memRequested.current = true;
@@ -224,7 +241,23 @@ export const AppointmentModal: React.FC<Props> = ({
   const isSellableClient = !!selectedClient && selectedClient.id !== "walk-in";
 
   // ── Date ─────────────────────────────────────────────────────────────────
-  const [calDate, setCalDate] = useState(defaultDate || new Date().toISOString().slice(0, 10));
+  // An existing booking's OWN date wins over both the caller's defaultDate and
+  // today. This used to read `defaultDate || today`, which relied on every
+  // caller remembering to pass it: Scheduler does (`editingBooking?.date ||
+  // currentDate`), but AppointmentDetailModal — the drawer opened from the
+  // Sales Summary report and the calendar chip — passes existingBooking and no
+  // defaultDate, so editing a past bill showed TODAY in the date field.
+  //
+  // That was cosmetic until sales re-dating landed (updateDateForAppointment,
+  // SCRUM-1547): now scheduled_at is compared against the stored value on
+  // save, so opening an old bill and pressing Update Appointment would move
+  // the appointment to today AND drag its sale, sale_items and payments with
+  // it — silently re-dating the bill in every sales report. Deriving it here
+  // rather than fixing the one caller means a future caller can't reintroduce
+  // it.
+  const [calDate, setCalDate] = useState(
+    existingBooking?.date || defaultDate || new Date().toISOString().slice(0, 10)
+  );
 
   // ── Line items ───────────────────────────────────────────────────────────
   const [serviceRows, setServiceRows]       = useState<ServiceItem[]>(() =>
@@ -242,14 +275,30 @@ export const AppointmentModal: React.FC<Props> = ({
   // some), never just from picking a service with a consumables recipe, so a
   // brand-new appointment/Quick Sale with only services left it empty and
   // every consumable showed "—"/Out of Stock regardless of real stock.
+  // Keyed on whether THIS row's consumables are actually present in the cached
+  // list, not on whether the list is merely non-empty.
+  //
+  // The old guard was `availableProducts.length > 0`, which is wrong twice
+  // over: availableProducts is the RETAIL-filtered list (consumables are
+  // excluded from it by construction, see its useMemo above), and a non-empty
+  // list is not a complete one. Any earlier products fetch in the session
+  // leaves a partial cache behind — the Products page fetches a page at a
+  // time, and ConsumablesTab searches with pageSize 20 — so Quick Sale would
+  // see "products already loaded", skip the fetch, and leave a consumable
+  // that simply wasn't in that slice with no stock figure at all. That's the
+  // "I set the stock but the calendar still shows —" report: nothing to do
+  // with how the consumable was configured.
   useEffect(() => {
-    if (prodRequested.current || availableProducts.length > 0) return;
-    const hasConsumables = serviceRows.some((r) => (r.consumables?.length ?? 0) > 0);
-    if (hasConsumables) {
-      prodRequested.current = true;
-      dispatch(fetchProductsThunk());
-    }
-  }, [serviceRows, dispatch, availableProducts.length]);
+    if (prodRequested.current) return;
+    const neededIds = serviceRows
+      .flatMap((r) => (r.consumables ?? []).map((c) => String(c.productId)))
+      .filter(Boolean);
+    if (neededIds.length === 0) return;
+    const cachedIds = new Set(productsFromSelector.map((p: any) => String(p.id)));
+    if (neededIds.every((id) => cachedIds.has(id))) return;
+    prodRequested.current = true;
+    dispatch(fetchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
+  }, [serviceRows, productsFromSelector, dispatch]);
 
   // Actual-qty edits for each row's consumables — deliberately a SIBLING
   // state, never merged into serviceRows itself. serviceRows is a dependency
@@ -1901,7 +1950,7 @@ export const AppointmentModal: React.FC<Props> = ({
           onAddProduct={() => {
             if (!prodRequested.current && availableProducts.length === 0) {
               prodRequested.current = true;
-              dispatch(fetchProductsThunk());
+              dispatch(fetchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
             }
             setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: "", time: serviceRows[0]?.time || defaultTime || "" }]);
           }}
