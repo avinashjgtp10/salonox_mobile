@@ -306,20 +306,53 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
     }
   };
 
-  const typeCard = (type: MembershipPricingType, title: string, sub: string, icon: React.ReactNode) => (
-    <button
-      type="button"
-      className={`amm__type-card${pricingType === type ? ` amm__type-card--on amm__type-card--${type}` : ""}`}
-      onClick={() => setPricingType(type)}
-    >
-      <span className="amm__type-icon">{icon}</span>
-      <span className="amm__type-copy">
-        <span className="amm__type-title">{title}</span>
-        <span className="amm__type-sub">{sub}</span>
-      </span>
-      <span className="amm__radio" />
-    </button>
-  );
+  // Pricing type is fixed once the membership exists. Each type funds a
+  // different benefit (wallet balance vs discount % vs visit-unlocked tier),
+  // and copies already sold snapshot the type they were bought under — so
+  // switching it on the template can't retroactively convert those, it only
+  // makes the plan disagree with its own sold memberships. Locked on edit
+  // rather than merely warned about, since there's no correct outcome to
+  // offer if someone proceeds.
+  const typeLocked = !!editId;
+
+  // Switching type while creating starts the form over. The three types don't
+  // share a form — Wallet asks for price + bonus credit, Discount Balance for a
+  // percentage, Loyalty for visit tiers and no price/expiry at all — so
+  // carrying entries across meant fields that no longer applied kept values
+  // that were still submitted (see the pricingType branches in the payload
+  // builder), and stale validation errors pointed at inputs that were no
+  // longer on screen. No-op when picking the type that's already selected, so
+  // an accidental re-click can't wipe a half-filled form.
+  const selectPricingType = (type: MembershipPricingType) => {
+    if (typeLocked || type === pricingType) return;
+    setPricingType(type);
+    setForm(emptyForm());
+    setErrors({});
+    setCategoryDropdownOpen(false);
+    dispatch(clearMembershipError());
+  };
+
+  const typeCard = (type: MembershipPricingType, title: string, sub: string, icon: React.ReactNode) => {
+    const selected = pricingType === type;
+    const disabled = typeLocked && !selected;
+    return (
+      <button
+        type="button"
+        disabled={disabled}
+        aria-disabled={disabled}
+        title={disabled ? "Membership type can't be changed after the plan is created" : undefined}
+        className={`amm__type-card${selected ? ` amm__type-card--on amm__type-card--${type}` : ""}${disabled ? " amm__type-card--locked" : ""}`}
+        onClick={() => selectPricingType(type)}
+      >
+        <span className="amm__type-icon">{icon}</span>
+        <span className="amm__type-copy">
+          <span className="amm__type-title">{title}</span>
+          <span className="amm__type-sub">{sub}</span>
+        </span>
+        <span className="amm__radio" />
+      </button>
+    );
+  };
 
   return (
     <div className="amm-overlay" onClick={onCancel}>
@@ -345,6 +378,12 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
               {typeCard("percentage", "Discount Balance", "Pay a fee, get % off every service", <Percent size={15} />)}
               {typeCard("loyalty", "Loyalty", "Free — unlocks a discount after N visits", <Award size={15} />)}
             </div>
+            {typeLocked && (
+              <p className="amm__type-locked-note">
+                Membership type can't be changed after the plan is created. Create a new
+                membership if you need a different type.
+              </p>
+            )}
           </div>
 
           <div className="amm__form">

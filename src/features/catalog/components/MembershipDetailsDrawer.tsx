@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { XLg, Pencil, CardList, PersonFill } from "react-bootstrap-icons";
+import { XLg, Pencil } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { useCurrency } from "../../../hooks/useCurrency";
 import type { AppDispatch } from "../../../store/store";
@@ -94,176 +94,126 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
     : "All categories";
   if (!isOpen) return null;
 
+  // Structure deliberately mirrors ConsumableDetailPanel section-for-section
+  // (header + subtitle, __section/h4, __field-row label/value, __mini-table,
+  // __empty) so the two side panels read as one component. Still its own
+  // markup for now — the shared shell in components/ui comes later, and this
+  // being a 1:1 shape match is what makes that extraction mechanical.
   return (
-    <div className={`mdd-overlay ${isOpen ? "open" : ""}`} onClick={onClose}>
+    <div className="mdd-overlay" onClick={onClose}>
       <div className="mdd" onClick={e => e.stopPropagation()}>
 
-        <header className="mdd__header">
-          <div className="header-content">
-            <div
-              className="membership-icon"
-              style={{ background: (membership?.colour || "#000") + "22" }}
-            >
-              <CardList size={24} style={{ color: membership?.colour }} />
-            </div>
-            <div className="title-section">
-              <h3 className="membership-name">{membership?.name || "Loading..."}</h3>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 4 }}>
-                {membership && (
-                  <span className={`type-pill type-pill--${type}`}>
-                    {TYPE_LABEL[type] ?? "Wallet"}
-                  </span>
-                )}
-              </div>
-            </div>
+        <div className="mdd__header">
+          <div>
+            <h3>{membership?.name || "Loading…"}</h3>
+            {membership && (
+              <span className="mdd__subtitle">
+                Membership · {TYPE_LABEL[type] ?? "Wallet"}
+              </span>
+            )}
           </div>
           <div className="mdd__header-actions">
             <button
-              className="edit-btn"
+              className="mdd__edit-btn"
               onClick={() => { navigate(`/dashboard/catalog/memberships/edit/${membershipId}`); onClose(); }}
             >
-              <Pencil size={14} /> Edit
+              <Pencil size={13} /> Edit
             </button>
-            <button className="close-btn" onClick={onClose}><XLg size={20} /></button>
+            <button className="mdd__close" onClick={onClose}><XLg size={20} /></button>
           </div>
-        </header>
+        </div>
 
-        {loading ? (
-          <div className="mdd__loading">
-            <div className="spinner-border spinner-border-sm" role="status" />
-            <span>Loading...</span>
-          </div>
+        {loading || !membership ? (
+          <div className="mdd__loading">Loading…</div>
         ) : (
           <div className="mdd__body">
 
-            {/* ── Assigned Client (from membership record only) ──────── */}
             {assignedClient && (
-              <section className="mdd__section mdd__section--sell">
-                <h4 className="section-title">Assigned Client</h4>
-                <div className="mdd__sell-client">
-                  <div className="mdd__sell-avatar">
-                    {assignedClient.name
-                      ? assignedClient.name.split(" ").map((w: string) => w[0]).slice(0, 2).join("").toUpperCase()
-                      : <PersonFill size={16} />}
-                  </div>
-                  <div>
-                    <span className="mdd__sell-name">{assignedClient.name}</span>
-                    {assignedClient.phone && (
-                      <span className="mdd__sell-phone">{assignedClient.phone}</span>
-                    )}
-                  </div>
-                </div>
+              <section className="mdd__section">
+                <h4>Assigned Client</h4>
+                <div className="mdd__field-row"><span>Name</span><span>{assignedClient.name}</span></div>
+                {assignedClient.phone && (
+                  <div className="mdd__field-row"><span>Phone</span><span>{assignedClient.phone}</span></div>
+                )}
               </section>
             )}
 
-            {/* ── Wallet ─────────────────────────────────────────────── */}
             {type === "value" && (
               <section className="mdd__section">
-                <h4 className="section-title">Wallet Details</h4>
-                <div className="details-grid">
-                  <div className="detail-item">
-                    <span className="label">Membership Fee</span>
-                    <span className="value fw-bold">
-                      {formatAmount(Number(membership?.price || 0))}
-                    </span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">Bonus Credit</span>
-                    <span className="value fw-bold" style={{ color: bonusCredit > 0 ? "#16a34a" : undefined }}>
-                      {bonusCredit > 0 ? `+${formatAmount(bonusCredit)}` : "—"}
-                    </span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">Total Wallet Value</span>
-                    <span className="value fw-bold" style={{ color: "#2563eb" }}>
-                      {formatAmount(walletValue)}
-                    </span>
-                  </div>
+                <h4>Wallet Details</h4>
+                <div className="mdd__field-row">
+                  <span>Membership Fee</span><span>{formatAmount(Number(membership.price) || 0)}</span>
+                </div>
+                <div className="mdd__field-row">
+                  <span>Bonus Credit</span>
+                  <span>{bonusCredit > 0 ? `+${formatAmount(bonusCredit)}` : "—"}</span>
+                </div>
+                <div className="mdd__field-row">
+                  <span>Total Wallet Value</span><span>{formatAmount(walletValue)}</span>
                 </div>
               </section>
             )}
 
-            {/* ── Discount Balance ───────────────────────────────────── */}
             {type === "percentage" && (
               <section className="mdd__section">
-                <h4 className="section-title">Discount Details</h4>
-                <div className="details-grid">
-                  <div className="detail-item">
-                    <span className="label">Membership Fee</span>
-                    <span className="value fw-bold">
-                      {formatAmount(Number(membership?.price || 0))}
-                    </span>
-                  </div>
-                  <div className="detail-item">
-                    <span className="label">Discount Percentage</span>
-                    <span className="value fw-bold" style={{ color: "#2563eb" }}>
-                      {membership?.discountPercent ?? 0}%
-                    </span>
-                  </div>
+                <h4>Discount Details</h4>
+                <div className="mdd__field-row">
+                  <span>Membership Fee</span><span>{formatAmount(Number(membership.price) || 0)}</span>
+                </div>
+                <div className="mdd__field-row">
+                  <span>Discount Percentage</span><span>{membership.discountPercent ?? 0}%</span>
                 </div>
               </section>
             )}
 
-            {/* ── Loyalty ────────────────────────────────────────────── */}
             {type === "loyalty" && (
               <>
                 <section className="mdd__section">
-                  <h4 className="section-title">Loyalty Configuration</h4>
-                  <div className="services-list">
-                    {membership?.loyaltyTiers?.length ? (
-                      membership.loyaltyTiers.map((t, i) => (
-                        <div key={i} className="service-tag">
-                          {t.thresholdValue} Visits → {t.discountPercent}%
-                        </div>
-                      ))
-                    ) : (
-                      <div className="empty-services">No tiers configured</div>
-                    )}
-                  </div>
+                  <h4>Loyalty Tiers</h4>
+                  {membership.loyaltyTiers?.length ? (
+                    <table className="mdd__mini-table">
+                      <thead><tr><th>Visits</th><th>Discount</th></tr></thead>
+                      <tbody>
+                        {membership.loyaltyTiers.map((t, i) => (
+                          <tr key={i}>
+                            <td>{t.thresholdValue}</td>
+                            <td>{t.discountPercent}%</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  ) : (
+                    <p className="mdd__empty">No tiers configured.</p>
+                  )}
                 </section>
                 <section className="mdd__section">
-                  <h4 className="section-title">Eligibility</h4>
-                  <p className="description-text">Automatic enrollment for all clients.</p>
+                  <h4>Eligibility</h4>
+                  <p className="mdd__empty">Automatic enrollment for all clients.</p>
                 </section>
               </>
             )}
 
-            {/* ── Usage (all types) ──────────────────────────────────── */}
             <section className="mdd__section">
-              <h4 className="section-title">Usage</h4>
-              <div className="details-grid">
-                <div className="detail-item">
-                  <span className="label">Applies To</span>
-                  <span className="value">{appliesToLabel}</span>
-                </div>
-                <div className="detail-item">
-                  <span className="label">Categories</span>
-                  <span className="value">{categoriesLabel}</span>
-                </div>
+              <h4>Usage</h4>
+              <div className="mdd__field-row"><span>Applies To</span><span>{appliesToLabel}</span></div>
+              <div className="mdd__field-row"><span>Categories</span><span>{categoriesLabel}</span></div>
+            </section>
+
+            <section className="mdd__section">
+              <h4>Validity</h4>
+              <div className="mdd__field-row">
+                <span>Expiry</span>
+                <span>
+                  {type === "loyalty"
+                    ? (membership.validFor && membership.validFor !== "lifetime" ? membership.validFor : "Lifetime")
+                    : (membership.validFor || "—")}
+                </span>
               </div>
             </section>
 
-            {/* ── Validity (all types) ───────────────────────────────── */}
             <section className="mdd__section">
-              <h4 className="section-title">Validity</h4>
-              <div className="details-grid">
-                <div className="detail-item">
-                  <span className="label">Expiry</span>
-                  <span className="value">
-                    {type === "loyalty"
-                      ? (membership?.validFor && membership.validFor !== "lifetime" ? membership.validFor : "Lifetime")
-                      : (membership?.validFor || "–")}
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            {/* ── Description (all types) ────────────────────────────── */}
-            <section className="mdd__section">
-              <h4 className="section-title">Description</h4>
-              <p className="description-text">
-                {meta.description?.trim() || "No description provided."}
-              </p>
+              <h4>Description</h4>
+              <p className="mdd__empty">{meta.description?.trim() || "No description provided."}</p>
             </section>
 
           </div>

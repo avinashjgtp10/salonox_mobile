@@ -32,3 +32,23 @@ export const APPLIES_TO_LABEL: Record<string, string> = {
   products: "Products",
   both: "Services & Products",
 };
+
+/** Flattened Benefit text for a Loyalty plan — every tier on one line. Used as
+ *  the list cell's title attribute, since the cell itself truncates. */
+export function loyaltyBenefit(m: Pick<Membership, "loyaltyTiers">): string {
+  const tiers = m.loyaltyTiers ?? [];
+  return tiers.length
+    ? tiers.map((t) => `${t.thresholdValue} Visits → ${t.discountPercent}%`).join(", ")
+    : "No tiers configured";
+}
+
+/** Same, for a Wallet plan: the credit plus any bonus. Deliberately omits the
+ *  "Wallet" prefix — the list's Membership Type column already says it. */
+export function walletBenefit(
+  m: Pick<Membership, "price">,
+  meta: MembershipMeta,
+  formatAmount: (n: number) => string,
+): string {
+  const bonus = Number(meta.bonusCredit) || 0;
+  return `${formatAmount(Number(m.price) || 0)}${bonus > 0 ? ` +${formatAmount(bonus)} bonus` : ""}`;
+}
