@@ -83,6 +83,13 @@ export const CUSTOMER_FREQUENCY_REPORT = {
   SUMMARY: () => `/api/report/customer-frequency`,
 } as const;
 
+// Independent Lost Customers reporting API — standalone report, separate
+// from Customer Frequency's fixed 90-day "lost" bucket; reads clients/sales
+// directly, never through the Appointment API. Mounted at /api/report.
+export const LOST_CUSTOMERS_REPORT = {
+  SUMMARY: () => `/api/report/lost-customers`,
+} as const;
+
 // Independent Staff Sales reporting API — reads sale_items/sales directly,
 // never through the Appointment API. Mounted at /api/report.
 export const STAFF_SALES_REPORT = {
