@@ -1903,6 +1903,21 @@ export const AppointmentModal: React.FC<Props> = ({
         ? `Confirm & Pay — ${currencySymbol}${(remainingDue + priorDueAmt).toFixed(2)} (incl. ${currencySymbol}${priorDueAmt.toFixed(2)} due)`
         : `Confirm & Pay — ${currencySymbol}${remainingDue.toFixed(2)}`;
 
+  // Quick Sale's checkout button, built from the same partial figures as
+  // `confirmLabel` above. It used to render a bare `Checkout (₹X)` that showed
+  // the partial amount but never the balance left behind, so staff collecting
+  // ₹500 of a ₹2,000 bill got no confirmation on the button that ₹1,500 was
+  // still outstanding — the one place they look before committing.
+  const quickSaleCheckoutLabel = isSaving
+    ? "Saving…"
+    : isProcessing
+    ? "Processing…"
+    : totalsNotReady
+    ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…")
+    : isPartialEntry
+      ? `Checkout — ${currencySymbol}${parsedPartial.toFixed(2)} (Due - ${currencySymbol}${(remainingDue - parsedPartial).toFixed(2)})`
+      : `Checkout — ${currencySymbol}${reconciledEffectiveTotal.toFixed(2)}`;
+
   // ── Reusable body sections — shared by the Calendar drawer layout and the Quick Sale two-column layout ──
   const clientSectionEl = (
     <div className="appt-section" ref={clientSectionRef}>
@@ -2629,7 +2644,24 @@ export const AppointmentModal: React.FC<Props> = ({
                     <div className="qs-summary-row"><span>Round Off</span><span>{reconciledRoundOff >= 0 ? "+" : "-"}{currencySymbol}{Math.abs(reconciledRoundOff).toFixed(2)}</span></div>
                   )}
                   <div className="qs-summary-row qs-summary-row--total"><span>Grand Total</span><span>{currencySymbol}{reconciledEffectiveTotal.toFixed(2)}</span></div>
-                  <div className="qs-summary-row qs-summary-row--total"><span>Amount to Pay</span><span>{currencySymbol}{reconciledEffectiveTotal.toFixed(2)}</span></div>
+                  {/* "Amount to Pay" tracks the partial amount staff type, the
+                      same way the Calendar's payment step does — it used to be
+                      hardcoded to the full total, so entering a partial changed
+                      the Checkout button but left this row (and any printed
+                      summary read off it) claiming the whole bill was being
+                      collected. `previewAmountThisTxn` is the shared figure the
+                      Calendar path feeds into TotalsPanel, so both screens now
+                      move together. */}
+                  <div className="qs-summary-row qs-summary-row--total">
+                    <span>Amount to Pay</span>
+                    <span>{currencySymbol}{previewAmountThisTxn.toFixed(2)}</span>
+                  </div>
+                  {liveDueAmount > 0.005 && (
+                    <div className="qs-summary-row qs-summary-row--due">
+                      <span>Remaining Due</span>
+                      <span>{currencySymbol}{liveDueAmount.toFixed(2)}</span>
+                    </div>
+                  )}
                   {/* Display/record-only — never part of Grand Total/Amount to Pay
                       above (totals.grandTotal deliberately never adds `tip`, see
                       totalsUtils.ts). Placed after every bill-total row so it
@@ -2708,7 +2740,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
                 <button className="btn btn-dark" style={{ width: "100%" }}
                   disabled={isSaving || isProcessing || totalsNotReady} onClick={handleQuickSaleCheckout}>
-                  {isSaving ? "Saving…" : isProcessing ? "Processing…" : totalsNotReady ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…") : `Checkout (${currencySymbol}${(isPartialEntry ? parsedPartial : reconciledEffectiveTotal).toFixed(2)})`}
+                  {quickSaleCheckoutLabel}
                 </button>
               </div>
             </div>

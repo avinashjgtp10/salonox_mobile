@@ -124,6 +124,16 @@ $success:    #22c55e;
     font-weight: 700;
     color: $primary;
   }
+
+  // Balance left after a partial payment. Red like TotalsPanel's own "Due"
+  // row, and deliberately NOT --total: it isn't being collected now, so it
+  // shouldn't compete with Amount to Pay for the eye.
+  &--due {
+    padding-top: 2px;
+    font-weight: 600;
+
+    span:last-child { color: $danger; }
+  }
 }
 
 @keyframes client-spin {

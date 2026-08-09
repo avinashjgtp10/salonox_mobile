@@ -1056,7 +1056,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
           <TimeSelect
             disabled={disabled}
             value={row.time}
-            onChange={(value) => onChange(row.tempId, "time", value)}
+            onChange={(value) => { onChange(row.tempId, "time", value); if (value) onClearError?.(row.tempId, "time"); }}
             interval={interval || "30 Mins"}
             className={`svc-field__input svc-field__select${errorFields.time ? " svc-field__input--error" : ""}`}
           />
