@@ -185,6 +185,9 @@ export const AppointmentModal: React.FC<Props> = ({
     const templates = packageTemplatesRaw ?? [];
     const fromCatalog = (packagesData?.items || []).map((p: any) => ({
       id: String(p.id || ""), name: p.name || "", price: p.basePrice || 0, services: [] as string[],
+      // Catalog packages are the only ones with a description column; they
+      // carry no per-service session data, hence no serviceDetails.
+      description: typeof p.description === "string" ? p.description : undefined,
     }));
     // A template with a real (non-"never expires") expiry of 0 days or less is
     // mis-configured — any instance purchased from it today would be born
@@ -195,6 +198,16 @@ export const AppointmentModal: React.FC<Props> = ({
       .map((t: any) => ({
         id: String(t.id || ""), name: t.name || "", price: t.basePrice || 0,
         services: (t.services || []).map((s: any) => s.serviceName),
+        description: typeof t.description === "string" ? t.description : undefined,
+        // Shown alongside the description (older templates have none), so the
+        // panel always says what the package actually contains: each service
+        // with its session count, plus the expiry.
+        serviceDetails: (t.services || []).map((s: any) => ({
+          name: s.serviceName || "—",
+          sessions: Number(s.totalSessions) || 0,
+        })),
+        expiryDays: t.expiryDays ?? null,
+        neverExpires: !!t.neverExpires,
       }));
     const templateNames = new Set(fromTemplates.map((t: any) => t.name.toLowerCase()));
     const merged = [...fromTemplates, ...fromCatalog.filter((c: any) => !templateNames.has(c.name.toLowerCase()))];

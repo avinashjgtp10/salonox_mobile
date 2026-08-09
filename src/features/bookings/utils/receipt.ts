@@ -589,11 +589,11 @@ export function printReceipt(
   .inv-footer{margin-top:auto;border-top:2px solid #111827;padding:16px 32px 18px;display:flex;justify-content:space-between;align-items:center;gap:16px}
   .inv-footer-left{font-size:12px;color:#111827;flex-shrink:0}
   .inv-footer-left strong{font-size:13px;font-weight:800}
-  /* flex:1 + min-width:0 lets this shrink below its content's natural width
-     (flex items don't by default) so a long address wraps instead of
-     stretching the row and pushing inv-footer-right off the page. */
-  .inv-footer-center{font-size:10px;color:#6b7280;text-align:center;line-height:1.8;flex:1;min-width:0;word-break:break-word}
-  .inv-footer-right{font-size:10px;color:#6b7280;text-align:right;line-height:1.8;flex-shrink:0}
+  /* No .inv-footer-center — the footer's middle column was removed (its salon
+     contact details duplicate the header). Left keeps flex-shrink:0 while
+     right is allowed to shrink, so a long salon name wraps the right-hand
+     block rather than pushing it off the page. */
+  .inv-footer-right{font-size:10px;color:#6b7280;text-align:right;line-height:1.8;min-width:0}
 
   /* ── Screen toolbar ── */
   .print-toolbar{position:fixed;top:0;left:0;right:0;height:50px;background:#111827;display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:9999;box-shadow:0 2px 10px rgba(0,0,0,.3)}
@@ -764,11 +764,11 @@ export function printReceipt(
       <strong>Thank you for choosing ${salonName}!</strong><br>
       <span style="font-size:11px;color:#6b7280">We look forward to seeing you again.</span>
     </div>
-    <div class="inv-footer-center">
-      ${[salonPhone, salonEmail].filter(Boolean).join(" &nbsp;|&nbsp; ")}<br>
-      ${salonAddress || ""}
-      ${gst ? `<br>GSTIN: ${gst}` : ""}
-    </div>
+    <!-- Middle column intentionally omitted. Salon phone/email/address/GSTIN
+         are already in the header block at the top of the receipt; repeating
+         them in the footer was duplication. justify-content:space-between on
+         .inv-footer keeps the two remaining columns pinned left and right
+         without a spacer element. -->
     <div class="inv-footer-right">
       This is a computer-generated receipt.<br>
       No signature required.<br>

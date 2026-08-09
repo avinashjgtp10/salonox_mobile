@@ -34,6 +34,9 @@ interface SvcRow {
 
 interface FormState {
   name:           string;
+  /** Optional blurb surfaced on the "+ Package" row's info button in Calendar
+   *  and Quick Sale, so staff can see what a package includes before selling it. */
+  description:    string;
   neverExpires:   boolean;
   expiryDate:     string;   // YYYY-MM-DD; converted to months on save
   basePrice:      string;
@@ -56,7 +59,7 @@ const CARD_GRADIENTS = [
 
 function emptyForm(): FormState {
   return {
-    name: "", neverExpires: true, expiryDate: "",
+    name: "", description: "", neverExpires: true, expiryDate: "",
     basePrice: "", gstPercentage: "0", discount: "0",
     paymentMethod: "cash",
     services: [{ id: Date.now(), serviceId: null, serviceName: "", totalSessions: "1", price: "", perSessionPrice: "" }],
@@ -109,6 +112,7 @@ function templateToForm(t: PackageTemplate): FormState {
   const anchor = new Date(t.createdAt);
   return {
     name:          t.name,
+    description:   t.description ?? "",
     neverExpires:  t.neverExpires,
     // Anchored to the template's own creation date, not "today" — otherwise
     // reopening the same template to edit it on a later day would shift the
@@ -532,6 +536,19 @@ function FormPanel({ form, saving, error, isEdit, catalogServices, servicesLoadi
           </div>
 
           <div className="pkg-sold-panel__edit-group">
+            <label className="pkg-sold-panel__edit-label">Description</label>
+            <textarea
+              className="pkg-sold-panel__edit-input"
+              value={form.description}
+              onChange={e => onChange({ description: e.target.value })}
+              disabled={saving}
+              rows={3}
+              placeholder="What's included, terms, or anything staff should know before selling this package"
+              style={{ resize: "vertical", minHeight: 68, fontFamily: "inherit" }}
+            />
+          </div>
+
+          <div className="pkg-sold-panel__edit-group">
             <label className="pkg-sold-panel__edit-label">Expiry Date</label>
             <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13, cursor: "pointer", marginBottom: 8 }}>
               <input
@@ -856,6 +873,9 @@ const PackageTemplatesManager: React.FC = () => {
     try {
       const payload: CreatePackageTemplateDTO = {
         name:          form.name.trim(),
+        // null (not "") when blank, so "has a description" stays a single
+        // check everywhere downstream.
+        description:   form.description.trim() || null,
         neverExpires:  form.neverExpires,
         expiryMonths:  form.neverExpires ? null : dateToMonths(form.expiryDate, anchorDateRef.current),
         expiryDays:    form.neverExpires ? null : dateToDays(form.expiryDate, anchorDateRef.current),
