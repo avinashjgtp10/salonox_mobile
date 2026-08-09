@@ -1,4 +1,4 @@
-import type { Booking } from "../types";
+import type { Booking, DiscountScope } from "../types";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -492,6 +492,12 @@ export function mapApiBooking(
     discount: parseFloat(String(appt.discount_value ?? 0)) || 0,
     discountAmount: discountAmountVal,
     discountType: appt.discount_type === "flat" ? "Flat (₹)" : "Percentage (%)",
+    // Left undefined (not defaulted to all four) when the column is NULL —
+    // that's a bill from before the "Apply to" feature, and undefined is what
+    // tells the engine to price it the legacy way it was actually charged.
+    discountAppliesTo: Array.isArray(appt.discount_applies_to)
+      ? (appt.discount_applies_to as DiscountScope[])
+      : undefined,
     exCharges: parseFloat(String(appt.ex_charges ?? 0)) || 0,
     tipAmount: parseFloat(String(appt.tip_amount ?? 0)) || 0,
     gst: parseFloat(String(appt.gst_percent ?? 0)) || 0,

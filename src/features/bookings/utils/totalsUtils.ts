@@ -1,4 +1,4 @@
-import type { DiscountType } from "../types";
+import type { DiscountScope, DiscountType } from "../types";
 import type { TaxRow } from "../../settings/utils/taxSettings";
 
 export interface LineItem {
@@ -15,6 +15,21 @@ export interface TotalsInput {
   membershipRows: LineItem[];
   discountType: DiscountType;
   discountValue: number;
+  // Which buckets the bill-level discount applies to (the "Apply to"
+  // checkboxes), as stored on the appointment.
+  //
+  // UNDEFINED = legacy scope, and it is NOT equivalent to passing
+  // ["service","packages","membership"]: percentage hits service+packages+
+  // membership, but flat is UNCAPPED and so reaches product value too. That
+  // inconsistency is the bug this field fixes, but bills predating the
+  // appointments.discount_applies_to column were genuinely charged under it,
+  // so replaying one (a receipt reprint, ViewBillModal) has to reproduce it
+  // rather than re-price it. Mirrors the backend engine exactly — see
+  // ComputeBillTotalsInput.discountAppliesTo.
+  //
+  // "bill" is an exclusive scope meaning the whole bill total rather than a
+  // sum of buckets; when present the bucket names are ignored.
+  discountAppliesTo?: DiscountScope[];
   taxes: TaxRow[];
   exCharges: number;
   tip: number;
@@ -64,6 +79,9 @@ export interface TotalsResult {
   // folded into the couponDiscount input) baked in, so combining both would
   // double-count it.
   manualDiscount: number;
+  // Post-tax value the bill discount was computed against (selected buckets'
+  // totals + their exclusive GST) — mirrors BillTotalsResult.discountBase.
+  discountBase: number;
   totalDisc: number;
   taxable: number;
   // Sum of exclusive (add-on-top) tax amounts only — this is the portion
@@ -153,7 +171,7 @@ function mergeBreakdown(entries: TaxBreakdownEntry[]): TaxBreakdownEntry[] {
 export function computeTotals(input: TotalsInput): TotalsResult {
   const {
     serviceRows, packageRows, productRows, membershipRows,
-    discountType, discountValue, taxes,
+    discountType, discountValue, discountAppliesTo, taxes,
     // `tip` (Staff Tip) is intentionally not destructured — it's display/
     // record-only and never affects any total computed here.
     exCharges, couponDiscount, referralDiscount = 0, eWalletUsed, membershipWalletUsed = 0,
@@ -170,6 +188,17 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const catalogTotal = rowsCatalogTotal(serviceRows) + rowsCatalogTotal(packageRows)
     + rowsCatalogTotal(productRows) + rowsCatalogTotal(membershipRows);
   const itemDiscountTotal = Math.max(0, catalogTotal - subtotal);
+
+  // Bill-discount scope — `legacyDiscountScope` gates the flat cap below, the
+  // one place the new rule and the old one diverge for an otherwise identical
+  // bucket selection. See TotalsInput.discountAppliesTo.
+  const legacyDiscountScope = discountAppliesTo === undefined;
+  const discountScope = new Set<DiscountScope>(
+    discountAppliesTo ?? ["service", "packages", "membership"],
+  );
+  // Whole-bill scope short-circuits the per-bucket base below — billTotal
+  // already includes all GST, so selectedExclusiveGst stays unused there.
+  const wholeBillScope = discountScope.has("bill");
 
   // "Svc Discount" (discountType/discountValue) is a POST-tax deduction —
   // applied to the bill total AFTER GST, not the pre-tax subtotal — matching
@@ -191,10 +220,11 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   ];
 
   let gstAmount = 0;
-  // Exclusive-tax add-on for service+packages+membership only (never product)
-  // — feeds the percentage-type Svc Discount's base below, which (matching
-  // the pre-existing "never product" rule) needs to be a POST-tax figure now.
-  let nonProductExclusiveGst = 0;
+  // Exclusive-tax add-on for the buckets the bill discount actually applies
+  // to — feeds that discount's base below, which needs to be a POST-tax
+  // figure. Follows `discountScope`, so ticking Product discounts the
+  // product's tax as well as its price.
+  let selectedExclusiveGst = 0;
   let allBreakdown: TaxBreakdownEntry[] = [];
   buckets.forEach(({ type, base }) => {
     if (base <= 0) return;
@@ -210,7 +240,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
     bucketTaxable = Math.max(0, bucketTaxable);
     const { addOn, breakdown } = computeBucketTax(bucketTaxable, type, taxes);
     gstAmount += addOn;
-    if (type !== "product") nonProductExclusiveGst += addOn;
+    if (discountScope.has(type)) selectedExclusiveGst += addOn;
     allBreakdown = allBreakdown.concat(breakdown);
   });
 
@@ -219,15 +249,26 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   // "Bill Total" — subtotal (after coupon discount) plus GST, BEFORE Svc
   // Discount. Svc Discount is a bill-level deduction applied here, after tax.
   const billTotal = taxable + gstAmount;
-  // Nets out membership-wallet coverage already excluded from the tax base
-  // above, so a row already fully covered by the wallet doesn't inflate the
-  // % base for a discount that has nothing left to reduce there.
-  const serviceTotal = (serviceBase - membershipServiceWalletUsed) + packageBase + membershipBase;
-  const svcDiscountBase = serviceTotal + nonProductExclusiveGst;
+  // The bill discount's base: the selected buckets' POST-tax value, netting
+  // out membership-wallet coverage already excluded from the tax base above so
+  // a row already fully covered by the wallet doesn't inflate the base for a
+  // discount that has nothing left to reduce there. Each bucket floors at 0 on
+  // its own so an over-covered bucket can't eat another bucket's value.
+  const selectedBucketBase =
+    (discountScope.has("service") ? Math.max(0, serviceBase - membershipServiceWalletUsed) : 0)
+    + (discountScope.has("packages") ? Math.max(0, packageBase) : 0)
+    + (discountScope.has("membership") ? Math.max(0, membershipBase) : 0)
+    + (discountScope.has("product") ? Math.max(0, productBase - membershipProductWalletUsed) : 0);
+  const svcDiscountBase = wholeBillScope
+    ? Math.max(0, billTotal)
+    : Math.max(0, selectedBucketBase + selectedExclusiveGst);
   const itemDisc =
     discountType === "Percentage (%)"
       ? (svcDiscountBase * discountValue) / 100
-      : discountValue;
+      // Capped at the same base the percentage uses, so unticking a bucket
+      // actually protects it. Legacy bills keep the uncapped subtraction they
+      // were charged under — see TotalsInput.discountAppliesTo.
+      : legacyDiscountScope ? discountValue : Math.min(discountValue, svcDiscountBase);
   const manualDiscount = Math.max(0, itemDisc);
 
   const afterSvcDiscount = Math.max(0, billTotal - manualDiscount);
@@ -258,7 +299,8 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const displaySubtotal = Math.max(0, subtotal - membershipWalletUsed);
 
   return {
-    catalogTotal, itemDiscountTotal, subtotal, manualDiscount, totalDisc: manualDiscount + totalDisc,
+    catalogTotal, itemDiscountTotal, subtotal, manualDiscount,
+    discountBase: svcDiscountBase, totalDisc: manualDiscount + totalDisc,
     taxable, gstAmount, taxBreakdown, billTotal, grandTotal, roundOff, preRedemptionTotal, displaySubtotal,
   };
 }

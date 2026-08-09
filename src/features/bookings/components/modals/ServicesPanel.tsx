@@ -1544,8 +1544,8 @@ export const ServicesPanel: React.FC<Props> = ({
     {!frozen && (
       <div className="add-row-actions">
         <button className="add-row-btn" onClick={onAddService}>+ Service</button>
-        <button className="add-row-btn" onClick={onAddPackage}>+ Package</button>
         <button className="add-row-btn" onClick={onAddProduct}>+ Product</button>
+        <button className="add-row-btn" onClick={onAddPackage}>+ Package</button>
         <button className="add-row-btn" onClick={onAddMembership}>+ Membership</button>
         {onTopupEwallet && (
           <button className="add-row-btn add-row-btn--sell" onClick={onTopupEwallet}>+ Topup eWallet</button>
