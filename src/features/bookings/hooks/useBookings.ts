@@ -184,7 +184,22 @@ export function useBookings(skip = false) {
     if (skip || didMountRefreshRef.current) return;
     didMountRefreshRef.current = true;
     const { startDate, endDate } = getViewRange(viewMode, currentDate);
-    if (!fetchedRangesRef.current.has(`${startDate}|${endDate}`)) return;
+    const visibleKey = `${startDate}|${endDate}`;
+
+    // Every OTHER range cached earlier this session is stale for the same
+    // reason the visible one was: it was fetched before the user navigated
+    // away. Dropping their keys doesn't refetch anything now — it just means
+    // the fetch effect above will refetch each one lazily, the first time the
+    // user actually navigates back to that date. Redux still holds their rows,
+    // so the grid keeps showing the old data while the refetch lands rather
+    // than going blank. `cachedRawBookings` is deliberately left intact: it's
+    // what keeps Redux and this bookkeeping from drifting apart (see the
+    // module-scope comment at the top of this file).
+    for (const key of Array.from(fetchedRangesRef.current)) {
+      if (key !== visibleKey) fetchedRangesRef.current.delete(key);
+    }
+
+    if (!fetchedRangesRef.current.has(visibleKey)) return;
     refresh();
     // Mount-once (once `skip` clears), NOT on every date/view change — those
     // are already handled by the fetch effect above, and re-running here would

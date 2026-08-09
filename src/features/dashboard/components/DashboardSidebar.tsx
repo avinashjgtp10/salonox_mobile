@@ -123,9 +123,17 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <button
           type="button"
           className={menuClass("onlineBooking")}
-          onClick={() =>
-            onMenuChange(openMenu === "onlineBooking" ? null : "onlineBooking")
-          }
+          onClick={() => {
+            const opening = openMenu !== "onlineBooking";
+            onMenuChange(opening ? "onlineBooking" : null);
+            // Same pattern as Clients/Catalog/Staff/Marketing — jump to the
+            // section's default page when entering from elsewhere instead of
+            // only opening the flyout over the current page. The section root's
+            // index route is the Marketplace profile (OnlineBookingRoutes.tsx).
+            if (opening && !location.pathname.startsWith("/dashboard/online-booking")) {
+              navigate("/dashboard/online-booking");
+            }
+          }}
         >
           <Globe2 size={26} />
           <span className="nav-label">Online booking</span>
