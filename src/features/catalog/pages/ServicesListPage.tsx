@@ -13,8 +13,8 @@ import { exportServicesPDF, exportServicesExcel, exportServicesCSV } from "../ut
 import type { Service } from "../types/catalog.types";
 import {
   Search,
-  Sliders,
   ChevronDown,
+  ArrowDownUp,
   PlusLg,
   TagFill,
   FileEarmarkPdf,
@@ -34,18 +34,19 @@ import {
   selectUserProfile,
 } from "../../../store/selectors/slices.selectors";
 import type { ServiceFiltersState } from "../../../store/serviceFiltersSlice";
-import ServiceFilterDrawer from "../components/ServiceFilterDrawer.tsx";
+import { JiraFilterMenu } from "../../../components/ui";
+import type { FilterDropdownOption, JiraFilterField } from "../../../components/ui";
 import ManageOrderModal from "../components/ManageOrderModal.tsx";
 import ServiceImportModal from "../components/ServiceImportModal.tsx";
 import ServiceDetailPanel from "../components/ServiceDetailPanel.tsx";
 import ServiceCard from "../components/shared/ServiceCard.tsx";
-import {
-  CategorySidebarSkeleton,
-  ServiceListSkeleton,
-} from "../components/shared/LoadingSkeletons.tsx";
+import { ServiceListSkeleton } from "../components/shared/LoadingSkeletons.tsx";
 import EmptyState from "../components/shared/EmptyState.tsx";
 import ErrorState from "../components/shared/ErrorState.tsx";
-import Pagination from "../components/shared/Pagination.tsx";
+// The shared UI pagination (same one ProductsListPage uses) rather than the
+// catalog-local copy, so rows-per-page, the "Showing x – y of z" summary and
+// the button styling match across the catalog.
+import Pagination from "../../../components/ui/Pagination";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import "../styles/ServicesListPage.scss";
 
@@ -54,13 +55,41 @@ import "../styles/ServicesListPage.scss";
 // Commission and Resource Required filters were removed: neither is readable
 // anywhere outside the services module, and the form can no longer set either,
 // so both filters partitioned the list into "all" and "none".
+// onlineBooking is multi-select but the API takes a single boolean, so only a
+// selection of exactly one side narrows anything — picking both Enabled and
+// Disabled means "either", which is the same as no filter at all.
 const buildFilterParams = (
   f: ServiceFiltersState,
 ): Partial<Pick<FetchServicesParams, "isActive" | "onlineBooking">> => {
   const p: Partial<Pick<FetchServicesParams, "isActive" | "onlineBooking">> = {};
-  if (f.onlineBooking === "Enabled")  p.onlineBooking = true;
-  if (f.onlineBooking === "Disabled") p.onlineBooking = false;
+  const ob = f.onlineBooking ?? [];
+  if (ob.length === 1 && ob[0] === "Enabled")  p.onlineBooking = true;
+  if (ob.length === 1 && ob[0] === "Disabled") p.onlineBooking = false;
   return p;
+};
+
+const DURATION_OPTIONS: FilterDropdownOption[] = [
+  { id: "0-30",   label: "Under 30 min" },
+  { id: "30-60",  label: "30 – 60 min" },
+  { id: "60-120", label: "1 – 2 hours" },
+  { id: "120+",   label: "Over 2 hours" },
+];
+
+const ONLINE_BOOKING_OPTIONS: FilterDropdownOption[] = [
+  { id: "Enabled",  label: "Online" },
+  { id: "Disabled", label: "Offline" },
+];
+
+// Upper bound is exclusive so the buckets don't overlap — a 60 min service
+// belongs to "30 – 60", not to both that and "1 – 2 hours".
+const matchesDuration = (dur: number, range: string): boolean => {
+  switch (range) {
+    case "0-30":   return dur <= 30;
+    case "30-60":  return dur > 30 && dur <= 60;
+    case "60-120": return dur > 60 && dur <= 120;
+    case "120+":   return dur > 120;
+    default:       return true;
+  }
 };
 
 // The services LIST endpoint returns lean objects that omit the `staff`
@@ -69,6 +98,40 @@ const buildFilterParams = (
 const hasFullServiceDetails = (svc: Service) =>
   Object.prototype.hasOwnProperty.call(svc, "staff");
 
+// Sort is applied client-side, within each category group, to the services
+// currently on screen. The list endpoint takes no sort parameter, so sorting
+// server-side would need an API change; ordering what the user can actually
+// see is both honest and what the control appears to promise.
+// How many category chips show before the row collapses behind "+N more".
+// Roughly two rows at typical widths.
+const COLLAPSED_CHIP_COUNT = 12;
+
+type SortId = "default" | "name-asc" | "name-desc" | "price-asc" | "price-desc";
+
+const SORT_OPTIONS: { id: SortId; label: string }[] = [
+  { id: "default",    label: "Sort" },
+  { id: "name-asc",   label: "Name (A–Z)" },
+  { id: "name-desc",  label: "Name (Z–A)" },
+  { id: "price-asc",  label: "Price (low → high)" },
+  { id: "price-desc", label: "Price (high → low)" },
+];
+
+const sortServices = (list: Service[], sortBy: SortId): Service[] => {
+  if (sortBy === "default") return list;
+  const num = (v: unknown) => Number(v ?? 0) || 0;
+  const copy = [...list];
+  copy.sort((a, b) => {
+    switch (sortBy) {
+      case "name-asc":   return String(a.name ?? "").localeCompare(String(b.name ?? ""));
+      case "name-desc":  return String(b.name ?? "").localeCompare(String(a.name ?? ""));
+      case "price-asc":  return num(a.price) - num(b.price);
+      case "price-desc": return num(b.price) - num(a.price);
+      default:           return 0;
+    }
+  });
+  return copy;
+};
+
 const ServicesListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
@@ -76,7 +139,12 @@ const ServicesListPage: React.FC = () => {
     useServices();
   const { createCategory, updateCategory, deleteCategory, loading: catLoading } =
     useCategories();
-  const { filters, activeCount: filterActiveCount, reset: resetServiceFilters } = useServiceFilters();
+  const {
+    filters,
+    activeCount: filterActiveCount,
+    apply: applyServiceFilters,
+    reset: resetServiceFilters,
+  } = useServiceFilters();
 
   const categoryLoadingState = useReduxSelector(selectCategoriesLoading);
   const categoriesLoading = categoryLoadingState?.fetchAll ?? false;
@@ -85,7 +153,6 @@ const ServicesListPage: React.FC = () => {
   const userProfile = useReduxSelector(selectUserProfile);
 
   // ── UI state ────────────────────────────────────────────────────────────────
-  const [showFilterDrawer, setShowFilterDrawer]   = useState(false);
   const [showManageOrder, setShowManageOrder]     = useState(false);
   const [showImport, setShowImport]               = useState(false);
   const [selectedCategory, setSelectedCategory]  = useState<string>("all");
@@ -116,6 +183,45 @@ const ServicesListPage: React.FC = () => {
 
   const optMenuRef = useRef<HTMLDivElement>(null);
   const [showOptMenu, setShowOptMenu] = useState(false);
+
+  const sortMenuRef = useRef<HTMLDivElement>(null);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+  const [sortBy, setSortBy] = useState<SortId>("default");
+
+  // Salons can accumulate a lot of categories (51 on dev today), which turned
+  // the chips row into a seven-line wall that pushed the list off screen.
+  const [chipsExpanded, setChipsExpanded] = useState(false);
+
+  // Collapsed shows the first N — but never hides the category currently being
+  // filtered on, or the active chip would vanish the moment it's picked from
+  // the expanded list and the row collapses again.
+  const visibleCategories = useMemo(() => {
+    if (chipsExpanded || categories.length <= COLLAPSED_CHIP_COUNT) return categories;
+    const head = categories.slice(0, COLLAPSED_CHIP_COUNT);
+    if (selectedCategory === "all") return head;
+    if (head.some((c) => String(c.id) === String(selectedCategory))) return head;
+    const active = categories.find((c) => String(c.id) === String(selectedCategory));
+    return active ? [...head, active] : head;
+  }, [categories, chipsExpanded, selectedCategory]);
+
+  const hiddenCategoryCount = chipsExpanded
+    ? 0
+    : Math.max(0, categories.length - visibleCategories.length);
+
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "durationRange", label: "Duration", options: DURATION_OPTIONS },
+    { key: "onlineBooking", label: "Online booking", options: ONLINE_BOOKING_OPTIONS },
+  ], []);
+
+  // JiraFilterMenu hands back the WHOLE draft on Apply (every field, changed or
+  // not) in one call, so this commits everything at once rather than per field.
+  const applyAllFilters = useCallback((next: Record<string, string[]>) => {
+    applyServiceFilters({
+      durationRange: next.durationRange ?? [],
+      onlineBooking: next.onlineBooking ?? [],
+    });
+    setCurrentPage(1);
+  }, [applyServiceFilters]);
 
   // Tracks whether we're past the initial mount, so the effects below don't
   // also fire (redundantly) on first render — mirrors ProductsListPage.tsx.
@@ -161,11 +267,9 @@ const ServicesListPage: React.FC = () => {
       page: currentPage,
       limit: pageSize,
       search: searchQuery || undefined,
-      categoryId: filters.categoryId && filters.categoryId !== "all"
-        ? filters.categoryId
-        : selectedCategory !== "all"
-        ? selectedCategory
-        : undefined,
+      // The chips row is now the only category control, so there's no second
+      // source to reconcile against.
+      categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
       ...buildFilterParams(filters),
     });
   }, [currentPage, pageSize, selectedCategory, filters, fetchServices, categoryFiltersKey]);
@@ -185,11 +289,7 @@ const ServicesListPage: React.FC = () => {
         page: 1,
         limit,
         search: searchQuery || undefined,
-        categoryId: f.categoryId && f.categoryId !== "all"
-          ? f.categoryId
-          : cat !== "all"
-          ? cat
-          : undefined,
+        categoryId: cat !== "all" ? cat : undefined,
         ...buildFilterParams(f),
       });
     }, 400);
@@ -201,6 +301,8 @@ const ServicesListPage: React.FC = () => {
     const handler = (e: MouseEvent) => {
       if (optMenuRef.current && !optMenuRef.current.contains(e.target as Node))
         setShowOptMenu(false);
+      if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node))
+        setShowSortMenu(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -231,8 +333,7 @@ const ServicesListPage: React.FC = () => {
     const filterParams = buildFilterParams(filters);
 
     if (searchQuery) queryParts.push(`search=${encodeURIComponent(searchQuery)}`);
-    const exportCatId = filters.categoryId && filters.categoryId !== "all" ? filters.categoryId : selectedCategory;
-    if (exportCatId !== "all") queryParts.push(`category_id=${exportCatId}`);
+    if (selectedCategory !== "all") queryParts.push(`category_id=${selectedCategory}`);
     if (filterParams.isActive !== undefined) queryParts.push(`is_active=${filterParams.isActive}`);
     if (filterParams.onlineBooking !== undefined) queryParts.push(`online_booking=${filterParams.onlineBooking}`);
 
@@ -296,20 +397,12 @@ const ServicesListPage: React.FC = () => {
   // ── Client-side filtering for Duration, Price Range, and Category ─────────
   const filteredServices = useMemo(() => {
     return services.filter((svc: Service) => {
-      // 1. Category filter from modal
-      if (filters.categoryId && filters.categoryId !== "all") {
-        if (String(svc.category_id) !== String(filters.categoryId)) {
-          return false;
-        }
-      }
-
-      // 2. Duration filter
-      if (filters.durationRange && filters.durationRange !== "all") {
+      // Category is filtered by the chips row (and server-side), not here.
+      // Several duration buckets ticked means "any of these".
+      const ranges = filters.durationRange ?? [];
+      if (ranges.length > 0) {
         const dur = Number(svc.duration) || 0;
-        if (filters.durationRange === "0-30" && (dur < 0 || dur > 30)) return false;
-        if (filters.durationRange === "30-60" && (dur < 30 || dur > 60)) return false;
-        if (filters.durationRange === "60-120" && (dur < 60 || dur > 120)) return false;
-        if (filters.durationRange === "120+" && dur < 120) return false;
+        if (!ranges.some((r) => matchesDuration(dur, r))) return false;
       }
 
       return true;
@@ -518,15 +611,34 @@ const ServicesListPage: React.FC = () => {
             </button>
           )}
         </div>
-        <button className="slp__ctrl-btn" onClick={() => setShowFilterDrawer(true)}>
-          <Sliders size={15} /> Filters
-          {filterActiveCount > 0 && (
-            <span className="slp__filter-badge">{filterActiveCount}</span>
+        {/* Shared filter menu (components/ui) — the same two-pane panel and
+            single-Apply behaviour as Memberships and Consumable Inventory,
+            replacing this page's own modal drawer. */}
+        <JiraFilterMenu
+          fields={filterFields}
+          selected={filters as unknown as Record<string, string[]>}
+          onApply={applyAllFilters}
+          triggerLabel="Filters"
+        />
+        <div className="slp__dd-wrap" ref={sortMenuRef}>
+          <button className="slp__ctrl-btn" onClick={() => setShowSortMenu((v) => !v)}>
+            <ArrowDownUp size={14} /> {SORT_OPTIONS.find((o) => o.id === sortBy)?.label ?? "Sort"}
+          </button>
+          {showSortMenu && (
+            <ul className="slp__dd-menu slp__dd-menu--left">
+              {SORT_OPTIONS.map((opt) => (
+                <li key={opt.id}>
+                  <button
+                    className="slp__dd-item"
+                    onClick={() => { setSortBy(opt.id); setShowSortMenu(false); }}
+                  >
+                    {opt.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
-        </button>
-        <button className="slp__ctrl-btn" onClick={() => setShowAddCategory(true)}>
-          <PlusLg size={13} /> Add category
-        </button>
+        </div>
         {/* <button
           className="slp__ctrl-btn slp__ctrl-btn--order"
           onClick={() => setShowManageOrder(true)}
@@ -571,86 +683,67 @@ const ServicesListPage: React.FC = () => {
         </div>
       )}
 
+      {/* ── CATEGORY CHIPS ─────────────────────────────────────────────────── */}
+      {/* Replaces the old left sidebar. Category edit/delete moved to the
+          per-group "Actions" menu, which already offered both. */}
+      <div className="slp__chips">
+        <button
+          className={`slp__chip${selectedCategory === "all" ? " slp__chip--active" : ""}`}
+          onClick={() => setSelectedCategory("all")}
+        >
+          All
+          <span className="slp__chip-count">({pagination?.total ?? services.length})</span>
+        </button>
+
+        {categoriesLoading && categories.length === 0
+          ? null
+          : visibleCategories.map((cat: CategoryView) => (
+              <button
+                key={cat.id}
+                className={`slp__chip${String(selectedCategory) === String(cat.id) ? " slp__chip--active" : ""}`}
+                onClick={() => setSelectedCategory(String(cat.id))}
+                title={cat.name}
+              >
+                {cat.color && (
+                  <span className="slp__chip-dot" style={{ background: cat.color }} />
+                )}
+                {cat.name}
+                {/* service_count is the salon-wide total from the API; the
+                    derived serviceCount only counts the loaded page, so it's
+                    the fallback rather than the default. */}
+                <span className="slp__chip-count">
+                  ({(cat as { service_count?: number }).service_count ?? cat.serviceCount})
+                </span>
+              </button>
+            ))}
+
+        {hiddenCategoryCount > 0 && (
+          <button
+            className="slp__chip slp__chip--more"
+            onClick={() => setChipsExpanded(true)}
+          >
+            +{hiddenCategoryCount} more
+          </button>
+        )}
+        {chipsExpanded && categories.length > COLLAPSED_CHIP_COUNT && (
+          <button
+            className="slp__chip slp__chip--more"
+            onClick={() => setChipsExpanded(false)}
+          >
+            Show less
+          </button>
+        )}
+
+        <button
+          className="slp__chip slp__chip--add"
+          onClick={() => setShowAddCategory(true)}
+        >
+          <PlusLg size={11} /> Add Category
+        </button>
+      </div>
+
       {/* ── BODY ───────────────────────────────────────────────────────────── */}
       <div className={`slp__body${selectedService ? " slp__body--panel-open" : ""}`}>
-        {/* Sidebar */}
-        <aside className="slp__sidebar">
-          <div
-            className={`slp__sidebar-top ${selectedCategory === "all" ? "slp__sidebar-top--active" : ""}`}
-            onClick={() => setSelectedCategory("all")}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setSelectedCategory("all");
-              }
-            }}
-          >
-            <div>
-              <div className="slp__sidebar-title-row">
-                <h3 className="slp__sidebar-title">All categories</h3>
-              </div>
-              <span className="slp__cat-summary">
-                {categories.length} saved categories
-              </span>
-            </div>
-            <div className="slp__sidebar-icon">
-              <TagFill size={14} />
-            </div>
-          </div>
-
-          {categoriesLoading && categories.length === 0 ? (
-            <CategorySidebarSkeleton />
-          ) : (
-            <ul className="slp__cat-list">
-              {categories.map((cat: CategoryView) => (
-                <li
-                  key={cat.id}
-                  className={`slp__cat-item slp__cat-item--editable ${String(selectedCategory) === String(cat.id) ? "slp__cat-item--active" : ""}`}
-                  onClick={() => setSelectedCategory(String(cat.id))}
-                  tabIndex={0}
-                  onKeyDown={(e) => {
-                    if (e.target !== e.currentTarget) return;
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setSelectedCategory(String(cat.id));
-                    }
-                  }}
-                >
-                  <span className="d-flex align-items-center gap-2 slp__cat-name">
-                    {cat.color && (
-                      <span className="slp__cat-dot" style={{ background: cat.color }} />
-                    )}
-                    {cat.name}
-                  </span>
-
-                  <span className="slp__cat-actions" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      className="slp__cat-action-btn"
-                      title="Edit category"
-                      onClick={() => {
-                        setEditingCategory({ id: cat.id, name: cat.name });
-                        setEditCategoryName(cat.name);
-                        setEditCategoryDesc(cat.description ?? "");
-                      }}
-                    >
-                      <PencilSquare size={12} />
-                    </button>
-                    <button
-                      className="slp__cat-action-btn slp__cat-action-btn--danger"
-                      title="Delete category"
-                      onClick={() => setDeletingCategory({ id: cat.id, name: cat.name })}
-                    >
-                      <Trash3 size={12} />
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </aside>
-
         {/* Main content */}
         <section className="slp__content">
           {loading ? (
@@ -770,8 +863,22 @@ const ServicesListPage: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Column labels. Same grid track list as .slp__service-card,
+                    so the headings sit over the values they name. */}
+                <div className="slp__group-cols" aria-hidden="true">
+                  <span />
+                  <span>Service</span>
+                  <span>Time</span>
+                  <span>Staff</span>
+                  <span>Description</span>
+                  <span>Status</span>
+                  <span className="slp__group-cols__center">Commission</span>
+                  <span className="slp__group-cols__right">Price</span>
+                  <span />
+                </div>
+
                 <div className="slp__service-list">
-                  {group.services.map((svc: Service) => (
+                  {sortServices(group.services, sortBy).map((svc: Service) => (
                     <ServiceCard
                       key={svc.id}
                       service={svc}
@@ -819,26 +926,24 @@ const ServicesListPage: React.FC = () => {
       </div>
 
       {/* ── PAGINATION ─────────────────────────────────────────────────────── */}
-      {!loading && pagination && pagination.total_pages > 0 && (
+      {/* The shared component derives total pages from totalItems/pageSize and
+          renders nothing when there are no results, so it needs neither a
+          totalPages prop nor a total_pages guard. */}
+      {!loading && pagination && (
         <Pagination
           currentPage={currentPage}
-          totalPages={pagination.total_pages}
-          totalItems={pagination.total}
           pageSize={pageSize}
+          totalItems={pagination.total}
           onPageChange={setCurrentPage}
           onPageSizeChange={(size) => {
             setPageSize(size);
             setCurrentPage(1);
           }}
+          className="services-pagination"
         />
       )}
 
       {/* ── MODALS ─────────────────────────────────────────────────────────── */}
-      {showFilterDrawer && (
-        <ServiceFilterDrawer
-          onClose={() => setShowFilterDrawer(false)}
-        />
-      )}
       {showManageOrder && (
         <ManageOrderModal
           services={services}

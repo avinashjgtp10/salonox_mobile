@@ -8,6 +8,7 @@ import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import { selectAllCategories, selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
 import { useServiceForm } from "../hooks/useServiceForm.ts";
 import type { ServiceCommissionKind } from "../types/catalog.types.ts";
+import { splitDuration, joinDuration, formatDuration } from "../utils/duration";
 import SearchSelect from "../components/form/SearchSelect";
 import QuickAdd from "../components/form/QuickAdd";
 import ConsumablesTab from "../components/tabs/ConsumablesTab.tsx";
@@ -157,6 +158,10 @@ const ServiceFormPage: React.FC = () => {
 
   const commission = formData.commission;
 
+  const durationParts = splitDuration(formData.basic.duration);
+  const setDuration = (hours: number, minutes: number) =>
+    updateField("basic", { ...formData.basic, duration: joinDuration(hours, minutes) });
+
   if (fetchLoading) return <div className="cf-page cf-page--loading">Loading…</div>;
 
   return (
@@ -236,20 +241,53 @@ const ServiceFormPage: React.FC = () => {
               />
               {errFor("price") && <span className="cf-field__error">{errFor("price")}</span>}
             </div>
+            {/* Hours + minutes rather than a single minutes box. Stored value
+                is still total minutes — see utils/duration.ts for why an
+                hours-only field would be wrong for this catalogue. */}
             <div className="cf-field">
-              <label>Duration (minutes) *</label>
-              <input
-                type="number"
-                min={1}
-                step={5}
-                value={formData.basic.duration || ""}
-                onChange={(e) => updateField("basic", { ...formData.basic, duration: parseInt(e.target.value, 10) || 0 })}
-              />
+              <label>Duration *</label>
+              <div className="cf-duration">
+                <div className="cf-duration__part">
+                  <input
+                    type="number"
+                    min={0}
+                    max={23}
+                    step={1}
+                    value={durationParts.hours || ""}
+                    placeholder="0"
+                    onChange={(e) => setDuration(parseInt(e.target.value, 10) || 0, durationParts.minutes)}
+                  />
+                  <span>hr</span>
+                </div>
+                <div className="cf-duration__part">
+                  <input
+                    type="number"
+                    min={0}
+                    max={59}
+                    step={5}
+                    value={durationParts.minutes || ""}
+                    placeholder="0"
+                    onChange={(e) => {
+                      // Clamp rather than roll over into the hours box, so
+                      // typing 90 here can't silently become 1 hr 30.
+                      const m = Math.min(59, Math.max(0, parseInt(e.target.value, 10) || 0));
+                      setDuration(durationParts.hours, m);
+                    }}
+                  />
+                  <span>min</span>
+                </div>
+              </div>
+              <span className="cf-hint cf-hint--inline">
+                {formatDuration(formData.basic.duration)} total
+              </span>
             </div>
           </div>
 
           <div className="cf-field">
             <label>Availability</label>
+            {/* Label text is wrapped in a span rather than left as a bare text
+                node: a loose text node is only an anonymous flex item, which
+                makes the flex `gap` between box and label unreliable. */}
             <label className="cf-check">
               <input
                 type="checkbox"
@@ -258,7 +296,7 @@ const ServiceFormPage: React.FC = () => {
               />
               {/* The only service field with a real external consumer — it
                   gates the public online-booking catalogue. */}
-              Available for online booking
+              <span>Available for online booking</span>
             </label>
             <label className="cf-check">
               <input
@@ -266,7 +304,7 @@ const ServiceFormPage: React.FC = () => {
                 checked={formData.basic.active}
                 onChange={(e) => updateField("basic", { ...formData.basic, active: e.target.checked })}
               />
-              Active (appears when booking appointments)
+              <span>Active (appears when booking appointments)</span>
             </label>
           </div>
         </section>)}
