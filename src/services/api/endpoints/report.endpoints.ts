@@ -90,6 +90,14 @@ export const LOST_CUSTOMERS_REPORT = {
   SUMMARY: () => `/api/report/lost-customers`,
 } as const;
 
+// Independent Referral reporting API — one row per referred client, joined
+// back to the referrer, with reward amounts read from referral_ledger. Reads
+// clients/sales/referral_ledger directly, never through the Appointment API.
+// Mounted at /api/report.
+export const REFERRAL_REPORT = {
+  SUMMARY: () => `/api/report/referral`,
+} as const;
+
 // Independent Staff Sales reporting API — reads sale_items/sales directly,
 // never through the Appointment API. Mounted at /api/report.
 export const STAFF_SALES_REPORT = {
