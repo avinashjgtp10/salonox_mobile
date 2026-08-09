@@ -3,6 +3,10 @@ export interface ServiceStaffMember {
   name: string;
 }
 
+// How a per-service commission override is applied to that service's revenue.
+// "percentage" → % of the service's revenue; "fixed" → flat ₹ per unit sold.
+export type ServiceCommissionKind = "percentage" | "fixed";
+
 export interface ServiceConsultationFormEntry {
   id: string;
   service_id: string;
@@ -34,7 +38,13 @@ export interface Service {
   // Also only present on the single-item GET-by-ID response, same as `staff`.
   consultation_forms?: ServiceConsultationFormEntry[];
   online_booking?: boolean;
+  // Legacy and inert — false on every row, read by nothing in the commission
+  // engine. Per-service commission is commission_rate/commission_kind below.
   commission_enabled?: boolean;
+  // Per-service commission override. null = no override, i.e. this service
+  // earns under the staff's commission rules (Staff → Commissions).
+  commission_rate?: string | number | null;
+  commission_kind?: ServiceCommissionKind | null;
   resource_required?: boolean;
   is_active: boolean;
   salon_id?: string | null;
@@ -98,6 +108,17 @@ export interface OnlineBookingData {
   enabled: boolean;
 }
 
+// Per-service commission override. `enabled: false` sends both columns as null,
+// which means "no override" — the service earns under whatever commission rules
+// the staff member has, exactly as every service did before this existed.
+// When enabled, this rate REPLACES the staff rule for this service's revenue;
+// it is not added on top, or the same money would pay commission twice.
+export interface ServiceCommissionData {
+  enabled: boolean;
+  kind: ServiceCommissionKind;
+  value: number;
+}
+
 export interface ServiceConsultationFormValues {
   customerName: string;
   mobileNumber: string;
@@ -154,13 +175,18 @@ export interface Category {
 // Sections dropped: `resources` (fixture data — the picker was hardcoded to a
 // fake "Room 1"/"Chair 1" and nothing in scheduling reads resource_required),
 // `addons` (its tab had zero importers), `portfolio` (uploader that never
-// uploaded), `commission` (the engine has no per-service scope — commission is
-// driven by staff settings and commission_rules) and `settings` (every field
-// duplicated salon-level config that already works elsewhere).
+// uploaded) and `settings` (every field duplicated salon-level config that
+// already works elsewhere).
+//
+// `commission` is back, but as a real field this time. The old CommissionTab
+// collected a service default plus per-staff overrides and sent none of it —
+// there was no column and no endpoint. This one persists to
+// services.commission_rate/_kind and is read by commissionCalculation.service.
 export interface CatalogFormData {
   basic: BasicDetailsData;
   team: TeamMembersData;
   consumables: ConsumablesData;
   onlineBooking: OnlineBookingData;
+  commission: ServiceCommissionData;
   forms: FormsData;
 }
