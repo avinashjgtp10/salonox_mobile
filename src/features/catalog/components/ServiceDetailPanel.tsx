@@ -15,6 +15,7 @@ import {
 import type { Service } from "../types/catalog.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
+import { formatDuration } from "../utils/duration";
 
 interface ServiceDetailPanelProps {
   service: Service;
@@ -113,7 +114,7 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
               <span className="sdp__metric-icon"><ClockHistory size={16} /></span>
               <div>
                 <p className="sdp__metric-label">Duration</p>
-                <p className="sdp__metric-value">{service.duration} min</p>
+                <p className="sdp__metric-value">{formatDuration(Number(service.duration) || 0)}</p>
               </div>
             </div>
             <div className="sdp__metric">

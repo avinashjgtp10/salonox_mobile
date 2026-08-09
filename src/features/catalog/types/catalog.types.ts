@@ -34,6 +34,10 @@ export interface Service {
   // is only exposed via `staff` (only present on the single-item GET-by-ID
   // response). No staff rows = every team member can perform the service.
   staff?: ServiceStaffMember[];
+  // Present on the LIST response (where `staff` is not). 0 means "all staff" —
+  // no service_staff rows is how "everyone, including future hires" is stored —
+  // so render 0 as "All staff", never "0 staff".
+  staff_count?: number;
   staff_ids?: string[]; // write-only: sent on create/update requests
   // Also only present on the single-item GET-by-ID response, same as `staff`.
   consultation_forms?: ServiceConsultationFormEntry[];

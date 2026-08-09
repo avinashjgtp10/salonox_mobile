@@ -1,16 +1,20 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
+// Multi-select per field, matching the shared JiraFilterMenu's contract
+// (Record<string, string[]>) — an empty array means "no restriction".
+//
+// `categoryId` was dropped: the Service menu filters by category through its
+// chips row now, and having a second category control inside the filter panel
+// meant two inputs could disagree about which category was being shown.
 export interface ServiceFiltersState {
-  categoryId: string;          // "all" | category ID string
-  durationRange: string;       // "all" | "0-30" | "30-60" | "60-120" | "120+"
-  onlineBooking: string;       // "All status" | "Enabled" | "Disabled"
+  durationRange: string[];     // "0-30" | "30-60" | "60-120" | "120+"
+  onlineBooking: string[];     // "Enabled" | "Disabled"
 }
 
 // Baseline state — used for both initial load and "reset to default".
 export const INITIAL_SERVICE_FILTERS: ServiceFiltersState = {
-  categoryId: "all",
-  durationRange: "all",
-  onlineBooking: "All status",
+  durationRange: [],
+  onlineBooking: [],
 };
 
 const serviceFiltersSlice = createSlice({
