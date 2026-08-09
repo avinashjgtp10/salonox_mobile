@@ -150,9 +150,20 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <button
           type="button"
           className={menuClass("marketing")}
-          onClick={() =>
-            onMenuChange(openMenu === "marketing" ? null : "marketing")
-          }
+          onClick={() => {
+            const opening = openMenu !== "marketing";
+            onMenuChange(opening ? "marketing" : null);
+            // Same pattern as Clients/Catalog/Staff above — jump to the
+            // section's default page when entering it from elsewhere. Without
+            // this, clicking Marketing only opened the flyout submenu and left
+            // whatever page you were on underneath it. Targets the section
+            // root, whose index route is the Marketing dashboard (see
+            // MarketingRoutes.tsx); a salon that hasn't finished WhatsApp
+            // setup still lands on onboarding from there, which is intended.
+            if (opening && !location.pathname.startsWith("/dashboard/marketing")) {
+              navigate("/dashboard/marketing");
+            }
+          }}
         >
           <Megaphone size={26} />
           <span className="nav-label">Marketing</span>

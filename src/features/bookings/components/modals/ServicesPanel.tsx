@@ -435,6 +435,7 @@ function MembershipRow({
           className={`svc-field__input svc-field__select${memError?.item ? " svc-field__input--error" : ""}`}
           disabled={frozen}
           placeholder="Select membership..."
+          searchPlaceholder="Search memberships…"
           value={(row as any).membershipId || ""}
           options={availableMemberships.map((m: any) => ({ id: m.id, name: m.name }))}
           onChange={(option) => {
@@ -628,6 +629,7 @@ function PackageRow({
           className={`svc-field__input svc-field__select${pkgError?.item ? " svc-field__input--error" : ""}`}
           disabled={frozen}
           placeholder="Select package..."
+          searchPlaceholder="Search packages…"
           value={row.packageId || ""}
           options={availablePackages.map((p: any) => ({ id: p.id, name: p.name }))}
           onChange={(option) => {
