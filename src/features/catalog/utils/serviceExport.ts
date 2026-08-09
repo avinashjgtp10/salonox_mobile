@@ -76,13 +76,13 @@ const COLS: { header: string; fn: (s: Service) => string }[] = [
   { header: "Description",      fn: (s) => d(s.description) },
   { header: "Price Type",       fn: (s) => d(s.price_type || "fixed") },
   { header: "Price / Retail",   fn: (s) => d(s.price) },
-  { header: "Discounted Price", fn: (s) => d(s.discounted_price) },
   { header: "Duration (min)",   fn: (s) => d(s.duration) },
-  { header: "Available For",    fn: (s) => d(s.gender_preference) },
   { header: "Online Booking",   fn: (s) => bool(s.online_booking) },
-  { header: "Commission",       fn: (s) => bool(s.commission_enabled) },
-  { header: "Resource Required",fn: (s) => bool(s.resource_required) },
   { header: "Status",           fn: (s) => (s.is_active ? "Active" : "Inactive") },
+  // Dropped: Discounted Price, Available For (gender), Commission and
+  // Resource Required. The first two have no column at all, and the last two
+  // can no longer be set from the form — every row exported blank or a
+  // constant "No".
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   { header: "Created At",       fn: (s) => d((s as any).created_at) },
 ];

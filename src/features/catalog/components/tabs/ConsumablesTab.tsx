@@ -6,6 +6,8 @@ import { fetchProductsThunk } from "../../../../middleware/catalog/products.thun
 import { isConsumableType } from "../../types/product.types";
 import type { ConsumablesData, ConsumableUsageEntry } from "../../types/catalog.types.ts";
 import LearnMoreLink from "../../../../components/shared/LearnMoreLink";
+// This component owns its `sao-` styles now that AddServicePage.scss is gone.
+import "../../styles/ServiceConsumables.scss";
 
 interface Props {
   data: ConsumablesData;

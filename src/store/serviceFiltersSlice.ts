@@ -4,8 +4,6 @@ export interface ServiceFiltersState {
   categoryId: string;          // "all" | category ID string
   durationRange: string;       // "all" | "0-30" | "30-60" | "60-120" | "120+"
   onlineBooking: string;       // "All status" | "Enabled" | "Disabled"
-  commissions: string;         // "All status" | "Enabled" | "Disabled"
-  resourceRequirements: string; // "All status" | "Required" | "Not required"
 }
 
 // Baseline state — used for both initial load and "reset to default".
@@ -13,8 +11,6 @@ export const INITIAL_SERVICE_FILTERS: ServiceFiltersState = {
   categoryId: "all",
   durationRange: "all",
   onlineBooking: "All status",
-  commissions: "All status",
-  resourceRequirements: "All status",
 };
 
 const serviceFiltersSlice = createSlice({

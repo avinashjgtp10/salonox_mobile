@@ -49,27 +49,17 @@ import Pagination from "../components/shared/Pagination.tsx";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import "../styles/ServicesListPage.scss";
 
-// Maps UI filter strings → API boolean params
+// Maps UI filter strings → API boolean params.
+//
+// Commission and Resource Required filters were removed: neither is readable
+// anywhere outside the services module, and the form can no longer set either,
+// so both filters partitioned the list into "all" and "none".
 const buildFilterParams = (
   f: ServiceFiltersState,
-): Partial<
-  Pick<
-    FetchServicesParams,
-    "isActive" | "onlineBooking" | "commissionEnabled" | "resourceRequired"
-  >
-> => {
-  const p: Partial<
-    Pick<
-      FetchServicesParams,
-      "isActive" | "onlineBooking" | "commissionEnabled" | "resourceRequired"
-    >
-  > = {};
+): Partial<Pick<FetchServicesParams, "isActive" | "onlineBooking">> => {
+  const p: Partial<Pick<FetchServicesParams, "isActive" | "onlineBooking">> = {};
   if (f.onlineBooking === "Enabled")  p.onlineBooking = true;
   if (f.onlineBooking === "Disabled") p.onlineBooking = false;
-  if (f.commissions === "Enabled")    p.commissionEnabled = true;
-  if (f.commissions === "Disabled")   p.commissionEnabled = false;
-  if (f.resourceRequirements === "Required")     p.resourceRequired = true;
-  if (f.resourceRequirements === "Not required") p.resourceRequired = false;
   return p;
 };
 
@@ -245,8 +235,6 @@ const ServicesListPage: React.FC = () => {
     if (exportCatId !== "all") queryParts.push(`category_id=${exportCatId}`);
     if (filterParams.isActive !== undefined) queryParts.push(`is_active=${filterParams.isActive}`);
     if (filterParams.onlineBooking !== undefined) queryParts.push(`online_booking=${filterParams.onlineBooking}`);
-    if (filterParams.commissionEnabled !== undefined) queryParts.push(`commission_enabled=${filterParams.commissionEnabled}`);
-    if (filterParams.resourceRequired !== undefined) queryParts.push(`resource_required=${filterParams.resourceRequired}`);
 
     const allServices: Service[] = [];
     let page = 1;

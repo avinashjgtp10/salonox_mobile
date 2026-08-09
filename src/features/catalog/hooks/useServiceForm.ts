@@ -1,88 +1,172 @@
 import { useState, useEffect } from "react";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import {
   createConsultationFormThunk,
   createServiceThunk,
+  fetchServiceByIdThunk,
   fetchServicesThunk,
   updateConsultationFormThunk,
+  updateServiceThunk,
 } from "../../../middleware/services/services.thunk";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
+import { selectAllServices } from "../../../store/selectors/slices.selectors";
 import type { CatalogFormData, Service, ConsumableUsagePayloadItem } from "../types/catalog.types.ts";
 
-const initialData: CatalogFormData = {
+// One hook for create AND edit, mirroring ProductFormPage's single-page
+// approach. They used to be two hooks with two payload builders, which had
+// already drifted — `image_url` was sent on create but not on update. A single
+// builder makes that class of divergence impossible.
+
+const emptyForm = (): CatalogFormData => ({
   basic: {
     name: "",
     categoryId: "",
     duration: 30,
     price: 0,
-    discountedPrice: null,
-    paddingBefore: 0,
-    paddingAfter: 0,
     description: "",
     active: true,
-    genderPreference: null,
-    imageUrl: null,
   },
   team: {
-    allMembers: true,
     selectedMemberIds: [],
-    availableMembers: [],
-  },
-  resources: {
-    requireResource: false,
-    selectedResourceId: "",
-    availableResources: [
-      { id: "r1", name: "Room 1" },
-      { id: "r2", name: "Chair 1" },
-    ],
-  },
-  addons: {
-    selectedGroupIds: [],
-    availableGroups: [],
   },
   consumables: {
     items: [],
   },
   onlineBooking: {
     enabled: true,
-    onlineDescription: "",
-    maxAdvanceDays: 365,
-    minNoticeHours: 2,
-    requireDeposit: false,
-    depositAmount: 0,
-  },
-  portfolio: {
-    images: [],
   },
   forms: {
     selectedFormIds: [],
     availableForms: [],
   },
-  commission: {
-    defaultType: "percentage",
-    defaultValue: 0,
-    memberCommissions: [],
+});
+
+// The LIST endpoint never includes `staff` (only the single GET-by-ID
+// endpoint does), so its presence tells us whether team assignment data
+// is actually available on this record.
+const hasFullServiceDetails = (svc: Service) =>
+  Object.prototype.hasOwnProperty.call(svc, "staff");
+
+const mapServiceToFormData = (svc: Service): CatalogFormData => ({
+  basic: {
+    name: svc.name ?? "",
+    categoryId: String(svc.category_id ?? ""),
+    duration: svc.duration ?? 30,
+    price: Number(svc.price ?? 0),
+    description: svc.description ?? "",
+    active: svc.is_active ?? true,
   },
-  settings: {
-    cancellationNoticeHours: 24,
-    chargeCancellationFee: false,
-    cancellationFeeAmount: 0,
-    visibleToClients: true,
-    taxable: true,
-    colorLabel: "#6366f1",
+  team: {
+    selectedMemberIds: (svc.staff ?? []).map((s) => String(s.staff_id)),
   },
+  consumables: {
+    items: (svc.consumables_used ?? []).map((c) => ({
+      id: crypto.randomUUID(),
+      productId: c.product_id,
+      productName: c.product_name ?? "",
+      qty: c.qty,
+      unit: c.unit,
+    })),
+  },
+  onlineBooking: {
+    enabled: svc.online_booking ?? true,
+  },
+  forms: {
+    selectedFormIds: (svc.consultation_forms ?? []).filter((f) => f.is_selected).map((f) => f.id),
+    availableForms: (svc.consultation_forms ?? []).map((f) => ({
+      id: f.id,
+      name: f.name,
+      createdAt: f.created_at,
+      values: f.values ?? undefined,
+    })),
+  },
+});
+
+// Every key here maps to a real column the backend will actually persist.
+// Five fields that used to be sent — discounted_price, padding_before,
+// padding_after, gender_preference, image_url — have no column at all; the
+// API dropped them silently and still returned 201. They are gone rather than
+// left to look functional.
+const buildPayload = (formData: CatalogFormData, allStaffIds: string[]) => {
+  const selected = formData.team.selectedMemberIds;
+  // "Everyone is ticked" is stored as NO service_staff rows, not as a row per
+  // staff member. Both mean the same thing for booking today, but writing an
+  // explicit row for each person freezes the list: hire someone next month and
+  // they'd be excluded from every service until each one was edited by hand.
+  // Sending [] keeps the service genuinely open to all staff, including future
+  // ones. Any partial selection is sent as-is.
+  const isEveryone =
+    allStaffIds.length > 0 &&
+    selected.length === allStaffIds.length &&
+    allStaffIds.every((id) => selected.includes(id));
+
+  return {
+    name: formData.basic.name,
+    description: formData.basic.description || undefined,
+    category_id: formData.basic.categoryId || null,
+    price: formData.basic.price,
+    // price_type is deliberately not sent — the form has no control for it, so
+    // sending a hardcoded "fixed" would overwrite whatever a service already
+    // has. Omitting it leaves the existing value alone on edit and takes the
+    // column default on create.
+    duration: formData.basic.duration,
+    is_active: formData.basic.active,
+    online_booking: formData.onlineBooking.enabled,
+    // On update the backend calls replaceStaff([]) for an empty array, so this
+    // genuinely clears the assignment rather than leaving stale rows behind.
+    staff_ids: isEveryone ? [] : selected,
+    consumables_used: formData.consumables.items.map(
+      (i): ConsumableUsagePayloadItem => ({
+        product_id: i.productId,
+        qty: i.qty,
+        unit: i.unit,
+      }),
+    ),
+  };
 };
 
-export const useServiceForm = (_type: "single" | "bundle") => {
+export const useServiceForm = (serviceId?: string | number, allStaffIds: string[] = []) => {
   const dispatch = useDispatch<AppDispatch>();
-  const [formData, setFormData] = useState<CatalogFormData>(initialData);
+  const isEdit = serviceId !== undefined && serviceId !== null && String(serviceId) !== "";
+  const cachedServices = useSelector(selectAllServices) as Service[];
+
+  const [formData, setFormData] = useState<CatalogFormData>(emptyForm());
+  const [serviceName, setServiceName] = useState("");
+  const [fetchLoading, setFetchLoading] = useState(isEdit);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [validationErrors, setValidationErrors] = useState<
-    Record<string, string[]>
-  >({});
+  const [validationErrors, setValidationErrors] = useState<Record<string, string[]>>({});
   const [isSubmitted, setIsSubmitted] = useState(false);
+
+  useEffect(() => {
+    if (!isEdit) return;
+    // Try the Redux store first (avoids an extra network round-trip when
+    // navigating from the list page where services are already loaded).
+    const cached = cachedServices.find((s) => String(s.id) === String(serviceId));
+    if (cached && hasFullServiceDetails(cached)) {
+      setServiceName(cached.name);
+      setFormData(mapServiceToFormData(cached));
+      setFetchLoading(false);
+      return;
+    }
+
+    const load = async () => {
+      setFetchLoading(true);
+      setError(null);
+      const result = await dispatch(fetchServiceByIdThunk(serviceId as string));
+      if (fetchServiceByIdThunk.fulfilled.match(result)) {
+        const svc = result.payload as Service;
+        setServiceName(svc.name);
+        setFormData(mapServiceToFormData(svc));
+      } else {
+        setError("Failed to load service data.");
+      }
+      setFetchLoading(false);
+    };
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [serviceId]);
 
   const updateField = <K extends keyof CatalogFormData>(
     section: K,
@@ -91,36 +175,21 @@ export const useServiceForm = (_type: "single" | "bundle") => {
     setFormData((prev) => ({ ...prev, [section]: value }));
   };
 
-  const validate = () => {
+  const validate = (data: CatalogFormData) => {
     const errors: Record<string, string[]> = {};
-
-    // Basic details validation
-    if (!formData.basic.name.trim()) {
+    if (!data.basic.name.trim()) {
       errors.basic = [...(errors.basic || []), "Service name is required"];
     }
-    if (!formData.basic.categoryId) {
+    if (!data.basic.categoryId) {
       errors.basic = [...(errors.basic || []), "Category is required"];
     }
     if (
-      formData.basic.price === undefined ||
-      formData.basic.price === null ||
-      isNaN(formData.basic.price) ||
-      formData.basic.price <= 0
+      data.basic.price === undefined || data.basic.price === null ||
+      isNaN(data.basic.price) || data.basic.price <= 0
     ) {
       errors.basic = [...(errors.basic || []), "Price is required"];
     }
-
-    // Team members validation
-    if (
-      !formData.team.allMembers &&
-      formData.team.selectedMemberIds.length === 0
-    ) {
-      errors.team = [
-        ...(errors.team || []),
-        "At least one staff member must be selected",
-      ];
-    }
-
+    // No staff validation: an empty selection is valid and means "all staff".
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -128,50 +197,38 @@ export const useServiceForm = (_type: "single" | "bundle") => {
   // Re-run validation live once the user has attempted a submit, so inline
   // errors clear as soon as the user fixes the problem.
   useEffect(() => {
-    if (isSubmitted) validate();
+    if (isSubmitted) validate(formData);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formData, isSubmitted]);
 
   const handleSubmit = async () => {
     setIsSubmitted(true);
-    const isValid = validate();
-    if (!isValid) return false;
+    if (!validate(formData)) return false;
 
     setLoading(true);
     setError(null);
 
     try {
-      // Map formData to Backend Service shape
-      const payload: Partial<Service> & { consumables_used?: ConsumableUsagePayloadItem[] } = {
-        name: formData.basic.name,
-        description: formData.basic.description || undefined,
-        category_id: formData.basic.categoryId || null,
-        price: formData.basic.price,
-        discounted_price: formData.basic.discountedPrice ?? null,
-        duration: formData.basic.duration,
-        padding_before: formData.basic.paddingBefore ?? 0,
-        padding_after: formData.basic.paddingAfter ?? 0,
-        is_active: formData.basic.active,
-        online_booking: formData.onlineBooking.enabled,
-        resource_required: formData.resources.requireResource,
-        commission_enabled: formData.commission.defaultValue > 0,
-        staff_ids: formData.team.allMembers
-          ? []
-          : formData.team.selectedMemberIds,
-        gender_preference: formData.basic.genderPreference ?? null,
-        image_url: formData.basic.imageUrl ?? null,
-        consumables_used: formData.consumables.items.map((i) => ({
-          product_id: i.productId,
-          qty: i.qty,
-          unit: i.unit,
-        })),
-      };
+      const payload = buildPayload(formData, allStaffIds);
 
-      const resultAction = await dispatch(createServiceThunk(payload));
-      if (createServiceThunk.fulfilled.match(resultAction)) {
-        // Consultation forms are their own sub-resource on the backend and
-        // couldn't be created until the service itself had an id — push any
-        // that were filled in locally now that one exists.
+      if (isEdit) {
+        const resultAction = await dispatch(
+          updateServiceThunk({ id: serviceId as string, data: payload as Partial<Service> }),
+        );
+        if (!updateServiceThunk.fulfilled.match(resultAction)) {
+          setError(resultAction.payload as string);
+          return false;
+        }
+      } else {
+        const resultAction = await dispatch(createServiceThunk(payload as Partial<Service>));
+        if (!createServiceThunk.fulfilled.match(resultAction)) {
+          setError(resultAction.payload as string);
+          return false;
+        }
+        // Consultation forms are their own sub-resource and can't be created
+        // until the service has an id — push any filled in locally now that
+        // one exists. On the edit path FormsTab writes directly via its own
+        // thunks (it already has a serviceId), so this only runs on create.
         const newServiceId = resultAction.payload.id;
         for (const form of formData.forms.availableForms) {
           const created = await dispatch(
@@ -190,17 +247,14 @@ export const useServiceForm = (_type: "single" | "bundle") => {
             }
           }
         }
-
-        // Refresh the services list and categories in Redux state so the list
-        // page shows up-to-date data immediately when the user navigates back.
-        dispatch(fetchServicesThunk({ page: 1, limit: 25 }));
-        dispatch(fetchCategoriesThunk());
-        return true;
-      } else {
-        setError(resultAction.payload as string);
-        return false;
       }
-    } catch (err) {
+
+      // Refresh the list and categories so the list page is up to date the
+      // moment the user navigates back.
+      dispatch(fetchServicesThunk({ page: 1, limit: 25 }));
+      dispatch(fetchCategoriesThunk());
+      return true;
+    } catch {
       setError("An unexpected error occurred");
       return false;
     } finally {
@@ -212,10 +266,12 @@ export const useServiceForm = (_type: "single" | "bundle") => {
     formData,
     updateField,
     handleSubmit,
+    fetchLoading,
     loading,
     error,
     validationErrors,
     isSubmitted,
+    serviceName,
+    isEdit,
   };
 };
-

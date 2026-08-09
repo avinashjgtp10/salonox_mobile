@@ -120,12 +120,7 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
               <span className="sdp__metric-icon"><CurrencyIcon size={16} /></span>
               <div>
                 <p className="sdp__metric-label">Price</p>
-                <p className="sdp__metric-value">
-                  {formatMoney(service.price)}
-                  {service.discounted_price != null && (
-                    <span className="sdp__discounted">{formatMoney(service.discounted_price)}</span>
-                  )}
-                </p>
+                <p className="sdp__metric-value">{formatMoney(service.price)}</p>
               </div>
             </div>
           </div>
@@ -146,18 +141,6 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
                   <span className="sdp__detail-val sdp__detail-val--cap">{service.price_type}</span>
                 </div>
               )}
-              {(service.padding_before !== undefined && service.padding_before > 0) && (
-                <div className="sdp__detail-row">
-                  <span className="sdp__detail-key">Padding before</span>
-                  <span className="sdp__detail-val">{service.padding_before} min</span>
-                </div>
-              )}
-              {(service.padding_after !== undefined && service.padding_after > 0) && (
-                <div className="sdp__detail-row">
-                  <span className="sdp__detail-key">Padding after</span>
-                  <span className="sdp__detail-val">{service.padding_after} min</span>
-                </div>
-              )}
               <div className="sdp__detail-row">
                 <span className="sdp__detail-key">Category</span>
                 <span className="sdp__detail-val">{service.category_name || "Uncategorized"}</span>
@@ -170,24 +153,6 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
                     : `${(service.staff ?? []).length} selected`}
                 </span>
               </div>
-              <div className="sdp__detail-row">
-                <span className="sdp__detail-key">Commissions</span>
-                <span className="sdp__detail-val">
-                  {service.commission_enabled ? "Enabled" : "Disabled"}
-                </span>
-              </div>
-              <div className="sdp__detail-row">
-                <span className="sdp__detail-key">Resource required</span>
-                <span className="sdp__detail-val">
-                  {service.resource_required ? "Yes" : "No"}
-                </span>
-              </div>
-              {service.gender_preference && (
-                <div className="sdp__detail-row">
-                  <span className="sdp__detail-key">Gender preference</span>
-                  <span className="sdp__detail-val sdp__detail-val--cap">{service.gender_preference}</span>
-                </div>
-              )}
             </div>
           </div>
 

@@ -106,39 +106,10 @@ const ServiceFilterDrawer: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Commissions */}
-          <div className="filter-group">
-            <label>Commissions</label>
-            <div className="select-wrapper">
-              <select
-                className="form-select-custom"
-                value={draft.commissions}
-                onChange={(e) => set("commissions", e.target.value)}
-              >
-                <option>All status</option>
-                <option>Enabled</option>
-                <option>Disabled</option>
-              </select>
-              <ChevronDown className="select-chevron" size={14} />
-            </div>
-          </div>
-
-          {/* Resource requirements */}
-          <div className="filter-group">
-            <label>Resource requirements</label>
-            <div className="select-wrapper">
-              <select
-                className="form-select-custom"
-                value={draft.resourceRequirements}
-                onChange={(e) => set("resourceRequirements", e.target.value)}
-              >
-                <option>All status</option>
-                <option>Required</option>
-                <option>Not required</option>
-              </select>
-              <ChevronDown className="select-chevron" size={14} />
-            </div>
-          </div>
+          {/* Commissions and Resource requirements filters removed — neither
+              value is readable outside the services module, and the service
+              form can no longer set either, so both only ever matched
+              everything or nothing. */}
         </div>
 
         <footer className="service-filters-modal__footer">
