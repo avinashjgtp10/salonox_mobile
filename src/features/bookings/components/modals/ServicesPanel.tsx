@@ -139,7 +139,7 @@ type SearchableItemRowProps =
       emptyText: string;
       staffList: { id: string; name: string }[];
       interval: IntervalOption;
-      onClearError?: () => void;
+      onClearError?: (field: string) => void;
       onUpdate: (row: PackageItem) => void;
       onRemove: () => void;
       taxAmount?: number;
@@ -158,7 +158,7 @@ type SearchableItemRowProps =
       emptyText: string;
       staffList: { id: string; name: string }[];
       interval: IntervalOption;
-      onClearError?: () => void;
+      onClearError?: (field: string) => void;
       onUpdate: (row: ProductItem) => void;
       onUpdateProductRow: (index: number, row: ProductItem) => void;
       onAddProductRow: () => void;
@@ -440,7 +440,10 @@ function MembershipRow({
           options={availableMemberships.map((m: any) => ({ id: m.id, name: m.name }))}
           onChange={(option) => {
             const m = availableMemberships.find((mb: any) => String(mb.id) === String(option.id));
-            if (m) onUpdateMembership(index, { ...row, membershipId: m.id, membershipName: m.name, price: m.price, qty: 1, discount: 0, total: m.price });
+            if (m) {
+              onUpdateMembership(index, { ...row, membershipId: m.id, membershipName: m.name, price: m.price, qty: 1, discount: 0, total: m.price });
+              onClearError?.("item");
+            }
           }}
         />
         {memError?.item && <span className="svc-field__err">Please select a membership</span>}
@@ -482,7 +485,10 @@ function MembershipRow({
         <TimeSelect
           disabled={frozen}
           value={row.time || ""}
-          onChange={(value) => onUpdateMembership(index, { ...row, time: value })}
+          // Clearing the error on pick matters as much as raising it: without
+          // this the "Select time" message stayed on screen after a time was
+          // chosen, so the row looked permanently invalid.
+          onChange={(value) => { onUpdateMembership(index, { ...row, time: value }); if (value) onClearError?.("time"); }}
           interval={interval}
           className={`svc-field__input svc-field__select${memError?.time ? " svc-field__input--error" : ""}`}
           placeholder="Time"
@@ -634,7 +640,10 @@ function PackageRow({
           options={availablePackages.map((p: any) => ({ id: p.id, name: p.name }))}
           onChange={(option) => {
             const p = availablePackages.find((pkg: any) => String(pkg.id) === String(option.id));
-            if (p) onUpdatePackage(index, { ...row, packageId: p.id, packageName: p.name, price: p.price, qty: 1, discount: 0, total: p.price });
+            if (p) {
+              onUpdatePackage(index, { ...row, packageId: p.id, packageName: p.name, price: p.price, qty: 1, discount: 0, total: p.price });
+              onClearError?.("item");
+            }
           }}
         />
         {pkgError?.item && <span className="svc-field__err">Please select a package</span>}
@@ -676,7 +685,7 @@ function PackageRow({
         <TimeSelect
           disabled={frozen}
           value={row.time || ""}
-          onChange={(value) => onUpdatePackage(index, { ...row, time: value })}
+          onChange={(value) => { onUpdatePackage(index, { ...row, time: value }); if (value) onClearError?.("time"); }}
           interval={interval}
           className={`svc-field__input svc-field__select${pkgError?.time ? " svc-field__input--error" : ""}`}
           placeholder="Time"
@@ -1014,6 +1023,9 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     setSearch(item.name);
     setResults([]);
     setShowDrop(false);
+    // The row now has an item, so the "Please select a product/package"
+    // message must go — it used to persist until the whole form revalidated.
+    onClearError?.("item");
     updateRow({
       selectedId: String(item.id),
       selectedName: item.name,
@@ -1278,7 +1290,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
           <select
             disabled={frozen}
             value={row.staffId || ""}
-            onChange={(e) => { onUpdate({ ...row, staffId: e.target.value } as any); if (e.target.value) onClearError?.(); }}
+            onChange={(e) => { onUpdate({ ...row, staffId: e.target.value } as any); if (e.target.value) onClearError?.("staff"); }}
             className="svc-staff-pill__select"
             style={{ color: row.staffId ? "#111827" : "#6b7280" }}
           >
@@ -1300,7 +1312,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
         <TimeSelect
           disabled={frozen}
           value={row.time || ""}
-          onChange={(value) => onUpdate({ ...row, time: value } as any)}
+          onChange={(value) => { onUpdate({ ...row, time: value } as any); if (value) onClearError?.("time"); }}
           interval={interval}
           className={`svc-field__input svc-field__select${timeError ? " svc-field__input--error" : ""}`}
           placeholder="Time"
@@ -1503,7 +1515,7 @@ export const ServicesPanel: React.FC<Props> = ({
             emptyText="No products found."
             staffList={staffList}
             interval={interval}
-            onClearError={() => onClearProdError?.(i, "staff")}
+            onClearError={(field) => onClearProdError?.(i, field)}
             onUpdate={(nextRow) => onUpdateProduct(i, nextRow)}
             onUpdateProductRow={onUpdateProduct}
             onAddProductRow={onAddProduct}
