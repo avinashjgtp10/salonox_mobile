@@ -162,6 +162,36 @@ export function useBookings(skip = false) {
     await fetchRange(startDate, endDate, { silent: true });
   }, [currentDate, viewMode, fetchRange]);
 
+  // ── Refetch on every (re)mount — i.e. every navigation back to the Calendar
+  // The range bookkeeping above is deliberately module-scoped so returning to
+  // the Calendar repaints instantly from cache instead of re-running the whole
+  // paginated fetch. The cost of that is staleness: the effect above sees the
+  // range in `fetchedRangesRef` and fetches NOTHING, so anything that changed
+  // while the user was on Clients (or any other page) stayed invisible until a
+  // manual browser refresh.
+  //
+  // The socket listener below doesn't cover this — it only runs while the
+  // Calendar is mounted, so changes made while it was unmounted are missed
+  // entirely, as are changes made from the very page being navigated from.
+  //
+  // Silent on purpose: the cached rows are already painted, so this updates
+  // them in place rather than blanking back to a skeleton. Skipped when the
+  // range was never fetched (first-ever load, hard reload) because the effect
+  // above is already fetching it — refreshing here too would just double the
+  // request.
+  const didMountRefreshRef = useRef(false);
+  useEffect(() => {
+    if (skip || didMountRefreshRef.current) return;
+    didMountRefreshRef.current = true;
+    const { startDate, endDate } = getViewRange(viewMode, currentDate);
+    if (!fetchedRangesRef.current.has(`${startDate}|${endDate}`)) return;
+    refresh();
+    // Mount-once (once `skip` clears), NOT on every date/view change — those
+    // are already handled by the fetch effect above, and re-running here would
+    // turn each date arrow-click into two requests.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [skip]);
+
   // Live calendar updates — appointments.service.ts already emits a socket
   // "notification" event (type: "appointment") on every create/cancel,
   // including LUNOX WhatsApp bookings. The socket connection itself is
