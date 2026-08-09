@@ -132,6 +132,15 @@ export interface GroupItem {
 export type BookingStatus   = "booked" | "paid" | "partial" | "cancelled" | "no-show" | "deleted";
 export type PaymentMode     = "Cash" | "Card" | "UPI" | "Ewallet";
 export type DiscountType    = "Percentage (%)" | "Flat (₹)";
+/** Item buckets the bill-level discount can be pointed at. Mirrors
+ *  pricing.engine.ts's BucketType — note "packages" (plural), which is the
+ *  backend's tax-bucket vocabulary, not this app's `packageRows`/`packageItems`. */
+export type DiscountBucket  = "service" | "product" | "membership" | "packages";
+/** A bucket, or the whole bill total. "bill" is EXCLUSIVE — it never coexists
+ *  with bucket names, and is not merely shorthand for all four (it starts from
+ *  the Total Bill figure, so coupon and membership benefits land differently).
+ *  Mirrors pricing.engine.ts's DiscountScope. */
+export type DiscountScope   = DiscountBucket | "bill";
 export type ViewMode        = "Day" | "Week" | "Month" | "List Week";
 export type IntervalOption  = "5 Mins" | "10 Mins" | "15 Mins" | "20 Mins" | "30 Mins" | "60 Mins";
 
@@ -188,6 +197,10 @@ export interface Booking {
   discount?: number;
   discountAmount?: number; // computed monetary discount (₹), as opposed to discount which may be a raw %/flat input
   discountType?: DiscountType;
+  // Buckets the bill discount applies to ("Apply to" checkboxes). Undefined on
+  // bills saved before the feature existed — that means legacy scope, which is
+  // NOT the same as all-four; see TotalsInput.discountAppliesTo in totalsUtils.ts.
+  discountAppliesTo?: DiscountScope[];
   gst?: number; // effective blended tax rate (%), for legacy/simple display
   gstAmount?: number; // total add-on tax amount included in grandTotal
   includeGst?: boolean; // persisted "Include GST" checkbox state, independent of payment — see applyMembershipWallet for the equivalent pattern

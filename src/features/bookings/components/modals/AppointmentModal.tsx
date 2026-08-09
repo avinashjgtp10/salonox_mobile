@@ -1,5 +1,6 @@
 ﻿import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { SuccessOverlay } from "../../../../components/ui";
+import MultiSelectCheckbox from "../../../../components/ui/MultiSelectCheckbox";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
 import { useAppointment }    from "../../hooks/useAppointment";
@@ -67,7 +68,7 @@ const PRODUCT_FETCH_PAGE_SIZE = 200;
 import type {
   Booking, Client, ClientStats,
   ServiceItem, PackageItem, ProductItem, MembershipItem,
-  DiscountType, SingleMethod, SplitEntry,
+  DiscountType, DiscountBucket, DiscountScope, SingleMethod, SplitEntry,
 } from "../../types";
 
 interface Props {
@@ -334,6 +335,28 @@ export const AppointmentModal: React.FC<Props> = ({
   const [tip, setTip]                     = useState(existingBooking?.tipAmount ?? 0);
   const [focusedField, setFocusedField]   = useState<"exCharges" | "tip" | "discountValue" | null>(null);
   const [discountValueWarning, setDiscountValueWarning] = useState<string | null>(null);
+  // Which buckets the Bill Discount applies to. New bills start with all four
+  // ticked — the discount means the whole bill unless staff say otherwise.
+  //
+  // A REOPENED pre-feature bill stays `undefined`, and must: undefined is the
+  // legacy-scope signal, and legacy is not reproducible as a bucket list (its
+  // flat amount is uncapped, an explicit selection's is not). Seeding the
+  // state with ["service","packages","membership"] instead would look
+  // equivalent but silently re-price a legacy flat discount the moment the
+  // modal opened — e.g. a ₹1500 flat on a ₹1000-service + ₹1000-product bill
+  // would clamp to ₹1000 and the total would jump ₹500 with nobody touching
+  // anything. It only becomes a concrete array once staff actually tick a box,
+  // which is a deliberate re-scoping and correctly re-prices from there.
+  const [discountAppliesTo, setDiscountAppliesTo] = useState<DiscountScope[] | undefined>(
+    () => existingBooking
+      ? existingBooking.discountAppliesTo
+      : ["service", "packages", "product", "membership"]
+  );
+  // What the dropdown should SHOW while the state is still legacy/undefined —
+  // the buckets legacy scope actually discounts.
+  const effectiveDiscountBuckets: DiscountScope[] =
+    discountAppliesTo ?? ["service", "packages", "membership"];
+  const wholeBillDiscountScope = effectiveDiscountBuckets.includes("bill");
 
   // Switching Disc. Type to Percentage while a flat value over 100 is
   // already entered must re-clamp it — the input's own onChange only caps
@@ -903,7 +926,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // that's the only thing the Pay/Save button is gated on, so checkout can
   // never fire against a stale-vs-current total.
   const ZERO_TOTALS: TotalsResult = {
-    catalogTotal: 0, itemDiscountTotal: 0, subtotal: 0, manualDiscount: 0, totalDisc: 0,
+    catalogTotal: 0, itemDiscountTotal: 0, subtotal: 0, manualDiscount: 0, discountBase: 0, totalDisc: 0,
     taxable: 0, gstAmount: 0, taxBreakdown: [], billTotal: 0, grandTotal: 0, roundOff: 0,
     preRedemptionTotal: 0, displaySubtotal: 0,
   };
@@ -1027,6 +1050,7 @@ export const AppointmentModal: React.FC<Props> = ({
           // display/state vocabulary everywhere else.
           discountType: discountType === "Percentage (%)" ? "percentage" : "flat",
           discountValue,
+          discountAppliesTo,
           couponCode: coupon.applied || undefined,
           exCharges, tip,
           includeGst,
@@ -1045,7 +1069,12 @@ export const AppointmentModal: React.FC<Props> = ({
         if (data) {
           setTotals({
             catalogTotal: data.catalogTotal, itemDiscountTotal: data.itemDiscountTotal,
-            subtotal: data.subtotal, manualDiscount: data.manualDiscount, totalDisc: data.totalDisc,
+            subtotal: data.subtotal, manualDiscount: data.manualDiscount,
+            // Falls back to subtotal on an older backend that doesn't send it,
+            // so the flat-amount clamp below stays permissive rather than
+            // snapping every entry to 0.
+            discountBase: data.discountBase ?? data.subtotal,
+            totalDisc: data.totalDisc,
             taxable: data.taxable, gstAmount: data.gstAmount, taxBreakdown: data.taxBreakdown ?? [],
             // Falls back to the same taxable+GST sum the engine uses, so an
             // older backend that doesn't send the field still renders a
@@ -1076,7 +1105,7 @@ export const AppointmentModal: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     pricingRelevantSignature,
-    discountType, discountValue, exCharges, tip, includeGst,
+    discountType, discountValue, discountAppliesTo, exCharges, tip, includeGst,
     coupon.applied, coupon.discount,
     // referral.applied: linking a client to a referrer (the "Apply" button on
     // the referral-code field) is its own API call, separate from this bill's
@@ -1531,6 +1560,7 @@ export const AppointmentModal: React.FC<Props> = ({
         grandTotal:    reconciledEffectiveTotal,
         discount:      discountValue,
         discountType,
+        discountAppliesTo,
         exCharges,
         tipAmount:     tip,
         gst:           totals.taxable > 0 ? Number(((totals.gstAmount / totals.taxable) * 100).toFixed(4)) : 0,
@@ -1573,7 +1603,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, dispatch, reconciledEffectiveTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, exCharges, tip, activeTaxes, totals,
+      discountType, discountValue, discountAppliesTo, exCharges, tip, activeTaxes, totals,
       onRefresh, onClose]);
 
   const handleUpdate = useCallback(async () => {
@@ -1584,7 +1614,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, exCharges, tip, activeTaxes, totals,
+      discountType, discountValue, discountAppliesTo, exCharges, tip, activeTaxes, totals,
       onRefresh, onClose]);
 
   // Reveal the payment section only — does NOT persist anything. The
@@ -2258,6 +2288,58 @@ export const AppointmentModal: React.FC<Props> = ({
     </div>
   ) : null;
 
+  // Only buckets actually on this bill get a checkbox — a "Package" tick on a
+  // bill with no packages is noise, and its selection state is irrelevant to
+  // the base either way (an absent bucket contributes 0).
+  const discountBucketOptions: { key: DiscountBucket; label: string; present: boolean }[] = [
+    // Same order as the "+ Service / + Product / + Package / + Membership"
+    // buttons above, so the two lists of item types don't disagree.
+    { key: "service",    label: "Service",    present: serviceRows.length > 0 },
+    { key: "product",    label: "Product",    present: productRows.length > 0 },
+    { key: "packages",   label: "Package",    present: packageRows.length > 0 },
+    { key: "membership", label: "Membership", present: membershipRows.length > 0 },
+  ];
+  const visibleDiscountBuckets = discountBucketOptions.filter((b) => b.present);
+  const visibleDiscountKeys = visibleDiscountBuckets.map((b) => b.key);
+  // "Entire Bill" is always offered — it's a property of the bill as a whole,
+  // not of any one item type, so it stays available even on a bill that
+  // happens to have only one bucket on it.
+  const discountScopeOptions = [
+    ...visibleDiscountBuckets.map(({ key, label }) => ({ id: key as string, label })),
+    { id: "bill", label: "Entire Bill" },
+  ];
+  const selectedDiscountScopes = effectiveDiscountBuckets.filter(
+    (k) => k === "bill" || visibleDiscountKeys.includes(k as DiscountBucket)
+  ) as string[];
+  // The dropdown only offers buckets present on the bill, so its onChange only
+  // ever reports those — anything selected for a bucket that isn't currently
+  // on the bill is carried over untouched rather than dropped, so removing the
+  // last product row and adding one back doesn't quietly reset that choice.
+  // Always writes a concrete array, which is what promotes a legacy bill out
+  // of legacy scope (see the state's doc comment).
+  const handleDiscountScopeChange = (ids: string[]) => {
+    // "Entire Bill" is mutually exclusive with the per-bucket picks: newly
+    // ticking it drops them, and ticking any bucket while it's active drops
+    // it. Without this the two would coexist and "bill" would silently win in
+    // the engine, leaving the dropdown showing buckets that do nothing.
+    const next = ids as DiscountScope[];
+    if (next.includes("bill") && !wholeBillDiscountScope) {
+      setDiscountAppliesTo(["bill"]);
+      return;
+    }
+    const buckets = next.filter((k) => k !== "bill");
+    const kept = wholeBillDiscountScope
+      ? []
+      : effectiveDiscountBuckets.filter((k) => k !== "bill" && !visibleDiscountKeys.includes(k as DiscountBucket));
+    setDiscountAppliesTo([...kept, ...buckets]);
+  };
+  // Nothing ticked means nothing to discount — the engine computes a base of 0
+  // and the field silently does nothing, which is exactly the invisible-no-op
+  // this whole feature exists to end, so it gets said out loud.
+  const noDiscountBucketSelected =
+    discountValue > 0 && !wholeBillDiscountScope
+    && !visibleDiscountBuckets.some((b) => effectiveDiscountBuckets.includes(b.key));
+
   const chargesSectionEl = (
     <div className="appt-section">
       <div className="appt-section__title"><TagFill size={15} /> Charges &amp; Discounts</div>
@@ -2300,23 +2382,50 @@ export const AppointmentModal: React.FC<Props> = ({
               const cleaned = e.target.value.replace(/[^0-9.]/g, "");
               let num = cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0);
               // A percentage discount can never exceed 100%. A flat (₹)
-              // discount can never exceed the current subtotal either —
-              // computeTotals() already floors the resulting taxable amount
-              // at 0 regardless, but silently letting the FIELD hold an
-              // absurd value (e.g. a stray extra digit) shows a nonsensical
-              // "Svc Discount: -₹3,400,000,000.00" line before that floor
-              // kicks in, so this clamps — and explains — right at entry.
+              // discount can never exceed the DISCOUNTABLE base either —
+              // the engine already caps it there, but silently letting the
+              // FIELD hold a bigger number shows a "Bill Discount"
+              // line that doesn't match what actually comes off, so this
+              // clamps — and explains — right at entry. Capped against
+              // `discountBase` (the ticked buckets only), not `subtotal`:
+              // with Product unticked, subtotal still includes the product
+              // and would wave through an amount the engine then trims.
               if (discountType === "Percentage (%)") {
                 if (num > 100) { num = 100; setDiscountValueWarning("Percentage discount cannot exceed 100%"); }
                 else setDiscountValueWarning(null);
               } else {
-                const subtotalCap = totals.subtotal || 0;
-                if (subtotalCap > 0 && num > subtotalCap) { num = subtotalCap; setDiscountValueWarning("Discount cannot exceed total amount"); }
+                const baseCap = totals.discountBase || 0;
+                if (baseCap > 0 && num > baseCap) {
+                  num = baseCap;
+                  setDiscountValueWarning(
+                    (!wholeBillDiscountScope && effectiveDiscountBuckets.length < 4)
+                      ? "Discount cannot exceed the selected items' total"
+                      : "Discount cannot exceed total amount"
+                  );
+                }
                 else setDiscountValueWarning(null);
               }
               setDiscountValue(num);
             }} />
           {discountValueWarning && <span className="fg-field__err">{discountValueWarning}</span>}
+          {/* Eligible-base readout for the Apply To field beside it. Gated on
+              `totalsConfirmed` because `totals` still holds the previous (or
+              zero) response during the debounce — without the gate, typing a
+              discount flashes a confident "10% of ₹0.00 eligible" for a few
+              hundred ms before the real base lands. */}
+          {!discountValueWarning && discountValue > 0 && (
+            noDiscountBucketSelected ? (
+              <span className="fg-field__err">Nothing selected in Apply To — this discount won't apply</span>
+            ) : totalsConfirmed ? (
+              <span className="fg-field__hint">
+                {discountType === "Percentage (%)"
+                  ? `${discountValue}% of ${formatAmount(totals.discountBase)} eligible`
+                  : `${formatAmount(totals.discountBase)} eligible`}
+              </span>
+            ) : (
+              <span className="fg-field__hint">Calculating…</span>
+            )
+          )}
         </div>
         <div className="field-group">
           <label>Disc. Type</label>
@@ -2325,6 +2434,19 @@ export const AppointmentModal: React.FC<Props> = ({
             <option value="Percentage (%)">Percentage (%)</option>
             <option value="Flat (₹)">Flat</option>
           </select>
+        </div>
+        {/* Which item types the Bill Discount reduces. A multi-select rather
+            than a plain <select> because the whole point of the field is
+            picking combinations (Service + Product, say) — a single-choice
+            dropdown could only express one bucket or a fixed preset list. */}
+        <div className="field-group discount-scope-field">
+          <label>Apply To</label>
+          <MultiSelectCheckbox
+            options={discountScopeOptions}
+            selected={selectedDiscountScopes}
+            onChange={handleDiscountScopeChange}
+            placeholder="None"
+          />
         </div>
       </div>
     </div>

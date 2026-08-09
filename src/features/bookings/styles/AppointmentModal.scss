@@ -503,9 +503,25 @@ $success:    #22c55e;
 // ── Charges & Discounts ───────────────────────────────────────────────────────
 .charges-grid {
   display: grid;
-  grid-template-columns: 1fr 1fr 1fr 1.4fr;
+  // Five fields now: Ex Charges, Tip, Bill Discount, Disc. Type, Apply To.
+  grid-template-columns: 1fr 1fr 1fr 1.4fr 1.2fr;
   gap: 12px;
   padding: 14px;
+  // The Bill Discount cell can grow a hint/error line under its input; without
+  // this the taller cell would stretch its neighbours' inputs to match.
+  align-items: start;
+}
+
+// The shared MultiSelectCheckbox trigger is sized for report filter bars
+// (36px / 13px). Bring it in line with .fg-input so the five fields in this
+// row read as one set rather than four inputs and a slightly taller button.
+.discount-scope-field {
+  .msc-trigger {
+    height: 34px;
+    font-size: 12.5px;
+    border-color: $border;
+    color: $primary;
+  }
 }
 
 // ── Payment & Notes ───────────────────────────────────────────────────────────
@@ -570,6 +586,14 @@ $success:    #22c55e;
   .fg-field__err {
     font-size: 10.5px;
     color: #dc2626;
+    line-height: 1.3;
+  }
+
+  // Neutral counterpart to __err — used for the Bill Discount's "10% of ₹N
+  // eligible" readout, which is information, not a problem.
+  .fg-field__hint {
+    font-size: 10.5px;
+    color: #6b7280;
     line-height: 1.3;
   }
 

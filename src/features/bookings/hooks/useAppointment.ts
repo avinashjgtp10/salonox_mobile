@@ -256,6 +256,7 @@ export function useAppointment() {
         title:       (booking as any).title,
         discount_value: (booking as any).discount ?? 0,
         discount_type:  (booking as any).discountType === "Flat (₹)" ? "flat" : "percentage",
+        discount_applies_to: (booking as any).discountAppliesTo ?? null,
         ex_charges:     (booking as any).exCharges ?? 0,
         tip_amount:     (booking as any).tipAmount ?? 0,
         gst_percent:    (booking as any).gst ?? 0,
