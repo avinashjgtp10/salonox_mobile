@@ -5,8 +5,9 @@ import PermissionGuard from "../components/guards/PermissionGuard";
 const ServicesListPage = lazy(
   () => import("../features/catalog/pages/ServicesListPage"),
 );
-const AddServicePage = lazy(
-  () => import("../features/catalog/pages/AddServicePage"),
+// One page serves both create and edit, same as ProductFormPage.
+const ServiceFormPage = lazy(
+  () => import("../features/catalog/pages/ServiceFormPage"),
 );
 const CategoriesPage = lazy(
   () => import("../features/catalog/pages/CategoriesPage"),
@@ -53,9 +54,6 @@ const EditPackagePage = lazy(
 const PackageModule = lazy(
   () => import("../components/packages/PackageModule"),
 );
-const EditServicePage = lazy(
-  () => import("../features/catalog/pages/EditServicePage"),
-);
 const SoldMembershipsPage = lazy(
   () => import("../features/catalog/pages/SoldMembershipsPage"),
 );
@@ -88,8 +86,8 @@ export const CatalogRoutes = () => (
 
       {/* edit_catalog required for service/product/membership write operations */}
       <Route element={<PermissionGuard permKey="edit_catalog" />}>
-        <Route path="services/add" element={<AddServicePage />} />
-        <Route path="services/:id/edit" element={<EditServicePage />} />
+        <Route path="services/add" element={<ServiceFormPage />} />
+        <Route path="services/:id/edit" element={<ServiceFormPage />} />
         <Route path="services/categories" element={<CategoriesPage />} />
         <Route path="memberships/create" element={<CreateMembershipPage />} />
         <Route path="memberships/edit/:id" element={<CreateMembershipPage />} />

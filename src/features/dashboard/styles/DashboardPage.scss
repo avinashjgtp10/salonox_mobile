@@ -326,7 +326,11 @@ body {
 
   &.main--flush,
   &:has(.add-staff),
-  &:has(.add-client) {
+  &:has(.add-client),
+  // Catalog add/edit forms (Product, Service) — they render their own
+  // full-bleed topbar and manage scrolling internally, so .main's padding
+  // would push them past the viewport and scroll the whole dashboard.
+  &:has(.cf-page) {
     padding: 0;
   }
   &.shifted { margin-left: 410px; }

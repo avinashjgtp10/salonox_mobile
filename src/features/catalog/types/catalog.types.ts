@@ -46,21 +46,16 @@ export interface Service {
   updated_at?: string;
 }
 
+// Only fields the backend actually persists. discountedPrice, paddingBefore,
+// paddingAfter, genderPreference and imageUrl were removed: no column exists
+// for any of them, so the API silently dropped them and still returned 201.
 export interface BasicDetailsData {
   name: string;
   categoryId: string;
   duration: number;
   price: number;
-  priceType?: string;
-  discountedPrice?: number | null;
-  paddingBefore: number;
-  paddingAfter: number;
   description: string;
   active: boolean;
-  colorLabel?: string;
-  treatmentType?: string | null;
-  genderPreference?: string | null;
-  imageUrl?: string | null;
 }
 
 export interface TeamMember {
@@ -70,44 +65,11 @@ export interface TeamMember {
   role: string;
 }
 
+// An empty selection means "every staff member can perform this service" —
+// that's how the backend reads it too (no service_staff rows = all staff), so
+// there is no separate allMembers flag to keep in sync with the list.
 export interface TeamMembersData {
-  allMembers: boolean;
   selectedMemberIds: string[];
-  availableMembers: TeamMember[];
-}
-
-export interface Resource {
-  id: string;
-  name: string;
-}
-
-export interface ResourcesData {
-  requireResource: boolean;
-  selectedResourceId: string;
-  availableResources: Resource[];
-}
-
-export interface AddOnOption {
-  id: string;
-  name: string;
-  duration: number;
-  price: number;
-}
-
-export interface AddOnGroup {
-  id: string;
-  name: string;
-  prompt: string;
-  options: AddOnOption[];
-  minQuantityRequired: boolean;
-  maxQuantityEnabled: boolean;
-  allowMultipleSame: boolean;
-  linkedServiceIds: string[];
-}
-
-export interface ServiceAddOnsData {
-  selectedGroupIds: string[];
-  availableGroups: AddOnGroup[];
 }
 
 export interface ConsumableUsageEntry {
@@ -128,23 +90,12 @@ export interface ConsumableUsagePayloadItem {
   unit: string;
 }
 
+// Only `enabled` is persisted — it gates the public booking catalogue
+// (bookings.repository.ts). onlineDescription/maxAdvanceDays/minNoticeHours/
+// deposit were collected by the old form and never sent anywhere; booking
+// windows and deposits are salon-level policy, not per-service.
 export interface OnlineBookingData {
   enabled: boolean;
-  onlineDescription: string;
-  maxAdvanceDays: number;
-  minNoticeHours: number;
-  requireDeposit: boolean;
-  depositAmount: number;
-}
-
-export interface PortfolioImage {
-  id: string;
-  url: string;
-  file?: File;
-}
-
-export interface PortfolioData {
-  images: PortfolioImage[];
 }
 
 export interface ServiceConsultationFormValues {
@@ -194,43 +145,22 @@ export interface FormsData {
   availableForms: ServiceForm[];
 }
 
-export interface MemberCommission {
-  memberId: string;
-  memberName: string;
-  commissionType: "percentage" | "flat";
-  commissionValue: number;
-}
-
-export interface CommissionData {
-  defaultType: "percentage" | "flat";
-  defaultValue: number;
-  memberCommissions: MemberCommission[];
-}
-
-export interface SettingsData {
-  cancellationNoticeHours: number;
-  chargeCancellationFee: boolean;
-  cancellationFeeAmount: number;
-  visibleToClients: boolean;
-  taxable: boolean;
-  colorLabel: string;
-}
-
 export interface Category {
   id: string;
   name: string;
   serviceCount: number;
 }
 
+// Sections dropped: `resources` (fixture data — the picker was hardcoded to a
+// fake "Room 1"/"Chair 1" and nothing in scheduling reads resource_required),
+// `addons` (its tab had zero importers), `portfolio` (uploader that never
+// uploaded), `commission` (the engine has no per-service scope — commission is
+// driven by staff settings and commission_rules) and `settings` (every field
+// duplicated salon-level config that already works elsewhere).
 export interface CatalogFormData {
   basic: BasicDetailsData;
   team: TeamMembersData;
-  resources: ResourcesData;
-  addons: ServiceAddOnsData;
   consumables: ConsumablesData;
   onlineBooking: OnlineBookingData;
-  portfolio: PortfolioData;
   forms: FormsData;
-  commission: CommissionData;
-  settings: SettingsData;
 }

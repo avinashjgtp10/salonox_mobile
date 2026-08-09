@@ -125,7 +125,7 @@ const ConsultationFormModal: React.FC<Props> = ({ form, onClose, onSave, staffMe
           <div className="modal-content border-0 rounded-4 shadow">
             <div className="modal-header border-0 px-4 pt-4 pb-0">
               <div>
-                <h5 className="modal-title fw-bold mb-0">Service Consent Form</h5>
+                <h5 className="modal-title fw-bold mb-0">Service Consultation Form</h5>
                 <p className="text-muted small mb-0">{form.name}</p>
               </div>
               <button className="btn-close shadow-none" onClick={onClose} aria-label="Close" />

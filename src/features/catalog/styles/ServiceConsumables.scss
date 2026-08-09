@@ -1,0 +1,408 @@
+// Styles for the Consumables card on ServiceFormPage.
+//
+// Extracted from the deleted AddServicePage.scss. The `sao-` prefix is a
+// leftover from the Service Add-Ons tab these rules were originally written
+// for; that tab is gone, but ConsumablesTab shares the classes, so they moved
+// here rather than being deleted with it.
+
+// ── Service Add-Ons Tab ────────────────────────────────────────────────────────
+.sao-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 52px 24px;
+  text-align: center;
+
+  &__icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+    background: linear-gradient(135deg, #ede9fe, #fdf4ff);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 20px;
+    font-size: 28px;
+    color: #7c3aed;
+  }
+
+  h6 {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+    margin-bottom: 8px;
+  }
+
+  p {
+    font-size: 13.5px;
+    color: #6b7280;
+    max-width: 320px;
+    margin-bottom: 20px;
+    line-height: 1.5;
+  }
+}
+
+.sao-link {
+  color: #6d28d9;
+  text-decoration: none;
+  &:hover { text-decoration: underline; }
+}
+
+.sao-btn-outline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid #d1d5db;
+  background: #fff;
+  padding: 8px 18px;
+  border-radius: 20px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover {
+    background: #f9fafb;
+    border-color: #9ca3af;
+  }
+}
+
+.sao-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.sao-groups {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.sao-group {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  overflow: hidden;
+
+  &__head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 13px 16px;
+    background: #f9fafb;
+    cursor: pointer;
+    user-select: none;
+    transition: background 0.12s;
+
+    &:hover { background: #f3f4f6; }
+  }
+
+  &__num {
+    width: 22px;
+    height: 22px;
+    background: #e5e7eb;
+    border-radius: 50%;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #374151;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  &__name {
+    flex: 1;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #111827;
+  }
+
+  &__opt-count {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-right: 4px;
+  }
+
+  &__body {
+    padding: 20px 20px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    border-top: 1px solid #e5e7eb;
+  }
+}
+
+.sao-grip {
+  color: #9ca3af;
+  flex-shrink: 0;
+  cursor: grab;
+}
+
+.sao-placeholder { color: #9ca3af; font-style: italic; }
+
+.sao-icon-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 6px;
+  color: #6b7280;
+  display: flex;
+  align-items: center;
+  transition: all 0.12s;
+
+  &:hover { background: #f3f4f6; color: #374151; }
+
+  &--danger {
+    &:hover { background: #fee2e2; color: #dc2626; }
+    &:disabled { opacity: 0.3; cursor: not-allowed; }
+  }
+}
+
+.sao-field { display: flex; flex-direction: column; gap: 5px; }
+
+.sao-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+}
+
+.sao-optional {
+  font-weight: 400;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+.sao-input {
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  padding: 8px 12px;
+  font-size: 13.5px;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+
+  &:focus { border-color: #6d28d9; box-shadow: 0 0 0 2px rgba(109,40,217,.08); }
+  &::placeholder { color: #9ca3af; }
+
+  &--flex { flex: 1; }
+  &--sm { width: 100px; }
+}
+
+.sao-input-prefix-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  .sao-prefix {
+    position: absolute;
+    left: 10px;
+    font-size: 13px;
+    color: #6b7280;
+    pointer-events: none;
+  }
+
+  .sao-input--sm { padding-left: 22px; }
+}
+
+.sao-select {
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  padding: 8px 10px;
+  font-size: 13.5px;
+  color: #111827;
+  background: #fff;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s;
+
+  &:focus { border-color: #6d28d9; }
+
+  &--sm { width: 110px; }
+}
+
+.sao-options-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.sao-option-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.sao-option-num {
+  font-size: 12px;
+  color: #9ca3af;
+  font-weight: 600;
+  width: 16px;
+  flex-shrink: 0;
+}
+
+.sao-add-option-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #6d28d9;
+  cursor: pointer;
+  margin-top: -2px;
+
+  &:hover { opacity: 0.75; }
+}
+
+.sao-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.sao-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 13.5px;
+  color: #374151;
+
+  input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    accent-color: #6d28d9;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+}
+
+// ── Consumables recipe row (ConsumablesTab) ─────────────────────────────────
+// Same column concept (Product / Total Stock / Qty / Unit / Action) and
+// add-then-lock interaction as the Consumable Usage panel in Quick Sale and
+// the Appointment modal (ServiceRow.tsx's .svc-recipe-* / .svc-consumable-drop
+// in AppointmentModal.scss) — kept as its own block, not a shared import,
+// since this page has its own design system ($sao-*-prefixed) the booking
+// modal doesn't share. Keep the two in sync by eye if either changes.
+.sao-recipe-header,
+.sao-recipe-row {
+  display: grid;
+  grid-template-columns: 1fr 110px 90px 70px 30px;
+  gap: 10px;
+  align-items: center;
+}
+
+.sao-recipe-header {
+  padding: 0 0 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 11px;
+  font-weight: 700;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+
+  span { text-align: center; }
+  span:first-child { text-align: left; }
+}
+
+.sao-recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 12px;
+}
+
+.sao-recipe-row {
+  padding: 6px 0;
+
+  &__name {
+    font-size: 13px;
+    color: #111827;
+    font-weight: 500;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  &__stock,
+  &__unit {
+    font-size: 12.5px;
+    color: #6b7280;
+    text-align: center;
+  }
+}
+
+// The search row itself — a single click on a dropdown result both picks
+// AND adds the row (see ConsumablesTab.tsx's pickProduct), so this is just
+// the search box plus a cancel affordance, not a multi-field draft form.
+.sao-recipe-search-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+}
+
+.sao-recipe-add-row__search-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.sao-recipe-drop {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  z-index: 20;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  max-height: 220px;
+  overflow-y: auto;
+
+  &__item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    font-size: 13px;
+    color: #111827;
+    cursor: pointer;
+    &:hover { background: #f9fafb; }
+    &--active { background: #f3e8ff; }
+  }
+
+  &__unit { color: #9ca3af; }
+
+  &__empty {
+    padding: 8px 12px;
+    font-size: 12.5px;
+    color: #9ca3af;
+  }
+}
+
+.sao-recipe-error {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #ef4444;
+}
+

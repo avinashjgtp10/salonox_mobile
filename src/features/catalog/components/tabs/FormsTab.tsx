@@ -138,15 +138,15 @@ const FormsTab: React.FC<Props> = ({ data, onChange, serviceId, staffMembers = [
 
   return (
     <div className="tab-content-panel">
-      <h5 className="tab-content-panel__title">Consent forms</h5>
+      <h5 className="tab-content-panel__title">Consultation forms</h5>
       <p className="text-muted small mb-4">
-        Attach intake forms or consent forms to this service
+        Attach a consultation form to this service
       </p>
 
       {loading ? (
         <div className="d-flex align-items-center gap-2 py-4 text-muted">
           <span className="spinner-border spinner-border-sm" />
-          <span className="small">Loading consent forms…</span>
+          <span className="small">Loading consultation forms…</span>
         </div>
       ) : (
         <div className="forms-list mb-4">
@@ -199,7 +199,7 @@ const FormsTab: React.FC<Props> = ({ data, onChange, serviceId, staffMembers = [
             <div className="text-center py-5 bg-light rounded-4">
               <FileEarmarkText className="text-muted mb-3" size={32} />
               <p className="text-muted small mb-0">
-                No consent forms yet. <br />
+                No consultation forms yet. <br />
                 Attach forms to collect info from clients during booking.
               </p>
             </div>
@@ -225,7 +225,7 @@ const FormsTab: React.FC<Props> = ({ data, onChange, serviceId, staffMembers = [
               <div className="modal-content border-0 rounded-4 shadow">
                 <div className="modal-header border-0 px-4 pt-4">
                   <h5 className="modal-title fw-bold">
-                    Create consent form
+                    Create consultation form
                   </h5>
                   <button
                     className="btn-close shadow-none"
