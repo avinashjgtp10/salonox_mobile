@@ -593,9 +593,16 @@ function PackageRow({
   const { currencySymbol } = useCurrency();
   const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
   const [discountInput, setDiscountInput] = useState(getDiscountValue(row.discount));
+  // Mirrors MembershipRow's "i" button — lets staff see what a package
+  // actually contains before selling it, instead of having to already know.
+  const [showDesc, setShowDesc] = useState(false);
+  const selectedPackage = availablePackages.find(
+    (p: any) => String(p.id) === String(row.packageId),
+  );
 
   useEffect(() => { setQtyInput(String(getSafeQty(row.qty))); }, [row.qty]);
   useEffect(() => { setDiscountInput(getDiscountValue(row.discount)); }, [row.discount]);
+  useEffect(() => { setShowDesc(false); }, [row.packageId]);
 
   function handleQtyChange(value: string) {
     const normalizedValue = value.slice(0, 2);
@@ -732,8 +739,54 @@ function PackageRow({
         )}
       </div>
 
-      {/* 8 — Placeholder (quick-actions column) */}
-      <span />
+      {/* 8 — Quick-actions column: package contents */}
+      <div style={{ position: "relative" }}>
+        {row.packageId && (
+          <button
+            type="button"
+            className="pkg-info-btn"
+            title="View package details"
+            aria-label="View package details"
+            onClick={() => setShowDesc((v) => !v)}
+          >
+            ℹ
+          </button>
+        )}
+        {showDesc && row.packageId && (
+          <div className="membership-row__desc-box">
+            {/* Package templates carry no description — what staff actually
+                need is what's inside, so the included services and their
+                session counts lead. Catalog packages have the reverse (a
+                description, no session data), so both are rendered and
+                whichever exists shows. */}
+            {selectedPackage?.serviceDetails?.length > 0 ? (
+              <div className="package-row__svc-list">
+                {selectedPackage.serviceDetails.map((s: any, i: number) => (
+                  <div key={`${s.name}-${i}`} className="package-row__svc">
+                    <span>{s.name}</span>
+                    <span>{s.sessions > 0 ? `${s.sessions} session${s.sessions > 1 ? "s" : ""}` : "—"}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+            {selectedPackage?.description?.trim() ? (
+              <div>{selectedPackage.description.trim()}</div>
+            ) : null}
+            {!selectedPackage?.serviceDetails?.length && !selectedPackage?.description?.trim() && (
+              <div>No package details available.</div>
+            )}
+            {selectedPackage && (
+              <div className="package-row__expiry">
+                {selectedPackage.neverExpires
+                  ? "Never expires"
+                  : selectedPackage.expiryDays != null
+                    ? `Valid ${selectedPackage.expiryDays} day${selectedPackage.expiryDays === 1 ? "" : "s"}`
+                    : ""}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
 
       {/* 9 — Delete */}
       {!frozen

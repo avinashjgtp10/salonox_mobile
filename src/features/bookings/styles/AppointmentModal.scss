@@ -1013,6 +1013,38 @@ $success:    #22c55e;
   margin-bottom: 6px;
 }
 
+// ── Package info panel (reuses .pkg-info-btn / .membership-row__desc-box) ──
+.package-row__svc-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.package-row__svc {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+
+  span:last-child {
+    color: $primary;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+}
+
+// Expiry closes the panel, so it takes a top margin rather than the bottom
+// one .membership-row__desc-bonus uses for leading a description.
+.package-row__expiry {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid $border;
+  font-weight: 700;
+  color: $primary;
+
+  &:empty { display: none; }
+}
+
 .reward-info-btn {
   margin-left: 4px;
 }

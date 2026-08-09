@@ -341,6 +341,9 @@ export interface PackageTemplate {
   id:             string;
   salonId:        string;
   name:           string;
+  /** Free-text blurb shown on the "+ Package" row's info button in Calendar
+   *  and Quick Sale. NULL for templates created before the column existed. */
+  description:    string | null;
   expiryMonths:   number | null;
   /** Exact day-count for the picked expiry date — the precise source of truth;
    *  expiryMonths is kept only as a rounded, human-friendly label. */
@@ -356,6 +359,7 @@ export interface PackageTemplate {
 
 export interface CreatePackageTemplateDTO {
   name:           string;
+  description?:   string | null;
   expiryMonths?:  number | null;
   expiryDays?:    number | null;
   neverExpires?:  boolean;

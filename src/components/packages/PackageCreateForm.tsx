@@ -101,6 +101,10 @@ const PackageCreateForm: React.FC<Props> = ({
   const { data: templates = [] } = useListPackageTemplatesQuery();
 
   const [pkgName,           setPkgName]          = useState("");
+  // Optional "what's included / terms" blurb. Only meaningful on the template
+  // path — a client package sold directly has no description column of its own
+  // and inherits nothing, so this is submitted with createTemplate only.
+  const [pkgDescription,    setPkgDescription]   = useState("");
   const [expiry,            setExpiry]           = useState("");
   const [neverExpires,      setNeverExpires]      = useState(false);
   const [gstPct,            setGstPct]           = useState(0);
@@ -127,6 +131,10 @@ const PackageCreateForm: React.FC<Props> = ({
   // rather than a package sold to one specific client — no client is required,
   // but services are still selected the same way as a normal custom package.
   const [isGeneric,         setIsGeneric]        = useState(false);
+  // Both paths that save a reusable template rather than a client's own
+  // package — the only place a description can be stored. Named once so the
+  // submit branch below and the Description field's visibility can't diverge.
+  const isTemplateSave = isGeneric || !!quickCreateMode;
   // When a template is loaded (either via the "Buy Existing Package" entry
   // point or the in-form "Choose Template" picker), everything except the
   // payment method is locked to what the template defines.
@@ -202,7 +210,7 @@ const PackageCreateForm: React.FC<Props> = ({
     setApiError(null); setPayMethodError(false);
 
     try {
-      if (isGeneric || quickCreateMode) {
+      if (isTemplateSave) {
         // Quick-create from Calendar never charges or touches a client's
         // account — always saves a reusable template. If a client was picked
         // (non-generic), fold their name in as a note for staff only; the
@@ -212,6 +220,7 @@ const PackageCreateForm: React.FC<Props> = ({
           : pkgName.trim();
         const tmpl = await createTemplate({
           name:          taggedName,
+          description:   pkgDescription.trim() || null,
           neverExpires,
           expiryMonths:  neverExpires ? null : dateToMonths(expiry),
           expiryDays:    neverExpires ? null : dateToDays(expiry),
@@ -495,6 +504,25 @@ const PackageCreateForm: React.FC<Props> = ({
             </div>
           </div>
 
+          {/* Full width — a description is prose, so it reads badly squeezed
+              into one half of the two-column grid above. Only saved on the
+              template path; a directly-sold client package has nowhere to
+              store it, so the field is hidden there rather than silently
+              discarding what was typed. */}
+          {isTemplateSave && (
+            <div className={styles.formField} style={{ marginTop: 12 }}>
+              <label className={styles.formLabel}>Description</label>
+              <textarea
+                value={pkgDescription}
+                onChange={e => setPkgDescription(e.target.value)}
+                className={styles.input}
+                placeholder="What's included, terms, or anything staff should know before selling this package"
+                rows={3}
+                disabled={isFromTemplate}
+                style={{ ...frozenStyle, resize: "vertical", minHeight: 68, fontFamily: "inherit" }}
+              />
+            </div>
+          )}
 
 
           <label

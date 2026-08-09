@@ -28,7 +28,23 @@ export interface SchedulerService {
   // recipe for a service whose consumables were just configured.
   consumables_used?: { product_id: string; product_name?: string; qty: number; unit?: string }[];
 }
-export interface SchedulerPackage { id: string; name: string; price: number; services: string[] }
+export interface SchedulerPackage {
+  id: string;
+  name: string;
+  price: number;
+  /** Included service names — kept as plain strings because the package-
+   *  coverage matching in AppointmentModal compares against them directly. */
+  services: string[];
+  /** Same services with their session counts, for the "+ Package" row's info
+   *  panel. Separate from `services` above so widening this never changes the
+   *  coverage matching. Empty for catalog packages, which have no session data. */
+  serviceDetails?: { name: string; sessions: number }[];
+  /** Free-text description. Only catalog packages have one — package
+   *  templates have no description column at all. */
+  description?: string;
+  expiryDays?: number | null;
+  neverExpires?: boolean;
+}
 export interface SchedulerProduct {
   id: string;
   name: string;
