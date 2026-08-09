@@ -134,6 +134,22 @@ export const WA_CAMPAIGN_REPORT = {
   SUMMARY: () => `/api/report/wa-campaign`,
 } as const;
 
+// Independent Open Rate reporting API — campaign engagement (opened ÷
+// delivered), sharing WA_CAMPAIGN_REPORT's underlying state definitions on
+// the backend so the two reports can never disagree. Mounted at /api/report.
+export const OPEN_RATE_REPORT = {
+  SUMMARY: () => `/api/report/open-rate`,
+  CAMPAIGN_DETAIL: () => `/api/report/open-rate/campaign`,
+} as const;
+
+// Independent Reply Rate reporting API — how many recipients wrote back
+// within 24h of a campaign reaching them. Same campaign set and filters as
+// OPEN_RATE_REPORT. Mounted at /api/report.
+export const REPLY_RATE_REPORT = {
+  SUMMARY: () => `/api/report/reply-rate`,
+  CAMPAIGN_DETAIL: () => `/api/report/reply-rate/campaign`,
+} as const;
+
 // Independent Client Rating reporting API — reads the reviews table
 // directly, never through the reviews module's own /api/v1/reviews API.
 // Mounted at /api/report.

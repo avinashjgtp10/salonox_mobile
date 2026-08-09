@@ -5,7 +5,7 @@ import {
   GraphUpArrow, People, PersonBadge, CalendarCheck, BoxSeam, Tag, Megaphone,
   PieChartFill, Bag, Scissors, BarChartLine, Receipt, Award, Wallet2,
   PersonCircle, PersonCheck, PeopleFill, Droplet, Whatsapp, FileEarmarkBarGraph,
-  CashCoin, PersonCheckFill, Truck,
+  CashCoin, PersonCheckFill, Truck, ChatDots,
 } from "react-bootstrap-icons";
 import "../styles/ReportsPage.scss";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -34,10 +34,18 @@ import AttendanceReport from "../reports/AttendanceReport";
 import PackageHistoryReport from "../reports/PackageHistoryReport";
 import AppointmentDetailReport from "../reports/AppointmentDetailReport";
 import WaCampaignReport from "../reports/WaCampaignReport";
+import OpenRateReport from "../reports/OpenRateReport";
+import ReplyRateReport from "../reports/ReplyRateReport";
 import ProductMarginReport from "../reports/ProductMarginReport";
 import SupplierReport from "../reports/SupplierReport";
 
 type CategoryKey = "sales" | "customers" | "staff" | "appointments" | "inventory" | "packages" | "marketing";
+
+// react-bootstrap-icons types `size` as string | number, so the narrower
+// `{ size?: number }` this used to declare rejected every icon in the tables
+// below — 33 identical errors, one per report/category row. Widened to match
+// the icon library rather than casting at each of the 33 call sites.
+type ReportIcon = React.ComponentType<{ size?: string | number }>;
 
 interface ReportDef {
   id: string;
@@ -45,11 +53,11 @@ interface ReportDef {
   name: string;
   description: string;
   category: CategoryKey;
-  icon: React.ComponentType<{ size?: number }>;
+  icon: ReportIcon;
   Component: React.ComponentType<{ onBack: () => void; category: string; categoryKey: string }>;
 }
 
-const CATEGORIES: { key: CategoryKey; label: string; description: string; icon: React.ComponentType<{ size?: number }> }[] = [
+const CATEGORIES: { key: CategoryKey; label: string; description: string; icon: ReportIcon }[] = [
   { key: "sales",        label: "Sales",        description: "Track revenue, invoices, payments and overall sales performance", icon: GraphUpArrow },
   { key: "customers",    label: "Customers",    description: "Customer analysis, visits, feedback and behavior insights",       icon: People },
   { key: "staff",        label: "Staff",        description: "Staff performance, commissions, attendance and productivity",     icon: PersonBadge },
@@ -85,6 +93,8 @@ const REPORTS: ReportDef[] = [
   { id: "member_sale",            slug: "member-sale",            name: "Membership Sale",                             description: "Memberships purchased by clients and their current status.",                                       category: "packages",     icon: PersonBadge,    Component: MemberSaleReport },
   { id: "wa_campaign",            slug: "wa-marketing-campaign",  name: "WA Marketing Campaign",                       description: "WhatsApp campaign delivery, read rates and engagement.",                                           category: "marketing",    icon: Whatsapp,       Component: WaCampaignReport },
   { id: "mkt_feedback",           slug: "client-rating",          name: "Marketing Feedback & Ratings",                description: "Post-visit WhatsApp feedback ratings, reviews, and client spend insights.",                       category: "marketing",    icon: StarFill,       Component: ClientRatingReport },
+  { id: "open_rate",              slug: "open-rate",              name: "Open Rate Report",                            description: "How many delivered campaign messages were actually opened — engagement per campaign, with recipient-level detail.", category: "marketing", icon: FileEarmarkBarGraph, Component: OpenRateReport },
+  { id: "reply_rate",             slug: "reply-rate",             name: "Reply Rate Report",                           description: "How many recipients wrote back within 24 hours of a campaign reaching them, per campaign and per customer.", category: "marketing", icon: ChatDots,       Component: ReplyRateReport },
 ];
 
 const DEFAULT_FAVORITES = ["sales_summary", "staff_sales", "appointment_detail", "client_revenue", "daily_sheet"];

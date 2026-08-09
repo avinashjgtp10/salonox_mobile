@@ -169,6 +169,17 @@
 
   &:hover { background: #f9fafb; }
 
+  // Options that exist in the vocabulary but have no data behind them yet —
+  // see FilterDropdownOption.disabled.
+  &--disabled {
+    color: #9ca3af;
+    cursor: not-allowed;
+
+    &:hover { background: transparent; }
+
+    input[type="checkbox"] { cursor: not-allowed; }
+  }
+
   input[type="checkbox"] {
     width: 15px;
     height: 15px;

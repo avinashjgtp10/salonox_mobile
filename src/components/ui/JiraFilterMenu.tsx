@@ -5,6 +5,12 @@ import "./JiraFilterMenu.scss";
 export interface FilterDropdownOption {
   id: string;
   label: string;
+  /** Renders the option greyed out and untickable. For choices that exist in
+   *  the product's vocabulary but have no data behind them yet (e.g. the Open
+   *  Rate report's SMS/Email channels) — showing them keeps the intended shape
+   *  discoverable, while disabling them avoids a tick that silently does
+   *  nothing. */
+  disabled?: boolean;
 }
 
 export interface JiraFilterField {
@@ -146,8 +152,13 @@ const JiraFilterMenu: React.FC<JiraFilterMenuProps> = ({ fields, selected, onApp
                   <div className="jfm-panel__empty">No options</div>
                 ) : (
                   activeOptions.map((o) => (
-                    <label key={o.id} className="jfm-option">
-                      <input type="checkbox" checked={activeSelectedIds.includes(o.id)} onChange={() => toggleOption(o.id)} />
+                    <label key={o.id} className={`jfm-option${o.disabled ? " jfm-option--disabled" : ""}`}>
+                      <input
+                        type="checkbox"
+                        disabled={o.disabled}
+                        checked={activeSelectedIds.includes(o.id)}
+                        onChange={() => { if (!o.disabled) toggleOption(o.id); }}
+                      />
                       <span>{o.label}</span>
                     </label>
                   ))

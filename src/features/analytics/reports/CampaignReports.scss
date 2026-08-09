@@ -1,0 +1,222 @@
+// Open Rate Report — reuses the shared .rp-detail-* / .rp-sra-summary-*
+// report chrome and the .rp-wac-status pills from WaCampaignReport.scss, so
+// only what's genuinely new to this report lives here: the date presets, the
+// no-delivery notice, and the drill-down modal.
+
+// ── Date-range presets ──────────────────────────────────────────────────────
+.rp-camp-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 0 10px;
+}
+
+.rp-camp-preset {
+  padding: 5px 12px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+  &:hover { background: #f9fafb; }
+
+  &--on {
+    background: #2563eb;
+    border-color: #2563eb;
+    color: #fff;
+    &:hover { background: #1d4ed8; }
+  }
+}
+
+// ── "No delivery receipts" notice ───────────────────────────────────────────
+.rp-camp-notice {
+  margin-bottom: 14px;
+  padding: 10px 12px;
+  border: 1px solid #fcd34d;
+  border-left-width: 3px;
+  border-radius: 6px;
+  background: #fffbeb;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: #92400e;
+
+  // Neutral variant — for stating a rule (e.g. the Reply Rate attribution
+  // window) rather than warning about a data problem.
+  &--info {
+    border-color: #bfdbfe;
+    background: #eff6ff;
+    color: #1e40af;
+  }
+}
+
+// ── Table ───────────────────────────────────────────────────────────────────
+.rp-camp-card--hero .rp-sra-summary-val { color: #2563eb; }
+
+.rp-camp-table {
+  .rp-camp-sortable {
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
+    &:hover { color: #2563eb; }
+  }
+}
+
+.rp-camp-row {
+  cursor: pointer;
+  &:hover { background: #f8fafc; }
+}
+
+// ── Drill-down modal ────────────────────────────────────────────────────────
+.rp-camp-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 23, 42, 0.45);
+}
+
+.rp-camp-modal {
+  display: flex;
+  flex-direction: column;
+  width: min(1080px, 100%);
+  max-height: 100%;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.22);
+  overflow: hidden;
+
+  &__head {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid #e5e7eb;
+  }
+
+  &__head-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+  }
+
+  &__title { font-size: 15px; font-weight: 700; color: #111827; }
+  &__sub   { font-size: 12px; color: #6b7280; margin-top: 2px; }
+
+  &__close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border: none;
+    border-radius: 6px;
+    background: transparent;
+    color: #6b7280;
+    cursor: pointer;
+    &:hover { background: #f3f4f6; color: #111827; }
+  }
+
+  // The body scrolls, not the whole modal — the header stays put on a long
+  // recipient list.
+  &__body {
+    padding: 14px 16px 16px;
+    overflow-y: auto;
+  }
+
+  &__stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    gap: 10px;
+    margin-bottom: 14px;
+  }
+
+  &__message {
+    margin-bottom: 14px;
+    padding: 10px 12px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+
+    pre {
+      margin: 0;
+      font-family: inherit;
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: #374151;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+  }
+
+  &__message-label {
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #6b7280;
+    margin-bottom: 4px;
+  }
+
+  &__tabs {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+
+  &__search {
+    position: relative;
+    display: flex;
+    align-items: center;
+    margin-left: auto;
+    min-width: 200px;
+  }
+}
+
+.rp-camp-mstat {
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  background: #fff;
+  text-align: center;
+
+  span  { display: block; font-size: 18px; font-weight: 700; color: #111827; }
+  label { display: block; font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+  &--hero span { color: #2563eb; }
+}
+
+.rp-camp-tab {
+  padding: 5px 12px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+
+  &:hover { background: #f9fafb; }
+
+  &--on {
+    background: #111827;
+    border-color: #111827;
+    color: #fff;
+    &:hover { background: #111827; }
+  }
+}
+
+.rp-camp-err {
+  font-size: 10.5px;
+  color: #dc2626;
+  margin-top: 2px;
+  max-width: 220px;
+}
