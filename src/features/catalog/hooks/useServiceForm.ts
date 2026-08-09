@@ -36,6 +36,13 @@ const emptyForm = (): CatalogFormData => ({
   onlineBooking: {
     enabled: true,
   },
+  commission: {
+    // Off by default: a new service earns under the staff's existing commission
+    // rules, same as every service created before this field existed.
+    enabled: false,
+    kind: "percentage",
+    value: 0,
+  },
   forms: {
     selectedFormIds: [],
     availableForms: [],
@@ -71,6 +78,13 @@ const mapServiceToFormData = (svc: Service): CatalogFormData => ({
   },
   onlineBooking: {
     enabled: svc.online_booking ?? true,
+  },
+  commission: {
+    // A null rate is the marker for "no override" — the checkbox reflects
+    // whether one is set, not whether commission is paid at all.
+    enabled: svc.commission_rate !== null && svc.commission_rate !== undefined,
+    kind: svc.commission_kind ?? "percentage",
+    value: Number(svc.commission_rate ?? 0),
   },
   forms: {
     selectedFormIds: (svc.consultation_forms ?? []).filter((f) => f.is_selected).map((f) => f.id),
@@ -113,6 +127,11 @@ const buildPayload = (formData: CatalogFormData, allStaffIds: string[]) => {
     duration: formData.basic.duration,
     is_active: formData.basic.active,
     online_booking: formData.onlineBooking.enabled,
+    // Both null clears the override on edit, so unticking the box genuinely
+    // hands the service back to the staff-level commission rules rather than
+    // leaving a stale rate behind. The backend rejects one without the other.
+    commission_rate: formData.commission.enabled ? formData.commission.value : null,
+    commission_kind: formData.commission.enabled ? formData.commission.kind : null,
     // On update the backend calls replaceStaff([]) for an empty array, so this
     // genuinely clears the assignment rather than leaving stale rows behind.
     staff_ids: isEveryone ? [] : selected,
@@ -190,6 +209,18 @@ export const useServiceForm = (serviceId?: string | number, allStaffIds: string[
       errors.basic = [...(errors.basic || []), "Price is required"];
     }
     // No staff validation: an empty selection is valid and means "all staff".
+
+    // Only checked when the override is switched on — off means the field is
+    // irrelevant, not invalid.
+    if (data.commission.enabled) {
+      const v = data.commission.value;
+      if (v === undefined || v === null || isNaN(v) || v <= 0) {
+        errors.commission = [...(errors.commission || []), "Commission value is required"];
+      } else if (data.commission.kind === "percentage" && v > 100) {
+        errors.commission = [...(errors.commission || []), "Percentage cannot exceed 100"];
+      }
+    }
+
     setValidationErrors(errors);
     return Object.keys(errors).length === 0;
   };

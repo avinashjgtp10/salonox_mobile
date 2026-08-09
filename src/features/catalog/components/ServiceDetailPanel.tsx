@@ -153,6 +153,19 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
                     : `${(service.staff ?? []).length} selected`}
                 </span>
               </div>
+              {/* Only shown when an override is actually set — otherwise the
+                  service pays under the staff member's own rules and there is
+                  no single rate to quote here. */}
+              {service.commission_rate !== null && service.commission_rate !== undefined && (
+                <div className="sdp__detail-row">
+                  <span className="sdp__detail-key">Commission</span>
+                  <span className="sdp__detail-val">
+                    {service.commission_kind === "fixed"
+                      ? formatMoney(service.commission_rate)
+                      : `${Number(service.commission_rate)}%`}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

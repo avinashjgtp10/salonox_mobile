@@ -7,6 +7,7 @@ import { fetchCategoriesThunk, createCategoryThunk } from "../../../middleware/s
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import { selectAllCategories, selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
 import { useServiceForm } from "../hooks/useServiceForm.ts";
+import type { ServiceCommissionKind } from "../types/catalog.types.ts";
 import SearchSelect from "../components/form/SearchSelect";
 import QuickAdd from "../components/form/QuickAdd";
 import ConsumablesTab from "../components/tabs/ConsumablesTab.tsx";
@@ -24,11 +25,12 @@ import "../styles/ConsumableFormPage.scss";
 // Left-hand section nav. One section is shown at a time — clicking a name
 // swaps the panel rather than scrolling to it. Price and Duration live in
 // Basic Details rather than a section of their own.
-type SectionId = "basic" | "staff" | "inventory" | "forms";
+type SectionId = "basic" | "staff" | "commission" | "inventory" | "forms";
 
 const SECTIONS: { id: SectionId; label: string }[] = [
   { id: "basic", label: "Basic Details" },
   { id: "staff", label: "Staff" },
+  { id: "commission", label: "Commission" },
   { id: "inventory", label: "Consumables" },
   { id: "forms", label: "Consultation Forms" },
 ];
@@ -140,6 +142,7 @@ const ServiceFormPage: React.FC = () => {
 
   const basicErrors = validationErrors.basic ?? [];
   const errFor = (needle: string) => basicErrors.find((e) => e.toLowerCase().includes(needle));
+  const commissionError = (validationErrors.commission ?? [])[0];
 
   // Only one section is on screen at a time, so a validation error on a hidden
   // one would be invisible — the user would hit Save and see nothing happen.
@@ -147,9 +150,12 @@ const ServiceFormPage: React.FC = () => {
   const sectionHasError: Record<SectionId, boolean> = {
     basic: basicErrors.length > 0,
     staff: false,
+    commission: !!commissionError,
     inventory: false,
     forms: false,
   };
+
+  const commission = formData.commission;
 
   if (fetchLoading) return <div className="cf-page cf-page--loading">Loading…</div>;
 
@@ -313,7 +319,82 @@ const ServiceFormPage: React.FC = () => {
           )}
         </section>)}
 
-        {/* 4. Inventory */}
+        {/* 4. Commission — a rate set here replaces the staff-level rule for
+            this service only. Left off, the service earns under whatever the
+            staff member's rules say, which is how every service behaves by
+            default. */}
+        {activeSection === "commission" && (<section className="cf-card" id="commission">
+          <h3>Commission</h3>
+          <p className="cf-hint">
+            By default this service earns commission from the staff member's own
+            rules in Staff → Commissions. Set a rate here to override that for
+            this service only — whoever performs it earns this instead.
+          </p>
+
+          <div className="cf-field">
+            <label className="cf-check">
+              <input
+                type="checkbox"
+                checked={commission.enabled}
+                onChange={(e) =>
+                  updateField("commission", { ...commission, enabled: e.target.checked })
+                }
+              />
+              Set a commission rate for this service
+            </label>
+          </div>
+
+          {commission.enabled && (
+            <>
+              <div className="cf-row">
+                <div className="cf-field">
+                  <label>Commission type *</label>
+                  <SearchSelect
+                    value={commission.kind}
+                    options={[
+                      { id: "percentage", name: "Percentage of service price" },
+                      { id: "fixed", name: "Fixed amount per service" },
+                    ]}
+                    placeholder="Select type…"
+                    onChange={(kind) =>
+                      updateField("commission", {
+                        ...commission,
+                        kind: kind as ServiceCommissionKind,
+                      })
+                    }
+                  />
+                </div>
+                <div className="cf-field">
+                  <label>{commission.kind === "percentage" ? "Percentage (%) *" : "Amount (₹) *"}</label>
+                  <input
+                    type="number"
+                    min={0}
+                    max={commission.kind === "percentage" ? 100 : undefined}
+                    step="0.01"
+                    value={commission.value || ""}
+                    onChange={(e) =>
+                      updateField("commission", {
+                        ...commission,
+                        value: parseFloat(e.target.value) || 0,
+                      })
+                    }
+                  />
+                  {commissionError && <span className="cf-field__error">{commissionError}</span>}
+                </div>
+              </div>
+              <p className="cf-hint">
+                {commission.kind === "percentage"
+                  ? `Staff earn ${commission.value || 0}% of what this service actually bills for.`
+                  : `Staff earn ₹${commission.value || 0} each time they perform this service.`}
+                {" "}
+                Commission is calculated after any discount, membership or package
+                coverage — a service fully covered by a package earns nothing.
+              </p>
+            </>
+          )}
+        </section>)}
+
+        {/* 5. Inventory */}
         {activeSection === "inventory" && (<section className="cf-card" id="inventory">
           <h3>Inventory</h3>
           <ConsumablesTab
@@ -322,7 +403,7 @@ const ServiceFormPage: React.FC = () => {
           />
         </section>)}
 
-        {/* 5. Consultation Forms */}
+        {/* 6. Consultation Forms */}
         {activeSection === "forms" && (<section className="cf-card" id="forms">
           <h3>Consultation Forms</h3>
           <FormsTab
