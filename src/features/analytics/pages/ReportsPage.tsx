@@ -35,6 +35,7 @@ import StaffItemSalesReport from "../reports/StaffItemSalesReport";
 import CommissionReport from "../reports/CommissionReport";
 import AttendanceReport from "../reports/AttendanceReport";
 import PackageHistoryReport from "../reports/PackageHistoryReport";
+import MembershipHistoryReport from "../reports/MembershipHistoryReport";
 import AppointmentDetailReport from "../reports/AppointmentDetailReport";
 import WaCampaignReport from "../reports/WaCampaignReport";
 import OpenRateReport from "../reports/OpenRateReport";
@@ -98,6 +99,7 @@ const REPORTS: ReportDef[] = [
   { id: "package_sale",           slug: "package-sale",           name: "Package Sale",                                description: "Packages purchased by clients, with amount paid and balance due.",                                  category: "packages",     icon: Tag,            Component: PackageSaleReport },
   { id: "package_history",        slug: "package-history",        name: "Package History",                             description: "Session-by-session usage history for every client package.",                                      category: "packages",     icon: ClockHistory,   Component: PackageHistoryReport },
   { id: "member_sale",            slug: "member-sale",            name: "Membership Sale",                             description: "Memberships purchased by clients and their current status.",                                       category: "packages",     icon: PersonBadge,    Component: MemberSaleReport },
+  { id: "membership_history",     slug: "membership-history",     name: "Membership History",                          description: "Redemption-by-redemption usage for every client membership — service, amount used and balance left.", category: "packages",     icon: ClockHistory,   Component: MembershipHistoryReport },
   { id: "wa_campaign",            slug: "wa-marketing-campaign",  name: "WA Marketing Campaign",                       description: "WhatsApp campaign delivery, read rates and engagement.",                                           category: "marketing",    icon: Whatsapp,       Component: WaCampaignReport },
   { id: "mkt_feedback",           slug: "client-rating",          name: "Marketing Feedback & Ratings",                description: "Post-visit WhatsApp feedback ratings, reviews, and client spend insights.",                       category: "marketing",    icon: StarFill,       Component: ClientRatingReport },
   { id: "open_rate",              slug: "open-rate",              name: "Open Rate Report",                            description: "How many delivered campaign messages were actually opened — engagement per campaign, with recipient-level detail.", category: "marketing", icon: FileEarmarkBarGraph, Component: OpenRateReport },

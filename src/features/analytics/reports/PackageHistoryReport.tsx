@@ -20,9 +20,10 @@ const REPORT_NAME = "Package History";
 interface FilterOption { id: string; label: string; }
 
 const STATUS_OPTIONS: FilterOption[] = [
-  { id: "ongoing", label: "Ongoing" },
-  { id: "complete", label: "Complete" },
+  { id: "ongoing", label: "Active" },
+  { id: "expiring_soon", label: "Expiring Soon" },
   { id: "expired", label: "Expired" },
+  { id: "complete", label: "Completed" },
 ];
 
 interface HistoryRow {
@@ -34,6 +35,7 @@ interface HistoryRow {
   sessionNo: number;
   remainingSessions: number;
   staff: string;
+  expiryDate: string;
   status: string;
 }
 
@@ -61,6 +63,7 @@ function mapRow(row: any): HistoryRow {
     sessionNo: Number(row.session_no) || 0,
     remainingSessions: Number(row.remaining_sessions) || 0,
     staff: row.staff || "—",
+    expiryDate: row.expiry_date ? formatDate(row.expiry_date) : "—",
     status: row.status || "ongoing",
   };
 }
@@ -81,7 +84,7 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
   const [total,    setTotal]    = useState(0);
   const [stats,    setStats]    = useState({
     totalSessions: 0, completedSessions: 0, remainingSessions: 0,
-    ongoingPackages: 0, completedPackages: 0, expiredPackages: 0,
+    ongoingPackages: 0, expiringSoonPackages: 0, completedPackages: 0, expiredPackages: 0,
   });
   // No separate /packages or /services API call — the package-history API
   // itself returns filters_available.packages/services, so options stay
@@ -142,6 +145,7 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
         completedSessions: Number(s.completed_sessions) || 0,
         remainingSessions: Number(s.remaining_sessions) || 0,
         ongoingPackages: Number(s.ongoing_packages) || 0,
+        expiringSoonPackages: Number(s.expiring_soon_packages) || 0,
         completedPackages: Number(s.completed_packages) || 0,
         expiredPackages: Number(s.expired_packages) || 0,
       });
@@ -151,7 +155,7 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
         setRows([]); setTotal(0);
-        setStats({ totalSessions: 0, completedSessions: 0, remainingSessions: 0, ongoingPackages: 0, completedPackages: 0, expiredPackages: 0 });
+        setStats({ totalSessions: 0, completedSessions: 0, remainingSessions: 0, ongoingPackages: 0, expiringSoonPackages: 0, completedPackages: 0, expiredPackages: 0 });
       }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
@@ -184,8 +188,8 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
 
   const statusLabel = (s: string) => STATUS_OPTIONS.find(o => o.id === s)?.label ?? s;
 
-  const HEADERS = ["Date", "Client", "Package", "Service", "Session No.", "Remaining Sessions", "Staff", "Status"];
-  const exportRows = () => rows.map(r => [r.date, r.client, r.packageName, r.serviceName, r.sessionNo, r.remainingSessions, r.staff, statusLabel(r.status)]);
+  const HEADERS = ["Date", "Client", "Package", "Service", "Session No.", "Remaining Sessions", "Staff", "Expiry Date", "Status"];
+  const exportRows = () => rows.map(r => [r.date, r.client, r.packageName, r.serviceName, r.sessionNo, r.remainingSessions, r.staff, r.expiryDate, statusLabel(r.status)]);
 
   return (
     <div className="rp-detail-view">
@@ -206,12 +210,13 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={6} /> : (
+      {loading ? <SkeletonStatCards count={7} /> : (
         <div className="rp-sra-summary-row rp-ph-summary-row">
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalSessions}</div><div className="rp-sra-summary-label">Total Sessions</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.completedSessions}</div><div className="rp-sra-summary-label">Completed Sessions</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.remainingSessions}</div><div className="rp-sra-summary-label">Remaining Sessions</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.ongoingPackages}</div><div className="rp-sra-summary-label">Ongoing Packages</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.ongoingPackages}</div><div className="rp-sra-summary-label">Active Packages</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.expiringSoonPackages}</div><div className="rp-sra-summary-label">Expiring Soon</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.completedPackages}</div><div className="rp-sra-summary-label">Completed Packages</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.expiredPackages}</div><div className="rp-sra-summary-label">Expired Packages</div></div>
         </div>
@@ -229,14 +234,14 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
           <thead>
             <tr>
               <th>Date</th><th>Client</th><th>Package</th><th>Service</th>
-              <th>Session No.</th><th>Remaining Sessions</th><th>Staff</th><th>Status</th>
+              <th>Session No.</th><th>Remaining Sessions</th><th>Staff</th><th>Expiry Date</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={8} />
+              <SkeletonTableRows columns={9} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={8} className="rp-detail-empty-cell">No package session history found</td></tr>
+              <tr><td colSpan={9} className="rp-detail-empty-cell">No package session history found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -250,6 +255,7 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
                 <td>{r.sessionNo}</td>
                 <td>{r.remainingSessions}</td>
                 <td>{r.staff}</td>
+                <td>{r.expiryDate}</td>
                 <td><span className={`rp-status-badge rp-ph-status-${r.status}`}>{statusLabel(r.status)}</span></td>
               </tr>
             ))}
