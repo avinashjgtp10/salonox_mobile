@@ -12,6 +12,7 @@ interface ScheduleCellProps {
   onManageBlockedDay: (staffId: string, date: string) => void;
   onDeleteTimeBlock: (staffId: string, date: string) => void;
   isModalOpen?: boolean;
+  readOnly?: boolean;
 }
 
 const ScheduleCell: React.FC<ScheduleCellProps> = ({
@@ -24,6 +25,7 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
   onManageBlockedDay,
   onDeleteTimeBlock,
   isModalOpen,
+  readOnly,
 }) => {
   const [open, setOpen] = useState(false);
 
@@ -41,6 +43,11 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
 
   // ── Empty cell ───────────────────────────────────────────────────────────────
   if (!shift) {
+    // Inactive staff can't have new shifts added — no working hours configured
+    // for this day, so there's nothing to show and nothing to edit.
+    if (readOnly) {
+      return <div className={`sched-cell ${typeClass} sched-cell--readonly`} />;
+    }
     return (
       <div ref={cellRef} className={`sched-cell ${typeClass}`}>
         <button
@@ -72,20 +79,22 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
   // ── Day off: still show "+" to re-open menu ───────────────────────────────────
   if (shift.type === "dayoff") {
     return (
-      <div ref={cellRef} className={`sched-cell ${typeClass}`}>
-        <button
-          ref={btnRef}
-          className="sched-cell__add"
-          onClick={() => setOpen((p) => !p)}
-          aria-label="Manage day off"
-        >
-          <span className="sched-cell__add-icon" style={{ borderColor: "#a16207", color: "#a16207" }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-              <path d="M12 5v14M5 12h14" />
-            </svg>
-          </span>
-        </button>
-        {open && (
+      <div ref={cellRef} className={`sched-cell ${typeClass} ${readOnly ? "sched-cell--readonly" : ""}`}>
+        {!readOnly && (
+          <button
+            ref={btnRef}
+            className="sched-cell__add"
+            onClick={() => setOpen((p) => !p)}
+            aria-label="Manage day off"
+          >
+            <span className="sched-cell__add-icon" style={{ borderColor: "#a16207", color: "#a16207" }}>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+            </span>
+          </button>
+        )}
+        {open && !readOnly && (
           <CellDropdown
             anchorRef={cellRef}
             onEditWorkingHours={() => onEditWorkingHours(staffId, date)}
@@ -103,19 +112,21 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
   return (
     <div
       ref={cellRef}
-      className={`sched-cell ${typeClass}`}
-      onClick={() => setOpen((p) => !p)}
+      className={`sched-cell ${typeClass} ${readOnly ? "sched-cell--readonly" : ""}`}
+      onClick={readOnly ? undefined : () => setOpen((p) => !p)}
     >
-      <button
-        ref={btnRef}
-        className="sched-cell__edit"
-        onClick={(e) => { e.stopPropagation(); setOpen((p) => !p); }}
-        aria-label="Edit shift"
-      >
-        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
-        </svg>
-      </button>
+      {!readOnly && (
+        <button
+          ref={btnRef}
+          className="sched-cell__edit"
+          onClick={(e) => { e.stopPropagation(); setOpen((p) => !p); }}
+          aria-label="Edit shift"
+        >
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z" />
+          </svg>
+        </button>
+      )}
 
       <div className="sched-cell__info">
         <div className="sched-cell__time">{shift.startTime}</div>
@@ -125,7 +136,7 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
         )}
       </div>
 
-      {open && (
+      {open && !readOnly && (
         <CellDropdown
           anchorRef={cellRef}
           onEditWorkingHours={() => onEditWorkingHours(staffId, date)}

@@ -32,12 +32,16 @@ export const fetchDailyShifts = createAsyncThunk(
         return { staff: [], shifts: {} };
       }
 
+      // Inactive staff still keep their configured schedule (see the schedule
+      // map below) — they must not be filtered out here, otherwise their
+      // working hours silently disappear from the shift grid.
       const staffList = rawStaff.map((s: any) => ({
         id: s.id,
         name: `${s.first_name || ""} ${s.last_name || ""}`.trim() || s.email,
         initials: `${(s.first_name?.[0] || "").toUpperCase()}${(s.last_name?.[0] || "").toUpperCase()}` || "?",
         avatarColor: COLOR_KEY_TO_HEX[s.calendar_color] ?? s.calendar_color ?? "#3b82f6",
         email: s.email,
+        isActive: s.is_active !== false,
       }));
 
       // 2. Each staff record already carries its own `schedule` array,

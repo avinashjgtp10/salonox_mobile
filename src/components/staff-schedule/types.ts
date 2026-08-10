@@ -6,6 +6,7 @@ export interface StaffMember {
   avatar?: string;
   initials: string;
   avatarColor: string;
+  isActive: boolean;
 }
 
 export interface ShiftBreak {
