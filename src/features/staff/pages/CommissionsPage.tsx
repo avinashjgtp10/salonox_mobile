@@ -771,10 +771,9 @@ export default function CommissionsPage() {
   const handleSettle = async (staffId: string, name: string, amount: number) => {
     setSettlingId(staffId);
     try {
-      // Settlement flow/endpoint unchanged — it still settles the full
-      // pending amount for this staff member. `amount` is only used here to
-      // reflect what the user confirmed in the modal's toast message.
-      await api.post(STAFF.SETTLE_COMMISSION(staffId));
+      // `amount` is sent to the backend so a partial entry only settles that
+      // much — the remainder stays pending (status becomes "partial" there).
+      await api.post(STAFF.SETTLE_COMMISSION(staffId), { amount });
       showSuccess(`${formatAmount(amount)} settled for ${name}`);
       setSettleTarget(null);
       const [summaryRes, earnedRes] = await Promise.all([
