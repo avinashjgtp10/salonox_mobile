@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Search,
   SlidersHorizontal,
@@ -17,6 +18,7 @@ import {
   Layers,
   ChevronRight,
   Pencil,
+  Palette,
 } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
@@ -126,6 +128,7 @@ function couponStatus(c: Coupon): { label: string; variant: "" | "gray" | "red" 
 }
 
 export default function CouponsSettingsPage() {
+  const navigate = useNavigate();
   const { currencySymbol, formatAmount } = useCurrency();
   const currentSalon = useAppSelector((s) => s.salon.currentSalon);
   const [items, setItems] = useState<Coupon[]>([]);
@@ -565,6 +568,17 @@ export default function CouponsSettingsPage() {
                 <Layers size={14} /> Bulk Create
               </button>
             </div>
+            {/* Reachable with an empty coupon list too — the per-coupon Design
+                button in the details panel needs a selected coupon, so without
+                this the designer is invisible until a coupon exists. Opened
+                this way the design isn't attached to any coupon and its
+                {{tokens}} preview with sample values. */}
+            <button
+              className="cp-list__create-btn cp-list__create-btn--outline cp-list__design-btn"
+              onClick={() => navigate("/dashboard/settings/coupon-designer")}
+            >
+              <Palette size={14} /> Open Coupon Designer
+            </button>
           </div>
         </div>
 
@@ -580,6 +594,18 @@ export default function CouponsSettingsPage() {
                   <h3 className="cp-detail__title">{panelTitle}</h3>
                   <p className="cp-detail__subtitle">{panelSubtitle}</p>
                 </div>
+                {/* Only for a saved coupon — there's nothing to attach artwork
+                    to until it exists. Opens the full-screen designer and
+                    comes back here on close. */}
+                {!isCreating && selectedId && (
+                  <button
+                    className="cp-btn cp-detail__design"
+                    onClick={() => navigate(`/dashboard/settings/coupon-designer?coupon=${selectedId}`)}
+                    title="Design artwork for this coupon"
+                  >
+                    <Palette size={14} /> Design
+                  </button>
+                )}
                 <label className="cp-toggle">
                   <input
                     type="checkbox"

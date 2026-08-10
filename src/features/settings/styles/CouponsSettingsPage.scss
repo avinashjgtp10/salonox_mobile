@@ -890,3 +890,21 @@ $cp-gray-text: #6b7280;
   gap: 12px;
   margin-top: 6px;
 }
+
+/* "Design" action in the Coupon Details header — opens the Coupon Designer. */
+.cp-detail__design {
+  margin-left: auto;
+  margin-right: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+/* Full-width "Open Coupon Designer" under Create New / Bulk Create, so the
+   designer is reachable even before any coupon exists. */
+.cp-list__design-btn {
+  width: 100%;
+  margin-top: 8px;
+  justify-content: center;
+}

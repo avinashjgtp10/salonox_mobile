@@ -35,6 +35,8 @@ interface NavItem {
   label: string;
   icon: React.ReactNode;
   Component: React.ComponentType;
+  /** Routable and deep-linkable, but not listed in the sidebar. */
+  hidden?: boolean;
 }
 
 interface NavGroup {
@@ -73,6 +75,9 @@ const navGroups: NavGroup[] = [
       { id: "reward-points", label: "Reward Points", icon: <Gift size={15} />,              Component: RewardsSettingsPage },
       { id: "referral",     label: "Refer & Earn",   icon: <Share2 size={15} />,            Component: ReferralSettingsPage },
       { id: "coupons",      label: "Coupons",        icon: <Tag size={15} />,               Component: CouponsSettingsPage },
+      // Not shown in the sidebar (see SIDEBAR_HIDDEN_IDS) — it's the coupon
+      // management list, reached from the designer's "Manage coupons" link.
+      { id: "coupons-manage", label: "Manage Coupons", icon: <Tag size={15} />,             Component: CouponsSettingsPage, hidden: true },
     ],
   },
   {
@@ -113,6 +118,14 @@ export default function SettingsLayout() {
   }, [activeId]);
 
   const handleNavClick = (id: string) => {
+    // Coupons is the one section that isn't a panel inside this shell — it
+    // opens the full-screen Coupon Designer, which needs the whole viewport
+    // for its three panels. Coupon management (list, Create New, Bulk Create)
+    // is reached from inside the designer.
+    if (id === "coupons") {
+      navigate("/dashboard/settings/coupon-designer");
+      return;
+    }
     if (id === activeId) return;
     setActiveId(id);
     navigate(`/dashboard/settings/${id}`, { replace: true });
@@ -136,7 +149,7 @@ export default function SettingsLayout() {
           {navGroups.map((group, gi) => (
             <div className="settings-nav-group" key={gi}>
               <p className="settings-nav-label">{group.groupLabel}</p>
-              {group.items.map((item) => (
+              {group.items.filter((item) => !item.hidden).map((item) => (
                 <button
                   key={item.id}
                   type="button"
