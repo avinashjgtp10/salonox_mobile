@@ -1,0 +1,101 @@
+/* ================================================================
+   Enquiry Create/Edit/View modal content  (.enq-form / .enq-view)
+   ================================================================ */
+
+.enq-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.enq-field-row {
+  display: flex;
+  gap: 14px;
+
+  .enq-field { flex: 1; }
+}
+
+.enq-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  &__label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #334155;
+  }
+
+  &__error {
+    font-size: 12px;
+    color: #dc2626;
+  }
+}
+
+.enq-required {
+  color: #dc2626;
+}
+
+.enq-input {
+  height: 42px;
+  border-radius: 10px;
+  border: 1.5px solid #e2e8f0;
+  padding: 0 14px;
+  font-size: 13.5px;
+  color: #0f172a;
+  background: #fff;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  width: 100%;
+
+  &::placeholder { color: #94a3b8; }
+
+  &:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+  }
+
+  &--invalid {
+    border-color: #dc2626;
+    &:focus { box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12); }
+  }
+}
+
+.enq-textarea {
+  height: auto;
+  padding: 10px 14px;
+  resize: vertical;
+  min-height: 80px;
+  font-family: inherit;
+}
+
+/* ── View modal ─────────────────────────────────────────────────── */
+.enq-view {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f1f5f9;
+
+    &:last-child { border-bottom: none; padding-bottom: 0; }
+    &--notes { align-items: flex-start; }
+  }
+
+  &__label {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: #64748b;
+    flex-shrink: 0;
+  }
+
+  &__value {
+    font-size: 13.5px;
+    color: #0f172a;
+    text-align: right;
+  }
+}

@@ -45,6 +45,14 @@ const NotificationsPage = lazy(() =>
   import("../features/dashboard/pages/NotificationsPage")
 );
 
+const EnquiriesListPage = lazy(() =>
+  import("../features/enquiries/pages/EnquiriesListPage")
+);
+
+const EnquiryAddPage = lazy(() =>
+  import("../features/enquiries/pages/EnquiryAddPage")
+);
+
 export const DashboardRoutes = (
   <Route element={<AuthGuard />}>
     <Route
@@ -115,6 +123,11 @@ export const DashboardRoutes = (
       <Route path="apps/*" element={<AppsRoutes />} />
       <Route path="profile" element={<ProfilePage />} />
       <Route path="notifications" element={<NotificationsPage />} />
+
+      {/* Enquiries — open to all authenticated users, no permission guard */}
+      <Route path="enquiries" element={<EnquiriesListPage />} />
+      <Route path="enquiries/add" element={<EnquiryAddPage />} />
+      <Route path="enquiries/edit/:id" element={<EnquiryAddPage />} />
 
       {/* Help & Support — accessible to all authenticated users */}
       <Route path="help" element={<HelpPage />} />

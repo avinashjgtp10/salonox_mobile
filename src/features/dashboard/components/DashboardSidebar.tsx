@@ -13,6 +13,7 @@ import {
   Gear,
   QuestionCircle,
   Cash,
+  ChatSquareText,
 } from "react-bootstrap-icons";
 
 import { usePermissions } from "../../../hooks/usePermissions";
@@ -158,6 +159,15 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           <span className="nav-label">Marketing</span>
         </button>
       )}
+
+      <NavLink
+        to="/dashboard/enquiries"
+        className={({ isActive }) => navClass(isActive)}
+        onClick={() => onMenuChange(null)}
+      >
+        <ChatSquareText size={26} />
+        <span className="nav-label">Enquiries</span>
+      </NavLink>
 
       {can("view_team") && (
         <button
