@@ -1,0 +1,247 @@
+// ============================================================
+// EnquiryAddPage.scss — Add/Edit Enquiry page
+// Mirrors AddClientPage.scss's design language (same tokens/structure,
+// `enq-add` prefix instead of `cli`/`add-client`) so the create/edit
+// experiences look and feel consistent across the app.
+// ============================================================
+
+$primary:      #1a1a1a;
+$danger:       #e53935;
+$text-primary: #1a1a1a;
+$text-muted:   #6b7280;
+$border:       #e5e7eb;
+$radius-sm:    6px;
+$radius-md:    10px;
+$transition:   0.18s ease;
+
+.enq-add {
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+  font-family: 'Inter', -apple-system, sans-serif;
+  min-height: calc(100vh - 70px);
+
+  &__header {
+    height: 60px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 24px;
+    background: #ffffff;
+    border-bottom: 1px solid #eee;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+
+    &-title {
+      font-size: 15px;
+      font-weight: 600;
+      color: #111;
+      margin: 0;
+    }
+
+    &-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+  }
+
+  &__btn-close {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    padding: 8px 20px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #111827;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      background: #f9fafb;
+      border-color: #d1d5db;
+    }
+  }
+
+  &__btn-save {
+    background: #000;
+    border: none;
+    padding: 8px 28px;
+    border-radius: 20px;
+    font-weight: 600;
+    font-size: 13px;
+    color: #ffffff;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      opacity: 0.9;
+      transform: translateY(-0.5px);
+    }
+
+    &:disabled {
+      background: #9ca3af;
+      cursor: not-allowed;
+      transform: none;
+    }
+  }
+}
+
+.enq-add__dialog-overlay {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+
+.enq-add__dialog {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px;
+  width: 400px;
+  position: relative;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+}
+
+.enq-add__dialog-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: $text-muted;
+  line-height: 1;
+  padding: 0;
+}
+
+.enq-add__dialog-title {
+  font-weight: 700;
+  font-size: 16px;
+  color: #111827;
+  margin-bottom: 12px;
+}
+
+.enq-add__dialog-desc {
+  font-size: 14px;
+  color: #374151;
+  margin-bottom: 28px;
+  line-height: 1.6;
+}
+
+.enq-add__dialog-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.enq-add__dialog-btn {
+  border-radius: 20px;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 500;
+
+  &--cancel {
+    border: 1px solid $border;
+    color: #374151;
+  }
+
+  &--discard {
+    background: #111827;
+    color: #fff;
+    border: none;
+  }
+}
+
+// ── Add/Edit Enquiry page body ─────────────────────────────
+.enq-add-page {
+  padding: 24px 32px 60px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  @media (max-width: 900px) { padding: 16px; }
+}
+
+.enq-add-card {
+  background: #fff;
+  border: 1px solid $border;
+  border-radius: $radius-md;
+  padding: 20px 24px;
+
+  &__title {
+    font-size: 14px;
+    font-weight: 700;
+    color: $text-primary;
+    margin: 0 0 16px;
+  }
+}
+
+.enq-add-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 14px 16px;
+  align-items: start;
+
+  @media (max-width: 700px) { grid-template-columns: 1fr; }
+}
+
+.enq-add-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  position: relative;
+
+  &--full { grid-column: 1 / -1; }
+
+  &__label {
+    font-size: 11px;
+    font-weight: 600;
+    color: $text-muted;
+  }
+
+  &__error {
+    font-size: 11px;
+    color: $danger;
+  }
+}
+
+.enq-add-input {
+  height: 40px;
+  border: 1px solid $border;
+  border-radius: $radius-sm;
+  padding: 0 12px;
+  font-size: 13px;
+  color: $text-primary;
+  background: #f9fafb;
+  transition: border-color $transition, background $transition;
+  width: 100%;
+
+  &::placeholder { color: #9ca3af; }
+
+  &:hover { border-color: #c7cbd1; }
+
+  &:focus {
+    outline: none;
+    border-color: #000;
+    background: #fff;
+    box-shadow: 0 0 0 1px #000;
+  }
+
+  &--invalid {
+    border-color: $danger;
+    &:focus { box-shadow: 0 0 0 1px $danger; }
+  }
+}
+
+.enq-add-textarea {
+  height: auto;
+  padding: 10px 12px;
+  resize: vertical;
+}

@@ -1,0 +1,278 @@
+/* ================================================================
+   Enquiries List Page  (.enq)
+   ================================================================ */
+
+.enq-page {
+  padding: 40px 48px;
+  background: #f8fafc;
+  min-height: 100vh;
+  font-family: Inter, -apple-system, sans-serif;
+}
+
+.enq-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+}
+
+.enq-title {
+  font-size: 26px;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 4px;
+}
+
+.enq-subtitle {
+  font-size: 13.5px;
+  color: #64748b;
+  margin: 0;
+}
+
+/* ── Buttons (shared by page + modals) ─────────────────────────── */
+.enq-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 18px;
+  font-size: 13.5px;
+  font-weight: 600;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+
+  &--primary {
+    background: #0f172a;
+    color: #fff;
+    &:hover { background: #1e293b; }
+  }
+
+  &--ghost {
+    background: #fff;
+    color: #0f172a;
+    border: 1px solid #e2e8f0;
+    &:hover { background: #f8fafc; border-color: #cbd5e1; }
+  }
+
+  &--danger {
+    background: #dc2626;
+    color: #fff;
+    &:hover { background: #b91c1c; }
+  }
+}
+
+/* ── Controls: search + status filter ──────────────────────────── */
+.enq-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.enq-search {
+  position: relative;
+  flex: 1;
+  max-width: 340px;
+
+  &__icon {
+    position: absolute;
+    left: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #94a3b8;
+  }
+
+  input {
+    width: 100%;
+    height: 40px;
+    border-radius: 10px;
+    border: 1px solid #e2e8f0;
+    background: #fff;
+    padding: 0 14px 0 38px;
+    font-size: 13.5px;
+    color: #0f172a;
+
+    &::placeholder { color: #94a3b8; }
+    &:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12); }
+  }
+}
+
+/* ── Table ──────────────────────────────────────────────────────── */
+.enq-table-wrap {
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 14px;
+  overflow-x: auto;
+  margin-bottom: 16px;
+}
+
+.enq-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+
+  thead th {
+    text-align: left;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: #64748b;
+    background: #f8fafc;
+    padding: 12px 18px;
+    border-bottom: 1px solid #e2e8f0;
+    white-space: nowrap;
+  }
+
+  tbody td {
+    padding: 14px 18px;
+    color: #334155;
+    border-bottom: 1px solid #f1f5f9;
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover { background: #f8fafc; }
+  tbody tr.enq-table__row { cursor: pointer; }
+}
+
+.enq-table__id {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.enq-table__notes {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #64748b;
+}
+
+.enq-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 48px 0;
+  color: #94a3b8;
+
+  p { margin: 0; font-size: 13.5px; }
+}
+
+/* ── Status badge ───────────────────────────────────────────────── */
+.enq-status-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+
+  &.enq-status-new       { background: #dbeafe; color: #1d4ed8; }
+  &.enq-status-followup  { background: #fef9c3; color: #854d0e; }
+  &.enq-status-converted { background: #dcfce7; color: #166534; }
+  &.enq-status-closed    { background: #f3f4f6; color: #6b7280; }
+}
+
+.enq-status-select {
+  border: none;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 22px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 16 16'%3E%3Cpath fill='%23475569' d='M4.5 6l3.5 3.5L11.5 6z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+
+  &:disabled { cursor: not-allowed; opacity: 0.6; }
+  &:focus { outline: 2px solid rgba(99, 102, 241, 0.3); outline-offset: 1px; }
+}
+
+/* ── Reschedule column ──────────────────────────────────────────── */
+.enq-reschedule-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #fff;
+  color: #374151;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+
+  &:hover { background: #f1f5f9; border-color: #cbd5e1; }
+}
+
+/* ── Row actions ────────────────────────────────────────────────── */
+.enq-actions-cell {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.enq-icon-btn,
+.enq-kebab-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s;
+  flex-shrink: 0;
+
+  &:hover { background: #f1f5f9; border-color: #e2e8f0; }
+}
+
+.enq-kebab-menu {
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  min-width: 150px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.12);
+
+  li + li { margin-top: 2px; }
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 7px;
+    font-size: 13px;
+    font-weight: 500;
+    color: #334155;
+    cursor: pointer;
+    text-align: left;
+    transition: background 0.12s;
+
+    &:hover { background: #f1f5f9; }
+  }
+
+  &__item--danger {
+    color: #dc2626 !important;
+    &:hover { background: #fef2f2 !important; }
+  }
+}
+
+.enq-delete-text {
+  font-size: 13.5px;
+  color: #475569;
+  margin: 0;
+}
