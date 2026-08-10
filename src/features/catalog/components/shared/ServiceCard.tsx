@@ -38,8 +38,6 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
           ? "All staff"
           : `${service.staff_count} staff`;
 
-    const description = (service.description ?? "").trim();
-
     // null when no per-service override is set, in which case the row shows a
     // muted dash — the service still earns commission, just under the staff
     // member's own rules rather than a rate of its own.
@@ -103,23 +101,6 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
       </div>
 
       <div className="slp__svc-cell slp__svc-cell--staff">{staffLabel ?? "—"}</div>
-
-      {/* Description doubles as the audience marker in practice — most services
-          carry "Female"/"Male" here, the rest a tier label like "Premium
-          service". Full text in the tooltip for the long ones. */}
-      <div className="slp__svc-cell slp__svc-cell--desc">
-        {description
-          ? <span className="slp__svc-desc" title={description}>{description}</span>
-          : <span className="slp__svc-cell--muted">—</span>}
-      </div>
-
-      <div className="slp__svc-cell slp__svc-cell--status">
-        <span
-          className={`slp__svc-status${service.online_booking ? "" : " slp__svc-status--off"}`}
-        >
-          {service.online_booking ? "Online" : "Offline"}
-        </span>
-      </div>
 
       {/* Commission, price and the kebab are each their own grid cell rather
           than one bundled cell — bundling made the final track size to its

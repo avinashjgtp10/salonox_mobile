@@ -6,8 +6,11 @@
 // (.slp__group-cols) and every row (.slp__service-card) so the two can never
 // drift apart.
 //
-// Columns: checkbox | service | time | staff | description | status |
-//          commission | price | kebab
+// Columns: checkbox | service | time | staff | commission | price | kebab
+//
+// Description and Status were removed: Status read "Online" on all 1,519
+// services (nothing sets online_booking false), and Description held only
+// short repeated tier labels — neither distinguished one row from another.
 //
 // Every track is a fixed width except `service`, which is the single 1fr that
 // absorbs the slack. That matters: when the last track was `auto` it sized to
@@ -16,30 +19,23 @@
 // out of line with its heading.
 %slp-row-grid {
   display: grid;
-  // The commission track is 100px, not 70px: the "COMMISSION" heading needs
-  // ~95px at 11px uppercase, and a narrower track let the label overflow its
-  // own column and drift left over Status.
+  // The commission track is 100px because the "COMMISSION" heading needs ~95px
+  // at 11px uppercase; a narrower track let the label overflow its own column.
   grid-template-columns:
-    20px minmax(0, 1fr) 110px 90px minmax(0, 150px) 84px 100px 104px 32px;
+    20px minmax(0, 1fr) 110px 90px 100px 104px 32px;
   align-items: center;
   column-gap: 14px;
 
   // Secondary columns drop before the row can crush. The header hides its
   // matching labels through the same breakpoints via nth-child.
-  @media (max-width: 1180px) {
-    grid-template-columns:
-      20px minmax(0, 1fr) 110px 90px minmax(0, 150px) 84px 104px 32px;
-    > *:nth-child(7) { display: none; }   // commission
-  }
-
   @media (max-width: 1020px) {
-    grid-template-columns: 20px minmax(0, 1fr) 110px 90px 84px 104px 32px;
-    > *:nth-child(5) { display: none; }   // description
+    grid-template-columns: 20px minmax(0, 1fr) 110px 90px 104px 32px;
+    > *:nth-child(5) { display: none; }   // commission
   }
 
-  @media (max-width: 880px) {
+  @media (max-width: 820px) {
     grid-template-columns: 20px minmax(0, 1fr) 110px 104px 32px;
-    > *:nth-child(4), > *:nth-child(6) { display: none; }  // staff, status
+    > *:nth-child(4) { display: none; }   // staff
   }
 }
 
@@ -416,9 +412,9 @@
     align-items: flex-start;
     transition: grid-template-columns 0.25s ease;
 
-    &--panel-open {
-      grid-template-columns: minmax(0, 1fr) 360px;
-    }
+    // No --panel-open variant any more: the detail panel is a fixed overlay
+    // drawer (.pd-panel) that floats above the page, so reserving a column for
+    // it just squeezed the list and left a blank 360px gap beside it.
   }
 
   /* ── Content area ────────────────────────────────────────────── */
@@ -707,22 +703,6 @@
     white-space: nowrap;
 
     &--muted { color: #d0d5dd; }
-    &--status { justify-content: flex-start; }
-    &--desc { min-width: 0; }
-  }
-
-  &__svc-desc {
-    font-size: 12px;
-    font-weight: 500;
-    color: #475467;
-    background: #f9fafb;
-    border: 1px solid #eaecf0;
-    padding: 3px 10px;
-    border-radius: 6px;
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
   // Per-service commission override. A dash means "no override" — the service
@@ -793,20 +773,9 @@
 
   // Online / Offline pill — reflects online_booking, the one service flag with
   // a real external consumer (the public booking catalogue).
-  &__svc-status {
-    font-size: 12px;
-    font-weight: 600;
-    padding: 2px 10px;
-    border-radius: 999px;
-    background: #ecfdf3;
-    color: #027a48;
-    white-space: nowrap;
-
-    &--off {
-      background: #f2f4f7;
-      color: #667085;
-    }
-  }
+  // (&__svc-desc / &__svc-status removed with the Description and Status
+  // columns. The Inactive tag beside the service name still covers is_active,
+  // which is the only status that ever actually varies.)
 
   // (&__svc-right removed — commission, price and the kebab are each their own
   // grid cell now, so the final track no longer sizes to a bundle whose width
@@ -1072,337 +1041,6 @@
       background: #101828;
       border-color: #101828;
       color: #fff;
-    }
-  }
-}
-
-/* ================================================================
-   Service Detail Panel  (.sdp)
-   ================================================================ */
-
-.sdp-overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(15, 23, 42, 0.42);
-  z-index: 5000;
-  display: flex;
-  justify-content: flex-end;
-  animation: slp-fade-in 0.2s ease;
-}
-
-.sdp {
-  background: #fff;
-  border: 1px solid #ecedf0;
-  border-radius: 0;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  width: 460px;
-  max-width: 100vw;
-  height: 100vh;
-  max-height: 100vh;
-  overflow: hidden;
-  animation: slp-slide-in-right 0.22s ease;
-  font-family: Inter, -apple-system, sans-serif;
-  box-shadow: -4px 0 40px rgba(0, 0, 0, 0.12);
-
-  /* ── Header ─────────────────────────────────────── */
-  &__header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 20px 24px;
-    border-bottom: 1px solid #ecedf0;
-    flex-shrink: 0;
-  }
-
-  &__back-btn,
-  &__close-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    border: 1px solid #ecedf0;
-    background: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    color: #6b717e;
-    flex-shrink: 0;
-    transition: all 0.15s;
-
-    &:hover {
-      background: #f7f8fa;
-      color: #11141a;
-    }
-  }
-
-  &__header-title {
-    flex: 1;
-    font-size: 17px;
-    font-weight: 800;
-    color: #11141a;
-    margin: 0;
-  }
-
-  &__header-actions {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-shrink: 0;
-  }
-
-  &__edit-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 6px 14px;
-    border-radius: 8px;
-    border: 1.5px solid #6c47ff;
-    background: #fff;
-    color: #6c47ff;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.15s;
-    white-space: nowrap;
-
-    &:hover {
-      background: #6c47ff;
-      color: #fff;
-    }
-  }
-
-  /* ── Status row ─────────────────────────────────── */
-  &__status-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 8px;
-    padding: 16px 24px;
-    border-bottom: 1px solid #f7f8fa;
-    flex-shrink: 0;
-  }
-
-  &__badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    font-size: 11.5px;
-    font-weight: 700;
-    padding: 4px 10px;
-    border-radius: 999px;
-
-    &--active   { background: #dcfce7; color: #16a34a; }
-    &--inactive { background: #fee2e2; color: #dc2626; }
-    &--info     { background: #dbeafe; color: #2563eb; }
-  }
-
-  /* ── Body ───────────────────────────────────────── */
-  &__body {
-    flex: 1;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-
-    &::-webkit-scrollbar { width: 4px; }
-    &::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 4px; }
-  }
-
-  &__hero-card {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-    padding: 16px 24px;
-    border-bottom: 1px solid #f7f8fa;
-  }
-
-  &__avatar {
-    width: 48px;
-    height: 48px;
-    border-radius: 50%;
-    background: #11141a;
-    color: #fff;
-    font-size: 14px;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    flex-shrink: 0;
-  }
-
-  &__title-wrap {
-    flex: 1;
-    min-width: 0;
-  }
-
-  &__name {
-    font-size: 15px;
-    font-weight: 700;
-    color: #11141a;
-    margin: 0 0 4px;
-  }
-
-  &__hero-sub {
-    font-size: 13px;
-    color: #6b717e;
-  }
-
-  &__hero-note {
-    margin-top: 4px;
-    font-size: 12px;
-    color: #9fa5b0;
-  }
-
-  /* ── Metrics ────────────────────────────────────── */
-  &__metrics {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-    padding: 20px 24px;
-    border-bottom: 1px solid #f7f8fa;
-  }
-
-  &__metric {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    background: #fff;
-    border: 1px solid #ecedf0;
-    border-radius: 10px;
-    padding: 12px 14px;
-  }
-
-  &__metric-icon {
-    color: #6366f1;
-    margin-top: 2px;
-    flex-shrink: 0;
-  }
-
-  &__metric-label {
-    font-size: 11px;
-    color: #64748b;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin: 0 0 4px;
-  }
-
-  &__metric-value {
-    font-size: 15px;
-    font-weight: 700;
-    color: #11141a;
-    margin: 0;
-  }
-
-  &__discounted {
-    font-size: 12px;
-    font-weight: 500;
-    color: #10b981;
-    margin-left: 6px;
-    text-decoration: line-through;
-    text-decoration-color: #ef4444;
-  }
-
-  /* ── Section ────────────────────────────────────── */
-  &__section {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 18px 24px;
-    border-bottom: 1px solid #f7f8fa;
-  }
-
-  &__section-title {
-    font-size: 14px;
-    font-weight: 700;
-    color: #11141a;
-    margin: 0;
-  }
-
-  &__description {
-    font-size: 13px;
-    color: #525866;
-    line-height: 1.6;
-    margin: 0;
-  }
-
-  /* ── Detail list ────────────────────────────────── */
-  &__detail-list {
-    border: 1px solid #ecedf0;
-    border-radius: 12px;
-    overflow: hidden;
-    background: #fff;
-  }
-
-  &__detail-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
-    padding: 14px 16px;
-    border-bottom: 1px solid #f3f4f6;
-    background: #fff;
-    font-size: 13px;
-
-    &:last-child {
-      border-bottom: none;
-    }
-  }
-
-  &__detail-key {
-    display: flex;
-    align-items: center;
-    gap: 5px;
-    color: #6b717e;
-    font-weight: 500;
-  }
-
-  &__detail-val {
-    font-weight: 600;
-    color: #11141a;
-    font-size: 13px;
-    text-align: right;
-
-    &--cap { text-transform: capitalize; }
-  }
-
-  /* ── Footer ─────────────────────────────────────── */
-  &__footer {
-    display: flex;
-    gap: 12px;
-    padding: 18px 24px 20px;
-    border-top: 1px solid #ecedf0;
-    flex-shrink: 0;
-    background: #fff;
-  }
-
-  &__action-btn {
-    flex: 1;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 7px;
-    padding: 10px 16px;
-    font-size: 13.5px;
-    font-weight: 600;
-    border-radius: 10px;
-    border: none;
-    cursor: pointer;
-    transition: all 0.15s;
-
-    &--edit {
-      background: #11141a;
-      color: #fff;
-      &:hover { background: #1f2937; }
-    }
-
-    &--danger {
-      background: #fff;
-      color: #dc2626;
-      border: 1px solid #fecaca;
-      &:hover { background: #fef2f2; }
     }
   }
 }
