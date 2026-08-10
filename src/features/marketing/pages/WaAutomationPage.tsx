@@ -26,6 +26,8 @@ const EVENT_LABELS: Record<PurchaseEventType, { label: string; hint: string }> =
   appointment_confirmation: { label: "Appointment Confirmation", hint: "Sent right after a new appointment is booked" },
   appointment_reminder_24h: { label: "Appointment Reminder (24 Hours Before)", hint: "Sent 24 hours before a booked appointment" },
   appointment_rescheduled: { label: "Appointment Rescheduled", hint: "Sent when an appointment's date, time, or staff changes" },
+  package_appointment_reminder_2d: { label: "Package Appointment Reminder (2 Days Before)", hint: "Sent 2 days before an appointment booked from a package sale. These appointments don't get the generic reminders above, so they're never messaged twice" },
+  package_appointment_reminder_1d: { label: "Package Appointment Reminder (1 Day Before)", hint: "Sent 1 day before an appointment booked from a package sale" },
 };
 
 // What each {{n}} placeholder actually turns into in the message the customer
@@ -93,6 +95,28 @@ const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; me
     { token: "{{2}}", meaning: "Your salon's name" },
     { token: "{{3}}", meaning: "The new appointment date" },
     { token: "{{4}}", meaning: "The new appointment time" },
+  ],
+  // Richer than the generic appointment reminders above — these name the
+  // service, staff and package so the message can say the visit is already
+  // paid for. Order is fixed by runPackageAppointmentReminders() on the
+  // backend; keep the two in step.
+  package_appointment_reminder_2d: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "Your salon's name" },
+    { token: "{{3}}", meaning: "The service being booked" },
+    { token: "{{4}}", meaning: "The appointment date" },
+    { token: "{{5}}", meaning: "The appointment time" },
+    { token: "{{6}}", meaning: "The staff member assigned" },
+    { token: "{{7}}", meaning: "The package the service is part of" },
+  ],
+  package_appointment_reminder_1d: [
+    { token: "{{1}}", meaning: "Customer's name" },
+    { token: "{{2}}", meaning: "Your salon's name" },
+    { token: "{{3}}", meaning: "The service being booked" },
+    { token: "{{4}}", meaning: "The appointment date" },
+    { token: "{{5}}", meaning: "The appointment time" },
+    { token: "{{6}}", meaning: "The staff member assigned" },
+    { token: "{{7}}", meaning: "The package the service is part of" },
   ],
 };
 

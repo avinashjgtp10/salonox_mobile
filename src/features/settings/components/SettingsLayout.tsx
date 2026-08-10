@@ -14,6 +14,7 @@ import {
   Gift,
   Share2,
   Tag,
+  PackageIcon,
 } from "lucide-react";
 import ProfileSettingsPage from "../pages/ProfileSettingsPage";
 import BusinessSettingsPage from "../pages/BusinessSettingsPage";
@@ -27,6 +28,7 @@ import SettingsManagementPage from "../pages/SettingsManagementPage";
 import RewardsSettingsPage from "../pages/RewardsSettingsPage";
 import ReferralSettingsPage from "../pages/ReferralSettingsPage";
 import CouponsSettingsPage from "../pages/CouponsSettingsPage";
+import PackageSettingsPage from "../pages/PackageSettingsPage";
 import DataPrivacyPage from "../pages/DataPrivacyPage";
 import "../styles/SettingsPage.scss";
 
@@ -75,6 +77,7 @@ const navGroups: NavGroup[] = [
       { id: "reward-points", label: "Reward Points", icon: <Gift size={15} />,              Component: RewardsSettingsPage },
       { id: "referral",     label: "Refer & Earn",   icon: <Share2 size={15} />,            Component: ReferralSettingsPage },
       { id: "coupons",      label: "Coupons",        icon: <Tag size={15} />,               Component: CouponsSettingsPage },
+      { id: "packages",     label: "Packages",       icon: <PackageIcon size={15} />,       Component: PackageSettingsPage },
       // Not shown in the sidebar (see SIDEBAR_HIDDEN_IDS) — it's the coupon
       // management list, reached from the designer's "Manage coupons" link.
       { id: "coupons-manage", label: "Manage Coupons", icon: <Tag size={15} />,             Component: CouponsSettingsPage, hidden: true },

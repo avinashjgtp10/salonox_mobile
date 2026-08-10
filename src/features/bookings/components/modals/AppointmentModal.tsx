@@ -8,6 +8,7 @@ import { usePayment }        from "../../hooks/usePayment";
 import { useCoupon }         from "../../hooks/useCoupon";
 import { useReferral }       from "../../hooks/useReferral";
 import { useServices }       from "../../hooks/useServices";
+import { useServices as useCatalogServices } from "../../../catalog/hooks/useServices";
 import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery, useListClientPackagesQuery, useCompleteClientPackageSessionMutation } from "../../../../services/api/endpoints/packages.endpoints";
 import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import { useLoyaltyEligibility } from "../../hooks/useLoyaltyEligibility";
@@ -157,6 +158,18 @@ export const AppointmentModal: React.FC<Props> = ({
   const pkgRequested  = useRef(false);
   const prodRequested = useRef(false);
   const memRequested  = useRef(false);
+  // Catalog service lookup (id/name/price) — needed to resolve a picked
+  // package's individual services down to a real catalogServiceId + price
+  // for the "+ Package" row's per-service scheduling breakdown (a template's
+  // own services[] carries name/sessions/price but no catalog id; a catalog
+  // "combo" package carries only serviceIds). Fetched on-demand, same as
+  // packages/products/memberships above — never eagerly on mount.
+  const { services: catalogServiceOptionsRaw, fetchServices: fetchCatalogServices } = useCatalogServices();
+  const catalogServiceOptions = useMemo(
+    () => catalogServiceOptionsRaw.map((s: any) => ({ id: String(s.id), name: s.name, price: parseFloat(String(s.price)) || 0 })),
+    [catalogServiceOptionsRaw],
+  );
+  const svcCatalogRequested = useRef(false);
 
   // In edit mode, pre-fetch data for item types that already exist on the booking.
   // Packages/memberships are catalog reference data (name/price only, no live
@@ -184,7 +197,12 @@ export const AppointmentModal: React.FC<Props> = ({
   useEffect(() => {
     const templates = packageTemplatesRaw ?? [];
     const fromCatalog = (packagesData?.items || []).map((p: any) => ({
-      id: String(p.id || ""), name: p.name || "", price: p.basePrice || 0, services: [] as string[],
+      id: String(p.id || ""), name: p.name || "", price: p.basePrice || 0,
+      // Real catalog service ids — combo packages have no per-service
+      // name/price/session breakdown of their own (unlike templates), so the
+      // "+ Package" row's scheduling UI resolves name/price for each of
+      // these against the loaded services catalog (see PackageRow).
+      services: (p.serviceIds ?? []) as string[],
       // Catalog packages are the only ones with a description column; they
       // carry no per-service session data, hence no serviceDetails.
       description: typeof p.description === "string" ? p.description : undefined,
@@ -205,6 +223,11 @@ export const AppointmentModal: React.FC<Props> = ({
         serviceDetails: (t.services || []).map((s: any) => ({
           name: s.serviceName || "—",
           sessions: Number(s.totalSessions) || 0,
+          // Template services are free-text (no catalog id of their own) —
+          // price is still real, carried straight from the template row, so
+          // the "+ Package" row's per-service schedule breakdown can total
+          // correctly even before/without a catalog id match.
+          price: Number(s.price) || 0,
         })),
         expiryDays: t.expiryDays ?? null,
         neverExpires: !!t.neverExpires,
@@ -546,6 +569,16 @@ export const AppointmentModal: React.FC<Props> = ({
     const perRow = new Map<string, number>();
     serviceRows.forEach((row, idx) => {
       if (!row.service.trim()) return;
+      // A row that already carries an exact clientPackageId link (created by
+      // the package-sale scheduling feature) must never enter this FUZZY
+      // coverage pool — it's already permanently ₹0 from creation and gets
+      // redeemed exactly, server-side, on checkout (see
+      // clientPackagesService.redeemForAppointmentIfScheduled). Pooling it
+      // here too would let markPackageSessions() fire a SECOND, fuzzy
+      // completePackageSession call for the same visit, double-deducting the
+      // package — and would wrongly consume a pool slot a genuinely
+      // fuzzy-covered row elsewhere on this bill might need.
+      if (row.clientPackageId) return;
       const rowCatalogId = (row as any).id || null;
       const nameKey = `name:${row.service.toLowerCase()}`;
       const key = (rowCatalogId && effectiveCoveredServices.has(rowCatalogId)) ? rowCatalogId : nameKey;
@@ -1927,6 +1960,11 @@ export const AppointmentModal: React.FC<Props> = ({
     ? "Processing…"
     : totalsNotReady
     ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…")
+    // Already paid for in full at package-purchase time — "Checkout — ₹0.00"
+    // reads like a bug, not a feature; this is really just confirming the
+    // visit happened (which is what triggers session redemption).
+    : isPackageZero
+      ? "Mark Complete"
     : isPartialEntry
       ? `Checkout — ${currencySymbol}${parsedPartial.toFixed(2)} (Due - ${currencySymbol}${(remainingDue - parsedPartial).toFixed(2)})`
       : `Checkout — ${currencySymbol}${reconciledEffectiveTotal.toFixed(2)}`;
@@ -2000,6 +2038,10 @@ export const AppointmentModal: React.FC<Props> = ({
               triggerPackages({ status: "Active" });
               triggerTemplates();
             }
+            if (!svcCatalogRequested.current && catalogServiceOptions.length === 0) {
+              svcCatalogRequested.current = true;
+              fetchCatalogServices({ limit: 200 });
+            }
             setPackageRows((rows) => [...rows, { id: "", packageId: "", packageName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: "", time: serviceRows[0]?.time || defaultTime || "" }]);
           }}
           productRows={productRows}
@@ -2026,6 +2068,7 @@ export const AppointmentModal: React.FC<Props> = ({
           availablePackages={availablePackages}
           availableProducts={availableProducts}
           availableMemberships={availableMemberships}
+          serviceCatalog={catalogServiceOptions}
           packageRemainingByRow={perRowCoveredRemaining}
           membershipWalletInfo={membershipWalletMap}
           serviceTaxByRow={serviceTaxByRow}

@@ -50,7 +50,14 @@ export type PurchaseEventType =
   | "sessions_remaining"
   | "appointment_confirmation"
   | "appointment_reminder_24h"
-  | "appointment_rescheduled";
+  | "appointment_rescheduled"
+  // Reminders for an appointment booked out of a package sale. Separate from
+  // the generic appointment_reminder_* events so the copy can name the
+  // package and say the visit is already paid for; package-linked
+  // appointments are excluded from the generic sweeps server-side so a
+  // client never gets both for one visit.
+  | "package_appointment_reminder_2d"
+  | "package_appointment_reminder_1d";
 export type TemplateSubmissionStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
 
 // Matches backend AutomationTemplate rows scoped to a salon (wa_automation_templates)

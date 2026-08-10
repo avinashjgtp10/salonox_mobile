@@ -126,6 +126,10 @@ export function mapApiBooking(
       ...s,
       ...(isPackagePaid || isServiceFromPackage ? { total: 0 } : {}),
       isPackageService: isServiceFromPackage,
+      // Exact package-service link (schedule-at-sale feature) — distinct
+      // from the fuzzy isPackageService coverage flag above.
+      clientPackageId: s.client_package_id ?? (s as any).clientPackageId ?? undefined,
+      clientPackageServiceId: s.client_package_service_id ?? (s as any).clientPackageServiceId ?? undefined,
       name: sName,
       service: sName,
       staff: staffNameStr,
