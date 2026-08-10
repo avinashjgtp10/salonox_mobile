@@ -62,8 +62,10 @@ const createRecoveryColors = (theme: ThemeColors, scheme: "light" | "dark") => (
   inputBorder: theme.border,
   error: theme.error,
   errorBg: theme.errorBg,
+  errorBorder: theme.errorBorder,
   success: theme.success,
   successBg: theme.successBg,
+  successBorder: theme.successBorder,
   statusBarStyle: scheme === "dark" ? ("light-content" as const) : ("dark-content" as const),
 });
 
@@ -423,11 +425,11 @@ const createStyles = (Colors: RecoveryThemeColors) => StyleSheet.create({
   },
   errorContainer: {
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(114, 106, 99, 0.18)",
+    borderColor: Colors.errorBorder,
   },
   successContainer: {
     backgroundColor: Colors.successBg,
-    borderColor: "rgba(28, 25, 23, 0.12)",
+    borderColor: Colors.successBorder,
   },
   messageIcon: {
     marginRight: 8,

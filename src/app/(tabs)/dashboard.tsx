@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   RefreshControl,
   ScrollView,
@@ -14,7 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppLayout } from "@/constants/layout";
 import AppointmentsList from "@/components/dashboard/AppointmentsList";
 import DashboardHero from "@/components/dashboard/DashboardHero";
-import { DashboardFloatingActions } from "@/components/dashboard/DashboardFloatingActions";
+import { DashboardSideDrawer } from "@/components/dashboard/DashboardSideDrawer";
 import DashboardStatTiles from "@/components/dashboard/DashboardStatTiles";
 import QuickActions from "@/components/dashboard/QuickActions";
 import StaffWorkload from "@/components/dashboard/StaffWorkload";
@@ -64,6 +64,7 @@ export default function DashboardScreen() {
   const didLogNavigationRef = useRef(false);
   const didRunStartupFetchRef = useRef(false);
   const didHandleInitialFocusRef = useRef(false);
+  const [isQuickActionsDrawerOpen, setIsQuickActionsDrawerOpen] = useState(false);
   const dashboardError = useAppSelector(selectDashboardError);
   const isDashboardLoading = useAppSelector(selectDashboardIsLoading);
   const isDashboardRefreshing = useAppSelector(selectDashboardRefreshing);
@@ -264,7 +265,7 @@ export default function DashboardScreen() {
           </View>
         ) : (
           <>
-            <DashboardHero />
+            <DashboardHero onOpenQuickActions={() => setIsQuickActionsDrawerOpen(true)} />
             <View style={styles.summaryBlock}>
               <DashboardStatTiles />
             </View>
@@ -280,7 +281,10 @@ export default function DashboardScreen() {
           </>
         )}
       </ScrollView>
-      <DashboardFloatingActions />
+      <DashboardSideDrawer
+        onClose={() => setIsQuickActionsDrawerOpen(false)}
+        visible={isQuickActionsDrawerOpen}
+      />
       <AttendanceToast />
     </SafeAreaView>
   );

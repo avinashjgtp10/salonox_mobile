@@ -1,7 +1,8 @@
-import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
 import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
 
+import { IconBadge } from "@/components/ui/IconBadge";
+import { MiniBarChart } from "@/components/ui/MiniBarChart";
 import { DashboardTypography as Typography, type ThemeColors } from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
 import {
@@ -60,28 +61,33 @@ export default function DashboardStatTiles() {
   const ownerKpis = useMemo(
     () => [
       {
+        accent: "blue" as const,
         icon: "cash-outline" as const,
         label: "This Month Revenue",
         subtitle: "Current Calendar Month",
         value: formatDashboardRevenue(dashboardMetrics.monthlyRevenue),
       },
       {
+        accent: "sky" as const,
         icon: "trending-up-outline" as const,
         label: "Today's Revenue",
         value: formatDashboardRevenue(dashboardMetrics.todaysRevenue),
       },
       {
+        accent: "indigo" as const,
         icon: "cube-outline" as const,
         kind: "stock" as const,
         label: "Stock",
         stockMetrics: inventorySummary,
       },
       {
+        accent: "green" as const,
         icon: "calendar-outline" as const,
         label: "Bookings",
         value: String(dashboardMetrics.bookings),
       },
       {
+        accent: "blue" as const,
         currentMonthRevenue: dashboardMetrics.monthlyRevenue,
         icon: "analytics-outline" as const,
         kind: "revenueComparison" as const,
@@ -121,9 +127,7 @@ export default function DashboardStatTiles() {
             </>
           ) : (
             <>
-              <View style={[styles.iconWrap, isCompact && styles.iconWrapCompact]}>
-                <Ionicons name={stat.icon} size={22} color={Colors.heading} />
-              </View>
+              <IconBadge accent={stat.accent} icon={stat.icon} size={isCompact ? "sm" : "md"} />
               <View
                 style={[
                   styles.copy,
@@ -166,6 +170,15 @@ export default function DashboardStatTiles() {
                       {stat.label}
                     </Text>
                     <View style={styles.titleDivider} />
+                    <View style={styles.comparisonChart}>
+                      <MiniBarChart
+                        accent={stat.accent}
+                        data={[
+                          { label: "Last Month", value: stat.lastMonthRevenue },
+                          { label: "This Month", value: stat.currentMonthRevenue },
+                        ]}
+                      />
+                    </View>
                     <View style={styles.comparisonRows}>
                       <View style={styles.comparisonMetric}>
                         <Text style={styles.comparisonLabel}>Current Month</Text>
@@ -261,19 +274,6 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     justifyContent: "center",
     minHeight: isCompact ? 148 : 164,
   },
-  iconWrap: {
-    alignItems: "center",
-    backgroundColor: Colors.backgroundElement,
-    borderRadius: 17,
-    height: isCompact ? 48 : 56,
-    justifyContent: "center",
-    width: isCompact ? 48 : 56,
-  },
-  iconWrapCompact: {
-    borderRadius: 14,
-    height: 40,
-    width: 40,
-  },
   copy: {
     alignItems: "center",
     flex: 0,
@@ -335,6 +335,10 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     justifyContent: "space-between",
     marginTop: isCompact ? 16 : 18,
     minWidth: 0,
+    width: "100%",
+  },
+  comparisonChart: {
+    marginTop: isCompact ? 14 : 16,
     width: "100%",
   },
   comparisonRows: {

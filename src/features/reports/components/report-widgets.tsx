@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
-import { SkeletonBlock } from "@/components/ui/StateViews";
+import { SkeletonBlock, StateIllustration } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardSpacing as Spacing,
@@ -115,13 +115,11 @@ export const ReportState = memo(function ReportState({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.stateCard}>
-      <View style={[styles.stateIcon, error && styles.errorIcon]}>
-        <Ionicons
-          name={error ? "cloud-offline-outline" : "file-tray-outline"}
-          size={25}
-          color={error ? Colors.error : Colors.primary}
-        />
-      </View>
+      <StateIllustration
+        Colors={Colors}
+        accent={error ? "error" : "blue"}
+        icon={error ? "cloud-offline-outline" : "file-tray-outline"}
+      />
       <Text allowFontScaling style={styles.stateTitle}>{title}</Text>
       <Text allowFontScaling style={styles.stateDescription}>{description}</Text>
       <TouchableOpacity
@@ -190,11 +188,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   rowLabel: { color: Colors.text2, fontSize: 10, fontWeight: "700", textTransform: "uppercase" },
   rowValue: { color: Colors.text, fontSize: 12, fontVariant: ["tabular-nums"], fontWeight: "600", paddingTop: 3 },
   stateCard: { alignItems: "center", gap: Spacing.sm, paddingHorizontal: Spacing.xl, paddingVertical: 48 },
-  stateIcon: {
-    alignItems: "center", backgroundColor: Colors.backgroundElement, borderRadius: 999,
-    height: 58, justifyContent: "center", width: 58,
-  },
-  errorIcon: { backgroundColor: Colors.errorBg },
   stateTitle: { color: Colors.heading, fontSize: 17, fontWeight: "800", paddingTop: Spacing.sm },
   stateDescription: { color: Colors.text2, fontSize: 13, lineHeight: 19, textAlign: "center" },
   retryButton: {

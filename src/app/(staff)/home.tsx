@@ -22,7 +22,6 @@ import { DashboardRadius as Radius, type ThemeColors } from "@/constants/theme";
 import { findAttendanceRecordForStaff } from "@/features/attendance/utils/attendanceMatching";
 import {
   formatAttendanceTime,
-  formatHourMinuteAmPm,
   getAttendanceAction,
   getAttendanceBadgeConfig,
   getTodayAttendanceDateKey,
@@ -65,6 +64,7 @@ import {
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentListItem, AppointmentStatus } from "@/types/appointment";
+import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { getUserFullName, getUserInitials } from "@/utils/userProfile";
 
 const STAFF_HOME_APPOINTMENT_LIMIT = 40;
@@ -79,22 +79,25 @@ const STAFF_ROUTES = {
   settings: "./more",
 } as const satisfies Record<string, Href>;
 
-const DASHBOARD = {
-  amber: "#F2A516",
-  amberSoft: "rgba(242, 165, 22, 0.2)",
-  beige: "#7A6957",
-  beigeSoft: "rgba(122, 105, 87, 0.66)",
-  black: "#050505",
-  card: "#171511",
-  cardAlt: "#1D1A15",
-  danger: "#E08F86",
-  green: "#35D064",
-  greenSoft: "rgba(53, 208, 100, 0.2)",
-  muted: "#C4B8AA",
-  purple: "#8B64D8",
-  purpleSoft: "rgba(139, 100, 216, 0.2)",
-  text: "#FFFFFF",
-};
+// Derived from the live theme tokens so every DASHBOARD.* call site reacts
+// to the active light/dark mode — call this inside a component (or a style
+// factory that receives Colors from useThemeColors()), never at module scope.
+const getDashboardTones = (Colors: ThemeColors) => ({
+  amber: Colors.warning,
+  amberSoft: Colors.warningBg,
+  beige: Colors.text2,
+  beigeSoft: Colors.backgroundElement,
+  black: Colors.bg,
+  card: Colors.card,
+  cardAlt: Colors.bg2,
+  danger: Colors.error,
+  green: Colors.success,
+  greenSoft: Colors.successBg,
+  muted: Colors.text2,
+  purple: Colors.purple,
+  purpleSoft: Colors.purpleBg,
+  text: Colors.heading,
+});
 
 const getResponsiveHorizontalPadding = (width = 393) => {
   if (width < 360) {
@@ -115,15 +118,7 @@ const getResponsiveHorizontalPadding = (width = 393) => {
 const getDashboardTitleSize = (width = 393) => (width < 360 ? 27 : width >= 600 ? 34 : 29);
 const getCardPadding = () => 14;
 
-const formatDateLabel = () =>
-  new Intl.DateTimeFormat("en-IN", {
-    day: "2-digit",
-    month: "short",
-    weekday: "short",
-  })
-    .format(new Date())
-    .replace(",", "")
-    .toUpperCase();
+const formatDateLabel = () => formatAppDate(new Date()).toUpperCase();
 
 const getGreeting = () => {
   const hour = new Date().getHours();
@@ -178,26 +173,27 @@ const getOwnerDashboardAppointmentBadge = (Colors: ThemeColors, status: Appointm
   }
 };
 
-const getAttendanceTone = (label: string) => {
+const getAttendanceTone = (label: string, Colors: ThemeColors) => {
   const normalized = label.toLowerCase();
+  const DASHBOARD = getDashboardTones(Colors);
 
   if (normalized.includes("absent") || normalized.includes("not checked") || normalized.includes("not started")) {
-    return { bg: "rgba(224, 83, 76, 0.24)", color: "#FF7F78" };
+    return { bg: Colors.errorBg, color: DASHBOARD.danger };
   }
 
   if (normalized.includes("late")) {
-    return { bg: DASHBOARD.amberSoft, color: "#FFB84D" };
+    return { bg: DASHBOARD.amberSoft, color: DASHBOARD.amber };
   }
 
   if (normalized.includes("leave")) {
-    return { bg: "rgba(92, 125, 174, 0.24)", color: "#8FB9FF" };
+    return { bg: Colors.infoBg, color: Colors.info };
   }
 
   if (normalized.includes("present") || normalized.includes("checked")) {
-    return { bg: "rgba(53, 208, 100, 0.24)", color: DASHBOARD.green };
+    return { bg: DASHBOARD.greenSoft, color: DASHBOARD.green };
   }
 
-  return { bg: "rgba(196, 184, 170, 0.16)", color: DASHBOARD.muted };
+  return { bg: Colors.backgroundElement, color: DASHBOARD.muted };
 };
 
 const getStaffAttendanceStateLabel = (
@@ -230,7 +226,7 @@ const getStaffAttendanceActionLabel = (kind: ReturnType<typeof getAttendanceActi
 const formatTimeLabel = (value: string | null | undefined) => {
   const parsed = parseAttendanceDateTime(value);
 
-  return parsed ? formatHourMinuteAmPm(parsed) : "--:--";
+  return parsed ? formatAppTime(parsed, "--:--") : "--:--";
 };
 
 const formatWorkingTime = (checkInTime: string | null | undefined, checkOutTime: string | null | undefined, now: number) => {
@@ -326,7 +322,9 @@ export default function StaffHomeRoute() {
   const attendanceBusy = checkingIn || checkingOut;
   const attendanceBadge = getAttendanceBadgeConfig(selfAttendance, Colors);
   const attendanceStateLabel = getStaffAttendanceStateLabel(selfAttendance, attendanceBadge.label);
-  const attendanceTone = getAttendanceTone(attendanceStateLabel);
+  const attendanceTone = getAttendanceTone(attendanceStateLabel, Colors);
+  const DASHBOARD = getDashboardTones(Colors);
+  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
 
   const todayAppointments = useMemo(
     () =>
@@ -494,13 +492,13 @@ export default function StaffHomeRoute() {
           <View style={stylesStatic.quickRow}>
             <QuickAction
               icon="time-outline"
-              iconBg="rgba(71, 138, 75, 0.55)"
+              iconBg="rgba(16, 185, 129, 0.14)"
               label="Attendance"
               onPress={() => router.push(STAFF_ROUTES.attendance)}
             />
             <QuickAction
               icon="settings-outline"
-              iconBg="rgba(74, 93, 111, 0.55)"
+              iconBg={DASHBOARD.purpleSoft}
               label="Settings"
               onPress={() => router.push(STAFF_ROUTES.settings)}
             />
@@ -521,6 +519,10 @@ export default function StaffHomeRoute() {
 }
 
 function ErrorBanner({ message, onRetry }: { message: string; onRetry?: () => void }) {
+  const Colors = useThemeColors();
+  const DASHBOARD = getDashboardTones(Colors);
+  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
+
   return (
     <Pressable disabled={!onRetry} onPress={onRetry} style={stylesStatic.errorBanner}>
       <Ionicons name="alert-circle-outline" size={18} color={DASHBOARD.amber} />
@@ -556,6 +558,9 @@ function AttendanceCard({
   tone: { bg: string; color: string };
   workingLabel: string;
 }) {
+  const Colors = useThemeColors();
+  const DASHBOARD = getDashboardTones(Colors);
+  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
   const checkedOut = checkOutLabel !== "--:--";
 
   return (
@@ -620,6 +625,9 @@ function Metric({
   showDivider?: boolean;
   value: string;
 }) {
+  const Colors = useThemeColors();
+  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
+
   return (
     <View style={[stylesStatic.metric, showDivider && stylesStatic.metricDivider, metricStyle]}>
       <Text style={stylesStatic.metricLabel}>{label}</Text>
@@ -634,7 +642,7 @@ function Metric({
   );
 }
 
-function _NextAppointmentCard({
+function NextAppointmentCard({
   appointment,
   countdown,
   error,
@@ -649,6 +657,10 @@ function _NextAppointmentCard({
   onPressDetails: () => void;
   onPressStart: () => void;
 }) {
+  const Colors = useThemeColors();
+  const DASHBOARD = getDashboardTones(Colors);
+  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
+
   if (loading) {
     return (
       <View style={stylesStatic.nextCard}>
@@ -676,7 +688,7 @@ function _NextAppointmentCard({
   return (
     <View style={stylesStatic.nextCard}>
       <View style={stylesStatic.nextLeftIcon}>
-        <Ionicons name="calendar-outline" size={26} color={DASHBOARD.text} />
+        <Ionicons name="calendar-outline" size={26} color="#FFFFFF" />
       </View>
       <Pressable onPress={onPressDetails} style={stylesStatic.nextCopy}>
         <Text style={stylesStatic.cardEyebrow}>Next Appointment</Text>
@@ -704,7 +716,7 @@ function _NextAppointmentCard({
   );
 }
 
-void _NextAppointmentCard;
+void NextAppointmentCard;
 
 function QuickAction({
   icon,
@@ -717,6 +729,10 @@ function QuickAction({
   label: string;
   onPress: () => void;
 }) {
+  const Colors = useThemeColors();
+  const DASHBOARD = getDashboardTones(Colors);
+  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
+
   return (
     <TouchableOpacity activeOpacity={0.82} onPress={onPress} style={stylesStatic.quickCard}>
       <View style={[stylesStatic.quickIcon, { backgroundColor: iconBg }]}>
@@ -728,6 +744,9 @@ function QuickAction({
 }
 
 function TodayAppointmentsCard({ appointments, loading }: { appointments: AppointmentListItem[]; loading: boolean }) {
+  const Colors = useThemeColors();
+  const DASHBOARD = getDashboardTones(Colors);
+  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
   const visibleAppointments = appointments.slice(0, 3);
 
   return (
@@ -760,6 +779,8 @@ function TodayAppointmentsCard({ appointments, loading }: { appointments: Appoin
 
 function TimelineRow({ appointment, isLast }: { appointment: AppointmentListItem; isLast: boolean }) {
   const Colors = useThemeColors();
+  const DASHBOARD = getDashboardTones(Colors);
+  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
   const badge = getOwnerDashboardAppointmentBadge(Colors, appointment.status);
   const bookingType = getRawString(appointment, ["booking_type", "bookingType", "client_type", "clientType", "type"]) || "Booking";
 
@@ -792,6 +813,9 @@ function ProgressCard({
   completed: number;
   remaining: number;
 }) {
+  const Colors = useThemeColors();
+  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
+
   return (
     <View style={stylesStatic.progressCard}>
       <Text style={stylesStatic.cardTitleMuted}>{"Today's Progress"}</Text>
@@ -815,6 +839,10 @@ function ProgressMetric({
   label: string;
   value: string;
 }) {
+  const Colors = useThemeColors();
+  const DASHBOARD = getDashboardTones(Colors);
+  const stylesStatic = useMemo(() => getStylesStatic(Colors), [Colors]);
+
   return (
     <View style={stylesStatic.progressMetric}>
       <View style={[stylesStatic.progressIcon, { backgroundColor: bg }]}>
@@ -830,22 +858,24 @@ function ProgressMetric({
   );
 }
 
-const createStyles = (_Colors: ThemeColors, width = 393, bottomInset = 0) =>
-  StyleSheet.create({
+const createStyles = (Colors: ThemeColors, width = 393, bottomInset = 0) => {
+  const DASHBOARD = getDashboardTones(Colors);
+
+  return StyleSheet.create({
     avatarButton: {
       height: width < 360 ? 48 : 54,
       width: width < 360 ? 48 : 54,
     },
     avatarFallback: {
       alignItems: "center",
-      backgroundColor: "#2C2823",
+      backgroundColor: Colors.backgroundElement,
       borderRadius: Radius.full,
       height: "100%",
       justifyContent: "center",
       width: "100%",
     },
     avatarImage: {
-      backgroundColor: "#2C2823",
+      backgroundColor: Colors.backgroundElement,
       borderRadius: Radius.full,
       height: "100%",
       width: "100%",
@@ -938,6 +968,7 @@ const createStyles = (_Colors: ThemeColors, width = 393, bottomInset = 0) =>
     },
 
   });
+};
 
 const cardShadow = {
   elevation: 3,
@@ -947,15 +978,20 @@ const cardShadow = {
   shadowRadius: 26,
 };
 
-const baseCard = {
-  backgroundColor: DASHBOARD.card,
-  borderColor: "rgba(255, 255, 255, 0.08)",
-  borderRadius: 26,
-  borderWidth: 1,
-  ...cardShadow,
-};
+// Was a module-level static object built once from Colors.light directly —
+// converted to a factory so every consumer recomputes it from the live
+// theme via useThemeColors(), reacting to the light/dark toggle.
+const getStylesStatic = (Colors: ThemeColors) => {
+  const DASHBOARD = getDashboardTones(Colors);
+  const baseCard = {
+    backgroundColor: DASHBOARD.card,
+    borderColor: Colors.border,
+    borderRadius: 26,
+    borderWidth: 1,
+    ...cardShadow,
+  };
 
-const stylesStatic = StyleSheet.create({
+  return StyleSheet.create({
   attendanceCard: {
     ...baseCard,
     padding: getCardPadding(),
@@ -1027,7 +1063,7 @@ const stylesStatic = StyleSheet.create({
     paddingHorizontal: 14,
   },
   checkoutText: {
-    color: "#EFE5DC",
+    color: DASHBOARD.text,
     fontSize: 14,
     fontWeight: "800",
   },
@@ -1041,7 +1077,7 @@ const stylesStatic = StyleSheet.create({
   countdownPill: {
     backgroundColor: DASHBOARD.purpleSoft,
     borderRadius: Radius.full,
-    color: "#C9B4FF",
+    color: DASHBOARD.purple,
     fontSize: 12,
     fontWeight: "900",
     marginLeft: 10,
@@ -1085,7 +1121,7 @@ const stylesStatic = StyleSheet.create({
     paddingLeft: 8,
   },
   metricDivider: {
-    borderLeftColor: "rgba(255, 255, 255, 0.08)",
+    borderLeftColor: Colors.border,
     borderLeftWidth: StyleSheet.hairlineWidth,
   },
   metricWide: {
@@ -1290,7 +1326,7 @@ const stylesStatic = StyleSheet.create({
     paddingVertical: 8,
   },
   timelineInfoBorder: {
-    borderBottomColor: "rgba(255, 255, 255, 0.1)",
+    borderBottomColor: Colors.border,
     borderBottomWidth: 1,
   },
   timelineRow: {
@@ -1330,4 +1366,5 @@ const stylesStatic = StyleSheet.create({
     fontSize: 14,
     fontWeight: "900",
   },
-});
+  });
+};

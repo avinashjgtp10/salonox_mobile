@@ -1,5 +1,6 @@
 import { api } from "@/services/api";
 import { DASHBOARD } from "@/services/api/endpoints";
+import { formatAppTime } from "@/utils/dateTime";
 
 type DashboardSummaryResponse = {
   lastMonthRevenue?: number | null;
@@ -266,15 +267,7 @@ const parseScheduledAtMs = (appointment: DashboardAppointmentResponse): number |
 // Formats an absolute instant using the device's local timezone (never the
 // backend server's timezone), matching the "H:MM AM/PM" shape the dashboard
 // UI already parses.
-const formatLocalTime = (scheduledAtMs: number) => {
-  const date = new Date(scheduledAtMs);
-  const hours24 = date.getHours();
-  const minutes = date.getMinutes();
-  const ampm = hours24 >= 12 ? "PM" : "AM";
-  const hours12 = hours24 % 12 || 12;
-
-  return `${hours12}:${String(minutes).padStart(2, "0")} ${ampm}`;
-};
+const formatLocalTime = (scheduledAtMs: number) => formatAppTime(scheduledAtMs, "--:--");
 
 const normalizeAppointment = (
   appointment: DashboardAppointmentResponse,

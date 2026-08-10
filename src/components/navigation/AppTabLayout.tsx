@@ -32,8 +32,9 @@ function TabIcon({ compact, focused, name }: TabIconProps) {
   const styles = useMemo(() => createStyles(Colors, 0, compact), [Colors, compact]);
 
   return (
-    <View style={[styles.iconWrap, focused && styles.iconWrapFocused]}>
-      <Ionicons name={name} size={20} color={focused ? Colors.onPrimary : Colors.hint} />
+    <View style={styles.iconWrap}>
+      <Ionicons name={name} size={20} color={focused ? Colors.primary : Colors.hint} style={focused ? undefined : styles.iconDimmed} />
+      <View style={[styles.dot, focused && styles.dotActive]} />
     </View>
   );
 }
@@ -98,12 +99,21 @@ const createStyles = (Colors: ThemeColors, bottomInset = 0, compactTabs = false)
   },
   iconWrap: {
     alignItems: "center",
-    borderRadius: compactTabs ? 12 : 14,
+    gap: 4,
     height: compactTabs ? 30 : 34,
     justifyContent: "center",
     width: compactTabs ? 32 : 38,
   },
-  iconWrapFocused: {
-    backgroundColor: Colors.primaryDark,
+  iconDimmed: {
+    opacity: 0.55,
+  },
+  dot: {
+    backgroundColor: "transparent",
+    borderRadius: 999,
+    height: 4,
+    width: 4,
+  },
+  dotActive: {
+    backgroundColor: Colors.primary,
   },
 });

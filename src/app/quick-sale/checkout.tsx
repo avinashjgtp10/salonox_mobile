@@ -3,6 +3,7 @@ import { router, Stack, useFocusEffect, useLocalSearchParams, type Href } from "
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   BackHandler,
   ScrollView,
   StyleSheet,
@@ -12,6 +13,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ReceiptModal } from "@/components/receipt/ReceiptModal";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import {
   DashboardRadius as Radius,
@@ -19,11 +21,16 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import { fetchSaleByIdThunk } from "@/middleware/sales/sales.thunk";
+import { printerService } from "@/services/printer.service";
+import { salonService } from "@/services/salon.service";
 import { useAppDispatch } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import type { SalonListItem } from "@/types/salon";
 import type { SaleDetail } from "@/types/sales";
 import { normalizeSaleId } from "@/utils/apiNormalize";
+import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { formatInvoiceNumber } from "@/utils/receipt";
+import type { ReceiptData } from "@/utils/receiptGenerator";
 
 type ReceiptLoadStatus = "initial" | "loading" | "loaded" | "failed" | "retrying";
 
@@ -61,10 +68,32 @@ export default function QuickSaleCheckoutScreen() {
   const receiptRequestIdRef = useRef(0);
   const receiptRequestInFlightRef = useRef(false);
   const [receiptLoadState, setReceiptLoadState] = useState<ReceiptLoadState>({
+    // ... existing state ...
     error: null,
     sale: null,
     status: "initial",
   });
+  const [salon, setSalon] = useState<SalonListItem | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    salonService
+      .getSalonMe()
+      .then((result) => {
+        if (!cancelled) {
+          setSalon(result);
+        }
+      })
+      .catch(() => {
+        // Receipt still renders without salon branding — printReceipt/shareReceipt
+        // just fall back to empty salon fields below.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const isPreview = params.mode === "preview";
 
@@ -146,6 +175,118 @@ export default function QuickSaleCheckoutScreen() {
   const itemCount = lineItems.reduce((count, item) => count + item.quantity, 0);
   const outstandingAmount = authoritativeSale?.outstandingAmount ?? 0;
 
+  const [isReceiptModalVisible, setIsReceiptModalVisible] = useState(false);
+
+  const receiptData = useMemo<ReceiptData | null>(() => {
+    if (!authoritativeSale) return null;
+
+    const [datePart, timePart] = authoritativeSale.createdDateLabel.includes(" • ")
+      ? authoritativeSale.createdDateLabel.split(" • ")
+      : [formatAppDate(authoritativeSale.createdDateLabel), formatAppTime(authoritativeSale.createdDateLabel)];
+
+    const items = authoritativeSale.lineItems.map((item) => ({
+      name: item.name,
+      qty: item.quantity,
+      price: item.unitPrice,
+      total: item.totalPrice,
+      discount: item.discountAmount,
+    }));
+
+    const itemDiscountTotal = items.reduce((sum, item) => sum + (item.discount ?? 0), 0);
+
+    // Split payments store their per-method breakdown as backend-computed
+    // { [method]: amount } JSON — parsed here, never recalculated locally.
+    let paymentBreakdown: { method: string; amount: number }[] | undefined;
+    if (authoritativeSale.paymentMethod === "split" && authoritativeSale.paymentReference) {
+      try {
+        const parsed = JSON.parse(authoritativeSale.paymentReference) as Record<string, number>;
+        paymentBreakdown = Object.entries(parsed)
+          .filter(([, amount]) => Number(amount) > 0)
+          .map(([method, amount]) => ({ method: formatPaymentMethod(method), amount: Number(amount) }));
+      } catch {
+        paymentBreakdown = undefined;
+      }
+    }
+
+    return {
+      salon: {
+        name: salon?.businessName || salon?.name || "Salon",
+        address: salon?.address || undefined,
+        city: salon?.city || undefined,
+        state: salon?.state || undefined,
+        phone: salon?.phone || undefined,
+        email: salon?.email || undefined,
+        website: salon?.websiteUrl || undefined,
+        gstin: salon?.gstin || undefined,
+        logoUrl: salon?.logoUrl || undefined,
+      },
+      invoice: {
+        invoiceNumber: formatInvoiceNumber(authoritativeSale.receiptNumber) ?? "N/A",
+        date: datePart,
+        time: timePart,
+        paymentMethod: formatPaymentMethod(authoritativeSale.paymentMethod),
+      },
+      client: {
+        name: authoritativeSale.clientName ?? "Walk-in Client",
+        phone: authoritativeSale.clientPhone,
+        email: undefined, // Not available in SaleDetail directly
+      },
+      staffName: authoritativeSale.lineItems.find((item) => item.staffName)?.staffName,
+      items,
+      paymentBreakdown,
+      pricing: {
+        subtotal: authoritativeSale.subtotal,
+        itemDiscountTotal: itemDiscountTotal > 0 ? itemDiscountTotal : undefined,
+        manualDiscount:
+          authoritativeSale.manualDiscountAmount > 0 ? authoritativeSale.manualDiscountAmount : undefined,
+        couponDiscount:
+          authoritativeSale.couponDiscountAmount > 0 ? authoritativeSale.couponDiscountAmount : undefined,
+        gstAmount: authoritativeSale.taxAmount,
+        taxBreakdown: undefined, // Backend stores one blended tax_amount per sale, no CGST/SGST split
+        exCharges: authoritativeSale.exCharges,
+        tipAmount: authoritativeSale.tipAmount,
+        grandTotal: authoritativeSale.total,
+        amountPaid: authoritativeSale.amountPaid,
+        dueAmount: authoritativeSale.outstandingAmount,
+      },
+      paperSize: "80mm",
+      footerMessage: "Thank you for your business! Visit us again soon.",
+      upiQrUrl: undefined, // No UPI QR source stored on the salon profile yet
+    };
+  }, [authoritativeSale, salon]);
+
+  const [isQuickActionLoading, setIsQuickActionLoading] = useState(false);
+
+  const handleViewReceipt = useCallback(() => {
+    setIsReceiptModalVisible(true);
+  }, []);
+
+  const handlePrintReceipt = useCallback(async () => {
+    if (!receiptData || isQuickActionLoading) return;
+
+    setIsQuickActionLoading(true);
+    try {
+      await printerService.printReceipt(receiptData);
+    } catch {
+      Alert.alert("Print failed", "Could not open the print dialog. Please try again.");
+    } finally {
+      setIsQuickActionLoading(false);
+    }
+  }, [isQuickActionLoading, receiptData]);
+
+  const handleShareReceipt = useCallback(async () => {
+    if (!receiptData || isQuickActionLoading) return;
+
+    setIsQuickActionLoading(true);
+    try {
+      await printerService.shareReceipt(receiptData);
+    } catch {
+      Alert.alert("Share failed", "Could not generate the receipt PDF. Please try again.");
+    } finally {
+      setIsQuickActionLoading(false);
+    }
+  }, [isQuickActionLoading, receiptData]);
+
   const replaceOnce = useCallback((href: Href) => {
     if (hasTerminalNavigationStartedRef.current) {
       return;
@@ -214,8 +355,8 @@ export default function QuickSaleCheckoutScreen() {
           style={styles.scroll}
         >
           {receiptLoadState.status === "initial" ||
-          receiptLoadState.status === "loading" ||
-          receiptLoadState.status === "retrying" ? (
+            receiptLoadState.status === "loading" ||
+            receiptLoadState.status === "retrying" ? (
             <View style={styles.receiptStateCard}>
               <ActivityIndicator color={Colors.primary} size="large" />
               <Text style={styles.receiptStateTitle}>
@@ -259,61 +400,71 @@ export default function QuickSaleCheckoutScreen() {
             </View>
           ) : authoritativeSale ? (
             <>
-          <View style={styles.successBlock}>
-            <View style={styles.iconWrap}>
-              <Ionicons
-                name={isPreview ? "receipt-outline" : "checkmark"}
-                size={34}
-                color={Colors.primary}
-              />
-            </View>
-            <Text style={styles.title}>{isPreview ? "Receipt Ready" : "Payment Successful"}</Text>
-            <Text style={styles.subtitle}>
-              {isPreview
-                ? "Your draft receipt is ready for review."
-                : "The sale has been completed successfully."}
-            </Text>
-          </View>
-
-          <View style={styles.infoCard}>
-            <InfoRow label="Invoice" value={receipt} />
-            <InfoRow label="Client" value={clientName} />
-            <InfoRow label="Date & Time" value={createdDateLabel} />
-            <InfoRow label="Payment" value={formatPaymentMethod(paymentMethod)} />
-            <InfoRow label="Items" value={itemCount > 0 ? String(itemCount) : "—"} />
-            <InfoRow label="Total" value={formatCurrency(total)} />
-            {outstandingAmount > 0 ? (
-              <InfoRow label="Outstanding" value={formatCurrency(outstandingAmount)} />
-            ) : null}
-          </View>
-
-          {lineItems.length > 0 ? (
-            <View style={styles.infoCard}>
-              <Text style={styles.sectionTitle}>Services Summary</Text>
-              {lineItems.slice(0, 4).map((item) => (
-                <View key={item.id} style={styles.itemRow}>
-                  <View style={styles.itemCopy}>
-                    <Text numberOfLines={1} style={styles.itemName}>
-                      {item.name}
-                    </Text>
-                    <Text style={styles.itemMeta}>Qty {item.quantity}</Text>
-                  </View>
-                  <Text style={styles.itemPrice}>{formatCurrency(item.totalPrice)}</Text>
+              <View style={styles.successBlock}>
+                <View style={styles.iconWrap}>
+                  <Ionicons
+                    name={isPreview ? "receipt-outline" : "checkmark"}
+                    size={34}
+                    color={Colors.primary}
+                  />
                 </View>
-              ))}
-              {lineItems.length > 4 ? (
-                <Text style={styles.moreItemsText}>+{lineItems.length - 4} more item(s)</Text>
-              ) : null}
-            </View>
-          ) : null}
+                <Text style={styles.title}>{isPreview ? "Receipt Ready" : "Payment Successful"}</Text>
+                <Text style={styles.subtitle}>
+                  {isPreview
+                    ? "Your draft receipt is ready for review."
+                    : "The sale has been completed successfully."}
+                </Text>
+              </View>
 
-          <View style={styles.infoCard}>
-            <Text style={styles.sectionTitle}>Receipt Actions</Text>
-            <ReceiptAction icon="print-outline" label="Print Receipt" />
-            <ReceiptAction icon="share-social-outline" label="Share Receipt" />
-            <ReceiptAction icon="logo-whatsapp" label="WhatsApp Receipt" />
-            <ReceiptAction icon="mail-outline" label="Email Receipt" />
-          </View>
+              <View style={styles.infoCard}>
+                <InfoRow label="Invoice" value={receipt} />
+                <InfoRow label="Client" value={clientName} />
+                <InfoRow label="Date & Time" value={createdDateLabel} />
+                <InfoRow label="Payment" value={formatPaymentMethod(paymentMethod)} />
+                <InfoRow label="Items" value={itemCount > 0 ? String(itemCount) : "—"} />
+                <InfoRow label="Total" value={formatCurrency(total)} />
+                {outstandingAmount > 0 ? (
+                  <InfoRow label="Outstanding" value={formatCurrency(outstandingAmount)} />
+                ) : null}
+              </View>
+
+              {lineItems.length > 0 ? (
+                <View style={styles.infoCard}>
+                  <Text style={styles.sectionTitle}>Services Summary</Text>
+                  {lineItems.slice(0, 4).map((item) => (
+                    <View key={item.id} style={styles.itemRow}>
+                      <View style={styles.itemCopy}>
+                        <Text numberOfLines={1} style={styles.itemName}>
+                          {item.name}
+                        </Text>
+                        <Text style={styles.itemMeta}>Qty {item.quantity}</Text>
+                      </View>
+                      <Text style={styles.itemPrice}>{formatCurrency(item.totalPrice)}</Text>
+                    </View>
+                  ))}
+                  {lineItems.length > 4 ? (
+                    <Text style={styles.moreItemsText}>+{lineItems.length - 4} more item(s)</Text>
+                  ) : null}
+                </View>
+              ) : null}
+
+              <View style={styles.infoCard}>
+                <Text style={styles.sectionTitle}>Receipt Actions</Text>
+                <ReceiptActionButton icon="receipt-outline" label="View Receipt" onPress={handleViewReceipt} />
+                <ReceiptActionButton
+                  icon="print-outline"
+                  label="Print Receipt"
+                  onPress={handlePrintReceipt}
+                  loading={isQuickActionLoading}
+                />
+                <ReceiptActionButton
+                  icon="share-social-outline"
+                  label="Share Receipt"
+                  onPress={handleShareReceipt}
+                  loading={isQuickActionLoading}
+                />
+                <ReceiptActionButton icon="mail-outline" label="Email Receipt" disabled />
+              </View>
 
               <TouchableOpacity
                 activeOpacity={0.86}
@@ -344,6 +495,14 @@ export default function QuickSaleCheckoutScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {receiptData && (
+        <ReceiptModal
+          visible={isReceiptModalVisible}
+          onClose={() => setIsReceiptModalVisible(false)}
+          receiptData={receiptData}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -360,17 +519,38 @@ function InfoRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ReceiptAction({ icon, label }: { icon: keyof typeof Ionicons.glyphMap; label: string }) {
+function ReceiptActionButton({
+  icon,
+  label,
+  onPress,
+  disabled = false,
+  loading = false,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  onPress?: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+}) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
-    <TouchableOpacity activeOpacity={1} disabled style={[styles.receiptAction, styles.buttonDisabled]}>
+    <TouchableOpacity
+      activeOpacity={0.86}
+      onPress={onPress}
+      disabled={disabled || loading}
+      style={[styles.receiptAction, (disabled || loading) && styles.buttonDisabled]}
+    >
       <View style={styles.receiptActionIcon}>
-        <Ionicons name={icon} size={17} color={Colors.primaryDark} />
+        {loading ? (
+          <ActivityIndicator color={Colors.primaryDark} size="small" />
+        ) : (
+          <Ionicons name={icon} size={17} color={disabled ? Colors.text2 : Colors.primaryDark} />
+        )}
       </View>
-      <Text style={styles.receiptActionText}>{label}</Text>
-      <Text style={styles.receiptActionMeta}>Coming Soon</Text>
+      <Text style={[styles.receiptActionText, disabled && { color: Colors.text2 }]}>{label}</Text>
+      {disabled && <Text style={styles.receiptActionMeta}>Coming Soon</Text>}
     </TouchableOpacity>
   );
 }

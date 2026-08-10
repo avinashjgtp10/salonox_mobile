@@ -1,5 +1,5 @@
-import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -15,30 +15,24 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
   useWindowDimensions,
+  View,
 } from "react-native";
 import Animated, { FadeIn, FadeOut, Layout } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { AppLayout, AppRadius } from "@/constants/layout";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
+import { StateIllustration } from "@/components/ui/StateViews";
+import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
-import { getApiErrorMessage } from "@/services/api";
-import {
-  appointmentStatusMatchesFilter,
-  appointmentStatusToApiValue,
-  appointmentStatusToListApiValue,
-} from "@/services/appointment.service";
-import { clientService } from "@/services/client.service";
-import { serviceService } from "@/services/service.service";
-import { fetchClientByIdThunk, fetchClientsThunk } from "@/middleware/client/client.thunk";
+import type { StaffMember } from "@/data/teamData";
+import { useAppForeground } from "@/hooks/useAppForeground";
 import {
   cancelAppointmentThunk,
   completeAppointmentThunk,
@@ -51,9 +45,19 @@ import {
   startAppointmentThunk,
   updateAppointmentThunk,
 } from "@/middleware/appointment/appointment.thunk";
-import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
+import { fetchClientByIdThunk, fetchClientsThunk } from "@/middleware/client/client.thunk";
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
+import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import { fetchStaffAvailabilityThunk } from "@/middleware/staff/staffAvailability.thunk";
+import { getApiErrorMessage } from "@/services/api";
+import {
+  appointmentStatusMatchesFilter,
+  appointmentStatusToApiValue,
+  appointmentStatusToListApiValue,
+} from "@/services/appointment.service";
+import { clientService } from "@/services/client.service";
+import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
+import { serviceService } from "@/services/service.service";
 import {
   clearAppointmentToast,
   selectAppointmentById,
@@ -61,8 +65,8 @@ import {
   selectAppointmentHistory,
   selectAppointmentHistoryError,
   selectAppointmentHistoryLoading,
-  selectAppointmentMutationError,
   selectAppointmentMutating,
+  selectAppointmentMutationError,
   selectAppointments,
   selectAppointmentsError,
   selectAppointmentsIsLoading,
@@ -72,23 +76,24 @@ import {
   selectAppointmentsRefreshing,
   selectAppointmentToast,
 } from "@/store/appointment/appointment.slice";
-import { selectClients } from "@/store/client/client.slice";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
+import { selectClients } from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import {
-  selectStaffAvailability,
-  selectStaffAvailabilityError,
-  selectStaffAvailabilityLoading,
-} from "@/store/staff/staffAvailability.slice";
 import {
   selectCurrentStaff,
   selectCurrentStaffError,
   selectCurrentStaffLoading,
   selectStaffMembers,
 } from "@/store/staff/staff.slice";
+import {
+  selectStaffAvailability,
+  selectStaffAvailabilityError,
+  selectStaffAvailabilityLoading,
+} from "@/store/staff/staffAvailability.slice";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import type {
-  AppointmentCalendarView,
   AppointmentApiService,
+  AppointmentCalendarView,
   AppointmentListItem,
   AppointmentPaymentMethod,
   AppointmentStatus,
@@ -96,14 +101,11 @@ import type {
   RescheduleAppointmentRequest,
   UpdateAppointmentRequest,
 } from "@/types/appointment";
-import type { BlockedTimeEntry } from "@/types/staffBlockedTimes";
 import type { ClientListItem } from "@/types/client";
-import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ServiceListItem } from "@/types/service";
 import type { StaffAvailabilitySlot } from "@/types/staffAvailability";
-import type { StaffMember } from "@/data/teamData";
-import { useAppForeground } from "@/hooks/useAppForeground";
-import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
+import type { BlockedTimeEntry } from "@/types/staffBlockedTimes";
+import { formatAppDate, formatAppTime } from "@/utils/dateTime";
 import { isValidIsoDate } from "@/utils/validation";
 
 const STATUS_FILTERS: ("All" | AppointmentStatus)[] = [
@@ -622,19 +624,6 @@ const parseAppointmentDateTime = (value: string | null): Date | null => {
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 };
 
-// Deterministic 12-hour "H:MM AM/PM" formatting (e.g. "9:00 AM", "2:30 PM").
-// Built manually rather than via Intl.DateTimeFormat, whose AM/PM casing
-// isn't guaranteed consistent across the ICU data bundled with different JS
-// engines (Hermes on-device vs. the tooling this was verified with).
-const formatHourMinuteAmPm = (date: Date) => {
-  const hours24 = date.getHours();
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const ampm = hours24 >= 12 ? "PM" : "AM";
-  const hours12 = hours24 % 12 || 12;
-
-  return `${hours12}:${minutes} ${ampm}`;
-};
-
 const formatTimeLabel = (value: string | null) => {
   const parsedDate = parseAppointmentDateTime(value);
 
@@ -642,7 +631,7 @@ const formatTimeLabel = (value: string | null) => {
     return "--:--";
   }
 
-  return formatHourMinuteAmPm(parsedDate);
+  return formatAppTime(parsedDate, "--:--");
 };
 
 const getDateKey = (value: string | null) => {
@@ -1002,9 +991,7 @@ function StateCard({
 
   return (
     <Animated.View entering={FadeIn.duration(220)} style={styles.stateCard}>
-      <View style={styles.stateIcon}>
-        <Ionicons name={icon} size={24} color={tone === "error" ? Colors.error : Colors.primary} />
-      </View>
+      <StateIllustration Colors={Colors} accent={tone === "error" ? "error" : "blue"} icon={icon} />
       <Text style={styles.stateTitle}>{title}</Text>
       <Text style={styles.stateMessage}>{message}</Text>
       {actionLabel && onAction ? (
@@ -2009,7 +1996,7 @@ function CalendarPreview({
         </View>
       </View>
       {date === todayIsoDate() && view === "day" ? (
-        <Text style={styles.fieldHint}>Current time indicator • {formatHourMinuteAmPm(new Date())}</Text>
+        <Text style={styles.fieldHint}>Current time indicator • {formatAppTime(new Date())}</Text>
       ) : null}
 
       {grouped.length === 0 ? (
@@ -2300,11 +2287,7 @@ function AppointmentDateField({
       return value || "Select date";
     }
 
-    return new Intl.DateTimeFormat("en-IN", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-    }).format(new Date(`${value}T00:00:00`));
+    return formatAppDate(`${value}T00:00:00`);
   }, [value]);
 
   const handleDateChange = (event: DateTimePickerEvent, selected?: Date) => {
@@ -2441,7 +2424,15 @@ function AppointmentReviewSummary({
 }: {
   clientLabel: string;
   date: string;
-  pricingTotals: ReturnType<typeof getServicePricingTotals>;
+  pricingTotals: {
+    subtotal: number;
+    grandTotal: number;
+    discount?: number;
+    totalDisc?: number;
+    tax?: number;
+    gstAmount?: number;
+    taxBreakdown?: Array<{ name: string; rate: number; amount: number; inclusive: boolean }>;
+  };
   selectedStaff: StaffMember | undefined;
   services: ServiceListItem[];
   startTime: string;
@@ -2450,11 +2441,16 @@ function AppointmentReviewSummary({
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const serviceLabel = services.length > 0 ? services.map((service) => service.name).join(", ") : "-";
-  const dateLabel = validateDate(date)
-    ? new Intl.DateTimeFormat("en-IN", { day: "2-digit", month: "short", year: "numeric" }).format(new Date(`${date}T00:00:00`))
-    : "-";
+  const dateLabel = validateDate(date) ? formatAppDate(`${date}T00:00:00`) : "-";
   const timeLabel = validateTime(startTime) ? minutesToDisplayTime(parseClockToMinutes(startTime) ?? 0) : "-";
-  const reviewRows = [
+  const taxValue = pricingTotals.tax !== undefined ? pricingTotals.tax : (pricingTotals.gstAmount ?? 0);
+  const discountValue = pricingTotals.discount !== undefined ? pricingTotals.discount : (pricingTotals.totalDisc ?? 0);
+
+  const taxRows: [string, string][] = pricingTotals.taxBreakdown && pricingTotals.taxBreakdown.length > 0
+    ? pricingTotals.taxBreakdown.map((t) => [`${t.name} (${t.rate}%)${t.inclusive ? " (Incl.)" : ""}`, formatCurrency(t.amount)])
+    : [["Tax", formatCurrency(taxValue)]];
+
+  const reviewRows: [string, string][] = [
     ["Client", clientLabel],
     ["Services", serviceLabel],
     ["Assigned Staff", selectedStaff?.name ?? "-"],
@@ -2462,8 +2458,8 @@ function AppointmentReviewSummary({
     ["Time", timeLabel],
     ["Duration", totalDuration > 0 ? `${totalDuration} min` : "-"],
     ["Subtotal", formatCurrency(pricingTotals.subtotal)],
-    ["Discount", formatCurrency(pricingTotals.discount)],
-    ["Tax", formatCurrency(pricingTotals.tax)],
+    ["Discount", formatCurrency(discountValue)],
+    ...taxRows,
     ["Grand Total", formatCurrency(pricingTotals.grandTotal)],
   ];
 
@@ -2571,8 +2567,8 @@ function SelectedServicesPanel({
               <View style={styles.selectedServiceIcon}>
                 <Ionicons name="cut-outline" size={18} color={Colors.primaryDark} />
               </View>
-            <View style={styles.selectedServiceCopy}>
-              <Text numberOfLines={1} style={styles.selectedServiceName}>{service.name}</Text>
+              <View style={styles.selectedServiceCopy}>
+                <Text numberOfLines={1} style={styles.selectedServiceName}>{service.name}</Text>
                 <Text style={styles.selectedServiceMeta}>
                   {[service.itemType, formatDurationLabel(service.durationMinutes)].filter(Boolean).join(" | ")}
                 </Text>
@@ -2862,8 +2858,8 @@ function SearchableServiceField({
                           styles.serviceOptionPrice,
                           selected && styles.serviceOptionPriceActive,
                           serviceQuery.kind === "price" &&
-                            servicePriceMatches(service.price, serviceQuery) &&
-                            styles.serviceOptionPriceMatch,
+                          servicePriceMatches(service.price, serviceQuery) &&
+                          styles.serviceOptionPriceMatch,
                         ]}
                       >
                         {formatCurrency(service.price)}
@@ -3329,8 +3325,8 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         query.kind === "name"
           ? searchServicesByName(query, activeBranchId)
           : fetchServiceCatalog(activeBranchId).then((catalog) =>
-              filterServicesByQuery(catalog, query),
-            );
+            filterServicesByQuery(catalog, query),
+          );
 
       serviceCacheRef.current.set(queryKey, searchPromise);
 
@@ -3787,11 +3783,11 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         ? await dispatch(createAppointmentThunk(payload))
         : appointmentId
           ? await dispatch(
-              updateAppointmentThunk({
-                appointmentId,
-                updates: payload as Omit<UpdateAppointmentRequest, "salon_id">,
-              }),
-            )
+            updateAppointmentThunk({
+              appointmentId,
+              updates: payload as Omit<UpdateAppointmentRequest, "salon_id">,
+            }),
+          )
           : null;
 
     submittingRef.current = false;
@@ -4024,21 +4020,11 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
 }
 
 const formatBusinessDate = (value: string | null) => {
-  const parsedDate = parseAppointmentDateTime(value);
-  if (!parsedDate) return value;
-
-  const day = String(parsedDate.getDate()).padStart(2, "0");
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const month = months[parsedDate.getMonth()];
-  const year = parsedDate.getFullYear();
-  return `${day} ${month} ${year}`;
+  return formatAppDate(parseAppointmentDateTime(value), value ?? "-");
 };
 
 const formatBusinessTime = (value: string | null) => {
-  const parsedDate = parseAppointmentDateTime(value);
-  if (!parsedDate) return value;
-
-  return formatHourMinuteAmPm(parsedDate);
+  return formatAppTime(parseAppointmentDateTime(value), value ?? "-");
 };
 
 function DetailRow({ label, value }: { label: string; value?: string | number | null }) {
@@ -4851,9 +4837,9 @@ export function StaffCalendarScreen() {
     () =>
       currentStaff
         ? appointments
-            .filter((appointment) => isAssignedToStaff(appointment, currentStaff))
-            .filter((appointment) => getDateKey(appointment.scheduledAt) === date)
-            .filter((appointment) => matchesAppointment(appointment, search, status))
+          .filter((appointment) => isAssignedToStaff(appointment, currentStaff))
+          .filter((appointment) => getDateKey(appointment.scheduledAt) === date)
+          .filter((appointment) => matchesAppointment(appointment, search, status))
         : [],
     [appointments, currentStaff, date, search, status],
   );
@@ -4950,7 +4936,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   actionButtonDanger: {
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(114, 106, 99, 0.18)",
+    borderColor: Colors.errorBorder,
   },
   actionButtonText: {
     color: Colors.primary,
@@ -5719,7 +5705,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   modalBackdrop: {
     alignItems: "center",
-    backgroundColor: "rgba(36, 59, 52, 0.42)",
+    backgroundColor: "rgba(15, 23, 32, 0.42)",
     flex: 1,
     justifyContent: "center",
     padding: Spacing.lg,
@@ -6301,14 +6287,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderRadius: AppRadius.card,
     borderWidth: 1,
     padding: AppLayout.cardPadding,
-  },
-  stateIcon: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    height: 56,
-    justifyContent: "center",
-    width: 56,
   },
   stateMessage: {
     color: Colors.text2,

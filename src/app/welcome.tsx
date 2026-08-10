@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   FlatList,
@@ -21,9 +21,10 @@ import {
   LuxuryButtonSurface,
 } from "@/components/auth/LuxuryAuth";
 import {
-  LuxuryColors,
   LuxurySpacing,
   LuxuryTypography,
+  useLuxuryColors,
+  type LuxuryColors,
 } from "@/components/auth/luxuryTheme";
 
 const PAGE_COUNT = 3;
@@ -31,6 +32,8 @@ const PAGES = ["welcome", "dashboard", "features"] as const;
 type WelcomePageId = (typeof PAGES)[number];
 
 export default function WelcomeScreen() {
+  const Colors = useLuxuryColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [activePage, setActivePage] = useState(0);
   const opacity = useRef(new Animated.Value(0)).current;
   const { width: pageWidth } = useWindowDimensions();
@@ -64,7 +67,7 @@ export default function WelcomeScreen() {
 
   return (
     <LuxuryBackground>
-      <StatusBar backgroundColor={LuxuryColors.background} barStyle="dark-content" />
+      <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <Animated.View style={[styles.carouselArea, { opacity }]}>
           <FlatList
@@ -118,6 +121,9 @@ export default function WelcomeScreen() {
 }
 
 function PageHeading({ subtitle, title }: { subtitle: string; title: string }) {
+  const Colors = useLuxuryColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.headingBlock}>
       <Text adjustsFontSizeToFit numberOfLines={2} style={styles.heading}>
@@ -134,6 +140,9 @@ function PageHeading({ subtitle, title }: { subtitle: string; title: string }) {
 }
 
 function WelcomePage() {
+  const Colors = useLuxuryColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.page}>
       <PageHeading
@@ -164,6 +173,9 @@ function WelcomePage() {
 }
 
 function DashboardPage() {
+  const Colors = useLuxuryColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.page}>
       <PageHeading
@@ -177,7 +189,7 @@ function DashboardPage() {
             <Text style={styles.previewTitle}>Salon Dashboard</Text>
           </View>
           <View style={styles.avatar}>
-            <Ionicons color={LuxuryColors.accent} name="person-outline" size={20} />
+            <Ionicons color={Colors.accent} name="person-outline" size={20} />
           </View>
         </View>
         <View style={styles.metricRow}>
@@ -198,6 +210,8 @@ function DashboardPage() {
 }
 
 function FeaturesPage() {
+  const Colors = useLuxuryColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
   const features = [
     ["calendar-outline", "Calendar"],
     ["people-outline", "Clients"],
@@ -216,10 +230,10 @@ function FeaturesPage() {
         {features.map(([icon, label]) => (
           <View key={label} style={styles.featureItem}>
             <View style={styles.featureIcon}>
-              <Ionicons color={LuxuryColors.accent} name={icon} size={24} />
+              <Ionicons color={Colors.accent} name={icon} size={24} />
             </View>
             <Text style={styles.featureText}>{label}</Text>
-            <Ionicons color="#B6A99D" name="chevron-forward" size={18} />
+            <Ionicons color={Colors.muted} name="chevron-forward" size={18} />
           </View>
         ))}
       </View>
@@ -236,9 +250,12 @@ function MetricCard({
   label: string;
   value: string;
 }) {
+  const Colors = useLuxuryColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.metricCard}>
-      <Ionicons color={LuxuryColors.accent} name={icon} size={20} />
+      <Ionicons color={Colors.accent} name={icon} size={20} />
       <Text style={styles.metricValue}>{value}</Text>
       <Text style={styles.metricLabel}>{label}</Text>
     </View>
@@ -246,6 +263,9 @@ function MetricCard({
 }
 
 function MiniBarChart({ large = false }: { large?: boolean }) {
+  const Colors = useLuxuryColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={[styles.chart, large && styles.chartLarge]}>
       {[12, 20, 28, 38, 46].map((barHeight, index) => (
@@ -258,29 +278,29 @@ function MiniBarChart({ large = false }: { large?: boolean }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: LuxuryColors) => StyleSheet.create({
   safeArea: { flex: 1 },
   carouselArea: { flex: 1, minHeight: 0 },
   pager: { flex: 1 },
   page: { flex: 1, paddingHorizontal: 24 },
   headingBlock: { alignItems: "center", paddingTop: 12 },
   heading: {
-    color: LuxuryColors.text,
+    color: Colors.text,
     fontFamily: LuxuryTypography.serif,
     fontSize: 42,
     lineHeight: 45,
     textAlign: "center",
   },
   titleRule: { alignItems: "center", flexDirection: "row", marginVertical: 7, width: 74 },
-  titleRuleLine: { backgroundColor: LuxuryColors.accent, flex: 1, height: 1 },
+  titleRuleLine: { backgroundColor: Colors.accent, flex: 1, height: 1 },
   titleRuleDiamond: {
-    backgroundColor: LuxuryColors.accent,
+    backgroundColor: Colors.accent,
     height: 5,
     transform: [{ rotate: "45deg" }],
     width: 5,
   },
   subtitle: {
-    color: LuxuryColors.text,
+    color: Colors.text,
     fontSize: 15,
     lineHeight: 20,
     textAlign: "center",
@@ -295,7 +315,7 @@ const styles = StyleSheet.create({
   },
   hero: { height: "100%", width: "100%" },
   appointmentCard: {
-    backgroundColor: "rgba(255,255,255,0.96)",
+    backgroundColor: Colors.card,
     borderRadius: 14,
     elevation: 5,
     padding: 10,
@@ -305,7 +325,7 @@ const styles = StyleSheet.create({
     width: 116,
   },
   revenueCard: {
-    backgroundColor: "rgba(255,255,255,0.97)",
+    backgroundColor: Colors.card,
     borderRadius: 14,
     bottom: 2,
     elevation: 5,
@@ -314,23 +334,23 @@ const styles = StyleSheet.create({
     right: 0,
     width: 100,
   },
-  widgetTitle: { color: LuxuryColors.text, fontSize: 11, fontWeight: "700" },
-  calendarDays: { color: "#A69B91", fontSize: 6, marginTop: 7 },
-  calendarNumbers: { color: LuxuryColors.text, fontSize: 6, lineHeight: 13 },
-  revenueValue: { color: LuxuryColors.accent, fontSize: 10, marginTop: 3 },
+  widgetTitle: { color: Colors.text, fontSize: 11, fontWeight: "700" },
+  calendarDays: { color: Colors.muted, fontSize: 6, marginTop: 7 },
+  calendarNumbers: { color: Colors.text, fontSize: 6, lineHeight: 13 },
+  revenueValue: { color: Colors.accent, fontSize: 10, marginTop: 3 },
   chart: { alignItems: "flex-end", flexDirection: "row", gap: 4, height: 32, marginTop: 4 },
   chartLarge: { height: 68, marginTop: 12 },
-  chartBar: { backgroundColor: LuxuryColors.accent, borderRadius: 2, flex: 1 },
+  chartBar: { backgroundColor: Colors.accent, borderRadius: 2, flex: 1 },
   pagination: { flexDirection: "row", gap: 9, justifyContent: "center", paddingVertical: 10 },
-  dot: { backgroundColor: "#DED4C8", borderRadius: 5, height: 9, width: 9 },
-  dotActive: { backgroundColor: LuxuryColors.accent, width: 22 },
+  dot: { backgroundColor: Colors.border, borderRadius: 5, height: 9, width: 9 },
+  dotActive: { backgroundColor: Colors.accent, width: 22 },
   actions: { gap: 10, paddingBottom: LuxurySpacing.sm, paddingHorizontal: 24 },
-  primaryText: { color: LuxuryColors.white, fontSize: 17, fontWeight: "700" },
-  secondaryText: { color: LuxuryColors.accentDark, fontSize: 17, fontWeight: "700" },
+  primaryText: { color: Colors.white, fontSize: 17, fontWeight: "700" },
+  secondaryText: { color: Colors.accentDark, fontSize: 17, fontWeight: "700" },
   pressed: { opacity: 0.82, transform: [{ scale: 0.985 }] },
   previewCard: {
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderColor: LuxuryColors.border,
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
     borderRadius: 28,
     borderWidth: 1,
     elevation: 4,
@@ -343,16 +363,16 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 18,
   },
-  eyebrow: { color: LuxuryColors.accent, fontSize: 10, fontWeight: "700", letterSpacing: 1.2 },
+  eyebrow: { color: Colors.accent, fontSize: 10, fontWeight: "700", letterSpacing: 1.2 },
   previewTitle: {
-    color: LuxuryColors.text,
+    color: Colors.text,
     fontFamily: LuxuryTypography.serif,
     fontSize: 23,
     marginTop: 3,
   },
   avatar: {
     alignItems: "center",
-    backgroundColor: "#F4E9DC",
+    backgroundColor: Colors.background,
     borderRadius: 20,
     height: 40,
     justifyContent: "center",
@@ -360,18 +380,18 @@ const styles = StyleSheet.create({
   },
   metricRow: { flexDirection: "row", gap: 12, marginBottom: 12 },
   metricCard: {
-    backgroundColor: "#FBF7F1",
+    backgroundColor: Colors.background,
     borderRadius: 18,
     flex: 1,
     minHeight: 96,
     padding: 14,
   },
-  metricValue: { color: LuxuryColors.text, fontSize: 19, fontWeight: "700", marginTop: 8 },
-  metricLabel: { color: LuxuryColors.muted, fontSize: 11, marginTop: 3 },
-  dashboardChart: { backgroundColor: "#FBF7F1", borderRadius: 18, padding: 14 },
+  metricValue: { color: Colors.text, fontSize: 19, fontWeight: "700", marginTop: 8 },
+  metricLabel: { color: Colors.muted, fontSize: 11, marginTop: 3 },
+  dashboardChart: { backgroundColor: Colors.background, borderRadius: 18, padding: 14 },
   featuresCard: {
-    backgroundColor: "rgba(255,255,255,0.9)",
-    borderColor: LuxuryColors.border,
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
     borderRadius: 28,
     borderWidth: 1,
     elevation: 4,
@@ -381,19 +401,19 @@ const styles = StyleSheet.create({
   },
   featureItem: {
     alignItems: "center",
-    borderBottomColor: "#EEE6DC",
+    borderBottomColor: Colors.border,
     borderBottomWidth: StyleSheet.hairlineWidth,
     flexDirection: "row",
     minHeight: 66,
   },
   featureIcon: {
     alignItems: "center",
-    backgroundColor: "#F4E9DC",
+    backgroundColor: Colors.background,
     borderRadius: 18,
     height: 40,
     justifyContent: "center",
     marginRight: 14,
     width: 40,
   },
-  featureText: { color: LuxuryColors.text, flex: 1, fontSize: 16, fontWeight: "600" },
+  featureText: { color: Colors.text, flex: 1, fontSize: 16, fontWeight: "600" },
 });

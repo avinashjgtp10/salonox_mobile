@@ -43,6 +43,7 @@ import {
   selectCurrentStaffLoading,
 } from "@/store/staff/staff.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { formatAppDate } from "@/utils/dateTime";
 
 const formatValue = (value?: string | number | null) =>
   value === null || value === undefined || value === "" ? "—" : String(value);
@@ -152,12 +153,7 @@ export function StaffAttendanceScreen() {
           <Text style={[styles.eyebrow, { color: Colors.text2 }]}>MY ATTENDANCE</Text>
           <Text style={[styles.title, { color: Colors.heading, fontSize: titleSize }]}>Today’s status</Text>
           <Text style={[styles.subtitle, { color: Colors.text2 }]}>
-            {new Intl.DateTimeFormat("en-IN", {
-              day: "numeric",
-              month: "short",
-              weekday: "long",
-              year: "numeric",
-            }).format(new Date())}
+            {formatAppDate(new Date())}
           </Text>
         </View>
 

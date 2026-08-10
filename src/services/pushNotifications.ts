@@ -23,12 +23,14 @@ export class PushTokenGenerationError extends Error {
 // silent while the app is open, which is exactly the case task #5 requires
 // ("show native notification banner" even in foreground).
 Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
+  handleNotification: async () => {
+    return {
+      shouldPlaySound: true,
+      shouldSetBadge: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
+    };
+  },
 });
 
 export const ensureAndroidNotificationChannel = async () => {
@@ -36,16 +38,27 @@ export const ensureAndroidNotificationChannel = async () => {
     return;
   }
 
-  await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
-    name: "SalonOX",
-    importance: Notifications.AndroidImportance.HIGH,
-    vibrationPattern: [0, 250, 250, 250],
-    enableVibrate: true,
-    sound: "default",
-    showBadge: true,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-  });
+  try {
+    await Notifications.setNotificationChannelAsync(ANDROID_CHANNEL_ID, {
+      name: "SalonOX",
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 250, 250],
+      enableVibrate: true,
+      sound: "default",
+      showBadge: true,
+      lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    });
+  } catch (error) {
+    throw error;
+  }
 };
+
+// #12 — native push-token-rotation event, fired by the OS/native module
+// independently of any JS call. If this ever fires without a matching
+// register-device call, the backend's stored token silently goes stale.
+Notifications.addPushTokenListener((tokenData) => {
+  void tokenData;
+});
 
 // Only ever returns "granted" or throws — callers branch on the error type
 // (denied vs. everything else) rather than juggling a status string.
