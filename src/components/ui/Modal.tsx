@@ -37,7 +37,7 @@ const Modal: React.FC<ModalProps> = ({
         >
           <div className="modal-content border-0 shadow-lg rounded-4">
             <div className="modal-header border-0 pt-4 px-4">
-              {title && <h3 className="modal-title fw-bold">{title}</h3>}
+              {title && <h5 className="modal-title fw-bold">{title}</h5>}
               <button
                 type="button"
                 className="btn-close shadow-none"

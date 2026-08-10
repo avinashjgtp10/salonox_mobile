@@ -38,7 +38,7 @@ export default function SettleCommissionModal({
   };
 
   return (
-    <Modal show onClose={onClose} title="Settle Commission" size="sm">
+    <Modal show onClose={onClose} title="Settle Commission" size="md">
       <div className="d-flex flex-column gap-3">
         <div>
           <div className="text-muted small">Staff Name</div>
