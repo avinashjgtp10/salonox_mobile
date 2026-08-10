@@ -77,6 +77,8 @@ function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+export const CUSTOM_PRESET_ID = "custom";
+
 export const PRESETS: { id: string; label: string; range: () => [string, string] }[] = [
   { id: "today", label: "Today", range: () => { const d = new Date(); return [ymd(d), ymd(d)]; } },
   { id: "yesterday", label: "Yesterday", range: () => { const d = new Date(); d.setDate(d.getDate() - 1); return [ymd(d), ymd(d)]; } },
@@ -110,4 +112,16 @@ export const PRESETS: { id: string; label: string; range: () => [string, string]
       return [ymd(new Date(d.getFullYear(), 0, 1)), ymd(d)];
     },
   },
+];
+
+// PRESETS plus a "Custom Date Range" entry, for reports that pair the preset
+// row with their own from/to date inputs. Kept as a separate array rather
+// than appended to PRESETS because the campaign reports (Open Rate / Reply
+// Rate) render PRESETS directly — adding Custom there would give them a
+// button that just blanks their date range with no way to pick one.
+// Selecting Custom computes no range; it hands control to the caller's
+// inputs, so range() returns empty strings the caller ignores.
+export const PRESETS_WITH_CUSTOM: typeof PRESETS = [
+  ...PRESETS,
+  { id: CUSTOM_PRESET_ID, label: "Custom Date Range", range: () => ["", ""] },
 ];

@@ -1,0 +1,38 @@
+@use "../styles/reportDetailBase" as *;
+
+// Date-range preset pills. Same visual language as the campaign reports'
+// .rp-camp-preset (defined in CampaignReports.scss) — duplicated here rather
+// than imported so this report doesn't pull in the whole campaign stylesheet
+// for two rules.
+.rp-pc-presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 0 10px;
+}
+
+.rp-pc-preset {
+  padding: 5px 12px;
+  font-size: 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 999px;
+  background: #fff;
+  color: #374151;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+
+  &:hover { background: #f9fafb; }
+
+  &--on {
+    background: #eff6ff;
+    border-color: #2563eb;
+    color: #1d4ed8;
+    font-weight: 600;
+  }
+}
+
+// "Oldest Pending Payment" holds a date, not a number — the numeric card
+// sizing would make it wrap awkwardly.
+.rp-pc-date-val {
+  font-size: 18px;
+}

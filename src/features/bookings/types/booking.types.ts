@@ -186,6 +186,7 @@ export interface Booking {
   applyMembershipWallet?: boolean; // persisted "Apply Membership" checkbox state, independent of payment
   membershipDiscountUsed?: number; // ₹ amount of this bill previously discounted by a percentage and/or loyalty membership (combined total)
   membershipPercentageDiscountUsed?: number; // just the Discount Balance (percentage) share of membershipDiscountUsed above — Loyalty's share is the difference
+  packageCoveredAmount?: number; // ₹ of this bill covered by an already-purchased package's sessions (pre-tax, never billed or taxed again)
   applyMembershipDiscount?: boolean; // persisted "Membership Discount" (percentage) checkbox state, independent of payment
   applyLoyaltyDiscount?: boolean; // persisted "Loyalty Discount" checkbox state — independent sibling, stacks with applyMembershipDiscount above
   ewalletUsed?: number; // ₹ amount of this bill covered by the client's real eWallet balance

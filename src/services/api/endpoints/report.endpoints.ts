@@ -90,6 +90,14 @@ export const LOST_CUSTOMERS_REPORT = {
   SUMMARY: () => `/api/report/lost-customers`,
 } as const;
 
+// Independent Payment Collection reporting API — one row per billed
+// appointment (billed / collected / still due). Reads appointments+payments
+// directly, never sales: an unpaid bill has no sales row at all, and payments
+// links by appointment_id (there is no sale_id). Mounted at /api/report.
+export const PAYMENT_COLLECTION_REPORT = {
+  SUMMARY: () => `/api/report/payment-collection`,
+} as const;
+
 // Independent Referral reporting API — one row per referred client, joined
 // back to the referrer, with reward amounts read from referral_ledger. Reads
 // clients/sales/referral_ledger directly, never through the Appointment API.
