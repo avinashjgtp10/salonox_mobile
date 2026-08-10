@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { CloudUpload, FiletypeCsv, FileEarmarkExcel, CheckCircleFill, ExclamationCircleFill, X, Download } from "react-bootstrap-icons";
+import { CloudUpload, FiletypeCsv, FileEarmarkExcel, CheckCircleFill, ExclamationCircleFill, X, Download, ArrowRepeat } from "react-bootstrap-icons";
 import { Modal } from "../../../components/ui";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
@@ -7,6 +7,7 @@ import "../styles/StaffImportModal.scss";
 
 interface ImportError {
   row: number;
+  field?: string;
   email?: string;
   code: string;
   message: string;
@@ -28,13 +29,13 @@ interface Props {
 
 const SAMPLE_CSV_COLUMNS = [
   "Name", "Contact", "Email", "Address", "Gender",
-  "DOJ(dd-mm-YYYY)", "DOB(dd-mm-YYYY)", "Designation",
+  "DOJ(dd-mm-YYYY)", "DOB(dd-mm-YYYY)", "Designation", "Role",
   "Hourly Rate", "Fixed Salary", "Working Hours/Day", "Holidays",
 ];
 
 const SAMPLE_CSV_ROWS = [
-  ["jack", "465656565", "jack@yopmail.com", "Singapore", "Male", "02-12-2015", "02-12-1991", "Hair Dresser", "100", "150", "8", "5"],
-  ["kamala", "9878987678", "hema@gmail.com", "baramati", "female", "", "", "Hair Dresser", "100", "1500", "8", "5"],
+  ["jack", "465656565", "jack@yopmail.com", "Singapore", "Male", "02-12-2015", "02-12-1991", "Hair Dresser", "Staff", "100", "150", "8", "5"],
+  ["kamala", "9878987678", "hema@gmail.com", "baramati", "female", "", "", "Hair Dresser", "Manager", "100", "1500", "8", "5"],
 ];
 
 function downloadTemplate() {
@@ -82,6 +83,14 @@ export default function StaffImportModal({ show, onClose, onSuccess }: Props) {
     setDragging(false);
     const f = e.dataTransfer.files[0];
     if (f) pickFile(f);
+  }
+
+  // Lets the user swap in a different file at any point — while one is
+  // already selected, or even after an import has finished — without
+  // closing and reopening this modal. pickFile() (via the input's onChange)
+  // already clears the previous result/error once the new file lands.
+  function handleReImport() {
+    fileRef.current?.click();
   }
 
   async function handleImport() {
@@ -154,6 +163,16 @@ export default function StaffImportModal({ show, onClose, onSuccess }: Props) {
           </div>
         </div>
 
+        {/* Hidden file input — kept mounted regardless of file/result state so
+            Re-import can always trigger it via fileRef. */}
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".csv,.xlsx,.xls"
+          className="sim-hidden-input"
+          onChange={(e) => e.target.files?.[0] && pickFile(e.target.files[0])}
+        />
+
         {/* Drop zone */}
         {!result && (
           <div
@@ -163,13 +182,6 @@ export default function StaffImportModal({ show, onClose, onSuccess }: Props) {
             onDrop={onDrop}
             onClick={() => !file && fileRef.current?.click()}
           >
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".csv,.xlsx,.xls"
-              className="sim-hidden-input"
-              onChange={(e) => e.target.files?.[0] && pickFile(e.target.files[0])}
-            />
             {file ? (
               <div className="sim-selected-file">
                 {fileIcon}
@@ -177,6 +189,13 @@ export default function StaffImportModal({ show, onClose, onSuccess }: Props) {
                   <span className="sim-file-name">{file.name}</span>
                   <span className="sim-file-size">{(file.size / 1024).toFixed(1)} KB</span>
                 </div>
+                <button
+                  className="sim-reimport-btn"
+                  onClick={(e) => { e.stopPropagation(); handleReImport(); }}
+                  title="Choose a different file"
+                >
+                  <ArrowRepeat size={13} /> Re-import
+                </button>
                 <button
                   className="sim-remove-file"
                   onClick={(e) => { e.stopPropagation(); setFile(null); setError(null); }}
@@ -195,53 +214,97 @@ export default function StaffImportModal({ show, onClose, onSuccess }: Props) {
           </div>
         )}
 
-        {/* Error */}
+        {/* Top-level failure — the request itself never produced a result
+            (bad upload, network error, whole-file rejection before any row
+            was even looked at). */}
         {error && (
-          <div className="sim-alert sim-alert--error">
-            <ExclamationCircleFill size={15} />
-            <span>{error}</span>
+          <div className="sim-result sim-result--failed">
+            <div className="sim-result-header">
+              <ExclamationCircleFill size={20} className="sim-result-icon sim-result-icon--error" />
+              <span className="sim-result-title sim-result-title--error">Import Failed</span>
+              <button className="sim-reimport-btn sim-reimport-btn--result" onClick={handleReImport}>
+                <ArrowRepeat size={13} /> Re-import
+              </button>
+            </div>
+            <p className="sim-fail-reason">{error}</p>
           </div>
         )}
 
         {/* Result */}
-        {result && (
-          <div className="sim-result">
-            <div className="sim-result-header">
-              <CheckCircleFill size={20} className="sim-result-icon" />
-              <span className="sim-result-title">Import complete</span>
+        {result && (() => {
+          const hasErrors = result.errors.length > 0;
+          // Structural failures (missing columns, unreadable file) come back
+          // as a single row:0 entry — there's no per-row table to show for
+          // those, just the one reason.
+          const rowErrors = result.errors.filter((e) => e.row > 0);
+          const fileErrors = result.errors.filter((e) => e.row === 0);
+          return (
+            <div className={`sim-result ${hasErrors ? "sim-result--failed" : ""}`}>
+              <div className="sim-result-header">
+                {hasErrors
+                  ? <ExclamationCircleFill size={20} className="sim-result-icon sim-result-icon--error" />
+                  : <CheckCircleFill size={20} className="sim-result-icon" />}
+                <span className={`sim-result-title ${hasErrors ? "sim-result-title--error" : ""}`}>
+                  {hasErrors ? "Import Failed" : "Import complete"}
+                </span>
+                <button className="sim-reimport-btn sim-reimport-btn--result" onClick={handleReImport}>
+                  <ArrowRepeat size={13} /> Re-import
+                </button>
+              </div>
+
+              {fileErrors.map((e, i) => (
+                <p key={i} className="sim-fail-reason">{e.message}</p>
+              ))}
+
+              <div className="sim-result-stats">
+                <div className="sim-stat">
+                  <span className="sim-stat-value">{result.total_rows}</span>
+                  <span className="sim-stat-label">Total rows</span>
+                </div>
+                <div className="sim-stat sim-stat--success">
+                  <span className="sim-stat-value">{result.imported}</span>
+                  <span className="sim-stat-label">Imported</span>
+                </div>
+                <div className="sim-stat sim-stat--info">
+                  <span className="sim-stat-value">{result.updated}</span>
+                  <span className="sim-stat-label">Updated</span>
+                </div>
+                <div className="sim-stat sim-stat--warn">
+                  <span className="sim-stat-value">{result.skipped}</span>
+                  <span className="sim-stat-label">Skipped</span>
+                </div>
+              </div>
+
+              {rowErrors.length > 0 && (
+                <div className="sim-errors-wrap">
+                  <div className="sim-errors-table-scroll">
+                    <table className="sim-errors-table">
+                      <thead>
+                        <tr>
+                          <th>Row</th>
+                          <th>Field</th>
+                          <th>Error</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {rowErrors.map((e, i) => (
+                          <tr key={i}>
+                            <td>{e.row}</td>
+                            <td>{e.field ?? "—"}</td>
+                            <td>{e.message}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  <p className="sim-errors-summary">
+                    {rowErrors.length} error{rowErrors.length !== 1 ? "s" : ""} found. Please correct the errors and re-import the file.
+                  </p>
+                </div>
+              )}
             </div>
-            <div className="sim-result-stats">
-              <div className="sim-stat">
-                <span className="sim-stat-value">{result.total_rows}</span>
-                <span className="sim-stat-label">Total rows</span>
-              </div>
-              <div className="sim-stat sim-stat--success">
-                <span className="sim-stat-value">{result.imported}</span>
-                <span className="sim-stat-label">Imported</span>
-              </div>
-              <div className="sim-stat sim-stat--info">
-                <span className="sim-stat-value">{result.updated}</span>
-                <span className="sim-stat-label">Updated</span>
-              </div>
-              <div className="sim-stat sim-stat--warn">
-                <span className="sim-stat-value">{result.skipped}</span>
-                <span className="sim-stat-label">Skipped</span>
-              </div>
-            </div>
-            {result.errors.length > 0 && (
-              <div className="sim-errors-wrap">
-                <p className="sim-errors-title">Errors ({result.errors.length})</p>
-                <ul className="sim-errors-list">
-                  {result.errors.map((e, i) => (
-                    <li key={i} className="sim-error-item">
-                      Row {e.row}{e.email ? ` (${e.email})` : ""}: {e.message}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
-        )}
+          );
+        })()}
       </div>
     </Modal>
   );
