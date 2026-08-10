@@ -1,10 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import type { PropsWithChildren } from "react";
+import { useMemo } from "react";
 import { Image, Pressable, StyleSheet, View, type ViewStyle } from "react-native";
 
-import { LuxuryColors } from "@/components/auth/luxuryTheme";
+import { useLuxuryColors, type LuxuryColors } from "@/components/auth/luxuryTheme";
 
 export function LuxuryBackground({ children }: PropsWithChildren) {
+  const Colors = useLuxuryColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={styles.background}>
       <View pointerEvents="none" style={styles.lightOrb} />
@@ -21,6 +25,9 @@ export function LuxuryBackground({ children }: PropsWithChildren) {
 }
 
 export function LuxuryBackButton({ onPress }: { onPress: () => void }) {
+  const Colors = useLuxuryColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <Pressable
       accessibilityLabel="Go back"
@@ -29,7 +36,7 @@ export function LuxuryBackButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
     >
-      <Ionicons color={LuxuryColors.accent} name="chevron-back" size={24} />
+      <Ionicons color={Colors.accent} name="chevron-back" size={24} />
     </Pressable>
   );
 }
@@ -39,6 +46,9 @@ export function LuxuryButtonSurface({
   outlined = false,
   style,
 }: PropsWithChildren<{ outlined?: boolean; style?: ViewStyle }>) {
+  const Colors = useLuxuryColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
   return (
     <View style={[styles.button, outlined && styles.buttonOutlined, style]}>
       {children}
@@ -46,16 +56,17 @@ export function LuxuryButtonSurface({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (Colors: LuxuryColors) => StyleSheet.create({
   background: {
-    backgroundColor: LuxuryColors.background,
+    backgroundColor: Colors.background,
     flex: 1,
     overflow: "hidden",
   },
   lightOrb: {
-    backgroundColor: "rgba(255,255,255,0.82)",
+    backgroundColor: Colors.card,
     borderRadius: 260,
     height: 520,
+    opacity: 0.82,
     position: "absolute",
     right: -190,
     top: -210,
@@ -71,17 +82,17 @@ const styles = StyleSheet.create({
   },
   floralImage: {
     height: "100%",
-    tintColor: "#C9A784",
+    tintColor: Colors.accent,
     width: "100%",
   },
   backButton: {
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.94)",
+    backgroundColor: Colors.card,
     borderRadius: 24,
     elevation: 4,
     height: 48,
     justifyContent: "center",
-    shadowColor: "#6B4A2D",
+    shadowColor: Colors.text,
     shadowOffset: { height: 5, width: 0 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -93,14 +104,14 @@ const styles = StyleSheet.create({
   },
   button: {
     alignItems: "center",
-    backgroundColor: LuxuryColors.accent,
-    borderColor: LuxuryColors.accent,
+    backgroundColor: Colors.accent,
+    borderColor: Colors.accent,
     borderRadius: 20,
     borderWidth: 1,
     height: 52,
     justifyContent: "center",
   },
   buttonOutlined: {
-    backgroundColor: "rgba(255,255,255,0.66)",
+    backgroundColor: Colors.card,
   },
 });

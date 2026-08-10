@@ -26,6 +26,7 @@ import type {
   ClientHistoryStatsApi,
   ClientWithHistoryStats,
 } from "@/types/client";
+import { formatAppDate } from "@/utils/dateTime";
 
 type ClientListApiResponse = ApiResponse<ClientListApiData>;
 type CreateClientApiData =
@@ -198,21 +199,7 @@ const getJoinedDaysAgo = (createdAt: string | null) => {
 };
 
 const formatCreatedDate = (createdAt: string | null) => {
-  if (!createdAt) {
-    return "-";
-  }
-
-  const parsedDate = new Date(createdAt);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(parsedDate);
+  return formatAppDate(createdAt, "-");
 };
 
 const getStatusLabel = (client: ClientApiItem) => {

@@ -7,8 +7,10 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SimpleSplash from '../components/simple-splash';
 import { OfflineBanner } from '@/components/ui/OfflineBanner';
 import { PortalProvider } from '@/components/ui/PortalProvider';
+import { UpdateAnnouncementModal } from '@/components/ui/UpdateAnnouncementModal';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
 import type { ThemeColors } from '@/constants/theme';
+import { useAppUpdateAnnouncement } from '@/hooks/useAppUpdateAnnouncement';
 import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useNetworkMonitor } from '@/hooks/useNetworkMonitor';
 import { useRealtimeSync } from '@/hooks/useRealtimeSync';
@@ -148,6 +150,28 @@ function NetworkSetup() {
   return null;
 }
 
+function AppUpdateSetup() {
+  const { close, isVisible, updateInfo } = useAppUpdateAnnouncement();
+
+  if (!updateInfo) {
+    return null;
+  }
+
+  return (
+    <UpdateAnnouncementModal
+      androidStoreUrl={updateInfo.androidStoreUrl}
+      currentVersion={updateInfo.currentVersion}
+      description={updateInfo.message}
+      iosStoreUrl={updateInfo.iosStoreUrl}
+      isMandatory={updateInfo.isMandatory}
+      latestVersion={updateInfo.latestVersion}
+      onClose={close}
+      title={updateInfo.title}
+      visible={isVisible}
+    />
+  );
+}
+
 // Owns loading the current user's branch list and restoring/clearing the
 // persisted active branch across login/logout — deliberately its own
 // component (mirrors PushNotificationsSetup) so AuthContext itself stays
@@ -229,6 +253,7 @@ function AppShell() {
           <PortalProvider>
             <AuthNavigationHandler onReady={handleNavigationReady} />
             <NetworkSetup />
+            <AppUpdateSetup />
             <PushNotificationsSetup />
             <RealtimeSyncSetup />
             <BranchBootstrap />

@@ -13,6 +13,7 @@ import type {
   UnreadCountResponse,
 } from "@/types/notification";
 import { asRecord, firstArray, firstValue, toSafeString } from "@/utils/apiNormalize";
+import { formatAppDate, parseAppDateTime } from "@/utils/dateTime";
 
 type UnknownRecord = Record<string, unknown>;
 type NotificationListApiData = UnknownRecord[] | { data?: UnknownRecord[] | null; notifications?: UnknownRecord[] | null } | null;
@@ -31,9 +32,9 @@ const formatRelativeTime = (isoValue: string | null): string => {
     return "";
   }
 
-  const parsed = new Date(isoValue);
+  const parsed = parseAppDateTime(isoValue);
 
-  if (Number.isNaN(parsed.getTime())) {
+  if (!parsed) {
     return "";
   }
 
@@ -55,7 +56,7 @@ const formatRelativeTime = (isoValue: string | null): string => {
     return `${Math.floor(diffMs / DAY_MS)}d ago`;
   }
 
-  return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(parsed);
+  return formatAppDate(parsed, "");
 };
 
 const normalizeNotification = (entry: UnknownRecord): NotificationItem => {

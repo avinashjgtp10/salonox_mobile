@@ -82,6 +82,12 @@ const MENU_ITEMS = [
     title: "Salon Settings",
   },
   {
+    description: "Switch between Light, Dark, or System Default theme.",
+    icon: "contrast-outline" as const,
+    route: "/appearance" as Href,
+    title: "Appearance",
+  },
+  {
     description: "Manage products, brands, pricing, and stock levels.",
     icon: "layers-outline" as const,
     route: "/stock" as Href,
@@ -254,15 +260,6 @@ export default function MoreScreen() {
       onPress: handleLogoutAll,
       title: "Log out of all devices",
     },
-    {
-      danger: false,
-      description: "How we collect, use, and protect your data.",
-      icon: "shield-checkmark-outline" as const,
-      key: "privacy-policy",
-      loading: false,
-      onPress: () => router.push("/privacy-policy" as Href),
-      title: "Privacy Policy",
-    },
   ];
   const aboutActions = [
     {
@@ -315,9 +312,9 @@ export default function MoreScreen() {
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>More</Text>
+        <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>
-          Extra SalonOX tools, shortcuts, and front-desk utilities live here.
+          SalonOX · Manage your workspace
         </Text>
 
         <View style={styles.heroCard}>
@@ -354,12 +351,18 @@ export default function MoreScreen() {
         </View>
 
         <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Tools</Text>
           {MENU_ITEMS.map((item, index) => (
             <TouchableOpacity
               key={item.title}
               activeOpacity={0.84}
               onPress={() => router.push(item.route)}
-              style={[styles.menuCard, index > 0 && styles.menuCardSpaced]}
+              style={[
+                styles.menuCard,
+                index === 0 && styles.menuCardFirst,
+                index === MENU_ITEMS.length - 1 && styles.menuCardLast,
+                index > 0 && styles.menuCardSpaced,
+              ]}
             >
               <View style={styles.menuCardLeft}>
                 <View style={styles.menuIcon}>
@@ -385,6 +388,8 @@ export default function MoreScreen() {
               onPress={action.onPress}
               style={[
                 styles.menuCard,
+                index === 0 && styles.menuCardFirst,
+                index === accountActions.length - 1 && styles.menuCardLast,
                 index > 0 && styles.menuCardSpaced,
                 isBusy && styles.menuCardDisabled,
               ]}
@@ -432,7 +437,12 @@ export default function MoreScreen() {
               key={action.key}
               activeOpacity={0.84}
               onPress={action.onPress}
-              style={[styles.menuCard, index > 0 && styles.menuCardSpaced]}
+              style={[
+                styles.menuCard,
+                index === 0 && styles.menuCardFirst,
+                index === aboutActions.length - 1 && styles.menuCardLast,
+                index > 0 && styles.menuCardSpaced,
+              ]}
             >
               <View style={styles.menuCardLeft}>
                 <View style={styles.menuIcon}>
@@ -455,7 +465,12 @@ export default function MoreScreen() {
               key={action.key}
               activeOpacity={0.84}
               onPress={action.onPress}
-              style={[styles.menuCard, index > 0 && styles.menuCardSpaced]}
+              style={[
+                styles.menuCard,
+                index === 0 && styles.menuCardFirst,
+                index === supportActions.length - 1 && styles.menuCardLast,
+                index > 0 && styles.menuCardSpaced,
+              ]}
             >
               <View style={styles.menuCardLeft}>
                 <View style={styles.menuIcon}>
@@ -478,9 +493,9 @@ export default function MoreScreen() {
           style={[styles.logoutButton, (isLoggingOut || isBusy) && styles.logoutButtonDisabled]}
         >
           {isLoggingOut ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={Colors.error} size="small" />
           ) : (
-            <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+            <Ionicons name="log-out-outline" size={18} color={Colors.error} />
           )}
           <Text style={styles.logoutButtonText}>
             {isLoggingOut ? "Logging out..." : "Logout"}
@@ -549,7 +564,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   content: {
     paddingBottom: AppLayout.contentBottomPadding,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
+    paddingHorizontal: 16,
   },
   title: {
     color: Colors.heading,
@@ -565,11 +580,11 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   heroCard: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: Radius.xxl,
+    borderRadius: 18,
     borderWidth: 1,
-    marginTop: AppLayout.headerMarginBottom,
-    paddingHorizontal: Spacing.xxxl,
-    paddingVertical: Spacing.xxxl,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
@@ -602,9 +617,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   contactBlock: {
     borderTopColor: Colors.border,
     borderTopWidth: 1,
-    gap: 10,
-    marginTop: Spacing.lg,
-    paddingTop: Spacing.md,
+    gap: 9,
+    marginTop: 16,
+    paddingTop: 14,
   },
   contactRow: {
     alignItems: "center",
@@ -613,27 +628,30 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   contactText: {
     color: Colors.text2,
     flex: 1,
-    fontSize: 12,
+    fontSize: 12.5,
+    lineHeight: 18,
     marginLeft: 10,
   },
   section: {
-    marginTop: AppLayout.headerMarginBottom,
+    marginTop: 8,
   },
   logoutButton: {
     alignItems: "center",
-    backgroundColor: Colors.primaryDark,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.errorBg,
+    borderColor: Colors.errorBorder,
+    borderRadius: 16,
+    borderWidth: 1,
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: AppLayout.headerMarginBottom,
+    marginTop: 8,
     minHeight: 52,
-    paddingHorizontal: AppLayout.cardPadding,
+    paddingHorizontal: 16,
   },
   logoutButtonDisabled: {
     opacity: 0.72,
   },
   logoutButtonText: {
-    color: "#FFFFFF",
+    color: Colors.error,
     fontSize: 14,
     fontWeight: "800",
     marginLeft: 10,
@@ -641,15 +659,27 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   menuCard: {
     alignItems: "center",
     backgroundColor: Colors.card,
+    borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
     borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
+    borderRadius: 0,
+    borderWidth: 0,
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: AppLayout.cardPadding,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
   },
   menuCardSpaced: {
-    marginTop: AppLayout.sectionGap,
+    marginTop: 0,
+  },
+  menuCardFirst: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  menuCardLast: {
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    borderBottomWidth: 0,
   },
   menuCardLeft: {
     alignItems: "center",
@@ -660,10 +690,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   menuIcon: {
     alignItems: "center",
     backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    height: 42,
+    borderRadius: 10,
+    height: 36,
     justifyContent: "center",
-    width: 42,
+    width: 36,
   },
   menuCopy: {
     flex: 1,
@@ -671,30 +701,32 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   menuTitle: {
     color: Colors.heading,
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 18,
   },
   menuDescription: {
     color: Colors.text2,
     fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
+    lineHeight: 16,
+    marginTop: 2,
   },
   sectionLabel: {
     color: Colors.text2,
     fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 0,
-    marginBottom: Spacing.sm,
+    letterSpacing: 0.88,
+    marginBottom: 8,
+    paddingHorizontal: 4,
     textTransform: "uppercase",
   },
   versionCard: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: AppRadius.card,
+    borderRadius: 16,
     borderWidth: 1,
-    marginBottom: AppLayout.sectionGap,
-    padding: AppLayout.cardPadding,
+    marginBottom: 8,
+    padding: 16,
   },
   versionTitle: {
     color: Colors.heading,

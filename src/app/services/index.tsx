@@ -892,7 +892,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   modalOverlay: {
-    backgroundColor: "rgba(28, 25, 23, 0.12)",
+    backgroundColor: "rgba(15, 23, 32, 0.12)",
     flex: 1,
     justifyContent: "flex-end",
     padding: Spacing.lg,

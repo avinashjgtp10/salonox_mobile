@@ -40,28 +40,33 @@ import {
 } from "@/utils/validation";
 
 // ─── Color Palette ───────────────────────────────────────────
+// Derived straight from the real theme tokens (constants/theme.ts) so this
+// screen inherits the app's active palette automatically instead of carrying
+// its own scheme-specific hex fallbacks.
 const createAuthColors = (theme: ThemeColors, scheme: "light" | "dark") => ({
-  bgGradientStart: scheme === "dark" ? theme.bg : "#F6F0E7",
-  bgGradientEnd: scheme === "dark" ? theme.bg2 : "#FFFEFB",
-  primary: scheme === "dark" ? theme.primary : "#7A4B27",
-  primaryDark: scheme === "dark" ? theme.primaryDark : "#603719",
-  secondary: scheme === "dark" ? theme.secondary : "#7A4B27",
-  accent: scheme === "dark" ? theme.gold : "#7A4B27",
-  accentDark: scheme === "dark" ? theme.goldDark : "#603719",
+  bgGradientStart: theme.bg,
+  bgGradientEnd: theme.bg2,
+  primary: theme.primary,
+  primaryDark: theme.primaryDark,
+  secondary: theme.secondary,
+  accent: theme.gold,
+  accentDark: theme.goldDark,
   shadow: theme.shadow,
-  text: scheme === "dark" ? theme.heading : "#171310",
-  textPrimary: scheme === "dark" ? theme.text : "#171310",
-  textSecondary: scheme === "dark" ? theme.text2 : "#625A54",
-  placeholder: scheme === "dark" ? theme.placeholder : "#837B75",
-  cardBg: scheme === "dark" ? theme.card : "#FFFEFC",
-  cardBorder: scheme === "dark" ? theme.border : "#E5DDD3",
-  inputBg: scheme === "dark" ? theme.bg2 : "rgba(255,255,255,0.72)",
-  inputBorder: scheme === "dark" ? theme.border : "#DED5CA",
-  inputBorderFocus: scheme === "dark" ? theme.focusBorder : "#7A4B27",
+  text: theme.heading,
+  textPrimary: theme.text,
+  textSecondary: theme.text2,
+  placeholder: theme.placeholder,
+  cardBg: theme.card,
+  cardBorder: theme.border,
+  inputBg: theme.bg2,
+  inputBorder: theme.border,
+  inputBorderFocus: theme.focusBorder,
   error: theme.error,
   errorBg: theme.errorBg,
+  errorBorder: theme.errorBorder,
   success: theme.success,
   successBg: theme.successBg,
+  successBorder: theme.successBorder,
   warning: theme.warning,
   statusBarStyle: scheme === "dark" ? ("light-content" as const) : ("dark-content" as const),
 });
@@ -1118,9 +1123,12 @@ export default function LoginScreen() {
                         />
                       </View>
                       {!postalCode && (
-                        <Text style={styles.warningText}>
-                          ⚠️ Saving without a postal code is allowed, but not recommended.
-                        </Text>
+                        <View style={styles.warningRow}>
+                          <Ionicons name="warning-outline" size={13} color={Colors.warning} />
+                          <Text style={styles.warningText}>
+                            Saving without a postal code is allowed, but not recommended.
+                          </Text>
+                        </View>
                       )}
                     </View>
                   </View>
@@ -1478,7 +1486,7 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   },
   floralArtworkImage: {
     height: "100%",
-    tintColor: "#C9A784",
+    tintColor: Colors.accent,
     width: "100%",
   },
   card: {
@@ -1631,7 +1639,7 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(114, 106, 99, 0.18)",
+    borderColor: Colors.errorBorder,
     borderRadius: 16,
     borderWidth: 1,
     marginTop: -4,
@@ -1643,7 +1651,7 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.successBg,
-    borderColor: "rgba(28, 25, 23, 0.12)",
+    borderColor: Colors.successBorder,
     borderRadius: 16,
     borderWidth: 1,
     marginTop: -4,
@@ -1904,10 +1912,16 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     color: Colors.textSecondary,
     marginBottom: 6,
   },
+  warningRow: {
+    alignItems: "flex-start",
+    flexDirection: "row",
+    gap: 5,
+    marginTop: 4,
+  },
   warningText: {
     color: Colors.warning,
+    flex: 1,
     fontSize: 11,
     fontWeight: "500",
-    marginTop: 4,
   },
 });

@@ -25,6 +25,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { ChangeServiceModal } from "@/features/quickSale/components/ChangeServiceModal";
 import { CheckoutSheet } from "@/features/quickSale/components/CheckoutSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
@@ -40,7 +41,9 @@ import { useCart } from "@/features/quickSale/hooks/useCart";
 import { useCheckoutSubmissionController } from "@/features/quickSale/hooks/useCheckoutSubmissionController";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { WALK_IN_CLIENT, type CartItem, type QuickSaleClient } from "@/features/quickSale/types";
-import { calculateBillTotals, calculateCartTaxAmount } from "@/features/quickSale/utils/calculations";
+import { adaptPricingResponseToBillTotals } from "@/features/quickSale/utils/calculations";
+import { pricingService } from "@/services/pricing.service";
+import type { CalculateTotalsResponse, LineItem as ApiLineItem } from "@/types/pricing";
 import {
   EMPTY_QUICK_SALE_DIRTY_SIGNATURE,
   getQuickSaleDirtySignature,
@@ -50,7 +53,6 @@ import {
   type ProductStockErrors,
   validateProductStock,
 } from "@/features/quickSale/utils/stock";
-import { getMissingStaffMessage } from "@/features/quickSale/utils/staffAssignment";
 import { fetchClientHistoryThunk, fetchClientsThunk, searchClientsThunk } from "@/middleware/client/client.thunk";
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
@@ -119,8 +121,8 @@ const ITEM_TYPE_CHIPS: CategoryChipOption[] = [
 ];
 
 const clientFromListItem = (client: ClientListItem): QuickSaleClient => ({
-  avatarBg: "#F2EFE9",
-  avatarColor: "#726A63",
+  avatarBg: "#e4edf9",
+  avatarColor: "#7488a0",
   id: client.id,
   initials: client.initials,
   membership: client.membership,
@@ -164,8 +166,10 @@ export default function QuickSaleScreen() {
 
   const cart = useCart();
   const checkoutSubmission = useCheckoutSubmissionController();
+  const clearCart = cart.clearCart;
   const hydrateCart = cart.hydrateCart;
   const recalculatePackageCoverage = cart.recalculatePackageCoverage;
+  const resetCheckoutSubmission = checkoutSubmission.reset;
   const setProductStock = cart.setProductStock;
   const [activeTab, setActiveTab] = useState<CatalogTab>("services");
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
@@ -187,11 +191,13 @@ export default function QuickSaleScreen() {
   });
   const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
   const [checkoutInitialStep, setCheckoutInitialStep] = useState<CheckoutInitialStep>("payment");
+  const [shouldShowCheckoutStaffValidation, setShouldShowCheckoutStaffValidation] = useState(false);
   const [isDeletingDraft, setIsDeletingDraft] = useState(false);
   const [isLoadingDraft, setIsLoadingDraft] = useState(Boolean(params.draftId));
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
   const [draftDiscountType, setDraftDiscountType] = useState<"flat" | "percentage">("percentage");
   const [draftDiscountPercent, setDraftDiscountPercent] = useState(0);
+  const [isDiscardDialogVisible, setIsDiscardDialogVisible] = useState(false);
   const [undoNotice, setUndoNotice] = useState<{ item: import("@/features/quickSale/types").CartItem; index: number } | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clientPickerOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -201,6 +207,7 @@ export default function QuickSaleScreen() {
     params.draftId ? null : EMPTY_QUICK_SALE_DIRTY_SIGNATURE,
   );
   const discardDialogVisibleRef = useRef(false);
+  const pendingDiscardRef = useRef<(() => void) | null>(null);
   const allowExpectedExitRef = useRef(false);
   const couponValidationRequestRef = useRef(0);
   const lastValidatedCouponContextRef = useRef<string | null>(null);
@@ -340,8 +347,8 @@ export default function QuickSaleScreen() {
     setSelectedClient(
       sale.clientId
         ? {
-            avatarBg: "#F2EFE9",
-            avatarColor: "#726A63",
+            avatarBg: "#e4edf9",
+            avatarColor: "#7488a0",
             id: sale.clientId,
             initials: getClientInitials(sale.clientName),
             membership: null,
@@ -528,61 +535,192 @@ export default function QuickSaleScreen() {
     [activeClientPackages, activeClientPackagesClientId, selectedClient.id],
   );
 
+  const resetQuickSaleSession = useCallback(() => {
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+
+    if (clientPickerOpenTimeoutRef.current) {
+      clearTimeout(clientPickerOpenTimeoutRef.current);
+      clientPickerOpenTimeoutRef.current = null;
+    }
+
+    clientPackageRequestIdRef.current += 1;
+    clientPackageRequestClientIdRef.current = null;
+    couponValidationRequestRef.current += 1;
+    lastValidatedCouponContextRef.current = null;
+    couponClientIdRef.current = null;
+    dirtyBaselineRef.current = EMPTY_QUICK_SALE_DIRTY_SIGNATURE;
+    discardDialogVisibleRef.current = false;
+    pendingDiscardRef.current = null;
+
+    clearCart();
+    resetCheckoutSubmission();
+    setActiveTab("services");
+    setGlobalSearchQuery("");
+    setIsGlobalSearchLoading(false);
+    setSelectedClient(WALK_IN_CLIENT);
+    setIsClientStepComplete(false);
+    setHasClientStepSelection(false);
+    setClientSearchQuery("");
+    setIsClientPickerVisible(false);
+    setClientPickerStartsInCreateMode(false);
+    setChangeServiceLineId(null);
+    setActiveClientPackages([]);
+    setActiveClientPackagesClientId("");
+    setClientPackageLoadState({
+      clientId: "",
+      error: null,
+      isRetrying: false,
+      status: "loaded",
+    });
+    setIsCheckoutVisible(false);
+    setCheckoutInitialStep("payment");
+    setShouldShowCheckoutStaffValidation(false);
+    setDraftLoadError(null);
+    setDraftDiscountType("percentage");
+    setDraftDiscountPercent(0);
+    setIsDiscardDialogVisible(false);
+    setUndoNotice(null);
+    setOverallDiscountInput("");
+    setTipInput("");
+    setSaleNotes("");
+    setCouponCode("");
+    setAppliedCoupon(null);
+    setCouponError(null);
+    setIsApplyingCoupon(false);
+    setIncludeGst(true);
+    setServiceChargeInput("");
+    setConvenienceFeeInput("");
+    setOtherChargesInput("");
+    setSubmitError(null);
+    setProductStockErrors({});
+    setIsSaleFinalized(false);
+    setBackendTotalsResponse(null);
+    setIsPricingLoading(false);
+    setPricingError(null);
+  }, [clearCart, resetCheckoutSubmission]);
+
   // Matches the existing "New Sale" flow from the receipt screen, which
   // navigates back here with a fresh resetSale value to force a clean slate.
   useEffect(() => {
     if (params.resetSale) {
       allowExpectedExitRef.current = false;
-      discardDialogVisibleRef.current = false;
-      dirtyBaselineRef.current = EMPTY_QUICK_SALE_DIRTY_SIGNATURE;
-      setIsSaleFinalized(false);
-      couponValidationRequestRef.current += 1;
-      lastValidatedCouponContextRef.current = null;
-      couponClientIdRef.current = null;
-      cart.clearCart();
-      setSelectedClient(WALK_IN_CLIENT);
-      setIsClientStepComplete(false);
-      setHasClientStepSelection(false);
-      setClientSearchQuery("");
-      setOverallDiscountInput("");
-      setDraftDiscountType("percentage");
-      setDraftDiscountPercent(0);
-      setTipInput("");
-      setSaleNotes("");
-      setCouponCode("");
-      setAppliedCoupon(null);
-      setCouponError(null);
-      setIsApplyingCoupon(false);
-      setIncludeGst(true);
-      setServiceChargeInput("");
-      setConvenienceFeeInput("");
-      setOtherChargesInput("");
-      checkoutSubmission.reset();
+      resetQuickSaleSession();
     }
-    // Only ever react to the resetSale value changing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.resetSale]);
+  }, [params.resetSale, resetQuickSaleSession]);
 
-  // Computed straight from each cart item's own catalog tax rate — never
-  // typed in. Kept even while `includeGst` is off so the UI can still show
-  // the user what GST *would* be.
-  const gstPreviewAmount = useMemo(() => calculateCartTaxAmount(cart.items), [cart.items]);
+  const [backendTotalsResponse, setBackendTotalsResponse] = useState<CalculateTotalsResponse | null>(null);
+  const [isPricingLoading, setIsPricingLoading] = useState(false);
+  const [pricingError, setPricingError] = useState<string | null>(null);
+
   const extraChargesTotal = useMemo(
     () => parseAmount(serviceChargeInput) + parseAmount(convenienceFeeInput) + parseAmount(otherChargesInput),
     [convenienceFeeInput, otherChargesInput, serviceChargeInput],
   );
 
-  const totals = useMemo(
-    () =>
-      calculateBillTotals(cart.items, {
+  useEffect(() => {
+    let isSubscribed = true;
+    const timer = setTimeout(async () => {
+      if (cart.items.length === 0) {
+        if (isSubscribed) {
+          setBackendTotalsResponse(null);
+          setIsPricingLoading(false);
+          setPricingError(null);
+        }
+        return;
+      }
+
+      setIsPricingLoading(true);
+      setPricingError(null);
+
+      try {
+        const serviceRows: ApiLineItem[] = [];
+        const productRows: ApiLineItem[] = [];
+        const packageRows: ApiLineItem[] = [];
+        const membershipRows: ApiLineItem[] = [];
+
+        cart.items.forEach((item) => {
+          const qty = Math.max(1, item.quantity);
+          const line: ApiLineItem = {
+            price: item.unitPrice,
+            qty,
+            discount: item.discountAmount,
+            total: item.unitPrice * qty - item.discountAmount,
+          };
+          if (item.itemType === "service") serviceRows.push(line);
+          else if (item.itemType === "product") productRows.push(line);
+          else if (item.itemType === "package") packageRows.push(line);
+          else if (item.itemType === "membership") membershipRows.push(line);
+        });
+
+        const response = await pricingService.calculateTotals({
+          client_id: selectedClient.id || undefined,
+          serviceRows,
+          packageRows,
+          productRows,
+          membershipRows,
+          discountType: draftDiscountType === "percentage" ? "percentage" : "flat",
+          discountValue: parseAmount(overallDiscountInput),
+          couponCode: appliedCoupon?.valid ? appliedCoupon.couponCode : undefined,
+          exCharges: extraChargesTotal,
+          tip: parseAmount(tipInput),
+          includeGst,
+        });
+
+        if (isSubscribed) {
+          setBackendTotalsResponse(response);
+          setIsPricingLoading(false);
+        }
+      } catch (err) {
+        if (isSubscribed) {
+          setPricingError(err instanceof Error ? err.message : "Unable to calculate pricing.");
+          setIsPricingLoading(false);
+        }
+      }
+    }, 500);
+
+    return () => {
+      isSubscribed = false;
+      clearTimeout(timer);
+    };
+  }, [
+    cart.items,
+    selectedClient.id,
+    draftDiscountType,
+    overallDiscountInput,
+    appliedCoupon,
+    extraChargesTotal,
+    tipInput,
+    includeGst,
+  ]);
+
+  const totals = useMemo(() => {
+    if (backendTotalsResponse) {
+      return adaptPricingResponseToBillTotals(backendTotalsResponse, {
         couponDiscount: appliedCoupon?.valid ? appliedCoupon.discountAmount : 0,
         exCharges: extraChargesTotal,
         overallDiscount: parseAmount(overallDiscountInput),
-        taxAmount: includeGst ? gstPreviewAmount : 0,
         tipAmount: parseAmount(tipInput),
-      }),
-    [appliedCoupon, cart.items, extraChargesTotal, gstPreviewAmount, includeGst, overallDiscountInput, tipInput],
-  );
+      });
+    }
+
+    return {
+      couponDiscount: appliedCoupon?.valid ? appliedCoupon.discountAmount : 0,
+      exCharges: extraChargesTotal,
+      grandTotal: 0,
+      itemDiscountTotal: 0,
+      lineSubtotal: 0,
+      overallDiscount: parseAmount(overallDiscountInput),
+      subtotal: 0,
+      taxAmount: 0,
+      taxableAmount: 0,
+      roundOff: 0,
+      tipAmount: parseAmount(tipInput),
+      taxBreakdown: [],
+    };
+  }, [backendTotalsResponse, appliedCoupon, extraChargesTotal, overallDiscountInput, tipInput]);
   // The coupon API accepts only `orderAmount`. Tax, tips, and extra charges
   // are deliberately excluded because the backend cannot use them for
   // eligibility. An overall discount reduces the amount the coupon applies
@@ -926,14 +1064,15 @@ export default function QuickSaleScreen() {
 
     setSubmitError(null);
     setProductStockErrors({});
-    // A direct Checkout tap must land on Review when a service still needs
-    // staff so the affected lines and their assignment controls are visible.
-    setCheckoutInitialStep(step === "payment" && getMissingStaffMessage(cart.items) ? "review" : step);
+    const hasServicesMissingStaff = cart.items.some((item) => item.itemType === "service" && !item.staffId);
+    setShouldShowCheckoutStaffValidation(hasServicesMissingStaff);
+    setCheckoutInitialStep(hasServicesMissingStaff ? "review" : step);
     setIsCheckoutVisible(true);
   }, [cart.items, currentClientPackageLoadStatus, isClientPackageDataReliable]);
 
   const closeCheckout = useCallback(() => {
     setIsCheckoutVisible(false);
+    setShouldShowCheckoutStaffValidation(false);
     setSubmitError(null);
     setProductStockErrors({});
   }, []);
@@ -986,11 +1125,6 @@ export default function QuickSaleScreen() {
     }
   };
 
-  // The appointment's top-level staff_id mirrors the web Quick Sale: the
-  // first service's own assigned staff (falling back to the first assigned
-  // item when the sale has no services), never a silent "first staff in the
-  // branch" guess — every line is expected to already carry its own staffId
-  // by the time this is called (CheckoutSheet blocks checkout otherwise).
   const getQuickSaleStaff = useCallback(() => {
     const firstServiceStaff = cart.items.find((item) => item.itemType === "service" && item.staffId)?.staffId;
     return firstServiceStaff ?? cart.items.find((item) => item.staffId)?.staffId ?? null;
@@ -1009,23 +1143,8 @@ export default function QuickSaleScreen() {
     return Math.max(1, serviceDuration || 30);
   }, [cart.items]);
 
-  const validateServiceStaffAssignments = useCallback(() => {
-    const validationMessage = getMissingStaffMessage(cart.items);
-
-    if (validationMessage) {
-      setSubmitError(validationMessage);
-      return false;
-    }
-
-    return true;
-  }, [cart.items]);
-
   const buildSaleDraftPayload = useCallback((): CreateSaleRequest | null => {
     const staffId = getQuickSaleStaff();
-
-    if (!validateServiceStaffAssignments()) {
-      return null;
-    }
 
     if (!isClientPackageDataReliable) {
       setSubmitError(
@@ -1033,11 +1152,6 @@ export default function QuickSaleScreen() {
           ? "Package eligibility could not be verified. Retry package loading before saving."
           : "Updating client package coverage. Please wait.",
       );
-      return null;
-    }
-
-    if (!staffId) {
-      setSubmitError("Staff is required before saving or checkout.");
       return null;
     }
 
@@ -1054,7 +1168,7 @@ export default function QuickSaleScreen() {
       exCharges: totals.exCharges,
       items: cart.toSaleLineItemRequests(),
       notes: saleNotes.trim() || (params.draftId ? null : undefined),
-      staffId,
+      staffId: staffId ?? undefined,
       status: "draft",
       taxAmount: totals.taxAmount,
       tipAmount: totals.tipAmount,
@@ -1075,15 +1189,10 @@ export default function QuickSaleScreen() {
     totals.overallDiscount,
     totals.taxAmount,
     totals.tipAmount,
-    validateServiceStaffAssignments,
   ]);
 
   const buildAppointmentPayload = useCallback((): CreateAppointmentRequest | null => {
     const staffId = getQuickSaleStaff();
-
-    if (!validateServiceStaffAssignments()) {
-      return null;
-    }
 
     if (!isClientPackageDataReliable) {
       setSubmitError(
@@ -1091,11 +1200,6 @@ export default function QuickSaleScreen() {
           ? "Package eligibility could not be verified. Retry package loading before checkout."
           : "Updating client package coverage. Please wait.",
       );
-      return null;
-    }
-
-    if (!staffId) {
-      setSubmitError("Staff is required before checkout.");
       return null;
     }
 
@@ -1161,7 +1265,7 @@ export default function QuickSaleScreen() {
         staff_name: item.staffName,
         start_time: startDate.toISOString(),
       })),
-      staff_id: staffId,
+      ...(staffId ? { staff_id: staffId } : {}),
       start_time: startDate.toISOString(),
       status: "booked",
       tip_amount: totals.tipAmount,
@@ -1181,7 +1285,6 @@ export default function QuickSaleScreen() {
     totals.subtotal,
     totals.taxAmount,
     totals.tipAmount,
-    validateServiceStaffAssignments,
   ]);
 
   const createQuickSaleAppointment = useCallback(async () => {
@@ -1359,10 +1462,6 @@ export default function QuickSaleScreen() {
     setSubmitError(null);
 
     try {
-      if (!validateServiceStaffAssignments()) {
-        return;
-      }
-
       if (!(await verifyAppliedCoupon())) {
         return;
       }
@@ -1420,10 +1519,6 @@ export default function QuickSaleScreen() {
     setSubmitError(null);
 
     try {
-      if (!validateServiceStaffAssignments()) {
-        return;
-      }
-
       if (!(await verifyAppliedCoupon())) {
         return;
       }
@@ -1603,37 +1698,24 @@ export default function QuickSaleScreen() {
       }
 
       discardDialogVisibleRef.current = true;
-      Alert.alert(
-        "Discard Quick Sale?",
-        "Leaving now will discard the current Quick Sale.",
-        [
-          {
-            onPress: () => {
-              discardDialogVisibleRef.current = false;
-            },
-            style: "cancel",
-            text: "Keep Editing",
-          },
-          {
-            onPress: () => {
-              discardDialogVisibleRef.current = false;
-              dirtyBaselineRef.current = dirtySignature;
-              onDiscard();
-            },
-            style: "destructive",
-            text: "Discard Sale",
-          },
-        ],
-        {
-          cancelable: true,
-          onDismiss: () => {
-            discardDialogVisibleRef.current = false;
-          },
-        },
-      );
+      pendingDiscardRef.current = onDiscard;
+      setIsDiscardDialogVisible(true);
     },
-    [dirtySignature, hasUnsavedQuickSale],
+    [hasUnsavedQuickSale],
   );
+
+  const closeDiscardDialog = useCallback(() => {
+    discardDialogVisibleRef.current = false;
+    pendingDiscardRef.current = null;
+    setIsDiscardDialogVisible(false);
+  }, []);
+
+  const handleConfirmDiscard = useCallback(() => {
+    const onDiscard = pendingDiscardRef.current;
+
+    resetQuickSaleSession();
+    onDiscard?.();
+  }, [resetQuickSaleSession]);
 
   const leaveQuickSaleRoute = useCallback(() => {
     allowExpectedExitRef.current = true;
@@ -1712,45 +1794,64 @@ export default function QuickSaleScreen() {
     ]),
   );
 
+  const discardConfirmationModal = (
+    <ConfirmationModal
+      cancelLabel="Keep Editing"
+      confirmLabel="Discard Sale"
+      description={"Leaving now will discard the current Quick Sale.\n\nThis action cannot be undone."}
+      onCancel={closeDiscardDialog}
+      onConfirm={handleConfirmDiscard}
+      title="Discard Quick Sale?"
+      visible={isDiscardDialogVisible}
+    />
+  );
+
   if (params.draftId && isLoadingDraft) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <AppStatusBar />
-        <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Draft</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <View style={styles.initLoader}>
-          <ActivityIndicator color={Colors.primary} size="large" />
-          <Text style={styles.initLoaderText}>Loading saved sale...</Text>
-        </View>
-      </SafeAreaView>
+      <>
+        <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+          <AppStatusBar />
+          <View style={styles.header}>
+            <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
+              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Edit Draft</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+          <View style={styles.initLoader}>
+            <ActivityIndicator color={Colors.primary} size="large" />
+            <Text style={styles.initLoaderText}>Loading saved sale...</Text>
+          </View>
+        </SafeAreaView>
+        {discardConfirmationModal}
+      </>
     );
   }
 
   if (params.draftId && draftLoadError) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <AppStatusBar />
-        <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Draft</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <ErrorState message={draftLoadError} onRetry={() => void loadDraft()} />
-      </SafeAreaView>
+      <>
+        <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+          <AppStatusBar />
+          <View style={styles.header}>
+            <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
+              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Edit Draft</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+          <ErrorState message={draftLoadError} onRetry={() => void loadDraft()} />
+        </SafeAreaView>
+        {discardConfirmationModal}
+      </>
     );
   }
 
   if (!isClientStepComplete) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <AppStatusBar />
+      <>
+        <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+          <AppStatusBar />
 
         <View style={styles.header}>
           <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
@@ -1917,7 +2018,9 @@ export default function QuickSaleScreen() {
           startInCreateMode={clientPickerStartsInCreateMode}
           visible={isClientPickerVisible}
         />
-      </SafeAreaView>
+        </SafeAreaView>
+        {discardConfirmationModal}
+      </>
     );
   }
 
@@ -1929,23 +2032,27 @@ export default function QuickSaleScreen() {
 
   if (initError && !initData) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <AppStatusBar />
-        <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Quick Sale</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <ErrorState message={initError} onRetry={() => void dispatch(fetchSalesInitThunk())} />
-      </SafeAreaView>
+      <>
+        <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+          <AppStatusBar />
+          <View style={styles.header}>
+            <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
+              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Quick Sale</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+          <ErrorState message={initError} onRetry={() => void dispatch(fetchSalesInitThunk())} />
+        </SafeAreaView>
+        {discardConfirmationModal}
+      </>
     );
   }
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <AppStatusBar />
+    <>
+      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+        <AppStatusBar />
 
       <View style={styles.header}>
         <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
@@ -2005,32 +2112,22 @@ export default function QuickSaleScreen() {
         />
       </View>
 
-      {selectedClient.id ? (
+      {selectedClient.id && currentClientPackageLoadStatus !== "loaded" ? (
         <View
           accessibilityLiveRegion="polite"
           style={[
             styles.packageStatus,
             currentClientPackageLoadStatus === "error"
               ? styles.packageStatusError
-              : currentClientPackageLoadStatus === "loaded"
-                ? styles.packageStatusLoaded
-                : styles.packageStatusLoading,
+              : styles.packageStatusLoading,
           ]}
         >
           {currentClientPackageLoadStatus === "loading" ? (
             <ActivityIndicator color={Colors.warning} size="small" />
           ) : (
             <Ionicons
-              color={
-                currentClientPackageLoadStatus === "error"
-                  ? Colors.error
-                  : Colors.success
-              }
-              name={
-                currentClientPackageLoadStatus === "error"
-                  ? "alert-circle-outline"
-                  : "checkmark-circle-outline"
-              }
+              color={Colors.error}
+              name="alert-circle-outline"
               size={18}
             />
           )}
@@ -2038,20 +2135,14 @@ export default function QuickSaleScreen() {
             <Text style={styles.packageStatusTitle}>
               {currentClientPackageLoadStatus === "error"
                 ? "Package eligibility unavailable"
-                : currentClientPackageLoadStatus === "loaded"
-                  ? "Package eligibility verified"
-                  : clientPackageLoadState.isRetrying
-                    ? "Retrying package verification"
-                    : "Checking package eligibility"}
+                : clientPackageLoadState.isRetrying
+                  ? "Retrying package verification"
+                  : "Checking package eligibility"}
             </Text>
             <Text style={styles.packageStatusMessage}>
               {currentClientPackageLoadStatus === "error"
                 ? "Package pricing could not be verified. Checkout is blocked until you retry."
-                : currentClientPackageLoadStatus === "loaded"
-                  ? `${visibleActiveClientPackages.length} active package${
-                      visibleActiveClientPackages.length === 1 ? "" : "s"
-                    } available for this client.`
-                  : "Current totals are preserved until package data is available."}
+                : "Current totals are preserved until package data is available."}
             </Text>
             {currentClientPackageLoadStatus === "error" && clientPackageLoadState.error ? (
               <Text numberOfLines={2} style={styles.packageStatusDetail}>
@@ -2163,10 +2254,11 @@ export default function QuickSaleScreen() {
           otherCharges: otherChargesInput,
           serviceCharge: serviceChargeInput,
         }}
-        gstPreviewAmount={gstPreviewAmount}
+        gstPreviewAmount={totals.taxAmount}
         hasItems={cart.items.length > 0}
         includeGst={includeGst}
         initialStep={checkoutInitialStep}
+        initialStaffValidationAttempted={shouldShowCheckoutStaffValidation}
         isApplyingCoupon={isApplyingCoupon}
         isCheckingOut={checkoutSubmission.isCheckingOut}
         isSaving={checkoutSubmission.isSaving}
@@ -2218,7 +2310,9 @@ export default function QuickSaleScreen() {
         totals={totals}
         visible={isCheckoutVisible}
       />
-    </SafeAreaView>
+      </SafeAreaView>
+      {discardConfirmationModal}
+    </>
   );
 }
 
