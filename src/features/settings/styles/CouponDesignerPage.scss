@@ -1,0 +1,863 @@
+/* ================================================================
+   Coupon Designer  (.dz)
+   Palette follows the catalog pages: #101828 ink, #667085 secondary,
+   #d0d5dd controls, #eaecf0 dividers, indigo #4f46e5 for selection only.
+   ================================================================ */
+
+.dz-page {
+  // The editor owns the full viewport under the app topbar and manages its
+  // own scrolling — the canvas must never make the dashboard scroll.
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: #f2f4f7;
+  overflow: hidden;
+  font-family: Inter, -apple-system, sans-serif;
+}
+
+.dz-loading {
+  padding: 40px;
+  font-size: 14px;
+  color: #667085;
+}
+
+/* ── Top toolbar ─────────────────────────────────────────────────── */
+.dz-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  height: 56px;
+  padding: 0 14px;
+  background: #fff;
+  border-bottom: 1px solid #eaecf0;
+  flex-shrink: 0;
+
+  &__left, &__center, &__right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  &__left { flex: 1; min-width: 0; }
+  &__right { flex-shrink: 0; }
+}
+
+.dz-name {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #101828;
+  background: transparent;
+  min-width: 0;
+  max-width: 260px;
+
+  &:hover { background: #f9fafb; }
+  &:focus { outline: none; border-color: #d0d5dd; background: #fff; }
+}
+
+.dz-status {
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #667085;
+  white-space: nowrap;
+
+  &--dirty { color: #b54708; }
+}
+
+.dz-zoom {
+  min-width: 46px;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #344054;
+}
+
+.dz-divider {
+  width: 1px;
+  height: 20px;
+  background: #eaecf0;
+  margin: 0 4px;
+}
+
+.dz-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #475467;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: #f2f4f7; color: #101828; }
+  &:disabled { opacity: 0.35; cursor: not-allowed; }
+}
+
+.dz-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  color: #344054;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) { background: #f9fafb; }
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  &--primary {
+    background: #101828;
+    border-color: #101828;
+    color: #fff;
+    &:hover:not(:disabled) { background: #1d2939; }
+  }
+}
+
+/* ── Body: sidebar | canvas | properties ─────────────────────────── */
+.dz-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr) 264px;
+  min-height: 0;
+  overflow: hidden;
+
+  // Below this the side panels would leave the canvas unusably narrow;
+  // properties go first since the canvas is the point.
+  @media (max-width: 1180px) { grid-template-columns: 268px minmax(0, 1fr); }
+  @media (max-width: 900px)  { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ── Left sidebar ────────────────────────────────────────────────── */
+.dz-sidebar {
+  background: #fff;
+  border-right: 1px solid #eaecf0;
+  padding: 14px 12px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &__title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #98a2b3;
+    margin: 6px 0 2px;
+  }
+
+  @media (max-width: 900px) { display: none; }
+}
+
+.dz-asset-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+
+  button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 11px 6px;
+    border: 1px solid #eaecf0;
+    border-radius: 9px;
+    background: #fff;
+    font-size: 11.5px;
+    font-weight: 500;
+    color: #344054;
+    cursor: pointer;
+
+    &:hover { background: #f9fafb; border-color: #d0d5dd; color: #101828; }
+  }
+}
+
+.dz-select {
+  width: 100%;
+  height: 34px;
+  padding: 0 8px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: #101828;
+  background: #fff;
+}
+
+.dz-layer-actions {
+  display: flex;
+  gap: 4px;
+  padding-top: 8px;
+  border-top: 1px solid #eaecf0;
+
+  button {
+    flex: 1;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #eaecf0;
+    border-radius: 7px;
+    background: #fff;
+    color: #475467;
+    cursor: pointer;
+
+    &:hover { background: #f9fafb; color: #101828; }
+  }
+  .dz-danger:hover { background: #fef3f2; color: #b42318; border-color: #fecdca; }
+}
+
+.dz-empty {
+  font-size: 12px;
+  color: #98a2b3;
+  line-height: 1.45;
+  margin: 4px 2px;
+}
+
+/* ── Canvas ──────────────────────────────────────────────────────── */
+.dz-canvas-scroll {
+  overflow: auto;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 32px;
+  background: #f2f4f7;
+}
+
+// Sized to the SCALED dimensions so the scroll area tracks zoom — the inner
+// .dz-canvas is transform-scaled, and transforms don't affect layout size.
+.dz-canvas-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.dz-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform-origin: top left;
+  box-shadow: 0 6px 28px rgba(16, 24, 40, 0.12);
+  overflow: hidden;
+}
+
+.dz-el {
+  cursor: move;
+  user-select: none;
+
+  &--locked { cursor: default; }
+}
+
+/* Hidden elements stay on canvas, ghosted, so they can be selected and
+   un-hidden. They are dropped from the export by the renderers. */
+.dz-el--ghost {
+  outline: 1px dashed #d0d5dd;
+  outline-offset: 2px;
+}
+
+/* Selection frame. A sibling of the elements rather than a child, so the
+   element's own opacity/filter can't wash out the handles. */
+.dz-frame {
+  position: absolute;
+  pointer-events: none;
+  outline: 1px solid #4f46e5;
+  // Hairline at any zoom: the parent is scaled, so the outline would otherwise
+  // thicken as the user zooms in.
+  outline-width: calc(1px * var(--dz-inv, 1));
+}
+
+.dz-handle {
+  position: absolute;
+  width: calc(9px * var(--dz-inv, 1));
+  height: calc(9px * var(--dz-inv, 1));
+  background: #fff;
+  border: calc(1.5px * var(--dz-inv, 1)) solid #4f46e5;
+  border-radius: calc(2px * var(--dz-inv, 1));
+  pointer-events: auto;
+
+  $o: calc(-4.5px * var(--dz-inv, 1));
+
+  &--nw { top: $o;   left: $o;   cursor: nwse-resize; }
+  &--n  { top: $o;   left: 50%;  margin-left: $o; cursor: ns-resize; }
+  &--ne { top: $o;   right: $o;  cursor: nesw-resize; }
+  &--e  { top: 50%;  right: $o;  margin-top: $o;  cursor: ew-resize; }
+  &--se { bottom: $o; right: $o; cursor: nwse-resize; }
+  &--s  { bottom: $o; left: 50%; margin-left: $o; cursor: ns-resize; }
+  &--sw { bottom: $o; left: $o;  cursor: nesw-resize; }
+  &--w  { top: 50%;  left: $o;   margin-top: $o;  cursor: ew-resize; }
+}
+
+/* ── Right property panel ────────────────────────────────────────── */
+.dz-panel {
+  background: #fff;
+  border-left: 1px solid #eaecf0;
+  padding: 14px 12px;
+  overflow-y: auto;
+
+  &__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #101828;
+    margin: 0 0 12px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__sub {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #98a2b3;
+    margin: 16px 0 8px;
+    padding-top: 12px;
+    border-top: 1px solid #eaecf0;
+  }
+
+  &__hint {
+    font-size: 12px;
+    line-height: 1.45;
+    color: #98a2b3;
+    margin-top: 14px;
+  }
+
+  @media (max-width: 1180px) { display: none; }
+}
+
+.dz-prop {
+  display: block;
+  margin-bottom: 10px;
+
+  &__label {
+    display: block;
+    font-size: 11.5px;
+    font-weight: 600;
+    color: #667085;
+    margin-bottom: 4px;
+  }
+
+  &__control {
+    display: block;
+
+    input[type="text"], input[type="number"], select, textarea {
+      width: 100%;
+      height: 32px;
+      padding: 0 8px;
+      border: 1px solid #d0d5dd;
+      border-radius: 7px;
+      font-size: 12.5px;
+      font-family: inherit;
+      color: #101828;
+      background: #fff;
+
+      &:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12); }
+    }
+    textarea { height: auto; padding: 7px 8px; resize: vertical; }
+    input[type="color"] { width: 100%; height: 32px; padding: 2px; border: 1px solid #d0d5dd; border-radius: 7px; background: #fff; }
+    input[type="range"] { width: 100%; accent-color: #4f46e5; }
+  }
+
+  &__static { font-size: 12.5px; color: #475467; }
+}
+
+.dz-prop-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 10px;
+}
+
+.dz-prop-toggles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+
+.dz-chip {
+  padding: 5px 11px;
+  border: 1px solid #d0d5dd;
+  border-radius: 999px;
+  background: #fff;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #475467;
+  cursor: pointer;
+
+  &:hover { background: #f9fafb; }
+
+  &--on {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #3538cd;
+  }
+}
+
+.dz-seg {
+  display: inline-flex;
+  border: 1px solid #d0d5dd;
+  border-radius: 7px;
+  overflow: hidden;
+
+  button {
+    width: 34px;
+    height: 30px;
+    border: none;
+    background: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    color: #475467;
+    cursor: pointer;
+
+    & + button { border-left: 1px solid #d0d5dd; }
+    &:hover { background: #f9fafb; }
+  }
+  .dz-seg__on { background: #eef2ff; color: #3538cd; }
+}
+
+/* Coupon picker in the toolbar — chooses which coupon's real values fill the
+   {{tokens}}, and links out to coupon management. */
+.dz-coupon-select {
+  height: 32px;
+  max-width: 220px;
+  padding: 0 8px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: #344054;
+  background: #fff;
+  cursor: pointer;
+
+  &:hover { background: #f9fafb; }
+  &:focus { outline: none; border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12); }
+}
+
+/* ── Phase 2: grid, guides, marquee, rotation ────────────────────── */
+
+.dz-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, rgba(79, 70, 229, 0.14) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(79, 70, 229, 0.14) 1px, transparent 1px);
+}
+
+/* Alignment guides. Width is divided by the canvas scale so the line stays a
+   hairline at any zoom instead of thickening as you zoom in. */
+.dz-guide {
+  position: absolute;
+  background: #ec4899;
+  pointer-events: none;
+  z-index: 20;
+
+  &--x { top: 0; bottom: 0; width: calc(1px * var(--dz-inv, 1)); }
+  &--y { left: 0; right: 0; height: calc(1px * var(--dz-inv, 1)); }
+}
+
+.dz-marquee {
+  position: absolute;
+  border: calc(1px * var(--dz-inv, 1)) solid #4f46e5;
+  background: rgba(79, 70, 229, 0.08);
+  pointer-events: none;
+  z-index: 19;
+}
+
+.dz-frame--group {
+  outline-style: dashed;
+}
+
+.dz-rotate {
+  position: absolute;
+  left: 50%;
+  top: calc(-22px * var(--dz-inv, 1));
+  width: calc(11px * var(--dz-inv, 1));
+  height: calc(11px * var(--dz-inv, 1));
+  margin-left: calc(-5.5px * var(--dz-inv, 1));
+  border-radius: 50%;
+  background: #fff;
+  border: calc(1.5px * var(--dz-inv, 1)) solid #4f46e5;
+  cursor: grab;
+  pointer-events: auto;
+
+  // Stem connecting the handle to the frame, so it reads as attached rather
+  // than floating.
+  &::after {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 100%;
+    width: calc(1px * var(--dz-inv, 1));
+    height: calc(11px * var(--dz-inv, 1));
+    background: #4f46e5;
+  }
+}
+
+/* ── Toolbar toggles + align bar ─────────────────────────────────── */
+
+.dz-toggle {
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 12px;
+  font-weight: 600;
+  color: #475467;
+  cursor: pointer;
+
+  &:hover { background: #f2f4f7; color: #101828; }
+
+  &--on {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #3538cd;
+  }
+}
+
+.dz-align {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 4px;
+
+  button {
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #eaecf0;
+    border-radius: 7px;
+    background: #fff;
+    color: #475467;
+    cursor: pointer;
+
+    &:hover:not(:disabled) { background: #f9fafb; color: #101828; }
+    &:disabled { opacity: 0.35; cursor: not-allowed; }
+  }
+}
+
+.dz-shadow-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  input[type="range"] { flex: 1; }
+}
+
+/* Export dropdown */
+.dz-dd { position: relative; }
+
+.dz-dd__menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  min-width: 226px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(16, 24, 40, 0.14);
+  z-index: 60;
+
+  button {
+    display: block;
+    width: 100%;
+    padding: 8px 10px;
+    border: none;
+    border-radius: 7px;
+    background: none;
+    font-size: 12.5px;
+    color: #344054;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover { background: #f9fafb; color: #101828; }
+  }
+}
+
+.dz-dd__label {
+  margin: 6px 10px 2px;
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #98a2b3;
+}
+
+/* Template picker */
+.dz-templates {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 9px;
+    border: 1px solid #eaecf0;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 12px;
+    font-weight: 500;
+    color: #344054;
+    text-align: left;
+    cursor: pointer;
+
+    &:hover { background: #f9fafb; border-color: #d0d5dd; color: #101828; }
+  }
+}
+
+/* Little colour chip previewing each template's palette. */
+.dz-tpl-swatch {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+
+  &--diwali-gold   { background: linear-gradient(135deg, #0d0d0f 55%, #c9a227 55%); }
+  &--diwali-pink   { background: linear-gradient(135deg, #ffffff 55%, #ec4899 55%); }
+  &--festive-lamps { background: linear-gradient(135deg, #3b0764 55%, #fcd34d 55%); }
+  &--eid           { background: linear-gradient(135deg, #05372a 55%, #e8c46a 55%); }
+  &--holi          { background: linear-gradient(135deg, #ec4899 33%, #facc15 33% 66%, #3b82f6 66%); }
+  &--christmas     { background: linear-gradient(135deg, #b3202c 55%, #c9a227 55%); }
+  &--new-year      { background: linear-gradient(135deg, #0b0b10 55%, #f3d98b 55%); }
+  &--tricolour     { background: linear-gradient(180deg, #ff9933 33%, #ffffff 33% 66%, #138808 66%); }
+  &--valentine     { background: linear-gradient(135deg, #fff1f2 55%, #e11d48 55%); }
+  &--birthday      { background: linear-gradient(135deg, #fffbeb 55%, #a855f7 55%); }
+  &--award         { background: linear-gradient(135deg, #1c1917 55%, #c9a227 55%); }
+  &--luxury        { background: linear-gradient(135deg, #101014 55%, #f3d98b 55%); }
+  &--bold-sale     { background: linear-gradient(135deg, #111827 55%, #facc15 55%); }
+  &--spa           { background: linear-gradient(135deg, #f4f1ea 55%, #4d7c5f 55%); }
+  &--minimal       { background: linear-gradient(135deg, #ffffff 55%, #111827 55%); }
+}
+
+/* In-place text editing */
+.dz-el--editing {
+  cursor: text;
+  outline: 1px dashed #4f46e5;
+  outline-offset: 2px;
+}
+
+.dz-edit {
+  outline: none;
+  min-width: 4px;
+  cursor: text;
+}
+
+.dz-token-note {
+  margin: -4px 0 12px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  font-size: 11.5px;
+  line-height: 1.45;
+  color: #3538cd;
+}
+
+/* ── Icon rail + swapping panel ──────────────────────────────────── */
+.dz-aside {
+  display: grid;
+  grid-template-columns: 68px minmax(0, 1fr);
+  background: #fff;
+  border-right: 1px solid #eaecf0;
+  min-height: 0;
+  overflow: hidden;
+
+  @media (max-width: 900px) { display: none; }
+}
+
+.dz-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 6px;
+  background: #f9fafb;
+  border-right: 1px solid #eaecf0;
+  overflow-y: auto;
+
+  &__btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    padding: 9px 2px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #667085;
+    cursor: pointer;
+    font-size: 9.5px;
+    font-weight: 600;
+
+    &:hover { background: #f2f4f7; color: #101828; }
+
+    &--on {
+      background: #eef2ff;
+      color: #3538cd;
+    }
+  }
+}
+
+.dz-panel-col {
+  padding: 12px 12px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  &__title {
+    font-size: 13px;
+    font-weight: 700;
+    color: #101828;
+    margin: 2px 0 4px;
+  }
+
+  &__label {
+    font-size: 10.5px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #98a2b3;
+    margin: 8px 0 0;
+  }
+
+  &__note {
+    font-size: 11px;
+    line-height: 1.45;
+    color: #98a2b3;
+    margin-top: 6px;
+  }
+
+  &__warn {
+    font-size: 11.5px;
+    line-height: 1.45;
+    color: #b42318;
+    background: #fef3f2;
+    border: 1px solid #fecdca;
+    border-radius: 7px;
+    padding: 8px 9px;
+  }
+}
+
+.dz-stack { display: flex; flex-direction: column; gap: 5px; }
+
+.dz-add-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  background: #fff;
+  font-size: 12.5px;
+  color: #344054;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: #f9fafb; border-color: #d0d5dd; color: #101828; }
+  &:disabled { opacity: 0.55; cursor: not-allowed; }
+
+  code {
+    font-size: 10.5px;
+    color: #6941c6;
+    background: #f4f3ff;
+    padding: 1px 5px;
+    border-radius: 4px;
+  }
+}
+
+.dz-grid3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+
+  button {
+    aspect-ratio: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid #eaecf0;
+    border-radius: 9px;
+    background: #fff;
+    color: #475467;
+    cursor: pointer;
+    padding: 8px;
+
+    &:hover { background: #f9fafb; border-color: #d0d5dd; }
+    img { width: 100%; height: 100%; object-fit: contain; }
+  }
+}
+
+.dz-swatches {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+
+  button {
+    aspect-ratio: 1;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    cursor: pointer;
+    background-size: cover;
+
+    &:hover { outline: 2px solid #4f46e5; outline-offset: 1px; }
+  }
+}
+
+.dz-color-wide {
+  width: 100%;
+  height: 32px;
+  padding: 2px;
+  border: 1px solid #d0d5dd;
+  border-radius: 7px;
+  background: #fff;
+}
+
+.dz-stub {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 12px;
+  border: 1px dashed #d0d5dd;
+  border-radius: 10px;
+  color: #667085;
+  font-size: 11.5px;
+  line-height: 1.5;
+
+  p { margin: 0; }
+  code { font-size: 10.5px; color: #6941c6; }
+}
+
+/* ── Bottom status bar ───────────────────────────────────────────── */
+.dz-statusbar {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  height: 30px;
+  padding: 0 14px;
+  background: #fff;
+  border-top: 1px solid #eaecf0;
+  font-size: 11.5px;
+  color: #667085;
+  flex-shrink: 0;
+  overflow-x: auto;
+  white-space: nowrap;
+
+  &__dirty { color: #b54708; font-weight: 600; }
+
+  span:last-child { margin-left: auto; }
+}

@@ -65,6 +65,7 @@ export const defaultPermissions: Permission[] = [
   // ── Marketing ─────────────────────────────────────────────────────────────
   { key: "view_campaigns",      label: "View Campaigns",      desc: "See marketing campaigns",              category: "Marketing",      owner: true, staff: false, manager: true },
   { key: "create_campaigns",    label: "Create Campaigns",    desc: "Create and send campaigns",            category: "Marketing",      owner: true, staff: false, manager: true },
+  { key: "design_coupons",      label: "Design Coupons",      desc: "Create and edit coupon artwork",       category: "Marketing",      owner: true, staff: false, manager: true },
 
   // ── Staff ─────────────────────────────────────────────────────────────────
   { key: "view_team",           label: "View Staff",           desc: "See team members and schedules",       category: "Staff",          owner: true, staff: true,  manager: true },
