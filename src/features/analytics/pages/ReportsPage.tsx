@@ -27,6 +27,7 @@ import ClientRevenueReport from "../reports/ClientRevenueReport";
 import CustomerFrequencyReport from "../reports/CustomerFrequencyReport";
 import LostCustomersReport from "../reports/LostCustomersReport";
 import ReferralReport from "../reports/ReferralReport";
+import PaymentCollectionReport from "../reports/PaymentCollectionReport";
 import ClientRatingReport from "../reports/ClientRatingReport";
 import StaffSalesReport from "../reports/StaffSalesReport";
 import StaffPerformanceReport from "../reports/StaffPerformanceReport";
@@ -41,7 +42,7 @@ import ReplyRateReport from "../reports/ReplyRateReport";
 import ProductMarginReport from "../reports/ProductMarginReport";
 import SupplierReport from "../reports/SupplierReport";
 
-type CategoryKey = "sales" | "customers" | "staff" | "appointments" | "inventory" | "packages" | "marketing";
+type CategoryKey = "sales" | "payments" | "customers" | "staff" | "appointments" | "inventory" | "packages" | "marketing";
 
 // react-bootstrap-icons types `size` as string | number, so the narrower
 // `{ size?: number }` this used to declare rejected every icon in the tables
@@ -61,6 +62,7 @@ interface ReportDef {
 
 const CATEGORIES: { key: CategoryKey; label: string; description: string; icon: ReportIcon }[] = [
   { key: "sales",        label: "Sales",        description: "Track revenue, invoices, payments and overall sales performance", icon: GraphUpArrow },
+  { key: "payments",     label: "Payments",     description: "Collections, outstanding balances and payment method breakdowns",  icon: CashCoin },
   { key: "customers",    label: "Customers",    description: "Customer analysis, visits, feedback and behavior insights",       icon: People },
   { key: "staff",        label: "Staff",        description: "Staff performance, commissions, attendance and productivity",     icon: PersonBadge },
   { key: "appointments", label: "Appointments", description: "Booking trends, cancellations, no-shows and appointment analytics", icon: CalendarCheck },
@@ -78,6 +80,7 @@ const REPORTS: ReportDef[] = [
   { id: "product_margin",         slug: "product-margin",         name: "Product Margin",                              description: "Profit margin per product — sale price against cost price.",                                       category: "sales",        icon: GraphUpArrow,   Component: ProductMarginReport },
   { id: "reward",                 slug: "reward",                 name: "Reward",                                      description: "Reward points available and redeemed to date, per client.",                                        category: "sales",        icon: Award,          Component: RewardReport },
   { id: "ewallet",                slug: "ewallet",                name: "Ewallet",                                     description: "Client e-wallet top-ups, deductions and running balance.",                                         category: "sales",        icon: Wallet2,        Component: EwalletReport },
+  { id: "payment_collection",     slug: "payment-collection",     name: "Payment Collection Report",                   description: "Outstanding balances per bill — amount billed, collected and still due, with pending totals and the oldest unpaid date.", category: "payments",     icon: CashCoin,       Component: PaymentCollectionReport },
   { id: "client_revenue",         slug: "client-revenue",         name: "Client Revenue",                              description: "Total spend, visit count, average ticket per client, and marketing feedback rating.",              category: "customers",    icon: PersonCircle,   Component: ClientRevenueReport },
   { id: "customer_frequency",     slug: "customer-frequency",     name: "Customer Frequency",                          description: "New vs returning clients, with Most/Least Frequent, New, Old and Lost customer filters.",         category: "customers",    icon: PeopleFill,     Component: CustomerFrequencyReport },
   { id: "lost_customers",         slug: "lost-customers",         name: "Lost Customers",                              description: "Clients who stopped visiting — set your own inactivity window and filter by last-visit date range.", category: "customers",    icon: PersonDash,     Component: LostCustomersReport },

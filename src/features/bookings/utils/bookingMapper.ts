@@ -468,6 +468,17 @@ export function mapApiBooking(
     membershipWalletUsed: parseFloat(String(appt.membership_wallet_used ?? appt.membershipWalletUsed ?? 0)) || 0,
     applyMembershipWallet: !!(appt.apply_membership_wallet ?? appt.applyMembershipWallet),
     membershipDiscountUsed: parseFloat(String(appt.membership_discount_used ?? appt.membershipDiscountUsed ?? 0)) || 0,
+    // ₹ of this bill covered by an already-purchased package's sessions.
+    // Prefers the persisted payments.package_used; falls back to summing the
+    // flagged service rows at full catalog price for bills paid before that
+    // column existed (their price is preserved even though total nets to 0).
+    packageCoveredAmount:
+      parseFloat(String(appt.package_used ?? appt.packageUsed ?? 0))
+      || services
+          .filter((s: any) => s.isPackageService)
+          .reduce((sum: number, s: any) =>
+            sum + (parseFloat(String(s.price ?? 0)) || 0) * (parseFloat(String(s.qty ?? s.quantity ?? 1)) || 1), 0)
+      || 0,
     // Just the Discount Balance (percentage) portion — the rest of
     // membershipDiscountUsed above is Loyalty's share, derived as the
     // difference (Loyalty writes no ledger row of its own to read back).

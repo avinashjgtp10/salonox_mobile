@@ -61,6 +61,7 @@ interface SaleRow {
   tip: number;
   ewalletUsed: number;
   membershipWalletUsed: number;
+  packageUsed: number;
   rewardPointsValue: number;
   referralCreditUsed: number;
 }
@@ -85,6 +86,7 @@ function mapAppointment(row: any): SaleRow {
   const paid = Number(row.paid_amount) || 0;
   const ewalletUsed          = Number(row.ewallet_used) || 0;
   const membershipWalletUsed = Number(row.membership_wallet_used) || 0;
+  const packageUsed          = Number(row.package_used) || 0;
   const rewardPointsValue    = Number(row.reward_points_value) || 0;
   const referralCreditUsed   = Number(row.referral_credit_used) || 0;
 
@@ -97,8 +99,12 @@ function mapAppointment(row: any): SaleRow {
     if (!row.payment_reference) return [];
     try { return Object.keys(JSON.parse(row.payment_reference)); } catch { return []; }
   })();
+  // packageUsed > 0 catches a MIXED bill (e.g. "Cash + Package") that the
+  // method label alone would miss — the label only reads "package" when the
+  // whole bill was covered by sessions.
   const isPackagePayment = String(row.payment_method ?? "").toLowerCase() === "package"
-    || paymentReferenceKeys.includes("Package");
+    || paymentReferenceKeys.includes("Package")
+    || packageUsed > 0;
   const paymentSources = [
     isPackagePayment           ? "Package"       : null,
     membershipWalletUsed > 0   ? "Membership"    : null,
@@ -145,6 +151,7 @@ function mapAppointment(row: any): SaleRow {
     tip: Number(row.tip_amount) || 0,
     ewalletUsed,
     membershipWalletUsed,
+    packageUsed,
     rewardPointsValue,
     referralCreditUsed,
   };
@@ -174,7 +181,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const [rows,          setRows]          = useState<SaleRow[]>([]);
   const [stats,         setStats]         = useState({
     totalBill: 0, billAverage: 0, totalSale: 0, received: 0, totalTip: 0,
-    totalEwallet: 0, totalMembershipWallet: 0, totalRewardValue: 0, totalReferralCredit: 0,
+    totalEwallet: 0, totalMembershipWallet: 0, totalPackageUsed: 0, totalRewardValue: 0, totalReferralCredit: 0,
   });
   const [total,         setTotal]         = useState(0);
   const [loading,       setLoading]       = useState(false);
@@ -235,6 +242,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         totalTip: Number(s.total_tip) || 0,
         totalEwallet: Number(s.total_ewallet) || 0,
         totalMembershipWallet: Number(s.total_membership) || 0,
+        totalPackageUsed: Number(s.total_package) || 0,
         totalRewardValue: Number(s.total_rewards) || 0,
         totalReferralCredit: Number(s.total_referral) || 0,
       });
@@ -295,8 +303,8 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     setServiceIds(next.service ?? []);
   };
 
-  const HEADERS = ["Date", "Invoice No", "Name", "Contact", "Item Types", "Staff Name", "Discount", "Coupon Code", "Coupon Discount", "Referral Discount", "GST", "Grand Total", "Paid", "Membership", "E-Wallet", "Rewards", "Referral Credit", "Due Amount", "Modes", "Status", "Description"];
-  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.name, r.contact, r.itemTypes, r.staffName, r.discountAmount, r.couponCode, r.couponDiscount, r.referralDiscount, r.taxAmount, r.grandTotal, r.paid, r.membershipWalletUsed, r.ewalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.description]);
+  const HEADERS = ["Date", "Invoice No", "Name", "Contact", "Item Types", "Staff Name", "Discount", "Coupon Code", "Coupon Discount", "Referral Discount", "GST", "Grand Total", "Paid", "Membership", "Package", "E-Wallet", "Rewards", "Referral Credit", "Due Amount", "Modes", "Status", "Description"];
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.name, r.contact, r.itemTypes, r.staffName, r.discountAmount, r.couponCode, r.couponDiscount, r.referralDiscount, r.taxAmount, r.grandTotal, r.paid, r.membershipWalletUsed, r.packageUsed, r.ewalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.description]);
   const paged = rows;
 
   return (
@@ -377,6 +385,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
               <th>Grand Total</th>
               <th>Paid</th>
               <th>Membership</th>
+              <th>Package</th>
               <th>E-Wallet</th>
               <th>Rewards</th>
               <th>Referral</th>
@@ -388,9 +397,9 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={19} />
+              <SkeletonTableRows columns={20} />
             ) : paged.length === 0 ? (
-              <tr><td colSpan={19} className="rp-detail-empty-cell">No sales found</td></tr>
+              <tr><td colSpan={20} className="rp-detail-empty-cell">No sales found</td></tr>
             ) : paged.map((r, i) => (
               <tr key={i} className="rp-appt-row">
                 <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
@@ -407,7 +416,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td className="fw-semibold" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.name}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.contact}</td>
-                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.itemTypes}</td>
+                <td className="rp-ss-item-types" title={r.itemTypes} onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.itemTypes}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.staffName}</td>
                 <td
                   onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}
@@ -425,6 +434,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
                 <td className="fw-semibold" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.grandTotal)}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{money(r.paid)}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.membershipWalletUsed > 0 ? money(r.membershipWalletUsed) : "—"}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.packageUsed > 0 ? money(r.packageUsed) : "—"}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.ewalletUsed > 0 ? money(r.ewalletUsed) : "—"}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.rewardPointsValue > 0 ? money(r.rewardPointsValue) : "—"}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.referralCreditUsed > 0 ? money(r.referralCreditUsed) : "—"}</td>

@@ -17,6 +17,17 @@
   white-space: nowrap;
 }
 
+// A bill carrying every item kind reads "membership, package, product,
+// service" and stretched the column far wider than the rest of the table.
+// Truncated with an ellipsis like .rp-ss-desc above; the full list stays
+// available via the cell's title tooltip and is never truncated in exports.
+.rp-ss-item-types {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .rp-ss-mode {
   text-transform: uppercase;
   font-size: 11.5px;

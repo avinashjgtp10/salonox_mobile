@@ -416,7 +416,12 @@ export function printReceipt(
   // total after GST, not the pre-tax subtotal (matches pricing.engine.ts's
   // computeBillTotals). Coupon/membership discounts are unaffected and still
   // reduce the pre-tax base as before; only manualDisc moved.
-  const billTotalBeforeSvcDiscount = subtotalAmt - couponDisc - membershipDiscountAmt + exclusiveTaxTotal;
+  // Package-covered sessions are a PRE-tax reduction (same channel as the
+  // coupon/membership discounts): already paid for at purchase, so never
+  // billed or taxed again. Without this term the value fell into roundOff
+  // below and printed as a bogus "Round Off −₹500.00" on the receipt.
+  const packageCoveredAmt = Number((booking as any).packageCoveredAmount ?? 0) || 0;
+  const billTotalBeforeSvcDiscount = subtotalAmt - couponDisc - membershipDiscountAmt - packageCoveredAmt + exclusiveTaxTotal;
   const afterSvcDiscount = billTotalBeforeSvcDiscount - manualDisc;
   // Extra Charges are excluded from the Bill Discount base above — added
   // here, after the discount. tipAmt is deliberately NOT added — Staff Tip
@@ -460,6 +465,7 @@ export function printReceipt(
     itemDiscountAmt > 0 ? sumRow("Item Discount", `−${fmt(itemDiscountAmt)}`, false, "#dc2626") : "",
     subtotalAmt > 0 ? sumRow("Subtotal",        fmt(subtotalAmt)) : "",
     couponDisc  > 0 ? sumRow(`Coupon${couponCode ? ` (${couponCode})` : ""}`, `−${fmt(couponDisc)}`, false, "#dc2626") : "",
+    packageCoveredAmt > 0 ? sumRow("Package Covered", `−${fmt(packageCoveredAmt)}`, false, "#7c3aed") : "",
     membershipPercentageDiscountAmt > 0 ? sumRow("Membership Discount", `−${fmt(membershipPercentageDiscountAmt)}`, false, "#dc2626") : "",
     membershipLoyaltyDiscountAmt > 0 ? sumRow("Membership Loyalty", `−${fmt(membershipLoyaltyDiscountAmt)}`, false, "#dc2626") : "",
     // Itemized per-tax lines (CGST, SGST, etc.) + a "Total Tax" subtotal —

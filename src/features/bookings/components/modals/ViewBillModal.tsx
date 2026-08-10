@@ -503,7 +503,15 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     // reconstruction — a pre-existing gap, not a regression).
                     // tipAmount (Staff Tip) is deliberately excluded — it's
                     // display/record-only, never part of what the client owes.
-                    const taxable = Math.max(0, subtotal - couponDiscount - membershipDiscountAmount);
+                    // Sessions from an already-purchased package. Pre-tax, like
+                    // the membership discount: the customer paid for them when
+                    // they bought the package, so the value is neither billed
+                    // again nor taxed. Subtracted here rather than left to fall
+                    // into roundOff below — roundOff is a sub-rupee rounding
+                    // residual, so a package's worth of rupees landing there
+                    // showed up as a nonsense "Round Off −₹500.00" line.
+                    const packageCoveredAmount = (booking as any).packageCoveredAmount || 0;
+                    const taxable = Math.max(0, subtotal - couponDiscount - membershipDiscountAmount - packageCoveredAmount);
                     const billTotal = taxable + totalTaxAmount;
                     const afterSvcDiscount = Math.max(0, billTotal - discountAmount);
                     const withCharges = afterSvcDiscount + exCharges;
@@ -514,6 +522,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     const rows: Array<[string, string, string]> = [
                       subtotal ? ["Subtotal", `${currencySymbol}${subtotal.toFixed(2)}`, "#6b7280"] : null,
                       couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${couponDiscount.toFixed(2)}`, "#22c55e"] : null,
+                      packageCoveredAmount ? ["Package Covered", `−${currencySymbol}${packageCoveredAmount.toFixed(2)}`, "#7c3aed"] : null,
                       membershipPercentageDiscountAmount ? ["Membership Discount", `−${currencySymbol}${membershipPercentageDiscountAmount.toFixed(2)}`, "#ef4444"] : null,
                       membershipLoyaltyDiscountAmount ? ["Membership Loyalty", `−${currencySymbol}${membershipLoyaltyDiscountAmount.toFixed(2)}`, "#ef4444"] : null,
                       combinedExclusiveTax ? [`${combinedExclusiveTax.label} (${combinedExclusiveTax.rate}%)`, `+${currencySymbol}${combinedExclusiveTax.amount.toFixed(2)}`, "#374151"] : null,
