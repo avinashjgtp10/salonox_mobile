@@ -8,6 +8,16 @@ import { useListPackageTemplatesQuery } from "../../services/api/endpoints/packa
 import type { ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
 import { useGetClientPackages } from "../../hooks/packages/usePackages";
 import { useCurrency } from "../../hooks/useCurrency";
+import { getPackageServiceDisplayStatus, type PackageServiceDisplayStatus } from "../../features/bookings/utils/packageServiceStatus";
+
+const SCHEDULE_STATUS_BADGE: Record<PackageServiceDisplayStatus, string> = {
+  "Not Scheduled": "",
+  "Scheduled":      "badge--purple",
+  "Completed":      "badge--green",
+  "Cancelled":      "badge--red",
+  "No Show":        "badge--red",
+  "Expired":        "badge--warning",
+};
 
 interface Props {
   selectedClient: ClientSearchResult | null;
@@ -321,12 +331,14 @@ const PackageDashboard: React.FC<Props> = ({
                     <div style={{ overflowX: "auto" }}>
                     <table className={styles.table}>
                       <thead>
-                        <tr>{["Service","Total","Remaining","Progress","Amount"].map(h => <th key={h} className={styles.tableTh} style={{ padding: "10px 8px" }}>{h}</th>)}</tr>
+                        <tr>{["Service","Total","Remaining","Progress","Amount","Status"].map(h => <th key={h} className={styles.tableTh} style={{ padding: "10px 8px" }}>{h}</th>)}</tr>
                       </thead>
                       <tbody>
                         {pkg.services.map(svc => {
                           const pct   = svc.totalSessions ? Math.round(svc.completedSessions / svc.totalSessions * 100) : 0;
                           const isSel = svc.serviceId === currentTabId;
+                          const schedInfo = getPackageServiceDisplayStatus(svc, pkg.expiryDate);
+                          const badgeMod  = SCHEDULE_STATUS_BADGE[schedInfo.status];
                           return (
                             <tr
                               key={svc.serviceId}
@@ -348,6 +360,11 @@ const PackageDashboard: React.FC<Props> = ({
                                 {svc.price != null && !isNaN(Number(svc.price))
                                   ? formatAmount(Number(svc.price))
                                   : '—'}
+                              </td>
+                              <td className={styles.tableTd} style={{ padding: "10px 8px", whiteSpace: "nowrap" }}>
+                                <span className={`${styles.badge} ${badgeMod ? styles[badgeMod] : ""}`} title={schedInfo.scheduledAt ? `${new Date(schedInfo.scheduledAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })}${schedInfo.staffName ? ` · ${schedInfo.staffName}` : ""}` : undefined}>
+                                  <span className={styles.badgeDot} /> {schedInfo.status}
+                                </span>
                               </td>
                             </tr>
                           );

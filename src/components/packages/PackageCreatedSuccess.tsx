@@ -1,9 +1,10 @@
 // src/components/packages/PackageCreatedSuccess.tsx
 import React from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, AlertTriangle } from "lucide-react";
 import styles from "./packages.module.scss";
 import type { ClientPackage } from "../../services/api/endpoints/packages.endpoints";
 import { useCurrency } from "../../hooks/useCurrency";
+import { getPackageServiceDisplayStatus } from "../../features/bookings/utils/packageServiceStatus";
 
 interface Props {
   pkg: ClientPackage;
@@ -28,6 +29,18 @@ const PackageCreatedSuccess: React.FC<Props> = ({ pkg, onViewPackages, onCreateA
         <CheckCircle2 size={16} />
         Package created successfully — {pkg.id}
       </div>
+
+      {pkg.schedulingErrors && pkg.schedulingErrors.length > 0 && (
+        <div style={{ display: "flex", alignItems: "flex-start", gap: 8, fontSize: 13, color: "#b45309", fontWeight: 500, marginBottom: 12, padding: "10px 14px", background: "#fffbeb", borderRadius: 8, border: "1px solid #fde68a" }}>
+          <AlertTriangle size={15} style={{ flexShrink: 0, marginTop: 1 }} />
+          <div>
+            <div>The package was created and paid successfully, but the following service{pkg.schedulingErrors.length > 1 ? "s" : ""} couldn't be auto-scheduled — book {pkg.schedulingErrors.length > 1 ? "them" : "it"} manually from the Calendar:</div>
+            <ul style={{ margin: "4px 0 0", paddingLeft: 18 }}>
+              {pkg.schedulingErrors.map((e, i) => <li key={i}>{e.serviceName} — {e.error}</li>)}
+            </ul>
+          </div>
+        </div>
+      )}
 
       <div className={styles.card}>
         <div className={styles.cardBody}>
@@ -76,21 +89,29 @@ const PackageCreatedSuccess: React.FC<Props> = ({ pkg, onViewPackages, onCreateA
           <table className={styles.table} style={{ marginBottom: 18 }}>
             <thead>
               <tr>
-                {["Service","Total Sessions","Completed","Remaining","Amount"].map(h => (
+                {["Service","Total Sessions","Completed","Remaining","Amount","Schedule"].map(h => (
                   <th key={h} className={styles.tableTh}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {pkg.services.map(s => (
-                <tr key={s.serviceId} className={styles.tableRow}>
-                  <td className={styles.tableTd} style={{ fontWeight: 600 }}>{s.serviceName}</td>
-                  <td className={styles.tableTd}>{s.totalSessions}</td>
-                  <td className={styles.tableTd}>{s.completedSessions}</td>
-                  <td className={styles.tableTd} style={{ color: "#7c3aed", fontWeight: 700 }}>{s.remainingSessions}</td>
-                  <td className={styles.tableTd}>{formatAmount(s.price)}</td>
-                </tr>
-              ))}
+              {pkg.services.map(s => {
+                const scheduleInfo = getPackageServiceDisplayStatus(s, pkg.expiryDate);
+                return (
+                  <tr key={s.serviceId} className={styles.tableRow}>
+                    <td className={styles.tableTd} style={{ fontWeight: 600 }}>{s.serviceName}</td>
+                    <td className={styles.tableTd}>{s.totalSessions}</td>
+                    <td className={styles.tableTd}>{s.completedSessions}</td>
+                    <td className={styles.tableTd} style={{ color: "#7c3aed", fontWeight: 700 }}>{s.remainingSessions}</td>
+                    <td className={styles.tableTd}>{formatAmount(s.price)}</td>
+                    <td className={styles.tableTd}>
+                      {scheduleInfo.status === "Scheduled" && scheduleInfo.scheduledAt
+                        ? `${new Date(scheduleInfo.scheduledAt).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })} · ${scheduleInfo.staffName ?? "—"}`
+                        : scheduleInfo.status}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
 

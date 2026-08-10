@@ -914,7 +914,14 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   // text or a new pick commits it. Without this, the "✓ Package Applied"
   // badge kept showing under a visibly empty search box the whole time the
   // field was mid-edit.
-  const isPackageCovered = row.service.trim() !== "" && serviceSearch.trim() !== "" && pkgRemaining > 0;
+  // A row auto-created by the package-sale scheduling feature (row.clientPackageId
+  // set) is always covered — it was already paid for in full at package-purchase
+  // time, independent of the fuzzy pkgRemaining pool (see AppointmentModal.tsx's
+  // perRowCoveredRemaining, which deliberately excludes these rows from that pool
+  // to avoid double-redeeming the session it exactly links to).
+  const isExactPackageLink = !!row.clientPackageId;
+  const isPackageCovered = isExactPackageLink
+    || (row.service.trim() !== "" && serviceSearch.trim() !== "" && pkgRemaining > 0);
 
   // Total field display: same "show what the client actually pays" rule the
   // wallet coverage above already follows — row.total itself stays untouched
@@ -1002,7 +1009,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
           {errorFields.service && <span className="svc-field__err">Select a service</span>}
           {isPackageCovered && (
             <span className="svc-field__pkg-badge">
-              ✓ Package Applied
+              {isExactPackageLink ? "Payment Source: Package" : "✓ Package Applied"}
             </span>
           )}
           {!isPackageCovered && membershipWalletInfo && membershipWalletInfo.walletUsed > 0 && (

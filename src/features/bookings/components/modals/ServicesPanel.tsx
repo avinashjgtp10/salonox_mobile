@@ -2,8 +2,9 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import ServiceRow from "./ServiceRow";
-import { Trash } from "react-bootstrap-icons";
+import { Trash, CalendarPlus, CalendarCheckFill, CalendarEvent, InfoCircle } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
+import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
 import type { ServiceItem, PackageItem, ProductItem, MembershipItem } from "../../types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import TimeSelect from "../shared/TimeSelect";
@@ -83,6 +84,10 @@ interface Props {
   availablePackages: any[];
   availableProducts: any[];
   availableMemberships: any[];
+  // Catalog services (id/name/price) — lets a "+ Package" row resolve each
+  // of the picked package's individual services down to a real catalog id
+  // for the per-service scheduling breakdown (see PackageRow).
+  serviceCatalog?: Array<{ id: string; name: string; price?: number }>;
   frozen?: boolean;
   // Pre-pooled per-row package-session allocation (keyed by row tempId) —
   // computed once in AppointmentModal.tsx by walking every service row in
@@ -579,6 +584,7 @@ interface PackageRowProps {
   interval: IntervalOption;
   staffList: { id: string; name: string }[];
   availablePackages: any[];
+  serviceCatalog?: Array<{ id: string; name: string; price?: number }>;
   pkgError?: { item?: boolean; staff?: boolean; time?: boolean };
   onClearError?: (field: string) => void;
   onUpdatePackage: (index: number, row: PackageItem) => void;
@@ -586,8 +592,66 @@ interface PackageRowProps {
   taxAmount?: number;
 }
 
+// Resolves a picked package's individual services into a schedulable
+// breakdown. Templates (`serviceDetails`) already carry name/sessions/price
+// but no catalog id — resolved by matching on name. Catalog "combo"
+// packages (`services`: string[] of catalog serviceIds) already have a real
+// id — name/price resolved by looking that id up directly. A service that
+// can't be matched to the catalog is still included (so its price counts
+// toward the package total shown in the "i" popover) but with no
+// `serviceId`, which the schedule toggle treats as unschedulable.
+function resolvePackageServices(
+  pkg: any,
+  serviceCatalog: Array<{ id: string; name: string; price?: number }> | undefined,
+): PackageItem["services"] {
+  if (!pkg) return undefined;
+  const catalog = serviceCatalog ?? [];
+  if (Array.isArray(pkg.serviceDetails) && pkg.serviceDetails.length > 0) {
+    return pkg.serviceDetails.map((s: any) => {
+      const match = catalog.find((c) => c.name.trim().toLowerCase() === String(s.name || "").trim().toLowerCase());
+      return {
+        serviceId: match?.id,
+        serviceName: s.name || "—",
+        totalSessions: Number(s.sessions) || 1,
+        price: Number(s.price) || 0,
+      };
+    });
+  }
+  if (Array.isArray(pkg.services) && pkg.services.length > 0 && typeof pkg.services[0] === "string") {
+    return pkg.services.map((svcId: string) => {
+      const match = catalog.find((c) => String(c.id) === String(svcId));
+      return {
+        serviceId: match ? String(match.id) : undefined,
+        serviceName: match?.name ?? "Service",
+        totalSessions: 1,
+        price: Number(match?.price) || 0,
+      };
+    });
+  }
+  return undefined;
+}
+
+// Fallback for services resolvePackageServices couldn't match — the bulk
+// catalog fetch it reads from is capped (limit:200), so a salon with a
+// larger catalog silently left most package services unschedulable even
+// though an exact-named service really does exist. This does a live,
+// server-side search per unresolved name (same endpoint/params ServiceRow's
+// own search box already uses), which finds it regardless of total catalog
+// size. Only ever called for entries still missing a serviceId.
+async function fetchExactCatalogMatch(serviceName: string): Promise<{ id: string; price: number } | null> {
+  try {
+    const res = await api.get(SERVICES.LIST(`search=${encodeURIComponent(serviceName)}&is_active=true&limit=20`));
+    const payload = (res as any)?.data?.data ?? (res as any)?.data ?? {};
+    const results: any[] = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+    const exact = results.find((r) => String(r?.name ?? "").trim().toLowerCase() === serviceName.trim().toLowerCase());
+    return exact ? { id: String(exact.id), price: parseFloat(String(exact.price)) || 0 } : null;
+  } catch {
+    return null;
+  }
+}
+
 function PackageRow({
-  row, index, frozen, interval, staffList, availablePackages, pkgError,
+  row, index, frozen, interval, staffList, availablePackages, serviceCatalog, pkgError,
   onClearError, onUpdatePackage, onRemovePackage, taxAmount,
 }: PackageRowProps) {
   const { currencySymbol } = useCurrency();
@@ -596,13 +660,52 @@ function PackageRow({
   // Mirrors MembershipRow's "i" button — lets staff see what a package
   // actually contains before selling it, instead of having to already know.
   const [showDesc, setShowDesc] = useState(false);
+  // Expands into the per-service schedule breakdown (date/staff per
+  // service) — same "schedule now, redeem on completion" capability the
+  // standalone Sell Package form has, brought to this inline row.
+  const [showSchedule, setShowSchedule] = useState(false);
   const selectedPackage = availablePackages.find(
     (p: any) => String(p.id) === String(row.packageId),
   );
 
+  // Always holds the current `row` prop, readable from async callbacks below
+  // (the background catalog-resolution lookup) without them closing over a
+  // stale snapshot from the moment the package was picked — e.g. staff/qty
+  // edits made while that lookup is still in flight must not be clobbered
+  // when it resolves.
+  const rowRef = useRef(row);
+  rowRef.current = row;
+
+  function updateRowService(svcIdx: number, patch: Partial<NonNullable<PackageItem["services"]>[number]>) {
+    const next = (row.services ?? []).map((s, i) => i === svcIdx ? { ...s, ...patch } : s);
+    onUpdatePackage(index, { ...row, services: next });
+  }
+
+  // Background fallback for any service resolvePackageServices couldn't
+  // match against the (capped) bulk catalog cache — looks each one up by an
+  // exact live search instead. Patches only the still-unresolved entries by
+  // name, merged against whatever the row looks like AT THE TIME each
+  // lookup resolves (via rowRef), and bails out entirely if the picked
+  // package has since changed.
+  function resolveUnmatchedServiceIds(pickedPackageId: string, services: NonNullable<PackageItem["services"]>) {
+    const unresolved = services.filter((s) => !s.serviceId);
+    if (unresolved.length === 0) return;
+    unresolved.forEach((svc) => {
+      fetchExactCatalogMatch(svc.serviceName).then((match) => {
+        if (!match) return;
+        const latest = rowRef.current;
+        if (String(latest.packageId) !== String(pickedPackageId)) return;
+        const merged = (latest.services ?? []).map((s) =>
+          s.serviceName === svc.serviceName && !s.serviceId ? { ...s, serviceId: match.id } : s,
+        );
+        onUpdatePackage(index, { ...latest, services: merged });
+      });
+    });
+  }
+
   useEffect(() => { setQtyInput(String(getSafeQty(row.qty))); }, [row.qty]);
   useEffect(() => { setDiscountInput(getDiscountValue(row.discount)); }, [row.discount]);
-  useEffect(() => { setShowDesc(false); }, [row.packageId]);
+  useEffect(() => { setShowDesc(false); setShowSchedule(false); }, [row.packageId]);
 
   function handleQtyChange(value: string) {
     const normalizedValue = value.slice(0, 2);
@@ -635,6 +738,7 @@ function PackageRow({
   }
 
   return (
+    <>
     <div className="item-row item-row--package">
       {/* 1 — Name */}
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
@@ -648,8 +752,13 @@ function PackageRow({
           onChange={(option) => {
             const p = availablePackages.find((pkg: any) => String(pkg.id) === String(option.id));
             if (p) {
-              onUpdatePackage(index, { ...row, packageId: p.id, packageName: p.name, price: p.price, qty: 1, discount: 0, total: p.price });
+              const services = resolvePackageServices(p, serviceCatalog);
+              onUpdatePackage(index, {
+                ...row, packageId: p.id, packageName: p.name, price: p.price, qty: 1, discount: 0, total: p.price,
+                services,
+              });
               onClearError?.("item");
+              if (services?.length) resolveUnmatchedServiceIds(p.id, services);
             }
           }}
         />
@@ -739,8 +848,8 @@ function PackageRow({
         )}
       </div>
 
-      {/* 8 — Quick-actions column: package contents */}
-      <div style={{ position: "relative" }}>
+      {/* 8 — Quick-actions column: package contents + scheduling */}
+      <div className="pkg-actions">
         {row.packageId && (
           <button
             type="button"
@@ -749,7 +858,19 @@ function PackageRow({
             aria-label="View package details"
             onClick={() => setShowDesc((v) => !v)}
           >
-            ℹ
+            <InfoCircle size={14} />
+          </button>
+        )}
+        {row.packageId && (row.services?.length ?? 0) > 0 && (
+          <button
+            type="button"
+            className={`pkg-info-btn${showSchedule ? " pkg-info-btn--active" : ""}`}
+            title="Schedule future appointments for this package's services"
+            aria-label="Schedule future appointments for this package's services"
+            aria-expanded={showSchedule}
+            onClick={() => setShowSchedule((v) => !v)}
+          >
+            <CalendarPlus size={14} />
           </button>
         )}
         {showDesc && row.packageId && (
@@ -793,6 +914,95 @@ function PackageRow({
         ? <button className="svc-del-btn" onClick={() => onRemovePackage(index)}><Trash size={13} /></button>
         : <span />}
     </div>
+
+    {/* Per-service schedule breakdown — book a future appointment for one or
+        more of this package's services right now; the session is deducted
+        only once that appointment is completed, not at package purchase. */}
+    {showSchedule && (row.services?.length ?? 0) > 0 && (
+      <div className="pkg-schedule">
+        <div className="pkg-schedule__head">
+          Schedule future appointments
+          <span>Sessions are only deducted once the appointment is completed.</span>
+        </div>
+        {(row.services ?? []).map((svc, i) => {
+          const scheduled = !!svc.schedule;
+          const unschedulable = !svc.serviceId;
+          return (
+            <div key={`${svc.serviceName}-${i}`} className={`pkg-schedule__row${scheduled ? " pkg-schedule__row--on" : ""}`}>
+              <button
+                type="button"
+                className="pkg-schedule__toggle"
+                disabled={frozen || unschedulable}
+                aria-pressed={scheduled}
+                title={unschedulable
+                  ? "This service isn't linked to the catalog and can't be auto-scheduled"
+                  : scheduled ? "Remove scheduled appointment" : "Schedule a future appointment for this service"}
+                onClick={() => updateRowService(i, { schedule: scheduled ? undefined : { scheduledAt: "", staffId: "" } })}
+              >
+                {scheduled ? <CalendarCheckFill size={13} /> : <CalendarPlus size={13} />}
+              </button>
+              <span className="pkg-schedule__name">
+                {svc.serviceName}<span>×{svc.totalSessions}</span>
+              </span>
+              {scheduled ? (
+                <div className="pkg-schedule__fields">
+                  {/* The native date glyph is hidden in CSS and replaced with
+                      this icon so it matches the rest of the modal's iconography;
+                      clicking anywhere in the field opens the real picker. */}
+                  <div
+                    className="pkg-schedule__date"
+                    onClick={(e) => {
+                      const input = e.currentTarget.querySelector("input");
+                      try { (input as any)?.showPicker?.(); } catch { /* not user-activated / unsupported — the field is still typable */ }
+                    }}
+                  >
+                    <input
+                      type="date"
+                      disabled={frozen}
+                      min={new Date().toISOString().slice(0, 10)}
+                      value={svc.schedule?.scheduledAt ? svc.schedule.scheduledAt.slice(0, 10) : ""}
+                      onChange={(e) => {
+                        const time = svc.schedule?.scheduledAt ? svc.schedule.scheduledAt.slice(11, 16) : "10:00";
+                        updateRowService(i, { schedule: { ...svc.schedule, scheduledAt: `${e.target.value}T${time}` } });
+                      }}
+                      className="svc-field__input"
+                    />
+                    <CalendarEvent size={13} aria-hidden />
+                  </div>
+                  {/* Same picker the service rows use — 12-hour labels, snapped
+                      to the calendar's configured slot interval. */}
+                  <TimeSelect
+                    disabled={frozen}
+                    interval={interval}
+                    placeholder="Time"
+                    className="svc-field__input svc-field__select"
+                    value={svc.schedule?.scheduledAt ? svc.schedule.scheduledAt.slice(11, 16) : ""}
+                    onChange={(val) => {
+                      const date = svc.schedule?.scheduledAt ? svc.schedule.scheduledAt.slice(0, 10) : new Date().toISOString().slice(0, 10);
+                      updateRowService(i, { schedule: { ...svc.schedule, scheduledAt: `${date}T${val}` } });
+                    }}
+                  />
+                  <select
+                    disabled={frozen}
+                    value={svc.schedule?.staffId || ""}
+                    onChange={(e) => updateRowService(i, { schedule: { ...svc.schedule!, staffId: e.target.value } })}
+                    className="svc-field__input svc-field__select"
+                  >
+                    <option value="">Select staff…</option>
+                    {staffList.map((s) => <option key={s.id} value={s.id}>{fmtName(s.name)}</option>)}
+                  </select>
+                </div>
+              ) : (
+                <span className="pkg-schedule__hint">
+                  {unschedulable ? "Not linked to catalog" : "Not scheduled"}
+                </span>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    )}
+    </>
   );
 }
 
@@ -1471,7 +1681,7 @@ export const ServicesPanel: React.FC<Props> = ({
   productRows, onUpdateProduct, onRemoveProduct, onAddProduct,
   membershipRows, onUpdateMembership, onRemoveMembership, onAddMembership,
   onTopupEwallet,
-  availablePackages, availableProducts, availableMemberships,
+  availablePackages, availableProducts, availableMemberships, serviceCatalog,
   frozen, packageRemainingByRow, membershipWalletInfo, serviceTaxByRow,
   consumableActuals, onConsumableActualChange, clientName,
   packageTaxByRow, productTaxByRow, membershipTaxByRow,
@@ -1537,6 +1747,7 @@ export const ServicesPanel: React.FC<Props> = ({
             interval={interval}
             staffList={staffList}
             availablePackages={availablePackages}
+            serviceCatalog={serviceCatalog}
             pkgError={pkgErrors?.[i]}
             onClearError={(field) => onClearPkgError?.(i, field)}
             onUpdatePackage={onUpdatePackage}

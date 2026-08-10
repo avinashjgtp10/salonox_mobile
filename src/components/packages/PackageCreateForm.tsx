@@ -1,6 +1,6 @@
 // src/components/packages/PackageCreateForm.tsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Loader2, Search, Plus, X } from "lucide-react";
+import { Loader2, Search, Plus, X, CalendarClock, AlertTriangle } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import styles from "./packages.module.scss";
 import type { ClientPackage, PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
@@ -31,6 +31,14 @@ interface NewService {
   unitPrice: number;
   /** True once the user has hand-edited the price, so session changes stop overwriting it. */
   priceManual: boolean;
+  /** Book one future appointment for this service at sale time — only ever
+   *  one session per service here; the rest of totalSessions stays
+   *  unscheduled for later booking. Requires catalogServiceId (the backend
+   *  can't auto-create an appointment for a service with no catalog match). */
+  scheduleEnabled: boolean;
+  scheduleDate: string;   // yyyy-mm-dd
+  scheduleTime: string;   // HH:MM
+  scheduleStaffId: string;
 }
 
 interface Props {
@@ -89,6 +97,7 @@ function newServiceRow(): NewService {
   return {
     id: Date.now(), name: "", catalogServiceId: null, sessions: 1, sessionsStr: "1", price: 0, priceStr: "",
     unitPrice: 0, priceManual: false,
+    scheduleEnabled: false, scheduleDate: "", scheduleTime: "", scheduleStaffId: "",
   };
 }
 
@@ -127,6 +136,7 @@ const PackageCreateForm: React.FC<Props> = ({
   // Same service picked twice would silently double-count it in the package
   // total — point staff at the existing row's Sessions field instead.
   const [duplicateServiceError, setDuplicateServiceError] = useState<string | null>(null);
+  const [scheduleWarning, setScheduleWarning] = useState<string | null>(null);
   // A generic package is a reusable Package Template (same as the Templates tab)
   // rather than a package sold to one specific client — no client is required,
   // but services are still selected the same way as a normal custom package.
@@ -147,9 +157,23 @@ const PackageCreateForm: React.FC<Props> = ({
 
   const dispatch = useDispatch<AppDispatch>();
   const staffMembers = useSelector((s: RootState) => (s as any).staff?.items ?? []);
+  const staffOptions = useMemo(
+    () => staffMembers.map((s: any) => ({
+      id: s.id,
+      name: s.fullName || `${s.first_name || ""} ${s.last_name || ""}`.trim() || "Unnamed Staff",
+    })),
+    [staffMembers],
+  );
+  // Scheduling a future appointment only makes sense for a real, payable
+  // client-package sale — not the Templates path (no client to book for) or
+  // Calendar's quick-create (never charges, never creates an appointment).
+  const canScheduleServices = !isTemplateSave;
 
   useEffect(() => { fetchServices({ limit: 200 }); }, []);
-  useEffect(() => { if (showStaffPicker) dispatch(fetchStaffThunk()); }, [showStaffPicker]); // eslint-disable-line react-hooks/exhaustive-deps
+  // Needed both for the "sold by" Staff picker (showStaffPicker) and for each
+  // service row's own "schedule appointment" staff picker — the latter is
+  // available whenever this is a real, payable client-package sale.
+  useEffect(() => { if (showStaffPicker || !isTemplateSave) dispatch(fetchStaffThunk()); }, [showStaffPicker, isTemplateSave]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Update one service row — always a single setState so both fields apply atomically
   const updateService = (id: number, patch: Partial<NewService>) =>
@@ -188,6 +212,9 @@ const PackageCreateForm: React.FC<Props> = ({
   minExpiryDate.setDate(minExpiryDate.getDate() + 1);
   const minExpiryStr = `${minExpiryDate.getFullYear()}-${String(minExpiryDate.getMonth() + 1).padStart(2, "0")}-${String(minExpiryDate.getDate()).padStart(2, "0")}`;
 
+  const today = new Date();
+  const minScheduleDateStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+
   const clientFullName = selectedClient
     ? `${selectedClient.first_name} ${selectedClient.last_name ?? ""}`.trim()
     : "";
@@ -202,6 +229,13 @@ const PackageCreateForm: React.FC<Props> = ({
     if (!neverExpires && expiry < minExpiryStr) { setApiError("Expiry date must be after today."); return; }
     const validServices = services.filter(s => s.name.trim());
     if (validServices.length === 0)            { setApiError("Add at least one service."); return; }
+    for (const s of validServices) {
+      if (!s.scheduleEnabled) continue;
+      if (!s.scheduleDate || !s.scheduleTime) { setApiError(`Set a date and time for "${s.name}"'s scheduled appointment, or turn scheduling off for it.`); return; }
+      if (new Date(`${s.scheduleDate}T${s.scheduleTime}`).getTime() < Date.now()) {
+        setApiError(`"${s.name}"'s scheduled appointment must be in the future.`); return;
+      }
+    }
     const methodMissing = !quickCreateMode && (paymentMode === "single"
       ? !singleMethod
       : splitEntries.length === 0 || splitEntries.some(e => !e.method || !parseFloat(e.amount)));
@@ -255,6 +289,12 @@ const PackageCreateForm: React.FC<Props> = ({
           serviceName:   s.name,
           totalSessions: s.sessions || 1,
           price:         s.price,
+          ...(s.scheduleEnabled && s.scheduleDate && s.scheduleTime ? {
+            schedule: {
+              scheduledAt: new Date(`${s.scheduleDate}T${s.scheduleTime}`).toISOString(),
+              staffId:     s.scheduleStaffId || undefined,
+            },
+          } : {}),
         })),
       });
       onSaved(pkg);
@@ -296,6 +336,7 @@ const PackageCreateForm: React.FC<Props> = ({
       priceStr:   s.price > 0 ? String(s.price) : "",
       unitPrice:  s.totalSessions > 0 ? s.price / s.totalSessions : s.price,
       priceManual: true,
+      scheduleEnabled: false, scheduleDate: "", scheduleTime: "", scheduleStaffId: "",
     }));
     setServices(rows);
     setPkgPrice(t.basePrice);
@@ -460,10 +501,7 @@ const PackageCreateForm: React.FC<Props> = ({
               <label className={styles.formLabel}>Staff</label>
               <StaffSearchInput
                 value={staffId}
-                options={staffMembers.map((s: any) => ({
-                  id: s.id,
-                  name: s.fullName || `${s.first_name || ""} ${s.last_name || ""}`.trim() || "Unnamed Staff",
-                }))}
+                options={staffOptions}
                 onChange={setStaffId}
               />
             </div>
@@ -566,14 +604,32 @@ const PackageCreateForm: React.FC<Props> = ({
               {duplicateServiceError}
             </div>
           )}
-          <div style={{ display: "grid", gridTemplateColumns: isFromTemplate ? "1fr 80px 110px" : "1fr 80px 110px 32px", gap: 8, marginBottom: 6 }}>
-            {["Service name", "Sessions", `Price (${currencySymbol})`, ...(isFromTemplate ? [] : [""])].map(h => (
-              <div key={h} style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" as const, letterSpacing: ".04em" }}>{h}</div>
+          {scheduleWarning && (
+            <div style={{ fontSize: 12.5, color: "#b45309", fontWeight: 500, marginBottom: 8, padding: "7px 10px", background: "#fffbeb", borderRadius: 6, border: "1px solid #fde68a", display: "flex", alignItems: "center", gap: 6 }}>
+              <AlertTriangle size={13} /> {scheduleWarning}
+            </div>
+          )}
+          {(() => {
+            const gridCols = [
+              "1fr", "80px", "110px",
+              ...(canScheduleServices ? ["32px"] : []),
+              ...(isFromTemplate ? [] : ["32px"]),
+            ].join(" ");
+            return (
+          <>
+          <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, marginBottom: 6 }}>
+            {[
+              "Service name", "Sessions", `Price (${currencySymbol})`,
+              ...(canScheduleServices ? [""] : []),
+              ...(isFromTemplate ? [] : [""]),
+            ].map((h, i) => (
+              <div key={`${h}-${i}`} style={{ fontSize: 11, fontWeight: 600, color: "#6b7280", textTransform: "uppercase" as const, letterSpacing: ".04em" }}>{h}</div>
             ))}
           </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {services.map(svc => (
-              <div key={svc.id} style={{ display: "grid", gridTemplateColumns: isFromTemplate ? "1fr 80px 110px" : "1fr 80px 110px 32px", gap: 8, alignItems: "center" }}>
+              <div key={svc.id} style={{ display: "flex", flexDirection: "column", gap: 6, paddingBottom: 8, borderBottom: "1px solid #f3f4f6" }}>
+              <div style={{ display: "grid", gridTemplateColumns: gridCols, gap: 8, alignItems: "center" }}>
                 <ServiceSearchInput
                   value={svc.name}
                   options={apiServices}
@@ -649,6 +705,29 @@ const PackageCreateForm: React.FC<Props> = ({
                     disabled={isFromTemplate}
                   />
                 </div>
+                {canScheduleServices && (
+                  <button
+                    type="button"
+                    title={svc.scheduleEnabled ? "Remove scheduled appointment" : "Schedule a future appointment for this service"}
+                    onClick={() => {
+                      if (!svc.scheduleEnabled && !svc.catalogServiceId) {
+                        setScheduleWarning(`"${svc.name || "This service"}" must be picked from the catalog search before it can be scheduled.`);
+                        return;
+                      }
+                      setScheduleWarning(null);
+                      updateService(svc.id, { scheduleEnabled: !svc.scheduleEnabled });
+                    }}
+                    className={styles.btnSecondary}
+                    style={{
+                      padding: 0, width: 32, height: 32, display: "flex", alignItems: "center", justifyContent: "center",
+                      color: svc.scheduleEnabled ? "#7c3aed" : undefined,
+                      background: svc.scheduleEnabled ? "#f5f3ff" : undefined,
+                      borderColor: svc.scheduleEnabled ? "#c4b5fd" : undefined,
+                    }}
+                  >
+                    <CalendarClock size={14} />
+                  </button>
+                )}
                 {!isFromTemplate && (
                   <button
                     onClick={() => removeService(svc.id)}
@@ -658,8 +737,43 @@ const PackageCreateForm: React.FC<Props> = ({
                   </button>
                 )}
               </div>
+              {svc.scheduleEnabled && (
+                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, padding: "8px 10px", background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 8 }}>
+                  <div className={styles.formField}>
+                    <label className={styles.formLabel}>Date</label>
+                    <input
+                      type="date"
+                      min={minScheduleDateStr}
+                      value={svc.scheduleDate}
+                      onChange={e => updateService(svc.id, { scheduleDate: e.target.value })}
+                      className={styles.input}
+                    />
+                  </div>
+                  <div className={styles.formField}>
+                    <label className={styles.formLabel}>Time</label>
+                    <input
+                      type="time"
+                      value={svc.scheduleTime}
+                      onChange={e => updateService(svc.id, { scheduleTime: e.target.value })}
+                      className={styles.input}
+                    />
+                  </div>
+                  <div className={styles.formField}>
+                    <label className={styles.formLabel}>Staff</label>
+                    <StaffSearchInput
+                      value={svc.scheduleStaffId}
+                      options={staffOptions}
+                      onChange={id => updateService(svc.id, { scheduleStaffId: id })}
+                    />
+                  </div>
+                </div>
+              )}
+              </div>
             ))}
           </div>
+          </>
+            );
+          })()}
         </div>
       </div>
 

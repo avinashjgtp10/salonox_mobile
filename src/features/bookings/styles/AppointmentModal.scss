@@ -9,6 +9,29 @@ $danger:     #ef4444;
 $info:       #3b82f6;
 $success:    #22c55e;
 
+// ── Services & Items table track list ─────────────────────────────────────────
+// The section headers (.item-section-header), the service rows (.svc-row) and
+// the package/product/membership rows (.item-row) are separate grids stacked
+// on top of each other, so they only LOOK like one table while their track
+// lists stay identical — declared once here so an edit to one can't silently
+// misalign the others.
+//
+// minmax(0, …) rather than a bare `2fr`: a bare fr is `minmax(auto, 1fr)`, so
+// any cell whose min-content is wider than its share (e.g. the service row's
+// "Type at least 3 characters to search services." hint, or a long service
+// name) quietly widens its own track and shifts every column after it out of
+// step with the header above. Flooring the min at 0 keeps every track strictly
+// proportional and lets over-long content wrap/ellipsize instead.
+$item-grid-columns:
+  minmax(0, 2fr) minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.85fr)
+  minmax(0, 0.6fr) minmax(0, 0.6fr) minmax(0, 1fr) 96px 34px;
+
+// How far a field's TEXT sits inside its own cell: 1px border + 8px padding
+// (see .svc-field__input). Column labels are indented by the same amount so
+// they line up with the values they label rather than with the input's
+// border box.
+$item-field-text-inset: 9px;
+
 // ══════════════════════════════════════════════════════════════════════════════
 // APPOINTMENT MODAL / DRAWER
 // ══════════════════════════════════════════════════════════════════════════════
@@ -248,13 +271,17 @@ $success:    #22c55e;
 // All section headers share the same grid as .svc-row so columns align
 .item-section-header {
   display: grid;
-  grid-template-columns: 2fr 1.4fr 1fr 0.85fr 0.6fr 0.6fr 1fr 96px 34px;
+  grid-template-columns: $item-grid-columns;
   gap: 6px;
   padding: 6px 14px;
   font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+
+  // Match .svc-field__label — line the header text up with the field text
+  // in the row beneath it, not with the input's border box.
+  > span { padding-left: $item-field-text-inset; }
 
   &--package    { background: #fef9c3; color: #92400e; }
   &--product    { background: #dbeafe; color: #1e3a8a; }
@@ -265,7 +292,7 @@ $success:    #22c55e;
 // Same grid as .svc-row — 9 columns — so all rows align visually
 .item-row {
   display: grid;
-  grid-template-columns: 2fr 1.4fr 1fr 0.85fr 0.6fr 0.6fr 1fr 96px 34px;
+  grid-template-columns: $item-grid-columns;
   gap: 6px;
   padding: 8px 14px;
   border-bottom: 1px solid #f3f4f6;
@@ -978,17 +1005,180 @@ $success:    #22c55e;
   max-width: 120px;
 }
 
+// Matches .svc-quick-actions / .svc-quick-btn above — the package row's
+// action icons sit in the same column as the service row's, so they use the
+// same 28px bordered square treatment and the same 32px row height (the
+// height of .svc-field__input) to line up with the inputs beside them.
+.pkg-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 32px;
+}
+
 .pkg-info-btn {
-  flex-shrink: 0;
-  background: none;
-  border: none;
-  padding: 0;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #f9fafb;
   cursor: pointer;
-  color: $info;
-  font-size: 13px;
-  line-height: 1;
-  opacity: 0.75;
-  &:hover { opacity: 1; }
+  color: #6b7280;
+  padding: 0;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+  flex-shrink: 0;
+
+  &:hover { border-color: $info; color: $info; background: #eff6ff; }
+
+  &--active,
+  &--active:hover {
+    border-color: #7c3aed;
+    color: #7c3aed;
+    background: #f5f3ff;
+  }
+}
+
+// ── Package per-service scheduling panel ──────────────────────────────────────
+// Sits directly under its .item-row--package, full bleed to the row's padding.
+.pkg-schedule {
+  margin: -1px 14px 8px;
+  padding: 10px 12px;
+  background: #faf9ff;
+  border: 1px solid #ede9fe;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  &__head {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    color: #6d28d9;
+
+    span {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0;
+      text-transform: none;
+      color: $secondary;
+    }
+  }
+
+  &__row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 5px 6px;
+    border-radius: 6px;
+    min-height: 38px;
+
+    &:hover { background: rgba(124, 58, 237, 0.04); }
+    &--on   { background: rgba(124, 58, 237, 0.06); }
+  }
+
+  &__toggle {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 6px;
+    border: 1px solid $border;
+    background: $white;
+    color: $secondary;
+    cursor: pointer;
+    transition: background .12s, color .12s, border-color .12s;
+
+    &:hover:not(:disabled) { border-color: #c4b5fd; color: #7c3aed; }
+
+    &[aria-pressed="true"] {
+      background: #7c3aed;
+      border-color: #7c3aed;
+      color: $white;
+    }
+
+    &:disabled { opacity: .4; cursor: not-allowed; }
+  }
+
+  &__name {
+    flex: 0 0 168px;
+    min-width: 0;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $primary;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+
+    span {
+      margin-left: 5px;
+      font-weight: 400;
+      color: $secondary;
+    }
+  }
+
+  &__fields {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+
+    .svc-field__input { height: 30px; font-size: 12.5px; }
+    // TimeSelect renders a <button>, not an <input> — width it by class.
+    > .svc-field__select { width: 132px; }
+    select { width: 150px; }
+  }
+
+  // Native date inputs draw their own picker glyph, which reads as an emoji
+  // next to this app's line-icon set. It's hidden here and replaced by the
+  // CalendarEvent icon rendered alongside; the wrapper's click handler still
+  // opens the real browser picker (see ServicesPanel.tsx).
+  &__date {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+
+    input[type="date"] {
+      width: 148px;
+      padding-right: 26px;
+      cursor: pointer;
+    }
+
+    input[type="date"]::-webkit-calendar-picker-indicator {
+      opacity: 0;
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      cursor: pointer;
+    }
+
+    > svg {
+      position: absolute;
+      right: 8px;
+      color: $secondary;
+      pointer-events: none;
+    }
+  }
+
+  &__hint {
+    font-size: 11.5px;
+    color: #9ca3af;
+    font-style: italic;
+  }
 }
 
 .membership-row__desc-box {
@@ -1791,7 +1981,7 @@ $success:    #22c55e;
 // ── Service Row ───────────────────────────────────────────────────────────────
 .svc-row {
   display: grid;
-  grid-template-columns: 2fr 1.4fr 1fr 0.85fr 0.6fr 0.6fr 1fr 96px 34px;
+  grid-template-columns: $item-grid-columns;
   gap: 6px;
   padding: 10px 14px;
   border-bottom: 1px solid #f3f4f6;
@@ -1816,6 +2006,12 @@ $success:    #22c55e;
     overflow: hidden;
     text-overflow: ellipsis;
     line-height: 1;
+    // Sits over the field's TEXT, not its border box — inputs are
+    // `1px border + 0 8px padding`, so their content starts 9px in. Without
+    // this the label is visibly 9px left of the value it labels. Kept in
+    // sync with .item-section-header's spans, which label the same columns
+    // for the package/product/membership rows.
+    padding-left: $item-field-text-inset;
   }
 
   &__input-wrap { position: relative; }

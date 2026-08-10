@@ -144,6 +144,17 @@ export const {
 
 // ─── Client Package (sold / assigned to a client) ────────────────────────────
 
+export type PackageServiceScheduleStatus = "Scheduled" | "Completed" | "Cancelled" | "No Show";
+
+export interface ClientPackageServiceScheduleSlot {
+  id: string;
+  appointmentId: string;
+  staffId: string | null;
+  staffName?: string | null;
+  status: PackageServiceScheduleStatus;
+  scheduledAt: string | null;
+}
+
 export interface ClientPackageService {
   serviceId: string;
   // Real catalog services.id — used to match this package coverage against
@@ -162,6 +173,12 @@ export interface ClientPackageService {
     staff: string;
     status: string;
   }>;
+  // One entry per session ever scheduled (booked as a future appointment) for
+  // this service line — see PackageServiceScheduleStatus. A service can have
+  // some sessions scheduled and others not; "Not Scheduled"/"Expired" slots
+  // are derived in the UI, never present in this array (see
+  // features/bookings/utils/packageServiceStatus.ts).
+  scheduleSlots: ClientPackageServiceScheduleSlot[];
 }
 
 export interface ClientPackage {
@@ -186,6 +203,12 @@ export interface ClientPackage {
   paidAmount: number;
   pendingAmount: number;
   paymentStatus: string;
+  // Set only when one or more services in this create() call carried a
+  // `schedule` that couldn't be auto-booked (e.g. a blocked staff slot, or a
+  // custom service with no catalog match). The package itself was still
+  // created and paid successfully — this just flags which services need
+  // manual scheduling instead.
+  schedulingErrors?: Array<{ serviceName: string; error: string }>;
 }
 
 export interface CreateClientPackageDTO {
@@ -206,6 +229,20 @@ export interface CreateClientPackageDTO {
     serviceName: string;
     totalSessions: number;
     price: number;
+    /**
+     * Book one future appointment for this service right now — the session
+     * is only deducted once that appointment is completed, not at package
+     * purchase. Requires a real catalog `serviceId` above; a service with no
+     * catalog match can't be auto-scheduled (backend reports it via
+     * schedulingErrors instead). Only ever schedules a single session per
+     * service at package-creation time — a service bought with
+     * totalSessions > 1 keeps the rest unscheduled for later booking.
+     */
+    schedule?: {
+      scheduledAt: string;
+      staffId?: string;
+      durationMinutes?: number;
+    };
   }>;
 }
 

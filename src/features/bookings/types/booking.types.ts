@@ -31,6 +31,13 @@ export interface ServiceItem {
   duration?: number;
   isFav?: boolean;
   isPackageService?: boolean;
+  // Set only on an appointment auto-created by the package-sale scheduling
+  // feature — an exact link back to the client_packages/client_package_services
+  // row this visit redeems on completion. Distinct from the fuzzy
+  // isPackageService coverage-matching used elsewhere: this row was already
+  // paid for in full at package-purchase time and needs no payment here.
+  clientPackageId?: string;
+  clientPackageServiceId?: string;
   // service_categories id, copied from the catalog service when picked — lets
   // a category-restricted membership benefit (wallet/discount/loyalty) know
   // whether this row is eligible.
@@ -72,6 +79,22 @@ export interface ServiceItem {
   }[];
 }
 
+export interface PackageServiceScheduleDraft {
+  serviceId?: string;
+  serviceName: string;
+  totalSessions: number;
+  price: number;
+  // Set only when staff opts to book a future appointment for this specific
+  // service right now — mirrors CreateClientPackageDTO.services[].schedule
+  // on the standalone Sell Package form. Requires serviceId (a real catalog
+  // match) — a service the backend can't resolve to a catalog id can't be
+  // auto-scheduled.
+  schedule?: {
+    scheduledAt: string;
+    staffId?: string;
+  };
+}
+
 export interface PackageItem {
   id: string;
   packageId: string;
@@ -83,6 +106,13 @@ export interface PackageItem {
   staffId?: string;
   time?: string;
   tax?: number;
+  // Per-service breakdown of the picked package, resolved client-side at
+  // pick time (see AppointmentModal.tsx's PackageRow) so staff can schedule
+  // a future appointment for individual services right from this row —
+  // same "schedule now, redeem on completion" capability the standalone
+  // Sell Package form has. Undefined for a package with no resolvable
+  // service breakdown (legacy catalog packages with no serviceIds).
+  services?: PackageServiceScheduleDraft[];
 }
 
 export interface ProductItem {

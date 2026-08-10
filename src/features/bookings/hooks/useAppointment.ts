@@ -208,6 +208,22 @@ export function useAppointment() {
             staff_name: staffMember?.name || staffMember?.full_name || staffMember?.fullName || undefined,
             start_time: new Date(startMs).toISOString(),
             ...(isPackageService ? { is_package_service: true } : {}),
+            // Per-service breakdown (with any schedule-at-purchase info) —
+            // resolved client-side when the package was picked (see
+            // ServicesPanel.tsx's PackageRow). Read server-side at checkout
+            // instead of re-deriving from the template/catalog, so a
+            // service's `schedule` survives to auto-create its appointment.
+            ...((p as any).services?.length ? {
+              services: (p as any).services.map((s: any) => ({
+                serviceId:     s.serviceId || undefined,
+                serviceName:   s.serviceName,
+                totalSessions: s.totalSessions || 1,
+                price:         s.price || 0,
+                ...(s.schedule?.scheduledAt ? {
+                  schedule: { scheduledAt: new Date(s.schedule.scheduledAt).toISOString(), staffId: s.schedule.staffId || undefined },
+                } : {}),
+              })),
+            } : {}),
           };
         }),
         product_items:    productRows.filter((p) => (p as any).productId).map((p) => {
