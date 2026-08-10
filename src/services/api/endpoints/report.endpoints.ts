@@ -90,6 +90,13 @@ export const LOST_CUSTOMERS_REPORT = {
   SUMMARY: () => `/api/report/lost-customers`,
 } as const;
 
+// Independent Membership History reporting API — one row per membership
+// benefit redemption, read from membership_usage_log (the membership
+// counterpart to Package History). Mounted at /api/report.
+export const MEMBERSHIP_HISTORY_REPORT = {
+  SUMMARY: () => `/api/report/membership-history`,
+} as const;
+
 // Independent Payment Collection reporting API — one row per billed
 // appointment (billed / collected / still due). Reads appointments+payments
 // directly, never sales: an unpaid bill has no sales row at all, and payments
