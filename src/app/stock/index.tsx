@@ -15,6 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { EmptyState, ErrorState } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { deleteProductThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
@@ -155,9 +156,18 @@ function LoadingCards() {
   return <View>{[1,2,3,4].map((key) => <View key={key} style={styles.skeleton}><View style={styles.skeletonIcon} /><View style={styles.skeletonCopy}><View style={styles.skeletonTitle} /><View style={styles.skeletonLine} /></View></View>)}</View>;
 }
 function Empty({ error, onRetry, searching }: { error: string | null; onRetry: () => void; searching: boolean }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <View style={styles.empty}><Ionicons name={error ? "cloud-offline-outline" : "cube-outline"} size={34} color={error ? Colors.error : Colors.primary} /><Text style={styles.emptyTitle}>{error ? "Unable to load products" : "No products found"}</Text><Text style={styles.emptyText}>{error ?? (searching ? "Try changing your search or filter." : "Add your first retail product to begin tracking stock.")}</Text>{error ? <TouchableOpacity onPress={onRetry} style={styles.retry}><Text style={styles.retryText}>Retry</Text></TouchableOpacity> : null}</View>;
+  if (error) {
+    return <ErrorState message={error} onRetry={onRetry} />;
+  }
+
+  return (
+    <EmptyState
+      accent="indigo"
+      description={searching ? "Try changing your search or filter." : "Add your first retail product to begin tracking stock."}
+      icon="cube-outline"
+      title="No products found"
+    />
+  );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({

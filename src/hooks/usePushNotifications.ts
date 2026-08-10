@@ -202,7 +202,6 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
   }, [currentUser, handleNotificationResponse, isAuthenticated]);
 
   useEffect(() => {
-
     const receivedSubscription = Notifications.addNotificationReceivedListener(() => {
       // Foreground receipt: the OS banner is already handled by the
       // notification handler configured in pushNotifications.ts — this just

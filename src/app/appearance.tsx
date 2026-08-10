@@ -11,10 +11,36 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { useAppTheme, type ThemeMode } from "@/theme/ThemeProvider";
+
+const OPTIONS: {
+  description: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  mode: ThemeMode;
+  title: string;
+}[] = [
+  {
+    description: "Bright, high-contrast surfaces for daytime use.",
+    icon: "sunny-outline",
+    mode: "light",
+    title: "Light",
+  },
+  {
+    description: "Premium dark blue/slate surfaces, easier on the eyes at night.",
+    icon: "moon-outline",
+    mode: "dark",
+    title: "Dark",
+  },
+  {
+    description: "Automatically follow your device's appearance setting.",
+    icon: "contrast-outline",
+    mode: "system",
+    title: "System Default",
+  },
+];
 
 export default function AppearanceScreen() {
-  const Colors = useThemeColors();
+  const { colors: Colors, mode, setMode } = useAppTheme();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   const handleBack = () => {
@@ -39,16 +65,40 @@ export default function AppearanceScreen() {
       </View>
 
       <View style={styles.content}>
-        <View style={styles.card}>
-          <View style={styles.iconWrap}>
-            <Ionicons color={Colors.onPrimary} name="moon-outline" size={22} />
-          </View>
-          <Text style={styles.title}>Dark Mode Active</Text>
-          <Text style={styles.description}>
-            SalonOX now uses Dark Mode across the mobile app. Light Theme tokens remain available
-            in the codebase for future use.
-          </Text>
-        </View>
+        <Text style={styles.sectionHint}>
+          Choose how SalonOX looks on this device. Your choice is saved and applied everywhere.
+        </Text>
+
+        {OPTIONS.map((option) => {
+          const isSelected = mode === option.mode;
+
+          return (
+            <TouchableOpacity
+              accessibilityLabel={`Use ${option.title} theme`}
+              accessibilityRole="radio"
+              accessibilityState={{ selected: isSelected }}
+              activeOpacity={0.84}
+              key={option.mode}
+              onPress={() => setMode(option.mode)}
+              style={[styles.row, isSelected && styles.rowSelected]}
+            >
+              <View style={[styles.iconWrap, isSelected && styles.iconWrapSelected]}>
+                <Ionicons
+                  color={isSelected ? Colors.onPrimary : Colors.text2}
+                  name={option.icon}
+                  size={20}
+                />
+              </View>
+              <View style={styles.rowCopy}>
+                <Text style={styles.rowTitle}>{option.title}</Text>
+                <Text style={styles.rowDescription}>{option.description}</Text>
+              </View>
+              <View style={[styles.radioOuter, isSelected && styles.radioOuterSelected]}>
+                {isSelected ? <View style={styles.radioInner} /> : null}
+              </View>
+            </TouchableOpacity>
+          );
+        })}
       </View>
     </SafeAreaView>
   );
@@ -90,34 +140,68 @@ const createStyles = (Colors: ThemeColors) =>
       paddingHorizontal: AppLayout.contentHorizontalPadding,
       paddingTop: AppLayout.headerMarginBottom,
     },
-    card: {
+    sectionHint: {
+      color: Colors.text2,
+      fontSize: 13,
+      lineHeight: 19,
+      marginBottom: Spacing.lg,
+    },
+    row: {
       alignItems: "center",
       backgroundColor: Colors.card,
       borderColor: Colors.border,
       borderRadius: AppRadius.card,
       borderWidth: 1,
+      flexDirection: "row",
+      gap: Spacing.md,
+      marginBottom: Spacing.sm,
       padding: AppLayout.cardPadding,
+    },
+    rowSelected: {
+      borderColor: Colors.primary,
     },
     iconWrap: {
       alignItems: "center",
+      backgroundColor: Colors.backgroundElement,
+      borderRadius: Radius.full,
+      height: 44,
+      justifyContent: "center",
+      width: 44,
+    },
+    iconWrapSelected: {
+      backgroundColor: Colors.primary,
+    },
+    rowCopy: {
+      flex: 1,
+      minWidth: 0,
+    },
+    rowTitle: {
+      color: Colors.heading,
+      fontSize: 15,
+      fontWeight: "800",
+    },
+    rowDescription: {
+      color: Colors.text2,
+      fontSize: 12,
+      lineHeight: 17,
+      marginTop: 3,
+    },
+    radioOuter: {
+      alignItems: "center",
+      borderColor: Colors.border,
+      borderRadius: Radius.full,
+      borderWidth: 2,
+      height: 22,
+      justifyContent: "center",
+      width: 22,
+    },
+    radioOuterSelected: {
+      borderColor: Colors.primary,
+    },
+    radioInner: {
       backgroundColor: Colors.primary,
       borderRadius: Radius.full,
-      height: 48,
-      justifyContent: "center",
-      width: 48,
-    },
-    title: {
-      color: Colors.heading,
-      fontSize: 18,
-      fontWeight: "800",
-      marginTop: Spacing.md,
-      textAlign: "center",
-    },
-    description: {
-      color: Colors.text2,
-      fontSize: 13,
-      lineHeight: 20,
-      marginTop: Spacing.sm,
-      textAlign: "center",
+      height: 12,
+      width: 12,
     },
   });

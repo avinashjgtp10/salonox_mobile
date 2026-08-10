@@ -60,24 +60,14 @@ import {
 } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Membership } from "@/types/membership";
+import { formatAppDate } from "@/utils/dateTime";
 
 function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
 }
 
 function formatCreatedDate(createdAt: string | null) {
-  if (!createdAt) {
-    return "-";
-  }
-  const parsedDate = new Date(createdAt);
-  if (Number.isNaN(parsedDate.getTime())) {
-    return "-";
-  }
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(parsedDate);
+  return formatAppDate(createdAt, "-");
 }
 
 function formatStatusLabel(value: string) {

@@ -11,6 +11,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { formatAppDate } from "@/utils/dateTime";
 import { fetchServiceByIdThunk } from "@/middleware/service/service.thunk";
 import {
   selectServiceById,
@@ -29,21 +30,7 @@ function formatDuration(durationMinutes: number | null) {
 }
 
 function formatCreatedDate(createdAt: string | null) {
-  if (!createdAt) {
-    return "-";
-  }
-
-  const parsedDate = new Date(createdAt);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(parsedDate);
+  return formatAppDate(createdAt, "-");
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -299,10 +286,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 6,
   },
   statusBadgeActive: {
-    backgroundColor: "#F2EFE9",
+    backgroundColor: Colors.backgroundElement,
   },
   statusBadgeInactive: {
-    backgroundColor: "#F2EFE9",
+    backgroundColor: Colors.errorBg,
   },
   statusBadgeText: {
     fontSize: 11,

@@ -36,6 +36,7 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Membership } from "@/types/membership";
+import { formatAppDate } from "@/utils/dateTime";
 
 type FilterKey = "All" | "Active" | "Expired" | "Expiring Soon";
 
@@ -44,9 +45,7 @@ const FILTERS: FilterKey[] = ["All", "Active", "Expired", "Expiring Soon"];
 const formatMoney = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 
 const formatDate = (value: string) => {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(parsed);
+  return formatAppDate(value, "-");
 };
 
 const getStatus = (membership: Membership) => {

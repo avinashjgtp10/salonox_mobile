@@ -67,7 +67,9 @@ const createOnboardingColors = (theme: ThemeColors, scheme: "light" | "dark") =>
   inputBorderFocus: theme.focusBorder,
   error: theme.error,
   errorBg: theme.errorBg,
+  errorBorder: theme.errorBorder,
   success: theme.success,
+  successBorder: theme.successBorder,
   warning: theme.warning,
   statusBarStyle: scheme === "dark" ? ("light-content" as const) : ("dark-content" as const),
 });
@@ -1095,7 +1097,10 @@ export default function OnboardingScreen() {
                   {isDetectingLocation ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.currentLocationButtonText}>📍 Use Current Location</Text>
+                    <>
+                      <Ionicons name="location-outline" size={16} color="#FFFFFF" />
+                      <Text style={styles.currentLocationButtonText}>Use Current Location</Text>
+                    </>
                   )}
                 </Pressable>
 
@@ -1654,6 +1659,7 @@ const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
     backgroundColor: Colors.primary,
     borderRadius: 18,
     flexDirection: "row",
+    gap: 8,
     height: 54,
     justifyContent: "center",
     marginBottom: 16,
@@ -1715,7 +1721,7 @@ const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(114, 106, 99, 0.18)",
+    borderColor: Colors.errorBorder,
     borderRadius: 16,
     borderWidth: 1,
     marginBottom: 16,

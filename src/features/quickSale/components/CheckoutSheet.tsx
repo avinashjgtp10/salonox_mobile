@@ -29,7 +29,6 @@ import type { QuickSaleClient, CartItem } from "@/features/quickSale/types";
 import { getCartItemBillableQuantity, type BillTotals } from "@/features/quickSale/utils/calculations";
 import { getPackageCoveredQuantity } from "@/features/quickSale/utils/packageCoverage";
 import { formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
-import { getMissingStaffMessage } from "@/features/quickSale/utils/staffAssignment";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ValidateCouponResult } from "@/types/coupon";
 import type { CheckoutSaleSplitEntry, PosStaffMember, SalePaymentMethod } from "@/types/sales";
@@ -58,6 +57,7 @@ type CheckoutSheetProps = {
   hasItems: boolean;
   includeGst: boolean;
   initialStep: CheckoutStep;
+  initialStaffValidationAttempted?: boolean;
   isApplyingCoupon: boolean;
   isCheckingOut: boolean;
   isSaving: boolean;
@@ -103,6 +103,7 @@ function CheckoutSheetComponent({
   hasItems,
   includeGst,
   initialStep,
+  initialStaffValidationAttempted = false,
   isApplyingCoupon,
   isCheckingOut,
   isSaving,
@@ -153,6 +154,7 @@ function CheckoutSheetComponent({
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>(initialStep);
   const [customTipVisible, setCustomTipVisible] = useState(Boolean(tipInput));
   const [staffPickerLineId, setStaffPickerLineId] = useState<string | null>(null);
+  const [staffValidationAttempted, setStaffValidationAttempted] = useState(false);
 
   const resetCheckoutState = useCallback(() => {
     setPaymentMethod("cash");
@@ -167,8 +169,10 @@ function CheckoutSheetComponent({
     setCheckoutStep(initialStep);
     setCustomTipVisible(Boolean(tipInput));
     setStaffPickerLineId(null);
+    setStaffValidationAttempted(initialStaffValidationAttempted);
   }, [
     initialStep,
+    initialStaffValidationAttempted,
     overallDiscountInput,
     overallDiscountPercent,
     overallDiscountType,
@@ -321,23 +325,30 @@ function CheckoutSheetComponent({
   const customTipInvalid = customTipVisible && tipInput.trim().length === 0;
   const chargesInvalid = discountExceedsSubtotal || invalidDiscountPercentage || customTipInvalid;
   const isBusy = isSaving || isCheckingOut || isApplyingCoupon || isSuccess;
-  // Every catalog line (service/package/product/membership) must carry its
-  // own staff before an appointment can be created — mirrors the web Quick
-  // Sale's per-row validation. "quick" is a free-typed custom charge with no
-  // catalog id behind it, so there's no one to attribute it to.
   const missingStaffCount = useMemo(
-    () => items.filter((item) => item.itemType !== "quick" && !item.staffId).length,
+    () => items.filter((item) => item.itemType === "service" && !item.staffId).length,
     [items],
   );
-  const missingServiceStaffMessage = useMemo(() => getMissingStaffMessage(items), [items]);
+  const missingStaffServiceNames = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          items
+            .filter((item) => item.itemType === "service" && !item.staffId)
+            .map((item) => item.name.trim())
+            .filter(Boolean),
+        ),
+      ),
+    [items],
+  );
   const hasMissingStaff = missingStaffCount > 0;
+  const showStaffValidation = staffValidationAttempted && hasMissingStaff;
   const activeStaffItem = useMemo(
     () => (staffPickerLineId ? items.find((item) => item.lineId === staffPickerLineId) ?? null : null),
     [items, staffPickerLineId],
   );
   const canCompleteSale =
     hasItems &&
-    !hasMissingStaff &&
     !chargesInvalid &&
     (paymentMethod === "split"
       ? splitEntries.length > 0 && !splitMismatch
@@ -391,6 +402,12 @@ function CheckoutSheetComponent({
       return;
     }
 
+    if (hasMissingStaff) {
+      setStaffValidationAttempted(true);
+      setCheckoutStep("review");
+      return;
+    }
+
     if (paymentMethod === "split") {
       onCompleteSale({ method: paymentMethod, splitEntries });
       return;
@@ -404,16 +421,33 @@ function CheckoutSheetComponent({
       return;
     }
 
+    if (hasMissingStaff) {
+      setStaffValidationAttempted(true);
+      setCheckoutStep("review");
+      return;
+    }
+
     setCheckoutStep("payment");
   };
 
   const handleContinueToCharges = () => {
-    if (!hasItems || hasMissingStaff) {
+    if (!hasItems) {
+      return;
+    }
+
+    if (hasMissingStaff) {
+      setStaffValidationAttempted(true);
       return;
     }
 
     setCheckoutStep("charges");
   };
+
+  useEffect(() => {
+    if (staffValidationAttempted && !hasMissingStaff) {
+      setStaffValidationAttempted(false);
+    }
+  }, [hasMissingStaff, staffValidationAttempted]);
 
   const animateItemLayout = () => {
     LayoutAnimation.configureNext({
@@ -553,21 +587,22 @@ function CheckoutSheetComponent({
                               animateItemLayout();
                               onRemoveItem(item.lineId);
                             }}
+                            showStaffError={showStaffValidation && item.itemType === "service" && !item.staffId}
                             stockError={productStockErrors[item.lineId]}
                           />
                         ))}
                       </View>
                     ))
                   )}
-
-                  {hasMissingStaff ? (
+                  {showStaffValidation ? (
                     <View style={styles.staffWarningBanner}>
                       <Ionicons name="alert-circle-outline" size={16} color={Colors.error} />
                       <Text style={styles.staffWarningText}>
-                        {missingServiceStaffMessage ??
-                          `Assign a staff member to ${missingStaffCount} item${
-                            missingStaffCount === 1 ? "" : "s"
-                          } before checkout.`}
+                        {`Please assign a staff member to every selected service before continuing.${
+                          missingStaffServiceNames.length > 0
+                            ? ` Missing: ${missingStaffServiceNames.join(", ")}.`
+                            : ""
+                        }`}
                       </Text>
                     </View>
                   ) : null}
@@ -928,8 +963,27 @@ function CheckoutSheetComponent({
                 {totals.exCharges > 0 ? (
                   <SummaryRow label="Extra Charges" value={formatCurrency(totals.exCharges)} />
                 ) : null}
-                {totals.taxAmount > 0 ? <SummaryRow label="GST" value={formatCurrency(totals.taxAmount)} /> : null}
+                {totals.taxableAmount > 0 && totals.taxBreakdown && totals.taxBreakdown.length > 0 ? (
+                  <SummaryRow label="Taxable Amount" value={formatCurrency(totals.taxableAmount)} />
+                ) : null}
+                {totals.taxBreakdown && totals.taxBreakdown.length > 0 ? (
+                  totals.taxBreakdown.map((tax, idx) => (
+                    <SummaryRow
+                      key={`${tax.name}-${idx}`}
+                      label={`${tax.name} (${tax.rate}%)${tax.inclusive ? " (Incl.)" : ""}`}
+                      value={formatCurrency(tax.amount)}
+                    />
+                  ))
+                ) : totals.taxAmount > 0 ? (
+                  <SummaryRow label="Tax" value={formatCurrency(totals.taxAmount)} />
+                ) : null}
                 {totals.tipAmount > 0 ? <SummaryRow label="Tip" value={formatCurrency(totals.tipAmount)} /> : null}
+                {Math.abs(totals.roundOff) > 0.001 ? (
+                  <SummaryRow
+                    label="Round Off"
+                    value={`${totals.roundOff > 0 ? "+" : "-"} ${formatCurrency(Math.abs(totals.roundOff))}`}
+                  />
+                ) : null}
                 <View style={styles.grandTotalRow}>
                   <Text style={styles.grandTotalLabel}>Grand Total</Text>
                   <Text style={styles.grandTotalValue}>{formatCurrency(totals.grandTotal)}</Text>
@@ -986,11 +1040,11 @@ function CheckoutSheetComponent({
                 ) : (
                   <TouchableOpacity
                     activeOpacity={0.84}
-                    disabled={isBusy || !hasItems || chargesInvalid || hasMissingStaff}
+                    disabled={isBusy || !hasItems || chargesInvalid}
                     onPress={onSavePending}
                     style={[
                       styles.pendingButton,
-                      (isBusy || !hasItems || chargesInvalid || hasMissingStaff) && styles.buttonDisabled,
+                      (isBusy || !hasItems || chargesInvalid) && styles.buttonDisabled,
                     ]}
                   >
                     {isSaving ? (
@@ -1005,7 +1059,7 @@ function CheckoutSheetComponent({
                   disabled={
                     checkoutStep === "payment"
                       ? isBusy || !canCompleteSale
-                      : isBusy || !hasItems || chargesInvalid || hasMissingStaff
+                      : isBusy || !hasItems || chargesInvalid || showStaffValidation
                   }
                   onPress={
                     checkoutStep === "payment"
@@ -1019,7 +1073,7 @@ function CheckoutSheetComponent({
                     !isSuccess &&
                       (checkoutStep === "payment"
                         ? isBusy || !canCompleteSale
-                        : isBusy || !hasItems || chargesInvalid || hasMissingStaff) &&
+                        : isBusy || !hasItems || chargesInvalid || showStaffValidation) &&
                       styles.buttonDisabled,
                     isSuccess && styles.completeButtonSuccess,
                   ]}
@@ -1128,6 +1182,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
   onIncrease,
   onPressStaff,
   onRemove,
+  showStaffError,
   stockError,
 }: {
   item: CartItem;
@@ -1136,6 +1191,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
   onIncrease: () => void;
   onPressStaff: () => void;
   onRemove: () => void;
+  showStaffError: boolean;
   stockError?: string;
 }) {
   const Colors = useThemeColors();
@@ -1164,7 +1220,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
   }, [item.quantity, scale]);
 
   return (
-    <Animated.View style={[styles.itemCard, stockError && styles.itemCardError, { transform: [{ scale }] }]}>
+    <Animated.View style={[styles.itemCard, (stockError || showStaffError) && styles.itemCardError, { transform: [{ scale }] }]}>
       <View style={styles.itemMedia}>
         <Ionicons
           name={item.itemType === "service" ? "cut-outline" : item.itemType === "membership" ? "card-outline" : "cube-outline"}
@@ -1193,7 +1249,7 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
         {stockError ? <Text style={styles.stockErrorText}>{stockError}</Text> : null}
         {item.itemType !== "quick" ? (
           <StaffAssignmentChip
-            hasError={!item.staffId}
+            hasError={showStaffError}
             onClear={item.staffId ? onClearStaff : undefined}
             onPress={onPressStaff}
             staffName={item.staffName}

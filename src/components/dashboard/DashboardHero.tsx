@@ -14,7 +14,7 @@ import { selectActiveBranch, selectShouldShowBranchSelector } from "@/store/bran
 import { useAppSelector } from "@/store/hooks";
 import { selectUnreadCount } from "@/store/notification/notification.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { useAppTheme } from "@/theme/ThemeProvider";
 import {
   DEFAULT_BUSINESS_NAME,
   getUserFullName,
@@ -37,9 +37,15 @@ const getTimeGreeting = () => {
 
 const getFirstName = (fullName: string) => fullName.trim().split(/\s+/)[0] || "Owner";
 
-export default function DashboardHero() {
-  const Colors = useThemeColors();
+type DashboardHeroProps = {
+  onOpenQuickActions?: () => void;
+};
+
+export default function DashboardHero({ onOpenQuickActions }: DashboardHeroProps) {
+  const { colors: Colors, scheme, setMode } = useAppTheme();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const isDark = scheme === "dark";
+  const toggleTheme = () => setMode(isDark ? "light" : "dark");
   const currentUser = useAppSelector(selectCurrentUser);
   const unreadNotificationCount = useAppSelector(selectUnreadCount);
   const activeBranch = useAppSelector(selectActiveBranch);
@@ -61,25 +67,42 @@ export default function DashboardHero() {
   return (
     <View style={styles.wrapper}>
       <View style={styles.row}>
-        <View style={styles.copy}>
-          <Text numberOfLines={1} style={styles.eyebrow}>{greeting}</Text>
-          <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82} style={styles.name}>
-            Hi, {firstName} 👋
-          </Text>
-          <Text numberOfLines={1} style={styles.ownerName}>{brandName}</Text>
-          {shouldShowBranchSelector ? (
+        <View style={styles.leftGroup}>
+          {onOpenQuickActions ? (
             <TouchableOpacity
-              accessibilityLabel="Switch branch"
-              activeOpacity={0.8}
-              onPress={() => setIsBranchSheetOpen(true)}
-              style={styles.branchChip}
+              accessibilityLabel="Open quick actions"
+              accessibilityRole="button"
+              activeOpacity={0.7}
+              onPress={onOpenQuickActions}
+              style={styles.menuButton}
             >
-              <Ionicons color={Colors.text2} name="location-sharp" size={18} />
-              <Text numberOfLines={1} style={styles.branchChipText}>{branchName}</Text>
-              <Ionicons color={Colors.text2} name="chevron-down" size={18} />
+              <Ionicons name="menu-outline" size={24} color={Colors.heading} />
             </TouchableOpacity>
-          ) : null}
+          ) : (
+            <View style={styles.menuButtonPlaceholder} />
+          )}
+
+          <View style={styles.copy}>
+            <Text numberOfLines={1} style={styles.eyebrow}>{greeting}</Text>
+            <Text numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82} style={styles.name}>
+              Hi, {firstName} 👋
+            </Text>
+            <Text numberOfLines={1} style={styles.ownerName}>{brandName}</Text>
+            {shouldShowBranchSelector ? (
+              <TouchableOpacity
+                accessibilityLabel="Switch branch"
+                activeOpacity={0.8}
+                onPress={() => setIsBranchSheetOpen(true)}
+                style={styles.branchChip}
+              >
+                <Ionicons color={Colors.text2} name="location-sharp" size={18} />
+                <Text numberOfLines={1} style={styles.branchChipText}>{branchName}</Text>
+                <Ionicons color={Colors.text2} name="chevron-down" size={18} />
+              </TouchableOpacity>
+            ) : null}
+          </View>
         </View>
+
         <View style={styles.right}>
           <TouchableOpacity
             accessibilityLabel="Open notifications"
@@ -87,22 +110,32 @@ export default function DashboardHero() {
             onPress={() => router.push("/notifications" as Href)}
             style={styles.bell}
           >
-            <Ionicons name="notifications-outline" size={28} color={Colors.heading} />
-            <NotificationBadge count={unreadNotificationCount} style={{ right: 10, top: 10, borderColor: Colors.card }} />
+            <Ionicons name="notifications-outline" size={20} color={Colors.text2} />
+            <NotificationBadge count={unreadNotificationCount} style={{ right: -4, top: -4, borderColor: Colors.card }} />
           </TouchableOpacity>
-          <TouchableOpacity
-            accessibilityLabel="Open profile"
-            activeOpacity={0.8}
-            onPress={() => router.push("/profile" as Href)}
-          >
-            {currentUser?.avatarUrl ? (
-              <Image contentFit="cover" source={{ uri: currentUser.avatarUrl }} style={styles.avatarImage} />
-            ) : (
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initials}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
+          <View style={styles.avatarColumn}>
+            <TouchableOpacity
+              accessibilityLabel="Open profile"
+              activeOpacity={0.8}
+              onPress={() => router.push("/profile" as Href)}
+            >
+              {currentUser?.avatarUrl ? (
+                <Image contentFit="cover" source={{ uri: currentUser.avatarUrl }} style={styles.avatarImage} />
+              ) : (
+                <View style={styles.avatar}>
+                  <Text style={styles.avatarText}>{initials}</Text>
+                </View>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              accessibilityLabel={isDark ? "Switch to light theme" : "Switch to dark theme"}
+              activeOpacity={0.7}
+              onPress={toggleTheme}
+              style={styles.themeToggle}
+            >
+              <Ionicons name={isDark ? "sunny-outline" : "moon-outline"} size={18} color={Colors.text2} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
       {shouldShowBranchSelector ? (
@@ -120,37 +153,45 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "flex-start",
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingBottom: 24,
-    paddingHorizontal: 22,
+    paddingBottom: 28,
+    paddingHorizontal: 20,
     paddingTop: 20,
+  },
+  leftGroup: {
+    alignItems: "flex-start",
+    flex: 1,
+    flexDirection: "row",
+    gap: 14,
+    minWidth: 0,
+    paddingRight: 12,
   },
   copy: {
     flex: 1,
+    marginTop: 8,
     minWidth: 0,
-    paddingRight: 14,
   },
   eyebrow: {
     color: Colors.text2,
-    fontSize: 16,
-    fontWeight: Typography.fontWeights.semibold,
+    fontSize: 13,
+    fontWeight: Typography.fontWeights.regular,
     letterSpacing: 0,
-    lineHeight: 22,
-    marginBottom: 6,
+    lineHeight: 18,
+    marginBottom: 2,
   },
   name: {
     color: Colors.heading,
     fontFamily: Typography.fontFamilies.display,
-    fontSize: 38,
-    fontWeight: Typography.fontWeights.semibold,
+    fontSize: 24,
+    fontWeight: Typography.fontWeights.bold,
     letterSpacing: 0,
-    lineHeight: 46,
+    lineHeight: 30,
   },
   ownerName: {
     color: Colors.text2,
-    fontSize: 16,
-    fontWeight: Typography.fontWeights.bold,
-    lineHeight: 22,
-    marginTop: 8,
+    fontSize: 14,
+    fontWeight: Typography.fontWeights.medium,
+    lineHeight: 19,
+    marginTop: 4,
   },
   branchChip: {
     alignItems: "center",
@@ -180,46 +221,82 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     lineHeight: 21,
   },
   right: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexDirection: "row",
-    gap: 14,
-    paddingTop: 10,
+    gap: 10,
   },
   bell: {
     alignItems: "center",
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: 32,
+    borderRadius: 20,
     borderWidth: 1,
-    height: 64,
+    height: 40,
     justifyContent: "center",
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.035,
     shadowRadius: 12,
-    width: 64,
+    width: 40,
   },
-
+  menuButton: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: 12,
+    borderWidth: 1,
+    height: 38,
+    justifyContent: "center",
+    marginTop: 4,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.035,
+    shadowRadius: 12,
+    width: 38,
+  },
+  menuButtonPlaceholder: {
+    height: 38,
+    marginTop: 4,
+    width: 38,
+  },
+  avatarColumn: {
+    alignItems: "center",
+    gap: 8,
+  },
   avatar: {
     alignItems: "center",
-    backgroundColor: Colors.backgroundElement,
+    backgroundColor: Colors.purple,
     borderColor: Colors.border,
-    borderRadius: 32,
+    borderRadius: 20,
     borderWidth: 1,
-    height: 64,
+    height: 40,
     justifyContent: "center",
-    width: 64,
+    width: 40,
   },
   avatarImage: {
     backgroundColor: Colors.backgroundElement,
-    borderRadius: 32,
-    height: 64,
-    width: 64,
+    borderRadius: 20,
+    height: 40,
+    width: 40,
   },
   avatarText: {
-    color: Colors.heading,
+    color: Colors.onPrimary,
     fontFamily: Typography.fontFamilies.display,
-    fontSize: 20,
+    fontSize: 13,
     fontWeight: Typography.fontWeights.bold,
+  },
+  themeToggle: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: 20,
+    borderWidth: 1,
+    height: 40,
+    justifyContent: "center",
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.035,
+    shadowRadius: 8,
+    width: 40,
   },
 });

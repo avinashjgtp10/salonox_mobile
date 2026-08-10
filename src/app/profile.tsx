@@ -695,7 +695,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   avatarUploadingOverlay: {
     alignItems: "center",
-    backgroundColor: "rgba(20, 18, 16, 0.45)",
+    backgroundColor: "rgba(15, 23, 32, 0.45)",
     borderRadius: 36,
     bottom: 0,
     justifyContent: "center",
@@ -767,11 +767,11 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   bannerError: {
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(114, 106, 99, 0.18)",
+    borderColor: Colors.errorBorder,
   },
   bannerSuccess: {
     backgroundColor: Colors.successBg,
-    borderColor: "rgba(28, 25, 23, 0.12)",
+    borderColor: Colors.successBorder,
   },
   bannerText: {
     flex: 1,

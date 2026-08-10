@@ -28,6 +28,7 @@ import type {
   UpdateStaffRequest,
   UpdateStaffResponse,
 } from "@/types/staff";
+import { formatAppDate } from "@/utils/dateTime";
 import { isValidStaffId, normalizeStaffId } from "@/utils/staffIds";
 
 type StaffApiService = string | { name?: string | null; title?: string | null };
@@ -349,17 +350,7 @@ const formatDate = (value: unknown) => {
     return "-";
   }
 
-  const parsedDate = new Date(rawDate);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return rawDate;
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(parsedDate);
+  return formatAppDate(rawDate, rawDate);
 };
 
 const getWorkingHours = (staffMember: StaffApiItem) => {

@@ -123,20 +123,26 @@ const ACTIVE_APPOINTMENT_STATUSES: ReadonlySet<AppointmentStatus> = new Set([
   "In Progress",
 ]);
 
+// Values the backend actually accepts. Frontend-only statuses ("Confirmed",
+// "In Progress", "Checked In", "In Service") have no direct backend equivalent
+// so they are mapped to their closest accepted peer.
 const APPOINTMENT_STATUS_API_VALUE: Record<AppointmentStatus, string> = {
-  "Checked In": "in_progress",
+  "Checked In": "booked",
   "Cancelled": "cancelled",
-  "Confirmed": "confirmed",
+  "Confirmed": "booked",
   "Completed": "paid",
   "Deleted": "deleted",
-  "In Progress": "in_progress",
-  "In Service": "in_progress",
+  "In Progress": "booked",
+  "In Service": "booked",
   "Missed": "no-show",
   "Partial": "partial",
   "Unknown": "",
   "Upcoming": "booked",
   "Waiting": "booked",
 };
+
+// Statuses accepted by the backend POST /appointments and PATCH /appointments/:id.
+const BACKEND_VALID_STATUSES = new Set(["booked", "paid", "partial", "cancelled", "no-show", "deleted"]);
 
 export const isActiveAppointmentStatus = (status: AppointmentStatus) =>
   ACTIVE_APPOINTMENT_STATUSES.has(status);
@@ -481,6 +487,7 @@ export const appointmentService = {
       duration: _duration,
       durationMinutes: _durationMinutes,
       totalDuration: _totalDuration,
+      status: rawStatus,
       ...requestPayload
     } = payload as CreateAppointmentRequest & {
       duration?: unknown;
@@ -490,6 +497,13 @@ export const appointmentService = {
 
     if (!Number.isInteger(requestPayload.duration_minutes) || requestPayload.duration_minutes <= 0) {
       throw new Error("duration_minutes is required and must be a positive integer.");
+    }
+
+    // Only forward status to the backend if it is an accepted value.
+    // Frontend-only statuses (empty string, "in_progress", etc.) are stripped
+    // so the backend defaults to "booked" for new appointments.
+    if (rawStatus && BACKEND_VALID_STATUSES.has(rawStatus)) {
+      (requestPayload as typeof requestPayload & { status?: string }).status = rawStatus;
     }
 
     if (__DEV__) {

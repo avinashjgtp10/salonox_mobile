@@ -522,7 +522,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   errorContainer: {
     alignItems: "center",
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(114, 106, 99, 0.18)",
+    borderColor: Colors.errorBorder,
     borderRadius: AppRadius.control,
     borderWidth: 1,
     flexDirection: "row",
@@ -541,7 +541,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   successContainer: {
     alignItems: "center",
     backgroundColor: Colors.successBg,
-    borderColor: "rgba(28, 25, 23, 0.12)",
+    borderColor: Colors.successBorder,
     borderRadius: AppRadius.control,
     borderWidth: 1,
     flexDirection: "row",

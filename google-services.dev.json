@@ -1,32 +1,13 @@
 {
   "project_info": {
-    "project_number": "955300961238",
-    "project_id": "salonox-e7ec8",
-    "storage_bucket": "salonox-e7ec8.firebasestorage.app"
+    "project_number": "720672919569",
+    "project_id": "salonox-mobile",
+    "storage_bucket": "salonox-mobile.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:955300961238:android:222b37bd3a2b665f102277",
-        "android_client_info": {
-          "package_name": "com.salonox.app"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyA9zyFRWwjv7v9ezZppRptGdaB3LHEFXc8"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:955300961238:android:48982d693a5e1077102277",
+        "mobilesdk_app_id": "1:720672919569:android:ad8dfd8d71408f747821b0",
         "android_client_info": {
           "package_name": "com.salonox.app.dev"
         }
@@ -34,26 +15,7 @@
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyA9zyFRWwjv7v9ezZppRptGdaB3LHEFXc8"
-        }
-      ],
-      "services": {
-        "appinvite_service": {
-          "other_platform_oauth_client": []
-        }
-      }
-    },
-    {
-      "client_info": {
-        "mobilesdk_app_id": "1:955300961238:android:571a60ea08912001102277",
-        "android_client_info": {
-          "package_name": "com.salonox.app.qa"
-        }
-      },
-      "oauth_client": [],
-      "api_key": [
-        {
-          "current_key": "AIzaSyA9zyFRWwjv7v9ezZppRptGdaB3LHEFXc8"
+          "current_key": "AIzaSyBjzWN8Wu95iaKg9UA4M3fgRLnLNr0IFnI"
         }
       ],
       "services": {

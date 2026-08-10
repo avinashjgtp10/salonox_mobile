@@ -283,7 +283,7 @@ export type CreateAppointmentRequest = {
     time?: string | null;
     total?: number;
   }[];
-  staff_id: string;
+  staff_id?: string;
   staff_alert?: string;
   start_time: string;
   status: string;

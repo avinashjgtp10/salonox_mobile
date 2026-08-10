@@ -1,5 +1,6 @@
 import type { ReportData } from "@/store/report/report.slice";
 import type { ReportSlug } from "@/features/reports/report-config";
+import { formatAppDateTime } from "@/utils/dateTime";
 import { formatInvoiceNumber } from "@/utils/receipt";
 
 export type ReportRow = Record<string, unknown>;
@@ -63,8 +64,8 @@ export const formatReportValue = (key: string, value: unknown): string => {
     }
     return value.toLocaleString("en-IN", { maximumFractionDigits: 2 });
   }
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
-    return new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}(?:T| )/.test(value)) {
+    return formatAppDateTime(value, "—");
   }
   return String(value);
 };

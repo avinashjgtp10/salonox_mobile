@@ -145,8 +145,10 @@ const normalizeSalon = (salon: SalonApiItem): SalonListItem => {
     countryCode: toSafeString(salon.country_code),
     createdAt: toSafeString(salon.created_at) || null,
     email: toSafeString(salon.email),
+    gstin: toSafeString(salon.gst_number),
     id: toSafeString(salon.id ?? salon._id ?? salon.salonId ?? salon.salon_id, getSlug(name) || "salon"),
     isActive: toOptionalBoolean(salon.is_active),
+    logoUrl: toSafeString(salon.logo_url),
     name,
     ownerId: toSafeString(salon.owner_id) || null,
     phone: toSafeString(salon.phone) || toSafeString(salon.phone_number),
@@ -155,6 +157,7 @@ const normalizeSalon = (salon: SalonApiItem): SalonListItem => {
     status: toSafeString(salon.status, "Active"),
     timezone: toSafeString(salon.timezone),
     updatedAt: toSafeString(salon.updated_at) || null,
+    websiteUrl: toSafeString(salon.website_url),
   };
 };
 
