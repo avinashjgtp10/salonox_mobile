@@ -39,3 +39,4 @@ export * from "./notifications.endpoints";
 export * from "./wa-automation.endpoints";
 export * from "./reviews.endpoints";
 export * from "./enquiries.endpoints";
+export * from "./payroll.endpoints";
