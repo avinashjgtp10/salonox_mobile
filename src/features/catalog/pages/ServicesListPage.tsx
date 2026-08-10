@@ -743,7 +743,7 @@ const ServicesListPage: React.FC = () => {
       </div>
 
       {/* ── BODY ───────────────────────────────────────────────────────────── */}
-      <div className={`slp__body${selectedService ? " slp__body--panel-open" : ""}`}>
+      <div className="slp__body">
         {/* Main content */}
         <section className="slp__content">
           {loading ? (
@@ -870,8 +870,6 @@ const ServicesListPage: React.FC = () => {
                   <span>Service</span>
                   <span>Time</span>
                   <span>Staff</span>
-                  <span>Description</span>
-                  <span>Status</span>
                   <span className="slp__group-cols__center">Commission</span>
                   <span className="slp__group-cols__right">Price</span>
                   <span />
