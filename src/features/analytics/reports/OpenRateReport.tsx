@@ -74,7 +74,7 @@ export default function OpenRateReport({ onBack, category, categoryKey }: { onBa
   });
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [detailCampaign, setDetailCampaign] = useState<OpenRateRow | null>(null);

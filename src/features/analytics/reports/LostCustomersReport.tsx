@@ -73,7 +73,7 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
   const [stats,        setStats]        = useState({ totalLostClients: 0, totalSpendWhenActive: 0 });
   const [loading,      setLoading]      = useState(false);
   const [currentPage,  setCurrentPage]  = useState(1);
-  const [pageSize,     setPageSize]     = useState(25);
+  const [pageSize,     setPageSize]     = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 

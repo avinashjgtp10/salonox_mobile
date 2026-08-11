@@ -100,7 +100,7 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
   const [stats,        setStats]        = useState({ totalClients: 0, newClients: 0, returningClients: 0, lostClients: 0 });
   const [loading,      setLoading]      = useState(false);
   const [currentPage,  setCurrentPage]  = useState(1);
-  const [pageSize,     setPageSize]     = useState(25);
+  const [pageSize,     setPageSize]     = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 

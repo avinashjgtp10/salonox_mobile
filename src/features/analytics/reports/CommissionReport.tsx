@@ -120,7 +120,7 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
   const [summary,     setSummary]     = useState<Summary>({ totalCommission: 0, totalRevenue: 0, pendingCommission: 0, paidCommission: 0 });
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize,    setPageSize]    = useState(25);
+  const [pageSize,    setPageSize]    = useState(10);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
