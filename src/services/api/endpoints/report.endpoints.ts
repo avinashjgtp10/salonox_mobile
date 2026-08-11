@@ -90,6 +90,14 @@ export const LOST_CUSTOMERS_REPORT = {
   SUMMARY: () => `/api/report/lost-customers`,
 } as const;
 
+// Independent Customer Spend Segments reporting API — classifies clients
+// VIP / Regular / Low against owner-set ₹ thresholds, with per-segment counts
+// and VIP revenue share. Reads clients/sales directly, never through the
+// Appointment API. Mounted at /api/report.
+export const CUSTOMER_SPEND_REPORT = {
+  SUMMARY: () => `/api/report/customer-spend`,
+} as const;
+
 // Independent Service Frequency reporting API — one row per client+service
 // pair (visits, first/last visit, average gap). Reads sale_items/sales/
 // clients directly, never through the Appointment API. Mounted at

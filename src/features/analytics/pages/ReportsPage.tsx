@@ -27,6 +27,7 @@ import ClientRevenueReport from "../reports/ClientRevenueReport";
 import CustomerFrequencyReport from "../reports/CustomerFrequencyReport";
 import LostCustomersReport from "../reports/LostCustomersReport";
 import ServiceFrequencyReport from "../reports/ServiceFrequencyReport";
+import CustomerSpendReport from "../reports/CustomerSpendReport";
 import ReferralReport from "../reports/ReferralReport";
 import PaymentCollectionReport from "../reports/PaymentCollectionReport";
 import ClientRatingReport from "../reports/ClientRatingReport";
@@ -86,6 +87,7 @@ const REPORTS: ReportDef[] = [
   { id: "client_revenue",         slug: "client-revenue",         name: "Client Revenue",                              description: "Total spend, visit count, average ticket per client, and marketing feedback rating.",              category: "customers",    icon: PersonCircle,   Component: ClientRevenueReport },
   { id: "customer_frequency",     slug: "customer-frequency",     name: "Customer Frequency",                          description: "New vs returning clients, with Most/Least Frequent, New, Old and Lost customer filters.",         category: "customers",    icon: PeopleFill,     Component: CustomerFrequencyReport },
   { id: "lost_customers",         slug: "lost-customers",         name: "Lost Customers",                              description: "Clients who stopped visiting — set your own inactivity window and filter by last-visit date range.", category: "customers",    icon: PersonDash,     Component: LostCustomersReport },
+  { id: "customer_spend",         slug: "vip-customers",          name: "VIP Customers",                               description: "Your top spending clients — plus regular and low spenders — against your own ₹ thresholds, with each segment's share of revenue.", category: "customers",    icon: Award,          Component: CustomerSpendReport },
   { id: "service_frequency",      slug: "service-frequency",      name: "Service Frequency",                           description: "How often each client returns for a given service — visits, first/last visit and the average gap between them.", category: "customers",    icon: Scissors,       Component: ServiceFrequencyReport },
   { id: "referral_report",        slug: "referral-report",        name: "Referral Report",                             description: "Who referred whom — referral date, the referred client's visits and revenue, and the referrer's reward status.", category: "customers",    icon: PeopleFill,     Component: ReferralReport },
   { id: "client_rating",          slug: "client-rating",          name: "Client Rating Report",                        description: "Post-visit WhatsApp ratings, reviews per client, and total client spend.",                        category: "customers",    icon: StarFill,       Component: ClientRatingReport },
