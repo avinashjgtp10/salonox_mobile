@@ -91,7 +91,7 @@ function WelcomePage() {
           Welcome to
         </Text>
         <Text adjustsFontSizeToFit numberOfLines={1} style={styles.welcomeBrand}>
-          SalonOX
+          salonOX
         </Text>
       </View>
       <View style={styles.heroWrap}>
