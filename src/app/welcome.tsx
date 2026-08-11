@@ -29,6 +29,7 @@ import {
 
 const PAGE_COUNT = 3;
 const PAGES = ["welcome", "dashboard", "features"] as const;
+const WELCOME_HERO_IMAGE = require("../../assets/images/auth/salon-welcome-hero.png");
 type WelcomePageId = (typeof PAGES)[number];
 
 export default function WelcomeScreen() {
@@ -69,6 +70,18 @@ export default function WelcomeScreen() {
     <LuxuryBackground>
       <StatusBar backgroundColor={Colors.background} barStyle="dark-content" />
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+        {activePage === 0 && (
+          <View pointerEvents="none" style={styles.welcomeBackground}>
+            <Image
+              accessibilityIgnoresInvertColors
+              accessibilityLabel="Salon manager"
+              resizeMode="cover"
+              source={WELCOME_HERO_IMAGE}
+              style={styles.welcomeBackgroundImage}
+            />
+            <View style={styles.welcomeBackgroundScrim} />
+          </View>
+        )}
         <Animated.View style={[styles.carouselArea, { opacity }]}>
           <FlatList
             bounces={false}
@@ -150,12 +163,6 @@ function WelcomePage() {
         title={"Welcome to\nSalonOX"}
       />
       <View style={styles.heroWrap}>
-        <Image
-          accessibilityLabel="Salon manager"
-          resizeMode="contain"
-          source={require("../../assets/images/auth/salon-welcome-hero.png")}
-          style={styles.hero}
-        />
         <View style={styles.appointmentCard}>
           <Text style={styles.widgetTitle}>Appointments</Text>
           <Text style={styles.calendarDays}>S   M   T   W   T   F   S</Text>
@@ -279,8 +286,21 @@ function MiniBarChart({ large = false }: { large?: boolean }) {
 }
 
 const createStyles = (Colors: LuxuryColors) => StyleSheet.create({
-  safeArea: { flex: 1 },
-  carouselArea: { flex: 1, minHeight: 0 },
+  safeArea: { flex: 1, position: "relative" },
+  welcomeBackground: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: "hidden",
+  },
+  welcomeBackgroundImage: {
+    height: "100%",
+    width: "100%",
+  },
+  welcomeBackgroundScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: Colors.background,
+    opacity: 0.18,
+  },
+  carouselArea: { flex: 1, minHeight: 0, zIndex: 1 },
   pager: { flex: 1 },
   page: { flex: 1, paddingHorizontal: 24 },
   headingBlock: { alignItems: "center", paddingTop: 12 },
@@ -313,7 +333,6 @@ const createStyles = (Colors: LuxuryColors) => StyleSheet.create({
     overflow: "hidden",
     position: "relative",
   },
-  hero: { height: "100%", width: "100%" },
   appointmentCard: {
     backgroundColor: Colors.card,
     borderRadius: 14,
@@ -344,7 +363,7 @@ const createStyles = (Colors: LuxuryColors) => StyleSheet.create({
   pagination: { flexDirection: "row", gap: 9, justifyContent: "center", paddingVertical: 10 },
   dot: { backgroundColor: Colors.border, borderRadius: 5, height: 9, width: 9 },
   dotActive: { backgroundColor: Colors.accent, width: 22 },
-  actions: { gap: 10, paddingBottom: LuxurySpacing.sm, paddingHorizontal: 24 },
+  actions: { gap: 10, paddingBottom: LuxurySpacing.sm, paddingHorizontal: 24, zIndex: 1 },
   primaryText: { color: Colors.white, fontSize: 17, fontWeight: "700" },
   secondaryText: { color: Colors.accentDark, fontSize: 17, fontWeight: "700" },
   pressed: { opacity: 0.82, transform: [{ scale: 0.985 }] },
