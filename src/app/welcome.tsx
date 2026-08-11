@@ -158,10 +158,14 @@ function WelcomePage() {
 
   return (
     <View style={styles.page}>
-      <PageHeading
-        subtitle={"Run your salon beautifully — bookings,\nstaff, sales and growth in one place."}
-        title={"Welcome to\nSalonOX"}
-      />
+      <View style={styles.welcomeHeadingBlock}>
+        <Text adjustsFontSizeToFit numberOfLines={1} style={styles.welcomeEyebrow}>
+          Welcome to
+        </Text>
+        <Text adjustsFontSizeToFit numberOfLines={1} style={styles.welcomeBrand}>
+          SalonOX
+        </Text>
+      </View>
       <View style={styles.heroWrap}>
         <View style={styles.appointmentCard}>
           <Text style={styles.widgetTitle}>Appointments</Text>
@@ -304,6 +308,30 @@ const createStyles = (Colors: LuxuryColors) => StyleSheet.create({
   pager: { flex: 1 },
   page: { flex: 1, paddingHorizontal: 24 },
   headingBlock: { alignItems: "center", paddingTop: 12 },
+  welcomeHeadingBlock: {
+    alignItems: "center",
+    paddingTop: 18,
+  },
+  welcomeEyebrow: {
+    color: "#10243A",
+    fontFamily: LuxuryTypography.serif,
+    fontSize: 38,
+    lineHeight: 41,
+    textAlign: "center",
+    textShadowColor: "rgba(255,255,255,0.78)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 10,
+  },
+  welcomeBrand: {
+    color: Colors.accent,
+    fontFamily: LuxuryTypography.serif,
+    fontSize: 46,
+    lineHeight: 50,
+    textAlign: "center",
+    textShadowColor: "rgba(255,255,255,0.82)",
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 12,
+  },
   heading: {
     color: Colors.text,
     fontFamily: LuxuryTypography.serif,
@@ -328,7 +356,7 @@ const createStyles = (Colors: LuxuryColors) => StyleSheet.create({
   heroWrap: {
     flex: 1,
     marginHorizontal: -12,
-    marginTop: 8,
+    marginTop: 18,
     minHeight: 280,
     overflow: "hidden",
     position: "relative",
@@ -337,10 +365,10 @@ const createStyles = (Colors: LuxuryColors) => StyleSheet.create({
     backgroundColor: Colors.card,
     borderRadius: 14,
     elevation: 5,
+    left: 0,
     padding: 10,
     position: "absolute",
-    right: 0,
-    top: 0,
+    top: 72,
     width: 116,
   },
   revenueCard: {

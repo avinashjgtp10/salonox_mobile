@@ -33,10 +33,13 @@ import { resolveLoginRoute } from "@/utils/routeResolver";
 import {
   CONFIRM_PASSWORD_MISMATCH_MESSAGE_GENERIC,
   EMAIL_INVALID_MESSAGE,
+  PERSON_NAME_INVALID_MESSAGE,
   isValidEmail,
+  isValidPersonName,
   isValidPassword,
   PASSWORD_REQUIREMENT_MESSAGE,
 } from "@/utils/validation";
+import type { CountryCode } from "libphonenumber-js";
 
 // ─── Color Palette ───────────────────────────────────────────
 // Derived straight from the real theme tokens (constants/theme.ts) so this
@@ -79,6 +82,9 @@ const useAuthColors = () => {
 };
 
 const DEFAULT_COUNTRY = "India";
+const DEFAULT_PHONE_COUNTRY_CODE = "IN";
+const INDIA_DIAL_CODE = "+91";
+const INDIA_MOBILE_DIGIT_COUNT = 10;
 const getRouteParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
@@ -136,6 +142,49 @@ const getInvalidCredentialsMessage = (consecutiveFailedAttempts: number) => {
   const baseMessage = "The email or password you entered is incorrect.";
 
   return consecutiveFailedAttempts >= 3 ? `${baseMessage}\n${FORGOT_PASSWORD_HINT}` : baseMessage;
+};
+
+const getPhoneDigitsForDialCode = (e164Value: string, dialCode: string) => {
+  const dialDigits = dialCode.replace(/\D/g, "");
+  const allDigits = e164Value.trim().replace(/\D/g, "");
+
+  return allDigits.startsWith(dialDigits) ? allDigits.slice(dialDigits.length) : allDigits;
+};
+
+const getRegisterPhoneError = (phone: string, dialCode: string) => {
+  const trimmedPhone = phone.trim();
+
+  if (!trimmedPhone) {
+    return "Mobile number is required.";
+  }
+
+  if (/[A-Za-z]/.test(trimmedPhone)) {
+    return "Mobile number can contain digits only.";
+  }
+
+  if (dialCode === INDIA_DIAL_CODE) {
+    const nationalDigits = getPhoneDigitsForDialCode(trimmedPhone, INDIA_DIAL_CODE);
+
+    if (nationalDigits.length !== INDIA_MOBILE_DIGIT_COUNT) {
+      return "Enter a valid 10-digit Indian mobile number.";
+    }
+  }
+
+  const lengthResult = validatePhoneNumberLength(trimmedPhone);
+
+  if (lengthResult === "TOO_SHORT") {
+    return "Mobile number is too short.";
+  }
+
+  if (lengthResult === "TOO_LONG") {
+    return "Mobile number is too long.";
+  }
+
+  if (!isValidPhoneNumber(trimmedPhone)) {
+    return "Please enter a valid mobile number.";
+  }
+
+  return null;
 };
 
 const getFriendlyLoginErrorMessage = (loginError: unknown) => {
@@ -199,7 +248,8 @@ export default function LoginScreen() {
   const [placeId, setPlaceId] = useState("");
   const [isManualEntry, setIsManualEntry] = useState(false);
   const [email, setEmail] = useState("");
-  const [countryCode] = useState("+91");
+  const [countryCode, setCountryCode] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY_CODE);
+  const [countryDialCode, setCountryDialCode] = useState(INDIA_DIAL_CODE);
   const [phoneE164, setPhoneE164] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -400,7 +450,9 @@ export default function LoginScreen() {
     setFullName(nextFullName);
     setFormError(null);
     clearFormSuccess();
-    clearRegisterFieldError("fullName");
+    if (!nextFullName.trim() || isValidPersonName(nextFullName)) {
+      clearRegisterFieldError("fullName");
+    }
     clearError();
   };
 
@@ -459,8 +511,16 @@ export default function LoginScreen() {
     setPhoneE164(e164);
     setFormError(null);
     clearFormSuccess();
-    clearRegisterFieldError("phone");
+    if (!getRegisterPhoneError(e164, countryDialCode)) {
+      clearRegisterFieldError("phone");
+    }
     clearError();
+  };
+
+  const handlePhoneCountryChange = (nextCountryCode: CountryCode) => {
+    setCountryCode(nextCountryCode);
+    setCountryDialCode(nextCountryCode === "IN" ? INDIA_DIAL_CODE : "");
+    clearRegisterFieldError("phone");
   };
 
   const handlePasswordChange = (nextPassword: string) => {
@@ -542,7 +602,7 @@ export default function LoginScreen() {
       address: address.trim(),
       email: email.trim(),
       country: DEFAULT_COUNTRY,
-      countryCode,
+      countryCode: countryDialCode,
       // phoneE164 is already in E.164 format (e.g. +919876543210)
       phone: phoneE164,
       password,
@@ -566,6 +626,8 @@ export default function LoginScreen() {
     if (step === 1) {
       if (!registerPayload.fullName) {
         nextFieldErrors.fullName = "Full Name is required.";
+      } else if (!isValidPersonName(registerPayload.fullName)) {
+        nextFieldErrors.fullName = PERSON_NAME_INVALID_MESSAGE;
       }
 
       if (!registerPayload.email) {
@@ -574,18 +636,9 @@ export default function LoginScreen() {
         nextFieldErrors.email = EMAIL_INVALID_MESSAGE;
       }
 
-      if (!registerPayload.phone) {
-        nextFieldErrors.phone = "Phone number is required.";
-      } else {
-        // Validate using libphonenumber-js for international support.
-        const lengthResult = validatePhoneNumberLength(registerPayload.phone);
-        if (lengthResult === "TOO_SHORT") {
-          nextFieldErrors.phone = "Phone number is too short.";
-        } else if (lengthResult === "TOO_LONG") {
-          nextFieldErrors.phone = "Phone number is too long.";
-        } else if (!isValidPhoneNumber(registerPayload.phone)) {
-          nextFieldErrors.phone = "Please enter a valid phone number.";
-        }
+      const phoneError = getRegisterPhoneError(registerPayload.phone, countryDialCode);
+      if (phoneError) {
+        nextFieldErrors.phone = phoneError;
       }
     }
 
@@ -1228,6 +1281,8 @@ export default function LoginScreen() {
                 <PhoneInput
                   value={phoneE164}
                   onChange={handlePhoneChange}
+                  country={countryCode}
+                  onCountryChange={handlePhoneCountryChange}
                   error={fieldErrors.phone}
                   onBlur={() => {
                     const stepErrors = getRegisterStepErrors(1);
