@@ -18,6 +18,8 @@ import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { formatPaymentMode } from "../../../utils/paymentMode";
 import SaleDetailModal from "./SaleDetailModal";
+import { useServices } from "../../catalog/hooks/useServices";
+import { servicesInCategories } from "./serviceCategoryFilter";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
@@ -165,12 +167,12 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const [dateFrom,      setDateFrom]      = useState(weekAgo);
   const [dateTo,        setDateTo]        = useState(today);
   const [staffOptions,  setStaffOptions]  = useState<{ id: string; label: string }[]>([]);
-  // Populated from filters_available.service_categories on every fetch — every
-  // service category in the salon (not just ones with sales), same convention
-  // as Daily Sheet's service/staff dropdowns.
-  const [categoryOptions, setCategoryOptions] = useState<{ id: string; label: string }[]>([]);
+  // Category/Service options come from the catalog hook (same convention as
+  // ServiceSaleReport/ServiceFrequencyReport), not filters_available — the
+  // catalog copy carries category_id on each service, which is what makes a
+  // Category → Service cascade in the filter panel possible.
+  const { services, categories, fetchServices } = useServices();
   const [paymentModeOptions, setPaymentModeOptions] = useState<{ id: string; label: string }[]>([]);
-  const [serviceOptions, setServiceOptions] = useState<{ id: string; label: string }[]>([]);
   const [staffFilterIds,      setStaffFilterIds]      = useState<string[]>([]);
   const [categoryIds,         setCategoryIds]         = useState<string[]>([]);
   const [paymentModes,        setPaymentModes]        = useState<string[]>([]);
@@ -199,6 +201,8 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       setStaffOptions(opts);
     }).catch(() => {});
   }, [dispatch]);
+
+  useEffect(() => { fetchServices({ limit: 1000 }); }, [fetchServices]);
 
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
@@ -247,14 +251,8 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         totalReferralCredit: Number(s.total_referral) || 0,
       });
       const avail = data?.filters_available ?? {};
-      if (Array.isArray(avail.service_categories)) {
-        setCategoryOptions(avail.service_categories.map((c: any) => ({ label: String(c.label ?? ""), id: String(c.id ?? "") })));
-      }
       if (Array.isArray(avail.payment_modes)) {
         setPaymentModeOptions(avail.payment_modes.map((m: any) => ({ label: formatPaymentMode(String(m)), id: String(m) })));
-      }
-      if (Array.isArray(avail.services)) {
-        setServiceOptions(avail.services.map((s2: any) => ({ label: String(s2.label ?? ""), id: String(s2.id ?? "") })));
       }
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") {
@@ -278,12 +276,17 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "staff", label: "Staff", options: staffOptions, searchable: true },
-    { key: "category", label: "Service Category", options: categoryOptions, searchable: true },
+    { key: "category", label: "Service Category", options: categories.map((c: any) => ({ id: String(c.id), label: String(c.name) })), searchable: true },
     { key: "payment_mode", label: "Payment Mode", options: paymentModeOptions },
     { key: "payment_status", label: "Payment Status", options: PAYMENT_STATUS_OPTIONS },
     { key: "item_type", label: "Item Type", options: ITEM_TYPE_OPTIONS },
-    { key: "service", label: "Service", options: serviceOptions, searchable: true },
-  ], [staffOptions, categoryOptions, paymentModeOptions, serviceOptions]);
+    {
+      key: "service", label: "Service", searchable: true,
+      options: services.map((sv: any) => ({ id: String(sv.id), label: String(sv.name) })),
+      dependsOn: "category",
+      optionsFor: (catIds, ownIds) => servicesInCategories(services as any, catIds, ownIds),
+    },
+  ], [staffOptions, categories, paymentModeOptions, services]);
 
   const filterMenuSelected = useMemo(() => ({
     staff: staffFilterIds,

@@ -15,6 +15,7 @@ import DateRangeFields from "../../../components/ui/DateRangeFields";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useServices } from "../../catalog/hooks/useServices";
+import { servicesInCategories } from "./serviceCategoryFilter";
 import "./ClientRevenueReport.scss";
 import "./ServiceFrequencyReport.scss";
 
@@ -92,7 +93,7 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
     ? "To Date must be greater than or equal to From Date"
     : "";
 
-  useEffect(() => { fetchServices(); }, [fetchServices]);
+  useEffect(() => { fetchServices({ limit: 1000 }); }, [fetchServices]);
 
   useEffect(() => {
     dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
@@ -150,7 +151,12 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, debouncedSearch, serviceIds, categoryIds, staffFilterIds]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
-    { key: "service", label: "Service", options: services.map((sv: any) => ({ id: String(sv.id), label: String(sv.name) })), searchable: true },
+    {
+      key: "service", label: "Service", searchable: true,
+      options: services.map((sv: any) => ({ id: String(sv.id), label: String(sv.name) })),
+      dependsOn: "category",
+      optionsFor: (catIds, ownIds) => servicesInCategories(services as any, catIds, ownIds),
+    },
     { key: "category", label: "Category", options: categories.map((c: any) => ({ id: String(c.id), label: String(c.name) })), searchable: true },
     { key: "staff", label: "Staff", options: staffOptions, searchable: true },
   ], [services, categories, staffOptions]);
