@@ -33,6 +33,7 @@ type RetryableRequestConfig = InternalAxiosRequestConfig & {
 };
 
 type ApiErrorPayload = {
+  code?: unknown;
   message?: unknown;
   error?: unknown;
   errors?: Record<string, string[] | string> | string[] | string;
@@ -198,6 +199,33 @@ const getPayloadMessage = (payload?: ApiErrorPayload) => {
     formatValue(payload.errors)
   );
 };
+
+const getPayloadErrorCode = (payload?: ApiErrorPayload) => {
+  if (!payload) {
+    return null;
+  }
+
+  if (typeof payload.code === "string") {
+    return payload.code;
+  }
+
+  if (payload.error && typeof payload.error === "object") {
+    const errorRecord = payload.error as Record<string, unknown>;
+
+    if (typeof errorRecord.code === "string") {
+      return errorRecord.code;
+    }
+  }
+
+  return null;
+};
+
+const EXPECTED_OTP_VALIDATION_ERROR_CODES = new Set(["OTP_INVALID", "OTP_EXPIRED"]);
+
+const isExpectedOtpValidationError = (error: AxiosError<ApiErrorPayload>) =>
+  error.response?.status === 400 &&
+  Boolean(error.response.data) &&
+  EXPECTED_OTP_VALIDATION_ERROR_CODES.has(getPayloadErrorCode(error.response.data) ?? "");
 
 const formatErrorMessage = (message: string): string => {
   const lowercaseMessage = message.toLowerCase();
@@ -482,7 +510,7 @@ api.interceptors.response.use(
       return Promise.reject(error);
     }
 
-    if (__DEV__) {
+    if (__DEV__ && !isExpectedOtpValidationError(error)) {
       console.error("[API Debug] Axios error", {
         code: error.code,
         error,
