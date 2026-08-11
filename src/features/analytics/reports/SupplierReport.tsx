@@ -28,7 +28,7 @@ export default function SupplierReport({ onBack, category: reportCategory, categ
   const [allRows, setAllRows] = useState<SupplierRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
   const [cityFilter, setCityFilter] = useState<string[]>([]);
   const [countryFilter, setCountryFilter] = useState<string[]>([]);
   const abortRef = useRef<AbortController | null>(null);

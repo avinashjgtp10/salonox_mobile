@@ -186,7 +186,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const [total,         setTotal]         = useState(0);
   const [loading,       setLoading]       = useState(false);
   const [currentPage,   setCurrentPage]   = useState(1);
-  const [pageSize,      setPageSize]      = useState(25);
+  const [pageSize,      setPageSize]      = useState(10);
   const [selectedRow,   setSelectedRow]   = useState<{ saleId: string; appointmentId: string | null } | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 

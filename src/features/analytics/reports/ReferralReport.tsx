@@ -80,7 +80,7 @@ export default function ReferralReport({ onBack, category, categoryKey }: { onBa
   const [stats,   setStats]   = useState({ totalReferrals: 0, rewardedReferrals: 0, totalRevenueGenerated: 0, totalRewardEarned: 0 });
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize,    setPageSize]    = useState(25);
+  const [pageSize,    setPageSize]    = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 

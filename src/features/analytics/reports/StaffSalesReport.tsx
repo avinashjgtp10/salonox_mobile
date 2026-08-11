@@ -112,7 +112,7 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
     serviceRevenue: 0, productRevenue: 0, packageRevenue: 0, membershipRevenue: 0,
   });
   const [currentPage,    setCurrentPage]    = useState(1);
-  const [pageSize,       setPageSize]       = useState(25);
+  const [pageSize,       setPageSize]       = useState(10);
   const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [selectedStaffName, setSelectedStaffName] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);

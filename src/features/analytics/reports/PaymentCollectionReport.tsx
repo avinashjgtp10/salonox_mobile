@@ -86,7 +86,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
   });
   const [loading, setLoading] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize,    setPageSize]    = useState(25);
+  const [pageSize,    setPageSize]    = useState(10);
   // Clicking a row opens the real bill drawer, where a pending balance can be
   // collected via its "Collect Due" action — the whole point of this report.
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);

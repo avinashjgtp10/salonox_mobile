@@ -71,7 +71,7 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
   const [stats,       setStats]       = useState({ totalAvailable: 0, totalEarned: 0, totalRedeemed: 0, activeClients: 0 });
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize,    setPageSize]    = useState(25);
+  const [pageSize,    setPageSize]    = useState(10);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = useMemo(() => {

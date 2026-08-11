@@ -92,7 +92,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
   const [stats,       setStats]       = useState({ totalProducts: 0, totalStockValue: 0, lowStockItems: 0, outOfStockItems: 0 });
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize,    setPageSize]    = useState(25);
+  const [pageSize,    setPageSize]    = useState(10);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom

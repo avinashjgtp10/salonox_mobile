@@ -57,7 +57,7 @@ export default function ProductMarginReport({ onBack, category, categoryKey }: {
   const [stats,       setStats]       = useState({ totalRevenue: 0, totalCost: 0, totalProfit: 0, avgMargin: 0 });
   const [loading,     setLoading]     = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize,    setPageSize]    = useState(25);
+  const [pageSize,    setPageSize]    = useState(10);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {

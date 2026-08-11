@@ -57,7 +57,7 @@ export default function ReplyRateDetailModal({ campaign, onClose }: { campaign: 
   const [search, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
   const [loading, setLoading] = useState(true);
   const abortRef = useRef<AbortController | null>(null);
 

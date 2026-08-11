@@ -68,7 +68,7 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
   const [minBalance,  setMinBalance]  = useState("");
   const [maxBalance,  setMaxBalance]  = useState("");
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize,    setPageSize]    = useState(25);
+  const [pageSize,    setPageSize]    = useState(10);
   const abortRef = useRef<AbortController | null>(null);
 
   const [selected,     setSelected]     = useState<ClientRow | null>(null);

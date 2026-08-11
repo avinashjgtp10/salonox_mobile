@@ -99,7 +99,7 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
   const [stats,        setStats]        = useState({ totalReviews: 0, averageRating: 0, positiveReviews: 0, negativeReviews: 0 });
   const [loading,      setLoading]      = useState(false);
   const [currentPage,  setCurrentPage]  = useState(1);
-  const [pageSize,     setPageSize]     = useState(25);
+  const [pageSize,     setPageSize]     = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
 
