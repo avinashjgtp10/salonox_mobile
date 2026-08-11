@@ -68,7 +68,9 @@ $radius: 12px;
   gap: 14px;
   margin-bottom: 24px;
 
-  @media (max-width: 900px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 1200px) { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 900px)  { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 520px)  { grid-template-columns: 1fr; }
 }
 
 .pr-card {
@@ -79,6 +81,7 @@ $radius: 12px;
   display: flex;
   align-items: center;
   gap: 14px;
+  min-width: 0;
 }
 
 .pr-card-icon {
@@ -101,12 +104,65 @@ $radius: 12px;
   font-weight: 700;
   color: $primary;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &--sm { font-size: 14px; }
 }
 
 .pr-card-label {
   font-size: 12px;
   color: $muted;
   margin-top: 2px;
+}
+
+// ── Payroll Period ──
+.pr-period {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: $white;
+  border: 1px solid $border;
+  border-radius: $radius;
+  padding: 16px 20px;
+  margin-bottom: 16px;
+}
+
+.pr-period-select-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pr-period-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: $muted;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pr-period-custom {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  color: $muted;
+}
+
+.pr-date-input {
+  padding: 8px 10px;
+  border: 1px solid $border;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: $font;
+  color: $primary;
+  background: $white;
+  outline: none;
+  &:focus { border-color: $accent; }
 }
 
 // ── Toolbar ──
@@ -193,6 +249,13 @@ $radius: 12px;
 }
 
 // ── Table ──
+.pr-table-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: $primary;
+  margin: 0 0 10px;
+}
+
 .pr-table-wrap {
   background: $white;
   border: 1px solid $border;
@@ -200,38 +263,45 @@ $radius: 12px;
   overflow: hidden;
 }
 
-.pr-table-head {
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  background: #f9fafb;
-  border-bottom: 1px solid $border;
+.pr-table-scroll {
+  overflow-x: auto;
 }
 
-.pr-col {
-  padding: 12px 8px;
-  font-size: 12px;
-  font-weight: 700;
-  color: $muted;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+.pr-table {
+  width: 100%;
+  border-collapse: collapse;
+  white-space: nowrap;
 
-  &--member     { flex: 2; min-width: 180px; }
-  &--hours      { flex: 0.8; min-width: 70px; }
-  &--base       { flex: 1; min-width: 100px; }
-  &--commission { flex: 1; min-width: 110px; }
-  &--deductions { flex: 1; min-width: 100px; }
-  &--net        { flex: 1; min-width: 100px; font-weight: 700; color: $primary; }
-  &--status     { flex: 1.5; min-width: 140px; }
-  &--expand     { width: 32px; flex-shrink: 0; }
+  thead {
+    background: #f9fafb;
+    border-bottom: 1px solid $border;
+  }
+
+  th {
+    padding: 12px 14px;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: $muted;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: left;
+  }
+
+  td {
+    padding: 12px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    color: $primary;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+  tbody tr:hover td { background: #fafafa; }
 }
 
-.pr-chevron--open { transform: rotate(180deg); }
+.pr-th--employee { min-width: 170px; }
 
-.pr-table-body {
-  display: flex;
-  flex-direction: column;
-}
+.pr-col--net { font-weight: 700; }
 
 .pr-empty {
   display: flex;
@@ -242,58 +312,20 @@ $radius: 12px;
   gap: 8px;
   text-align: center;
 
-  &__icon { color: #d1d5db; margin-bottom: 4px; }
-
   p {
     font-size: 15px;
     font-weight: 600;
     color: #6b7280;
     margin: 0;
   }
-
-  span {
-    font-size: 13px;
-    color: #9ca3af;
-    max-width: 340px;
-    line-height: 1.5;
-  }
 }
 
-// ── Row ──
-.pr-row {
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  border-bottom: 1px solid #f3f4f6;
-  cursor: pointer;
-  transition: background 0.1s;
-
-  &:hover { background: #fafafa; }
-  &:last-child { border-bottom: none; }
-  &--open { background: #fafafa; }
-
-  .pr-col {
-    padding: 14px 8px;
-    font-size: 13px;
-    font-weight: 500;
-    color: $primary;
-    text-transform: none;
-    letter-spacing: 0;
-  }
-}
-
-.pr-col--member { display: flex; align-items: center; gap: 10px; }
-.pr-col--net    { font-weight: 700; }
-.pr-col--status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
+// ── Member cell ──
+.pr-col--member { display: flex; align-items: center; gap: 10px; white-space: nowrap; }
 
 .pr-avatar {
-  width: 36px;
-  height: 36px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -315,10 +347,11 @@ $radius: 12px;
   font-weight: 700;
   padding: 3px 10px;
   border-radius: 99px;
+  white-space: nowrap;
 
-  &--pending    { background: #fef3c7; color: #92400e; }
-  &--paid       { background: #dcfce7; color: #166534; }
-  &--processing { background: #dbeafe; color: #1e40af; }
+  &--unpaid  { background: #fee2e2; color: #b91c1c; }
+  &--partial { background: #fef3c7; color: #92400e; }
+  &--paid    { background: #dcfce7; color: #166534; }
 }
 
 .pr-pay-btn {
@@ -331,50 +364,8 @@ $radius: 12px;
   background: transparent;
   cursor: pointer;
   transition: background 0.1s;
+  white-space: nowrap;
   &:hover { background: #ede9fe; }
-}
-
-// ── Detail panel ──
-.pr-detail {
-  padding: 20px 24px;
-  background: #fafafa;
-  border-top: 1px solid $border;
-}
-
-.pr-detail-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 24px;
-
-  @media (max-width: 800px) { grid-template-columns: 1fr; }
-}
-
-.pr-detail-block { display: flex; flex-direction: column; gap: 8px; }
-
-.pr-detail-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: $muted;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin-bottom: 4px;
-}
-
-.pr-detail-row {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 13px;
-  color: #374151;
-
-  span:last-child { font-weight: 600; color: $primary; }
-
-  &--total {
-    padding-top: 8px;
-    border-top: 1px solid $border;
-    font-weight: 700;
-    span:last-child { font-size: 15px; }
-  }
 }
 
 .pr-deduct { color: #dc2626 !important; }
