@@ -1,0 +1,16 @@
+@use "../styles/reportDetailBase" as *;
+
+// Service names reach 67 characters ("Additional Charge for Backstage Hero
+// for Signature & Luxury Facials"), which stretched the column far wider than
+// the rest of the table. Truncated with an ellipsis like Sales Summary's
+// .rp-ss-desc / .rp-ss-item-types; the full name stays available via the
+// cell's title tooltip and is never truncated in CSV/PDF exports.
+//
+// Client (25) and Category (21) max out well under this, so they are left to
+// size naturally.
+.rp-sf-service {
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
