@@ -24,8 +24,6 @@ import { useAuth } from "@/context/AuthContext";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
 import { PhoneInput } from "@/components/ui/PhoneInput";
-import { AddressAutocomplete } from "@/components/maps/AddressAutocomplete";
-import { CurrentLocationButton } from "@/components/maps/CurrentLocationButton";
 import { type AddressDetails } from "@/types/location";
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
@@ -237,16 +235,6 @@ export default function LoginScreen() {
   const [fullName, setFullName] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [address, setAddress] = useState("");
-  const [addressLine1, setAddressLine1] = useState("");
-  const [area, setArea] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
-  const [country, setCountry] = useState("");
-  const [postalCode, setPostalCode] = useState("");
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
-  const [placeId, setPlaceId] = useState("");
-  const [isManualEntry, setIsManualEntry] = useState(false);
   const [email, setEmail] = useState("");
   const [countryCode, setCountryCode] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY_CODE);
   const [countryDialCode, setCountryDialCode] = useState(INDIA_DIAL_CODE);
@@ -279,9 +267,8 @@ export default function LoginScreen() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
   const [scrollContentHeight, setScrollContentHeight] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
+const scrollViewRef = useRef<ScrollView>(null);
   const fieldOffsets = useRef<Partial<Record<keyof RegisterFieldErrors, number>>>({});
-  const locationSelectionVersionRef = useRef(0);
   const contentOverflows = scrollContentHeight > scrollViewHeight + 1;
   const shouldEnableScroll = contentOverflows || isKeyboardVisible;
 
