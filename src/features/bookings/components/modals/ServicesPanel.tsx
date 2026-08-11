@@ -614,6 +614,10 @@ function resolvePackageServices(
         serviceName: s.name || "—",
         totalSessions: Number(s.sessions) || 1,
         price: Number(s.price) || 0,
+        // Pre-expand the date/staff fields for anything already schedulable,
+        // so staff land on a ready-to-fill row instead of a "Not scheduled"
+        // placeholder that needs its own click to reveal them.
+        schedule: match ? { scheduledAt: "" } : undefined,
       };
     });
   }
@@ -625,6 +629,7 @@ function resolvePackageServices(
         serviceName: match?.name ?? "Service",
         totalSessions: 1,
         price: Number(match?.price) || 0,
+        schedule: match ? { scheduledAt: "" } : undefined,
       };
     });
   }
@@ -696,7 +701,9 @@ function PackageRow({
         const latest = rowRef.current;
         if (String(latest.packageId) !== String(pickedPackageId)) return;
         const merged = (latest.services ?? []).map((s) =>
-          s.serviceName === svc.serviceName && !s.serviceId ? { ...s, serviceId: match.id } : s,
+          s.serviceName === svc.serviceName && !s.serviceId
+            ? { ...s, serviceId: match.id, schedule: s.schedule ?? { scheduledAt: "" } }
+            : s,
         );
         onUpdatePackage(index, { ...latest, services: merged });
       });
@@ -982,15 +989,6 @@ function PackageRow({
                       updateRowService(i, { schedule: { ...svc.schedule, scheduledAt: `${date}T${val}` } });
                     }}
                   />
-                  <select
-                    disabled={frozen}
-                    value={svc.schedule?.staffId || ""}
-                    onChange={(e) => updateRowService(i, { schedule: { ...svc.schedule!, staffId: e.target.value } })}
-                    className="svc-field__input svc-field__select"
-                  >
-                    <option value="">Select staff…</option>
-                    {staffList.map((s) => <option key={s.id} value={s.id}>{fmtName(s.name)}</option>)}
-                  </select>
                 </div>
               ) : (
                 <span className="pkg-schedule__hint">

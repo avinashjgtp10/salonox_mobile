@@ -14,6 +14,7 @@ import { useListClientPackagesQuery } from "../../../../services/api/endpoints/p
 import { printReceipt } from "../../utils/receipt";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { useFocusTrap } from "../../../../hooks/useFocusTrap";
+import { computeBillBreakdown } from "../../../../components/shared/billBreakdown";
 import "../../styles/ViewBillModal.scss";
 
 interface Props { booking: Booking; onClose: () => void; onEdit?: (booking: Booking) => void; onCollectDue?: (booking: Booking) => void }
@@ -440,14 +441,6 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                 <div className="vbm-breakdown-card">
                   <div className="vbm-breakdown-card__title">Payment Breakdown</div>
                   {(() => {
-                    const subtotal = booking.subtotal || 0;
-                    const discountAmount = booking.discountAmount || 0;
-                    const couponDiscount = booking.couponDiscount || 0;
-                    const referralDiscount = booking.referralDiscount || 0;
-                    // Pre-tax price reduction from a Discount Balance/Loyalty
-                    // membership — already baked into grandTotal, so it has to
-                    // be subtracted here too or the gap shows up mislabeled as
-                    // "Round Off" instead of its own line (same fix as receipt.ts).
                     const membershipDiscountAmount = (booking as any).membershipDiscountUsed || 0;
                     // Split for display only — the Discount Balance
                     // (percentage) share has its own ledger figure; Loyalty's
@@ -455,92 +448,26 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     // writes a ledger row of its own (no balance to track).
                     const membershipPercentageDiscountAmount = (booking as any).membershipPercentageDiscountUsed || 0;
                     const membershipLoyaltyDiscountAmount = Math.max(0, membershipDiscountAmount - membershipPercentageDiscountAmount);
-                    const exCharges = booking.exCharges || 0;
-                    const membershipWalletUsed = (booking as any).membershipWalletUsed || 0;
-                    const ewalletUsed = booking.ewalletUsed || 0;
-                    const rewardPointsValue = booking.rewardPointsValue || 0;
-                    const grandTotal = isPackagePaid ? 0 : (booking.grandTotal || 0);
 
-                    // Combine same-exclusivity tax rows into one line, rate/amount
-                    // summed so a genuine 2.5%+2.5% split still reads as a single
-                    // correct rate. The label uses the salon's own configured tax
-                    // name(s) — e.g. a single "GST" row stays "GST", while
-                    // genuinely separate CGST + SGST rows join as "CGST + SGST" —
-                    // rather than always forcing the CGST+SGST label onto
-                    // whatever single tax the salon actually configured.
-                    const rawTaxRows = ((booking as any).taxBreakdown?.length
-                      ? (booking as any).taxBreakdown.filter((t: any) => t.amount > 0)
-                      : []) as Array<{ name: string; rate: number; amount: number; inclusive?: boolean }>;
-                    const exclusiveTaxRows = rawTaxRows.filter((t) => !t.inclusive);
-                    const inclusiveTaxRows = rawTaxRows.filter((t) => t.inclusive);
-                    const combineTaxRows = (rows: typeof rawTaxRows) => {
-                      if (rows.length === 0) return null;
-                      const amount = rows.reduce((s, t) => s + t.amount, 0);
-                      const rate = rows.reduce((s, t) => s + t.rate, 0);
-                      const isIgst = rows.some((t) => t.name.toUpperCase().includes("IGST"));
-                      const distinctNames = Array.from(new Set(rows.map((t) => t.name)));
-                      return { label: isIgst ? "IGST" : distinctNames.join(" + "), amount, rate };
-                    };
-                    const combinedExclusiveTax = combineTaxRows(exclusiveTaxRows);
-                    const combinedInclusiveTax = combineTaxRows(inclusiveTaxRows);
-                    // Legacy fallback for a booking that only ever carried a
-                    // single blended gstAmount, never a real taxBreakdown — no
-                    // per-component name survives from that era, so "GST" is the
-                    // honest generic label rather than guessing a CGST+SGST split.
-                    const legacyGst = (!combinedExclusiveTax && (booking as any).gstAmount > 0)
-                      ? { label: "GST", amount: (booking as any).gstAmount, rate: (booking as any).gst ?? 0 }
-                      : null;
-                    const totalTaxAmount = (combinedExclusiveTax?.amount ?? legacyGst?.amount ?? 0);
-
-                    // Bill Discount (discountAmount) and Referral Discount are
-                    // POST-tax deductions now — applied after GST/Extra
-                    // Charges, not reducing the pre-tax taxable base.
-                    // Membership Wallet/eWallet/Reward Points are subtracted
-                    // after that, with rounding applied once at the very end
-                    // — matching pricing.engine.ts's computeBillTotals
-                    // waterfall (referralCreditUsed isn't tracked on this
-                    // view's Booking type, so it's not part of this specific
-                    // reconstruction — a pre-existing gap, not a regression).
-                    // tipAmount (Staff Tip) is deliberately excluded — it's
-                    // display/record-only, never part of what the client owes.
-                    // Sessions from an already-purchased package. Pre-tax, like
-                    // the membership discount: the customer paid for them when
-                    // they bought the package, so the value is neither billed
-                    // again nor taxed. Subtracted here rather than left to fall
-                    // into roundOff below — roundOff is a sub-rupee rounding
-                    // residual, so a package's worth of rupees landing there
-                    // showed up as a nonsense "Round Off −₹500.00" line.
-                    const packageCoveredAmount = (booking as any).packageCoveredAmount || 0;
-                    const taxable = Math.max(0, subtotal - couponDiscount - membershipDiscountAmount - packageCoveredAmount);
-                    const billTotal = taxable + totalTaxAmount;
-                    const afterSvcDiscount = Math.max(0, billTotal - discountAmount);
-                    const withCharges = afterSvcDiscount + exCharges;
-                    const afterReferral = Math.max(0, withCharges - referralDiscount);
-                    const rawTotal = Math.max(0, afterReferral - membershipWalletUsed - ewalletUsed - rewardPointsValue);
-                    const roundOff = grandTotal - rawTotal;
-
-                    const rows: Array<[string, string, string]> = [
-                      subtotal ? ["Subtotal", `${currencySymbol}${subtotal.toFixed(2)}`, "#6b7280"] : null,
-                      couponDiscount ? [`Coupon (${booking.couponCode})`, `−${currencySymbol}${couponDiscount.toFixed(2)}`, "#22c55e"] : null,
-                      packageCoveredAmount ? ["Package Covered", `−${currencySymbol}${packageCoveredAmount.toFixed(2)}`, "#7c3aed"] : null,
-                      membershipPercentageDiscountAmount ? ["Membership Discount", `−${currencySymbol}${membershipPercentageDiscountAmount.toFixed(2)}`, "#ef4444"] : null,
-                      membershipLoyaltyDiscountAmount ? ["Membership Loyalty", `−${currencySymbol}${membershipLoyaltyDiscountAmount.toFixed(2)}`, "#ef4444"] : null,
-                      combinedExclusiveTax ? [`${combinedExclusiveTax.label} (${combinedExclusiveTax.rate}%)`, `+${currencySymbol}${combinedExclusiveTax.amount.toFixed(2)}`, "#374151"] : null,
-                      combinedInclusiveTax ? [`${combinedInclusiveTax.label} (${combinedInclusiveTax.rate}%, incl.)`, `${currencySymbol}${combinedInclusiveTax.amount.toFixed(2)}`, "#6b7280"] : null,
-                      legacyGst ? [`${legacyGst.label}${legacyGst.rate ? ` (${legacyGst.rate}%)` : ""}`, `+${currencySymbol}${legacyGst.amount.toFixed(2)}`, "#374151"] : null,
-                      (combinedExclusiveTax || legacyGst) ? ["Total Tax", `${currencySymbol}${totalTaxAmount.toFixed(2)}`, "#111827"] : null,
-                      // Always shown (even ₹0.00) for consistency with a
-                      // standard GST invoice's line-item presentation.
-                      ["Extra Charges", `+${currencySymbol}${exCharges.toFixed(2)}`, "#374151"],
-                      discountAmount ? ["Discount", `−${currencySymbol}${discountAmount.toFixed(2)}`, "#ef4444"] : null,
-                      referralDiscount ? ["Referral Discount", `−${currencySymbol}${referralDiscount.toFixed(2)}`, "#22c55e"] : null,
-                      membershipWalletUsed ? ["Membership Wallet Used", `−${currencySymbol}${membershipWalletUsed.toFixed(2)}`, "#15803d"] : null,
-                      ewalletUsed ? ["eWallet Used", `−${currencySymbol}${ewalletUsed.toFixed(2)}`, "#2563eb"] : null,
-                      rewardPointsValue ? ["Reward Points Used", `−${currencySymbol}${rewardPointsValue.toFixed(2)}`, "#7c3aed"] : null,
-                      Math.abs(roundOff) >= 0.005
-                        ? ["Round Off", `${roundOff >= 0 ? "+" : "-"}${currencySymbol}${Math.abs(roundOff).toFixed(2)}`, "#6b7280"]
-                        : null,
-                    ].filter((r): r is [string, string, string] => r !== null);
+                    const { rows } = computeBillBreakdown({
+                      currencySymbol,
+                      subtotal: booking.subtotal || 0,
+                      couponDiscount: booking.couponDiscount || 0,
+                      couponCode: booking.couponCode,
+                      packageCoveredAmount: (booking as any).packageCoveredAmount || 0,
+                      membershipPercentageDiscountAmount,
+                      membershipLoyaltyDiscountAmount,
+                      taxBreakdown: (booking as any).taxBreakdown,
+                      legacyGstAmount: (booking as any).gstAmount || 0,
+                      legacyGstRate: (booking as any).gst ?? 0,
+                      exCharges: booking.exCharges || 0,
+                      discountAmount: booking.discountAmount || 0,
+                      referralDiscount: booking.referralDiscount || 0,
+                      membershipWalletUsed: (booking as any).membershipWalletUsed || 0,
+                      ewalletUsed: booking.ewalletUsed || 0,
+                      rewardPointsValue: booking.rewardPointsValue || 0,
+                      grandTotal: isPackagePaid ? 0 : (booking.grandTotal || 0),
+                    });
 
                     return rows.map((row, i) => (
                       <div key={i} className="vbm-breakdown-row" style={{ color: row[2] }}>

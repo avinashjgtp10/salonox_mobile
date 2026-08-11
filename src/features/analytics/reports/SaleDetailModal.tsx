@@ -5,6 +5,7 @@ import { SALES_REPORT } from "../../../services/api/endpoints";
 import { Loader } from "../../../components/ui";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { formatPaymentMode } from "../../../utils/paymentMode";
+import { computeBillBreakdown } from "../../../components/shared/billBreakdown";
 import "./SaleDetailModal.scss";
 
 function formatDate(input: string): string {
@@ -31,7 +32,7 @@ export default function SaleDetailModal({ saleId, staffName, onClose }: { saleId
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
-  const { formatAmount: money } = useCurrency();
+  const { formatAmount: money, currencySymbol } = useCurrency();
 
   useEffect(() => {
     let alive = true;
@@ -110,31 +111,43 @@ export default function SaleDetailModal({ saleId, staffName, onClose }: { saleId
             </div>
 
             <div className="sd-totals">
-              <div className="sd-row"><span>Subtotal</span><span>{money(data.sale.subtotal)}</span></div>
-              {/* Granular breakdown — stored on the sale itself at checkout
-                  (payments.service.ts), never recomputed here. Falls back to
-                  the single combined "Discount" figure for a sale saved
-                  before this breakdown existed (manual/coupon/referral all 0
-                  but discount_amount > 0). */}
-              {(data.sale.manual_discount_amount > 0 || data.sale.coupon_discount_amount > 0 || data.sale.referral_discount_amount > 0) ? (
-                <>
-                  {data.sale.manual_discount_amount > 0 && (
-                    <div className="sd-row"><span>Service Discount</span><span>-{money(data.sale.manual_discount_amount)}</span></div>
-                  )}
-                  {data.sale.coupon_discount_amount > 0 && (
-                    <div className="sd-row"><span>Coupon Discount{data.sale.coupon_code ? ` (${data.sale.coupon_code})` : ""}</span><span>-{money(data.sale.coupon_discount_amount)}</span></div>
-                  )}
-                  {data.sale.referral_discount_amount > 0 && (
-                    <div className="sd-row"><span>Referral Discount</span><span>-{money(data.sale.referral_discount_amount)}</span></div>
-                  )}
-                </>
-              ) : data.sale.discount_amount > 0 && (
-                <div className="sd-row"><span>Discount</span><span>-{money(data.sale.discount_amount)}</span></div>
-              )}
-              <div className="sd-row"><span>Tax</span><span>{money(data.sale.tax_amount)}</span></div>
-              {data.sale.ex_charges > 0 && (
-                <div className="sd-row"><span>Extra Charges</span><span>+{money(data.sale.ex_charges)}</span></div>
-              )}
+              {(() => {
+                // Same waterfall + row list ViewBillModal uses (see
+                // components/shared/billBreakdown.ts) — this used to just
+                // show a single flat "Tax" figure with no per-tax-name
+                // breakdown at all, computed independently of the Calendar
+                // view's own inline math, which is exactly how the two could
+                // (and did) disagree. Rows for figures already shown in the
+                // Payment Breakdown section below (wallet/eWallet/reward
+                // points) are still fed into the waterfall for a correct
+                // Round Off, but filtered out of what renders here to avoid
+                // showing the same figure twice.
+                const hasGranularDiscount = data.sale.manual_discount_amount > 0
+                  || data.sale.coupon_discount_amount > 0 || data.sale.referral_discount_amount > 0;
+                const { rows } = computeBillBreakdown({
+                  currencySymbol,
+                  subtotal: data.sale.subtotal || 0,
+                  couponDiscount: data.sale.coupon_discount_amount || 0,
+                  couponCode: data.sale.coupon_code,
+                  taxBreakdown: data.payment?.tax_breakdown,
+                  legacyGstAmount: data.sale.tax_amount || 0,
+                  exCharges: data.sale.ex_charges || 0,
+                  discountAmount: hasGranularDiscount ? (data.sale.manual_discount_amount || 0) : (data.sale.discount_amount || 0),
+                  referralDiscount: data.sale.referral_discount_amount || 0,
+                  membershipWalletUsed: data.payment?.membership_wallet_used || 0,
+                  ewalletUsed: data.payment?.ewallet_used || 0,
+                  rewardPointsValue: data.payment?.reward_points_value || 0,
+                  grandTotal: data.sale.total_amount || 0,
+                });
+                const hiddenLabels = new Set(["Membership Wallet Used", "eWallet Used", "Reward Points Used"]);
+                return rows
+                  .filter(([label]) => !hiddenLabels.has(label))
+                  .map(([label, value], i) => (
+                    <div key={i} className="sd-row">
+                      <span>{label}</span><span>{value}</span>
+                    </div>
+                  ));
+              })()}
               <div className="sd-row sd-row--total"><span>Total</span><span>{money(data.sale.total_amount)}</span></div>
             </div>
 
