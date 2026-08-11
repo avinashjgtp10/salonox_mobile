@@ -25,7 +25,6 @@ import { ApiError, getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { AddressAutocomplete } from "@/components/maps/AddressAutocomplete";
-import { GoogleMapPreview } from "@/components/maps/GoogleMapPreview";
 import { CurrentLocationButton } from "@/components/maps/CurrentLocationButton";
 import { type AddressDetails } from "@/types/location";
 import type { ThemeColors } from "@/constants/theme";
@@ -232,6 +231,7 @@ export default function LoginScreen() {
   const [scrollContentHeight, setScrollContentHeight] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const fieldOffsets = useRef<Partial<Record<keyof RegisterFieldErrors, number>>>({});
+  const locationSelectionVersionRef = useRef(0);
   const contentOverflows = scrollContentHeight > scrollViewHeight + 1;
   const shouldEnableScroll = contentOverflows || isKeyboardVisible;
 
@@ -415,6 +415,7 @@ export default function LoginScreen() {
 
 
   const handleAddressSelected = (details: AddressDetails) => {
+    locationSelectionVersionRef.current += 1;
     setAddress(details.formatted_address);
     setAddressLine1(details.address_line_1);
     setArea(details.area);
@@ -432,6 +433,14 @@ export default function LoginScreen() {
   const handleLocationError = (msg: string) => {
     setFormError(msg);
   };
+
+  const handleLocationRequestStart = () => {
+    locationSelectionVersionRef.current += 1;
+    return locationSelectionVersionRef.current;
+  };
+
+  const shouldUseLocationResult = (requestId: number) =>
+    requestId === locationSelectionVersionRef.current;
 
   const updateFormattedAddress = (
     line1: string,
@@ -1279,7 +1288,7 @@ export default function LoginScreen() {
             )}
 
             {isRegisterMode && registrationStep === 2 && (
-              /* Address Field & Map Preview System */
+              /* Address Field & Location Lookup System */
               <View
                 onLayout={(event) =>
                   registerFieldPosition("address", event.nativeEvent.layout.y)
@@ -1300,6 +1309,8 @@ export default function LoginScreen() {
                     <CurrentLocationButton
                       onLocationFetched={handleAddressSelected}
                       onError={handleLocationError}
+                      onLocationRequestStart={handleLocationRequestStart}
+                      shouldUseLocationResult={shouldUseLocationResult}
                     />
 
                     <Pressable
@@ -1331,15 +1342,6 @@ export default function LoginScreen() {
                       ← Switch back to maps search
                     </Text>
                   </Pressable>
-                )}
-
-                {/* Draggable Map Preview */}
-                {!isManualEntry && latitude !== null && longitude !== null && (
-                  <GoogleMapPreview
-                    latitude={latitude}
-                    longitude={longitude}
-                    onAddressUpdated={handleAddressSelected}
-                  />
                 )}
 
                 {/* Form fields for manual validation & adjustment */}

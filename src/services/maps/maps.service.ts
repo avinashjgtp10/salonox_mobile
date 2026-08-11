@@ -1,137 +1,106 @@
-import axios from "axios";
-import { type PlacePrediction, type GoogleGeocodeResult } from "../../types/location";
+import {
+  type AddressDetails,
+  type NominatimReverseResponse,
+  type PhotonResponse,
+  type PlacePrediction,
+} from "../../types/location";
+import { mapNominatimAddress, mapPhotonFeature } from "../../utils/addressMapper";
 
-const GOOGLE_API_BASE = "https://maps.googleapis.com/maps/api";
+const PHOTON_AUTOCOMPLETE_URL = "https://photon.komoot.io/api/";
+const NOMINATIM_REVERSE_URL = "https://nominatim.openstreetmap.org/reverse";
+export const MAPS_PROVIDER_HEADERS = {
+  Accept: "application/json",
+  "User-Agent": "SalonOX-Mobile-App/1.0 (https://salonox.com)",
+};
 
-// Fetch the key securely. Can be restricted to process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY.
-const getApiKey = (): string => {
-  return process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || "";
+const fetchJson = async <T>(url: string, fallbackMessage: string): Promise<T> => {
+  try {
+    const response = await fetch(url, {
+      headers: MAPS_PROVIDER_HEADERS,
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    return (await response.json()) as T;
+  } catch (error: any) {
+    console.error("[MapsService] Provider request failed:", error.message || error);
+    throw new Error(fallbackMessage);
+  }
 };
 
 /**
- * MapsService - Handles places queries and reverse geocoding.
- * 
- * Note: If migrating to a backend proxy later, you can simply change 
- * the target URLs in the requests below to point to your Node.js API 
- * endpoints (e.g. `/api/maps/autocomplete`, `/api/maps/details`, `/api/maps/reverse-geocode`)
- * and remove the client-side API key references.
+ * MapsService - Handles address search and reverse geocoding through the same
+ * OpenStreetMap provider architecture used by the SalonOX web app.
  */
 export const MapsService = {
   /**
-   * Search address autocomplete suggestions.
-   * Debouncing and session-caching should be handled by the caller/hooks.
+   * Search address autocomplete suggestions through Photon.
+   * Debouncing and session-caching are handled by the caller/hooks.
    */
   async autocomplete(query: string): Promise<PlacePrediction[]> {
-    const key = getApiKey();
-    if (!key) {
-      throw new Error("Google Maps API key is not configured.");
-    }
-    if (!query || query.trim().length < 2) {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
       return [];
     }
 
-    try {
-      const response = await axios.get(`${GOOGLE_API_BASE}/place/autocomplete/json`, {
-        params: {
-          input: query,
-          key,
-          types: "address|establishment",
+    const url = `${PHOTON_AUTOCOMPLETE_URL}?q=${encodeURIComponent(trimmed)}&limit=7&lang=en`;
+    const data = await fetchJson<PhotonResponse>(
+      url,
+      "Search suggestions are currently unavailable. Please verify your internet connection or enter your address manually.",
+    );
+
+    return (data.features ?? []).map((feature, index) => {
+      const details = mapPhotonFeature(feature);
+      const mainText =
+        feature.properties.name ||
+        feature.properties.street ||
+        details.address_line_1 ||
+        details.formatted_address;
+      const secondaryText = [
+        details.area,
+        details.city,
+        details.state,
+        details.country,
+      ]
+        .filter(Boolean)
+        .join(", ");
+
+      return {
+        placeId: details.place_id || `photon:${index}`,
+        description: details.formatted_address,
+        details,
+        structuredFormatting: {
+          mainText,
+          secondaryText,
         },
-      });
-
-      if (response.data.status !== "OK" && response.data.status !== "ZERO_RESULTS") {
-        throw new Error(response.data.error_message || `Google Places Error: ${response.data.status}`);
-      }
-
-      const predictions = response.data.predictions || [];
-      return predictions.map((p: any) => ({
-        placeId: p.place_id,
-        description: p.description,
-        structuredFormatting: p.structured_formatting
-          ? {
-              mainText: p.structured_formatting.main_text,
-              secondaryText: p.structured_formatting.secondary_text,
-            }
-          : undefined,
-      }));
-    } catch (error: any) {
-      console.error("[MapsService] Autocomplete error:", error.message || error);
-      throw new Error(
-        error.message?.includes("Google Places Error")
-          ? error.message
-          : "Search suggestions are currently unavailable. Please verify your internet connection or enter your address manually."
-      );
-    }
+      };
+    });
   },
 
   /**
-   * Retrieve full geometry and component details for a place ID.
+   * Photon already returns coordinates and address properties in autocomplete
+   * results, so place details are resolved locally from the selected suggestion.
    */
-  async getPlaceDetails(placeId: string): Promise<GoogleGeocodeResult> {
-    const key = getApiKey();
-    if (!key) {
-      throw new Error("Google Maps API key is not configured.");
-    }
-
-    try {
-      const response = await axios.get(`${GOOGLE_API_BASE}/place/details/json`, {
-        params: {
-          place_id: placeId,
-          fields: "address_component,geometry,formatted_address,place_id",
-          key,
-        },
-      });
-
-      if (response.data.status !== "OK") {
-        throw new Error(response.data.error_message || `Google Place Details Error: ${response.data.status}`);
-      }
-
-      return response.data.result as GoogleGeocodeResult;
-    } catch (error: any) {
-      console.error("[MapsService] Place Details error:", error.message || error);
-      throw new Error(
-        error.message?.includes("Google Place Details Error")
-          ? error.message
-          : "Failed to fetch place details. Please check your internet connection or enter details manually."
-      );
-    }
+  async getPlaceDetails(prediction: PlacePrediction): Promise<AddressDetails> {
+    return prediction.details;
   },
 
   /**
-   * Reverse geocode a set of coordinates into address components.
+   * Reverse geocode coordinates into address fields through Nominatim.
    */
-  async reverseGeocode(latitude: number, longitude: number): Promise<GoogleGeocodeResult> {
-    const key = getApiKey();
-    if (!key) {
-      throw new Error("Google Maps API key is not configured.");
-    }
+  async reverseGeocode(latitude: number, longitude: number): Promise<AddressDetails> {
+    const url =
+      `${NOMINATIM_REVERSE_URL}?format=json&addressdetails=1&zoom=18&accept-language=en&lat=${encodeURIComponent(
+        String(latitude),
+      )}&lon=${encodeURIComponent(String(longitude))}`;
 
-    try {
-      const response = await axios.get(`${GOOGLE_API_BASE}/geocode/json`, {
-        params: {
-          latlng: `${latitude},${longitude}`,
-          key,
-        },
-      });
+    const data = await fetchJson<NominatimReverseResponse>(
+      url,
+      "Failed to resolve coordinates to an address. Please check your internet connection or input details manually.",
+    );
 
-      if (response.data.status !== "OK") {
-        throw new Error(response.data.error_message || `Google Geocoding Error: ${response.data.status}`);
-      }
-
-      const results = response.data.results || [];
-      if (results.length === 0) {
-        throw new Error("No address coordinates found.");
-      }
-
-      // Return the most specific result (first in list)
-      return results[0] as GoogleGeocodeResult;
-    } catch (error: any) {
-      console.error("[MapsService] Reverse geocode error:", error.message || error);
-      throw new Error(
-        error.message?.includes("Google Geocoding Error")
-          ? error.message
-          : "Failed to resolve coordinates to an address. Please check your internet connection or input details manually."
-      );
-    }
+    return mapNominatimAddress(data, latitude, longitude);
   },
 };

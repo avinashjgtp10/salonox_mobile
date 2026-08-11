@@ -16,12 +16,16 @@ interface CurrentLocationButtonProps {
   onLocationFetched: (details: AddressDetails) => void;
   onError: (message: string) => void;
   disabled?: boolean;
+  onLocationRequestStart?: () => number;
+  shouldUseLocationResult?: (requestId: number) => boolean;
 }
 
 export function CurrentLocationButton({
   onLocationFetched,
   onError,
   disabled = false,
+  onLocationRequestStart,
+  shouldUseLocationResult,
 }: CurrentLocationButtonProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -29,9 +33,13 @@ export function CurrentLocationButton({
 
   const handlePress = async () => {
     if (disabled || loading) return;
-    
+
+    const requestId = onLocationRequestStart?.() ?? Date.now();
     const details = await fetchLocation();
     if (details) {
+      if (shouldUseLocationResult && !shouldUseLocationResult(requestId)) {
+        return;
+      }
       onLocationFetched(details);
     } else if (error) {
       onError(error);
