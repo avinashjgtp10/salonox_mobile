@@ -1765,6 +1765,23 @@ export const AppointmentModal: React.FC<Props> = ({
     partialAmtInput, includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership, membershipWalletAmt,
     useRewardPoints, rewardPointsToRedeem, useReferralCredit, referralCreditAmt,
     finishWithPaidPopup, printAfterPayment, schedulerStaff, currentSalon,
+    // buildSavePayload()'s own inputs — without these, a package-coverage
+    // toggle (or any other row/discount/notes edit) made after this callback
+    // was last memoized is silently dropped from the pre-payment save: the
+    // stale closure re-sends the OLD serviceRows (e.g. still missing
+    // is_package_service on a just-covered row), so payments.service.ts
+    // computes GST on the full un-excluded subtotal instead of the net
+    // taxable amount — see sales.tax_amount/payments.tax_breakdown drifting
+    // from the correct package-aware figure (INV-00157-style bug: GST shown
+    // as 5% of the full ₹999 subtotal instead of 5% of the real ₹499/₹500
+    // cash-paid remainder). handleUpdate/handleSaveAndPay already list all of
+    // these; handlePay/handleQuickSaleCheckout must match.
+    serviceRows, packageRows, productRows, membershipRows,
+    calDate, defaultTime, notes, staffAlert, defaultStaffId,
+    discountType, discountValue, discountAppliesTo, exCharges, tip,
+    reconciledEffectiveTotal, remainingDue, applyMembershipDiscount, applyLoyaltyDiscount,
+    includeGst, consumableActuals, isPackageZero,
+    printClientExtras, showTaxBreakupOnInvoice, formatAmount,
   ]);
 
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);

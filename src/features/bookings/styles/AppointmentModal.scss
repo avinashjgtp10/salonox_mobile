@@ -1138,7 +1138,6 @@ $item-field-text-inset: 9px;
     .svc-field__input { height: 30px; font-size: 12.5px; }
     // TimeSelect renders a <button>, not an <input> — width it by class.
     > .svc-field__select { width: 132px; }
-    select { width: 150px; }
   }
 
   // Native date inputs draw their own picker glyph, which reads as an emoji

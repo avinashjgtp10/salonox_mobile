@@ -220,7 +220,10 @@ export function useAppointment() {
                 totalSessions: s.totalSessions || 1,
                 price:         s.price || 0,
                 ...(s.schedule?.scheduledAt ? {
-                  schedule: { scheduledAt: new Date(s.schedule.scheduledAt).toISOString(), staffId: s.schedule.staffId || undefined },
+                  // Per-service staff picking was removed — every scheduled
+                  // service is booked under whichever staff member sold the
+                  // package (the row's own staffId), not a separate choice.
+                  schedule: { scheduledAt: new Date(s.schedule.scheduledAt).toISOString(), staffId: (p as any).staffId || undefined },
                 } : {}),
               })),
             } : {}),
