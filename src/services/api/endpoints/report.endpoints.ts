@@ -90,6 +90,14 @@ export const LOST_CUSTOMERS_REPORT = {
   SUMMARY: () => `/api/report/lost-customers`,
 } as const;
 
+// Independent Service Frequency reporting API — one row per client+service
+// pair (visits, first/last visit, average gap). Reads sale_items/sales/
+// clients directly, never through the Appointment API. Mounted at
+// /api/report.
+export const SERVICE_FREQUENCY_REPORT = {
+  SUMMARY: () => `/api/report/service-frequency`,
+} as const;
+
 // Independent Membership History reporting API — one row per membership
 // benefit redemption, read from membership_usage_log (the membership
 // counterpart to Package History). Mounted at /api/report.
