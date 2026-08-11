@@ -1,0 +1,125 @@
+@use "../styles/reportDetailBase" as *;
+
+// Report-scoped segment colors, following PackageHistoryReport's rp-ph-*
+// precedent: the shared .rp-status-* palette already assigns its own meanings
+// to names like complete/expired, so this report namespaces its own.
+// VIP – Gold/amber (the customers to protect)
+// Regular – Blue (healthy, unremarkable)
+// Low – Grey (needs winning back; deliberately NOT red — a low spender is an
+//   opportunity, not an error state)
+.rp-status-badge.rp-cs-segment-vip     { background: #fef3c7; color: #92400e; }
+.rp-status-badge.rp-cs-segment-regular { background: #dbeafe; color: #1d4ed8; }
+.rp-status-badge.rp-cs-segment-low     { background: #f1f5f9; color: #475569; }
+
+// Spend-threshold dropdown. Deliberately local to this report rather than
+// added to the shared JiraFilterMenu, which renders checkbox lists only and
+// is used by ~15 other reports — extending it would put risk on all of them
+// for a control exactly one report needs. Palette/metrics copied from
+// JiraFilterMenu.scss so the two triggers sit together as siblings.
+.rp-cs-thresholds {
+  position: relative;
+  display: inline-block;
+}
+
+.rp-cs-thresholds__trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover { border-color: #9ca3af; }
+}
+
+// The applied values, shown on the trigger so the active thresholds are
+// readable without opening the panel.
+.rp-cs-thresholds__summary {
+  color: #6c5ce7;
+  font-weight: 700;
+}
+
+.rp-cs-thresholds__panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: 280px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.16);
+}
+
+.rp-cs-thresholds__row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 10px;
+
+  label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+  }
+
+  input {
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #111827;
+    outline: none;
+
+    &:focus { border-color: #6c5ce7; }
+  }
+}
+
+.rp-cs-thresholds__warn {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: #fef3c7;
+  color: #92400e;
+  font-size: 11.5px;
+  line-height: 1.4;
+}
+
+.rp-cs-thresholds__footer {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f1f2;
+}
+
+.rp-cs-thresholds__btn {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #fff;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+
+  &:hover { border-color: #9ca3af; color: #111827; }
+
+  &--apply {
+    background: #6c5ce7;
+    color: #fff;
+    border-color: #6c5ce7;
+    margin-left: auto;
+    &:hover { background: #5b4bd1; color: #fff; }
+  }
+}
