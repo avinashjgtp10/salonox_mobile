@@ -173,6 +173,14 @@ export const APPOINTMENT_DETAIL_REPORT = {
   SUMMARY: () => `/api/report/appointment-detail`,
 } as const;
 
+// Independent Upcoming Appointments reporting API — reads the appointments
+// table directly via SQL, never through the Appointment HTTP API/service.
+// Scoped server-side to future, still-booked appointments. Mounted at
+// /api/report.
+export const UPCOMING_APPOINTMENTS_REPORT = {
+  SUMMARY: () => `/api/report/upcoming-appointments`,
+} as const;
+
 // Independent WA Marketing Campaign reporting API — reads wa_campaigns
 // directly, never through the campaigns HTTP API/service. Mounted at
 // /api/report.
