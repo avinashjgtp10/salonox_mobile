@@ -88,7 +88,15 @@ export const normalizeAuthUser = (value: unknown): AuthUser => {
     ),
     country: toTrimmedString(record.country),
     countryCode: toTrimmedString(record.countryCode, record.country_code),
-    isVerified: toOptionalBoolean(record.isVerified, record.is_verified),
+    isVerified: toOptionalBoolean(
+      record.isVerified,
+      record.is_verified,
+      record.isEmailVerified,
+      record.is_email_verified,
+      record.emailVerified,
+      record.email_verified,
+      record.verified,
+    ),
     isActive: toOptionalBoolean(record.isActive, record.is_active),
     isOnboardingComplete: toOptionalBoolean(
       record.isOnboardingComplete,
