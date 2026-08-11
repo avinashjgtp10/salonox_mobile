@@ -101,8 +101,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     [
       "expo-notifications",
       {
-        icon: "./assets/images/android-icon-foreground.png",
-        color: "#3D6F59",
+        icon: "./assets/images/notification-icon.png",
+        color: "#2f80ed",
         defaultChannel: "salonox",
         enableBackgroundRemoteNotifications: true,
       },

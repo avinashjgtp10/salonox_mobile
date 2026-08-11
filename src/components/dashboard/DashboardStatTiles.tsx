@@ -9,7 +9,7 @@ import {
   selectDashboardIsLoading,
   selectDashboardMetrics,
 } from "@/store/dashboard/dashboard.slice";
-import { selectInventorySummary } from "@/store/product/product.slice";
+import { selectClientsTotalCount } from "@/store/client/client.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatDashboardRevenue } from "@/utils/dashboard";
 
@@ -43,7 +43,7 @@ export default function DashboardStatTiles() {
   const styles = useMemo(() => createStyles(Colors, isCompact), [Colors, isCompact]);
   const dashboardMetrics = useAppSelector(selectDashboardMetrics);
   const isDashboardLoading = useAppSelector(selectDashboardIsLoading);
-  const inventorySummary = useAppSelector(selectInventorySummary);
+  const totalClients = useAppSelector(selectClientsTotalCount);
   const revenueComparison = useMemo(
     () =>
       getRevenueComparison(
@@ -75,10 +75,9 @@ export default function DashboardStatTiles() {
       },
       {
         accent: "indigo" as const,
-        icon: "cube-outline" as const,
-        kind: "stock" as const,
-        label: "Stock",
-        stockMetrics: inventorySummary,
+        icon: "people-outline" as const,
+        label: "Total Clients",
+        value: String(totalClients),
       },
       {
         accent: "green" as const,
@@ -101,7 +100,7 @@ export default function DashboardStatTiles() {
       dashboardMetrics.lastMonthRevenue,
       dashboardMetrics.monthlyRevenue,
       dashboardMetrics.todaysRevenue,
-      inventorySummary,
+      totalClients,
       revenueComparison,
     ],
   );
@@ -113,14 +112,13 @@ export default function DashboardStatTiles() {
           key={stat.label}
           style={[
             styles.tile,
-            stat.kind === "stock" && styles.stockTile,
             stat.kind === "revenueComparison" && styles.comparisonTile,
           ]}
         >
           {isDashboardLoading ? (
             <>
               <View style={styles.iconSkeleton} />
-              <View style={[styles.copy, stat.kind === "stock" && styles.stockCopy]}>
+              <View style={styles.copy}>
                 <View style={styles.valueSkeleton} />
                 <View style={styles.labelSkeleton} />
               </View>
@@ -128,43 +126,8 @@ export default function DashboardStatTiles() {
           ) : (
             <>
               <IconBadge accent={stat.accent} icon={stat.icon} size={isCompact ? "sm" : "md"} />
-              <View
-                style={[
-                  styles.copy,
-                  (stat.kind === "stock" || stat.kind === "revenueComparison") && styles.stockCopy,
-                ]}
-              >
-                {stat.kind === "stock" ? (
-                  <>
-                    <Text style={styles.stockTitle}>Stock</Text>
-                    <View style={styles.stockRows}>
-                      <View style={[styles.stockMetric, styles.stockMetricRaised]}>
-                        <Text numberOfLines={1} ellipsizeMode="tail" style={styles.stockValue}>
-                          {stat.stockMetrics.totalProducts}
-                        </Text>
-                        <Text style={styles.stockLabel}>
-                          Available
-                        </Text>
-                      </View>
-                      <View style={[styles.stockMetric, styles.stockMetricDivider]}>
-                        <Text numberOfLines={1} ellipsizeMode="tail" style={styles.stockValue}>
-                          {stat.stockMetrics.lowStockProducts}
-                        </Text>
-                        <Text style={styles.stockLabel}>
-                          Low Stock
-                        </Text>
-                      </View>
-                      <View style={[styles.stockMetric, styles.stockMetricDivider]}>
-                        <Text numberOfLines={1} ellipsizeMode="tail" style={styles.stockValue}>
-                          {stat.stockMetrics.outOfStockProducts}
-                        </Text>
-                        <Text style={styles.stockLabel}>
-                          Out of Stock
-                        </Text>
-                      </View>
-                    </View>
-                  </>
-                ) : stat.kind === "revenueComparison" ? (
+              <View style={styles.copy}>
+                {stat.kind === "revenueComparison" ? (
                   <>
                     <Text numberOfLines={1} style={styles.stockTitle}>
                       {stat.label}
@@ -280,13 +243,6 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     minWidth: 0,
     width: "100%",
   },
-  stockCopy: {
-    flex: 0,
-    width: "100%",
-  },
-  stockIconWrap: {
-    alignSelf: "center",
-  },
   value: {
     color: Colors.heading,
     fontSize: isCompact ? 25 : 30,
@@ -381,39 +337,6 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
   },
   comparisonStatusNegative: {
     color: Colors.error,
-  },
-  stockMetric: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
-    minWidth: 0,
-  },
-  stockMetricRaised: {
-    transform: [{ translateY: -2 }],
-  },
-  stockMetricDivider: {
-    borderLeftColor: Colors.border,
-    borderLeftWidth: 1,
-  },
-  stockLabel: {
-    color: Colors.text2,
-    fontSize: 10,
-    fontWeight: Typography.fontWeights.semibold,
-    lineHeight: 12,
-    marginTop: isCompact ? 5 : 6,
-    minWidth: 0,
-    textAlign: "center",
-    width: "100%",
-  },
-  stockValue: {
-    color: Colors.heading,
-    fontSize: isCompact ? 18 : 20,
-    fontWeight: "800",
-    includeFontPadding: false,
-    lineHeight: isCompact ? 22 : 24,
-    minWidth: 0,
-    textAlign: "center",
-    width: "100%",
   },
   valueSkeleton: {
     backgroundColor: Colors.bg2,
