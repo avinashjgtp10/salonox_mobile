@@ -1,71 +1,106 @@
-import { type GoogleGeocodeComponent, type AddressDetails } from "../types/location";
+import {
+  type AddressDetails,
+  type NominatimReverseResponse,
+  type PhotonFeature,
+} from "../types/location";
 
-/**
- * Maps Google API address_components, geometry location, and place_id into a flat AddressDetails object.
- * Designed to be globally compatible and structure-independent.
- */
-export function mapGoogleAddress(
-  components: GoogleGeocodeComponent[],
-  formattedAddress: string,
-  lat: number,
-  lng: number,
-  placeId: string,
-): AddressDetails {
-  let streetNumber = "";
-  let route = "";
-  const areaParts: string[] = [];
-  let city = "";
-  let state = "";
-  let country = "";
-  let postalCode = "";
+const firstValue = (...values: (string | undefined | null)[]) =>
+  values.find((value) => typeof value === "string" && value.trim().length > 0)?.trim() ?? "";
 
-  for (const component of components) {
-    const types = component.types;
+const compactJoin = (values: string[], separator = ", ") =>
+  values.map((value) => value.trim()).filter(Boolean).join(separator);
 
-    if (types.includes("street_number")) {
-      streetNumber = component.long_name;
-    } else if (types.includes("route")) {
-      route = component.long_name;
-    } else if (
-      types.includes("sublocality") ||
-      types.includes("sublocality_level_1") ||
-      types.includes("sublocality_level_2") ||
-      types.includes("neighborhood")
-    ) {
-      if (component.long_name && !areaParts.includes(component.long_name)) {
-        areaParts.push(component.long_name);
-      }
-    } else if (types.includes("locality")) {
-      city = component.long_name;
-    } else if (types.includes("postal_town") && !city) {
-      city = component.long_name;
-    } else if (types.includes("administrative_area_level_2") && !city) {
-      city = component.long_name; // fallback to county/district if locality is not set
-    } else if (types.includes("administrative_area_level_1")) {
-      state = component.long_name;
-    } else if (types.includes("country")) {
-      country = component.long_name;
-    } else if (types.includes("postal_code")) {
-      postalCode = component.long_name;
-    }
-  }
+const uniqueCompactJoin = (values: string[]) =>
+  Array.from(new Set(values.map((value) => value.trim()).filter(Boolean))).join(", ");
 
-  // Build clean Address Line 1 (e.g. "123 Main Street")
-  const addressLine1 = [streetNumber, route].filter(Boolean).join(" ") || formattedAddress.split(",")[0] || "";
+export function mapPhotonFeature(feature: PhotonFeature): AddressDetails {
+  const properties = feature.properties ?? {};
+  const [longitude, latitude] = feature.geometry.coordinates;
 
-  // Build Area (e.g. "Sector 5, Salt Lake")
-  const area = areaParts.join(", ");
+  const street = firstValue(properties.street);
+  const houseNumber = firstValue(properties.housenumber);
+  const name = firstValue(properties.name);
+  const addressLine1 = compactJoin([houseNumber, street], " ") || name;
+  const city = firstValue(
+    properties.city,
+    properties.town,
+    properties.village,
+    properties.municipality,
+    properties.county,
+  );
+  const area = uniqueCompactJoin([
+    firstValue(properties.district),
+    firstValue(properties.county),
+  ].filter((value) => value && value !== city));
+  const state = firstValue(properties.state);
+  const country = firstValue(properties.country);
+  const postalCode = firstValue(properties.postcode);
+  const formattedAddress = uniqueCompactJoin([
+    addressLine1,
+    area,
+    city,
+    state,
+    postalCode,
+    country,
+  ]);
 
   return {
-    formatted_address: formattedAddress,
-    address_line_1: addressLine1,
-    area: area,
-    city: city || state, // fallback to state if city is empty
-    state: state,
-    country: country,
+    formatted_address: formattedAddress || name || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+    address_line_1: addressLine1 || formattedAddress,
+    area,
+    city: city || state,
+    state,
+    country,
     postal_code: postalCode,
-    latitude: lat,
-    longitude: lng,
-    place_id: placeId,
+    latitude,
+    longitude,
+    place_id: `photon:${properties.osm_type ?? "osm"}:${properties.osm_id ?? `${latitude},${longitude}`}`,
+  };
+}
+
+export function mapNominatimAddress(
+  response: NominatimReverseResponse,
+  fallbackLatitude: number,
+  fallbackLongitude: number,
+): AddressDetails {
+  const address = response.address ?? {};
+  const latitude = Number(response.lat) || fallbackLatitude;
+  const longitude = Number(response.lon) || fallbackLongitude;
+
+  const street = firstValue(address.road, address.pedestrian, address.footway);
+  const houseNumber = firstValue(address.house_number);
+  const placeName = firstValue(address.name, address.amenity, address.shop, address.building);
+  const addressLine1 = compactJoin([houseNumber, street], " ") || placeName;
+  const city = firstValue(
+    address.city,
+    address.town,
+    address.village,
+    address.municipality,
+    address.county,
+  );
+  const area = uniqueCompactJoin([
+    firstValue(address.neighbourhood),
+    firstValue(address.suburb),
+    firstValue(address.quarter),
+    firstValue(address.city_district),
+  ].filter((value) => value && value !== city && value !== addressLine1));
+  const state = firstValue(address.state);
+  const country = firstValue(address.country);
+  const postalCode = firstValue(address.postcode);
+  const formattedAddress =
+    firstValue(response.display_name) ||
+    uniqueCompactJoin([addressLine1, area, city, state, postalCode, country]);
+
+  return {
+    formatted_address: formattedAddress || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+    address_line_1: addressLine1,
+    area,
+    city: city || state,
+    state,
+    country,
+    postal_code: postalCode,
+    latitude,
+    longitude,
+    place_id: response.place_id ? `nominatim:${response.place_id}` : `coords:${latitude},${longitude}`,
   };
 }

@@ -12,7 +12,6 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { usePlacesAutocomplete } from "../../hooks/usePlacesAutocomplete";
 import { MapsService } from "../../services/maps/maps.service";
-import { mapGoogleAddress } from "../../utils/addressMapper";
 import { type AddressDetails, type PlacePrediction } from "../../types/location";
 import type { ThemeColors } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -50,14 +49,7 @@ export function AddressAutocomplete({
     setFetchingDetails(true);
 
     try {
-      const placeDetails = await MapsService.getPlaceDetails(item.placeId);
-      const details = mapGoogleAddress(
-        placeDetails.address_components,
-        placeDetails.formatted_address,
-        placeDetails.geometry.location.lat,
-        placeDetails.geometry.location.lng,
-        placeDetails.place_id
-      );
+      const details = await MapsService.getPlaceDetails(item);
       onAddressSelected(details);
     } catch (err: any) {
       onError(err.message || "Failed to fetch address location details.");
@@ -135,7 +127,7 @@ export function AddressAutocomplete({
           editable={!isInputDisabled}
           returnKeyType="search"
           accessibilityLabel="Search address"
-          accessibilityHint="Type to search for your salon address using Google Places"
+          accessibilityHint="Type to search for your salon address"
         />
         {loading || fetchingDetails ? (
           <ActivityIndicator color={Colors.primary} size="small" style={styles.clearButton} />

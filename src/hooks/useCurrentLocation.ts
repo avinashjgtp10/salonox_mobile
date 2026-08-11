@@ -2,7 +2,6 @@ import { useState, useCallback } from "react";
 import * as Location from "expo-location";
 import { requestLocationPermission } from "../utils/locationPermission";
 import { MapsService } from "../services/maps/maps.service";
-import { mapGoogleAddress } from "../utils/addressMapper";
 import { type AddressDetails } from "../types/location";
 
 export interface UseCurrentLocationResult {
@@ -74,16 +73,14 @@ export function useCurrentLocation(): UseCurrentLocationResult {
 
       // 3. Reverse geocode coordinates
       setLoadingState("Fetching address details...");
-      const geocodeResult = await MapsService.reverseGeocode(latitude, longitude);
-
-      // 4. Map components into flat fields
-      const details = mapGoogleAddress(
-        geocodeResult.address_components,
-        geocodeResult.formatted_address,
-        latitude,
-        longitude,
-        geocodeResult.place_id
-      );
+      if (__DEV__) {
+        console.log("[MapsService] Current location coordinates", {
+          latitude,
+          longitude,
+          accuracy: bestLocation.coords.accuracy,
+        });
+      }
+      const details = await MapsService.reverseGeocode(latitude, longitude);
 
       setLoading(false);
       setLoadingState(null);

@@ -14,7 +14,7 @@ export interface UsePlacesAutocompleteResult {
 }
 
 /**
- * Custom hook to fetch debounced Google Place Autocomplete suggestions with session cache checks.
+ * Custom hook to fetch debounced Photon autocomplete suggestions with session cache checks.
  */
 export function usePlacesAutocomplete(debounceMs: number = 400): UsePlacesAutocompleteResult {
   const [suggestions, setSuggestions] = useState<PlacePrediction[]>([]);
