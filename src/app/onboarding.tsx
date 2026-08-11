@@ -305,10 +305,15 @@ export default function OnboardingScreen() {
   const loadOnboardingState = async () => {
     try {
       const raw = await AsyncStorage.getItem(ONBOARDING_PERSIST_KEY);
+      let hasLoadedBusinessName = false;
+
       if (raw) {
         const state = JSON.parse(raw);
         if (state.currentStep) setCurrentStep(state.currentStep);
-        if (state.businessName) setBusinessName(state.businessName);
+        if (state.businessName) {
+          setBusinessName(state.businessName);
+          hasLoadedBusinessName = true;
+        }
         if (state.website) setWebsite(state.website);
         if (state.primaryCategoryId && LOCAL_CATEGORY_IDS.has(state.primaryCategoryId)) {
           setPrimaryCategoryId(state.primaryCategoryId);
@@ -336,6 +341,11 @@ export default function OnboardingScreen() {
         if (state.manualPostalCode) setManualPostalCode(state.manualPostalCode);
         if (state.referralSource) setReferralSource(state.referralSource);
         if (state.customReferralSource) setCustomReferralSource(state.customReferralSource);
+      }
+
+      // Fallback to registered business name from auth user if not loaded from persistence
+      if (!hasLoadedBusinessName && user?.businessName) {
+        setBusinessName(user.businessName);
       }
     } catch (e) {
       console.error("Failed to load onboarding state", e);

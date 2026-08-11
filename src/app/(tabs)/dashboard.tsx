@@ -36,8 +36,10 @@ import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchNotificationsThunk, fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
 import { fetchInventorySummaryThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
+import { fetchClientsThunk } from "@/middleware/client/client.thunk";
 import { logStartupSince } from "@/services/startupPerformance";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { realtimeSocket } from "@/services/realtimeSocket";
 import {
   selectDashboardError,
   selectDashboardIsLoading,
@@ -148,6 +150,7 @@ export default function DashboardScreen() {
       dispatch(fetchNotificationsThunk({ refresh: true })),
       dispatch(fetchProductsThunk({ offset: 0, reset: true })),
       dispatch(fetchStaffThunk({ page: 1, reset: true })),
+      dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true })),
     ]);
   }, [dispatch, isAuthenticated]);
 
@@ -219,6 +222,36 @@ export default function DashboardScreen() {
     fetchInventoryStock();
     fetchUnreadNotificationCount();
   });
+
+  // Real-time client updates: listen for new client creation from other devices/web app
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const socket = realtimeSocket.activeSocket;
+
+    if (!socket?.connected) {
+      return;
+    }
+
+    const handleClientCreated = () => {
+      // Refetch clients to get updated total count
+      dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true }));
+    };
+
+    // Listen for client creation events from the backend
+    // Common event names: "client:created", "client_created", "new_client"
+    socket.on("client:created", handleClientCreated);
+    socket.on("client_created", handleClientCreated);
+    socket.on("new_client", handleClientCreated);
+
+    return () => {
+      socket.off("client:created", handleClientCreated);
+      socket.off("client_created", handleClientCreated);
+      socket.off("new_client", handleClientCreated);
+    };
+  }, [dispatch, isAuthenticated]);
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>

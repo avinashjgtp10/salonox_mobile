@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
-import { router, useLocalSearchParams, type Href } from "expo-router";
+import { router, useLocalSearchParams } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -24,9 +24,6 @@ import { useAuth } from "@/context/AuthContext";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
 import { PhoneInput } from "@/components/ui/PhoneInput";
-import { AddressAutocomplete } from "@/components/maps/AddressAutocomplete";
-import { GoogleMapPreview } from "@/components/maps/GoogleMapPreview";
-import { CurrentLocationButton } from "@/components/maps/CurrentLocationButton";
 import { type AddressDetails } from "@/types/location";
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
@@ -34,10 +31,13 @@ import { resolveLoginRoute } from "@/utils/routeResolver";
 import {
   CONFIRM_PASSWORD_MISMATCH_MESSAGE_GENERIC,
   EMAIL_INVALID_MESSAGE,
+  PERSON_NAME_INVALID_MESSAGE,
   isValidEmail,
+  isValidPersonName,
   isValidPassword,
   PASSWORD_REQUIREMENT_MESSAGE,
 } from "@/utils/validation";
+import type { CountryCode } from "libphonenumber-js";
 
 // ─── Color Palette ───────────────────────────────────────────
 // Derived straight from the real theme tokens (constants/theme.ts) so this
@@ -80,6 +80,9 @@ const useAuthColors = () => {
 };
 
 const DEFAULT_COUNTRY = "India";
+const DEFAULT_PHONE_COUNTRY_CODE = "IN";
+const INDIA_DIAL_CODE = "+91";
+const INDIA_MOBILE_DIGIT_COUNT = 10;
 const getRouteParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
@@ -104,10 +107,82 @@ const isAccountLockedError = (loginError: unknown) =>
 const FORGOT_PASSWORD_HINT =
   "Forgot your password? You can reset it using the 'Forgot Password' option below.";
 
+const OTP_RESEND_COOLDOWN_SECONDS = 60;
+
+const formatCountdown = (totalSeconds: number) => {
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
+
+const getEmailOtpError = (otpError: unknown) => {
+  const message = getApiErrorMessage(otpError);
+  const normalizedMessage = message.toLowerCase();
+
+  if (normalizedMessage.includes("expired")) {
+    return "This OTP has expired. Please request a new code.";
+  }
+
+  if (
+    normalizedMessage.includes("invalid") ||
+    normalizedMessage.includes("incorrect") ||
+    normalizedMessage.includes("wrong") ||
+    normalizedMessage.includes("does not match")
+  ) {
+    return "Invalid OTP. Please check the code and try again.";
+  }
+
+  return message;
+};
+
 const getInvalidCredentialsMessage = (consecutiveFailedAttempts: number) => {
   const baseMessage = "The email or password you entered is incorrect.";
 
   return consecutiveFailedAttempts >= 3 ? `${baseMessage}\n${FORGOT_PASSWORD_HINT}` : baseMessage;
+};
+
+const getPhoneDigitsForDialCode = (e164Value: string, dialCode: string) => {
+  const dialDigits = dialCode.replace(/\D/g, "");
+  const allDigits = e164Value.trim().replace(/\D/g, "");
+
+  return allDigits.startsWith(dialDigits) ? allDigits.slice(dialDigits.length) : allDigits;
+};
+
+const getRegisterPhoneError = (phone: string, dialCode: string) => {
+  const trimmedPhone = phone.trim();
+
+  if (!trimmedPhone) {
+    return "Mobile number is required.";
+  }
+
+  if (/[A-Za-z]/.test(trimmedPhone)) {
+    return "Mobile number can contain digits only.";
+  }
+
+  if (dialCode === INDIA_DIAL_CODE) {
+    const nationalDigits = getPhoneDigitsForDialCode(trimmedPhone, INDIA_DIAL_CODE);
+
+    if (nationalDigits.length !== INDIA_MOBILE_DIGIT_COUNT) {
+      return "Enter a valid 10-digit Indian mobile number.";
+    }
+  }
+
+  const lengthResult = validatePhoneNumberLength(trimmedPhone);
+
+  if (lengthResult === "TOO_SHORT") {
+    return "Mobile number is too short.";
+  }
+
+  if (lengthResult === "TOO_LONG") {
+    return "Mobile number is too long.";
+  }
+
+  if (!isValidPhoneNumber(trimmedPhone)) {
+    return "Please enter a valid mobile number.";
+  }
+
+  return null;
 };
 
 const getFriendlyLoginErrorMessage = (loginError: unknown) => {
@@ -160,18 +235,9 @@ export default function LoginScreen() {
   const [fullName, setFullName] = useState("");
   const [businessName, setBusinessName] = useState("");
   const [address, setAddress] = useState("");
-  const [addressLine1, setAddressLine1] = useState("");
-  const [area, setArea] = useState("");
-  const [city, setCity] = useState("");
-  const [state, setState] = useState("");
-  const [country, setCountry] = useState("");
-  const [postalCode, setPostalCode] = useState("");
-  const [latitude, setLatitude] = useState<number | null>(null);
-  const [longitude, setLongitude] = useState<number | null>(null);
-  const [placeId, setPlaceId] = useState("");
-  const [isManualEntry, setIsManualEntry] = useState(false);
   const [email, setEmail] = useState("");
-  const [countryCode] = useState("+91");
+  const [countryCode, setCountryCode] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY_CODE);
+  const [countryDialCode, setCountryDialCode] = useState(INDIA_DIAL_CODE);
   const [phoneE164, setPhoneE164] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -187,13 +253,21 @@ export default function LoginScreen() {
     null,
   );
   const [fieldErrors, setFieldErrors] = useState<RegisterFieldErrors>({});
+  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
+  const [emailOtp, setEmailOtp] = useState("");
+  const [emailOtpError, setEmailOtpError] = useState<string | null>(null);
+  const [emailOtpSuccess, setEmailOtpSuccess] = useState<string | null>(null);
+  const [isEmailOtpSent, setIsEmailOtpSent] = useState(false);
+  const [isSendingEmailOtp, setIsSendingEmailOtp] = useState(false);
+  const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false);
+  const [emailOtpCooldownSeconds, setEmailOtpCooldownSeconds] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
   const [scrollContentHeight, setScrollContentHeight] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
+const scrollViewRef = useRef<ScrollView>(null);
   const fieldOffsets = useRef<Partial<Record<keyof RegisterFieldErrors, number>>>({});
   const contentOverflows = scrollContentHeight > scrollViewHeight + 1;
   const shouldEnableScroll = contentOverflows || isKeyboardVisible;
@@ -210,6 +284,27 @@ export default function LoginScreen() {
     (routeSuccessMessage && dismissedRouteSuccessMessage !== routeSuccessMessage
       ? routeSuccessMessage
       : null);
+  const normalizedRegistrationEmail = email.trim().toLowerCase();
+  const isEmailVerifiedForCurrentEmail =
+    Boolean(normalizedRegistrationEmail) && verifiedEmail === normalizedRegistrationEmail;
+  const isEmailOtpBusy = isSendingEmailOtp || isVerifyingEmailOtp;
+  const isEmailOtpCooldownActive = emailOtpCooldownSeconds > 0;
+  const emailOtpCountdown = useMemo(
+    () => formatCountdown(emailOtpCooldownSeconds),
+    [emailOtpCooldownSeconds],
+  );
+
+  useEffect(() => {
+    if (emailOtpCooldownSeconds <= 0) {
+      return;
+    }
+
+    const timeoutId = setTimeout(() => {
+      setEmailOtpCooldownSeconds((currentSeconds) => Math.max(currentSeconds - 1, 0));
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [emailOtpCooldownSeconds]);
 
   const clearFormSuccess = () => {
     setFormSuccess(null);
@@ -217,6 +312,15 @@ export default function LoginScreen() {
     if (routeSuccessMessage) {
       setDismissedRouteSuccessMessage(routeSuccessMessage);
     }
+  };
+
+  const resetEmailVerificationState = () => {
+    setVerifiedEmail(null);
+    setEmailOtp("");
+    setEmailOtpError(null);
+    setEmailOtpSuccess(null);
+    setIsEmailOtpSent(false);
+    setEmailOtpCooldownSeconds(0);
   };
 
   useEffect(() => {
@@ -309,19 +413,33 @@ export default function LoginScreen() {
   };
 
   const handleEmailChange = (nextEmail: string) => {
+    const nextNormalizedEmail = nextEmail.trim().toLowerCase();
+
     setEmail(nextEmail);
     setFormError(null);
     clearFormSuccess();
     clearRegisterFieldError("email");
     clearError();
     setFailedLoginAttempts(0);
+
+    if (
+      (verifiedEmail && verifiedEmail !== nextNormalizedEmail) ||
+      (isEmailOtpSent && normalizedRegistrationEmail !== nextNormalizedEmail)
+    ) {
+      resetEmailVerificationState();
+    } else {
+      setEmailOtpError(null);
+      setEmailOtpSuccess(null);
+    }
   };
 
   const handleFullNameChange = (nextFullName: string) => {
     setFullName(nextFullName);
     setFormError(null);
     clearFormSuccess();
-    clearRegisterFieldError("fullName");
+    if (!nextFullName.trim() || isValidPersonName(nextFullName)) {
+      clearRegisterFieldError("fullName");
+    }
     clearError();
   };
 
@@ -336,6 +454,7 @@ export default function LoginScreen() {
 
 
   const handleAddressSelected = (details: AddressDetails) => {
+    locationSelectionVersionRef.current += 1;
     setAddress(details.formatted_address);
     setAddressLine1(details.address_line_1);
     setArea(details.area);
@@ -354,6 +473,14 @@ export default function LoginScreen() {
     setFormError(msg);
   };
 
+  const handleLocationRequestStart = () => {
+    locationSelectionVersionRef.current += 1;
+    return locationSelectionVersionRef.current;
+  };
+
+  const shouldUseLocationResult = (requestId: number) =>
+    requestId === locationSelectionVersionRef.current;
+
   const updateFormattedAddress = (
     line1: string,
     locality: string,
@@ -371,8 +498,16 @@ export default function LoginScreen() {
     setPhoneE164(e164);
     setFormError(null);
     clearFormSuccess();
-    clearRegisterFieldError("phone");
+    if (!getRegisterPhoneError(e164, countryDialCode)) {
+      clearRegisterFieldError("phone");
+    }
     clearError();
+  };
+
+  const handlePhoneCountryChange = (nextCountryCode: CountryCode) => {
+    setCountryCode(nextCountryCode);
+    setCountryDialCode(nextCountryCode === "IN" ? INDIA_DIAL_CODE : "");
+    clearRegisterFieldError("phone");
   };
 
   const handlePasswordChange = (nextPassword: string) => {
@@ -454,7 +589,7 @@ export default function LoginScreen() {
       address: address.trim(),
       email: email.trim(),
       country: DEFAULT_COUNTRY,
-      countryCode,
+      countryCode: countryDialCode,
       // phoneE164 is already in E.164 format (e.g. +919876543210)
       phone: phoneE164,
       password,
@@ -478,6 +613,8 @@ export default function LoginScreen() {
     if (step === 1) {
       if (!registerPayload.fullName) {
         nextFieldErrors.fullName = "Full Name is required.";
+      } else if (!isValidPersonName(registerPayload.fullName)) {
+        nextFieldErrors.fullName = PERSON_NAME_INVALID_MESSAGE;
       }
 
       if (!registerPayload.email) {
@@ -486,18 +623,9 @@ export default function LoginScreen() {
         nextFieldErrors.email = EMAIL_INVALID_MESSAGE;
       }
 
-      if (!registerPayload.phone) {
-        nextFieldErrors.phone = "Phone number is required.";
-      } else {
-        // Validate using libphonenumber-js for international support.
-        const lengthResult = validatePhoneNumberLength(registerPayload.phone);
-        if (lengthResult === "TOO_SHORT") {
-          nextFieldErrors.phone = "Phone number is too short.";
-        } else if (lengthResult === "TOO_LONG") {
-          nextFieldErrors.phone = "Phone number is too long.";
-        } else if (!isValidPhoneNumber(registerPayload.phone)) {
-          nextFieldErrors.phone = "Please enter a valid phone number.";
-        }
+      const phoneError = getRegisterPhoneError(registerPayload.phone, countryDialCode);
+      if (phoneError) {
+        nextFieldErrors.phone = phoneError;
       }
     }
 
@@ -574,8 +702,129 @@ export default function LoginScreen() {
     return true;
   };
 
+  const validateEmailForOtp = () => {
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      setFieldErrors((currentErrors) => ({ ...currentErrors, email: "Email is required." }));
+      return false;
+    }
+
+    if (!isValidEmail(trimmedEmail)) {
+      setFieldErrors((currentErrors) => ({ ...currentErrors, email: EMAIL_INVALID_MESSAGE }));
+      return false;
+    }
+
+    clearRegisterFieldError("email");
+    return true;
+  };
+
+  const handleSendEmailOtp = async () => {
+    if (isSendingEmailOtp || isVerifyingEmailOtp || isEmailVerifiedForCurrentEmail) {
+      return;
+    }
+
+    if (!validateEmailForOtp()) {
+      return;
+    }
+
+    setIsSendingEmailOtp(true);
+    setEmailOtp("");
+    setEmailOtpError(null);
+    setEmailOtpSuccess(null);
+    setFormError(null);
+    clearFormSuccess();
+    clearError();
+
+    try {
+      const response = await authService.sendEmailOtp({ email: email.trim() });
+
+      setIsEmailOtpSent(true);
+      setEmailOtpSuccess(response.message);
+      setEmailOtpCooldownSeconds(OTP_RESEND_COOLDOWN_SECONDS);
+    } catch (sendOtpError) {
+      setEmailOtpError(getApiErrorMessage(sendOtpError));
+    } finally {
+      setIsSendingEmailOtp(false);
+    }
+  };
+
+  const handleResendEmailOtp = async () => {
+    if (
+      isSendingEmailOtp ||
+      isVerifyingEmailOtp ||
+      isEmailOtpCooldownActive ||
+      isEmailVerifiedForCurrentEmail
+    ) {
+      return;
+    }
+
+    await handleSendEmailOtp();
+  };
+
+  const handleEmailOtpChange = (nextOtp: string) => {
+    setEmailOtp(nextOtp.replace(/\D/g, ""));
+    setEmailOtpError(null);
+    setEmailOtpSuccess(null);
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    const trimmedOtp = emailOtp.trim();
+
+    if (isVerifyingEmailOtp || isSendingEmailOtp || isEmailVerifiedForCurrentEmail) {
+      return;
+    }
+
+    if (!validateEmailForOtp()) {
+      return;
+    }
+
+    if (!trimmedOtp) {
+      setEmailOtpError("OTP is required.");
+      return;
+    }
+
+    if (trimmedOtp.length < 4) {
+      setEmailOtpError("Please enter a valid OTP.");
+      return;
+    }
+
+    setIsVerifyingEmailOtp(true);
+    setEmailOtpError(null);
+    setEmailOtpSuccess(null);
+    setFormError(null);
+    clearFormSuccess();
+    clearError();
+
+    try {
+      await authService.verifyEmailOtp({ email: email.trim(), otp: trimmedOtp });
+
+      setVerifiedEmail(normalizedRegistrationEmail);
+      setEmailOtp("");
+      setEmailOtpError(null);
+      setEmailOtpSuccess("Email Verified");
+      setIsEmailOtpSent(false);
+      setEmailOtpCooldownSeconds(0);
+      clearRegisterFieldError("email");
+    } catch (verifyOtpError) {
+      setEmailOtpError(getEmailOtpError(verifyOtpError));
+    } finally {
+      setIsVerifyingEmailOtp(false);
+    }
+  };
+
   const handleRegisterNext = () => {
     if (!validateRegisterStep(registrationStep)) {
+      return;
+    }
+
+    if (registrationStep === 1 && !isEmailVerifiedForCurrentEmail) {
+      setFieldErrors((currentErrors) => ({
+        ...currentErrors,
+        email: "Please verify your email before continuing.",
+      }));
+      setEmailOtpError("Please verify your email before continuing.");
+      scrollToFirstInvalidField({ email: "Please verify your email before continuing." });
       return;
     }
 
@@ -612,23 +861,7 @@ export default function LoginScreen() {
     setFormError(null);
 
     try {
-      const authData = await signUp(registerPayload);
-
-      if (authData.user?.isVerified === false) {
-        const registeredEmail = registerPayload.email;
-
-        // Best-effort: kick off email verification, but never block registration on it.
-        try {
-          await authService.sendEmailOtp({ email: registeredEmail });
-        } catch (otpError) {
-          console.warn("[Auth] Failed to send email verification OTP", getApiErrorMessage(otpError));
-        }
-
-        router.replace({
-          pathname: "/verify-email",
-          params: { email: registeredEmail },
-        });
-      }
+      await signUp(registerPayload);
     } catch (registerError) {
       const errorMessage = getApiErrorMessage(registerError);
 
@@ -658,6 +891,7 @@ export default function LoginScreen() {
     setFormError(null);
     clearFormSuccess();
     setFieldErrors({});
+    resetEmailVerificationState();
     clearError();
   };
 
@@ -896,6 +1130,129 @@ export default function LoginScreen() {
                 {isRegisterMode && fieldErrors.email && (
                   <Text style={styles.fieldErrorText}>{fieldErrors.email}</Text>
                 )}
+                {isRegisterMode && (
+                  <View style={styles.emailVerificationPanel}>
+                    {isEmailVerifiedForCurrentEmail ? (
+                      <View style={styles.emailVerifiedRow}>
+                        <Ionicons name="checkmark-circle-outline" size={18} color={Colors.success} />
+                        <Text style={styles.emailVerifiedText}>Email Verified</Text>
+                      </View>
+                    ) : (
+                      <>
+                        {!isEmailOtpSent && (
+                        <Pressable
+                          disabled={isEmailOtpBusy}
+                          onPress={handleSendEmailOtp}
+                          style={[
+                            styles.emailVerificationButton,
+                            isEmailOtpBusy && styles.emailVerificationButtonDisabled,
+                          ]}
+                        >
+                          {isSendingEmailOtp ? (
+                            <ActivityIndicator color="#FFFFFF" size="small" />
+                          ) : (
+                            <>
+                              <Ionicons name="shield-checkmark-outline" size={17} color="#FFFFFF" />
+                              <Text style={styles.emailVerificationButtonText}>
+                                Verify Email
+                              </Text>
+                            </>
+                          )}
+                        </Pressable>
+                        )}
+
+                        {isEmailOtpSent && (
+                          <View style={styles.emailOtpInlineCard}>
+                            <Text style={styles.emailOtpTitle}>Enter Email OTP</Text>
+                            <Text style={styles.emailOtpDescription}>
+                              We sent a verification code to {email.trim()}.
+                            </Text>
+
+                            <View
+                              style={[
+                                styles.inputContainer,
+                                styles.emailOtpInputContainer,
+                                emailOtpError && styles.inputContainerError,
+                              ]}
+                            >
+                              <Ionicons
+                                name="keypad-outline"
+                                size={20}
+                                color={Colors.secondary}
+                                style={{ marginRight: 12 }}
+                              />
+                              <TextInput
+                                autoComplete="one-time-code"
+                                keyboardType="number-pad"
+                                maxLength={8}
+                                onChangeText={handleEmailOtpChange}
+                                onSubmitEditing={handleVerifyEmailOtp}
+                                placeholder="Enter OTP"
+                                placeholderTextColor={Colors.placeholder}
+                                returnKeyType="done"
+                                style={styles.textInput}
+                                textContentType="oneTimeCode"
+                                value={emailOtp}
+                              />
+                            </View>
+
+                            {emailOtpError && (
+                              <Text style={styles.fieldErrorText}>{emailOtpError}</Text>
+                            )}
+
+                            {emailOtpSuccess && (
+                              <View style={styles.emailOtpSuccessRow}>
+                                <Ionicons
+                                  name="checkmark-circle-outline"
+                                  size={15}
+                                  color={Colors.success}
+                                />
+                                <Text style={styles.emailOtpSuccessText}>{emailOtpSuccess}</Text>
+                              </View>
+                            )}
+
+                            <View style={styles.emailOtpActions}>
+                              <Pressable
+                                disabled={isEmailOtpBusy}
+                                onPress={handleVerifyEmailOtp}
+                                style={[
+                                  styles.emailOtpVerifyButton,
+                                  isEmailOtpBusy && styles.emailVerificationButtonDisabled,
+                                ]}
+                              >
+                                {isVerifyingEmailOtp ? (
+                                  <ActivityIndicator color="#FFFFFF" size="small" />
+                                ) : (
+                                  <Text style={styles.emailOtpVerifyButtonText}>Verify OTP</Text>
+                                )}
+                              </Pressable>
+
+                              <Pressable
+                                disabled={isEmailOtpBusy || isEmailOtpCooldownActive}
+                                onPress={handleResendEmailOtp}
+                                style={styles.emailOtpResendButton}
+                              >
+                                <Text
+                                  style={[
+                                    styles.emailOtpResendText,
+                                    (isEmailOtpBusy || isEmailOtpCooldownActive) &&
+                                      styles.emailOtpResendTextDisabled,
+                                  ]}
+                                >
+                                  {isSendingEmailOtp
+                                    ? "Resending..."
+                                    : isEmailOtpCooldownActive
+                                      ? `Resend in ${emailOtpCountdown}`
+                                      : "Resend OTP"}
+                                </Text>
+                              </Pressable>
+                            </View>
+                          </View>
+                        )}
+                      </>
+                    )}
+                  </View>
+                )}
               </View>
             )}
 
@@ -911,6 +1268,8 @@ export default function LoginScreen() {
                 <PhoneInput
                   value={phoneE164}
                   onChange={handlePhoneChange}
+                  country={countryCode}
+                  onCountryChange={handlePhoneCountryChange}
                   error={fieldErrors.phone}
                   onBlur={() => {
                     const stepErrors = getRegisterStepErrors(1);
@@ -971,7 +1330,7 @@ export default function LoginScreen() {
             )}
 
             {isRegisterMode && registrationStep === 2 && (
-              /* Address Field & Map Preview System */
+              /* Address Field & Location Lookup System */
               <View
                 onLayout={(event) =>
                   registerFieldPosition("address", event.nativeEvent.layout.y)
@@ -992,6 +1351,8 @@ export default function LoginScreen() {
                     <CurrentLocationButton
                       onLocationFetched={handleAddressSelected}
                       onError={handleLocationError}
+                      onLocationRequestStart={handleLocationRequestStart}
+                      shouldUseLocationResult={shouldUseLocationResult}
                     />
 
                     <Pressable
@@ -1023,15 +1384,6 @@ export default function LoginScreen() {
                       ← Switch back to maps search
                     </Text>
                   </Pressable>
-                )}
-
-                {/* Draggable Map Preview */}
-                {!isManualEntry && latitude !== null && longitude !== null && (
-                  <GoogleMapPreview
-                    latitude={latitude}
-                    longitude={longitude}
-                    onAddressUpdated={handleAddressSelected}
-                  />
                 )}
 
                 {/* Form fields for manual validation & adjustment */}
@@ -1574,6 +1926,116 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 16,
+  },
+  emailVerificationPanel: {
+    marginTop: 10,
+  },
+  emailVerificationButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: Colors.primary,
+    borderRadius: 16,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 44,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+  },
+  emailVerificationButtonDisabled: {
+    opacity: 0.68,
+  },
+  emailVerificationButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  emailVerifiedRow: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: Colors.successBg,
+    borderColor: Colors.successBorder,
+    borderRadius: 16,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+  },
+  emailVerifiedText: {
+    color: Colors.success,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  emailOtpInlineCard: {
+    backgroundColor: Colors.cardBg,
+    borderColor: Colors.cardBorder,
+    borderRadius: 18,
+    borderWidth: 1,
+    marginTop: 10,
+    padding: 12,
+  },
+  emailOtpTitle: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+    marginBottom: 4,
+  },
+  emailOtpDescription: {
+    color: Colors.textSecondary,
+    fontSize: 12,
+    fontWeight: "600",
+    lineHeight: 17,
+    marginBottom: 10,
+  },
+  emailOtpInputContainer: {
+    height: 48,
+  },
+  emailOtpSuccessRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 8,
+  },
+  emailOtpSuccessText: {
+    color: Colors.success,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  emailOtpActions: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 12,
+    justifyContent: "space-between",
+    marginTop: 12,
+  },
+  emailOtpVerifyButton: {
+    alignItems: "center",
+    backgroundColor: Colors.primary,
+    borderRadius: 14,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 14,
+  },
+  emailOtpVerifyButtonText: {
+    color: "#FFFFFF",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  emailOtpResendButton: {
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
+    paddingHorizontal: 4,
+  },
+  emailOtpResendText: {
+    color: Colors.secondary,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  emailOtpResendTextDisabled: {
+    color: Colors.textSecondary,
+    opacity: 0.72,
   },
   inputLabel: {
     display: "none",
