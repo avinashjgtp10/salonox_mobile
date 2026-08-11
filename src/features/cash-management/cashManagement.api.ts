@@ -147,3 +147,13 @@ export async function closeCashCounter(payload: CloseCounterPayload) {
   const response = await api.post(`${BASE}/close`, payload);
   return normalizeDashboard(unwrapData<any>(response));
 }
+
+// Today's total revenue (all payment methods, all of today's completed/paid
+// sales) — sourced from the salon dashboard summary, not the cash counter.
+// Deliberately independent of cash_management: it must still read correctly
+// whether the counter is open, closed, or was never opened for the day.
+export async function fetchTodaysRevenue() {
+  const response = await api.get("/api/v1/dashboard/summary");
+  const data = unwrapData<any>(response);
+  return asNumber(data?.todayRevenue ?? data?.today_revenue);
+}

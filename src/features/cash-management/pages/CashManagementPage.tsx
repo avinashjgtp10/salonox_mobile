@@ -4,6 +4,7 @@ import {
   CashStack,
   ChevronDown,
   CheckCircle,
+  GraphUpArrow,
   JournalText,
   PlusCircle,
   Safe2,
@@ -81,6 +82,7 @@ export default function CashManagementPage() {
     dashboard,
     transactions,
     expenses,
+    todayRevenue,
     error,
     loading,
     activeCounterClosed,
@@ -88,6 +90,7 @@ export default function CashManagementPage() {
     refreshDashboard,
     refreshTransactions,
     refreshExpenses,
+    refreshTodayRevenue,
     openCounter,
     closeCounter,
     createExpense,
@@ -170,6 +173,16 @@ export default function CashManagementPage() {
   const summaryCards = useMemo(
     () => [
       {
+        // Sourced from `todayRevenue`, not `summaryDashboard` — this must
+        // keep showing today's actual revenue whether the cash counter is
+        // open, closed, or was never opened at all, unlike Cash Revenue
+        // below which is intentionally zeroed with no active counter session.
+        label: "Today's Revenue",
+        value: formatAmount(todayRevenue),
+        icon: <GraphUpArrow size={18} />,
+        tone: "success",
+      },
+      {
         label: "Opening Balance",
         value: formatAmount(summaryDashboard.openingBalance),
         icon: <Wallet2 size={18} />,
@@ -211,7 +224,7 @@ export default function CashManagementPage() {
               : "danger",
       },
     ],
-    [summaryDashboard],
+    [summaryDashboard, todayRevenue, formatAmount],
   );
 
   const tabs = useMemo(
@@ -397,9 +410,9 @@ export default function CashManagementPage() {
               variant="outline-dark"
               iconLeft={<ArrowClockwise size={14} />}
               onClick={async () => {
-                await refreshDashboard();
+                await Promise.all([refreshDashboard(), refreshTodayRevenue()]);
               }}
-              loading={loading.dashboard}
+              loading={loading.dashboard || loading.todayRevenue}
             >
               Refresh
             </Button>

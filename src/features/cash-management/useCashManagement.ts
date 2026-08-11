@@ -6,6 +6,7 @@ import {
   fetchCashDashboard,
   fetchCashExpenses,
   fetchCashTransactions,
+  fetchTodaysRevenue,
   openCashCounter,
   updateCashExpense,
 } from "./cashManagement.api";
@@ -27,6 +28,7 @@ interface LoadingState {
   closeCounter: boolean;
   saveExpense: boolean;
   deleteExpense: boolean;
+  todayRevenue: boolean;
 }
 
 const emptySummary: CashDashboardSummary = {
@@ -108,6 +110,11 @@ export function useCashManagement() {
   const [dashboard, setDashboard] = useState<CashDashboardSummary | null>(null);
   const [transactions, setTransactions] = useState<CashTransactionRecord[]>([]);
   const [expenses, setExpenses] = useState<CashExpenseRecord[]>([]);
+  // Kept separate from `dashboard` (the cash counter) on purpose — the
+  // counter's cashRevenue is zeroed out whenever there's no open session
+  // (see getZeroSummaryDashboard in CashManagementPage), but today's total
+  // revenue must keep showing regardless of counter status.
+  const [todayRevenue, setTodayRevenue] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<LoadingState>({
     dashboard: false,
@@ -117,6 +124,7 @@ export function useCashManagement() {
     closeCounter: false,
     saveExpense: false,
     deleteExpense: false,
+    todayRevenue: false,
   });
 
   const runTask = useCallback(async <T,>(
@@ -149,6 +157,12 @@ export function useCashManagement() {
     return next;
   }, [runTask]);
 
+  const loadTodayRevenue = useCallback(async () => {
+    const next = await runTask("todayRevenue", () => fetchTodaysRevenue());
+    setTodayRevenue(next);
+    return next;
+  }, [runTask]);
+
   const runBackgroundRefreshes = useCallback(
     (tasks: Array<{ label: string; refresh: () => Promise<unknown> }>) => {
       tasks.forEach(({ label, refresh }) => {
@@ -163,13 +177,13 @@ export function useCashManagement() {
   const refreshAll = useCallback(async () => {
     setError(null);
     try {
-      await Promise.all([loadDashboard(), loadTransactions(), loadExpenses()]);
+      await Promise.all([loadDashboard(), loadTransactions(), loadExpenses(), loadTodayRevenue()]);
     } catch (err: any) {
       const message =
         err?.response?.data?.message ?? err?.message ?? "Failed to load cash management data";
       setError(shouldSuppressCashCounterNotification(message) ? null : message);
     }
-  }, [loadDashboard, loadExpenses, loadTransactions]);
+  }, [loadDashboard, loadExpenses, loadTransactions, loadTodayRevenue]);
 
   const refreshDashboard = useCallback(async () => {
     setError(null);
@@ -206,6 +220,17 @@ export function useCashManagement() {
       throw err;
     }
   }, [loadExpenses]);
+
+  const refreshTodayRevenue = useCallback(async () => {
+    try {
+      await loadTodayRevenue();
+    } catch (err: any) {
+      // Deliberately not surfaced via the shared `error`/notification banner —
+      // this card should never look broken just because the cash counter
+      // (a separate concern) has an issue.
+      console.error("[cash-management] today's revenue refresh failed", err);
+    }
+  }, [loadTodayRevenue]);
 
   useEffect(() => {
     void refreshAll();
@@ -266,6 +291,7 @@ const handleDeleteExpense = useCallback(async (id: string) => {
     dashboard: dashboard ?? emptySummary,
     transactions,
     expenses,
+    todayRevenue,
     error,
     loading,
     activeCounterClosed,
@@ -273,6 +299,7 @@ const handleDeleteExpense = useCallback(async (id: string) => {
     refreshDashboard,
     refreshTransactions,
     refreshExpenses,
+    refreshTodayRevenue,
     openCounter: handleOpenCounter,
     closeCounter: handleCloseCounter,
     createExpense: handleCreateExpense,
