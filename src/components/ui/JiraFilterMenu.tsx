@@ -21,6 +21,15 @@ export interface JiraFilterField {
    *  Assigned Service) — omitted for short fixed lists (Stock Status, Base
    *  Unit, Product Type). */
   searchable?: boolean;
+  /** Key of another field this one narrows against. When that field has a
+   *  non-empty draft selection, `optionsFor` supplies this field's options
+   *  instead of the flat `options` array — e.g. Service narrowing to only the
+   *  services in the drafted Categories. Resolved from the LIVE draft, so the
+   *  list narrows as soon as the parent field is ticked, not on Apply. */
+  dependsOn?: string;
+  /** Given the parent field's drafted ids (never empty) plus this field's own
+   *  drafted ids, return the options to show. Ignored without `dependsOn`. */
+  optionsFor?: (parentIds: string[], ownIds: string[]) => FilterDropdownOption[];
 }
 
 interface JiraFilterMenuProps {
@@ -76,11 +85,20 @@ const JiraFilterMenu: React.FC<JiraFilterMenuProps> = ({ fields, selected, onApp
   const activeField = fields.find((f) => f.key === activeKey);
   const activeSelectedIds = draft[activeKey] ?? [];
   const activeSearch = search[activeKey] ?? "";
-  const activeOptions = activeField
-    ? (activeField.searchable && activeSearch.trim()
-        ? activeField.options.filter((o) => o.label.toLowerCase().includes(activeSearch.trim().toLowerCase()))
-        : activeField.options)
-    : [];
+
+  const noParentIds: string[] = [];
+  const dependsOnIds = activeField?.dependsOn ? (draft[activeField.dependsOn] ?? noParentIds) : noParentIds;
+  const baseOptions = useMemo(() => {
+    if (!activeField) return [];
+    if (activeField.optionsFor && dependsOnIds.length > 0) {
+      return activeField.optionsFor(dependsOnIds, draft[activeKey] ?? []);
+    }
+    return activeField.options;
+  }, [activeField, dependsOnIds, draft, activeKey]);
+
+  const activeOptions = activeField?.searchable && activeSearch.trim()
+    ? baseOptions.filter((o) => o.label.toLowerCase().includes(activeSearch.trim().toLowerCase()))
+    : baseOptions;
 
   const toggleOption = (id: string) => {
     setDraft((prev) => {
@@ -136,6 +154,12 @@ const JiraFilterMenu: React.FC<JiraFilterMenuProps> = ({ fields, selected, onApp
             )}
 
             <div className="jfm-panel__options">
+              {activeField?.dependsOn && dependsOnIds.length > 0 && (
+                <div className="jfm-panel__hint">
+                  Showing {activeField.label.toLowerCase()}s in the selected{" "}
+                  {fields.find((f) => f.key === activeField.dependsOn)?.label.toLowerCase()}
+                </div>
+              )}
               {activeField?.searchable && (
                 <div className="jfm-panel__search">
                   <Search size={13} />

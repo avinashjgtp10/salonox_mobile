@@ -12,6 +12,7 @@ import DateRangeFields from "../../../components/ui/DateRangeFields";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useServices } from "../../catalog/hooks/useServices";
+import { servicesInCategories } from "./serviceCategoryFilter";
 import "./ServiceSaleReport.scss";
 
 const REPORT_NAME = "Service Sale";
@@ -115,7 +116,7 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { fetchServices(); }, [fetchServices]);
+  useEffect(() => { fetchServices({ limit: 1000 }); }, [fetchServices]);
 
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back, along with stats computed by the
@@ -173,7 +174,12 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "category", label: "Category", options: categories.map((c: any) => ({ id: String(c.id), label: String(c.name) })), searchable: true },
-    { key: "service", label: "Service", options: services.map((sv: any) => ({ id: String(sv.id), label: String(sv.name) })), searchable: true },
+    {
+      key: "service", label: "Service", searchable: true,
+      options: services.map((sv: any) => ({ id: String(sv.id), label: String(sv.name) })),
+      dependsOn: "category",
+      optionsFor: (catIds, ownIds) => servicesInCategories(services as any, catIds, ownIds),
+    },
     { key: "staff", label: "Staff", options: staffOptions, searchable: true },
     { key: "payment_method", label: "Payment Method", options: PAYMENT_METHOD_OPTIONS },
   ], [categories, services, staffOptions]);
