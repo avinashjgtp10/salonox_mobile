@@ -373,11 +373,15 @@ export default function ServiceImportModal({ show, onClose, onSuccess }: Props) 
           </div>
         )}
 
-        {/* Error Alert */}
+        {/* Error Alert — covers whole-file rejections (bad upload, column
+            validation failures) that never produced a row-by-row result. */}
         {error && (
           <div className="sim-alert sim-alert--error">
-            <ExclamationCircleFill size={15} />
-            <span>{error}</span>
+            <ExclamationCircleFill size={18} className="sim-alert-icon" />
+            <div>
+              <p className="sim-alert-title">Service Import Failed</p>
+              <span>{error}</span>
+            </div>
           </div>
         )}
 
@@ -498,8 +502,10 @@ export default function ServiceImportModal({ show, onClose, onSuccess }: Props) 
         .sim-remove-file { background:none; border:none; color:#9ca3af; cursor:pointer; display:flex; align-items:center; padding:4px; border-radius:4px; }
         .sim-remove-file:hover { color:#ef4444; background:#fee2e2; }
 
-        .sim-alert { display:flex; align-items:center; gap:8px; padding:10px 14px; border-radius:8px; font-size:13px; }
-        .sim-alert--error { background:#fef2f2; color:#dc2626; border:1px solid #fecaca; }
+        .sim-alert { display:flex; align-items:flex-start; gap:10px; padding:14px 16px; border-radius:8px; font-size:13px; }
+        .sim-alert--error { background:#fef2f2; color:#b91c1c; border:1px solid #fecaca; }
+        .sim-alert-icon { flex-shrink:0; margin-top:1px; }
+        .sim-alert-title { font-size:14px; font-weight:700; margin:0 0 4px; color:#991b1b; }
 
         /* Result */
         .sim-result { background:#f0fdf4; border:1px solid #bbf7d0; border-radius:12px; padding:20px; display:flex; flex-direction:column; gap:16px; }
