@@ -7,6 +7,7 @@ import { AuthRoutes, OnboardingRoutes, DashboardRoutes } from "./routes";
 import { LandingRoutes } from "./routes/LandingRoutes";
 import { SuperAdminRoutes } from "./routes/SuperAdminRoutes";
 import { PublicBookingRoutes } from "./routes/PublicBookingRoutes";
+import { FeedbackRoutes } from "./routes/FeedbackRoutes";
 import SalonOxBot from './features/bot/SalonOxBot';
 import SubscriptionWall from "./features/billing/components/SubscriptionWall";
 import { useSubscriptionPoller } from "./hooks/useSubscriptionPoller";
@@ -33,6 +34,8 @@ function App() {
             {LandingRoutes}
             {/* PUBLIC — client-facing booking pages */}
             {PublicBookingRoutes}
+            {/* PUBLIC — client-facing post-visit feedback form */}
+            {FeedbackRoutes}
             {/* AUTH */}
             {AuthRoutes}
             {OnboardingRoutes}
