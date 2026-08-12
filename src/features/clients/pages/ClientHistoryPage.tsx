@@ -8,6 +8,7 @@ import { Search, PersonCircle, Funnel, StarFill } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import ClientHistoryDetail from "../components/ClientHistoryDetail";
 import Skeleton from "../../../components/ui/Skeleton";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/ClientHistoryPage.scss";
 
 // ── Types (sidebar/list concerns only — the detail panel's own types live in
@@ -211,60 +212,54 @@ export default function ClientHistoryPage() {
               {/* Last visit */}
               <div className="chp-filter-group">
                 <label className="chp-filter-label">Last Visit</label>
-                <select
+                <Dropdown
+                  searchable={false}
                   value={filters.lastVisit}
-                  onChange={(e) =>
-                    setFilters({ ...filters, lastVisit: e.target.value as LastVisitFilter })
-                  }
-                >
-                  <option value="all">All clients</option>
-                  <option value="7">Within 7 days</option>
-                  <option value="30">Within 30 days</option>
-                  <option value="90">Within 90 days</option>
-                  <option value="90plus">90+ days ago</option>
-                </select>
+                  options={[
+                    { id: "all", name: "All clients" },
+                    { id: "7", name: "Within 7 days" },
+                    { id: "30", name: "Within 30 days" },
+                    { id: "90", name: "Within 90 days" },
+                    { id: "90plus", name: "90+ days ago" },
+                  ]}
+                  onChange={(id) => setFilters({ ...filters, lastVisit: id as LastVisitFilter })}
+                />
               </div>
 
               {/* Service */}
               <div className="chp-filter-group">
                 <label className="chp-filter-label">Service Taken</label>
-                <select
+                <Dropdown
                   value={filters.serviceId}
-                  onChange={(e) => setFilters({ ...filters, serviceId: e.target.value })}
-                >
-                  <option value="all">All services</option>
-                  {services.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
+                  options={[{ id: "all", name: "All services" }, ...services.map((s) => ({ id: s.id, name: s.name }))]}
+                  onChange={(id) => setFilters({ ...filters, serviceId: id })}
+                />
               </div>
 
               {/* Staff */}
               <div className="chp-filter-group">
                 <label className="chp-filter-label">Attended by Staff</label>
-                <select
+                <Dropdown
                   value={filters.staffId}
-                  onChange={(e) => setFilters({ ...filters, staffId: e.target.value })}
-                >
-                  <option value="all">All staff</option>
-                  {staffList.map((s) => (
-                    <option key={s.id} value={s.id}>{s.full_name}</option>
-                  ))}
-                </select>
+                  options={[{ id: "all", name: "All staff" }, ...staffList.map((s) => ({ id: s.id, name: s.full_name }))]}
+                  onChange={(id) => setFilters({ ...filters, staffId: id })}
+                />
               </div>
 
               {/* Gender */}
               <div className="chp-filter-group">
                 <label className="chp-filter-label">Gender</label>
-                <select
+                <Dropdown
+                  searchable={false}
                   value={filters.gender}
-                  onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
-                >
-                  <option value="all">All</option>
-                  <option value="female">Female</option>
-                  <option value="male">Male</option>
-                  <option value="other">Other</option>
-                </select>
+                  options={[
+                    { id: "all", name: "All" },
+                    { id: "female", name: "Female" },
+                    { id: "male", name: "Male" },
+                    { id: "other", name: "Other" },
+                  ]}
+                  onChange={(id) => setFilters({ ...filters, gender: id })}
+                />
               </div>
 
               {activeFilterCount > 0 && (

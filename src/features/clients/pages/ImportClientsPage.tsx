@@ -4,6 +4,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/ImportClientsPage.scss";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
+import Dropdown from "../../../components/ui/Dropdown";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type Step = 1 | 2 | 3 | 4;
@@ -235,18 +236,12 @@ function StepColumnMatch({
               <p className="field-hint">{col.hint}</p>
             </div>
             <div className="col-6">
-              <select
+              <Dropdown
                 className={`form-select match-select ${validationErrors[col.key] ? "is-invalid" : ""}`}
                 value={mapping[col.key] ?? "None"}
-                onChange={(e) => onMappingChange(col.key, e.target.value)}
-              >
-                <option value="None">None</option>
-                {csvHeaders.map((h) => (
-                  <option key={h} value={h}>
-                    {h}
-                  </option>
-                ))}
-              </select>
+                options={[{ id: "None", name: "None" }, ...csvHeaders.map((h) => ({ id: h, name: h }))]}
+                onChange={(id) => onMappingChange(col.key, id)}
+              />
               {validationErrors[col.key] && (
                 <p className="req-msg">{validationErrors[col.key]}</p>
               )}
