@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import Pagination from "../../../components/ui/Pagination";
+import Dropdown from "../../../components/ui/Dropdown";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
   Sliders,
@@ -463,19 +464,13 @@ export default function ClientsListPage() {
             <div className="clients-filter-modal__body">
               <div className="clients-filter-field">
                 <label>Gender</label>
-                <select
+                <Dropdown
                   className="form-select form-select-lg custom-focus-select"
+                  searchable={false}
                   value={selectedGender ?? ""}
-                  onChange={(e) =>
-                    setSelectedGender(e.target.value || null)
-                  }
-                >
-                  {genderOptions.map((g) => (
-                    <option key={g} value={g === "All" ? "" : g}>
-                      {g}
-                    </option>
-                  ))}
-                </select>
+                  options={genderOptions.map((g) => ({ id: g === "All" ? "" : g, name: g }))}
+                  onChange={(id) => setSelectedGender(id || null)}
+                />
               </div>
 
               <div className="clients-filter-field">
@@ -1156,28 +1151,22 @@ export default function ClientsListPage() {
           <label className="form-label fw-semibold small">
             Select blocking reason
           </label>
-          <select
+          <Dropdown
+            className="form-select"
+            searchable={false}
+            placeholder="Select blocking reason"
             value={blockReason}
-            onChange={(e) => setBlockReason(e.target.value)}
-            className={`form-select ${blockReason === "" ? "text-muted" : ""}`}
-          >
-            <option value="" disabled hidden>
-              Select blocking reason
-            </option>
-            <option value="Too many no-shows">Too many no-shows</option>
-            <option value="Too many late cancellations">
-              Too many late cancellations
-            </option>
-            <option value="Too many reschedules">Too many reschedules</option>
-            <option value="Rude or inappropriate to a team member">
-              Rude or inappropriate to a team member
-            </option>
-            <option value="Refused to pay">Refused to pay</option>
-            <option value="Booked fake appointments">
-              Booked fake appointments
-            </option>
-            <option value="Other">Other</option>
-          </select>
+            options={[
+              "Too many no-shows",
+              "Too many late cancellations",
+              "Too many reschedules",
+              "Rude or inappropriate to a team member",
+              "Refused to pay",
+              "Booked fake appointments",
+              "Other",
+            ].map((r) => ({ id: r, name: r }))}
+            onChange={setBlockReason}
+          />
         </div>
       </Modal>
 

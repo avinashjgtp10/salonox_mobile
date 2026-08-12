@@ -30,6 +30,7 @@ import {
 import api from "../../../services/api/axios";
 import { formatPaymentMode, isPackageCoveredSale } from "../../../utils/paymentMode";
 import { printReceipt, buildPrintableBooking } from "../../bookings/utils/receipt";
+import Dropdown from "../../../components/ui/Dropdown";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { getPackageExpiryStatus } from "../../bookings/utils/packageStatus";
 import Pagination from "../../../components/ui/Pagination";
@@ -2465,37 +2466,37 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
 
             <div className="chp-filter-group">
               <label className="chp-filter-label">Date Range</label>
-              <select
+              <Dropdown
+                searchable={false}
                 value={globalCalDay ? "" : globalDatePreset}
-                onChange={(e) => { setGlobalDatePreset(e.target.value); setGlobalCalDay(null); }}
-              >
-                <option value="all">All time</option>
-                <option value="7">Last 7 days</option>
-                <option value="30">Last 30 days</option>
-                <option value="90">Last 3 months</option>
-                <option value="180">Last 6 months</option>
-                <option value="365">Last year</option>
-              </select>
+                options={[
+                  { id: "all", name: "All time" },
+                  { id: "7", name: "Last 7 days" },
+                  { id: "30", name: "Last 30 days" },
+                  { id: "90", name: "Last 3 months" },
+                  { id: "180", name: "Last 6 months" },
+                  { id: "365", name: "Last year" },
+                ]}
+                onChange={(id) => { setGlobalDatePreset(id); setGlobalCalDay(null); }}
+              />
             </div>
 
             <div className="chp-filter-group">
               <label className="chp-filter-label">Service</label>
-              <select value={globalServiceFilter} onChange={(e) => setGlobalServiceFilter(e.target.value)}>
-                <option value="all">All services</option>
-                {uniqueServiceNames.map((name) => (
-                  <option key={name} value={name}>{name}</option>
-                ))}
-              </select>
+              <Dropdown
+                value={globalServiceFilter}
+                options={[{ id: "all", name: "All services" }, ...uniqueServiceNames.map((name) => ({ id: name, name }))]}
+                onChange={setGlobalServiceFilter}
+              />
             </div>
 
             <div className="chp-filter-group">
               <label className="chp-filter-label">Staff</label>
-              <select value={globalStaffFilter} onChange={(e) => setGlobalStaffFilter(e.target.value)}>
-                <option value="all">All staff</option>
-                {staffList.map((s) => (
-                  <option key={s.id} value={s.id}>{s.full_name}</option>
-                ))}
-              </select>
+              <Dropdown
+                value={globalStaffFilter}
+                options={[{ id: "all", name: "All staff" }, ...staffList.map((s) => ({ id: s.id, name: s.full_name }))]}
+                onChange={setGlobalStaffFilter}
+              />
             </div>
 
             {globalFilterCount > 0 && (
