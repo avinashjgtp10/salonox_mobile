@@ -7,10 +7,8 @@ import {
   Animated,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -21,6 +19,7 @@ import { validatePhoneNumberLength, isValidPhoneNumber } from "libphonenumber-js
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
+import { KeyboardAwareScrollView, type KeyboardAwareScrollViewHandle } from "@/components/ui/KeyboardAwareScrollView";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
 import { PhoneInput } from "@/components/ui/PhoneInput";
@@ -266,7 +265,7 @@ export default function LoginScreen() {
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
   const [scrollContentHeight, setScrollContentHeight] = useState(0);
-const scrollViewRef = useRef<ScrollView>(null);
+const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
   const fieldOffsets = useRef<Partial<Record<keyof RegisterFieldErrors, number>>>({});
   const contentOverflows = scrollContentHeight > scrollViewHeight + 1;
   const shouldEnableScroll = contentOverflows || isKeyboardVisible;
@@ -935,26 +934,23 @@ const scrollViewRef = useRef<ScrollView>(null);
       </View>
 
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        <KeyboardAwareScrollView
+          ref={scrollViewRef as any}
+          scrollEnabled={shouldEnableScroll}
+          bounces={false}
+          alwaysBounceVertical={false}
+          overScrollMode="never"
+          onLayout={(event) => setScrollViewHeight(event.nativeEvent.layout.height)}
+          onContentSizeChange={(_, contentHeight) => setScrollContentHeight(contentHeight)}
+          contentContainerStyle={[
+            styles.scrollContainer,
+            isRegisterMode && styles.registrationScrollContainer,
+          ]}
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
           style={styles.keyboardView}
         >
-          <ScrollView
-            ref={scrollViewRef}
-            scrollEnabled={shouldEnableScroll}
-            bounces={false}
-            alwaysBounceVertical={false}
-            overScrollMode="never"
-            onLayout={(event) => setScrollViewHeight(event.nativeEvent.layout.height)}
-            onContentSizeChange={(_, contentHeight) => setScrollContentHeight(contentHeight)}
-            contentContainerStyle={[
-              styles.scrollContainer,
-              isRegisterMode && styles.registrationScrollContainer,
-            ]}
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
             <Animated.View
               style={[
                 styles.card,
@@ -1637,8 +1633,7 @@ const scrollViewRef = useRef<ScrollView>(null);
               </Text>
             </Pressable>
             </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
       </SafeAreaView>
     </LinearGradient>
   );
