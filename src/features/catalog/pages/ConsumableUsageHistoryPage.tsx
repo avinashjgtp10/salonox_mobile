@@ -8,6 +8,7 @@ import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { fetchUsageHistoryThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { ConsumableListResult } from "../../../middleware/inventory/inventory.thunk";
 import type { InventoryResponse, UsageHistoryFilters, UsageHistoryRow } from "../../../types/inventory.types";
+import Dropdown from "../../../components/ui/Dropdown";
 import { Pagination } from "../../../components/ui";
 import Skeleton from "../../../components/ui/Skeleton";
 import "../styles/ConsumableInventoryPage.scss";
@@ -97,15 +98,22 @@ const ConsumableUsageHistoryPage: React.FC = () => {
       </div>
 
       <div className="ci-filters">
-        <select value={filters.product_id ?? ""} onChange={(e) => updateFilter("product_id", e.target.value)}>
-          <option value="">All products</option>
-          {productOptions.map((c) => <option key={c.product_id} value={c.product_id}>{c.name}</option>)}
-        </select>
-        <select value={filters.direction ?? ""} onChange={(e) => updateFilter("direction", e.target.value as any)}>
-          <option value="">Deduct + Return</option>
-          <option value="deduct">Deducted</option>
-          <option value="return">Returned</option>
-        </select>
+        <Dropdown
+          searchable={false}
+          value={filters.product_id ?? ""}
+          options={[{ id: "", name: "All products" }, ...productOptions.map((c) => ({ id: c.product_id, name: c.name }))]}
+          onChange={(id) => updateFilter("product_id", id)}
+        />
+        <Dropdown
+          searchable={false}
+          value={filters.direction ?? ""}
+          options={[
+            { id: "", name: "Deduct + Return" },
+            { id: "deduct", name: "Deducted" },
+            { id: "return", name: "Returned" },
+          ]}
+          onChange={(id) => updateFilter("direction", id as any)}
+        />
         <label className="ci-date-filter">
           From
           <input type="date" value={filters.from ?? ""} onChange={(e) => updateFilter("from", e.target.value)} />

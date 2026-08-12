@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import type { ServiceConsultationFormValues, ServiceForm, TeamMember } from "../types/catalog.types.ts";
 import { useCurrency } from "../../../hooks/useCurrency";
+import Dropdown from "../../../components/ui/Dropdown";
 
 interface Props {
   form: ServiceForm;
@@ -168,21 +169,16 @@ const ConsultationFormModal: React.FC<Props> = ({ form, onClose, onSave, staffMe
                 <div className="col-md-6">
                   <label className="form-label small text-muted">Consultant / Stylist <span className="text-danger">*</span></label>
                   {staffMembers.length > 0 ? (
-                    <select
+                    <Dropdown
                       className={`form-select premium-input ${errors.consultantName ? "is-invalid" : ""}`}
+                      placeholder="Select a staff member"
                       value={values.consultantName}
-                      onChange={(e) => set("consultantName", e.target.value)}
-                    >
-                      <option value="">Select a staff member</option>
-                      {staffMembers.map((m) => {
+                      options={staffMembers.map((m) => {
                         const name = `${m.firstName} ${m.lastName}`.trim();
-                        return (
-                          <option key={m.id} value={name}>
-                            {name}{m.role ? ` — ${m.role}` : ""}
-                          </option>
-                        );
+                        return { id: name, name: `${name}${m.role ? ` — ${m.role}` : ""}` };
                       })}
-                    </select>
+                      onChange={(id) => set("consultantName", id)}
+                    />
                   ) : (
                     <input
                       type="text"

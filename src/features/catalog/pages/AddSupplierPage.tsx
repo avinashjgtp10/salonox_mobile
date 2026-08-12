@@ -4,6 +4,7 @@ import { Country, State, City } from "country-state-city";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { createSupplierThunk, updateSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
 import { SUPPLIER_MESSAGES } from "../../../constants/messages";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/AddSupplierPage.scss";
 
 const COUNTRIES = Country.getAllCountries().map((c) => ({
@@ -404,33 +405,23 @@ const AddSupplierPage: React.FC = () => {
 
           <div className="field-group">
             <label>Country</label>
-            <select
+            <Dropdown
               value={physCountry}
-              onChange={(e) => handlePhysCountry(e.target.value)}
-            >
-              {COUNTRIES.map((c) => (
-                <option key={c.code} value={c.name}>
-                  {c.flag} {c.name}
-                </option>
-              ))}
-            </select>
+              options={COUNTRIES.map((c) => ({ id: c.name, name: `${c.flag} ${c.name}` }))}
+              onChange={handlePhysCountry}
+            />
           </div>
 
           <div className="field-row-2">
             <div className="field-group">
               <label>State</label>
               {physStates.length > 0 ? (
-                <select
+                <Dropdown
+                  placeholder="— Select state —"
                   value={physState}
-                  onChange={(e) => handlePhysState(e.target.value)}
-                >
-                  <option value="">— Select state —</option>
-                  {physStates.map((s) => (
-                    <option key={s.isoCode} value={s.isoCode}>
-                      {s.name}
-                    </option>
-                  ))}
-                </select>
+                  options={physStates.map((s) => ({ id: s.isoCode, name: s.name }))}
+                  onChange={handlePhysState}
+                />
               ) : (
                 <input
                   type="text"
@@ -444,17 +435,12 @@ const AddSupplierPage: React.FC = () => {
             <div className="field-group">
               <label>City</label>
               {physCities.length > 0 ? (
-                <select
+                <Dropdown
+                  placeholder="— Select city —"
                   value={physCity}
-                  onChange={(e) => setPhysCity(e.target.value)}
-                >
-                  <option value="">— Select city —</option>
-                  {physCities.map((city) => (
-                    <option key={city.name} value={city.name}>
-                      {city.name}
-                    </option>
-                  ))}
-                </select>
+                  options={physCities.map((city) => ({ id: city.name, name: city.name }))}
+                  onChange={setPhysCity}
+                />
               ) : (
                 <input
                   type="text"
@@ -512,33 +498,23 @@ const AddSupplierPage: React.FC = () => {
 
             <div className="field-group">
               <label>Country</label>
-              <select
+              <Dropdown
                 value={postalCountry}
-                onChange={(e) => handlePostalCountry(e.target.value)}
-              >
-                {COUNTRIES.map((c) => (
-                  <option key={c.code} value={c.name}>
-                    {c.flag} {c.name}
-                  </option>
-                ))}
-              </select>
+                options={COUNTRIES.map((c) => ({ id: c.name, name: `${c.flag} ${c.name}` }))}
+                onChange={handlePostalCountry}
+              />
             </div>
 
             <div className="field-row-2">
               <div className="field-group">
                 <label>State</label>
                 {postalStates.length > 0 ? (
-                  <select
+                  <Dropdown
+                    placeholder="— Select state —"
                     value={postalState}
-                    onChange={(e) => handlePostalState(e.target.value)}
-                  >
-                    <option value="">— Select state —</option>
-                    {postalStates.map((s) => (
-                      <option key={s.isoCode} value={s.isoCode}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={postalStates.map((s) => ({ id: s.isoCode, name: s.name }))}
+                    onChange={handlePostalState}
+                  />
                 ) : (
                   <input
                     type="text"
@@ -552,17 +528,12 @@ const AddSupplierPage: React.FC = () => {
               <div className="field-group">
                 <label>City</label>
                 {postalCities.length > 0 ? (
-                  <select
+                  <Dropdown
+                    placeholder="— Select city —"
                     value={postalCity}
-                    onChange={(e) => setPostalCity(e.target.value)}
-                  >
-                    <option value="">— Select city —</option>
-                    {postalCities.map((city) => (
-                      <option key={city.name} value={city.name}>
-                        {city.name}
-                      </option>
-                    ))}
-                  </select>
+                    options={postalCities.map((city) => ({ id: city.name, name: city.name }))}
+                    onChange={setPostalCity}
+                  />
                 ) : (
                   <input
                     type="text"

@@ -22,6 +22,7 @@ import { fetchSuppliersThunk } from "../../../middleware/inventory/inventory.thu
 import { useProducts } from "../hooks/useProducts";
 import ProductDrawer from "../components/ProductDrawer";
 import Pagination from "../../../components/ui/Pagination";
+import UiDropdown from "../../../components/ui/Dropdown";
 import Button from "../../../components/ui/Button";
 import Skeleton from "../../../components/ui/Skeleton";
 import Modal from "../../../components/ui/Modal";
@@ -810,16 +811,18 @@ const ProductsListPage: React.FC = () => {
                 <label className="form-label mb-0 fw-medium text-dark" style={{ fontSize: "14px" }}>
                   Stock
                 </label>
-                <select
+                <UiDropdown
                   className="form-select form-select-lg shadow-none border-secondary-subtle custom-focus-select"
                   style={{ fontSize: "15px" }}
+                  searchable={false}
                   value={pendingFilters.stock}
-                  onChange={(e) => setPendingFilters((f) => ({ ...f, stock: e.target.value }))}
-                >
-                  <option value="">All products</option>
-                  <option value="low">Low in stock</option>
-                  <option value="out">Out of stock</option>
-                </select>
+                  options={[
+                    { id: "", name: "All products" },
+                    { id: "low", name: "Low in stock" },
+                    { id: "out", name: "Out of stock" },
+                  ]}
+                  onChange={(id) => setPendingFilters((f) => ({ ...f, stock: id }))}
+                />
               </div>
 
               {/* Product type */}

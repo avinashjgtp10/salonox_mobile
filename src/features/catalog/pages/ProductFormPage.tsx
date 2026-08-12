@@ -17,6 +17,7 @@ import type { ConsumableDetail } from "../../../types/inventory.types";
 // stay visually and behaviourally identical, so they use one control, not two.
 import SearchSelect from "../components/form/SearchSelect";
 import QuickAdd from "../components/form/QuickAdd";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/ConsumableFormPage.scss";
 
 interface AssignedServiceDraft {
@@ -478,9 +479,12 @@ const ProductFormPage: React.FC = () => {
                 </div>
                 <div className="cf-field">
                   <label>Unit</label>
-                  <select value={unit} onChange={(e) => setUnit(e.target.value as ProductUnit)}>
-                    {PRODUCT_UNITS.map((u) => <option key={u} value={u}>{u}</option>)}
-                  </select>
+                  <Dropdown
+                    searchable={false}
+                    value={unit}
+                    options={PRODUCT_UNITS.map((u) => ({ id: u, name: u }))}
+                    onChange={(id) => setUnit(id as ProductUnit)}
+                  />
                 </div>
               </div>
               <div className="cf-total-display">
@@ -528,13 +532,13 @@ const ProductFormPage: React.FC = () => {
                   const rowOptions = picked ? [picked, ...availableCompatibleUnits] : availableCompatibleUnits;
                   return (
                     <div key={i} className="cf-assigned-row">
-                      <select
+                      <Dropdown
                         className="cf-assigned-row__name"
+                        searchable={false}
                         value={row.unit_name}
-                        onChange={(e) => updateUnitConversionRow(i, "unit_name", e.target.value)}
-                      >
-                        {rowOptions.map((cu) => <option key={cu.name} value={cu.name}>{cu.name}</option>)}
-                      </select>
+                        options={rowOptions.map((cu) => ({ id: cu.name, name: cu.name }))}
+                        onChange={(id) => updateUnitConversionRow(i, "unit_name", id)}
+                      />
                       <span>1 {row.unit_name || "unit"} =</span>
                       <input
                         type="number" min={0} className="cf-assigned-row__qty"
@@ -609,9 +613,12 @@ const ProductFormPage: React.FC = () => {
             </div>
             <div className="cf-field">
               <label>Tax Type</label>
-              <select value={taxType} onChange={(e) => setTaxType(e.target.value as TaxType)}>
-                {TAX_TYPE_OPTIONS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
+              <Dropdown
+                searchable={false}
+                value={taxType}
+                options={TAX_TYPE_OPTIONS.map((t) => ({ id: t.value, name: t.label }))}
+                onChange={(id) => setTaxType(id as TaxType)}
+              />
             </div>
           </div>
           {taxType === "custom" && (

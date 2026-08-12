@@ -11,6 +11,7 @@ import {
 import { fetchBrandsThunk, fetchCategoriesThunk, updateProductThunk } from "../../../middleware/catalog/products.thunk";
 import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
 import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import Dropdown from "../../../components/ui/Dropdown";
 import type { FilterDropdownOption, JiraFilterField } from "../../../components/ui";
 import Skeleton from "../../../components/ui/Skeleton";
 import type { ConsumableListFilters, ConsumableStatus } from "../../../types/inventory.types";
@@ -426,9 +427,12 @@ const ConsumableInventoryPage: React.FC = () => {
           selected={filterMenuSelected}
           onApply={applyAllFilters}
         />
-        <select value={filters.sort_by ?? "newest"} onChange={(e) => updateFilter("sort_by", e.target.value as any)}>
-          {SORT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+        <Dropdown
+          searchable={false}
+          value={filters.sort_by ?? "newest"}
+          options={SORT_OPTIONS.map((o) => ({ id: o.value, name: o.label }))}
+          onChange={(id) => updateFilter("sort_by", id as any)}
+        />
       </div>
 
       {activeChips.length > 0 && (
