@@ -1142,7 +1142,7 @@ export default function StaffHistoryDetailPage() {
               <EmptyState
                 icon={<Wallet2 size={26} />}
                 text="Payroll history isn't tracked in the backend yet."
-                note="The Payruns page isn't wired to any real payroll data yet, so there's nothing to show here yet."
+                note="The Payroll page isn't wired to any real payroll history data yet, so there's nothing to show here yet."
               />
             )}
             {activeTab === "notes" && <ReviewsTab staffId={staff.id} />}

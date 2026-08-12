@@ -173,7 +173,7 @@ const TimesheetsPage: React.FC = () => {
                   <CheckCircleFill /> Track worked hours and breaks in real time
                 </li>
                 <li>
-                  <CheckCircleFill /> Fully integrated with salonox Pay Runs
+                  <CheckCircleFill /> Fully integrated with salonox Payroll
                 </li>
                 <li>
                   <CheckCircleFill /> Detailed reporting to monitor attendance

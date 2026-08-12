@@ -20,8 +20,8 @@ import api from "../../../services/api/axios";
 import { ATTENDANCE, DEVICES, STAFF } from "../../../services/api/endpoints";
 import {
   DEFAULT_HALF_DAY_RULE_CONFIG,
-  parseHalfDayRuleValue,
-  isHalfDayCheckIn,
+  resolveAttendanceRuleConfig,
+  evaluateAttendanceCheckIn,
 } from "../../settings/utils/halfDayRuleSettings";
 import HalfDayRulePage from "../../settings/pages/HalfDayRulePage";
 import { scheduleDateToYMD } from "../../../components/staff-schedule/utils";
@@ -379,7 +379,7 @@ function CheckInModal({ record, date, isToday, schedule, onClose, onDone }: {
       if (cancelled) return;
       if (ruleRes) {
         const settings = ruleRes.data?.data ?? ruleRes.data;
-        setHalfDayRule(parseHalfDayRuleValue(settings));
+        setHalfDayRule(resolveAttendanceRuleConfig(settings));
         // Falls back to the salon's default shift start (attendance_settings.shift_start)
         // when this staff member has no per-day shift scheduled — otherwise the rule
         // would never apply to staff without an explicit Team > Schedule entry.
@@ -399,13 +399,14 @@ function CheckInModal({ record, date, isToday, schedule, onClose, onDone }: {
       const checkInISO = toISO(date, time);
       const effectiveShiftStart = shiftStart ?? salonShiftStart;
       const shiftStartISO = effectiveShiftStart ? toISO(date, effectiveShiftStart) : null;
-      const status: AttendanceStatus = isHalfDayCheckIn(halfDayRule, shiftStartISO, checkInISO)
-        ? "half_day"
-        : "present";
+      const evaluation = evaluateAttendanceCheckIn(halfDayRule, shiftStartISO, checkInISO, record.staff_id);
       await api.post(ATTENDANCE.CHECK_IN, {
         staff_id: record.staff_id,
         check_in: checkInISO,
-        status,
+        status: evaluation.status,
+        shift_start: effectiveShiftStart ?? undefined,
+        late_minutes: evaluation.lateMinutes,
+        deduction_source: evaluation.totalDeduction > 0 ? "Attendance Rule" : undefined,
         note: note.trim() || undefined,
       });
       onDone();
@@ -441,10 +442,15 @@ function CheckInModal({ record, date, isToday, schedule, onClose, onDone }: {
           </div>
           {(() => {
             const effectiveShiftStart = shiftStart ?? salonShiftStart;
-            if (!halfDayRule.active || !effectiveShiftStart || !time) return null;
-            return isHalfDayCheckIn(halfDayRule, toISO(date, effectiveShiftStart), toISO(date, time)) ? (
+            if (!effectiveShiftStart || !time) return null;
+            const evaluation = evaluateAttendanceCheckIn(halfDayRule, toISO(date, effectiveShiftStart), toISO(date, time), record.staff_id);
+            return evaluation.status === "half_day" ? (
               <p className="at-modal-error">
                 Late by more than {halfDayRule.threshold_hours}h — this check-in will be marked Half Day.
+              </p>
+            ) : evaluation.status === "late" ? (
+              <p className="at-modal-error">
+                Late by {evaluation.lateMinutes} min - this check-in will be marked Late.
               </p>
             ) : (
               <p className="at-modal-meta at-modal-meta--success">
@@ -1041,7 +1047,7 @@ export default function AttendancePage() {
             onClick={() => setShowHalfDayRule(true)}
           >
             <Clock size={15} />
-            Half Day Rule
+            Attendance Rules
           </button>
         </div>
       </div>

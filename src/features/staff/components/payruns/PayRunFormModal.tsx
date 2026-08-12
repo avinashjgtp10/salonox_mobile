@@ -6,6 +6,8 @@ import type { PayRun } from "../../../../types/payRun.types";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/useAppRedux";
 import { fetchStaffThunk } from "../../../../middleware/staff/staff.thunk";
 import { useCurrency } from "../../../../hooks/useCurrency";
+import api from "../../../../services/api/axios";
+import { STAFF } from "../../../../services/api/endpoints/staff.endpoints";
 
 interface PayRunFormModalProps {
   isOpen: boolean;
@@ -71,7 +73,20 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
     }
   }, [isOpen, initialData, dispatch]);
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+  const getFixedSalary = async (staffId: string | number, selectedStaff?: any) => {
+    const staffSalary = Number(selectedStaff?.salary_amount ?? selectedStaff?.fixed_salary);
+    if (Number.isFinite(staffSalary) && staffSalary > 0) return staffSalary;
+
+    const res = await api.get(STAFF.WAGES(staffId));
+    const wages = res.data?.data || res.data;
+    const salary = Number(wages?.salary_amount ?? wages?.fixed_salary);
+
+    return wages?.compensation_type === "salary" && Number.isFinite(salary)
+      ? salary
+      : 0;
+  };
+
+  const handleChange = async (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
     
     if (name === "staffId") {
@@ -85,7 +100,21 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
         ...prev,
         staffId: value,
         employeeName,
+        earnings: 0,
       }));
+
+      if (!value) return;
+
+      try {
+        const fixedSalary = await getFixedSalary(value, selectedStaff);
+        setFormData(prev => (
+          prev.staffId === value
+            ? { ...prev, earnings: fixedSalary }
+            : prev
+        ));
+      } catch (error) {
+        console.error("Error fetching staff wages:", error);
+      }
     } else {
       setFormData((prev) => ({
         ...prev,

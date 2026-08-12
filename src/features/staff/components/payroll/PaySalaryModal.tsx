@@ -5,15 +5,13 @@ import Button from "../../../../components/ui/Button";
 
 const PAYMENT_METHODS = [
   { value: "cash", label: "Cash" },
-  { value: "bank_transfer", label: "Bank Transfer" },
   { value: "upi", label: "UPI" },
-  { value: "cheque", label: "Cheque" },
 ];
 
 const todayIso = () => new Date().toISOString().slice(0, 10);
 
 interface Props {
-  employeeName: string;
+  staffName: string;
   totalSalary: number;
   paidAmount: number;
   pendingAmount: number;
@@ -23,7 +21,7 @@ interface Props {
 }
 
 export default function PaySalaryModal({
-  employeeName, totalSalary, paidAmount, pendingAmount, formatAmount, onConfirm, onClose,
+  staffName, totalSalary, paidAmount, pendingAmount, formatAmount, onConfirm, onClose,
 }: Props) {
   const [amountInput, setAmountInput] = useState(String(pendingAmount));
   const [method, setMethod] = useState(PAYMENT_METHODS[0].value);
@@ -60,11 +58,18 @@ export default function PaySalaryModal({
           <div className="fw-bold text-success">Payment successful</div>
         </div>
       ) : (
-        <>
-          <div className="d-flex flex-column gap-3">
+        <div
+          className="pay-salary-modal modal-scrollable"
+          style={{
+            maxHeight: "calc(100vh - 220px)",
+            paddingRight: 8,
+            scrollbarGutter: "stable",
+          }}
+        >
+          <div className="pay-salary-modal__body d-flex flex-column gap-3">
             <div>
-              <div className="text-muted small">Employee Name</div>
-              <div className="fw-bold">{employeeName}</div>
+              <div className="text-muted small">Staff Name</div>
+              <div className="fw-bold">{staffName}</div>
             </div>
 
             <div>
@@ -132,7 +137,7 @@ export default function PaySalaryModal({
               Cancel
             </Button>
           </div>
-        </>
+        </div>
       )}
     </Modal>
   );

@@ -52,12 +52,36 @@ html, body, #root {
   height: 100%;
 }
 
-/* ===== Hide scrollbars everywhere, scrolling itself stays enabled ===== */
-::-webkit-scrollbar {
+/* ===== Hide scrollbars on root layout only (not inside modals/panels) ===== */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar,
+#root::-webkit-scrollbar {
   display: none;
 }
-html {
+html, body, #root {
   scrollbar-width: none;
+}
+
+/* ===== Visible scrollbar utility — use on modal/panel scroll containers ===== */
+.modal-scrollable {
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #6366f1 #e0e7ff;
+}
+.modal-scrollable::-webkit-scrollbar {
+  width: 8px;
+  display: block !important;
+}
+.modal-scrollable::-webkit-scrollbar-track {
+  background: #e0e7ff;
+  border-radius: 8px;
+}
+.modal-scrollable::-webkit-scrollbar-thumb {
+  background: #6366f1;
+  border-radius: 8px;
+}
+.modal-scrollable::-webkit-scrollbar-thumb:hover {
+  background: #4f46e5;
 }
 /* ===================================== */
 

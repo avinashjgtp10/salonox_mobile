@@ -10,7 +10,7 @@ const NAV_ITEMS = [
   { to: "/dashboard/team/shifts",      label: "Scheduled shifts" },
   { to: "/dashboard/team/commissions", label: "Commissions" },
   { to: "/dashboard/team/attendance",  label: "Attendance" },
-  { to: "/dashboard/team/payroll",     label: "Payruns" },
+  { to: "/dashboard/team/payroll",     label: "Payroll" },
   { to: "/dashboard/team/history",     label: "Staff History" },
 ];
 
