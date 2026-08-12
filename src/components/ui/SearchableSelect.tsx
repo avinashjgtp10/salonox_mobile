@@ -15,7 +15,7 @@ interface SearchableSelectProps<T> {
   disabled?: boolean;
 }
 
-const MAX_DROPDOWN_HEIGHT = 280;
+const MAX_DROPDOWN_HEIGHT = 240;
 
 // Generic portal-positioned, type-to-filter dropdown — a native <select> with
 // a long list only supports jump-to-first-letter typeahead, which can't
@@ -127,8 +127,18 @@ export function SearchableSelect<T>({
     }
   }
 
+  const chevronStyle: React.CSSProperties = {
+    flexShrink: 0,
+    width: 16,
+    height: 16,
+    color: open ? "#6366f1" : "#9ca3af",
+    transition: "transform 0.15s",
+    transform: open ? "rotate(180deg)" : "rotate(0deg)",
+  };
+
   return (
     <>
+      {/* ── Trigger Button ── */}
       <button
         ref={triggerRef}
         type="button"
@@ -142,17 +152,34 @@ export function SearchableSelect<T>({
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
-          gap: 4,
+          gap: 6,
           textAlign: "left",
           width: "100%",
+          height: 38,
+          padding: "0 10px",
+          border: open ? "1.5px solid #6366f1" : "1px solid #e5e7eb",
+          borderRadius: 8,
+          background: disabled ? "#f9fafb" : "#fff",
+          color: disabled ? "#9ca3af" : (selected ? "#111827" : "#9ca3af"),
+          fontSize: 13,
+          fontFamily: "inherit",
+          fontWeight: selected ? 600 : 400,
           cursor: disabled ? "not-allowed" : "pointer",
+          boxShadow: open ? "0 0 0 3px rgba(99,102,241,0.12)" : "none",
+          transition: "border-color 0.15s, box-shadow 0.15s",
+          outline: "none",
         }}
       >
-        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+        <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", flex: 1 }}>
           {selected ? getLabel(selected) : placeholder}
         </span>
+        {/* Chevron icon */}
+        <svg viewBox="0 0 20 20" fill="currentColor" style={chevronStyle}>
+          <path fillRule="evenodd" d="M5.22 8.22a.75.75 0 0 1 1.06 0L10 11.94l3.72-3.72a.75.75 0 1 1 1.06 1.06l-4.25 4.25a.75.75 0 0 1-1.06 0L5.22 9.28a.75.75 0 0 1 0-1.06Z" clipRule="evenodd" />
+        </svg>
       </button>
 
+      {/* ── Portal Dropdown ── */}
       {open && pos && createPortal(
         <div
           ref={listRef}
@@ -161,37 +188,46 @@ export function SearchableSelect<T>({
             left: pos.left,
             width: pos.width,
             ...(pos.openUpward
-              ? { bottom: window.innerHeight - pos.top, maxHeight: Math.min(MAX_DROPDOWN_HEIGHT, pos.top - 8) }
-              : { top: pos.top, maxHeight: Math.min(MAX_DROPDOWN_HEIGHT, window.innerHeight - pos.top - 8) }),
+              ? { bottom: window.innerHeight - pos.top + 4, maxHeight: Math.min(MAX_DROPDOWN_HEIGHT, pos.top - 12) }
+              : { top: pos.top + 4, maxHeight: Math.min(MAX_DROPDOWN_HEIGHT, window.innerHeight - pos.top - 16) }),
             display: "flex",
             flexDirection: "column",
             background: "#fff",
             border: "1px solid #e5e7eb",
-            borderRadius: 6,
-            boxShadow: "0 4px 16px rgba(0,0,0,0.12)",
-            zIndex: 9999,
+            borderRadius: 10,
+            boxShadow: "0 8px 28px rgba(17,24,39,0.13), 0 1px 4px rgba(17,24,39,0.06)",
+            zIndex: 99999,
             overflow: "hidden",
+            animation: "ss-pop 0.15s ease",
           }}
         >
-          <input
-            ref={searchRef}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            onKeyDown={handleSearchKeyDown}
-            placeholder={searchPlaceholder}
-            style={{
-              border: "none",
-              borderBottom: "1px solid #e5e7eb",
-              padding: "8px 12px",
-              fontSize: 13,
-              outline: "none",
-              flexShrink: 0,
-            }}
-          />
-          <div role="listbox" style={{ overflowY: "auto" }}>
+          {/* Search Input */}
+          <div style={{ padding: "8px 8px 6px", borderBottom: "1px solid #f3f4f6", flexShrink: 0 }}>
+            <input
+              ref={searchRef}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={handleSearchKeyDown}
+              placeholder={searchPlaceholder}
+              style={{
+                width: "100%",
+                border: "1px solid #e5e7eb",
+                borderRadius: 6,
+                padding: "6px 10px",
+                fontSize: 12,
+                outline: "none",
+                background: "#f9fafb",
+                color: "#111827",
+                fontFamily: "inherit",
+              }}
+            />
+          </div>
+
+          {/* Options List */}
+          <div role="listbox" style={{ overflowY: "auto", overflowX: "hidden" }}>
             {filtered.length === 0 && (
-              <div style={{ padding: "10px 12px", fontSize: 13, color: "#9ca3af" }}>No matches.</div>
+              <div style={{ padding: "12px 14px", fontSize: 13, color: "#9ca3af", textAlign: "center" }}>No matches found</div>
             )}
             {filtered.map((o, i) => {
               const key = getKey(o);
@@ -206,19 +242,35 @@ export function SearchableSelect<T>({
                   onMouseDown={(e) => { e.preventDefault(); selectValue(key); }}
                   onMouseEnter={() => setActiveIndex(i)}
                   style={{
-                    padding: "7px 12px",
+                    padding: "8px 12px",
                     fontSize: 13,
                     cursor: "pointer",
-                    background: isActive ? "#eff6ff" : "#fff",
-                    color: isSelected ? "#2563eb" : "#111827",
-                    fontWeight: isSelected ? 600 : 400,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 8,
+                    background: isSelected
+                      ? "#ede9fe"
+                      : isActive
+                      ? "#f5f3ff"
+                      : "transparent",
+                    color: isSelected ? "#5b21b6" : "#111827",
+                    fontWeight: isSelected ? 700 : 400,
+                    borderRadius: 6,
+                    margin: "0 4px",
+                    transition: "background 0.08s",
                   }}
                 >
-                  {getLabel(o)}
+                  {isSelected && (
+                    <svg viewBox="0 0 20 20" fill="currentColor" style={{ width: 14, height: 14, flexShrink: 0, color: "#7c3aed" }}>
+                      <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 0 1 .143 1.052l-8 10.5a.75.75 0 0 1-1.127.075l-4.5-4.5a.75.75 0 0 1 1.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 0 1 1.05-.143Z" clipRule="evenodd" />
+                    </svg>
+                  )}
+                  <span style={{ marginLeft: isSelected ? 0 : 22 }}>{getLabel(o)}</span>
                 </div>
               );
             })}
           </div>
+          <style>{`@keyframes ss-pop{from{opacity:0;transform:scale(.96) translateY(-4px)}to{opacity:1;transform:scale(1) translateY(0)}}`}</style>
         </div>,
         document.body
       )}
