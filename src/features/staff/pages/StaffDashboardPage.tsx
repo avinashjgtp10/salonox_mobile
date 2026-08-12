@@ -347,10 +347,10 @@ export default function StaffDashboardPage() {
                 color: "violet",
               },
               {
-                label: "Pay Runs",
+                label: "Payroll",
                 desc: "Process payroll",
                 icon: <StarFill size={18} />,
-                path: "/dashboard/team/payruns",
+                path: "/dashboard/team/payroll",
                 color: "blue",
               },
             ].map((action) => (
