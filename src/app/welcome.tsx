@@ -91,21 +91,94 @@ function WelcomePage() {
           Welcome to
         </Text>
         <Text adjustsFontSizeToFit numberOfLines={1} style={styles.welcomeBrand}>
-          salonOX
+          SalonOX
         </Text>
       </View>
       <View style={styles.heroWrap}>
         <View style={styles.appointmentCard}>
           <Text style={styles.widgetTitle}>Appointments</Text>
-          <Text style={styles.calendarDays}>S   M   T   W   T   F   S</Text>
-          <Text style={styles.calendarNumbers}>1    2    3    4    5    6    7</Text>
-          <Text style={styles.calendarNumbers}>8    9   10   11   12   13   14</Text>
+          <MonthCalendar />
         </View>
         <View style={styles.revenueCard}>
           <Text style={styles.widgetTitle}>Revenue</Text>
           <Text style={styles.revenueValue}>+28%</Text>
           <MiniBarChart />
         </View>
+      </View>
+    </View>
+  );
+}
+
+function MonthCalendar() {
+  const Colors = useLuxuryColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  const daysInMonth = lastDay.getDate();
+  const startingDayOfWeek = firstDay.getDay();
+
+  const dayNames = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+
+  const weeks = [];
+  let week = [];
+
+  for (let i = 0; i < startingDayOfWeek; i++) {
+    week.push(null);
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    week.push(day);
+    if (week.length === 7) {
+      weeks.push(week);
+      week = [];
+    }
+  }
+
+  if (week.length > 0) {
+    while (week.length < 7) {
+      week.push(null);
+    }
+    weeks.push(week);
+  }
+
+  const isToday = (day: number) => {
+    return day === now.getDate() && month === now.getMonth() && year === now.getFullYear();
+  };
+
+  return (
+    <View style={styles.calendarContainer}>
+      <View style={styles.calendarHeader}>
+        <Text style={styles.monthTitle}>
+          {now.toLocaleString('default', { month: 'long', year: 'numeric' })}
+        </Text>
+      </View>
+      <View style={styles.calendarDaysRow}>
+        {dayNames.map((name, index) => (
+          <Text key={index} style={styles.calendarDayName}>{name}</Text>
+        ))}
+      </View>
+      <View style={styles.calendarWeeks}>
+        {weeks.map((week, weekIndex) => (
+          <View key={weekIndex} style={styles.calendarWeek}>
+            {week.map((day, dayIndex) => (
+              <Text
+                key={dayIndex}
+                style={[
+                  styles.calendarDay,
+                  day === null && styles.calendarDayEmpty,
+                  day !== null && isToday(day) && styles.calendarDayToday,
+                ]}
+              >
+                {day ?? ''}
+              </Text>
+            ))}
+          </View>
+        ))}
       </View>
     </View>
   );
@@ -183,8 +256,59 @@ const createStyles = (Colors: LuxuryColors) => StyleSheet.create({
     left: 0,
     padding: 10,
     position: "absolute",
-    top: 72,
+    top: 0,
     width: 116,
+  },
+  calendarContainer: {
+    paddingHorizontal: 4,
+  },
+  calendarHeader: {
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  monthTitle: {
+    color: Colors.text,
+    fontSize: 10,
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  calendarDaysRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 2,
+  },
+  calendarDayName: {
+    color: Colors.muted,
+    fontSize: 7,
+    fontWeight: '700',
+    width: 13,
+    textAlign: 'center',
+  },
+  calendarWeeks: {
+    gap: 1,
+  },
+  calendarWeek: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  calendarDay: {
+    color: Colors.text,
+    fontSize: 8,
+    fontWeight: '600',
+    width: 13,
+    height: 13,
+    textAlign: 'center',
+    textAlignVertical: 'center',
+  },
+  calendarDayEmpty: {
+    color: 'transparent',
+  },
+  calendarDayToday: {
+    color: Colors.accent,
+    fontWeight: '900',
+    backgroundColor: Colors.accent + '20',
+    borderRadius: 6,
   },
   revenueCard: {
     backgroundColor: Colors.card,
@@ -197,8 +321,6 @@ const createStyles = (Colors: LuxuryColors) => StyleSheet.create({
     width: 100,
   },
   widgetTitle: { color: Colors.text, fontSize: 11, fontWeight: "700" },
-  calendarDays: { color: Colors.muted, fontSize: 6, marginTop: 7 },
-  calendarNumbers: { color: Colors.text, fontSize: 6, lineHeight: 13 },
   revenueValue: { color: Colors.accent, fontSize: 10, marginTop: 3 },
   chart: { alignItems: "flex-end", flexDirection: "row", gap: 4, height: 32, marginTop: 4 },
   chartBar: { backgroundColor: Colors.accent, borderRadius: 2, flex: 1 },
