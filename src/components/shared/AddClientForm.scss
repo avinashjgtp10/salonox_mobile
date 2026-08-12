@@ -98,12 +98,11 @@ $transition: 0.18s ease;
 }
 
 .qs-add-client-form {
-  margin-top: 14px;
-  padding: 18px 20px 16px;
+  margin-top: 10px;
+  padding: 12px 14px;
   background: $bg-card;
   border: 1px solid $border;
-  border-radius: 14px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 10px;
   animation: qs-fade-in 0.18s ease;
 
   &__grid {
@@ -161,16 +160,14 @@ $transition: 0.18s ease;
 
 .qs-label {
   display: block;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 500;
   color: $text-muted;
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
 }
 
 .qs-inp {
   width: 100%;
-  padding: 8px 11px;
+  padding: 7px 10px;
   border: 1px solid $border;
   border-radius: $radius-sm;
   font-size: 13px;
@@ -210,37 +207,9 @@ $transition: 0.18s ease;
   margin-top: 2px;
 }
 
-.qs-phone-group {
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
-  border: 1px solid $border;
-  border-radius: $radius-sm;
-  overflow: hidden;
-  transition: border-color $transition, box-shadow $transition;
-
-  &:focus-within {
-    border-color: $border-focus;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-  }
-
-  &--error {
-    border-color: $danger !important;
-    background: #fff5f5;
-  }
-}
-
 .qs-inp--error {
   border-color: #dc2626 !important;
   background: #fef2f2 !important;
-}
-
-.qs-inp--phone-right {
-  flex: 1 !important;
-  min-width: 0 !important;
-  border: none !important;
-  border-radius: 0 !important;
-  background: $bg-card !important;
 }
 
 .qs-save-client-btn {

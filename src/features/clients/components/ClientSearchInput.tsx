@@ -293,7 +293,7 @@ export default function ClientSearchInput({
           {loading && (
             <div className="search-state-msg">
               <div className="loading-dots"><span /><span /><span /></div>
-              <span>Searching backend…</span>
+              <span>Searching…</span>
             </div>
           )}
 

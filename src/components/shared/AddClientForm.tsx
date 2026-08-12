@@ -1,4 +1,3 @@
-import CountryDialPicker, { type CountryOption } from "./CountryDialPicker";
 import "./AddClientForm.scss";
 
 interface Props {
@@ -6,7 +5,6 @@ interface Props {
   newClientLastName: string;
   newClientPhone: string;
   newClientGender: "" | "Female" | "Male" | "Other";
-  selectedCountry: CountryOption;
   isClientSaved: boolean;
   phoneDuplicate: boolean;
   phoneCheckLoading: boolean;
@@ -16,17 +14,20 @@ interface Props {
   onLastNameChange: (v: string) => void;
   onPhoneChange: (v: string) => void;
   onGenderChange: (v: "" | "Female" | "Male" | "Other") => void;
-  onCountryChange: (c: CountryOption) => void;
   onPhoneBlur: () => void;
   onSave: () => void;
+  /** Shows a "Cancel" button next to Save, matching Quick Sale/Calendar's own
+   *  add-client row (ClientPanel.tsx) — omit where the caller already has
+   *  its own separate toggle for closing the form. */
+  onCancel?: () => void;
 }
 
 export default function AddClientForm({
   newClientFirstName, newClientLastName, newClientPhone, newClientGender,
-  selectedCountry, isClientSaved, phoneDuplicate, phoneCheckLoading,
+  isClientSaved, phoneDuplicate, phoneCheckLoading,
   isSavingClient, formErrors,
   onFirstNameChange, onLastNameChange, onPhoneChange, onGenderChange,
-  onCountryChange, onPhoneBlur, onSave,
+  onPhoneBlur, onSave, onCancel,
 }: Props) {
   return (
     <div className="qs-add-client-form">
@@ -57,28 +58,25 @@ export default function AddClientForm({
             {formErrors.includes("last_name_length") && <span className="qs-form-error">Min. 3 characters</span>}
           </div>
 
-          {/* Mobile */}
+          {/* Phone */}
           <div className="qs-add-client-form__field">
-            <label className="qs-label">Mobile <span style={{ color: "#ef4444" }}>*</span></label>
-            <div className={`qs-phone-group${formErrors.includes("phone") || (!formErrors.includes("phone") && phoneDuplicate) ? " qs-phone-group--error" : ""}`}>
-              <CountryDialPicker value={selectedCountry} onChange={onCountryChange} />
-              <input
-                className="qs-inp qs-inp--phone-right"
-                placeholder="10-digit number"
-                value={newClientPhone}
-                maxLength={10}
-                inputMode="numeric"
-                onChange={(e) => onPhoneChange(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                onBlur={onPhoneBlur}
-              />
-            </div>
+            <label className="qs-label">Phone <span style={{ color: "#ef4444" }}>*</span></label>
+            <input
+              className={`qs-inp${formErrors.includes("phone") || (!formErrors.includes("phone") && phoneDuplicate) ? " qs-inp--error" : ""}`}
+              placeholder="10-digit number"
+              value={newClientPhone}
+              maxLength={10}
+              inputMode="numeric"
+              onChange={(e) => onPhoneChange(e.target.value.replace(/\D/g, "").slice(0, 10))}
+              onBlur={onPhoneBlur}
+            />
             {formErrors.includes("phone") && (
               <span className="qs-form-error">
-                {newClientPhone.length === 0 ? "Mobile number is required" : "Enter a valid 10-digit number"}
+                {newClientPhone.length === 0 ? "Phone number is required" : "Enter a valid 10-digit number"}
               </span>
             )}
             {!formErrors.includes("phone") && phoneDuplicate && (
-              <span className="qs-form-error">Mobile number already exists</span>
+              <span className="qs-form-error">Phone number already exists</span>
             )}
             {!formErrors.includes("phone") && !phoneDuplicate && phoneCheckLoading && (
               <span style={{ fontSize: 11, color: "#6b7280" }}>Checking…</span>
@@ -113,6 +111,11 @@ export default function AddClientForm({
           >
             {isSavingClient ? "Saving…" : isClientSaved ? "✓ Saved" : "Save Client"}
           </button>
+          {onCancel && (
+            <button type="button" className="qs-add-client-form__cancel-btn" onClick={onCancel}>
+              Cancel
+            </button>
+          )}
         </div>
       </div>
   );

@@ -182,11 +182,16 @@ export function useAppointment() {
         services:         apiServices,
         // Rows without a real catalog id were never actually selected from the
         // dropdown (e.g. typed-but-abandoned search text, or a blank "+ Product"
-        // row) — filter them out instead of sending bogus line items.
-        package_items:    packageRows.filter((p) => (p as any).packageId).map((p) => {
+        // row) — filter them out instead of sending bogus line items. A
+        // custom row (built via "+ Sell Package") never has a packageId —
+        // it's already fully defined via its own `services`/`price`/`name`
+        // instead of referencing an existing package, so it's kept via the
+        // isCustom flag rather than dropped alongside genuinely-blank rows.
+        package_items:    packageRows.filter((p) => (p as any).packageId || (p as any).isCustom).map((p) => {
           const t = (p as any).time;
           const startMs = t ? new Date(`${calDate}T${t}:00`).getTime() : bookingStartMs;
           const isPackageService = !!(p as any).isPackageService;
+          const isCustom = !!(p as any).isCustom;
           const staffMember = staffList.find((st: any) => String(st.id) === String((p as any).staffId ?? ""));
           const price = p.price || 0;
           const qty = p.qty || 1;
@@ -197,8 +202,13 @@ export function useAppointment() {
           // above what the client was actually charged.
           const rawTotal = (p as any).total;
           const uiTotal = (rawTotal !== undefined && rawTotal !== null) ? (Number(rawTotal) || 0) : price * qty;
+          const customExpiry = (p as any).customExpiry;
           return {
-            package_id: (p as any).packageId || p.id || undefined,
+            // Never a real package_id for a custom row — payments.service.ts's
+            // package auto-create already falls back to this entry's own
+            // `services` when package_id can't resolve a template, the same
+            // path a template-less catalog "combo" package already used.
+            package_id: isCustom ? undefined : ((p as any).packageId || p.id || undefined),
             name: (p as any).packageName || (p as any).name || "",
             price: isPackageService ? 0 : price,
             quantity: qty,
@@ -208,6 +218,10 @@ export function useAppointment() {
             staff_name: staffMember?.name || staffMember?.full_name || staffMember?.fullName || undefined,
             start_time: new Date(startMs).toISOString(),
             ...(isPackageService ? { is_package_service: true } : {}),
+            ...(isCustom && customExpiry ? {
+              never_expires: !!customExpiry.neverExpires,
+              expiry_date: customExpiry.neverExpires ? undefined : (customExpiry.expiryDate || undefined),
+            } : {}),
             // Per-service breakdown (with any schedule-at-purchase info) —
             // resolved client-side when the package was picked (see
             // ServicesPanel.tsx's PackageRow). Read server-side at checkout

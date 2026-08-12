@@ -3,7 +3,6 @@ import React, { useState } from "react";
 import { UserPlus, X } from "lucide-react";
 import ClientSearchInput, { type ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
 import AddClientForm from "../shared/AddClientForm";
-import { INDIA, type CountryOption } from "../shared/CountryDialPicker";
 import api from "../../services/api/axios";
 import "../shared/AddClientForm.scss";
 
@@ -50,7 +49,6 @@ const ClientSelectorWithAdd: React.FC<Props> = ({
   const [lastName,       setLastName]       = useState("");
   const [phone,          setPhone]          = useState("");
   const [gender,         setGender]         = useState<"" | "Female" | "Male" | "Other">("");
-  const [country,        setCountry]        = useState<CountryOption>(INDIA);
   const [formErrors,     setFormErrors]     = useState<string[]>([]);
   const [phoneDuplicate, setPhoneDuplicate] = useState(false);
   const [phoneChecking,  setPhoneChecking]  = useState(false);
@@ -86,15 +84,17 @@ const ClientSelectorWithAdd: React.FC<Props> = ({
     setSaving(true);
     setSaveError("");
     try {
-      const cleaned     = phone.trim().replace(/\D/g, "");
-      const dialDigits  = country.dialCode.replace(/\D/g, "");
-      const phoneDigits = cleaned.startsWith(dialDigits) ? cleaned : `${dialDigits}${cleaned}`;
-      const fullPhone   = `+${phoneDigits}`;
+      // Plain 10-digit number, no country code — matches Quick Sale/
+      // Calendar's own add-client save (ClientPanel.tsx's handleCreateClient),
+      // which never prefixes one either. Keeping both paths on the same
+      // format avoids clients ending up with inconsistently-shaped phone
+      // numbers depending on which form created them.
+      const cleanPhone = phone.trim().replace(/\D/g, "");
 
       const res = await api.post("/api/v1/clients", {
         first_name:   firstTrim,
         last_name:    lastTrim,
-        phone_number: fullPhone,
+        phone_number: cleanPhone,
         gender,
       });
       const saved = res.data?.data ?? res.data;
@@ -103,7 +103,7 @@ const ClientSelectorWithAdd: React.FC<Props> = ({
         id:           saved?.id ?? Date.now(),
         first_name:   firstTrim,
         last_name:    lastTrim || undefined,
-        phone_number: fullPhone,
+        phone_number: cleanPhone,
         email:        saved?.email,
       };
 
@@ -183,7 +183,6 @@ const ClientSelectorWithAdd: React.FC<Props> = ({
         newClientLastName={lastName}
         newClientPhone={phone}
         newClientGender={gender}
-        selectedCountry={country}
         isClientSaved={savedOk}
         phoneDuplicate={phoneDuplicate}
         phoneCheckLoading={phoneChecking}
@@ -208,9 +207,9 @@ const ClientSelectorWithAdd: React.FC<Props> = ({
           setGender(v);
           setFormErrors(prev => prev.filter(x => x !== "gender"));
         }}
-        onCountryChange={setCountry}
         onPhoneBlur={() => { if (phoneValid(phone)) checkPhoneExists(phone); }}
         onSave={handleSave}
+        onCancel={closeForm}
       />
     </>
   );
