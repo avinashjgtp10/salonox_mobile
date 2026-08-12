@@ -13,6 +13,7 @@ import {
   Upload,
   Store,
   Users,
+  Star,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
@@ -38,6 +39,7 @@ function salonToForm(salon: Salon): BusinessForm {
     description: salon.description ?? "",
     email: salon.email ?? "",
     website_url: salon.website_url ?? "",
+    google_review_url: salon.google_review_url ?? "",
     gst_number: salon.gst_number ?? "",
     pan_number: salon.pan_number ?? "",
     location_type: salon.location_type ?? undefined,
@@ -52,6 +54,7 @@ const EMPTY_FORM: BusinessForm = {
   description: "",
   email: "",
   website_url: "",
+  google_review_url: "",
   gst_number: "",
   pan_number: "",
   location_type: undefined,
@@ -433,6 +436,24 @@ export default function BusinessSettingsPage() {
                 disabled={!isEditing}
                 placeholder="https://yoursalon.com"
               />
+            </div>
+
+            <div className="settings-form-group">
+              <label className="settings-label">
+                <Star size={13} className="me-1" />
+                Google Review Link
+              </label>
+              <input
+                className="settings-input"
+                name="google_review_url"
+                value={form.google_review_url ?? ""}
+                onChange={handleChange}
+                disabled={!isEditing}
+                placeholder="https://g.page/r/your-salon/review"
+              />
+              <span className="settings-hint">
+                Shown to clients after they submit feedback, so happy customers can leave you a Google review too.
+              </span>
             </div>
 
             <div className="settings-form-group span-2">
