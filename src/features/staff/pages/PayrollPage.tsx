@@ -860,9 +860,13 @@ function SalaryAdvanceModal({
   const [advanceDate, setAdvanceDate] = useState(periodStart);
   const [note, setNote] = useState("");
   const [saving, setSaving] = useState(false);
+  const [amountTouched, setAmountTouched] = useState(false);
   const total = advances.reduce((sum, advance) => sum + (Number(advance.amount) || 0), 0);
   const selectedStaff = staffRows.find((staff) => String(staff.staff_id) === String(selectedStaffId));
   const amountValue = Number(amount);
+  const amountError = amountTouched && (!amount.trim() || !Number.isFinite(amountValue) || amountValue <= 0)
+    ? (!amount.trim() ? "Amount is required" : "Enter a valid positive amount")
+    : "";
   const canSave = !!selectedStaffId && Number.isFinite(amountValue) && amountValue > 0 && !!advanceDate && !saving;
 
   const resetForm = () => {
@@ -870,6 +874,7 @@ function SalaryAdvanceModal({
     setAmount("");
     setAdvanceDate(periodStart);
     setNote("");
+    setAmountTouched(false);
   };
 
   const beginEdit = (advance: SalaryAdvanceTransaction) => {
@@ -885,6 +890,7 @@ function SalaryAdvanceModal({
   };
 
   const handleSubmit = async () => {
+    setAmountTouched(true);
     const numericAmount = Number(amount);
     if (!selectedStaffId || !Number.isFinite(numericAmount) || numericAmount <= 0) return;
     setSaving(true);
@@ -935,10 +941,17 @@ function SalaryAdvanceModal({
               min={0}
               step="0.01"
               value={amount}
-              onChange={(event) => setAmount(event.target.value)}
-              placeholder="0"
+              onChange={(event) => {
+                const val = event.target.value;
+                if (Number(val) < 0) return;
+                setAmount(val);
+              }}
+              onBlur={() => setAmountTouched(true)}
+              placeholder="Enter amount"
+              className={amountError ? "pr-input--error" : ""}
               disabled={!selectedStaffId}
             />
+            {amountError && <span className="pr-field-error">{amountError}</span>}
           </label>
           <label>
             Date
