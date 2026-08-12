@@ -84,7 +84,6 @@ export default function SaleDetailModal({ saleId, staffName, onClose }: { saleId
                 <thead>
                   <tr>
                     <th>Item</th><th>Type</th><th>Qty</th><th>Unit Price</th>
-                    <th>Discount</th><th>Total</th><th>Staff</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -93,16 +92,13 @@ export default function SaleDetailModal({ saleId, staffName, onClose }: { saleId
                       ? (data.items ?? []).filter((it: any) => it.staff_name === staffName)
                       : (data.items ?? []);
                     return items.length === 0 ? (
-                      <tr><td colSpan={7} className="sd-empty-cell">No line items</td></tr>
+                      <tr><td colSpan={4} className="sd-empty-cell">No line items</td></tr>
                     ) : items.map((it: any) => (
                     <tr key={it.id}>
                       <td>{it.name}</td>
                       <td>{it.item_type}</td>
                       <td>{it.quantity}</td>
                       <td>{money(it.unit_price)}</td>
-                      <td>{money(it.discount_amount)}</td>
-                      <td>{money(it.total_price)}</td>
-                      <td>{it.staff_name ?? "—"}</td>
                     </tr>
                   ));
                   })()}
