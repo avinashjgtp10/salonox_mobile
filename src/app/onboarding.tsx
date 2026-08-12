@@ -1408,19 +1408,21 @@ export default function OnboardingScreen() {
         ]}
       >
         <View style={[styles.footerContent, { maxWidth: footerMaxWidth }]}>
-          <Pressable
-            accessibilityLabel={
-              currentStep > 1
-                ? "Go back to previous onboarding step"
-                : "Cancel onboarding and return to login"
-            }
-            onPress={currentStep > 1 ? handleBack : handleCancelOnboarding}
-            disabled={isSubmitting}
-            style={styles.backButton}
-          >
-            <Ionicons name="chevron-back-outline" size={18} color={Colors.secondary} style={{ marginRight: 6 }} />
-            <Text style={styles.backButtonText}>{currentStep > 1 ? "Back" : "Cancel"}</Text>
-          </Pressable>
+          <View style={styles.backButtonContainer}>
+            <Pressable
+              accessibilityLabel={
+                currentStep > 1
+                  ? "Go back to previous onboarding step"
+                  : "Cancel onboarding and return to login"
+              }
+              onPress={currentStep > 1 ? handleBack : handleCancelOnboarding}
+              disabled={isSubmitting}
+              style={styles.backButton}
+            >
+              <Ionicons name="chevron-back-outline" size={18} color={Colors.secondary} style={{ marginRight: 6 }} />
+              <Text style={styles.backButtonText}>{currentStep > 1 ? "Back" : "Cancel"}</Text>
+            </Pressable>
+          </View>
 
           <Animated.View style={[styles.submitButtonContainer, { transform: [{ scale: submitScale }] }]}>
             <Pressable
@@ -1458,7 +1460,7 @@ export default function OnboardingScreen() {
                 ) : (
                   <View style={styles.submitButtonContent}>
                     <Text style={styles.submitButtonText}>
-                      {currentStep === 5 ? "Complete Onboarding" : "Continue"}
+                      {currentStep === 5 ? "Complete" : "Continue"}
                     </Text>
                     <Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
                   </View>
@@ -1642,7 +1644,7 @@ const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
     marginTop: 4,
   },
   categoryStepTitle: {
-    color: "#1C1917",
+    color: "#FFFFFF",
     fontSize: 30,
     fontWeight: "800",
     lineHeight: 36,
@@ -1759,7 +1761,7 @@ const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
     width: "100%",
   },
   categoryIntro: {
-    color: "#726A63",
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "500",
     lineHeight: 21,
@@ -1982,9 +1984,14 @@ const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
     elevation: 8,
   },
   footerContent: {
+    alignItems: "center",
     flexDirection: "row",
     gap: 14,
     width: "100%",
+  },
+  backButtonContainer: {
+    flex: 1,
+    height: 54,
   },
   backButton: {
     alignItems: "center",
@@ -1994,7 +2001,7 @@ const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
     borderWidth: 1,
     flex: 1,
     flexDirection: "row",
-    height: 54,
+    height: "100%",
     justifyContent: "center",
     paddingHorizontal: 16,
   },

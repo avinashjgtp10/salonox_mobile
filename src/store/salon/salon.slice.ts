@@ -158,7 +158,9 @@ const salonSlice = createSlice({
       .addCase(fetchSalonMeThunk.fulfilled, (state, action) => {
         state.detailsError = null;
         state.detailsLoading = false;
-        state.salons = upsertSalon(state.salons, action.payload);
+        if (action.payload) {
+          state.salons = upsertSalon(state.salons, action.payload);
+        }
       })
       .addCase(fetchSalonMeThunk.rejected, (state, action) => {
         state.detailsError = action.payload?.message ?? action.error.message ?? "Unable to load salon details.";
