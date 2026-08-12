@@ -1,36 +1,22 @@
 import React, { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import styles from "./packages.module.scss";
 import PackageDashboard from "./PackageDashboard";
-import PackageCreateForm from "./PackageCreateForm";
-import PackageCreatedSuccess from "./PackageCreatedSuccess";
+import PackageCreateForm, { type CustomPackageLineItem } from "./PackageCreateForm";
 import PackageTemplatesManager from "./PackageTemplatesManager";
 import type { ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
-import type { ClientPackage, PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
+import type { PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
+import { customPackageLineItemToPackageRow } from "../../features/bookings/utils/customPackageItem";
 
-type View = "dashboard" | "create" | "created";
+type View = "dashboard" | "create";
 type Tab  = "packages" | "templates";
 
 const PackageModule: React.FC = () => {
+  const navigate = useNavigate();
   const [tab,             setTab]            = useState<Tab>("packages");
   const [view,            setView]           = useState<View>("dashboard");
-  const [lastCreated,     setLastCreated]    = useState<ClientPackage | null>(null);
   const [selectedClient,  setSelectedClient] = useState<ClientSearchResult | null>(null);
   const [templateToLoad,  setTemplateToLoad] = useState<PackageTemplate | null>(null);
-
-  const handlePackageCreated = (pkg: ClientPackage) => {
-    setLastCreated(pkg);
-    setTemplateToLoad(null);
-    setView("created");
-  };
-
-  // A "Generic package" save creates a reusable Template instead of a client
-  // package — send the user to the Templates tab to see it, rather than the
-  // client-package "created" success screen.
-  const handleTemplateCreated = () => {
-    setTemplateToLoad(null);
-    setTab("templates");
-    setView("dashboard");
-  };
 
   const handleCreateNew = () => {
     setTemplateToLoad(null);
@@ -45,6 +31,26 @@ const PackageModule: React.FC = () => {
   const handleCancel = () => {
     setTemplateToLoad(null);
     setView("dashboard");
+  };
+
+  // No create/pay-now here anymore — this hands the built definition (and
+  // whichever client was picked) off to Quick Sale, where it lands as a bill
+  // row via AppointmentModal's initialCustomPackageItem, to be paid together
+  // with whatever else gets added there. Same handoff shape "+ Sell Package"
+  // itself builds inline (AppointmentModal.tsx) when a bill is already open.
+  const handleAddToBill = (item: CustomPackageLineItem) => {
+    navigate("/dashboard/sales/quick", {
+      state: {
+        pendingPackageSale: {
+          client: selectedClient ? {
+            id: String(selectedClient.id),
+            name: `${selectedClient.first_name} ${selectedClient.last_name ?? ""}`.trim(),
+            phone: selectedClient.phone_number,
+          } : undefined,
+          customPackageItem: customPackageLineItemToPackageRow(item, ""),
+        },
+      },
+    });
   };
 
   return (
@@ -93,20 +99,14 @@ const PackageModule: React.FC = () => {
             selectedClient={selectedClient}
             onClientChange={setSelectedClient}
             onCancel={handleCancel}
-            onSaved={handlePackageCreated}
-            onTemplateSaved={handleTemplateCreated}
+            onSaved={() => {}}
             templateToLoad={templateToLoad}
             showClientPicker
             showStaffPicker
+            lineItemMode
+            onAddLineItem={handleAddToBill}
           />
         </div>
-      )}
-      {tab === "packages" && view === "created" && lastCreated && (
-        <PackageCreatedSuccess
-          pkg={lastCreated}
-          onViewPackages={() => setView("dashboard")}
-          onCreateAnother={() => setView("create")}
-        />
       )}
     </div>
   );

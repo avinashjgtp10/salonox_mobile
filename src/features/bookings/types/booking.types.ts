@@ -113,6 +113,16 @@ export interface PackageItem {
   // Sell Package form has. Undefined for a package with no resolvable
   // service breakdown (legacy catalog packages with no serviceIds).
   services?: PackageServiceScheduleDraft[];
+  // True for a package built on the spot via "+ Sell Package"
+  // (PackageCreateForm's lineItemMode) rather than picked from an existing
+  // package/template — packageId is empty for these; `services`,
+  // `packageName`, `price` and `customExpiry` fully define it instead. The
+  // checkout payload sends it with no package_id at all, and
+  // payments.service.ts's existing template-less fallback (already used for
+  // legacy catalog "combo" packages) creates the real client_package from
+  // this inline definition.
+  isCustom?: boolean;
+  customExpiry?: { neverExpires: boolean; expiryDate: string };
 }
 
 export interface ProductItem {

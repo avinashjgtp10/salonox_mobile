@@ -78,6 +78,10 @@ interface Props {
   onRemoveMembership: (index: number) => void;
   onAddMembership: () => void;
 
+  // Opens the Custom Package creation form (sell a brand-new package to
+  // this bill's client on the spot, instead of only picking from existing
+  // packages/templates via "+ Package") — omit to hide the trigger.
+  onSellPackage?: () => void;
   // Opens the manual eWallet top-up popup — omit to hide the trigger.
   onTopupEwallet?: () => void;
 
@@ -749,26 +753,42 @@ function PackageRow({
     <div className="item-row item-row--package">
       {/* 1 — Name */}
       <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-        <NameSelect
-          className={`svc-field__input svc-field__select${pkgError?.item ? " svc-field__input--error" : ""}`}
-          disabled={frozen}
-          placeholder="Select package..."
-          searchPlaceholder="Search packages…"
-          value={row.packageId || ""}
-          options={availablePackages.map((p: any) => ({ id: p.id, name: p.name }))}
-          onChange={(option) => {
-            const p = availablePackages.find((pkg: any) => String(pkg.id) === String(option.id));
-            if (p) {
-              const services = resolvePackageServices(p, serviceCatalog);
-              onUpdatePackage(index, {
-                ...row, packageId: p.id, packageName: p.name, price: p.price, qty: 1, discount: 0, total: p.price,
-                services,
-              });
-              onClearError?.("item");
-              if (services?.length) resolveUnmatchedServiceIds(p.id, services);
-            }
-          }}
-        />
+        {(row as any).isCustom ? (
+          // Built via "+ Sell Package" (PackageCreateForm's lineItemMode) —
+          // already fully defined (name/services/price), so there's nothing
+          // to pick from a dropdown for. Static label + badge instead.
+          <div
+            className="svc-field__input"
+            style={{ display: "flex", alignItems: "center", gap: 6, background: "#faf5ff", borderColor: "#e9d5ff" }}
+            title={row.packageName}
+          >
+            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.packageName}</span>
+            <span style={{ marginLeft: "auto", flexShrink: 0, background: "#7c3aed", color: "#fff", fontSize: 9, fontWeight: 700, padding: "1px 6px", borderRadius: 999, letterSpacing: ".03em" }}>
+              CUSTOM
+            </span>
+          </div>
+        ) : (
+          <NameSelect
+            className={`svc-field__input svc-field__select${pkgError?.item ? " svc-field__input--error" : ""}`}
+            disabled={frozen}
+            placeholder="Select package..."
+            searchPlaceholder="Search packages…"
+            value={row.packageId || ""}
+            options={availablePackages.map((p: any) => ({ id: p.id, name: p.name }))}
+            onChange={(option) => {
+              const p = availablePackages.find((pkg: any) => String(pkg.id) === String(option.id));
+              if (p) {
+                const services = resolvePackageServices(p, serviceCatalog);
+                onUpdatePackage(index, {
+                  ...row, packageId: p.id, packageName: p.name, price: p.price, qty: 1, discount: 0, total: p.price,
+                  services,
+                });
+                onClearError?.("item");
+                if (services?.length) resolveUnmatchedServiceIds(p.id, services);
+              }
+            }}
+          />
+        )}
         {pkgError?.item && <span className="svc-field__err">Please select a package</span>}
       </div>
 
@@ -857,7 +877,7 @@ function PackageRow({
 
       {/* 8 — Quick-actions column: package contents + scheduling */}
       <div className="pkg-actions">
-        {row.packageId && (
+        {(row.packageId || (row as any).isCustom) && (
           <button
             type="button"
             className="pkg-info-btn"
@@ -868,7 +888,7 @@ function PackageRow({
             <InfoCircle size={14} />
           </button>
         )}
-        {row.packageId && (row.services?.length ?? 0) > 0 && (
+        {(row.packageId || (row as any).isCustom) && (row.services?.length ?? 0) > 0 && (
           <button
             type="button"
             className={`pkg-info-btn${showSchedule ? " pkg-info-btn--active" : ""}`}
@@ -880,37 +900,66 @@ function PackageRow({
             <CalendarPlus size={14} />
           </button>
         )}
-        {showDesc && row.packageId && (
+        {showDesc && (row.packageId || (row as any).isCustom) && (
           <div className="membership-row__desc-box">
-            {/* Package templates carry no description — what staff actually
-                need is what's inside, so the included services and their
-                session counts lead. Catalog packages have the reverse (a
-                description, no session data), so both are rendered and
-                whichever exists shows. */}
-            {selectedPackage?.serviceDetails?.length > 0 ? (
-              <div className="package-row__svc-list">
-                {selectedPackage.serviceDetails.map((s: any, i: number) => (
-                  <div key={`${s.name}-${i}`} className="package-row__svc">
-                    <span>{s.name}</span>
-                    <span>{s.sessions > 0 ? `${s.sessions} session${s.sessions > 1 ? "s" : ""}` : "—"}</span>
+            {(row as any).isCustom ? (
+              // Built via "+ Sell Package" — fully defined already, so show
+              // its own real service/session list directly rather than
+              // looking it up in availablePackages (nothing to find there).
+              <>
+                {(row.services?.length ?? 0) > 0 ? (
+                  <div className="package-row__svc-list">
+                    {row.services!.map((s, i) => (
+                      <div key={`${s.serviceName}-${i}`} className="package-row__svc">
+                        <span>{s.serviceName}</span>
+                        <span>{s.totalSessions > 0 ? `${s.totalSessions} session${s.totalSessions > 1 ? "s" : ""}` : "—"}</span>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            ) : null}
-            {selectedPackage?.description?.trim() ? (
-              <div>{selectedPackage.description.trim()}</div>
-            ) : null}
-            {!selectedPackage?.serviceDetails?.length && !selectedPackage?.description?.trim() && (
-              <div>No package details available.</div>
-            )}
-            {selectedPackage && (
-              <div className="package-row__expiry">
-                {selectedPackage.neverExpires
-                  ? "Never expires"
-                  : selectedPackage.expiryDays != null
-                    ? `Valid ${selectedPackage.expiryDays} day${selectedPackage.expiryDays === 1 ? "" : "s"}`
-                    : ""}
-              </div>
+                ) : (
+                  <div>No package details available.</div>
+                )}
+                <div className="package-row__expiry">
+                  {(row as any).customExpiry?.neverExpires
+                    ? "Never expires"
+                    : (row as any).customExpiry?.expiryDate
+                      ? `Expires ${(row as any).customExpiry.expiryDate}`
+                      : ""}
+                </div>
+              </>
+            ) : (
+              <>
+                {/* Package templates carry no description — what staff actually
+                    need is what's inside, so the included services and their
+                    session counts lead. Catalog packages have the reverse (a
+                    description, no session data), so both are rendered and
+                    whichever exists shows. */}
+                {selectedPackage?.serviceDetails?.length > 0 ? (
+                  <div className="package-row__svc-list">
+                    {selectedPackage.serviceDetails.map((s: any, i: number) => (
+                      <div key={`${s.name}-${i}`} className="package-row__svc">
+                        <span>{s.name}</span>
+                        <span>{s.sessions > 0 ? `${s.sessions} session${s.sessions > 1 ? "s" : ""}` : "—"}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+                {selectedPackage?.description?.trim() ? (
+                  <div>{selectedPackage.description.trim()}</div>
+                ) : null}
+                {!selectedPackage?.serviceDetails?.length && !selectedPackage?.description?.trim() && (
+                  <div>No package details available.</div>
+                )}
+                {selectedPackage && (
+                  <div className="package-row__expiry">
+                    {selectedPackage.neverExpires
+                      ? "Never expires"
+                      : selectedPackage.expiryDays != null
+                        ? `Valid ${selectedPackage.expiryDays} day${selectedPackage.expiryDays === 1 ? "" : "s"}`
+                        : ""}
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
@@ -1678,7 +1727,7 @@ export const ServicesPanel: React.FC<Props> = ({
   packageRows, onUpdatePackage, onRemovePackage, onAddPackage,
   productRows, onUpdateProduct, onRemoveProduct, onAddProduct,
   membershipRows, onUpdateMembership, onRemoveMembership, onAddMembership,
-  onTopupEwallet,
+  onSellPackage, onTopupEwallet,
   availablePackages, availableProducts, availableMemberships, serviceCatalog,
   frozen, packageRemainingByRow, membershipWalletInfo, serviceTaxByRow,
   consumableActuals, onConsumableActualChange, clientName,
@@ -1823,6 +1872,9 @@ export const ServicesPanel: React.FC<Props> = ({
         <button className="add-row-btn" onClick={onAddProduct}>+ Product</button>
         <button className="add-row-btn" onClick={onAddPackage}>+ Package</button>
         <button className="add-row-btn" onClick={onAddMembership}>+ Membership</button>
+        {onSellPackage && (
+          <button className="add-row-btn add-row-btn--sell" onClick={onSellPackage}>+ Sell Package</button>
+        )}
         {onTopupEwallet && (
           <button className="add-row-btn add-row-btn--sell" onClick={onTopupEwallet}>+ Topup eWallet</button>
         )}

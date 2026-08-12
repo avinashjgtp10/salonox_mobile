@@ -1,10 +1,10 @@
 // src/components/packages/PackageCreateForm.tsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Loader2, Search, Plus, X, CalendarClock, AlertTriangle } from "lucide-react";
+import { Loader2, Search, Plus, X, CalendarClock, Calendar, AlertTriangle } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import styles from "./packages.module.scss";
 import type { ClientPackage, PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
-import { useListPackageTemplatesQuery, useCreatePackageTemplateMutation } from "../../services/api/endpoints/packages.endpoints";
+import { useListPackageTemplatesQuery, useCreatePackageTemplateMutation, useUpdatePackageTemplateMutation } from "../../services/api/endpoints/packages.endpoints";
 import type { ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
 import ClientSelectorWithAdd from "./ClientSelectorWithAdd";
 import { useCreateClientPackage } from "../../hooks/packages/usePackages";
@@ -13,6 +13,11 @@ import { useServices } from "../../features/catalog/hooks/useServices";
 import type { Service } from "../../features/catalog/types/catalog.types";
 import { PaymentMethodPicker, type PaymentSplitEntry } from "../shared/PaymentMethodPicker";
 import { useCurrency } from "../../hooks/useCurrency";
+// Same date/time picker Quick Sale and Calendar use for a package service's
+// scheduled appointment (ServicesPanel.tsx) — reused directly here instead of
+// this form's own native <input type="date"/"time">, so all three places
+// present scheduling the same way.
+import TimeSelect from "../../features/bookings/components/shared/TimeSelect";
 
 import type { AppDispatch, RootState } from "../../store/store";
 
@@ -63,6 +68,44 @@ interface Props {
    *  note for staff. Selling to a client for real still happens afterwards,
    *  the normal way, via "+ Package" on the bill. */
   quickCreateMode?: boolean;
+  /** Used by the Templates tab (PackageTemplatesManager) for pure template
+   *  management, where there's no client/staff/payment to collect at all —
+   *  hides Client, Staff, Payment Method and per-service scheduling
+   *  entirely and always saves as a template (the "Generic package" toggle
+   *  itself is hidden too, since there's nothing to toggle between here). */
+  templateOnly?: boolean;
+  /** An existing template to load for in-place editing (fields stay fully
+   *  editable, unlike templateToLoad's locked "start a new sale from this
+   *  template" fields) — saving calls the update mutation instead of create.
+   *  Only meaningful together with templateOnly. */
+  templateToEdit?: PackageTemplate | null;
+  /** Quick Sale/Calendar's "+ Sell Package" entry point — builds a brand-new
+   *  custom package definition but never calls a create API here. Hides
+   *  Payment Method and the per-package GST% picker (this bill's own shared
+   *  tax engine prices the row the same way it prices every other line, so a
+   *  separate custom rate here would be misleading) and per-service
+   *  scheduling (nothing exists to schedule against yet — the real
+   *  client_package is only created once the bill is actually paid).
+   *  "Add to Bill" calls onAddLineItem with the definition instead of
+   *  onSaved/onTemplateSaved; the caller pushes it onto the current bill's
+   *  own package rows, to be paid together with everything else at checkout. */
+  lineItemMode?: boolean;
+  onAddLineItem?: (item: CustomPackageLineItem) => void;
+}
+
+export interface CustomPackageLineItem {
+  name: string;
+  /** Post-internal-discount base price, pre bill-tax — same convention an
+   *  existing "+ Package" row's own `price` already uses; the bill's shared
+   *  tax engine adds GST on top, same as every other row. */
+  price: number;
+  discount: number;
+  // Who sold it — set from this form's own Staff picker. Undefined only if
+  // a caller doesn't pass showStaffPicker at all (both current callers do).
+  staffId?: string;
+  services: Array<{ serviceId?: string; serviceName: string; totalSessions: number; price: number }>;
+  neverExpires: boolean;
+  expiryDate: string; // yyyy-mm-dd, "" when neverExpires
 }
 
 // yyyy-mm-dd expiry date -> whole months from today, rounded by actual elapsed
@@ -88,8 +131,15 @@ function dateToDays(dateStr: string): number | null {
 
 const GST_OPTIONS = [0, 5, 12, 18, 28];
 
-const PKG_PAYMENT_METHODS = ["Cash", "Card", "UPI", "Net banking"];
+// Matches Quick Sale/Calendar's own payment method set (SINGLE_METHODS in
+// features/bookings/types/payment.types.ts) — package sale used to offer an
+// extra "Net banking" option those flows didn't have.
+const PKG_PAYMENT_METHODS = ["Cash", "Card", "UPI"];
 const toBackendPaymentMethod = (label: string) => label.toLowerCase().replace(/\s+/g, "_");
+// A package sold before this change may still carry "net_banking" as its
+// stored payment method — falls back to "Cash" for the edit form's default
+// selection rather than crashing on a value no longer in PKG_PAYMENT_METHODS;
+// the stored value itself is untouched unless the form is resubmitted.
 const fromBackendPaymentMethod = (id: string) =>
   PKG_PAYMENT_METHODS.find(m => toBackendPaymentMethod(m) === id) ?? "Cash";
 
@@ -104,6 +154,8 @@ function newServiceRow(): NewService {
 const PackageCreateForm: React.FC<Props> = ({
   selectedClient, onClientChange, onCancel, onSaved, onTemplateSaved, templateToLoad,
   quickCreateMode = false, showClientPicker = false, showStaffPicker = false,
+  templateOnly = false, templateToEdit = null,
+  lineItemMode = false, onAddLineItem,
 }) => {
   const { currencySymbol, formatAmount } = useCurrency();
   const [showTemplatePicker, setShowTemplatePicker] = useState(false);
@@ -141,18 +193,27 @@ const PackageCreateForm: React.FC<Props> = ({
   // rather than a package sold to one specific client — no client is required,
   // but services are still selected the same way as a normal custom package.
   const [isGeneric,         setIsGeneric]        = useState(false);
+  // templateOnly (Templates tab) always means "this is a template" — the
+  // checkbox itself is hidden there since there's nothing else to choose.
+  const effectiveIsGeneric = isGeneric || templateOnly;
   // Both paths that save a reusable template rather than a client's own
   // package — the only place a description can be stored. Named once so the
   // submit branch below and the Description field's visibility can't diverge.
-  const isTemplateSave = isGeneric || !!quickCreateMode;
+  const isTemplateSave = effectiveIsGeneric || !!quickCreateMode;
   // When a template is loaded (either via the "Buy Existing Package" entry
   // point or the in-form "Choose Template" picker), everything except the
   // payment method is locked to what the template defines.
   const [isFromTemplate,    setIsFromTemplate]   = useState(false);
+  // Set only via templateToEdit — an existing template's id, edited in place
+  // (fields stay editable, unlike isFromTemplate's locked fields). Presence
+  // of this id, not templateOnly alone, is what makes handleSave call the
+  // update mutation instead of create.
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [staffId,           setStaffId]          = useState("");
 
   const { createClientPackage, isLoading } = useCreateClientPackage();
   const [createTemplate, { isLoading: isSavingTemplate }] = useCreatePackageTemplateMutation();
+  const [updateTemplate, { isLoading: isUpdatingTemplate }] = useUpdatePackageTemplateMutation();
   const { services: apiServices, loading: servicesLoading, fetchServices } = useServices();
 
   const dispatch = useDispatch<AppDispatch>();
@@ -164,10 +225,16 @@ const PackageCreateForm: React.FC<Props> = ({
     })),
     [staffMembers],
   );
-  // Scheduling a future appointment only makes sense for a real, payable
-  // client-package sale — not the Templates path (no client to book for) or
-  // Calendar's quick-create (never charges, never creates an appointment).
-  const canScheduleServices = !isTemplateSave;
+  // True whenever this save will actually create a real, payable
+  // client-package sale — the plain client-package path, OR "Generic
+  // package" with a client picked too (creates a reusable template AND
+  // sells a copy of it to that client in the same save). False for a
+  // template-only save (Generic with no client picked) and for Calendar's
+  // quick-create (never charges, never creates an appointment either way).
+  const willCreateClientPackage = !quickCreateMode && !templateOnly && !lineItemMode && (!isGeneric || !!selectedClient);
+  // Scheduling a future appointment only makes sense when a client package
+  // actually gets created — no client to book the appointment for otherwise.
+  const canScheduleServices = willCreateClientPackage;
 
   useEffect(() => { fetchServices({ limit: 200 }); }, []);
   // Needed both for the "sold by" Staff picker (showStaffPicker) and for each
@@ -220,8 +287,42 @@ const PackageCreateForm: React.FC<Props> = ({
     : "";
 
   const handleSave = async () => {
-    if (isLoading || isSavingTemplate) return;
-    if (!isGeneric && !selectedClient) return;
+    if (isLoading || isSavingTemplate || isUpdatingTemplate) return;
+
+    // "+ Sell Package" — no create/update API here at all. The definition
+    // just gets handed back to the bill (see onAddLineItem's doc comment);
+    // the real client_package is created later, at the bill's own checkout,
+    // by the same backend path an existing "+ Package" row already uses.
+    if (lineItemMode) {
+      // Only the Catalogue entry point (PackageModule.tsx) shows this form's
+      // own client picker — AppointmentModal's inline "+ Sell Package" never
+      // does, because the client is already fixed by the bill it's opened
+      // from (see the read-only display below instead).
+      if (showClientPicker && !selectedClient) { setApiError("Please select a client."); return; }
+      if (!pkgName.trim())                       { setApiError("Package name is required."); return; }
+      if (!neverExpires && !expiry)              { setApiError("Set an expiry date or check 'Never expires'."); return; }
+      if (!neverExpires && expiry < minExpiryStr) { setApiError("Expiry date must be after today."); return; }
+      const validServices = services.filter(s => s.name.trim());
+      if (validServices.length === 0)            { setApiError("Add at least one service."); return; }
+      setApiError(null);
+      onAddLineItem?.({
+        name:     pkgName.trim(),
+        price:    afterDisc,
+        discount: discountVal,
+        staffId:  staffId || undefined,
+        services: validServices.map(s => ({
+          serviceId:     s.catalogServiceId ?? undefined,
+          serviceName:   s.name,
+          totalSessions: s.sessions || 1,
+          price:         s.price,
+        })),
+        neverExpires,
+        expiryDate: neverExpires ? "" : expiry,
+      });
+      return;
+    }
+
+    if (!effectiveIsGeneric && !selectedClient) return;
 
     // Inline validation
     if (!pkgName.trim())                       { setApiError("Package name is required."); return; }
@@ -236,7 +337,7 @@ const PackageCreateForm: React.FC<Props> = ({
         setApiError(`"${s.name}"'s scheduled appointment must be in the future.`); return;
       }
     }
-    const methodMissing = !quickCreateMode && (paymentMode === "single"
+    const methodMissing = !quickCreateMode && !templateOnly && (paymentMode === "single"
       ? !singleMethod
       : splitEntries.length === 0 || splitEntries.some(e => !e.method || !parseFloat(e.amount)));
     if (methodMissing)                         { setPayMethodError(true); return; }
@@ -252,7 +353,7 @@ const PackageCreateForm: React.FC<Props> = ({
         const taggedName = !isGeneric && selectedClient
           ? `${pkgName.trim()} (for ${clientFullName})`
           : pkgName.trim();
-        const tmpl = await createTemplate({
+        const templatePayload = {
           name:          taggedName,
           description:   pkgDescription.trim() || null,
           neverExpires,
@@ -261,7 +362,7 @@ const PackageCreateForm: React.FC<Props> = ({
           basePrice:     pkgPrice,
           gstPercentage: gstPct,
           discount:      discountVal,
-          ...(quickCreateMode ? {} : {
+          ...(quickCreateMode || templateOnly ? {} : {
             paymentMethod: paymentMode === "split" ? "split" : toBackendPaymentMethod(singleMethod!),
           }),
           services: validServices.map(s => ({
@@ -269,9 +370,20 @@ const PackageCreateForm: React.FC<Props> = ({
             totalSessions: s.sessions || 1,
             price:         s.price,
           })),
-        }).unwrap();
-        onTemplateSaved?.(tmpl);
-        return;
+        };
+        const tmpl = editingTemplateId
+          ? await updateTemplate({ id: editingTemplateId, data: templatePayload }).unwrap()
+          : await createTemplate(templatePayload).unwrap();
+        // Generic + a client picked: the template above is the reusable
+        // definition; still fall through and sell an actual copy of it to
+        // that client too, instead of stopping at "template saved" and
+        // leaving the client with nothing. Pure template-only saves (no
+        // client), editing an existing template, and Calendar's quick-create
+        // all stop here, unchanged.
+        if (!willCreateClientPackage) {
+          onTemplateSaved?.(tmpl);
+          return;
+        }
       }
 
       const pkg = await createClientPackage({
@@ -299,11 +411,17 @@ const PackageCreateForm: React.FC<Props> = ({
       });
       onSaved(pkg);
     } catch (err: any) {
-      setApiError(err?.message ?? `Failed to create ${isGeneric ? "template" : "package"}. Please try again.`);
+      const noun = effectiveIsGeneric ? "template" : "package";
+      setApiError(err?.message ?? `Failed to ${editingTemplateId ? "update" : "create"} ${noun}. Please try again.`);
     }
   };
 
-  const loadTemplate = (t: PackageTemplate) => {
+  // Shared by both loaders below — populates every field a template itself
+  // carries (name, expiry, services, pricing). What differs between them is
+  // what happens AFTER: loadTemplate locks the fields and treats this as the
+  // starting point for a NEW sale; loadTemplateForEdit leaves everything
+  // open and treats it as editing the template itself in place.
+  const applyTemplateFields = (t: PackageTemplate) => {
     setPkgName(t.name);
     setNeverExpires(t.neverExpires);
     // expiryDays (exact) is preferred — older templates saved before this fix
@@ -348,18 +466,45 @@ const PackageCreateForm: React.FC<Props> = ({
     // Templates persist the discount as a flat ₹ figure — a leftover "%"
     // toggle from earlier typing must not reinterpret it as a percentage.
     setDiscountType("flat");
+    setApiError(null);
+  };
+
+  const loadTemplate = (t: PackageTemplate) => {
+    applyTemplateFields(t);
     setPaymentMode("single");
     setSingleMethod(fromBackendPaymentMethod(t.paymentMethod));
     setShowTemplatePicker(false);
-    setApiError(null);
     setIsFromTemplate(true);
     setIsGeneric(false);
+  };
+
+  // Templates tab (PackageTemplatesManager) edit path — unlike loadTemplate,
+  // fields stay fully editable (isFromTemplate is never set) and the
+  // template's own description carries over too, since editing the template
+  // itself is the whole point here.
+  const loadTemplateForEdit = (t: PackageTemplate) => {
+    applyTemplateFields(t);
+    setPkgDescription(t.description ?? "");
+    setEditingTemplateId(t.id);
   };
 
   // Auto-load template when navigated from "Buy Existing Package" flow
   useEffect(() => {
     if (templateToLoad) loadTemplate(templateToLoad);
   }, [templateToLoad]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Templates tab: load the template being edited, or reset to a blank form
+  // for a brand-new one. templateOnly-gated so this never fires for the
+  // other entry points, which don't pass templateToEdit at all.
+  useEffect(() => {
+    if (!templateOnly) return;
+    if (templateToEdit) {
+      loadTemplateForEdit(templateToEdit);
+    } else {
+      setEditingTemplateId(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateToEdit, templateOnly]);
 
   return (
     <>
@@ -433,8 +578,16 @@ const PackageCreateForm: React.FC<Props> = ({
       {/* Header */}
       <div className={styles.header}>
         <div className={styles.headerLeft}>
-          <h2 className={styles.headerTitle}>{isGeneric ? "Create Package Template" : "Create Package"}</h2>
-          <p className={styles.headerSubtitle}>Configure services and pricing</p>
+          <h2 className={styles.headerTitle}>
+            {lineItemMode
+              ? "Sell Custom Package"
+              : templateOnly
+                ? (editingTemplateId ? "Edit Package Template" : "Create Package Template")
+                : (isGeneric && !selectedClient ? "Create Package Template" : "Create Package")}
+          </h2>
+          <p className={styles.headerSubtitle}>
+            {lineItemMode ? "Added to this bill — paid together with everything else at checkout" : "Configure services and pricing"}
+          </p>
         </div>
         <div className={styles.headerActions}>
           <button onClick={onCancel} className={styles.btnSecondary}>Cancel</button>
@@ -442,7 +595,7 @@ const PackageCreateForm: React.FC<Props> = ({
       </div>
 
       {/* ── Template Picker Banner ───────────────────────────────────────── */}
-      {!isGeneric && templates.length > 0 && (
+      {!effectiveIsGeneric && templates.length > 0 && (
         <div
           style={{
             background: "linear-gradient(135deg,#f5f3ff,#ede9fe)",
@@ -485,9 +638,11 @@ const PackageCreateForm: React.FC<Props> = ({
           <div className={styles.cardTitle}>Package details</div>
         </div>
         <div className={styles.cardBody}>
-          {showClientPicker && !isGeneric && (
+          {showClientPicker && !quickCreateMode && !templateOnly && (
             <div className={styles.formField} style={{ marginBottom: 14 }}>
-              <label className={`${styles.formLabel} ${styles.formLabelRequired}`}>Client</label>
+              <label className={`${styles.formLabel} ${isGeneric ? "" : styles.formLabelRequired}`}>
+                Client{isGeneric ? " (optional)" : ""}
+              </label>
               <ClientSelectorWithAdd
                 defaultClient={selectedClient}
                 onSelect={onClientChange}
@@ -496,7 +651,15 @@ const PackageCreateForm: React.FC<Props> = ({
               />
             </div>
           )}
-          {showStaffPicker && (
+          {lineItemMode && !showClientPicker && selectedClient && (
+            <div className={styles.formField} style={{ marginBottom: 14 }}>
+              <label className={styles.formLabel}>Client</label>
+              <div style={{ padding: "8px 10px", background: "#f9fafb", border: "1px solid #e5e7eb", borderRadius: 8, fontSize: 13, color: "#111827", fontWeight: 600 }}>
+                {clientFullName}
+              </div>
+            </div>
+          )}
+          {showStaffPicker && !templateOnly && (
             <div className={styles.formField} style={{ marginBottom: 14 }}>
               <label className={styles.formLabel}>Staff</label>
               <StaffSearchInput
@@ -563,28 +726,33 @@ const PackageCreateForm: React.FC<Props> = ({
           )}
 
 
-          <label
-            style={{
-              display: "flex", alignItems: "flex-start", gap: 8, marginTop: 14,
-              padding: "10px 12px", background: isGeneric ? "#f5f3ff" : "#f9fafb",
-              border: `1px solid ${isGeneric ? "#c4b5fd" : "#e5e7eb"}`, borderRadius: 10,
-              cursor: isFromTemplate ? "not-allowed" : "pointer", userSelect: "none",
-            }}
-          >
-            <input
-              type="checkbox"
-              checked={isGeneric}
-              disabled={isFromTemplate}
-              onChange={e => setIsGeneric(e.target.checked)}
-              style={{ width: 15, height: 15, marginTop: 1, cursor: isFromTemplate ? "not-allowed" : "pointer", accentColor: "#7c3aed", flexShrink: 0 }}
-            />
-            <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Generic package</div>
-              <div style={{ fontSize: 12, color: "#6b7280", marginTop: 1 }}>
-                Save this as a reusable template instead of selling it to a client — it'll show up on the Templates tab, ready to sell to anyone later.
+          {!templateOnly && !lineItemMode && (
+            <label
+              style={{
+                display: "flex", alignItems: "flex-start", gap: 8, marginTop: 14,
+                padding: "10px 12px", background: isGeneric ? "#f5f3ff" : "#f9fafb",
+                border: `1px solid ${isGeneric ? "#c4b5fd" : "#e5e7eb"}`, borderRadius: 10,
+                cursor: isFromTemplate ? "not-allowed" : "pointer", userSelect: "none",
+              }}
+            >
+              <input
+                type="checkbox"
+                checked={isGeneric}
+                disabled={isFromTemplate}
+                onChange={e => setIsGeneric(e.target.checked)}
+                style={{ width: 15, height: 15, marginTop: 1, cursor: isFromTemplate ? "not-allowed" : "pointer", accentColor: "#7c3aed", flexShrink: 0 }}
+              />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "#111827" }}>Generic package</div>
+                <div style={{ fontSize: 12, color: "#6b7280", marginTop: 1 }}>
+                  Also save this as a reusable template on the Templates tab, ready to sell to anyone later.
+                  {selectedClient
+                    ? ` ${clientFullName || "The selected client"} will also get their own copy of it now.`
+                    : " Leave the client blank to save the template only, with nothing sold yet."}
+                </div>
               </div>
-            </div>
-          </label>
+            </label>
+          )}
         </div>
       </div>
 
@@ -741,20 +909,33 @@ const PackageCreateForm: React.FC<Props> = ({
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, padding: "8px 10px", background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 8 }}>
                   <div className={styles.formField}>
                     <label className={styles.formLabel}>Date</label>
-                    <input
-                      type="date"
-                      min={minScheduleDateStr}
-                      value={svc.scheduleDate}
-                      onChange={e => updateService(svc.id, { scheduleDate: e.target.value })}
-                      className={styles.input}
-                    />
+                    {/* Native date glyph hidden below and replaced with the
+                        Calendar icon, matching ServicesPanel.tsx's package
+                        schedule row — clicking anywhere in the field still
+                        opens the real picker. */}
+                    <div
+                      className={styles.dateInputWrap}
+                      onClick={(e) => {
+                        const input = e.currentTarget.querySelector("input");
+                        try { (input as any)?.showPicker?.(); } catch { /* not user-activated / unsupported — still typable */ }
+                      }}
+                    >
+                      <input
+                        type="date"
+                        min={minScheduleDateStr}
+                        value={svc.scheduleDate}
+                        onChange={e => updateService(svc.id, { scheduleDate: e.target.value })}
+                        className={`${styles.input} ${styles.dateInput}`}
+                      />
+                      <Calendar size={13} className={styles.dateInputIcon} />
+                    </div>
                   </div>
                   <div className={styles.formField}>
                     <label className={styles.formLabel}>Time</label>
-                    <input
-                      type="time"
+                    <TimeSelect
                       value={svc.scheduleTime}
-                      onChange={e => updateService(svc.id, { scheduleTime: e.target.value })}
+                      onChange={val => updateService(svc.id, { scheduleTime: val })}
+                      placeholder="Time"
                       className={styles.input}
                     />
                   </div>
@@ -783,7 +964,7 @@ const PackageCreateForm: React.FC<Props> = ({
           <div className={styles.cardTitle}>Pricing</div>
         </div>
         <div className={styles.cardBody}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: lineItemMode ? "1fr 1fr" : "1fr 1fr 1fr", gap: 12, marginBottom: 14 }}>
             <div className={styles.formField}>
               <label className={`${styles.formLabel} ${styles.formLabelRequired}`}>Package price ({currencySymbol})</label>
               <div className={styles.inputPrefix}>
@@ -806,12 +987,14 @@ const PackageCreateForm: React.FC<Props> = ({
                 />
               </div>
             </div>
-            <div className={styles.formField}>
-              <label className={styles.formLabel}>GST (%)</label>
-              <select value={gstPct} onChange={e => setGstPct(+e.target.value)} className={styles.select} style={frozenStyle} disabled={isFromTemplate}>
-                {GST_OPTIONS.map(g => <option key={g} value={g}>{g === 0 ? "0% (Exempt)" : `${g}%`}</option>)}
-              </select>
-            </div>
+            {!lineItemMode && (
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>GST (%)</label>
+                <select value={gstPct} onChange={e => setGstPct(+e.target.value)} className={styles.select} style={frozenStyle} disabled={isFromTemplate}>
+                  {GST_OPTIONS.map(g => <option key={g} value={g}>{g === 0 ? "0% (Exempt)" : `${g}%`}</option>)}
+                </select>
+              </div>
+            )}
             <div className={styles.formField}>
               <label className={styles.formLabel}>Discount</label>
               <div style={{ display: "flex", gap: 6 }}>
@@ -872,7 +1055,7 @@ const PackageCreateForm: React.FC<Props> = ({
       </div>
 
       {/* ── Payment method ───────────────────────────────────────────────────── */}
-      {!quickCreateMode && (
+      {!quickCreateMode && !templateOnly && !lineItemMode && (
       <div className={styles.card} style={{ marginBottom: 12 }}>
         <div className={styles.cardBody}>
           <PaymentMethodPicker
@@ -905,18 +1088,22 @@ const PackageCreateForm: React.FC<Props> = ({
 
       {/* Actions */}
       <div style={{ display: "flex", gap: 8 }}>
-        <button onClick={onCancel} className={styles.btnSecondary} style={{ flex: 1 }} disabled={isLoading || isSavingTemplate}>
+        <button onClick={onCancel} className={styles.btnSecondary} style={{ flex: 1 }} disabled={isLoading || isSavingTemplate || isUpdatingTemplate}>
           Cancel
         </button>
         <button
           onClick={handleSave}
-          disabled={(!isGeneric && !selectedClient) || isLoading || isSavingTemplate}
+          disabled={(!lineItemMode && !effectiveIsGeneric && !selectedClient) || isLoading || isSavingTemplate || isUpdatingTemplate}
           className={styles.btnPrimary}
           style={{ flex: 2 }}
         >
-          {isLoading || isSavingTemplate
-            ? <><Loader2 size={14} className={styles.spin} /> {isGeneric ? "Saving template…" : "Creating…"}</>
-            : isGeneric ? "Create Template" : "Create Package"}
+          {isLoading || isSavingTemplate || isUpdatingTemplate
+            ? <><Loader2 size={14} className={styles.spin} /> {willCreateClientPackage ? "Creating…" : (editingTemplateId ? "Saving…" : "Saving template…")}</>
+            : lineItemMode
+              ? "Add to Bill"
+              : willCreateClientPackage
+                ? (isGeneric ? "Create Template & Package" : "Create Package")
+                : (editingTemplateId ? "Save Changes" : "Create Template")}
         </button>
       </div>
     </>

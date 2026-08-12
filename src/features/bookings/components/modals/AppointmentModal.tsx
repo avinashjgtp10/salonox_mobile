@@ -40,6 +40,9 @@ import { ClientPanel }   from "./ClientPanel";
 import { ServicesPanel } from "./ServicesPanel";
 import { AvailableBenefitsPanel, type BenefitCardConfig } from "./AvailableBenefitsPanel";
 import EwalletTopupModal from "../../../clients/components/EwalletTopupModal";
+import PackageCreateForm from "../../../../components/packages/PackageCreateForm";
+import type { ClientSearchResult } from "../../../clients/components/ClientSearchInput";
+import { customPackageLineItemToPackageRow } from "../../utils/customPackageItem";
 import { PaymentPanel }  from "./PaymentPanel";
 import { computeSplitTotal } from "../../../../components/shared/PaymentMethodPicker";
 import TotalsPanel       from "./TotalsPanel";
@@ -88,6 +91,12 @@ interface Props {
   onDeleteBooking?: (b: Booking) => void;
   /** Quick Sale entry point: skip the "save only" step and go straight to payment. */
   quickSale?: boolean;
+  /** Pre-add this custom package (built via the standalone Catalogue "Sell
+   *  Package" form — PackageCreateForm's lineItemMode) as soon as this modal
+   *  opens. Same shape "+ Sell Package" itself builds inline; this is just
+   *  the same handoff arriving from a page navigation (QuickSalePage.tsx)
+   *  instead of an already-open bill. Applied once, on mount only. */
+  initialCustomPackageItem?: PackageItem;
 }
 
 function nextQuarterHour(): string {
@@ -124,6 +133,7 @@ export const AppointmentModal: React.FC<Props> = ({
   existingBooking, defaultDate, defaultTime, defaultStaffId,
   defaultClientId, defaultClientName, defaultClientPhone,
   onRefresh, onCancelBooking, onDeleteBooking, quickSale,
+  initialCustomPackageItem,
 }) => {
   const dispatch = useAppDispatch();
   const { currencySymbol, formatAmount } = useCurrency();
@@ -271,11 +281,23 @@ export const AppointmentModal: React.FC<Props> = ({
   const [clientStats, setClientStats]       = useState<ClientStats | null>(null);
 
   const [showTopupModal, setShowTopupModal] = useState(false);
+  // "+ Sell Package" — opens the same Custom Package creation form the
+  // standalone Packages page uses, so staff can sell this bill's client a
+  // brand-new package on the spot instead of only picking from an existing
+  // one via "+ Package". A separate transaction from this bill, same as
+  // eWallet top-up above — it doesn't add a line item here.
+  const [showSellPackageModal, setShowSellPackageModal] = useState(false);
   // Bumped after a successful top-up to force ClientPanel to refetch this
   // client's real balance from the backend — the eWallet figure on the card
   // is driven by ClientPanel's own useClientDetails() fetch, not clientStats.
   const [clientRefreshKey, setClientRefreshKey] = useState(0);
   const isSellableClient = !!selectedClient && selectedClient.id !== "walk-in";
+  // PackageCreateForm expects ClientSearchResult's first_name/last_name
+  // shape, not this modal's own lightweight Client (name/phone/email) —
+  // converted once here rather than changing either type to match the other.
+  const packageFormClient: ClientSearchResult | null = isSellableClient
+    ? { id: selectedClient!.id, first_name: selectedClient!.name, last_name: "", phone_number: selectedClient!.phone, email: selectedClient!.email }
+    : null;
 
   // ── Date ─────────────────────────────────────────────────────────────────
   // An existing booking's OWN date wins over both the caller's defaultDate and
@@ -302,7 +324,10 @@ export const AppointmentModal: React.FC<Props> = ({
       ? (existingBooking.services ?? [])
       : [emptyService(defaultStaffId, defaultTime)]
   );
-  const [packageRows, setPackageRows]       = useState<PackageItem[]>(existingBooking?.packageItems ?? []);
+  const [packageRows, setPackageRows]       = useState<PackageItem[]>(() => {
+    const base = existingBooking?.packageItems ?? [];
+    return initialCustomPackageItem ? [...base, initialCustomPackageItem] : base;
+  });
   const [productRows, setProductRows]       = useState<ProductItem[]>((existingBooking as any)?.productItems ?? []);
   const [membershipRows, setMembershipRows] = useState<MembershipItem[]>((existingBooking as any)?.membershipItems ?? []);
 
@@ -1451,7 +1476,7 @@ export const AppointmentModal: React.FC<Props> = ({
     if (!noItemsError) return;
     const hasAny =
       serviceRows.some((r) => r.service.trim()) ||
-      packageRows.some((r) => (r as any).packageId) ||
+      packageRows.some((r) => (r as any).packageId || (r as any).isCustom) ||
       productRows.some((r) => (r as any).productId) ||
       membershipRows.some((r) => (r as any).membershipId);
     if (hasAny) setNoItemsError(false);
@@ -1470,7 +1495,7 @@ export const AppointmentModal: React.FC<Props> = ({
     else setClientError("");
 
     const filledSvc = serviceRows.filter(isRealServiceRow);
-    const filledPkg = packageRows.filter((r) => (r as any).packageId);
+    const filledPkg = packageRows.filter((r) => (r as any).packageId || (r as any).isCustom);
     const filledPrd = productRows.filter((r) => (r as any).productId);
     const filledMem = membershipRows.filter((r) => (r as any).membershipId);
     const hasAnyFilled = filledSvc.length > 0 || filledPkg.length > 0 || filledPrd.length > 0 || filledMem.length > 0;
@@ -1492,9 +1517,9 @@ export const AppointmentModal: React.FC<Props> = ({
     if (se.some((e) => e.service || e.staff || e.time)) { ok = false; if (!scrollTarget) scrollTarget = "services"; }
 
     const pe = packageRows.map((r) => ({
-      item:  !(r as any).packageId,
-      staff: !!(r as any).packageId && !r.staffId,
-      time:  !!(r as any).packageId && !r.time,
+      item:  !((r as any).packageId || (r as any).isCustom),
+      staff: !!((r as any).packageId || (r as any).isCustom) && !r.staffId,
+      time:  !!((r as any).packageId || (r as any).isCustom) && !r.time,
     }));
     setPkgErrors(pe);
     if (pe.some((e) => e.item || e.staff || e.time)) { ok = false; if (!scrollTarget) scrollTarget = "services"; }
@@ -1520,7 +1545,7 @@ export const AppointmentModal: React.FC<Props> = ({
     const rowsToCheck = [
       ...serviceRows.filter((r) => r.service.trim() && r.staffId && r.time)
         .map((r) => ({ staffId: r.staffId, time: r.time, duration: r.duration || 30 })),
-      ...packageRows.filter((r: any) => r.packageId && r.staffId && r.time)
+      ...packageRows.filter((r: any) => (r.packageId || r.isCustom) && r.staffId && r.time)
         .map((r: any) => ({ staffId: r.staffId, time: r.time, duration: r.duration || 30 })),
       ...membershipRows.filter((r: any) => r.membershipId && r.staffId && r.time)
         .map((r: any) => ({ staffId: r.staffId, time: r.time, duration: r.duration || 30 })),
@@ -2081,6 +2106,7 @@ export const AppointmentModal: React.FC<Props> = ({
             }
             setMembershipRows((rows) => [...rows, { id: "", membershipId: "", membershipName: "", price: 0, qty: 1, total: 0, staffId: "", time: serviceRows[0]?.time || defaultTime || "" }]);
           }}
+          onSellPackage={isSellableClient ? () => setShowSellPackageModal(true) : undefined}
           onTopupEwallet={isSellableClient ? () => setShowTopupModal(true) : undefined}
           availablePackages={availablePackages}
           availableProducts={availableProducts}
@@ -2151,7 +2177,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // only on that attempt, not preemptively.
   const hasAnyFilledItems = useMemo(() => (
     serviceRows.some(isRealServiceRow) ||
-    packageRows.some((r: any) => r.packageId) ||
+    packageRows.some((r: any) => r.packageId || r.isCustom) ||
     productRows.some((r: any) => r.productId) ||
     membershipRows.some((r: any) => r.membershipId)
   ), [serviceRows, packageRows, productRows, membershipRows]);
@@ -3122,6 +3148,37 @@ export const AppointmentModal: React.FC<Props> = ({
           onClose={() => setShowTopupModal(false)}
           onSuccess={() => setClientRefreshKey((k) => k + 1)}
         />
+      )}
+
+      {showSellPackageModal && isSellableClient && (
+        <div
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", zIndex: 1090, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+          onClick={(e) => { if (e.target === e.currentTarget) setShowSellPackageModal(false); }}
+        >
+          <div style={{ background: "#fff", borderRadius: 16, width: "min(640px,100%)", maxHeight: "90vh", overflowY: "auto", padding: 20, boxShadow: "0 24px 64px rgba(0,0,0,.18)" }}>
+            <PackageCreateForm
+              selectedClient={packageFormClient}
+              onClientChange={() => {}}
+              onCancel={() => setShowSellPackageModal(false)}
+              onSaved={() => {}}
+              lineItemMode
+              onAddLineItem={(item) => {
+                // No API call here — becomes a real client_package only once
+                // this bill is actually paid, same backend path an existing
+                // "+ Package" row already uses for a template-less/catalog
+                // "combo" package (see payments.service.ts's package
+                // auto-create fallback, which reads `services` directly when
+                // there's no package_id to resolve a template from).
+                setPackageRows((rows) => [
+                  ...rows,
+                  customPackageLineItemToPackageRow(item, serviceRows[0]?.time || defaultTime || ""),
+                ]);
+                setShowSellPackageModal(false);
+              }}
+              showStaffPicker
+            />
+          </div>
+        </div>
       )}
     </div>
   );
