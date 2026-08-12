@@ -98,14 +98,10 @@ const matchesDuration = (dur: number, range: string): boolean => {
 const hasFullServiceDetails = (svc: Service) =>
   Object.prototype.hasOwnProperty.call(svc, "staff");
 
-// Sort is applied client-side, within each category group, to the services
-// currently on screen. The list endpoint takes no sort parameter, so sorting
-// server-side would need an API change; ordering what the user can actually
-// see is both honest and what the control appears to promise.
-// How many category chips show before the row collapses behind "+N more".
-// Roughly two rows at typical widths.
-const COLLAPSED_CHIP_COUNT = 12;
-
+// Sort is applied client-side to the flat, currently-on-screen service list.
+// The list endpoint takes no sort parameter, so sorting server-side would
+// need an API change; ordering what the user can actually see is both honest
+// and what the control appears to promise.
 type SortId = "default" | "name-asc" | "name-desc" | "price-asc" | "price-desc";
 
 const SORT_OPTIONS: { id: SortId; label: string }[] = [
@@ -188,25 +184,13 @@ const ServicesListPage: React.FC = () => {
   const [showSortMenu, setShowSortMenu] = useState(false);
   const [sortBy, setSortBy] = useState<SortId>("default");
 
-  // Salons can accumulate a lot of categories (51 on dev today), which turned
-  // the chips row into a seven-line wall that pushed the list off screen.
-  const [chipsExpanded, setChipsExpanded] = useState(false);
-
-  // Collapsed shows the first N — but never hides the category currently being
-  // filtered on, or the active chip would vanish the moment it's picked from
-  // the expanded list and the row collapses again.
-  const visibleCategories = useMemo(() => {
-    if (chipsExpanded || categories.length <= COLLAPSED_CHIP_COUNT) return categories;
-    const head = categories.slice(0, COLLAPSED_CHIP_COUNT);
-    if (selectedCategory === "all") return head;
-    if (head.some((c) => String(c.id) === String(selectedCategory))) return head;
-    const active = categories.find((c) => String(c.id) === String(selectedCategory));
-    return active ? [...head, active] : head;
-  }, [categories, chipsExpanded, selectedCategory]);
-
-  const hiddenCategoryCount = chipsExpanded
-    ? 0
-    : Math.max(0, categories.length - visibleCategories.length);
+  // Category moved out of grouping and into its own filter dropdown (matching
+  // the flat, single-table layout ProductsListPage uses) — see the Category
+  // control in .slp__controls and the "Manage categories" modal below for
+  // add/edit/delete, which used to live on each group's "Actions" menu.
+  const categoryMenuRef = useRef<HTMLDivElement>(null);
+  const [showCategoryMenu, setShowCategoryMenu] = useState(false);
+  const [showManageCategories, setShowManageCategories] = useState(false);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "durationRange", label: "Duration", options: DURATION_OPTIONS },
@@ -303,6 +287,8 @@ const ServicesListPage: React.FC = () => {
         setShowOptMenu(false);
       if (sortMenuRef.current && !sortMenuRef.current.contains(e.target as Node))
         setShowSortMenu(false);
+      if (categoryMenuRef.current && !categoryMenuRef.current.contains(e.target as Node))
+        setShowCategoryMenu(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -409,42 +395,12 @@ const ServicesListPage: React.FC = () => {
     });
   }, [services, filters]);
 
-  // ── Group services by category for display ───────────────────────────────────
-  const groupedServices = useMemo(() => {
-    const groups: Record<
-      string,
-      { id: string | number; name: string; color?: string; services: Service[] }
-    > = {};
-
-    categories.forEach((cat: CategoryView) => {
-      groups[String(cat.id)] = {
-        id: cat.id,
-        name: cat.name,
-        color: cat.color,
-        services: [],
-      };
-    });
-
-    filteredServices.forEach((svc: Service) => {
-      const key = String(svc.category_id);
-      if (groups[key]) {
-        groups[key].services.push(svc);
-      } else {
-        if (!groups["none"]) {
-          groups["none"] = { id: "none", name: "Other Services", services: [] };
-        }
-        groups["none"].services.push(svc);
-      }
-    });
-
-    return Object.values(groups).filter((g) => g.services.length > 0);
-  }, [filteredServices, categories]);
-
-  // Flat, visual-order list of every rendered service — powers arrow-key
-  // navigation across group boundaries.
+  // Flat, visual-order list of every rendered service (sorted) — the single
+  // source both the table body and arrow-key navigation read from, now that
+  // services render as one flat list instead of grouped by category.
   const flatServices = useMemo(
-    () => groupedServices.flatMap((g) => g.services),
-    [groupedServices],
+    () => sortServices(filteredServices, sortBy),
+    [filteredServices, sortBy],
   );
 
   // Keep the highlighted card in view as the user arrows past the fold.
@@ -514,20 +470,6 @@ const ServicesListPage: React.FC = () => {
     }
   }, [services]);
 
-  const handleToggleGroupServices = useCallback((groupServicesList: Service[], checked: boolean) => {
-    setSelectedServiceIds((prev) => {
-      const next = new Set(prev);
-      groupServicesList.forEach((s) => {
-        if (checked) {
-          next.add(s.id);
-        } else {
-          next.delete(s.id);
-        }
-      });
-      return next;
-    });
-  }, []);
-
   return (
     <div className="slp">
       {/* ── HEADER ─────────────────────────────────────────────────────────── */}
@@ -559,6 +501,11 @@ const ServicesListPage: React.FC = () => {
                     <ArrowDownUp size={15} /> Set menu order
                   </button>
                 </li> */}
+                <li>
+                  <button className="slp__dd-item" onClick={() => { setShowManageCategories(true); setShowOptMenu(false); }}>
+                    <TagFill size={15} /> Manage categories
+                  </button>
+                </li>
                 <li>
                   <button className="slp__dd-item" onClick={() => { setShowImport(true); setShowOptMenu(false); }}>
                     <FiletypeCsv size={15} /> Import services
@@ -639,6 +586,63 @@ const ServicesListPage: React.FC = () => {
             </ul>
           )}
         </div>
+        {/* Category — a filter now (was a row of chips grouping the list
+            below). Add/edit/delete moved to Options → "Manage categories". */}
+        <div className="slp__dd-wrap" ref={categoryMenuRef}>
+          <button
+            className={`slp__ctrl-btn${selectedCategory !== "all" ? " slp__ctrl-btn--active" : ""}`}
+            onClick={() => setShowCategoryMenu((v) => !v)}
+          >
+            <TagFill size={13} />
+            {selectedCategory === "all"
+              ? "Category"
+              : (categories.find((c) => String(c.id) === String(selectedCategory))?.name ?? "Category")}
+            <ChevronDown size={13} />
+          </button>
+          {showCategoryMenu && (
+            <ul className="slp__dd-menu slp__dd-menu--left" style={{ maxHeight: 320, overflowY: "auto" }}>
+              <li>
+                <button
+                  className="slp__dd-item"
+                  onClick={() => { setSelectedCategory("all"); setShowCategoryMenu(false); }}
+                >
+                  All categories
+                  <span className="slp__group-count" style={{ marginLeft: "auto" }}>
+                    {pagination?.total ?? services.length}
+                  </span>
+                </button>
+              </li>
+              {!(categoriesLoading && categories.length === 0) && categories.map((cat: CategoryView) => (
+                <li key={cat.id}>
+                  <button
+                    className="slp__dd-item"
+                    onClick={() => { setSelectedCategory(String(cat.id)); setShowCategoryMenu(false); }}
+                  >
+                    {cat.color && (
+                      <span className="slp__group-dot" style={{ background: cat.color, width: 8, height: 8 }} />
+                    )}
+                    {cat.name}
+                    {/* service_count is the salon-wide total from the API; the
+                        derived serviceCount only counts the loaded page, so it's
+                        the fallback rather than the default. */}
+                    <span className="slp__group-count" style={{ marginLeft: "auto" }}>
+                      {(cat as { service_count?: number }).service_count ?? cat.serviceCount}
+                    </span>
+                  </button>
+                </li>
+              ))}
+              <li><hr className="slp__dd-divider" /></li>
+              <li>
+                <button
+                  className="slp__dd-item"
+                  onClick={() => { setShowCategoryMenu(false); setShowAddCategory(true); }}
+                >
+                  <PlusLg size={13} /> Add category
+                </button>
+              </li>
+            </ul>
+          )}
+        </div>
         {/* <button
           className="slp__ctrl-btn slp__ctrl-btn--order"
           onClick={() => setShowManageOrder(true)}
@@ -683,65 +687,6 @@ const ServicesListPage: React.FC = () => {
         </div>
       )}
 
-      {/* ── CATEGORY CHIPS ─────────────────────────────────────────────────── */}
-      {/* Replaces the old left sidebar. Category edit/delete moved to the
-          per-group "Actions" menu, which already offered both. */}
-      <div className="slp__chips">
-        <button
-          className={`slp__chip${selectedCategory === "all" ? " slp__chip--active" : ""}`}
-          onClick={() => setSelectedCategory("all")}
-        >
-          All
-          <span className="slp__chip-count">({pagination?.total ?? services.length})</span>
-        </button>
-
-        {categoriesLoading && categories.length === 0
-          ? null
-          : visibleCategories.map((cat: CategoryView) => (
-              <button
-                key={cat.id}
-                className={`slp__chip${String(selectedCategory) === String(cat.id) ? " slp__chip--active" : ""}`}
-                onClick={() => setSelectedCategory(String(cat.id))}
-                title={cat.name}
-              >
-                {cat.color && (
-                  <span className="slp__chip-dot" style={{ background: cat.color }} />
-                )}
-                {cat.name}
-                {/* service_count is the salon-wide total from the API; the
-                    derived serviceCount only counts the loaded page, so it's
-                    the fallback rather than the default. */}
-                <span className="slp__chip-count">
-                  ({(cat as { service_count?: number }).service_count ?? cat.serviceCount})
-                </span>
-              </button>
-            ))}
-
-        {hiddenCategoryCount > 0 && (
-          <button
-            className="slp__chip slp__chip--more"
-            onClick={() => setChipsExpanded(true)}
-          >
-            +{hiddenCategoryCount} more
-          </button>
-        )}
-        {chipsExpanded && categories.length > COLLAPSED_CHIP_COUNT && (
-          <button
-            className="slp__chip slp__chip--more"
-            onClick={() => setChipsExpanded(false)}
-          >
-            Show less
-          </button>
-        )}
-
-        <button
-          className="slp__chip slp__chip--add"
-          onClick={() => setShowAddCategory(true)}
-        >
-          <PlusLg size={11} /> Add Category
-        </button>
-      </div>
-
       {/* ── BODY ───────────────────────────────────────────────────────────── */}
       <div className="slp__body">
         {/* Main content */}
@@ -761,7 +706,7 @@ const ServicesListPage: React.FC = () => {
                 })
               }
             />
-          ) : groupedServices.length === 0 ? (
+          ) : flatServices.length === 0 ? (
             <EmptyState
               icon={<TagFill size={32} />}
               title="No services found"
@@ -793,120 +738,51 @@ const ServicesListPage: React.FC = () => {
               }
             />
           ) : (
-            groupedServices.map((group) => (
-              <div key={group.id} className="slp__group">
-                <div className="slp__group-header">
-                  <div className="d-flex align-items-center gap-2">
-                    <input
-                      type="checkbox"
-                      className="slp__svc-checkbox"
-                      checked={
-                        group.services.length > 0 &&
-                        group.services.every((s) => selectedServiceIds.has(s.id))
-                      }
-                      onChange={(e) =>
-                        handleToggleGroupServices(group.services, e.target.checked)
-                      }
-                      title="Select all in category"
-                    />
-                    {group.color && (
-                      <span
-                        className="slp__group-dot"
-                        style={{ background: group.color }}
-                      />
-                    )}
-                    <h2 className="slp__group-title">{group.name}</h2>
-                    <span className="slp__group-count">{group.services.length}</span>
-                  </div>
-                  <div className="slp__dd-wrap">
-                    <button
-                      className="slp__group-actions-btn"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setOpenCardMenu(
-                          openCardMenu === `group-${group.id}`
-                            ? null
-                            : `group-${group.id}`,
-                        );
-                      }}
-                    >
-                      <ChevronDown size={14} /> Actions
-                    </button>
-                    {openCardMenu === `group-${group.id}` && (
-                      <ul className="slp__dd-menu slp__dd-menu--right">
-                        <li>
-                          <button
-                            className="slp__dd-item"
-                            onClick={() => {
-                              setEditingCategory({ id: group.id, name: group.name });
-                              setEditCategoryName(group.name);
-                              setEditCategoryDesc("");
-                              setOpenCardMenu(null);
-                            }}
-                          >
-                            <PencilSquare size={13} /> Edit category
-                          </button>
-                        </li>
-                        <li>
-                          <button
-                            className="slp__dd-item slp__dd-item--danger"
-                            onClick={() => {
-                              setDeletingCategory({ id: group.id, name: group.name });
-                              setOpenCardMenu(null);
-                            }}
-                          >
-                            <Trash3 size={13} /> Delete category
-                          </button>
-                        </li>
-                      </ul>
-                    )}
-                  </div>
-                </div>
-
-                {/* Column labels. Same grid track list as .slp__service-card,
-                    so the headings sit over the values they name. */}
-                <div className="slp__group-cols" aria-hidden="true">
-                  <span />
-                  <span>Service</span>
-                  <span>Time</span>
-                  <span>Staff</span>
-                  <span className="slp__group-cols__center">Commission</span>
-                  <span className="slp__group-cols__right">Price</span>
-                  <span />
-                </div>
-
-                <div className="slp__service-list">
-                  {sortServices(group.services, sortBy).map((svc: Service) => (
-                    <ServiceCard
-                      key={svc.id}
-                      service={svc}
-                      isSelected={selectedServiceIds.has(svc.id)}
-                      onSelect={handleToggleSelectService}
-                      openMenuId={openCardMenu}
-                      onMenuToggle={setOpenCardMenu}
-                      onEdit={(id) =>
-                        navigate(`/dashboard/catalog/services/${id}/edit`)
-                      }
-                      onDelete={(id) => {
-                        const target = services.find(
-                          (s: Service) => String(s.id) === String(id),
-                        );
-                        if (target) setDeletingService(target);
-                        setOpenCardMenu(null);
-                        setSelectedService(null);
-                      }}
-                      onClick={(id) => {
-                        const target = services.find(
-                          (s: Service) => String(s.id) === String(id),
-                        );
-                        if (target) openServiceDetail(target);
-                      }}
-                      highlighted={flatServices[highlightedIndex]?.id === svc.id}
-                    />
-                  ))}
-                </div>
+            <div className="slp__group">
+              {/* Column labels. Same grid track list as .slp__service-card,
+                  so the headings sit over the values they name. */}
+              <div className="slp__group-cols" aria-hidden="true">
+                <span />
+                <span>Service</span>
+                <span>Category</span>
+                <span>Time</span>
+                <span>Staff</span>
+                <span className="slp__group-cols__center">Commission</span>
+                <span className="slp__group-cols__right">Price</span>
+                <span />
               </div>
-            ))
+
+              <div className="slp__service-list">
+                {flatServices.map((svc: Service) => (
+                  <ServiceCard
+                    key={svc.id}
+                    service={svc}
+                    isSelected={selectedServiceIds.has(svc.id)}
+                    onSelect={handleToggleSelectService}
+                    openMenuId={openCardMenu}
+                    onMenuToggle={setOpenCardMenu}
+                    onEdit={(id) =>
+                      navigate(`/dashboard/catalog/services/${id}/edit`)
+                    }
+                    onDelete={(id) => {
+                      const target = services.find(
+                        (s: Service) => String(s.id) === String(id),
+                      );
+                      if (target) setDeletingService(target);
+                      setOpenCardMenu(null);
+                      setSelectedService(null);
+                    }}
+                    onClick={(id) => {
+                      const target = services.find(
+                        (s: Service) => String(s.id) === String(id),
+                      );
+                      if (target) openServiceDetail(target);
+                    }}
+                    highlighted={flatServices[highlightedIndex]?.id === svc.id}
+                  />
+                ))}
+              </div>
+            </div>
           )}
         </section>
 
@@ -955,6 +831,80 @@ const ServicesListPage: React.FC = () => {
         onSuccess={fetchServices}
       />
 
+
+      {/* ── MANAGE CATEGORIES MODAL ─────────────────────────────────────────── */}
+      {/* Add/edit/delete now live here (Options → Manage categories) instead
+          of on each category group's "Actions" menu, since categories no
+          longer group the list — reuses the same Edit/Delete/Add modals and
+          state the old per-group menu opened. */}
+      {showManageCategories && (
+        <div className="slp__overlay" onClick={() => setShowManageCategories(false)}>
+          <div className="slp__modal" onClick={(e) => e.stopPropagation()}>
+            <div className="slp__modal-header">
+              <h4>Manage categories</h4>
+              <button className="slp__modal-close" onClick={() => setShowManageCategories(false)}>
+                <X size={20} />
+              </button>
+            </div>
+            <div className="slp__modal-body" style={{ maxHeight: "60vh", overflowY: "auto" }}>
+              {categoriesLoading && categories.length === 0 ? (
+                <p className="text-muted small mb-0">Loading…</p>
+              ) : categories.length === 0 ? (
+                <p className="text-muted small mb-0">No categories yet.</p>
+              ) : (
+                categories.map((cat: CategoryView) => (
+                  <div
+                    key={cat.id}
+                    className="d-flex align-items-center justify-content-between py-2 border-bottom"
+                  >
+                    <div className="d-flex align-items-center gap-2">
+                      {cat.color && (
+                        <span
+                          className="slp__group-dot"
+                          style={{ background: cat.color, width: 10, height: 10 }}
+                        />
+                      )}
+                      <span style={{ fontSize: 14, fontWeight: 500, color: "#101828" }}>{cat.name}</span>
+                      <span className="slp__group-count">
+                        {(cat as { service_count?: number }).service_count ?? cat.serviceCount}
+                      </span>
+                    </div>
+                    <div className="d-flex gap-1">
+                      <button
+                        className="slp__kebab"
+                        title="Edit category"
+                        onClick={() => {
+                          setEditingCategory({ id: cat.id, name: cat.name });
+                          setEditCategoryName(cat.name);
+                          setEditCategoryDesc("");
+                        }}
+                      >
+                        <PencilSquare size={14} />
+                      </button>
+                      <button
+                        className="slp__kebab"
+                        title="Delete category"
+                        style={{ color: "#ef4444" }}
+                        onClick={() => setDeletingCategory({ id: cat.id, name: cat.name })}
+                      >
+                        <Trash3 size={14} />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="slp__modal-footer">
+              <button
+                className="slp__btn slp__btn--dark"
+                onClick={() => { setShowManageCategories(false); setShowAddCategory(true); }}
+              >
+                <PlusLg size={13} /> Add category
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── EDIT CATEGORY MODAL ────────────────────────────────────────────── */}
       {editingCategory && (

@@ -76,10 +76,6 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
         <div className="slp__svc-avatar">
           {(service.name ?? "S").charAt(0).toUpperCase()}
         </div>
-        {/* Name over category, mirroring the Products table's name-over-SKU
-            cell. The group header already names the category, but it scrolls
-            out of view on long lists — and it's the only cue when a service
-            has none. */}
         <div className="slp__svc-name-wrap">
           <div className="slp__svc-name-row">
             <p className="slp__svc-name" title={service.name}>{service.name}</p>
@@ -87,10 +83,14 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
               <span className="slp__svc-tag slp__svc-tag--inactive">Inactive</span>
             )}
           </div>
-          <span className="slp__svc-category">
-            {service.category_name || "Uncategorized"}
-          </span>
         </div>
+      </div>
+
+      {/* Category is its own column now (used to be a sub-line under the name,
+          before category grouping was replaced by filtering — see
+          ServicesListPage.tsx's Category dropdown). */}
+      <div className="slp__svc-cell slp__svc-cell--category" title={service.category_name || "Uncategorized"}>
+        {service.category_name || "Uncategorized"}
       </div>
 
       {/* Hours-first, e.g. "1 hr 30 min" — see utils/duration.ts for why sub-hour
