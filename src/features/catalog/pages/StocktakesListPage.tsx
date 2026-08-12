@@ -18,6 +18,7 @@ import { fetchStocktakesThunk, deleteStocktakeThunk } from "../../../middleware/
 import { fetchBranchesThunk } from "../../../middleware/salon/salon.thunk";
 import StocktakeDetailsDrawer from "../components/StocktakeDetailsDrawer";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/StocktakesListPage.scss";
 
 // Types - Keeping these but mapping from state if needed
@@ -370,25 +371,21 @@ const StocktakesListPage: React.FC = () => {
 
             <div className="form-group">
               <label>Status</label>
-              <select
+              <Dropdown
                 className="form-select border-0 bg-light rounded-3 py-2 px-3 shadow-none"
                 style={{ appearance: "none", background: "url('data:image/svg+xml;utf8,<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"20\" height=\"20\" fill=\"gray\" class=\"bi bi-chevron-down\" viewBox=\"0 0 16 16\"><path fill-rule=\"evenodd\" d=\"M1.646 4.646a.5.5 0 0 1 .708 0L8 10.293l5.646-5.647a.5.5 0 0 1 .708.708l-6 6a.5.5 0 0 1-.708 0l-6-6a.5.5 0 0 1 0-.708z\"/></svg>') no-repeat right 12px center", backgroundSize: "16px" }}
+                searchable={false}
                 value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-              >
-                {[
+                options={[
                   "All statuses",
                   "In progress",
                   "Paused",
                   "Review",
                   "Completed",
                   "Canceled",
-                ].map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                ].map((s) => ({ id: s, name: s }))}
+                onChange={setStatusFilter}
+              />
             </div>
 
             <footer>

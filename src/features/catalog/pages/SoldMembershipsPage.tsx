@@ -16,6 +16,7 @@ import {
 } from "../../../middleware/clientMembership/clientMembership.thunk";
 import { clearError } from "../../../store/clientMembershipSlice";
 import type { ClientMembership } from "../../../services/api/endpoints/clientMemberships.endpoints";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/SoldMembershipsPage.scss";
 
 const PAGE_SIZE = 20;
@@ -190,17 +191,19 @@ const SoldMembershipsPage: React.FC = () => {
             onChange={e => setSearch(e.target.value)}
           />
         </div>
-        <select
+        <Dropdown
           className="smp__sel"
+          searchable={false}
           value={statusFilt}
-          onChange={e => setStatusFilt(e.target.value)}
-        >
-          <option value="">All statuses</option>
-          <option value="active">Active</option>
-          <option value="exhausted">Exhausted</option>
-          <option value="expired">Expired</option>
-          <option value="cancelled">Cancelled</option>
-        </select>
+          options={[
+            { id: "", name: "All statuses" },
+            { id: "active", name: "Active" },
+            { id: "exhausted", name: "Exhausted" },
+            { id: "expired", name: "Expired" },
+            { id: "cancelled", name: "Cancelled" },
+          ]}
+          onChange={setStatusFilt}
+        />
       </div>
 
       {/* ── Layout: table + detail panel ──────────────────────── */}

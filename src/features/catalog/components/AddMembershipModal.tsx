@@ -29,6 +29,7 @@ import { fetchCategoriesThunk } from "../../../middleware/services/categories.th
 import { selectAllCategories } from "../../../store/selectors/slices.selectors";
 import type { MembershipPricingType, MembershipAppliesTo, LoyaltyTier } from "../../../services/api/endpoints/memberships.endpoints";
 import api from "../../../services/api/axios";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/AddMembershipModal.scss";
 
 const DEFAULT_COLOUR = "#1a1a2e";
@@ -423,13 +424,13 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                   <div className="amm__field">
                     <label className="amm__label">Applies To</label>
                     <div className="amm__sel-wrap">
-                      <select
+                      <Dropdown
                         className="amm__select"
+                        searchable={false}
                         value={form.appliesTo}
-                        onChange={(e) => patch({ appliesTo: e.target.value as MembershipAppliesTo })}
-                      >
-                        {APPLIES_TO_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                      </select>
+                        options={APPLIES_TO_OPTIONS.map((o) => ({ id: o.value, name: o.label }))}
+                        onChange={(id) => patch({ appliesTo: id as MembershipAppliesTo })}
+                      />
                       <ChevronDown size={13} className="amm__sel-icon" />
                     </div>
                     <p className="amm__hint">

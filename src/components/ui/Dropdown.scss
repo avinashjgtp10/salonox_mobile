@@ -1,14 +1,14 @@
 .ui-dropdown {
   position: relative;
   // No-op outside a flex parent; lets the wrapper div fill the same space a
-  // bare <select> would have inside a flex row (e.g. the staff-pill layout).
+  // bare <select> would have inside a flex row (e.g. a compact pill layout).
   flex: 1;
   min-width: 0;
 
   // :where() keeps this at zero specificity so a consumer's own className
-  // (e.g. Bootstrap's .form-select, or a feature's .fg-input) always wins
-  // outright instead of fighting the cascade — these defaults only apply
-  // when no className is passed in.
+  // (e.g. Bootstrap's .form-select, or a feature's own field class) always
+  // wins outright instead of fighting the cascade — these defaults only
+  // apply when no className is passed in.
   :where(input) {
     width: 100%;
     box-sizing: border-box;
@@ -34,10 +34,10 @@
     top: calc(100% + 4px);
     left: 0;
     right: 0;
-    // A trigger can be much narrower than its option text (e.g. the compact
-    // staff-pill widget) — without a floor, the list squeezes down with it
-    // and the scrollbar ends up looking like it's most of the box. Kept
-    // modest so it doesn't balloon past the trigger it's anchored to.
+    // A trigger can be much narrower than its option text (e.g. a compact
+    // pill widget) — without a floor, the list squeezes down with it and
+    // the scrollbar ends up looking like it's most of the box. Kept modest
+    // so it doesn't balloon past the trigger it's anchored to.
     min-width: 140px;
     background: #fff;
     border: 1px solid #e5e7eb;
@@ -48,10 +48,10 @@
     z-index: 20;
 
     // Visible but understated scrollbar — the plain browser default was easy
-    // to miss so the list looked "stuck" once content overflowed, but a
-    // bold indigo bar on a narrow box (see the staff-pill widget) read as
-    // its own UI element rather than a scroll affordance. Thin + neutral
-    // gray keeps it visible without competing with the list content.
+    // to miss so the list looked "stuck" once content overflowed, but a bold
+    // indigo bar on a narrow box read as its own UI element rather than a
+    // scroll affordance. Thin + neutral gray stays visible without
+    // competing with the list content.
     scrollbar-width: thin;
     scrollbar-color: #c7cbd1 transparent;
     &::-webkit-scrollbar {

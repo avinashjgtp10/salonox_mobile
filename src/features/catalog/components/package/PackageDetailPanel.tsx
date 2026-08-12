@@ -20,6 +20,7 @@ import type {
 import { useUpdatePackageMutation } from "../../../../services/api/endpoints/packages.endpoints";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../../utils/currencyIcon";
+import Dropdown from "../../../../components/ui/Dropdown";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -277,15 +278,17 @@ const EditContent: React.FC<EditContentProps> = ({
 
       <div className="pkgpanel__edit-group">
         <label className="pkgpanel__edit-label">DISCOUNT TYPE</label>
-        <select
+        <Dropdown
           className="pkgpanel__edit-select"
+          searchable={false}
           value={form.discountType}
-          onChange={(e) => onChange("discountType", e.target.value)}
           disabled={saving}
-        >
-          <option value="fixed">Fixed ({currencySymbol})</option>
-          <option value="percentage">Percent (%)</option>
-        </select>
+          options={[
+            { id: "fixed", name: `Fixed (${currencySymbol})` },
+            { id: "percentage", name: "Percent (%)" },
+          ]}
+          onChange={(id) => onChange("discountType", id)}
+        />
       </div>
     </div>
 
@@ -294,31 +297,27 @@ const EditContent: React.FC<EditContentProps> = ({
         <label className="pkgpanel__edit-label">
           CATEGORY <span className="text-danger">*</span>
         </label>
-        <select
+        <Dropdown
           className="pkgpanel__edit-select"
+          searchable={false}
+          placeholder="Select…"
           value={form.category}
-          onChange={(e) => onChange("category", e.target.value)}
           disabled={saving}
-        >
-          <option value="">Select…</option>
-          {CATEGORIES.map((c) => (
-            <option key={c}>{c}</option>
-          ))}
-        </select>
+          options={CATEGORIES.map((c) => ({ id: c, name: c }))}
+          onChange={(id) => onChange("category", id)}
+        />
       </div>
 
       <div className="pkgpanel__edit-group">
         <label className="pkgpanel__edit-label">STATUS</label>
-        <select
+        <Dropdown
           className="pkgpanel__edit-select"
+          searchable={false}
           value={form.status}
-          onChange={(e) => onChange("status", e.target.value as Package["status"])}
           disabled={saving}
-        >
-          <option>Active</option>
-          <option>Draft</option>
-          <option>Inactive</option>
-        </select>
+          options={["Active", "Draft", "Inactive"].map((s) => ({ id: s, name: s }))}
+          onChange={(id) => onChange("status", id as Package["status"])}
+        />
       </div>
     </div>
 
