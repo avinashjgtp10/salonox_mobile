@@ -251,15 +251,25 @@ export function printReceipt(
   // membership-wallet-covered bill printed as ₹0.00 across every row.
   const isPackagePaid = String((booking as any).paymentMode || "").toLowerCase() === "package";
 
-  const allStaffIds = Array.from(new Set(
-    [booking.staffId, ...(booking.services || []).map((s: any) => s.staffId)].filter(Boolean)
-  )) as string[];
-  const allStaffDisplay = allStaffIds.map((id) => findStaffName(id)).filter(Boolean).join(", ") || "—";
-
   const services        = booking.services || [];
   const packageItems    = (booking as any).packageItems  || (booking as any).packages     || [];
   const membershipItems = (booking as any).membershipItems || (booking as any).memberships || [];
   const productItems    = (booking as any).productItems  || (booking as any).products      || [];
+
+  // Package/membership/product line items (e.g. a standalone package purchase
+  // with no linked service) can carry the staff who sold them too — without
+  // this, a package-only bill's "Staff" field silently fell back to "—" even
+  // though buildPrintableBooking had already stamped a staffId onto the item.
+  const allStaffIds = Array.from(new Set(
+    [
+      booking.staffId,
+      ...services.map((s: any) => s.staffId),
+      ...packageItems.map((p: any) => p.staffId),
+      ...membershipItems.map((m: any) => m.staffId),
+      ...productItems.map((p: any) => p.staffId),
+    ].filter(Boolean)
+  )) as string[];
+  const allStaffDisplay = allStaffIds.map((id) => findStaffName(id)).filter(Boolean).join(", ") || "—";
 
   // Prefer the caller's own useCurrency().formatAmount (reflects the salon's
   // actual selected currency) — this fallback only covers a caller that
