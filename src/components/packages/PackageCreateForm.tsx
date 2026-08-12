@@ -168,6 +168,13 @@ const PackageCreateForm: React.FC<Props> = ({
   const [pkgDescription,    setPkgDescription]   = useState("");
   const [expiry,            setExpiry]           = useState("");
   const [neverExpires,      setNeverExpires]      = useState(false);
+  // Optional aggregate cap ("Expires after this many services") — once a
+  // sold instance of this template has this many TOTAL completed sessions
+  // across ALL its services combined, the client's package closes early.
+  // Independent of expiry/neverExpires above — whichever condition is hit
+  // first ends the package. Blank = no cap, template-only feature (never
+  // shown in lineItemMode's custom-package builder).
+  const [expireAfterServicesStr, setExpireAfterServicesStr] = useState("");
   const [gstPct,            setGstPct]           = useState(0);
   const [discount,          setDiscount]         = useState(0);
   const [discountStr,       setDiscountStr]      = useState("");
@@ -337,6 +344,10 @@ const PackageCreateForm: React.FC<Props> = ({
         setApiError(`"${s.name}"'s scheduled appointment must be in the future.`); return;
       }
     }
+    const expireAfterServicesVal = expireAfterServicesStr.trim() ? parseInt(expireAfterServicesStr, 10) : null;
+    if (expireAfterServicesStr.trim() && (!Number.isInteger(expireAfterServicesVal) || (expireAfterServicesVal as number) <= 0)) {
+      setApiError("\"Expires after this many services\" must be a whole number greater than 0."); return;
+    }
     const methodMissing = !quickCreateMode && !templateOnly && (paymentMode === "single"
       ? !singleMethod
       : splitEntries.length === 0 || splitEntries.some(e => !e.method || !parseFloat(e.amount)));
@@ -359,6 +370,7 @@ const PackageCreateForm: React.FC<Props> = ({
           neverExpires,
           expiryMonths:  neverExpires ? null : dateToMonths(expiry),
           expiryDays:    neverExpires ? null : dateToDays(expiry),
+          expireAfterServices: expireAfterServicesVal,
           basePrice:     pkgPrice,
           gstPercentage: gstPct,
           discount:      discountVal,
@@ -391,6 +403,7 @@ const PackageCreateForm: React.FC<Props> = ({
         packageName:   pkgName.trim(),
         branch:        "",
         expiryDate:    neverExpires ? "2099-12-31" : expiry,
+        expireAfterServices: expireAfterServicesVal,
         basePrice:     pkgPrice,
         gstPercentage: gstPct,
         discount:      discountVal,
@@ -424,6 +437,7 @@ const PackageCreateForm: React.FC<Props> = ({
   const applyTemplateFields = (t: PackageTemplate) => {
     setPkgName(t.name);
     setNeverExpires(t.neverExpires);
+    setExpireAfterServicesStr(t.expireAfterServices != null ? String(t.expireAfterServices) : "");
     // expiryDays (exact) is preferred — older templates saved before this fix
     // only have the approximate expiryMonths.
     if (!t.neverExpires && t.expiryDays != null) {
@@ -704,6 +718,29 @@ const PackageCreateForm: React.FC<Props> = ({
               </label>
             </div>
           </div>
+
+          {/* Aggregate-session cap — independent of the date expiry above,
+              whichever is hit first ends the package. Template-only: never
+              shown for lineItemMode's custom on-the-spot package builder. */}
+          {!lineItemMode && (
+            <div className={styles.formField} style={{ marginTop: 12, maxWidth: 280 }}>
+              <label className={styles.formLabel}>Expires after this many services</label>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={expireAfterServicesStr}
+                onChange={e => setExpireAfterServicesStr(e.target.value.replace(/[^0-9]/g, ""))}
+                className={styles.input}
+                placeholder="Optional — e.g. 5"
+                disabled={isFromTemplate}
+                style={frozenStyle}
+              />
+              <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "#9ca3af" }}>
+                Closes the package once this many total sessions are used across all its services combined — leave blank for no cap.
+              </span>
+            </div>
+          )}
 
           {/* Full width — a description is prose, so it reads badly squeezed
               into one half of the two-column grid above. Only saved on the
