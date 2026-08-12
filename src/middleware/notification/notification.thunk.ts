@@ -1,7 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 
+import { ApiError, getApiErrorMessage } from "@/services/api";
 import { appEnv } from "@/config/environment";
-import { getApiErrorMessage } from "@/services/api";
 import { notificationService } from "@/services/notification.service";
 import { notificationDeviceStorage } from "@/services/notificationDeviceStorage";
 import type { RootState } from "@/store";
@@ -91,6 +91,17 @@ export const markAllNotificationsReadThunk = createAsyncThunk<
 // never block login or surface an error banner) — still a real thunk so its
 // pending/failed state is visible in Redux devtools and other slices can
 // react to it if needed later.
+const EXPECTED_REGISTER_DEVICE_ERROR_CODES = new Set(["NO_SALON_CONTEXT"]);
+
+const isExpectedRegisterDeviceError = (error: unknown) => {
+  if (error instanceof ApiError) {
+    const responseData = error.responseData as { code?: string; error?: { code?: string } } | undefined;
+    const errorCode = responseData?.code ?? responseData?.error?.code;
+    return errorCode !== undefined && EXPECTED_REGISTER_DEVICE_ERROR_CODES.has(errorCode);
+  }
+  return false;
+};
+
 export const registerDeviceThunk = createAsyncThunk<
   RegisterDeviceResponse,
   RegisterDeviceRequest,
@@ -116,6 +127,10 @@ export const registerDeviceThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
+    if (isExpectedRegisterDeviceError(error)) {
+      console.log("[PushNotifications] Device registration deferred — no salon context (NO_SALON_CONTEXT).");
+      return rejectWithValue({ message: "Salon context required; device registration deferred." });
+    }
     return rejectWithValue(reject(error));
   }
 });

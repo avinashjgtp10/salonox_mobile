@@ -6,6 +6,7 @@ import { canManageStaffLifecycle } from "@/utils/userProfile";
 export const OWNER_HOME_ROUTE = "/dashboard" as Href;
 export const STAFF_HOME_ROUTE = "/(staff)/home" as Href;
 export const ONBOARDING_ROUTE = "/onboarding" as Href;
+export const SUBSCRIPTION_ROUTE = "/subscription" as Href;
 export const OWNER_ROUTE_GROUP = "(tabs)";
 export const STAFF_ROUTE_GROUP = "(staff)";
 const OWNER_ONLY_TOP_LEVEL_ROUTES = new Set([

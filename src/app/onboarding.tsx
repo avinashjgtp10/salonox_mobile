@@ -30,6 +30,7 @@ import { CategorySelectionList } from "@/components/auth/CategorySelectionList";
 import { BUSINESS_CATEGORIES } from "@/constants/businessCategories";
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { SUBSCRIPTION_ROUTE } from "@/utils/routeResolver";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
@@ -758,8 +759,8 @@ export default function OnboardingScreen() {
         // Clear local storage state
         await AsyncStorage.removeItem(ONBOARDING_PERSIST_KEY);
 
-        // Redirect to dashboard
-        router.replace("/dashboard" as Href);
+        // Onboarding is complete; subscription is required before app access.
+        router.replace(SUBSCRIPTION_ROUTE);
       } else {
         setSubmitError(
           resultAction.payload?.message ?? 

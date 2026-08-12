@@ -14,4 +14,5 @@ export * from "./report.endpoints";
 export * from "./service.endpoints";
 export * from "./staff.endpoints";
 export * from "./pricing.endpoints";
+export * from "./subscription.endpoints";
 export * from "./user.endpoints";
