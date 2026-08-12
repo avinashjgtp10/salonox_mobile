@@ -979,6 +979,359 @@
   }
 }
 
+/* ── Print Menu Card modal (PrintMenuCardModal.tsx) ───────────────── */
+// Reuses .slp__overlay/.slp__modal/.slp__modal-header/-body/-footer/.slp__btn
+// chrome from above — only the wide two-pane layout and picker/template
+// pieces below are new.
+.pmc-modal {
+  max-width: 1080px;
+  width: 96vw;
+}
+
+.pmc-body {
+  display: grid;
+  grid-template-columns: 380px 1fr;
+  gap: 20px;
+  padding: 20px 24px;
+  // A definite height, not max-height: with only max-height, the implicit
+  // grid row still auto-sizes to its content's full height (500+ services
+  // worth) — overflow:hidden then just hard-clips that oversized box with no
+  // scrollbar, since .pmc-left/.pmc-picker below never received an actual
+  // bounded height to shrink-and-scroll within via their flex:1 chain. A
+  // definite height here is what makes that chain (and .pmc-picker's own
+  // overflow-y:auto) actually take effect.
+  height: 72vh;
+  overflow: hidden;
+
+  @media (max-width: 860px) {
+    grid-template-columns: 1fr;
+    height: auto;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
+.pmc-left {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pmc-block {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+
+  &--grow {
+    flex: 1;
+    min-height: 0;
+  }
+
+  &__title {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: #344054;
+    margin-bottom: 10px;
+  }
+
+  &__title-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 10px;
+
+    .pmc-block__title { margin-bottom: 0; }
+  }
+
+  &__actions {
+    display: flex;
+    gap: 10px;
+  }
+}
+
+.pmc-link-btn {
+  background: none;
+  border: none;
+  color: #4f46e5;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  &:hover { text-decoration: underline; }
+}
+
+// Small swatch grid — 5 per row (3 rows for 15 templates), each a compact
+// color-preview tile rather than a full-width description card, so this many
+// options fit without turning "choose a template" into its own scroll area.
+.pmc-templates {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 6px;
+}
+
+.pmc-template {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 4px 6px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #fff;
+  cursor: pointer;
+  transition: all 0.15s;
+  min-width: 0;
+
+  &:hover { border-color: #98a2b3; }
+
+  &__swatch {
+    width: 100%;
+    height: 26px;
+    border-radius: 5px;
+    padding: 4px 5px;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  &__swatch-bar {
+    height: 4px;
+    width: 55%;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  &__swatch-line {
+    height: 3px;
+    width: 85%;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  &__label {
+    font-size: 9.5px;
+    font-weight: 600;
+    color: #344054;
+    text-align: center;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 100%;
+  }
+
+  &--active {
+    border-color: #4f46e5;
+    box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.15);
+
+    .pmc-template__label { color: #3538cd; }
+  }
+}
+
+.pmc-textsize {
+  display: flex;
+  gap: 8px;
+}
+
+.pmc-textsize__btn {
+  flex: 1;
+  height: 34px;
+  padding: 0 10px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #344054;
+  background: #fff;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s;
+
+  &:hover { background: #f9fafb; }
+
+  &--active {
+    border-color: #4f46e5;
+    background: #eef2ff;
+    color: #3538cd;
+  }
+}
+
+.pmc-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px 12px;
+  margin-bottom: 10px;
+  background: #fffaeb;
+  border: 1px solid #fedf89;
+  border-radius: 8px;
+  color: #b54708;
+  font-size: 12.5px;
+  line-height: 1.5;
+
+  svg { flex-shrink: 0; margin-top: 2px; }
+}
+
+.pmc-footer-hint {
+  font-size: 12.5px;
+  color: #667085;
+  font-weight: 500;
+}
+
+.pmc-footer-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.pmc-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #fff;
+  margin-bottom: 10px;
+  color: #667085;
+  flex-shrink: 0;
+
+  input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    color: #101828;
+    background: none;
+  }
+}
+
+.pmc-picker {
+  flex: 1;
+  min-height: 160px;
+  overflow-y: auto;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  padding: 4px 12px;
+}
+
+.pmc-cat-group {
+  padding: 8px 0;
+  border-bottom: 1px solid #f2f4f7;
+  &:last-child { border-bottom: none; }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #475467;
+    cursor: pointer;
+    margin-bottom: 4px;
+
+    input { accent-color: #4f46e5; cursor: pointer; }
+  }
+}
+
+.pmc-count {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 600;
+  color: #98a2b3;
+}
+
+.pmc-svc-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0 6px 22px;
+  cursor: pointer;
+
+  input { accent-color: #4f46e5; cursor: pointer; flex-shrink: 0; }
+}
+
+.pmc-svc-name {
+  flex: 1;
+  font-size: 13px;
+  color: #101828;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.pmc-svc-price {
+  font-size: 12.5px;
+  font-weight: 600;
+  color: #475467;
+  white-space: nowrap;
+}
+
+.pmc-right {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pmc-preview-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: #344054;
+  margin-bottom: 10px;
+}
+
+.pmc-preview-frame {
+  flex: 1;
+  min-height: 0;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  background: #f2f4f7;
+  overflow: auto;
+  display: flex;
+  justify-content: center;
+  padding: 16px;
+}
+
+.pmc-preview-empty {
+  align-self: center;
+  margin: auto;
+  font-size: 13px;
+  color: #98a2b3;
+  text-align: center;
+  max-width: 220px;
+}
+
+// A4 at 96dpi (794×1123px) scaled down to fit the preview pane, rather than
+// a second, hand-maintained "small" layout — this guarantees the preview is
+// pixel-for-pixel what the print window (buildMenuCardDocument) renders.
+.pmc-preview-scale {
+  width: 794px * 0.46;
+  height: 1123px * 0.46;
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+  flex-shrink: 0;
+  outline: 2px solid transparent;
+  transition: outline-color 0.15s;
+
+  &--overflow {
+    outline-color: #f04438;
+  }
+
+  iframe {
+    width: 794px;
+    height: 1123px;
+    border: none;
+    transform: scale(0.46);
+    transform-origin: top left;
+  }
+}
+
 /* ── Keyframes ─────────────────────────────────────────────────── */
 @keyframes slp-fade-in {
   from { opacity: 0; }

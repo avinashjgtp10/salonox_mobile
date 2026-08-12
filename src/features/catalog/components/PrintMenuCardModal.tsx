@@ -1,0 +1,366 @@
+import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import { useSelector as useReduxSelector } from "react-redux";
+import { X, Search, Printer, ExclamationTriangleFill } from "react-bootstrap-icons";
+import api from "../../../services/api/axios";
+import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
+import type { Service } from "../types/catalog.types";
+import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
+import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
+import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
+import { getActiveTaxes } from "../../settings/utils/taxSettings";
+import { useCurrency } from "../../../hooks/useCurrency";
+import {
+  MENU_CARD_TEMPLATES,
+  type MenuCardTemplateId,
+  buildMenuCardDocument,
+  openMenuCardPrintWindow,
+  formatServicePrice,
+} from "../utils/menuCardPrint";
+
+interface Props {
+  onClose: () => void;
+}
+
+interface ServicesListPayload {
+  data: Service[];
+  pagination?: { total_pages?: number };
+}
+interface ServicesListResponse {
+  data?: Service[] | ServicesListPayload;
+  pagination?: { total_pages?: number };
+}
+
+// Independent of the main Service Menu table's own paginated Redux state
+// (useServices()/fetchServicesThunk) — fetching "all services" through that
+// shared slice would overwrite whatever page/filters the owner has open
+// behind this modal. Mirrors ServicesListPage.tsx's own
+// fetchFilteredServicesForExport, minus the search/category filters (the
+// picker below shows the FULL active catalog regardless of what's currently
+// filtered on the page — a menu card is a deliberate, separate curation).
+async function fetchAllActiveServices(): Promise<Service[]> {
+  const all: Service[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  while (page <= totalPages) {
+    const res = await api.get(SERVICES.LIST(`page=${page}&limit=200&is_active=true`));
+    const responseData = res.data as ServicesListResponse;
+    const payload = responseData?.data;
+
+    if (Array.isArray(payload)) {
+      all.push(...payload);
+      totalPages = responseData.pagination?.total_pages ?? totalPages;
+      page += 1;
+      continue;
+    }
+    if (payload && Array.isArray(payload.data)) {
+      all.push(...payload.data);
+      totalPages = payload.pagination?.total_pages ?? totalPages;
+      page += 1;
+      continue;
+    }
+    break;
+  }
+
+  return all;
+}
+
+function groupByCategory(services: Service[]): { category: string; services: Service[] }[] {
+  const map = new Map<string, Service[]>();
+  services.forEach((s) => {
+    const key = s.category_name?.trim() || "Other Services";
+    if (!map.has(key)) map.set(key, []);
+    map.get(key)!.push(s);
+  });
+  return Array.from(map.entries()).map(([category, services]) => ({ category, services }));
+}
+
+const TEXT_SIZE_OPTIONS: { id: string; label: string; scale: number }[] = [
+  { id: "small",  label: "Small",  scale: 0.85 },
+  { id: "medium", label: "Medium", scale: 1 },
+  { id: "large",  label: "Large",  scale: 1.15 },
+];
+
+// A4 at 96dpi (the same pixel grid the preview iframe and print window both
+// render at — see .pmc-preview-scale's iframe width/height in the SCSS). A
+// couple of px of slack absorbs sub-pixel rounding, not genuine overflow.
+const A4_HEIGHT_PX = 1123;
+const OVERFLOW_TOLERANCE_PX = 4;
+
+const PrintMenuCardModal: React.FC<Props> = ({ onClose }) => {
+  const currentSalon = useReduxSelector(selectCurrentSalon);
+  const { formatAmount } = useCurrency();
+  const dispatch = useAppDispatch();
+  const settingItems = useAppSelector((s) => s.setting.items);
+
+  useEffect(() => { if (settingItems.length === 0) dispatch(fetchSettingsThunk()); }, [dispatch, settingItems.length]);
+
+  // Combined rate of every active tax rule that applies to services — 0 when
+  // GST is off or no rule targets services, in which case the menu card
+  // simply never mentions GST at all (see buildMenuCardDocument).
+  const gstPercent = useMemo(() => {
+    const taxes = getActiveTaxes(settingItems);
+    return taxes
+      .filter((t) => t.applicable_for.service)
+      .reduce((sum, t) => sum + t.tax_value, 0);
+  }, [settingItems]);
+
+  const [loading, setLoading] = useState(true);
+  const [allServices, setAllServices] = useState<Service[]>([]);
+  // Starts empty — the owner builds the card up by picking services
+  // themselves, rather than starting from "everything" and pruning down.
+  const [selectedIds, setSelectedIds] = useState<Set<string | number>>(new Set());
+  const [templateId, setTemplateId] = useState<MenuCardTemplateId>("classic");
+  const [fontScale, setFontScale] = useState(1);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      setLoading(true);
+      try {
+        const fetched = await fetchAllActiveServices();
+        if (cancelled) return;
+        setAllServices(fetched);
+      } catch (err) {
+        console.error("[PrintMenuCardModal] failed to load services:", err);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const pickerGroups = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    const filtered = q ? allServices.filter((s) => s.name.toLowerCase().includes(q)) : allServices;
+    return groupByCategory(filtered);
+  }, [allServices, search]);
+
+  const selectedServices = useMemo(
+    () => allServices.filter((s) => selectedIds.has(s.id)),
+    [allServices, selectedIds],
+  );
+
+  const toggleService = useCallback((id: string | number) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const toggleCategory = useCallback((category: string, checked: boolean) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      allServices
+        .filter((s) => (s.category_name?.trim() || "Other Services") === category)
+        .forEach((s) => { if (checked) next.add(s.id); else next.delete(s.id); });
+      return next;
+    });
+  }, [allServices]);
+
+  const selectAll = useCallback(() => setSelectedIds(new Set(allServices.map((s) => s.id))), [allServices]);
+  const clearAll  = useCallback(() => setSelectedIds(new Set()), []);
+
+  const previewHtml = useMemo(
+    () => buildMenuCardDocument({ services: selectedServices, salon: currentSalon, templateId, gstPercent, formatAmount, fontScale }, false),
+    [selectedServices, currentSalon, templateId, gstPercent, formatAmount, fontScale],
+  );
+
+  // Measures the ACTUAL rendered height of the preview (same markup the print
+  // window uses) against one A4 page, rather than estimating row heights in
+  // JS — the browser's own layout engine is the only thing that can account
+  // for template/font-size/wrapping accurately. Re-measured every time
+  // previewHtml changes (new selection, template, or text size) via the
+  // iframe's key forcing a fresh load each time.
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [overflowsPage, setOverflowsPage] = useState(false);
+
+  const measurePreview = useCallback(() => {
+    const page = iframeRef.current?.contentDocument?.querySelector<HTMLElement>(".mc-page");
+    if (!page) { setOverflowsPage(false); return; }
+    setOverflowsPage(page.scrollHeight > A4_HEIGHT_PX + OVERFLOW_TOLERANCE_PX);
+  }, []);
+
+  const canPrint = selectedServices.length > 0 && !overflowsPage;
+
+  // Clearing the selection removes the preview iframe entirely (see the JSX
+  // below) — its onLoad measurement can't fire again to clear a stale
+  // overflow flag left over from a bigger selection, so this does it directly.
+  useEffect(() => { if (selectedServices.length === 0) setOverflowsPage(false); }, [selectedServices.length]);
+
+  const handlePrint = () => {
+    if (!canPrint) return;
+    const html = buildMenuCardDocument({ services: selectedServices, salon: currentSalon, templateId, gstPercent, formatAmount, fontScale }, true);
+    openMenuCardPrintWindow(html);
+  };
+
+  return (
+    <div className="slp__overlay" onClick={onClose}>
+      <div className="slp__modal pmc-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="slp__modal-header">
+          <h4>Print Menu Card</h4>
+          <button className="slp__modal-close" onClick={onClose}><X size={20} /></button>
+        </div>
+
+        <div className="pmc-body">
+          {/* ── Left: template + service picker ── */}
+          <div className="pmc-left">
+            <div className="pmc-block">
+              <div className="pmc-block__title">Choose a template</div>
+              <div className="pmc-templates">
+                {MENU_CARD_TEMPLATES.map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    title={`${t.label} — ${t.description}`}
+                    className={`pmc-template${templateId === t.id ? " pmc-template--active" : ""}`}
+                    onClick={() => setTemplateId(t.id)}
+                  >
+                    <span className="pmc-template__swatch" style={{ background: t.cardBg }}>
+                      <span className="pmc-template__swatch-bar" style={{ background: t.accentColor }} />
+                      <span className="pmc-template__swatch-line" style={{ background: t.textColor, opacity: 0.55 }} />
+                      <span className="pmc-template__swatch-line" style={{ background: t.textColor, opacity: 0.3, width: "60%" }} />
+                    </span>
+                    <span className="pmc-template__label">{t.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pmc-block">
+              <div className="pmc-block__title">Text size</div>
+              <div className="pmc-textsize">
+                {TEXT_SIZE_OPTIONS.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className={`pmc-textsize__btn${fontScale === o.scale ? " pmc-textsize__btn--active" : ""}`}
+                    onClick={() => setFontScale(o.scale)}
+                  >
+                    {o.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="pmc-block pmc-block--grow">
+              <div className="pmc-block__title-row">
+                <span className="pmc-block__title">
+                  Choose services ({selectedIds.size} of {allServices.length})
+                </span>
+                <div className="pmc-block__actions">
+                  <button type="button" className="pmc-link-btn" onClick={selectAll}>Select all</button>
+                  <button type="button" className="pmc-link-btn" onClick={clearAll}>Clear</button>
+                </div>
+              </div>
+
+              <div className="pmc-search">
+                <Search size={14} />
+                <input
+                  placeholder="Search services…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="pmc-picker">
+                {loading ? (
+                  <p className="text-muted small mb-0">Loading services…</p>
+                ) : pickerGroups.length === 0 ? (
+                  <p className="text-muted small mb-0">No services match your search.</p>
+                ) : (
+                  pickerGroups.map((g) => {
+                    const checkedCount = g.services.filter((s) => selectedIds.has(s.id)).length;
+                    const allChecked = checkedCount === g.services.length;
+                    const someChecked = checkedCount > 0 && !allChecked;
+                    return (
+                      <div key={g.category} className="pmc-cat-group">
+                        <label className="pmc-cat-group__header">
+                          <input
+                            type="checkbox"
+                            checked={allChecked}
+                            ref={(el) => { if (el) el.indeterminate = someChecked; }}
+                            onChange={(e) => toggleCategory(g.category, e.target.checked)}
+                          />
+                          <span>{g.category}</span>
+                          <span className="pmc-count">{checkedCount}/{g.services.length}</span>
+                        </label>
+                        {g.services.map((s) => (
+                          <label key={s.id} className="pmc-svc-row">
+                            <input
+                              type="checkbox"
+                              checked={selectedIds.has(s.id)}
+                              onChange={() => toggleService(s.id)}
+                            />
+                            <span className="pmc-svc-name">{s.name}</span>
+                            <span className="pmc-svc-price">{formatServicePrice(s, formatAmount)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* ── Right: live preview, WYSIWYG with the print window ── */}
+          <div className="pmc-right">
+            <div className="pmc-preview-label">Preview — {MENU_CARD_TEMPLATES.find((t) => t.id === templateId)?.label}</div>
+
+            {overflowsPage && (
+              <div className="pmc-warning">
+                <ExclamationTriangleFill size={14} />
+                This selection is too long to fit on one A4 page. Remove a few services or switch to a smaller text size.
+              </div>
+            )}
+
+            <div className="pmc-preview-frame">
+              {selectedServices.length === 0 ? (
+                <div className="pmc-preview-empty">Select at least one service to see a preview.</div>
+              ) : (
+                <div className={`pmc-preview-scale${overflowsPage ? " pmc-preview-scale--overflow" : ""}`}>
+                  {/* Keyed on the document itself so a fresh `srcDoc` always
+                      forces a full reload (and thus a fresh onLoad) rather
+                      than relying on browsers to refire onLoad for an
+                      in-place srcDoc change on the same iframe element. */}
+                  <iframe
+                    key={previewHtml}
+                    ref={iframeRef}
+                    title="Menu card preview"
+                    srcDoc={previewHtml}
+                    onLoad={measurePreview}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="slp__modal-footer" style={{ justifyContent: "space-between", alignItems: "center" }}>
+          <span className="pmc-footer-hint">
+            {selectedServices.length === 0
+              ? "Select at least one service."
+              : overflowsPage
+                ? "Won't fit on one A4 page — trim the selection or shrink the text."
+                : `${selectedServices.length} service${selectedServices.length === 1 ? "" : "s"} on one A4 page.`}
+          </span>
+          <div className="pmc-footer-actions">
+            <button className="slp__btn slp__btn--ghost" onClick={onClose}>Cancel</button>
+            <button
+              className="slp__btn slp__btn--dark"
+              disabled={!canPrint}
+              onClick={handlePrint}
+            >
+              <Printer size={14} /> Print Menu Card
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default PrintMenuCardModal;

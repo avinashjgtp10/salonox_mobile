@@ -22,6 +22,7 @@ import {
   FiletypeCsv,
   Trash3,
   PencilSquare,
+  Printer,
   X,
 } from "react-bootstrap-icons";
 import { useServices, type CategoryView } from "../hooks/useServices.ts";
@@ -38,6 +39,7 @@ import { JiraFilterMenu } from "../../../components/ui";
 import type { FilterDropdownOption, JiraFilterField } from "../../../components/ui";
 import ManageOrderModal from "../components/ManageOrderModal.tsx";
 import ServiceImportModal from "../components/ServiceImportModal.tsx";
+import PrintMenuCardModal from "../components/PrintMenuCardModal.tsx";
 import ServiceDetailPanel from "../components/ServiceDetailPanel.tsx";
 import ServiceCard from "../components/shared/ServiceCard.tsx";
 import { ServiceListSkeleton } from "../components/shared/LoadingSkeletons.tsx";
@@ -151,6 +153,7 @@ const ServicesListPage: React.FC = () => {
   // ── UI state ────────────────────────────────────────────────────────────────
   const [showManageOrder, setShowManageOrder]     = useState(false);
   const [showImport, setShowImport]               = useState(false);
+  const [showPrintMenuCard, setShowPrintMenuCard] = useState(false);
   const [selectedCategory, setSelectedCategory]  = useState<string>("all");
   const [openCardMenu, setOpenCardMenu]           = useState<string | null>(null);
   const [searchQuery, setSearchQuery]             = useState("");
@@ -502,6 +505,11 @@ const ServicesListPage: React.FC = () => {
                   </button>
                 </li> */}
                 <li>
+                  <button className="slp__dd-item" onClick={() => { setShowPrintMenuCard(true); setShowOptMenu(false); }}>
+                    <Printer size={15} /> Print menu card
+                  </button>
+                </li>
+                <li>
                   <button className="slp__dd-item" onClick={() => { setShowManageCategories(true); setShowOptMenu(false); }}>
                     <TagFill size={15} /> Manage categories
                   </button>
@@ -830,6 +838,9 @@ const ServicesListPage: React.FC = () => {
         onClose={() => setShowImport(false)}
         onSuccess={fetchServices}
       />
+      {showPrintMenuCard && (
+        <PrintMenuCardModal onClose={() => setShowPrintMenuCard(false)} />
+      )}
 
 
       {/* ── MANAGE CATEGORIES MODAL ─────────────────────────────────────────── */}
