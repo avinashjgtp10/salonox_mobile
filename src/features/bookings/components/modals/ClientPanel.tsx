@@ -11,6 +11,7 @@ import type { LoyaltyEligibility } from "../../../../services/api/endpoints/memb
 import api from "../../../../services/api/axios";
 import { Button } from "../../../../components/ui";
 import Skeleton from "../../../../components/ui/Skeleton";
+import Dropdown from "../../../../components/ui/Dropdown";
 import ClientHistoryModal from "../../../clients/components/ClientHistoryModal";
 import QuickEditClientModal from "../../../clients/components/QuickEditClientModal";
 import "../../styles/AppointmentModal.scss";
@@ -572,19 +573,20 @@ export const ClientPanel: React.FC<Props> = ({
           </div>
           <div className="acf-required-wrapper">
             {!addGender && <span className="acf-label-overlay">Gender<span className="acf-req-star">*</span></span>}
-            <select
+            <Dropdown
               className={`acf-input${addErrors.gender ? " acf-input--error" : ""}`}
+              searchable={false}
               value={addGender}
-              onChange={(e) => {
-                setAddGender(e.target.value);
-                if (e.target.value) setAddErrors((prev) => ({ ...prev, gender: undefined }));
+              options={[
+                { id: "Female", name: "Female" },
+                { id: "Male", name: "Male" },
+                { id: "Other", name: "Other" },
+              ]}
+              onChange={(id) => {
+                setAddGender(id);
+                if (id) setAddErrors((prev) => ({ ...prev, gender: undefined }));
               }}
-            >
-              <option value="" disabled hidden> </option>
-              <option>Female</option>
-              <option>Male</option>
-              <option>Other</option>
-            </select>
+            />
             {addErrors.gender && <span className="acf-error">{addErrors.gender}</span>}
           </div>
           <Button

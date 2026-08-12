@@ -3,6 +3,7 @@ import type { BlockedTime } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import MiniCalendar from "../shared/MiniCalendar.tsx";
 import TimeSelect from "../shared/TimeSelect";
+import Dropdown from "../../../../components/ui/Dropdown";
 import Button from "../../../../components/ui/Button";
 import Input from "../../../../components/ui/Input";
 import { useFocusTrap } from "../../../../hooks/useFocusTrap";
@@ -106,10 +107,16 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
           {/* Staff */}
           <div>
             <label className="form-label fw-semibold text-uppercase text-muted btm-label">Staff *</label>
-            <select className="form-select" value={staffId} onChange={(e) => { setStaffId(e.target.value); setConflictError(""); }}>
-              <option value="">Select Staff</option>
-              {(staffList || []).map((s: { id: string; name: string }) => <option key={s.id} value={s.id}>{s.name.includes(" ") ? s.name : s.name.replace(/([a-z])([A-Z])/g, "$1 $2")}</option>)}
-            </select>
+            <Dropdown
+              className="form-select"
+              placeholder="Select Staff"
+              value={staffId}
+              options={(staffList || []).map((s: { id: string; name: string }) => ({
+                id: s.id,
+                name: s.name.includes(" ") ? s.name : s.name.replace(/([a-z])([A-Z])/g, "$1 $2"),
+              }))}
+              onChange={(id) => { setStaffId(id); setConflictError(""); }}
+            />
           </div>
 
           {/* Start / End time */}

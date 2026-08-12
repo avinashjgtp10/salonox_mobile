@@ -1,6 +1,7 @@
 ﻿import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { SuccessOverlay } from "../../../../components/ui";
 import MultiSelectCheckbox from "../../../../components/ui/MultiSelectCheckbox";
+import Dropdown from "../../../../components/ui/Dropdown";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
 import { useAppointment }    from "../../hooks/useAppointment";
@@ -2588,11 +2589,16 @@ export const AppointmentModal: React.FC<Props> = ({
         </div>
         <div className="field-group">
           <label>Disc. Type</label>
-          <select className="fg-input" value={discountType}
-            onChange={(e) => setDiscountType(e.target.value as DiscountType)}>
-            <option value="Percentage (%)">Percentage (%)</option>
-            <option value="Flat (₹)">Flat</option>
-          </select>
+          <Dropdown
+            className="fg-input"
+            searchable={false}
+            value={discountType}
+            options={[
+              { id: "Percentage (%)", name: "Percentage (%)" },
+              { id: "Flat (₹)", name: "Flat" },
+            ]}
+            onChange={(id) => setDiscountType(id as DiscountType)}
+          />
         </div>
         {/* Which item types the Bill Discount reduces. A multi-select rather
             than a plain <select> because the whole point of the field is
