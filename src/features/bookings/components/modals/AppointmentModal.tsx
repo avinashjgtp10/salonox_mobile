@@ -548,15 +548,41 @@ export const AppointmentModal: React.FC<Props> = ({
   // can't cross-consume each other's sessions); packages sold before that id
   // existed fall back to a name-prefixed key, matched only by rows that also
   // lack a catalog id — see ServiceRow.tsx's lookups.
+  // Value is a list rather than a flat sum — each entry keeps its owning
+  // package id so perRowCoveredRemaining below can also weigh it against
+  // that package's own aggregate cap (see packageBudgets), not just this
+  // one service's own remaining count.
   const coveredServices = useMemo(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, Array<{ packageId: string; remaining: number }>>();
     nonExpiredPackages.forEach((pkg) => {
       pkg.services.forEach((svc) => {
         if (svc.remainingSessions > 0) {
           const key = svc.catalogServiceId ?? `name:${svc.serviceName.toLowerCase()}`;
-          map.set(key, (map.get(key) ?? 0) + svc.remainingSessions);
+          const arr = map.get(key) ?? [];
+          arr.push({ packageId: pkg.id, remaining: svc.remainingSessions });
+          map.set(key, arr);
         }
       });
+    });
+    return map;
+  }, [nonExpiredPackages]);
+
+  // A package's own aggregate "Expires after this many services" cap (see
+  // PackageCreateForm.tsx) limits how many TOTAL sessions across ALL its
+  // services can ever be marked covered — independent of any one service's
+  // own remaining count. Without this, a package capped at 5 but with a
+  // service that individually still shows 8 "remaining" would let a single
+  // visit mark all 8 as covered. Uncapped packages get Infinity (no extra
+  // limit beyond each service's own remainingSessions).
+  const packageBudgets = useMemo(() => {
+    const map = new Map<string, number>();
+    nonExpiredPackages.forEach((pkg) => {
+      if (pkg.expireAfterServices == null) {
+        map.set(pkg.id, Infinity);
+      } else {
+        const completed = pkg.services.reduce((sum, s) => sum + s.completedSessions, 0);
+        map.set(pkg.id, Math.max(0, pkg.expireAfterServices - completed));
+      }
     });
     return map;
   }, [nonExpiredPackages]);
@@ -577,7 +603,7 @@ export const AppointmentModal: React.FC<Props> = ({
     if (!applyPackageMounted.current) { applyPackageMounted.current = true; return; }
     setApplyPackage(false);
   }, [clientIdForPkg]);
-  const EMPTY_COVERED = useMemo(() => new Map<string, number>(), []);
+  const EMPTY_COVERED = useMemo(() => new Map<string, Array<{ packageId: string; remaining: number }>>(), []);
   const effectiveCoveredServices = applyPackage ? coveredServices : EMPTY_COVERED;
 
   // Allocates the (shared, service-keyed) coverage pool ACROSS every row that
@@ -590,7 +616,16 @@ export const AppointmentModal: React.FC<Props> = ({
   // tempId; recomputed whenever rows are added/removed/reordered or their qty
   // changes, since the allocation depends on row order and quantities.
   const perRowCoveredRemaining = useMemo(() => {
-    const pool = new Map(effectiveCoveredServices);
+    // Working copies — a service-key pool (list of {packageId, remaining},
+    // priority order = nonExpiredPackages' soonest-expiry-first) AND each
+    // package's own aggregate budget, both consumed together as rows below
+    // are allocated. A unit can only be taken from a package that still has
+    // BOTH remaining sessions on that specific service AND remaining budget
+    // under its own "Expires after this many services" cap (if any).
+    const budgetPool = new Map(packageBudgets);
+    const servicePool = new Map<string, Array<{ packageId: string; remaining: number }>>();
+    effectiveCoveredServices.forEach((entries, key) => servicePool.set(key, entries.map((e) => ({ ...e }))));
+
     const perRow = new Map<string, number>();
     serviceRows.forEach((row, idx) => {
       if (!row.service.trim()) return;
@@ -606,17 +641,27 @@ export const AppointmentModal: React.FC<Props> = ({
       if (row.clientPackageId) return;
       const rowCatalogId = (row as any).id || null;
       const nameKey = `name:${row.service.toLowerCase()}`;
-      const key = (rowCatalogId && effectiveCoveredServices.has(rowCatalogId)) ? rowCatalogId : nameKey;
-      const avail = pool.get(key) ?? 0;
-      if (avail <= 0) return;
+      const key = (rowCatalogId && servicePool.has(rowCatalogId)) ? rowCatalogId : nameKey;
+      const entries = servicePool.get(key);
+      if (!entries || entries.length === 0) return;
+
       const tempId = (row as any).tempId || String(idx);
-      const qty = Number(row.qty) || 1;
-      const used = Math.min(avail, qty);
-      perRow.set(tempId, used);
-      pool.set(key, avail - used);
+      let need = Number(row.qty) || 1;
+      let used = 0;
+      for (const entry of entries) {
+        if (need <= 0) break;
+        const budget = budgetPool.get(entry.packageId) ?? 0;
+        const take = Math.min(entry.remaining, budget, need);
+        if (take <= 0) continue;
+        entry.remaining -= take;
+        budgetPool.set(entry.packageId, budget - take);
+        used += take;
+        need -= take;
+      }
+      if (used > 0) perRow.set(tempId, used);
     });
     return perRow;
-  }, [effectiveCoveredServices, serviceRows]);
+  }, [effectiveCoveredServices, packageBudgets, serviceRows]);
 
   // Apply (or restore) ₹0 pricing on service rows as the checkbox is toggled
   // (or as rows/quantities change and the pooled allocation above shifts).

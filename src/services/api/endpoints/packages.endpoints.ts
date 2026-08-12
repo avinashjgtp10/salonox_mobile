@@ -192,6 +192,8 @@ export interface ClientPackage {
   branch: string;
   createdDate: string;
   expiryDate: string | null;
+  /** See CreateClientPackageDTO.expireAfterServices. NULL means no early cap. */
+  expireAfterServices: number | null;
   status: string;
   basePrice: number;
   gstPercentage: number;
@@ -223,6 +225,8 @@ export interface CreateClientPackageDTO {
   paymentMethod: string;
   /** Staff member who sold this package — feeds the Package Sale report's Staff column. */
   staffId?: string;
+  /** Copied from the template's own expireAfterServices when sold from one. */
+  expireAfterServices?: number | null;
   services: Array<{
     /** Real catalog services.id, when picked from the catalog search. */
     serviceId?: string;
@@ -386,6 +390,11 @@ export interface PackageTemplate {
    *  expiryMonths is kept only as a rounded, human-friendly label. */
   expiryDays:     number | null;
   neverExpires:   boolean;
+  /** Optional aggregate cap: once a sold instance of this template has this
+   *  many TOTAL completed sessions across ALL its services combined, the
+   *  client's package closes early — regardless of individual services'
+   *  remaining sessions. NULL means no early cap. */
+  expireAfterServices: number | null;
   basePrice:      number;
   gstPercentage:  number;
   discount:       number;
@@ -400,6 +409,7 @@ export interface CreatePackageTemplateDTO {
   expiryMonths?:  number | null;
   expiryDays?:    number | null;
   neverExpires?:  boolean;
+  expireAfterServices?: number | null;
   basePrice:      number;
   gstPercentage?: number;
   discount?:      number;
