@@ -124,7 +124,7 @@ export default function SalonSettingsScreen() {
   const loadSalon = useCallback(async () => {
     const resultAction = await dispatch(fetchSalonMeThunk());
 
-    if (fetchSalonMeThunk.fulfilled.match(resultAction)) {
+    if (fetchSalonMeThunk.fulfilled.match(resultAction) && resultAction.payload) {
       setLoadedSalonId(resultAction.payload.id);
     }
   }, [dispatch]);

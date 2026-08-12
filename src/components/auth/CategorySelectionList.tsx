@@ -156,14 +156,7 @@ const CategoryChoiceRow = memo(
                 {category.name}
               </Text>
             </Pressable>
-            <Pressable
-              accessibilityLabel={`More about ${category.name}`}
-              hitSlop={10}
-              onPress={() => onMore(category)}
-              style={({ pressed }) => [styles.moreButton, pressed && styles.moreButtonPressed]}
-            >
-              <Text style={styles.moreButtonText}>More</Text>
-            </Pressable>
+
           </Animated.View>
         </Animated.View>
       </View>
@@ -388,6 +381,7 @@ const createStyles = (Colors: CategoryColors) => StyleSheet.create({
     fontWeight: "600",
     lineHeight: 20,
     paddingRight: 12,
+    textAlignVertical: "center",
   },
   categoryNameSelected: {
     color: Colors.text,
@@ -397,9 +391,12 @@ const createStyles = (Colors: CategoryColors) => StyleSheet.create({
     color: Colors.disabledText,
   },
   selectionPressable: {
+    alignItems: "center",
     flex: 1,
+    flexDirection: "row",
     justifyContent: "center",
     minHeight: 56,
+    paddingVertical: 10,
   },
   moreButton: {
     alignItems: "center",
@@ -407,6 +404,7 @@ const createStyles = (Colors: CategoryColors) => StyleSheet.create({
     minHeight: 32,
     justifyContent: "center",
     paddingHorizontal: 10,
+    alignSelf: "center",
   },
   moreButtonPressed: {
     backgroundColor: Colors.accentSoft,

@@ -222,7 +222,7 @@ const getPayloadErrorCode = (payload?: ApiErrorPayload) => {
 
 const EXPECTED_OTP_VALIDATION_ERROR_CODES = new Set(["OTP_INVALID", "OTP_EXPIRED", "EMAIL_EXISTS"]);
 
-const EXPECTED_NON_FATAL_ERROR_CODES = new Set(["NO_SALON_CONTEXT"]);
+const EXPECTED_NON_FATAL_ERROR_CODES = new Set(["NO_SALON_CONTEXT", "NOT_FOUND"]);
 
 const isExpectedOtpValidationError = (error: AxiosError<ApiErrorPayload>) =>
   error.response?.status === 400 &&
@@ -230,6 +230,13 @@ const isExpectedOtpValidationError = (error: AxiosError<ApiErrorPayload>) =>
   EXPECTED_OTP_VALIDATION_ERROR_CODES.has(getPayloadErrorCode(error.response.data) ?? "");
 
 const isExpectedNonFatalError = (error: AxiosError<ApiErrorPayload>) => {
+  const requestUrl = error.config?.url ?? "";
+  const status = error.response?.status;
+
+  if (requestUrl.includes("/salons/me") && status === 404) {
+    return true;
+  }
+
   const responseData = error.response?.data;
   return Boolean(responseData) && EXPECTED_NON_FATAL_ERROR_CODES.has(getPayloadErrorCode(responseData) ?? "");
 };

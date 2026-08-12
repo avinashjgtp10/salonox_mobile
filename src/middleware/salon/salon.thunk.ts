@@ -69,13 +69,20 @@ type UpdateSalonRejectValue = {
 };
 
 export const fetchSalonMeThunk = createAsyncThunk<
-  GetSalonResponse,
+  GetSalonResponse | null,
   void,
   { rejectValue: FetchSalonMeRejectValue; state: RootState }
 >("salon/fetchSalonMe", async (_, { rejectWithValue }) => {
   try {
     return await salonService.getSalonMe();
   } catch (error) {
+    if (
+      error instanceof ApiError &&
+      (error.status === 404 || (error.responseData as Record<string, unknown> | undefined)?.code === "NOT_FOUND")
+    ) {
+      return null;
+    }
+
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 
     console.error("[Salons] Fetch me failed", {
