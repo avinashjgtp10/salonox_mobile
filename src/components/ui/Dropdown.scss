@@ -1,7 +1,15 @@
 .ui-dropdown {
   position: relative;
+  // No-op outside a flex parent; lets the wrapper div fill the same space a
+  // bare <select> would have inside a flex row (e.g. a compact pill layout).
+  flex: 1;
+  min-width: 0;
 
-  input {
+  // :where() keeps this at zero specificity so a consumer's own className
+  // (e.g. Bootstrap's .form-select, or a feature's own field class) always
+  // wins outright instead of fighting the cascade — these defaults only
+  // apply when no className is passed in.
+  :where(input) {
     width: 100%;
     box-sizing: border-box;
     height: 38px;
@@ -15,7 +23,7 @@
     &:focus { outline: none; border-color: #111827; }
   }
 
-  &--disabled input {
+  &--disabled :where(input) {
     background: #f9fafb;
     color: #9ca3af;
     cursor: not-allowed;
@@ -26,6 +34,11 @@
     top: calc(100% + 4px);
     left: 0;
     right: 0;
+    // A trigger can be much narrower than its option text (e.g. a compact
+    // pill widget) — without a floor, the list squeezes down with it and
+    // the scrollbar ends up looking like it's most of the box. Kept modest
+    // so it doesn't balloon past the trigger it's anchored to.
+    min-width: 140px;
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -34,26 +47,26 @@
     overflow-y: auto;
     z-index: 20;
 
-    // Visible scrollbar — the plain browser default here was easy to miss,
-    // so the list looked "stuck" once content overflowed even though it was
-    // still scrollable. Matches the thin/indigo scrollbar convention used by
-    // .modal-scrollable in src/index.css.
+    // Visible but understated scrollbar — the plain browser default was easy
+    // to miss so the list looked "stuck" once content overflowed, but a bold
+    // indigo bar on a narrow box read as its own UI element rather than a
+    // scroll affordance. Thin + neutral gray stays visible without
+    // competing with the list content.
     scrollbar-width: thin;
-    scrollbar-color: #6366f1 #e0e7ff;
+    scrollbar-color: #c7cbd1 transparent;
     &::-webkit-scrollbar {
-      width: 8px;
+      width: 6px;
       display: block;
     }
     &::-webkit-scrollbar-track {
-      background: #e0e7ff;
-      border-radius: 8px;
+      background: transparent;
     }
     &::-webkit-scrollbar-thumb {
-      background: #6366f1;
+      background: #c7cbd1;
       border-radius: 8px;
     }
     &::-webkit-scrollbar-thumb:hover {
-      background: #4f46e5;
+      background: #9ca3af;
     }
   }
 

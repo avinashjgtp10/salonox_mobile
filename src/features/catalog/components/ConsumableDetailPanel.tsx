@@ -5,6 +5,7 @@ import type { AppDispatch, RootState } from "../../../store/store";
 import { fetchConsumableByIdThunk, adjustConsumableStockThunk } from "../../../middleware/inventory/inventory.thunk";
 import { clearConsumableDetail } from "../../../store/inventorySlice";
 import type { AdjustStockReason } from "../../../types/inventory.types";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/ConsumableDetailPanel.scss";
 
 interface Props {
@@ -234,9 +235,12 @@ const ConsumableDetailPanel: React.FC<Props> = ({ productId, onClose, onAdjusted
             </label>
             <label>
               Reason
-              <select value={adjustReason} onChange={(e) => setAdjustReason(e.target.value as AdjustStockReason)}>
-                {REASON_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-              </select>
+              <Dropdown
+                searchable={false}
+                value={adjustReason}
+                options={REASON_OPTIONS.map((r) => ({ id: r.value, name: r.label }))}
+                onChange={(id) => setAdjustReason(id as AdjustStockReason)}
+              />
             </label>
             {adjustError && <p className="ci-adjust-modal__error">{adjustError}</p>}
             <div className="ci-adjust-modal__actions">

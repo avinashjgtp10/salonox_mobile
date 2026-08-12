@@ -9,6 +9,7 @@ import type { UpdatePackageDTO } from "../../../services/api/endpoints/packages.
 import { useServices } from "../hooks/useServices";
 import type { Service as ApiService } from "../types/catalog.types";
 import { useCurrency } from "../../../hooks/useCurrency";
+import Dropdown from "../../../components/ui/Dropdown";
 
 type Service = ApiService;
 
@@ -285,10 +286,13 @@ const EditPackagePage: React.FC = () => {
                   </div>
                   <div className="col-md-4">
                     <label className="pkg-create__label">DISCOUNT TYPE</label>
-                    <select className="form-select pkg-create__select" value={discountType} onChange={(e) => setDT(e.target.value)}>
-                      <option>Fixed (₹)</option>
-                      <option>Percent (%)</option>
-                    </select>
+                    <Dropdown
+                      className="form-select pkg-create__select"
+                      searchable={false}
+                      value={discountType}
+                      options={["Fixed (₹)", "Percent (%)"].map((s) => ({ id: s, name: s }))}
+                      onChange={setDT}
+                    />
                   </div>
                 </div>
                 <div className="row g-3 mb-3">
@@ -298,20 +302,26 @@ const EditPackagePage: React.FC = () => {
                   </div>
                   <div className="col-md-6">
                     <label className="pkg-create__label">CATEGORY <span className="text-danger">*</span></label>
-                    <select className="form-select pkg-create__select" value={category} onChange={(e) => setCategory(e.target.value)}>
-                      <option value="">Select…</option>
-                      {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                    </select>
+                    <Dropdown
+                      className="form-select pkg-create__select"
+                      searchable={false}
+                      placeholder="Select…"
+                      value={category}
+                      options={CATEGORIES.map((c) => ({ id: c, name: c }))}
+                      onChange={setCategory}
+                    />
                   </div>
                 </div>
                 <div className="row g-3">
                   <div className="col-md-6">
                     <label className="pkg-create__label">STATUS</label>
-                    <select className="form-select pkg-create__select" value={status} onChange={(e) => setStatus(e.target.value as typeof status)}>
-                      <option>Active</option>
-                      <option>Draft</option>
-                      <option>Inactive</option>
-                    </select>
+                    <Dropdown
+                      className="form-select pkg-create__select"
+                      searchable={false}
+                      value={status}
+                      options={["Active", "Draft", "Inactive"].map((s) => ({ id: s, name: s }))}
+                      onChange={(id) => setStatus(id as typeof status)}
+                    />
                   </div>
                   <div className="col-md-6">
                     <label className="pkg-create__label">ACCENT COLOUR</label>
@@ -399,10 +409,13 @@ const EditPackagePage: React.FC = () => {
                     </div>
                     <div className="col-md-6">
                       <label className="pkg-create__label">TYPE</label>
-                      <select className="form-select pkg-create__select" value={offer.type} onChange={(e) => updateOffer(offer.id, "type", e.target.value)}>
-                        <option>Percent (%)</option>
-                        <option>Fixed (₹)</option>
-                      </select>
+                      <Dropdown
+                        className="form-select pkg-create__select"
+                        searchable={false}
+                        value={offer.type}
+                        options={["Percent (%)", "Fixed (₹)"].map((s) => ({ id: s, name: s }))}
+                        onChange={(id) => updateOffer(offer.id, "type", id)}
+                      />
                     </div>
                     <div className="col-md-4">
                       <label className="pkg-create__label">START DATE</label>

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { X, ChevronDown } from "react-bootstrap-icons";
 import Button from "../../../components/ui/Button";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/PackageFilterDrawer.scss";
 
 export interface PackageFilterState {
@@ -59,20 +60,13 @@ const PackageFilterDrawer: React.FC<Props> = ({
           <div className="filter-group">
             <label>Category</label>
             <div className="select-wrapper">
-              <select
+              <Dropdown
                 className="form-select-custom"
+                searchable={false}
                 value={filters.category}
-                onChange={(e) =>
-                  setFilters({ ...filters, category: e.target.value })
-                }
-              >
-                <option>All categories</option>
-                <option>Spa</option>
-                <option>Hair</option>
-                <option>Skin</option>
-                <option>Nails</option>
-                <option>Body</option>
-              </select>
+                options={["All categories", "Spa", "Hair", "Skin", "Nails", "Body"].map((s) => ({ id: s, name: s }))}
+                onChange={(id) => setFilters({ ...filters, category: id })}
+              />
               <ChevronDown className="select-chevron" size={14} />
             </div>
           </div>
@@ -81,18 +75,13 @@ const PackageFilterDrawer: React.FC<Props> = ({
           <div className="filter-group">
             <label>Status</label>
             <div className="select-wrapper">
-              <select
+              <Dropdown
                 className="form-select-custom"
+                searchable={false}
                 value={filters.status}
-                onChange={(e) =>
-                  setFilters({ ...filters, status: e.target.value })
-                }
-              >
-                <option>All statuses</option>
-                <option>Active</option>
-                <option>Draft</option>
-                <option>Inactive</option>
-              </select>
+                options={["All statuses", "Active", "Draft", "Inactive"].map((s) => ({ id: s, name: s }))}
+                onChange={(id) => setFilters({ ...filters, status: id })}
+              />
               <ChevronDown className="select-chevron" size={14} />
             </div>
           </div>

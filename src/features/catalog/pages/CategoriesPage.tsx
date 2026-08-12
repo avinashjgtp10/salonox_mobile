@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/CategoriesPage.scss";
 
 interface Category {
@@ -281,19 +282,16 @@ const CategoriesPage: React.FC = () => {
                 </div>
                 <div className="mb-1">
                   <label className="form-label small fw-medium">Status</label>
-                  <select
+                  <Dropdown
                     className="form-select form-select-sm"
+                    searchable={false}
                     value={form.status}
-                    onChange={(e) =>
-                      setForm({
-                        ...form,
-                        status: e.target.value as "active" | "inactive",
-                      })
-                    }
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+                    options={[
+                      { id: "active", name: "Active" },
+                      { id: "inactive", name: "Inactive" },
+                    ]}
+                    onChange={(id) => setForm({ ...form, status: id as "active" | "inactive" })}
+                  />
                 </div>
               </div>
               <div className="modal-footer border-0 pt-0">

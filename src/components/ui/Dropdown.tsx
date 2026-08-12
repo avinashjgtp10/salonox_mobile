@@ -17,13 +17,14 @@ interface DropdownProps {
   /** false = click-to-open list only, no typing/filtering (drop-in for a plain native <select>). Default true. */
   searchable?: boolean;
   className?: string;
+  style?: React.CSSProperties;
 }
 
 // Reusable dropdown modeled on the Category/Brand picker from the Add Product
 // form (src/features/catalog/components/form/SearchSelect.tsx) — same
 // search-input + inline-positioned list interaction, generalized so any
-// modal can adopt it instead of a native <select>. `searchable={false}`
-// covers the plain single-select modal fields that don't need type-to-filter.
+// modal/page can adopt it instead of a native <select>. `searchable={false}`
+// covers the plain single-select fields that don't need type-to-filter.
 export const Dropdown: React.FC<DropdownProps> = ({
   value,
   options,
@@ -34,6 +35,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   disabled,
   searchable = true,
   className,
+  style,
 }) => {
   const [query, setQuery] = useState("");
   const [open, setOpen] = useState(false);
@@ -103,8 +105,10 @@ export const Dropdown: React.FC<DropdownProps> = ({
   }
 
   return (
-    <div className={`ui-dropdown${className ? ` ${className}` : ""}${disabled ? " ui-dropdown--disabled" : ""}`}>
+    <div className={`ui-dropdown${disabled ? " ui-dropdown--disabled" : ""}`}>
       <input
+        className={className}
+        style={style}
         placeholder={placeholder}
         value={displayValue}
         readOnly={!searchable}

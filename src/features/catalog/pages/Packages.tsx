@@ -38,6 +38,7 @@ import type { Service as ApiService } from "../types/catalog.types";
 
 import ClientSearchInput, { type ClientSearchResult } from "../../clients/components/ClientSearchInput";
 import { useCurrency } from "../../../hooks/useCurrency";
+import Dropdown from "../../../components/ui/Dropdown";
 import "./Packages.scss";
 
 
@@ -651,10 +652,13 @@ const CreateView: React.FC<NavProps> = ({ onNavigate }) => {
                   </div>
                   <div className="col-md-4">
                     <label className="pkg-create__label">DISCOUNT TYPE</label>
-                    <select className="form-select pkg-create__select" value={discountType} onChange={(e) => setDT(e.target.value)}>
-                      <option>Fixed (₹)</option>
-                      <option>Percent (%)</option>
-                    </select>
+                    <Dropdown
+                      className="form-select pkg-create__select"
+                      searchable={false}
+                      value={discountType}
+                      options={["Fixed (₹)", "Percent (%)"].map((s) => ({ id: s, name: s }))}
+                      onChange={setDT}
+                    />
                   </div>
                 </div>
                 <div className="row g-3">
@@ -664,10 +668,14 @@ const CreateView: React.FC<NavProps> = ({ onNavigate }) => {
                   </div>
                   <div className="col-md-6">
                     <label className="pkg-create__label">CATEGORY <span className="text-danger">*</span></label>
-                    <select className="form-select pkg-create__select" value={category} onChange={(e) => setCategory(e.target.value)}>
-                      <option value="">Select…</option>
-                      {CATEGORIES.map((c) => <option key={c}>{c}</option>)}
-                    </select>
+                    <Dropdown
+                      className="form-select pkg-create__select"
+                      searchable={false}
+                      placeholder="Select…"
+                      value={category}
+                      options={CATEGORIES.map((c) => ({ id: c, name: c }))}
+                      onChange={setCategory}
+                    />
                   </div>
                 </div>
               </div>
@@ -743,10 +751,13 @@ const CreateView: React.FC<NavProps> = ({ onNavigate }) => {
                     </div>
                     <div className="col-md-6">
                       <label className="pkg-create__label">TYPE</label>
-                      <select className="form-select pkg-create__select" value={offer.type} onChange={(e) => updateOffer(offer.id, "type", e.target.value)}>
-                        <option>Percent (%)</option>
-                        <option>Fixed (₹)</option>
-                      </select>
+                      <Dropdown
+                        className="form-select pkg-create__select"
+                        searchable={false}
+                        value={offer.type}
+                        options={["Percent (%)", "Fixed (₹)"].map((s) => ({ id: s, name: s }))}
+                        onChange={(id) => updateOffer(offer.id, "type", id)}
+                      />
                     </div>
                     <div className="col-md-4">
                       <label className="pkg-create__label">START DATE</label>
@@ -1100,45 +1111,37 @@ const CustomPackageView: React.FC<NavProps> = ({ onNavigate }) => {
                 <div className="row g-3 mb-4">
                   <div className="col-md-6">
                     <label className="pkg-create__label">Package Category</label>
-                    <select 
+                    <Dropdown
                       className="form-select pkg-create__select"
+                      searchable={false}
+                      placeholder="Select Category"
                       value={pkgCategory}
-                      onChange={(e) => setPkgCategory(e.target.value)}
-                    >
-                      <option value="">Select Category</option>
-                      {CATEGORIES.map((cat) => (
-                        <option key={cat} value={cat}>{cat}</option>
-                      ))}
-                    </select>
+                      options={CATEGORIES.map((cat) => ({ id: cat, name: cat }))}
+                      onChange={setPkgCategory}
+                    />
                   </div>
 
                   <div className="col-md-6">
                     <label className="pkg-create__label">Template *</label>
-                    <select 
+                    <Dropdown
                       className="form-select pkg-create__select"
                       disabled={useTemplate === "no"}
+                      placeholder="Select template"
                       value={selectedTemplateId}
-                      onChange={(e) => handleTemplateChange(e.target.value)}
-                      required={useTemplate === "yes"}
-                    >
-                      <option value="">Select template</option>
-                      {templates?.items?.map((t: ApiPackage) => (
-                        <option key={t.id} value={t.id}>{t.name}</option>
-                      ))}
-                    </select>
+                      options={(templates?.items ?? []).map((t: ApiPackage) => ({ id: t.id, name: t.name }))}
+                      onChange={handleTemplateChange}
+                    />
                   </div>
 
                   <div className="col-md-6">
                     <label className="pkg-create__label">Business Unit</label>
-                    <select 
+                    <Dropdown
                       className="form-select pkg-create__select"
+                      searchable={false}
                       value={businessUnit}
-                      onChange={(e) => setBusinessUnit(e.target.value)}
-                    >
-                      <option value="Default BU">Default BU</option>
-                      <option value="Center 1">Center 1</option>
-                      <option value="Center 2">Center 2</option>
-                    </select>
+                      options={["Default BU", "Center 1", "Center 2"].map((s) => ({ id: s, name: s }))}
+                      onChange={setBusinessUnit}
+                    />
                   </div>
 
                   <div className="col-md-6">
