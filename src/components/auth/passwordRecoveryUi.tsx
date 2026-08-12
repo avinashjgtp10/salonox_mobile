@@ -4,10 +4,8 @@ import { useMemo, type PropsWithChildren, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Image,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -15,6 +13,7 @@ import {
   type TextInputProps,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
@@ -136,19 +135,16 @@ export function PasswordRecoveryScaffold({
         />
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      <KeyboardAwareScrollView
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
+        contentContainerStyle={styles.scrollContainer}
+        keyboardDismissMode="none"
+        keyboardShouldPersistTaps="always"
+        showsVerticalScrollIndicator={false}
         style={styles.keyboardView}
       >
-        <ScrollView
-          bounces={false}
-          alwaysBounceVertical={false}
-          overScrollMode="never"
-          contentContainerStyle={styles.scrollContainer}
-          keyboardDismissMode="none"
-          keyboardShouldPersistTaps="always"
-          showsVerticalScrollIndicator={false}
-        >
           <View style={styles.card}>
             <View style={styles.brandContainer}>
               <Image
@@ -164,8 +160,7 @@ export function PasswordRecoveryScaffold({
 
             {footer}
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </LinearGradient>
   );
 }

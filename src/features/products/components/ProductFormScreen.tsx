@@ -3,9 +3,7 @@ import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -15,6 +13,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -150,8 +149,7 @@ export default function ProductFormScreen({ id, mode }: Props) {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+      <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.flex}>
           <Header title={title} onBack={goBack} />
           {state.detailsError && mode === "edit" && !liveProduct ? (
             <ErrorNotice message={state.detailsError} />
@@ -185,8 +183,7 @@ export default function ProductFormScreen({ id, mode }: Props) {
               </TouchableOpacity>
             </View>
           )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
       <Modal animationType="fade" transparent visible={brandModalOpen} onRequestClose={() => setBrandModalOpen(false)}>
         <Pressable style={styles.overlay} onPress={() => setBrandModalOpen(false)}>
           <Pressable style={styles.sheet}>

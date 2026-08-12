@@ -9,10 +9,8 @@ import {
   Animated,
   Dimensions,
   Image,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -23,6 +21,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useAuth } from "@/context/AuthContext";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { useAppDispatch } from "@/store/hooks";
 import { createSalonThunk } from "@/middleware/salon/salon.thunk";
 import type { CreateSalonRequest } from "@/types/salon";
@@ -810,32 +809,28 @@ export default function OnboardingScreen() {
         </View>
       )}
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={0}
+      <KeyboardAwareScrollView
+        alwaysBounceVertical={false}
+        bounces={false}
+        overScrollMode="never"
+        contentContainerStyle={[
+          styles.scrollContainer,
+          isCategoryStep && styles.categoryScrollContainer,
+          {
+            paddingBottom: scrollBottomPadding,
+            paddingHorizontal: horizontalPagePadding,
+            paddingTop: scrollTopPadding,
+          },
+        ]}
+        contentInsetAdjustmentBehavior="never"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        keyboardShouldPersistTaps="handled"
+        onContentSizeChange={(_, height) => setScrollContentHeight(height)}
+        onLayout={(event) => setScrollViewportHeight(event.nativeEvent.layout.height)}
+        scrollEnabled={shouldEnableOnboardingScroll}
+        showsVerticalScrollIndicator={shouldEnableOnboardingScroll}
         style={styles.formKeyboardView}
       >
-        <ScrollView
-          alwaysBounceVertical={false}
-          bounces={false}
-          overScrollMode="never"
-          contentContainerStyle={[
-            styles.scrollContainer,
-            isCategoryStep && styles.categoryScrollContainer,
-            {
-              paddingBottom: scrollBottomPadding,
-              paddingHorizontal: horizontalPagePadding,
-              paddingTop: scrollTopPadding,
-            },
-          ]}
-          contentInsetAdjustmentBehavior="never"
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          keyboardShouldPersistTaps="handled"
-          onContentSizeChange={(_, height) => setScrollContentHeight(height)}
-          onLayout={(event) => setScrollViewportHeight(event.nativeEvent.layout.height)}
-          scrollEnabled={shouldEnableOnboardingScroll}
-          showsVerticalScrollIndicator={shouldEnableOnboardingScroll}
-        >
           <Animated.View
             style={[
               styles.card,
@@ -1394,8 +1389,7 @@ export default function OnboardingScreen() {
             )}
 
           </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       <View
         style={[
