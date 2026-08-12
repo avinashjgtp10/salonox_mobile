@@ -4,6 +4,7 @@ import type { ServiceItem } from "../../types/scheduler-types";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import TimeSelect from "../shared/TimeSelect";
+import Dropdown from "../../../../components/ui/Dropdown";
 import { Trash, Pencil } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
 import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
@@ -1034,26 +1035,14 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
             >
               ×
             </button>
-            <select
+            <Dropdown
               disabled={disabled}
-              value={row.staffId}
-              onChange={(e) => handleStaffChange(e.target.value)}
               className="svc-staff-pill__select"
-              style={{ color: row.staffId ? "#111827" : "#6b7280" }}
-            >
-              <option value="" disabled style={{ color: "#000", background: "#fff" }}>
-                Select Staff
-              </option>
-              {(staffList || []).map((staff: StaffDto) => (
-                <option
-                  key={String(staff.id)}
-                  value={String(staff.id)}
-                  style={{ color: "#000", background: "#fff" }}
-                >
-                  {fmtName(staff.name)}
-                </option>
-              ))}
-            </select>
+              placeholder="Select Staff"
+              value={row.staffId}
+              options={(staffList || []).map((staff: StaffDto) => ({ id: String(staff.id), name: fmtName(staff.name) }))}
+              onChange={handleStaffChange}
+            />
           </div>
           {errorFields.staff && <span className="svc-field__err">Select staff</span>}
         </div>
@@ -1373,19 +1362,14 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                   value={addDraft.qty}
                   onChange={(e) => { setAddDraft((p) => (p ? { ...p, qty: e.target.value } : p)); if (addError) setAddError(""); }}
                 />
-                <select
+                <Dropdown
                   className="svc-consumable-row__input svc-consumable-row__input--sm svc-consumable-row__unit-select"
+                  searchable={false}
+                  placeholder="Unit"
                   value={addDraft.unit}
-                  onChange={(e) => setAddDraft((p) => (p ? { ...p, unit: e.target.value } : p))}
-                >
-                  <option value="">Unit</option>
-                  <option value="ml">ml</option>
-                  <option value="L">L</option>
-                  <option value="g">g</option>
-                  <option value="kg">kg</option>
-                  <option value="oz">oz</option>
-                  <option value="pcs">pcs</option>
-                </select>
+                  options={ADD_UNIT_OPTIONS.map((u) => ({ id: u, name: u }))}
+                  onChange={(id) => setAddDraft((p) => (p ? { ...p, unit: id } : p))}
+                />
                 <button
                   type="button"
                   className="svc-consumable-modal__btn svc-consumable-modal__btn--add"

@@ -103,8 +103,9 @@ export const Dropdown: React.FC<DropdownProps> = ({
   }
 
   return (
-    <div className={`ui-dropdown${className ? ` ${className}` : ""}${disabled ? " ui-dropdown--disabled" : ""}`}>
+    <div className={`ui-dropdown${disabled ? " ui-dropdown--disabled" : ""}`}>
       <input
+        className={className}
         placeholder={placeholder}
         value={displayValue}
         readOnly={!searchable}

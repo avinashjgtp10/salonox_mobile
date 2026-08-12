@@ -9,6 +9,7 @@ import type { ServiceItem, PackageItem, ProductItem, MembershipItem } from "../.
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import TimeSelect from "../shared/TimeSelect";
 import NameSelect from "../shared/NameSelect";
+import Dropdown from "../../../../components/ui/Dropdown";
 import type { IntervalOption } from "../../types/scheduler-types";
 
 const MIN_SEARCH_LENGTH = 3;
@@ -469,22 +470,14 @@ function MembershipRow({
           >
             ×
           </button>
-          <select
+          <Dropdown
             disabled={frozen}
-            value={row.staffId || ""}
-            onChange={(e) => { onUpdateMembership(index, { ...row, staffId: e.target.value }); if (e.target.value) onClearError?.("staff"); }}
             className="svc-staff-pill__select"
-            style={{ color: row.staffId ? "#111827" : "#6b7280" }}
-          >
-            <option value="" disabled style={{ color: "#000", background: "#fff" }}>
-              Select Staff
-            </option>
-            {staffList.map((s) => (
-              <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
-                {fmtName(s.name)}
-              </option>
-            ))}
-          </select>
+            placeholder="Select Staff"
+            value={row.staffId || ""}
+            options={staffList.map((s) => ({ id: s.id, name: fmtName(s.name) }))}
+            onChange={(id) => { onUpdateMembership(index, { ...row, staffId: id }); if (id) onClearError?.("staff"); }}
+          />
         </div>
         {memError?.staff && <span className="svc-field__err">Select staff</span>}
       </div>
@@ -803,22 +796,14 @@ function PackageRow({
           >
             ×
           </button>
-          <select
+          <Dropdown
             disabled={frozen}
-            value={row.staffId || ""}
-            onChange={(e) => { onUpdatePackage(index, { ...row, staffId: e.target.value }); if (e.target.value) onClearError?.("staff"); }}
             className="svc-staff-pill__select"
-            style={{ color: row.staffId ? "#111827" : "#6b7280" }}
-          >
-            <option value="" disabled style={{ color: "#000", background: "#fff" }}>
-              Select Staff
-            </option>
-            {staffList.map((s) => (
-              <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
-                {fmtName(s.name)}
-              </option>
-            ))}
-          </select>
+            placeholder="Select Staff"
+            value={row.staffId || ""}
+            options={staffList.map((s) => ({ id: s.id, name: fmtName(s.name) }))}
+            onChange={(id) => { onUpdatePackage(index, { ...row, staffId: id }); if (id) onClearError?.("staff"); }}
+          />
         </div>
         {pkgError?.staff && <span className="svc-field__err">Select staff</span>}
       </div>
@@ -1597,22 +1582,14 @@ function SearchableItemRow(props: SearchableItemRowProps) {
           >
             ×
           </button>
-          <select
+          <Dropdown
             disabled={frozen}
-            value={row.staffId || ""}
-            onChange={(e) => { onUpdate({ ...row, staffId: e.target.value } as any); if (e.target.value) onClearError?.("staff"); }}
             className="svc-staff-pill__select"
-            style={{ color: row.staffId ? "#111827" : "#6b7280" }}
-          >
-            <option value="" disabled style={{ color: "#000", background: "#fff" }}>
-              Select Staff
-            </option>
-            {staffList.map((s) => (
-              <option key={s.id} value={s.id} style={{ color: "#000", background: "#fff" }}>
-                {fmtName(s.name)}
-              </option>
-            ))}
-          </select>
+            placeholder="Select Staff"
+            value={row.staffId || ""}
+            options={staffList.map((s) => ({ id: s.id, name: fmtName(s.name) }))}
+            onChange={(id) => { onUpdate({ ...row, staffId: id } as any); if (id) onClearError?.("staff"); }}
+          />
         </div>
         {staffError && <span className="svc-field__err">Select staff</span>}
       </div>
