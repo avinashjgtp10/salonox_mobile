@@ -1304,6 +1304,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       clientName: client?.full_name,
       clientPhone: clientPhoneForPrint,
       clientEmail: client?.email,
+      staffId: pkg.staff_id,
       dateIso: matchedSale?.created_at ?? pkg.created_date,
       items,
       status: matchedSale?.status ?? pkg.status,
