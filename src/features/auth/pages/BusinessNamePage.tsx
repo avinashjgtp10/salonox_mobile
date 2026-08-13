@@ -35,7 +35,7 @@ export default function BusinessNamePage() {
   }, [profile]);
 
   const isBusinessNameValid = businessName.trim().length >= 3;
-  const websiteRx = /^([\w-]+\.)+[a-zA-Z]{2,}(\/\S*)?$/;
+  const websiteRx = /^(https?:\/\/)?([\w-]+\.)+[a-zA-Z]{2,}(\/\S*)?$/;
   const isWebsiteValid = website.trim() === "" || websiteRx.test(website.trim());
 
   const showBusinessNameError = (touched.businessName || submitted) && !isBusinessNameValid;
