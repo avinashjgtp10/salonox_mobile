@@ -63,8 +63,7 @@ export function useKeyboardAwareScrollView<
           TextInput.State as unknown as {
             currentlyFocusedInput?: () => unknown;
           }
-        ).currentlyFocusedInput?.() ??
-        TextInput.State.currentlyFocusedField?.();
+        ).currentlyFocusedInput?.();
 
       if (!focusedInput) return;
 
@@ -233,8 +232,7 @@ export function useKeyboardAwareScrollView<
           TextInput.State as unknown as {
             currentlyFocusedInput?: () => unknown;
           }
-        ).currentlyFocusedInput?.() ??
-        TextInput.State.currentlyFocusedField?.();
+        ).currentlyFocusedInput?.();
 
       if (focusedInput && focusedInput !== activeInputRef.current) {
         scrollToFocusedInput();
