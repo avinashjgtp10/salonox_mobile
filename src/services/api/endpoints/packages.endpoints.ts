@@ -194,6 +194,8 @@ export interface ClientPackage {
   expiryDate: string | null;
   /** See CreateClientPackageDTO.expireAfterServices. NULL means no early cap. */
   expireAfterServices: number | null;
+  /** Copied from the source template/bundle's own description at sale time. NULL when the source had none, or for packages sold before this column existed. */
+  description: string | null;
   status: string;
   basePrice: number;
   gstPercentage: number;
@@ -227,6 +229,8 @@ export interface CreateClientPackageDTO {
   staffId?: string;
   /** Copied from the template's own expireAfterServices when sold from one. */
   expireAfterServices?: number | null;
+  /** Copied from the template's own description when sold from one. */
+  description?: string | null;
   services: Array<{
     /** Real catalog services.id, when picked from the catalog search. */
     serviceId?: string;

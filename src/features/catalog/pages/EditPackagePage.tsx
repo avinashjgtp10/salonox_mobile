@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
 import { X } from "react-bootstrap-icons";
 import {
   useGetPackageByIdQuery,
@@ -10,6 +11,8 @@ import { useServices } from "../hooks/useServices";
 import type { Service as ApiService } from "../types/catalog.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import Dropdown from "../../../components/ui/Dropdown";
+import type { AppDispatch } from "../../../store/store";
+import { setPackagesList } from "../../../store/schedulerSlice";
 
 type Service = ApiService;
 
@@ -37,6 +40,7 @@ const EditPackagePage: React.FC = () => {
 
   const { data: pkg, isLoading, isError } = useGetPackageByIdQuery(id!, { skip: !id });
   const [updatePackage] = useUpdatePackageMutation();
+  const dispatch = useDispatch<AppDispatch>();
 
   // ── All state declarations first ─────────────────────────────────────────
   const [step, setStep]               = useState(1);
@@ -167,6 +171,11 @@ const EditPackagePage: React.FC = () => {
         offers: offers.map(({ id: _id, ...rest }) => rest),
       };
       await updatePackage({ id, data: payload }).unwrap();
+      // Same cache-invalidation reason as package creation (Packages.tsx) —
+      // Quick Sale/Calendar's "+Package" row cache the package catalog and
+      // only refetch it when empty, so an edited description/price would
+      // otherwise keep showing the old value there for the rest of the session.
+      dispatch(setPackagesList([]));
       navigate(-1);
     } catch {
       alert("Failed to update package. Please try again.");
