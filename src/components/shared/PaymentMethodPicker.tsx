@@ -99,7 +99,23 @@ export const PaymentMethodPicker: React.FC<PaymentMethodPickerProps> = ({
               <button
                 key={mode}
                 className={paymentMode === mode ? "active" : ""}
-                onClick={() => onSetPaymentMode(mode)}
+                onClick={() => {
+                  // Carry the single-mode method/amount into split's first row
+                  // instead of dropping it — switching modes shouldn't force
+                  // retyping an amount already entered. Replaces whatever was
+                  // in split before: the single-mode values are the current
+                  // source of truth at the moment of the switch.
+                  if (mode === "split" && paymentMode === "single" && singleMethod) {
+                    // Split's own base can differ from single's (e.g. prior-due
+                    // bookings are folded into totalToCollect but not into
+                    // splitCollectBase) — clamped so the carried-over amount can
+                    // never render as already over the split limit.
+                    const splitBase = splitCollectBase ?? totalToCollect;
+                    const seededAmount = Math.min(currentAmount, splitBase);
+                    onSetSplitEntries([{ method: singleMethod, amount: seededAmount > 0 ? seededAmount.toFixed(2) : "" }]);
+                  }
+                  onSetPaymentMode(mode);
+                }}
               >
                 {mode === "single" ? "Single" : "Split"}
               </button>
@@ -232,13 +248,14 @@ export const PaymentMethodPicker: React.FC<PaymentMethodPickerProps> = ({
                         <button
                           type="button"
                           className="pay-split__fill-remaining"
+                          title={`Fill remaining ${rowMax.toFixed(2)}`}
                           onClick={() => {
                             const updated = [...splitEntries];
                             updated[i] = { ...entry, amount: rowMax.toFixed(2) };
                             onSetSplitEntries(updated);
                           }}
                         >
-                          Fill Remaining
+                          Fill
                         </button>
                       )}
                       <button

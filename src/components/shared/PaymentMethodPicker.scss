@@ -102,7 +102,8 @@ $danger:     #ef4444;
   &__row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    flex-wrap: wrap;
+    gap: 6px 8px;
   }
 
   &__methods {
