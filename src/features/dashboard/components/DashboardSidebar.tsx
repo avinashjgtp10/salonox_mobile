@@ -1,4 +1,5 @@
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
+import { useEffect, useRef } from "react";
 import {
   House,
   Lightning,
@@ -34,6 +35,50 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
   const { can } = usePermissions();
   const navigate = useNavigate();
   const location = useLocation();
+  const sidebarRef = useRef<HTMLElement>(null);
+
+  // Fixed-size icons/labels can't guarantee every item fits on every screen
+  // height, and a scrollbar was explicitly ruled out — so instead of a fixed
+  // CSS size, measure the sidebar's real available height and how many nav
+  // items actually rendered (permission-gated, varies per user), then size
+  // each item to exactly fill that space. Re-runs whenever the sidebar's own
+  // box resizes (viewport/topbar/deployment-banner height changes) or its
+  // children change (permissions resolving after mount changes item count).
+  useEffect(() => {
+    const el = sidebarRef.current;
+    if (!el) return;
+
+    const fit = () => {
+      const items = Array.from(el.children).filter((c) =>
+        c.classList.contains("nav-btn")
+      );
+      const count = items.length;
+      if (count === 0) return;
+
+      const perItem = Math.floor(el.clientHeight / count);
+      const itemH = Math.max(30, Math.min(60, perItem));
+      const iconSize = Math.round(Math.max(16, Math.min(24, itemH * 0.4)));
+      const labelSize = Math.max(7, Math.min(10, itemH * 0.17));
+      // Below this, there isn't room for both icon and a legible label —
+      // drop the label rather than render it unreadably small.
+      const showLabel = itemH >= 34;
+
+      el.style.setProperty("--nav-item-h", `${itemH}px`);
+      el.style.setProperty("--nav-icon-size", `${iconSize}px`);
+      el.style.setProperty("--nav-label-size", `${labelSize}px`);
+      el.style.setProperty("--nav-label-display", showLabel ? "block" : "none");
+    };
+
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(el);
+    const mo = new MutationObserver(fit);
+    mo.observe(el, { childList: true });
+    return () => {
+      ro.disconnect();
+      mo.disconnect();
+    };
+  }, []);
 
   function navClass(isActive: boolean) {
     return isActive ? "nav-btn route-active" : "nav-btn";
@@ -44,7 +89,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
   }
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" ref={sidebarRef}>
       {can("view_dashboard") && (
         <NavLink
           to="/dashboard"
@@ -52,7 +97,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           className={({ isActive }) => navClass(isActive)}
           onClick={() => onMenuChange(null)}
         >
-          <House size={26} />
+          <House size={22} />
           <span className="nav-label">Home</span>
         </NavLink>
       )}
@@ -63,7 +108,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           className={({ isActive }) => navClass(isActive)}
           onClick={() => onMenuChange(null)}
         >
-          <Lightning size={26} />
+          <Lightning size={22} />
           <span className="nav-label">Quick Sale</span>
         </NavLink>
       )}
@@ -74,7 +119,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           className={({ isActive }) => navClass(isActive)}
           onClick={() => onMenuChange(null)}
         >
-          <Calendar size={26} />
+          <Calendar size={22} />
           <span className="nav-label">Calendar</span>
         </NavLink>
       )}
@@ -95,7 +140,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
             }
           }}
         >
-          <EmojiSmile size={26} />
+          <EmojiSmile size={22} />
           <span className="nav-label">Clients</span>
         </button>
       )}
@@ -115,7 +160,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
             }
           }}
         >
-          <Book size={26} />
+          <Book size={22} />
           <span className="nav-label">Catalog</span>
         </button>
       )}
@@ -136,7 +181,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
             }
           }}
         >
-          <Globe2 size={26} />
+          <Globe2 size={22} />
           <span className="nav-label">Online booking</span>
         </button>
       )}
@@ -150,7 +195,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           className={({ isActive }) => navClass(isActive)}
           onClick={() => onMenuChange(null)}
         >
-          <Cash  size={26} />
+          <Cash  size={22} />
           <span className="nav-label">Cash Management</span>
         </NavLink>
       )}
@@ -174,7 +219,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
             }
           }}
         >
-          <Megaphone size={26} />
+          <Megaphone size={22} />
           <span className="nav-label">Marketing</span>
         </button>
       )}
@@ -185,7 +230,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           className={({ isActive }) => navClass(isActive)}
           onClick={() => onMenuChange(null)}
         >
-          <ChatSquareText size={26} />
+          <ChatSquareText size={22} />
           <span className="nav-label">Enquiries</span>
         </NavLink>
       )}
@@ -206,7 +251,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
             }
           }}
         >
-          <People size={26} />
+          <People size={22} />
           <span className="nav-label">Staff</span>
         </button>
       )}
@@ -217,7 +262,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           className={({ isActive }) => navClass(isActive)}
           onClick={() => onMenuChange(null)}
         >
-          <GraphUpArrow size={26} />
+          <GraphUpArrow size={22} />
           <span className="nav-label">Reports</span>
         </NavLink>
       )}
@@ -227,11 +272,9 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         className={({ isActive }) => navClass(isActive)}
         onClick={() => onMenuChange(null)}
       >
-        <Grid3x3Gap size={26} />
+        <Grid3x3Gap size={22} />
         <span className="nav-label">Apps</span>
       </NavLink>
-
-      <div className="nav-spacer" />
 
       {can("general_settings") && (
         <NavLink
@@ -239,7 +282,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           className={({ isActive }) => navClass(isActive)}
           onClick={() => onMenuChange(null)}
         >
-          <Gear size={26} />
+          <Gear size={22} />
           <span className="nav-label">Settings</span>
         </NavLink>
       )}
@@ -249,7 +292,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         className={({ isActive }) => navClass(isActive)}
         onClick={() => onMenuChange(null)}
       >
-        <QuestionCircle size={26} />
+        <QuestionCircle size={22} />
         <span className="nav-label">Help</span>
       </NavLink>
     </aside>
