@@ -5,7 +5,7 @@ import {
   GraphUpArrow, People, PersonBadge, CalendarCheck, BoxSeam, Tag, Megaphone,
   PieChartFill, Bag, Scissors, BarChartLine, Receipt, Award, Wallet2,
   PersonCircle, PersonCheck, PeopleFill, Droplet, Whatsapp, FileEarmarkBarGraph,
-  CashCoin, PersonCheckFill, Truck, ChatDots, PersonDash,
+  CashCoin, PersonCheckFill, Truck, ChatDots, PersonDash, ArrowRepeat,
 } from "react-bootstrap-icons";
 import "../styles/ReportsPage.scss";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -34,6 +34,7 @@ import ClientRatingReport from "../reports/ClientRatingReport";
 import StaffSalesReport from "../reports/StaffSalesReport";
 import StaffPerformanceReport from "../reports/StaffPerformanceReport";
 import StaffItemSalesReport from "../reports/StaffItemSalesReport";
+import RebookingRateReport from "../reports/RebookingRateReport";
 import CommissionReport from "../reports/CommissionReport";
 import AttendanceReport from "../reports/AttendanceReport";
 import PackageHistoryReport from "../reports/PackageHistoryReport";
@@ -97,6 +98,7 @@ const REPORTS: ReportDef[] = [
   { id: "staff_item_sales",       slug: "staff-item-sales",       name: "Service, Product, Membership & Package Sold by Staff", description: "What each staff member sold, broken down by item type.",                                 category: "staff",        icon: PeopleFill,     Component: StaffItemSalesReport },
   { id: "commission_report",      slug: "commission-report",      name: "Commission Report",                           description: "Commission earned by each staff member for a month — revenue, pending and paid payouts.",          category: "staff",        icon: CashCoin,       Component: CommissionReport },
   { id: "attendance_report",      slug: "attendance-report",      name: "Attendance Report",                           description: "Daily attendance for every staff member — status, check-in/out and hours worked.",                   category: "staff",        icon: PersonCheckFill, Component: AttendanceReport },
+  { id: "rebooking_rate",         slug: "rebooking-rate",         name: "Rebooking Rate Report",                       description: "How effectively each staff member retains clients — share of served visits where the client came back within your chosen window.", category: "staff", icon: ArrowRepeat, Component: RebookingRateReport },
   { id: "appointment_detail",     slug: "appointment-detail",     name: "Detailed Appointment Reports",                description: "Every appointment for a period, with status, staff, service and payment detail.",                 category: "appointments", icon: CalendarCheck,  Component: AppointmentDetailReport },
   { id: "upcoming_appointments",  slug: "upcoming-appointments",  name: "Upcoming Appointments Report",                description: "Future appointments still booked — date, time, client, service and staff.",                       category: "appointments", icon: ClockHistory,   Component: UpcomingAppointmentsReport },
   { id: "product_inventory",      slug: "product-inventory",      name: "Product Inventory",                           description: "Current on-hand stock, reorder levels and stock value by product.",                                category: "inventory",    icon: BoxSeam,        Component: ProductInventoryReport },
