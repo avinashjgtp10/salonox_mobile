@@ -21,6 +21,7 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
   const [startTime, setStartTime] = useState("10:30 AM");
   const [endTime, setEndTime] = useState("09:00 PM");
   const [breaks, setBreaks] = useState<{ id: number; start: string; end: string }[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (open && shift) {
@@ -36,6 +37,7 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
       setEndTime("09:00 PM");
       setBreaks([]);
     }
+    setError(null);
   }, [open, shift]);
 
   const addBreak = () => {
@@ -56,6 +58,21 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
 
   const handleSave = () => {
     if (!staff || !date) return;
+    
+    if (isAvailable) {
+      if (!startTime || !endTime) {
+        setError("Start Time and End Time must be selected.");
+        return;
+      }
+      
+      const total = calcTotalHours(startTime, endTime);
+      if (total === "0 hrs") {
+        setError("End Time must be later than Start Time.");
+        return;
+      }
+    }
+    
+    setError(null);
     onSave(staff.id, date, isAvailable, startTime, endTime, breaks.map((b) => ({ start: b.start, end: b.end })));
     onClose();
   };
@@ -106,6 +123,11 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
           {/* Time selectors + breaks (only when available) */}
           {isAvailable && (
             <div className="shift-drawer__schedule">
+              {error && (
+                <div style={{ color: "#dc2626", fontSize: "13px", marginBottom: "16px", padding: "10px", background: "#fee2e2", borderRadius: "6px", fontWeight: 500 }}>
+                  {error}
+                </div>
+              )}
 
               {/* Start / End time */}
               <div className="shift-drawer__times">

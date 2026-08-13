@@ -1,5 +1,9 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
+import api from "../../../services/api/axios";
+import { PRODUCTS } from "../../../services/api/endpoints";
+import { selectCurrentSalon, selectUserProfile } from "../../../store/selectors/slices.selectors";
+import { exportProductsPDF } from "../utils/productExport";
 import {
   Search,
   Sliders,
@@ -146,6 +150,8 @@ const ProductsListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
   const suppliers = useSelector((state: RootState) => state.inventory.suppliers);
+  const currentSalon = useSelector(selectCurrentSalon);
+  const userProfile = useSelector(selectUserProfile);
   const { formatAmount } = useCurrency();
   const {
     products, page: currentPage, pageSize, totalRecords,
@@ -153,7 +159,7 @@ const ProductsListPage: React.FC = () => {
     fetchProducts, fetchBrands, fetchCategories,
     createBrand, deleteBrand, deleteCategory,
     createCategory, deleteProduct,
-    exportCSV, exportExcel, exportPDF,
+    exportCSV, exportExcel,
   } = useProducts();
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -324,6 +330,43 @@ const ProductsListPage: React.FC = () => {
     setDeleteModalOpen(true);
   };
 
+  const fetchFilteredProductsForExport = useCallback(async (): Promise<any[]> => {
+    const filterParams = buildFilterParams(searchQuery, appliedFilters);
+    const allProducts: any[] = [];
+    let page = 1;
+    let totalPages = 1;
+
+    while (page <= totalPages) {
+      const res = await api.get(PRODUCTS.LIST, { params: { ...filterParams, page, pageSize: 200 } });
+      const payload = res.data?.data;
+      if (payload && Array.isArray(payload.data)) {
+        allProducts.push(...payload.data);
+        totalPages = payload.pagination?.total_pages ?? totalPages;
+      } else if (Array.isArray(payload)) {
+        allProducts.push(...payload);
+      }
+      page += 1;
+    }
+    return allProducts;
+  }, [appliedFilters, searchQuery]);
+
+  const handleDownloadPdf = useCallback(async () => {
+    try {
+      const allProds = await fetchFilteredProductsForExport();
+      
+      // Build maps for fast lookup
+      const bMap: Record<string, string> = {};
+      brands.forEach((b: any) => { bMap[b.id] = b.name; });
+      
+      exportProductsPDF(allProds, supplierMap, bMap, {
+        salon: currentSalon,
+        user: userProfile,
+      });
+    } catch (err) {
+      console.error("PDF export failed:", err);
+    }
+  }, [fetchFilteredProductsForExport, supplierMap, brands, currentSalon, userProfile]);
+
   const handleDeleteProducts = async () => {
     setIsDeleting(true);
     try {
@@ -371,7 +414,7 @@ const ProductsListPage: React.FC = () => {
               <Dropdown.Header className="px-3 py-1 text-muted fw-bold" style={{ fontSize: "12px", textTransform: "uppercase" }}>
                 Export
               </Dropdown.Header>
-              <Dropdown.Item onClick={() => exportPDF(buildFilterParams(searchQuery, appliedFilters))} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+              <Dropdown.Item onClick={handleDownloadPdf} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
                 <FileEarmarkPdf size={16} /> Download PDF
               </Dropdown.Item>
               <Dropdown.Item onClick={() => exportExcel(buildFilterParams(searchQuery, appliedFilters))} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
