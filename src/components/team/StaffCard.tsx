@@ -12,6 +12,7 @@ import {
 import { AppLayout, AppRadius } from "@/constants/layout";
 import type { StaffAvailability, StaffMember, StaffStatus } from "@/data/teamData";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { formatStaffDisplayName } from "@/utils/name";
 
 type StaffCardProps = {
   index: number;
@@ -97,10 +98,11 @@ function StaffCardComponent({ index, onCall, onMessage, onMore, staffMember }: S
           </View>
 
           <View style={styles.primaryCopy}>
-            <View style={styles.nameRow}>
-              <Text numberOfLines={1} style={styles.name}>
-                {staffMember.name}
-              </Text>
+            <Text numberOfLines={1} style={styles.name}>
+              {formatStaffDisplayName(staffMember.name)}
+            </Text>
+
+            <View style={styles.statusBadgeRow}>
               <View style={[styles.statusBadge, { backgroundColor: statusPalette.backgroundColor }]}>
                 <Text style={[styles.statusBadgeText, { color: statusPalette.color }]}>
                   {staffMember.status}
@@ -213,16 +215,14 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginLeft: Spacing.md,
     minWidth: 0,
   },
-  nameRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 8,
-  },
   name: {
     color: Colors.heading,
-    flex: 1,
     fontSize: 16,
     fontWeight: "800",
+  },
+  statusBadgeRow: {
+    flexDirection: "row",
+    marginTop: 6,
   },
   statusBadge: {
     borderRadius: Radius.full,

@@ -46,6 +46,15 @@ export type StaffMember = {
   todayScheduleNote: string;
   lastSeen: string;
   employeeCode?: string;
+  address?: string;
+  avatarUrl?: string | null;
+  birthdayDay?: number | null;
+  birthdayMonth?: number | null;
+  designation?: string;
+  holidays?: number | null;
+  permissionLevel?: string;
+  phoneCountryCode?: string;
+  workingHoursPerDay?: number | null;
 };
 
 export type TeamSummaryItem = {

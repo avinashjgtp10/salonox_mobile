@@ -26,8 +26,11 @@ import {
   StaffFutureSections,
   useStaffDetails,
 } from "@/features/staff";
-import { deleteStaffThunk, updateStaffThunk } from "@/middleware/staff/staff.thunk";
-import { selectStaffDeletingIds, selectStaffUpdating } from "@/store/staff/staff.slice";
+import { deleteStaffThunk, setStaffActiveStatusThunk } from "@/middleware/staff/staff.thunk";
+import {
+  selectStaffActiveStatusToggling,
+  selectStaffDeletingIds,
+} from "@/store/staff/staff.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
@@ -99,7 +102,7 @@ export default function StaffProfileScreen() {
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector(selectCurrentUser);
   const deletingStaffIds = useAppSelector(selectStaffDeletingIds);
-  const staffUpdating = useAppSelector(selectStaffUpdating);
+  const isTogglingActive = useAppSelector((state) => selectStaffActiveStatusToggling(state, id));
 
   const canManageLifecycle = canManageStaffLifecycle(currentUser?.role);
   const isDeleting = Boolean(id && deletingStaffIds.includes(id));
@@ -114,17 +117,19 @@ export default function StaffProfileScreen() {
   };
 
   const handleConfirmToggleActive = async (nextStatus: "active" | "inactive") => {
-    if (!id || !staffMember) {
+    if (!id || !staffMember || isTogglingActive) {
       return;
     }
 
-    const resultAction = await dispatch(
-      updateStaffThunk({ staffId: id, updates: { status: nextStatus } }),
-    );
+    const resultAction = await dispatch(setStaffActiveStatusThunk({ nextStatus, staffId: id }));
 
-    if (updateStaffThunk.rejected.match(resultAction)) {
+    // Only ever reaches here once the backend mutation succeeded AND a
+    // follow-up fetch confirmed the staff record's status actually changed
+    // — setStaffActiveStatusThunk rejects otherwise, so there is no path
+    // that shows this success message without a confirmed backend change.
+    if (setStaffActiveStatusThunk.rejected.match(resultAction)) {
       Alert.alert(
-        "Unable to update staff",
+        nextStatus === "inactive" ? "Unable to deactivate staff" : "Unable to reactivate staff",
         getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
       );
       return;
@@ -132,8 +137,7 @@ export default function StaffProfileScreen() {
 
     Alert.alert(
       nextStatus === "inactive" ? "Staff deactivated" : "Staff reactivated",
-      resultAction.payload.message ??
-        `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "reactivated"}.`,
+      `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "reactivated"}.`,
     );
   };
 
@@ -315,9 +319,9 @@ export default function StaffProfileScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.85}
-              disabled={staffUpdating || isDeleting}
+              disabled={isTogglingActive || isDeleting}
               onPress={handleToggleActive}
-              style={[styles.quickAction, (staffUpdating || isDeleting) && styles.quickActionDisabled]}
+              style={[styles.quickAction, (isTogglingActive || isDeleting) && styles.quickActionDisabled]}
             >
               <Ionicons
                 name={isInactive ? "play-circle-outline" : "pause-circle-outline"}
@@ -328,9 +332,9 @@ export default function StaffProfileScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.85}
-              disabled={staffUpdating || isDeleting}
+              disabled={isTogglingActive || isDeleting}
               onPress={handleDelete}
-              style={[styles.quickAction, (staffUpdating || isDeleting) && styles.quickActionDisabled]}
+              style={[styles.quickAction, (isTogglingActive || isDeleting) && styles.quickActionDisabled]}
             >
               <Ionicons name="trash-outline" size={16} color={Colors.error} />
               <Text style={styles.quickActionText}>Delete</Text>
@@ -413,11 +417,11 @@ export default function StaffProfileScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.86}
-            disabled={staffUpdating || isDeleting}
+            disabled={isTogglingActive || isDeleting}
             onPress={handleToggleActive}
-            style={[styles.secondaryButton, (staffUpdating || isDeleting) && styles.buttonDisabled]}
+            style={[styles.secondaryButton, (isTogglingActive || isDeleting) && styles.buttonDisabled]}
           >
-            {staffUpdating ? (
+            {isTogglingActive ? (
               <ActivityIndicator color={Colors.primaryDark} size="small" />
             ) : (
               <Text style={styles.secondaryButtonText}>
@@ -427,9 +431,9 @@ export default function StaffProfileScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.86}
-            disabled={staffUpdating || isDeleting}
+            disabled={isTogglingActive || isDeleting}
             onPress={handleDelete}
-            style={[styles.deleteButton, (staffUpdating || isDeleting) && styles.buttonDisabled]}
+            style={[styles.deleteButton, (isTogglingActive || isDeleting) && styles.buttonDisabled]}
           >
             {isDeleting ? (
               <ActivityIndicator color={Colors.error} size="small" />

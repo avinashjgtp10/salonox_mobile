@@ -38,8 +38,9 @@ import {
   type TeamFilter,
   type TeamSortOption,
 } from "@/data/teamData";
-import { deleteStaffThunk, fetchStaffThunk, updateStaffThunk } from "@/middleware/staff/staff.thunk";
+import { deleteStaffThunk, fetchStaffThunk, setStaffActiveStatusThunk } from "@/middleware/staff/staff.thunk";
 import {
+  selectStaffActiveStatusTogglingIds,
   selectStaffById,
   selectStaffError,
   selectStaffLoading,
@@ -186,6 +187,7 @@ export default function TeamScreen() {
   const staffPagination = useAppSelector(selectStaffPagination);
   const staffQuery = useAppSelector(selectStaffQuery);
   const staffRefreshing = useAppSelector(selectStaffRefreshing);
+  const activeStatusTogglingStaffIds = useAppSelector(selectStaffActiveStatusTogglingIds);
   const [activeFilter, setActiveFilter] = useState<TeamFilter>("All");
   const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [query, setQuery] = useState("");
@@ -303,13 +305,21 @@ export default function TeamScreen() {
     staffMember: StaffMember,
     nextStatus: "active" | "inactive",
   ) => {
+    if (activeStatusTogglingStaffIds.includes(staffMember.id)) {
+      return;
+    }
+
     const resultAction = await dispatch(
-      updateStaffThunk({ staffId: staffMember.id, updates: { status: nextStatus } }),
+      setStaffActiveStatusThunk({ nextStatus, staffId: staffMember.id }),
     );
 
-    if (updateStaffThunk.rejected.match(resultAction)) {
+    // setStaffActiveStatusThunk only fulfills after the activate/deactivate
+    // call succeeds AND a refetch confirms the staff record's status
+    // actually changed, so this success message can't fire on a false
+    // positive the way the old generic-update call could.
+    if (setStaffActiveStatusThunk.rejected.match(resultAction)) {
       Alert.alert(
-        "Unable to update staff",
+        nextStatus === "inactive" ? "Unable to deactivate staff" : "Unable to reactivate staff",
         getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
       );
       return;
@@ -317,8 +327,7 @@ export default function TeamScreen() {
 
     Alert.alert(
       nextStatus === "inactive" ? "Staff deactivated" : "Staff reactivated",
-      resultAction.payload.message ??
-        `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "reactivated"}.`,
+      `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "reactivated"}.`,
     );
   };
 
