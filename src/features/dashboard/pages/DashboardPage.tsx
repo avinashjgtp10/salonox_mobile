@@ -1347,23 +1347,13 @@ export default function DashboardPage() {
     refetchPending();
   }, [dispatch, revPeriod, staffRevPeriod, refetchAppts, refetchPending]);
 
-  // A client/appointment/sale created elsewhere (Clients page, Calendar,
-  // Quick Sale) never pushes an update into this page's KPI cards (New
-  // Clients, Today's Revenue, etc.) — they only ever loaded once, on mount.
-  // Refresh whenever the tab regains focus/visibility (i.e. you actually
-  // come back to look at it), so "add a client, come back to Dashboard"
-  // reflects without needing the manual Refresh button. Deliberately NOT a
-  // recurring timer — this used to also poll every 60s in the background
-  // regardless of whether the dashboard was even being looked at.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === "visible") handleRefresh(); };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", handleRefresh);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", handleRefresh);
-    };
-  }, [handleRefresh]);
+  // Deliberately NO tab-focus/visibilitychange auto-refresh here — the
+  // dashboard must stay exactly as it is until the user clicks Refresh,
+  // performs an action that itself needs fresh data, or a deliberately
+  // configured auto-refresh interval is enabled (none exists today). A
+  // client/appointment/sale created elsewhere no longer pushes an update
+  // into this page's KPI cards just by switching back to this tab — use
+  // the Refresh button instead.
 
   const retryChart = useCallback(() => {
     dispatch(fetchRevenueChart({ period: revPeriod }));

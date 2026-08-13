@@ -164,23 +164,9 @@ export function useTodayAppointments() {
 
   useEffect(() => { refetch(); }, [refetch]);
 
-  // A checkout/payment completed elsewhere (Calendar, Quick Sale, another
-  // tab) never pushes an update into this hook — it only ever fetched once,
-  // on mount, so a booking paid AFTER that fetch kept showing whatever it
-  // looked like (booked, and past its slot → "no-show") until the whole page
-  // was reloaded. Refetch whenever the tab regains focus/visibility — the
-  // common case of switching away to collect a payment then coming back.
-  // Deliberately NOT a recurring timer — this used to also poll every 30s in
-  // the background regardless of whether the dashboard was even open.
-  useEffect(() => {
-    const onVisible = () => { if (document.visibilityState === "visible") refetch(); };
-    document.addEventListener("visibilitychange", onVisible);
-    window.addEventListener("focus", refetch);
-    return () => {
-      document.removeEventListener("visibilitychange", onVisible);
-      window.removeEventListener("focus", refetch);
-    };
-  }, [refetch]);
+  // Deliberately NO tab-focus/visibilitychange auto-refetch here — this
+  // hook only loads on mount; use the dashboard's Refresh button (which
+  // calls `refetch`) to pick up changes made elsewhere.
 
   return { appointments, loading, error, refetch };
 }
