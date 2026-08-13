@@ -15,6 +15,8 @@ import {
 } from "../../settings/data/permissionMatrix";
 import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
 import ClientSelect from "../../clients/components/ClientSelect";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { sendEmailOtpThunk, verifyEmailOtpThunk } from "../../../middleware/auth/otpThunk";
 
 const GENDER_OPTIONS = [
   { value: "", label: "Gender" },
@@ -40,6 +42,7 @@ const DOB_PLACEHOLDER_YEAR = 2000;
 const AddStaffPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
   const isEdit = !!id && id !== "undefined" && id !== "add";
 
   const today = new Date().toISOString().slice(0, 10);
@@ -76,6 +79,15 @@ const AddStaffPage: React.FC = () => {
   const [duplicateEmailMessage, setDuplicateEmailMessage] = useState<string | null>(null);
   const isSubmittingRef = useRef(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
+
+  // ── Email OTP verification (new staff only) ─────────────────────────────────
+  const [emailOtp, setEmailOtp] = useState("");
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailOtpVerified, setEmailOtpVerified] = useState(false);
+  const [emailOtpLoading, setEmailOtpLoading] = useState(false);
+  const [emailOtpMsg, setEmailOtpMsg] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [emailOtpError, setEmailOtpError] = useState<string | null>(null);
+  const lastVerifiedEmailRef = useRef("");
 
   // ── Load existing staff (edit mode) ─────────────────────────────────────────
   useEffect(() => {
@@ -173,7 +185,60 @@ const AddStaffPage: React.FC = () => {
 
   const setField = (key: keyof typeof form) => (val: string) => {
     setForm((prev) => ({ ...prev, [key]: val }));
-    if (key === "email" && duplicateEmailMessage) setDuplicateEmailMessage(null);
+    if (key === "email") {
+      if (duplicateEmailMessage) setDuplicateEmailMessage(null);
+      if (val.trim() !== lastVerifiedEmailRef.current) {
+        setEmailOtpSent(false);
+        setEmailOtpVerified(false);
+        setEmailOtp("");
+        setEmailOtpMsg(null);
+        setEmailOtpError(null);
+      }
+    }
+  };
+
+  // ── Email OTP: send / verify ─────────────────────────────────────────────────
+  const handleSendEmailOtp = async () => {
+    const email = form.email.trim();
+    if (!email || !emailFormatValid) {
+      setAttemptedSubmit(true);
+      return;
+    }
+    setEmailOtpVerified(false);
+    setEmailOtpSent(false);
+    setEmailOtp("");
+    setEmailOtpMsg(null);
+    setEmailOtpError(null);
+    setEmailOtpLoading(true);
+
+    const result = await dispatch(sendEmailOtpThunk({ email }));
+
+    if (sendEmailOtpThunk.fulfilled.match(result)) {
+      setEmailOtpSent(true);
+      setEmailOtpMsg({ type: "success", text: "OTP sent! Check the staff member's inbox." });
+    } else {
+      setEmailOtpMsg({ type: "error", text: (result.payload as string) ?? "Failed to send OTP." });
+    }
+    setEmailOtpLoading(false);
+  };
+
+  const handleVerifyEmailOtp = async () => {
+    if (!emailOtp.trim()) {
+      setEmailOtpError("Please enter the OTP");
+      return;
+    }
+    setEmailOtpLoading(true);
+    setEmailOtpError(null);
+    const email = form.email.trim();
+    const result = await dispatch(verifyEmailOtpThunk({ email, otp: emailOtp }));
+    if (verifyEmailOtpThunk.fulfilled.match(result)) {
+      setEmailOtpVerified(true);
+      setEmailOtpMsg(null);
+      lastVerifiedEmailRef.current = email;
+    } else {
+      setEmailOtpError((result.payload as string) ?? "Invalid OTP.");
+    }
+    setEmailOtpLoading(false);
   };
 
   // ── Avatar upload ────────────────────────────────────────────────────────────
@@ -263,6 +328,10 @@ const AddStaffPage: React.FC = () => {
         holidays: form.holidays ? Number(form.holidays) : undefined,
       };
 
+      if (!isEdit) {
+        payload.email_verified = emailOtpVerified && lastVerifiedEmailRef.current === form.email.trim();
+      }
+
       if (staffLoginEnabled && form.password.trim()) {
         payload.password = form.password.trim();
       }
@@ -295,7 +364,12 @@ const AddStaffPage: React.FC = () => {
         }
       }
 
-      showSuccess(isEdit ? "Staff updated successfully" : "Invitation sent successfully");
+      if (isEdit) {
+        showSuccess("Staff updated successfully");
+      } else {
+        const isVerified = emailOtpVerified && lastVerifiedEmailRef.current === form.email.trim();
+        showSuccess(isVerified ? "Staff created and email verified successfully" : "Staff created as inactive — verify email to activate");
+      }
       navigate("/dashboard/team/members");
     } catch (error: any) {
       console.error("Error saving staff:", error);
@@ -370,15 +444,79 @@ const AddStaffPage: React.FC = () => {
               </div>
               <div className="emp-field">
                 <label className="emp-field__label">Email<span className="text-danger">*</span></label>
-                <input
-                  className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
-                  placeholder="Email"
-                  type="email"
-                  value={form.email}
-                  onChange={(e) => setField("email")(e.target.value)}
-                />
+                <div className="emp-input-row">
+                  <input
+                    className={`emp-input ${isEmailInvalid ? "emp-input--invalid" : ""}`}
+                    placeholder="Email"
+                    type="email"
+                    value={form.email}
+                    onChange={(e) => setField("email")(e.target.value)}
+                    disabled={isEdit}
+                  />
+                  {!isEdit && (
+                    <button
+                      type="button"
+                      className={`emp-otp-btn ${emailOtpVerified ? "emp-otp-btn--verified" : ""}`}
+                      onClick={handleSendEmailOtp}
+                      disabled={emailOtpLoading || emailOtpVerified}
+                    >
+                      {emailOtpLoading && !emailOtpSent
+                        ? "Sending…"
+                        : emailOtpVerified
+                          ? "Verified"
+                          : emailOtpSent
+                            ? "Resend"
+                            : "Send OTP"}
+                    </button>
+                  )}
+                </div>
                 {isEmailInvalid && <span className="emp-field__error">{emailErrorMessage}</span>}
+                {!isEmailInvalid && emailOtpMsg && (
+                  <span className={`emp-otp-msg emp-otp-msg--${emailOtpMsg.type}`}>{emailOtpMsg.text}</span>
+                )}
+                {!isEdit && !emailOtpVerified && !emailOtpMsg && (
+                  <span className="emp-field__hint">
+                    Optional — verify now to make this staff member active immediately, or save and verify later. Unverified staff are added as inactive.
+                  </span>
+                )}
               </div>
+
+              {!isEdit && emailOtpSent && !emailOtpVerified && (
+                <div className="emp-field emp-otp-field">
+                  <label className="emp-field__label">Enter Email OTP</label>
+                  <div className="emp-input-row">
+                    <input
+                      className="emp-input"
+                      placeholder="6-digit OTP"
+                      value={emailOtp}
+                      maxLength={6}
+                      onChange={(e) => {
+                        setEmailOtp(e.target.value.replace(/\D/g, ""));
+                        if (emailOtpError) setEmailOtpError(null);
+                      }}
+                      onKeyDown={(e) => e.key === "Enter" && handleVerifyEmailOtp()}
+                    />
+                    <button
+                      type="button"
+                      className="emp-verify-btn"
+                      onClick={handleVerifyEmailOtp}
+                      disabled={emailOtpLoading || emailOtp.length < 6}
+                    >
+                      {emailOtpLoading ? "Verifying…" : "Verify"}
+                    </button>
+                  </div>
+                  {emailOtpError && <span className="emp-field__error">{emailOtpError}</span>}
+                </div>
+              )}
+
+              {!isEdit && emailOtpVerified && (
+                <div className="emp-field">
+                  <span className="emp-verified-tag">
+                    <span className="emp-verified-tag__check">✓</span>
+                    Email verified
+                  </span>
+                </div>
+              )}
 
               <div className="emp-field">
                 <label className="emp-field__label">Date of Birth</label>
@@ -610,7 +748,7 @@ const AddStaffPage: React.FC = () => {
                 </div>
               </div>
               <p className="emp-field__hint">
-                Set a password so this staff member can log in with their email above right away. Leave blank to send an email invite instead — they'll set their own password and get the same permissions once they accept it.
+                Set a password so this staff member can log in with their email above once it's verified. Leave blank and they can set their own password later from the login screen using their verified email.
               </p>
             </>
           )}
