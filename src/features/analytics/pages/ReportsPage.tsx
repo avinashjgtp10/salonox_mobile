@@ -288,7 +288,7 @@ export default function ReportsPage() {
                     <div className="rp-search-results">
                       {searchResults.map(r => (
                         <div key={r.id} className="rp-cat-report-row" onClick={() => openReport(r.id)}>
-                          <div className="rp-cat-report-icon"><r.icon size={15} /></div>
+                          <div className={`rp-cat-report-icon rp-cat-report-icon--${r.category}`}><r.icon size={15} /></div>
                           <div className="rp-cat-report-info">
                             <div className="rp-cat-report-name">{r.name}</div>
                             <div className="rp-cat-report-desc">{r.description}</div>
@@ -385,7 +385,7 @@ export default function ReportsPage() {
                               <div className="rp-cat-report-list">
                                 {reports.map(r => (
                                   <div key={r.id} className="rp-cat-report-row" onClick={() => openReport(r.id)}>
-                                    <div className="rp-cat-report-icon"><r.icon size={15} /></div>
+                                    <div className={`rp-cat-report-icon rp-cat-report-icon--${r.category}`}><r.icon size={15} /></div>
                                     <div className="rp-cat-report-info">
                                       <div className="rp-cat-report-name">{r.name}</div>
                                       <div className="rp-cat-report-desc">{r.description}</div>
