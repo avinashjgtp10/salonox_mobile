@@ -25,14 +25,13 @@ import {
   EnvelopeFill,
 } from "react-bootstrap-icons";
 import "../styles/StaffListPage.scss";
-import api from "../../../services/api/axios";
-import { STAFF } from "../../../services/api/endpoints";
+
 import Dropdown from "../../../components/ui/Dropdown";
 import { Button, Input, DownloadButton, Modal } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import StaffImportModal from "../components/StaffImportModal";
 import TeamMemberDrawer from "../components/TeamMemberDrawer";
-import { exportStaffPDF } from "../utils/staffExport";
+import { exportStaffPDF, exportStaffCSV, exportStaffExcel } from "../utils/staffExport";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 
 interface StaffMember {
@@ -223,14 +222,6 @@ export default function StaffListPage() {
     setActionMenuId(null);
   };
 
-  // CSV/Excel exports hit the backend directly rather than exporting the
-  // already-loaded `staff` array, so the current search/status filters have
-  // to be forwarded explicitly or the server just returns every record.
-  const exportQueryParams = () => ({
-    search: searchTerm.trim() || undefined,
-    is_active: selectedStatus === "all" ? undefined : selectedStatus === "active",
-  });
-
   const filtered = staff.filter((s) => {
     const name = `${s.first_name || ""} ${s.last_name || ""}`.toLowerCase();
     const matchesSearch =
@@ -373,12 +364,9 @@ export default function StaffListPage() {
                 <DownloadButton
                   filename="staff.csv"
                   fetcher={async () => {
-                    const res = await api.get(STAFF.EXPORT("csv"), {
-                      responseType: "blob",
-                      params: exportQueryParams(),
-                    });
+                    const blob = exportStaffCSV(sorted);
                     setOptionsOpen(false);
-                    return res.data;
+                    return blob;
                   }}
                   variant="ghost"
                   size="sm"
@@ -390,12 +378,9 @@ export default function StaffListPage() {
                 <DownloadButton
                   filename="staff.xlsx"
                   fetcher={async () => {
-                    const res = await api.get(STAFF.EXPORT("excel"), {
-                      responseType: "blob",
-                      params: exportQueryParams(),
-                    });
+                    const blob = await exportStaffExcel(sorted);
                     setOptionsOpen(false);
-                    return res.data;
+                    return blob;
                   }}
                   variant="ghost"
                   size="sm"

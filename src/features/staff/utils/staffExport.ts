@@ -1,7 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 
-interface ExportableStaff {
+export interface ExportableStaff {
   first_name?: string;
   last_name?: string;
   email?: string;
@@ -21,8 +21,12 @@ const PERMISSION_LABELS: Record<string, string> = {
   manager:   "Manager",
 };
 
+/** Return "—" for null/undefined/empty, otherwise coerce to string. */
 const d = (v: unknown) => (v == null || v === "" ? "—" : String(v));
 
+// Single source-of-truth column definitions — all three export formats
+// (PDF, CSV, Excel) derive their headers and values from this list so
+// they always match the Staff table exactly.
 const COLS: { header: string; fn: (s: ExportableStaff) => string }[] = [
   { header: "Name",   fn: (s) => d(`${s.first_name || ""} ${s.last_name || ""}`.trim()) },
   { header: "Email",  fn: (s) => d(s.email) },
@@ -31,6 +35,7 @@ const COLS: { header: string; fn: (s: ExportableStaff) => string }[] = [
   { header: "Status", fn: (s) => (s.is_active === false ? "Inactive" : "Active") },
 ];
 
+// ── PDF ──────────────────────────────────────────────────────────────────────
 export const exportStaffPDF = (staff: ExportableStaff[]): Blob => {
   const doc = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4" });
 
@@ -61,12 +66,6 @@ export const exportStaffPDF = (staff: ExportableStaff[]): Blob => {
     },
     alternateRowStyles: { fillColor: [249, 250, 251] },
     bodyStyles: { lineColor: [229, 231, 235], lineWidth: 0.2 },
-    // Fixed widths per column — without these, autoTable's default "auto"
-    // sizing lets one long value (e.g. a long email) balloon that column
-    // and squeeze the rest, so short-content columns (Role/Status) end up
-    // inconsistently narrow row-to-row and the whole table reads as
-    // unevenly/misaligned. Name/Email get the most room since they're the
-    // most variable-length fields.
     columnStyles: {
       0: { cellWidth: 55 }, // Name
       1: { cellWidth: 70 }, // Email
@@ -78,4 +77,58 @@ export const exportStaffPDF = (staff: ExportableStaff[]): Blob => {
   });
 
   return doc.output("blob");
+};
+
+// ── CSV ──────────────────────────────────────────────────────────────────────
+// Generates a plain-text CSV Blob from the current table data (no API call).
+// Values that contain commas, quotes, or newlines are wrapped in double-quotes
+// per RFC 4180, so spreadsheet apps parse them correctly.
+const escapeCsv = (val: string) => {
+  if (val.includes(",") || val.includes('"') || val.includes("\n")) {
+    return `"${val.replace(/"/g, '""')}"`;
+  }
+  return val;
+};
+
+export const exportStaffCSV = (staff: ExportableStaff[]): Blob => {
+  const header = COLS.map((c) => escapeCsv(c.header)).join(",");
+  const rows = staff.map((s) =>
+    COLS.map((c) => escapeCsv(c.fn(s))).join(",")
+  );
+  const csv = [header, ...rows].join("\r\n");
+  return new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+};
+
+// ── Excel (XLSX via SheetJS) ─────────────────────────────────────────────────
+// Uses SheetJS (xlsx) to generate a real .xlsx file entirely client-side so
+// the exported file always reflects the data currently visible in the table.
+// SheetJS is a common dependency — if it's not yet installed the user will
+// see a module-not-found error and should run: npm install xlsx
+export const exportStaffExcel = async (staff: ExportableStaff[]): Promise<Blob> => {
+  // Dynamic import keeps SheetJS out of the main bundle — it's only loaded
+  // the first time the user actually clicks "Export Excel".
+  const XLSX = await import("xlsx");
+
+  const headers = COLS.map((c) => c.header);
+  const rows = staff.map((s) => COLS.map((c) => c.fn(s)));
+
+  const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+  // Column widths (chars) — mirrors the PDF proportions so the sheet looks
+  // clean without manual resizing.
+  ws["!cols"] = [
+    { wch: 28 }, // Name
+    { wch: 36 }, // Email
+    { wch: 18 }, // Phone
+    { wch: 20 }, // Role
+    { wch: 12 }, // Status
+  ];
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, "Staff Members");
+
+  const buf = XLSX.write(wb, { bookType: "xlsx", type: "array" });
+  return new Blob([buf], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
 };
