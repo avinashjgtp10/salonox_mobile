@@ -207,14 +207,51 @@ export function mapApiBooking(
     const pPrice = parseFloat(String(p.price ?? 0)) || 0;
     const pQty   = Number(p.qty ?? p.quantity ?? 1) || 1;
     const pTotal = parseFloat(String(p.total ?? p.price ?? 0)) || 0;
+    const pkgId  = String(p.package_id ?? p.packageId ?? "");
+    const pkgName = p.package_name ?? p.packageName ?? p.name ?? "";
+    // A custom package (built via "+ Sell Package") references no template,
+    // so it's stored/returned with a name but no package_id — the same
+    // "can't resolve a template" signal the backend's own checkout path uses
+    // (see useAppointment.ts, which sends package_id: undefined for these).
+    // Without re-deriving the flag here it stays undefined on a re-opened
+    // appointment, which broke two things: ServicesPanel rendered the
+    // template dropdown (showing an empty "Select package…" instead of the
+    // name), and useAppointment's save filter — `packageId || isCustom` —
+    // matched neither, silently dropping the row on Update Appointment.
+    const isCustomPkg = !isPkgService && !pkgId && !!pkgName;
     return {
       id: String(p.id ?? ""),
-      packageId: String(p.package_id ?? p.packageId ?? ""),
-      packageName: p.package_name ?? p.packageName ?? p.name ?? "",
-      name: p.package_name ?? p.packageName ?? p.name ?? "",
+      packageId: pkgId,
+      packageName: pkgName,
+      name: pkgName,
       price: pPrice,
       qty: pQty,
       isPackageService: isPkgService,
+      isCustom: isCustomPkg,
+      // Carried back through so a re-save doesn't wipe them. For a custom
+      // package these two ARE the package — with no package_id there's no
+      // template to re-derive from, so payments.service.ts resolves its
+      // contents purely from `services` and gives up (logging "could not
+      // resolve package … skipping client_package auto-create") when it's
+      // empty, meaning a paid bill silently credits the client nothing.
+      // Dropping them here made every calendar drag/reschedule destructive,
+      // since that path rebuilds package_items from this mapped shape.
+      ...(Array.isArray(p.services) && p.services.length
+        ? {
+            services: p.services.map((s: any) => ({
+              serviceId:     s.serviceId ?? s.service_id ?? undefined,
+              serviceName:   s.serviceName ?? s.service_name ?? "",
+              totalSessions: Number(s.totalSessions ?? s.total_sessions ?? 1) || 1,
+              price:         parseFloat(String(s.price ?? 0)) || 0,
+              ...(s.schedule?.scheduledAt
+                ? { schedule: { scheduledAt: s.schedule.scheduledAt, staffId: s.schedule.staffId ?? undefined } }
+                : {}),
+            })),
+          }
+        : {}),
+      ...(p.expiry_date || p.never_expires !== undefined
+        ? { customExpiry: { neverExpires: !!p.never_expires, expiryDate: p.expiry_date ?? "" } }
+        : {}),
       total: isPkgService ? 0 : pTotal,
       discount: isPkgService ? 0 : deriveRowDiscount(pPrice, pQty, pTotal, p.discount),
       staffId: String(p.staff_id ?? p.staffId ?? ""),
