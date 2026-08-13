@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SimpleSplash from '../components/simple-splash';
-import { OfflineBanner } from '@/components/ui/OfflineBanner';
+import { NetworkErrorModal } from '@/components/ui/NetworkErrorModal';
 import { PortalProvider } from '@/components/ui/PortalProvider';
 import { UpdateAnnouncementModal } from '@/components/ui/UpdateAnnouncementModal';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -361,7 +361,7 @@ function AppShell() {
               <Stack.Screen name="index" />
               <Stack.Screen name="explore" />
             </Stack>
-            <OfflineBanner />
+            <NetworkErrorModal />
           </PortalProvider>
         </AuthProvider>
       </Provider>

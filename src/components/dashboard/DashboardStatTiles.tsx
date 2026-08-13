@@ -1,5 +1,6 @@
+import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 
 import { IconBadge } from "@/components/ui/IconBadge";
 import { MiniBarChart } from "@/components/ui/MiniBarChart";
@@ -64,6 +65,7 @@ export default function DashboardStatTiles() {
         accent: "blue" as const,
         icon: "cash-outline" as const,
         label: "This Month Revenue",
+        route: "/sales" as Href,
         subtitle: "Current Calendar Month",
         value: formatDashboardRevenue(dashboardMetrics.monthlyRevenue),
       },
@@ -71,18 +73,21 @@ export default function DashboardStatTiles() {
         accent: "sky" as const,
         icon: "trending-up-outline" as const,
         label: "Today's Revenue",
+        route: "/sales" as Href,
         value: formatDashboardRevenue(dashboardMetrics.todaysRevenue),
       },
       {
         accent: "indigo" as const,
         icon: "people-outline" as const,
         label: "Total Clients",
+        route: "/clients" as Href,
         value: String(totalClients),
       },
       {
         accent: "green" as const,
         icon: "calendar-outline" as const,
         label: "Bookings",
+        route: "/bookings" as Href,
         value: String(dashboardMetrics.bookings),
       },
       {
@@ -107,15 +112,15 @@ export default function DashboardStatTiles() {
 
   return (
     <View style={styles.row}>
-      {ownerKpis.map((stat) => (
-        <View
-          key={stat.label}
-          style={[
-            styles.tile,
-            stat.kind === "revenueComparison" && styles.comparisonTile,
-          ]}
-        >
-          {isDashboardLoading ? (
+      {ownerKpis.map((stat) => {
+        const tileStyle = [
+          styles.tile,
+          stat.kind === "revenueComparison" && styles.comparisonTile,
+        ];
+
+        const tileContent = (
+          <>
+            {isDashboardLoading ? (
             <>
               <View style={styles.iconSkeleton} />
               <View style={styles.copy}>
@@ -144,15 +149,15 @@ export default function DashboardStatTiles() {
                     </View>
                     <View style={styles.comparisonRows}>
                       <View style={styles.comparisonMetric}>
-                        <Text style={styles.comparisonLabel}>Current Month</Text>
-                        <Text style={styles.comparisonValue}>
-                          {formatDashboardRevenue(stat.currentMonthRevenue)}
-                        </Text>
-                      </View>
-                      <View style={[styles.comparisonMetric, styles.comparisonMetricDivider]}>
                         <Text style={styles.comparisonLabel}>Last Month</Text>
                         <Text style={styles.comparisonValue}>
                           {formatDashboardRevenue(stat.lastMonthRevenue)}
+                        </Text>
+                      </View>
+                      <View style={[styles.comparisonMetric, styles.comparisonMetricDivider]}>
+                        <Text style={styles.comparisonLabel}>Current Month</Text>
+                        <Text style={styles.comparisonValue}>
+                          {formatDashboardRevenue(stat.currentMonthRevenue)}
                         </Text>
                       </View>
                       <View style={[styles.comparisonMetric, styles.comparisonMetricDivider]}>
@@ -185,14 +190,39 @@ export default function DashboardStatTiles() {
                     <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={styles.value}>
                       {stat.value}
                     </Text>
-                    {stat.subtitle ? <Text style={styles.subtitle}>{stat.subtitle}</Text> : null}
+                    <Text style={[styles.subtitle, !stat.subtitle && styles.subtitlePlaceholder]}>
+                      {stat.subtitle || " "}
+                    </Text>
                   </>
                 )}
               </View>
             </>
-          )}
-        </View>
-      ))}
+            )}
+          </>
+        );
+
+        const route = "route" in stat ? stat.route : undefined;
+
+        if (route) {
+          return (
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.86}
+              key={stat.label}
+              onPress={() => router.push(route)}
+              style={tileStyle}
+            >
+              {tileContent}
+            </TouchableOpacity>
+          );
+        }
+
+        return (
+          <View key={stat.label} style={tileStyle}>
+            {tileContent}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -259,7 +289,9 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     letterSpacing: 0,
     lineHeight: isCompact ? 18 : 20,
     marginTop: isCompact ? 4 : 6,
+    minHeight: isCompact ? 36 : 40,
     textAlign: "center",
+    textAlignVertical: "center",
   },
   subtitle: {
     color: Colors.text2,
@@ -268,6 +300,9 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     lineHeight: isCompact ? 14 : 16,
     marginTop: isCompact ? 5 : 6,
     textAlign: "center",
+  },
+  subtitlePlaceholder: {
+    opacity: 0,
   },
   titleDivider: {
     backgroundColor: Colors.border,

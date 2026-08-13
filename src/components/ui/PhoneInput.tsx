@@ -64,9 +64,11 @@
 
 import { Ionicons } from "@expo/vector-icons";
 import {
+  forwardRef,
   memo,
   useCallback,
   useEffect,
+  useImperativeHandle,
   useMemo,
   useRef,
   useState,
@@ -74,8 +76,10 @@ import {
 import {
   AccessibilityInfo,
   Animated,
+  Dimensions,
   FlatList,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
   Platform,
   Pressable,
@@ -495,23 +499,28 @@ function getCountryPlaceholder(countryCode: CountryCode): string {
 // ─── CountryPicker ────────────────────────────────────────────────────────────
 // Memoized separately so it never re-renders when PhoneInput types.
 
-interface CountryPickerProps {
+interface CountryCodePickerModalProps {
   visible: boolean;
   selected: Country;
   onSelect: (country: Country) => void;
   onClose: () => void;
 }
 
-const CountryPicker = memo(function CountryPicker({
+const COUNTRY_PICKER_MAX_SHEET_HEIGHT_RATIO = 0.82;
+const COUNTRY_PICKER_ROW_HEIGHT = 56;
+const COUNTRY_PICKER_MIN_LIST_HEIGHT = COUNTRY_PICKER_ROW_HEIGHT * 4;
+
+export const CountryCodePickerModal = memo(function CountryCodePickerModal({
   visible,
   selected,
   onSelect,
   onClose,
-}: CountryPickerProps) {
+}: CountryCodePickerModalProps) {
   const C = usePhoneColors();
   const pickerStyles = useMemo(() => createPickerStyles(C), [C]);
   const insets = useSafeAreaInsets();
   const [query, setQuery] = useState("");
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
   const slideAnim = useRef(new Animated.Value(600)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
   const searchRef = useRef<TextInput>(null);
@@ -568,6 +577,27 @@ const CountryPicker = memo(function CountryPicker({
       ]).start();
     }
   }, [visible, slideAnim, opacityAnim]);
+
+  useEffect(() => {
+    if (!visible) {
+      setKeyboardHeight(0);
+      return;
+    }
+
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const onShow = (event: { endCoordinates?: { height?: number } }) => {
+      setKeyboardHeight(event.endCoordinates?.height ?? 0);
+    };
+    const onHide = () => setKeyboardHeight(0);
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [visible]);
 
   const handleClose = useCallback(() => {
     Keyboard.dismiss();
@@ -634,8 +664,8 @@ const CountryPicker = memo(function CountryPicker({
 
   const getItemLayout = useCallback(
     (_data: ArrayLike<Country> | null | undefined, index: number) => ({
-      length: COUNTRY_ROW_HEIGHT,
-      offset: COUNTRY_ROW_HEIGHT * index,
+      length: COUNTRY_PICKER_ROW_HEIGHT,
+      offset: COUNTRY_PICKER_ROW_HEIGHT * index,
       index,
     }),
     [],
@@ -649,6 +679,17 @@ const CountryPicker = memo(function CountryPicker({
       return () => clearTimeout(t);
     }
   }, [visible]);
+
+  const windowHeight = Dimensions.get("window").height;
+  const keyboardGap = keyboardHeight > 0 ? 8 : 0;
+  const sheetBottom = keyboardHeight > 0 ? keyboardHeight + keyboardGap : 0;
+  const availableHeight =
+    windowHeight - sheetBottom - Math.max(insets.top, Platform.OS === "ios" ? 18 : 8);
+  const sheetMaxHeight = Math.max(
+    COUNTRY_PICKER_MIN_LIST_HEIGHT + 158,
+    Math.min(windowHeight * COUNTRY_PICKER_MAX_SHEET_HEIGHT_RATIO, availableHeight),
+  );
+  const listMaxHeight = Math.max(COUNTRY_PICKER_MIN_LIST_HEIGHT, sheetMaxHeight - 158);
 
   return (
     <Modal
@@ -668,11 +709,20 @@ const CountryPicker = memo(function CountryPicker({
         />
       </Animated.View>
 
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        pointerEvents="box-none"
+        style={pickerStyles.keyboardLayer}
+      >
       {/* Bottom sheet */}
       <Animated.View
         style={[
           pickerStyles.sheet,
-          { paddingBottom: Math.max(insets.bottom, Platform.OS === "ios" ? 32 : 16) },
+          {
+            bottom: sheetBottom,
+            maxHeight: sheetMaxHeight,
+            paddingBottom: Math.max(insets.bottom, Platform.OS === "ios" ? 24 : 14),
+          },
           { transform: [{ translateY: slideAnim }] },
         ]}
         accessibilityViewIsModal
@@ -727,6 +777,7 @@ const CountryPicker = memo(function CountryPicker({
           ItemSeparatorComponent={Separator}
           ListEmptyComponent={EmptyList}
           contentContainerStyle={pickerStyles.listContent}
+          style={{ maxHeight: listMaxHeight }}
           initialNumToRender={20}
           maxToRenderPerBatch={30}
           updateCellsBatchingPeriod={50}
@@ -735,6 +786,7 @@ const CountryPicker = memo(function CountryPicker({
           removeClippedSubviews={Platform.OS !== "web"}
         />
       </Animated.View>
+      </KeyboardAvoidingView>
     </Modal>
   );
 });
@@ -758,11 +810,10 @@ const EmptyList = () => {
   );
 };
 
-const COUNTRY_ROW_HEIGHT = 56;
 
 // ─── PhoneInput ───────────────────────────────────────────────────────────────
 
-export function PhoneInput({
+export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function PhoneInput({
   value,
   onChange,
   country: controlledCountryCode,
@@ -775,7 +826,7 @@ export function PhoneInput({
   editable = true,
   onFocus: onFocusProp,
   onBlur: onBlurProp,
-}: PhoneInputProps) {
+}: PhoneInputProps, forwardedRef) {
   const C = usePhoneColors();
   const inputStyles = useMemo(() => createInputStyles(C), [C]);
 
@@ -809,6 +860,7 @@ export function PhoneInput({
   // ── Refs ───────────────────────────────────────────────────────────────────
 
   const inputRef = useRef<TextInput>(null);
+  useImperativeHandle(forwardedRef, () => inputRef.current as TextInput);
 
   /**
    * lastEmittedE164 — loop guard for the external-value useEffect.
@@ -1098,7 +1150,7 @@ export function PhoneInput({
       </View>
 
       {/* ── Country picker modal ── */}
-      <CountryPicker
+      <CountryCodePickerModal
         visible={pickerOpen}
         selected={selectedCountry}
         onSelect={handleCountrySelect}
@@ -1106,7 +1158,7 @@ export function PhoneInput({
       />
     </View>
   );
-}
+}));
 
 // ─── Picker Styles ────────────────────────────────────────────────────────────
 
@@ -1115,9 +1167,12 @@ const createPickerStyles = (C: PhoneColors) => StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
     backgroundColor: C.overlay,
   },
+  keyboardLayer: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "flex-end",
+  },
   sheet: {
     position: "absolute",
-    bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: C.cardBg,
@@ -1180,7 +1235,7 @@ const createPickerStyles = (C: PhoneColors) => StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
-    height: COUNTRY_ROW_HEIGHT,
+    height: COUNTRY_PICKER_ROW_HEIGHT,
     borderRadius: 12,
   },
   countryRowSelected: {

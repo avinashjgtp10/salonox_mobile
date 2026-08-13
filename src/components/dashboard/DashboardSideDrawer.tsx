@@ -275,7 +275,7 @@ const createStyles = (
 ) => StyleSheet.create({
   action: {
     alignItems: "center",
-    backgroundColor: withAlpha(Colors.backgroundElement, 0.72),
+    backgroundColor: Colors.backgroundElement,
     borderColor: Colors.border,
     borderRadius: Radius.xxl,
     borderWidth: 1,
@@ -297,11 +297,13 @@ const createStyles = (
     width: 42,
   },
   actionLabel: {
+    backgroundColor: "transparent",
     color: Colors.heading,
     flex: 1,
     fontSize: 15,
     fontWeight: Typography.fontWeights.bold,
     lineHeight: 20,
+    minWidth: 0,
   },
   actionList: {
     gap: Spacing.sm,
