@@ -135,7 +135,22 @@ export default function SubscriptionWall() {
 
         <p style={styles.help}>
           Need help?{" "}
-          <a href="mailto:support@salonox.com" style={styles.link}>Contact support</a>
+          <button
+            type="button"
+            style={styles.linkBtn}
+            // Same destination the landing page's own "Contact Us" footer
+            // link navigates to (see Footer.tsx's handleContactUsClick) —
+            // the book-demo section doubles as this app's contact/support
+            // form, there is no separate support route. Opened in a new tab
+            // rather than navigated in-place: this wall is a fixed overlay
+            // rendered outside <Routes> (see App.tsx), so it stays mounted
+            // over EVERY route — including "/" — for as long as the
+            // subscription is expired, which would otherwise cover the
+            // landing page right back up the instant it navigated there.
+            onClick={() => window.open("/#book-demo", "_blank", "noopener,noreferrer")}
+          >
+            Contact support
+          </button>
         </p>
       </div>
     </div>
@@ -197,4 +212,9 @@ const styles: Record<string, React.CSSProperties> = {
   featureItem: { fontSize: "12px", color: "#6b7280" },
   help: { fontSize: "13px", color: "#9ca3af", margin: 0 },
   link: { color: "#6b7280", textDecoration: "underline" },
+  linkBtn: {
+    color: "#6b7280", textDecoration: "underline",
+    background: "none", border: "none", padding: 0,
+    font: "inherit", cursor: "pointer",
+  },
 };

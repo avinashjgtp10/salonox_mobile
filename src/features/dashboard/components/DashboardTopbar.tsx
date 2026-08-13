@@ -108,8 +108,19 @@ export default function DashboardTopbar({ onLogout }: Props) {
   const initials    = getInitials(userProfile?.fullName);
   const displayName = userProfile?.fullName ?? "Salon Owner";
   const email       = userProfile?.email    ?? "";
-  const todayLabel  = new Date().toLocaleDateString("en-IN", {
+
+  // Live clock — ticks every minute so the topbar always shows the actual
+  // current time, not just the time the component happened to mount.
+  const [now, setNow] = useState(new Date());
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+  const todayLabel = now.toLocaleDateString("en-IN", {
     day: "numeric", month: "short", year: "numeric",
+  });
+  const timeLabel = now.toLocaleTimeString("en-IN", {
+    hour: "2-digit", minute: "2-digit", hour12: true,
   });
 
   // ── Toast helpers ─────────────────────────────────────────────────────────────
@@ -285,8 +296,9 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
         <div className="topbar-right">
 
-          {/* Current date */}
+          {/* Current date & time */}
           <span className="topbar-date" title="Today's date">{todayLabel}</span>
+          <span className="topbar-time" title="Current time">{timeLabel}</span>
 
           {/* Notifications bell */}
           <div className="topbar-notif-wrap" ref={notifRef}>

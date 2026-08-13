@@ -100,6 +100,22 @@ body {
   }
 }
 
+.topbar-time {
+  font-size: 13px;
+  font-weight: 500;
+  color: #4b5563;
+  background: #f3f4f6;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid #e5e7eb;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+
+  @media (max-width: 640px) {
+    display: none;
+  }
+}
+
 .profile {
   width: 34px;
   height: 34px;
