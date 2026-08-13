@@ -24,8 +24,6 @@ interface DailyRow {
   appointmentId: string | null;
   serviceId: string | null;
   staffId: string | null;
-  date: string;
-  bookingTime: string;
   billTime: string;
   invoiceNo: string;
   clientName: string;
@@ -48,8 +46,6 @@ function mapRow(row: any): DailyRow {
     appointmentId: row.appointment_id ? String(row.appointment_id) : null,
     serviceId: row.service_id ? String(row.service_id) : null,
     staffId: row.staff_id ? String(row.staff_id) : null,
-    date: row.date || "—",
-    bookingTime: row.booking_time || "—",
     billTime: row.bill_time || "—",
     invoiceNo: row.ticket_no ?? "—",
     clientName: row.client_name || "Walk-in",
@@ -198,8 +194,8 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
     setItemTypes(next.item_type ?? []);
   };
 
-  const HEADERS = ["Date", "Booking Time", "Bill Time", "Invoice No", "Client Name", "Items", "Staff", `Grand Total (${currencySymbol})`, `Paid Amount (${currencySymbol})`, `Due Amount (${currencySymbol})`, "Payment Method", "Status"];
-  const exportRows = () => rows.map(r => [r.date, r.bookingTime, r.billTime, r.invoiceNo, r.clientName, r.items, r.staff, r.grandTotal, r.paidAmount, r.dueAmount, r.paymentMethod, r.status]);
+  const HEADERS = ["Bill Time", "Invoice No", "Client Name", "Items", "Staff", `Grand Total (${currencySymbol})`, `Paid Amount (${currencySymbol})`, `Due Amount (${currencySymbol})`, "Payment Method", "Status"];
+  const exportRows = () => rows.map(r => [r.billTime, r.invoiceNo, r.clientName, r.items, r.staff, r.grandTotal, r.paidAmount, r.dueAmount, r.paymentMethod, r.status]);
 
   return (
     <div className="rp-detail-view">
@@ -270,8 +266,6 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
                   disabled={deletableIds.length === 0}
                 />
               </th>
-              <th>Date</th>
-              <th>Booking Time</th>
               <th>Bill Time</th>
               <th>Invoice No</th>
               <th>Client Name</th>
@@ -286,9 +280,9 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={13} />
+              <SkeletonTableRows columns={11} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={13} className="rp-detail-empty-cell">No data available</td></tr>
+              <tr><td colSpan={11} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.map((r, i) => (
               <tr key={i} className={r.appointmentId ? "rp-appt-row" : undefined}>
                 <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
@@ -301,8 +295,6 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
                     />
                   )}
                 </td>
-                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.date || "—"}</td>
-                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.bookingTime || "—"}</td>
                 <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.billTime || "—"}</td>
                 <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>
                   <span className="rp-detail-link">{r.invoiceNo}</span>
