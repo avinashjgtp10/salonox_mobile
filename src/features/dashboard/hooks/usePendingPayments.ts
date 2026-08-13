@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../../services/api/axios";
 import { BOOKING } from "../../../services/api/endpoints";
+import { mapApiBooking } from "../../bookings/utils/bookingMapper";
 
 export interface PendingPaymentsSummary {
   count: number;
@@ -37,20 +38,12 @@ export function usePendingPayments() {
         const status = String(appt.payment_status ?? "unpaid").toLowerCase();
         if (status !== "unpaid" && status !== "partial") return;
 
-        const itemsTotal = [
-          ...(Array.isArray(appt.services)        ? appt.services        : []),
-          ...(Array.isArray(appt.package_items)    ? appt.package_items    : []),
-          ...(Array.isArray(appt.product_items)    ? appt.product_items    : []),
-          ...(Array.isArray(appt.membership_items) ? appt.membership_items : []),
-        ].reduce((s: number, it: any) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
-        const discount = appt.discount_type === "percentage"
-          ? itemsTotal * ((Number(appt.discount_value) || 0) / 100)
-          : (Number(appt.discount_value) || 0);
-        const taxableAmount = Math.max(itemsTotal - discount, 0);
-        const taxAmount = Array.isArray(appt.tax_breakdown) && appt.tax_breakdown.length
-          ? appt.tax_breakdown.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0)
-          : taxableAmount * ((Number(appt.gst_percent) || 0) / 100);
-        const price = Math.round(taxableAmount + taxAmount + (Number(appt.tip_amount) || 0));
+        // Reuses the same grand-total logic (subtotal − discount + tax +
+        // tip, GST-inclusive) as Calendar/Appointments and Reports — see
+        // bookingMapper.ts's grandTotalVal — instead of a separate
+        // hand-rolled recompute that read tax/GST field names the API
+        // never actually sends.
+        const price = Number(mapApiBooking(appt).grandTotal) || 0;
         const paid = Number(appt.paid_amount) || 0;
         const balance = Math.max(price - paid, 0);
         if (balance <= 0) return;
