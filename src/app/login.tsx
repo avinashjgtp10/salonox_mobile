@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   ActivityIndicator,
   Animated,
@@ -263,9 +263,19 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [activeKeyboardFieldRef, setActiveKeyboardFieldRef] =
+    useState<RefObject<TextInput | null> | null>(null);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
   const [scrollContentHeight, setScrollContentHeight] = useState(0);
-const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
+  const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
+  const fullNameInputRef = useRef<TextInput>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const emailOtpInputRef = useRef<TextInput>(null);
+  const phoneInputRef = useRef<TextInput>(null);
+  const businessNameInputRef = useRef<TextInput>(null);
+  const addressInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
   const fieldOffsets = useRef<Partial<Record<keyof RegisterFieldErrors, number>>>({});
   const contentOverflows = scrollContentHeight > scrollViewHeight + 1;
   const shouldEnableScroll = contentOverflows || isKeyboardVisible;
@@ -291,6 +301,30 @@ const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
     () => formatCountdown(emailOtpCooldownSeconds),
     [emailOtpCooldownSeconds],
   );
+  const keyboardNavigationFields = useMemo(() => {
+    if (!isRegisterMode) {
+      return [{ ref: emailInputRef }, { ref: passwordInputRef }];
+    }
+
+    if (registrationStep === 1) {
+      return [
+        { ref: fullNameInputRef },
+        { ref: emailInputRef },
+        ...(isEmailOtpSent && !isEmailVerifiedForCurrentEmail ? [{ ref: emailOtpInputRef }] : []),
+        { ref: phoneInputRef },
+      ];
+    }
+
+    if (registrationStep === 2) {
+      return [{ ref: businessNameInputRef }, { ref: addressInputRef }];
+    }
+
+    return [{ ref: passwordInputRef }, { ref: confirmPasswordInputRef }];
+  }, [isEmailOtpSent, isEmailVerifiedForCurrentEmail, isRegisterMode, registrationStep]);
+
+  const handleKeyboardFieldFocus = (fieldRef: RefObject<TextInput | null>) => {
+    setActiveKeyboardFieldRef(fieldRef);
+  };
 
   useEffect(() => {
     if (emailOtpCooldownSeconds <= 0) {
@@ -950,6 +984,13 @@ const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           style={styles.keyboardView}
+          keyboardNavigation={{
+            activeFieldRef: activeKeyboardFieldRef,
+            fields: keyboardNavigationFields,
+            hideOnLast: true,
+            keyboardVisible: isKeyboardVisible,
+            onDone: handleSubmit,
+          }}
         >
             <Animated.View
               style={[
@@ -1054,11 +1095,13 @@ const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
                     style={{ marginRight: 12 }}
                   />
                   <TextInput
+                    ref={fullNameInputRef}
                     style={styles.textInput}
                     placeholder="Full name"
                     placeholderTextColor={Colors.placeholder}
                     value={fullName}
                     onChangeText={handleFullNameChange}
+                    onFocus={() => handleKeyboardFieldFocus(fullNameInputRef)}
                     textContentType="name"
                     autoComplete="name"
                     autoCapitalize="words"
@@ -1095,11 +1138,13 @@ const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
                     style={{ marginRight: 12 }}
                   />
                   <TextInput
+                    ref={emailInputRef}
                     style={styles.textInput}
                     placeholder="name@company.com"
                     placeholderTextColor={Colors.placeholder}
                     value={email}
                     onChangeText={handleEmailChange}
+                    onFocus={() => handleKeyboardFieldFocus(emailInputRef)}
                     keyboardType="email-address"
                     textContentType="emailAddress"
                     autoComplete="email"
@@ -1163,10 +1208,12 @@ const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
                                 style={{ marginRight: 12 }}
                               />
                               <TextInput
+                                ref={emailOtpInputRef}
                                 autoComplete="one-time-code"
                                 keyboardType="number-pad"
                                 maxLength={8}
                                 onChangeText={handleEmailOtpChange}
+                                onFocus={() => handleKeyboardFieldFocus(emailOtpInputRef)}
                                 onSubmitEditing={handleVerifyEmailOtp}
                                 placeholder="Enter OTP"
                                 placeholderTextColor={Colors.placeholder}
@@ -1247,11 +1294,13 @@ const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
               >
                 <Text style={styles.inputLabel}>Mobile Number</Text>
                 <PhoneInput
+                  ref={phoneInputRef}
                   value={phoneE164}
                   onChange={handlePhoneChange}
                   country={countryCode}
                   onCountryChange={handlePhoneCountryChange}
                   error={fieldErrors.phone}
+                  onFocus={() => handleKeyboardFieldFocus(phoneInputRef)}
                   onBlur={() => {
                     const stepErrors = getRegisterStepErrors(1);
                     if (stepErrors.phone) {
@@ -1293,11 +1342,13 @@ const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
                     style={{ marginRight: 12 }}
                   />
                   <TextInput
+                    ref={businessNameInputRef}
                     style={styles.textInput}
                     placeholder="Business name"
                     placeholderTextColor={Colors.placeholder}
                     value={businessName}
                     onChangeText={handleBusinessNameChange}
+                    onFocus={() => handleKeyboardFieldFocus(businessNameInputRef)}
                     textContentType="organizationName"
                     autoComplete="organization"
                     autoCapitalize="words"
@@ -1335,11 +1386,13 @@ const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
                     style={{ marginRight: 12, marginTop: 13 }}
                   />
                   <TextInput
+                    ref={addressInputRef}
                     style={[styles.textInput, styles.addressTextInput]}
                     placeholder="Enter your salon address"
                     placeholderTextColor={Colors.placeholder}
                     value={address}
                     onChangeText={handleAddressChange}
+                    onFocus={() => handleKeyboardFieldFocus(addressInputRef)}
                     multiline
                     textAlignVertical="top"
                     autoCapitalize="words"
@@ -1378,11 +1431,13 @@ const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
                     style={{ marginRight: 12 }}
                   />
                   <TextInput
+                    ref={passwordInputRef}
                     style={styles.textInput}
                     placeholder="Enter your password"
                     placeholderTextColor={Colors.placeholder}
                     value={password}
                     onChangeText={handlePasswordChange}
+                    onFocus={() => handleKeyboardFieldFocus(passwordInputRef)}
                     secureTextEntry={!showPassword}
                     textContentType="password"
                     autoComplete="password"
@@ -1432,11 +1487,13 @@ const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
                       style={{ marginRight: 12 }}
                     />
                     <TextInput
+                      ref={confirmPasswordInputRef}
                       style={styles.textInput}
                       placeholder="Confirm your password"
                       placeholderTextColor={Colors.placeholder}
                       value={confirmPassword}
                       onChangeText={handleConfirmPasswordChange}
+                      onFocus={() => handleKeyboardFieldFocus(confirmPasswordInputRef)}
                       secureTextEntry={!showPassword}
                       textContentType="password"
                       autoComplete="password"

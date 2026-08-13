@@ -7,6 +7,7 @@
  * adjusts content bottom padding so lower fields are never obscured.
  */
 
+import { Ionicons } from "@expo/vector-icons";
 import React, {
   forwardRef,
   useCallback,
@@ -16,27 +17,125 @@ import React, {
   useRef,
   useState,
   type PropsWithChildren,
+  type RefObject,
 } from "react";
 import {
   Dimensions,
   FlatList,
   Keyboard,
   Platform,
+  Pressable,
   ScrollView,
   SectionList,
   StyleSheet,
   TextInput,
   UIManager,
+  View,
   findNodeHandle,
   type FlatListProps,
   type ScrollViewProps,
   type SectionListProps,
 } from "react-native";
 
+import { AppRadius } from "@/constants/layout";
+import { useThemeColors } from "@/theme/ThemeProvider";
+
+export type KeyboardNavigationField = {
+  disabled?: boolean;
+  ref: RefObject<TextInput | null>;
+};
+
+export type KeyboardNavigationOptions = {
+  activeFieldRef?: RefObject<TextInput | null> | null;
+  fields: KeyboardNavigationField[];
+  hideOnLast?: boolean;
+  keyboardVisible?: boolean;
+  onDone?: () => void;
+};
+
 export type KeyboardAwareOptions = {
   extraScrollPadding?: number;
   contentContainerStyle?: any;
+  keyboardNavigation?: KeyboardNavigationOptions;
   onScroll?: ScrollViewProps["onScroll"];
+};
+
+type FocusedInputFrame = {
+  height: number;
+  keyboardTopY: number;
+  pageX: number;
+  pageY: number;
+  width: number;
+};
+
+const FLOATING_BUTTON_SIZE = 44;
+const FLOATING_BUTTON_MARGIN = 12;
+const KEYBOARD_FOCUS_MEASURE_DELAYS_MS = [0, 80, 180];
+const KEYBOARD_NAVIGATION_MEASURE_DELAYS_MS = [45, 150];
+
+const getCurrentlyFocusedInput = () =>
+  (
+    TextInput.State as unknown as {
+      currentlyFocusedInput?: () => unknown;
+    }
+  ).currentlyFocusedInput?.() ?? null;
+
+const getInputNode = (input: unknown) =>
+  typeof input === "number" ? input : findNodeHandle(input as any);
+
+const getKeyboardMetricsHeight = () => {
+  const metrics = (Keyboard as unknown as { metrics?: () => { height?: number } | undefined }).metrics?.();
+
+  return metrics?.height ?? 0;
+};
+
+const getNextNavigationField = (
+  fields: KeyboardNavigationField[],
+  activeNode: number | null,
+) => {
+  if (!activeNode) {
+    return null;
+  }
+
+  let foundActiveField = false;
+
+  for (const field of fields) {
+    const fieldNode = getInputNode(field.ref.current);
+
+    if (!fieldNode) {
+      continue;
+    }
+
+    if (foundActiveField) {
+      return field;
+    }
+
+    if (fieldNode === activeNode) {
+      foundActiveField = true;
+    }
+  }
+
+  return null;
+};
+
+const hasNavigationField = (
+  fields: KeyboardNavigationField[],
+  activeNode: number | null,
+) => Boolean(activeNode && fields.some((field) => getInputNode(field.ref.current) === activeNode));
+
+const isRegisteredNavigationNode = (
+  fields: KeyboardNavigationField[],
+  node: number | null,
+) => Boolean(node && fields.some((field) => getInputNode(field.ref.current) === node));
+
+const getFocusedNavigationInput = (keyboardNavigation?: KeyboardNavigationOptions) => {
+  const focusedInput = getCurrentlyFocusedInput();
+
+  if (focusedInput) {
+    return focusedInput;
+  }
+
+  return keyboardNavigation?.activeFieldRef?.current ?? null;
 };
 
 export function useKeyboardAwareScrollView<
@@ -44,26 +143,31 @@ export function useKeyboardAwareScrollView<
 >({
   extraScrollPadding = 40,
   contentContainerStyle,
+  keyboardNavigation,
   onScroll: userOnScroll,
 }: KeyboardAwareOptions = {}) {
   const scrollRef = useRef<T>(null);
+  const containerRef = useRef<View>(null);
   const scrollOffsetRef = useRef(0);
   const keyboardHeightRef = useRef(0);
   const [keyboardHeightState, setKeyboardHeightState] = useState(0);
+  const [activeInputNode, setActiveInputNode] = useState<number | null>(null);
+  const [focusedInputFrame, setFocusedInputFrame] = useState<FocusedInputFrame | null>(null);
+  const activeInputNodeRef = useRef<number | null>(null);
+  const focusedInputFrameRef = useRef<FocusedInputFrame | null>(null);
   const activeInputRef = useRef<unknown>(null);
   const isMeasuringRef = useRef(false);
+  const visibleNavigationFields = useMemo(
+    () => keyboardNavigation?.fields.filter((field) => !field.disabled) ?? [],
+    [keyboardNavigation?.fields],
+  );
 
   const scrollToFocusedInput = useCallback(
     (customKbHeight?: number) => {
       const kbHeight = customKbHeight ?? keyboardHeightRef.current;
       if (!scrollRef.current || kbHeight <= 0) return;
 
-      const focusedInput =
-        (
-          TextInput.State as unknown as {
-            currentlyFocusedInput?: () => unknown;
-          }
-        ).currentlyFocusedInput?.();
+      const focusedInput = getFocusedNavigationInput(keyboardNavigation);
 
       if (!focusedInput) return;
 
@@ -77,12 +181,11 @@ export function useKeyboardAwareScrollView<
       const scrollNode = findNodeHandle(scrollResponder as any);
       if (!scrollNode) return;
 
-      const inputNode =
-        typeof focusedInput === "number"
-          ? focusedInput
-          : findNodeHandle(focusedInput as any);
+      const inputNode = getInputNode(focusedInput);
 
       if (!inputNode) return;
+      activeInputNodeRef.current = inputNode;
+      setActiveInputNode(inputNode);
 
       if (isMeasuringRef.current) return;
       isMeasuringRef.current = true;
@@ -112,28 +215,57 @@ export function useKeyboardAwareScrollView<
 
       // Promise for focused TextInput position in window
       const measureInput = new Promise<{
+        ix: number;
         iy: number;
         ih: number;
+        iw: number;
       }>((resolve) => {
         const inputObj = focusedInput as any;
         if (typeof inputObj?.measureInWindow === "function") {
           inputObj.measureInWindow(
             (_ix: number, iy: number, _iw: number, ih: number) => {
-              resolve({ iy, ih });
+              resolve({ ix: _ix, iy, iw: _iw, ih });
             },
           );
         } else {
           UIManager.measureInWindow(
             inputNode,
             (_ix: number, iy: number, _iw: number, ih: number) => {
-              resolve({ iy, ih });
+              resolve({ ix: _ix, iy, iw: _iw, ih });
             },
           );
         }
       });
 
-      Promise.all([measureScrollView, measureInput])
-        .then(([{ sy, sh }, { iy, ih }]) => {
+      const measureContainer = new Promise<{
+        cx: number;
+        cy: number;
+      }>((resolve) => {
+        const containerNode = findNodeHandle(containerRef.current);
+
+        if (!containerNode) {
+          resolve({ cx: 0, cy: 0 });
+          return;
+        }
+
+        if (typeof (containerRef.current as any)?.measureInWindow === "function") {
+          (containerRef.current as any).measureInWindow(
+            (cx: number, cy: number) => {
+              resolve({ cx, cy });
+            },
+          );
+        } else {
+          UIManager.measureInWindow(
+            containerNode,
+            (cx: number, cy: number) => {
+              resolve({ cx, cy });
+            },
+          );
+        }
+      });
+
+      Promise.all([measureScrollView, measureInput, measureContainer])
+        .then(([{ sy, sh }, { ix, iy, iw, ih }, { cx, cy }]) => {
           isMeasuringRef.current = false;
           if (
             iy === undefined ||
@@ -147,6 +279,15 @@ export function useKeyboardAwareScrollView<
           }
 
           const keyboardTopInWindow = windowHeight - kbHeight;
+          const nextFocusedInputFrame = {
+            height: ih,
+            keyboardTopY: keyboardTopInWindow - cy,
+            pageX: ix - cx,
+            pageY: iy - cy,
+            width: iw,
+          };
+          focusedInputFrameRef.current = nextFocusedInputFrame;
+          setFocusedInputFrame(nextFocusedInputFrame);
           const visibleBottom =
             Math.min(sy + sh, keyboardTopInWindow) - extraScrollPadding;
           const visibleTop = sy + extraScrollPadding;
@@ -182,7 +323,7 @@ export function useKeyboardAwareScrollView<
           isMeasuringRef.current = false;
         });
     },
-    [extraScrollPadding],
+    [extraScrollPadding, keyboardNavigation],
   );
 
   // Keyboard Event Listeners
@@ -197,8 +338,13 @@ export function useKeyboardAwareScrollView<
       const height = event.endCoordinates.height;
       keyboardHeightRef.current = height;
       setKeyboardHeightState(height);
-      requestAnimationFrame(() => {
-        scrollToFocusedInput(height);
+
+      KEYBOARD_FOCUS_MEASURE_DELAYS_MS.forEach((delay) => {
+        setTimeout(() => {
+          requestAnimationFrame(() => {
+            scrollToFocusedInput(height);
+          });
+        }, delay);
       });
     };
 
@@ -206,6 +352,10 @@ export function useKeyboardAwareScrollView<
       keyboardHeightRef.current = 0;
       setKeyboardHeightState(0);
       activeInputRef.current = null;
+      activeInputNodeRef.current = null;
+      focusedInputFrameRef.current = null;
+      setActiveInputNode(null);
+      setFocusedInputFrame(null);
     };
 
     const showSub = Keyboard.addListener(showEvent, onShow);
@@ -222,25 +372,64 @@ export function useKeyboardAwareScrollView<
     };
   }, [scrollToFocusedInput]);
 
-  // Active Focus Polling while keyboard is open
+  // Active focus polling. This deliberately keeps running even when the
+  // keyboard state is temporarily stale after screen remount/back navigation.
   useEffect(() => {
-    if (keyboardHeightState <= 0) return;
-
     const interval = setInterval(() => {
-      const focusedInput =
-        (
-          TextInput.State as unknown as {
-            currentlyFocusedInput?: () => unknown;
-          }
-        ).currentlyFocusedInput?.();
+      const metricsHeight = getKeyboardMetricsHeight();
 
-      if (focusedInput && focusedInput !== activeInputRef.current) {
-        scrollToFocusedInput();
+      if (metricsHeight > 0 && keyboardHeightRef.current <= 0) {
+        keyboardHeightRef.current = metricsHeight;
+        setKeyboardHeightState(metricsHeight);
+      }
+
+      const focusedInput = getFocusedNavigationInput(keyboardNavigation);
+      const focusedNode = focusedInput ? getInputNode(focusedInput) : null;
+      const isRegisteredFocusedNode = isRegisteredNavigationNode(visibleNavigationFields, focusedNode);
+
+      if (focusedInput && focusedNode && isRegisteredFocusedNode) {
+        activeInputRef.current = focusedInput;
+        const didFocusChange = activeInputNodeRef.current !== focusedNode;
+        activeInputNodeRef.current = focusedNode;
+        setActiveInputNode(focusedNode);
+
+        if (didFocusChange || !focusedInputFrameRef.current) {
+          scrollToFocusedInput();
+        }
+        return;
+      }
+
+      if (!focusedInput && keyboardHeightRef.current <= 0) {
+        activeInputRef.current = null;
+        activeInputNodeRef.current = null;
+        focusedInputFrameRef.current = null;
+        setActiveInputNode(null);
+        setFocusedInputFrame(null);
       }
     }, 120);
 
     return () => clearInterval(interval);
-  }, [keyboardHeightState, scrollToFocusedInput]);
+  }, [keyboardNavigation, scrollToFocusedInput, visibleNavigationFields]);
+
+  useEffect(() => {
+    if (!keyboardNavigation?.keyboardVisible) {
+      return;
+    }
+
+    const focusedInput = getFocusedNavigationInput(keyboardNavigation);
+    const focusedNode = focusedInput ? getInputNode(focusedInput) : null;
+
+    if (!focusedInput || !focusedNode || !isRegisteredNavigationNode(visibleNavigationFields, focusedNode)) {
+      return;
+    }
+
+    activeInputRef.current = focusedInput;
+    activeInputNodeRef.current = focusedNode;
+    setActiveInputNode(focusedNode);
+    requestAnimationFrame(() => {
+      scrollToFocusedInput();
+    });
+  }, [keyboardNavigation, keyboardNavigation?.keyboardVisible, scrollToFocusedInput, visibleNavigationFields]);
 
   // Dynamic ContentContainerStyle Padding
   const combinedContentContainerStyle = useMemo(() => {
@@ -267,17 +456,57 @@ export function useKeyboardAwareScrollView<
     [userOnScroll],
   );
 
+  const nextNavigationField = getNextNavigationField(visibleNavigationFields, activeInputNode);
+  const hasNextField = Boolean(nextNavigationField);
+  const showDoneAction =
+    Boolean(keyboardNavigation?.onDone) &&
+    hasNavigationField(visibleNavigationFields, activeInputNode) &&
+    !hasNextField &&
+    !keyboardNavigation?.hideOnLast;
+  const shouldShowKeyboardNavigation =
+    (keyboardHeightState > 0 || Boolean(keyboardNavigation?.keyboardVisible)) &&
+    Boolean(activeInputNode) &&
+    (hasNextField || showDoneAction);
+
+  const handleKeyboardNavigationPress = useCallback(() => {
+    if (nextNavigationField) {
+      nextNavigationField.ref.current?.focus();
+
+      KEYBOARD_NAVIGATION_MEASURE_DELAYS_MS.forEach((delay) => {
+        setTimeout(() => {
+          requestAnimationFrame(() => {
+            scrollToFocusedInput();
+          });
+        }, delay);
+      });
+      return;
+    }
+
+    keyboardNavigation?.onDone?.();
+  }, [
+    keyboardNavigation,
+    nextNavigationField,
+    scrollToFocusedInput,
+  ]);
+
   return {
+    containerRef,
     scrollRef,
     keyboardHeightState,
     combinedContentContainerStyle,
+    activeInputNode,
+    focusedInputFrame,
+    handleKeyboardNavigationPress,
+    hasNextField,
     onScroll: handleScroll,
+    shouldShowKeyboardNavigation,
     scrollToFocusedInput,
   };
 }
 
 export type KeyboardAwareScrollViewProps = ScrollViewProps & {
   extraScrollPadding?: number;
+  keyboardNavigation?: KeyboardNavigationOptions;
 };
 
 export type KeyboardAwareScrollViewHandle = ScrollView;
@@ -286,37 +515,97 @@ export const KeyboardAwareScrollView = forwardRef<
   ScrollView,
   PropsWithChildren<KeyboardAwareScrollViewProps>
 >(function KeyboardAwareScrollView(
-  { children, extraScrollPadding = 40, contentContainerStyle, ...scrollViewProps },
+  { children, extraScrollPadding = 40, contentContainerStyle, keyboardNavigation, ...scrollViewProps },
   forwardedRef,
 ) {
+  const Colors = useThemeColors();
+  const navigationStyles = useMemo(() => createKeyboardNavigationStyles(Colors), [Colors]);
   const {
+    containerRef,
     scrollRef,
     combinedContentContainerStyle,
+    activeInputNode,
+    focusedInputFrame,
+    handleKeyboardNavigationPress,
+    hasNextField,
+    keyboardHeightState,
     onScroll,
+    shouldShowKeyboardNavigation,
   } = useKeyboardAwareScrollView<ScrollView>({
     extraScrollPadding,
     contentContainerStyle,
+    keyboardNavigation,
     onScroll: scrollViewProps.onScroll,
   });
 
   useImperativeHandle(forwardedRef, () => scrollRef.current as ScrollView);
 
+  const windowWidth = Dimensions.get("window").width;
+  const floatingButtonTop = focusedInputFrame
+    ? (() => {
+        const besideInput =
+          focusedInputFrame.pageY + focusedInputFrame.height / 2 - FLOATING_BUTTON_SIZE / 2;
+        const maxAboveKeyboard =
+          focusedInputFrame.keyboardTopY - FLOATING_BUTTON_SIZE - FLOATING_BUTTON_MARGIN;
+
+        return Math.max(FLOATING_BUTTON_MARGIN, Math.min(besideInput, maxAboveKeyboard));
+      })()
+    : activeInputNode
+      ? Math.max(
+          FLOATING_BUTTON_MARGIN,
+          Dimensions.get("window").height -
+            keyboardHeightState -
+            FLOATING_BUTTON_SIZE -
+            FLOATING_BUTTON_MARGIN * 2,
+        )
+      : FLOATING_BUTTON_MARGIN;
+  const floatingButtonLeft = focusedInputFrame
+    ? (() => {
+        const rightOfInput = focusedInputFrame.pageX + focusedInputFrame.width + 8;
+        const maxLeft = windowWidth - FLOATING_BUTTON_SIZE - FLOATING_BUTTON_MARGIN;
+
+        if (rightOfInput <= maxLeft) {
+          return Math.max(FLOATING_BUTTON_MARGIN, rightOfInput);
+        }
+
+        return maxLeft;
+      })()
+    : windowWidth - FLOATING_BUTTON_SIZE - 18;
+
   return (
-    <ScrollView
-      ref={scrollRef}
-      contentContainerStyle={combinedContentContainerStyle}
-      keyboardShouldPersistTaps={
-        scrollViewProps.keyboardShouldPersistTaps ?? "handled"
-      }
-      showsVerticalScrollIndicator={
-        scrollViewProps.showsVerticalScrollIndicator ?? false
-      }
-      onScroll={onScroll}
-      scrollEventThrottle={scrollViewProps.scrollEventThrottle ?? 16}
-      {...scrollViewProps}
-    >
-      {children}
-    </ScrollView>
+    <View ref={containerRef} style={[styles.container, scrollViewProps.style]}>
+      <ScrollView
+        ref={scrollRef}
+        contentContainerStyle={combinedContentContainerStyle}
+        keyboardShouldPersistTaps={
+          scrollViewProps.keyboardShouldPersistTaps ?? "handled"
+        }
+        showsVerticalScrollIndicator={
+          scrollViewProps.showsVerticalScrollIndicator ?? false
+        }
+        onScroll={onScroll}
+        scrollEventThrottle={scrollViewProps.scrollEventThrottle ?? 16}
+        {...scrollViewProps}
+        style={styles.container}
+      >
+        {children}
+      </ScrollView>
+      {shouldShowKeyboardNavigation ? (
+        <Pressable
+          accessibilityLabel={hasNextField ? "Focus next field" : "Done"}
+          accessibilityRole="button"
+          hitSlop={8}
+          onPress={handleKeyboardNavigationPress}
+          style={[navigationStyles.floatingButton, { left: floatingButtonLeft, top: floatingButtonTop }]}
+        >
+          <Ionicons
+            color="#FFFFFF"
+            name={hasNextField ? "arrow-down" : "checkmark"}
+            size={20}
+          />
+        </Pressable>
+      ) : null}
+    </View>
   );
 });
 
@@ -411,3 +700,30 @@ export const KeyboardAwareSectionList = forwardRef(
     ref?: React.Ref<SectionList<ItemT, SectionT>>;
   },
 ) => React.ReactElement;
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
+});
+
+const createKeyboardNavigationStyles = (Colors: ReturnType<typeof useThemeColors>) =>
+  StyleSheet.create({
+    floatingButton: {
+      alignItems: "center",
+      backgroundColor: Colors.primary,
+      borderColor: "rgba(255, 255, 255, 0.28)",
+      borderRadius: AppRadius.pill,
+      borderWidth: 1,
+      elevation: 8,
+      height: FLOATING_BUTTON_SIZE,
+      justifyContent: "center",
+      position: "absolute",
+      shadowColor: Colors.shadow,
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.22,
+      shadowRadius: 14,
+      width: FLOATING_BUTTON_SIZE,
+      zIndex: 20,
+    },
+  });
