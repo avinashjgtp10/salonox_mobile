@@ -966,26 +966,37 @@ function PackageRow({
           <span>Sessions are only deducted once the appointment is completed.</span>
         </div>
         {(row.services ?? []).map((svc, i) => {
-          const scheduled = !!svc.schedule;
+          // Two distinct states, previously conflated into one `scheduled`
+          // flag. `expanded` just means the date/time fields are showing —
+          // services matched to the catalog are pre-expanded as a
+          // ready-to-fill convenience (see buildServicesFromPackage), which
+          // left scheduledAt as "". `willSchedule` is whether an appointment
+          // will ACTUALLY be booked, which needs a real scheduledAt: the save
+          // path drops any schedule without one (`s.schedule?.scheduledAt ?
+          // … : {}` in useAppointment.ts). Driving the checked icon off
+          // `expanded` therefore showed every pre-expanded row as scheduled
+          // while silently booking nothing.
+          const expanded = !!svc.schedule;
+          const willSchedule = !!svc.schedule?.scheduledAt;
           const unschedulable = !svc.serviceId;
           return (
-            <div key={`${svc.serviceName}-${i}`} className={`pkg-schedule__row${scheduled ? " pkg-schedule__row--on" : ""}`}>
+            <div key={`${svc.serviceName}-${i}`} className={`pkg-schedule__row${willSchedule ? " pkg-schedule__row--on" : ""}`}>
               <button
                 type="button"
                 className="pkg-schedule__toggle"
                 disabled={frozen || unschedulable}
-                aria-pressed={scheduled}
+                aria-pressed={willSchedule}
                 title={unschedulable
                   ? "This service isn't linked to the catalog and can't be auto-scheduled"
-                  : scheduled ? "Remove scheduled appointment" : "Schedule a future appointment for this service"}
-                onClick={() => updateRowService(i, { schedule: scheduled ? undefined : { scheduledAt: "", staffId: "" } })}
+                  : expanded ? "Remove scheduled appointment" : "Schedule a future appointment for this service"}
+                onClick={() => updateRowService(i, { schedule: expanded ? undefined : { scheduledAt: "", staffId: "" } })}
               >
-                {scheduled ? <CalendarCheckFill size={13} /> : <CalendarPlus size={13} />}
+                {willSchedule ? <CalendarCheckFill size={13} /> : <CalendarPlus size={13} />}
               </button>
               <span className="pkg-schedule__name">
                 {svc.serviceName}<span>×{svc.totalSessions}</span>
               </span>
-              {scheduled ? (
+              {expanded ? (
                 <div className="pkg-schedule__fields">
                   {/* The native date glyph is hidden in CSS and replaced with
                       this icon so it matches the rest of the modal's iconography;
@@ -1023,6 +1034,15 @@ function PackageRow({
                       updateRowService(i, { schedule: { ...svc.schedule, scheduledAt: `${date}T${val}` } });
                     }}
                   />
+                  {/* The fields being visible is not the same as an
+                      appointment being booked — say so, rather than leaving a
+                      pre-expanded empty row looking identical to a filled one
+                      and quietly booking nothing on save. */}
+                  {!willSchedule && (
+                    <span className="pkg-schedule__hint pkg-schedule__hint--warn">
+                      Pick a date &amp; time — otherwise this won't be booked
+                    </span>
+                  )}
                 </div>
               ) : (
                 <span className="pkg-schedule__hint">
