@@ -13,6 +13,7 @@ import api from "../../../services/api/axios";
 import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import { STAFF } from "../../../services/api/endpoints/staff.endpoints";
 import { LINK_BUILDER } from "../../../services/api/endpoints/linkBuilder.endpoints";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/OnlineBooking.scss";
 
 const PRESETS = [
@@ -182,15 +183,12 @@ export default function LinkBuilderPage() {
               ) : services.length === 0 ? (
                 <p className="ob-card-sub">No active services found. Add one in Catalog first.</p>
               ) : (
-                <select
+                <Dropdown
                   className="ob-select"
                   value={serviceId}
-                  onChange={(e) => setServiceId(e.target.value)}
-                >
-                  {services.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
+                  options={services.map((s) => ({ id: s.id, name: s.name }))}
+                  onChange={setServiceId}
+                />
               )}
             </div>
           )}
@@ -202,15 +200,12 @@ export default function LinkBuilderPage() {
               ) : staff.length === 0 ? (
                 <p className="ob-card-sub">No active staff found. Add one in Staff first.</p>
               ) : (
-                <select
+                <Dropdown
                   className="ob-select"
                   value={staffId}
-                  onChange={(e) => setStaffId(e.target.value)}
-                >
-                  {staff.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
+                  options={staff.map((s) => ({ id: s.id, name: s.name }))}
+                  onChange={setStaffId}
+                />
               )}
             </div>
           )}

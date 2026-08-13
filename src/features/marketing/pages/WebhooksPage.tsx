@@ -2,6 +2,7 @@ import { useEffect, useCallback, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchWebhookEventsThunk, fetchCampaignsThunk } from "../../../middleware/marketing/marketing.thunk";
 import { Button, Badge } from "../../../components/ui";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/WebhooksPage.scss";
 
 const STATUS_COLOR: Record<string, string> = {
@@ -121,16 +122,13 @@ export default function WebhooksPage() {
 
           {/* Campaign filter */}
           <div className="wh-filter-row">
-            <select
+            <Dropdown
               className="wh-campaign-select"
+              searchable={false}
               value={campaignFilter}
-              onChange={(e) => setCampaignFilter(e.target.value)}
-            >
-              <option value="ALL">All campaigns</option>
-              {campaigns.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+              options={[{ id: "ALL", name: "All campaigns" }, ...campaigns.map((c) => ({ id: String(c.id), name: c.name }))]}
+              onChange={setCampaignFilter}
+            />
           </div>
 
           {/* Filter pills */}
