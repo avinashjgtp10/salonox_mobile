@@ -6,15 +6,18 @@ import ClientSelect from "../../clients/components/ClientSelect";
 import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
 import "../styles/StaffProfileSection.scss";
 
+// Real choices only — no leading { value: "" } row. That pattern gives a
+// native <select> its placeholder, but ClientSelect takes a `placeholder`
+// prop (passed at both call sites with this exact same text), so the empty
+// entry rendered as an extra selectable option duplicating the placeholder
+// and silently clearing the field when picked.
 const JOB_TITLE_OPTIONS = [
-  { value: "", label: "Select a role" },
   { value: "admin", label: "Admin" },
   { value: "staff", label: "Staff" },
   { value: "manager", label: "Manager" },
 ];
 
 const EMPLOYMENT_TYPE_OPTIONS = [
-  { value: "", label: "Select an option" },
   { value: "full_time", label: "Full-time" },
   { value: "part_time", label: "Part-time" },
   { value: "contract", label: "Contract" },

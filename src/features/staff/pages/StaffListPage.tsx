@@ -95,7 +95,6 @@ export default function StaffListPage() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [showFilter, setShowFilter] = useState(false);
-  const [sortOpen, setSortOpen] = useState(false);
   const [selectedSort, setSelectedSort] = useState("Custom order");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -150,9 +149,10 @@ export default function StaffListPage() {
 
   // Close dropdowns on outside click
   useEffect(() => {
+    // The sort menu isn't listed here any more — Dropdown closes itself on
+    // blur, so it needs no outside-click wiring of its own.
     const handler = () => {
       setOptionsOpen(false);
-      setSortOpen(false);
       setActionMenuId(null);
     };
     document.addEventListener("click", handler);
@@ -443,26 +443,20 @@ export default function StaffListPage() {
             )}
           </button>
         </div>
+        {/* Reusable Dropdown in place of the hand-rolled trigger + menu this
+            used to render. The sort/chevron glyphs stay as siblings rather
+            than children — the component's trigger is an <input>, which can't
+            contain markup — positioned over it by .slp-sort-wrap. */}
         <div className="slp-sort-wrap" onClick={(e) => e.stopPropagation()}>
-          <button className="slp-sort-btn" onClick={() => setSortOpen(!sortOpen)}>
-            <ArrowDownUp size={13} />
-            {selectedSort}
-            <ChevronDown size={13} />
-          </button>
-          {sortOpen && (
-            <div className="slp-sort-menu">
-              {sortOptions.map((opt) => (
-                <div
-                  key={opt}
-                  className={`slp-sort-item ${selectedSort === opt ? "active" : ""}`}
-                  onClick={() => { setSelectedSort(opt); setSortOpen(false); }}
-                >
-                  {opt}
-                  {selectedSort === opt && <span className="slp-sort-check">✓</span>}
-                </div>
-              ))}
-            </div>
-          )}
+          <ArrowDownUp size={13} className="slp-sort-icon" aria-hidden />
+          <Dropdown
+            className="slp-sort-btn"
+            searchable={false}
+            value={selectedSort}
+            options={sortOptions.map((opt) => ({ id: opt, name: opt }))}
+            onChange={setSelectedSort}
+          />
+          <ChevronDown size={13} className="slp-sort-caret" aria-hidden />
         </div>
       </div>
 

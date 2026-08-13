@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import type { StaffMember } from "./types";
+import Dropdown from "../ui/Dropdown";
 import "./CopyScheduleDrawer.scss";
 
 interface CopyScheduleDrawerProps {
@@ -176,14 +177,15 @@ const CopyScheduleDrawer: React.FC<CopyScheduleDrawerProps> = ({
           <div className="copy-drawer__source">
             <div className="copy-drawer__field">
               <label className="copy-drawer__field-label">Copy Range</label>
-              <select
+              <Dropdown
                 className="copy-drawer__select"
                 value={copyType}
-                onChange={(e) => setCopyType(e.target.value as "day" | "week")}
-              >
-                <option value="day">Single Day</option>
-                <option value="week">Full Week</option>
-              </select>
+                options={[
+                  { id: "day", name: "Single Day" },
+                  { id: "week", name: "Full Week" },
+                ]}
+                onChange={(id) => setCopyType(id as "day" | "week")}
+              />
             </div>
             <div className="copy-drawer__field">
               <label className="copy-drawer__field-label">Source Date</label>

@@ -7,15 +7,23 @@ export interface DropdownOption {
 }
 
 interface DropdownProps {
-  value: string;
+  /** Selected id — or, in `multiple` mode, the array of selected ids. */
+  value: string | string[];
   options: DropdownOption[];
   placeholder?: string;
+  /** Receives the picked id. In `multiple` mode this is the id that was
+   *  TOGGLED: the parent owns the array and adds/removes it itself, matching
+   *  how the existing checkbox-list pickers already track their selection. */
   onChange: (id: string) => void;
   onBlur?: () => void;
   allowNone?: boolean;
   disabled?: boolean;
   /** false = click-to-open list only, no typing/filtering (drop-in for a plain native <select>). Default true. */
   searchable?: boolean;
+  /** Multi-select: rows show a checkbox, picking one keeps the list open
+   *  (and keeps any active filter), and the closed field summarises the
+   *  selection. Default false — single-select, unchanged. */
+  multiple?: boolean;
   className?: string;
   style?: React.CSSProperties;
 }
@@ -34,6 +42,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   allowNone,
   disabled,
   searchable = true,
+  multiple = false,
   className,
   style,
 }) => {
@@ -41,10 +50,23 @@ export const Dropdown: React.FC<DropdownProps> = ({
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(-1);
   const itemRefs = useRef<Array<HTMLDivElement | null>>([]);
-  const selected = options.find((o) => o.id === value);
-  const displayValue = searchable
-    ? (open ? query : (selected?.name ?? (value === "" && allowNone ? "None" : "")))
-    : (selected?.name ?? (value === "" && allowNone ? "None" : ""));
+  // `value` is a string for every single-select caller and an array only in
+  // multiple mode — normalise both ways up front so the rest of the component
+  // never has to re-check which shape it got.
+  const selectedIds = multiple ? (Array.isArray(value) ? value : []) : [];
+  const singleValue = Array.isArray(value) ? "" : value;
+  const selected = options.find((o) => o.id === singleValue);
+  // Naming a couple of picks is more useful than a bare count, but a long
+  // list would overflow the field — so summarise past two.
+  const multiLabel = selectedIds.length === 0
+    ? ""
+    : selectedIds.length <= 2
+      ? options.filter((o) => selectedIds.includes(o.id)).map((o) => o.name).join(", ")
+      : `${selectedIds.length} selected`;
+  const closedLabel = multiple
+    ? multiLabel
+    : (selected?.name ?? (singleValue === "" && allowNone ? "None" : ""));
+  const displayValue = searchable && open ? query : closedLabel;
   const filtered = searchable && query.trim()
     ? options.filter((o) => o.name.toLowerCase().includes(query.trim().toLowerCase()))
     : options;
@@ -69,6 +91,10 @@ export const Dropdown: React.FC<DropdownProps> = ({
 
   function pick(id: string) {
     onChange(id);
+    // Multi-select stays open so several can be ticked in one go, and keeps
+    // the current filter text so a search like "sha" isn't retyped between
+    // picks. Single-select is unchanged: commit and close.
+    if (multiple) return;
     setQuery("");
     setOpen(false);
   }
@@ -105,7 +131,7 @@ export const Dropdown: React.FC<DropdownProps> = ({
   }
 
   return (
-    <div className={`ui-dropdown${disabled ? " ui-dropdown--disabled" : ""}`}>
+    <div className={`ui-dropdown${disabled ? " ui-dropdown--disabled" : ""}${searchable ? "" : " ui-dropdown--plain"}`}>
       <input
         className={className}
         style={style}
@@ -114,7 +140,16 @@ export const Dropdown: React.FC<DropdownProps> = ({
         readOnly={!searchable}
         disabled={disabled}
         onChange={(e) => { if (searchable) { setQuery(e.target.value); setOpen(true); } }}
-        onFocus={() => { if (searchable) setQuery(""); setOpen(true); }}
+        // Opening on focus applies to the searchable variant only. A pointer
+        // press fires focus BEFORE click, so when the field was click-to-
+        // toggle (searchable={false}) the first click on an unfocused field
+        // ran both handlers: focus opened the list, then click toggled it
+        // straight back shut. That read as the menu flashing open and
+        // vanishing, needing a second click — every click-only dropdown in
+        // the app behaved this way. Click alone owns the toggle now;
+        // keyboard users still open it with ArrowDown/Enter (see
+        // handleKeyDown), so nothing is lost.
+        onFocus={() => { if (searchable) { setQuery(""); setOpen(true); } }}
         onClick={() => { if (!searchable) setOpen((o) => !o); }}
         onBlur={() => { setTimeout(() => { setOpen(false); onBlur?.(); }, 180); }}
         onKeyDown={handleKeyDown}
@@ -139,14 +174,27 @@ export const Dropdown: React.FC<DropdownProps> = ({
           ) : (
             filtered.map((o, i) => {
               const rowIndex = i + (allowNone ? 1 : 0);
+              const isSelected = multiple ? selectedIds.includes(o.id) : o.id === singleValue;
               return (
                 <div
                   key={o.id}
                   ref={(el) => { itemRefs.current[rowIndex] = el; }}
-                  className={`ui-dropdown__item${activeIndex === rowIndex ? " ui-dropdown__item--active" : ""}${o.id === value ? " ui-dropdown__item--selected" : ""}`}
-                  onMouseDown={() => pick(o.id)}
+                  className={`ui-dropdown__item${activeIndex === rowIndex ? " ui-dropdown__item--active" : ""}${isSelected ? " ui-dropdown__item--selected" : ""}`}
+                  // preventDefault keeps focus on the input. Without it the
+                  // mousedown blurs the field, and the blur handler's timeout
+                  // closes the list — which single-select doesn't notice
+                  // (it closes anyway) but would shut multi-select after
+                  // every single tick.
+                  onMouseDown={(e) => { if (multiple) e.preventDefault(); pick(o.id); }}
                   onMouseEnter={() => setActiveIndex(rowIndex)}
+                  role="option"
+                  aria-selected={isSelected}
                 >
+                  {multiple && (
+                    <span className={`ui-dropdown__check${isSelected ? " ui-dropdown__check--on" : ""}`} aria-hidden>
+                      {isSelected ? "✓" : ""}
+                    </span>
+                  )}
                   {o.name}
                 </div>
               );

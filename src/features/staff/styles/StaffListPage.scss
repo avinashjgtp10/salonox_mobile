@@ -184,51 +184,54 @@ $radius: 12px;
   text-align: center;
 }
 
-.slp-sort-wrap { position: relative; }
+// The trigger is now the Dropdown's <input>, which can't hold the sort/chevron
+// glyphs the old <button> nested inside it — so they sit here as absolutely
+// positioned siblings, with the input padded to leave room for both. The
+// pill's own look (radius/border/hover) is unchanged.
+.slp-sort-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+}
+
+.slp-sort-icon,
+.slp-sort-caret {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #6b7280;
+  pointer-events: none; // clicks belong to the input underneath
+  z-index: 1;
+}
+.slp-sort-icon  { left: 14px; }
+.slp-sort-caret { right: 14px; }
 
 .slp-sort-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
   background: $white;
   border: 1px solid $border;
   border-radius: 99px;
-  padding: 9px 16px;
+  // Left/right padding clears the two glyphs above.
+  padding: 9px 34px 9px 34px;
   font-size: 13px;
   font-weight: 500;
   color: #374151;
   cursor: pointer;
   white-space: nowrap;
   transition: all .15s;
+  outline: none;
+  // Sized to the longest option ("Started at (newest first)") so picking a
+  // shorter one doesn't make the pill jump narrower.
+  min-width: 210px;
   &:hover { border-color: #9ca3af; }
 }
 
-.slp-sort-menu {
-  position: absolute;
-  top: calc(100% + 6px);
+// Right-aligned like the old bespoke menu — the shared default stretches to
+// the trigger's edges, which here would hang off the toolbar's right side.
+.slp-sort-wrap .ui-dropdown__drop {
+  left: auto;
   right: 0;
-  background: $white;
-  border: 1px solid $border;
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0,0,0,.08);
-  z-index: 100;
   min-width: 220px;
-  overflow: hidden;
 }
-
-.slp-sort-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 10px 16px;
-  font-size: 13px;
-  color: #374151;
-  cursor: pointer;
-  &:hover { background: #f9fafb; }
-  &.active { font-weight: 600; color: $accent; background: #eef2ff; }
-}
-
-.slp-sort-check { color: $accent; font-weight: 700; }
 
 // ── BULK BAR ──
 .slp-bulk-bar {
