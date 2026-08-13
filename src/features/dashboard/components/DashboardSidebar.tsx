@@ -165,24 +165,24 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </button>
       )}
 
-      {can("view_booking") && (
+      {can("view_team") && (
         <button
           type="button"
-          className={menuClass("onlineBooking")}
+          className={menuClass("team")}
           onClick={() => {
-            const opening = openMenu !== "onlineBooking";
-            onMenuChange(opening ? "onlineBooking" : null);
-            // Same pattern as Clients/Catalog/Staff/Marketing — jump to the
-            // section's default page when entering from elsewhere instead of
-            // only opening the flyout over the current page. The section root's
-            // index route is the Marketplace profile (OnlineBookingRoutes.tsx).
-            if (opening && !location.pathname.startsWith("/dashboard/online-booking")) {
-              navigate("/dashboard/online-booking");
+            const opening = openMenu !== "team";
+            onMenuChange(opening ? "team" : null);
+            // Only jump to the default Team page when entering the section
+            // from elsewhere (e.g. Calendar) — re-toggling the flyout while
+            // already on a Team page (Attendance, Commissions, …) shouldn't
+            // reset navigation back to Team members.
+            if (opening && !location.pathname.startsWith("/dashboard/team")) {
+              navigate("/dashboard/team/members");
             }
           }}
         >
-          <Globe2 size={22} />
-          <span className="nav-label">Online booking</span>
+          <People size={22} />
+          <span className="nav-label">Staff</span>
         </button>
       )}
 
@@ -224,6 +224,27 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </button>
       )}
 
+      {can("view_booking") && (
+        <button
+          type="button"
+          className={menuClass("onlineBooking")}
+          onClick={() => {
+            const opening = openMenu !== "onlineBooking";
+            onMenuChange(opening ? "onlineBooking" : null);
+            // Same pattern as Clients/Catalog/Staff/Marketing — jump to the
+            // section's default page when entering from elsewhere instead of
+            // only opening the flyout over the current page. The section root's
+            // index route is the Marketplace profile (OnlineBookingRoutes.tsx).
+            if (opening && !location.pathname.startsWith("/dashboard/online-booking")) {
+              navigate("/dashboard/online-booking");
+            }
+          }}
+        >
+          <Globe2 size={22} />
+          <span className="nav-label">Online booking</span>
+        </button>
+      )}
+
       {can("view_enquiries") && (
         <NavLink
           to="/dashboard/enquiries"
@@ -233,27 +254,6 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           <ChatSquareText size={22} />
           <span className="nav-label">Enquiries</span>
         </NavLink>
-      )}
-
-      {can("view_team") && (
-        <button
-          type="button"
-          className={menuClass("team")}
-          onClick={() => {
-            const opening = openMenu !== "team";
-            onMenuChange(opening ? "team" : null);
-            // Only jump to the default Team page when entering the section
-            // from elsewhere (e.g. Calendar) — re-toggling the flyout while
-            // already on a Team page (Attendance, Commissions, …) shouldn't
-            // reset navigation back to Team members.
-            if (opening && !location.pathname.startsWith("/dashboard/team")) {
-              navigate("/dashboard/team/members");
-            }
-          }}
-        >
-          <People size={22} />
-          <span className="nav-label">Staff</span>
-        </button>
       )}
 
       {can("view_reports") && (
