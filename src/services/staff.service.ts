@@ -85,6 +85,7 @@ type StaffApiItem = {
   gender?: string | null;
   holidays?: number | string | null;
   id?: string | number | null;
+  is_active?: boolean | string | null;
   job_title?: string | null;
   joined_date?: string | null;
   joining_date?: string | null;
@@ -318,7 +319,16 @@ const getAvatarTone = (id: string) => {
   return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
 };
 
-const toStaffStatus = (value: unknown): StaffStatus => {
+// The backend's `staff` table has no "status" text column — the only
+// authoritative active/inactive signal it returns is the `is_active`
+// boolean, which is what the activate/deactivate endpoints actually flip.
+// A `status` string is only ever present if some other part of the API
+// (e.g. a richer attendance/scheduling feed) supplies one; when it doesn't,
+// fall back to `is_active` instead of defaulting to "Working" regardless of
+// whether the staff member was deactivated.
+const isExplicitlyInactive = (value: unknown) => value === false || value === "false";
+
+const toStaffStatus = (value: unknown, isActive?: unknown): StaffStatus => {
   const normalized = toSafeString(value).toLowerCase().replace(/[_-]+/g, " ");
 
   switch (normalized) {
@@ -334,8 +344,9 @@ const toStaffStatus = (value: unknown): StaffStatus => {
       return "Inactive";
     case "working":
     case "active":
-    default:
       return "Working";
+    default:
+      return isExplicitlyInactive(isActive) ? "Inactive" : "Working";
   }
 };
 
@@ -657,7 +668,7 @@ const normalizeStaffMember = (staffMember: StaffApiItem, index: number): StaffMe
     staffIdAliases.find(isValidStaffId) ??
     staffIdAliases[0] ??
     `staff-${index + 1}`;
-  const status = toStaffStatus(staffMember.status);
+  const status = toStaffStatus(staffMember.status, staffMember.is_active);
   const availability = toStaffAvailability(staffMember.availability, status);
   const avatarTone = getAvatarTone(id);
 
@@ -841,6 +852,19 @@ export const staffService = {
       salary_amount: payload.fixedSalary,
       wages_enabled: payload.wagesEnabled,
     });
+  },
+
+  // Dedicated activate/deactivate endpoints — NOT the generic update
+  // endpoint. The staff table has no "status" field the generic PATCH can
+  // write to; only these routes actually flip `is_active` in the database.
+  // Both return an empty body on success, so the caller must refetch the
+  // staff record afterward to get (and verify) the authoritative new state.
+  async activateStaff(staffId: string): Promise<void> {
+    await api.patch(STAFF.ACTIVATE(staffId));
+  },
+
+  async deactivateStaff(staffId: string): Promise<void> {
+    await api.patch(STAFF.DEACTIVATE(staffId));
   },
 
   async createStaff(payload: CreateStaffRequest): Promise<CreateStaffResponse> {

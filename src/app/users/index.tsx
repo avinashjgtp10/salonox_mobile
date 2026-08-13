@@ -23,8 +23,9 @@ import {
 } from "@/constants/theme";
 import { matchesTeamSearch, type StaffMember } from "@/data/teamData";
 import { getStaffDetailsPath } from "@/features/staff/utils/staffNavigation";
-import { deleteStaffThunk, fetchStaffThunk, updateStaffThunk } from "@/middleware/staff/staff.thunk";
+import { deleteStaffThunk, fetchStaffThunk, setStaffActiveStatusThunk } from "@/middleware/staff/staff.thunk";
 import {
+  selectStaffActiveStatusTogglingIds,
   selectStaffDeletingIds,
   selectStaffError,
   selectStaffLoading,
@@ -66,12 +67,14 @@ const matchesUserManagementQuery = (staffMember: StaffMember, query: string) => 
 function UserCard({
   canManageLifecycle,
   isDeleting,
+  isTogglingStatus,
   onDelete,
   onToggleStatus,
   staffMember,
 }: {
   canManageLifecycle: boolean;
   isDeleting: boolean;
+  isTogglingStatus: boolean;
   onDelete: () => void;
   onToggleStatus: () => void;
   staffMember: StaffMember;
@@ -125,15 +128,20 @@ function UserCard({
       {canManageLifecycle ? (
         <TouchableOpacity
           activeOpacity={0.8}
+          disabled={isTogglingStatus}
           hitSlop={{ bottom: 8, left: 8, right: 8, top: 8 }}
           onPress={onToggleStatus}
           style={styles.statusToggleButton}
         >
-          <Ionicons
-            name={isActive ? "pause-circle-outline" : "play-circle-outline"}
-            size={20}
-            color={isActive ? Colors.warning : Colors.success}
-          />
+          {isTogglingStatus ? (
+            <ActivityIndicator color={isActive ? Colors.warning : Colors.success} size="small" />
+          ) : (
+            <Ionicons
+              name={isActive ? "pause-circle-outline" : "play-circle-outline"}
+              size={20}
+              color={isActive ? Colors.warning : Colors.success}
+            />
+          )}
         </TouchableOpacity>
       ) : null}
 
@@ -233,6 +241,7 @@ export default function UsersScreen() {
   const staffQuery = useAppSelector(selectStaffQuery);
   const staffRefreshing = useAppSelector(selectStaffRefreshing);
   const deletingStaffIds = useAppSelector(selectStaffDeletingIds);
+  const activeStatusTogglingStaffIds = useAppSelector(selectStaffActiveStatusTogglingIds);
 
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
@@ -289,12 +298,19 @@ export default function UsersScreen() {
   };
 
   const handleConfirmToggleStatus = async (staffMember: StaffMember) => {
+    if (activeStatusTogglingStaffIds.includes(staffMember.id)) {
+      return;
+    }
+
     const nextStatus = isStaffActive(staffMember) ? "inactive" : "active";
     const resultAction = await dispatch(
-      updateStaffThunk({ staffId: staffMember.id, updates: { status: nextStatus } }),
+      setStaffActiveStatusThunk({ nextStatus, staffId: staffMember.id }),
     );
 
-    if (updateStaffThunk.rejected.match(resultAction)) {
+    // setStaffActiveStatusThunk only fulfills once the activate/deactivate
+    // call succeeds AND a refetch confirms the status actually changed —
+    // no path here reports success without a confirmed backend change.
+    if (setStaffActiveStatusThunk.rejected.match(resultAction)) {
       Alert.alert(
         "Unable to update user",
         getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
@@ -304,8 +320,7 @@ export default function UsersScreen() {
 
     Alert.alert(
       nextStatus === "inactive" ? "User deactivated" : "User activated",
-      resultAction.payload.message ??
-        `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "activated"}.`,
+      `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "activated"}.`,
     );
   };
 
@@ -439,6 +454,7 @@ export default function UsersScreen() {
           <UserCard
             canManageLifecycle={canManageLifecycle}
             isDeleting={deletingStaffIds.includes(item.id)}
+            isTogglingStatus={activeStatusTogglingStaffIds.includes(item.id)}
             onDelete={() => handleDeleteUser(item)}
             onToggleStatus={() => handleToggleStatus(item)}
             staffMember={item}
