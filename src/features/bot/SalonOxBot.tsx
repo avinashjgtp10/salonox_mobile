@@ -195,6 +195,13 @@ export default function SalonOxBot() {
     const origY = rect.top;
     fabDragMoved.current = false;
 
+    // Snapshot the chat window's own position at drag start (only while it's
+    // open) so the same drag delta below can be applied to it too — this is
+    // what makes the window follow the icon instead of staying behind.
+    const winRect = open ? winRef.current?.getBoundingClientRect() ?? null : null;
+    const winOrigX = winRect?.left ?? 0;
+    const winOrigY = winRect?.top ?? 0;
+
     const onMove = (ev: MouseEvent) => {
       const dx = ev.clientX - startX;
       const dy = ev.clientY - startY;
@@ -203,6 +210,12 @@ export default function SalonOxBot() {
       const newX = Math.max(0, Math.min(window.innerWidth - rect.width, origX + dx));
       const newY = Math.max(0, Math.min(window.innerHeight - rect.height, origY + dy));
       setFabPos({ x: newX, y: newY });
+
+      if (winRect) {
+        const newWinX = Math.max(0, Math.min(window.innerWidth - winRect.width, winOrigX + dx));
+        const newWinY = Math.max(0, Math.min(window.innerHeight - winRect.height, winOrigY + dy));
+        setWinPos({ x: newWinX, y: newWinY });
+      }
     };
 
     const onUp = () => {

@@ -38,7 +38,6 @@ const addOnsData: AddOn[] = [
       "Get the most out of the salonox platform and it's features with help from our experienced business support specialists.",
     icon: <Headset size={24} />,
     iconColorClass: "icon-purple",
-    badge: "On free trial",
   },
   {
     id: "insights",
