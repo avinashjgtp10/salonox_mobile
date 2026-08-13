@@ -36,6 +36,8 @@ import BookDemo from '../../../components/Landing/BookDemo/BookDemo';
 import Footer from '../../../components/Landing/Footer/Footer';
 
 const DEMO_NOTIFICATION_TIME_ZONE = 'Asia/Kolkata';
+const EMAIL_LOCAL_HAS_LETTER_REGEX = /\p{L}/u;
+const EMAIL_DOMAIN_LABEL_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
 
 type DemoNotificationRow = {
   field: string;
@@ -78,6 +80,24 @@ const formatDemoSubmittedOn = (date: Date) => {
     display: `${submittedDate} • ${submittedTime}`,
     timeZone: DEMO_NOTIFICATION_TIME_ZONE,
   };
+};
+
+const isRealLookingDemoEmail = (value: string) => {
+  if (!EMAIL_REGEX.test(value)) return false;
+
+  const [localPart, domainPart] = value.split('@');
+  const domainLabels = domainPart.split('.');
+
+  return (
+    !!localPart &&
+    EMAIL_LOCAL_HAS_LETTER_REGEX.test(localPart) &&
+    !localPart.startsWith('.') &&
+    !localPart.endsWith('.') &&
+    !localPart.includes('..') &&
+    domainLabels.length >= 2 &&
+    domainLabels.every((label) => EMAIL_DOMAIN_LABEL_REGEX.test(label)) &&
+    domainLabels[domainLabels.length - 1].length >= 2
+  );
 };
 
 const buildDemoNotificationEmail = (rows: DemoNotificationRow[]) => {
@@ -719,7 +739,7 @@ const LandingPage: React.FC = () => {
   const validateEmail = useCallback((value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return 'Work email is required.';
-    if (!EMAIL_REGEX.test(trimmed)) return 'Enter a valid email address.';
+    if (!isRealLookingDemoEmail(trimmed)) return 'Enter a valid work email address.';
     return '';
   }, []);
 
