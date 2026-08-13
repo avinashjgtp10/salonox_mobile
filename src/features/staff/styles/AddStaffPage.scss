@@ -329,6 +329,108 @@ $transition:      0.18s ease;
   }
 }
 
+// ── Email OTP (matches RegisterPage OTP UI) ─────────────────
+@keyframes emp-otp-slide {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes emp-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.emp-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.emp-otp-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: $radius-sm;
+  border: 1.5px solid $primary;
+  background: transparent;
+  color: $primary;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background $transition, color $transition, border-color $transition;
+  flex-shrink: 0;
+
+  &:hover:not(:disabled) {
+    background: $primary;
+    color: #fff;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  &--verified {
+    border-color: #16a34a !important;
+    color: #16a34a !important;
+    background: rgba(22, 163, 74, 0.06) !important;
+    cursor: default !important;
+  }
+}
+
+.emp-verify-btn {
+  height: 40px;
+  padding: 0 16px;
+  border-radius: $radius-sm;
+  border: none;
+  background: $primary;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background $transition, opacity $transition;
+
+  &:hover:not(:disabled) { background: #1a1a1a; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.emp-otp-field {
+  animation: emp-otp-slide 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.emp-verified-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #16a34a;
+  background: rgba(22, 163, 74, 0.08);
+  border: 1px solid rgba(22, 163, 74, 0.18);
+  border-radius: 100px;
+  padding: 5px 14px;
+  width: fit-content;
+  animation: emp-fade-in 0.3s ease;
+
+  &__check {
+    font-size: 10px;
+    font-weight: 800;
+  }
+}
+
+.emp-otp-msg {
+  display: block;
+  font-size: 11px;
+  font-weight: 500;
+  margin-top: 2px;
+
+  &--success { color: #22c55e; }
+  &--error   { color: $danger; }
+}
+
 // ── Profile image ──────────────────────────────────────────
 .emp-photo-card { text-align: left; }
 
