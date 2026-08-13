@@ -276,7 +276,12 @@ $hd-blue-text: #2563eb;
   align-items: stretch;
   border: 1.5px solid $dashboard-border;
   border-radius: 8px;
-  overflow: hidden;
+  // Deliberately NOT `overflow: hidden` (which is what used to clip the
+  // children to the rounded corners): the minutes field is a Dropdown whose
+  // option list is position:absolute, and hidden overflow on this ancestor
+  // clipped that list away entirely — the menu simply never appeared. The
+  // corner clipping is done on the trailing unit label instead, which is the
+  // only child with a background that would otherwise square off the corner.
   background: $white;
   transition: border-color 0.15s, box-shadow 0.15s;
 
@@ -300,6 +305,10 @@ $hd-blue-text: #2563eb;
     flex-shrink: 0;
     white-space: nowrap;
     border-left: 1px solid $dashboard-border;
+    // Replaces the removed `overflow: hidden` above — 6.5px is the parent's
+    // 8px radius minus its own 1.5px border, so the fill still meets the
+    // rounded outer edge exactly.
+    border-radius: 0 6.5px 6.5px 0;
   }
 
   input,
@@ -317,6 +326,17 @@ $hd-blue-text: #2563eb;
 
   select {
     cursor: pointer;
+  }
+
+  // The Dropdown that replaced the native <select> renders its input inside a
+  // wrapper div (needed as the positioning context for the option list), so
+  // the height/padding above lands on the input while the wrapper itself must
+  // still stretch to the row's full height for the unit label to line up.
+  .ui-dropdown {
+    display: flex;
+    align-items: stretch;
+
+    input { cursor: pointer; }
   }
 }
 

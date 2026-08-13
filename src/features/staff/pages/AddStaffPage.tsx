@@ -18,8 +18,13 @@ import ClientSelect from "../../clients/components/ClientSelect";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { sendEmailOtpThunk, verifyEmailOtpThunk } from "../../../middleware/auth/otpThunk";
 
+// Three real choices only. There used to be a leading { value: "", label:
+// "Gender" } entry — the standard trick for giving a native <select> a
+// placeholder row. This field is a ClientSelect now, which takes its own
+// `placeholder` prop (already passed below), so that entry stopped being a
+// placeholder and started rendering as a fourth, selectable option labelled
+// "Gender" that quietly set the value back to "".
 const GENDER_OPTIONS = [
-  { value: "", label: "Gender" },
   { value: "male", label: "Male" },
   { value: "female", label: "Female" },
   { value: "other", label: "Other" },

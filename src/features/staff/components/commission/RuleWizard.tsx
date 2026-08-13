@@ -6,6 +6,7 @@ import type {
 } from "../../types/commissionRules.types";
 import { SOURCE_META } from "./commissionRuleMeta";
 import { useCurrency } from "../../../../hooks/useCurrency";
+import Dropdown from "../../../../components/ui/Dropdown";
 import "../../styles/RuleWizard.scss";
 
 interface StaffOption {
@@ -51,7 +52,6 @@ export default function RuleWizard({ staffOptions, staffLoading, editing, initia
   const [type, setType] = useState<CommissionRuleType>(editing?.type ?? "percentage");
   const [rate, setRate] = useState(editing?.rate != null ? String(editing.rate) : "");
 
-  const [staffSearch, setStaffSearch] = useState("");
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>(
     initialStaffIds && initialStaffIds.length > 0
       ? initialStaffIds
@@ -64,8 +64,6 @@ export default function RuleWizard({ staffOptions, staffLoading, editing, initia
 
   const toggleStaff = (id: string) =>
     setSelectedStaffIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
-
-  const filteredStaff = staffOptions.filter((s) => s.name.toLowerCase().includes(staffSearch.toLowerCase()));
 
   const isNameInvalid = attempted && !name.trim();
   const isRateInvalid = attempted && !(Number(rate) > 0);
@@ -210,26 +208,21 @@ export default function RuleWizard({ staffOptions, staffLoading, editing, initia
               Who receives this commission?
               {selectedStaffIds.length > 0 && <span className="rw-optional"> — {selectedStaffIds.length} selected</span>}
             </label>
-            <input
-              className="rw-select"
-              placeholder="Search staff…"
-              value={staffSearch}
-              onChange={(e) => setStaffSearch(e.target.value)}
+            {/* Same reusable picker the rest of the app uses, in its
+                multi-select mode — replaces the bespoke search box + always-
+                open scrolling checkbox list this field used to render, which
+                took up most of the modal and had its own separate filtering.
+                Dropdown owns the type-to-filter, so `staffSearch` isn't
+                needed here any more. */}
+            <Dropdown
+              className={`rw-select ${isScopeInvalid ? "rw-invalid" : ""}`}
+              multiple
+              placeholder={staffLoading ? "Loading staff…" : "Search staff…"}
+              disabled={staffLoading}
+              value={selectedStaffIds}
+              options={staffOptions.map((s) => ({ id: s.id, name: s.name }))}
+              onChange={toggleStaff}
             />
-            <div className={`rw-staff-list ${isScopeInvalid ? "rw-invalid" : ""}`}>
-              {staffLoading ? (
-                <p className="rw-scope-empty">Loading staff…</p>
-              ) : filteredStaff.length === 0 ? (
-                <p className="rw-scope-empty">No staff found</p>
-              ) : (
-                filteredStaff.map((s) => (
-                  <label key={s.id} className="rw-staff-row">
-                    <input type="checkbox" checked={selectedStaffIds.includes(s.id)} onChange={() => toggleStaff(s.id)} />
-                    {s.name}
-                  </label>
-                ))
-              )}
-            </div>
             {isScopeInvalid && <span className="rw-error">Pick at least one staff member</span>}
           </div>
 

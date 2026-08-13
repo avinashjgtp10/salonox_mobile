@@ -29,6 +29,19 @@
     cursor: not-allowed;
   }
 
+  // searchable={false}: the trigger is a readOnly input standing in for a
+  // <select>, so it must not behave like a text field. Without this you get a
+  // text caret on hover and a double-click selects a word out of the label
+  // (visible as a blue-highlighted chunk of "All time" etc.) — nothing the
+  // control does with that selection, it just looks broken. Deliberately a
+  // descendant selector rather than :where(), so it still applies over a
+  // consumer's own field class; it only sets interaction, never appearance.
+  &--plain input {
+    cursor: pointer;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
   &__drop {
     position: absolute;
     top: calc(100% + 4px);
@@ -74,10 +87,37 @@
     padding: 9px 12px;
     font-size: 13px;
     cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 9px;
     &:hover { background: #f3f4f6; }
 
     &--active { background: #eef2ff; }
     &--selected { font-weight: 600; }
+  }
+
+  // Multi-select tick box. A styled span rather than a real <input
+  // type="checkbox"> because the whole row already handles the click (and a
+  // nested input would fight it for the mousedown), so this is purely the
+  // visual state of the row's own aria-selected.
+  &__check {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    border: 1.5px solid #d1d5db;
+    border-radius: 4px;
+    background: #fff;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    line-height: 1;
+    color: #fff;
+
+    &--on {
+      background: #6366f1;
+      border-color: #6366f1;
+    }
   }
 
   &__empty {

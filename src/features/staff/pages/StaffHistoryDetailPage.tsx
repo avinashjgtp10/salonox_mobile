@@ -410,7 +410,6 @@ function TimelineTab({ staffId }: { staffId: string }) {
           <label>Type:</label>
           <Dropdown
             className="shp-select"
-            searchable={false}
             value={typeFilter}
             options={[
               { id: "all", name: "All Events" },
@@ -525,7 +524,6 @@ function ServicesTab({ staffId }: { staffId: string }) {
           <label>Source:</label>
           <Dropdown
             className="shp-select"
-            searchable={false}
             value={sourceFilter}
             options={[
               { id: "all", name: "All Sources" },
@@ -641,7 +639,6 @@ function SalesTab({ staffId }: { staffId: string }) {
           <label>Status:</label>
           <Dropdown
             className="shp-select"
-            searchable={false}
             value={statusFilter}
             options={[
               { id: "all", name: "All Statuses" },
@@ -657,7 +654,6 @@ function SalesTab({ staffId }: { staffId: string }) {
           <label>Payment:</label>
           <Dropdown
             className="shp-select"
-            searchable={false}
             value={paymentFilter}
             options={[
               { id: "all", name: "All Methods" },
@@ -757,7 +753,6 @@ function CommissionTab({ staffId }: { staffId: string }) {
           <label>Category:</label>
           <Dropdown
             className="shp-select"
-            searchable={false}
             value={categoryFilter}
             options={[
               { id: "all", name: "All Categories" },
@@ -773,7 +768,6 @@ function CommissionTab({ staffId }: { staffId: string }) {
           <label>Status:</label>
           <Dropdown
             className="shp-select"
-            searchable={false}
             value={statusFilter}
             options={[
               { id: "all", name: "All Statuses" },
@@ -879,7 +873,6 @@ function ReviewsTab({ staffId }: { staffId: string }) {
           <label>Rating:</label>
           <Dropdown
             className="shp-select"
-            searchable={false}
             value={ratingFilter}
             options={[
               { id: "all", name: "All Ratings" },
@@ -979,7 +972,6 @@ function AttendanceTab({ staffId }: { staffId: string }) {
           <label>Status:</label>
           <Dropdown
             className="shp-select"
-            searchable={false}
             value={statusFilter}
             options={[
               { id: "all", name: "All Statuses" },

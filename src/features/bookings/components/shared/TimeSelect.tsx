@@ -163,6 +163,13 @@ const TimeSelect: React.FC<TimeSelectProps> = ({
             position: "fixed",
             left: pos.left,
             width: pos.width,
+            // The list matches the trigger's width so it lines up under it,
+            // but the TIME column is narrow enough that "10:30 PM" wrapped
+            // onto two lines, turning every row into a two-line block. A
+            // floor wide enough for the longest label keeps each time on one
+            // line; the list still widens with the trigger when there's more
+            // room, it just never gets narrower than legible.
+            minWidth: 110,
             ...(pos.openUpward
               ? { bottom: window.innerHeight - pos.top, maxHeight: Math.min(MAX_DROPDOWN_HEIGHT, pos.top - 8) }
               : { top: pos.top, maxHeight: Math.min(MAX_DROPDOWN_HEIGHT, window.innerHeight - pos.top - 8) }),
@@ -192,6 +199,10 @@ const TimeSelect: React.FC<TimeSelectProps> = ({
                   background: isActive ? "#eff6ff" : "#fff",
                   color: isSelected ? "#2563eb" : "#111827",
                   fontWeight: isSelected ? 600 : 400,
+                  // Belt-and-braces with minWidth above: a time is a single
+                  // token and must never break across lines, whatever width
+                  // the trigger ends up being.
+                  whiteSpace: "nowrap",
                 }}
               >
                 {formatTime12(t)}

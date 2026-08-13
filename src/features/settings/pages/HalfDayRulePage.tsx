@@ -11,6 +11,7 @@ import {
   type HalfDayRuleConfig,
   type StaffRuleScope,
 } from "../utils/halfDayRuleSettings";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/HalfDayRulePage.scss";
 
 const MINUTE_OPTIONS = ["0", "15", "30", "45"];
@@ -106,11 +107,11 @@ function DurationField({
           <span>hours</span>
         </div>
         <div className={`hd-input-wrap${error ? " hd-input-wrap--error" : ""}`}>
-          <select value={parts.minutes} onChange={(e) => setMinutes(e.target.value)} aria-label={`${label} minutes`}>
-            {MINUTE_OPTIONS.map((minute) => (
-              <option key={minute} value={minute}>{minute}</option>
-            ))}
-          </select>
+          <Dropdown
+            value={parts.minutes}
+            options={MINUTE_OPTIONS.map((minute) => ({ id: minute, name: minute }))}
+            onChange={(id) => setMinutes(id)}
+          />
           <span>min</span>
         </div>
       </div>
@@ -295,14 +296,15 @@ export default function HalfDayRulePage({ onClose, onSaved }: HalfDayRulePagePro
         <div className="hd-section-title">Late Deduction Rule</div>
         <div className="hd-field">
           <label className="hd-field__label">Deduction Type</label>
-          <select
+          <Dropdown
             className="hd-select"
             value={config.late_deduction_type}
-            onChange={(e) => patchConfig({ late_deduction_type: e.target.value as DeductionType })}
-          >
-            <option value="fixed">Fixed Amount</option>
-            <option value="salary_per_hour">Salary Based / Per Hour</option>
-          </select>
+            options={[
+              { id: "fixed", name: "Fixed Amount" },
+              { id: "salary_per_hour", name: "Salary Based / Per Hour" },
+            ]}
+            onChange={(id) => patchConfig({ late_deduction_type: id as DeductionType })}
+          />
         </div>
         <div className="hd-field">
           <label className="hd-field__label">Deduction Amount</label>

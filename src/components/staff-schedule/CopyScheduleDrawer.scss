@@ -91,6 +91,11 @@
     display: flex;
     flex-direction: column;
     gap: 6px;
+
+    // See &__select below — the Dropdown wraps its input in a positioning
+    // div, which must span the column's full width for the control to keep
+    // filling the field the way the bare <select> did.
+    .ui-dropdown { width: 100%; }
   }
 
   &__field-label {
@@ -101,9 +106,16 @@
     letter-spacing: 0.06em;
   }
 
+  // Now the reusable Dropdown's input rather than a native <select>, so the
+  // `appearance: auto` that used to restore the native chevron would instead
+  // paint a system text-field over this custom border — hence `none`. The
+  // wrapper Dropdown puts around its input needs the full width too, since
+  // this field is a flex COLUMN (the wrapper's own `flex: 1` only stretches
+  // it along the main axis, which here is vertical, not horizontal).
   &__select {
     all: unset;
     box-sizing: border-box;
+    display: block;
     width: 100%;
     border: 1px solid #d1d5db;
     border-radius: 8px;
@@ -112,8 +124,8 @@
     color: #1f2937;
     background: #fff;
     cursor: pointer;
-    -webkit-appearance: auto;
-    appearance: auto;
+    -webkit-appearance: none;
+    appearance: none;
     transition: border-color 0.15s, box-shadow 0.15s;
 
     &:focus {
