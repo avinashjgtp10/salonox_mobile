@@ -13,6 +13,7 @@ import type {
   DeleteStaffAddressResponse,
   EmergencyContactListQuery,
   EmergencyContactListResponse,
+  SetStaffWagesRequest,
   StaffListPagination,
   StaffListQuery,
   StaffListResponse,
@@ -27,6 +28,7 @@ import type {
   UpdateStaffAddressResponse,
   UpdateStaffRequest,
   UpdateStaffResponse,
+  UploadStaffAvatarResponse,
 } from "@/types/staff";
 import { formatAppDate } from "@/utils/dateTime";
 import { isValidStaffId, normalizeStaffId } from "@/utils/staffIds";
@@ -68,23 +70,32 @@ type StaffEmergencyContactApiItem = {
 
 type StaffApiItem = {
   _id?: string | null;
+  address?: string | null;
   attendance?: string | number | null;
   availability?: string | null;
   availability_label?: string | null;
   average_rating?: number | string | null;
+  avatar_url?: string | null;
+  birthday_day?: number | string | null;
+  birthday_month?: number | string | null;
   created_at?: string | null;
   email?: string | null;
   first_name?: string | null;
   full_name?: string | null;
   gender?: string | null;
+  holidays?: number | string | null;
   id?: string | number | null;
+  job_title?: string | null;
+  joined_date?: string | null;
   joining_date?: string | null;
   last_name?: string | null;
   leave_balance?: string | number | null;
   monthly_revenue?: number | string | null;
   name?: string | null;
   notes?: string | null;
+  permission_level?: string | null;
   phone?: string | null;
+  phone_country_code?: string | null;
   phone_number?: string | null;
   role?: string | null;
   services?: StaffApiService[] | null;
@@ -102,6 +113,7 @@ type StaffApiItem = {
   work_end_time?: string | null;
   work_start_time?: string | null;
   working_hours?: string | null;
+  working_hours_per_day?: number | string | null;
   uuid?: string | null;
   employee_code?: string | null;
 };
@@ -239,6 +251,22 @@ const toSafeNumber = (value: unknown) => {
   }
 
   return 0;
+};
+
+const toOptionalNumber = (value: unknown): number | null => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  if (typeof value === "string" && value.trim()) {
+    const parsedValue = Number(value);
+
+    if (Number.isFinite(parsedValue)) {
+      return parsedValue;
+    }
+  }
+
+  return null;
 };
 
 const toOptionalBoolean = (value: unknown) => {
@@ -645,7 +673,7 @@ const normalizeStaffMember = (staffMember: StaffApiItem, index: number): StaffMe
     gender: titleCase(toSafeString(staffMember.gender, "-")),
     id,
     initials: getInitials(name),
-    joiningDate: formatDate(staffMember.joining_date ?? staffMember.created_at),
+    joiningDate: formatDate(staffMember.joined_date ?? staffMember.joining_date ?? staffMember.created_at),
     lastSeen: availability === "Offline" ? "Offline" : "On floor",
     leaveBalance: toSafeString(staffMember.leave_balance, "-"),
     monthlyRevenue: toSafeNumber(staffMember.monthly_revenue),
@@ -663,6 +691,15 @@ const normalizeStaffMember = (staffMember: StaffApiItem, index: number): StaffMe
     weeklyRevenue: toSafeNumber(staffMember.weekly_revenue),
     workingHours: getWorkingHours(staffMember),
     employeeCode: toSafeString(staffMember.employee_code, "-"),
+    address: toSafeString(staffMember.address),
+    avatarUrl: toSafeString(staffMember.avatar_url) || null,
+    birthdayDay: toOptionalNumber(staffMember.birthday_day),
+    birthdayMonth: toOptionalNumber(staffMember.birthday_month),
+    designation: toSafeString(staffMember.job_title),
+    holidays: toOptionalNumber(staffMember.holidays),
+    permissionLevel: toSafeString(staffMember.permission_level),
+    phoneCountryCode: toSafeString(staffMember.phone_country_code),
+    workingHoursPerDay: toOptionalNumber(staffMember.working_hours_per_day),
   };
 };
 
@@ -749,7 +786,63 @@ const logStaffAddressRequest = ({
   });
 };
 
+type StaffAvatarUploadApiResponse = ApiResponse<{ url?: string | null }>;
+
+const guessAvatarFileName = (uri: string, fallback: string) => {
+  const fromUri = uri.split("/").pop()?.split("?")[0];
+  return fromUri && fromUri.includes(".") ? fromUri : fallback;
+};
+
+const guessAvatarMimeType = (fileName: string) => {
+  const extension = fileName.split(".").pop()?.toLowerCase();
+
+  if (extension === "png") return "image/png";
+  if (extension === "gif") return "image/gif";
+  return "image/jpeg";
+};
+
 export const staffService = {
+  async uploadAvatar(asset: {
+    fileName?: string | null;
+    mimeType?: string | null;
+    uri: string;
+  }): Promise<UploadStaffAvatarResponse> {
+    const fileName = asset.fileName?.trim() || guessAvatarFileName(asset.uri, "avatar.jpg");
+    const mimeType = asset.mimeType?.trim() || guessAvatarMimeType(fileName);
+
+    const formData = new FormData();
+    formData.append("avatar", {
+      name: fileName,
+      type: mimeType,
+      uri: asset.uri,
+    } as unknown as Blob);
+
+    const response = await api.post<StaffAvatarUploadApiResponse>(STAFF.UPLOAD_AVATAR, formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+      transformRequest: (data) => data,
+    });
+
+    const url = toSafeString(response.data.data?.url);
+
+    if (!url) {
+      throw new ApiError("The server did not return an uploaded image URL.", response.status);
+    }
+
+    return {
+      message: response.data.message,
+      url,
+    };
+  },
+
+  async setStaffWages(staffId: string, payload: SetStaffWagesRequest): Promise<void> {
+    await api.put(STAFF.WAGES(staffId), {
+      compensation_type: payload.compensationType,
+      hourly_rate: payload.hourlyRate,
+      salary_amount: payload.fixedSalary,
+      wages_enabled: payload.wagesEnabled,
+    });
+  },
+
   async createStaff(payload: CreateStaffRequest): Promise<CreateStaffResponse> {
     const response = await api.post<CreateStaffApiResponse>(STAFF.CREATE, payload);
     const staffMember = normalizeStaffMember(getCreatedStaff(response.data.data), 0);
