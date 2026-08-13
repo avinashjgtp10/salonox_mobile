@@ -19,6 +19,11 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import {
+  validateServiceField,
+  validateServiceForm,
+  type ServiceFormErrors,
+} from "@/features/services/validation/serviceValidation";
 import { createServiceThunk, fetchServicesThunk } from "@/middleware/service/service.thunk";
 import {
   selectServiceCreateError,
@@ -50,6 +55,7 @@ export default function NewServiceScreen() {
 
   const [category, setCategory] = useState("");
   const [durationMinutes, setDurationMinutes] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<ServiceFormErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isFinishing, setIsFinishing] = useState(false);
   const [name, setName] = useState("");
@@ -58,6 +64,30 @@ export default function NewServiceScreen() {
 
   const isSubmitting = serviceCreating || isFinishing;
   const displayedError = formError ?? serviceCreateError;
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    if (fieldErrors.name !== undefined) {
+      const err = validateServiceField("name", value);
+      setFieldErrors((prev) => ({ ...prev, name: err }));
+    }
+  };
+
+  const handlePriceChange = (value: string) => {
+    setPrice(value);
+    if (fieldErrors.price !== undefined) {
+      const err = validateServiceField("price", value);
+      setFieldErrors((prev) => ({ ...prev, price: err }));
+    }
+  };
+
+  const handleDurationChange = (value: string) => {
+    setDurationMinutes(value);
+    if (fieldErrors.durationMinutes !== undefined) {
+      const err = validateServiceField("durationMinutes", value);
+      setFieldErrors((prev) => ({ ...prev, durationMinutes: err }));
+    }
+  };
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -69,46 +99,34 @@ export default function NewServiceScreen() {
   };
 
   const handleSubmit = async () => {
+    setFormError(null);
+    setSuccessMessage(null);
+
+    const errors = validateServiceForm({
+      category,
+      durationMinutes,
+      name,
+      price,
+    });
+
+    setFieldErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
+      return;
+    }
+
     const trimmedName = name.trim();
     const trimmedPrice = price.trim();
     const trimmedDuration = durationMinutes.trim();
     const trimmedCategory = category.trim();
 
-    setFormError(null);
-    setSuccessMessage(null);
-
-    if (!trimmedName) {
-      setFormError("Service name is required.");
-      return;
-    }
-
-    if (!trimmedPrice) {
-      setFormError("Price is required.");
-      return;
-    }
-
     const parsedPrice = Number(trimmedPrice);
-
-    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
-      setFormError("Enter a valid price.");
-      return;
-    }
-
-    let parsedDuration: number | undefined;
-
-    if (trimmedDuration) {
-      parsedDuration = Number(trimmedDuration);
-
-      if (!Number.isFinite(parsedDuration) || parsedDuration < 0) {
-        setFormError("Enter a valid duration in minutes.");
-        return;
-      }
-    }
+    const parsedDuration = Number(trimmedDuration);
 
     const resultAction = await dispatch(
       createServiceThunk({
         ...(trimmedCategory ? { category: trimmedCategory } : {}),
-        ...(typeof parsedDuration === "number" ? { duration_minutes: parsedDuration } : {}),
+        duration_minutes: parsedDuration,
         name: trimmedName,
         price: parsedPrice,
       }),
@@ -171,12 +189,17 @@ export default function NewServiceScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Service Name</Text>
-              <View style={styles.inputContainer}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  Boolean(fieldErrors.name) && styles.inputContainerError,
+                ]}
+              >
                 <Ionicons name="pricetag-outline" size={18} color={Colors.text2} />
                 <TextInput
                   autoCapitalize="words"
                   editable={!isSubmitting}
-                  onChangeText={setName}
+                  onChangeText={handleNameChange}
                   placeholder="Enter service name"
                   placeholderTextColor={Colors.placeholder}
                   returnKeyType="next"
@@ -184,16 +207,24 @@ export default function NewServiceScreen() {
                   value={name}
                 />
               </View>
+              {fieldErrors.name ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.name}</Text>
+              ) : null}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Price</Text>
-              <View style={styles.inputContainer}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  Boolean(fieldErrors.price) && styles.inputContainerError,
+                ]}
+              >
                 <Ionicons name="cash-outline" size={18} color={Colors.text2} />
                 <TextInput
                   editable={!isSubmitting}
                   keyboardType="decimal-pad"
-                  onChangeText={setPrice}
+                  onChangeText={handlePriceChange}
                   placeholder="Enter price"
                   placeholderTextColor={Colors.placeholder}
                   returnKeyType="next"
@@ -201,16 +232,24 @@ export default function NewServiceScreen() {
                   value={price}
                 />
               </View>
+              {fieldErrors.price ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.price}</Text>
+              ) : null}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Duration (minutes)</Text>
-              <View style={styles.inputContainer}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  Boolean(fieldErrors.durationMinutes) && styles.inputContainerError,
+                ]}
+              >
                 <Ionicons name="time-outline" size={18} color={Colors.text2} />
                 <TextInput
                   editable={!isSubmitting}
                   keyboardType="number-pad"
-                  onChangeText={setDurationMinutes}
+                  onChangeText={handleDurationChange}
                   placeholder="Enter duration in minutes"
                   placeholderTextColor={Colors.placeholder}
                   returnKeyType="next"
@@ -218,6 +257,9 @@ export default function NewServiceScreen() {
                   value={durationMinutes}
                 />
               </View>
+              {fieldErrors.durationMinutes ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.durationMinutes}</Text>
+              ) : null}
             </View>
 
             <View style={styles.inputGroup}>
@@ -353,6 +395,15 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: "row",
     minHeight: 52,
     paddingHorizontal: AppLayout.searchBarPaddingX,
+  },
+  inputContainerError: {
+    borderColor: Colors.error,
+  },
+  fieldErrorText: {
+    color: Colors.error,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: Spacing.xs,
   },
   textInput: {
     color: Colors.heading,
