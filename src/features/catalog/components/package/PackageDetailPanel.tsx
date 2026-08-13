@@ -1,4 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
+import { useDispatch } from "react-redux";
+import type { AppDispatch } from "../../../../store/store";
+import { setPackagesList } from "../../../../store/schedulerSlice";
 import {
   X,
   PencilSquare,
@@ -365,6 +368,7 @@ const PackageDetailPanel: React.FC<PackageDetailPanelProps> = ({ pkg, onClose })
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [updatePackage] = useUpdatePackageMutation();
+  const dispatch = useDispatch<AppDispatch>();
 
   // Reset to view mode and sync form whenever the selected package changes
   useEffect(() => {
@@ -416,6 +420,9 @@ const PackageDetailPanel: React.FC<PackageDetailPanelProps> = ({ pkg, onClose })
         colour: form.colour,
       };
       await updatePackage({ id: pkg.id, data: payload }).unwrap();
+      // Same cache-invalidation reason as EditPackagePage.tsx's handleSave —
+      // Quick Sale/Calendar's "+Package" row won't see this edit otherwise.
+      dispatch(setPackagesList([]));
       setMode("view");
     } catch {
       setSaveError("Failed to save changes. Please try again.");

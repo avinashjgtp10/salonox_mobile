@@ -28,6 +28,7 @@ import {
 import type { Package as ApiPackage } from "../../../services/api/endpoints/packages.endpoints";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
+import { setPackagesList } from "../../../store/schedulerSlice";
 import { 
   exportPackagesCsvThunk, 
   exportPackagesPdfThunk, 
@@ -489,6 +490,7 @@ const CreateView: React.FC<NavProps> = ({ onNavigate }) => {
     { id: 1, name: "", couponCode: "SAVE20", discount: 20, type: "Percent (%)", startDate: "2026-04-15", endDate: "2026-05-15", minOrder: 0, active: true },
   ]);
   const [saving, setSaving]           = useState(false);
+  const dispatch = useDispatch<AppDispatch>();
 
   const { services, fetchServices } = useServices();
 
@@ -551,6 +553,11 @@ const CreateView: React.FC<NavProps> = ({ onNavigate }) => {
         serviceIds: selectedServices.map((s) => String(s.id)),
         offers: offers.map((o) => ({ ...o, id: undefined })),
       }).unwrap();
+      // Quick Sale/Calendar cache their own copy of the package list in
+      // schedulerSlice and only ever (re)fetch it when that copy is empty —
+      // so a package created here would otherwise stay invisible there for
+      // the rest of the browser session, not just until the next reload.
+      dispatch(setPackagesList([]));
       onNavigate("success");
     } catch (e) {
       console.error("Failed to create package", e);
@@ -904,6 +911,9 @@ const CustomPackageView: React.FC<NavProps> = ({ onNavigate }) => {
         serviceIds: [],
         offers: [],
       }).unwrap();
+      // See handleSave's comment above — clears Quick Sale/Calendar's cached
+      // package list so this new one isn't invisible there until a reload.
+      dispatch(setPackagesList([]));
       onNavigate("success");
     } catch (err) {
       console.error(err);

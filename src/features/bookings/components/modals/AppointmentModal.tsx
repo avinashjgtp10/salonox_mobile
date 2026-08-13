@@ -2048,11 +2048,12 @@ export const AppointmentModal: React.FC<Props> = ({
     ? "Processing…"
     : totalsNotReady
     ? (totalsError ? "Calculation failed — edit to retry" : "Confirming total…")
-    // Already paid for in full at package-purchase time — "Checkout — ₹0.00"
-    // reads like a bug, not a feature; this is really just confirming the
-    // visit happened (which is what triggers session redemption).
+    // Already paid for in full at package-purchase time — appending
+    // "— ₹0.00" would read like a bug, not a feature, so this stays a bare
+    // label; it's really just confirming the visit happened (which is what
+    // triggers session redemption).
     : isPackageZero
-      ? "Mark Complete"
+      ? "Checkout"
     : isPartialEntry
       ? `Checkout — ${currencySymbol}${parsedPartial.toFixed(2)} (Due - ${currencySymbol}${(remainingDue - parsedPartial).toFixed(2)})`
       : `Checkout — ${currencySymbol}${reconciledEffectiveTotal.toFixed(2)}`;

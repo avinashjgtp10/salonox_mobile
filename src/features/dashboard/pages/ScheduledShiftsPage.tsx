@@ -136,6 +136,8 @@ const ScheduledShiftsPage: React.FC = () => {
       .unwrap()
       .then((res) => {
         console.log("[DEBUG] API response:", res);
+        // Same cache-invalidation reason as handleSaveAvailability above.
+        dispatch(bumpScheduleVersion());
       })
       .catch((err) => {
         console.error("[DEBUG] Delete failed:", err);
@@ -187,6 +189,11 @@ const ScheduledShiftsPage: React.FC = () => {
         console.log("[DEBUG] API response:", res);
         showSuccess("Availability updated");
         // No full-week repaint
+        // Calendar/Quick Sale cache their own copy of staff working hours
+        // (schedulerSlice.staffSchedules, via useStaffSchedule) and only ever
+        // refetch it when scheduleVersion changes — without this, an edited
+        // shift stayed invisible there for the rest of the browser session.
+        dispatch(bumpScheduleVersion());
       })
       .catch((err) => {
         console.error("[DEBUG] Save failed:", err);

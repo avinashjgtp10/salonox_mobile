@@ -9,6 +9,7 @@ import type { ClientSearchResult } from "../../features/clients/components/Clien
 import ClientSelectorWithAdd from "./ClientSelectorWithAdd";
 import { useCreateClientPackage } from "../../hooks/packages/usePackages";
 import { fetchStaffThunk } from "../../middleware/staff/staff.thunk";
+import { setPackagesList } from "../../store/schedulerSlice";
 import { useServices } from "../../features/catalog/hooks/useServices";
 import type { Service } from "../../features/catalog/types/catalog.types";
 import { PaymentMethodPicker, type PaymentSplitEntry } from "../shared/PaymentMethodPicker";
@@ -162,9 +163,10 @@ const PackageCreateForm: React.FC<Props> = ({
   const { data: templates = [] } = useListPackageTemplatesQuery();
 
   const [pkgName,           setPkgName]          = useState("");
-  // Optional "what's included / terms" blurb. Only meaningful on the template
-  // path — a client package sold directly has no description column of its own
-  // and inherits nothing, so this is submitted with createTemplate only.
+  // Optional "what's included / terms" blurb. The field itself is only shown
+  // on the template path (see its own comment below) — a plain direct sale
+  // never lets the user type one, though client_packages.description can
+  // store one when a value does carry over (Generic-template-plus-client).
   const [pkgDescription,    setPkgDescription]   = useState("");
   const [expiry,            setExpiry]           = useState("");
   const [neverExpires,      setNeverExpires]      = useState(false);
@@ -261,6 +263,21 @@ const PackageCreateForm: React.FC<Props> = ({
 
   // Auto-sync package price from services total unless user manually set it
   const servicesTotal = services.reduce((sum, s) => sum + (s.price || 0), 0);
+
+  // Live check for the "Expires after this many services" field — recomputed
+  // on every render so it reacts as soon as either the typed cap or the
+  // service rows change, not just at Save. A cap at or above the package's
+  // own total sessions can never actually trigger (the package always runs
+  // out of its own sessions first), so this catches it while typing instead
+  // of only at submit.
+  const totalSessionsSelected = services
+    .filter(s => s.name.trim())
+    .reduce((sum, s) => sum + (s.sessions || 0), 0);
+  const expireAfterServicesNum = expireAfterServicesStr.trim() ? parseInt(expireAfterServicesStr, 10) : null;
+  const expireAfterServicesError =
+    expireAfterServicesNum !== null && totalSessionsSelected > 0 && expireAfterServicesNum >= totalSessionsSelected
+      ? `Must be less than the total sessions selected (${totalSessionsSelected}) — otherwise the package finishes on its own first and the cap never applies.`
+      : null;
   useEffect(() => {
     if (!pkgPriceManual) {
       setPkgPrice(servicesTotal);
@@ -348,6 +365,19 @@ const PackageCreateForm: React.FC<Props> = ({
     if (expireAfterServicesStr.trim() && (!Number.isInteger(expireAfterServicesVal) || (expireAfterServicesVal as number) <= 0)) {
       setApiError("\"Expires after this many services\" must be a whole number greater than 0."); return;
     }
+    // Same rule as the live check shown under the field itself while typing
+    // (expireAfterServicesError) — blocks Save here too as a final gate, but
+    // doesn't ALSO set apiError: that error is already visible inline right
+    // under the field, so duplicating it into the banner below just repeats
+    // the same message twice on screen.
+    if (expireAfterServicesError) {
+      // Clears any stale banner left over from a previous failed attempt on
+      // a different check — otherwise an unrelated old message could still
+      // be showing here while this field's own inline error is the real,
+      // current problem.
+      setApiError(null);
+      return;
+    }
     const methodMissing = !quickCreateMode && !templateOnly && (paymentMode === "single"
       ? !singleMethod
       : splitEntries.length === 0 || splitEntries.some(e => !e.method || !parseFloat(e.amount)));
@@ -386,6 +416,11 @@ const PackageCreateForm: React.FC<Props> = ({
         const tmpl = editingTemplateId
           ? await updateTemplate({ id: editingTemplateId, data: templatePayload }).unwrap()
           : await createTemplate(templatePayload).unwrap();
+        // Quick Sale/Calendar's "+Package" row caches the merged
+        // templates+combo-packages catalog and only refetches it when empty
+        // (see AppointmentModal.tsx) — without this, a new or edited
+        // template stays invisible/stale there for the rest of the session.
+        dispatch(setPackagesList([]));
         // Generic + a client picked: the template above is the reusable
         // definition; still fall through and sell an actual copy of it to
         // that client too, instead of stopping at "template saved" and
@@ -404,6 +439,11 @@ const PackageCreateForm: React.FC<Props> = ({
         branch:        "",
         expiryDate:    neverExpires ? "2099-12-31" : expiry,
         expireAfterServices: expireAfterServicesVal,
+        // Only ever non-empty here via the Generic-template-plus-client
+        // fallthrough above (the Description field itself is hidden for a
+        // plain direct sale — see the field's own comment below) — sent
+        // regardless so that copy inherits the template's description too.
+        description:   pkgDescription.trim() || null,
         basePrice:     pkgPrice,
         gstPercentage: gstPct,
         discount:      discountVal,
@@ -719,34 +759,11 @@ const PackageCreateForm: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Aggregate-session cap — independent of the date expiry above,
-              whichever is hit first ends the package. Template-only: never
-              shown for lineItemMode's custom on-the-spot package builder. */}
-          {!lineItemMode && (
-            <div className={styles.formField} style={{ marginTop: 12, maxWidth: 280 }}>
-              <label className={styles.formLabel}>Expires after this many services</label>
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={expireAfterServicesStr}
-                onChange={e => setExpireAfterServicesStr(e.target.value.replace(/[^0-9]/g, ""))}
-                className={styles.input}
-                placeholder="Optional — e.g. 5"
-                disabled={isFromTemplate}
-                style={frozenStyle}
-              />
-              <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "#9ca3af" }}>
-                Closes the package once this many total sessions are used across all its services combined — leave blank for no cap.
-              </span>
-            </div>
-          )}
-
           {/* Full width — a description is prose, so it reads badly squeezed
-              into one half of the two-column grid above. Only saved on the
-              template path; a directly-sold client package has nowhere to
-              store it, so the field is hidden there rather than silently
-              discarding what was typed. */}
+              into one half of the two-column grid above. Editable only on
+              the template path; a plain direct sale has no UI for typing one
+              (kept simple rather than adding a rarely-used field there),
+              though the column itself can hold one — see the payload below. */}
           {isTemplateSave && (
             <div className={styles.formField} style={{ marginTop: 12 }}>
               <label className={styles.formLabel}>Description</label>
@@ -992,6 +1009,38 @@ const PackageCreateForm: React.FC<Props> = ({
           </>
             );
           })()}
+
+          {/* Aggregate-session cap — independent of the date expiry set in
+              Package details above, whichever is hit first ends the package.
+              Template-only: never shown for lineItemMode's custom
+              on-the-spot package builder. Moved here (after the service
+              rows, once at least one is actually picked) since the cap only
+              makes sense in relation to the services just selected above. */}
+          {!lineItemMode && services.some(s => s.name.trim()) && (
+            <div className={styles.formField} style={{ marginTop: 14, maxWidth: 280 }}>
+              <label className={styles.formLabel}>Expires after this many services</label>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={expireAfterServicesStr}
+                onChange={e => setExpireAfterServicesStr(e.target.value.replace(/[^0-9]/g, ""))}
+                className={styles.input}
+                placeholder="Optional — e.g. 5"
+                disabled={isFromTemplate}
+                style={expireAfterServicesError ? { ...frozenStyle, borderColor: "#ef4444" } : frozenStyle}
+              />
+              {expireAfterServicesError ? (
+                <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "#ef4444", fontWeight: 500 }}>
+                  {expireAfterServicesError}
+                </span>
+              ) : (
+                <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "#9ca3af" }}>
+                  Closes the package once this many total sessions are used across all its services combined — leave blank for no cap.
+                </span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 

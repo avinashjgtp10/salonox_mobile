@@ -120,13 +120,14 @@ export const ClientStatCard: React.FC<Props> = ({
   const rewardPopover = usePopover();
   const pkgPopover = usePopover();
   const memPopover = usePopover();
-  // Which membership card (by id) currently has its description expanded —
-  // at most one at a time, reset whenever the whole Membership popover closes
-  // so it doesn't reappear stale the next time it's opened.
+  // Which package or membership card (by id) currently has its description
+  // expanded — at most one at a time, shared across both popovers since only
+  // one of them is ever open at once. Reset whenever the popover it belongs
+  // to closes, so it doesn't reappear stale the next time either is opened.
   const [descOpenId, setDescOpenId] = useState<string | null>(null);
   useEffect(() => {
-    if (!memPopover.visible) setDescOpenId(null);
-  }, [memPopover.visible]);
+    if (!memPopover.visible && !pkgPopover.visible) setDescOpenId(null);
+  }, [memPopover.visible, pkgPopover.visible]);
 
   const rewardMoneyValue = rewardPointsConfig && rewardPointsConfig.redeem_points > 0
     ? (Number(stats.rewardPoints) / rewardPointsConfig.redeem_points) * rewardPointsConfig.redeem_value
@@ -281,6 +282,20 @@ export const ClientStatCard: React.FC<Props> = ({
                     const expiryStatus = getPackageExpiryStatus(pkg.expiryDate);
                     return (
                       <div key={pkg.id} className="pkg-card">
+                        <button
+                          type="button"
+                          className="pkg-card__desc-btn"
+                          title="View description"
+                          aria-label="View description"
+                          onClick={() => setDescOpenId((id) => (id === pkg.id ? null : pkg.id))}
+                        >
+                          ℹ
+                        </button>
+                        {descOpenId === pkg.id && (
+                          <div className="pkg-card__desc-box">
+                            {pkg.description?.trim() || "No description provided."}
+                          </div>
+                        )}
                         <div className="pkg-card__row">
                           <span className="pkg-card__lbl">Active Package:</span>
                           <span className="pkg-card__val">{pkg.packageName}</span>
