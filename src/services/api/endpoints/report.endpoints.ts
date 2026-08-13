@@ -162,6 +162,12 @@ export const PACKAGE_SALE_REPORT = {
   SUMMARY: () => `/api/report/package-sale`,
 } as const;
 
+// Independent Payroll History reporting API — reads payroll_entries
+// directly. Mounted at /api/report.
+export const PAYROLL_HISTORY_REPORT = {
+  SUMMARY: () => `/api/report/payroll-history`,
+} as const;
+
 // Independent Package History reporting API — reads
 // client_package_session_history directly. Mounted at /api/report.
 export const PACKAGE_HISTORY_REPORT = {
