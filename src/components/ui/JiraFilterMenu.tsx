@@ -16,6 +16,8 @@ export interface FilterDropdownOption {
 export interface JiraFilterField {
   key: string;
   label: string;
+  /** Ignored when `render` is supplied — a custom field owns its own body
+   *  and doesn't participate in the checkbox-list/search machinery below. */
   options: FilterDropdownOption[];
   /** Shown only for fields with many options (Category/Brand/Supplier/
    *  Assigned Service) — omitted for short fixed lists (Stock Status, Base
@@ -30,6 +32,15 @@ export interface JiraFilterField {
   /** Given the parent field's drafted ids (never empty) plus this field's own
    *  drafted ids, return the options to show. Ignored without `dependsOn`. */
   optionsFor?: (parentIds: string[], ownIds: string[]) => FilterDropdownOption[];
+  /** Escape hatch for a field that isn't a checkbox list — e.g. a numeric
+   *  "at least N" input (VIP Customers' Visits filter). When supplied, this
+   *  renders instead of the search box + checkbox list, still inside the same
+   *  draft/Apply/Clear lifecycle: read `draft[0]` for the current value (a
+   *  single-element array is reused so the field can still report a count
+   *  badge and clear like every other field), call `setDraft(next)` with the
+   *  new single-element array (or [] to clear) on change. Nothing refetches
+   *  until the panel's Apply is clicked, same as every checkbox field. */
+  render?: (draft: string[], setDraft: (next: string[]) => void) => React.ReactNode;
 }
 
 interface JiraFilterMenuProps {
@@ -154,40 +165,48 @@ const JiraFilterMenu: React.FC<JiraFilterMenuProps> = ({ fields, selected, onApp
             )}
 
             <div className="jfm-panel__options">
-              {activeField?.dependsOn && dependsOnIds.length > 0 && (
-                <div className="jfm-panel__hint">
-                  Showing {activeField.label.toLowerCase()}s in the selected{" "}
-                  {fields.find((f) => f.key === activeField.dependsOn)?.label.toLowerCase()}
+              {activeField?.render ? (
+                <div className="jfm-panel__custom">
+                  {activeField.render(activeSelectedIds, (next) => setDraft((prev) => ({ ...prev, [activeKey]: next })))}
                 </div>
-              )}
-              {activeField?.searchable && (
-                <div className="jfm-panel__search">
-                  <Search size={13} />
-                  <input
-                    autoFocus
-                    placeholder={`Search ${activeField.label.toLowerCase()}…`}
-                    value={activeSearch}
-                    onChange={(e) => setSearch((prev) => ({ ...prev, [activeKey]: e.target.value }))}
-                  />
-                </div>
-              )}
-              <div className="jfm-panel__list">
-                {activeOptions.length === 0 ? (
-                  <div className="jfm-panel__empty">No options</div>
-                ) : (
-                  activeOptions.map((o) => (
-                    <label key={o.id} className={`jfm-option${o.disabled ? " jfm-option--disabled" : ""}`}>
+              ) : (
+                <>
+                  {activeField?.dependsOn && dependsOnIds.length > 0 && (
+                    <div className="jfm-panel__hint">
+                      Showing {activeField.label.toLowerCase()}s in the selected{" "}
+                      {fields.find((f) => f.key === activeField.dependsOn)?.label.toLowerCase()}
+                    </div>
+                  )}
+                  {activeField?.searchable && (
+                    <div className="jfm-panel__search">
+                      <Search size={13} />
                       <input
-                        type="checkbox"
-                        disabled={o.disabled}
-                        checked={activeSelectedIds.includes(o.id)}
-                        onChange={() => { if (!o.disabled) toggleOption(o.id); }}
+                        autoFocus
+                        placeholder={`Search ${activeField.label.toLowerCase()}…`}
+                        value={activeSearch}
+                        onChange={(e) => setSearch((prev) => ({ ...prev, [activeKey]: e.target.value }))}
                       />
-                      <span>{o.label}</span>
-                    </label>
-                  ))
-                )}
-              </div>
+                    </div>
+                  )}
+                  <div className="jfm-panel__list">
+                    {activeOptions.length === 0 ? (
+                      <div className="jfm-panel__empty">No options</div>
+                    ) : (
+                      activeOptions.map((o) => (
+                        <label key={o.id} className={`jfm-option${o.disabled ? " jfm-option--disabled" : ""}`}>
+                          <input
+                            type="checkbox"
+                            disabled={o.disabled}
+                            checked={activeSelectedIds.includes(o.id)}
+                            onChange={() => { if (!o.disabled) toggleOption(o.id); }}
+                          />
+                          <span>{o.label}</span>
+                        </label>
+                      ))
+                    )}
+                  </div>
+                </>
+              )}
               {!isSingle && activeSelectedIds.length > 0 && (
                 <button type="button" className="jfm-panel__clear-field" onClick={clearActive}>
                   Clear {activeField?.label}
