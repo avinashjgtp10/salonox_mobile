@@ -26,6 +26,7 @@ const emptyForm = (): CatalogFormData => ({
     price: 0,
     description: "",
     active: true,
+    reminderAfterDays: null,
   },
   team: {
     selectedMemberIds: [],
@@ -63,6 +64,7 @@ const mapServiceToFormData = (svc: Service): CatalogFormData => ({
     price: Number(svc.price ?? 0),
     description: svc.description ?? "",
     active: svc.is_active ?? true,
+    reminderAfterDays: svc.reminder_after_days ?? null,
   },
   team: {
     selectedMemberIds: (svc.staff ?? []).map((s) => String(s.staff_id)),
@@ -126,6 +128,7 @@ const buildPayload = (formData: CatalogFormData, allStaffIds: string[]) => {
     // column default on create.
     duration: formData.basic.duration,
     is_active: formData.basic.active,
+    reminder_after_days: formData.basic.reminderAfterDays,
     online_booking: formData.onlineBooking.enabled,
     // Both null clears the override on edit, so unticking the box genuinely
     // hands the service back to the staff-level commission rules rather than
