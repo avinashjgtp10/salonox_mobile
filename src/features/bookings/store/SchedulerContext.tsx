@@ -116,6 +116,33 @@ export function useSchedulerContext() {
             staff_id:    toApiStaffId(it.staffId),
             start_time:  new Date(`${b.date}T${it.time || b.startTime}:00`).toISOString(),
             ...(idKey === "package_id" && it.isPackageService ? { is_package_service: true } : {}),
+            // A reschedule must not quietly rewrite what was SOLD — only when
+            // it happens. This rebuild previously emitted a fixed field list,
+            // so dragging an appointment stripped a package's `services` and
+            // custom expiry from package_items. Harmless for a template
+            // package (package_id re-derives it), fatal for a custom one:
+            // with neither package_id nor services, payments.service.ts can't
+            // resolve the package at checkout and creates nothing, so a fully
+            // paid client ends up with no package at all.
+            ...(idKey === "package_id" && Array.isArray(it.services) && it.services.length
+              ? {
+                  services: it.services.map((s: any) => ({
+                    serviceId:     s.serviceId || undefined,
+                    serviceName:   s.serviceName,
+                    totalSessions: s.totalSessions || 1,
+                    price:         s.price || 0,
+                    ...(s.schedule?.scheduledAt
+                      ? { schedule: { scheduledAt: new Date(s.schedule.scheduledAt).toISOString(), staffId: s.schedule.staffId || undefined } }
+                      : {}),
+                  })),
+                }
+              : {}),
+            ...(idKey === "package_id" && it.customExpiry
+              ? {
+                  never_expires: !!it.customExpiry.neverExpires,
+                  expiry_date:   it.customExpiry.neverExpires ? undefined : (it.customExpiry.expiryDate || undefined),
+                }
+              : {}),
           }));
 
         // status is intentionally omitted — a reschedule never changes payment/

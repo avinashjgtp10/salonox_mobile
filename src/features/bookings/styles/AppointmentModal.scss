@@ -1191,6 +1191,16 @@ $item-field-text-inset: 9px;
     font-size: 11.5px;
     color: #9ca3af;
     font-style: italic;
+
+    // Shown beside the date/time fields when they're visible but still empty
+    // — amber rather than grey so it reads as "action needed", since nothing
+    // gets booked until both are filled.
+    &--warn {
+      color: #b45309;
+      font-style: normal;
+      font-weight: 600;
+      flex-basis: 100%;
+    }
   }
 }
 

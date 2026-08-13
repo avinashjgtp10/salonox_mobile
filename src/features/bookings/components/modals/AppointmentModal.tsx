@@ -1272,10 +1272,27 @@ export const AppointmentModal: React.FC<Props> = ({
   const reconciledRoundOff = reconciledEffectiveTotal - rawReconciledTotal;
 
   const alreadyPaidAmount   = existingBooking?.payingNow ?? 0;
-  // For partial bookings, trust the API's dueAmount directly — payingNow can be unreliable
-  const remainingDue = (existingBooking?.status === "partial" && (existingBooking?.dueAmount ?? 0) > 0)
-    ? existingBooking.dueAmount
-    : Math.max(0, reconciledEffectiveTotal - alreadyPaidAmount);
+  // What this bill has already collected, BEFORE anything edited in this
+  // session. payingNow is the primary source — bookingMapper recomputes it
+  // from paid_amount rather than trusting the API's own field ("Always
+  // recompute — never trust a stale appt.payingNow"), so the old warning that
+  // it's unreliable no longer holds. The API's own total−due is kept as a
+  // fallback for a partial bill whose paid amount can't be derived, and is
+  // gated on status === "partial" because due_amount is only meaningful once
+  // a real payment exists (an unpaid booking reports due 0, which would
+  // otherwise read as "fully paid" and zero out the amount to collect).
+  const priorPaidAmount = alreadyPaidAmount > 0
+    ? alreadyPaidAmount
+    : (existingBooking?.status === "partial" && (existingBooking?.dueAmount ?? 0) > 0
+        ? Math.max(0, (existingBooking?.grandTotal ?? 0) - (existingBooking?.dueAmount ?? 0))
+        : 0);
+  // Always derived from the CURRENT total, never the due the API returned at
+  // load. Returning that snapshot verbatim for partial bills meant adding or
+  // removing an item recalculated the grand total while Due and the
+  // "Confirm & Pay" button stayed frozen at the old figure — e.g. adding a
+  // ₹500 service to a ₹1050 bill with ₹500 paid showed Total ₹1575 against
+  // Due ₹550, which don't reconcile against each other.
+  const remainingDue = Math.max(0, reconciledEffectiveTotal - priorPaidAmount);
   const parsedPartial   = parseFloat(partialAmtInput);
   // 0 counts as a deliberate partial entry (pay nothing now, leave it all due) —
   // matches the >= 0 check in usePayment.ts's actual charge calculation.
