@@ -9,6 +9,23 @@ body {
 .dashboard {
   height: 100vh;
   background: $dashboard-bg;
+  // The shell is exactly viewport-height and every scrollable region inside
+  // it (.main, .sub-sidebar, each page's own body) scrolls internally — the
+  // page as a whole is never meant to scroll. It could, though: the layout
+  // balances on .dashboard-body's margin-top plus .main's
+  // `calc(100vh - topbar - banner)` summing to exactly 100vh, with no slack,
+  // so any overshoot (sub-pixel rounding, the deployment banner resolving its
+  // height a frame late, a page that sets its own taller height) spilled past
+  // the bottom and let the whole document scroll. Because .topbar is
+  // position: fixed, that scroll slid page content UP underneath it — which
+  // read as "the navbar overlaps the content" (most visibly the calendar's
+  // own toolbar being clipped in half).
+  //
+  // Safe to clip here: .topbar, .sidebar, .sub-sidebar, the toast container
+  // and the assistant FAB are all position: fixed, and .dashboard sets no
+  // transform/filter, so none of them are affected by this — fixed elements
+  // are only clipped by an ancestor that establishes a containing block.
+  overflow: hidden;
 }
 
 :root {
@@ -133,6 +150,14 @@ body {
 .dashboard-body {
   display: flex;
   margin-top: calc(var(--topbar-height, 56px) + var(--deployment-banner-height, 0px));
+  // Occupies exactly the space left under the fixed topbar/banner. Without
+  // this the row's height came only from .main's own
+  // `calc(100vh - topbar - banner)`, so the margin-top above stacked ON TOP
+  // of a full-height child and the shell had to absorb the difference. Being
+  // explicit here means the offset and the height are derived from the same
+  // number instead of having to cancel out by coincidence.
+  height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
+  min-height: 0; // lets flex children scroll internally rather than stretch the row
 }
 
 /* ================= SIDEBAR ================= */
