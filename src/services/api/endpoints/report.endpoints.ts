@@ -148,6 +148,14 @@ export const STAFF_ITEM_SALES_REPORT = {
   SUMMARY: () => `/api/report/staff-item-sales`,
 } as const;
 
+// Independent Rebooking Rate reporting API — one row per staff member,
+// measuring what share of their served visits led to the client returning
+// within a manually-entered day window. Reads sales/sale_items/clients
+// directly, never through the Appointment API. Mounted at /api/report.
+export const REBOOKING_RATE_REPORT = {
+  SUMMARY: () => `/api/report/rebooking-rate`,
+} as const;
+
 // Independent Package Sale reporting API — reads client_packages directly.
 // Mounted at /api/report.
 export const PACKAGE_SALE_REPORT = {
