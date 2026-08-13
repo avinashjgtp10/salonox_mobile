@@ -6,6 +6,7 @@ import { fetchTemplatesThunk, createCampaignThunk } from "../../../middleware/ma
 import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import { ExcelUpload } from "../components";
 import { Button, Input } from "../../../components/ui";
+import Dropdown from "../../../components/ui/Dropdown";
 import { useOnce } from "../../../hooks/useOnce";
 import api from "../../../services/api/axios";
 import "../styles/CreateCampaignPage.scss";
@@ -474,15 +475,13 @@ const hasAnyFilter =
                         </div>
                         <div className="cc-schedule-field">
                           <label className="cc-schedule-label">Time</label>
-                          <select
+                          <Dropdown
                             className="cc-time-select"
+                            searchable={false}
                             value={schedTime}
-                            onChange={e => setSchedTime(e.target.value)}
-                          >
-                            {TIME_OPTIONS.map(o => (
-                              <option key={o.value} value={o.value}>{o.label}</option>
-                            ))}
-                          </select>
+                            options={TIME_OPTIONS.map(o => ({ id: o.value, name: o.label }))}
+                            onChange={setSchedTime}
+                          />
                         </div>
                       </div>
                       {errors.schedule && <span className="cc-error">{errors.schedule}</span>}
@@ -660,16 +659,14 @@ const hasAnyFilter =
                           <div className="cc-sf-row-2">
                             <div className="cc-sf-field">
                               <label className="cc-sf-label">Birth month</label>
-                              <select
+                              <Dropdown
                                 className="cc-sf-select"
+                                searchable={false}
+                                placeholder="Any month"
                                 value={smartFilter.birth_month}
-                                onChange={e => upFilter("birth_month", e.target.value)}
-                              >
-                                <option value="">Any month</option>
-                                {MONTHS.map(m => (
-                                  <option key={m.value} value={m.value}>{m.label}</option>
-                                ))}
-                              </select>
+                                options={MONTHS.map(m => ({ id: m.value, name: m.label }))}
+                                onChange={id => upFilter("birth_month", id)}
+                              />
                             </div>
                             <div className="cc-sf-field">
                               <label className="cc-sf-label">Exact date (MM-DD)</label>

@@ -15,6 +15,7 @@ import {
 } from '../../../store/inboxSlice'
 import type { WAConversation, WAMessage } from '../../../store/inboxSlice'
 import { API_ORIGIN } from '../../../services/api/baseUrl'
+import Dropdown from '../../../components/ui/Dropdown'
 import '../styles/InboxPage.scss'
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -445,14 +446,16 @@ export default function InboxPage() {
               Unread {totalUnread > 0 && <span className="inbox-filter-count">{totalUnread}</span>}
             </button>
           </div>
-          <select
+          <Dropdown
             className="inbox-sort-select"
+            searchable={false}
             value={sortMode}
-            onChange={e => setSortMode(e.target.value as SortMode)}
-          >
-            <option value="latest">Latest</option>
-            <option value="unread">Unread first</option>
-          </select>
+            options={[
+              { id: 'latest', name: 'Latest' },
+              { id: 'unread', name: 'Unread first' },
+            ]}
+            onChange={id => setSortMode(id as SortMode)}
+          />
         </div>
 
         {/* Conversation list */}
