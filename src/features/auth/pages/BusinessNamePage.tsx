@@ -1,23 +1,41 @@
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "../styles/BusinessNamePage.scss";
 import "../styles/onboarding-shared.scss";
 import { useOnboarding } from "../../../context/OnboardingContext";
 import OnboardingImagePanel from "../components/OnboardingImagePanel";
 import OnboardingPageWrapper from "../components/OnboardingPageWrapper";
 import OnboardingBackButton from "../components/OnboardingBackButton";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { fetchMeThunk } from "../../../middleware/user/user.thunk";
 
 export default function BusinessNamePage() {
   const navigate = useNavigate();
-  const { update } = useOnboarding();
+  const { data, update } = useOnboarding();
+  const dispatch = useAppDispatch();
+  const profile = useAppSelector((s) => s.user.profile);
 
-  const [businessName, setBusinessName] = useState("");
-  const [website, setWebsite] = useState("");
+  const [businessName, setBusinessName] = useState(data.business_name);
+  const [website, setWebsite] = useState(data.website_url);
   const [submitted, setSubmitted] = useState(false);
   const [touched, setTouched] = useState({ businessName: false, website: false });
 
+  // Prefill from the registration data (already saved server-side as businessName)
+  // so the user isn't asked to re-enter what they just typed at signup.
+  useEffect(() => {
+    if (!data.business_name && !profile) {
+      dispatch(fetchMeThunk());
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!data.business_name && profile?.businessName && !businessName) {
+      setBusinessName(profile.businessName);
+    }
+  }, [profile]);
+
   const isBusinessNameValid = businessName.trim().length >= 3;
-  const websiteRx = /^([\w-]+\.)+[a-zA-Z]{2,}(\/\S*)?$/;
+  const websiteRx = /^(https?:\/\/)?([\w-]+\.)+[a-zA-Z]{2,}(\/\S*)?$/;
   const isWebsiteValid = website.trim() === "" || websiteRx.test(website.trim());
 
   const showBusinessNameError = (touched.businessName || submitted) && !isBusinessNameValid;
