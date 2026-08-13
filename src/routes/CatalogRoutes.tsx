@@ -60,6 +60,10 @@ const SoldMembershipsPage = lazy(
 const ConsumableInventoryPage = lazy(
   () => import("../features/catalog/pages/ConsumableInventoryPage"),
 );
+// Retail-stock counterpart to Consumable Inventory above.
+const ProductInventoryPage = lazy(
+  () => import("../features/catalog/pages/ProductInventoryPage"),
+);
 const ConsumableUsageHistoryPage = lazy(
   () => import("../features/catalog/pages/ConsumableUsageHistoryPage"),
 );
@@ -112,6 +116,7 @@ export const CatalogRoutes = () => (
         <Route path="inventory/suppliers" element={<SuppliersListPage />} />
         <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
         <Route path="inventory/suppliers/edit/:id" element={<AddSupplierPage />} />
+        <Route path="inventory/products" element={<ProductInventoryPage />} />
         <Route path="inventory/consumables" element={<ConsumableInventoryPage />} />
         <Route path="inventory/consumables/add" element={<ProductFormPage />} />
         <Route path="inventory/consumables/edit/:id" element={<ProductFormPage />} />
