@@ -13,8 +13,10 @@ import {
   Trash3,
   ThreeDotsVertical,
   ThreeDots,
+  Printer,
 } from "react-bootstrap-icons";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { printPayrollReceipt } from "../utils/payrollReceipt";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
@@ -676,6 +678,7 @@ function PayrollDetailsModal({
   formatAmount,
   onClose,
   onMarkDone,
+  onPrintReceipt,
 }: {
   staff: StaffPayroll;
   salaryAdvances: SalaryAdvanceTransaction[];
@@ -683,6 +686,7 @@ function PayrollDetailsModal({
   formatAmount: (amount: number) => string;
   onClose: () => void;
   onMarkDone: (staff: StaffPayroll) => void;
+  onPrintReceipt: (staff: StaffPayroll) => void;
 }) {
   const status = payrollStatus(staff);
   const advanceCount = salaryAdvances.length;
@@ -763,54 +767,56 @@ function PayrollDetailsModal({
           <span className={`pr-badge ${STATUS_CONFIG[status].class}`}>{STATUS_CONFIG[status].label}</span>
         </div>
 
-        <div className="pr-details-list">
-          {rows.map((row) => (
-            <div className="pr-details-row" key={row.label}>
-              <span>
-                {row.label}
-                {row.note && <small className="pr-details-reason">{row.note}</small>}
-              </span>
-              <strong className={row.negative ? "pr-deduct" : undefined}>
-                {amountLabel(row)}
-              </strong>
-            </div>
-          ))}
-        </div>
-
-        {advanceCount > 0 && (
+        <div className="pr-details-scroll">
           <div className="pr-details-list">
-            {salaryAdvances.map((advance) => (
-              <div className="pr-details-row" key={advance.id}>
+            {rows.map((row) => (
+              <div className="pr-details-row" key={row.label}>
                 <span>
-                  Advance on {advance.advance_date}
-                  {advance.note && <small className="pr-details-reason">{advance.note}</small>}
+                  {row.label}
+                  {row.note && <small className="pr-details-reason">{row.note}</small>}
                 </span>
-                <strong className="pr-deduct">-{formatAmount(advance.amount)}</strong>
+                <strong className={row.negative ? "pr-deduct" : undefined}>
+                  {amountLabel(row)}
+                </strong>
               </div>
             ))}
           </div>
-        )}
 
-        {showCommissionMeta && (
-          <div className="pr-details-list">
-            <div className="pr-details-row">
-              <span>Payout Frequency</span>
-              <strong>{commissionFrequencyLabel || "No Rule"}</strong>
+          {advanceCount > 0 && (
+            <div className="pr-details-list">
+              {salaryAdvances.map((advance) => (
+                <div className="pr-details-row" key={advance.id}>
+                  <span>
+                    Advance on {advance.advance_date}
+                    {advance.note && <small className="pr-details-reason">{advance.note}</small>}
+                  </span>
+                  <strong className="pr-deduct">-{formatAmount(advance.amount)}</strong>
+                </div>
+              ))}
             </div>
-            <div className="pr-details-row">
-              <span>Commission Rule</span>
-              <strong>{staff.commission_rule_name || "No Rule"}</strong>
+          )}
+
+          {showCommissionMeta && (
+            <div className="pr-details-list">
+              <div className="pr-details-row">
+                <span>Payout Frequency</span>
+                <strong>{commissionFrequencyLabel || "No Rule"}</strong>
+              </div>
+              <div className="pr-details-row">
+                <span>Commission Rule</span>
+                <strong>{staff.commission_rule_name || "No Rule"}</strong>
+              </div>
+              <div className="pr-details-row">
+                <span>{staff.commission_frequency === "daily" ? "Applicable Date" : "Payroll Period"}</span>
+                <strong>{commissionPeriodLabel || "No Data"}</strong>
+              </div>
+              <div className="pr-details-row">
+                <span>Calculated Commission</span>
+                <strong>{formatAmount(staff.calculated_commission || staff.commission)}</strong>
+              </div>
             </div>
-            <div className="pr-details-row">
-              <span>{staff.commission_frequency === "daily" ? "Applicable Date" : "Payroll Period"}</span>
-              <strong>{commissionPeriodLabel || "No Data"}</strong>
-            </div>
-            <div className="pr-details-row">
-              <span>Calculated Commission</span>
-              <strong>{formatAmount(staff.calculated_commission || staff.commission)}</strong>
-            </div>
-          </div>
-        )}
+          )}
+        </div>
 
         <div className="pr-details-total">
           <span>Net Payable Amount</span>
@@ -819,6 +825,13 @@ function PayrollDetailsModal({
 
         <div className="pr-details-actions">
           <button className="pr-btn pr-btn--outline" onClick={onClose}>Close</button>
+          <button
+            className="pr-btn pr-btn--outline"
+            onClick={() => onPrintReceipt(staff)}
+            disabled={!staff.hasPayrollData}
+          >
+            <Printer size={13} /> Print Receipt
+          </button>
           <button
             className="pr-btn pr-btn--primary"
             onClick={() => onMarkDone(staff)}
@@ -1022,6 +1035,7 @@ export default function PayrollPage() {
   const { showSuccess, showError, overlay } = useStatusOverlay();
   const dispatch = useAppDispatch();
   const staffItems = useAppSelector((s) => s.staff.items);
+  const currentSalon = useAppSelector((s) => s.salon.currentSalon);
 
   const [search, setSearch] = useState("");
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
@@ -1653,6 +1667,42 @@ export default function PayrollPage() {
     if (payableRow) setPayingId(payableRow.id);
   };
 
+  const handlePrintReceipt = (row: StaffPayroll) => {
+    printPayrollReceipt(
+      {
+        staffName: row.name,
+        role: row.role,
+        base_salary: row.base_salary,
+        commission: row.commission,
+        tips: row.tips,
+        bonus: row.bonus,
+        salary_advance: row.salary_advance,
+        deductions: row.deductions,
+        half_day_deduction: row.half_day_deduction,
+        late_deduction: row.late_deduction,
+        paid_amount: row.paid_amount,
+        payment_method: row.payment_method,
+        payment_date: row.payment_date,
+        status: row.status,
+      },
+      currentSalon,
+      periodLabel,
+      netPay(row),
+      pendingAmount(row),
+      { formatAmount },
+    );
+  };
+
+  // A row can show "Done" purely from client-side math (e.g. salary advance
+  // already covers the full base salary, so pendingAmount() is 0) before any
+  // real payroll entry has been saved — this creates the entry (if missing)
+  // and marks it done the same way "Mark Done" in the details modal does, so
+  // the status is actually persisted instead of just looking settled.
+  const handleSettleRow = async (row: StaffPayroll) => {
+    const savedRow = await ensurePayrollEntryForPayment(row);
+    if (savedRow) handleMarkDone(savedRow);
+  };
+
   const handleSaveSalaryAdvance = async (values: { id?: string; staffId: string; amount: number; advance_date: string; note: string }) => {
     if (!dateRange.start || !dateRange.end) return;
     try {
@@ -1876,7 +1926,28 @@ export default function PayrollPage() {
                       </td>
                       <td className="pr-th--actions" style={{ zIndex: openActionMenuId === e.id ? 9999 : undefined }}>
                         <div className="pr-row-actions">
-                          {/* ONLY 3-Dots Action Button */}
+                          {status !== "done" && pending > 0 && (
+                            <button
+                              className="pr-pay-btn"
+                              type="button"
+                              disabled={payPreparingId === e.id}
+                              onClick={() => handleOpenPaySalary(e)}
+                            >
+                              <CashStack size={13} /> {payPreparingId === e.id ? "Preparing..." : e.paid_amount > 0 ? "Pay remaining" : "Pay salary"}
+                            </button>
+                          )}
+
+                          {status !== "done" && pending <= 0 && !e.hasPayrollData && hasPreviewPayrollData(e) && (
+                            <button
+                              className="pr-pay-btn"
+                              type="button"
+                              disabled={payPreparingId === e.id}
+                              onClick={() => handleSettleRow(e)}
+                            >
+                              <CheckCircleFill size={13} /> {payPreparingId === e.id ? "Preparing..." : "Settle & mark done"}
+                            </button>
+                          )}
+
                           <div className="pr-action-menu-wrap">
                             <button
                               className={`pr-dots-btn ${openActionMenuId === e.id ? "active" : ""}`}
@@ -1921,17 +1992,16 @@ export default function PayrollPage() {
                                   </button>
                                 )}
 
-                                {status !== "done" && pending > 0 && (
+                                {e.hasPayrollData && (
                                   <button
                                     className="pr-action-item"
                                     type="button"
-                                    disabled={payPreparingId === e.id}
                                     onClick={() => {
-                                      handleOpenPaySalary(e);
+                                      handlePrintReceipt(e);
                                       setOpenActionMenuId(null);
                                     }}
                                   >
-                                    <CashStack size={13} /> {payPreparingId === e.id ? "Preparing..." : e.paid_amount > 0 ? "Pay remaining" : "Pay salary"}
+                                    <Printer size={13} /> Print receipt
                                   </button>
                                 )}
 
@@ -1992,6 +2062,7 @@ export default function PayrollPage() {
           formatAmount={formatAmount}
           onClose={() => setDetailsId(null)}
           onMarkDone={handleMarkDone}
+          onPrintReceipt={handlePrintReceipt}
         />
       )}
 

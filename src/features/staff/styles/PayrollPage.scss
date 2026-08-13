@@ -617,6 +617,9 @@ $radius: 12px;
 }
 
 .pr-pay-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
   font-weight: 600;
   padding: 4px 10px;
@@ -628,6 +631,7 @@ $radius: 12px;
   transition: background 0.1s;
   white-space: nowrap;
   &:hover { background: #ede9fe; }
+  &:disabled { cursor: not-allowed; opacity: 0.6; }
 }
 
 .pr-deduct { color: #dc2626 !important; }
@@ -733,12 +737,22 @@ $radius: 12px;
   margin-top: 2px;
 }
 
+.pr-details-scroll {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  max-height: 50vh;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
 .pr-details-list {
   display: flex;
   flex-direction: column;
   border: 1px solid $border;
   border-radius: 8px;
   overflow: hidden;
+  flex-shrink: 0;
 }
 
 .pr-details-row,
