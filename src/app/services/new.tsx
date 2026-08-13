@@ -19,6 +19,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { CategorySelectModal } from "@/features/services/components/CategorySelectModal";
 import {
   validateServiceField,
   validateServiceForm,
@@ -32,6 +33,7 @@ import {
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import type { ServiceCategoryItem } from "@/types/service";
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -53,7 +55,8 @@ export default function NewServiceScreen() {
   const serviceCreateError = useAppSelector(selectServiceCreateError);
   const servicesQuery = useAppSelector(selectServicesQuery);
 
-  const [category, setCategory] = useState("");
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<ServiceCategoryItem | null>(null);
   const [durationMinutes, setDurationMinutes] = useState("");
   const [fieldErrors, setFieldErrors] = useState<ServiceFormErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -89,6 +92,14 @@ export default function NewServiceScreen() {
     }
   };
 
+  const handleSelectCategory = (cat: ServiceCategoryItem) => {
+    setSelectedCategory(cat);
+    if (fieldErrors.categoryId !== undefined) {
+      const err = validateServiceField("categoryId", cat.id);
+      setFieldErrors((prev) => ({ ...prev, categoryId: err }));
+    }
+  };
+
   const handleBack = () => {
     if (router.canGoBack()) {
       router.back();
@@ -103,7 +114,7 @@ export default function NewServiceScreen() {
     setSuccessMessage(null);
 
     const errors = validateServiceForm({
-      category,
+      categoryId: selectedCategory?.id,
       durationMinutes,
       name,
       price,
@@ -118,14 +129,14 @@ export default function NewServiceScreen() {
     const trimmedName = name.trim();
     const trimmedPrice = price.trim();
     const trimmedDuration = durationMinutes.trim();
-    const trimmedCategory = category.trim();
 
     const parsedPrice = Number(trimmedPrice);
     const parsedDuration = Number(trimmedDuration);
 
     const resultAction = await dispatch(
       createServiceThunk({
-        ...(trimmedCategory ? { category: trimmedCategory } : {}),
+        category: selectedCategory?.name,
+        category_id: selectedCategory?.id,
         duration_minutes: parsedDuration,
         name: trimmedName,
         price: parsedPrice,
@@ -264,19 +275,29 @@ export default function NewServiceScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Category</Text>
-              <View style={styles.inputContainer}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                disabled={isSubmitting}
+                onPress={() => setCategoryModalOpen(true)}
+                style={[
+                  styles.inputContainer,
+                  Boolean(fieldErrors.categoryId) && styles.inputContainerError,
+                ]}
+              >
                 <Ionicons name="layers-outline" size={18} color={Colors.text2} />
-                <TextInput
-                  autoCapitalize="words"
-                  editable={!isSubmitting}
-                  onChangeText={setCategory}
-                  placeholder="Enter category (optional)"
-                  placeholderTextColor={Colors.placeholder}
-                  returnKeyType="done"
-                  style={styles.textInput}
-                  value={category}
-                />
-              </View>
+                <Text
+                  style={[
+                    styles.selectText,
+                    !selectedCategory && styles.selectTextPlaceholder,
+                  ]}
+                >
+                  {selectedCategory ? selectedCategory.name : "Select category"}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={Colors.text2} />
+              </TouchableOpacity>
+              {fieldErrors.categoryId ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.categoryId}</Text>
+              ) : null}
             </View>
 
             {displayedError ? (
@@ -310,6 +331,13 @@ export default function NewServiceScreen() {
             </TouchableOpacity>
           </View>
       </KeyboardAwareScrollView>
+
+      <CategorySelectModal
+        onClose={() => setCategoryModalOpen(false)}
+        onSelectCategory={handleSelectCategory}
+        selectedCategoryId={selectedCategory?.id}
+        visible={categoryModalOpen}
+      />
     </SafeAreaView>
   );
 }
@@ -411,6 +439,15 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 15,
     marginLeft: Spacing.sm,
     minHeight: 50,
+  },
+  selectText: {
+    color: Colors.heading,
+    flex: 1,
+    fontSize: 15,
+    marginLeft: Spacing.sm,
+  },
+  selectTextPlaceholder: {
+    color: Colors.placeholder,
   },
   errorContainer: {
     alignItems: "center",

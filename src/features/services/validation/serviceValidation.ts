@@ -1,11 +1,13 @@
 export type ServiceFormValues = {
   category?: string;
+  categoryId?: string;
   durationMinutes: string;
   name: string;
   price: string;
 };
 
 export type ServiceFormErrors = {
+  categoryId?: string;
   durationMinutes?: string;
   name?: string;
   price?: string;
@@ -39,6 +41,11 @@ export function validateServiceForm(values: ServiceFormValues): ServiceFormError
     }
   }
 
+  const trimmedCategoryId = values.categoryId?.trim();
+  if (!trimmedCategoryId) {
+    errors.categoryId = "Category is required.";
+  }
+
   return errors;
 }
 
@@ -67,6 +74,10 @@ export function validateServiceField(
     const parsedDuration = Number(trimmed);
     if (!Number.isFinite(parsedDuration) || parsedDuration < 0) {
       return "Enter a valid duration in minutes.";
+    }
+  } else if (field === "categoryId") {
+    if (!trimmed) {
+      return "Category is required.";
     }
   }
 

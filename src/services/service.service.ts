@@ -7,6 +7,7 @@ import type {
   DeleteServiceResponse,
   ServiceApiItem,
   ServiceApiCategory,
+  ServiceCategoryItem,
   ServiceListApiData,
   ServiceListItem,
   ServiceListPagination,
@@ -331,6 +332,135 @@ export const serviceService = {
     return {
       message: response.data.message,
       serviceId,
+    };
+  },
+
+  async getCategories(salonId?: string | null): Promise<ServiceCategoryItem[]> {
+    const categoryMap = new Map<string, ServiceCategoryItem>();
+
+    try {
+      const response = await api.get<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
+        params: salonId ? { salon_id: salonId } : undefined,
+      });
+
+      const raw = response.data?.data ?? response.data;
+      const list: ServiceApiCategory[] = Array.isArray(raw)
+        ? raw
+        : raw && typeof raw === "object" && "categories" in raw && Array.isArray((raw as { categories: unknown }).categories)
+          ? ((raw as { categories: ServiceApiCategory[] }).categories)
+          : raw && typeof raw === "object" && "data" in raw && Array.isArray((raw as { data: unknown }).data)
+            ? ((raw as { data: ServiceApiCategory[] }).data)
+            : [];
+
+      for (const item of list) {
+        const id = getCategoryId(item);
+        const name = getCategoryName(item);
+        if (id && name) {
+          categoryMap.set(id, { id, name });
+        }
+      }
+    } catch {
+      try {
+        const response = await api.get<ApiResponse<unknown>>("/categories", {
+          params: salonId ? { salon_id: salonId } : undefined,
+        });
+
+        const raw = response.data?.data ?? response.data;
+        const list: ServiceApiCategory[] = Array.isArray(raw)
+          ? raw
+          : raw && typeof raw === "object" && "categories" in raw && Array.isArray((raw as { categories: unknown }).categories)
+            ? ((raw as { categories: ServiceApiCategory[] }).categories)
+            : raw && typeof raw === "object" && "data" in raw && Array.isArray((raw as { data: unknown }).data)
+              ? ((raw as { data: ServiceApiCategory[] }).data)
+              : [];
+
+        for (const item of list) {
+          const id = getCategoryId(item);
+          const name = getCategoryName(item);
+          if (id && name) {
+            categoryMap.set(id, { id, name });
+          }
+        }
+      } catch {
+        // Silent fallback to service extraction
+      }
+    }
+
+    try {
+      const servicesResult = await this.getServices(
+        {
+          limit: 100,
+          offset: 0,
+          search: "",
+          sort_by: "name",
+          sort_order: "asc",
+        },
+        salonId,
+      );
+
+      for (const service of servicesResult.services) {
+        if (service.categoryId && service.category) {
+          if (!categoryMap.has(service.categoryId)) {
+            categoryMap.set(service.categoryId, {
+              id: service.categoryId,
+              name: service.category,
+            });
+          }
+        }
+      }
+    } catch {
+      // Return whatever categories were gathered
+    }
+
+    return Array.from(categoryMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+  },
+
+  async createCategory(
+    name: string,
+    salonId?: string | null,
+  ): Promise<ServiceCategoryItem> {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      throw new Error("Category name is required.");
+    }
+
+    let rawCategory: unknown = null;
+
+    try {
+      const response = await api.post<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
+        name: trimmedName,
+        ...(salonId ? { salon_id: salonId } : {}),
+      });
+
+      rawCategory = response.data?.data ?? response.data;
+    } catch (primaryError) {
+      try {
+        const response = await api.post<ApiResponse<unknown>>("/categories", {
+          name: trimmedName,
+          ...(salonId ? { salon_id: salonId } : {}),
+        });
+
+        rawCategory = response.data?.data ?? response.data;
+      } catch {
+        throw primaryError;
+      }
+    }
+
+    const record = getCategoryRecord(rawCategory) ?? (rawCategory as ServiceApiCategory | null);
+    const categoryRecord =
+      record && typeof record === "object" && "category" in record
+        ? (record as { category: ServiceApiCategory }).category
+        : record;
+
+    const id =
+      getCategoryId(categoryRecord) ||
+      toSafeString((categoryRecord as { id?: unknown })?.id) ||
+      toSafeString((categoryRecord as { _id?: unknown })?._id);
+    const categoryName = getCategoryName(categoryRecord) || trimmedName;
+
+    return {
+      id: id || trimmedName.toLowerCase().replace(/\s+/g, "-"),
+      name: categoryName,
     };
   },
 };

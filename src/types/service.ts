@@ -114,8 +114,14 @@ export type ServiceListResponse = {
   totalCount: number;
 };
 
+export type ServiceCategoryItem = {
+  id: string;
+  name: string;
+};
+
 export type CreateServiceRequest = {
   category?: string;
+  category_id?: string;
   duration_minutes?: number;
   name: string;
   price: number;
@@ -129,6 +135,7 @@ export type CreateServiceResponse = {
 
 export type UpdateServiceRequest = {
   category?: string;
+  category_id?: string;
   duration_minutes?: number;
   is_active?: boolean;
   name?: string;
