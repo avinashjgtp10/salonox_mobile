@@ -63,6 +63,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
       const activeUser = currentUserRef.current;
       const activeStaff = currentStaffRef.current;
       const isStaffUser = isStaffExperienceUser(activeUser);
+      const activeSalonId = activeUser?.salonId?.trim() ?? "";
 
       if (isStaffUser && !activeStaff?.id) {
         if (currentStaffLoadingRef.current) {
@@ -70,6 +71,11 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
         } else {
           console.warn("[PushNotifications] Staff device registration skipped because currentStaff is unavailable.");
         }
+        return;
+      }
+
+      if (!isStaffUser && !activeSalonId) {
+        console.log("[PushNotifications] Device registration deferred — no salon context yet (onboarding/registration phase).");
         return;
       }
 
@@ -95,6 +101,7 @@ export const usePushNotifications = (isAuthenticated: boolean) => {
         app_env: appEnv,
         platform: PLATFORM,
         role: activeUser?.role ?? null,
+        salon_id: activeSalonId,
         staff_id: isStaffUser ? activeStaff?.id ?? null : null,
         token: expoPushToken,
         user_id: activeUser?.id ?? null,

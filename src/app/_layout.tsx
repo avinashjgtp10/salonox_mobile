@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SimpleSplash from '../components/simple-splash';
-import { OfflineBanner } from '@/components/ui/OfflineBanner';
+import { NetworkErrorModal } from '@/components/ui/NetworkErrorModal';
 import { PortalProvider } from '@/components/ui/PortalProvider';
 import { UpdateAnnouncementModal } from '@/components/ui/UpdateAnnouncementModal';
 import { AuthProvider, useAuth } from '@/context/AuthContext';
@@ -17,6 +17,7 @@ import { useRealtimeSync } from '@/hooks/useRealtimeSync';
 import { fetchBranchesThunk } from '@/middleware/branch/branch.thunk';
 import { resolveCurrentStaffThunk } from '@/middleware/staff/staff.thunk';
 import { branchStorage } from '@/services/branchStorage';
+import { isSubscriptionActive, subscriptionService } from '@/services/subscription.service';
 import { store } from '@/store';
 import { resetBranchState, selectActiveBranchId, setActiveBranchId } from '@/store/branch/branch.slice';
 import { useAppDispatch, useAppSelector } from '@/store/hooks';
@@ -28,6 +29,7 @@ import {
   isStaffExperienceUser,
   isStaffRouteGroup,
   resolveAuthenticatedRoute,
+  SUBSCRIPTION_ROUTE,
 } from '@/utils/routeResolver';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
@@ -66,20 +68,68 @@ const PUBLIC_ROUTES = new Set([
 
 function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
   const { isAuthenticated, isLoading, user } = useAuth();
+  const [subscriptionCheck, setSubscriptionCheck] = useState<{
+    isActive: boolean;
+    salonId: string | null;
+    status: "idle" | "loading" | "ready";
+  }>({ isActive: false, salonId: null, status: "idle" });
   const pathname = usePathname();
   const rootNavigationState = useRootNavigationState();
   const router = useRouter();
   const segments = useSegments();
 
   useEffect(() => {
+    if (!isAuthenticated || !user?.isOnboardingComplete) {
+      setSubscriptionCheck({ isActive: false, salonId: null, status: "idle" });
+      return;
+    }
+
+    const salonId = user.salonId?.trim() ?? "";
+
+    if (!salonId) {
+      setSubscriptionCheck({ isActive: false, salonId: null, status: "ready" });
+      return;
+    }
+
+    let isMounted = true;
+    setSubscriptionCheck((current) =>
+      current.salonId === salonId && current.status === "ready" && current.isActive
+        ? current
+        : { isActive: false, salonId, status: "loading" },
+    );
+
+    void subscriptionService
+      .getSalonSubscription(salonId)
+      .then((subscription) => {
+        if (isMounted) {
+          setSubscriptionCheck({
+            isActive: isSubscriptionActive(subscription),
+            salonId,
+            status: "ready",
+          });
+        }
+      })
+      .catch(() => {
+        if (isMounted) {
+          setSubscriptionCheck({ isActive: false, salonId, status: "ready" });
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAuthenticated, pathname, user?.isOnboardingComplete, user?.salonId]);
+
+  useEffect(() => {
     if (!rootNavigationState?.key || isLoading) {
       return;
     }
 
-    const topLevelSegment = segments[0] ?? "index";
+    const topLevelSegment = String(segments[0] ?? "index");
     const isPublicRoute = PUBLIC_ROUTES.has(topLevelSegment);
     const isOnboardingRoute = topLevelSegment === "onboarding";
     const isVerifyEmailRoute = topLevelSegment === "verify-email";
+    const isSubscriptionRoute = topLevelSegment === "subscription";
 
     if (isAuthenticated) {
       if (isVerifyEmailRoute) {
@@ -88,13 +138,26 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
       }
 
       if (user?.isOnboardingComplete) {
+        if (subscriptionCheck.status !== "ready") {
+          return;
+        }
+
+        if (!subscriptionCheck.isActive) {
+          if (!isSubscriptionRoute) {
+            router.replace(SUBSCRIPTION_ROUTE);
+          } else {
+            onReady();
+          }
+          return;
+        }
+
         const shouldUseStaffApp = isStaffExperienceUser(user);
         const isWrongAuthenticatedApp =
           (shouldUseStaffApp && isOwnerRouteGroup(topLevelSegment)) ||
           (shouldUseStaffApp && isOwnerOnlyRoute(topLevelSegment)) ||
           (!shouldUseStaffApp && isStaffRouteGroup(topLevelSegment));
 
-        if (isPublicRoute || isOnboardingRoute || isWrongAuthenticatedApp) {
+        if (isPublicRoute || isOnboardingRoute || isSubscriptionRoute || isWrongAuthenticatedApp) {
           router.replace(resolveAuthenticatedRoute(user));
         } else {
           // The target authenticated route (dashboard/home) is now active in the navigator.
@@ -119,7 +182,18 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
         onReady();
       }
     }
-  }, [isAuthenticated, isLoading, onReady, user, pathname, rootNavigationState?.key, router, segments]);
+  }, [
+    isAuthenticated,
+    isLoading,
+    onReady,
+    pathname,
+    rootNavigationState?.key,
+    router,
+    segments,
+    subscriptionCheck.isActive,
+    subscriptionCheck.status,
+    user,
+  ]);
 
   return null;
 }
@@ -275,6 +349,7 @@ function AppShell() {
               <Stack.Screen name="reset-password" />
               <Stack.Screen name="verify-email" />
               <Stack.Screen name="onboarding" />
+              <Stack.Screen name="subscription" />
               <Stack.Screen name="profile" />
               <Stack.Screen name="notifications" />
               <Stack.Screen name="change-password" />
@@ -286,7 +361,7 @@ function AppShell() {
               <Stack.Screen name="index" />
               <Stack.Screen name="explore" />
             </Stack>
-            <OfflineBanner />
+            <NetworkErrorModal />
           </PortalProvider>
         </AuthProvider>
       </Provider>

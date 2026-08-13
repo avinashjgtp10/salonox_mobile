@@ -1,7 +1,8 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -57,7 +58,7 @@ export default function BrandFormScreen({ id, mode }: { id?: string; mode: "crea
     router.replace("/stock/brands" as Href);
   };
 
-  return <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}><AppStatusBar /><KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}><ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+  return <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}><AppStatusBar /><KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" style={styles.flex}>
     <View style={styles.header}><TouchableOpacity onPress={back} style={styles.iconButton}><Ionicons name="chevron-back" size={19} color={Colors.primary} /></TouchableOpacity><Text style={styles.title}>{title}</Text><View style={styles.spacer} /></View>
     {mode === "edit" && state.brandDetailsLoading && !brand ? <View style={styles.loading}><ActivityIndicator size="large" color={Colors.primary} /></View> : mode === "edit" && state.brandDetailsError && !brand ? <Notice message={state.brandDetailsError} /> : <View style={styles.card}>
       <View style={styles.field}><Text style={styles.label}>Brand name</Text><View style={styles.inputWrap}><Ionicons name="ribbon-outline" size={18} color={Colors.text2} /><TextInput autoCapitalize="words" onChangeText={setName} placeholder="Enter brand name" placeholderTextColor={Colors.placeholder} style={styles.input} value={name} /></View></View>
@@ -66,7 +67,7 @@ export default function BrandFormScreen({ id, mode }: { id?: string; mode: "crea
       {error ?? state.brandMutationError ? <Notice message={error ?? state.brandMutationError ?? ""} /> : null}
       <TouchableOpacity disabled={state.brandMutationLoading} onPress={() => void submit()} style={[styles.submit, state.brandMutationLoading && styles.disabled]}>{state.brandMutationLoading ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="checkmark-circle-outline" size={19} color="#FFFFFF" />}<Text style={styles.submitText}>{state.brandMutationLoading ? "Saving..." : mode === "create" ? "Create Brand" : "Save Changes"}</Text></TouchableOpacity>
     </View>}
-  </ScrollView></KeyboardAvoidingView></SafeAreaView>;
+  </KeyboardAwareScrollView></SafeAreaView>;
 }
 
 function Notice({ message }: { message: string }) {

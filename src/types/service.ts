@@ -43,8 +43,13 @@ export type ServiceApiItem = {
 
 export type ServiceApiCategory = {
   _id?: string | number | null;
+  display_name?: string | null;
   category_id?: string | number | null;
   category_name?: string | null;
+  label?: string | null;
+  service_category_id?: string | number | null;
+  service_category_name?: string | null;
+  uuid?: string | number | null;
   id?: string | number | null;
   name?: string | null;
   parent?: ServiceApiCategory | string | null;
@@ -114,8 +119,14 @@ export type ServiceListResponse = {
   totalCount: number;
 };
 
+export type ServiceCategoryItem = {
+  id: string;
+  name: string;
+};
+
 export type CreateServiceRequest = {
   category?: string;
+  category_id?: string;
   duration_minutes?: number;
   name: string;
   price: number;
@@ -129,6 +140,7 @@ export type CreateServiceResponse = {
 
 export type UpdateServiceRequest = {
   category?: string;
+  category_id?: string;
   duration_minutes?: number;
   is_active?: boolean;
   name?: string;

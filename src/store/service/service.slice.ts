@@ -1,17 +1,25 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 import {
+  createCategoryThunk,
   createServiceThunk,
   deleteServiceThunk,
+  fetchCategoriesThunk,
   fetchServiceByIdThunk,
   fetchServicesThunk,
   updateServiceThunk,
   type FetchServicesArgs,
 } from "@/middleware/service/service.thunk";
 import type { RootState } from "@/store";
-import type { ServiceListItem, ServiceListPagination, ServiceListQuery } from "@/types/service";
+import type { ServiceCategoryItem, ServiceListItem, ServiceListPagination, ServiceListQuery } from "@/types/service";
 
 type ServiceState = {
+  categories: ServiceCategoryItem[];
+  categoriesError: string | null;
+  categoriesLoadedAt: number | null;
+  categoriesLoading: boolean;
+  createCategoryError: string | null;
+  creatingCategory: boolean;
   createError: string | null;
   creating: boolean;
   currentRequestId: string | null;
@@ -48,6 +56,12 @@ const initialPagination: ServiceListPagination = {
 };
 
 const initialState: ServiceState = {
+  categories: [],
+  categoriesError: null,
+  categoriesLoadedAt: null,
+  categoriesLoading: false,
+  createCategoryError: null,
+  creatingCategory: false,
   createError: null,
   creating: false,
   currentRequestId: null,
@@ -203,6 +217,40 @@ const serviceSlice = createSlice({
         state.deletingServiceIds = state.deletingServiceIds.filter(
           (serviceId) => serviceId !== action.meta.arg,
         );
+      })
+      .addCase(fetchCategoriesThunk.pending, (state) => {
+        state.categoriesLoading = true;
+        state.categoriesError = null;
+      })
+      .addCase(fetchCategoriesThunk.fulfilled, (state, action) => {
+        state.categoriesLoading = false;
+        state.categoriesError = null;
+        state.categoriesLoadedAt = Date.now();
+        state.categories = action.payload;
+      })
+      .addCase(fetchCategoriesThunk.rejected, (state, action) => {
+        state.categoriesLoading = false;
+        state.categoriesError =
+          action.payload?.message ?? action.error.message ?? "Unable to load categories.";
+      })
+      .addCase(createCategoryThunk.pending, (state) => {
+        state.creatingCategory = true;
+        state.createCategoryError = null;
+      })
+      .addCase(createCategoryThunk.fulfilled, (state, action) => {
+        state.creatingCategory = false;
+        state.createCategoryError = null;
+        const exists = state.categories.some((cat) => cat.id === action.payload.id);
+        if (!exists) {
+          state.categories = [...state.categories, action.payload].sort((a, b) =>
+            a.name.localeCompare(b.name),
+          );
+        }
+      })
+      .addCase(createCategoryThunk.rejected, (state, action) => {
+        state.creatingCategory = false;
+        state.createCategoryError =
+          action.payload?.message ?? action.error.message ?? "Unable to create category.";
       });
   },
 });
@@ -225,5 +273,11 @@ export const selectServiceUpdating = (state: RootState) => state.service.updatin
 export const selectServiceUpdateError = (state: RootState) => state.service.updateError;
 export const selectServiceDeletingIds = (state: RootState) => state.service.deletingServiceIds;
 export const selectServiceDeleteError = (state: RootState) => state.service.deleteError;
+export const selectServiceCategories = (state: RootState) => state.service.categories;
+export const selectServiceCategoriesLoadedAt = (state: RootState) => state.service.categoriesLoadedAt;
+export const selectServiceCategoriesLoading = (state: RootState) => state.service.categoriesLoading;
+export const selectServiceCategoriesError = (state: RootState) => state.service.categoriesError;
+export const selectServiceCreatingCategory = (state: RootState) => state.service.creatingCategory;
+export const selectServiceCreateCategoryError = (state: RootState) => state.service.createCategoryError;
 
 export default serviceSlice.reducer;

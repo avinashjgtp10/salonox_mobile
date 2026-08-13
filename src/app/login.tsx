@@ -1,16 +1,14 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   ActivityIndicator,
   Animated,
   Image,
   Keyboard,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -21,10 +19,10 @@ import { validatePhoneNumberLength, isValidPhoneNumber } from "libphonenumber-js
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
+import { KeyboardAwareScrollView, type KeyboardAwareScrollViewHandle } from "@/components/ui/KeyboardAwareScrollView";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
 import { PhoneInput } from "@/components/ui/PhoneInput";
-import { type AddressDetails } from "@/types/location";
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { resolveLoginRoute } from "@/utils/routeResolver";
@@ -265,9 +263,19 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+  const [activeKeyboardFieldRef, setActiveKeyboardFieldRef] =
+    useState<RefObject<TextInput | null> | null>(null);
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
   const [scrollContentHeight, setScrollContentHeight] = useState(0);
-const scrollViewRef = useRef<ScrollView>(null);
+  const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
+  const fullNameInputRef = useRef<TextInput>(null);
+  const emailInputRef = useRef<TextInput>(null);
+  const emailOtpInputRef = useRef<TextInput>(null);
+  const phoneInputRef = useRef<TextInput>(null);
+  const businessNameInputRef = useRef<TextInput>(null);
+  const addressInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+  const confirmPasswordInputRef = useRef<TextInput>(null);
   const fieldOffsets = useRef<Partial<Record<keyof RegisterFieldErrors, number>>>({});
   const contentOverflows = scrollContentHeight > scrollViewHeight + 1;
   const shouldEnableScroll = contentOverflows || isKeyboardVisible;
@@ -293,6 +301,30 @@ const scrollViewRef = useRef<ScrollView>(null);
     () => formatCountdown(emailOtpCooldownSeconds),
     [emailOtpCooldownSeconds],
   );
+  const keyboardNavigationFields = useMemo(() => {
+    if (!isRegisterMode) {
+      return [{ ref: emailInputRef }, { ref: passwordInputRef }];
+    }
+
+    if (registrationStep === 1) {
+      return [
+        { ref: fullNameInputRef },
+        { ref: emailInputRef },
+        ...(isEmailOtpSent && !isEmailVerifiedForCurrentEmail ? [{ ref: emailOtpInputRef }] : []),
+        { ref: phoneInputRef },
+      ];
+    }
+
+    if (registrationStep === 2) {
+      return [{ ref: businessNameInputRef }, { ref: addressInputRef }];
+    }
+
+    return [{ ref: passwordInputRef }, { ref: confirmPasswordInputRef }];
+  }, [isEmailOtpSent, isEmailVerifiedForCurrentEmail, isRegisterMode, registrationStep]);
+
+  const handleKeyboardFieldFocus = (fieldRef: RefObject<TextInput | null>) => {
+    setActiveKeyboardFieldRef(fieldRef);
+  };
 
   useEffect(() => {
     if (emailOtpCooldownSeconds <= 0) {
@@ -453,45 +485,12 @@ const scrollViewRef = useRef<ScrollView>(null);
 
 
 
-  const handleAddressSelected = (details: AddressDetails) => {
-    locationSelectionVersionRef.current += 1;
-    setAddress(details.formatted_address);
-    setAddressLine1(details.address_line_1);
-    setArea(details.area);
-    setCity(details.city);
-    setState(details.state);
-    setCountry(details.country);
-    setPostalCode(details.postal_code);
-    setLatitude(details.latitude);
-    setLongitude(details.longitude);
-    setPlaceId(details.place_id);
-    setIsManualEntry(false);
+  const handleAddressChange = (nextAddress: string) => {
+    setAddress(nextAddress);
+    setFormError(null);
+    clearFormSuccess();
     clearRegisterFieldError("address");
-  };
-
-  const handleLocationError = (msg: string) => {
-    setFormError(msg);
-  };
-
-  const handleLocationRequestStart = () => {
-    locationSelectionVersionRef.current += 1;
-    return locationSelectionVersionRef.current;
-  };
-
-  const shouldUseLocationResult = (requestId: number) =>
-    requestId === locationSelectionVersionRef.current;
-
-  const updateFormattedAddress = (
-    line1: string,
-    locality: string,
-    cityName: string,
-    stateName: string,
-    zipCode: string
-  ) => {
-    const parts = [line1, locality, cityName, stateName, zipCode].filter((p) => p && p.trim());
-    const newAddress = parts.join(", ");
-    setAddress(newAddress);
-    clearRegisterFieldError("address");
+    clearError();
   };
 
   const handlePhoneChange = (e164: string) => {
@@ -595,15 +594,15 @@ const scrollViewRef = useRef<ScrollView>(null);
       password,
       terms: termsAccepted,
       formatted_address: address.trim(),
-      address_line_1: addressLine1.trim(),
-      area: area.trim(),
-      city: city.trim(),
-      state: state.trim(),
-      country_name: country.trim() || DEFAULT_COUNTRY,
-      postal_code: postalCode.trim(),
-      latitude: latitude ?? 0,
-      longitude: longitude ?? 0,
-      place_id: placeId.trim() || (isManualEntry ? "manual" : ""),
+      address_line_1: address.trim(),
+      area: "",
+      city: "",
+      state: "",
+      country_name: DEFAULT_COUNTRY,
+      postal_code: "",
+      latitude: 0,
+      longitude: 0,
+      place_id: address.trim() ? "manual" : "",
   });
 
   const getRegisterStepErrors = (step: RegisterStep) => {
@@ -636,14 +635,6 @@ const scrollViewRef = useRef<ScrollView>(null);
 
       if (!registerPayload.address) {
         nextFieldErrors.address = "Address is required.";
-      } else {
-        if (!registerPayload.city) {
-          nextFieldErrors.address = "City is required. Please verify your address details.";
-        } else if (!registerPayload.state) {
-          nextFieldErrors.address = "State / Province / Region is required.";
-        } else if (!isManualEntry && (latitude === null || longitude === null || !registerPayload.place_id)) {
-          nextFieldErrors.address = "A valid location selection or manual entry is required.";
-        }
       }
     }
 
@@ -743,7 +734,21 @@ const scrollViewRef = useRef<ScrollView>(null);
       setEmailOtpSuccess(response.message);
       setEmailOtpCooldownSeconds(OTP_RESEND_COOLDOWN_SECONDS);
     } catch (sendOtpError) {
-      setEmailOtpError(getApiErrorMessage(sendOtpError));
+      const apiError = sendOtpError as ApiError | undefined;
+      const responseData = apiError?.responseData as { code?: string; error?: { code?: string } } | undefined;
+      const errorCode = responseData?.code ?? responseData?.error?.code;
+
+      if (errorCode === "EMAIL_EXISTS") {
+        setFieldErrors((currentErrors) => ({
+          ...currentErrors,
+          email: "Email already exists",
+        }));
+        setIsEmailOtpSent(false);
+        setEmailOtpError(null);
+        setEmailOtpSuccess(null);
+      } else {
+        setEmailOtpError(getApiErrorMessage(sendOtpError));
+      }
     } finally {
       setIsSendingEmailOtp(false);
     }
@@ -863,9 +868,22 @@ const scrollViewRef = useRef<ScrollView>(null);
     try {
       await signUp(registerPayload);
     } catch (registerError) {
-      const errorMessage = getApiErrorMessage(registerError);
+      const apiError = registerError as ApiError | undefined;
+      const responseData = apiError?.responseData as { code?: string; error?: { code?: string } } | undefined;
+      const errorCode = responseData?.code ?? responseData?.error?.code;
 
-      setFormError(errorMessage);
+      if (errorCode === "EMAIL_EXISTS") {
+        setRegistrationStep(1);
+        setFieldErrors((currentErrors) => ({
+          ...currentErrors,
+          email: "Email already exists",
+        }));
+        setFormError(null);
+        setTimeout(() => scrollToFirstInvalidField({ email: "Email already exists" }), 50);
+      } else {
+        const errorMessage = getApiErrorMessage(registerError);
+        setFormError(errorMessage);
+      }
     }
   };
 
@@ -950,26 +968,30 @@ const scrollViewRef = useRef<ScrollView>(null);
       </View>
 
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : undefined}
+        <KeyboardAwareScrollView
+          ref={scrollViewRef as any}
+          scrollEnabled={shouldEnableScroll}
+          bounces={false}
+          alwaysBounceVertical={false}
+          overScrollMode="never"
+          onLayout={(event) => setScrollViewHeight(event.nativeEvent.layout.height)}
+          onContentSizeChange={(_, contentHeight) => setScrollContentHeight(contentHeight)}
+          contentContainerStyle={[
+            styles.scrollContainer,
+            isRegisterMode && styles.registrationScrollContainer,
+          ]}
+          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
           style={styles.keyboardView}
+          keyboardNavigation={{
+            activeFieldRef: activeKeyboardFieldRef,
+            fields: keyboardNavigationFields,
+            hideOnLast: true,
+            keyboardVisible: isKeyboardVisible,
+            onDone: handleSubmit,
+          }}
         >
-          <ScrollView
-            ref={scrollViewRef}
-            scrollEnabled={shouldEnableScroll}
-            bounces={false}
-            alwaysBounceVertical={false}
-            overScrollMode="never"
-            onLayout={(event) => setScrollViewHeight(event.nativeEvent.layout.height)}
-            onContentSizeChange={(_, contentHeight) => setScrollContentHeight(contentHeight)}
-            contentContainerStyle={[
-              styles.scrollContainer,
-              isRegisterMode && styles.registrationScrollContainer,
-            ]}
-            keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
             <Animated.View
               style={[
                 styles.card,
@@ -1073,11 +1095,13 @@ const scrollViewRef = useRef<ScrollView>(null);
                     style={{ marginRight: 12 }}
                   />
                   <TextInput
+                    ref={fullNameInputRef}
                     style={styles.textInput}
                     placeholder="Full name"
                     placeholderTextColor={Colors.placeholder}
                     value={fullName}
                     onChangeText={handleFullNameChange}
+                    onFocus={() => handleKeyboardFieldFocus(fullNameInputRef)}
                     textContentType="name"
                     autoComplete="name"
                     autoCapitalize="words"
@@ -1114,11 +1138,13 @@ const scrollViewRef = useRef<ScrollView>(null);
                     style={{ marginRight: 12 }}
                   />
                   <TextInput
+                    ref={emailInputRef}
                     style={styles.textInput}
                     placeholder="name@company.com"
                     placeholderTextColor={Colors.placeholder}
                     value={email}
                     onChangeText={handleEmailChange}
+                    onFocus={() => handleKeyboardFieldFocus(emailInputRef)}
                     keyboardType="email-address"
                     textContentType="emailAddress"
                     autoComplete="email"
@@ -1182,10 +1208,12 @@ const scrollViewRef = useRef<ScrollView>(null);
                                 style={{ marginRight: 12 }}
                               />
                               <TextInput
+                                ref={emailOtpInputRef}
                                 autoComplete="one-time-code"
                                 keyboardType="number-pad"
                                 maxLength={8}
                                 onChangeText={handleEmailOtpChange}
+                                onFocus={() => handleKeyboardFieldFocus(emailOtpInputRef)}
                                 onSubmitEditing={handleVerifyEmailOtp}
                                 placeholder="Enter OTP"
                                 placeholderTextColor={Colors.placeholder}
@@ -1266,11 +1294,13 @@ const scrollViewRef = useRef<ScrollView>(null);
               >
                 <Text style={styles.inputLabel}>Mobile Number</Text>
                 <PhoneInput
+                  ref={phoneInputRef}
                   value={phoneE164}
                   onChange={handlePhoneChange}
                   country={countryCode}
                   onCountryChange={handlePhoneCountryChange}
                   error={fieldErrors.phone}
+                  onFocus={() => handleKeyboardFieldFocus(phoneInputRef)}
                   onBlur={() => {
                     const stepErrors = getRegisterStepErrors(1);
                     if (stepErrors.phone) {
@@ -1312,11 +1342,13 @@ const scrollViewRef = useRef<ScrollView>(null);
                     style={{ marginRight: 12 }}
                   />
                   <TextInput
+                    ref={businessNameInputRef}
                     style={styles.textInput}
                     placeholder="Business name"
                     placeholderTextColor={Colors.placeholder}
                     value={businessName}
                     onChangeText={handleBusinessNameChange}
+                    onFocus={() => handleKeyboardFieldFocus(businessNameInputRef)}
                     textContentType="organizationName"
                     autoComplete="organization"
                     autoCapitalize="words"
@@ -1330,7 +1362,7 @@ const scrollViewRef = useRef<ScrollView>(null);
             )}
 
             {isRegisterMode && registrationStep === 2 && (
-              /* Address Field & Location Lookup System */
+              /* Single business address field */
               <View
                 onLayout={(event) =>
                   registerFieldPosition("address", event.nativeEvent.layout.y)
@@ -1339,152 +1371,34 @@ const scrollViewRef = useRef<ScrollView>(null);
               >
                 <Text style={styles.inputLabel}>Business Address</Text>
 
-                {/* Toggle search suggestions or manual typing */}
-                {!isManualEntry ? (
-                  <>
-                    <AddressAutocomplete
-                      onAddressSelected={handleAddressSelected}
-                      onError={handleLocationError}
-                      initialValue={address}
-                    />
-
-                    <CurrentLocationButton
-                      onLocationFetched={handleAddressSelected}
-                      onError={handleLocationError}
-                      onLocationRequestStart={handleLocationRequestStart}
-                      shouldUseLocationResult={shouldUseLocationResult}
-                    />
-
-                    <Pressable
-                      onPress={() => {
-                        setIsManualEntry(true);
-                        setPlaceId("manual_entry");
-                        setLatitude(0);
-                        setLongitude(0);
-                        clearRegisterFieldError("address");
-                      }}
-                      style={styles.manualEntryToggle}
-                    >
-                      <Text style={styles.manualEntryToggleText}>
-                        {"Can't find your address? Enter details manually"}
-                      </Text>
-                    </Pressable>
-                  </>
-                ) : (
-                  <Pressable
-                    onPress={() => {
-                      setIsManualEntry(false);
-                      setPlaceId("");
-                      setLatitude(null);
-                      setLongitude(null);
-                    }}
-                    style={styles.manualEntryToggle}
-                  >
-                    <Text style={styles.manualEntryToggleText}>
-                      ← Switch back to maps search
-                    </Text>
-                  </Pressable>
-                )}
-
-                {/* Form fields for manual validation & adjustment */}
-                {(isManualEntry || address.length > 0) && (
-                  <View style={styles.detailsContainer}>
-                    <Text style={styles.detailsHeader}>Verify & Edit Address Details</Text>
-
-                    {/* Address Line 1 */}
-                    <View style={styles.detailInputGroup}>
-                      <Text style={styles.detailLabel}>Address Line 1</Text>
-                      <View style={styles.inputContainer}>
-                        <TextInput
-                          style={styles.textInput}
-                          placeholder="Street address, floor, suite"
-                          placeholderTextColor={Colors.placeholder}
-                          value={addressLine1}
-                          onChangeText={(val) => {
-                            setAddressLine1(val);
-                            updateFormattedAddress(val, area, city, state, postalCode);
-                          }}
-                        />
-                      </View>
-                    </View>
-
-                    {/* Area / Locality */}
-                    <View style={styles.detailInputGroup}>
-                      <Text style={styles.detailLabel}>Area / Locality</Text>
-                      <View style={styles.inputContainer}>
-                        <TextInput
-                          style={styles.textInput}
-                          placeholder="Neighborhood, sector, district"
-                          placeholderTextColor={Colors.placeholder}
-                          value={area}
-                          onChangeText={(val) => {
-                            setArea(val);
-                            updateFormattedAddress(addressLine1, val, city, state, postalCode);
-                          }}
-                        />
-                      </View>
-                    </View>
-
-                    {/* City */}
-                    <View style={styles.detailInputGroup}>
-                      <Text style={styles.detailLabel}>City</Text>
-                      <View style={styles.inputContainer}>
-                        <TextInput
-                          style={styles.textInput}
-                          placeholder="City name"
-                          placeholderTextColor={Colors.placeholder}
-                          value={city}
-                          onChangeText={(val) => {
-                            setCity(val);
-                            updateFormattedAddress(addressLine1, area, val, state, postalCode);
-                          }}
-                        />
-                      </View>
-                    </View>
-
-                    {/* State */}
-                    <View style={styles.detailInputGroup}>
-                      <Text style={styles.detailLabel}>State / Region</Text>
-                      <View style={styles.inputContainer}>
-                        <TextInput
-                          style={styles.textInput}
-                          placeholder="State or province"
-                          placeholderTextColor={Colors.placeholder}
-                          value={state}
-                          onChangeText={(val) => {
-                            setState(val);
-                            updateFormattedAddress(addressLine1, area, city, val, postalCode);
-                          }}
-                        />
-                      </View>
-                    </View>
-
-                    {/* Postal Code */}
-                    <View style={styles.detailInputGroup}>
-                      <Text style={styles.detailLabel}>Postal Code / ZIP</Text>
-                      <View style={styles.inputContainer}>
-                        <TextInput
-                          style={styles.textInput}
-                          placeholder="Postal code"
-                          placeholderTextColor={Colors.placeholder}
-                          value={postalCode}
-                          onChangeText={(val) => {
-                            setPostalCode(val);
-                            updateFormattedAddress(addressLine1, area, city, state, val);
-                          }}
-                        />
-                      </View>
-                      {!postalCode && (
-                        <View style={styles.warningRow}>
-                          <Ionicons name="warning-outline" size={13} color={Colors.warning} />
-                          <Text style={styles.warningText}>
-                            Saving without a postal code is allowed, but not recommended.
-                          </Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                )}
+                {/* Single business address field */}
+                <View
+                  style={[
+                    styles.inputContainer,
+                    styles.addressInputContainer,
+                    fieldErrors.address && styles.inputContainerError,
+                  ]}
+                >
+                  <Ionicons
+                    name="location-outline"
+                    size={20}
+                    color={Colors.secondary}
+                    style={{ marginRight: 12, marginTop: 13 }}
+                  />
+                  <TextInput
+                    ref={addressInputRef}
+                    style={[styles.textInput, styles.addressTextInput]}
+                    placeholder="Enter your salon address"
+                    placeholderTextColor={Colors.placeholder}
+                    value={address}
+                    onChangeText={handleAddressChange}
+                    onFocus={() => handleKeyboardFieldFocus(addressInputRef)}
+                    multiline
+                    textAlignVertical="top"
+                    autoCapitalize="words"
+                    returnKeyType="next"
+                  />
+                </View>
 
                 {/* Error Banner */}
                 {fieldErrors.address && (
@@ -1517,11 +1431,13 @@ const scrollViewRef = useRef<ScrollView>(null);
                     style={{ marginRight: 12 }}
                   />
                   <TextInput
+                    ref={passwordInputRef}
                     style={styles.textInput}
                     placeholder="Enter your password"
                     placeholderTextColor={Colors.placeholder}
                     value={password}
                     onChangeText={handlePasswordChange}
+                    onFocus={() => handleKeyboardFieldFocus(passwordInputRef)}
                     secureTextEntry={!showPassword}
                     textContentType="password"
                     autoComplete="password"
@@ -1571,11 +1487,13 @@ const scrollViewRef = useRef<ScrollView>(null);
                       style={{ marginRight: 12 }}
                     />
                     <TextInput
+                      ref={confirmPasswordInputRef}
                       style={styles.textInput}
                       placeholder="Confirm your password"
                       placeholderTextColor={Colors.placeholder}
                       value={confirmPassword}
                       onChangeText={handleConfirmPasswordChange}
+                      onFocus={() => handleKeyboardFieldFocus(confirmPasswordInputRef)}
                       secureTextEntry={!showPassword}
                       textContentType="password"
                       autoComplete="password"
@@ -1772,8 +1690,7 @@ const scrollViewRef = useRef<ScrollView>(null);
               </Text>
             </Pressable>
             </Animated.View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+        </KeyboardAwareScrollView>
       </SafeAreaView>
     </LinearGradient>
   );

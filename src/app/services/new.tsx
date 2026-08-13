@@ -3,15 +3,13 @@ import { router, type Href } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -21,6 +19,12 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { CategorySelectModal } from "@/features/services/components/CategorySelectModal";
+import {
+  validateServiceField,
+  validateServiceForm,
+  type ServiceFormErrors,
+} from "@/features/services/validation/serviceValidation";
 import { createServiceThunk, fetchServicesThunk } from "@/middleware/service/service.thunk";
 import {
   selectServiceCreateError,
@@ -29,6 +33,7 @@ import {
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import type { ServiceCategoryItem } from "@/types/service";
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -50,8 +55,10 @@ export default function NewServiceScreen() {
   const serviceCreateError = useAppSelector(selectServiceCreateError);
   const servicesQuery = useAppSelector(selectServicesQuery);
 
-  const [category, setCategory] = useState("");
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<ServiceCategoryItem | null>(null);
   const [durationMinutes, setDurationMinutes] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<ServiceFormErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isFinishing, setIsFinishing] = useState(false);
   const [name, setName] = useState("");
@@ -60,6 +67,38 @@ export default function NewServiceScreen() {
 
   const isSubmitting = serviceCreating || isFinishing;
   const displayedError = formError ?? serviceCreateError;
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    if (fieldErrors.name !== undefined) {
+      const err = validateServiceField("name", value);
+      setFieldErrors((prev) => ({ ...prev, name: err }));
+    }
+  };
+
+  const handlePriceChange = (value: string) => {
+    setPrice(value);
+    if (fieldErrors.price !== undefined) {
+      const err = validateServiceField("price", value);
+      setFieldErrors((prev) => ({ ...prev, price: err }));
+    }
+  };
+
+  const handleDurationChange = (value: string) => {
+    setDurationMinutes(value);
+    if (fieldErrors.durationMinutes !== undefined) {
+      const err = validateServiceField("durationMinutes", value);
+      setFieldErrors((prev) => ({ ...prev, durationMinutes: err }));
+    }
+  };
+
+  const handleSelectCategory = (cat: ServiceCategoryItem) => {
+    setSelectedCategory(cat);
+    if (fieldErrors.categoryId !== undefined) {
+      const err = validateServiceField("categoryId", cat.id);
+      setFieldErrors((prev) => ({ ...prev, categoryId: err }));
+    }
+  };
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -71,46 +110,34 @@ export default function NewServiceScreen() {
   };
 
   const handleSubmit = async () => {
-    const trimmedName = name.trim();
-    const trimmedPrice = price.trim();
-    const trimmedDuration = durationMinutes.trim();
-    const trimmedCategory = category.trim();
-
     setFormError(null);
     setSuccessMessage(null);
 
-    if (!trimmedName) {
-      setFormError("Service name is required.");
+    const errors = validateServiceForm({
+      categoryId: selectedCategory?.id,
+      durationMinutes,
+      name,
+      price,
+    });
+
+    setFieldErrors(errors);
+
+    if (Object.keys(errors).length > 0) {
       return;
     }
 
-    if (!trimmedPrice) {
-      setFormError("Price is required.");
-      return;
-    }
+    const trimmedName = name.trim();
+    const trimmedPrice = price.trim();
+    const trimmedDuration = durationMinutes.trim();
 
     const parsedPrice = Number(trimmedPrice);
-
-    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
-      setFormError("Enter a valid price.");
-      return;
-    }
-
-    let parsedDuration: number | undefined;
-
-    if (trimmedDuration) {
-      parsedDuration = Number(trimmedDuration);
-
-      if (!Number.isFinite(parsedDuration) || parsedDuration < 0) {
-        setFormError("Enter a valid duration in minutes.");
-        return;
-      }
-    }
+    const parsedDuration = Number(trimmedDuration);
 
     const resultAction = await dispatch(
       createServiceThunk({
-        ...(trimmedCategory ? { category: trimmedCategory } : {}),
-        ...(typeof parsedDuration === "number" ? { duration_minutes: parsedDuration } : {}),
+        category: selectedCategory?.name,
+        category_id: selectedCategory?.id,
+        duration_minutes: parsedDuration,
         name: trimmedName,
         price: parsedPrice,
       }),
@@ -147,15 +174,12 @@ export default function NewServiceScreen() {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
         style={styles.flex}
       >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
           <View style={styles.headerRow}>
             <TouchableOpacity
               activeOpacity={0.8}
@@ -176,12 +200,17 @@ export default function NewServiceScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Service Name</Text>
-              <View style={styles.inputContainer}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  Boolean(fieldErrors.name) && styles.inputContainerError,
+                ]}
+              >
                 <Ionicons name="pricetag-outline" size={18} color={Colors.text2} />
                 <TextInput
                   autoCapitalize="words"
                   editable={!isSubmitting}
-                  onChangeText={setName}
+                  onChangeText={handleNameChange}
                   placeholder="Enter service name"
                   placeholderTextColor={Colors.placeholder}
                   returnKeyType="next"
@@ -189,16 +218,24 @@ export default function NewServiceScreen() {
                   value={name}
                 />
               </View>
+              {fieldErrors.name ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.name}</Text>
+              ) : null}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Price</Text>
-              <View style={styles.inputContainer}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  Boolean(fieldErrors.price) && styles.inputContainerError,
+                ]}
+              >
                 <Ionicons name="cash-outline" size={18} color={Colors.text2} />
                 <TextInput
                   editable={!isSubmitting}
                   keyboardType="decimal-pad"
-                  onChangeText={setPrice}
+                  onChangeText={handlePriceChange}
                   placeholder="Enter price"
                   placeholderTextColor={Colors.placeholder}
                   returnKeyType="next"
@@ -206,16 +243,24 @@ export default function NewServiceScreen() {
                   value={price}
                 />
               </View>
+              {fieldErrors.price ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.price}</Text>
+              ) : null}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Duration (minutes)</Text>
-              <View style={styles.inputContainer}>
+              <View
+                style={[
+                  styles.inputContainer,
+                  Boolean(fieldErrors.durationMinutes) && styles.inputContainerError,
+                ]}
+              >
                 <Ionicons name="time-outline" size={18} color={Colors.text2} />
                 <TextInput
                   editable={!isSubmitting}
                   keyboardType="number-pad"
-                  onChangeText={setDurationMinutes}
+                  onChangeText={handleDurationChange}
                   placeholder="Enter duration in minutes"
                   placeholderTextColor={Colors.placeholder}
                   returnKeyType="next"
@@ -223,23 +268,36 @@ export default function NewServiceScreen() {
                   value={durationMinutes}
                 />
               </View>
+              {fieldErrors.durationMinutes ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.durationMinutes}</Text>
+              ) : null}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Category</Text>
-              <View style={styles.inputContainer}>
+              <TouchableOpacity
+                activeOpacity={0.8}
+                disabled={isSubmitting}
+                onPress={() => setCategoryModalOpen(true)}
+                style={[
+                  styles.inputContainer,
+                  Boolean(fieldErrors.categoryId) && styles.inputContainerError,
+                ]}
+              >
                 <Ionicons name="layers-outline" size={18} color={Colors.text2} />
-                <TextInput
-                  autoCapitalize="words"
-                  editable={!isSubmitting}
-                  onChangeText={setCategory}
-                  placeholder="Enter category (optional)"
-                  placeholderTextColor={Colors.placeholder}
-                  returnKeyType="done"
-                  style={styles.textInput}
-                  value={category}
-                />
-              </View>
+                <Text
+                  style={[
+                    styles.selectText,
+                    !selectedCategory && styles.selectTextPlaceholder,
+                  ]}
+                >
+                  {selectedCategory ? selectedCategory.name : "Select category"}
+                </Text>
+                <Ionicons name="chevron-down" size={18} color={Colors.text2} />
+              </TouchableOpacity>
+              {fieldErrors.categoryId ? (
+                <Text style={styles.fieldErrorText}>{fieldErrors.categoryId}</Text>
+              ) : null}
             </View>
 
             {displayedError ? (
@@ -272,8 +330,14 @@ export default function NewServiceScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
+
+      <CategorySelectModal
+        onClose={() => setCategoryModalOpen(false)}
+        onSelectCategory={handleSelectCategory}
+        selectedCategoryId={selectedCategory?.id}
+        visible={categoryModalOpen}
+      />
     </SafeAreaView>
   );
 }
@@ -360,12 +424,30 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 52,
     paddingHorizontal: AppLayout.searchBarPaddingX,
   },
+  inputContainerError: {
+    borderColor: Colors.error,
+  },
+  fieldErrorText: {
+    color: Colors.error,
+    fontSize: 12,
+    fontWeight: "600",
+    marginTop: Spacing.xs,
+  },
   textInput: {
     color: Colors.heading,
     flex: 1,
     fontSize: 15,
     marginLeft: Spacing.sm,
     minHeight: 50,
+  },
+  selectText: {
+    color: Colors.heading,
+    flex: 1,
+    fontSize: 15,
+    marginLeft: Spacing.sm,
+  },
+  selectTextPlaceholder: {
+    color: Colors.placeholder,
   },
   errorContainer: {
     alignItems: "center",

@@ -20,7 +20,14 @@ export const fetchCurrentUserThunk = createAsyncThunk<
 >("user/fetchCurrentUser", async (_, { getState, rejectWithValue }) => {
   try {
     const currentUser = getState().user.user;
-    const salonPromise = currentUser?.salonId ? null : salonService.getSalonMe();
+    const salonPromise = currentUser?.salonId
+      ? null
+      : salonService.getSalonMe().catch((err) => {
+          if (err instanceof ApiError && (err.status === 404 || (err.responseData as Record<string, unknown> | undefined)?.code === "NOT_FOUND")) {
+            return null;
+          }
+          throw err;
+        });
     const response = await timeStartup("/users/me", () => api.get<ApiResponse<AuthUser>>(USER.ME));
     const normalizedUser = normalizeAuthUser(response.data.data);
     const mergedUser = preserveSalonId(normalizedUser, currentUser);
@@ -29,14 +36,28 @@ export const fetchCurrentUserThunk = createAsyncThunk<
       return mergedUser;
     }
 
-    const currentSalon = await (salonPromise ?? salonService.getSalonMe());
+    try {
+      const currentSalon = await (salonPromise ?? salonService.getSalonMe());
 
-    return {
-      ...mergedUser,
-      address: mergedUser.address ?? currentSalon.address,
-      businessName: mergedUser.businessName ?? currentSalon.businessName,
-      salonId: currentSalon.id,
-    };
+      if (currentSalon) {
+        return {
+          ...mergedUser,
+          address: mergedUser.address ?? currentSalon.address,
+          businessName: mergedUser.businessName ?? currentSalon.businessName,
+          salonId: currentSalon.id,
+        };
+      }
+    } catch (salonError) {
+      if (
+        salonError instanceof ApiError &&
+        (salonError.status === 404 || (salonError.responseData as Record<string, unknown> | undefined)?.code === "NOT_FOUND")
+      ) {
+        return mergedUser;
+      }
+      throw salonError;
+    }
+
+    return mergedUser;
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
 

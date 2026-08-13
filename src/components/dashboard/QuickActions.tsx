@@ -11,7 +11,6 @@ const getActions = (
 ): {
   icon: keyof typeof Ionicons.glyphMap;
   iconBg: string;
-  isAccent?: boolean;
   label: string;
   route: Href;
 }[] => [
@@ -22,7 +21,6 @@ const getActions = (
     icon: "flash-outline",
     iconBg: Colors.warningBg,
     route: "/quick-sale" as Href,
-    isAccent: true,
   },
   { label: "Products", icon: "cube-outline", iconBg: Colors.purpleBg, route: "/stock" as Href },
   { label: "Attendance", icon: "calendar-outline", iconBg: Colors.infoBg, route: "/team/attendance" as Href },
@@ -45,7 +43,12 @@ export default function QuickActions() {
           <View style={[styles.icon, { backgroundColor: action.iconBg }]}>
             <Ionicons name={action.icon} size={20} color={Colors.primary} />
           </View>
-          <Text style={[styles.label, action.isAccent && styles.labelAccent]}>
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.82}
+            numberOfLines={1}
+            style={styles.label}
+          >
             {action.label}
           </Text>
         </TouchableOpacity>
@@ -92,9 +95,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.text2,
     fontSize: 10,
     fontWeight: "500",
+    includeFontPadding: false,
+    lineHeight: 12,
+    minWidth: 0,
     textAlign: "center",
-  },
-  labelAccent: {
-    color: Colors.primary,
+    width: "100%",
   },
 });

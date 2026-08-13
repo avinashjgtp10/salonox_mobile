@@ -2,17 +2,15 @@ import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import * as Location from "expo-location";
 import { router, type Href } from "expo-router";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   ActivityIndicator,
   Animated,
   Dimensions,
   Image,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -23,6 +21,7 @@ import {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { useAuth } from "@/context/AuthContext";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { useAppDispatch } from "@/store/hooks";
 import { createSalonThunk } from "@/middleware/salon/salon.thunk";
 import type { CreateSalonRequest } from "@/types/salon";
@@ -30,6 +29,7 @@ import { CategorySelectionList } from "@/components/auth/CategorySelectionList";
 import { BUSINESS_CATEGORIES } from "@/constants/businessCategories";
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { SUBSCRIPTION_ROUTE } from "@/utils/routeResolver";
 
 const { width: SCREEN_W, height: SCREEN_H } = Dimensions.get("window");
 
@@ -208,6 +208,17 @@ export default function OnboardingScreen() {
   const [scrollContentHeight, setScrollContentHeight] = useState(0);
   const [scrollViewportHeight, setScrollViewportHeight] = useState(0);
   const shouldEnableOnboardingScroll = scrollContentHeight > scrollViewportHeight + 1;
+  const businessNameInputRef = useRef<TextInput>(null);
+  const websiteInputRef = useRef<TextInput>(null);
+  const searchInputRef = useRef<TextInput>(null);
+  const manualAddressInputRef = useRef<TextInput>(null);
+  const manualStreetInputRef = useRef<TextInput>(null);
+  const manualAreaInputRef = useRef<TextInput>(null);
+  const manualCityInputRef = useRef<TextInput>(null);
+  const manualStateInputRef = useRef<TextInput>(null);
+  const manualCountryInputRef = useRef<TextInput>(null);
+  const manualPostalCodeInputRef = useRef<TextInput>(null);
+  const customReferralInputRef = useRef<TextInput>(null);
 
   // Animation values (matching login page)
   const [cardOpacity] = useState(() => new Animated.Value(0));
@@ -758,8 +769,8 @@ export default function OnboardingScreen() {
         // Clear local storage state
         await AsyncStorage.removeItem(ONBOARDING_PERSIST_KEY);
 
-        // Redirect to dashboard
-        router.replace("/dashboard" as Href);
+        // Onboarding is complete; subscription is required before app access.
+        router.replace(SUBSCRIPTION_ROUTE);
       } else {
         setSubmitError(
           resultAction.payload?.message ?? 
@@ -773,6 +784,34 @@ export default function OnboardingScreen() {
       setIsSubmitting(false);
     }
   };
+
+  const keyboardNavigationFields = useMemo(() => {
+    if (currentStep === 1) {
+      return [{ ref: businessNameInputRef }, { ref: websiteInputRef }];
+    }
+
+    if (currentStep === 4) {
+      if (!isManualAddress) {
+        return [{ ref: searchInputRef }];
+      }
+
+      return [
+        { ref: manualAddressInputRef },
+        { ref: manualStreetInputRef },
+        { ref: manualAreaInputRef },
+        { ref: manualCityInputRef },
+        { ref: manualStateInputRef },
+        { ref: manualCountryInputRef },
+        { ref: manualPostalCodeInputRef },
+      ];
+    }
+
+    if (currentStep === 5 && referralSource === "Other") {
+      return [{ ref: customReferralInputRef }];
+    }
+
+    return [];
+  }, [currentStep, isManualAddress, referralSource]);
 
   if (isInitializing) {
     return (
@@ -809,32 +848,33 @@ export default function OnboardingScreen() {
         </View>
       )}
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={0}
+      <KeyboardAwareScrollView
+        alwaysBounceVertical={false}
+        bounces={false}
+        overScrollMode="never"
+        contentContainerStyle={[
+          styles.scrollContainer,
+          isCategoryStep && styles.categoryScrollContainer,
+          {
+            paddingBottom: scrollBottomPadding,
+            paddingHorizontal: horizontalPagePadding,
+            paddingTop: scrollTopPadding,
+          },
+        ]}
+        contentInsetAdjustmentBehavior="never"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        keyboardShouldPersistTaps="handled"
+        onContentSizeChange={(_, height) => setScrollContentHeight(height)}
+        onLayout={(event) => setScrollViewportHeight(event.nativeEvent.layout.height)}
+        scrollEnabled={shouldEnableOnboardingScroll}
+        showsVerticalScrollIndicator={shouldEnableOnboardingScroll}
         style={styles.formKeyboardView}
+        keyboardNavigation={{
+          fields: keyboardNavigationFields,
+          hideOnLast: true,
+          onDone: currentStep === 5 ? handleCompleteOnboarding : handleNext,
+        }}
       >
-        <ScrollView
-          alwaysBounceVertical={false}
-          bounces={false}
-          overScrollMode="never"
-          contentContainerStyle={[
-            styles.scrollContainer,
-            isCategoryStep && styles.categoryScrollContainer,
-            {
-              paddingBottom: scrollBottomPadding,
-              paddingHorizontal: horizontalPagePadding,
-              paddingTop: scrollTopPadding,
-            },
-          ]}
-          contentInsetAdjustmentBehavior="never"
-          keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          keyboardShouldPersistTaps="handled"
-          onContentSizeChange={(_, height) => setScrollContentHeight(height)}
-          onLayout={(event) => setScrollViewportHeight(event.nativeEvent.layout.height)}
-          scrollEnabled={shouldEnableOnboardingScroll}
-          showsVerticalScrollIndicator={shouldEnableOnboardingScroll}
-        >
           <Animated.View
             style={[
               styles.card,
@@ -930,6 +970,7 @@ export default function OnboardingScreen() {
                   <View style={[styles.inputContainer, step1Error && styles.inputContainerError]}>
                     <Ionicons name="business-outline" size={20} color={Colors.secondary} style={{ marginRight: 12 }} />
                     <TextInput
+                      ref={businessNameInputRef}
                       style={styles.textInput}
                       placeholder="e.g. Bella Salon & Spa"
                       placeholderTextColor={Colors.placeholder}
@@ -949,6 +990,7 @@ export default function OnboardingScreen() {
                   <View style={styles.inputContainer}>
                     <Ionicons name="globe-outline" size={20} color={Colors.secondary} style={{ marginRight: 12 }} />
                     <TextInput
+                      ref={websiteInputRef}
                       style={styles.textInput}
                       placeholder="e.g. www.bellasalon.com"
                       placeholderTextColor={Colors.placeholder}
@@ -1124,6 +1166,7 @@ export default function OnboardingScreen() {
                     <View style={[styles.inputContainer, step4Error && styles.inputContainerError]}>
                       <Ionicons name="search-outline" size={20} color={Colors.secondary} style={{ marginRight: 12 }} />
                       <TextInput
+                        ref={searchInputRef}
                         style={styles.textInput}
                         placeholder="Search street, area, or city"
                         placeholderTextColor={Colors.placeholder}
@@ -1222,6 +1265,7 @@ export default function OnboardingScreen() {
                       <View style={[styles.inputContainer, styles.addressInputContainer, step4Error && !manualAddress && styles.inputContainerError]}>
                         <Ionicons name="location-outline" size={20} color={Colors.secondary} style={{ marginRight: 12, marginTop: 16 }} />
                         <TextInput
+                          ref={manualAddressInputRef}
                           style={[styles.textInput, styles.addressTextInput]}
                           placeholder="e.g. 123 Fashion Street, Suite A"
                           placeholderTextColor={Colors.placeholder}
@@ -1237,6 +1281,7 @@ export default function OnboardingScreen() {
                       <View style={styles.inputContainer}>
                         <Ionicons name="trail-sign-outline" size={20} color={Colors.secondary} style={{ marginRight: 12 }} />
                         <TextInput
+                          ref={manualStreetInputRef}
                           style={styles.textInput}
                           placeholder="Street"
                           placeholderTextColor={Colors.placeholder}
@@ -1251,6 +1296,7 @@ export default function OnboardingScreen() {
                       <View style={styles.inputContainer}>
                         <Ionicons name="navigate-outline" size={20} color={Colors.secondary} style={{ marginRight: 12 }} />
                         <TextInput
+                          ref={manualAreaInputRef}
                           style={styles.textInput}
                           placeholder="Area or locality"
                           placeholderTextColor={Colors.placeholder}
@@ -1265,6 +1311,7 @@ export default function OnboardingScreen() {
                       <View style={[styles.inputContainer, step4Error && !manualCity && styles.inputContainerError]}>
                         <Ionicons name="business-outline" size={20} color={Colors.secondary} style={{ marginRight: 12 }} />
                         <TextInput
+                          ref={manualCityInputRef}
                           style={styles.textInput}
                           placeholder="City"
                           placeholderTextColor={Colors.placeholder}
@@ -1279,6 +1326,7 @@ export default function OnboardingScreen() {
                       <View style={styles.inputContainer}>
                         <Ionicons name="map-outline" size={20} color={Colors.secondary} style={{ marginRight: 12 }} />
                         <TextInput
+                          ref={manualStateInputRef}
                           style={styles.textInput}
                           placeholder="State"
                           placeholderTextColor={Colors.placeholder}
@@ -1293,6 +1341,7 @@ export default function OnboardingScreen() {
                       <View style={[styles.inputContainer, step4Error && !manualCountry && styles.inputContainerError]}>
                         <Ionicons name="flag-outline" size={20} color={Colors.secondary} style={{ marginRight: 12 }} />
                         <TextInput
+                          ref={manualCountryInputRef}
                           style={styles.textInput}
                           placeholder="Country"
                           placeholderTextColor={Colors.placeholder}
@@ -1307,6 +1356,7 @@ export default function OnboardingScreen() {
                       <View style={styles.inputContainer}>
                         <Ionicons name="mail-unread-outline" size={20} color={Colors.secondary} style={{ marginRight: 12 }} />
                         <TextInput
+                          ref={manualPostalCodeInputRef}
                           style={styles.textInput}
                           placeholder="Postal code"
                           placeholderTextColor={Colors.placeholder}
@@ -1370,6 +1420,7 @@ export default function OnboardingScreen() {
                     <Text style={styles.inputLabel}>Please Specify</Text>
                     <View style={[styles.inputContainer, step5Error && styles.inputContainerError]}>
                       <TextInput
+                        ref={customReferralInputRef}
                         style={styles.textInput}
                         placeholder="Specify source"
                         placeholderTextColor={Colors.placeholder}
@@ -1393,8 +1444,7 @@ export default function OnboardingScreen() {
             )}
 
           </Animated.View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
 
       <View
         style={[
@@ -1407,19 +1457,21 @@ export default function OnboardingScreen() {
         ]}
       >
         <View style={[styles.footerContent, { maxWidth: footerMaxWidth }]}>
-          <Pressable
-            accessibilityLabel={
-              currentStep > 1
-                ? "Go back to previous onboarding step"
-                : "Cancel onboarding and return to login"
-            }
-            onPress={currentStep > 1 ? handleBack : handleCancelOnboarding}
-            disabled={isSubmitting}
-            style={styles.backButton}
-          >
-            <Ionicons name="chevron-back-outline" size={18} color={Colors.secondary} style={{ marginRight: 6 }} />
-            <Text style={styles.backButtonText}>{currentStep > 1 ? "Back" : "Cancel"}</Text>
-          </Pressable>
+          <View style={styles.backButtonContainer}>
+            <Pressable
+              accessibilityLabel={
+                currentStep > 1
+                  ? "Go back to previous onboarding step"
+                  : "Cancel onboarding and return to login"
+              }
+              onPress={currentStep > 1 ? handleBack : handleCancelOnboarding}
+              disabled={isSubmitting}
+              style={styles.backButton}
+            >
+              <Ionicons name="chevron-back-outline" size={18} color={Colors.secondary} style={{ marginRight: 6 }} />
+              <Text style={styles.backButtonText}>{currentStep > 1 ? "Back" : "Cancel"}</Text>
+            </Pressable>
+          </View>
 
           <Animated.View style={[styles.submitButtonContainer, { transform: [{ scale: submitScale }] }]}>
             <Pressable
@@ -1457,7 +1509,7 @@ export default function OnboardingScreen() {
                 ) : (
                   <View style={styles.submitButtonContent}>
                     <Text style={styles.submitButtonText}>
-                      {currentStep === 5 ? "Complete Onboarding" : "Continue"}
+                      {currentStep === 5 ? "Complete" : "Continue"}
                     </Text>
                     <Ionicons name="arrow-forward" size={17} color="#FFFFFF" />
                   </View>
@@ -1641,7 +1693,7 @@ const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
     marginTop: 4,
   },
   categoryStepTitle: {
-    color: "#1C1917",
+    color: "#FFFFFF",
     fontSize: 30,
     fontWeight: "800",
     lineHeight: 36,
@@ -1758,7 +1810,7 @@ const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
     width: "100%",
   },
   categoryIntro: {
-    color: "#726A63",
+    color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "500",
     lineHeight: 21,
@@ -1981,9 +2033,14 @@ const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
     elevation: 8,
   },
   footerContent: {
+    alignItems: "center",
     flexDirection: "row",
     gap: 14,
     width: "100%",
+  },
+  backButtonContainer: {
+    flex: 1,
+    height: 54,
   },
   backButton: {
     alignItems: "center",
@@ -1993,7 +2050,7 @@ const createStyles = (Colors: OnboardingColors) => StyleSheet.create({
     borderWidth: 1,
     flex: 1,
     flexDirection: "row",
-    height: 54,
+    height: "100%",
     justifyContent: "center",
     paddingHorizontal: 16,
   },
