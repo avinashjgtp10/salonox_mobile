@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Search as SearchIcon, PersonBadge, TelephoneFill, ChevronLeft, ChevronRight } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/StaffHistoryPage.scss";
 
 interface StaffMember {
@@ -135,22 +136,29 @@ export default function StaffHistoryListPage() {
 
         <div className="shp-filter-group">
           <label>Status:</label>
-          <select className="shp-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="all">All Statuses</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
-          </select>
+          <Dropdown
+            className="shp-select"
+            searchable={false}
+            value={statusFilter}
+            options={[
+              { id: "all", name: "All Statuses" },
+              { id: "active", name: "Active" },
+              { id: "inactive", name: "Inactive" },
+            ]}
+            onChange={setStatusFilter}
+          />
         </div>
 
         {uniqueRoles.length > 0 && (
           <div className="shp-filter-group">
             <label>Role:</label>
-            <select className="shp-select" value={roleFilter} onChange={(e) => setRoleFilter(e.target.value)}>
-              <option value="all">All Roles</option>
-              {uniqueRoles.map((role) => (
-                <option key={role} value={role}>{role}</option>
-              ))}
-            </select>
+            <Dropdown
+              className="shp-select"
+              searchable={false}
+              value={roleFilter}
+              options={[{ id: "all", name: "All Roles" }, ...uniqueRoles.map((role) => ({ id: role, name: role }))]}
+              onChange={setRoleFilter}
+            />
           </div>
         )}
       </div>

@@ -2,6 +2,7 @@ import { useState } from "react";
 import Modal from "../../../../components/ui/Modal";
 import Input from "../../../../components/ui/Input";
 import Button from "../../../../components/ui/Button";
+import Dropdown from "../../../../components/ui/Dropdown";
 
 const PAYMENT_METHODS = [
   { value: "cash", label: "Cash" },
@@ -102,15 +103,13 @@ export default function PaySalaryModal({
 
             <div>
               <label className="form-label fw-semibold mb-1">Payment Method</label>
-              <select
+              <Dropdown
                 className="form-select"
+                searchable={false}
                 value={method}
-                onChange={(e) => setMethod(e.target.value)}
-              >
-                {PAYMENT_METHODS.map((m) => (
-                  <option key={m.value} value={m.value}>{m.label}</option>
-                ))}
-              </select>
+                options={PAYMENT_METHODS.map((m) => ({ id: m.value, name: m.label }))}
+                onChange={setMethod}
+              />
             </div>
 
             <Input

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import Modal from "../../../../components/ui/Modal";
 import Input from "../../../../components/ui/Input";
 import Button from "../../../../components/ui/Button";
+import Dropdown from "../../../../components/ui/Dropdown";
 import type { PayRun } from "../../../../types/payRun.types";
 import { useAppDispatch, useAppSelector } from "../../../../hooks/useAppRedux";
 import { fetchStaffThunk } from "../../../../middleware/staff/staff.thunk";
@@ -129,6 +130,7 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.staffId) return;
     onSubmit({
       ...formData,
       total: calculateNetSalary(),
@@ -143,24 +145,17 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
           <div className="col-md-12">
             <div className="form-group">
               <label className="form-label fw-bold text-dark mb-2">Select Employee</label>
-              <select
-                name="staffId"
+              <Dropdown
                 className="pay-run-form-modal__select form-select border rounded-3 py-2 px-3 shadow-sm"
+                placeholder="Choose a staff member..."
                 value={formData.staffId}
-                onChange={handleChange}
-                required
                 disabled={!!initialData?.id}
-              >
-                <option value="">Choose a staff member...</option>
-                {staffMembers.map((staff) => {
-                  const name = staff.fullName || `${staff.first_name || ""} ${staff.last_name || ""}`.trim() || "Unnamed Staff";
-                  return (
-                    <option key={staff.id} value={staff.id}>
-                      {name}
-                    </option>
-                  );
-                })}
-              </select>
+                options={staffMembers.map((staff) => ({
+                  id: String(staff.id),
+                  name: staff.fullName || `${staff.first_name || ""} ${staff.last_name || ""}`.trim() || "Unnamed Staff",
+                }))}
+                onChange={(id) => handleChange({ target: { name: "staffId", value: id } } as unknown as React.ChangeEvent<HTMLSelectElement>)}
+              />
             </div>
           </div>
           
@@ -189,16 +184,13 @@ const PayRunFormModal: React.FC<PayRunFormModalProps> = ({
           <div className="col-md-12">
             <div className="form-group mb-0">
               <label className="form-label fw-bold text-dark mb-2">Payment Method</label>
-              <select
-                name="paymentMethod"
+              <Dropdown
                 className="pay-run-form-modal__select form-select border rounded-3 py-2 px-3 shadow-sm focus-ring"
+                searchable={false}
                 value={formData.paymentMethod}
-                onChange={handleChange}
-              >
-                <option value="Bank Transfer">Bank Transfer</option>
-                <option value="Cash">Cash</option>
-                <option value="Check">Check</option>
-              </select>
+                options={["Bank Transfer", "Cash", "Check"].map((m) => ({ id: m, name: m }))}
+                onChange={(id) => handleChange({ target: { name: "paymentMethod", value: id } } as unknown as React.ChangeEvent<HTMLSelectElement>)}
+              />
             </div>
           </div>
         </div>

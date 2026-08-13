@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/AddTimeOffModal.scss";
 
 export interface TimeOffFormData {
@@ -107,29 +108,22 @@ const AddTimeOffModal: React.FC<AddTimeOffModalProps> = ({
           <div className="toff-modal__row">
             <div className="toff-modal__field">
               <label className="toff-modal__label">Staff member</label>
-              <select
+              <Dropdown
                 className="toff-modal__select"
-                value={memberId}
-                onChange={(e) => setMemberId(+e.target.value)}
-              >
-                {members.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
+                value={String(memberId)}
+                options={members.map((m) => ({ id: String(m.id), name: m.name }))}
+                onChange={(id) => setMemberId(+id)}
+              />
             </div>
             <div className="toff-modal__field">
               <label className="toff-modal__label">Type</label>
-              <select
+              <Dropdown
                 className="toff-modal__select"
+                searchable={false}
                 value={type}
-                onChange={(e) => setType(e.target.value)}
-              >
-                {LEAVE_TYPES.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
+                options={LEAVE_TYPES.map((t) => ({ id: t, name: t }))}
+                onChange={setType}
+              />
             </div>
           </div>
 
@@ -145,27 +139,23 @@ const AddTimeOffModal: React.FC<AddTimeOffModalProps> = ({
             </div>
             <div className="toff-modal__field">
               <label className="toff-modal__label">Start time</label>
-              <select
+              <Dropdown
                 className="toff-modal__select"
+                searchable={false}
                 value={startTime}
-                onChange={(e) => setStartTime(e.target.value)}
-              >
-                {TIMES.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
+                options={TIMES.map((t) => ({ id: t, name: t }))}
+                onChange={setStartTime}
+              />
             </div>
             <div className="toff-modal__field">
               <label className="toff-modal__label">End time</label>
-              <select
+              <Dropdown
                 className="toff-modal__select"
+                searchable={false}
                 value={endTime}
-                onChange={(e) => setEndTime(e.target.value)}
-              >
-                {TIMES.map((t) => (
-                  <option key={t}>{t}</option>
-                ))}
-              </select>
+                options={TIMES.map((t) => ({ id: t, name: t }))}
+                onChange={setEndTime}
+              />
             </div>
           </div>
 

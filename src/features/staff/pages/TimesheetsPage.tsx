@@ -12,6 +12,7 @@ import {
   XLg,
   Gear,
 } from "react-bootstrap-icons";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/TimesheetsPage.scss";
 
 const TimesheetsPage: React.FC = () => {
@@ -478,26 +479,22 @@ const TimesheetsPage: React.FC = () => {
             <div className="ts-filter-modal__body">
               <div className="ts-filter-modal__field">
                 <label>Status</label>
-                <select
+                <Dropdown
+                  searchable={false}
                   value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                >
-                  <option>All</option>
-                  <option>Pending</option>
-                  <option>Approved</option>
-                </select>
+                  options={["All", "Pending", "Approved"].map((s) => ({ id: s, name: s }))}
+                  onChange={setStatusFilter}
+                />
               </div>
 
               <div className="ts-filter-modal__field">
                 <label>Punctuality</label>
-                <select
+                <Dropdown
+                  searchable={false}
                   value={punctualityFilter}
-                  onChange={(e) => setPunctualityFilter(e.target.value)}
-                >
-                  <option>All clock ins</option>
-                  <option>Late</option>
-                  <option>Early</option>
-                </select>
+                  options={["All clock ins", "Late", "Early"].map((s) => ({ id: s, name: s }))}
+                  onChange={setPunctualityFilter}
+                />
               </div>
             </div>
 

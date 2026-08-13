@@ -16,6 +16,7 @@ import api from "../../../services/api/axios";
 import { STAFF, BOOKING, SALE } from "../../../services/api/endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/StaffPerformancePage.scss";
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -308,17 +309,16 @@ export default function StaffPerformancePage() {
           {staffLoading ? (
             <div className="spp__staff-skeleton" />
           ) : (
-            <select
+            <Dropdown
               className="spp__staff-select"
+              placeholder="— Select staff member —"
               value={selectedStaffId}
-              onChange={(e) => setSelectedStaffId(e.target.value)}
-            >
-              <option value="">— Select staff member —</option>
-              {staffList.map((s) => {
+              options={staffList.map((s) => {
                 const name = `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || s.fullName || s.name || String(s.id);
-                return <option key={String(s.id)} value={String(s.id)}>{name}{s.role ? ` (${s.role})` : ""}</option>;
+                return { id: String(s.id), name: `${name}${s.role ? ` (${s.role})` : ""}` };
               })}
-            </select>
+              onChange={setSelectedStaffId}
+            />
           )}
         </div>
       </div>

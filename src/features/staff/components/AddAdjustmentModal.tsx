@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { XLg } from "react-bootstrap-icons";
 import { useCurrency } from "../../../hooks/useCurrency";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/PayRunsPage.scss";
 
 interface AddAdjustmentModalProps {
@@ -39,10 +40,15 @@ const AddAdjustmentModal: React.FC<AddAdjustmentModalProps> = ({
 
           <div className="form-group">
             <label>Adjustment type</label>
-            <select value={type} onChange={(e) => setType(e.target.value)}>
-              <option value="Earnings">Earnings</option>
-              <option value="Deduction">Deduction</option>
-            </select>
+            <Dropdown
+              searchable={false}
+              value={type}
+              options={[
+                { id: "Earnings", name: "Earnings" },
+                { id: "Deduction", name: "Deduction" },
+              ]}
+              onChange={setType}
+            />
           </div>
 
           <div className="form-group">

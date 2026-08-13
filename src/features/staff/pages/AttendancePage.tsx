@@ -25,6 +25,7 @@ import {
 } from "../../settings/utils/halfDayRuleSettings";
 import HalfDayRulePage from "../../settings/pages/HalfDayRulePage";
 import { scheduleDateToYMD } from "../../../components/staff-schedule/utils";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/AttendancePage.scss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -583,13 +584,18 @@ function EditModal({ record, date, onClose, onDone }: {
           <p className="at-modal-meta">{record.staff_name} · {fmtDateLabel(date)}</p>
           <div className="at-modal-field">
             <label>Status</label>
-            <select value={status} onChange={(e) => setStatus(e.target.value as AttendanceStatus)}>
-              <option value="present">Present</option>
-              <option value="absent">Absent</option>
-              <option value="late">Late</option>
-              <option value="half_day">Half Day</option>
-              <option value="on_leave">On Leave</option>
-            </select>
+            <Dropdown
+              searchable={false}
+              value={status}
+              options={[
+                { id: "present", name: "Present" },
+                { id: "absent", name: "Absent" },
+                { id: "late", name: "Late" },
+                { id: "half_day", name: "Half Day" },
+                { id: "on_leave", name: "On Leave" },
+              ]}
+              onChange={(id) => setStatus(id as AttendanceStatus)}
+            />
           </div>
           <div className="at-modal-row">
             <div className="at-modal-field">
@@ -886,12 +892,12 @@ function ManagePinsModal({
               <div className="at-modal-row">
                 <div className="at-modal-field at-modal-field--flush">
                   <label>Staff Member</label>
-                  <select value={staffId} onChange={(e) => setStaffId(e.target.value)}>
-                    <option value="">Select staff…</option>
-                    {unmapped.map((s) => (
-                      <option key={s.staff_id} value={s.staff_id}>{s.staff_name}</option>
-                    ))}
-                  </select>
+                  <Dropdown
+                    placeholder="Select staff…"
+                    value={staffId}
+                    options={unmapped.map((s) => ({ id: s.staff_id, name: s.staff_name }))}
+                    onChange={setStaffId}
+                  />
                 </div>
                 <div className="at-modal-field at-modal-field--flush">
                   <label>Device PIN</label>

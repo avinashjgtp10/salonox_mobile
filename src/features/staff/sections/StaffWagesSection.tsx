@@ -6,6 +6,7 @@ import { STAFF } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import { useCurrency } from "../../../hooks/useCurrency";
+import Dropdown from "../../../components/ui/Dropdown";
 
 interface WageSettings {
   wages_enabled: boolean;
@@ -121,17 +122,19 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
       <div className={`wages-expanded-content fade-in mt-4 ${!settings.wages_enabled ? "opacity-50 pointer-events-none" : ""}`}>
         <div className="mb-4">
           <label className="control-label">Compensation type</label>
-          <select 
+          <Dropdown
             className="form-select"
+            searchable={false}
             value={settings.compensation_type}
-            onChange={(e) => setSettings({ ...settings, compensation_type: e.target.value as any })}
             disabled={!settings.wages_enabled}
-          >
-            <option value="none">None</option>
-            <option value="hourly">Hourly</option>
-            <option value="salary">Salary</option>
-            <option value="commission">Commission</option>
-          </select>
+            options={[
+              { id: "none", name: "None" },
+              { id: "hourly", name: "Hourly" },
+              { id: "salary", name: "Salary" },
+              { id: "commission", name: "Commission" },
+            ]}
+            onChange={(id) => setSettings({ ...settings, compensation_type: id as any })}
+          />
         </div>
 
         {(settings.compensation_type === "hourly" || settings.compensation_type === "salary") && (
@@ -171,16 +174,18 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
         <h6 className="sub-header">Proximity controls</h6>
         <div className="mb-4 pb-2">
           <label className="control-label">Location restrictions</label>
-          <select 
+          <Dropdown
             className="form-select"
+            searchable={false}
             value={settings.location_restriction}
-            onChange={(e) => setSettings({ ...settings, location_restriction: e.target.value as any })}
             disabled={!settings.wages_enabled}
-          >
-            <option value="workspace_default">Workspace default (Disabled)</option>
-            <option value="enabled">Enabled</option>
-            <option value="disabled">Disabled</option>
-          </select>
+            options={[
+              { id: "workspace_default", name: "Workspace default (Disabled)" },
+              { id: "enabled", name: "Enabled" },
+              { id: "disabled", name: "Disabled" },
+            ]}
+            onChange={(id) => setSettings({ ...settings, location_restriction: id as any })}
+          />
           <div className="control-hint">
             Prevent manual timesheet entries when away from workspace
           </div>
@@ -190,32 +195,36 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
         <div className="row g-3 mb-4">
           <div className="col-12 col-md-6">
             <label className="control-label">Auto clock in</label>
-            <select 
+            <Dropdown
               className="form-select"
+              searchable={false}
               value={settings.auto_clock_in}
-              onChange={(e) => setSettings({ ...settings, auto_clock_in: e.target.value as any })}
               disabled={!settings.wages_enabled}
-            >
-              <option value="workspace_default">Workspace default (Disabled)</option>
-              <option value="enabled">Enabled</option>
-              <option value="disabled">Disabled</option>
-            </select>
+              options={[
+                { id: "workspace_default", name: "Workspace default (Disabled)" },
+                { id: "enabled", name: "Enabled" },
+                { id: "disabled", name: "Disabled" },
+              ]}
+              onChange={(id) => setSettings({ ...settings, auto_clock_in: id as any })}
+            />
             <div className="control-hint">
               Automatically clock in at the beginning of shifts
             </div>
           </div>
           <div className="col-12 col-md-6">
             <label className="control-label">Auto clock out</label>
-            <select 
+            <Dropdown
               className="form-select"
+              searchable={false}
               value={settings.auto_clock_out}
-              onChange={(e) => setSettings({ ...settings, auto_clock_out: e.target.value as any })}
               disabled={!settings.wages_enabled}
-            >
-              <option value="workspace_default">Workspace default (Disabled)</option>
-              <option value="enabled">Enabled</option>
-              <option value="disabled">Disabled</option>
-            </select>
+              options={[
+                { id: "workspace_default", name: "Workspace default (Disabled)" },
+                { id: "enabled", name: "Enabled" },
+                { id: "disabled", name: "Disabled" },
+              ]}
+              onChange={(id) => setSettings({ ...settings, auto_clock_out: id as any })}
+            />
             <div className="control-hint">
               Automatically clock out at the end of shifts
             </div>
@@ -224,16 +233,18 @@ const StaffWagesSection: React.FC<StaffWagesSectionProps> = ({ staffId, salonId,
 
         <div className="mb-4">
           <label className="control-label">Automated breaks</label>
-          <select 
+          <Dropdown
             className="form-select"
+            searchable={false}
             value={settings.automated_breaks}
-            onChange={(e) => setSettings({ ...settings, automated_breaks: e.target.value as any })}
             disabled={!settings.wages_enabled}
-          >
-            <option value="workspace_default">Workspace default (Disabled)</option>
-            <option value="enabled">Enabled</option>
-            <option value="disabled">Disabled</option>
-          </select>
+            options={[
+              { id: "workspace_default", name: "Workspace default (Disabled)" },
+              { id: "enabled", name: "Enabled" },
+              { id: "disabled", name: "Disabled" },
+            ]}
+            onChange={(id) => setSettings({ ...settings, automated_breaks: id as any })}
+          />
           <div className="control-hint">
             Automatically start and stop scheduled breaks
           </div>

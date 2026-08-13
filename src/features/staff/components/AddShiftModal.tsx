@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { X, Trash3, Plus } from "react-bootstrap-icons";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../../staff/styles/AddShiftModal.scss";
 
 export interface ShiftTime {
@@ -121,31 +122,21 @@ const AddShiftModal: React.FC<AddShiftModalProps> = ({
               <div className="time-select-group">
                 <div className="input-wrap">
                   <label>Start time</label>
-                  <select
+                  <Dropdown
+                    searchable={false}
                     value={shift.start}
-                    onChange={(e) =>
-                      handleChange(index, "start", e.target.value)
-                    }
-                  >
-                    {TIME_OPTIONS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
+                    options={TIME_OPTIONS.map((t) => ({ id: t, name: t }))}
+                    onChange={(id) => handleChange(index, "start", id)}
+                  />
                 </div>
                 <div className="input-wrap">
                   <label>End time</label>
-                  <select
+                  <Dropdown
+                    searchable={false}
                     value={shift.end}
-                    onChange={(e) => handleChange(index, "end", e.target.value)}
-                  >
-                    {TIME_OPTIONS.map((t) => (
-                      <option key={t} value={t}>
-                        {t}
-                      </option>
-                    ))}
-                  </select>
+                    options={TIME_OPTIONS.map((t) => ({ id: t, name: t }))}
+                    onChange={(id) => handleChange(index, "end", id)}
+                  />
                 </div>
               </div>
               <button
