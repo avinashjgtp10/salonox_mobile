@@ -16,6 +16,7 @@ import type { ServiceCategoryItem, ServiceListItem, ServiceListPagination, Servi
 type ServiceState = {
   categories: ServiceCategoryItem[];
   categoriesError: string | null;
+  categoriesLoadedAt: number | null;
   categoriesLoading: boolean;
   createCategoryError: string | null;
   creatingCategory: boolean;
@@ -57,6 +58,7 @@ const initialPagination: ServiceListPagination = {
 const initialState: ServiceState = {
   categories: [],
   categoriesError: null,
+  categoriesLoadedAt: null,
   categoriesLoading: false,
   createCategoryError: null,
   creatingCategory: false,
@@ -223,6 +225,7 @@ const serviceSlice = createSlice({
       .addCase(fetchCategoriesThunk.fulfilled, (state, action) => {
         state.categoriesLoading = false;
         state.categoriesError = null;
+        state.categoriesLoadedAt = Date.now();
         state.categories = action.payload;
       })
       .addCase(fetchCategoriesThunk.rejected, (state, action) => {
@@ -271,6 +274,7 @@ export const selectServiceUpdateError = (state: RootState) => state.service.upda
 export const selectServiceDeletingIds = (state: RootState) => state.service.deletingServiceIds;
 export const selectServiceDeleteError = (state: RootState) => state.service.deleteError;
 export const selectServiceCategories = (state: RootState) => state.service.categories;
+export const selectServiceCategoriesLoadedAt = (state: RootState) => state.service.categoriesLoadedAt;
 export const selectServiceCategoriesLoading = (state: RootState) => state.service.categoriesLoading;
 export const selectServiceCategoriesError = (state: RootState) => state.service.categoriesError;
 export const selectServiceCreatingCategory = (state: RootState) => state.service.creatingCategory;

@@ -93,6 +93,84 @@ const getCategoryId = (value: unknown) => {
     : null;
 };
 
+const getOwnCategoryName = (value: unknown) => {
+  if (typeof value === "string") {
+    return toSafeString(value) || null;
+  }
+
+  const record = getCategoryRecord(value);
+
+  return record
+    ? toSafeString(record.name) ||
+        toSafeString(record.category_name) ||
+        toSafeString(record.service_category_name) ||
+        toSafeString(record.display_name) ||
+        toSafeString(record.title) ||
+        toSafeString(record.label) ||
+        null
+    : null;
+};
+
+const getOwnCategoryId = (value: unknown) => {
+  const record = getCategoryRecord(value);
+
+  return record
+    ? toSafeString(record.id) ||
+        toSafeString(record.uuid) ||
+        toSafeString(record.category_id) ||
+        toSafeString(record.service_category_id) ||
+        toSafeString(record._id) ||
+        null
+    : null;
+};
+
+const getNestedCategoryArray = (value: unknown): ServiceApiCategory[] => {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is ServiceApiCategory => Boolean(getCategoryRecord(item)));
+  }
+
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  const record = value as Record<string, unknown>;
+  const candidateKeys = [
+    "categories",
+    "service_categories",
+    "serviceCategories",
+    "items",
+    "rows",
+    "results",
+    "data",
+  ];
+
+  for (const key of candidateKeys) {
+    const nested = getNestedCategoryArray(record[key]);
+
+    if (nested.length > 0) {
+      return nested;
+    }
+  }
+
+  return [];
+};
+
+const normalizeCategoryList = (payload: unknown): ServiceCategoryItem[] => {
+  const categoryMap = new Map<string, ServiceCategoryItem>();
+  const list = getNestedCategoryArray(payload);
+
+  for (const item of list) {
+    const id = getOwnCategoryId(item);
+    const name = getOwnCategoryName(item);
+
+    if (id && name) {
+      categoryMap.set(id, { id, name });
+    }
+  }
+
+  return Array.from(categoryMap.values()).sort((a, b) => a.name.localeCompare(b.name));
+};
+
 const getServiceCategory = (service: ServiceApiItem) => {
   const categoryRecord = getCategoryRecord(service.category);
   const parentCategory =
@@ -336,83 +414,19 @@ export const serviceService = {
   },
 
   async getCategories(salonId?: string | null): Promise<ServiceCategoryItem[]> {
-    const categoryMap = new Map<string, ServiceCategoryItem>();
-
     try {
       const response = await api.get<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
         params: salonId ? { salon_id: salonId } : undefined,
       });
 
-      const raw = response.data?.data ?? response.data;
-      const list: ServiceApiCategory[] = Array.isArray(raw)
-        ? raw
-        : raw && typeof raw === "object" && "categories" in raw && Array.isArray((raw as { categories: unknown }).categories)
-          ? ((raw as { categories: ServiceApiCategory[] }).categories)
-          : raw && typeof raw === "object" && "data" in raw && Array.isArray((raw as { data: unknown }).data)
-            ? ((raw as { data: ServiceApiCategory[] }).data)
-            : [];
-
-      for (const item of list) {
-        const id = getCategoryId(item);
-        const name = getCategoryName(item);
-        if (id && name) {
-          categoryMap.set(id, { id, name });
-        }
-      }
+      return normalizeCategoryList(response.data?.data ?? response.data);
     } catch {
-      try {
-        const response = await api.get<ApiResponse<unknown>>("/categories", {
-          params: salonId ? { salon_id: salonId } : undefined,
-        });
+      const response = await api.get<ApiResponse<unknown>>("/categories", {
+        params: salonId ? { salon_id: salonId } : undefined,
+      });
 
-        const raw = response.data?.data ?? response.data;
-        const list: ServiceApiCategory[] = Array.isArray(raw)
-          ? raw
-          : raw && typeof raw === "object" && "categories" in raw && Array.isArray((raw as { categories: unknown }).categories)
-            ? ((raw as { categories: ServiceApiCategory[] }).categories)
-            : raw && typeof raw === "object" && "data" in raw && Array.isArray((raw as { data: unknown }).data)
-              ? ((raw as { data: ServiceApiCategory[] }).data)
-              : [];
-
-        for (const item of list) {
-          const id = getCategoryId(item);
-          const name = getCategoryName(item);
-          if (id && name) {
-            categoryMap.set(id, { id, name });
-          }
-        }
-      } catch {
-        // Silent fallback to service extraction
-      }
+      return normalizeCategoryList(response.data?.data ?? response.data);
     }
-
-    try {
-      const servicesResult = await this.getServices(
-        {
-          limit: 100,
-          offset: 0,
-          search: "",
-          sort_by: "name",
-          sort_order: "asc",
-        },
-        salonId,
-      );
-
-      for (const service of servicesResult.services) {
-        if (service.categoryId && service.category) {
-          if (!categoryMap.has(service.categoryId)) {
-            categoryMap.set(service.categoryId, {
-              id: service.categoryId,
-              name: service.category,
-            });
-          }
-        }
-      }
-    } catch {
-      // Return whatever categories were gathered
-    }
-
-    return Array.from(categoryMap.values()).sort((a, b) => a.name.localeCompare(b.name));
   },
 
   async createCategory(

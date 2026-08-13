@@ -18,6 +18,7 @@ import { createCategoryThunk, fetchCategoriesThunk } from "@/middleware/service/
 import {
   selectServiceCategories,
   selectServiceCategoriesError,
+  selectServiceCategoriesLoadedAt,
   selectServiceCategoriesLoading,
   selectServiceCreateCategoryError,
   selectServiceCreatingCategory,
@@ -25,6 +26,8 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ServiceCategoryItem } from "@/types/service";
+
+const CATEGORY_CACHE_TTL_MS = 5 * 60 * 1000;
 
 type CategorySelectModalProps = {
   onClose: () => void;
@@ -44,6 +47,7 @@ export function CategorySelectModal({
   const dispatch = useAppDispatch();
 
   const categories = useAppSelector(selectServiceCategories);
+  const categoriesLoadedAt = useAppSelector(selectServiceCategoriesLoadedAt);
   const categoriesLoading = useAppSelector(selectServiceCategoriesLoading);
   const categoriesError = useAppSelector(selectServiceCategoriesError);
   const creatingCategory = useAppSelector(selectServiceCreatingCategory);
@@ -54,10 +58,13 @@ export function CategorySelectModal({
   const [createValidationError, setCreateValidationError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (visible) {
+    const categoriesAreStale =
+      !categoriesLoadedAt || Date.now() - categoriesLoadedAt > CATEGORY_CACHE_TTL_MS;
+
+    if (visible && !categoriesLoading && (categories.length === 0 || categoriesError || categoriesAreStale)) {
       void dispatch(fetchCategoriesThunk());
     }
-  }, [dispatch, visible]);
+  }, [categories.length, categoriesError, categoriesLoadedAt, categoriesLoading, dispatch, visible]);
 
   const handleRetryFetch = () => {
     void dispatch(fetchCategoriesThunk());
