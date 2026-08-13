@@ -22,6 +22,7 @@ interface PackageSaleRow {
   clientId: string;
   staff: string;
   packageName: string;
+  expiryDate: string;
   totalAmount: number;
   paidAmount: number;
   pendingAmount: number;
@@ -74,6 +75,7 @@ function mapRow(row: any): PackageSaleRow {
     clientId: row.client_id ? String(row.client_id) : "",
     staff: row.staff_name || "—",
     packageName: row.package_name || "—",
+    expiryDate: row.expiry_date ? formatDate(row.expiry_date) : "—",
     totalAmount: Number(row.total_amount) || 0,
     paidAmount: Number(row.paid_amount) || 0,
     pendingAmount: Number(row.pending_amount) || 0,
@@ -196,8 +198,8 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
     setPaymentMethodFilter(next.payment_method ?? []);
   };
 
-  const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Package Name", `Total Amount (${currencySymbol})`, `GST (${currencySymbol})`, `Paid (${currencySymbol})`, `Balance Due (${currencySymbol})`, "Payment Method", "Status"];
-  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.packageName, r.totalAmount, r.gstAmount, r.paidAmount, r.pendingAmount, r.paymentMethod, r.status]);
+  const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Package Name", "Expiry Date", `Total Amount (${currencySymbol})`, `GST (${currencySymbol})`, `Paid (${currencySymbol})`, `Balance Due (${currencySymbol})`, "Payment Method", "Status"];
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.staff, r.packageName, r.expiryDate, r.totalAmount, r.gstAmount, r.paidAmount, r.pendingAmount, r.paymentMethod, r.status]);
 
   return (
     <div className="rp-detail-view">
@@ -247,16 +249,16 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Package Name</th>
+              <th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Package Name</th><th>Expiry Date</th>
               <th>Total Amount ({currencySymbol})</th><th>GST ({currencySymbol})</th><th>Paid ({currencySymbol})</th>
               <th>Balance Due ({currencySymbol})</th><th>Payment Method</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={11} />
+              <SkeletonTableRows columns={12} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={11} className="rp-detail-empty-cell">No package sales found</td></tr>
+              <tr><td colSpan={12} className="rp-detail-empty-cell">No package sales found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -268,6 +270,7 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
                 <td className="fw-semibold">{r.client}</td>
                 <td>{r.staff}</td>
                 <td className="fw-semibold rp-pkg-name" title={r.packageName}>{r.packageName}</td>
+                <td>{r.expiryDate}</td>
                 <td>{formatAmount(r.totalAmount)}</td>
                 <td>{formatAmount(r.gstAmount)}</td>
                 <td>{formatAmount(r.paidAmount)}</td>
