@@ -9,12 +9,41 @@ import type {
   CreateServiceRequest,
   CreateServiceResponse,
   DeleteServiceResponse,
+  ServiceCategoryItem,
   ServiceListItem,
   ServiceListQuery,
   ServiceListResponse,
   UpdateServiceRequest,
   UpdateServiceResponse,
 } from "@/types/service";
+
+export const fetchCategoriesThunk = createAsyncThunk<
+  ServiceCategoryItem[],
+  void,
+  { rejectValue: { message: string }; state: RootState }
+>("service/fetchCategories", async (_, { getState, rejectWithValue }) => {
+  try {
+    const salonId = selectActiveBranchId(getState());
+    return await serviceService.getCategories(salonId);
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
+    return rejectWithValue({ message });
+  }
+});
+
+export const createCategoryThunk = createAsyncThunk<
+  ServiceCategoryItem,
+  string,
+  { rejectValue: { message: string }; state: RootState }
+>("service/createCategory", async (name, { getState, rejectWithValue }) => {
+  try {
+    const salonId = selectActiveBranchId(getState());
+    return await serviceService.createCategory(name, salonId);
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
+    return rejectWithValue({ message });
+  }
+});
 
 export type FetchServicesArgs = {
   category?: string;
