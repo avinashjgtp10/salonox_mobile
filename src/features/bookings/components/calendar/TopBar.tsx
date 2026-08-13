@@ -440,10 +440,13 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
       {showStaffDrop && ReactDOM.createPortal(
         <div ref={staffDropRef} className="topbar-staff-drop" style={{ top: staffDropPos.top, left: staffDropPos.left }}>
           <button
-            className={`topbar-staff-drop__item${selectedStaffIds.length === 0 ? " topbar-staff-drop__item--active" : ""}`}
+            className={`topbar-staff-drop__item topbar-staff-drop__item--all${selectedStaffIds.length === 0 ? " topbar-staff-drop__item--active" : ""}`}
             onClick={() => { setSelectedStaffIds([]); setShowStaffDrop(false); }}
           >
             All Staff
+            {selectedStaffIds.length > 0 && (
+              <span className="topbar-staff-drop__clear" aria-label="Clear staff filter">×</span>
+            )}
           </button>
           {/* Multi-select: clicking a staff member toggles them in/out of the
               selection without closing the dropdown, so staff can add/remove

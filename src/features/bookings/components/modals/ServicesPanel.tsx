@@ -1066,6 +1066,15 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   const onAutoFocusHandled = kind === "product" ? props.onAutoFocusHandled : undefined;
   const membershipWalletInfo = kind === "product" ? props.membershipWalletInfo : undefined;
   const membershipDiscountAmount = kind === "product" ? props.membershipDiscountAmount : undefined;
+  // Looked up live from the catalog list rather than cached on the row — the
+  // row is created once at selection time, but stock keeps changing (other
+  // sales, restocks), so a value captured back then would go stale.
+  // Only caps the qty when stock is a known positive number: an out-of-stock
+  // item (0 or unknown) must stay sellable, same as its selectability in the
+  // dropdown above — this only stops overselling PAST what's actually on hand.
+  const availableStock = kind === "product"
+    ? items.find((i) => String(i.id) === String(row.productId))?.stock
+    : undefined;
   const selectedName = kind === "package" ? row.packageName : row.productName;
   const [search, setSearch] = useState(selectedName);
   const [showDrop, setShowDrop] = useState(false);
@@ -1073,6 +1082,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   const [results, setResults] = useState<SearchableCatalogItem[]>([]);
   const [scanMessage, setScanMessage] = useState("");
   const [qtyInput, setQtyInput] = useState(String(getSafeQty(row.qty)));
+  const [qtyError, setQtyError] = useState("");
   const [discountInput, setDiscountInput] = useState(getDiscountValue(row.discount));
   const [activeIndex, setActiveIndex] = useState(-1);
   const dropRef = useRef<HTMLDivElement>(null);
@@ -1330,14 +1340,25 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     });
   }
 
+  // Shared by every keystroke and blur, so the message appears the instant
+  // a typed qty crosses the stock line rather than only once the field loses
+  // focus.
+  function stockErrorFor(qty: number): string {
+    if (typeof availableStock === "number" && availableStock > 0 && qty > availableStock) {
+      return `Only ${availableStock} in stock — you exceeded the stock limit.`;
+    }
+    return "";
+  }
+
   function handleQtyChange(value: string) {
     const normalizedValue = value.slice(0, 2);
     setQtyInput(normalizedValue);
 
-    if (!normalizedValue) return;
+    if (!normalizedValue) { setQtyError(""); return; }
 
     const qty = parseInt(normalizedValue, 10);
     if (Number.isInteger(qty) && qty > 0) {
+      setQtyError(stockErrorFor(qty));
       const discount = parseInt(discountInput, 10) || 0;
       updateRow({
         qty,
@@ -1348,7 +1369,12 @@ function SearchableItemRow(props: SearchableItemRowProps) {
 
   function handleQtyBlur() {
     const qty = parseInt(qtyInput, 10);
-    const clampedQty = Number.isInteger(qty) && qty > 0 ? Math.min(qty, 99) : 1;
+    let clampedQty = Number.isInteger(qty) && qty > 0 ? Math.min(qty, 99) : 1;
+    // Message computed off the pre-clamp value, then kept — it explains why
+    // the field just snapped down instead of disappearing the instant it does.
+    const message = stockErrorFor(clampedQty);
+    if (message) clampedQty = availableStock as number;
+    setQtyError(message);
     const discount = parseInt(discountInput, 10) || 0;
 
     setQtyInput(String(clampedQty));
@@ -1423,7 +1449,15 @@ function SearchableItemRow(props: SearchableItemRowProps) {
 
     if (existingIndex >= 0) {
       const existingRow = productRows[existingIndex];
-      const nextQty = getSafeQty(existingRow.qty) + 1;
+      const currentQty = getSafeQty(existingRow.qty);
+      // Same "only cap when stock is a known positive number" rule as the
+      // qty field's own blur-clamp — an out-of-stock item must stay scannable.
+      if (typeof matchedItem.stock === "number" && matchedItem.stock > 0 && currentQty >= matchedItem.stock) {
+        setScanMessage(`Only ${matchedItem.stock} in stock — you exceeded the stock limit.`);
+        focusSearchField();
+        return;
+      }
+      const nextQty = currentQty + 1;
       const existingDiscount = existingRow.discount || 0;
       const basePrice = Number(existingRow.price ?? matchedPrice) || matchedPrice;
 
@@ -1493,6 +1527,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   }
 
   return (
+    <>
     <div className={`item-row item-row--${kind}`}>
       <div className="svc-field" ref={dropRef}>
         <div className="svc-field__input-wrap">
@@ -1635,17 +1670,20 @@ function SearchableItemRow(props: SearchableItemRowProps) {
         />
       )}
 
-      <input
-        className="svc-field__input"
-        type="text"
-        inputMode="numeric"
-        maxLength={2}
-        disabled={frozen}
-        placeholder="1"
-        value={qtyInput}
-        onChange={(e) => handleQtyChange(e.target.value.replace(/\D/g, ""))}
-        onBlur={handleQtyBlur}
-      />
+      <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
+        <input
+          className={`svc-field__input${qtyError ? " svc-field__input--error" : ""}`}
+          type="text"
+          inputMode="numeric"
+          maxLength={2}
+          disabled={frozen}
+          placeholder="1"
+          title={typeof availableStock === "number" && availableStock > 0 ? `${availableStock} in stock` : undefined}
+          value={qtyInput}
+          onChange={(e) => handleQtyChange(e.target.value.replace(/\D/g, ""))}
+          onBlur={handleQtyBlur}
+        />
+      </div>
 
       <input
         className="svc-field__input"
@@ -1696,6 +1734,8 @@ function SearchableItemRow(props: SearchableItemRowProps) {
         ? <button className="svc-del-btn" onClick={onRemove}><Trash size={13} /></button>
         : <span />}
     </div>
+    {qtyError && <div className="item-row__qty-err">{qtyError}</div>}
+    </>
   );
 }
 

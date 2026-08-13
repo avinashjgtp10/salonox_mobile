@@ -413,6 +413,23 @@
     &:hover   { background: #f9fafb; }
   }
 
+  &__item--all { justify-content: space-between; }
+
+  &__clear {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    font-size: 13px;
+    line-height: 1;
+    color: #9ca3af;
+    transition: background 0.15s, color 0.15s;
+
+    &:hover { background: #fee2e2; color: #ef4444; }
+  }
+
   &__dot {
     width: 10px;
     height: 10px;
