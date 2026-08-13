@@ -3,6 +3,7 @@ import { Country } from "country-state-city";
 import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/AddEmergencyContactModal.scss";
 
 interface Props {
@@ -99,18 +100,14 @@ export default function AddEmergencyContactModal({ open, onClose, onSave, initia
 
         <div className="ec-field">
           <label className="ec-label">Relationship</label>
-          <select
+          <Dropdown
             className="ec-select"
+            searchable={false}
+            placeholder="Select an option"
             value={relationship}
-            onChange={(e) => setRelationship(e.target.value)}
-          >
-            <option value="">Select an option</option>
-            <option value="Spouse">Spouse</option>
-            <option value="Parent">Parent</option>
-            <option value="Sibling">Sibling</option>
-            <option value="Friend">Friend</option>
-            <option value="Other">Other</option>
-          </select>
+            options={["Spouse", "Parent", "Sibling", "Friend", "Other"].map((r) => ({ id: r, name: r }))}
+            onChange={setRelationship}
+          />
         </div>
 
         <div className="ec-field">
@@ -128,17 +125,12 @@ export default function AddEmergencyContactModal({ open, onClose, onSave, initia
         <div className="ec-field">
           <label className="ec-label">Phone number</label>
           <div className="ec-phone-group">
-            <select
+            <Dropdown
               className="ec-select ec-select--narrow"
               value={phoneCode}
-              onChange={(e) => setPhoneCode(e.target.value)}
-            >
-              {PHONE_CODES.map((p) => (
-                <option key={p.label} value={p.code}>
-                  {p.label}
-                </option>
-              ))}
-            </select>
+              options={PHONE_CODES.map((p) => ({ id: p.code, name: p.label }))}
+              onChange={setPhoneCode}
+            />
             <input
               type="tel"
               className={`ec-input ec-input--flex${isPhoneInvalid ? " ec-input--invalid" : ""}`}

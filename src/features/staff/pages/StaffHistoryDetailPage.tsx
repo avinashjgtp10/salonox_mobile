@@ -11,6 +11,7 @@ import {
 import api from "../../../services/api/axios";
 import { STAFF, SALE, ATTENDANCE, REVIEWS } from "../../../services/api/endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/StaffHistoryPage.scss";
 
 // ─── Shared types/helpers ───────────────────────────────────────────────────
@@ -183,14 +184,12 @@ function PaginationControls({
         <div className="shp-pagination-size">
           <span>Rows per page:</span>
           <div className="shp-pagination-size-wrap">
-            <select
-              value={pageSize}
-              onChange={(e) => onPageSizeChange(Number(e.target.value))}
-            >
-              {PAGE_SIZE_OPTIONS.map((sz) => (
-                <option key={sz} value={sz}>{sz}</option>
-              ))}
-            </select>
+            <Dropdown
+              searchable={false}
+              value={String(pageSize)}
+              options={PAGE_SIZE_OPTIONS.map((sz) => ({ id: String(sz), name: String(sz) }))}
+              onChange={(id) => onPageSizeChange(Number(id))}
+            />
             <ChevronDown size={12} className="shp-pagination-size-icon" />
           </div>
         </div>
@@ -409,11 +408,17 @@ function TimelineTab({ staffId }: { staffId: string }) {
       <div className="shp-filter-bar">
         <div className="shp-filter-group">
           <label>Type:</label>
-          <select className="shp-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-            <option value="all">All Events</option>
-            <option value="service">Services</option>
-            <option value="attendance">Attendance</option>
-          </select>
+          <Dropdown
+            className="shp-select"
+            searchable={false}
+            value={typeFilter}
+            options={[
+              { id: "all", name: "All Events" },
+              { id: "service", name: "Services" },
+              { id: "attendance", name: "Attendance" },
+            ]}
+            onChange={setTypeFilter}
+          />
         </div>
         <div className="shp-filter-group">
           <label>From:</label>
@@ -518,13 +523,19 @@ function ServicesTab({ staffId }: { staffId: string }) {
         </div>
         <div className="shp-filter-group">
           <label>Source:</label>
-          <select className="shp-select" value={sourceFilter} onChange={(e) => setSourceFilter(e.target.value)}>
-            <option value="all">All Sources</option>
-            <option value="direct">Direct Payment</option>
-            <option value="membership">Membership</option>
-            <option value="package">Package</option>
-            <option value="wallet">eWallet</option>
-          </select>
+          <Dropdown
+            className="shp-select"
+            searchable={false}
+            value={sourceFilter}
+            options={[
+              { id: "all", name: "All Sources" },
+              { id: "direct", name: "Direct Payment" },
+              { id: "membership", name: "Membership" },
+              { id: "package", name: "Package" },
+              { id: "wallet", name: "eWallet" },
+            ]}
+            onChange={setSourceFilter}
+          />
         </div>
         <div className="shp-filter-group">
           <label>From:</label>
@@ -628,23 +639,35 @@ function SalesTab({ staffId }: { staffId: string }) {
         </div>
         <div className="shp-filter-group">
           <label>Status:</label>
-          <select className="shp-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="all">All Statuses</option>
-            <option value="completed">Completed</option>
-            <option value="pending">Pending</option>
-            <option value="refunded">Refunded</option>
-            <option value="cancelled">Cancelled</option>
-          </select>
+          <Dropdown
+            className="shp-select"
+            searchable={false}
+            value={statusFilter}
+            options={[
+              { id: "all", name: "All Statuses" },
+              { id: "completed", name: "Completed" },
+              { id: "pending", name: "Pending" },
+              { id: "refunded", name: "Refunded" },
+              { id: "cancelled", name: "Cancelled" },
+            ]}
+            onChange={setStatusFilter}
+          />
         </div>
         <div className="shp-filter-group">
           <label>Payment:</label>
-          <select className="shp-select" value={paymentFilter} onChange={(e) => setPaymentFilter(e.target.value)}>
-            <option value="all">All Methods</option>
-            <option value="cash">Cash</option>
-            <option value="card">Card</option>
-            <option value="upi">UPI</option>
-            <option value="wallet">eWallet</option>
-          </select>
+          <Dropdown
+            className="shp-select"
+            searchable={false}
+            value={paymentFilter}
+            options={[
+              { id: "all", name: "All Methods" },
+              { id: "cash", name: "Cash" },
+              { id: "card", name: "Card" },
+              { id: "upi", name: "UPI" },
+              { id: "wallet", name: "eWallet" },
+            ]}
+            onChange={setPaymentFilter}
+          />
         </div>
         <div className="shp-filter-group">
           <label>From:</label>
@@ -732,21 +755,33 @@ function CommissionTab({ staffId }: { staffId: string }) {
         </div>
         <div className="shp-filter-group">
           <label>Category:</label>
-          <select className="shp-select" value={categoryFilter} onChange={(e) => setCategoryFilter(e.target.value)}>
-            <option value="all">All Categories</option>
-            <option value="service">Service</option>
-            <option value="product">Product</option>
-            <option value="membership">Membership</option>
-            <option value="package">Package</option>
-          </select>
+          <Dropdown
+            className="shp-select"
+            searchable={false}
+            value={categoryFilter}
+            options={[
+              { id: "all", name: "All Categories" },
+              { id: "service", name: "Service" },
+              { id: "product", name: "Product" },
+              { id: "membership", name: "Membership" },
+              { id: "package", name: "Package" },
+            ]}
+            onChange={setCategoryFilter}
+          />
         </div>
         <div className="shp-filter-group">
           <label>Status:</label>
-          <select className="shp-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="all">All Statuses</option>
-            <option value="paid">Paid</option>
-            <option value="pending">Pending</option>
-          </select>
+          <Dropdown
+            className="shp-select"
+            searchable={false}
+            value={statusFilter}
+            options={[
+              { id: "all", name: "All Statuses" },
+              { id: "paid", name: "Paid" },
+              { id: "pending", name: "Pending" },
+            ]}
+            onChange={setStatusFilter}
+          />
         </div>
       </div>
 
@@ -842,14 +877,20 @@ function ReviewsTab({ staffId }: { staffId: string }) {
       <div className="shp-filter-bar">
         <div className="shp-filter-group">
           <label>Rating:</label>
-          <select className="shp-select" value={ratingFilter} onChange={(e) => setRatingFilter(e.target.value)}>
-            <option value="all">All Ratings</option>
-            <option value="5">⭐⭐⭐⭐⭐ (5 Stars)</option>
-            <option value="4">⭐⭐⭐⭐ (4 Stars)</option>
-            <option value="3">⭐⭐⭐ (3 Stars)</option>
-            <option value="2">⭐⭐ (2 Stars)</option>
-            <option value="1">⭐ (1 Star)</option>
-          </select>
+          <Dropdown
+            className="shp-select"
+            searchable={false}
+            value={ratingFilter}
+            options={[
+              { id: "all", name: "All Ratings" },
+              { id: "5", name: "⭐⭐⭐⭐⭐ (5 Stars)" },
+              { id: "4", name: "⭐⭐⭐⭐ (4 Stars)" },
+              { id: "3", name: "⭐⭐⭐ (3 Stars)" },
+              { id: "2", name: "⭐⭐ (2 Stars)" },
+              { id: "1", name: "⭐ (1 Star)" },
+            ]}
+            onChange={setRatingFilter}
+          />
         </div>
         <div className="shp-filter-group">
           <label>From:</label>
@@ -936,14 +977,20 @@ function AttendanceTab({ staffId }: { staffId: string }) {
       <div className="shp-filter-bar">
         <div className="shp-filter-group">
           <label>Status:</label>
-          <select className="shp-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-            <option value="all">All Statuses</option>
-            <option value="present">Present</option>
-            <option value="late">Late</option>
-            <option value="half_day">Half Day</option>
-            <option value="absent">Absent</option>
-            <option value="on_leave">On Leave</option>
-          </select>
+          <Dropdown
+            className="shp-select"
+            searchable={false}
+            value={statusFilter}
+            options={[
+              { id: "all", name: "All Statuses" },
+              { id: "present", name: "Present" },
+              { id: "late", name: "Late" },
+              { id: "half_day", name: "Half Day" },
+              { id: "absent", name: "Absent" },
+              { id: "on_leave", name: "On Leave" },
+            ]}
+            onChange={setStatusFilter}
+          />
         </div>
         <div className="shp-filter-group">
           <label>From:</label>

@@ -27,6 +27,7 @@ import {
 import "../styles/StaffListPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
+import Dropdown from "../../../components/ui/Dropdown";
 import { Button, Input, DownloadButton, Modal } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import StaffImportModal from "../components/StaffImportModal";
@@ -742,14 +743,12 @@ export default function StaffListPage() {
           <div className="slp-footer-size">
             <span>Rows per page:</span>
             <div className="slp-footer-size-wrap">
-              <select
-                value={pageSize}
-                onChange={(e) => setPageSize(Number(e.target.value))}
-              >
-                {PAGE_SIZE_OPTIONS.map((sz) => (
-                  <option key={sz} value={sz}>{sz}</option>
-                ))}
-              </select>
+              <Dropdown
+                searchable={false}
+                value={String(pageSize)}
+                options={PAGE_SIZE_OPTIONS.map((sz) => ({ id: String(sz), name: String(sz) }))}
+                onChange={(id) => setPageSize(Number(id))}
+              />
               <ChevronDown size={12} className="slp-footer-size-icon" />
             </div>
           </div>

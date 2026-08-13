@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import Modal from "../../../../components/ui/Modal";
 import Button from "../../../../components/ui/Button";
+import Dropdown from "../../../../components/ui/Dropdown";
 import { useStatusOverlay } from "../../../../hooks/useStatusOverlay";
 import { useCurrency } from "../../../../hooks/useCurrency";
 
@@ -51,16 +52,17 @@ const PayRunSettingsModal: React.FC<PayRunSettingsModalProps> = ({ isOpen, onClo
           {/* Pay Period */}
           <div className="col-12">
             <label className="form-label fw-bold text-dark mb-2">Pay Period</label>
-            <select
-              name="payPeriod"
+            <Dropdown
               className="pay-run-settings-modal__select form-select border rounded-3 py-2 px-3 shadow-sm"
+              searchable={false}
               value={settings.payPeriod}
-              onChange={handleChange}
-            >
-              <option value="weekly">Weekly</option>
-              <option value="biweekly">Bi-weekly</option>
-              <option value="monthly">Monthly</option>
-            </select>
+              options={[
+                { id: "weekly", name: "Weekly" },
+                { id: "biweekly", name: "Bi-weekly" },
+                { id: "monthly", name: "Monthly" },
+              ]}
+              onChange={(id) => handleChange({ target: { name: "payPeriod", value: id, type: "select" } } as unknown as React.ChangeEvent<HTMLSelectElement>)}
+            />
             <div className="form-text text-muted mt-1">
               How often pay runs are calculated for your staff.
             </div>
@@ -69,35 +71,33 @@ const PayRunSettingsModal: React.FC<PayRunSettingsModalProps> = ({ isOpen, onClo
           {/* Week Start Day */}
           <div className="col-12">
             <label className="form-label fw-bold text-dark mb-2">Week Starts On</label>
-            <select
-              name="weekStartDay"
+            <Dropdown
               className="pay-run-settings-modal__select form-select border rounded-3 py-2 px-3 shadow-sm"
+              searchable={false}
               value={settings.weekStartDay}
-              onChange={handleChange}
-            >
-              <option value="0">Sunday</option>
-              <option value="1">Monday</option>
-              <option value="2">Tuesday</option>
-              <option value="3">Wednesday</option>
-              <option value="4">Thursday</option>
-              <option value="5">Friday</option>
-              <option value="6">Saturday</option>
-            </select>
+              options={[
+                { id: "0", name: "Sunday" },
+                { id: "1", name: "Monday" },
+                { id: "2", name: "Tuesday" },
+                { id: "3", name: "Wednesday" },
+                { id: "4", name: "Thursday" },
+                { id: "5", name: "Friday" },
+                { id: "6", name: "Saturday" },
+              ]}
+              onChange={(id) => handleChange({ target: { name: "weekStartDay", value: id, type: "select" } } as unknown as React.ChangeEvent<HTMLSelectElement>)}
+            />
           </div>
 
           {/* Default Payment Method */}
           <div className="col-12">
             <label className="form-label fw-bold text-dark mb-2">Default Payment Method</label>
-            <select
-              name="defaultPaymentMethod"
+            <Dropdown
               className="pay-run-settings-modal__select form-select border rounded-3 py-2 px-3 shadow-sm"
+              searchable={false}
               value={settings.defaultPaymentMethod}
-              onChange={handleChange}
-            >
-              <option value="Bank Transfer">Bank Transfer</option>
-              <option value="Cash">Cash</option>
-              <option value="Check">Check</option>
-            </select>
+              options={["Bank Transfer", "Cash", "Check"].map((m) => ({ id: m, name: m }))}
+              onChange={(id) => handleChange({ target: { name: "defaultPaymentMethod", value: id, type: "select" } } as unknown as React.ChangeEvent<HTMLSelectElement>)}
+            />
           </div>
 
           {/* Currency — controlled globally, not per pay run */}

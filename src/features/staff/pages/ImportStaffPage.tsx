@@ -5,6 +5,7 @@ import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/ImportStaffPage.scss";
 import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
+import Dropdown from "../../../components/ui/Dropdown";
 
 const ACCEPTED_EXTS = [".csv", ".xlsx", ".xls"];
 
@@ -167,14 +168,12 @@ function StepColumnMatch({ file, csvHeaders, mapping, onMappingChange, validatio
               <p className="isp-field-hint">{col.hint}</p>
             </div>
             <div className="col-6">
-              <select
+              <Dropdown
                 className={`form-select isp-match-select ${validationErrors[col.key] ? "is-invalid" : ""}`}
                 value={mapping[col.key] ?? "None"}
-                onChange={(e) => onMappingChange(col.key, e.target.value)}
-              >
-                <option value="None">None</option>
-                {csvHeaders.map((h) => <option key={h} value={h}>{h}</option>)}
-              </select>
+                options={[{ id: "None", name: "None" }, ...csvHeaders.map((h) => ({ id: h, name: h }))]}
+                onChange={(id) => onMappingChange(col.key, id)}
+              />
               {validationErrors[col.key] && <p className="isp-req-msg">{validationErrors[col.key]}</p>}
             </div>
           </div>

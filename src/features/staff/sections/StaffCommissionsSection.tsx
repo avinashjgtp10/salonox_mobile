@@ -6,6 +6,7 @@ import { STAFF } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import { useCurrency } from "../../../hooks/useCurrency";
+import Dropdown from "../../../components/ui/Dropdown";
 
 interface CommissionSetting {
   category: "services" | "products" | "memberships" | "gift_cards" | "cancellation";
@@ -129,14 +130,16 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
           <div className="row g-3">
             <div className="col-12 col-md-6">
               <label className="control-label">Default commission type</label>
-              <select 
+              <Dropdown
                 className="form-select"
+                searchable={false}
                 value={settings.services.commission_kind}
-                onChange={(e) => updateCategory("services", { commission_kind: e.target.value as any })}
-              >
-                <option value="fixed_rate">Fixed rate</option>
-                <option value="percentage">Percentage</option>
-              </select>
+                options={[
+                  { id: "fixed_rate", name: "Fixed rate" },
+                  { id: "percentage", name: "Percentage" },
+                ]}
+                onChange={(id) => updateCategory("services", { commission_kind: id as any })}
+              />
             </div>
             <div className="col-12 col-md-6">
               <label className="control-label">Default rate</label>
@@ -292,14 +295,16 @@ const StaffCommissionsSection: React.FC<StaffCommissionsSectionProps> = ({ staff
           <div className="row g-3">
             <div className="col-12 col-md-6">
               <label className="control-label">Default commission type</label>
-              <select 
+              <Dropdown
                 className="form-select"
+                searchable={false}
                 value={settings.gift_cards.commission_kind}
-                onChange={(e) => updateCategory("gift_cards", { commission_kind: e.target.value as any })}
-              >
-                <option value="fixed_rate">Fixed rate</option>
-                <option value="percentage">Percentage</option>
-              </select>
+                options={[
+                  { id: "fixed_rate", name: "Fixed rate" },
+                  { id: "percentage", name: "Percentage" },
+                ]}
+                onChange={(id) => updateCategory("gift_cards", { commission_kind: id as any })}
+              />
             </div>
             <div className="col-12 col-md-6">
               <label className="control-label">Default rate</label>

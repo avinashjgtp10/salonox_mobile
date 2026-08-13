@@ -5,6 +5,7 @@ import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
+import Dropdown from "../../../components/ui/Dropdown";
 
 interface PayRunSettings {
   pay_runs_enabled: boolean;
@@ -244,14 +245,16 @@ const StaffPayRunsSection: React.FC<StaffPayRunsSectionProps> = ({ staffId, salo
             entered at each pay period
           </p>
 
-          <select
+          <Dropdown
             className="form-select mb-2"
+            searchable={false}
             value={settings.calculation_type}
-            onChange={(e) => setSettings({ ...settings, calculation_type: e.target.value as any })}
-          >
-            <option value="automatic">Automatic calculation</option>
-            <option value="manual">Manual entry</option>
-          </select>
+            options={[
+              { id: "automatic", name: "Automatic calculation" },
+              { id: "manual", name: "Manual entry" },
+            ]}
+            onChange={(id) => setSettings({ ...settings, calculation_type: id as any })}
+          />
 
           {settings.calculation_type === "automatic" && (
             <div className="calc-info-box mb-4">
