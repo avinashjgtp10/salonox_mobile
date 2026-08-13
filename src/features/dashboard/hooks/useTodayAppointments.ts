@@ -1,23 +1,18 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import api from "../../../services/api/axios";
 import { BOOKING } from "../../../services/api/endpoints";
+import { mapApiBooking } from "../../bookings/utils/bookingMapper";
 import type { TodayAppointment } from "../../../types/dashboard.types";
 
+// Reuses the exact same grand-total logic (subtotal − discount + tax +
+// tip, GST-inclusive) that the Calendar/Appointments screen and Reports
+// already trust — see bookingMapper.ts's grandTotalVal. A hand-rolled
+// recompute here previously read the wrong field names for tax/GST
+// (snake_case that the API never sends) and silently priced bookings
+// without GST, so this bill total must always come from that one shared
+// mapper instead of being re-derived per screen.
 function computeAmount(appt: any): number {
-  const itemsTotal = [
-    ...(Array.isArray(appt.services)        ? appt.services        : []),
-    ...(Array.isArray(appt.package_items)    ? appt.package_items    : []),
-    ...(Array.isArray(appt.product_items)    ? appt.product_items    : []),
-    ...(Array.isArray(appt.membership_items) ? appt.membership_items : []),
-  ].reduce((s: number, it: any) => s + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
-  const discount = appt.discount_type === "percentage"
-    ? itemsTotal * ((Number(appt.discount_value) || 0) / 100)
-    : (Number(appt.discount_value) || 0);
-  const taxableAmount = Math.max(itemsTotal - discount, 0);
-  const taxAmount = Array.isArray(appt.tax_breakdown) && appt.tax_breakdown.length
-    ? appt.tax_breakdown.reduce((s: number, t: any) => s + (Number(t.amount) || 0), 0)
-    : taxableAmount * ((Number(appt.gst_percent) || 0) / 100);
-  return Math.round(taxableAmount + taxAmount + (Number(appt.tip_amount) || 0));
+  return Number(mapApiBooking(appt).grandTotal) || 0;
 }
 
 // This one service line's own price (row.total when set — carries any
@@ -124,9 +119,20 @@ export function useTodayAppointments() {
         const status = computeStatus(appt);
         const totalPaid = Number(appt.paid_amount) || 0;
         const billTotal = computeAmount(appt);
+        // Sum of raw pre-tax/pre-discount line items, used only as the base
+        // to split billTotal (GST-inclusive) proportionally across rows below.
+        const rawItemsTotal = services.reduce((s, svc) => s + computeServiceAmount(svc), 0);
 
         return services.map((svc, idx) => {
-          const svcAmount = computeServiceAmount(svc);
+          const svcRaw = computeServiceAmount(svc);
+          // Each row must show its share of the bill's true GST-inclusive
+          // grand total, not the raw pre-tax line-item price — otherwise the
+          // dashboard's Amount column silently excludes GST/discount/tip that
+          // the same booking's grand total (shown on Calendar/Appointments)
+          // already includes.
+          const svcAmount = rawItemsTotal > 0
+            ? Math.round(billTotal * (svcRaw / rawItemsTotal))
+            : Math.round(billTotal / services.length);
           // Splits the appointment's overall paid amount proportionally by
           // each service's own share of the bill — so "₹X of ₹Y" per row
           // still sums back to what was actually collected on this booking,
