@@ -121,6 +121,13 @@ export const PAYMENT_COLLECTION_REPORT = {
   SUMMARY: () => `/api/report/payment-collection`,
 } as const;
 
+// Independent Cash Management reporting API — one row per cash counter
+// session. Reads cash_management directly, never the cash-management
+// module's own operational API. Mounted at /api/report.
+export const CASH_MANAGEMENT_REPORT = {
+  SUMMARY: () => `/api/report/cash-management`,
+} as const;
+
 // Independent Referral reporting API — one row per referred client, joined
 // back to the referrer, with reward amounts read from referral_ledger. Reads
 // clients/sales/referral_ledger directly, never through the Appointment API.

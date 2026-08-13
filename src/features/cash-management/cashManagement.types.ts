@@ -39,6 +39,7 @@ export interface CashDashboardSummary {
 export interface CashTransactionRecord {
   id: string;
   createdBy: string;
+  closedBy: string | null;
   status: CashCounterStatus;
   date: string;
   updatedAt: string | null;

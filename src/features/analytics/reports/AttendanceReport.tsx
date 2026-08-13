@@ -25,6 +25,10 @@ interface AttendanceRow {
   checkOut: string | null;
   hoursWorked: number | null;
   source: string;
+  // From the backend's approved-leave join (attendance.service.ts getRange) —
+  // hours_worked is already zeroed for these rows there, but the flag is kept
+  // separately so the table/export can show "On Leave" instead of "0.0".
+  onApprovedLeave: boolean;
 }
 
 interface FilterOption { id: string; label: string; }
@@ -92,6 +96,7 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
         checkOut: r.check_out ?? null,
         hoursWorked: r.hours_worked != null ? Number(r.hours_worked) : null,
         source: r.source ?? "manual",
+        onApprovedLeave: r.on_approved_leave === true,
       })).sort((a, b) => (a.date < b.date ? 1 : -1)));
     } catch (e: any) {
       if (e?.code !== "ERR_CANCELED" && e?.name !== "CanceledError") setAllRows([]);
@@ -145,16 +150,20 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
   // formula. Guards against a 0-day range dividing by zero.
   const attendancePercent = totalWorkingDays > 0 ? (counts.present / totalWorkingDays) * 100 : 0;
 
+  // Approved leave days are excluded entirely — not just from the sum but
+  // from the denominator too, so a leave day never drags the average down.
   const avgHours = useMemo(() => {
-    const worked = rows.filter(r => r.hoursWorked != null);
+    const worked = rows.filter(r => !r.onApprovedLeave && r.hoursWorked != null);
     if (!worked.length) return 0;
     return worked.reduce((s, r) => s + (r.hoursWorked ?? 0), 0) / worked.length;
   }, [rows]);
 
   const paged = rows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
+  const hoursCell = (r: AttendanceRow) => r.onApprovedLeave ? "On Leave" : (r.hoursWorked != null ? r.hoursWorked.toFixed(1) : "—");
+
   const HEADERS = ["Date", "Staff", "Status", "Check In", "Check Out", "Hours Worked"];
-  const exportRows = () => rows.map(r => [formatDate(r.date), r.staffName, fmtStatusLabel(r.status), fmtTime(r.checkIn), fmtTime(r.checkOut), r.hoursWorked ?? "—"]);
+  const exportRows = () => rows.map(r => [formatDate(r.date), r.staffName, fmtStatusLabel(r.status), fmtTime(r.checkIn), fmtTime(r.checkOut), hoursCell(r)]);
 
   return (
     <div className="rp-detail-view">
@@ -217,7 +226,7 @@ export default function AttendanceReport({ onBack, category, categoryKey }: { on
                 <td><span className={`rp-status-badge rp-status-${r.status}`}>{fmtStatusLabel(r.status)}</span></td>
                 <td>{fmtTime(r.checkIn)}</td>
                 <td>{fmtTime(r.checkOut)}</td>
-                <td>{r.hoursWorked != null ? r.hoursWorked.toFixed(1) : "—"}</td>
+                <td>{hoursCell(r)}</td>
               </tr>
             ))}
           </tbody>

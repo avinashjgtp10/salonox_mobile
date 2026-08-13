@@ -59,6 +59,7 @@ const normalizeTransaction = (raw: any): CashTransactionRecord => ({
       raw?.staff_name,
     "System",
   ),
+  closedBy: raw?.closed_by_name ?? raw?.closedByName ?? raw?.closed_by ?? raw?.closedBy ?? null,
   status: asString(raw?.status, "closed"),
   date: asString(raw?.date ?? raw?.created_at ?? raw?.opened_at ?? raw?.openedAt),
   updatedAt: raw?.updated_at ?? raw?.updatedAt ?? raw?.created_at ?? raw?.createdAt ?? null,
@@ -157,3 +158,4 @@ export async function fetchTodaysRevenue() {
   const data = unwrapData<any>(response);
   return asNumber(data?.todayRevenue ?? data?.today_revenue);
 }
+

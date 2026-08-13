@@ -90,6 +90,11 @@ export default function CustomerSpendReport({ onBack, category, categoryKey }: {
   const [staffOptions,   setStaffOptions]   = useState<{ id: string; label: string }[]>([]);
   const [search, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  // Frequent-customer filter — clients with at least this many visits in the
+  // date range. Lives inside the Filters dropdown as a custom (non-checkbox)
+  // field, so like Segment/Staff it only takes effect on that panel's Apply,
+  // not on every keystroke.
+  const [minVisits, setMinVisits] = useState<number | undefined>(undefined);
   const [rows,  setRows]  = useState<SpendRow[]>([]);
   const [total, setTotal] = useState(0);
   const [stats, setStats] = useState({
@@ -155,6 +160,7 @@ export default function CustomerSpendReport({ onBack, category, categoryKey }: {
       if (debouncedSearch) body.search = debouncedSearch;
       if (segmentFilter.length > 0) body.segments = segmentFilter;
       if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
+      if (minVisits !== undefined) body.min_visits = minVisits;
       const res = await api.post(CUSTOMER_SPEND_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -176,26 +182,48 @@ export default function CustomerSpendReport({ onBack, category, categoryKey }: {
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, vipMin, lowMax, debouncedSearch, segmentFilter, staffFilterIds, currentPage, pageSize]);
+  }, [dateFrom, dateTo, vipMin, lowMax, debouncedSearch, segmentFilter, staffFilterIds, minVisits, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, vipMin, lowMax, debouncedSearch, segmentFilter, staffFilterIds]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, vipMin, lowMax, debouncedSearch, segmentFilter, staffFilterIds, minVisits]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "segment", label: "Segment", options: SEGMENT_OPTIONS },
     { key: "staff", label: "Staff", options: staffOptions, searchable: true },
+    {
+      key: "visits",
+      label: "Visits",
+      options: [],
+      render: (draft, setDraft) => (
+        <div className="rp-cs-visits-field">
+          <label htmlFor="jfm-min-visits-input">Minimum Visits</label>
+          <input
+            id="jfm-min-visits-input"
+            type="number"
+            min={0}
+            placeholder="e.g. 5"
+            value={draft[0] ?? ""}
+            onChange={(e) => setDraft(e.target.value ? [e.target.value] : [])}
+          />
+          <p className="rp-cs-visits-field__hint">Shows clients with at least this many visits in the date range.</p>
+        </div>
+      ),
+    },
   ], [staffOptions]);
 
   const filterMenuSelected = useMemo(() => ({
     segment: segmentFilter,
     staff: staffFilterIds,
-  }), [segmentFilter, staffFilterIds]);
+    visits: minVisits !== undefined ? [String(minVisits)] : [],
+  }), [segmentFilter, staffFilterIds, minVisits]);
 
-  // One commit for both fields so Segment and Staff narrow the result set
-  // jointly (AND). Clear passes {}, hence the ?? [] defaults.
+  // One commit for all three fields so Segment, Staff and Visits narrow the
+  // result set jointly (AND). Clear passes {}, hence the ?? [] defaults.
   const handleFiltersApply = (next: Record<string, string[]>) => {
     setSegmentFilter(next.segment ?? []);
     setStaffFilterIds(next.staff ?? []);
+    const visitsRaw = next.visits?.[0];
+    setMinVisits(visitsRaw ? Math.max(0, parseInt(visitsRaw, 10) || 0) : undefined);
   };
 
   const segmentLabel = (s: string) => SEGMENT_OPTIONS.find(o => o.id === s)?.label ?? s;
@@ -245,6 +273,7 @@ export default function CustomerSpendReport({ onBack, category, categoryKey }: {
     ...(staffFilterIds.length
       ? [`Staff: ${staffOptions.filter(o => staffFilterIds.includes(o.id)).map(o => o.label).join(", ")}`]
       : []),
+    ...(minVisits !== undefined ? [`Visits: ${minVisits}+`] : []),
     ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
   ];
 
