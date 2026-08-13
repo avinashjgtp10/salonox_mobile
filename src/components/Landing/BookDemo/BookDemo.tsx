@@ -6,7 +6,6 @@ import {
   DEMO_EMAIL,
   DEMO_PHONE_DEFAULT_COUNTRY,
   Icon,
-  OFFICE_MAP_EMBED_URL,
   OFFICE_MAP_URL,
   Reveal,
   SectionArtwork,
@@ -172,30 +171,6 @@ const BookDemo: React.FC<BookDemoProps> = ({
             </div>
           </div>
 
-          <div className="office-map-wrap">
-            <iframe
-              src={OFFICE_MAP_EMBED_URL}
-              title="SalonOX Tech office location on Google Maps"
-              loading="lazy"
-              referrerPolicy="no-referrer-when-downgrade"
-              allowFullScreen
-            />
-            <a
-              href={OFFICE_MAP_URL}
-              className="office-map-click-target"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Open SalonOX Tech office location on Google Maps"
-            />
-            <a
-              href={OFFICE_MAP_URL}
-              className="office-map-link"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              View on Google Maps <Icon.Arrow />
-            </a>
-          </div>
         </div>
       </Reveal>
 
