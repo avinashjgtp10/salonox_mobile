@@ -20,6 +20,7 @@ import type {
   DeleteStaffAddressResponse,
   DeleteStaffResponse,
   EmergencyContactListResponse,
+  SetStaffWagesRequest,
   StaffAddressListQuery,
   StaffAddressListResponse,
   StaffListQuery,
@@ -111,11 +112,16 @@ type DeleteEmergencyContactRejectValue = {
   status?: number;
 };
 
+export type CreateStaffThunkArgs = {
+  staff: Omit<CreateStaffRequest, "salon_id">;
+  wages?: SetStaffWagesRequest | null;
+};
+
 export const createStaffThunk = createAsyncThunk<
   CreateStaffResponse,
-  Omit<CreateStaffRequest, "salon_id">,
+  CreateStaffThunkArgs,
   { rejectValue: CreateStaffRejectValue; state: RootState }
->("staff/createStaff", async (staffPayload, { dispatch, getState, rejectWithValue }) => {
+>("staff/createStaff", async ({ staff: staffPayload, wages }, { dispatch, getState, rejectWithValue }) => {
   try {
     const salonId = selectActiveBranchId(getState());
     const payload: CreateStaffRequest = {
@@ -124,6 +130,17 @@ export const createStaffThunk = createAsyncThunk<
     };
 
     const response = await staffService.createStaff(payload);
+
+    if (wages && response.staffMember.id) {
+      try {
+        await staffService.setStaffWages(response.staffMember.id, wages);
+      } catch (wageError) {
+        // Matches Web: a wage-save failure never blocks staff creation from
+        // reporting success — it's a secondary call against the just-created
+        // record, not part of the create transaction itself.
+        console.error("[Staff] Set wages after create failed", wageError);
+      }
+    }
 
     void dispatch(fetchStaffThunk({ ...getState().staff.query, page: 1, refresh: true, reset: true }));
     void dispatch(fetchDashboardThunk());
@@ -509,9 +526,13 @@ export const fetchEmergencyContactsThunk = createAsyncThunk<
 
 export const updateStaffThunk = createAsyncThunk<
   UpdateStaffResponse,
-  { staffId: string; updates: Omit<UpdateStaffRequest, "salon_id"> },
+  {
+    staffId: string;
+    updates: Omit<UpdateStaffRequest, "salon_id">;
+    wages?: SetStaffWagesRequest | null;
+  },
   { rejectValue: UpdateStaffRejectValue; state: RootState }
->("staff/updateStaff", async ({ staffId, updates }, { dispatch, getState, rejectWithValue }) => {
+>("staff/updateStaff", async ({ staffId, updates, wages }, { dispatch, getState, rejectWithValue }) => {
   try {
     const salonId = selectActiveBranchId(getState());
     const payload: UpdateStaffRequest = {
@@ -520,6 +541,14 @@ export const updateStaffThunk = createAsyncThunk<
     };
 
     const response = await staffService.updateStaff(staffId, payload);
+
+    if (wages) {
+      try {
+        await staffService.setStaffWages(staffId, wages);
+      } catch (wageError) {
+        console.error("[Staff] Set wages after update failed", wageError);
+      }
+    }
 
     void dispatch(fetchStaffByIdThunk(staffId));
     void dispatch(fetchStaffThunk({ ...getState().staff.query, page: 1, refresh: true, reset: true }));

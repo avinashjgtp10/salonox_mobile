@@ -3,6 +3,7 @@ export const STAFF = {
   ADDRESSES: (staffId: string) => `/staff/${staffId}/addresses`,
   CREATE: "/staff",
   DELETE: "/staff",
+  UPLOAD_AVATAR: "/staff/upload-avatar",
   EMERGENCY_CONTACT: (staffId: string, recordId: string) =>
     `/staff/${staffId}/emergency-contacts/${recordId}`,
   EMERGENCY_CONTACTS: (staffId: string) => `/staff/${staffId}/emergency-contacts`,

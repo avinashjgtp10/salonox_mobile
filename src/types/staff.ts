@@ -12,29 +12,47 @@ export type StaffListQuery = {
 export type StaffAddressListQuery = StaffListQuery;
 
 export type CreateStaffRequest = {
-  availability?: string;
+  address?: string;
+  allow_calendar_bookings?: boolean;
+  avatar_url?: string;
+  birthday_day?: number;
+  birthday_month?: number;
   email?: string;
+  employee_code?: string;
   first_name: string;
   gender?: string;
-  joining_date?: string;
+  holidays?: number;
+  job_title?: string;
+  joined_date?: string;
   last_name?: string;
-  leave_balance?: number | string;
   notes?: string;
+  password?: string;
+  permission_level?: string;
   phone: string;
-  role?: string;
+  phone_country_code?: string;
   salon_id?: string;
-  services?: string[];
-  staff_role?: string;
   status?: string;
   work_end_time?: string;
   work_start_time?: string;
   working_hours?: string;
-  employee_code?: string;
+  working_hours_per_day?: number;
 };
 
 export type CreateStaffResponse = {
   message?: string;
   staffMember: StaffMember;
+};
+
+export type SetStaffWagesRequest = {
+  compensationType: "hourly" | "salary";
+  fixedSalary: number | null;
+  hourlyRate: number | null;
+  wagesEnabled: boolean;
+};
+
+export type UploadStaffAvatarResponse = {
+  message?: string;
+  url: string;
 };
 
 export type CreateStaffAddressRequest = {
