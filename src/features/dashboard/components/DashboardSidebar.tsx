@@ -179,14 +179,16 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </button>
       )}
 
-      <NavLink
-        to="/dashboard/enquiries"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={() => onMenuChange(null)}
-      >
-        <ChatSquareText size={26} />
-        <span className="nav-label">Enquiries</span>
-      </NavLink>
+      {can("view_enquiries") && (
+        <NavLink
+          to="/dashboard/enquiries"
+          className={({ isActive }) => navClass(isActive)}
+          onClick={() => onMenuChange(null)}
+        >
+          <ChatSquareText size={26} />
+          <span className="nav-label">Enquiries</span>
+        </NavLink>
+      )}
 
       {can("view_team") && (
         <button

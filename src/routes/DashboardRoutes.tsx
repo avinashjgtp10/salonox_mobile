@@ -124,10 +124,12 @@ export const DashboardRoutes = (
       <Route path="profile" element={<ProfilePage />} />
       <Route path="notifications" element={<NotificationsPage />} />
 
-      {/* Enquiries — open to all authenticated users, no permission guard */}
-      <Route path="enquiries" element={<EnquiriesListPage />} />
-      <Route path="enquiries/add" element={<EnquiryAddPage />} />
-      <Route path="enquiries/edit/:id" element={<EnquiryAddPage />} />
+      {/* Enquiries — requires view_enquiries */}
+      <Route element={<PermissionGuard permKey="view_enquiries" />}>
+        <Route path="enquiries" element={<EnquiriesListPage />} />
+        <Route path="enquiries/add" element={<EnquiryAddPage />} />
+        <Route path="enquiries/edit/:id" element={<EnquiryAddPage />} />
+      </Route>
 
       {/* Help & Support — accessible to all authenticated users */}
       <Route path="help" element={<HelpPage />} />
