@@ -177,7 +177,20 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
   }, [categoryDropdownOpen]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  const patch = (p: Partial<FormState>) => setForm((prev) => ({ ...prev, ...p }));
+  const patch = (p: Partial<FormState>) => {
+    setForm((prev) => ({ ...prev, ...p }));
+    // Field names line up 1:1 with error keys (name/price/discount/expiryDate)
+    // — clear a field's inline error as soon as it's edited, otherwise a
+    // message set by validate() on Save just sits there forever even after
+    // the user fixes the value, since nothing else ever touches `errors`.
+    setErrors((prev) => {
+      const keys = Object.keys(p).filter((k) => k in prev);
+      if (keys.length === 0) return prev;
+      const next = { ...prev };
+      keys.forEach((k) => delete next[k]);
+      return next;
+    });
+  };
 
   useEffect(() => {
     if (!editId) return;
@@ -218,8 +231,19 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
 
   const addTier = () => patch({ loyaltyTiers: [...form.loyaltyTiers, emptyTier()] });
   const removeTier = (i: number) => patch({ loyaltyTiers: form.loyaltyTiers.filter((_, idx) => idx !== i) });
-  const patchTier = (i: number, p: Partial<LoyaltyTierInput>) =>
+  const patchTier = (i: number, p: Partial<LoyaltyTierInput>) => {
     patch({ loyaltyTiers: form.loyaltyTiers.map((t, idx) => (idx === i ? { ...t, ...p } : t)) });
+    // Tier errors are keyed as tier{i}Threshold/tier{i}Discount, not plain
+    // field names, so patch()'s generic clearing above can't catch these —
+    // clear them explicitly on the same edit that touches that tier's field.
+    setErrors((prev) => {
+      const next = { ...prev };
+      let changed = false;
+      if ("threshold" in p && `tier${i}Threshold` in next) { delete next[`tier${i}Threshold`]; changed = true; }
+      if ("discount" in p && `tier${i}Discount` in next) { delete next[`tier${i}Discount`]; changed = true; }
+      return changed ? next : prev;
+    });
+  };
 
   const toggleCategory = (id: string) => patch({
     categoryIds: form.categoryIds.includes(id)

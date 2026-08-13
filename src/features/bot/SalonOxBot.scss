@@ -53,8 +53,14 @@ $green-darker: #085041;
   bottom: 150px; // tracks .sbot-fab (86px) + button height (52px) + gap (12px)
   right: 28px;
   z-index: 899; // see .sbot-fab above — kept below all modals
-  width: 380px;
-  height: 570px;
+  width: 300px;
+  height: 440px;
+  // On a short viewport (small/non-maximized browser window), the bottom
+  // offset + height can exceed 100vh, pushing the window's top edge above
+  // y=0 and straight into the fixed dashboard topbar. Capping height to the
+  // actual available space (bottom offset + a small top margin) makes it
+  // shrink instead of overflowing upward.
+  max-height: calc(100vh - 170px);
   border-radius: 20px;
   overflow: hidden;
   display: flex;
