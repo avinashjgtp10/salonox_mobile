@@ -98,6 +98,10 @@ const ServiceDetailPanel: React.FC<ServiceDetailPanelProps> = ({
               value={service.online_booking ? "Enabled" : "Disabled"}
               badge={service.online_booking ? "on" : "off"}
             />
+            <Field
+              label="Service reminder"
+              value={service.reminder_after_days ? `Redo after ${service.reminder_after_days} days` : "Not set"}
+            />
           </section>
 
           <section className="pd-section">

@@ -284,6 +284,25 @@ const ServiceFormPage: React.FC = () => {
           </div>
 
           <div className="cf-field">
+            <label>Service Reminder (days)</label>
+            <input
+              type="number"
+              min={1}
+              step={1}
+              placeholder="e.g. 30"
+              value={formData.basic.reminderAfterDays ?? ""}
+              onChange={(e) => {
+                const raw = e.target.value;
+                const n = raw === "" ? null : Math.max(1, parseInt(raw, 10) || 1);
+                updateField("basic", { ...formData.basic, reminderAfterDays: n });
+              }}
+            />
+            <span className="cf-hint cf-hint--inline">
+              Optional — remind the client to redo this service after this many days. Leave blank if it has no redo cadence.
+            </span>
+          </div>
+
+          <div className="cf-field">
             <label>Availability</label>
             {/* Label text is wrapped in a span rather than left as a bare text
                 node: a loose text node is only an anonymous flex item, which

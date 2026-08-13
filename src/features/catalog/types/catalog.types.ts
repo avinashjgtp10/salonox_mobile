@@ -51,6 +51,9 @@ export interface Service {
   commission_kind?: ServiceCommissionKind | null;
   resource_required?: boolean;
   is_active: boolean;
+  // Days after which this service should be redone (e.g. a color touch-up
+  // due in 30 days). null = no reminder configured.
+  reminder_after_days?: number | null;
   salon_id?: string | null;
   gender_preference?: string | null;
   image_url?: string | null;
@@ -70,6 +73,8 @@ export interface BasicDetailsData {
   price: number;
   description: string;
   active: boolean;
+  // Days after which this service should be redone. null = no reminder set.
+  reminderAfterDays: number | null;
 }
 
 export interface TeamMember {

@@ -107,7 +107,7 @@ export default function DashboardLayout() {
           <TeamSubSidebar onClose={() => setOpenMenu(null)} />
         )}
 
-        <main className={`main ${openMenu === "team" ? "shifted--team" : openMenu === "marketing" ? "shifted--marketing" : openMenu === "clients" ? "shifted--clients" : openMenu === "catalog" ? "shifted--catalog" : openMenu ? "shifted" : ""} ${location.pathname === "/dashboard/calendar" ? "main--calendar" : ""} ${location.pathname.startsWith("/dashboard/marketing/inbox") ? "main--inbox" : ""} ${isFlushPage ? "main--flush" : ""}`}>
+        <main className={`main ${openMenu === "team" ? "shifted--team" : openMenu === "marketing" ? "shifted--marketing" : openMenu === "clients" ? "shifted--clients" : openMenu === "catalog" ? "shifted--catalog" : openMenu ? "shifted" : ""} ${location.pathname === "/dashboard/calendar" ? "main--calendar" : ""} ${location.pathname.startsWith("/dashboard/marketing/inbox") ? "main--inbox" : ""} ${location.pathname === "/dashboard/clients/history" ? "main--history" : ""} ${isFlushPage ? "main--flush" : ""}`}>
           <Outlet />
         </main>
       </div>
