@@ -24,7 +24,7 @@ interface DailyRow {
   appointmentId: string | null;
   serviceId: string | null;
   staffId: string | null;
-  time: string;
+  billTime: string;
   invoiceNo: string;
   clientName: string;
   items: string;
@@ -46,7 +46,7 @@ function mapRow(row: any): DailyRow {
     appointmentId: row.appointment_id ? String(row.appointment_id) : null,
     serviceId: row.service_id ? String(row.service_id) : null,
     staffId: row.staff_id ? String(row.staff_id) : null,
-    time: row.time || "—",
+    billTime: row.bill_time || "—",
     invoiceNo: row.ticket_no ?? "—",
     clientName: row.client_name || "Walk-in",
     items: row.service || "—",
@@ -194,8 +194,8 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
     setItemTypes(next.item_type ?? []);
   };
 
-  const HEADERS = ["Time", "Invoice No", "Client Name", "Items", "Staff", `Grand Total (${currencySymbol})`, `Paid Amount (${currencySymbol})`, `Due Amount (${currencySymbol})`, "Payment Method", "Status"];
-  const exportRows = () => rows.map(r => [r.time, r.invoiceNo, r.clientName, r.items, r.staff, r.grandTotal, r.paidAmount, r.dueAmount, r.paymentMethod, r.status]);
+  const HEADERS = ["Bill Time", "Invoice No", "Client Name", "Items", "Staff", `Grand Total (${currencySymbol})`, `Paid Amount (${currencySymbol})`, `Due Amount (${currencySymbol})`, "Payment Method", "Status"];
+  const exportRows = () => rows.map(r => [r.billTime, r.invoiceNo, r.clientName, r.items, r.staff, r.grandTotal, r.paidAmount, r.dueAmount, r.paymentMethod, r.status]);
 
   return (
     <div className="rp-detail-view">
@@ -266,7 +266,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
                   disabled={deletableIds.length === 0}
                 />
               </th>
-              <th>Time</th>
+              <th>Bill Time</th>
               <th>Invoice No</th>
               <th>Client Name</th>
               <th>Items</th>
@@ -295,7 +295,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
                     />
                   )}
                 </td>
-                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.time || "—"}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.billTime || "—"}</td>
                 <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>
                   <span className="rp-detail-link">{r.invoiceNo}</span>
                 </td>
