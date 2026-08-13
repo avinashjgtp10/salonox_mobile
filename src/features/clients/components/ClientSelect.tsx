@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { ChevronDown, Search, Check } from "react-bootstrap-icons";
+import { ChevronDown, Search, Check, PlusLg } from "react-bootstrap-icons";
 import "../styles/ClientSelect.scss";
 
 export interface ClientSelectOption {
@@ -19,6 +19,12 @@ export interface ClientSelectProps {
   disabled?: boolean;
   invalid?: boolean;
   className?: string;
+  /** When true, shows a "+ Create" button if the search query doesn't match any option. */
+  creatable?: boolean;
+  /** Label prefix for the create button, e.g. "Create status". Defaults to "Create". */
+  createLabel?: string;
+  /** Called when the user clicks the create button. Receives the typed search text. */
+  onCreateNew?: (text: string) => void;
 }
 
 export const ClientSelect: React.FC<ClientSelectProps> = ({
@@ -30,6 +36,9 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({
   disabled = false,
   invalid = false,
   className = "",
+  creatable = false,
+  createLabel = "Create",
+  onCreateNew,
 }) => {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
@@ -199,32 +208,64 @@ export const ClientSelect: React.FC<ClientSelectProps> = ({
             />
           </div>
           <div className="cli-select-list" ref={listRef}>
-            {filtered.length === 0 ? (
+            {filtered.length === 0 && !creatable && (
               <div className="cli-select-empty">No options found</div>
-            ) : (
-              filtered.map((o, i) => {
-                const isSelected = o.value === value;
-                const isActive = i === activeIndex;
-                return (
-                  <button
-                    type="button"
-                    key={o.value}
-                    data-idx={i}
-                    className={`cli-select-option ${isSelected ? "cli-select-option--selected" : ""} ${isActive ? "cli-select-option--active" : ""}`}
-                    role="option"
-                    aria-selected={isSelected}
-                    onMouseEnter={() => setActiveIndex(i)}
-                    onClick={() => {
-                      onChange(o.value);
-                      setOpen(false);
-                      triggerRef.current?.focus();
-                    }}
-                  >
-                    <span className="cli-select-option__label">{o.label}</span>
-                    {isSelected && <Check size={14} className="cli-select-option__check" />}
-                  </button>
-                );
-              })
+            )}
+            {filtered.length === 0 && creatable && search.trim() && (
+              <button
+                type="button"
+                className="cli-select-option cli-select-option--create"
+                onClick={() => {
+                  onCreateNew?.(search.trim());
+                  setOpen(false);
+                  setSearch("");
+                  triggerRef.current?.focus();
+                }}
+              >
+                <PlusLg size={13} className="cli-select-option__create-icon" />
+                <span className="cli-select-option__label">{createLabel} "{search.trim()}"</span>
+              </button>
+            )}
+            {filtered.map((o, i) => {
+              const isSelected = o.value === value;
+              const isActive = i === activeIndex;
+              return (
+                <button
+                  type="button"
+                  key={o.value}
+                  data-idx={i}
+                  className={`cli-select-option ${isSelected ? "cli-select-option--selected" : ""} ${isActive ? "cli-select-option--active" : ""}`}
+                  role="option"
+                  aria-selected={isSelected}
+                  onMouseEnter={() => setActiveIndex(i)}
+                  onClick={() => {
+                    onChange(o.value);
+                    setOpen(false);
+                    triggerRef.current?.focus();
+                  }}
+                >
+                  <span className="cli-select-option__label">{o.label}</span>
+                  {isSelected && <Check size={14} className="cli-select-option__check" />}
+                </button>
+              );
+            })}
+            {filtered.length > 0 && creatable && (
+              <>
+                <div className="cli-select-divider" />
+                <button
+                  type="button"
+                  className="cli-select-option cli-select-option--create"
+                  onClick={() => {
+                    onCreateNew?.(search.trim());
+                    setOpen(false);
+                    setSearch("");
+                    triggerRef.current?.focus();
+                  }}
+                >
+                  <PlusLg size={13} className="cli-select-option__create-icon" />
+                  <span className="cli-select-option__label">{search.trim() ? `${createLabel} "${search.trim()}"` : `${createLabel}...`}</span>
+                </button>
+              </>
             )}
           </div>
         </div>,

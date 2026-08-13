@@ -372,6 +372,15 @@ body {
   min-height: 0;
 }
 
+.main--history,
+.main:has(.chp-root) {
+  padding: 0;
+  overflow: hidden;
+  height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
+  max-height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
+  min-height: 0;
+}
+
 /* ================= DASHBOARD HOME ================= */
 .db-home {
   max-width: 1400px;

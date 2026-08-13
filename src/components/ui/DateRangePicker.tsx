@@ -13,6 +13,10 @@ export interface DateRangePickerProps {
   onChange: (startDate: string, endDate: string) => void;
   /** Opt-in Today/This Week/This Month quick-pick row, shown above the calendar. */
   showQuickPresets?: boolean;
+  /** Custom trigger placeholder when no date is selected. Defaults to "Date Range". */
+  placeholder?: string;
+  /** Optional callback when date filter is cleared. */
+  onClear?: () => void;
 }
 
 function getMonthDays(year: number, month0: number): (string | null)[] {
@@ -26,10 +30,8 @@ function getMonthDays(year: number, month0: number): (string | null)[] {
   return days;
 }
 
-// dd/MM/yyyy, consistently with every report table/export — en-IN's
-// {day:"2-digit",month:"short",year:"numeric"} used to render "30 Jun 2026",
-// inconsistent with the rest of the app.
 const fmtLabel = (iso: string) => {
+  if (!iso) return "";
   const d = new Date(iso + "T12:00:00");
   if (isNaN(d.getTime())) return iso;
   const dd = String(d.getDate()).padStart(2, "0");
@@ -40,13 +42,22 @@ const fmtLabel = (iso: string) => {
 
 const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-export default function DateRangePicker({ startDate, endDate, onChange, showQuickPresets = false }: DateRangePickerProps) {
+export default function DateRangePicker({
+  startDate,
+  endDate,
+  onChange,
+  showQuickPresets = false,
+  placeholder = "Date Range",
+  onClear,
+}: DateRangePickerProps) {
   const [open, setOpen] = useState(false);
   const [draftStart, setDraftStart] = useState(startDate);
   const [draftEnd, setDraftEnd] = useState(endDate);
   const [pickingEnd, setPickingEnd] = useState(false);
-  const [viewYear, setViewYear] = useState(() => Number(startDate.slice(0, 4)));
-  const [viewMonth0, setViewMonth0] = useState(() => Number(startDate.slice(5, 7)) - 1);
+
+  const initialIso = startDate || endDate || toISO(new Date());
+  const [viewYear, setViewYear] = useState(() => Number(initialIso.slice(0, 4)) || new Date().getFullYear());
+  const [viewMonth0, setViewMonth0] = useState(() => (Number(initialIso.slice(5, 7)) || (new Date().getMonth() + 1)) - 1);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -54,8 +65,9 @@ export default function DateRangePicker({ startDate, endDate, onChange, showQuic
     setDraftStart(startDate);
     setDraftEnd(endDate);
     setPickingEnd(false);
-    setViewYear(Number(startDate.slice(0, 4)));
-    setViewMonth0(Number(startDate.slice(5, 7)) - 1);
+    const currIso = startDate || endDate || toISO(new Date());
+    setViewYear(Number(currIso.slice(0, 4)) || new Date().getFullYear());
+    setViewMonth0((Number(currIso.slice(5, 7)) || (new Date().getMonth() + 1)) - 1);
     const close = (e: MouseEvent) => {
       if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
     };
@@ -87,8 +99,8 @@ export default function DateRangePicker({ startDate, endDate, onChange, showQuic
   };
 
   const apply = () => {
-    const lo = draftStart < draftEnd ? draftStart : draftEnd;
-    const hi = draftStart < draftEnd ? draftEnd : draftStart;
+    const lo = draftStart && draftEnd ? (draftStart < draftEnd ? draftStart : draftEnd) : (draftStart || draftEnd);
+    const hi = draftStart && draftEnd ? (draftStart < draftEnd ? draftEnd : draftStart) : (draftStart || draftEnd);
     onChange(lo, hi);
     setOpen(false);
   };
@@ -111,7 +123,6 @@ export default function DateRangePicker({ startDate, endDate, onChange, showQuic
 
   const thisWeek = () => {
     const now = new Date();
-    // Sunday-start week, matching DAYS_ABBR's Su-Sa header order above.
     const first = new Date(now);
     first.setDate(now.getDate() - now.getDay());
     const last = new Date(first);
@@ -120,12 +131,22 @@ export default function DateRangePicker({ startDate, endDate, onChange, showQuic
     setOpen(false);
   };
 
+  const triggerLabelText = () => {
+    if (startDate && endDate) {
+      if (startDate === endDate) return fmtLabel(startDate);
+      return `${fmtLabel(startDate)} – ${fmtLabel(endDate)}`;
+    }
+    if (startDate) return fmtLabel(startDate);
+    if (endDate) return fmtLabel(endDate);
+    return placeholder;
+  };
+
   const days = getMonthDays(viewYear, viewMonth0);
 
   return (
     <div className="drp" ref={containerRef}>
-      <button type="button" className="drp-trigger" onClick={() => setOpen(v => !v)}>
-        {fmtLabel(startDate)} – {fmtLabel(endDate)}
+      <button type="button" className={`drp-trigger${startDate || endDate ? " drp-trigger--active" : ""}`} onClick={() => setOpen(v => !v)}>
+        <span>{triggerLabelText()}</span>
         <Calendar3 size={13} />
       </button>
       {open && (
@@ -150,8 +171,8 @@ export default function DateRangePicker({ startDate, endDate, onChange, showQuic
               const isEmpty = !day;
               const lo = draftStart < draftEnd ? draftStart : draftEnd;
               const hi = draftStart < draftEnd ? draftEnd : draftStart;
-              const inRange = day && day >= lo && day <= hi;
-              const isEdge = day === draftStart || day === draftEnd;
+              const inRange = day && lo && hi && day >= lo && day <= hi;
+              const isEdge = day && (day === draftStart || day === draftEnd);
               return (
                 <button
                   type="button"
@@ -171,7 +192,17 @@ export default function DateRangePicker({ startDate, endDate, onChange, showQuic
             })}
           </div>
           <div className="drp-actions">
-            <button type="button" className="drp-link" onClick={thisMonth}>This month</button>
+            <button
+              type="button"
+              className="drp-link"
+              onClick={() => {
+                if (onClear) onClear();
+                else onChange("", "");
+                setOpen(false);
+              }}
+            >
+              Clear
+            </button>
             <button type="button" className="drp-apply-btn" onClick={apply}>Apply</button>
           </div>
         </div>
