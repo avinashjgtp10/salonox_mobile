@@ -22,6 +22,14 @@ interface Props { booking: Booking; onClose: () => void; onEdit?: (booking: Book
 // Mirrors the rp-status-* badge palette in analytics/styles/_reportDetailBase.scss
 // so this panel's status pill always matches the color/label shown for the same
 // status in the Sales Summary report table.
+// booking.date/billDate are YYYY-MM-DD strings (see toLocalDateStr in bookingMapper.ts);
+// display them as DD-MM-YYYY per report side-panel formatting requirements.
+function formatDateDMY(dateStr?: string): string {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-");
+  return y && m && d ? `${d}-${m}-${y}` : dateStr;
+}
+
 const STATUS_PILL_STYLES: Record<string, { label: string; text: string; bg: string; color: string }> = {
   paid:      { label: "✓ Paid",      text: "Paid",      bg: "#22c55e", color: "#fff" },
   partial:   { label: "⏳ Partial",   text: "Partial",   bg: "#f59e0b", color: "#fff" },
@@ -170,7 +178,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
           <div className="vbm-section">
             <div className="vbm-section-label">Appointment</div>
             {[
-              ["📅 Date", booking.billDate || booking.date],
+              ["📅 Date", formatDateDMY(booking.billDate || booking.date)],
               ["🕐 Time", `${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}`],
               ["💼 Staff", staffName],
             ].map(([l, v]) => (
@@ -490,7 +498,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               <div className="vbm-activity-card">
                 <div className="vbm-activity-card__title">Activity Log</div>
                 {[
-                  { icon: "📅", label: "Appointment Created", detail: `${booking.billDate || booking.date} · ${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}` },
+                  { icon: "📅", label: "Appointment Created", detail: `${formatDateDMY(booking.billDate || booking.date)} · ${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}` },
                   { icon: "👤", label: "Client", detail: [booking.clientName, booking.clientPhone, (booking as any).clientEmail].filter(Boolean).join(" · ") },
                   { icon: "💼", label: "Staff", detail: staffName },
                   { icon: "💳", label: "Payment Status", detail: normalizePaymentStatus(booking.status) },
