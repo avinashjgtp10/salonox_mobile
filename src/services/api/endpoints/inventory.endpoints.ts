@@ -24,4 +24,12 @@ export const INVENTORY = {
   CONSUMABLE_ADJUST: (id: string) => `/api/v1/inventory/consumables/${id}/adjust`,
   CONSUMABLE_ASSIGNED_SERVICES: (id: string) => `/api/v1/inventory/consumables/${id}/assigned-services`,
   CONSUMABLE_UNIT_CONVERSIONS: (id: string) => `/api/v1/inventory/consumables/${id}/unit-conversions`,
+
+  // Product Inventory — retail stock (product_type retail/both). The
+  // consumable endpoints above cover salon-use stock; these are the resale
+  // counterpart, kept separate so the two can't write each other's figures.
+  PRODUCT_INVENTORY: "/api/v1/inventory/product-inventory",
+  PRODUCT_INVENTORY_FILTER_OPTIONS: "/api/v1/inventory/product-inventory/filter-options",
+  PRODUCT_INVENTORY_HISTORY: "/api/v1/inventory/product-inventory/history",
+  PRODUCT_INVENTORY_STOCK_IN: (id: string) => `/api/v1/inventory/product-inventory/${id}/stock-in`,
 } as const;
