@@ -171,4 +171,21 @@
     color: #6c3ce1;
     flex-shrink: 0;
   }
+
+  &--create {
+    color: #6c3ce1;
+    font-weight: 600;
+    gap: 6px;
+  }
+
+  &__create-icon {
+    flex-shrink: 0;
+    color: #6c3ce1;
+  }
+}
+
+.cli-select-divider {
+  height: 1px;
+  background: #e5e7eb;
+  margin: 4px 0;
 }

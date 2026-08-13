@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
-import { Search, PlusLg, PencilSquare, Trash3, ChatSquareText, ThreeDotsVertical, CalendarCheck } from "react-bootstrap-icons";
+import { Search, PlusLg, PencilSquare, Trash3, ChatSquareText, ThreeDotsVertical, CalendarCheck, ArrowCounterclockwise, ExclamationCircle } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { ENQUIRY } from "../../../services/api/endpoints";
-import { Pagination, JiraFilterMenu, Modal, Button, Input } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, Modal, Button, Input, DateRangePicker } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import EnquiryViewModal from "../components/EnquiryViewModal";
 import EnquiryRescheduleModal from "../components/EnquiryRescheduleModal";
@@ -16,6 +16,16 @@ const STATUS_FILTER_FIELDS: JiraFilterField[] = [
   { key: "status", label: "Status", options: ENQUIRY_STATUSES.map((s) => ({ id: s, label: s })) },
 ];
 
+function getEnquiryDateStr(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 export default function EnquiriesListPage() {
   const navigate = useNavigate();
   const [enquiries, setEnquiries] = useState<Enquiry[]>([]);
@@ -25,6 +35,8 @@ export default function EnquiriesListPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -43,6 +55,13 @@ export default function EnquiriesListPage() {
   const kebabPortalRef = useRef<HTMLUListElement>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+
+  const dateError = useMemo(() => {
+    if (startDate && endDate && startDate > endDate) {
+      return "Start Date cannot be after End Date";
+    }
+    return "";
+  }, [startDate, endDate]);
 
   useEffect(() => {
     if (!openRowMenuId) return;
@@ -77,6 +96,14 @@ export default function EnquiriesListPage() {
       params.set("limit", String(pageSize));
       if (debouncedSearch) params.set("search", debouncedSearch);
       if (statusFilter.length === 1) params.set("status", statusFilter[0]);
+      if (startDate && !dateError) {
+        params.set("start_date", startDate);
+        params.set("startDate", startDate);
+      }
+      if (endDate && !dateError) {
+        params.set("end_date", endDate);
+        params.set("endDate", endDate);
+      }
 
       const res = await api.get(ENQUIRY.LIST(params.toString()), { signal: ctrl.signal });
       const data = res.data?.data;
@@ -90,19 +117,48 @@ export default function EnquiriesListPage() {
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [currentPage, pageSize, debouncedSearch, statusFilter]);
+  }, [currentPage, pageSize, debouncedSearch, statusFilter, startDate, endDate, dateError]);
 
   useEffect(() => { fetchEnquiries(); }, [fetchEnquiries]);
 
-  useEffect(() => { setCurrentPage(1); }, [debouncedSearch, statusFilter]);
+  useEffect(() => { setCurrentPage(1); }, [debouncedSearch, statusFilter, startDate, endDate]);
 
-  // The list endpoint only supports a single status value — a multi-select
-  // filter (2+ statuses at once) falls back to filtering the current page
-  // client-side rather than adding a second server round trip.
   const visibleEnquiries = useMemo(() => {
-    if (statusFilter.length <= 1) return enquiries;
-    return enquiries.filter((e) => statusFilter.includes(e.status));
-  }, [enquiries, statusFilter]);
+    return enquiries.filter((e) => {
+      // Status filter
+      if (statusFilter.length > 0 && !statusFilter.includes(e.status)) {
+        return false;
+      }
+
+      // Search filter
+      if (debouncedSearch) {
+        const s = debouncedSearch.toLowerCase();
+        const nameMatch = e.name?.toLowerCase().includes(s);
+        const phoneMatch = e.phone?.toLowerCase().includes(s);
+        const idMatch = String(e.enquiry_no).includes(s) || formatEnquiryId(e.enquiry_no).toLowerCase().includes(s);
+        if (!nameMatch && !phoneMatch && !idMatch) return false;
+      }
+
+      // Date Range filter (checks creation date OR reschedule/follow-up date)
+      if (!dateError && (startDate || endDate)) {
+        const enqCreatedDateStr = getEnquiryDateStr(e.created_at);
+        const enqFollowUpDateStr = e.follow_up_at ? getEnquiryDateStr(e.follow_up_at) : "";
+
+        const createdMatch =
+          (!startDate || (enqCreatedDateStr && enqCreatedDateStr >= startDate)) &&
+          (!endDate || (enqCreatedDateStr && enqCreatedDateStr <= endDate));
+
+        const followUpMatch =
+          Boolean(enqFollowUpDateStr) &&
+          (!startDate || enqFollowUpDateStr >= startDate) &&
+          (!endDate || enqFollowUpDateStr <= endDate);
+
+        if (!createdMatch && !followUpMatch) return false;
+      }
+
+      return true;
+    });
+  }, [enquiries, statusFilter, debouncedSearch, startDate, endDate, dateError]);
 
   const handleStatusChange = async (enquiry: Enquiry, status: EnquiryFormValues["status"]) => {
     if (status === enquiry.status) return;
@@ -168,12 +224,50 @@ export default function EnquiriesListPage() {
             onChange={(e) => setSearch(e.target.value)}
           />
         </div>
+
+        <DateRangePicker
+          startDate={startDate}
+          endDate={endDate}
+          showQuickPresets
+          onChange={(start, end) => {
+            setStartDate(start);
+            setEndDate(end);
+          }}
+          onClear={() => {
+            setStartDate("");
+            setEndDate("");
+          }}
+          placeholder="Filter by Date Range"
+        />
+
         <JiraFilterMenu
           fields={STATUS_FILTER_FIELDS}
           selected={{ status: statusFilter }}
           onApply={(next) => setStatusFilter(next.status ?? [])}
         />
+
+        {(search || statusFilter.length > 0 || startDate || endDate) && (
+          <button
+            type="button"
+            className="enq-btn-reset-filters"
+            onClick={() => {
+              setSearch("");
+              setStatusFilter([]);
+              setStartDate("");
+              setEndDate("");
+            }}
+            title="Reset All Filters"
+          >
+            <ArrowCounterclockwise size={13} /> Reset Filters
+          </button>
+        )}
       </div>
+
+      {dateError && (
+        <div className="enq-date-error-text">
+          <ExclamationCircle size={13} /> {dateError}
+        </div>
+      )}
 
       <div className="enq-table-wrap">
         <table className="enq-table">
@@ -182,10 +276,10 @@ export default function EnquiriesListPage() {
               <th>Enquiry ID</th>
               <th>Name</th>
               <th>Phone</th>
-              <th>Status</th>
               <th>Date</th>
               <th>Notes</th>
               <th>Reschedule</th>
+              <th>Status</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -213,18 +307,6 @@ export default function EnquiriesListPage() {
                   <td className="enq-table__id">{formatEnquiryId(e.enquiry_no)}</td>
                   <td>{e.name}</td>
                   <td>{e.phone}</td>
-                  <td onClick={(ev) => ev.stopPropagation()}>
-                    <select
-                      className={`enq-status-badge enq-status-select enq-status-${e.status.toLowerCase().replace(/\s|-/g, "")}`}
-                      value={e.status}
-                      disabled={updatingStatusId === e.id}
-                      onChange={(ev) => handleStatusChange(e, ev.target.value as EnquiryFormValues["status"])}
-                    >
-                      {ENQUIRY_STATUSES.map((s) => (
-                        <option key={s} value={s}>{s}</option>
-                      ))}
-                    </select>
-                  </td>
                   <td>{formatEnquiryDate(e.created_at)}</td>
                   <td className="enq-table__notes" title={e.notes ?? undefined}>
                     {e.notes ? (e.notes.length > 30 ? `${e.notes.slice(0, 30)}…` : e.notes) : "—"}
@@ -238,6 +320,18 @@ export default function EnquiriesListPage() {
                       <CalendarCheck size={13} />
                       {e.follow_up_at ? formatFollowUpAt(e.follow_up_at) : "Reschedule"}
                     </button>
+                  </td>
+                  <td onClick={(ev) => ev.stopPropagation()}>
+                    <select
+                      className={`enq-status-badge enq-status-select enq-status-${e.status.toLowerCase().replace(/\s|-/g, "")}`}
+                      value={e.status}
+                      disabled={updatingStatusId === e.id}
+                      onChange={(ev) => handleStatusChange(e, ev.target.value as EnquiryFormValues["status"])}
+                    >
+                      {ENQUIRY_STATUSES.map((s) => (
+                        <option key={s} value={s}>{s}</option>
+                      ))}
+                    </select>
                   </td>
                   <td className="enq-actions-cell" onClick={(ev) => ev.stopPropagation()}>
                     <button

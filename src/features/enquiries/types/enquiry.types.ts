@@ -1,6 +1,9 @@
-export type EnquiryStatus = "New" | "Follow-up" | "Converted" | "Closed";
+export type EnquiryStatus = string;
 
-export const ENQUIRY_STATUSES: EnquiryStatus[] = ["New", "Follow-up", "Converted", "Closed"];
+export const DEFAULT_ENQUIRY_STATUSES: string[] = ["New", "Follow-up", "Converted", "Closed"];
+
+// Keep backward-compatible alias
+export const ENQUIRY_STATUSES = DEFAULT_ENQUIRY_STATUSES;
 
 export const ENQUIRY_SOURCES = [
   { value: "walk_in", label: "Walk-in" },
@@ -26,6 +29,7 @@ export interface Enquiry {
   status: EnquiryStatus;
   notes: string | null;
   source: string | null;
+  custom_source?: string | null;
   follow_up_at: string | null;
   created_at: string;
 }
@@ -35,8 +39,9 @@ export interface EnquiryFormValues {
   phone: string;
   service_id: string;
   staff_id: string;
-  status: EnquiryStatus;
+  status: string;
   notes: string;
   source: string;
+  custom_source: string;
   follow_up_at: string;
 }

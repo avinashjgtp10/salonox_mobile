@@ -5,10 +5,11 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
 import ClientSelect from "../../clients/components/ClientSelect";
+import PhoneInput from "../../../components/ui/PhoneInput";
 import api from "../../../services/api/axios";
 import { ENQUIRY } from "../../../services/api/endpoints";
 import { datetimeLocalToIso, isoToDatetimeLocal } from "../utils/enquiryFormat";
-import { ENQUIRY_SOURCES, ENQUIRY_STATUSES, type EnquiryFormValues, type EnquiryStatus } from "../types/enquiry.types";
+import { DEFAULT_ENQUIRY_STATUSES, ENQUIRY_SOURCES, type EnquiryFormValues } from "../types/enquiry.types";
 import "../styles/EnquiryAddPage.scss";
 
 const EMPTY_FORM: EnquiryFormValues = {
@@ -19,6 +20,7 @@ const EMPTY_FORM: EnquiryFormValues = {
   status: "New",
   notes: "",
   source: "",
+  custom_source: "",
   follow_up_at: "",
 };
 
@@ -33,7 +35,13 @@ export default function EnquiryAddPage() {
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const [form, setForm] = useState<EnquiryFormValues>(EMPTY_FORM);
+  const [statuses, setStatuses] = useState<string[]>(DEFAULT_ENQUIRY_STATUSES);
+  const [showCreateStatusModal, setShowCreateStatusModal] = useState(false);
+  const [newStatusInput, setNewStatusInput] = useState("");
+  const [statusInputError, setStatusInputError] = useState("");
+
   const [touched, setTouched] = useState({ name: false, phone: false });
+  const [isPhoneFieldValid, setIsPhoneFieldValid] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -54,14 +62,26 @@ export default function EnquiryAddPage() {
         setIsLoading(true);
         const res = await api.get(ENQUIRY.BY_ID(id!));
         const e = res.data?.data || res.data;
+        const loadedStatus = e.status || "New";
+
+        if (loadedStatus && !DEFAULT_ENQUIRY_STATUSES.includes(loadedStatus)) {
+          setStatuses((prev) => (prev.includes(loadedStatus) ? prev : [...prev, loadedStatus]));
+        }
+
+        const rawSource = e.source || "";
+        const isKnownSource = ENQUIRY_SOURCES.some((s) => s.value === rawSource);
+        const sourceVal = isKnownSource ? rawSource : rawSource ? "other" : "";
+        const customSourceVal = e.custom_source || (!isKnownSource && rawSource ? rawSource : "");
+
         const loaded: EnquiryFormValues = {
           name: e.name || "",
           phone: e.phone || "",
           service_id: e.service_id ?? "",
           staff_id: e.staff_id ?? "",
-          status: e.status || "New",
+          status: loadedStatus,
           notes: e.notes ?? "",
-          source: e.source ?? "",
+          source: sourceVal,
+          custom_source: customSourceVal,
           follow_up_at: isoToDatetimeLocal(e.follow_up_at),
         };
         setForm(loaded);
@@ -78,26 +98,52 @@ export default function EnquiryAddPage() {
   }, [id, isEdit]);
 
   const serviceOptions = useMemo(
-    () => (serviceItems ?? []).map((s: any) => ({ id: String(s.id), label: s.name })),
+    () => (serviceItems ?? []).map((s: any) => ({ value: String(s.id), label: s.name })),
     [serviceItems],
   );
   const staffOptions = useMemo(
     () =>
       (staffItems ?? [])
         .map((s: any) => ({
-          id: String(s.id),
+          value: String(s.id),
           label: (s.fullName ?? s.full_name ?? s.name ?? `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim()) || "",
         }))
         .filter((o) => o.label),
     [staffItems],
   );
+  const statusOptions = useMemo(
+    () => statuses.map((s) => ({ value: s, label: s })),
+    [statuses],
+  );
 
   const isNameValid = form.name.trim().length >= 2;
-  const isPhoneValid = /^\d{10}$/.test(form.phone.trim());
+  const isPhoneValid = !!form.phone.trim() && isPhoneFieldValid;
   const showNameError = (touched.name || attemptedSubmit) && !isNameValid;
   const showPhoneError = (touched.phone || attemptedSubmit) && !isPhoneValid;
 
   const patch = (p: Partial<EnquiryFormValues>) => setForm((prev) => ({ ...prev, ...p }));
+
+  const handleCreateStatusOpen = (presetText?: string) => {
+    setNewStatusInput(presetText || "");
+    setStatusInputError("");
+    setShowCreateStatusModal(true);
+  };
+
+  const handleConfirmCreateStatus = () => {
+    const trimmed = newStatusInput.trim();
+    if (!trimmed) {
+      setStatusInputError("Status name cannot be empty");
+      return;
+    }
+    if (!statuses.includes(trimmed)) {
+      setStatuses((prev) => [...prev, trimmed]);
+    }
+    patch({ status: trimmed });
+    setShowCreateStatusModal(false);
+    setNewStatusInput("");
+    setStatusInputError("");
+    showSuccess(`Status "${trimmed}" created`);
+  };
 
   const handleCloseClick = () => {
     if (isDirty()) setShowUnsavedDialog(true);
@@ -118,6 +164,7 @@ export default function EnquiryAddPage() {
         status: form.status,
         notes: form.notes.trim() || null,
         source: form.source || null,
+        custom_source: form.source === "other" ? form.custom_source.trim() || null : null,
         follow_up_at: datetimeLocalToIso(form.follow_up_at),
       };
       if (isEdit) {
@@ -169,6 +216,45 @@ export default function EnquiryAddPage() {
         </div>
       )}
 
+      {showCreateStatusModal && (
+        <div className="enq-add__dialog-overlay">
+          <div className="enq-add__dialog">
+            <button className="enq-add__dialog-close" onClick={() => setShowCreateStatusModal(false)}>&times;</button>
+            <h5 className="enq-add__dialog-title">Create New Status</h5>
+            <p className="enq-add__dialog-desc" style={{ marginBottom: "16px" }}>
+              Enter a name for the new status. It will be added to options and selected immediately.
+            </p>
+            <div style={{ marginBottom: "20px" }}>
+              <input
+                className="enq-add-input"
+                placeholder="Status name (e.g. In Progress, Negotiating)"
+                value={newStatusInput}
+                onChange={(e) => {
+                  setNewStatusInput(e.target.value);
+                  if (statusInputError) setStatusInputError("");
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleConfirmCreateStatus();
+                  }
+                }}
+                autoFocus
+              />
+              {statusInputError && <span className="enq-add-field__error" style={{ display: "block", marginTop: "4px" }}>{statusInputError}</span>}
+            </div>
+            <div className="enq-add__dialog-actions">
+              <button className="btn enq-add__dialog-btn enq-add__dialog-btn--cancel" onClick={() => setShowCreateStatusModal(false)}>
+                Cancel
+              </button>
+              <button className="btn enq-add__dialog-btn enq-add__dialog-btn--discard" onClick={handleConfirmCreateStatus}>
+                Create &amp; Select
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="enq-add-page">
         <div className="enq-add-card">
           <h6 className="enq-add-card__title">Details</h6>
@@ -191,17 +277,17 @@ export default function EnquiryAddPage() {
               </div>
 
               <div className="enq-add-field">
-                <label className="enq-add-field__label">
-                  Phone <span style={{ color: "#dc2626" }}>*</span>
-                </label>
-                <input
-                  className={`enq-add-input ${showPhoneError ? "enq-add-input--invalid" : ""}`}
-                  placeholder="10-digit mobile number"
+                <PhoneInput
+                  label="Phone"
+                  required
                   value={form.phone}
-                  onChange={(e) => patch({ phone: e.target.value.replace(/\D/g, "").slice(0, 10) })}
+                  onChange={(val) => patch({ phone: val })}
+                  onValidityChange={setIsPhoneFieldValid}
                   onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
+                  placeholder="Mobile number"
+                  containerClass=""
+                  error={showPhoneError ? "Enter a valid phone number" : undefined}
                 />
-                {showPhoneError && <span className="enq-add-field__error">Enter a valid 10-digit phone number</span>}
               </div>
 
               <div className="enq-add-field">
@@ -209,7 +295,7 @@ export default function EnquiryAddPage() {
                 <ClientSelect
                   value={form.service_id}
                   onChange={(val) => patch({ service_id: val })}
-                  options={serviceOptions.map((o) => ({ value: o.id, label: o.label }))}
+                  options={serviceOptions}
                   placeholder="Select service"
                   searchPlaceholder="Search service..."
                 />
@@ -220,7 +306,7 @@ export default function EnquiryAddPage() {
                 <ClientSelect
                   value={form.staff_id}
                   onChange={(val) => patch({ staff_id: val })}
-                  options={staffOptions.map((o) => ({ value: o.id, label: o.label }))}
+                  options={staffOptions}
                   placeholder="Select staff"
                   searchPlaceholder="Search staff..."
                 />
@@ -228,15 +314,23 @@ export default function EnquiryAddPage() {
 
               <div className="enq-add-field">
                 <label className="enq-add-field__label">Status</label>
-                <select
-                  className="enq-add-input"
+                <ClientSelect
                   value={form.status}
-                  onChange={(e) => patch({ status: e.target.value as EnquiryStatus })}
+                  onChange={(val) => patch({ status: val })}
+                  options={statusOptions}
+                  placeholder="Select status"
+                  searchPlaceholder="Search status..."
+                  creatable
+                  createLabel="Create status"
+                  onCreateNew={(text) => handleCreateStatusOpen(text)}
+                />
+                <button
+                  type="button"
+                  className="enq-add-create-link"
+                  onClick={() => handleCreateStatusOpen()}
                 >
-                  {ENQUIRY_STATUSES.map((s) => (
-                    <option key={s} value={s}>{s}</option>
-                  ))}
-                </select>
+                  + Create Status
+                </button>
               </div>
 
               <div className="enq-add-field">
@@ -249,6 +343,20 @@ export default function EnquiryAddPage() {
                   searchPlaceholder="Search source..."
                 />
               </div>
+
+              {form.source === "other" && (
+                <div className="enq-add-field">
+                  <label className="enq-add-field__label">
+                    Custom Source <span style={{ color: "#dc2626" }}>*</span>
+                  </label>
+                  <input
+                    className="enq-add-input"
+                    placeholder="Specify source (e.g. Banner, Pamphlet, Exhibition)"
+                    value={form.custom_source}
+                    onChange={(e) => patch({ custom_source: e.target.value })}
+                  />
+                </div>
+              )}
 
               <div className="enq-add-field">
                 <label className="enq-add-field__label">Follow-up Date &amp; Time</label>
