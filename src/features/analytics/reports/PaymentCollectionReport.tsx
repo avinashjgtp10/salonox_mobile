@@ -198,12 +198,12 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
   };
 
   const HEADERS = [
-    "Date", "Customer", "Contact", "Invoice No.",
+    "Date", "Invoice No.", "Customer", "Contact",
     `Total Amount (${currencySymbol})`, `Paid Amount (${currencySymbol})`, `Due Amount (${currencySymbol})`,
     "Payment Method", "Status", "Staff",
   ];
   const exportRows = () => rows.map(r => [
-    formatDate(r.paymentDate), r.customerName, r.contact, r.invoiceNumber,
+    formatDate(r.paymentDate), r.invoiceNumber, r.customerName, r.contact,
     r.totalAmount, r.paidAmount, r.dueAmount,
     r.paymentMethod, r.paymentStatus === "partial" ? "Partial" : "Paid", r.staffName,
   ]);
@@ -299,7 +299,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Date</th><th>Customer</th><th>Contact</th><th>Invoice No.</th>
+              <th>Date</th><th>Invoice No.</th><th>Customer</th><th>Contact</th>
               <th>Total Amount ({currencySymbol})</th>
               <th>Paid Amount ({currencySymbol})</th>
               <th>Due Amount ({currencySymbol})</th>
@@ -318,9 +318,9 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
                 onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}
               >
                 <td>{formatDate(r.paymentDate)}</td>
+                <td><span className="rp-detail-link">{r.invoiceNumber}</span></td>
                 <td className="fw-semibold">{r.customerName}</td>
                 <td>{r.contact}</td>
-                <td>{r.invoiceNumber}</td>
                 <td>{formatAmount(r.totalAmount)}</td>
                 <td>{formatAmount(r.paidAmount)}</td>
                 <td className="fw-semibold">{formatAmount(r.dueAmount)}</td>
