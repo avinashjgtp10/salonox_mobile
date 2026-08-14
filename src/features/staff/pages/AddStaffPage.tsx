@@ -14,25 +14,25 @@ import {
   type Permission,
 } from "../../settings/data/permissionMatrix";
 import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
-import ClientSelect from "../../clients/components/ClientSelect";
+import Dropdown from "../../../components/ui/Dropdown";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { sendEmailOtpThunk, verifyEmailOtpThunk } from "../../../middleware/auth/otpThunk";
 
 // Three real choices only. There used to be a leading { value: "", label:
 // "Gender" } entry — the standard trick for giving a native <select> a
-// placeholder row. This field is a ClientSelect now, which takes its own
+// placeholder row. This field is a Dropdown now, which takes its own
 // `placeholder` prop (already passed below), so that entry stopped being a
 // placeholder and started rendering as a fourth, selectable option labelled
 // "Gender" that quietly set the value back to "".
 const GENDER_OPTIONS = [
-  { value: "male", label: "Male" },
-  { value: "female", label: "Female" },
-  { value: "other", label: "Other" },
+  { id: "male", name: "Male" },
+  { id: "female", name: "Female" },
+  { id: "other", name: "Other" },
 ];
 
 const ROLE_OPTIONS = [
-  { value: "Staff", label: "Staff" },
-  { value: "Manager", label: "Manager" },
+  { id: "Staff", name: "Staff" },
+  { id: "Manager", name: "Manager" },
 ];
 
 const ROLE_TO_LEVEL: Record<string, string> = {
@@ -585,14 +585,12 @@ const AddStaffPage: React.FC = () => {
 
               <div className="emp-field">
                 <label className="emp-field__label">Gender<span className="text-danger">*</span></label>
-                <ClientSelect
+                <Dropdown
                   value={form.gender}
                   onChange={(val: string) => setField("gender")(val)}
                   options={GENDER_OPTIONS}
                   placeholder="Gender"
-                  searchPlaceholder="Search gender..."
-                  invalid={isGenderInvalid}
-                  className="emp-input emp-select"
+                  className={`emp-input emp-select ${isGenderInvalid ? "emp-input--invalid" : ""}`}
                 />
                 {isGenderInvalid && <span className="emp-field__error">Gender is required</span>}
               </div>
@@ -607,12 +605,11 @@ const AddStaffPage: React.FC = () => {
               </div>
               <div className="emp-field">
                 <label className="emp-field__label">Role</label>
-                <ClientSelect
+                <Dropdown
                   value={permissionLevel === "Manager" ? "Manager" : "Staff"}
                   onChange={(val: string) => setPermissionLevel(val === "Manager" ? "Manager" : "Low")}
                   options={ROLE_OPTIONS}
                   placeholder="Select role"
-                  searchPlaceholder="Search role..."
                   className="emp-input emp-select"
                 />
               </div>

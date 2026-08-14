@@ -7,20 +7,20 @@ import "../styles/AddClientPage.scss";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import CountryCodeSelect from "../components/CountryCodeSelect";
-import ClientSelect from "../components/ClientSelect";
+import Dropdown from "../../../components/ui/Dropdown";
 
 const DOB_PLACEHOLDER_YEAR = 2000;
 
 const GENDER_OPTIONS = [
-  { value: "Female", label: "Female" },
-  { value: "Male", label: "Male" },
-  { value: "Other", label: "Other" },
+  { id: "Female", name: "Female" },
+  { id: "Male", name: "Male" },
+  { id: "Other", name: "Other" },
 ];
 
 const CLIENT_SOURCE_OPTIONS = [
-  { value: "walk_in", label: "Walk-in" },
-  { value: "instagram", label: "Instagram" },
-  { value: "google", label: "Google" },
+  { id: "walk_in", name: "Walk-in" },
+  { id: "instagram", name: "Instagram" },
+  { id: "google", name: "Google" },
 ];
 
 const AddClientPage: React.FC = () => {
@@ -425,13 +425,12 @@ const AddClientPage: React.FC = () => {
                 <label className="cli-field__label">
                   Gender <span style={{ color: "#dc2626" }}>*</span>
                 </label>
-                <ClientSelect
+                <Dropdown
                   value={form.gender}
                   onChange={(val) => setField("gender")(val)}
                   options={GENDER_OPTIONS}
                   placeholder="Select gender"
-                  searchPlaceholder="Search gender..."
-                  invalid={isGenderInvalid}
+                  className={`cli-input ${isGenderInvalid ? "cli-input--invalid" : ""}`}
                 />
                 {isGenderInvalid && <span className="cli-field__error">Gender is required</span>}
               </div>
@@ -469,12 +468,12 @@ const AddClientPage: React.FC = () => {
 
               <div className="cli-field">
                 <label className="cli-field__label">Client source</label>
-                <ClientSelect
+                <Dropdown
                   value={form.clientSource}
                   onChange={(val) => setField("clientSource")(val)}
                   options={CLIENT_SOURCE_OPTIONS}
                   placeholder="Select source"
-                  searchPlaceholder="Search source..."
+                  className="cli-input"
                 />
               </div>
               <div className="cli-field">
