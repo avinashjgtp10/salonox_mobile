@@ -44,9 +44,11 @@ export const ReportSummaryCards = memo(function ReportSummaryCards({
 
 export const ReportRowCard = memo(function ReportRowCard({
   fields,
+  onPress,
   row,
 }: {
   fields: string[];
+  onPress?: (row: ReportRow) => void;
   row: ReportRow;
 }) {
   const Colors = useThemeColors();
@@ -55,8 +57,15 @@ export const ReportRowCard = memo(function ReportRowCard({
   const titleField = visible[0];
 
   return (
-    <View accessible accessibilityLabel={visible.map((key) =>
+    <TouchableOpacity
+      accessible
+      accessibilityHint={onPress ? "Opens report row details" : undefined}
+      accessibilityLabel={visible.map((key) =>
       `${humanizeReportKey(key)} ${formatReportValue(key, row[key])}`).join(", ")}
+      accessibilityRole={onPress ? "button" : undefined}
+      activeOpacity={onPress ? 0.84 : 1}
+      disabled={!onPress}
+      onPress={onPress ? () => onPress(row) : undefined}
       style={styles.rowCard}
     >
       <View style={styles.rowAccent} />
@@ -77,7 +86,7 @@ export const ReportRowCard = memo(function ReportRowCard({
           ))}
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 });
 

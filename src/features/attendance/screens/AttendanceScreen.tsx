@@ -142,7 +142,7 @@ export default function AttendanceScreen() {
   const listHeader = (
     <View>
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.84} onPress={() => router.back()} style={styles.headerButton}>
+        <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={() => router.back()} style={styles.headerButton}>
           <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Staff Attendance</Text>

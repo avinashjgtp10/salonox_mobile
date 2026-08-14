@@ -104,7 +104,7 @@ export default function ServiceDetailsScreen() {
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
+            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
               <Ionicons name="chevron-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Service Details</Text>
@@ -124,7 +124,7 @@ export default function ServiceDetailsScreen() {
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
+            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
               <Ionicons name="chevron-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Service Details</Text>
@@ -144,7 +144,7 @@ export default function ServiceDetailsScreen() {
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
+          <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
             <Ionicons name="chevron-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <View style={styles.notFoundCard}>
@@ -163,7 +163,7 @@ export default function ServiceDetailsScreen() {
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
+          <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
             <Ionicons name="chevron-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Service Details</Text>

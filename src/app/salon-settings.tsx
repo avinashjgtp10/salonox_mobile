@@ -206,6 +206,7 @@ export default function SalonSettingsScreen() {
       <TouchableOpacity
         activeOpacity={0.8}
         disabled={isUpdating}
+        hitSlop={AppLayout.headerActionHitSlop}
         onPress={handleBack}
         style={styles.backButton}
       >

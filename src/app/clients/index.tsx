@@ -318,6 +318,23 @@ function ClientCard({
 
           <View style={styles.rightColumn}>
             <Ionicons name="chevron-forward" size={18} color={Colors.text2} />
+            <TouchableOpacity
+              accessibilityLabel={`Delete ${client.fullName}`}
+              accessibilityRole="button"
+              activeOpacity={0.82}
+              disabled={isDeleting}
+              onPress={(event) => {
+                event.stopPropagation();
+                onDelete();
+              }}
+              style={[styles.inlineDeleteButton, isDeleting && styles.inlineDeleteButtonDisabled]}
+            >
+              {isDeleting ? (
+                <ActivityIndicator color={Colors.error} size="small" />
+              ) : (
+                <Ionicons name="trash-outline" size={17} color={Colors.error} />
+              )}
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Swipeable>
@@ -666,6 +683,7 @@ export default function ClientsScreen() {
                 <View style={styles.headerRow}>
                   <TouchableOpacity
                     activeOpacity={0.8}
+                    hitSlop={AppLayout.headerActionHitSlop}
                     onPress={handleBack}
                     style={styles.backButton}
                   >
@@ -674,6 +692,7 @@ export default function ClientsScreen() {
                   <Text style={styles.headerTitle}>Clients</Text>
                   <TouchableOpacity
                     activeOpacity={0.8}
+                    hitSlop={AppLayout.headerActionHitSlop}
                     onPress={() => setIsDuplicatesVisible(true)}
                     style={styles.backButton}
                   >
@@ -1228,7 +1247,23 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   rightColumn: {
     alignItems: "flex-end",
+    alignSelf: "stretch",
+    justifyContent: "space-between",
     marginLeft: Spacing.sm,
+  },
+  inlineDeleteButton: {
+    alignItems: "center",
+    backgroundColor: Colors.errorBg,
+    borderColor: Colors.errorBorder,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    height: 36,
+    justifyContent: "center",
+    marginTop: Spacing.md,
+    width: 36,
+  },
+  inlineDeleteButtonDisabled: {
+    opacity: 0.68,
   },
   skeletonAvatar: {
     backgroundColor: Colors.bg2,

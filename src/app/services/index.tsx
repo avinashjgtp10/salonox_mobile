@@ -386,7 +386,7 @@ export default function ServicesScreen() {
           <View>
             <View style={styles.header}>
               <View style={styles.headerRow}>
-                <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
+                <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
                   <Ionicons name="chevron-back" size={18} color={Colors.primary} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Services</Text>

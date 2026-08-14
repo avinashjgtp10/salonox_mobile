@@ -34,7 +34,7 @@ export default function PlaceholderScreen({
       <AppStatusBar />
       <View style={styles.container}>
         {showBack && (
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <TouchableOpacity hitSlop={12} onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="chevron-back" size={18} color={Colors.primary} />
             <Text style={styles.backText}>Back</Text>
           </TouchableOpacity>

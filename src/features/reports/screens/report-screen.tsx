@@ -24,6 +24,7 @@ import {
   ReportState,
   ReportSummaryCards,
 } from "@/features/reports/components/report-widgets";
+import { SalesSummaryDetailSheet } from "@/features/reports/components/sales-summary-detail-sheet";
 import {
   createDefaultReportFilters,
   type ReportConfig,
@@ -41,6 +42,25 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { rememberReportFilters, selectReportEntry } from "@/store/report/report.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 
+const getInvoiceDetailSaleId = (row: ReportRow, slug: ReportConfig["slug"]) => {
+  const saleId = row.saleId ?? row.id;
+  const invoiceNumber = row.invoiceNumber ?? row.invoiceNo ?? row.ticketNo;
+  const isUnbilled = row.isUnbilled === true || row.is_unbilled === true;
+
+  if (slug === "staff-sales" && !isUnbilled) {
+    if (typeof saleId === "string" || typeof saleId === "number") return String(saleId);
+  }
+
+  const hasBill = invoiceNumber !== null &&
+    invoiceNumber !== undefined &&
+    String(invoiceNumber).trim() !== "" &&
+    String(invoiceNumber).toLowerCase() !== "not billed yet";
+
+  if (!hasBill) return null;
+  if (typeof saleId === "string" || typeof saleId === "number") return String(saleId);
+  return null;
+};
+
 export default function ReportScreen({ config }: { config: ReportConfig }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -48,6 +68,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   const entry = useAppSelector((state) => selectReportEntry(state, config.slug));
   const filters = entry?.filters ?? createDefaultReportFilters(config.slug);
   const [filterSheetVisible, setFilterSheetVisible] = useState(false);
+  const [selectedSaleId, setSelectedSaleId] = useState<string | null>(null);
   const [search, setSearch] = useState(filters.search ?? "");
   const debouncedSearch = useDebouncedValue(search.trim(), 400);
   const searchInitialized = useRef(false);
@@ -57,6 +78,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   const pagination = useMemo(() => getReportPagination(entry?.data ?? null), [entry?.data]);
   const hasMore = Boolean(config.paginated && pagination && pagination.page < pagination.totalPages);
   const supportsSearch = config.filters.includes("search");
+  const isUnavailable = config.status !== "available";
   const campaignOptions = useMemo(() => {
     const campaigns = entry?.data?.campaigns;
     if (!Array.isArray(campaigns)) return [];
@@ -79,10 +101,12 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   }, [config.slug, dispatch]);
 
   useEffect(() => {
+    if (isUnavailable) return;
     if (!entry?.data && !entry?.loading && !entry?.error) load(filters);
-  }, [entry?.data, entry?.error, entry?.loading, filters, load]);
+  }, [entry?.data, entry?.error, entry?.loading, filters, isUnavailable, load]);
 
   useEffect(() => {
+    if (isUnavailable) return;
     if (!supportsSearch) return;
     if (!searchInitialized.current) {
       searchInitialized.current = true;
@@ -94,7 +118,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     load(nextFilters);
     // Filter changes are intentionally excluded: this effect owns search changes only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config.slug, debouncedSearch, dispatch, load, supportsSearch]);
+  }, [config.slug, debouncedSearch, dispatch, isUnavailable, load, supportsSearch]);
 
   const refresh = useCallback(() => load({ ...filters, page: 1 }, { refresh: true }), [filters, load]);
   const loadMore = useCallback(() => {
@@ -114,9 +138,21 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
     setFilterSheetVisible(false);
     load(defaults);
   }, [config.slug, dispatch, load]);
+
+  const handleRowPress = useCallback((row: ReportRow) => {
+    const saleId = getInvoiceDetailSaleId(row, config.slug);
+    if (saleId) {
+      setSelectedSaleId(String(saleId));
+    }
+  }, [config.slug]);
+
   const renderItem = useCallback(({ item }: { item: ReportRow }) => (
-    <ReportRowCard fields={config.primaryFields} row={item} />
-  ), [config.primaryFields]);
+    <ReportRowCard
+      fields={config.primaryFields}
+      onPress={getInvoiceDetailSaleId(item, config.slug) ? handleRowPress : undefined}
+      row={item}
+    />
+  ), [config.primaryFields, config.slug, handleRowPress]);
 
   const activeFilterCount = config.filters.filter((key) =>
     key !== "search" && key !== "branch_id" && Boolean(filters[key])).length;
@@ -127,10 +163,12 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
         <TouchableOpacity
           accessibilityLabel="Go back"
           accessibilityRole="button"
+          activeOpacity={0.8}
+          hitSlop={AppLayout.headerActionHitSlop}
           onPress={() => router.back()}
           style={styles.headerButton}
         >
-          <Ionicons name="arrow-back" size={22} color={Colors.heading} />
+          <Ionicons name="chevron-back" size={18} color={Colors.primary} />
         </TouchableOpacity>
         <View style={styles.headerCopy}>
           <Text allowFontScaling style={styles.title}>{config.title}</Text>
@@ -139,15 +177,16 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
         <TouchableOpacity
           accessibilityLabel={`Filters, ${activeFilterCount} active`}
           accessibilityRole="button"
+          disabled={isUnavailable}
           onPress={() => setFilterSheetVisible(true)}
-          style={styles.filterButton}
+          style={[styles.filterButton, isUnavailable && styles.disabledButton]}
         >
           <Ionicons name="options-outline" size={19} color={Colors.heading} />
           {activeFilterCount ? <Text style={styles.filterCount}>{activeFilterCount}</Text> : null}
         </TouchableOpacity>
       </View>
 
-      {supportsSearch ? (
+      {supportsSearch && !isUnavailable ? (
         <View style={styles.searchBar}>
           <Ionicons name="search-outline" size={18} color={Colors.text2} />
           <TextInput
@@ -170,8 +209,9 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
       <TouchableOpacity
         accessibilityHint="Opens report date and filter options"
         accessibilityRole="button"
+        disabled={isUnavailable}
         onPress={() => setFilterSheetVisible(true)}
-        style={styles.dateSelector}
+        style={[styles.dateSelector, isUnavailable && styles.disabledButton]}
       >
         <View style={styles.dateIcon}>
           <Ionicons name="calendar-outline" size={17} color={Colors.primaryDark} />
@@ -186,7 +226,17 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
         <Ionicons name="chevron-down" size={16} color={Colors.hint} />
       </TouchableOpacity>
 
-      <ReportSummaryCards summary={summary} />
+      {isUnavailable ? (
+        <View style={styles.unavailableCard}>
+          <Ionicons name="construct-outline" size={24} color={Colors.hint} />
+          <Text style={styles.unavailableTitle}>Backend unavailable</Text>
+          <Text style={styles.unavailableText}>
+            {config.statusReason ?? "This report does not have a verified current Reports API endpoint."}
+          </Text>
+        </View>
+      ) : (
+        <ReportSummaryCards summary={summary} />
+      )}
       {rows.length ? (
         <View style={styles.resultsHeading}>
           <Text style={styles.resultsTitle}>RESULTS</Text>
@@ -197,6 +247,15 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
       ) : null}
     </View>
   );
+
+  if (isUnavailable) {
+    return (
+      <SafeAreaView edges={["top"]} style={styles.safe}>
+        <AppStatusBar />
+        {listHeader}
+      </SafeAreaView>
+    );
+  }
 
   if (entry?.loading && !entry.data) {
     return (
@@ -271,6 +330,10 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
         supportedFilters={config.filters}
         visible={filterSheetVisible}
       />
+      <SalesSummaryDetailSheet
+        onClose={() => setSelectedSaleId(null)}
+        saleId={selectedSaleId}
+      />
     </SafeAreaView>
   );
 }
@@ -285,7 +348,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   header: { alignItems: "flex-start", flexDirection: "row", gap: Spacing.md },
   headerButton: {
     alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
-    borderRadius: AppRadius.control, borderWidth: 1, height: 48, justifyContent: "center", width: 48,
+    borderRadius: AppRadius.control, borderWidth: 1, height: AppLayout.headerActionSize,
+    justifyContent: "center", width: AppLayout.headerActionSize,
   },
   headerCopy: { flex: 1, gap: 3 },
   title: { color: Colors.heading, fontSize: 26, fontWeight: "800", lineHeight: 32 },
@@ -294,6 +358,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
     borderRadius: AppRadius.control, borderWidth: 1, height: 48, justifyContent: "center", width: 48,
   },
+  disabledButton: { opacity: 0.62 },
   filterCount: {
     backgroundColor: Colors.primaryDark, borderRadius: 999, color: "#FFFFFF", fontSize: 8,
     fontWeight: "800", minWidth: 16, overflow: "hidden", paddingHorizontal: 4,
@@ -321,4 +386,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   resultsHeading: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingTop: Spacing.sm },
   resultsTitle: { color: Colors.text2, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
   resultsCount: { color: Colors.text2, fontSize: 11, fontVariant: ["tabular-nums"], fontWeight: "600" },
+  unavailableCard: {
+    alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border,
+    borderRadius: AppRadius.card, borderWidth: 1, gap: Spacing.sm, padding: Spacing.lg,
+  },
+  unavailableText: { color: Colors.text2, fontSize: 12, lineHeight: 18, textAlign: "center" },
+  unavailableTitle: { color: Colors.heading, fontSize: 15, fontWeight: "900" },
 });

@@ -276,7 +276,7 @@ export default function MembershipsScreen() {
         ListHeaderComponent={
           <View>
             <View style={styles.headerRow}>
-              <TouchableOpacity activeOpacity={0.84} onPress={() => (router.canGoBack() ? router.back() : router.replace("/more" as Href))} style={styles.headerButton}>
+              <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={() => (router.canGoBack() ? router.back() : router.replace("/more" as Href))} style={styles.headerButton}>
                 <Ionicons name="chevron-back" size={18} color={Colors.primary} />
               </TouchableOpacity>
               <Text style={styles.title}>Memberships</Text>

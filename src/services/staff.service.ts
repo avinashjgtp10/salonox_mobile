@@ -117,6 +117,13 @@ type StaffApiItem = {
   working_hours_per_day?: number | string | null;
   uuid?: string | null;
   employee_code?: string | null;
+  inactive?: boolean | string | null;
+  is_inactive?: boolean | string | null;
+  is_vip?: boolean | string | null;
+  membership?: unknown;
+  membership_name?: string | null;
+  total_visits?: number | string | null;
+  visits?: number | string | null;
 };
 
 type StaffApiPagination = {
@@ -714,6 +721,17 @@ const normalizeStaffMember = (staffMember: StaffApiItem, index: number): StaffMe
   };
 };
 
+const hasValue = (value: unknown) => value !== undefined && value !== null && value !== "";
+
+const isClientRecordInStaffList = (staffMember: StaffApiItem) =>
+  hasValue(staffMember.membership) ||
+  hasValue(staffMember.membership_name) ||
+  hasValue(staffMember.total_visits) ||
+  hasValue(staffMember.visits) ||
+  hasValue(staffMember.is_vip) ||
+  hasValue(staffMember.inactive) ||
+  hasValue(staffMember.is_inactive);
+
 const getAddressLine = (address: StaffAddressApiItem) =>
   toSafeString(address.address_line) ||
   toSafeString(address.address_line_1) ||
@@ -1096,7 +1114,18 @@ export const staffService = {
     const response = await api.get<StaffListApiResponse>(STAFF.LIST, {
       params,
     });
-    const apiStaffMembers = getStaffArray(response.data.data);
+    const apiStaffMembers = getStaffArray(response.data.data).filter((staffMember) => {
+      const isClientRecord = isClientRecordInStaffList(staffMember);
+
+      if (isClientRecord) {
+        console.warn("[Staff] Ignoring client-like record returned by staff list", {
+          id: staffMember.id ?? staffMember._id,
+          name: getFullName(staffMember),
+        });
+      }
+
+      return !isClientRecord;
+    });
     const staffMembers = apiStaffMembers.map(normalizeStaffMember).filter((staffMember) => {
       const hasValidId = isValidStaffId(staffMember.id);
 
