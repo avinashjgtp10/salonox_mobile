@@ -325,19 +325,12 @@ const schedulerSlice = createSlice({
     },
     deleteBooking(state, { payload }: PayloadAction<string>) {
       const id = String(payload);
-      // A local-only id (optimistic add that never made it to the server, or
-      // failed to save) has nothing to preserve — remove it outright. A real
-      // server id is now a soft delete on the backend (deleted_at, not a row
-      // removal), so keep it in state and just flag it — the calendar renders
-      // it greyed out with "Deleted" instead of it vanishing without a trace.
-      const isLocalOnly = id.startsWith("temp-") || id.startsWith("local-") || id.startsWith("b_");
-      if (isLocalOnly) {
-        state.bookings = state.bookings.filter((b) => b.id !== id);
-        delete state.serviceStaffCache[id];
-      } else {
-        const booking = state.bookings.find((b) => String(b.id) === id);
-        if (booking) (booking as any).isDeleted = true;
-      }
+      // "Delete Appointment" is a true hard delete server-side (the row and
+      // every linked payment/sale/commission record are removed), so it must
+      // vanish from the calendar immediately rather than sticking around
+      // greyed out — there's no longer a row to re-fetch and reconcile against.
+      state.bookings = state.bookings.filter((b) => b.id !== id);
+      delete state.serviceStaffCache[id];
     },
     setBlockedTimes(state, { payload }: PayloadAction<BlockedTime[]>) {
       state.blockedTimes = payload;

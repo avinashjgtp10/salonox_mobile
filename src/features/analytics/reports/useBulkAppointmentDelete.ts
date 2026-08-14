@@ -6,8 +6,8 @@ import { BOOKING } from "../../../services/api/endpoints";
 // real appointments (Appointment Detail, Sales Summary, Daily Sheet). Deletion
 // itself goes through the real Appointment API (POST /bulk-delete), never raw
 // SQL here — unlike report reads, a delete is a mutating write with business
-// rules (soft delete + stock restore) that must stay centralized in
-// appointments.service.ts.
+// rules (hard delete of the appointment plus its payments/sale/commissions,
+// and stock restore) that must stay centralized in appointments.service.ts.
 export function useBulkAppointmentDelete(onDeleted: () => void) {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showConfirm, setShowConfirm] = useState(false);

@@ -16,9 +16,9 @@ export type ChipStatusClass = "deleted" | "confirmed" | "partial" | "pending" | 
  * this on a recurring tick (DayView already has one for the current-time
  * line) so the derivation re-evaluates as time passes, not just on data change.
  *
- * "deleted" outranks everything else — "Delete Appointment" is a soft delete
- * server-side (deleted_at, not a row removal) specifically so it can still
- * show here, greyed out, instead of vanishing without a trace.
+ * "deleted" outranks everything else — kept as a defensive fallback in case
+ * stale/cached data still carries a deleted booking; "Delete Appointment" is
+ * now a true hard delete server-side, so a fresh fetch never returns one.
  */
 export function computeChipStatusClass(booking: {
   status?: string | null;
