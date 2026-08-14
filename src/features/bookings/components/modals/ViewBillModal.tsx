@@ -305,12 +305,17 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   {canPrintReceipt && <button
                     onClick={() => {
                       setShowDotMenu(false);
-                      // If the booking was loaded from the backend it won't carry taxBreakdown
-                      // (the backend doesn't persist/return that field). Re-derive it now from
-                      // the active tax settings so the printed invoice always shows correct tax.
+                      // undefined/null = genuinely never computed (e.g. an unpaid
+                      // booking, or one loaded from a path that doesn't attach it) —
+                      // re-derive from CURRENT tax settings so the printed invoice
+                      // still shows something. A real (possibly empty) array is a
+                      // frozen snapshot of what this bill was actually charged —
+                      // must never be overridden by today's rates, or a bill paid
+                      // with GST off prints newly-enabled GST the moment it's later
+                      // turned on (length===0 here used to mean the same as missing).
                       const existingBreakdown = (booking as any).taxBreakdown;
                       let printBooking: Booking = booking;
-                      if ((!existingBreakdown || existingBreakdown.length === 0) && activeTaxes.length > 0) {
+                      if (existingBreakdown == null && activeTaxes.length > 0) {
                         const toRow = (items: any[]) => items.map((i: any) => ({
                           price: Number(i.price || 0), qty: Number(i.qty || 1),
                           discount: Number(i.discount || 0), total: Number(i.total || i.price || 0),
