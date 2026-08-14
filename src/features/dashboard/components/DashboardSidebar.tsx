@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   House,
   Lightning,
@@ -15,9 +15,12 @@ import {
   QuestionCircle,
   Cash,
   ChatSquareText,
+  Stars,
 } from "react-bootstrap-icons";
 
 import { usePermissions } from "../../../hooks/usePermissions";
+import Modal from "../../../components/ui/Modal";
+import "../styles/ComingSoonModal.scss";
 
 type MenuKey =
   | "clients"
@@ -36,6 +39,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
   const navigate = useNavigate();
   const location = useLocation();
   const sidebarRef = useRef<HTMLElement>(null);
+  const [showAppsComingSoon, setShowAppsComingSoon] = useState(false);
 
   // Fixed-size icons/labels can't guarantee every item fits on every screen
   // height, and a scrollbar was explicitly ruled out — so instead of a fixed
@@ -267,14 +271,17 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </NavLink>
       )}
 
-      <NavLink
-        to="/dashboard/apps"
-        className={({ isActive }) => navClass(isActive)}
-        onClick={() => onMenuChange(null)}
+      <button
+        type="button"
+        className={navClass(false)}
+        onClick={() => {
+          onMenuChange(null);
+          setShowAppsComingSoon(true);
+        }}
       >
         <Grid3x3Gap size={22} />
         <span className="nav-label">Apps</span>
-      </NavLink>
+      </button>
 
       {can("general_settings") && (
         <NavLink
@@ -295,6 +302,21 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <QuestionCircle size={22} />
         <span className="nav-label">Help</span>
       </NavLink>
+
+      <Modal show={showAppsComingSoon} onClose={() => setShowAppsComingSoon(false)} size="sm">
+        <div className="coming-soon">
+          <div className="coming-soon__badge">
+            <Stars size={28} />
+          </div>
+          <h5 className="coming-soon__title">Coming Soon</h5>
+          <p className="coming-soon__desc">
+            This feature is currently under development and will be available soon.
+          </p>
+          <button type="button" className="coming-soon__btn" onClick={() => setShowAppsComingSoon(false)}>
+            Got it
+          </button>
+        </div>
+      </Modal>
     </aside>
   );
 }
