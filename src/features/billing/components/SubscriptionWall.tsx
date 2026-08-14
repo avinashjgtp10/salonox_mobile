@@ -6,62 +6,21 @@ import UpgradeButton from "./UpgradeButton";
 import api from "../../../services/api/axios";
 import type { SubscriptionPlan } from "../types/billing.types";
 
-const FEATURE_CATEGORIES: { icon: string; title: string; items: string[] }[] = [
-  {
-    icon: "📅",
-    title: "Booking & Calendar",
-    items: ["Full appointment calendar", "Online self-booking portal", "Upcoming appointments", "Appointment status tracking"],
-  },
-  {
-    icon: "🧾",
-    title: "Billing & POS",
-    items: ["In-app checkout / quick sale", "Multiple payment modes", "Invoice generation", "E-wallet support", "GST / tax handling"],
-  },
-  {
-    icon: "👥",
-    title: "Client Management",
-    items: ["Client profiles & visit history", "Loyalty points & rewards", "Referral program tracking", "Client ratings & feedback"],
-  },
-  {
-    icon: "🧑‍🤝‍🧑",
-    title: "Staff Management",
-    items: ["Staff profiles & roles", "Attendance tracking", "Commission tracking", "Performance & sales reports", "Payroll (in development)"],
-  },
-  {
-    icon: "💳",
-    title: "Packages & Memberships",
-    items: ["Package sales & sessions", "Membership sales", "Wallet-based redemption", "Usage history"],
-  },
-  {
-    icon: "📦",
-    title: "Inventory",
-    items: ["Product inventory tracking", "Consumable usage tracking", "Supplier management", "Low-stock alerts"],
-  },
-  {
-    icon: "📣",
-    title: "Marketing & Communication",
-    items: ["WhatsApp marketing", "Campaign open/reply tracking", "Automated notifications", "Enquiries module (lead capture)"],
-  },
-  {
-    icon: "📊",
-    title: "Reports & Analytics (30+ Built-in Reports)",
-    items: [
-      "Sales: Sales Summary, Daily Sheet, Product Retail, Service Sale, GST, Product Margin",
-      "Payments: Payment Collection",
-      "Customers: Client Revenue, Customer Frequency, Lost Customers, VIP Customers, Service Frequency, Referral, Client Rating",
-      "Staff: Staff Sales, Staff Performance, Commission, Attendance, Rebooking Rate",
-      "Appointments: Appointment Detail, Upcoming Appointments",
-      "Inventory: Product Inventory, Consumable Usage, Supplier",
-      "Packages/Membership: Package Sale, Package History, Membership Sale, Membership History",
-      "Marketing: WA Campaign, Open Rate, Reply Rate",
-    ],
-  },
-];
-
-const PLATFORM_ITEMS: { icon: string; label: string }[] = [
-  { icon: "👥", label: "Multi-user / role-based access" },
-  { icon: "🔔", label: "Real-time notifications (WebSocket)" },
-  { icon: "🌐", label: "Multi-currency support" },
+// A condensed, scannable checklist replaces the old per-category bullet dump
+// (8 headers x 4-8 sub-items each) — same coverage, one line per item instead
+// of a wall of text.
+const PLAN_HIGHLIGHTS: string[] = [
+  "Booking & Calendar",
+  "Billing & POS (GST-ready)",
+  "Client Management & Loyalty",
+  "Staff Management & Payroll",
+  "Packages & Memberships",
+  "Inventory Tracking",
+  "Marketing & WhatsApp",
+  "30+ Reports & Analytics",
+  "Multi-user Access",
+  "Real-time Notifications",
+  "Multi-currency Support",
 ];
 
 export default function SubscriptionWall() {
@@ -154,28 +113,12 @@ export default function SubscriptionWall() {
                     {i === 0 && <span style={styles.popularBadge}>★ Most Popular</span>}
                   </div>
 
-                  <div style={styles.categoryGrid}>
-                    {FEATURE_CATEGORIES.map((cat) => (
-                      <div key={cat.title} style={styles.categoryBlock}>
-                        <div style={styles.categoryHeader}>
-                          <span style={styles.categoryIcon}>{cat.icon}</span>
-                          <span style={styles.categoryTitle}>{cat.title}</span>
-                        </div>
-                        <ul style={styles.featureList}>
-                          {cat.items.map((item) => (
-                            <li key={item} style={styles.featureItem}>• {item}</li>
-                          ))}
-                        </ul>
+                  <div style={styles.highlightsGrid}>
+                    {PLAN_HIGHLIGHTS.map((label) => (
+                      <div key={label} style={styles.highlightItem}>
+                        <span style={styles.highlightCheck} aria-hidden="true">✓</span>
+                        {label}
                       </div>
-                    ))}
-                  </div>
-
-                  <div style={styles.platformStrip}>
-                    <span style={styles.platformLabel}>Platform</span>
-                    {PLATFORM_ITEMS.map((p) => (
-                      <span key={p.label} style={styles.platformItem}>
-                        <span aria-hidden="true">{p.icon}</span> {p.label}
-                      </span>
                     ))}
                   </div>
 
@@ -272,25 +215,20 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#7c3aed", color: "#fff", fontSize: "12px", fontWeight: 600,
     borderRadius: "999px", padding: "6px 14px", whiteSpace: "nowrap",
   },
-  categoryGrid: {
-    display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-    gap: "20px", borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb",
-    padding: "20px 0",
+  highlightsGrid: {
+    display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))",
+    gap: "10px 18px", borderTop: "1px solid #e5e7eb", borderBottom: "1px solid #e5e7eb",
+    padding: "18px 0",
   },
-  categoryBlock: { display: "flex", flexDirection: "column", gap: "8px" },
-  categoryHeader: { display: "flex", alignItems: "center", gap: "8px" },
-  categoryIcon: { fontSize: "16px" },
-  categoryTitle: { fontWeight: 700, fontSize: "13px", color: "#111827" },
-  featureList: {
-    listStyle: "none", padding: 0, margin: 0,
-    display: "flex", flexDirection: "column", gap: "4px",
+  highlightItem: {
+    display: "flex", alignItems: "center", gap: "8px",
+    fontSize: "13px", fontWeight: 500, color: "#374151",
   },
-  featureItem: { fontSize: "12px", color: "#6b7280", lineHeight: 1.5 },
-  platformStrip: {
-    display: "flex", flexWrap: "wrap", alignItems: "center", gap: "20px",
+  highlightCheck: {
+    flexShrink: 0, width: "18px", height: "18px", borderRadius: "50%",
+    background: "#ecfdf5", color: "#059669", fontSize: "11px", fontWeight: 700,
+    display: "inline-flex", alignItems: "center", justifyContent: "center",
   },
-  platformLabel: { fontSize: "12px", fontWeight: 700, color: "#111827" },
-  platformItem: { fontSize: "12px", color: "#6b7280", display: "inline-flex", alignItems: "center", gap: "6px" },
   help: { fontSize: "13px", color: "#9ca3af", margin: 0 },
   linkBtn: {
     color: "#6b7280", textDecoration: "underline",
