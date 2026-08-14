@@ -246,6 +246,11 @@ export const AppointmentModal: React.FC<Props> = ({
         })),
         expiryDays: t.expiryDays ?? null,
         neverExpires: !!t.neverExpires,
+        // Dropped here before — the "+ Package" row's schedule breakdown had
+        // no way to know a cap even existed, so every included service was
+        // schedulable with no limit at all regardless of what the template
+        // was actually sold to allow (see PackageRow's cap check).
+        expireAfterServices: t.expireAfterServices ?? null,
       }));
     const templateNames = new Set(fromTemplates.map((t: any) => t.name.toLowerCase()));
     const merged = [...fromTemplates, ...fromCatalog.filter((c: any) => !templateNames.has(c.name.toLowerCase()))];
@@ -557,28 +562,14 @@ export const AppointmentModal: React.FC<Props> = ({
   // package id so perRowCoveredRemaining below can also weigh it against
   // that package's own aggregate cap (see packageBudgets), not just this
   // one service's own remaining count.
-  const coveredServices = useMemo(() => {
-    const map = new Map<string, Array<{ packageId: string; remaining: number }>>();
-    nonExpiredPackages.forEach((pkg) => {
-      pkg.services.forEach((svc) => {
-        if (svc.remainingSessions > 0) {
-          const key = svc.catalogServiceId ?? `name:${svc.serviceName.toLowerCase()}`;
-          const arr = map.get(key) ?? [];
-          arr.push({ packageId: pkg.id, remaining: svc.remainingSessions });
-          map.set(key, arr);
-        }
-      });
-    });
-    return map;
-  }, [nonExpiredPackages]);
-
   // A package's own aggregate "Expires after this many services" cap (see
   // PackageCreateForm.tsx) limits how many TOTAL sessions across ALL its
   // services can ever be marked covered — independent of any one service's
   // own remaining count. Without this, a package capped at 5 but with a
   // service that individually still shows 8 "remaining" would let a single
   // visit mark all 8 as covered. Uncapped packages get Infinity (no extra
-  // limit beyond each service's own remainingSessions).
+  // limit beyond each service's own remainingSessions). Declared before
+  // coveredServices below, which now reads it too.
   const packageBudgets = useMemo(() => {
     const map = new Map<string, number>();
     nonExpiredPackages.forEach((pkg) => {
@@ -591,6 +582,27 @@ export const AppointmentModal: React.FC<Props> = ({
     });
     return map;
   }, [nonExpiredPackages]);
+
+  const coveredServices = useMemo(() => {
+    const map = new Map<string, Array<{ packageId: string; remaining: number }>>();
+    nonExpiredPackages.forEach((pkg) => {
+      // A package that's already spent its own cap has nothing left to
+      // offer from ANY of its services, even ones that individually still
+      // show sessions unused — e.g. a 12-service package capped at 4 stops
+      // being selectable once 4 total are used, not just once each
+      // individual service's own count hits zero (see packageBudgets above).
+      if ((packageBudgets.get(pkg.id) ?? Infinity) <= 0) return;
+      pkg.services.forEach((svc) => {
+        if (svc.remainingSessions > 0) {
+          const key = svc.catalogServiceId ?? `name:${svc.serviceName.toLowerCase()}`;
+          const arr = map.get(key) ?? [];
+          arr.push({ packageId: pkg.id, remaining: svc.remainingSessions });
+          map.set(key, arr);
+        }
+      });
+    });
+    return map;
+  }, [nonExpiredPackages, packageBudgets]);
 
   // Manual opt-in via the "Apply Package" checkbox below the services list —
   // unchecked by default for a brand-new appointment, but restored to checked
@@ -2148,7 +2160,15 @@ export const AppointmentModal: React.FC<Props> = ({
               triggerPackages({ status: "Active" });
               triggerTemplates();
             }
-            if (!svcCatalogRequested.current && catalogServiceOptions.length === 0) {
+            // catalogServiceOptions is state.services — a shared slice several
+            // unrelated screens also populate with much smaller limits (e.g.
+            // useServiceForm.ts's limit:25, ClientHistoryPage.tsx's unlimited
+            // default page). "already non-empty" doesn't mean "already the
+            // full catalog", so it can't gate this fetch — only the
+            // per-modal-instance ref can, or a salon with more services than
+            // whatever happened to load first silently mismatches package
+            // services against a random partial list (see resolvePackageServices).
+            if (!svcCatalogRequested.current) {
               svcCatalogRequested.current = true;
               fetchCatalogServices({ limit: 200 });
             }
@@ -2280,7 +2300,12 @@ export const AppointmentModal: React.FC<Props> = ({
     const cards: BenefitCardConfig[] = [];
 
     if (coveredServices.size > 0 && firstActivePkg && hasPackageEligibleRow) {
-      const pkgRemaining = firstActivePkg.services.reduce((s, svc) => s + svc.remainingSessions, 0);
+      const rawRemaining = firstActivePkg.services.reduce((s, svc) => s + svc.remainingSessions, 0);
+      // Bounded by the package's own cap, if it has one — otherwise this
+      // card would keep advertising e.g. "8 Remaining" from services' own
+      // unused session counts even after the cap already closed the
+      // package to further coverage (see coveredServices/packageBudgets).
+      const pkgRemaining = Math.min(rawRemaining, packageBudgets.get(firstActivePkg.id) ?? Infinity);
       const pkgTotal = firstActivePkg.services.reduce((s, svc) => s + svc.totalSessions, 0);
       cards.push({
         key: "package",
@@ -2435,7 +2460,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
     return cards;
   }, [
-    coveredServices, firstActivePkg, hasPackageEligibleRow, applyPackage,
+    coveredServices, firstActivePkg, hasPackageEligibleRow, applyPackage, packageBudgets,
     clientMemberships, membershipTotalBalance, primaryMembership, applyMembership,
     membershipWalletAmt, membershipMaxUsable, membershipWalletUsedTotal, handleSetMembershipWalletAmt,
     percentageDiscountSource, loyaltyDiscountSource, applyMembershipDiscount, applyLoyaltyDiscount, formatAmount,

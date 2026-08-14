@@ -44,6 +44,11 @@ export interface SchedulerPackage {
   description?: string;
   expiryDays?: number | null;
   neverExpires?: boolean;
+  /** "Expires after this many services" (see PackageCreateForm.tsx) — caps
+   *  how many of this package's services can ever be redeemed in total,
+   *  independent of each service's own session count. NULL/undefined = no
+   *  cap. Catalog packages have no such concept, only templates. */
+  expireAfterServices?: number | null;
 }
 export interface SchedulerProduct {
   id: string;

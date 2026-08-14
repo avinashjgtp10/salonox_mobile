@@ -669,6 +669,13 @@ function PackageRow({
   const selectedPackage = availablePackages.find(
     (p: any) => String(p.id) === String(row.packageId),
   );
+  // "Expires after this many services" (PackageCreateForm.tsx) caps how many
+  // of this package's services can EVER be redeemed — independent of each
+  // service's own session count. Without this, every included service showed
+  // as freely schedulable regardless of what the package was actually sold
+  // to allow (e.g. a 12-service package capped at 5 let staff schedule all 12).
+  const scheduleCap = selectedPackage?.expireAfterServices ?? null;
+  const scheduledCount = (row.services ?? []).filter((s) => !!s.schedule?.scheduledAt).length;
 
   // Always holds the current `row` prop, readable from async callbacks below
   // (the background catalog-resolution lookup) without them closing over a
@@ -689,27 +696,47 @@ function PackageRow({
   // name, merged against whatever the row looks like AT THE TIME each
   // lookup resolves (via rowRef), and bails out entirely if the picked
   // package has since changed.
-  function resolveUnmatchedServiceIds(pickedPackageId: string, services: NonNullable<PackageItem["services"]>) {
+  async function resolveUnmatchedServiceIds(pickedPackageId: string, services: NonNullable<PackageItem["services"]>) {
     const unresolved = services.filter((s) => !s.serviceId);
     if (unresolved.length === 0) return;
-    unresolved.forEach((svc) => {
-      fetchExactCatalogMatch(svc.serviceName).then((match) => {
-        if (!match) return;
-        const latest = rowRef.current;
-        if (String(latest.packageId) !== String(pickedPackageId)) return;
-        const merged = (latest.services ?? []).map((s) =>
-          s.serviceName === svc.serviceName && !s.serviceId
-            ? { ...s, serviceId: match.id, schedule: s.schedule ?? { scheduledAt: "" } }
-            : s,
-        );
-        onUpdatePackage(index, { ...latest, services: merged });
-      });
+    // Resolve every lookup first, THEN apply one combined patch — doing this
+    // as N independent .then() callbacks (the previous approach) raced
+    // against each other: each read rowRef.current at ITS OWN resolution
+    // time and wrote back a full replacement services array built from that
+    // snapshot, so whichever callback happened to land last silently
+    // discarded every other service's fix that resolved in the same window
+    // (observed: a package needing several concurrent fallback lookups kept
+    // only the last one, even ones that used to resolve fine on their own).
+    // A single update here can't race with itself.
+    const results = await Promise.all(
+      unresolved.map(async (svc) => ({ svc, match: await fetchExactCatalogMatch(svc.serviceName) })),
+    );
+    const latest = rowRef.current;
+    if (String(latest.packageId) !== String(pickedPackageId)) return;
+    const merged = (latest.services ?? []).map((s) => {
+      if (s.serviceId) return s;
+      const found = results.find((r) => r.svc.serviceName === s.serviceName && r.match);
+      return found ? { ...s, serviceId: found.match!.id, schedule: s.schedule ?? { scheduledAt: "" } } : s;
     });
+    onUpdatePackage(index, { ...latest, services: merged });
   }
 
   useEffect(() => { setQtyInput(String(getSafeQty(row.qty))); }, [row.qty]);
   useEffect(() => { setDiscountInput(getDiscountValue(row.discount)); }, [row.discount]);
   useEffect(() => { setShowDesc(false); setShowSchedule(false); }, [row.packageId]);
+  // Catches a row that already has a package selected but still carries
+  // unresolved services — e.g. reopening a saved appointment/bill, where the
+  // NameSelect's onChange above (the only other caller of
+  // resolveUnmatchedServiceIds) never fires since nothing was just picked.
+  // Deliberately keyed on packageId alone, not row.services — it only needs
+  // to try once per selection (including the very first render, when
+  // packageId arrives already set), not on every later services patch.
+  useEffect(() => {
+    if (row.packageId && row.services?.length) {
+      resolveUnmatchedServiceIds(String(row.packageId), row.services);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.packageId]);
 
   function handleQtyChange(value: string) {
     const normalizedValue = value.slice(0, 2);
@@ -979,16 +1006,23 @@ function PackageRow({
           const expanded = !!svc.schedule;
           const willSchedule = !!svc.schedule?.scheduledAt;
           const unschedulable = !svc.serviceId;
+          // This row isn't one of the ones already counted toward the cap,
+          // and every slot the package allows is already spoken for by
+          // OTHER rows — picking a date here would silently push the
+          // package past what it was actually sold to allow.
+          const capReached = scheduleCap != null && !willSchedule && scheduledCount >= scheduleCap;
           return (
             <div key={`${svc.serviceName}-${i}`} className={`pkg-schedule__row${willSchedule ? " pkg-schedule__row--on" : ""}`}>
               <button
                 type="button"
                 className="pkg-schedule__toggle"
-                disabled={frozen || unschedulable}
+                disabled={frozen || unschedulable || capReached}
                 aria-pressed={willSchedule}
                 title={unschedulable
                   ? "This service isn't linked to the catalog and can't be auto-scheduled"
-                  : expanded ? "Remove scheduled appointment" : "Schedule a future appointment for this service"}
+                  : capReached
+                    ? `This package only allows ${scheduleCap} service${scheduleCap === 1 ? "" : "s"} total — that limit is already scheduled. Remove one first to swap it for this one.`
+                    : expanded ? "Remove scheduled appointment" : "Schedule a future appointment for this service"}
                 onClick={() => updateRowService(i, { schedule: expanded ? undefined : { scheduledAt: "", staffId: "" } })}
               >
                 {willSchedule ? <CalendarCheckFill size={13} /> : <CalendarPlus size={13} />}
@@ -1004,13 +1038,14 @@ function PackageRow({
                   <div
                     className="pkg-schedule__date"
                     onClick={(e) => {
+                      if (capReached) return;
                       const input = e.currentTarget.querySelector("input");
                       try { (input as any)?.showPicker?.(); } catch { /* not user-activated / unsupported — the field is still typable */ }
                     }}
                   >
                     <input
                       type="date"
-                      disabled={frozen}
+                      disabled={frozen || capReached}
                       min={new Date().toISOString().slice(0, 10)}
                       value={svc.schedule?.scheduledAt ? svc.schedule.scheduledAt.slice(0, 10) : ""}
                       onChange={(e) => {
@@ -1024,7 +1059,7 @@ function PackageRow({
                   {/* Same picker the service rows use — 12-hour labels, snapped
                       to the calendar's configured slot interval. */}
                   <TimeSelect
-                    disabled={frozen}
+                    disabled={frozen || capReached}
                     interval={interval}
                     placeholder="Time"
                     className="svc-field__input svc-field__select"
@@ -1038,7 +1073,11 @@ function PackageRow({
                       appointment being booked — say so, rather than leaving a
                       pre-expanded empty row looking identical to a filled one
                       and quietly booking nothing on save. */}
-                  {!willSchedule && (
+                  {capReached ? (
+                    <span className="pkg-schedule__hint pkg-schedule__hint--warn">
+                      Package limit reached ({scheduledCount}/{scheduleCap} services scheduled)
+                    </span>
+                  ) : !willSchedule && (
                     <span className="pkg-schedule__hint pkg-schedule__hint--warn">
                       Pick a date &amp; time — otherwise this won't be booked
                     </span>

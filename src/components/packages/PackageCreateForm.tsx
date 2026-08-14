@@ -177,6 +177,14 @@ const PackageCreateForm: React.FC<Props> = ({
   // first ends the package. Blank = no cap, template-only feature (never
   // shown in lineItemMode's custom-package builder).
   const [expireAfterServicesStr, setExpireAfterServicesStr] = useState("");
+  // Gates the field above: OFF (default) is the normal multi-session package
+  // (Sessions stays freely editable, no cap). ON switches to a simpler,
+  // mutually-exclusive mode — every service row is forced to exactly 1
+  // session, and instead the package closes once this many DISTINCT
+  // services (not sessions-of-one-service) have been used. The two modes
+  // can't combine: you either raise Sessions past 1, or you cap by service
+  // count, never both at once.
+  const [serviceBasedExpiry, setServiceBasedExpiry] = useState(false);
   const [gstPct,            setGstPct]           = useState(0);
   const [discount,          setDiscount]         = useState(0);
   const [discountStr,       setDiscountStr]      = useState("");
@@ -274,9 +282,17 @@ const PackageCreateForm: React.FC<Props> = ({
     .filter(s => s.name.trim())
     .reduce((sum, s) => sum + (s.sessions || 0), 0);
   const expireAfterServicesNum = expireAfterServicesStr.trim() ? parseInt(expireAfterServicesStr, 10) : null;
+  // Service-based expiry mode forces 1 session per row, so totalSessionsSelected
+  // IS the service count — "expires after using all of them" (equal) is then a
+  // real, complete scenario (the user's own single-service example: 1 service,
+  // expires after 1), not a pointless cap. Off mode keeps the strict `<` — there,
+  // a cap equal to total sessions really is redundant with natural exhaustion.
   const expireAfterServicesError =
-    expireAfterServicesNum !== null && totalSessionsSelected > 0 && expireAfterServicesNum >= totalSessionsSelected
-      ? `Must be less than the total sessions selected (${totalSessionsSelected}) — otherwise the package finishes on its own first and the cap never applies.`
+    expireAfterServicesNum !== null && totalSessionsSelected > 0 &&
+    (serviceBasedExpiry ? expireAfterServicesNum > totalSessionsSelected : expireAfterServicesNum >= totalSessionsSelected)
+      ? serviceBasedExpiry
+        ? `Can't be more than the number of services selected (${totalSessionsSelected}).`
+        : `Must be less than the total sessions selected (${totalSessionsSelected}) — otherwise the package finishes on its own first and the cap never applies.`
       : null;
   useEffect(() => {
     if (!pkgPriceManual) {
@@ -360,6 +376,9 @@ const PackageCreateForm: React.FC<Props> = ({
       if (new Date(`${s.scheduleDate}T${s.scheduleTime}`).getTime() < Date.now()) {
         setApiError(`"${s.name}"'s scheduled appointment must be in the future.`); return;
       }
+    }
+    if (serviceBasedExpiry && !expireAfterServicesStr.trim()) {
+      setApiError("Enter how many services this package should expire after, or turn off service-based expiry."); return;
     }
     const expireAfterServicesVal = expireAfterServicesStr.trim() ? parseInt(expireAfterServicesStr, 10) : null;
     if (expireAfterServicesStr.trim() && (!Number.isInteger(expireAfterServicesVal) || (expireAfterServicesVal as number) <= 0)) {
@@ -478,6 +497,9 @@ const PackageCreateForm: React.FC<Props> = ({
     setPkgName(t.name);
     setNeverExpires(t.neverExpires);
     setExpireAfterServicesStr(t.expireAfterServices != null ? String(t.expireAfterServices) : "");
+    // Reflect the template's own state — otherwise a template saved WITH a
+    // cap would load the value into a field the checkbox keeps hidden.
+    setServiceBasedExpiry(t.expireAfterServices != null);
     // expiryDays (exact) is preferred — older templates saved before this fix
     // only have the approximate expiryMonths.
     if (!t.neverExpires && t.expiryDays != null) {
@@ -907,8 +929,9 @@ const PackageCreateForm: React.FC<Props> = ({
                   }}
                   onFocus={e => e.target.select()}
                   className={styles.input}
-                  style={{ textAlign: "center", ...frozenStyle }}
-                  disabled={isFromTemplate}
+                  style={{ textAlign: "center", ...frozenStyle, ...(serviceBasedExpiry ? { opacity: 0.6, cursor: "not-allowed" } : {}) }}
+                  disabled={isFromTemplate || serviceBasedExpiry}
+                  title={serviceBasedExpiry ? "Locked to 1 — service-based expiry is on" : undefined}
                 />
                 <div className={styles.inputPrefix}>
                   <span className={styles.inputPrefixSymbol}>{currencySymbol}</span>
@@ -1017,27 +1040,68 @@ const PackageCreateForm: React.FC<Props> = ({
               rows, once at least one is actually picked) since the cap only
               makes sense in relation to the services just selected above. */}
           {!lineItemMode && services.some(s => s.name.trim()) && (
-            <div className={styles.formField} style={{ marginTop: 14, maxWidth: 280 }}>
-              <label className={styles.formLabel}>Expires after this many services</label>
-              <input
-                type="number"
-                min={1}
-                step={1}
-                value={expireAfterServicesStr}
-                onChange={e => setExpireAfterServicesStr(e.target.value.replace(/[^0-9]/g, ""))}
-                className={styles.input}
-                placeholder="Optional — e.g. 5"
-                disabled={isFromTemplate}
-                style={expireAfterServicesError ? { ...frozenStyle, borderColor: "#ef4444" } : frozenStyle}
-              />
-              {expireAfterServicesError ? (
-                <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "#ef4444", fontWeight: 500 }}>
-                  {expireAfterServicesError}
-                </span>
-              ) : (
-                <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "#9ca3af" }}>
-                  Closes the package once this many total sessions are used across all its services combined — leave blank for no cap.
-                </span>
+            <div style={{ marginTop: 14 }}>
+              <label
+                style={{
+                  display: "flex", alignItems: "center", gap: 6,
+                  cursor: isFromTemplate ? "not-allowed" : "pointer", userSelect: "none",
+                  fontSize: 12.5, fontWeight: 600, color: "#111827",
+                }}
+              >
+                <input
+                  type="checkbox"
+                  checked={serviceBasedExpiry}
+                  disabled={isFromTemplate}
+                  onChange={e => {
+                    const checked = e.target.checked;
+                    setServiceBasedExpiry(checked);
+                    if (checked) {
+                      // Force every row to exactly 1 session — mirrors the same
+                      // per-row Sessions onChange logic above (rescale price
+                      // unless the user already hand-set it).
+                      setServices(prev => prev.map(s => {
+                        if (s.priceManual) return { ...s, sessions: 1, sessionsStr: "1" };
+                        const total = s.unitPrice * 1;
+                        return { ...s, sessions: 1, sessionsStr: "1", price: total, priceStr: total > 0 ? String(total) : "" };
+                      }));
+                    } else {
+                      // Field below is about to hide — clear it so a stale
+                      // value can't silently ride along on submit.
+                      setExpireAfterServicesStr("");
+                    }
+                  }}
+                  style={{ width: 14, height: 14, cursor: isFromTemplate ? "not-allowed" : "pointer", accentColor: "#111827" }}
+                />
+                Enable service-based expiry
+              </label>
+              <div style={{ marginTop: 2, marginLeft: 20, fontSize: 11, color: "#9ca3af" }}>
+                Locks every service to 1 session each and closes the package after a set number of services are used, instead of tracking sessions per service.
+              </div>
+
+              {serviceBasedExpiry && (
+                <div className={styles.formField} style={{ marginTop: 10, marginLeft: 20, maxWidth: 280 }}>
+                  <label className={styles.formLabel}>Expires after this many services</label>
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={expireAfterServicesStr}
+                    onChange={e => setExpireAfterServicesStr(e.target.value.replace(/[^0-9]/g, ""))}
+                    className={styles.input}
+                    placeholder="e.g. 5"
+                    disabled={isFromTemplate}
+                    style={expireAfterServicesError ? { ...frozenStyle, borderColor: "#ef4444" } : frozenStyle}
+                  />
+                  {expireAfterServicesError ? (
+                    <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "#ef4444", fontWeight: 500 }}>
+                      {expireAfterServicesError}
+                    </span>
+                  ) : (
+                    <span style={{ display: "block", marginTop: 4, fontSize: 11, color: "#9ca3af" }}>
+                      Closes the package once this many services (across all rows, 1 session each) have been used — required while this is on.
+                    </span>
+                  )}
+                </div>
               )}
             </div>
           )}
