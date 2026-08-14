@@ -1213,7 +1213,7 @@ const TopStaffCard = memo(function TopStaffCard({
   onNavigate: () => void;
   onRetry: () => void;
 }) {
-  const { currencySymbol } = useCurrency();
+  const { formatAmount } = useCurrency();
   return (
     <div className="db-card">
       <div className="db-card-header">
@@ -1246,7 +1246,7 @@ const TopStaffCard = memo(function TopStaffCard({
                 </div>
                 <div className="db-staff-stats">
                   <div className="db-staff-rev">
-                    {rev >= 1000 ? `${currencySymbol}${(rev / 1000).toFixed(0)}k` : `${currencySymbol}${rev}`}
+                    {formatAmount(rev)}
                   </div>
                 </div>
               </div>
