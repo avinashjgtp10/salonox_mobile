@@ -58,7 +58,6 @@ import {
 } from "../../../middleware/dashboard/dashboard.thunk";
 import type { TodayAppointment } from "../../../types/dashboard.types";
 import type { DashboardAllResponse } from "../../../middleware/dashboard/dashboard.thunk";
-import { usePendingPayments } from "../hooks/usePendingPayments";
 import { useTodayAppointments } from "../hooks/useTodayAppointments";
 import { useCurrency } from "../../../hooks/useCurrency";
 
@@ -1277,7 +1276,7 @@ export default function DashboardPage() {
   const staffRevenue        = useAppSelector((s) => s.dashboard.staffRevenue);
   const staffRevenueLoading = useAppSelector((s) => s.dashboard.staffRevenueLoading);
   const staffRevenueError   = useAppSelector((s) => s.dashboard.staffRevenueError);
-  const { pendingPayments, pendingLoading, refetchPending } = usePendingPayments();
+  const pendingPayments = useAppSelector((s) => s.dashboard.data?.pendingPayments);
   const todaysBirthdays = useAppSelector((s) => s.dashboard.data?.todaysBirthdays);
   const recentActivity  = useAppSelector((s) => s.dashboard.data?.recentActivity ?? EMPTY_ACTIVITY);
   const dashLoading  = useAppSelector((s) => s.dashboard.loading);
@@ -1330,8 +1329,7 @@ export default function DashboardPage() {
     const today = new Date().toISOString().split("T")[0];
     dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
     refetchAppts();
-    refetchPending();
-  }, [dispatch, revPeriod, refetchAppts, refetchPending]);
+  }, [dispatch, revPeriod, refetchAppts]);
 
   const handleRefresh = useCallback(() => {
     const today = new Date().toISOString().split("T")[0];
@@ -1344,8 +1342,7 @@ export default function DashboardPage() {
     dispatch(fetchDashboardAll({ period: revPeriod, date: today }));
     dispatch(fetchStaffRevenue({ period: staffRevPeriod }));
     refetchAppts();
-    refetchPending();
-  }, [dispatch, revPeriod, staffRevPeriod, refetchAppts, refetchPending]);
+  }, [dispatch, revPeriod, staffRevPeriod, refetchAppts]);
 
   // Deliberately NO tab-focus/visibilitychange auto-refresh here — the
   // dashboard must stay exactly as it is until the user clicks Refresh,
@@ -1559,7 +1556,7 @@ export default function DashboardPage() {
         pendingPayments={pendingPayments}
         birthdays={todaysBirthdays}
         loading={dashLoading}
-        pendingLoading={pendingLoading}
+        pendingLoading={dashLoading}
         onNavigateWhatsApp={goToQuickWhatsApp}
         onNavigatePendingAppointments={goToPendingAppointments}
       />
