@@ -5,7 +5,7 @@ import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch } from "../../../store/store";
 import { fetchCategoriesThunk, createCategoryThunk } from "../../../middleware/services/categories.thunk";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
-import { selectAllCategories, selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
+import { selectServiceCategories, selectAllStaff, selectStaffLoading } from "../../../store/selectors/slices.selectors";
 import { useServiceForm } from "../hooks/useServiceForm.ts";
 import type { ServiceCommissionKind } from "../types/catalog.types.ts";
 import { splitDuration, joinDuration, formatDuration } from "../utils/duration";
@@ -42,7 +42,7 @@ const ServiceFormPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const listPath = "/dashboard/catalog/services";
 
-  const rawCategories = useSelector(selectAllCategories);
+  const rawCategories = useSelector(selectServiceCategories);
   const categories = (Array.isArray(rawCategories) ? rawCategories : []).map(
     (c) => ({ id: String(c.id), name: c.name }),
   );
@@ -128,7 +128,7 @@ const ServiceFormPage: React.FC = () => {
   // Same inline-create affordance as the Product form's Category/Brand/
   // Supplier: create it, then select it, without leaving the page.
   async function handleAddCategory(name: string) {
-    const created = await dispatch(createCategoryThunk({ name } as any));
+    const created = await dispatch(createCategoryThunk({ name, type: "service" } as any));
     if (createCategoryThunk.fulfilled.match(created)) {
       const newId = (created.payload as any)?.id;
       if (newId) updateField("basic", { ...formData.basic, categoryId: String(newId) });

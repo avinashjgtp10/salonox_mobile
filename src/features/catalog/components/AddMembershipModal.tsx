@@ -25,7 +25,7 @@ import { createMembershipThunk, updateMembershipThunk } from "../../../middlewar
 import { selectMembershipsSubmitting, selectMembershipsError } from "../../../store/selectors/membership.selectors";
 import { clearMembershipError } from "../../../store/membershipSlice";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
-import { selectAllCategories } from "../../../store/selectors/slices.selectors";
+import { selectAllCategories, selectServiceCategories, selectProductCategories } from "../../../store/selectors/slices.selectors";
 import type { MembershipPricingType, MembershipAppliesTo, LoyaltyTier } from "../../../services/api/endpoints/memberships.endpoints";
 import api from "../../../services/api/axios";
 import Dropdown from "../../../components/ui/Dropdown";
@@ -131,7 +131,13 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
 
   const submitting = useSelector(selectMembershipsSubmitting);
   const apiError   = useSelector(selectMembershipsError);
-  const categories = useSelector(selectAllCategories) as { id: string | number; name: string }[];
+  // service_categories is one shared table — which slice a membership should
+  // offer depends on what it's redeemable against (form.appliesTo below), so
+  // all three views are read here and the right one is picked once appliesTo
+  // exists rather than always showing the full unscoped list.
+  const allCategories     = useSelector(selectAllCategories) as { id: string | number; name: string }[];
+  const serviceCategories = useSelector(selectServiceCategories) as { id: string | number; name: string }[];
+  const productCategories = useSelector(selectProductCategories) as { id: string | number; name: string }[];
 
   useEffect(() => () => { dispatch(clearMembershipError()); }, [dispatch]);
   useEffect(() => { dispatch(fetchCategoriesThunk()); }, [dispatch]);
@@ -139,6 +145,14 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
   const [pricingType, setPricingType] = useState<MembershipPricingType>("value");
   const [form, setForm] = useState<FormState>(emptyForm());
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // "Applies To" scopes what the membership can be spent on — the category
+  // picker below follows the same scope, so a Products-only membership isn't
+  // offering "Hair Coloring" as a narrowing option.
+  const categories =
+    form.appliesTo === "products" ? productCategories
+    : form.appliesTo === "services" ? serviceCategories
+    : allCategories;
 
   const patch = (p: Partial<FormState>) => {
     setForm((prev) => ({ ...prev, ...p }));
@@ -415,7 +429,12 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                         searchable={false}
                         value={form.appliesTo}
                         options={APPLIES_TO_OPTIONS.map((o) => ({ id: o.value, name: o.label }))}
-                        onChange={(id) => patch({ appliesTo: id as MembershipAppliesTo })}
+                        // Categories picked under the old scope may not exist
+                        // in the new one (e.g. a service category selected
+                        // while "Both" was active, now that appliesTo has
+                        // narrowed to Products) — clear rather than carry
+                        // over a selection the picker below can no longer show.
+                        onChange={(id) => patch({ appliesTo: id as MembershipAppliesTo, categoryIds: [] })}
                       />
                       <ChevronDown size={13} className="amm__sel-icon" />
                     </div>

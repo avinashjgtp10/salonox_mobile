@@ -157,7 +157,11 @@ export default function CreateCampaignPage() {
     if (step === 1 && source === "filter" && categories.length === 0) {
       api.get("/api/v1/categories").then(res => {
         const data = res.data?.data ?? res.data ?? [];
-        setCategories(Array.isArray(data) ? data : []);
+        // This targeting filter is explicitly "Service Category" (see
+        // service_category_ids above) — service_categories is a shared
+        // table, so a product-only category is excluded here.
+        const list = Array.isArray(data) ? data : [];
+        setCategories(list.filter((c: any) => c.type !== "product"));
       }).catch(() => { showError("Failed to load service categories"); });
     }
   }, [step, source, categories.length]);

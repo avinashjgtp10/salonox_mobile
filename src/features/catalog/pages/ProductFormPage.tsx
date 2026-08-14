@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { Trash } from "react-bootstrap-icons";
 import { useDispatch, useSelector } from "react-redux";
@@ -46,7 +46,14 @@ const ProductFormPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const dispatch = useDispatch<AppDispatch>();
-  const { categories, brands } = useSelector((s: RootState) => s.products);
+  const { categories: rawCategories, brands } = useSelector((s: RootState) => s.products);
+  // service_categories is one shared table — only a category explicitly
+  // tagged 'service' is excluded here, so 'product'/'both'/untagged (legacy
+  // cache) entries still appear.
+  const categories = useMemo(
+    () => (rawCategories as any[]).filter((c: any) => c?.type !== "service"),
+    [rawCategories],
+  );
   const suppliers = useSelector((s: RootState) => s.inventory.suppliers);
 
   // Same form is mounted at two route groups (Catalog > Products, and
@@ -182,7 +189,7 @@ const ProductFormPage: React.FC = () => {
   }
 
   async function handleAddCategory(name: string) {
-    const result = await dispatch(createCategoryThunk({ name })).unwrap();
+    const result = await dispatch(createCategoryThunk({ name, type: "product" })).unwrap();
     if (result?.id) setCategoryId(result.id);
   }
 

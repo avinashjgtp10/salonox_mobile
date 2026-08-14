@@ -171,10 +171,26 @@ export const selectCategoriesLoading = categoriesBase.selectLoading;
 export const selectCategoriesError = categoriesBase.selectError;
 export const selectCategoriesCount = categoriesBase.selectCount;
 
+// Service/Product-scoped views of the same shared list. A category tagged
+// 'both' (or with no `type` at all — cached data from before the field
+// existed) shows in both pickers rather than neither, so nothing that used
+// to be visible silently disappears.
+export const selectServiceCategories = createSelector(
+  selectAllCategories,
+  (categories) => categories.filter((c: any) => c?.type !== "product"),
+);
+export const selectProductCategories = createSelector(
+  selectAllCategories,
+  (categories) => categories.filter((c: any) => c?.type !== "service"),
+);
+
 // Derived selector: categories with their service count pre-computed.
 // Memoized so the .map() + .filter() only runs when services or categories change.
+// Sourced from selectServiceCategories (not selectAllCategories) so a
+// product-only category doesn't show up in the Services list's "Manage
+// categories" panel.
 export const selectCategoriesWithServiceCount = createSelector(
-  [selectAllServices, selectAllCategories],
+  [selectAllServices, selectServiceCategories],
   (services, categories) =>
     categories.map((cat) => ({
       ...cat,
