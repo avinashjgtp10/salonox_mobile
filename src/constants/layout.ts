@@ -6,6 +6,7 @@ export const AppLayout = {
   contentHorizontalPadding: 22,
   floatingButtonBottom: BottomTabInset + 10,
   floatingButtonRight: 22,
+  headerActionHitSlop: 12,
   headerActionSize: 38,
   headerMarginBottom: 18,
   headerSubtitleFontSize: 11.5,

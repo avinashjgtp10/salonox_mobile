@@ -47,9 +47,7 @@ const ACTIONS: DashboardDrawerAction[] = [
   { icon: "pricetag-outline", label: "Add Service", route: "/services/new" as Href, tone: "warning" },
   { icon: "cube-outline", label: "Add Product", route: "/stock/new" as Href, tone: "blue" },
   { icon: "clipboard-outline", label: "Attendance", route: "/team/attendance" as Href, tone: "info" },
-  { icon: "diamond-outline", label: "Membership", route: "/memberships" as Href, tone: "gold" },
   { icon: "receipt-outline", label: "Expense", route: "/sales" as Href, tone: "error" },
-  { icon: "notifications-outline", label: "Reminder", route: "/notifications" as Href, tone: "primary" },
 ];
 
 const getActionTone = (Colors: ThemeColors) => ({

@@ -47,11 +47,11 @@ export const fetchProfileThunk = createAsyncThunk<
 
 export const updateProfileThunk = createAsyncThunk<
   UpdateProfileResponse,
-  { updates: UpdateProfileRequest },
+  { updates: UpdateProfileRequest; userId: string },
   { rejectValue: ProfileRejectValue; state: RootState }
->("profile/updateProfile", async ({ updates }, { dispatch, rejectWithValue }) => {
+>("profile/updateProfile", async ({ updates, userId }, { dispatch, rejectWithValue }) => {
   try {
-    const response = await profileService.updateProfile(updates);
+    const response = await profileService.updateProfile(userId, updates);
 
     // Refresh the shared auth user (Dashboard/More hero) from the source of truth.
     void dispatch(fetchCurrentUserThunk());

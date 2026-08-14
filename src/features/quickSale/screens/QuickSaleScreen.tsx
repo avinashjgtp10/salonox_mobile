@@ -29,6 +29,7 @@ import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { ChangeServiceModal } from "@/features/quickSale/components/ChangeServiceModal";
 import { CheckoutSheet } from "@/features/quickSale/components/CheckoutSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
+import { ClientOptionRow } from "@/features/quickSale/components/ClientOptionRow";
 import { CategoryChips, type CategoryChipOption } from "@/features/quickSale/components/CategoryChips";
 import { ErrorState } from "@/features/quickSale/components/StateViews";
 import { GlobalSearchBar } from "@/features/quickSale/components/GlobalSearchBar";
@@ -53,7 +54,7 @@ import {
   type ProductStockErrors,
   validateProductStock,
 } from "@/features/quickSale/utils/stock";
-import { fetchClientHistoryThunk, fetchClientsThunk, searchClientsThunk } from "@/middleware/client/client.thunk";
+import { fetchClientHistoryThunk } from "@/middleware/client/client.thunk";
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
 import {
@@ -79,12 +80,8 @@ import {
 } from "@/features/quickSale/utils/packageCoverage";
 import { paymentService } from "@/services/payment.service";
 import { productService } from "@/services/product.service";
+import { clientService } from "@/services/client.service";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
-import {
-  selectClients,
-  selectClientsError,
-  selectClientsLoading,
-} from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ClientListItem } from "@/types/client";
@@ -160,9 +157,6 @@ export default function QuickSaleScreen() {
   const initLoading = useAppSelector(selectSalesInitLoading);
   const initError = useAppSelector(selectSalesInitError);
   const salonId = useAppSelector(selectActiveBranchId);
-  const clients = useAppSelector(selectClients);
-  const clientsLoading = useAppSelector(selectClientsLoading);
-  const clientsError = useAppSelector(selectClientsError);
 
   const cart = useCart();
   const checkoutSubmission = useCheckoutSubmissionController();
@@ -178,6 +172,10 @@ export default function QuickSaleScreen() {
   const [isClientStepComplete, setIsClientStepComplete] = useState(Boolean(params.draftId));
   const [hasClientStepSelection, setHasClientStepSelection] = useState(Boolean(params.draftId));
   const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [quickSaleClientOptions, setQuickSaleClientOptions] = useState<ClientListItem[]>([]);
+  const [quickSaleClientsLoading, setQuickSaleClientsLoading] = useState(false);
+  const [quickSaleClientsError, setQuickSaleClientsError] = useState<string | null>(null);
+  const [quickSaleClientsReloadKey, setQuickSaleClientsReloadKey] = useState(0);
   const [isClientPickerVisible, setIsClientPickerVisible] = useState(false);
   const [clientPickerStartsInCreateMode, setClientPickerStartsInCreateMode] = useState(false);
   const [changeServiceLineId, setChangeServiceLineId] = useState<string | null>(null);
@@ -232,8 +230,8 @@ export default function QuickSaleScreen() {
   const debouncedClientSearchQuery = useDebouncedValue(clientSearchQuery, 260);
   const trimmedClientSearchQuery = debouncedClientSearchQuery.trim();
   const visibleClientOptions = useMemo(
-    () => clients.slice(0, trimmedClientSearchQuery ? 8 : 3),
-    [clients, trimmedClientSearchQuery],
+    () => quickSaleClientOptions.slice(0, trimmedClientSearchQuery ? 8 : 3),
+    [quickSaleClientOptions, trimmedClientSearchQuery],
   );
   const dirtySignature = useMemo(
     () =>
@@ -435,17 +433,50 @@ export default function QuickSaleScreen() {
   }, [dirtySignature, draftLoadError, isLoadingDraft, params.draftId]);
 
   useEffect(() => {
+    let isSubscribed = true;
+
     if (isClientStepComplete || isClientPickerVisible) {
-      return;
+      return () => {
+        isSubscribed = false;
+      };
     }
 
-    if (trimmedClientSearchQuery) {
-      void dispatch(searchClientsThunk({ limit: 8, reset: true, search: trimmedClientSearchQuery }));
-      return;
-    }
+    const query = {
+      inactive: false,
+      limit: trimmedClientSearchQuery ? 8 : 3,
+      offset: 0,
+      search: trimmedClientSearchQuery,
+      sort_by: "created_at",
+      sort_order: "desc" as const,
+    };
 
-    void dispatch(fetchClientsThunk({ limit: 3, reset: true, sort_by: "created_at", sort_order: "desc" }));
-  }, [dispatch, isClientPickerVisible, isClientStepComplete, trimmedClientSearchQuery]);
+    setQuickSaleClientsLoading(true);
+    setQuickSaleClientsError(null);
+
+    const request = trimmedClientSearchQuery
+      ? clientService.searchClients(query, salonId)
+      : clientService.getClients(query, salonId);
+
+    request
+      .then((response) => {
+        if (!isSubscribed) return;
+        setQuickSaleClientOptions(response.clients);
+      })
+      .catch((error) => {
+        if (!isSubscribed) return;
+        setQuickSaleClientsError(error instanceof Error ? error.message : "Unable to load clients.");
+        setQuickSaleClientOptions([]);
+      })
+      .finally(() => {
+        if (isSubscribed) {
+          setQuickSaleClientsLoading(false);
+        }
+      });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [isClientPickerVisible, isClientStepComplete, quickSaleClientsReloadKey, salonId, trimmedClientSearchQuery]);
 
   const loadClientPackages = useCallback(
     async (clientId: string, retry = false) => {
@@ -817,16 +848,30 @@ export default function QuickSaleScreen() {
   );
 
   const handleSelectClientForStep = useCallback((client: ClientListItem | null) => {
+    if (hasClientStepSelection && selectedClient.id === (client?.id ?? "")) {
+      setSelectedClient(WALK_IN_CLIENT);
+      setHasClientStepSelection(false);
+      setClientSearchQuery("");
+      return;
+    }
+
     setSelectedClient(client ? clientFromListItem(client) : WALK_IN_CLIENT);
     setHasClientStepSelection(true);
     setClientSearchQuery("");
-  }, []);
+  }, [hasClientStepSelection, selectedClient.id]);
 
   const handleClientPickerSelect = useCallback((client: ClientListItem | null) => {
+    if (hasClientStepSelection && selectedClient.id === (client?.id ?? "")) {
+      setSelectedClient(WALK_IN_CLIENT);
+      setClientSearchQuery("");
+      setHasClientStepSelection(false);
+      return;
+    }
+
     setSelectedClient(client ? clientFromListItem(client) : WALK_IN_CLIENT);
     setClientSearchQuery("");
     setHasClientStepSelection(true);
-  }, []);
+  }, [hasClientStepSelection, selectedClient.id]);
 
   const handleApplyCoupon = useCallback(async () => {
     const trimmedCode = couponCode.trim();
@@ -1812,7 +1857,7 @@ export default function QuickSaleScreen() {
         <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
           <AppStatusBar />
           <View style={styles.header}>
-            <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
+            <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
               <Ionicons name="chevron-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Draft</Text>
@@ -1834,7 +1879,7 @@ export default function QuickSaleScreen() {
         <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
           <AppStatusBar />
           <View style={styles.header}>
-            <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
+            <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
               <Ionicons name="chevron-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Draft</Text>
@@ -1854,7 +1899,7 @@ export default function QuickSaleScreen() {
           <AppStatusBar />
 
         <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
+          <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
             <Ionicons name="chevron-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Quick Sale</Text>
@@ -1906,19 +1951,17 @@ export default function QuickSaleScreen() {
           </View>
 
           <View style={styles.recentClientsCard}>
-            {clientsError && visibleClientOptions.length === 0 ? (
+            {quickSaleClientsError && visibleClientOptions.length === 0 ? (
               <View style={styles.clientStateBlock}>
                 <Text style={styles.clientStateTitle}>Unable to load clients</Text>
                 <TouchableOpacity
                   activeOpacity={0.84}
-                  onPress={() =>
-                    void dispatch(fetchClientsThunk({ limit: 3, reset: true, sort_by: "created_at", sort_order: "desc" }))
-                  }
+                  onPress={() => setQuickSaleClientsReloadKey((current) => current + 1)}
                 >
                   <Text style={styles.clientSectionAction}>Try again</Text>
                 </TouchableOpacity>
               </View>
-            ) : clientsLoading && visibleClientOptions.length === 0 ? (
+            ) : quickSaleClientsLoading && visibleClientOptions.length === 0 ? (
               <View style={styles.clientStateBlock}>
                 <ActivityIndicator color={Colors.primary} size="small" />
                 <Text style={styles.clientStateText}>Loading clients...</Text>
@@ -1935,33 +1978,15 @@ export default function QuickSaleScreen() {
                 const isSelected = hasClientStepSelection && selectedClient.id === client.id;
 
                 return (
-                  <TouchableOpacity
+                  <ClientOptionRow
                     key={`quick-sale-client-${client.id}`}
-                    activeOpacity={0.84}
+                    initials={client.initials}
+                    isSelected={isSelected}
                     onPress={() => handleSelectClientForStep(client)}
-                    style={[
-                      styles.recentClientRow,
-                      index < visibleClientOptions.length - 1 && styles.recentClientRowBorder,
-                      isSelected && styles.clientOptionSelected,
-                    ]}
-                  >
-                    <View style={styles.clientAvatar}>
-                      <Text style={styles.clientAvatarText}>{client.initials}</Text>
-                    </View>
-                    <View style={styles.clientCopy}>
-                      <Text numberOfLines={1} style={styles.clientName}>
-                        {client.fullName}
-                      </Text>
-                      <Text numberOfLines={1} style={styles.clientPhone}>
-                        {client.phone}
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name={isSelected ? "checkmark-circle" : "chevron-forward"}
-                      size={18}
-                      color={isSelected ? Colors.primary : Colors.text2}
-                    />
-                  </TouchableOpacity>
+                    phone={client.phone}
+                    title={client.fullName}
+                    withBorder={index < visibleClientOptions.length - 1}
+                  />
                 );
               })
             )}
@@ -2015,6 +2040,7 @@ export default function QuickSaleScreen() {
         <ClientPickerSheet
           onClose={() => setIsClientPickerVisible(false)}
           onSelect={handleClientPickerSelect}
+          selectedClientId={hasClientStepSelection ? selectedClient.id : null}
           startInCreateMode={clientPickerStartsInCreateMode}
           visible={isClientPickerVisible}
         />
@@ -2036,7 +2062,7 @@ export default function QuickSaleScreen() {
         <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
           <AppStatusBar />
           <View style={styles.header}>
-            <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
+            <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
               <Ionicons name="chevron-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Quick Sale</Text>
@@ -2055,7 +2081,7 @@ export default function QuickSaleScreen() {
         <AppStatusBar />
 
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
+        <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
           <Ionicons name="chevron-back" size={18} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{params.draftId ? "Edit Draft" : "Select Services"}</Text>
@@ -2219,6 +2245,7 @@ export default function QuickSaleScreen() {
       <ClientPickerSheet
         onClose={() => setIsClientPickerVisible(false)}
         onSelect={handleClientPickerSelect}
+        selectedClientId={hasClientStepSelection ? selectedClient.id : null}
         startInCreateMode={clientPickerStartsInCreateMode}
         visible={isClientPickerVisible}
       />
@@ -2432,46 +2459,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowRadius: 16,
     elevation: 1,
   },
-  recentClientRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: Spacing.sm,
-    minHeight: 62,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-  },
-  recentClientRowBorder: {
-    borderBottomColor: Colors.border,
-    borderBottomWidth: 1,
-  },
   clientOptionSelected: {
     backgroundColor: Colors.bg2,
-  },
-  clientAvatar: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
-    height: 38,
-    justifyContent: "center",
-    width: 38,
-  },
-  clientAvatarText: {
-    color: Colors.primaryDark,
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  clientCopy: {
-    flex: 1,
-  },
-  clientName: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  clientPhone: {
-    color: Colors.text2,
-    fontSize: 12,
-    marginTop: 2,
   },
   clientStateBlock: {
     alignItems: "center",

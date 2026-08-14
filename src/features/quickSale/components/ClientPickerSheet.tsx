@@ -1,22 +1,20 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
 
 import { AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { ClientOptionRow } from "@/features/quickSale/components/ClientOptionRow";
 import { EmptyState, ErrorState } from "@/features/quickSale/components/StateViews";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { uniqueById } from "@/features/quickSale/utils/unique";
 import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
-import { createClientThunk, fetchClientsThunk, searchClientsThunk } from "@/middleware/client/client.thunk";
+import { createClientThunk } from "@/middleware/client/client.thunk";
+import { clientService } from "@/services/client.service";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import {
   selectClientCreateError,
   selectClientCreating,
-  selectClients,
-  selectClientsError,
-  selectClientsLoading,
-  selectClientsLoadingMore,
-  selectClientsPagination,
 } from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -34,24 +32,33 @@ const normalizePhoneForCompare = (value: string) => value.replace(/\D/g, "");
 type ClientPickerSheetProps = {
   onClose: () => void;
   onSelect: (client: ClientListItem | null) => void;
+  selectedClientId?: string | null;
   startInCreateMode?: boolean;
   visible: boolean;
 };
 
-export function ClientPickerSheet({ onClose, onSelect, startInCreateMode, visible }: ClientPickerSheetProps) {
+export function ClientPickerSheet({
+  onClose,
+  onSelect,
+  selectedClientId,
+  startInCreateMode,
+  visible,
+}: ClientPickerSheetProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
-  const clients = useAppSelector(selectClients);
-  const loading = useAppSelector(selectClientsLoading);
-  const loadingMore = useAppSelector(selectClientsLoadingMore);
-  const error = useAppSelector(selectClientsError);
-  const pagination = useAppSelector(selectClientsPagination);
+  const salonId = useAppSelector(selectActiveBranchId);
   const creating = useAppSelector(selectClientCreating);
   const createError = useAppSelector(selectClientCreateError);
 
   const [query, setQuery] = useState("");
   const debouncedQuery = useDebouncedValue(query, 300);
+  const [clients, setClients] = useState<ClientListItem[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [pagination, setPagination] = useState({ hasMore: true, limit: 20, nextOffset: 0, offset: 0 });
+  const [reloadKey, setReloadKey] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
@@ -69,36 +76,60 @@ export function ClientPickerSheet({ onClose, onSelect, startInCreateMode, visibl
     }
   }, [startInCreateMode, visible]);
 
+  const loadClients = useCallback(async (offset = 0, append = false) => {
+    const search = trimmedQuery;
+    const queryPayload = {
+      inactive: false,
+      limit: 20,
+      offset,
+      search,
+      sort_by: "created_at",
+      sort_order: "desc" as const,
+    };
+
+    setError(null);
+    if (append) {
+      setLoadingMore(true);
+    } else {
+      setLoading(true);
+    }
+
+    try {
+      const response = search
+        ? await clientService.searchClients(queryPayload, salonId)
+        : await clientService.getClients(queryPayload, salonId);
+
+      setClients((current) => (append ? uniqueById([...current, ...response.clients]) : response.clients));
+      setPagination(response.pagination);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Unable to load clients.");
+      if (!append) {
+        setClients([]);
+      }
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  }, [salonId, trimmedQuery]);
+
   useEffect(() => {
     if (!visible) {
       return;
     }
 
-    if (trimmedQuery) {
-      void dispatch(searchClientsThunk({ limit: 20, reset: true, search: trimmedQuery }));
-    } else {
-      void dispatch(
-        fetchClientsThunk({ limit: 20, reset: true, sort_by: "created_at", sort_order: "desc" }),
-      );
-    }
-  }, [dispatch, trimmedQuery, visible]);
+    void loadClients();
+  }, [loadClients, reloadKey, visible]);
 
   const handleLoadMore = () => {
     if (loading || loadingMore || !pagination.hasMore) {
       return;
     }
 
-    const args = { limit: pagination.limit, offset: pagination.nextOffset };
-
-    void dispatch(trimmedQuery ? searchClientsThunk({ ...args, search: trimmedQuery }) : fetchClientsThunk(args));
+    void loadClients(pagination.nextOffset, true);
   };
 
   const handleRetry = () => {
-    if (trimmedQuery) {
-      void dispatch(searchClientsThunk({ limit: 20, reset: true, search: trimmedQuery }));
-    } else {
-      void dispatch(fetchClientsThunk({ limit: 20, reset: true, sort_by: "created_at", sort_order: "desc" }));
-    }
+    setReloadKey((current) => current + 1);
   };
 
   const handleCreateClient = async () => {
@@ -277,27 +308,16 @@ export function ClientPickerSheet({ onClose, onSelect, startInCreateMode, visibl
               onEndReached={handleLoadMore}
               onEndReachedThreshold={0.5}
               renderItem={({ item }) => (
-                <TouchableOpacity
-                  activeOpacity={0.8}
+                <ClientOptionRow
+                  initials={item.initials}
+                  isSelected={selectedClientId === item.id}
                   onPress={() => {
                     onSelect(item);
                     handleClose();
                   }}
-                  style={styles.clientRow}
-                >
-                  <View style={styles.clientAvatar}>
-                    <Text style={styles.clientAvatarText}>{item.initials}</Text>
-                  </View>
-                  <View style={styles.clientCopy}>
-                    <Text numberOfLines={1} style={styles.clientName}>
-                      {item.fullName}
-                    </Text>
-                    <Text numberOfLines={1} style={styles.clientMeta}>
-                      {item.phone}
-                      {item.membership ? ` - ${item.membership}` : ""}
-                    </Text>
-                  </View>
-                </TouchableOpacity>
+                  phone={`${item.phone}${item.membership ? ` - ${item.membership}` : ""}`}
+                  title={item.fullName}
+                />
               )}
               style={styles.clientList}
             />
@@ -374,41 +394,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   clientListContent: {
     paddingBottom: Spacing.sm,
-  },
-  clientRow: {
-    alignItems: "center",
-    borderRadius: Radius.md,
-    flexDirection: "row",
-    gap: Spacing.sm,
-    minHeight: 56,
-    paddingHorizontal: 4,
-    paddingVertical: 10,
-  },
-  clientAvatar: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.md,
-    height: 36,
-    justifyContent: "center",
-    width: 36,
-  },
-  clientAvatarText: {
-    color: Colors.primaryDark,
-    fontSize: 12,
-    fontWeight: "800",
-  },
-  clientCopy: {
-    flex: 1,
-  },
-  clientName: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  clientMeta: {
-    color: Colors.text2,
-    fontSize: 11,
-    marginTop: 2,
   },
   loadingSpacer: {
     marginVertical: Spacing.lg,

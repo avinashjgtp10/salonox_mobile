@@ -124,7 +124,7 @@ export default function PrivacyPolicyScreen() {
       <AppStatusBar />
 
       <View style={styles.headerRow}>
-        <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.backButton}>
+        <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
           <Ionicons name="chevron-back" size={18} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Privacy Policy</Text>

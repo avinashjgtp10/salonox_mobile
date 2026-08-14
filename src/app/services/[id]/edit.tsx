@@ -180,7 +180,7 @@ export default function EditServiceScreen() {
         <AppStatusBar />
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
+            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
               <Ionicons name="chevron-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Service</Text>
@@ -200,7 +200,7 @@ export default function EditServiceScreen() {
         <AppStatusBar />
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
+            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
               <Ionicons name="chevron-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Service</Text>
@@ -228,6 +228,7 @@ export default function EditServiceScreen() {
             <TouchableOpacity
               activeOpacity={0.8}
               disabled={isSubmitting}
+              hitSlop={AppLayout.headerActionHitSlop}
               onPress={handleBack}
               style={styles.backButton}
             >

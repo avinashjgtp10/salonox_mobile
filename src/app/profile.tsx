@@ -235,7 +235,7 @@ export default function ProfileScreen() {
       phone: editState.phone.trim(),
     };
 
-    const resultAction = await dispatch(updateProfileThunk({ updates }));
+    const resultAction = await dispatch(updateProfileThunk({ updates, userId }));
 
     if (updateProfileThunk.rejected.match(resultAction)) {
       setFormError(resultAction.payload?.message ?? "Unable to update profile.");
@@ -245,9 +245,6 @@ export default function ProfileScreen() {
     setSuccessMessage(resultAction.payload.message ?? "Profile updated successfully.");
     setIsEditing(false);
     setEditState(null);
-
-    // Refresh the Profile screen from GET /profile/:id after the successful update.
-    void dispatch(fetchProfileThunk({ refresh: true, userId }));
   };
 
   const uploadPickedAsset = async (result: ImagePicker.ImagePickerResult) => {
@@ -334,7 +331,7 @@ export default function ProfileScreen() {
 
   const renderHeader = (rightAction?: React.ReactNode) => (
     <View style={styles.headerRow}>
-      <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.headerButton}>
+      <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.headerButton}>
         <Ionicons name="chevron-back" size={18} color={Colors.primary} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Profile</Text>
@@ -403,7 +400,7 @@ export default function ProfileScreen() {
       <Text style={styles.headerTextButtonLabel}>Cancel</Text>
     </TouchableOpacity>
   ) : (
-    <TouchableOpacity activeOpacity={0.8} onPress={handleStartEditing} style={styles.headerButton}>
+    <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleStartEditing} style={styles.headerButton}>
       <Ionicons name="create-outline" size={18} color={Colors.primary} />
     </TouchableOpacity>
   );
