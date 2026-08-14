@@ -357,7 +357,7 @@ const ProductsListPage: React.FC = () => {
     let totalPages = 1;
 
     while (page <= totalPages) {
-      const res = await api.get(PRODUCTS.LIST, { params: { ...filterParams, page, pageSize: 200 } });
+      const res = await api.get(PRODUCTS.LIST, { params: { ...filterParams, page, pageSize: 100 } });
       const payload = res.data?.data;
       if (payload && Array.isArray(payload.data)) {
         allProducts.push(...payload.data);
