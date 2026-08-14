@@ -136,7 +136,15 @@ const ConsumableInventoryPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
 
-  const { categories, brands } = useSelector((s: RootState) => s.products);
+  const { categories: rawCategories, brands } = useSelector((s: RootState) => s.products);
+  // service_categories is one shared table — only a category explicitly
+  // tagged 'service' is excluded here, so 'product'/'both'/untagged (legacy
+  // cache) entries still appear. Consumables are products, so this page uses
+  // the same product-side filter as the Product form.
+  const categories = useMemo(
+    () => (rawCategories as any[]).filter((c: any) => c?.type !== "service"),
+    [rawCategories],
+  );
   const suppliers = useSelector((s: RootState) => s.inventory.suppliers);
   const servicesList = useSelector((s: RootState) => (s as any).services?.items ?? []);
   const {

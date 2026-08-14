@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
@@ -20,8 +20,15 @@ import {
 
 export const useProducts = () => {
   const dispatch = useDispatch<AppDispatch>();
-  const { items: products, page, pageSize, totalRecords, totalPages, brands, categories, loading, error } = useSelector(
+  const { items: products, page, pageSize, totalRecords, totalPages, brands, categories: rawCategories, loading, error } = useSelector(
     (state: RootState) => state.products
+  );
+  // service_categories is one shared table — a category tagged 'service'
+  // only is filtered out here so this list stays product-relevant. 'both'
+  // and untagged (legacy cache) entries still show.
+  const categories = useMemo(
+    () => (rawCategories as any[]).filter((c: any) => c?.type !== "service"),
+    [rawCategories],
   );
 
   const fetchProducts = useCallback((params?: FetchProductsParams) => {
@@ -53,7 +60,7 @@ export const useProducts = () => {
   }, [dispatch]);
 
   const createCategory = useCallback((name: string) => {
-    return dispatch(createCategoryThunk({ name }));
+    return dispatch(createCategoryThunk({ name, type: "product" }));
   }, [dispatch]);
 
   const deleteCategory = useCallback((id: string) => {

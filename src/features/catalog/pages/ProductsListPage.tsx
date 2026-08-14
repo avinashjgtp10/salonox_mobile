@@ -17,7 +17,8 @@ import {
   FiletypeCsv,
   ThreeDotsVertical,
   PencilSquare,
-  Trash
+  Trash,
+  PlusLg
 } from "react-bootstrap-icons";
 import { Dropdown } from "react-bootstrap";
 import { useDispatch, useSelector } from "react-redux";
@@ -176,9 +177,28 @@ const ProductsListPage: React.FC = () => {
   // Applied filter state (triggers server fetch when changed)
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [openFilterSelect, setOpenFilterSelect] = useState<"category" | "brand" | "productType" | null>(null);
+  // Quick category filter — sits in the toolbar beside "Filters" (same spot
+  // Services keeps its Category control beside Sort) so switching category
+  // doesn't require opening the full Filters drawer. Applies immediately,
+  // straight into the same appliedFilters.category the drawer reads/writes —
+  // handleOpenFilter already resyncs pendingFilters from appliedFilters on
+  // open, so the drawer always reflects whatever was picked here.
+  const [showCategoryFilter, setShowCategoryFilter] = useState(false);
+  const categoryFilterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showCategoryFilter) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (categoryFilterRef.current && !categoryFilterRef.current.contains(e.target as Node)) {
+        setShowCategoryFilter(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [showCategoryFilter]);
 
   const [activeModal, setActiveModal] = useState<
-    "none" | "brands" | "add_brand" | "categories" | "add_category"
+    "none" | "brands" | "add_brand" | "add_category"
   >("none");
   const [brandName, setBrandName] = useState("");
   const [categoryName, setCategoryName] = useState("");
@@ -307,7 +327,7 @@ const ProductsListPage: React.FC = () => {
 
     setCategoryName("");
     setCategoryNameError("");
-    setActiveModal("categories");
+    setActiveModal("none");
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -386,6 +406,7 @@ const ProductsListPage: React.FC = () => {
       <header className="products-list-page__header">
         <div className="header-left">
           <h1>Products</h1>
+          <p>View and manage the products in your inventory.</p>
         </div>
         <div className="header-actions">
           <Dropdown>
@@ -403,9 +424,6 @@ const ProductsListPage: React.FC = () => {
             >
               <Dropdown.Item onClick={() => setActiveModal("brands")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
                 <Tag size={16} /> Manage my brands
-              </Dropdown.Item>
-              <Dropdown.Item onClick={() => setActiveModal("categories")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
-                <Folder2 size={16} /> Manage my categories
               </Dropdown.Item>
               <Dropdown.Item onClick={() => navigate("/dashboard/catalog/products/import")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
                 <BoxArrowInDown size={16} /> Import products
@@ -466,6 +484,71 @@ const ProductsListPage: React.FC = () => {
             </span>
           )}
         </Button>
+
+        <div className="position-relative flex-shrink-0" ref={categoryFilterRef}>
+          <Button
+            variant={appliedFilters.category ? "primary" : "outline"}
+            className={`filter-btn flex-shrink-0${appliedFilters.category ? " filter-btn--active" : ""}`}
+            onClick={() => setShowCategoryFilter((v) => !v)}
+          >
+            <Folder2 size={15} />
+            {appliedFilters.category
+              ? (categories.find((c: any) => String(c.id) === String(appliedFilters.category))?.name ?? "Category")
+              : "Category"}
+          </Button>
+          {showCategoryFilter && (
+            <ul
+              className="dropdown-menu shadow-sm border-0 rounded-3 py-2 d-block"
+              style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, minWidth: 220, maxHeight: 320, overflowY: "auto", zIndex: 1000 }}
+            >
+              <li>
+                <button
+                  type="button"
+                  className="dropdown-item py-2 px-3 fw-medium text-dark"
+                  onClick={() => { setAppliedFilters((f) => ({ ...f, category: "" })); setShowCategoryFilter(false); }}
+                >
+                  All categories
+                </button>
+              </li>
+              {categories.map((c: any) => (
+                <li key={c.id} className="d-flex align-items-center">
+                  <button
+                    type="button"
+                    className="dropdown-item py-2 px-3 fw-medium text-dark flex-grow-1"
+                    onClick={() => { setAppliedFilters((f) => ({ ...f, category: String(c.id) })); setShowCategoryFilter(false); }}
+                  >
+                    {formatCategoryName(c.name)}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-link text-danger p-0 me-3 flex-shrink-0"
+                    title="Delete category"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteCategory(c.id);
+                      if (appliedFilters.category === String(c.id)) {
+                        setAppliedFilters((f) => ({ ...f, category: "" }));
+                      }
+                    }}
+                  >
+                    <X size={14} />
+                  </button>
+                </li>
+              ))}
+              <li><hr className="dropdown-divider my-2" /></li>
+              <li>
+                <button
+                  type="button"
+                  className="dropdown-item py-2 px-3 fw-medium d-flex align-items-center gap-2"
+                  style={{ color: "#101828" }}
+                  onClick={() => { setShowCategoryFilter(false); setActiveModal("add_category"); }}
+                >
+                  <PlusLg size={13} /> Add category
+                </button>
+              </li>
+            </ul>
+          )}
+        </div>
 
         {selectedProducts.length > 0 && (
           <div className="bulk-actions d-flex align-items-center gap-3 ms-auto bg-light px-3 py-2 rounded-3 border">
@@ -1011,69 +1094,6 @@ const ProductsListPage: React.FC = () => {
         </div>
       )}
 
-      {/* Categories Modal */}
-      {activeModal === "categories" && (
-        <div
-          className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
-          style={{ backgroundColor: "rgba(0,0,0,0.4)", zIndex: 1050 }}
-          onClick={() => setActiveModal("none")}
-        >
-          <div
-            className="bg-white rounded-4 shadow-lg d-flex flex-column"
-            style={{ width: "480px", maxWidth: "90vw", minHeight: "320px", maxHeight: "80vh" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="d-flex justify-content-between align-items-center p-4 pb-0">
-              <h5 className="mb-0 fw-bold fs-5 text-dark">My categories</h5>
-              <button className="btn-close shadow-none" onClick={() => setActiveModal("none")} />
-            </div>
-            <div className="p-4 d-flex flex-column flex-grow-1 overflow-y-auto">
-              {loading.categories ? (
-                <div className="text-center py-4">
-                  <div className="spinner-border spinner-border-sm text-dark" />
-                </div>
-              ) : categories.length === 0 ? (
-                <div className="d-flex flex-column align-items-center justify-content-center flex-grow-1 text-center">
-                  <div className="mb-3" style={{ color: "#6366f1" }}>
-                    <Search size={48} />
-                  </div>
-                  <h5 className="fw-bold mb-1 text-dark">No categories here yet.</h5>
-                  <p className="text-muted mb-4 small">Your categories will appear here</p>
-                  <Button
-                    variant="primary"
-                    onClick={() => setActiveModal("add_category")}
-                  >
-                    Add a category
-                  </Button>
-                </div>
-              ) : (
-                <div className="w-100 text-start">
-                  {categories.map((c: any) => (
-                    <div key={c.id} className="d-flex justify-content-between align-items-center py-2 border-bottom">
-                      <span>{c.name}</span>
-                      <button
-                        className="btn btn-sm btn-link text-danger p-0"
-                        onClick={() => deleteCategory(c.id)}
-                      >
-                        <X size={16} />
-                      </button>
-                    </div>
-                  ))}
-                  <div className="text-center mt-4">
-                    <Button
-                      variant="primary"
-                      onClick={() => setActiveModal("add_category")}
-                    >
-                      Add a category
-                    </Button>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* Add Category Modal */}
       {activeModal === "add_category" && (
         <div
@@ -1111,12 +1131,12 @@ const ProductsListPage: React.FC = () => {
             <div className="d-flex justify-content-end p-4 pt-2 gap-3">
               <Button
                 variant="outline"
-                onClick={() => { setActiveModal("categories"); setCategoryNameError(""); }}
+                onClick={() => { setActiveModal("none"); setCategoryNameError(""); }}
               >
-                Go back
+                Cancel
               </Button>
               <Button
-                variant="primary"
+                variant="dark"
                 onClick={handleSaveCategory}
                 disabled={!categoryName.trim() || savingCategory}
               >

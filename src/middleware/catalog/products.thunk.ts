@@ -188,7 +188,7 @@ export const fetchCategoriesThunk = createAsyncThunk<
 
 export const createCategoryThunk = createAsyncThunk<
   any,
-  { name: string },
+  { name: string; type?: "service" | "product" | "both" },
   { rejectValue: string }
 >("products/createCategory", async (body, { rejectWithValue }) => {
   try {

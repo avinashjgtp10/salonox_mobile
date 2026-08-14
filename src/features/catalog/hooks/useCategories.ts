@@ -4,6 +4,7 @@ import {
   createCategoryThunk,
   updateCategoryThunk,
   deleteCategoryThunk,
+  type CategoryType,
 } from "../../../middleware/services/categories.thunk";
 import {
   selectCategoriesLoading,
@@ -16,11 +17,15 @@ export const useCategories = () => {
   const loading = loadingState?.create ?? false;
   const error = useSelector(selectCategoriesError);
 
-  const createCategory = async (cat: { name: string; description?: string; color?: string }) => {
-    await dispatch(createCategoryThunk(cat));
+  // This hook is only ever used from the Services list page — default new
+  // categories to 'service' so "Manage categories → Add category" doesn't
+  // fall through to the backend's 'both' default and leak into the Product
+  // picker too. An explicit type (rare) still overrides it.
+  const createCategory = async (cat: { name: string; description?: string; color?: string; type?: CategoryType }) => {
+    await dispatch(createCategoryThunk({ ...cat, type: cat.type ?? "service" }));
   };
 
-  const updateCategory = async (id: string, data: { name: string; description?: string }) => {
+  const updateCategory = async (id: string, data: { name: string; description?: string; type?: CategoryType }) => {
     await dispatch(updateCategoryThunk({ id, data }));
   };
 

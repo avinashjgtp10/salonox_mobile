@@ -12,6 +12,9 @@ import { ApiError } from "../../services/api/interceptors";
  * Single: data = ServiceCategory
  */
 
+/** Which side(s) of the catalog a category applies to. */
+export type CategoryType = "service" | "product" | "both";
+
 export interface CategoryEntity {
   id: string | number;
   name: string;
@@ -21,6 +24,9 @@ export interface CategoryEntity {
   is_active?: boolean;
   salon_id?: string;
   created_at?: string;
+  /** Older cached entries fetched before this field existed won't have it —
+   *  treat missing as unknown, not as excluded from either picker. */
+  type?: CategoryType;
 }
 
 // ── Fetch all categories ──────────────────────────────────────────────────────
@@ -58,11 +64,11 @@ export const fetchCategoryByIdThunk = createAsyncThunk<
 // ── Create category ───────────────────────────────────────────────────────────
 export const createCategoryThunk = createAsyncThunk<
   CategoryEntity,
-  { name: string; description?: string; color?: string },
+  { name: string; description?: string; color?: string; type?: CategoryType },
   { rejectValue: string }
->("categories/create", async ({ name, description, color }, { rejectWithValue }) => {
+>("categories/create", async ({ name, description, color, type }, { rejectWithValue }) => {
   try {
-    const res = await api.post(CATEGORIES.BASE, { name, description, ...(color ? { color } : {}) });
+    const res = await api.post(CATEGORIES.BASE, { name, description, ...(color ? { color } : {}), ...(type ? { type } : {}) });
     return (res.data as any).data as CategoryEntity;
   } catch (err: any) {
     if (err instanceof ApiError) return rejectWithValue(err.message);
