@@ -113,6 +113,10 @@ export function useTodayAppointments() {
       // excluded — an appointment with none of its own `services` produces no
       // row at all.
       const mapped: TodayAppointment[] = appts.flatMap((appt) => {
+        // "Delete Appointment" is a hard delete now, so a fresh fetch never
+        // returns one — this guards only against any pre-existing row from
+        // before that change that might still carry deleted_at.
+        if (appt.deleted_at) return [];
         const services: any[] = Array.isArray(appt.services) ? appt.services : [];
         if (services.length === 0) return [];
 

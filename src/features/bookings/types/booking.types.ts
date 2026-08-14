@@ -209,11 +209,9 @@ export interface Booking {
   membershipItems?: MembershipItem[];
 
   status: BookingStatus;
-  // Soft-deleted ("Delete Appointment") — the row still exists server-side
-  // (deleted_at is set, not removed), so it keeps showing on the calendar,
-  // greyed out, instead of vanishing without a trace. Redundant with
-  // `status === "deleted"` but kept as its own flag since the backend still
-  // tracks deleted_at as a separate audit timestamp alongside status.
+  // "Delete Appointment" is now a true hard delete server-side — a booking
+  // with this set can only appear transiently in stale/cached data, since a
+  // fresh fetch will never return a deleted appointment at all.
   isDeleted?: boolean;
   // True once a Paid booking has been content-edited back down to "partial"
   // (see appointments.service.ts::update()) — keeps its services/items
