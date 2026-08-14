@@ -48,10 +48,21 @@ export default function UnclosedCounterGate() {
     setClosing(true);
     setError("");
     try {
+      // `inStoreCash`/`closingBalance` can arrive as null (uncomputed for a
+      // still-open counter) or, rarely, negative (expenses outran cash on
+      // hand). `||` treats a legitimate 0 as "missing" and falls through, and
+      // a null/non-numeric value serializes to JSON `null` — which the
+      // backend rejects as "must be a non-negative number" since there's no
+      // input field here for the user to correct it. Coerce explicitly and
+      // clamp to 0 so this auto-close path always sends a valid number.
+      const candidate = dashboard.inStoreCash ?? dashboard.closingBalance ?? 0;
+      const numericInStoreCash = Number(candidate);
+      const inStoreCash = Number.isFinite(numericInStoreCash) ? Math.max(0, numericInStoreCash) : 0;
+
       await dispatch(
         closeCashCounterThunk({
           cash_management_id: dashboard.cashManagementId,
-          in_store_cash: Number(dashboard.inStoreCash || dashboard.closingBalance || 0),
+          in_store_cash: inStoreCash,
           remarks: dashboard.remarks ?? "",
         }),
       ).unwrap();
