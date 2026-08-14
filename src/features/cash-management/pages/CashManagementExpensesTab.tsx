@@ -1,15 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import {
-  PencilSquare,
-  Search,
-  SortDown,
-  SortUp,
-  Trash,
-} from "react-bootstrap-icons";
+import { Search, SortDown, SortUp } from "react-bootstrap-icons";
 import { Button, Pagination } from "../../../components/ui";
 import type { CashManagementExportDataset } from "../cashManagement.export";
 import type { CashExpenseRecord } from "../cashManagement.types";
 import { useCurrency } from "../../../hooks/useCurrency";
+import CashMgmtFilterSelect from "../components/CashMgmtFilterSelect";
+import CashMgmtRowActionsMenu from "../components/CashMgmtRowActionsMenu";
+
+const ALL_EXPENSE_TYPES = "all";
 
 interface Props {
   rows: CashExpenseRecord[];
@@ -75,11 +73,22 @@ export default function CashManagementExpensesTab({
 }: Props) {
   const { currencySymbol, formatAmount } = useCurrency();
   const [search, setSearch] = useState("");
+  const [expenseType, setExpenseType] = useState(ALL_EXPENSE_TYPES);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [sortKey, setSortKey] = useState<SortKey>("expenseDate");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const getRowTimingDate = (row: CashExpenseRecord) => row.updatedAt ?? row.expenseDate;
+
+  const expenseTypeOptions = useMemo(() => {
+    const uniqueTypes = Array.from(new Set(rows.map((row) => row.expenseType))).sort((a, b) =>
+      a.localeCompare(b),
+    );
+    return [
+      { value: ALL_EXPENSE_TYPES, label: "All Types" },
+      ...uniqueTypes.map((type) => ({ value: type, label: type })),
+    ];
+  }, [rows]);
 
   const filtered = useMemo(() => {
     return rows
@@ -87,6 +96,7 @@ export default function CashManagementExpensesTab({
         const query = search.trim().toLowerCase();
         const rowDateValue = getRowTimingDate(row);
         const rowDate = rowDateValue ? new Date(rowDateValue) : null;
+        if (expenseType !== ALL_EXPENSE_TYPES && row.expenseType !== expenseType) return false;
         if (sharedDateFrom && rowDate && rowDate < new Date(`${sharedDateFrom}T00:00:00`)) return false;
         if (sharedDateTo && rowDate && rowDate > new Date(`${sharedDateTo}T23:59:59`)) return false;
         if (!query) return true;
@@ -102,7 +112,7 @@ export default function CashManagementExpensesTab({
         if (sortKey === "amount") return (left.amount - right.amount) * invert;
         return String(left[sortKey]).localeCompare(String(right[sortKey])) * invert;
       });
-  }, [rows, search, sharedDateFrom, sharedDateTo, sortDirection, sortKey]);
+  }, [rows, search, expenseType, sharedDateFrom, sharedDateTo, sortDirection, sortKey]);
 
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
 
@@ -123,6 +133,7 @@ export default function CashManagementExpensesTab({
   useEffect(() => {
     const appliedFilters = [
       search.trim() ? `Search: ${search.trim()}` : "",
+      expenseType !== ALL_EXPENSE_TYPES ? `Expense Type: ${expenseType}` : "",
       sharedDateFilter !== "all" ? `Range: ${sharedDateFilter}` : "",
       sharedDateFrom ? `Date From: ${sharedDateFrom}` : "",
       sharedDateTo ? `Date To: ${sharedDateTo}` : "",
@@ -164,6 +175,7 @@ export default function CashManagementExpensesTab({
     filtered,
     onExportDataChange,
     search,
+    expenseType,
     sharedDateFilter,
     sharedDateFrom,
     sharedDateTo,
@@ -190,6 +202,16 @@ export default function CashManagementExpensesTab({
               setPage(1);
             }}
             placeholder="Search by expense type, description or user"
+          />
+        </div>
+        <div className="cash-mgmt__tab-toolbar-group">
+          <CashMgmtFilterSelect
+            value={expenseType}
+            options={expenseTypeOptions}
+            onChange={(value) => {
+              setExpenseType(value);
+              setPage(1);
+            }}
           />
         </div>
         <Button variant="dark" onClick={onAdd} disabled={!canManage || actionsDisabled}>
@@ -289,26 +311,11 @@ export default function CashManagementExpensesTab({
                   </td>
                   <td>
                     {isRowOpen ? (
-                      <div className="cash-mgmt__row-actions">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          iconLeft={<PencilSquare size={14} />}
-                          onClick={() => onEdit(row)}
-                          disabled={!canManage || actionsDisabled}
-                        >
-                          Edit
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          iconLeft={<Trash size={14} />}
-                          onClick={() => onDelete(row)}
-                          disabled={!canManage || actionsDisabled}
-                        >
-                          Delete
-                        </Button>
-                      </div>
+                      <CashMgmtRowActionsMenu
+                        onEdit={() => onEdit(row)}
+                        onDelete={() => onDelete(row)}
+                        disabled={!canManage || actionsDisabled}
+                      />
                     ) : (
                       <span className="cash-mgmt__locked-indicator">Locked</span>
                     )}

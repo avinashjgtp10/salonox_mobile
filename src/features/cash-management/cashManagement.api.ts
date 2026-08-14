@@ -3,6 +3,7 @@ import type {
   CashDashboardSummary,
   CashExpensePayload,
   CashExpenseRecord,
+  CashIncomeEntryRecord,
   CashTransactionRecord,
   CloseCounterPayload,
   OpenCounterPayload,
@@ -122,6 +123,22 @@ export async function fetchCashDashboard() {
 export async function fetchCashTransactions() {
   const response = await api.get(BASE);
   return unwrapList<any>(response).map(normalizeTransaction);
+}
+
+const normalizeIncomeEntry = (raw: any): CashIncomeEntryRecord => ({
+  id: asString(raw?.id),
+  occurredAt: asString(raw?.occurred_at ?? raw?.occurredAt),
+  source: asString(raw?.source, "Cash Payment"),
+  reference: raw?.reference ?? null,
+  clientName: asString(raw?.client_name ?? raw?.clientName, "Walk-in"),
+  amount: asNumber(raw?.amount),
+});
+
+export async function fetchCashIncomeEntries(cashManagementId: string) {
+  const response = await api.get(`${BASE}/income`, {
+    params: { cash_management_id: cashManagementId },
+  });
+  return unwrapList<any>(response).map(normalizeIncomeEntry);
 }
 
 export async function fetchCashExpenses() {

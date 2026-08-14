@@ -4,6 +4,14 @@ import { Pagination } from "../../../components/ui";
 import type { CashManagementExportDataset } from "../cashManagement.export";
 import type { CashCounterStatus, CashTransactionRecord } from "../cashManagement.types";
 import { useCurrency } from "../../../hooks/useCurrency";
+import CashMgmtFilterSelect from "../components/CashMgmtFilterSelect";
+import CashIncomeModal from "../components/CashIncomeModal";
+
+const STATUS_FILTER_OPTIONS = [
+  { value: "all", label: "All Status" },
+  { value: "open", label: "Open" },
+  { value: "closed", label: "Closed" },
+];
 
 interface Props {
   rows: CashTransactionRecord[];
@@ -17,7 +25,8 @@ interface Props {
 }
 
 type SortKey =
-  | "date"
+  | "openedAt"
+  | "closedAt"
   | "openingBalance"
   | "cashRevenue"
   | "cashExpense"
@@ -40,25 +49,6 @@ const formatDate = (value: string) => {
 };
 
 
-const parseUtcDate = (value?: string | null) => {
-  if (!value) return null;
-  const normalized = value.includes("T")
-    ? value
-    : value.replace(" ", "T").replace(/\+00$/, "Z");
-  const next = new Date(normalized);
-  return Number.isNaN(next.getTime()) ? null : next;
-};
-
-const formatStatusTime = (value?: string | null) => {
-  const next = parseUtcDate(value);
-  if (!next) return null;
-  return next.toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-};
-
 export default function CashManagementTransactionsTab({
   rows,
   loading = false,
@@ -73,10 +63,17 @@ export default function CashManagementTransactionsTab({
   const [status, setStatus] = useState<"all" | CashCounterStatus>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortKey, setSortKey] = useState<SortKey>("openedAt");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
+  const [viewingIncomeFor, setViewingIncomeFor] = useState<CashTransactionRecord | null>(null);
 
-  const getRowDisplayDate = (row: CashTransactionRecord) => row.updatedAt ?? row.date;
+  const getRowDisplayDate = (row: CashTransactionRecord) => row.openedAt ?? row.date;
+
+  // Open counters have no closedAt yet — pushed to the tail of either sort
+  // direction (treated as "latest possible") rather than sorting as if they
+  // closed at epoch 0, which would otherwise float them to the very top of
+  // an ascending sort.
+  const timeOrEnd = (value: string | null) => (value ? new Date(value).getTime() : Number.POSITIVE_INFINITY);
 
   const filtered = useMemo(() => {
     return rows
@@ -96,8 +93,11 @@ export default function CashManagementTransactionsTab({
       })
       .sort((left, right) => {
         const invert = sortDirection === "asc" ? 1 : -1;
-        if (sortKey === "date") {
-          return (new Date(getRowDisplayDate(left)).getTime() - new Date(getRowDisplayDate(right)).getTime()) * invert;
+        if (sortKey === "openedAt") {
+          return (timeOrEnd(left.openedAt) - timeOrEnd(right.openedAt)) * invert;
+        }
+        if (sortKey === "closedAt") {
+          return (timeOrEnd(left.closedAt) - timeOrEnd(right.closedAt)) * invert;
         }
         const leftValue = left[sortKey];
         const rightValue = right[sortKey];
@@ -119,12 +119,6 @@ export default function CashManagementTransactionsTab({
     setSortDirection(key === "status" ? "asc" : "desc");
   };
 
-  const getStatusTime = (row: CashTransactionRecord) => {
-    if (row.status === "open") return formatStatusTime(row.openedAt);
-    if (row.status === "closed") return formatStatusTime(row.closedAt);
-    return null;
-  };
-
    useEffect(() => {
     onFilteredCountChange?.(filtered.length);
   }, [filtered.length, onFilteredCountChange]);
@@ -143,7 +137,8 @@ export default function CashManagementTransactionsTab({
     onExportDataChange?.({
       title: "Transactions",
       columns: [
-        "Date",
+        "Opened At",
+        "Closed At",
         `Opening Balance (${currencySymbol})`,
         `Cash Revenue (${currencySymbol})`,
         `Cash Expense (${currencySymbol})`,
@@ -153,17 +148,17 @@ export default function CashManagementTransactionsTab({
         "Status",
       ],
       rows: filtered.map((row) => {
-        const statusTime = getStatusTime(row);
         const statusValue = row.status === "open" ? "Open" : "Closed";
         return [
-          formatDate(getRowDisplayDate(row)),
+          formatDate(row.openedAt ?? row.date),
+          row.closedAt ? formatDate(row.closedAt) : "--",
           formatAmount(row.openingBalance ?? 0),
           formatAmount(row.cashRevenue ?? 0),
           formatAmount(row.cashExpense ?? 0),
           formatAmount(row.closingBalance ?? 0),
           formatAmount(row.inStoreCash ?? 0),
           formatAmount(row.reconciliationAmount ?? 0),
-          statusTime ? `${statusValue} (${statusTime})` : statusValue,
+          statusValue,
         ];
       }),
       appliedFilters,
@@ -203,18 +198,14 @@ export default function CashManagementTransactionsTab({
           />
         </div>
         <div className="cash-mgmt__tab-toolbar-group">
-          <select
-            className="cash-mgmt__field cash-mgmt__filter-select"
+          <CashMgmtFilterSelect
             value={status}
-            onChange={(event) => {
-              setStatus(event.target.value);
+            options={STATUS_FILTER_OPTIONS}
+            onChange={(value) => {
+              setStatus(value as "all" | CashCounterStatus);
               setPage(1);
             }}
-          >
-            <option value="all">All Status</option>
-            <option value="open">Open</option>
-            <option value="closed">Closed</option>
-          </select>
+          />
         </div>
       </div>
 
@@ -223,7 +214,8 @@ export default function CashManagementTransactionsTab({
           <thead>
             <tr>
               {[
-                ["date", "Date"],
+                ["openedAt", "Opened At"],
+                ["closedAt", "Closed At"],
                 ["openingBalance", "Opening Balance"],
                 ["cashRevenue", "Cash Revenue"],
                 ["cashExpense", "Cash Expense"],
@@ -254,7 +246,7 @@ export default function CashManagementTransactionsTab({
           <tbody>
             {!loading && paged.length === 0 && (
               <tr>
-                <td colSpan={8}>
+                <td colSpan={9}>
                   <div className="cash-mgmt__empty-state">
                     <h3 className="cash-mgmt__empty-title">No transactions found</h3>
                     <p className="cash-mgmt__empty-text">
@@ -265,14 +257,32 @@ export default function CashManagementTransactionsTab({
               </tr>
             )}
             {paged.map((row) => {
-              const statusTime = getStatusTime(row);
               const isOpen = row.status === "open";
 
               return (
                 <tr key={row.id}>
-                  <td>{formatDate(getRowDisplayDate(row))}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="cash-mgmt__table-link"
+                      onClick={() => setViewingIncomeFor(row)}
+                      title="View individual cash payments"
+                    >
+                      {formatDate(row.openedAt ?? row.date)}
+                    </button>
+                  </td>
+                  <td>{row.closedAt ? formatDate(row.closedAt) : "--"}</td>
                   <td>{formatAmount(row.openingBalance)}</td>
-                  <td>{formatAmount(row.cashRevenue)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="cash-mgmt__table-link"
+                      onClick={() => setViewingIncomeFor(row)}
+                      title="View individual cash payments"
+                    >
+                      {formatAmount(row.cashRevenue)}
+                    </button>
+                  </td>
                   <td>{formatAmount(row.cashExpense)}</td>
                   <td>{formatAmount(row.inStoreCash)}</td>
                   <td>{formatAmount(row.closingBalance)}</td>
@@ -286,20 +296,15 @@ export default function CashManagementTransactionsTab({
                     {formatAmount(row.reconciliationAmount)}
                   </td>
                   <td>
-                    <div className="cash-mgmt__status-cell">
-                      <span
-                        className={`cash-mgmt__status-pill ${
-                          isOpen
-                            ? "cash-mgmt__status-pill--open"
-                            : "cash-mgmt__status-pill--closed"
-                        }`}
-                      >
-                        {isOpen ? "Open" : "Closed"}
-                      </span>
-                      {statusTime ? (
-                        <span className="cash-mgmt__status-time">{statusTime}</span>
-                      ) : null}
-                    </div>
+                    <span
+                      className={`cash-mgmt__status-pill ${
+                        isOpen
+                          ? "cash-mgmt__status-pill--open"
+                          : "cash-mgmt__status-pill--closed"
+                      }`}
+                    >
+                      {isOpen ? "Open" : "Closed"}
+                    </span>
                   </td>
                 </tr>
               );
@@ -318,6 +323,12 @@ export default function CashManagementTransactionsTab({
           setPage(1);
         }}
         className="cash-mgmt__pagination"
+      />
+
+      <CashIncomeModal
+        show={Boolean(viewingIncomeFor)}
+        cashManagementId={viewingIncomeFor?.id ?? null}
+        onClose={() => setViewingIncomeFor(null)}
       />
     </div>
   );

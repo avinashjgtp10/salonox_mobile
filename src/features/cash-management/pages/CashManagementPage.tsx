@@ -80,6 +80,7 @@ export default function CashManagementPage() {
   const { formatAmount } = useCurrency();
   const {
     dashboard,
+    dashboardLoaded,
     transactions,
     expenses,
     todayRevenue,
@@ -116,6 +117,74 @@ export default function CashManagementPage() {
   const expenseActionsLoading =
     expenseActionLoading || loading.saveExpense || loading.deleteExpense;
 
+
+  // Detects whether the currently open counter (if any) was opened on a
+  // previous day and never closed — that counter must be closed before a
+  // new one can be started, per the daily open/close flow.
+  const today = formatDateInput(new Date());
+  const openedDateKey = dashboard.openedAt ? formatDateInput(new Date(dashboard.openedAt)) : null;
+  const hasOpenCounter = Boolean(dashboard.cashManagementId) && dashboard.status === "open";
+  const isStaleOpenCounter = hasOpenCounter && openedDateKey !== null && openedDateKey !== today;
+  // The counter that was opened AND closed earlier today — the backend now
+  // rejects a second open the same day ("once per day"), so this must NOT
+  // be treated as "needs opening" the way a genuinely never-opened day is.
+  // Without this, closing today's counter would immediately re-trigger the
+  // mandatory Open Counter modal, which would then just fail every time the
+  // user submits it — a dead end they can't get out of until tomorrow.
+  const closedToday =
+    Boolean(dashboard.cashManagementId) &&
+    dashboard.status === "closed" &&
+    openedDateKey !== null &&
+    openedDateKey === today;
+  const needsOpenCounter = !hasOpenCounter && !closedToday;
+
+  // Keyed on the fields that actually define the counter's state (not the
+  // dashboard object identity, which changes on every fetch) so this only
+  // fires once per real state transition — e.g. it won't re-force a modal
+  // the user just dismissed just because a background refresh re-ran.
+  const counterStateKey = `${dashboard.cashManagementId}|${dashboard.status}|${dashboard.openedAt ?? ""}`;
+
+  useEffect(() => {
+    // Never force a modal from unconfirmed data — the pre-fetch default,
+    // or a fetch that's still loading/failed for an unrelated reason (e.g.
+    // an auth-timing race right after a hard page refresh), must not be
+    // read as "confirmed: no counter today". See dashboardLoaded's comment
+    // in useCashManagement.ts for the bug this previously caused: the
+    // mandatory Open Counter modal getting stuck showing even with a
+    // genuinely closed-today counter, because it acted on stale/incomplete
+    // state instead of waiting for a real answer.
+    if (loading.dashboard || !dashboardLoaded) return;
+
+    if (isStaleOpenCounter) {
+      setShowCloseModal(true);
+      setShowOpenModal(false);
+    } else if (needsOpenCounter) {
+      setShowOpenModal(true);
+      setShowCloseModal(false);
+    } else {
+      // Counter is open for today (the normal case) — explicitly dismiss
+      // both forced modals. Without this, a stale/no-counter modal that got
+      // shown transiently (e.g. from the pre-fetch default dashboard on the
+      // very first render, before the real "counter is open" data has
+      // loaded) never got closed once the real data arrived, since neither
+      // branch above ran again to hide it — it stayed stuck open forever,
+      // reappearing on every refresh even with a genuinely open counter.
+      setShowOpenModal(false);
+      setShowCloseModal(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counterStateKey, loading.dashboard, dashboardLoaded]);
+
+  const openedTimeLabel = useMemo(() => {
+    if (!hasOpenCounter || !dashboard.openedAt) return null;
+    const openedDate = new Date(dashboard.openedAt);
+    if (Number.isNaN(openedDate.getTime())) return null;
+    return openedDate.toLocaleTimeString("en-IN", {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  }, [hasOpenCounter, dashboard.openedAt]);
 
   const transactionTabCount = useMemo(() => {
     return transactions.filter((item) => isInDateRange(item.updatedAt ?? item.date, sharedDateFrom, sharedDateTo)).length;
@@ -297,14 +366,6 @@ export default function CashManagementPage() {
     setSharedDateFilter(value);
   };
 
-  const refreshActiveTab = async () => {
-    if (activeTab === "transactions") {
-      await refreshTransactions();
-      return;
-    }
-    await refreshExpenses();
-  };
-
   const runExport = async (format: CashManagementExportFormat) => {
     if (!exportDataset || exportingFormat) return;
     setExportingFormat(format);
@@ -363,6 +424,11 @@ export default function CashManagementPage() {
               Track opening cash, revenue, expenses, reconciliation, and daily counter closing
               in one place.
             </p>
+            {openedTimeLabel ? (
+              <span className="cash-mgmt__counter-status-pill">
+                <CheckCircle size={12} /> Counter opened at {openedTimeLabel}
+              </span>
+            ) : null}
           </div>
 
 
@@ -379,7 +445,8 @@ export default function CashManagementPage() {
               variant="dark"
               iconLeft={<PlusCircle size={14} />}
               onClick={() => setShowOpenModal(true)}
-              disabled={!activeCounterClosed}
+              disabled={!activeCounterClosed || closedToday}
+              title={closedToday ? "You can open the cash counter only once per day." : undefined}
             >
               Open Counter
             </Button>
@@ -490,22 +557,6 @@ export default function CashManagementPage() {
             </div>
 
             <div className="cash-mgmt__surface-actions">
-              <Button
-                variant="outline-dark"
-                iconLeft={<ArrowClockwise size={14} />}
-                onClick={async () => {
-                  await refreshActiveTab();
-                }}
-                disabled={activeTab === "expenses" && expenseActionsLoading}
-                loading={
-                  activeTab === "transactions"
-                    ? loading.transactions
-                    : loading.expenses
-                }
-              >
-                Refresh
-              </Button>
-
               <div className="cash-mgmt__export" ref={exportMenuRef}>
                 <Button
                   variant="outline-dark"
@@ -598,6 +649,7 @@ export default function CashManagementPage() {
       <OpenCounterModal
         show={showOpenModal}
         loading={loading.openCounter}
+        mandatory={needsOpenCounter}
         onClose={() => setShowOpenModal(false)}
         onSubmit={async (payload) => {
           await openCounter(payload);
@@ -681,6 +733,7 @@ export default function CashManagementPage() {
         show={showCloseModal}
         dashboard={dashboard}
         loading={loading.closeCounter}
+        mandatory={isStaleOpenCounter}
         onClose={() => setShowCloseModal(false)}
         onSubmit={async (payload) => {
           await closeCounter(payload);
