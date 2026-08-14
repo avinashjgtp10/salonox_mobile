@@ -11,8 +11,7 @@
 //   (percentage)           GIVEN depletes an independently-configurable pool.
 //   Loyalty              — free/automatic; unlocks N% off once a client
 //                          crosses a visit-count threshold.
-import React, { useState, useEffect, useRef } from "react";
-import { createPortal } from "react-dom";
+import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   ChevronDown, X,
@@ -139,42 +138,6 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
 
   const [pricingType, setPricingType] = useState<MembershipPricingType>("value");
   const [form, setForm] = useState<FormState>(emptyForm());
-  const [categoryDropdownOpen, setCategoryDropdownOpen] = useState(false);
-  const categoryDropRef = useRef<HTMLDivElement>(null);
-  const categoryButtonRef = useRef<HTMLButtonElement>(null);
-  const categoryPortalRef = useRef<HTMLDivElement>(null);
-
-  // Rendered via a portal (see below) since the modal body scrolls
-  // (overflow-y: auto), which would otherwise clip the menu — position is
-  // tracked in fixed/viewport coordinates and recomputed on scroll/resize so
-  // it doesn't visually detach from the button.
-  const [categoryMenuPos, setCategoryMenuPos] = useState<{ top: number; left: number; width: number } | null>(null);
-  useEffect(() => {
-    if (!categoryDropdownOpen) { setCategoryMenuPos(null); return; }
-    function updatePos() {
-      if (!categoryButtonRef.current) return;
-      const r = categoryButtonRef.current.getBoundingClientRect();
-      setCategoryMenuPos({ top: r.bottom + 4, left: r.left, width: r.width });
-    }
-    updatePos();
-    window.addEventListener("scroll", updatePos, true);
-    window.addEventListener("resize", updatePos);
-    return () => {
-      window.removeEventListener("scroll", updatePos, true);
-      window.removeEventListener("resize", updatePos);
-    };
-  }, [categoryDropdownOpen]);
-
-  useEffect(() => {
-    if (!categoryDropdownOpen) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      const inButton = categoryDropRef.current?.contains(e.target as Node);
-      const inMenu = categoryPortalRef.current?.contains(e.target as Node);
-      if (!inButton && !inMenu) setCategoryDropdownOpen(false);
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [categoryDropdownOpen]);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const patch = (p: Partial<FormState>) => {
@@ -353,7 +316,6 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
     setPricingType(type);
     setForm(emptyForm());
     setErrors({});
-    setCategoryDropdownOpen(false);
     dispatch(clearMembershipError());
   };
 
@@ -468,45 +430,17 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                 {categories.length > 0 && (
                   <div className="amm__field">
                     <label className="amm__label">Categories</label>
-                    <div className="amm__cat-drop" ref={categoryDropRef}>
-                      <button
-                        type="button"
-                        ref={categoryButtonRef}
-                        className="amm__select amm__cat-drop-btn"
-                        onClick={() => setCategoryDropdownOpen((v) => !v)}
-                      >
-                        <span>
-                          {form.categoryIds.length === 0
-                            ? "All categories"
-                            : form.categoryIds.length <= 2
-                              ? form.categoryIds.map((id) => categories.find((c) => String(c.id) === id)?.name ?? id).join(", ")
-                              : `${form.categoryIds.length} categories selected`}
-                        </span>
-                        <ChevronDown size={13} className="amm__sel-icon" />
-                      </button>
-                      {categoryDropdownOpen && categoryMenuPos && createPortal(
-                        <div
-                          ref={categoryPortalRef}
-                          className="amm__cat-drop-menu"
-                          style={{
-                            position: "fixed",
-                            top: categoryMenuPos.top, left: categoryMenuPos.left, width: categoryMenuPos.width,
-                            zIndex: 3000,
-                          }}
-                        >
-                          {categories.map((c) => {
-                            const id = String(c.id);
-                            const on = form.categoryIds.includes(id);
-                            return (
-                              <label className="amm__cat-drop-item" key={id}>
-                                <input type="checkbox" checked={on} onChange={() => toggleCategory(id)} />
-                                {c.name}
-                              </label>
-                            );
-                          })}
-                        </div>,
-                        document.body,
-                      )}
+                    <div className="amm__sel-wrap">
+                      <Dropdown
+                        className="amm__select"
+                        searchable={false}
+                        multiple
+                        value={form.categoryIds}
+                        options={categories.map((c) => ({ id: String(c.id), name: c.name }))}
+                        onChange={toggleCategory}
+                        placeholder="All categories"
+                      />
+                      <ChevronDown size={13} className="amm__sel-icon" />
                     </div>
                     <p className="amm__hint">
                       {form.categoryIds.length > 0
