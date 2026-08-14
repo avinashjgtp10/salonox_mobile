@@ -490,7 +490,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
         show={showCloseCounterConfirm}
         onClose={() => { if (!closingCounter) setShowCloseCounterConfirm(false); }}
         title="Close Cash Counter"
-        size="sm"
+        size="md"
         footer={
           <div className="topbar-confirm-footer">
             <Button
