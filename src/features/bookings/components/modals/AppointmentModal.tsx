@@ -20,6 +20,7 @@ import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
 import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
 import { getActiveTaxes } from "../../../settings/utils/taxSettings";
 import { getTaxModuleConfig } from "../../../settings/utils/taxModuleSettings";
+import { getPaperProfile } from "../../../settings/utils/printSettings";
 import { getRewardPointsConfig } from "../../../settings/utils/rewardPointsSettings";
 import { getReferralConfig } from "../../../settings/utils/referralSettings";
 import { isRealId } from "../../utils/paymentUtils";
@@ -160,6 +161,9 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [dispatch, settingItems.length]);
   const activeTaxes  = useMemo(() => getActiveTaxes(settingItems), [settingItems]);
   const showTaxBreakupOnInvoice = useMemo(() => getTaxModuleConfig(settingItems).show_breakup_on_invoice, [settingItems]);
+  // Salon-wide Print Settings (paper size/margins) — resolved once and passed
+  // into every printReceipt() call from this screen.
+  const paperProfile = useMemo(() => getPaperProfile(settingItems), [settingItems]);
   const rewardPointsConfig = useMemo(() => getRewardPointsConfig(settingItems), [settingItems]);
   const referralConfig = useMemo(() => getReferralConfig(settingItems), [settingItems]);
 
@@ -1838,7 +1842,7 @@ export const AppointmentModal: React.FC<Props> = ({
         const freshBooking = store.getState().scheduler.bookings.find(
           (b: any) => String(b.id) === String(apptId)
         );
-        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
+        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice, formatAmount, paperProfile });
       }
       // A membership/eWallet/reward-points/referral deduction just happened
       // server-side — refetch this client's balances so the still-open
@@ -2012,7 +2016,7 @@ export const AppointmentModal: React.FC<Props> = ({
         const freshBooking = store.getState().scheduler.bookings.find(
           (b: any) => String(b.id) === String(id)
         );
-        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
+        if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice, formatAmount, paperProfile });
       }
       setClientRefreshKey((k) => k + 1);
       finishWithPaidPopup();

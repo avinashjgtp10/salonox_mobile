@@ -11,6 +11,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { getTaxModuleConfig } from "../../settings/utils/taxModuleSettings";
+import { getPaperProfile } from "../../settings/utils/printSettings";
 import {
   Telephone,
   Whatsapp,
@@ -346,6 +347,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const settingItems = useAppSelector((s: any) => s.setting.items);
   useEffect(() => { dispatch(fetchSettingsThunk()); }, [dispatch]);
   const showTaxBreakupOnInvoice = useMemo(() => getTaxModuleConfig(settingItems).show_breakup_on_invoice, [settingItems]);
+  // Salon-wide Print Settings (paper size/margins) — resolved once and passed
+  // into every printReceipt() call from this screen.
+  const paperProfile = useMemo(() => getPaperProfile(settingItems), [settingItems]);
   const staffList: StaffOption[] = reduxStaff.map((s: any) => ({
     id: s.id,
     full_name: s.full_name || `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim(),
@@ -1259,7 +1263,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       couponCode: linkedSale?.coupon_code,
       referralDiscount: Number(linkedSale?.referral_discount_amount) || 0,
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount, paperProfile });
   };
 
   const printSaleBill = (s: SaleRecord) => {
@@ -1281,7 +1285,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       couponCode: s.coupon_code,
       referralDiscount: Number(s.referral_discount_amount) || 0,
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email, referralCode: (client as any)?.referral_code ?? null }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount, paperProfile });
   };
 
   const printPackageBill = (pkg: PackageRecord, matchedSale: SaleRecord | undefined) => {
@@ -1318,7 +1322,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       couponCode: matchedSale?.coupon_code,
       referralDiscount: Number(matchedSale?.referral_discount_amount) || 0,
     });
-    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
+    printReceipt(booking, printStaffList, currentSalon, { phone: clientPhoneForPrint, email: client?.email }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount, paperProfile });
   };
 
   if (historyLoading) {

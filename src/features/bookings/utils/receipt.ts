@@ -2,6 +2,8 @@ import type { Booking } from "../types/scheduler-types";
 import type { Salon } from "../../../types/salon.types";
 import { formatTime12 } from "./timeUtils";
 import { normalizePaymentStatus } from "./bookingMapper";
+import type { PaperProfile } from "../../settings/utils/printSettings";
+import { buildThermalDocument, buildPageCss, type ThermalReceiptData } from "./printTemplates";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Single reusable source for "print a bill/receipt" — every entry point in the
@@ -171,6 +173,12 @@ export function printReceipt(
     /** From the caller's own useCurrency() — this module is a plain function,
      *  not a component, so it can't call the hook itself. */
     formatAmount?: (n: number) => string;
+    /** Resolved from the salon's Print Settings (see printSettings.ts). A
+     *  thermal profile renders the single-column receipt template instead of
+     *  the A4 invoice below; a wide profile keeps the A4 layout but drives its
+     *  @page size/margins. Omitted = unchanged A4 behaviour, so any call site
+     *  not yet passing it prints exactly as before. */
+    paperProfile?: PaperProfile;
   },
 ) {
   // Defaults to true (itemized) when the caller doesn't pass it, so existing
@@ -796,6 +804,101 @@ export function printReceipt(
 </body>
 </html>`;
 
+  // ── Print profile ─────────────────────────────────────────────────────────
+  // The A4 document above is always built (it's also the fallback), then the
+  // paper profile decides what actually gets printed. Both branches reuse the
+  // money figures computed above rather than recalculating — a thermal receipt
+  // and an A4 invoice for the same bill must never disagree on a total.
+  const profile = opts?.paperProfile;
+  let finalHtml = html;
+
+  if (profile?.isThermal) {
+    const thermalItems: ThermalReceiptData["items"] = [
+      ...services.map((s: any) => ({
+        name: s.service || s.name || "Service",
+        qty: Number(s.qty || 1),
+        amount: fmt(isPackagePaid ? 0 : Number(s.total ?? s.price ?? 0)),
+        meta: findStaffName(s.staffId) || undefined,
+      })),
+      ...packageItems.map((p: any) => ({
+        name: p.packageName || p.name || "Package",
+        qty: Number(p.qty || 1),
+        amount: fmt(Number(p.total ?? p.price ?? 0)),
+        meta: "Package",
+      })),
+      ...membershipItems.map((m: any) => ({
+        name: m.membershipName || m.name || "Membership",
+        qty: Number(m.qty || 1),
+        amount: fmt(Number(m.total ?? m.price ?? 0)),
+        meta: "Membership",
+      })),
+      ...productItems.map((p: any) => ({
+        name: p.productName || p.name || "Product",
+        qty: Number(p.qty || 1),
+        amount: fmt(Number(p.total ?? p.price ?? 0)),
+        meta: "Product",
+      })),
+    ];
+
+    // Only non-zero lines are emitted — every suppressed row is a physical
+    // line of paper saved on a roll, and a column of "₹0.00" tells the client
+    // nothing.
+    const summary: ThermalReceiptData["summary"] = [];
+    const push = (label: string, amount: number, o: { muted?: boolean; bold?: boolean } = {}) => {
+      if (Math.abs(amount) > 0.005) summary.push({ label, value: fmt(amount), ...o });
+    };
+    push("Subtotal", subtotalAmt || itemsNetTotal);
+    push("Item Discount", -itemDiscountAmt, { muted: true });
+    push("Bill Discount", -manualDisc, { muted: true });
+    push(couponCode ? `Coupon (${couponCode})` : "Coupon", -couponDisc, { muted: true });
+    push("Referral Discount", -referralDisc, { muted: true });
+    push("Membership Discount", -membershipDiscountAmt, { muted: true });
+    push("Extra Charges", exCharges);
+    if (showTaxBreakup && taxBreakdown.length > 0) {
+      taxBreakdown.filter((t) => t.amount > 0).forEach((t) => {
+        summary.push({ label: `${t.name} (${t.rate}%)`, value: fmt(t.amount) });
+      });
+    } else {
+      push(gstPct > 0 ? `GST (${gstPct}%)` : "GST", exclusiveTaxTotal);
+    }
+    push("Tip", tipAmt);
+
+    const payments: ThermalReceiptData["payments"] = [];
+    if (Math.abs(paidAmt) > 0.005) payments.push({ label: "Paid", value: fmt(paidAmt) });
+    if (Math.abs(dueAmt) > 0.005) payments.push({ label: "Balance Due", value: fmt(dueAmt) });
+
+    finalHtml = buildThermalDocument(
+      profile,
+      {
+        salonName,
+        salonAddress,
+        salonPhone,
+        gstNumber: gst,
+        logoUrl,
+        invoiceNo,
+        dateTime: apptDate,
+        clientName: booking.clientName || "Walk-In",
+        clientPhone: clientPhone || undefined,
+        staffName: allStaffDisplay,
+        items: thermalItems,
+        summary,
+        grandTotal: { label: "TOTAL", value: fmt(grandTotal) },
+        payments,
+      },
+      { title: `Receipt ${invoiceNo}`, withToolbar: !opts?.auto },
+    );
+  } else if (profile) {
+    // Wide/custom paper keeps the A4 invoice but must honour the configured
+    // page size and margins. The document ships a #page-style-equivalent
+    // <style id="orient-style"> holding its @page rule (also swapped by the
+    // landscape toggle), so replacing that one rule re-sizes the sheet without
+    // touching the rest of the layout.
+    finalHtml = html.replace(
+      /<style id="orient-style">[\s\S]*?<\/style>/,
+      `<style id="orient-style">${buildPageCss(profile)}</style>`,
+    );
+  }
+
   // Auto-print (right after payment): window.open would be popup-blocked here,
   // because the awaits before it consumed the user's click activation. A hidden
   // same-page iframe needs no popup permission and opens the print dialog directly.
@@ -807,7 +910,7 @@ export function printReceipt(
     const doc = iframe.contentWindow?.document;
     if (!doc) { iframe.remove(); return; }
     doc.open();
-    doc.write(html);
+    doc.write(finalHtml);
     doc.close();
     const triggerPrint = () => {
       try {
@@ -825,7 +928,7 @@ export function printReceipt(
 
   const win = window.open("", "_blank", "width=960,height=860");
   if (!win) { alert("Please allow popups to print the receipt."); return; }
-  win.document.write(html);
+  win.document.write(finalHtml);
   win.document.close();
   win.focus();
 }
