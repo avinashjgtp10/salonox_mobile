@@ -1,6 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown } from "react-bootstrap-icons";
 import { Button, Input, Modal } from "../../../components/ui";
 import { useCurrency } from "../../../hooks/useCurrency";
+import {
+  DEFAULT_EXPENSE_TYPES,
+  getCustomExpenseTypes,
+  saveCustomExpenseType,
+} from "../cashManagement.expenseTypes";
 import type {
   CashDashboardSummary,
   CashExpenseRecord,
@@ -15,6 +21,10 @@ type FieldErrors = Record<string, string>;
 interface OpenCounterModalProps {
   show: boolean;
   loading: boolean;
+  /** True when there is no open counter for today and the counter must be
+   *  started before the rest of the app can be used — hides Cancel/close and
+   *  blocks dismissal so the user can't skip straight past it. */
+  mandatory?: boolean;
   onClose: () => void;
   onNotify: Notify;
   onSubmit: (payload: OpenCounterPayload) => Promise<void>;
@@ -57,6 +67,10 @@ interface CloseCounterModalProps {
   show: boolean;
   dashboard: CashDashboardSummary;
   loading: boolean;
+  /** True when the open counter was carried over from a previous day and
+   *  must be closed before a new one can be started — hides Cancel/close and
+   *  blocks dismissal so the user can't skip straight past it. */
+  mandatory?: boolean;
   onClose: () => void;
   onNotify: Notify;
   onSubmit: (payload: CloseCounterPayload) => Promise<void>;
@@ -67,9 +81,98 @@ const trimText = (value: string) => value.trim();
 const getApiErrorMessage = (err: any, fallback: string) =>
   err?.response?.data?.message ?? err?.response?.data?.error ?? err?.message ?? fallback;
 
+interface ExpenseTypeDropdownProps {
+  label: string;
+  value: string;
+  options: string[];
+  error?: string;
+  onSelect: (value: string) => void;
+  onAddNew: () => void;
+}
+
+function ExpenseTypeDropdown({
+  label,
+  value,
+  options,
+  error,
+  onSelect,
+  onAddNew,
+}: ExpenseTypeDropdownProps) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [open]);
+
+  return (
+    <div className="cash-mgmt__type-select" ref={rootRef}>
+      {label ? <label className="form-label fw-semibold ui-input__label">{label}</label> : null}
+      <button
+        type="button"
+        className={`cash-mgmt__type-trigger ${error ? "is-invalid" : ""}`}
+        onClick={() => setOpen((current) => !current)}
+      >
+        <span className={value ? "" : "cash-mgmt__type-placeholder"}>
+          {value || "Select expense type"}
+        </span>
+        <ChevronDown size={12} />
+      </button>
+
+      {open ? (
+        <div className="cash-mgmt__type-menu">
+          <ul className="cash-mgmt__type-list" role="listbox">
+            {options.map((option) => (
+              <li
+                key={option}
+                role="option"
+                aria-selected={option === value}
+                className={`cash-mgmt__type-option ${option === value ? "is-selected" : ""}`}
+                onClick={() => {
+                  onSelect(option);
+                  setOpen(false);
+                }}
+              >
+                {option}
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="cash-mgmt__type-add"
+            onClick={() => {
+              onAddNew();
+              setOpen(false);
+            }}
+          >
+            + Add Expense Type
+          </button>
+        </div>
+      ) : null}
+
+      {error ? <div className="text-danger mt-1 ui-input__error">{error}</div> : null}
+    </div>
+  );
+}
+
 export function OpenCounterModal({
   show,
   loading,
+  mandatory = false,
   onClose,
   onNotify,
   onSubmit,
@@ -79,7 +182,7 @@ export function OpenCounterModal({
   const [submitError, setSubmitError] = useState("");
 
   const handleClose = () => {
-    if (loading) return;
+    if (loading || mandatory) return;
     onClose();
   };
 
@@ -118,11 +221,14 @@ export function OpenCounterModal({
       show={show}
       onClose={handleClose}
       title="Open Counter"
+      hideCloseButton={mandatory}
       footer={
         <div className="cash-mgmt__modal-footer">
-          <Button variant="ghost" onClick={handleClose} disabled={loading}>
-            Cancel
-          </Button>
+          {!mandatory && (
+            <Button variant="ghost" onClick={handleClose} disabled={loading}>
+              Cancel
+            </Button>
+          )}
           <Button
             variant="dark"
             loading={loading}
@@ -142,11 +248,17 @@ export function OpenCounterModal({
               }
             }}
           >
-            Open Counter
+            Start Counter
           </Button>
         </div>
       }
     >
+      {mandatory ? (
+        <div className="cash-mgmt__modal-message cash-mgmt__modal-message--warning">
+          No cash counter is open for today. Enter the opening balance to start one before
+          continuing.
+        </div>
+      ) : null}
       {submitError ? (
         <div className="cash-mgmt__modal-message cash-mgmt__modal-message--error">
           {submitError}
@@ -183,6 +295,10 @@ export function ExpenseModal({
   });
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState("");
+  const [customTypes, setCustomTypes] = useState<string[]>([]);
+  const [addingType, setAddingType] = useState(false);
+  const [newTypeValue, setNewTypeValue] = useState("");
+  const [newTypeError, setNewTypeError] = useState("");
 
   const handleClose = () => {
     if (loading) return;
@@ -210,7 +326,52 @@ export function ExpenseModal({
 
     setErrors({});
     setSubmitError("");
+    setCustomTypes(getCustomExpenseTypes());
+    setAddingType(false);
+    setNewTypeValue("");
+    setNewTypeError("");
   }, [initialValue, show]);
+
+  const expenseTypeOptions = useMemo(() => {
+    const options = [...DEFAULT_EXPENSE_TYPES, ...customTypes];
+    if (initialValue?.expenseType && !options.some(
+      (value) => value.toLowerCase() === initialValue.expenseType.toLowerCase(),
+    )) {
+      options.push(initialValue.expenseType);
+    }
+    return options;
+  }, [customTypes, initialValue]);
+
+  const handleExpenseTypeSelect = (value: string) => {
+    updateField("expense_type", value);
+  };
+
+  const handleAddNewType = () => {
+    setAddingType(true);
+    setNewTypeValue("");
+    setNewTypeError("");
+  };
+
+  const handleSaveNewType = () => {
+    const trimmed = trimText(newTypeValue);
+    if (!trimmed) {
+      setNewTypeError("Enter a name for the new expense type.");
+      return;
+    }
+
+    const nextTypes = saveCustomExpenseType(trimmed);
+    setCustomTypes(nextTypes);
+    updateField("expense_type", trimmed);
+    setAddingType(false);
+    setNewTypeValue("");
+    setNewTypeError("");
+  };
+
+  const handleCancelNewType = () => {
+    setAddingType(false);
+    setNewTypeValue("");
+    setNewTypeError("");
+  };
 
   const title = initialValue ? "Edit Expense" : "Add Expense";
 
@@ -308,12 +469,46 @@ export function ExpenseModal({
         </div>
       ) : null}
       <div className="cash-mgmt__modal-form">
-        <Input
-          label="Expense Type"
-          value={form.expense_type}
-          error={errors.expense_type}
-          onChange={(event) => updateField("expense_type", event.target.value)}
-        />
+        <div>
+          <ExpenseTypeDropdown
+            label="Expense Type"
+            value={form.expense_type}
+            options={expenseTypeOptions}
+            error={errors.expense_type}
+            onSelect={handleExpenseTypeSelect}
+            onAddNew={handleAddNewType}
+          />
+
+          {addingType ? (
+            <div className="cash-mgmt__quick-add-row">
+              <input
+                autoFocus
+                className="cash-mgmt__field"
+                placeholder="New expense type name"
+                value={newTypeValue}
+                onChange={(event) => setNewTypeValue(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") {
+                    event.preventDefault();
+                    handleSaveNewType();
+                  }
+                  if (event.key === "Escape") {
+                    handleCancelNewType();
+                  }
+                }}
+              />
+              <Button variant="dark" size="sm" onClick={handleSaveNewType}>
+                Save
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleCancelNewType}>
+                Cancel
+              </Button>
+            </div>
+          ) : null}
+          {newTypeError ? (
+            <div className="text-danger mt-1 ui-input__error">{newTypeError}</div>
+          ) : null}
+        </div>
         <Input
           label="Description"
           multiline
@@ -414,6 +609,7 @@ export function CloseCounterModal({
   show,
   dashboard,
   loading,
+  mandatory = false,
   onClose,
   onNotify,
   onSubmit,
@@ -425,7 +621,7 @@ export function CloseCounterModal({
   const [submitError, setSubmitError] = useState("");
 
   const handleClose = () => {
-    if (loading) return;
+    if (loading || mandatory) return;
     onClose();
   };
 
@@ -478,14 +674,17 @@ export function CloseCounterModal({
     <Modal
       show={show}
       onClose={handleClose}
-      title="Close Counter"
+      title="Close Cash Counter"
       size="lg"
       centered={false}
+      hideCloseButton={mandatory}
       footer={
         <div className="cash-mgmt__modal-footer">
-          <Button variant="ghost" onClick={handleClose} disabled={loading}>
-            Cancel
-          </Button>
+          {!mandatory && (
+            <Button variant="ghost" onClick={handleClose} disabled={loading}>
+              Cancel
+            </Button>
+          )}
           <Button
             variant="dark"
             loading={loading}
@@ -507,11 +706,21 @@ export function CloseCounterModal({
               }
             }}
           >
-            Close Counter
+            Yes, Close Counter
           </Button>
         </div>
       }
     >
+      {mandatory ? (
+        <div className="cash-mgmt__modal-message cash-mgmt__modal-message--warning">
+          Previous day's cash counter is still open. Please close it first before opening today's
+          counter.
+        </div>
+      ) : (
+        <div className="cash-mgmt__modal-message cash-mgmt__modal-message--warning">
+          Are you sure you want to close today's cash counter? You cannot reopen it again today.
+        </div>
+      )}
       {submitError ? (
         <div className="cash-mgmt__modal-message cash-mgmt__modal-message--error">
           {submitError}

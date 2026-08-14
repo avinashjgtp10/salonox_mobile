@@ -13,6 +13,7 @@ import {
   StarFill,
   ChevronRight,
   ChatDots,
+  LockFill,
   X,
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
@@ -21,6 +22,9 @@ import SearchOverlay from "./SearchOverlay";
 import api from "../../../services/api/axios";
 import { NOTIFICATIONS } from "../../../services/api/endpoints";
 import { connectSocket, disconnectSocket } from "../../../services/socket/socket";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { closeCashCounterThunk } from "../../../middleware/cashCounter/cashCounter.thunk";
+import { Button, Modal } from "../../../components/ui";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -98,6 +102,13 @@ export default function DashboardTopbar({ onLogout }: Props) {
   const [notifs,      setNotifs]      = useState<Notification[]>([]);
   const [loading,     setLoading]     = useState(false);
   const [toasts,      setToasts]      = useState<Toast[]>([]);
+
+  // ── Cash counter: "Close Counter" navbar shortcut ────────────────────────────
+  const dispatch = useAppDispatch();
+  const cashDashboard = useAppSelector((s) => s.cashCounter.dashboard);
+  const isCashCounterOpen = cashDashboard?.status === "open" && Boolean(cashDashboard.cashManagementId);
+  const [showCloseCounterConfirm, setShowCloseCounterConfirm] = useState(false);
+  const [closingCounter, setClosingCounter] = useState(false);
 
   const notifRef   = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -246,6 +257,43 @@ export default function DashboardTopbar({ onLogout }: Props) {
     onLogout();
   }, [onLogout]);
 
+  const showCashCounterToast = useCallback((title: string, body: string) => {
+    showToast({
+      id: `cash-counter_${Date.now()}`,
+      type: "info",
+      title,
+      body,
+      is_read: true,
+      created_at: new Date().toISOString(),
+    });
+  }, [showToast]);
+
+  const handleConfirmCloseCounter = useCallback(async () => {
+    if (!cashDashboard?.cashManagementId) {
+      setShowCloseCounterConfirm(false);
+      return;
+    }
+
+    setClosingCounter(true);
+    try {
+      await dispatch(
+        closeCashCounterThunk({
+          cash_management_id: cashDashboard.cashManagementId,
+          in_store_cash: Number(cashDashboard.inStoreCash || cashDashboard.closingBalance || 0),
+          remarks: cashDashboard.remarks ?? "",
+        }),
+      ).unwrap();
+      setShowCloseCounterConfirm(false);
+      showCashCounterToast("Counter closed", "The cash counter was closed successfully.");
+    } catch (err: any) {
+      const message =
+        err?.response?.data?.message ?? err?.response?.data?.error ?? err?.message ?? "Failed to close counter.";
+      showCashCounterToast("Close counter failed", message);
+    } finally {
+      setClosingCounter(false);
+    }
+  }, [cashDashboard, dispatch, showCashCounterToast]);
+
   // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
@@ -287,12 +335,25 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
       {/* ── TOPBAR ── */}
       <div className="topbar">
-        <h2 className="brand">
-          <img src={salonoxIcon} alt="" className="brand-icon" width="26" height="26" />
-          <span className="brand-wordmark">
-            Salon<span className="brand-wordmark-accent">OX</span>
-          </span>
-        </h2>
+        <div className="topbar-left">
+          <h2 className="brand">
+            <img src={salonoxIcon} alt="" className="brand-icon" width="26" height="26" />
+            <span className="brand-wordmark">
+              Salon<span className="brand-wordmark-accent">OX</span>
+            </span>
+          </h2>
+
+          {isCashCounterOpen && (
+            <button
+              type="button"
+              className="topbar-close-counter-btn"
+              onClick={() => setShowCloseCounterConfirm(true)}
+            >
+              <LockFill size={13} />
+              <span>Close Counter</span>
+            </button>
+          )}
+        </div>
 
         <div className="topbar-right">
 
@@ -424,6 +485,36 @@ export default function DashboardTopbar({ onLogout }: Props) {
       </div>
 
       {showSearch && <SearchOverlay onClose={() => setShowSearch(false)} />}
+
+      <Modal
+        show={showCloseCounterConfirm}
+        onClose={() => { if (!closingCounter) setShowCloseCounterConfirm(false); }}
+        title="Close Cash Counter"
+        size="sm"
+        footer={
+          <div className="topbar-confirm-footer">
+            <Button
+              variant="ghost"
+              onClick={() => setShowCloseCounterConfirm(false)}
+              disabled={closingCounter}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              loading={closingCounter}
+              disabled={closingCounter}
+              onClick={() => void handleConfirmCloseCounter()}
+            >
+              Yes, Close Counter
+            </Button>
+          </div>
+        }
+      >
+        <p className="topbar-confirm-copy">
+          Are you sure you want to close today's cash counter? You cannot reopen it again today.
+        </p>
+      </Modal>
     </>
   );
 }

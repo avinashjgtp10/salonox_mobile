@@ -69,6 +69,15 @@ export interface CashExpenseRecord {
   transactionClosedAt: string | null;
 }
 
+export interface CashIncomeEntryRecord {
+  id: string;
+  occurredAt: string;
+  source: string;
+  reference: string | null;
+  clientName: string;
+  amount: number;
+}
+
 export interface CashManagementState {
   dashboard: CashDashboardSummary | null;
   transactions: CashTransactionRecord[];

@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useAppDispatch, useAppSelector } from "../../hooks/useAppRedux";
 import {
-  closeCashCounter,
+  closeCashCounterThunk,
+  fetchCashCounterDashboardThunk,
+  openCashCounterThunk,
+} from "../../middleware/cashCounter/cashCounter.thunk";
+import {
   createCashExpense,
   deleteCashExpense,
-  fetchCashDashboard,
   fetchCashExpenses,
   fetchCashTransactions,
   fetchTodaysRevenue,
-  openCashCounter,
   updateCashExpense,
 } from "./cashManagement.api";
 import type {
@@ -45,57 +48,6 @@ const emptySummary: CashDashboardSummary = {
   remarks: null,
 };
 
-const summaryAmountKeys: Array<
-  keyof Pick<
-    CashDashboardSummary,
-    | "openingBalance"
-    | "cashRevenue"
-    | "cashExpense"
-    | "closingBalance"
-    | "inStoreCash"
-    | "reconciliationAmount"
-  >
-> = [
-    "openingBalance",
-    "cashRevenue",
-    "cashExpense",
-    "closingBalance",
-    "inStoreCash",
-    "reconciliationAmount",
-  ];
-
-const hasAllZeroSummaryAmounts = (summary: CashDashboardSummary) => {
-  return summaryAmountKeys.every((key) => summary[key] === 0);
-};
-
-const hasAnyNonZeroSummaryAmount = (summary: CashDashboardSummary) => {
-  return summaryAmountKeys.some((key) => summary[key] !== 0);
-};
-
-const mergeDashboardSummary = (
-  current: CashDashboardSummary | null,
-  next: CashDashboardSummary,
-) => {
-  if (
-    current &&
-    next.status === "closed" &&
-    hasAllZeroSummaryAmounts(next) &&
-    hasAnyNonZeroSummaryAmount(current)
-  ) {
-    return {
-      ...next,
-      openingBalance: current.openingBalance,
-      cashRevenue: current.cashRevenue,
-      cashExpense: current.cashExpense,
-      closingBalance: current.closingBalance,
-      inStoreCash: current.inStoreCash,
-      reconciliationAmount: current.reconciliationAmount,
-    };
-  }
-
-  return next;
-};
-
 const logBackgroundRefreshError = (label: string, error: unknown) => {
   console.error(`[cash-management] ${label} refresh failed`, error);
 };
@@ -107,7 +59,11 @@ const shouldSuppressCashCounterNotification = (message: string | null | undefine
 };
 
 export function useCashManagement() {
-  const [dashboard, setDashboard] = useState<CashDashboardSummary | null>(null);
+  const dispatch = useAppDispatch();
+  // The counter/dashboard itself lives in Redux (cashCounterSlice) — it's
+  // shared with the main navbar's Close Counter shortcut, so opening or
+  // closing the counter from either place updates both instantly.
+  const dashboardState = useAppSelector((state) => state.cashCounter.dashboard);
   const [transactions, setTransactions] = useState<CashTransactionRecord[]>([]);
   const [expenses, setExpenses] = useState<CashExpenseRecord[]>([]);
   // Kept separate from `dashboard` (the cash counter) on purpose — the
@@ -140,10 +96,8 @@ export function useCashManagement() {
   }, []);
 
   const loadDashboard = useCallback(async () => {
-    const next = await runTask("dashboard", () => fetchCashDashboard());
-    setDashboard((current) => mergeDashboardSummary(current, next));
-    return next;
-  }, [runTask]);
+    return runTask("dashboard", () => dispatch(fetchCashCounterDashboardThunk()).unwrap());
+  }, [runTask, dispatch]);
 
   const loadTransactions = useCallback(async () => {
     const next = await runTask("transactions", () => fetchCashTransactions());
@@ -236,17 +190,32 @@ export function useCashManagement() {
     void refreshAll();
   }, [refreshAll]);
 
+  // Cash payments taken from other modules (Quick Sale, Calendar checkout,
+  // another tab/device) don't push an update here — this page only ever
+  // refetches on mount or after its own actions. Without polling, Cash
+  // Revenue/In Store Cash/the transaction list can sit stale indefinitely
+  // while the page stays open, which reads as "the sync is broken" even
+  // though the backend already has the correct number. Paused while the tab
+  // isn't visible so it doesn't burn requests in a backgrounded tab.
+  useEffect(() => {
+    const POLL_INTERVAL_MS = 20000;
+    const id = window.setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      void refreshAll();
+    }, POLL_INTERVAL_MS);
+    return () => window.clearInterval(id);
+  }, [refreshAll]);
+
   const handleOpenCounter = useCallback(async (payload: OpenCounterPayload) => {
-    const next = await runTask("openCounter", () => openCashCounter(payload));
+    const next = await runTask("openCounter", () => dispatch(openCashCounterThunk(payload)).unwrap());
     runBackgroundRefreshes([
-      { label: "dashboard", refresh: refreshDashboard },
       { label: "transactions", refresh: refreshTransactions },
     ]);
 
     return next;
   }, [
+    dispatch,
     runBackgroundRefreshes,
-    refreshDashboard,
     refreshTransactions,
     runTask,
   ]);
@@ -255,15 +224,14 @@ export function useCashManagement() {
 
   // CLose Counter
   const handleCloseCounter = useCallback(async (payload: CloseCounterPayload) => {
-    const next = await runTask("closeCounter", () => closeCashCounter(payload));
+    const next = await runTask("closeCounter", () => dispatch(closeCashCounterThunk(payload)).unwrap());
     runBackgroundRefreshes([
-      { label: "dashboard", refresh: refreshDashboard },
       { label: "transactions", refresh: refreshTransactions },
       { label: "expenses", refresh: refreshExpenses },
     ]);
 
     return next;
-  }, [refreshDashboard, refreshExpenses, refreshTransactions, runBackgroundRefreshes, runTask]);
+  }, [dispatch, refreshExpenses, refreshTransactions, runBackgroundRefreshes, runTask]);
 
 
   const handleCreateExpense = useCallback(async (payload: CashExpensePayload) => {
@@ -283,12 +251,24 @@ const handleDeleteExpense = useCallback(async (id: string) => {
 
 
 
+  const dashboard = dashboardState ?? emptySummary;
+  // True only once a dashboard fetch has actually resolved (with real data,
+  // or a confirmed "no counter yet" — see cashCounter.thunk.ts) — never true
+  // for the pre-fetch default. Callers that auto-force a modal based on
+  // counter state (e.g. the mandatory Open/Close Counter flow) must gate on
+  // this, not just `loading.dashboard` — otherwise a transient default
+  // value, or a fetch that failed for an unrelated reason (auth timing on a
+  // hard refresh, a network blip), gets misread as "confirmed: no counter",
+  // popping a modal that can't be dismissed and won't self-correct.
+  const dashboardLoaded = dashboardState !== null;
+
   const activeCounterClosed = useMemo(() => {
     return !dashboard?.cashManagementId || dashboard.status === "closed";
   }, [dashboard]);
 
   return {
-    dashboard: dashboard ?? emptySummary,
+    dashboard,
+    dashboardLoaded,
     transactions,
     expenses,
     todayRevenue,

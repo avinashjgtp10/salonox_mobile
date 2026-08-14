@@ -53,6 +53,13 @@ body {
   }
 }
 
+.topbar-left {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  min-width: 0;
+}
+
 .brand {
   display: flex;
   align-items: center;
@@ -61,6 +68,56 @@ body {
   font-weight: 700;
   color: $dashboard-primary;
   margin: 0;
+}
+
+.topbar-confirm-copy {
+  margin: 0;
+  font-size: 14px;
+  color: #374151;
+
+  & + & {
+    margin-top: 0.5rem;
+  }
+}
+
+.topbar-confirm-copy--error {
+  color: #b91c1c;
+  font-weight: 600;
+}
+
+.topbar-confirm-footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  width: 100%;
+}
+
+.topbar-close-counter-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 7px 14px;
+  border: 1px solid #fecaca;
+  border-radius: 999px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 700;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  &:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+  }
+
+  @media (max-width: 640px) {
+    span {
+      display: none;
+    }
+  }
 }
 
 .brand-icon {

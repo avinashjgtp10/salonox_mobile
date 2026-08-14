@@ -8,6 +8,10 @@ interface ModalProps {
   footer?: React.ReactNode;
   size?: "sm" | "md" | "lg" | "xl";
   centered?: boolean;
+  /** Hides the header "x" and disables backdrop-click dismissal — for flows
+   *  the user must complete rather than dismiss (e.g. a mandatory cash
+   *  counter open/close). */
+  hideCloseButton?: boolean;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -18,17 +22,21 @@ const Modal: React.FC<ModalProps> = ({
   footer,
   size = "md",
   centered = true,
+  hideCloseButton = false,
 }) => {
   if (!show) return null;
 
   return (
     <>
-      <div className="modal-backdrop fade show" onClick={onClose}></div>
+      <div
+        className="modal-backdrop fade show"
+        onClick={hideCloseButton ? undefined : onClose}
+      ></div>
       <div
         className="modal fade show d-block"
         tabIndex={-1}
         role="dialog"
-        onClick={onClose}
+        onClick={hideCloseButton ? undefined : onClose}
       >
         <div
           className={`modal-dialog modal-${size} ${centered ? "modal-dialog-centered" : ""}`}
@@ -38,12 +46,14 @@ const Modal: React.FC<ModalProps> = ({
           <div className="modal-content border-0 shadow-lg rounded-4">
             <div className="modal-header border-0 pt-4 px-4">
               {title && <h5 className="modal-title fw-bold">{title}</h5>}
-              <button
-                type="button"
-                className="btn-close shadow-none"
-                onClick={onClose}
-                aria-label="Close"
-              ></button>
+              {!hideCloseButton && (
+                <button
+                  type="button"
+                  className="btn-close shadow-none"
+                  onClick={onClose}
+                  aria-label="Close"
+                ></button>
+              )}
             </div>
             <div className="modal-body px-4 py-3">{children}</div>
             {footer && (

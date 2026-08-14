@@ -5,6 +5,7 @@ import { logout, setCustomPermissions } from "../../../store/authSlice";
 import { getMySalonThunk } from "../../../middleware/salon/salon.thunk";
 import { fetchMeThunk } from "../../../middleware/user/user.thunk";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
+import { fetchCashCounterDashboardThunk } from "../../../middleware/cashCounter/cashCounter.thunk";
 import "../styles/DashboardPage.scss";
 
 import DashboardTopbar from "./DashboardTopbar";
@@ -15,6 +16,7 @@ import CatalogSubSidebar from "./CatalogSubSidebar";
 import ClientsSubSidebar from "./ClientsSubSidebar";
 import MarketingSubSidebar from "./MarketingSubSidebar";
 import TeamSubSidebar from "./TeamSubSidebar";
+import UnclosedCounterGate from "../../cash-management/components/UnclosedCounterGate";
 
 function detectOpenMenu(pathname: string): string | null {
   if (pathname.startsWith("/dashboard/clients")) return "clients";
@@ -34,6 +36,7 @@ export default function DashboardLayout() {
   useEffect(() => {
     dispatch(getMySalonThunk());
     dispatch(fetchSettingsThunk());
+    dispatch(fetchCashCounterDashboardThunk());
 
     // Fetch user profile; for staff, sync custom_permissions into auth state.
     // Check role from the thunk's own fresh payload, not an outer selector —
@@ -87,6 +90,7 @@ export default function DashboardLayout() {
     <div className="dashboard">
       <DeploymentBanner />
       <DashboardTopbar onLogout={handleLogout} />
+      <UnclosedCounterGate />
 
       <div className="dashboard-body">
         <DashboardSidebar openMenu={openMenu} onMenuChange={setOpenMenu} />
