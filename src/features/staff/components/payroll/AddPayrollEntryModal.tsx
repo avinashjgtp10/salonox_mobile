@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Modal from "../../../../components/ui/Modal";
 import Input from "../../../../components/ui/Input";
 import Button from "../../../../components/ui/Button";
-import SearchableSelect from "../../../../components/ui/SearchableSelect";
+import Dropdown from "../../../../components/ui/Dropdown";
 import api from "../../../../services/api/axios";
 import { ATTENDANCE, COMMISSION_RULES, PAYROLL, STAFF } from "../../../../services/api/endpoints";
 import {
@@ -755,15 +755,11 @@ export default function AddPayrollEntryModal({
               <span className="badge text-bg-secondary">Locked</span>
             </div>
           ) : (
-          <SearchableSelect<{ value: string; label: string }>
+          <Dropdown
             value={staffId}
             onChange={handleStaffChange}
-            options={staffOptions.map((s) => ({ value: s.id, label: `${s.name} · ${s.role}` }))}
-            getKey={(staff) => staff.value}
-            getLabel={(staff) => staff.label}
-            getSearchText={(staff) => staff.label}
+            options={staffOptions.map((s) => ({ id: s.id, name: `${s.name} · ${s.role}` }))}
             placeholder="Select staff"
-            searchPlaceholder="Search staff..."
             className={`form-select text-start ${showStaffError ? "is-invalid" : ""}`}
           />
           )}
