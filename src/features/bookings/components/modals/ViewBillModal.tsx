@@ -7,6 +7,7 @@ import { formatTime12 } from "../../utils/timeUtils";
 import Badge from "../../../../components/ui/Badge";
 import { getActiveTaxes } from "../../../settings/utils/taxSettings";
 import { getTaxModuleConfig } from "../../../settings/utils/taxModuleSettings";
+import { getPaperProfile } from "../../../settings/utils/printSettings";
 import { computeTotals } from "../../utils/totalsUtils";
 import { useClientDetails } from "../../hooks/useClientDetails";
 import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
@@ -48,6 +49,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   const settingItems = useAppSelector((s) => s.setting.items);
   const activeTaxes  = useMemo(() => getActiveTaxes(settingItems), [settingItems]);
   const showTaxBreakupOnInvoice = useMemo(() => getTaxModuleConfig(settingItems).show_breakup_on_invoice, [settingItems]);
+  // Salon-wide Print Settings (paper size/margins) — resolved once and passed
+  // into every printReceipt() call from this screen.
+  const paperProfile = useMemo(() => getPaperProfile(settingItems), [settingItems]);
   const [tab, setTab] = useState<"Booking Details" | "Activity Log">("Booking Details");
   const [showDotMenu, setShowDotMenu] = useState(false);
 
@@ -333,7 +337,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                         referralEarnings: referralEarningsForBill,
                         activeMemberships: activeMembershipsForBill,
                         activePackages: activePackagesForBill,
-                      }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount });
+                      }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount, paperProfile });
                     }}
                     style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: "0 0 10px 10px", textAlign: "left" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}

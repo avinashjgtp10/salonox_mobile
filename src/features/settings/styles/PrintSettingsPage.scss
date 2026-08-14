@@ -1,0 +1,165 @@
+// Print Settings. Matches the other Configuration pages (Tax Mapping, Reward
+// Points) — card-based, two columns on desktop, stacking on narrow screens.
+
+.prs-page { padding: 4px 2px 28px; }
+
+.prs-head {
+  margin-bottom: 20px;
+
+  h1 {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    margin: 0;
+    font-size: 20px;
+    font-weight: 700;
+    color: #111827;
+  }
+
+  p {
+    margin: 6px 0 0;
+    font-size: 13px;
+    color: #6b7280;
+    max-width: 640px;
+    line-height: 1.6;
+  }
+}
+
+.prs-grid {
+  display: grid;
+  // The summary column is fixed-ish so the form doesn't get squeezed; both
+  // collapse to one column below the breakpoint.
+  grid-template-columns: minmax(0, 1fr) minmax(0, 320px);
+  gap: 18px;
+  align-items: start;
+
+  @media (max-width: 900px) { grid-template-columns: 1fr; }
+}
+
+.prs-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  padding: 20px;
+
+  h2 {
+    margin: 0 0 14px;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    color: #6b7280;
+  }
+
+  .prs-sub { margin-top: 22px; }
+
+  &--summary { background: #fafafa; }
+}
+
+.prs-label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  margin-bottom: 6px;
+}
+
+.prs-input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13.5px;
+  color: #111827;
+  outline: none;
+  transition: border-color .15s, box-shadow .15s;
+
+  &:focus { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, .1); }
+
+  &--err {
+    border-color: #ef4444;
+    &:focus { border-color: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, .12); }
+  }
+}
+
+.prs-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 16px;
+
+  &--4 {
+    grid-template-columns: repeat(4, 1fr);
+    @media (max-width: 620px) { grid-template-columns: 1fr 1fr; }
+  }
+}
+
+.prs-hint {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+  color: #6b7280;
+  line-height: 1.6;
+
+  strong { color: #111827; }
+}
+
+.prs-err {
+  display: block;
+  margin-top: 6px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: #ef4444;
+}
+
+.prs-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 24px;
+  padding-top: 18px;
+  border-top: 1px solid #f3f4f6;
+}
+
+.prs-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  border-radius: 8px;
+  padding: 9px 15px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+  transition: background .15s, border-color .15s, opacity .15s;
+
+  &:hover:not(:disabled) { background: #f9fafb; border-color: #d1d5db; }
+  &:disabled { opacity: .55; cursor: not-allowed; }
+
+  &--primary {
+    margin-left: auto;
+    background: #4f46e5;
+    border-color: #4f46e5;
+    color: #fff;
+    &:hover:not(:disabled) { background: #4338ca; border-color: #4338ca; }
+  }
+}
+
+.prs-summary {
+  margin: 0;
+
+  > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 7px 0;
+    border-bottom: 1px dashed #e5e7eb;
+    &:last-child { border-bottom: none; }
+  }
+
+  dt { font-size: 12px; color: #6b7280; }
+  dd { margin: 0; font-size: 12.5px; font-weight: 600; color: #111827; text-align: right; }
+}

@@ -15,6 +15,7 @@ import {
   Share2,
   Tag,
   PackageIcon,
+  Printer,
 } from "lucide-react";
 import ProfileSettingsPage from "../pages/ProfileSettingsPage";
 import BusinessSettingsPage from "../pages/BusinessSettingsPage";
@@ -29,6 +30,7 @@ import RewardsSettingsPage from "../pages/RewardsSettingsPage";
 import ReferralSettingsPage from "../pages/ReferralSettingsPage";
 import CouponsSettingsPage from "../pages/CouponsSettingsPage";
 import PackageSettingsPage from "../pages/PackageSettingsPage";
+import PrintSettingsPage from "../pages/PrintSettingsPage";
 import DataPrivacyPage from "../pages/DataPrivacyPage";
 import "../styles/SettingsPage.scss";
 
@@ -78,6 +80,7 @@ const navGroups: NavGroup[] = [
       { id: "referral",     label: "Refer & Earn",   icon: <Share2 size={15} />,            Component: ReferralSettingsPage },
       { id: "coupons",      label: "Coupons",        icon: <Tag size={15} />,               Component: CouponsSettingsPage },
       { id: "packages",     label: "Packages",       icon: <PackageIcon size={15} />,       Component: PackageSettingsPage },
+      { id: "print",        label: "Print Settings", icon: <Printer size={15} />,           Component: PrintSettingsPage },
       // Not shown in the sidebar (see SIDEBAR_HIDDEN_IDS) — it's the coupon
       // management list, reached from the designer's "Manage coupons" link.
       { id: "coupons-manage", label: "Manage Coupons", icon: <Tag size={15} />,             Component: CouponsSettingsPage, hidden: true },
