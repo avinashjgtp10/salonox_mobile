@@ -238,6 +238,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
               dateRangeLabel={`${formatDate(dateFrom)} - ${formatDate(dateTo)}`}
               filterLines={activeFilterLines}
               summaryLines={[
+                `Total Paid: ${formatAmount(stats.totalCollected)}`,
                 `Total Pending Amount: ${formatAmount(stats.totalPendingAmount)}`,
                 `Total Pending Transactions: ${stats.totalPendingTransactions}`,
                 `Customers With Due: ${stats.totalCustomersWithDue}`,
@@ -278,8 +279,12 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
         </div>
       </div>
 
-      {loading ? <SkeletonStatCards count={5} /> : (
+      {loading ? <SkeletonStatCards count={6} /> : (
         <div className="rp-sra-summary-row">
+          <div className="rp-sra-summary-card">
+            <div className="rp-sra-summary-val">{formatAmount(stats.totalCollected)}</div>
+            <div className="rp-sra-summary-label">Total Paid</div>
+          </div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalPendingAmount)}</div><div className="rp-sra-summary-label">Total Pending Amount</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalPendingTransactions}</div><div className="rp-sra-summary-label">Total Pending Transactions</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalCustomersWithDue}</div><div className="rp-sra-summary-label">Customers With Due Amount</div></div>
