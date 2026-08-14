@@ -430,7 +430,7 @@ export default function HalfDayRulePage({ onClose, onSaved }: HalfDayRulePagePro
           <button className="hd-btn" onClick={handleCancel} disabled={saving}>
             <X size={14} /> Cancel
           </button>
-          <button className="hd-btn hd-btn--primary" onClick={handleSave} disabled={saving}>
+          <button className="hd-btn hd-btn--primary" onClick={handleSave} disabled={saving || !config.active}>
             <Save size={14} /> {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>

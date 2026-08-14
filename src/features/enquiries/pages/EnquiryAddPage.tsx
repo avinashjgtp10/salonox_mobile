@@ -12,6 +12,15 @@ import { datetimeLocalToIso, isoToDatetimeLocal } from "../utils/enquiryFormat";
 import { DEFAULT_ENQUIRY_STATUSES, ENQUIRY_SOURCES, type EnquiryFormValues } from "../types/enquiry.types";
 import "../styles/EnquiryAddPage.scss";
 
+/** Enquiry stores a plain national number (no country code field), so the
+ * E.164 value from PhoneInput (e.g. "+915555555555") must be stripped down
+ * to just the 10 local digits before it's sent — otherwise the backend's
+ * 10-digit check rejects the extra "91" prefix digits. */
+function toNationalPhone(e164: string): string {
+  const digits = e164.replace(/\D/g, "");
+  return digits.length > 10 ? digits.slice(-10) : digits;
+}
+
 const EMPTY_FORM: EnquiryFormValues = {
   name: "",
   phone: "",
@@ -36,9 +45,6 @@ export default function EnquiryAddPage() {
 
   const [form, setForm] = useState<EnquiryFormValues>(EMPTY_FORM);
   const [statuses, setStatuses] = useState<string[]>(DEFAULT_ENQUIRY_STATUSES);
-  const [showCreateStatusModal, setShowCreateStatusModal] = useState(false);
-  const [newStatusInput, setNewStatusInput] = useState("");
-  const [statusInputError, setStatusInputError] = useState("");
 
   const [touched, setTouched] = useState({ name: false, phone: false });
   const [isPhoneFieldValid, setIsPhoneFieldValid] = useState(false);
@@ -123,28 +129,6 @@ export default function EnquiryAddPage() {
 
   const patch = (p: Partial<EnquiryFormValues>) => setForm((prev) => ({ ...prev, ...p }));
 
-  const handleCreateStatusOpen = (presetText?: string) => {
-    setNewStatusInput(presetText || "");
-    setStatusInputError("");
-    setShowCreateStatusModal(true);
-  };
-
-  const handleConfirmCreateStatus = () => {
-    const trimmed = newStatusInput.trim();
-    if (!trimmed) {
-      setStatusInputError("Status name cannot be empty");
-      return;
-    }
-    if (!statuses.includes(trimmed)) {
-      setStatuses((prev) => [...prev, trimmed]);
-    }
-    patch({ status: trimmed });
-    setShowCreateStatusModal(false);
-    setNewStatusInput("");
-    setStatusInputError("");
-    showSuccess(`Status "${trimmed}" created`);
-  };
-
   const handleCloseClick = () => {
     if (isDirty()) setShowUnsavedDialog(true);
     else navigate("/dashboard/enquiries");
@@ -158,7 +142,7 @@ export default function EnquiryAddPage() {
     try {
       const payload = {
         name: form.name.trim(),
-        phone: form.phone.trim(),
+        phone: toNationalPhone(form.phone.trim()),
         service_id: form.service_id || null,
         staff_id: form.staff_id || null,
         status: form.status,
@@ -216,45 +200,6 @@ export default function EnquiryAddPage() {
         </div>
       )}
 
-      {showCreateStatusModal && (
-        <div className="enq-add__dialog-overlay">
-          <div className="enq-add__dialog">
-            <button className="enq-add__dialog-close" onClick={() => setShowCreateStatusModal(false)}>&times;</button>
-            <h5 className="enq-add__dialog-title">Create New Status</h5>
-            <p className="enq-add__dialog-desc" style={{ marginBottom: "16px" }}>
-              Enter a name for the new status. It will be added to options and selected immediately.
-            </p>
-            <div style={{ marginBottom: "20px" }}>
-              <input
-                className="enq-add-input"
-                placeholder="Status name (e.g. In Progress, Negotiating)"
-                value={newStatusInput}
-                onChange={(e) => {
-                  setNewStatusInput(e.target.value);
-                  if (statusInputError) setStatusInputError("");
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleConfirmCreateStatus();
-                  }
-                }}
-                autoFocus
-              />
-              {statusInputError && <span className="enq-add-field__error" style={{ display: "block", marginTop: "4px" }}>{statusInputError}</span>}
-            </div>
-            <div className="enq-add__dialog-actions">
-              <button className="btn enq-add__dialog-btn enq-add__dialog-btn--cancel" onClick={() => setShowCreateStatusModal(false)}>
-                Cancel
-              </button>
-              <button className="btn enq-add__dialog-btn enq-add__dialog-btn--discard" onClick={handleConfirmCreateStatus}>
-                Create &amp; Select
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="enq-add-page">
         <div className="enq-add-card">
           <h6 className="enq-add-card__title">Details</h6>
@@ -286,7 +231,7 @@ export default function EnquiryAddPage() {
                   onBlur={() => setTouched((t) => ({ ...t, phone: true }))}
                   placeholder="Mobile number"
                   containerClass=""
-                  error={showPhoneError ? "Enter a valid phone number" : undefined}
+                  error={showPhoneError ? "Enter a valid 10-digit phone number" : undefined}
                 />
               </div>
 
@@ -320,17 +265,7 @@ export default function EnquiryAddPage() {
                   options={statusOptions}
                   placeholder="Select status"
                   searchPlaceholder="Search status..."
-                  creatable
-                  createLabel="Create status"
-                  onCreateNew={(text) => handleCreateStatusOpen(text)}
                 />
-                <button
-                  type="button"
-                  className="enq-add-create-link"
-                  onClick={() => handleCreateStatusOpen()}
-                >
-                  + Create Status
-                </button>
               </div>
 
               <div className="enq-add-field">

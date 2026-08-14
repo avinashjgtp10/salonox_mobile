@@ -113,7 +113,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   };
 
   const handleDigitsChange = (raw: string) => {
-    emit(raw.replace(/\D/g, ""), country);
+    emit(raw.replace(/\D/g, "").slice(0, 10), country);
   };
 
   const handleCountryChange = (next: CountryOption) => {
