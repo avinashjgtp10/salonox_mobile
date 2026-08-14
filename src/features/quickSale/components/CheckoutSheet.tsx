@@ -329,18 +329,6 @@ function CheckoutSheetComponent({
     () => items.filter((item) => item.itemType === "service" && !item.staffId).length,
     [items],
   );
-  const missingStaffServiceNames = useMemo(
-    () =>
-      Array.from(
-        new Set(
-          items
-            .filter((item) => item.itemType === "service" && !item.staffId)
-            .map((item) => item.name.trim())
-            .filter(Boolean),
-        ),
-      ),
-    [items],
-  );
   const hasMissingStaff = missingStaffCount > 0;
   const showStaffValidation = staffValidationAttempted && hasMissingStaff;
   const activeStaffItem = useMemo(
@@ -594,18 +582,6 @@ function CheckoutSheetComponent({
                       </View>
                     ))
                   )}
-                  {showStaffValidation ? (
-                    <View style={styles.staffWarningBanner}>
-                      <Ionicons name="alert-circle-outline" size={16} color={Colors.error} />
-                      <Text style={styles.staffWarningText}>
-                        {`Please assign a staff member to every selected service before continuing.${
-                          missingStaffServiceNames.length > 0
-                            ? ` Missing: ${missingStaffServiceNames.join(", ")}.`
-                            : ""
-                        }`}
-                      </Text>
-                    </View>
-                  ) : null}
                 </>
               ) : checkoutStep === "charges" ? (
                 <>
@@ -1492,21 +1468,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 12,
     marginTop: 4,
     textAlign: "center",
-  },
-  staffWarningBanner: {
-    alignItems: "center",
-    backgroundColor: Colors.errorBg,
-    borderRadius: Radius.lg,
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginTop: Spacing.sm,
-    padding: Spacing.md,
-  },
-  staffWarningText: {
-    color: Colors.error,
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "800",
   },
   itemGroup: {
     marginBottom: Spacing.lg,

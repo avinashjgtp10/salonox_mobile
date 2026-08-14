@@ -15,6 +15,11 @@ import type { ClientPackage, PackageListItem } from "@/types/package";
 
 const SKELETON_KEYS = ["package-one", "package-two", "package-three", "package-four"];
 
+const isActiveCatalogPackage = (item: PackageListItem) => {
+  const status = item.status.trim().toLowerCase();
+  return !status || status === "active";
+};
+
 type PackageCatalogTabProps = {
   activeClientPackages: ClientPackage[];
   onSelect: (item: PackageListItem) => void;
@@ -69,10 +74,10 @@ export function PackageCatalogTab({ activeClientPackages, onSelect, salonId, sea
 
     try {
       const result = await packageService.getPackages(
-        { limit: 50, search: debouncedSearch.trim(), status: "Active" },
+        { limit: 50, search: debouncedSearch.trim() },
         salonId,
       );
-      setItems(result.items);
+      setItems(result.items.filter(isActiveCatalogPackage));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Unable to load packages.");
       setItems([]);

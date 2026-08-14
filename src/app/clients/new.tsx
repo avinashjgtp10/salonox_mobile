@@ -253,6 +253,7 @@ export default function NewClientScreen() {
             <TouchableOpacity
               activeOpacity={0.8}
               disabled={isSubmitting}
+              hitSlop={AppLayout.headerActionHitSlop}
               onPress={handleBack}
               style={styles.backButton}
             >

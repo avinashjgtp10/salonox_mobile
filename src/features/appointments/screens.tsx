@@ -906,7 +906,7 @@ function ScreenShell({
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.iconButton}>
+          <TouchableOpacity activeOpacity={0.8} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
             <Ionicons name="chevron-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, headerTitleStyle]}>{title}</Text>
@@ -1532,7 +1532,7 @@ export function AppointmentDashboardScreen() {
   const listHeader = (
     <View style={styles.listHeader}>
       <View style={styles.headerRow}>
-        <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.iconButton}>
+        <TouchableOpacity activeOpacity={0.8} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
           <Ionicons name="chevron-back" size={18} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Appointments</Text>
@@ -1673,6 +1673,7 @@ export function AppointmentListScreen() {
             <View style={styles.headerRow}>
               <TouchableOpacity
                 activeOpacity={0.8}
+                hitSlop={12}
                 onPress={() => router.replace("/bookings" as Href)}
                 style={styles.iconButton}
               >
@@ -3823,6 +3824,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
           <View style={styles.headerRow}>
             <TouchableOpacity
               activeOpacity={0.8}
+              hitSlop={12}
               onPress={() => (router.canGoBack() ? router.back() : router.replace("/bookings" as Href))}
               style={styles.iconButton}
             >

@@ -13,9 +13,9 @@ import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
   DashboardTypography as Typography,
-  getDashboardColors,
   type ThemeColors,
 } from "@/constants/theme";
+import { useThemeColors } from "@/theme/ThemeProvider";
 
 type ConfirmationModalProps = {
   cancelLabel: string;
@@ -40,7 +40,7 @@ export function ConfirmationModal({
   title,
   visible,
 }: ConfirmationModalProps) {
-  const colors = useMemo(() => getDashboardColors("dark"), []);
+  const colors = useThemeColors();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { width } = useWindowDimensions();
   const [isConfirming, setIsConfirming] = useState(false);
@@ -202,6 +202,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   secondaryButton: {
     alignItems: "center",
     backgroundColor: "transparent",
+    borderColor: Colors.border,
     borderCurve: "continuous",
     borderRadius: Radius.lg,
     borderWidth: 1,
@@ -216,7 +217,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     lineHeight: 20,
   },
   destructiveButton: {
-    borderColor: "rgba(248, 113, 113, 0.48)",
+    borderColor: Colors.error,
   },
   destructiveButtonText: {
     color: Colors.error,

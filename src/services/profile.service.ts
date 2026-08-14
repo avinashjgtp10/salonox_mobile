@@ -45,6 +45,48 @@ const toSafeString = (value: unknown, fallback = "") => {
 
 const toOptionalString = (value: unknown) => toSafeString(value) || null;
 
+const MONTH_INDEX_BY_NAME: Record<string, string> = {
+  apr: "04",
+  aug: "08",
+  dec: "12",
+  feb: "02",
+  jan: "01",
+  jul: "07",
+  jun: "06",
+  mar: "03",
+  may: "05",
+  nov: "11",
+  oct: "10",
+  sep: "09",
+};
+
+const toDateOnlyString = (value: unknown) => {
+  const rawValue = toSafeString(value);
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const isoDateMatch = rawValue.match(/^(\d{4}-\d{2}-\d{2})/);
+
+  if (isoDateMatch) {
+    return isoDateMatch[1];
+  }
+
+  const dateStringMatch = rawValue.match(/^(?:[A-Za-z]{3}\s+)?([A-Za-z]{3})\s+(\d{1,2})\s+(\d{4})/);
+
+  if (dateStringMatch) {
+    const [, monthName, day, year] = dateStringMatch;
+    const month = MONTH_INDEX_BY_NAME[monthName.toLowerCase()];
+
+    if (month) {
+      return `${year}-${month}-${day.padStart(2, "0")}`;
+    }
+  }
+
+  return rawValue;
+};
+
 const toOptionalBoolean = (value: unknown) => {
   if (typeof value === "boolean") {
     return value;
@@ -102,7 +144,7 @@ const normalizeProfile = (profile: UserProfileApiItem): UserProfile => {
     businessName: toOptionalString(profile.businessName ?? profile.business_name ?? profile.salon_name),
     country: toOptionalString(profile.country),
     countryCode: toOptionalString(profile.countryCode ?? profile.country_code),
-    dateOfBirth: toOptionalString(profile.dateOfBirth ?? profile.date_of_birth ?? profile.dob),
+    dateOfBirth: toDateOnlyString(profile.dateOfBirth ?? profile.date_of_birth ?? profile.dob),
     email: toOptionalString(profile.email),
     firstName: toOptionalString(profile.firstName ?? profile.first_name),
     fullName,
@@ -139,6 +181,14 @@ const buildUpdatePayload = (payload: UpdateProfileRequest) => {
     requestBody.phone = payload.phone;
   }
 
+  if (payload.gender !== undefined) {
+    requestBody.gender = payload.gender || null;
+  }
+
+  if (payload.dateOfBirth !== undefined) {
+    requestBody.dateOfBirth = payload.dateOfBirth || null;
+  }
+
   if (payload.businessName !== undefined) {
     requestBody.businessName = payload.businessName;
   }
@@ -160,8 +210,8 @@ export const profileService = {
     return normalizeProfile(getProfileFromEnvelope(response.data.data));
   },
 
-  async updateProfile(payload: UpdateProfileRequest): Promise<UpdateProfileResponse> {
-    const response = await api.patch<ProfileApiResponse>(USER.ME, buildUpdatePayload(payload));
+  async updateProfile(userId: string, payload: UpdateProfileRequest): Promise<UpdateProfileResponse> {
+    const response = await api.put<ProfileApiResponse>(PROFILE.DETAIL(userId), buildUpdatePayload(payload));
 
     return {
       message: response.data.message,

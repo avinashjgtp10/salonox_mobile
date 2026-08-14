@@ -37,6 +37,18 @@ type CreateClientApiData =
     };
 type CreateClientApiResponse = ApiResponse<CreateClientApiData>;
 type DeleteClientApiResponse = ApiResponse<unknown>;
+type ClientHistoryApiData =
+  | ClientHistoryItemApi[]
+  | {
+      data?: ClientHistoryItemApi[] | null;
+      history?: ClientHistoryItemApi[] | null;
+      items?: ClientHistoryItemApi[] | null;
+      records?: ClientHistoryItemApi[] | null;
+      rows?: ClientHistoryItemApi[] | null;
+      timeline?: ClientHistoryItemApi[] | null;
+    }
+  | null
+  | undefined;
 
 // GET /clients/search's real validator rejects anything shorter than this
 // (400 "q must be at least 2 characters") — checked client-side too so we
@@ -106,6 +118,14 @@ const getClientArray = (payload: ClientListApiData) => {
   }
 
   return payload.clients ?? payload.items ?? payload.rows ?? payload.data ?? [];
+};
+
+const getClientHistoryArray = (payload: ClientHistoryApiData) => {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  return payload?.history ?? payload?.timeline ?? payload?.items ?? payload?.records ?? payload?.rows ?? payload?.data ?? [];
 };
 
 const isCreatedClientEnvelope = (
@@ -270,6 +290,8 @@ const normalizeDuplicateGroup = (group: ClientDuplicateGroupApi): ClientDuplicat
 const normalizeHistoryItem = (item: ClientHistoryItemApi): ClientHistoryItem => {
   const rawDate = item.date || item.created_at || null;
   const dateLabel = formatCreatedDate(rawDate);
+  const items = Array.isArray(item.items) ? item.items : [];
+
   return {
     id: item.id || String(Math.random()),
     date: rawDate || "",
@@ -278,7 +300,7 @@ const normalizeHistoryItem = (item: ClientHistoryItemApi): ClientHistoryItem => 
     description: item.description || "",
     amount: toSafeNumber(item.amount),
     status: item.status || "",
-    items: (item.items || []).map(i => ({
+    items: items.map(i => ({
       name: i.name || "",
       type: (i.type as "service" | "product") || "service",
       price: toSafeNumber(i.price),
@@ -537,8 +559,8 @@ export const clientService = {
   },
 
   async getClientHistory(clientId: string): Promise<ClientHistoryItem[]> {
-    const response = await api.get<ApiResponse<ClientHistoryItemApi[]>>(`${CLIENT.DETAIL}/${clientId}/history`);
-    const history = response.data.data || [];
+    const response = await api.get<ApiResponse<ClientHistoryApiData>>(`${CLIENT.DETAIL}/${clientId}/history`);
+    const history = getClientHistoryArray(response.data.data);
     return history.map(normalizeHistoryItem);
   },
 

@@ -56,11 +56,10 @@ const profileSlice = createSlice({
         state.saveError = null;
         state.saving = true;
       })
-      .addCase(updateProfileThunk.fulfilled, (state) => {
-        // The Profile screen re-fetches GET /profile/:id after a successful save,
-        // so the authoritative refresh comes from that request, not the PATCH body.
+      .addCase(updateProfileThunk.fulfilled, (state, action) => {
         state.saveError = null;
         state.saving = false;
+        state.profile = action.payload.profile;
       })
       .addCase(updateProfileThunk.rejected, (state, action) => {
         state.saveError =

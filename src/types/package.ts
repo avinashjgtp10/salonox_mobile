@@ -27,6 +27,30 @@ export type PackageListResponse = {
   total: number;
 };
 
+export type PackageTemplateService = {
+  id: string;
+  price: number;
+  serviceName: string;
+  templateId: string;
+  totalSessions: number;
+};
+
+export type PackageTemplate = {
+  basePrice: number;
+  createdAt: string;
+  description: string | null;
+  discount: number;
+  expiryDays: number | null;
+  expiryMonths: number | null;
+  gstPercentage: number;
+  id: string;
+  name: string;
+  neverExpires: boolean;
+  paymentMethod: string;
+  salonId: string;
+  services: PackageTemplateService[];
+};
+
 export type ClientPackageService = {
   catalogServiceId: string | null;
   completedSessions: number;

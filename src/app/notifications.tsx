@@ -253,7 +253,7 @@ export default function NotificationsScreen({
       <AppStatusBar />
 
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
+        <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
           <Ionicons name="chevron-back" size={18} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>

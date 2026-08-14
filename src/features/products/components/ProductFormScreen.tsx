@@ -206,7 +206,7 @@ export default function ProductFormScreen({ id, mode }: Props) {
 function Header({ onBack, title }: { onBack: () => void; title: string }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <View style={styles.header}><TouchableOpacity onPress={onBack} style={styles.iconButton}><Ionicons name="chevron-back" size={19} color={Colors.primary} /></TouchableOpacity><Text style={styles.headerTitle}>{title}</Text><View style={styles.iconButtonSpacer} /></View>;
+  return <View style={styles.header}><TouchableOpacity hitSlop={12} onPress={onBack} style={styles.iconButton}><Ionicons name="chevron-back" size={19} color={Colors.primary} /></TouchableOpacity><Text style={styles.headerTitle}>{title}</Text><View style={styles.iconButtonSpacer} /></View>;
 }
 
 function LoadingScreen({ onBack, title }: { onBack: () => void; title: string }) {
