@@ -60,6 +60,26 @@
   color: #374151;
 }
 
+.rw-field-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.rw-select-all-btn {
+  border: none;
+  background: none;
+  padding: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #4f46e5;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { text-decoration: underline; }
+  &:disabled { color: #9ca3af; cursor: not-allowed; }
+}
+
 .rw-optional {
   font-weight: 400;
   color: #9ca3af;
