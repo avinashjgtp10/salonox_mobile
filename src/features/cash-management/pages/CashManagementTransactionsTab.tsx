@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Search, SortDown, SortUp } from "react-bootstrap-icons";
 import { Pagination } from "../../../components/ui";
 import type { CashManagementExportDataset } from "../cashManagement.export";
-import type { CashCounterStatus, CashTransactionRecord } from "../cashManagement.types";
+import type { CashTransactionRecord } from "../cashManagement.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import CashMgmtFilterSelect from "../components/CashMgmtFilterSelect";
 import CashIncomeModal from "../components/CashIncomeModal";
@@ -24,9 +24,23 @@ interface Props {
   onExportDataChange?: (dataset: CashManagementExportDataset) => void;
 }
 
+// Each counter session becomes TWO rows here — one for the Open event, one
+// for the Close event (once it has one) — rather than a single row with both
+// an "Opened At" and "Closed At" column. That's what lets a session that was
+// opened on one calendar day and closed on the next show up correctly under
+// each day's own date filter, and matches the "Day 1 Open / Day 1 Close /
+// Day 2 Open / ..." history shape this table is meant to read as.
+type EventKind = "open" | "close";
+
+interface EventRow {
+  key: string;
+  session: CashTransactionRecord;
+  event: EventKind;
+  dateTime: string;
+}
+
 type SortKey =
-  | "openedAt"
-  | "closedAt"
+  | "dateTime"
   | "openingBalance"
   | "cashRevenue"
   | "cashExpense"
@@ -48,7 +62,6 @@ const formatDate = (value: string) => {
   });
 };
 
-
 export default function CashManagementTransactionsTab({
   rows,
   loading = false,
@@ -60,53 +73,58 @@ export default function CashManagementTransactionsTab({
 }: Props) {
   const { currencySymbol, formatAmount } = useCurrency();
   const [search, setSearch] = useState("");
-  const [status, setStatus] = useState<"all" | CashCounterStatus>("all");
+  const [status, setStatus] = useState<"all" | EventKind>("all");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [sortKey, setSortKey] = useState<SortKey>("openedAt");
+  const [sortKey, setSortKey] = useState<SortKey>("dateTime");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("desc");
   const [viewingIncomeFor, setViewingIncomeFor] = useState<CashTransactionRecord | null>(null);
 
-  const getRowDisplayDate = (row: CashTransactionRecord) => row.openedAt ?? row.date;
-
-  // Open counters have no closedAt yet — pushed to the tail of either sort
-  // direction (treated as "latest possible") rather than sorting as if they
-  // closed at epoch 0, which would otherwise float them to the very top of
-  // an ascending sort.
-  const timeOrEnd = (value: string | null) => (value ? new Date(value).getTime() : Number.POSITIVE_INFINITY);
+  const allEventRows = useMemo<EventRow[]>(() => {
+    const out: EventRow[] = [];
+    for (const session of rows) {
+      const openedAt = session.openedAt ?? session.date;
+      if (openedAt) {
+        out.push({ key: `${session.id}-open`, session, event: "open", dateTime: openedAt });
+      }
+      if (session.closedAt) {
+        out.push({ key: `${session.id}-close`, session, event: "close", dateTime: session.closedAt });
+      }
+    }
+    return out;
+  }, [rows]);
 
   const filtered = useMemo(() => {
-    return rows
+    return allEventRows
       .filter((row) => {
         const query = search.trim().toLowerCase();
-        const rowDateValue = getRowDisplayDate(row);
-        const rowDate = rowDateValue ? new Date(rowDateValue) : null;
+        const rowDate = row.dateTime ? new Date(row.dateTime) : null;
 
-        if (status !== "all" && row.status !== status) return false;
+        if (status !== "all" && row.event !== status) return false;
         if (sharedDateFrom && rowDate && rowDate < new Date(`${sharedDateFrom}T00:00:00`)) return false;
         if (sharedDateTo && rowDate && rowDate > new Date(`${sharedDateTo}T23:59:59`)) return false;
         if (!query) return true;
 
-        return [row.id, row.status, row.remarks ?? ""].some((value) =>
+        return [row.session.id, row.event, row.session.remarks ?? ""].some((value) =>
           String(value).toLowerCase().includes(query),
         );
       })
       .sort((left, right) => {
         const invert = sortDirection === "asc" ? 1 : -1;
-        if (sortKey === "openedAt") {
-          return (timeOrEnd(left.openedAt) - timeOrEnd(right.openedAt)) * invert;
+        if (sortKey === "dateTime") {
+          return (new Date(left.dateTime).getTime() - new Date(right.dateTime).getTime()) * invert;
         }
-        if (sortKey === "closedAt") {
-          return (timeOrEnd(left.closedAt) - timeOrEnd(right.closedAt)) * invert;
+        if (sortKey === "status") {
+          return left.event.localeCompare(right.event) * invert;
         }
-        const leftValue = left[sortKey];
-        const rightValue = right[sortKey];
+        const leftValue = left.session[sortKey];
+        const rightValue = right.session[sortKey];
         if (typeof leftValue === "number" && typeof rightValue === "number") {
           return (leftValue - rightValue) * invert;
         }
         return String(leftValue).localeCompare(String(rightValue)) * invert;
       });
-  }, [rows, search, sharedDateFrom, sharedDateTo, sortDirection, sortKey, status]);
+  }, [allEventRows, search, sharedDateFrom, sharedDateTo, sortDirection, sortKey, status]);
 
   const paged = filtered.slice((page - 1) * pageSize, page * pageSize);
 
@@ -137,28 +155,26 @@ export default function CashManagementTransactionsTab({
     onExportDataChange?.({
       title: "Transactions",
       columns: [
-        "Opened At",
-        "Closed At",
+        "Date & Time",
+        "Status",
         `Opening Balance (${currencySymbol})`,
         `Cash Revenue (${currencySymbol})`,
         `Cash Expense (${currencySymbol})`,
         `Closing Balance (${currencySymbol})`,
         `In-Store Cash (${currencySymbol})`,
         `Reconciliation Amount (${currencySymbol})`,
-        "Status",
       ],
       rows: filtered.map((row) => {
-        const statusValue = row.status === "open" ? "Open" : "Closed";
+        const isOpenRow = row.event === "open";
         return [
-          formatDate(row.openedAt ?? row.date),
-          row.closedAt ? formatDate(row.closedAt) : "--",
-          formatAmount(row.openingBalance ?? 0),
-          formatAmount(row.cashRevenue ?? 0),
-          formatAmount(row.cashExpense ?? 0),
-          formatAmount(row.closingBalance ?? 0),
-          formatAmount(row.inStoreCash ?? 0),
-          formatAmount(row.reconciliationAmount ?? 0),
-          statusValue,
+          formatDate(row.dateTime),
+          isOpenRow ? "Open" : "Closed",
+          formatAmount(row.session.openingBalance ?? 0),
+          isOpenRow ? "--" : formatAmount(row.session.cashRevenue ?? 0),
+          isOpenRow ? "--" : formatAmount(row.session.cashExpense ?? 0),
+          isOpenRow ? "--" : formatAmount(row.session.closingBalance ?? 0),
+          isOpenRow ? "--" : formatAmount(row.session.inStoreCash ?? 0),
+          isOpenRow ? "--" : formatAmount(row.session.reconciliationAmount ?? 0),
         ];
       }),
       appliedFilters,
@@ -202,7 +218,7 @@ export default function CashManagementTransactionsTab({
             value={status}
             options={STATUS_FILTER_OPTIONS}
             onChange={(value) => {
-              setStatus(value as "all" | CashCounterStatus);
+              setStatus(value as "all" | EventKind);
               setPage(1);
             }}
           />
@@ -214,15 +230,14 @@ export default function CashManagementTransactionsTab({
           <thead>
             <tr>
               {[
-                ["openedAt", "Opened At"],
-                ["closedAt", "Closed At"],
+                ["dateTime", "Date & Time"],
+                ["status", "Status"],
                 ["openingBalance", "Opening Balance"],
                 ["cashRevenue", "Cash Revenue"],
                 ["cashExpense", "Cash Expense"],
                 ["inStoreCash", "In Store Cash"],
                 ["closingBalance", "Closing Balance"],
                 ["reconciliationAmount", "Reconciliation Amount"],
-                ["status", "Status"],
               ].map(([key, label]) => (
                 <th key={key}>
                   <button
@@ -246,7 +261,7 @@ export default function CashManagementTransactionsTab({
           <tbody>
             {!loading && paged.length === 0 && (
               <tr>
-                <td colSpan={9}>
+                <td colSpan={8}>
                   <div className="cash-mgmt__empty-state">
                     <h3 className="cash-mgmt__empty-title">No transactions found</h3>
                     <p className="cash-mgmt__empty-text">
@@ -257,54 +272,60 @@ export default function CashManagementTransactionsTab({
               </tr>
             )}
             {paged.map((row) => {
-              const isOpen = row.status === "open";
+              const isOpenRow = row.event === "open";
+              const session = row.session;
 
               return (
-                <tr key={row.id}>
+                <tr key={row.key}>
                   <td>
                     <button
                       type="button"
                       className="cash-mgmt__table-link"
-                      onClick={() => setViewingIncomeFor(row)}
+                      onClick={() => setViewingIncomeFor(session)}
                       title="View individual cash payments"
                     >
-                      {formatDate(row.openedAt ?? row.date)}
+                      {formatDate(row.dateTime)}
                     </button>
-                  </td>
-                  <td>{row.closedAt ? formatDate(row.closedAt) : "--"}</td>
-                  <td>{formatAmount(row.openingBalance)}</td>
-                  <td>
-                    <button
-                      type="button"
-                      className="cash-mgmt__table-link"
-                      onClick={() => setViewingIncomeFor(row)}
-                      title="View individual cash payments"
-                    >
-                      {formatAmount(row.cashRevenue)}
-                    </button>
-                  </td>
-                  <td>{formatAmount(row.cashExpense)}</td>
-                  <td>{formatAmount(row.inStoreCash)}</td>
-                  <td>{formatAmount(row.closingBalance)}</td>
-                  <td
-                    className={
-                      row.reconciliationAmount >= 0
-                        ? "cash-mgmt__amount-positive"
-                        : "cash-mgmt__amount-negative"
-                    }
-                  >
-                    {formatAmount(row.reconciliationAmount)}
                   </td>
                   <td>
                     <span
                       className={`cash-mgmt__status-pill ${
-                        isOpen
+                        isOpenRow
                           ? "cash-mgmt__status-pill--open"
                           : "cash-mgmt__status-pill--closed"
                       }`}
                     >
-                      {isOpen ? "Open" : "Closed"}
+                      {isOpenRow ? "Open" : "Closed"}
                     </span>
+                  </td>
+                  <td>{formatAmount(session.openingBalance)}</td>
+                  <td>
+                    {isOpenRow ? (
+                      "--"
+                    ) : (
+                      <button
+                        type="button"
+                        className="cash-mgmt__table-link"
+                        onClick={() => setViewingIncomeFor(session)}
+                        title="View individual cash payments"
+                      >
+                        {formatAmount(session.cashRevenue)}
+                      </button>
+                    )}
+                  </td>
+                  <td>{isOpenRow ? "--" : formatAmount(session.cashExpense)}</td>
+                  <td>{isOpenRow ? "--" : formatAmount(session.inStoreCash)}</td>
+                  <td>{isOpenRow ? "--" : formatAmount(session.closingBalance)}</td>
+                  <td
+                    className={
+                      isOpenRow
+                        ? undefined
+                        : session.reconciliationAmount >= 0
+                          ? "cash-mgmt__amount-positive"
+                          : "cash-mgmt__amount-negative"
+                    }
+                  >
+                    {isOpenRow ? "--" : formatAmount(session.reconciliationAmount)}
                   </td>
                 </tr>
               );

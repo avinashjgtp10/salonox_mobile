@@ -4,9 +4,13 @@ import {
   CashStack,
   ChevronDown,
   CheckCircle,
+  Calculator,
   GraphUpArrow,
   JournalText,
+  ListCheck,
   PlusCircle,
+  PlusLg,
+  Receipt,
   Safe2,
   Wallet2,
 } from "react-bootstrap-icons";
@@ -194,6 +198,14 @@ export default function CashManagementPage() {
     return expenses.filter((item) => isInDateRange(item.updatedAt ?? item.expenseDate, sharedDateFrom, sharedDateTo)).length;
   }, [expenses, sharedDateFrom, sharedDateTo]);
 
+  // Same date-range slice the Expenses tab counts (`expenseTabCount` above) —
+  // reused here so the two stay in agreement no matter which date filter is
+  // applied.
+  const expensesInRange = useMemo(
+    () => expenses.filter((item) => isInDateRange(item.updatedAt ?? item.expenseDate, sharedDateFrom, sharedDateTo)),
+    [expenses, sharedDateFrom, sharedDateTo],
+  );
+
 
   useEffect(() => {
 
@@ -295,6 +307,33 @@ export default function CashManagementPage() {
     ],
     [summaryDashboard, todayRevenue, formatAmount],
   );
+
+  const expenseSummaryCards = useMemo(() => {
+    const count = expensesInRange.length;
+    const total = expensesInRange.reduce((sum, item) => sum + (item.amount || 0), 0);
+    const average = count > 0 ? total / count : 0;
+
+    return [
+      {
+        label: "Total Expenses",
+        value: formatAmount(total),
+        icon: <Receipt size={18} />,
+        tone: "warning",
+      },
+      {
+        label: "Expense Count",
+        value: String(count),
+        icon: <ListCheck size={18} />,
+        tone: "primary",
+      },
+      {
+        label: "Average Expense",
+        value: formatAmount(average),
+        icon: <Calculator size={18} />,
+        tone: "info",
+      },
+    ];
+  }, [expensesInRange, formatAmount]);
 
   const tabs = useMemo(
     () => [
@@ -487,6 +526,42 @@ export default function CashManagementPage() {
 
           <div className="cash-mgmt__summary-grid">
             {summaryCards.map((card) => (
+              <article
+                key={card.label}
+                className={`cash-mgmt__summary-card cash-mgmt__summary-card--${card.tone}`}
+              >
+                <div className="cash-mgmt__summary-content">
+                  <div className={`cash-mgmt__summary-icon cash-mgmt__summary-icon--${card.tone}`}>
+                    {card.icon}
+                  </div>
+                  <div className="cash-mgmt__summary-copy">
+                    <strong className="cash-mgmt__summary-value">{card.value}</strong>
+                    <span className="cash-mgmt__summary-label">{card.label}</span>
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+
+        <section className="cash-mgmt__summary-section">
+          <div className="cash-mgmt__section-header">
+            <div className="cash-mgmt__section-copy">
+              <h2 className="cash-mgmt__surface-title">Expense Summary</h2>
+            </div>
+            <Button
+              variant="dark"
+              iconLeft={<PlusLg size={14} />}
+              onClick={openExpenseCreate}
+              disabled={activeCounterClosed || expenseActionsLoading}
+              title={activeCounterClosed ? "Open the cash counter to add an expense." : undefined}
+            >
+              Add Expenses
+            </Button>
+          </div>
+
+          <div className="cash-mgmt__summary-grid">
+            {expenseSummaryCards.map((card) => (
               <article
                 key={card.label}
                 className={`cash-mgmt__summary-card cash-mgmt__summary-card--${card.tone}`}

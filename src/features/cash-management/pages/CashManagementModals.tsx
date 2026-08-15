@@ -627,7 +627,13 @@ export function CloseCounterModal({
 
   useEffect(() => {
     if (!show) return;
-    setInStoreCash(String(dashboard.inStoreCash || dashboard.closingBalance || 0));
+    // Cash expenses can exceed cash revenue, which makes `closingBalance`
+    // negative — pre-filling that straight into "In Store Cash" suggested a
+    // negative amount for a field that's never allowed to be negative (see
+    // validateForm below). Clamp the suggestion itself so the field never
+    // opens already showing a value the form would reject.
+    const suggested = dashboard.inStoreCash || dashboard.closingBalance || 0;
+    setInStoreCash(String(Math.max(0, suggested)));
     setRemarks(dashboard.remarks ?? "");
     setErrors({});
     setSubmitError("");
@@ -758,6 +764,7 @@ export function CloseCounterModal({
         <Input
           label="In Store Cash"
           type="number"
+          min={0}
           value={inStoreCash}
           error={errors.in_store_cash}
           onChange={(event) => updateInStoreCash(event.target.value)}
