@@ -65,6 +65,10 @@ export default function RuleWizard({ staffOptions, staffLoading, editing, initia
   const toggleStaff = (id: string) =>
     setSelectedStaffIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
 
+  const allStaffSelected = staffOptions.length > 0 && selectedStaffIds.length === staffOptions.length;
+  const toggleSelectAllStaff = () =>
+    setSelectedStaffIds(allStaffSelected ? [] : staffOptions.map((s) => s.id));
+
   const isNameInvalid = attempted && !name.trim();
   const isRateInvalid = attempted && !(Number(rate) > 0);
   const isScopeInvalid = attempted && selectedStaffIds.length === 0;
@@ -204,10 +208,20 @@ export default function RuleWizard({ staffOptions, staffLoading, editing, initia
 
           {/* Who receives this commission */}
           <div className="rw-field">
-            <label className="rw-field-label">
-              Who receives this commission?
-              {selectedStaffIds.length > 0 && <span className="rw-optional"> — {selectedStaffIds.length} selected</span>}
-            </label>
+            <div className="rw-field-label-row">
+              <label className="rw-field-label">
+                Who receives this commission?
+                {selectedStaffIds.length > 0 && <span className="rw-optional"> — {selectedStaffIds.length} selected</span>}
+              </label>
+              <button
+                type="button"
+                className="rw-select-all-btn"
+                onClick={toggleSelectAllStaff}
+                disabled={staffLoading || staffOptions.length === 0}
+              >
+                {allStaffSelected ? "Clear all" : "Select all staff"}
+              </button>
+            </div>
             {/* Same reusable picker the rest of the app uses, in its
                 multi-select mode — replaces the bespoke search box + always-
                 open scrolling checkbox list this field used to render, which

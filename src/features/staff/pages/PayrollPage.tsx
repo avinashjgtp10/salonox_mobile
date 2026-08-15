@@ -396,7 +396,63 @@ async function fetchRuleMeta(staffId: string) {
   }
 }
 
-async function fetchStaffCommissionSummary(staffId: string, startDate: string, endDate: string): Promise<CommissionSummary> {
+// Same "commissions/earned" endpoint the Commissions tab uses (and shows the
+// correct, real ₹ amount from). It returns EVERY staff member's totals for
+// one salon+month in a single call, so this fetches each month in the
+// payroll period exactly once (not once per staff — that was making
+// `staffOptions.length` identical requests to the same endpoint, one per
+// staff, which is what made the page slow to load) and aggregates the rows
+// into a per-staff map the caller can look up. Preferred over
+// PAYROLL.COMMISSION_SUMMARY below: that endpoint often comes back without a
+// usable total, and the fallback chain that follows ends up substituting the
+// commission RULE's raw rate (e.g. "10" for 10%) as if it were a ₹ amount —
+// which is what caused Payroll to show ₹10 instead of the real ₹120.
+async function fetchAllStaffEarnedCommissions(
+  salonId: string | undefined,
+  startDate: string,
+  endDate: string,
+): Promise<Record<string, CommissionSummary>> {
+  if (!salonId) return {};
+  const months = monthKeysBetween(startDate, endDate);
+  if (months.length === 0) return {};
+
+  const rows = (
+    await Promise.all(
+      months.map((month) =>
+        api
+          .get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&month=${month}`)
+          .then((res) => res.data?.data ?? res.data ?? [])
+          .catch(() => [])
+      )
+    )
+  ).flat();
+
+  const totalsByStaff = new Map<string, { total_commission: number; total_paid: number; total_pending: number }>();
+  for (const row of rows as any[]) {
+    const staffId = String(row.staff_id);
+    const acc = totalsByStaff.get(staffId) ?? { total_commission: 0, total_paid: 0, total_pending: 0 };
+    acc.total_commission += Number(row.total_earned) || 0;
+    acc.total_paid += Number(row.paid_out) || 0;
+    acc.total_pending += Number(row.pending_payout) || 0;
+    totalsByStaff.set(staffId, acc);
+  }
+
+  const result: Record<string, CommissionSummary> = {};
+  for (const [staffId, totals] of totalsByStaff) {
+    result[staffId] = {
+      ...emptyCommissionSummary,
+      ...totals,
+      calculated_commission: totals.total_pending || totals.total_commission,
+    };
+  }
+  return result;
+}
+
+async function fetchStaffCommissionSummary(
+  staffId: string,
+  startDate: string,
+  endDate: string,
+): Promise<CommissionSummary> {
   const params = { staff_id: staffId, start_date: startDate, end_date: endDate };
 
   try {
@@ -1150,23 +1206,34 @@ export default function PayrollPage() {
       return;
     }
 
-    Promise.all(
-      activeStaff.map(async (staff: any) => {
-        const staffId = String(staff.id);
-        try {
-          return [staffId, await fetchStaffCommissionSummary(staffId, dateRange.start, dateRange.end)] as const;
-        } catch {
-          return [staffId, emptyCommissionSummary] as const;
-        }
-      })
-    ).then((entries) => {
-      if (!cancelled) setStaffCommissionSummaries(Object.fromEntries(entries));
-    });
+    (async () => {
+      // One salon-wide fetch covers every staff member who has real earned-
+      // commission data for the period; only staff missing from it (e.g. a
+      // brand-new hire the endpoint hasn't backfilled yet) fall back to the
+      // slower per-staff lookup below.
+      const earnedByStaff = await fetchAllStaffEarnedCommissions(currentSalon?.id, dateRange.start, dateRange.end);
+      const staffNeedingFallback = activeStaff.filter((staff: any) => !earnedByStaff[String(staff.id)]);
+
+      const fallbackEntries = await Promise.all(
+        staffNeedingFallback.map(async (staff: any) => {
+          const staffId = String(staff.id);
+          try {
+            return [staffId, await fetchStaffCommissionSummary(staffId, dateRange.start, dateRange.end)] as const;
+          } catch {
+            return [staffId, emptyCommissionSummary] as const;
+          }
+        })
+      );
+
+      if (!cancelled) {
+        setStaffCommissionSummaries({ ...earnedByStaff, ...Object.fromEntries(fallbackEntries) });
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [staffItems, dateRange.start, dateRange.end]);
+  }, [staffItems, dateRange.start, dateRange.end, currentSalon?.id]);
 
   const periodStart = dateRange.start ? new Date(`${dateRange.start}T00:00:00`) : null;
   const periodEnd = dateRange.end ? new Date(`${dateRange.end}T00:00:00`) : null;
