@@ -332,7 +332,6 @@ function AppShell() {
             <RealtimeSyncSetup />
             <BranchBootstrap />
             <StaffIdentityBootstrap />
-            <SimpleSplash backgroundColor={colors.bg} isReady={isThemeHydrated && isNavigationReady} />
             <Stack
               initialRouteName="login"
               screenOptions={{
@@ -361,6 +360,7 @@ function AppShell() {
               <Stack.Screen name="index" />
               <Stack.Screen name="explore" />
             </Stack>
+            <SimpleSplash backgroundColor={colors.bg} isReady={isThemeHydrated && isNavigationReady} />
             <NetworkErrorModal />
           </PortalProvider>
         </AuthProvider>

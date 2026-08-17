@@ -6,8 +6,10 @@ import {
   type ReportSlug,
 } from "@/features/reports/report-config";
 import { getApiErrorMessage } from "@/services/api";
+import { REPORT } from "@/services/api/endpoints/report.endpoints";
 import { reportService, type GenericReportRequest } from "@/services/report.service";
 import type { RootState } from "@/store";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
 
 export type FetchReportArgs = {
   append?: boolean;
@@ -82,7 +84,7 @@ export const fetchReportThunk = createAsyncThunk<
   { rejectValue: ReportRejectValue; state: RootState }
 >(
   "report/fetch",
-  async (args, { rejectWithValue }) => {
+  async (args, { getState, rejectWithValue }) => {
     try {
       const config = getReportConfig(args.slug);
 
@@ -92,6 +94,24 @@ export const fetchReportThunk = createAsyncThunk<
 
       if (config.status !== "available" || !config.endpoint) {
         throw new Error(config.statusReason ?? "This report is not available in mobile yet.");
+      }
+
+      // Web-parity legacy report (see report-config.ts / types/report.ts):
+      // a GET against the versioned /api/v1 inventory namespace with only
+      // branch_id, not a POST /api/report/* route — search/category/date
+      // filters are never sent to the backend, the caller (a dedicated
+      // screen, not the generic ReportScreen) applies them client-side
+      // against this one full-dataset fetch.
+      if (config.endpoint === REPORT.STOCK_RECONCILIATION) {
+        const branchId = selectActiveBranchId(getState());
+
+        if (!branchId) {
+          throw new Error("No active branch selected.");
+        }
+
+        const data = await reportService.getConsumableUsage(branchId);
+
+        return { data, filters: args.filters, slug: args.slug };
       }
 
       const data = await reportService.getReport(

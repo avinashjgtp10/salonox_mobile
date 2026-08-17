@@ -20,6 +20,7 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import { useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
+import { canViewConsumableInventory } from "@/utils/permissions";
 import {
   getUserAddressLine,
   getUserBusinessName,
@@ -93,6 +94,12 @@ const MENU_ITEMS = [
     route: "/stock" as Href,
     title: "Products",
   },
+  {
+    description: "Track consumable stock, usage history, and service assignments.",
+    icon: "flask-outline" as const,
+    route: "/consumables" as Href,
+    title: "Consumables",
+  },
 ];
 
 export default function MoreScreen() {
@@ -106,6 +113,10 @@ export default function MoreScreen() {
   const initials = getUserInitials(currentUser);
   const addressLine = getUserAddressLine(currentUser);
   const isEmailVerified = currentUser?.isVerified !== false;
+  const visibleMenuItems = useMemo(
+    () => MENU_ITEMS.filter((item) => item.title !== "Consumables" || canViewConsumableInventory(currentUser)),
+    [currentUser],
+  );
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
@@ -352,7 +363,7 @@ export default function MoreScreen() {
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>Tools</Text>
-          {MENU_ITEMS.map((item, index) => (
+          {visibleMenuItems.map((item, index) => (
             <TouchableOpacity
               key={item.title}
               activeOpacity={0.84}
@@ -360,7 +371,7 @@ export default function MoreScreen() {
               style={[
                 styles.menuCard,
                 index === 0 && styles.menuCardFirst,
-                index === MENU_ITEMS.length - 1 && styles.menuCardLast,
+                index === visibleMenuItems.length - 1 && styles.menuCardLast,
                 index > 0 && styles.menuCardSpaced,
               ]}
             >

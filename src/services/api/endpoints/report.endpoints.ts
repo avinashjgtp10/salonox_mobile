@@ -30,4 +30,9 @@ export const REPORT = {
   UPCOMING_APPOINTMENTS: "/api/report/upcoming-appointments",
   MEMBERSHIP_HISTORY: "/api/report/membership-history",
   WA_CAMPAIGN: "/api/report/wa-campaign",
+  // Web-parity legacy report endpoint (see types/report.ts). Lives under the
+  // versioned /api/v1 inventory namespace, not /api/report/* like every
+  // other entry above — do not "modernize" this to a POST /api/report/*
+  // route, the Web app itself still calls this legacy path.
+  STOCK_RECONCILIATION: "/inventory/stock-reconciliation",
 } as const;

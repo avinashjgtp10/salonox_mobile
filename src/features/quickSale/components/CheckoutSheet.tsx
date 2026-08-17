@@ -25,13 +25,16 @@ import { Portal } from "@/components/ui/Portal";
 import { AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
-import type { QuickSaleClient, CartItem } from "@/features/quickSale/types";
+import type { useRedemptions } from "@/features/quickSale/hooks/useRedemptions";
+import type { CartConsumableItem, QuickSaleClient, CartItem } from "@/features/quickSale/types";
 import { getCartItemBillableQuantity, type BillTotals } from "@/features/quickSale/utils/calculations";
 import { getPackageCoveredQuantity } from "@/features/quickSale/utils/packageCoverage";
 import { formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ValidateCouponResult } from "@/types/coupon";
 import type { CheckoutSaleSplitEntry, PosStaffMember, SalePaymentMethod } from "@/types/sales";
+
+type PaymentType = "full" | "partial";
 
 const CHECKOUT_ANIMATION_MS = 250;
 
@@ -50,6 +53,7 @@ type ExtraChargeKey = "convenienceFee" | "otherCharges" | "serviceCharge";
 
 type CheckoutSheetProps = {
   appliedCoupon: ValidateCouponResult | null;
+  consumableProductNames: Record<string, string>;
   couponCode: string;
   couponError: string | null;
   extraCharges: Record<ExtraChargeKey, string>;
@@ -60,8 +64,10 @@ type CheckoutSheetProps = {
   initialStaffValidationAttempted?: boolean;
   isApplyingCoupon: boolean;
   isCheckingOut: boolean;
+  isPricingLoading: boolean;
   isSaving: boolean;
   isSuccess: boolean;
+  pricingError: string | null;
   items: CartItem[];
   onAddMore: () => void;
   onApplyCoupon: () => void;
@@ -76,16 +82,22 @@ type CheckoutSheetProps = {
   ) => void;
   onChangeTip: (value: string) => void;
   onClose: () => void;
-  onCompleteSale: (payment: { method: SalePaymentMethod; splitEntries?: CheckoutSaleSplitEntry[] }) => void;
+  onCompleteSale: (payment: {
+    method: SalePaymentMethod;
+    paidAmount: number;
+    splitEntries?: CheckoutSaleSplitEntry[];
+  }) => void;
   onRemoveCoupon: () => void;
   onRemoveItem: (lineId: string) => void;
   onSavePending: () => void;
+  onSetConsumableActualQty: (lineId: string, productId: string, actualQty: number) => void;
   onSetQuantity: (lineId: string, quantity: number) => void;
   onToggleIncludeGst: () => void;
   overallDiscountInput: string;
   overallDiscountPercent: number;
   overallDiscountType: "flat" | "percentage";
   productStockErrors: Record<string, string>;
+  redemptions: ReturnType<typeof useRedemptions>;
   selectedClient: QuickSaleClient;
   staffOptions: PosStaffMember[];
   submitError: string | null;
@@ -96,6 +108,7 @@ type CheckoutSheetProps = {
 
 function CheckoutSheetComponent({
   appliedCoupon,
+  consumableProductNames,
   couponCode,
   couponError,
   extraCharges,
@@ -106,6 +119,7 @@ function CheckoutSheetComponent({
   initialStaffValidationAttempted = false,
   isApplyingCoupon,
   isCheckingOut,
+  isPricingLoading,
   isSaving,
   isSuccess,
   items,
@@ -122,12 +136,15 @@ function CheckoutSheetComponent({
   onRemoveCoupon,
   onRemoveItem,
   onSavePending,
+  onSetConsumableActualQty,
   onSetQuantity,
   onToggleIncludeGst,
   overallDiscountInput,
   overallDiscountPercent,
   overallDiscountType,
+  pricingError,
   productStockErrors,
+  redemptions,
   selectedClient,
   staffOptions,
   submitError,
@@ -145,6 +162,8 @@ function CheckoutSheetComponent({
   const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod>("cash");
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({});
   const [amountReceivedInput, setAmountReceivedInput] = useState("");
+  const [paymentType, setPaymentType] = useState<PaymentType>("full");
+  const [partialAmountInput, setPartialAmountInput] = useState("");
   const [discountMode, setDiscountMode] = useState<DiscountMode>(
     overallDiscountType === "percentage" ? "percent" : "amount",
   );
@@ -160,6 +179,8 @@ function CheckoutSheetComponent({
     setPaymentMethod("cash");
     setSplitAmounts({});
     setAmountReceivedInput("");
+    setPaymentType("full");
+    setPartialAmountInput("");
     setDiscountMode(overallDiscountType === "percentage" ? "percent" : "amount");
     setDiscountDraft(
       overallDiscountType === "percentage"
@@ -314,11 +335,17 @@ function CheckoutSheetComponent({
     [splitAmounts],
   );
 
+  const amountToCollect =
+    paymentType === "partial"
+      ? Math.max(0, Math.min(parseAmount(partialAmountInput), totals.grandTotal))
+      : totals.grandTotal;
+  const dueAmount = Math.max(0, totals.grandTotal - amountToCollect);
+  const partialAmountExceedsTotal = paymentType === "partial" && parseAmount(partialAmountInput) > totals.grandTotal;
   const splitTotal = splitEntries.reduce((total, entry) => total + entry.amount, 0);
-  const splitMismatch = paymentMethod === "split" && Math.round(splitTotal * 100) !== Math.round(totals.grandTotal * 100);
+  const splitMismatch = paymentMethod === "split" && Math.round(splitTotal * 100) !== Math.round(amountToCollect * 100);
   const amountReceived = parseAmount(amountReceivedInput);
-  const changeDue = paymentMethod === "cash" ? Math.max(0, amountReceived - totals.grandTotal) : 0;
-  const cashInsufficient = paymentMethod === "cash" && amountReceived < totals.grandTotal;
+  const changeDue = paymentMethod === "cash" ? Math.max(0, amountReceived - amountToCollect) : 0;
+  const cashInsufficient = paymentMethod === "cash" && amountReceived < amountToCollect;
   const discountValue = parseAmount(discountDraft);
   const invalidDiscountPercentage = discountMode === "percent" && discountValue > 100;
   const discountExceedsSubtotal = totals.overallDiscount + totals.couponDiscount > totals.subtotal + 0.005;
@@ -338,6 +365,9 @@ function CheckoutSheetComponent({
   const canCompleteSale =
     hasItems &&
     !chargesInvalid &&
+    !partialAmountExceedsTotal &&
+    !isPricingLoading &&
+    !pricingError &&
     (paymentMethod === "split"
       ? splitEntries.length > 0 && !splitMismatch
       : paymentMethod === "cash"
@@ -397,11 +427,11 @@ function CheckoutSheetComponent({
     }
 
     if (paymentMethod === "split") {
-      onCompleteSale({ method: paymentMethod, splitEntries });
+      onCompleteSale({ method: paymentMethod, paidAmount: amountToCollect, splitEntries });
       return;
     }
 
-    onCompleteSale({ method: paymentMethod });
+    onCompleteSale({ method: paymentMethod, paidAmount: amountToCollect });
   };
 
   const handleContinueToPayment = () => {
@@ -506,7 +536,7 @@ function CheckoutSheetComponent({
                     ? `${items.length} line item${items.length === 1 ? "" : "s"} ready`
                     : checkoutStep === "charges"
                       ? `Adjustments for ${selectedClient.name}`
-                    : `Payment due ${formatCurrency(totals.grandTotal)}`}
+                    : `Payment due ${formatCurrency(amountToCollect)}`}
                 </Text>
               </View>
               <TouchableOpacity
@@ -565,6 +595,7 @@ function CheckoutSheetComponent({
                         <Text style={styles.itemGroupTitle}>{group.title}</Text>
                         {group.data.map((item) => (
                           <CheckoutItemCard
+                            consumableProductNames={consumableProductNames}
                             item={item}
                             key={`checkout-item-${item.lineId}`}
                             onClearStaff={() => onAssignStaff(item.lineId, null, null)}
@@ -575,6 +606,9 @@ function CheckoutSheetComponent({
                               animateItemLayout();
                               onRemoveItem(item.lineId);
                             }}
+                            onSetConsumableActualQty={(productId, actualQty) =>
+                              onSetConsumableActualQty(item.lineId, productId, actualQty)
+                            }
                             showStaffError={showStaffValidation && item.itemType === "service" && !item.staffId}
                             stockError={productStockErrors[item.lineId]}
                           />
@@ -617,16 +651,253 @@ function CheckoutSheetComponent({
                     ) : null}
                   </View>
 
-                  {selectedClient.membership ? (
+                  {redemptions.isMembershipDiscountEligible ? (
                     <View style={styles.formCard}>
                       <Text style={styles.sectionTitle}>Membership Discount</Text>
                       <View style={styles.membershipRow}>
                         <View>
-                          <Text style={styles.membershipStatus}>Applied Automatically</Text>
-                          <Text style={styles.membershipName}>{selectedClient.membership}</Text>
+                          <Text style={styles.membershipStatus}>
+                            {redemptions.applyMembershipDiscount ? "Applied" : "Available"}
+                          </Text>
+                          <Text style={styles.membershipName}>{selectedClient.membership || "Membership"}</Text>
                         </View>
-                        <Text style={styles.membershipSavings}>{formatCurrency(0)}</Text>
+                        <TouchableOpacity
+                          activeOpacity={0.84}
+                          onPress={() => redemptions.setApplyMembershipDiscount(!redemptions.applyMembershipDiscount)}
+                          style={[styles.quickChip, redemptions.applyMembershipDiscount && styles.quickChipActive]}
+                        >
+                          <Text
+                            style={[
+                              styles.quickChipText,
+                              redemptions.applyMembershipDiscount && styles.quickChipTextActive,
+                            ]}
+                          >
+                            {redemptions.applyMembershipDiscount ? "ON" : "OFF"}
+                          </Text>
+                        </TouchableOpacity>
                       </View>
+                      {redemptions.applyMembershipDiscount && totals.appliedMembershipDiscount > 0 ? (
+                        <Text style={styles.gstPreviewText}>
+                          Savings: {formatCurrency(totals.appliedMembershipDiscount)}
+                        </Text>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  {redemptions.isLoyaltyEligible ? (
+                    <View style={styles.formCard}>
+                      <Text style={styles.sectionTitle}>Loyalty Discount</Text>
+                      <View style={styles.membershipRow}>
+                        <View>
+                          <Text style={styles.membershipStatus}>
+                            {redemptions.applyLoyaltyDiscount ? "Applied" : "Available"}
+                          </Text>
+                          <Text style={styles.membershipName}>Loyalty tier benefit</Text>
+                        </View>
+                        <TouchableOpacity
+                          activeOpacity={0.84}
+                          onPress={() => redemptions.setApplyLoyaltyDiscount(!redemptions.applyLoyaltyDiscount)}
+                          style={[styles.quickChip, redemptions.applyLoyaltyDiscount && styles.quickChipActive]}
+                        >
+                          <Text
+                            style={[
+                              styles.quickChipText,
+                              redemptions.applyLoyaltyDiscount && styles.quickChipTextActive,
+                            ]}
+                          >
+                            {redemptions.applyLoyaltyDiscount ? "ON" : "OFF"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    </View>
+                  ) : null}
+
+                  {redemptions.isMembershipWalletEligible ? (
+                    <View style={styles.formCard}>
+                      <Text style={styles.sectionTitle}>Membership Wallet</Text>
+                      <View style={styles.membershipRow}>
+                        <View>
+                          <Text style={styles.membershipStatus}>
+                            Balance: {formatCurrency(redemptions.membershipWalletBalance ?? 0)}
+                          </Text>
+                          <Text style={styles.membershipName}>{selectedClient.membership || "Membership"}</Text>
+                        </View>
+                        <TouchableOpacity
+                          activeOpacity={0.84}
+                          onPress={() => redemptions.setApplyMembershipWallet(!redemptions.applyMembershipWallet)}
+                          style={[styles.quickChip, redemptions.applyMembershipWallet && styles.quickChipActive]}
+                        >
+                          <Text
+                            style={[
+                              styles.quickChipText,
+                              redemptions.applyMembershipWallet && styles.quickChipTextActive,
+                            ]}
+                          >
+                            {redemptions.applyMembershipWallet ? "ON" : "OFF"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      {redemptions.applyMembershipWallet ? (
+                        <>
+                          <Text style={styles.inputLabel}>Amount to Use</Text>
+                          <TextInput
+                            keyboardType="decimal-pad"
+                            onChangeText={redemptions.setMembershipWalletRequestedInput}
+                            placeholder="0"
+                            placeholderTextColor={Colors.placeholder}
+                            style={styles.input}
+                            value={redemptions.membershipWalletRequestedInput}
+                          />
+                          {totals.appliedMembershipWallet > 0 ? (
+                            <Text style={styles.gstPreviewText}>
+                              Applied: {formatCurrency(totals.appliedMembershipWallet)}
+                            </Text>
+                          ) : null}
+                        </>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  {selectedClient.id ? (
+                    <View style={styles.formCard}>
+                      <Text style={styles.sectionTitle}>E-Wallet</Text>
+                      <View style={styles.membershipRow}>
+                        <View>
+                          <Text style={styles.membershipStatus}>
+                            Balance: {formatCurrency(redemptions.eWalletBalance)}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          activeOpacity={0.84}
+                          disabled={redemptions.eWalletBalance <= 0}
+                          onPress={() => redemptions.setApplyEwallet(!redemptions.applyEwallet)}
+                          style={[
+                            styles.quickChip,
+                            redemptions.applyEwallet && styles.quickChipActive,
+                            redemptions.eWalletBalance <= 0 && styles.buttonDisabled,
+                          ]}
+                        >
+                          <Text style={[styles.quickChipText, redemptions.applyEwallet && styles.quickChipTextActive]}>
+                            {redemptions.applyEwallet ? "ON" : "OFF"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      {redemptions.applyEwallet ? (
+                        <>
+                          <Text style={styles.inputLabel}>Amount to Use</Text>
+                          <TextInput
+                            keyboardType="decimal-pad"
+                            onChangeText={redemptions.setEWalletRequestedInput}
+                            placeholder="0"
+                            placeholderTextColor={Colors.placeholder}
+                            style={styles.input}
+                            value={redemptions.eWalletRequestedInput}
+                          />
+                          {totals.appliedEWallet > 0 ? (
+                            <Text style={styles.gstPreviewText}>Applied: {formatCurrency(totals.appliedEWallet)}</Text>
+                          ) : null}
+                        </>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  {selectedClient.id ? (
+                    <View style={styles.formCard}>
+                      <Text style={styles.sectionTitle}>Reward Points</Text>
+                      <View style={styles.membershipRow}>
+                        <View>
+                          <Text style={styles.membershipStatus}>
+                            Balance: {redemptions.rewardPointsBalance.toLocaleString("en-IN")} pts
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          activeOpacity={0.84}
+                          disabled={redemptions.rewardPointsBalance <= 0}
+                          onPress={() => redemptions.setApplyRewardPoints(!redemptions.applyRewardPoints)}
+                          style={[
+                            styles.quickChip,
+                            redemptions.applyRewardPoints && styles.quickChipActive,
+                            redemptions.rewardPointsBalance <= 0 && styles.buttonDisabled,
+                          ]}
+                        >
+                          <Text
+                            style={[styles.quickChipText, redemptions.applyRewardPoints && styles.quickChipTextActive]}
+                          >
+                            {redemptions.applyRewardPoints ? "ON" : "OFF"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      {redemptions.applyRewardPoints ? (
+                        <>
+                          <Text style={styles.inputLabel}>Points to Redeem</Text>
+                          <TextInput
+                            keyboardType="number-pad"
+                            onChangeText={redemptions.setRewardPointsToRedeemInput}
+                            placeholder="0"
+                            placeholderTextColor={Colors.placeholder}
+                            style={styles.input}
+                            value={redemptions.rewardPointsToRedeemInput}
+                          />
+                          {totals.appliedRewardPointsValue > 0 ? (
+                            <Text style={styles.gstPreviewText}>
+                              Applied: {formatCurrency(totals.appliedRewardPointsValue)}
+                            </Text>
+                          ) : null}
+                        </>
+                      ) : null}
+                    </View>
+                  ) : null}
+
+                  {selectedClient.id ? (
+                    <View style={styles.formCard}>
+                      <Text style={styles.sectionTitle}>Referral Credit</Text>
+                      <View style={styles.membershipRow}>
+                        <View>
+                          <Text style={styles.membershipStatus}>
+                            Balance: {formatCurrency(redemptions.referralBalance)}
+                          </Text>
+                        </View>
+                        <TouchableOpacity
+                          activeOpacity={0.84}
+                          disabled={redemptions.referralBalance <= 0}
+                          onPress={() => redemptions.setApplyReferralCredit(!redemptions.applyReferralCredit)}
+                          style={[
+                            styles.quickChip,
+                            redemptions.applyReferralCredit && styles.quickChipActive,
+                            redemptions.referralBalance <= 0 && styles.buttonDisabled,
+                          ]}
+                        >
+                          <Text
+                            style={[
+                              styles.quickChipText,
+                              redemptions.applyReferralCredit && styles.quickChipTextActive,
+                            ]}
+                          >
+                            {redemptions.applyReferralCredit ? "ON" : "OFF"}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                      {redemptions.applyReferralCredit ? (
+                        <>
+                          <Text style={styles.inputLabel}>Amount to Use</Text>
+                          <TextInput
+                            keyboardType="decimal-pad"
+                            onChangeText={redemptions.setReferralCreditRequestedInput}
+                            placeholder="0"
+                            placeholderTextColor={Colors.placeholder}
+                            style={styles.input}
+                            value={redemptions.referralCreditRequestedInput}
+                          />
+                          {totals.appliedReferralCredit > 0 ? (
+                            <Text style={styles.gstPreviewText}>
+                              Applied: {formatCurrency(totals.appliedReferralCredit)}
+                            </Text>
+                          ) : null}
+                          {totals.referralCreditRejectedReason ? (
+                            <Text style={styles.errorText}>{totals.referralCreditRejectedReason}</Text>
+                          ) : null}
+                        </>
+                      ) : null}
                     </View>
                   ) : null}
 
@@ -788,9 +1059,43 @@ function CheckoutSheetComponent({
                   <SummaryTile label="Client" value={selectedClient.name} />
                   <SummaryTile label="Items" value={String(items.length)} />
                   <SummaryTile label="Grand Total" value={formatCurrency(totals.grandTotal)} />
-                  <SummaryTile label="Outstanding" value={formatCurrency(0)} />
+                  <SummaryTile label="Outstanding" value={formatCurrency(dueAmount)} />
                 </View>
               )}
+
+              {checkoutStep === "payment" && totals.grandTotal > 0 ? (
+                <View style={styles.formCard}>
+                  <Text style={styles.sectionTitle}>Payment Type</Text>
+                  <View style={styles.discountModeRow}>
+                    <ModeButton active={paymentType === "full"} label="Pay in Full" onPress={() => setPaymentType("full")} />
+                    <ModeButton
+                      active={paymentType === "partial"}
+                      label="Partial Payment"
+                      onPress={() => setPaymentType("partial")}
+                    />
+                  </View>
+                  {paymentType === "partial" ? (
+                    <>
+                      <Text style={styles.inputLabel}>Amount to Collect Now</Text>
+                      <TextInput
+                        keyboardType="decimal-pad"
+                        onChangeText={setPartialAmountInput}
+                        placeholder="0"
+                        placeholderTextColor={Colors.placeholder}
+                        style={[styles.input, partialAmountExceedsTotal && styles.inputError]}
+                        value={partialAmountInput}
+                      />
+                      {partialAmountExceedsTotal ? (
+                        <Text style={styles.errorText}>
+                          Amount cannot exceed the grand total ({formatCurrency(totals.grandTotal)}).
+                        </Text>
+                      ) : (
+                        <Text style={styles.gstPreviewText}>Due after this payment: {formatCurrency(dueAmount)}</Text>
+                      )}
+                    </>
+                  ) : null}
+                </View>
+              ) : null}
 
               {checkoutStep === "payment" ? (
                 <View style={styles.formCard}>
@@ -812,15 +1117,6 @@ function CheckoutSheetComponent({
                       );
                     })}
                   </View>
-
-                  {selectedClient.membership ? (
-                    <View style={styles.unavailableMethodCard}>
-                      <Ionicons name="information-circle-outline" size={16} color={Colors.primaryDark} />
-                      <Text style={styles.unavailableMethodText}>
-                        Membership balance is not available in the current payment API.
-                      </Text>
-                    </View>
-                  ) : null}
                 </View>
               ) : null}
 
@@ -828,8 +1124,10 @@ function CheckoutSheetComponent({
                 <View style={styles.formCard}>
                   <Text style={styles.sectionTitle}>Cash Details</Text>
                   <View style={styles.paymentAmountCard}>
-                    <Text style={styles.paymentAmountLabel}>Grand Total</Text>
-                    <Text style={styles.paymentAmountValue}>{formatCurrency(totals.grandTotal)}</Text>
+                    <Text style={styles.paymentAmountLabel}>
+                      {paymentType === "partial" ? "Amount to Collect" : "Grand Total"}
+                    </Text>
+                    <Text style={styles.paymentAmountValue}>{formatCurrency(amountToCollect)}</Text>
                   </View>
                   <View style={styles.inputGroup}>
                     <Text style={styles.inputLabel}>Amount Received</Text>
@@ -845,7 +1143,7 @@ function CheckoutSheetComponent({
                   {amountReceivedInput.trim() ? (
                     cashInsufficient ? (
                       <Text style={styles.errorText}>
-                        Amount received must be at least {formatCurrency(totals.grandTotal)}.
+                        Amount received must be at least {formatCurrency(amountToCollect)}.
                       </Text>
                     ) : (
                       <View style={styles.changeCard}>
@@ -913,10 +1211,14 @@ function CheckoutSheetComponent({
                     <View style={styles.splitTotalRow}>
                       <Text style={styles.summaryLabel}>Total Paid</Text>
                       <Text style={[styles.splitTotalText, splitMismatch && styles.errorText]}>
-                        {formatCurrency(splitTotal)} of {formatCurrency(totals.grandTotal)}
+                        {formatCurrency(splitTotal)} of {formatCurrency(amountToCollect)}
                       </Text>
                     </View>
-                    {splitMismatch ? <Text style={styles.errorText}>Split total must match the grand total.</Text> : null}
+                    {splitMismatch ? (
+                      <Text style={styles.errorText}>
+                        Split total must match the amount to collect ({formatCurrency(amountToCollect)}).
+                      </Text>
+                    ) : null}
                   </View>
                 </View>
               ) : null}
@@ -930,8 +1232,12 @@ function CheckoutSheetComponent({
                 {totals.overallDiscount > 0 ? (
                   <SummaryRow label="Discount" tone="discount" value={`- ${formatCurrency(totals.overallDiscount)}`} />
                 ) : null}
-                {selectedClient.membership ? (
-                  <SummaryRow label="Membership Discount" tone="discount" value={`- ${formatCurrency(0)}`} />
+                {totals.appliedMembershipDiscount > 0 ? (
+                  <SummaryRow
+                    label="Membership Discount"
+                    tone="discount"
+                    value={`- ${formatCurrency(totals.appliedMembershipDiscount)}`}
+                  />
                 ) : null}
                 {totals.couponDiscount > 0 ? (
                   <SummaryRow label={`Coupon (${appliedCoupon?.couponCode ?? "Applied"})`} tone="discount" value={`- ${formatCurrency(totals.couponDiscount)}`} />
@@ -964,38 +1270,41 @@ function CheckoutSheetComponent({
                   <Text style={styles.grandTotalLabel}>Grand Total</Text>
                   <Text style={styles.grandTotalValue}>{formatCurrency(totals.grandTotal)}</Text>
                 </View>
+                {totals.appliedMembershipWallet > 0 ? (
+                  <SummaryRow
+                    label="Membership Wallet"
+                    tone="discount"
+                    value={`- ${formatCurrency(totals.appliedMembershipWallet)}`}
+                  />
+                ) : null}
+                {totals.appliedEWallet > 0 ? (
+                  <SummaryRow label="E-Wallet" tone="discount" value={`- ${formatCurrency(totals.appliedEWallet)}`} />
+                ) : null}
+                {totals.appliedRewardPointsValue > 0 ? (
+                  <SummaryRow
+                    label="Reward Points"
+                    tone="discount"
+                    value={`- ${formatCurrency(totals.appliedRewardPointsValue)}`}
+                  />
+                ) : null}
+                {totals.appliedReferralCredit > 0 ? (
+                  <SummaryRow
+                    label="Referral Credit"
+                    tone="discount"
+                    value={`- ${formatCurrency(totals.appliedReferralCredit)}`}
+                  />
+                ) : null}
                 {checkoutStep === "payment" ? (
                   <>
-                    <SummaryRow
-                      label="Paid Amount"
-                      value={formatCurrency(
-                        paymentMethod === "cash"
-                          ? amountReceived
-                          : paymentMethod === "split"
-                            ? splitTotal
-                            : totals.grandTotal,
-                      )}
-                    />
-                    <SummaryRow
-                      label="Balance"
-                      value={formatCurrency(
-                        Math.max(
-                          0,
-                          totals.grandTotal -
-                            (paymentMethod === "cash"
-                              ? amountReceived
-                              : paymentMethod === "split"
-                                ? splitTotal
-                                : totals.grandTotal),
-                        ),
-                      )}
-                    />
+                    <SummaryRow label="Paid Amount" value={formatCurrency(amountToCollect)} />
+                    <SummaryRow label="Balance" value={formatCurrency(dueAmount)} />
                   </>
                 ) : null}
               </View>
             </ScrollView>
 
             <View style={styles.footer}>
+              {pricingError ? <Text style={styles.footerError}>Pricing error: {pricingError}</Text> : null}
               {submitError ? <Text style={styles.footerError}>{submitError}</Text> : null}
               {isSuccess ? (
                 <View style={styles.successBanner}>
@@ -1059,6 +1368,11 @@ function CheckoutSheetComponent({
                       <ActivityIndicator color={Colors.onPrimary} size="small" />
                       <Text style={styles.completeButtonText}>Processing sale...</Text>
                     </>
+                  ) : checkoutStep === "payment" && isPricingLoading ? (
+                    <>
+                      <ActivityIndicator color={Colors.onPrimary} size="small" />
+                      <Text style={styles.completeButtonText}>Updating pricing...</Text>
+                    </>
                   ) : isSuccess ? (
                     <>
                       <Text style={styles.completeButtonText}>Completed</Text>
@@ -1068,7 +1382,9 @@ function CheckoutSheetComponent({
                     <>
                       <Text style={styles.completeButtonText}>
                         {checkoutStep === "payment"
-                          ? "Complete Sale"
+                          ? dueAmount > 0
+                            ? "Record Payment"
+                            : "Complete Sale"
                           : checkoutStep === "charges"
                             ? "Continue to Payment"
                             : "Continue"}
@@ -1109,7 +1425,14 @@ function ModeButton({ active, label, onPress }: { active: boolean; label: string
 
   return (
     <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={[styles.modeButton, active && styles.modeButtonActive]}>
-      <Text style={[styles.modeButtonText, active && styles.modeButtonTextActive]}>{label}</Text>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.82}
+        numberOfLines={1}
+        style={[styles.modeButtonText, active && styles.modeButtonTextActive]}
+      >
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -1152,21 +1475,25 @@ function StaffAssignmentChip({
 }
 
 const CheckoutItemCard = memo(function CheckoutItemCard({
+  consumableProductNames,
   item,
   onClearStaff,
   onDecrease,
   onIncrease,
   onPressStaff,
   onRemove,
+  onSetConsumableActualQty,
   showStaffError,
   stockError,
 }: {
+  consumableProductNames: Record<string, string>;
   item: CartItem;
   onClearStaff: () => void;
   onDecrease: () => void;
   onIncrease: () => void;
   onPressStaff: () => void;
   onRemove: () => void;
+  onSetConsumableActualQty: (productId: string, actualQty: number) => void;
   showStaffError: boolean;
   stockError?: string;
 }) {
@@ -1266,10 +1593,70 @@ const CheckoutItemCard = memo(function CheckoutItemCard({
             <Ionicons name="trash-outline" size={15} color={Colors.error} />
           </TouchableOpacity>
         </View>
+        {item.itemType === "service" && item.consumables && item.consumables.length > 0 ? (
+          <View style={styles.consumablesSection}>
+            <Text style={styles.consumablesSectionTitle}>Consumables</Text>
+            {item.consumables.map((consumable) => (
+              <ConsumableActualQtyRow
+                consumable={consumable}
+                key={`consumable-${item.lineId}-${consumable.productId}`}
+                onChangeActualQty={(actualQty) => onSetConsumableActualQty(consumable.productId, actualQty)}
+                productName={consumableProductNames[consumable.productId] ?? consumable.productId}
+              />
+            ))}
+          </View>
+        ) : null}
       </View>
     </Animated.View>
   );
 });
+
+function ConsumableActualQtyRow({
+  consumable,
+  onChangeActualQty,
+  productName,
+}: {
+  consumable: CartConsumableItem;
+  onChangeActualQty: (actualQty: number) => void;
+  productName: string;
+}) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const [draft, setDraft] = useState(String(consumable.actualQty ?? consumable.qty));
+
+  useEffect(() => {
+    setDraft(String(consumable.actualQty ?? consumable.qty));
+    // Only resync from the cart when the value changes from outside this
+    // input (e.g. quantity-stepper auto-scaling) — not on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [consumable.actualQty]);
+
+  return (
+    <View style={styles.consumableRow}>
+      <View style={styles.consumableCopy}>
+        <Text numberOfLines={1} style={styles.consumableName}>
+          {productName}
+        </Text>
+        <Text style={styles.consumableStandard}>
+          Standard: {consumable.qty} {consumable.unit}
+        </Text>
+      </View>
+      <View style={styles.consumableActualField}>
+        <Text style={styles.consumableActualLabel}>Actual</Text>
+        <TextInput
+          keyboardType="decimal-pad"
+          onChangeText={(value) => {
+            setDraft(value);
+            onChangeActualQty(parseAmount(value));
+          }}
+          style={styles.consumableActualInput}
+          value={draft}
+        />
+        <Text style={styles.consumableUnit}>{consumable.unit}</Text>
+      </View>
+    </View>
+  );
+}
 
 function SummaryRow({ label, tone, value }: { label: string; tone?: "discount"; value: string }) {
   const Colors = useThemeColors();
@@ -1289,7 +1676,9 @@ function SummaryTile({ label, value }: { label: string; value: string }) {
 
   return (
     <View style={styles.summaryTile}>
-      <Text style={styles.summaryTileLabel}>{label}</Text>
+      <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={styles.summaryTileLabel}>
+        {label}
+      </Text>
       <Text numberOfLines={1} style={styles.summaryTileValue}>{value}</Text>
     </View>
   );
@@ -1631,6 +2020,67 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "center",
     width: 34,
   },
+  consumablesSection: {
+    borderTopColor: Colors.border,
+    borderTopWidth: 1,
+    gap: 8,
+    marginTop: 10,
+    paddingTop: 10,
+  },
+  consumablesSectionTitle: {
+    color: Colors.text2,
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.4,
+    textTransform: "uppercase",
+  },
+  consumableRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.sm,
+    justifyContent: "space-between",
+  },
+  consumableCopy: {
+    flex: 1,
+  },
+  consumableName: {
+    color: Colors.heading,
+    fontSize: 12,
+    fontWeight: "700",
+  },
+  consumableStandard: {
+    color: Colors.text2,
+    fontSize: 10.5,
+    marginTop: 1,
+  },
+  consumableActualField: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  consumableActualLabel: {
+    color: Colors.text2,
+    fontSize: 10.5,
+    fontWeight: "700",
+  },
+  consumableActualInput: {
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.border,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    color: Colors.heading,
+    fontSize: 12,
+    fontWeight: "700",
+    minWidth: 52,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    textAlign: "center",
+  },
+  consumableUnit: {
+    color: Colors.text2,
+    fontSize: 10.5,
+    fontWeight: "700",
+  },
   formCard: {
     backgroundColor: Colors.bg2,
     borderColor: Colors.border,
@@ -1661,27 +2111,32 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     padding: Spacing.md,
   },
   discountModeRow: {
-    alignSelf: "flex-start",
+    alignSelf: "stretch",
     backgroundColor: Colors.card,
     borderRadius: Radius.full,
     flexDirection: "row",
     marginBottom: Spacing.sm,
+    minHeight: 42,
+    overflow: "hidden",
     padding: 3,
   },
   modeButton: {
     alignItems: "center",
     borderRadius: Radius.full,
     justifyContent: "center",
-    minHeight: 32,
-    minWidth: 46,
+    minHeight: 36,
+    paddingHorizontal: 6,
+    width: "50%",
   },
   modeButtonActive: {
     backgroundColor: Colors.primaryDark,
   },
   modeButtonText: {
     color: Colors.text2,
-    fontSize: 13,
+    flexShrink: 1,
+    fontSize: 12,
     fontWeight: "900",
+    textAlign: "center",
   },
   modeButtonTextActive: {
     color: Colors.onPrimary,
@@ -1835,23 +2290,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   methodTextActive: {
     color: Colors.onPrimary,
   },
-  unavailableMethodCard: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: Radius.lg,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 8,
-    marginTop: Spacing.md,
-    padding: Spacing.md,
-  },
-  unavailableMethodText: {
-    color: Colors.text2,
-    flex: 1,
-    fontSize: 12,
-    fontWeight: "800",
-  },
   paymentDetailCard: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
@@ -1959,6 +2397,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.text2,
     fontSize: 10,
     fontWeight: "900",
+    lineHeight: 13,
     marginBottom: 4,
     textTransform: "uppercase",
   },

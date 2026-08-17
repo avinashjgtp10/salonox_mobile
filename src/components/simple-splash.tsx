@@ -42,6 +42,7 @@ const styles = StyleSheet.create({
   overlay: {
     ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
+    elevation: 1000,
     justifyContent: 'center',
     zIndex: 1000,
   },
