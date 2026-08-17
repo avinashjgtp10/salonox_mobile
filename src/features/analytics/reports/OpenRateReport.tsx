@@ -5,16 +5,15 @@ import { OPEN_RATE_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination, JiraFilterMenu } from "../../../components/ui";
-import type { JiraFilterField } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DateRangeFilter } from "../../../components/ui";
+import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import DateRangeFields from "../../../components/ui/DateRangeFields";
 import OpenRateDetailModal from "./OpenRateDetailModal";
 import {
   CAMPAIGN_STATUS_OPTIONS, CAMPAIGN_STATUS_LABELS,
   MESSAGE_STATUS_OPTIONS, MESSAGE_STATUS_LABELS,
   CHANNEL_OPTIONS, CHANNEL_LABELS,
-  PRESETS, formatDate, fmtPct, campStatusClass,
+  formatDate, fmtPct, campStatusClass,
 } from "./campaignReportShared";
 import "./CampaignReports.scss";
 
@@ -57,9 +56,11 @@ function mapRow(row: any): OpenRateRow {
 export default function OpenRateReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const [search, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
-  const [activePreset, setActivePreset] = useState<string>("");
+  // Unfiltered by default — "all_time" is exactly the empty start/end pair
+  // this report previously used. The separate preset-button row it used to
+  // render is now folded into the filter's own preset list.
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
   const [campaignIds, setCampaignIds] = useState<string[]>([]);
   const [campaignStatuses, setCampaignStatuses] = useState<string[]>([]);
   const [messageStatuses, setMessageStatuses] = useState<string[]>([]);
@@ -137,14 +138,6 @@ export default function OpenRateReport({ onBack, category, categoryKey }: { onBa
   useEffect(() => {
     setCurrentPage(1);
   }, [debouncedSearch, campaignIds, campaignStatuses, messageStatuses, channels, dateFrom, dateTo]);
-
-  const applyPreset = (id: string) => {
-    const preset = PRESETS.find((p) => p.id === id);
-    if (!preset) return;
-    if (activePreset === id) { setActivePreset(""); setDateFrom(""); setDateTo(""); return; }
-    const [from, to] = preset.range();
-    setActivePreset(id); setDateFrom(from); setDateTo(to);
-  };
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "campaign", label: "Campaign Name", options: campaignOptions, searchable: true },
@@ -227,23 +220,11 @@ export default function OpenRateReport({ onBack, category, categoryKey }: { onBa
       </div>
 
       <div className="rp-detail-filters">
-        <DateRangeFields from={dateFrom} to={dateTo}
-          onFromChange={(v) => { setDateFrom(v); setActivePreset(""); }}
-          onToChange={(v) => { setDateTo(v); setActivePreset(""); }} />
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
-      </div>
-
-      <div className="rp-camp-presets">
-        {PRESETS.map((p) => (
-          <button key={p.id} type="button"
-            className={`rp-camp-preset${activePreset === p.id ? " rp-camp-preset--on" : ""}`}
-            onClick={() => applyPreset(p.id)}>
-            {p.label}
-          </button>
-        ))}
       </div>
       {dateRangeError && <div className="rp-detail-date-error">{dateRangeError}</div>}
 

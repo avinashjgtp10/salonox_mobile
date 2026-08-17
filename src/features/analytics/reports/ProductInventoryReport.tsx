@@ -6,10 +6,9 @@ import { useProducts } from "../../catalog/hooks/useProducts";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination, JiraFilterMenu } from "../../../components/ui";
-import type { JiraFilterField } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DateRangeFilter } from "../../../components/ui";
+import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import DateRangeFields from "../../../components/ui/DateRangeFields";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "./ProductInventoryReport.scss";
 
@@ -84,8 +83,10 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
   const [categoryFilter, setCategoryFilter] = useState<string[]>([]);
   const [brandFilter,    setBrandFilter]    = useState<string[]>([]);
   const [stockStatusFilter, setStockStatusFilter] = useState<string[]>([]);
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo,   setDateTo]   = useState("");
+  // Unfiltered by default — "all_time" is exactly the empty start/end pair
+  // this report previously used, so every product shows until a range is set.
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
 
   const [rows,        setRows]        = useState<InventoryRow[]>([]);
   const [total,       setTotal]       = useState(0);
@@ -227,7 +228,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Date Added</label>
-          <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} hideLabel bare />
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
