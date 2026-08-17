@@ -11,7 +11,8 @@ import {
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { SALE } from "../../../services/api/endpoints";
-import { DownloadButton } from "../../../components/ui";
+import { DateRangeFilter, DownloadButton } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import "../styles/StaffSalesPage.scss";
@@ -74,8 +75,11 @@ export default function StaffSalesPage() {
   const [loadingSummary, setLoadingSummary] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({
+    preset: "all_time",
+    startDate: "",
+    endDate: "",
+  });
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -103,8 +107,8 @@ export default function StaffSalesPage() {
       const params: Record<string, any> = { page, limit };
       if (search) params.search = search;
       if (statusFilter !== "all") params.status = statusFilter;
-      if (dateFrom) params.start_date = dateFrom;
-      if (dateTo) params.end_date = dateTo;
+      if (dateRange.startDate) params.start_date = dateRange.startDate;
+      if (dateRange.endDate) params.end_date = dateRange.endDate;
 
       const res = await api.get(SALE.BASE, { params });
       const raw = res.data?.data?.items ?? res.data?.data ?? res.data ?? [];
@@ -116,7 +120,7 @@ export default function StaffSalesPage() {
     } finally {
       setLoading(false);
     }
-  }, [salonId, page, search, statusFilter, dateFrom, dateTo]);
+  }, [salonId, page, search, statusFilter, dateRange.startDate, dateRange.endDate]);
 
   useEffect(() => {
     fetchSummary();
@@ -124,12 +128,11 @@ export default function StaffSalesPage() {
   }, [fetchSummary, fetchSales]);
 
   const activeFilters =
-    (statusFilter !== "all" ? 1 : 0) + (dateFrom ? 1 : 0) + (dateTo ? 1 : 0);
+    (statusFilter !== "all" ? 1 : 0) + (dateRange.preset !== "all_time" ? 1 : 0);
 
   const clearFilters = () => {
     setStatusFilter("all");
-    setDateFrom("");
-    setDateTo("");
+    setDateRange({ preset: "all_time", startDate: "", endDate: "" });
     setPage(1);
   };
 
@@ -251,21 +254,10 @@ export default function StaffSalesPage() {
           </div>
           <div className="sale-filter-group">
             <label className="sale-filter-label">Date Range</label>
-            <div className="sale-date-range">
-              <input
-                type="date"
-                className="sale-date-input"
-                value={dateFrom}
-                onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-              />
-              <span className="sale-date-sep">to</span>
-              <input
-                type="date"
-                className="sale-date-input"
-                value={dateTo}
-                onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-              />
-            </div>
+            <DateRangeFilter
+              value={dateRange}
+              onChange={(next) => { setDateRange(next); setPage(1); }}
+            />
           </div>
           {activeFilters > 0 && (
             <button className="sale-clear-btn" onClick={clearFilters}>

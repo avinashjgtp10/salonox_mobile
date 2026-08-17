@@ -11,6 +11,8 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { BOOKING } from "../../../services/api/endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { DateRangeFilter } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import "../styles/StaffAppointmentsPage.scss";
 
 interface Appointment {
@@ -77,8 +79,11 @@ export default function StaffAppointmentsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({
+    preset: "all_time",
+    startDate: "",
+    endDate: "",
+  });
   const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -92,8 +97,8 @@ export default function StaffAppointmentsPage() {
       const params: Record<string, any> = { page, limit };
       if (search) params.search = search;
       if (statusFilter !== "all") params.status = statusFilter;
-      if (dateFrom) params.start_date = dateFrom;
-      if (dateTo) params.end_date = dateTo;
+      if (dateRange.startDate) params.start_date = dateRange.startDate;
+      if (dateRange.endDate) params.end_date = dateRange.endDate;
 
       const res = await api.get(BOOKING.BASE, { params });
       const raw = res.data?.data?.items ?? res.data?.data ?? res.data ?? [];
@@ -105,7 +110,7 @@ export default function StaffAppointmentsPage() {
     } finally {
       setLoading(false);
     }
-  }, [salonId, page, search, statusFilter, dateFrom, dateTo]);
+  }, [salonId, page, search, statusFilter, dateRange.startDate, dateRange.endDate]);
 
   useEffect(() => {
     fetchAppointments();
@@ -113,13 +118,11 @@ export default function StaffAppointmentsPage() {
 
   const activeFilters =
     (statusFilter !== "all" ? 1 : 0) +
-    (dateFrom ? 1 : 0) +
-    (dateTo ? 1 : 0);
+    (dateRange.preset !== "all_time" ? 1 : 0);
 
   const clearFilters = () => {
     setStatusFilter("all");
-    setDateFrom("");
-    setDateTo("");
+    setDateRange({ preset: "all_time", startDate: "", endDate: "" });
     setPage(1);
   };
 
@@ -184,21 +187,10 @@ export default function StaffAppointmentsPage() {
           </div>
           <div className="app-page__filter-group">
             <label className="app-page__filter-label">Date range</label>
-            <div className="app-page__date-range">
-              <input
-                type="date"
-                className="app-page__date-input"
-                value={dateFrom}
-                onChange={(e) => { setDateFrom(e.target.value); setPage(1); }}
-              />
-              <span className="app-page__date-sep">to</span>
-              <input
-                type="date"
-                className="app-page__date-input"
-                value={dateTo}
-                onChange={(e) => { setDateTo(e.target.value); setPage(1); }}
-              />
-            </div>
+            <DateRangeFilter
+              value={dateRange}
+              onChange={(next) => { setDateRange(next); setPage(1); }}
+            />
           </div>
           {activeFilters > 0 && (
             <button className="app-page__clear-btn" onClick={clearFilters}>

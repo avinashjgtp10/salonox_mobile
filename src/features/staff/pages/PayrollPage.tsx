@@ -26,7 +26,8 @@ import { STAFF } from "../../../services/api/endpoints/staff.endpoints";
 import Modal from "../../../components/ui/Modal";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
-import DateRangePicker from "../../../components/ui/DateRangePicker";
+import { DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
+import type { DateRangePreset } from "../../../components/ui";
 import JiraFilterMenu, { type JiraFilterField } from "../../../components/ui/JiraFilterMenu";
 import Pagination from "../../../components/ui/Pagination";
 import SearchableSelect from "../../../components/ui/SearchableSelect";
@@ -218,6 +219,21 @@ const formatShortYear = (d: Date) => d.toLocaleDateString("en-IN", { day: "2-dig
 // Local YYYY-MM-DD avoids the UTC-shift bug from Date#toISOString(), which
 // can land the date on the wrong calendar day depending on the browser's timezone.
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+// The Payroll Period picker keeps its start/end in plain `{start, end}` state
+// (threaded through many downstream calculations under those exact field
+// names), so this just derives which preset that pair currently matches for
+// display — it never drives the underlying state.
+const QUICK_DATE_PRESETS: Exclude<DateRangePreset, "custom">[] = [
+  "today", "yesterday", "this_week", "last_7_days", "this_month", "last_month", "this_year", "all_time",
+];
+function derivePayrollDatePreset(start: string, end: string): DateRangePreset {
+  for (const preset of QUICK_DATE_PRESETS) {
+    const range = getDateRangePresetValue(preset);
+    if (range.startDate === start && range.endDate === end) return preset;
+  }
+  return "custom";
+}
 
 function getScheduleShiftStart(schedule: any[] | undefined, date: string): string | null {
   if (!Array.isArray(schedule)) return null;
@@ -1867,13 +1883,15 @@ export default function PayrollPage() {
           </div>
           <div className="pr-period-select-wrap">
             <label className="pr-period-label">Payroll Period</label>
-            <DateRangePicker
-              startDate={dateRange.start}
-              endDate={dateRange.end}
-              showQuickPresets
-              onChange={(start, end) => {
+            <DateRangeFilter
+              value={{
+                preset: derivePayrollDatePreset(dateRange.start, dateRange.end),
+                startDate: dateRange.start,
+                endDate: dateRange.end,
+              }}
+              onChange={(next) => {
                 setPeriodType("custom");
-                setDateRange({ start, end });
+                setDateRange({ start: next.startDate, end: next.endDate });
               }}
             />
           </div>
