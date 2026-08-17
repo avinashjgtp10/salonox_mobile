@@ -14,7 +14,10 @@ import {
   Safe2,
   Wallet2,
 } from "react-bootstrap-icons";
-import { Button, Tabs } from "../../../components/ui";
+import { Button, DateRangeFilter, Tabs, getDateRangePresetValue } from "../../../components/ui";
+import type {
+  DateRangeFilterValue,
+} from "../../../components/ui";
 import type {
   CashManagementExportDataset,
   CashManagementExportFormat,
@@ -41,7 +44,6 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import "../styles/CashManagementPage.scss";
 
 type ActiveTab = "transactions" | "expenses";
-type SharedDateFilterKey = "today" | "yesterday" | "week" | "month" | "all" | "custom";
 type NotificationState = {
   tone: CashManagementNotificationTone;
   message: string;
@@ -113,9 +115,10 @@ export default function CashManagementPage() {
   const [isExportMenuOpen, setIsExportMenuOpen] = useState(false);
   const [exportingFormat, setExportingFormat] = useState<CashManagementExportFormat | null>(null);
   const [exportDataset, setExportDataset] = useState<CashManagementExportDataset | null>(null);
-  const [sharedDateFilter, setSharedDateFilter] = useState<SharedDateFilterKey>("today");
-  const [sharedDateFrom, setSharedDateFrom] = useState(() => formatDateInput(new Date()));
-  const [sharedDateTo, setSharedDateTo] = useState(() => formatDateInput(new Date()));
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>(() => ({
+    preset: "today",
+    ...getDateRangePresetValue("today"),
+  }));
   const [expenseActionLoading, setExpenseActionLoading] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
   const expenseActionsLoading =
@@ -191,19 +194,19 @@ export default function CashManagementPage() {
   }, [hasOpenCounter, dashboard.openedAt]);
 
   const transactionTabCount = useMemo(() => {
-    return transactions.filter((item) => isInDateRange(item.updatedAt ?? item.date, sharedDateFrom, sharedDateTo)).length;
-  }, [transactions, sharedDateFrom, sharedDateTo]);
+    return transactions.filter((item) => isInDateRange(item.updatedAt ?? item.date, dateRange.startDate, dateRange.endDate)).length;
+  }, [transactions, dateRange.startDate, dateRange.endDate]);
 
   const expenseTabCount = useMemo(() => {
-    return expenses.filter((item) => isInDateRange(item.updatedAt ?? item.expenseDate, sharedDateFrom, sharedDateTo)).length;
-  }, [expenses, sharedDateFrom, sharedDateTo]);
+    return expenses.filter((item) => isInDateRange(item.updatedAt ?? item.expenseDate, dateRange.startDate, dateRange.endDate)).length;
+  }, [expenses, dateRange.startDate, dateRange.endDate]);
 
   // Same date-range slice the Expenses tab counts (`expenseTabCount` above) —
   // reused here so the two stay in agreement no matter which date filter is
   // applied.
   const expensesInRange = useMemo(
-    () => expenses.filter((item) => isInDateRange(item.updatedAt ?? item.expenseDate, sharedDateFrom, sharedDateTo)),
-    [expenses, sharedDateFrom, sharedDateTo],
+    () => expenses.filter((item) => isInDateRange(item.updatedAt ?? item.expenseDate, dateRange.startDate, dateRange.endDate)),
+    [expenses, dateRange.startDate, dateRange.endDate],
   );
 
 
@@ -362,48 +365,6 @@ export default function CashManagementPage() {
     setShowExpenseModal(true);
   };
 
-
-  const applySharedDateFilter = (value: SharedDateFilterKey) => {
-    const currentDate = new Date();
-    const current = new Date(currentDate);
-
-    if (value === "all") {
-      setSharedDateFrom("");
-      setSharedDateTo("");
-      setSharedDateFilter(value);
-      return;
-    }
-
-    if (value === "custom") {
-      setSharedDateFilter(value);
-      return;
-    }
-
-    if (value === "today") {
-      const formatted = formatDateInput(current);
-      setSharedDateFrom(formatted);
-      setSharedDateTo(formatted);
-    } else if (value === "yesterday") {
-      current.setDate(current.getDate() - 1);
-      const formatted = formatDateInput(current);
-      setSharedDateFrom(formatted);
-      setSharedDateTo(formatted);
-    } else if (value === "week") {
-      const end = formatDateInput(currentDate);
-      const startDate = new Date(currentDate);
-      startDate.setDate(startDate.getDate() - 6);
-      setSharedDateFrom(formatDateInput(startDate));
-      setSharedDateTo(end);
-    } else if (value === "month") {
-      const end = formatDateInput(currentDate);
-      const startDate = new Date(currentDate);
-      startDate.setDate(startDate.getDate() - 29);
-      setSharedDateFrom(formatDateInput(startDate));
-      setSharedDateTo(end);
-    }
-
-    setSharedDateFilter(value);
-  };
 
   const runExport = async (format: CashManagementExportFormat) => {
     if (!exportDataset || exportingFormat) return;
@@ -593,41 +554,7 @@ export default function CashManagementPage() {
             <div className="cash-mgmt__shared-filter-bar">
               <div className="cash-mgmt__shared-filter-group">
                 <span className="cash-mgmt__shared-filter-label">Date Filter</span>
-                <div className="cash-mgmt__tab-toolbar-group">
-                  <div className="cash-mgmt__shared-filter-select-wrap">
-                    <select
-                      className="cash-mgmt__shared-filter-select"
-                      value={sharedDateFilter}
-                      onChange={(event) =>
-                        applySharedDateFilter(event.target.value as SharedDateFilterKey)
-                      }
-                    >
-                      <option value="today">Today</option>
-                      <option value="yesterday">Yesterday</option>
-                      <option value="week">This week</option>
-                      <option value="month">This month</option>
-                      <option value="all">All time</option>
-                      <option value="custom">Custom Date Range</option>
-                    </select>
-                    <ChevronDown size={12} className="cash-mgmt__shared-filter-select-icon" />
-                  </div>
-                  {sharedDateFilter === "custom" ? (
-                    <>
-                      <input
-                        className="cash-mgmt__shared-filter-date"
-                        type="date"
-                        value={sharedDateFrom}
-                        onChange={(event) => setSharedDateFrom(event.target.value)}
-                      />
-                      <input
-                        className="cash-mgmt__shared-filter-date"
-                        type="date"
-                        value={sharedDateTo}
-                        onChange={(event) => setSharedDateTo(event.target.value)}
-                      />
-                    </>
-                  ) : null}
-                </div>
+                <DateRangeFilter value={dateRange} onChange={setDateRange} />
               </div>
             </div>
 
@@ -690,9 +617,9 @@ export default function CashManagementPage() {
               <CashManagementTransactionsTab
                 rows={transactions}
                 loading={loading.transactions}
-                sharedDateFilter={sharedDateFilter}
-                sharedDateFrom={sharedDateFrom}
-                sharedDateTo={sharedDateTo}
+                sharedDateFilter={dateRange.preset}
+                sharedDateFrom={dateRange.startDate}
+                sharedDateTo={dateRange.endDate}
                 //  onFilteredCountChange={setTransactionTabCount}
                 onExportDataChange={setExportDataset}
               />
@@ -704,9 +631,9 @@ export default function CashManagementPage() {
                 loading={loading.expenses}
                 canManage={!activeCounterClosed}
                 actionsDisabled={expenseActionsLoading}
-                sharedDateFilter={sharedDateFilter}
-                sharedDateFrom={sharedDateFrom}
-                sharedDateTo={sharedDateTo}
+                sharedDateFilter={dateRange.preset}
+                sharedDateFrom={dateRange.startDate}
+                sharedDateTo={dateRange.endDate}
                 // onFilteredCountChange={setExpenseTabCount}
                 onExportDataChange={setExportDataset}
                 onAdd={openExpenseCreate}

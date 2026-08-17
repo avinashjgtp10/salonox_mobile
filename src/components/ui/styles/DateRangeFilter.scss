@@ -1,0 +1,290 @@
+// Standard Date Range Filter — trigger + Quick Ranges/By Period list, with
+// an expandable Custom range calendar pane. Palette matches JiraFilterMenu
+// (#6c5ce7 accent) so both filter styles read as the same design system.
+.drf {
+  position: relative;
+  display: inline-block;
+
+  &, & *, & *::before, & *::after {
+    box-sizing: border-box;
+  }
+}
+
+.drf-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover { border-color: #9ca3af; }
+
+  &--open {
+    border-color: #6c5ce7;
+    color: #6c5ce7;
+  }
+}
+
+.drf-trigger__chevron {
+  transition: transform 0.15s;
+  flex-shrink: 0;
+
+  &--open { transform: rotate(180deg); }
+}
+
+.drf-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  display: flex;
+  width: 230px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.16);
+  overflow: hidden;
+
+  &--custom { width: 570px; }
+}
+
+.drf-list {
+  width: 230px;
+  flex-shrink: 0;
+  padding: 6px;
+  overflow-y: auto;
+
+  .drf-panel--custom & { border-right: 1px solid #f1f1f2; }
+}
+
+.drf-list__group-label {
+  padding: 10px 10px 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.drf-list__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
+  text-align: left;
+  cursor: pointer;
+
+  &:hover { background: #f3f4f6; }
+
+  &--selected {
+    color: #4338ca;
+    font-weight: 600;
+  }
+
+  &--active {
+    background: #eef2ff;
+    color: #4338ca;
+    font-weight: 700;
+  }
+}
+
+.drf-list__check {
+  color: #6c5ce7;
+  flex-shrink: 0;
+}
+
+.drf-list__divider {
+  margin: 6px 4px;
+  border-top: 1px solid #f1f1f2;
+}
+
+.drf-custom {
+  width: 340px;
+  flex-shrink: 0;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+}
+
+.drf-custom__title {
+  font-size: 13px;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 10px;
+}
+
+.drf-custom__tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.drf-custom__tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 6px 10px 8px;
+  border: none;
+  border-bottom: 2px solid #e5e7eb;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+
+  &--active {
+    border-bottom-color: #6c5ce7;
+
+    .drf-custom__tab-label { color: #6c5ce7; }
+  }
+}
+
+.drf-custom__tab-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: #9ca3af;
+}
+
+.drf-custom__tab-value {
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.drf-custom__nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+
+.drf-custom__month-label {
+  font-weight: 600;
+  font-size: 13px;
+  color: #111827;
+}
+
+.drf-custom__nav-btn {
+  background: none;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 2px 8px;
+  cursor: pointer;
+  font-size: 15px;
+  line-height: 1;
+  color: #374151;
+
+  &:hover { background: #f3f4f6; }
+}
+
+.drf-custom__day-headers {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.drf-custom__day-name {
+  text-align: center;
+  font-size: 11px;
+  color: #9ca3af;
+  font-weight: 600;
+}
+
+.drf-custom__day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.drf-custom__day-btn {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  box-sizing: border-box;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  background: transparent;
+  color: #374151;
+  transition: background 0.12s;
+
+  &:hover:not(&--empty):not(&--edge) { background: #f3f4f6; }
+
+  &--empty {
+    color: transparent;
+    cursor: default;
+  }
+
+  &--in-range {
+    background: #ede9fe;
+    border-radius: 0;
+  }
+
+  &--edge {
+    background: #6c5ce7;
+    color: #fff;
+    font-weight: 700;
+  }
+}
+
+.drf-custom__footer {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f1f2;
+}
+
+.drf-custom__clear {
+  height: 32px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #fff;
+  color: #6b7280;
+  border: 1px solid #d1d5db;
+
+  &:hover { border-color: #9ca3af; color: #111827; }
+}
+
+.drf-custom__apply {
+  height: 32px;
+  padding: 0 16px;
+  border-radius: 8px;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+  background: #6c5ce7;
+  color: #fff;
+  border: 1px solid transparent;
+
+  &:hover { background: #5b4bd1; }
+
+  &:disabled {
+    background: #d1d5db;
+    color: #fff;
+    cursor: not-allowed;
+  }
+}

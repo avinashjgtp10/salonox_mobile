@@ -31,6 +31,13 @@ export type { CountryOption } from "./CountryPhoneSelect";
 export { default as DateRangePicker } from "./DateRangePicker";
 export type { DateRangePickerProps } from "./DateRangePicker";
 export { default as DateRangeFields, getDateRangeError } from "./DateRangeFields";
+export {
+  default as DateRangeFilter,
+  DATE_RANGE_PRESET_LABELS,
+  DEFAULT_DATE_RANGE_FILTER_VALUE,
+  getDateRangePresetValue,
+} from "./DateRangeFilter";
+export type { DateRangePreset, DateRangeFilterValue } from "./DateRangeFilter";
 export { default as SuccessOverlay } from "./SuccessOverlay";
 export { default as ErrorOverlay } from "./ErrorOverlay";
 export { default as MultiSelectCheckbox } from "./MultiSelectCheckbox";

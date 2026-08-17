@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, SortDown, SortUp } from "react-bootstrap-icons";
 import { Button, Pagination } from "../../../components/ui";
+import type { DateRangePreset } from "../../../components/ui";
 import type { CashManagementExportDataset } from "../cashManagement.export";
 import type { CashExpenseRecord } from "../cashManagement.types";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -14,7 +15,7 @@ interface Props {
   loading?: boolean;
   canManage: boolean;
   actionsDisabled?: boolean;
-  sharedDateFilter: "today" | "yesterday" | "week" | "month" | "all" | "custom";
+  sharedDateFilter: DateRangePreset;
   sharedDateFrom: string;
   sharedDateTo: string;
   onFilteredCountChange?: (count: number) => void;
@@ -134,7 +135,7 @@ export default function CashManagementExpensesTab({
     const appliedFilters = [
       search.trim() ? `Search: ${search.trim()}` : "",
       expenseType !== ALL_EXPENSE_TYPES ? `Expense Type: ${expenseType}` : "",
-      sharedDateFilter !== "all" ? `Range: ${sharedDateFilter}` : "",
+      sharedDateFilter !== "all_time" ? `Range: ${sharedDateFilter}` : "",
       sharedDateFrom ? `Date From: ${sharedDateFrom}` : "",
       sharedDateTo ? `Date To: ${sharedDateTo}` : "",
       `Sort: ${sortKey} (${sortDirection})`,

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, SortDown, SortUp } from "react-bootstrap-icons";
 import { Pagination } from "../../../components/ui";
+import type { DateRangePreset } from "../../../components/ui";
 import type { CashManagementExportDataset } from "../cashManagement.export";
 import type { CashTransactionRecord } from "../cashManagement.types";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -17,7 +18,7 @@ interface Props {
   rows: CashTransactionRecord[];
   loading?: boolean;
   counterClosed?: boolean;
-  sharedDateFilter: "today" | "yesterday" | "week" | "month" | "all" | "custom";
+  sharedDateFilter: DateRangePreset;
   sharedDateFrom: string;
   sharedDateTo: string;
   onFilteredCountChange?: (count: number) => void;
@@ -146,7 +147,7 @@ export default function CashManagementTransactionsTab({
     const appliedFilters = [
       search.trim() ? `Search: ${search.trim()}` : "",
       status !== "all" ? `Status: ${status}` : "",
-      sharedDateFilter !== "all" ? `Range: ${sharedDateFilter}` : "",
+      sharedDateFilter !== "all_time" ? `Range: ${sharedDateFilter}` : "",
       sharedDateFrom ? `Date From: ${sharedDateFrom}` : "",
       sharedDateTo ? `Date To: ${sharedDateTo}` : "",
       `Sort: ${sortKey} (${sortDirection})`,
