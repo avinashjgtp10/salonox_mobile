@@ -1,0 +1,194 @@
+// Standard single-date picker — trigger + month/year dropdowns + calendar.
+// Shares DateRangeFilter's trigger chrome and #6c5ce7 accent so the two
+// controls read as one system; the selected day uses the same solid accent
+// fill as that component's range edges.
+.dp {
+  position: relative;
+  display: inline-block;
+
+  // Self-contained, so the panel can't be thrown off by a host page that
+  // lacks a global border-box reset.
+  &, & *, & *::before, & *::after {
+    box-sizing: border-box;
+  }
+}
+
+.dp-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #fff;
+  color: #111827;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) { border-color: #9ca3af; }
+
+  &--open {
+    border-color: #6c5ce7;
+    color: #6c5ce7;
+  }
+
+  &:disabled {
+    background: #f9fafb;
+    color: #9ca3af;
+    cursor: not-allowed;
+  }
+}
+
+.dp-trigger__placeholder { color: #9ca3af; font-weight: 500; }
+
+.dp-trigger__chevron {
+  transition: transform 0.15s;
+  flex-shrink: 0;
+
+  &--open { transform: rotate(180deg); }
+}
+
+.dp-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 40;
+  width: 268px;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.16);
+}
+
+// ── Month / year dropdowns ──────────────────────────────────────────────────
+.dp-selects {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.dp-select-wrap {
+  position: relative;
+  flex: 1 1 auto;
+
+  // The year needs far less room than "September".
+  &--year { flex: 0 0 92px; }
+}
+
+.dp-select {
+  width: 100%;
+  height: 34px;
+  padding: 0 26px 0 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background: #fff;
+  color: #111827;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  appearance: none;
+
+  &:hover { border-color: #9ca3af; }
+  &:focus {
+    outline: none;
+    border-color: #6c5ce7;
+    box-shadow: 0 0 0 3px rgba(108, 92, 231, 0.15);
+  }
+}
+
+.dp-select__icon {
+  position: absolute;
+  top: 50%;
+  right: 9px;
+  transform: translateY(-50%);
+  color: #6b7280;
+  pointer-events: none;
+}
+
+// ── Calendar grid ───────────────────────────────────────────────────────────
+.dp-day-headers,
+.dp-day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.dp-day-headers { margin-bottom: 6px; }
+
+.dp-day-name {
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: #9ca3af;
+}
+
+.dp-day {
+  width: 100%;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #111827;
+  font-family: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+
+  &:hover:not(:disabled):not(.dp-day--selected) { background: #f3f4f6; }
+
+  // Leading/trailing days from the neighbouring months.
+  &--outside { color: #cbd5e1; }
+
+  // Today, when it isn't the selected day — outlined rather than filled, so
+  // it never reads as a selection.
+  &--today {
+    box-shadow: inset 0 0 0 1px #6c5ce7;
+    color: #6c5ce7;
+    font-weight: 700;
+  }
+
+  &--selected {
+    background: #6c5ce7;
+    color: #fff;
+    font-weight: 700;
+  }
+
+  &--blocked {
+    color: #e5e7eb;
+    cursor: not-allowed;
+  }
+}
+
+// ── Footer ──────────────────────────────────────────────────────────────────
+.dp-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #f1f1f2;
+}
+
+.dp-link {
+  padding: 0;
+  border: none;
+  background: none;
+  color: #6c5ce7;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { text-decoration: underline; }
+
+  &:disabled {
+    color: #cbd5e1;
+    cursor: not-allowed;
+  }
+}

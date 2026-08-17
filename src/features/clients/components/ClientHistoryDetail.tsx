@@ -255,9 +255,10 @@ const fmtDateShort = (iso: string) =>
     day: "2-digit", month: "short", year: "numeric",
   });
 
-// dd/MM/yyyy — the app's standard date format (matches DateRangePicker.tsx's
-// own label formatter), used across the new Overview/Notes/E-Wallet/
-// Referrals & Rewards/Communication tabs and their exports.
+// dd/MM/yyyy — the app's standard date format (matches the shared
+// DateRangeFilter/DatePicker label formatters), used across the new
+// Overview/Notes/E-Wallet/Referrals & Rewards/Communication tabs and their
+// exports.
 const fmtDMY = (iso: string | null | undefined) => {
   if (!iso) return "–";
   const d = new Date(iso);
