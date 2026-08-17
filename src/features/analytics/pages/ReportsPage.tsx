@@ -2,10 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   Search, StarFill, Star, ChevronRight, ChevronDown, ClockHistory,
-  GraphUpArrow, People, PersonBadge, CalendarCheck, BoxSeam, Tag, Megaphone,
+  GraphUpArrow, People, PersonBadge, CalendarCheck, BoxSeam, Tag, Tags, Megaphone,
   PieChartFill, Bag, Scissors, BarChartLine, Receipt, Award, Wallet2,
   PersonCircle, PersonCheck, PeopleFill, Droplet, Whatsapp, FileEarmarkBarGraph,
-  CashCoin, PersonCheckFill, Truck, ChatDots, PersonDash, ArrowRepeat,
+  CashCoin, PersonCheckFill, Truck, ChatDots, PersonDash, ArrowRepeat, ArrowLeftRight,
 } from "react-bootstrap-icons";
 import "../styles/ReportsPage.scss";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -15,6 +15,8 @@ import { getTaxModuleConfig } from "../../settings/utils/taxModuleSettings";
 import SalesSummaryReport from "../reports/SalesSummaryReport";
 import ProductSaleReport from "../reports/ProductSaleReport";
 import ProductInventoryReport from "../reports/ProductInventoryReport";
+import BrandPerformanceReport from "../reports/BrandPerformanceReport";
+import PurchaseVsSalesReport from "../reports/PurchaseVsSalesReport";
 import ConsumableUsageReport from "../reports/ConsumableUsageReport";
 import DailySheetReport from "../reports/DailySheetReport";
 import TaxesReport from "../reports/TaxesReport";
@@ -106,6 +108,8 @@ const REPORTS: ReportDef[] = [
   { id: "appointment_detail",     slug: "appointment-detail",     name: "Detailed Appointment Reports",                description: "Every appointment for a period, with status, staff, service and payment detail.",                 category: "appointments", icon: CalendarCheck,  Component: AppointmentDetailReport },
   { id: "upcoming_appointments",  slug: "upcoming-appointments",  name: "Upcoming Appointments Report",                description: "Future appointments still booked — date, time, client, service and staff.",                       category: "appointments", icon: ClockHistory,   Component: UpcomingAppointmentsReport },
   { id: "product_inventory",      slug: "product-inventory",      name: "Product Inventory",                           description: "Current on-hand stock, reorder levels and stock value by product.",                                category: "inventory",    icon: BoxSeam,        Component: ProductInventoryReport },
+  { id: "brand_performance",      slug: "brand-performance",      name: "Brand Performance Report",                    description: "Units sold, sales revenue and stock value grouped by product brand.",                              category: "inventory",    icon: Tags,           Component: BrandPerformanceReport },
+  { id: "purchase_vs_sales",      slug: "purchase-vs-sales",      name: "Purchase vs Sales Inventory Report",          description: "Purchase value, sales value and stock consumption per product, with net movement and turnover.",   category: "inventory",    icon: ArrowLeftRight, Component: PurchaseVsSalesReport },
   { id: "consumable_usage",       slug: "consumable-usage",       name: "Consumable Usage",                            description: "Products used up by staff during services (back-bar stock), separate from client sales.",       category: "inventory",    icon: Droplet,        Component: ConsumableUsageReport },
   { id: "supplier_report",        slug: "supplier-report",        name: "Supplier Report",                             description: "All suppliers on record, with contact details and location.",                                     category: "inventory",    icon: Truck,          Component: SupplierReport },
   { id: "package_sale",           slug: "package-sale",           name: "Package Sale",                                description: "Packages purchased by clients, with amount paid and balance due.",                                  category: "packages",     icon: Tag,            Component: PackageSaleReport },
