@@ -1,0 +1,19 @@
+@use "../styles/reportDetailBase" as *;
+@use "../../../styles/themes/variables" as *;
+
+.rp-brand-table {
+  table-layout: fixed;
+
+  .rp-brand-col-name { width: 220px; }
+
+  td.rp-brand-name-cell {
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.rp-brand-revenue {
+  color: #10b981;
+}

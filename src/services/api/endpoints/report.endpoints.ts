@@ -40,6 +40,14 @@ export const PRODUCT_INVENTORY_REPORT = {
   SUMMARY: () => `/api/report/product-inventory`,
 } as const;
 
+export const BRAND_PERFORMANCE_REPORT = {
+  SUMMARY: () => `/api/report/brand-performance`,
+} as const;
+
+export const PURCHASE_VS_SALES_REPORT = {
+  SUMMARY: () => `/api/report/purchase-vs-sales`,
+} as const;
+
 // Independent Service Sale reporting API — reads sales/sale_items directly,
 // never through the Appointment API. Mounted at /api/report.
 export const SERVICE_SALE_REPORT = {

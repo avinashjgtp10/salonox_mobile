@@ -1,0 +1,39 @@
+@use "../styles/reportDetailBase" as *;
+@use "../../../styles/themes/variables" as *;
+
+.rp-pvs-table {
+  table-layout: fixed;
+
+  .rp-pvs-col-product { width: 200px; }
+
+  td.rp-pvs-product-cell {
+    max-width: 200px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
+.rp-pvs-sub {
+  color: #6b7280;
+  font-size: 12px;
+}
+
+.rp-pvs-move--up {
+  color: #10b981;
+  font-weight: 600;
+}
+
+.rp-pvs-move--down {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+// 5 summary cards instead of the usual 4 the base grid is tuned for.
+.rp-pvs-summary-row {
+  grid-template-columns: repeat(5, 1fr);
+
+  @media (max-width: 1000px) { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 700px) { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 480px) { grid-template-columns: 1fr; }
+}
