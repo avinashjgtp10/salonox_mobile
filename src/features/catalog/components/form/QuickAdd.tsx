@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { toTitleCase } from "../../../../utils/titleCase";
 
 // Inline "+ Add X" affordance — types a name, saves via the given handler,
 // and lets the caller select the newly created record. Shared across
@@ -19,7 +20,7 @@ export const QuickAdd: React.FC<{
     if (!value.trim() || saving) return;
     setSaving(true);
     try {
-      await onAdd(value.trim());
+      await onAdd(toTitleCase(value.trim()));
       setValue("");
       setOpen(false);
     } finally {

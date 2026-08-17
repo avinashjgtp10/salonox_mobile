@@ -8,6 +8,7 @@ import { fetchSuppliersThunk, createSupplierThunk } from "../../../middleware/in
 import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
 import api from "../../../services/api/axios";
 import { PRODUCTS } from "../../../services/api/endpoints/products.endpoints";
+import { toTitleCase } from "../../../utils/titleCase";
 import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { PRODUCT_UNITS, TAX_TYPE_OPTIONS, type ProductType, type ProductUnit, type TaxType } from "../types/product.types";
@@ -327,7 +328,7 @@ const ProductFormPage: React.FC = () => {
     setError("");
     try {
       const payload: Record<string, any> = {
-        name: name.trim(),
+        name: toTitleCase(name.trim()),
         barcode: barcode.trim() || undefined,
         category_id: categoryId,
         brand_id: brandId || undefined,

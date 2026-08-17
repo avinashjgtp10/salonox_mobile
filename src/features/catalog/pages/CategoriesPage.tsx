@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Dropdown from "../../../components/ui/Dropdown";
+import { toTitleCase } from "../../../utils/titleCase";
 import "../styles/CategoriesPage.scss";
 
 interface Category {
@@ -79,14 +80,15 @@ const CategoriesPage: React.FC = () => {
 
   const handleSave = () => {
     if (!form.name.trim()) return;
+    const normalized = { ...form, name: toTitleCase(form.name.trim()) };
     if (editItem) {
       setCategories((prev) =>
-        prev.map((c) => (c.id === editItem.id ? { ...c, ...form } : c)),
+        prev.map((c) => (c.id === editItem.id ? { ...c, ...normalized } : c)),
       );
     } else {
       setCategories((prev) => [
         ...prev,
-        { id: Date.now(), ...form, serviceCount: 0 },
+        { id: Date.now(), ...normalized, serviceCount: 0 },
       ]);
     }
     setShowModal(false);

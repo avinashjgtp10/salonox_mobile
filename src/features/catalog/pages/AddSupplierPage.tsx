@@ -5,6 +5,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { createSupplierThunk, updateSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
 import { SUPPLIER_MESSAGES } from "../../../constants/messages";
 import Dropdown from "../../../components/ui/Dropdown";
+import { toTitleCase } from "../../../utils/titleCase";
 import "../styles/AddSupplierPage.scss";
 
 const COUNTRIES = Country.getAllCountries().map((c) => ({
@@ -178,10 +179,10 @@ const AddSupplierPage: React.FC = () => {
     if (emailError || mobileError) return;
 
     const payload = {
-      name: name.trim(),
+      name: toTitleCase(name.trim()),
       description: description.trim() || undefined,
-      first_name: firstName.trim() || undefined,
-      last_name: lastName.trim() || undefined,
+      first_name: firstName.trim() ? toTitleCase(firstName.trim()) : undefined,
+      last_name: lastName.trim() ? toTitleCase(lastName.trim()) : undefined,
       mobile_country_code: mobileDialCode || undefined,
       mobile_number: mobileNumber.trim() || undefined,
       email: email.trim() || undefined,

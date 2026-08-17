@@ -22,6 +22,7 @@ import { getMySalonThunk, updateSalonThunk } from "../../../middleware/salon/sal
 import Button from "../../../components/ui/Button";
 import type { Salon, UpdateSalonPayload } from "../../../types/salon.types";
 import { TAX_ID_MESSAGES } from "../../../constants/message";
+import { toTitleCase } from "../../../utils/titleCase";
 
 const GSTIN_LENGTH = 15;
 const PAN_LENGTH = 10;
@@ -186,7 +187,10 @@ export default function BusinessSettingsPage() {
 
     setSaving(true);
     const result = await dispatch(
-      updateSalonThunk({ id: currentSalon.id, payload: form })
+      updateSalonThunk({
+        id: currentSalon.id,
+        payload: { ...form, business_name: toTitleCase(form.business_name.trim()) },
+      })
     );
     setSaving(false);
 

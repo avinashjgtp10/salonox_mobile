@@ -17,6 +17,7 @@ import { getMySalonThunk, updateSalonThunk } from "../../../middleware/salon/sal
 import type { UpdateUserPayload } from "../../../types/user.types";
 import type { UpdateSalonPayload } from "../../../types/salon.types";
 import { TAX_ID_MESSAGES } from "../../../constants/message";
+import { toTitleCase } from "../../../utils/titleCase";
 import "../styles/ProfilePage.scss";
 
 const GSTIN_LENGTH = 15;
@@ -306,7 +307,11 @@ export default function ProfilePage() {
     if (Object.keys(errors).length > 0) { setFieldErrors(errors); return; }
     setFieldErrors({});
     setFormError(null);
-    const result = await dispatch(updateUserThunk(form));
+    const result = await dispatch(updateUserThunk({
+      ...form,
+      fullName: toTitleCase(form.fullName.trim()),
+      businessName: form.businessName?.trim() ? toTitleCase(form.businessName.trim()) : form.businessName,
+    }));
     if (updateUserThunk.fulfilled.match(result)) {
       setSaved(true);
       setEditing(false);
@@ -337,7 +342,15 @@ export default function ProfilePage() {
     if (Object.keys(errors).length > 0) { setSalonFieldErrors(errors); return; }
     setSalonFieldErrors({});
     setSalonError(null);
-    const result = await dispatch(updateSalonThunk({ id: currentSalon.id, payload: salonForm }));
+    const result = await dispatch(updateSalonThunk({
+      id: currentSalon.id,
+      payload: {
+        ...salonForm,
+        business_name: salonForm.business_name?.trim()
+          ? toTitleCase(salonForm.business_name.trim())
+          : salonForm.business_name,
+      },
+    }));
     if (updateSalonThunk.fulfilled.match(result)) {
       setSalonSaved(true);
       setSalonEditing(false);

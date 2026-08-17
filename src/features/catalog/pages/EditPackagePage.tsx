@@ -11,6 +11,7 @@ import { useServices } from "../hooks/useServices";
 import type { Service as ApiService } from "../types/catalog.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import Dropdown from "../../../components/ui/Dropdown";
+import { toTitleCase } from "../../../utils/titleCase";
 import type { AppDispatch } from "../../../store/store";
 import { setPackagesList } from "../../../store/schedulerSlice";
 
@@ -157,7 +158,7 @@ const EditPackagePage: React.FC = () => {
     setSaving(true);
     try {
       const payload: UpdatePackageDTO = {
-        name: pkgName,
+        name: toTitleCase(pkgName.trim()),
         slug: slug || undefined,
         description: description || undefined,
         basePrice: Number(basePrice),

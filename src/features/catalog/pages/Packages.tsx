@@ -38,6 +38,7 @@ import { useServices } from "../hooks/useServices";
 import type { Service as ApiService } from "../types/catalog.types";
 
 import ClientSearchInput, { type ClientSearchResult } from "../../clients/components/ClientSearchInput";
+import { toTitleCase } from "../../../utils/titleCase";
 import { useCurrency } from "../../../hooks/useCurrency";
 import Dropdown from "../../../components/ui/Dropdown";
 import "./Packages.scss";
@@ -540,7 +541,7 @@ const CreateView: React.FC<NavProps> = ({ onNavigate }) => {
     setSaving(true);
     try {
       await createPackage({
-        name: pkgName,
+        name: toTitleCase(pkgName.trim()),
         slug,
         description,
         basePrice: Number(basePrice),
@@ -880,10 +881,11 @@ const CustomPackageView: React.FC<NavProps> = ({ onNavigate }) => {
   const handleCreateGuestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!newGuestName.trim()) return;
+    const titled = toTitleCase(newGuestName.trim()).split(" ");
     setSelectedGuest({
       id: "temp-" + Date.now(),
-      firstName: newGuestName.split(" ")[0] || "New",
-      lastName: newGuestName.split(" ").slice(1).join(" ") || "Guest",
+      firstName: titled[0] || "New",
+      lastName: titled.slice(1).join(" ") || "Guest",
       phone: newGuestPhone,
       email: newGuestEmail,
     });
@@ -899,7 +901,7 @@ const CustomPackageView: React.FC<NavProps> = ({ onNavigate }) => {
     try {
       // Map custom details to createPackage endpoint payload
       await createPackage({
-        name: packageName,
+        name: toTitleCase(packageName.trim()),
         description: `Custom package created for guest: ${selectedGuest.firstName} ${selectedGuest.lastName}. ${description}`,
         basePrice: 0, // Admin sets dynamically inside invoice
         discountValue: 0,
