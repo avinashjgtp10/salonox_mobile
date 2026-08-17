@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchSuperAdminSalonsThunk, fetchSuperAdminUsersThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
+import { fetchSuperAdminSalonsThunk, fetchSalonStaffThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
+import Pagination from "../components/Pagination";
 
 function Badge({ status }: { status: string }) {
   const map: Record<string, { bg: string; text: string }> = {
@@ -31,15 +32,20 @@ function StatCard({ label, value }: { label: string; value: React.ReactNode }) {
 export default function SalonDetailPage() {
   const { salonId } = useParams<{ salonId: string }>();
   const dispatch = useAppDispatch();
-  const { salons, users, loading } = useAppSelector((s) => s.superAdmin);
+  const { salons, salonStaff, loading } = useAppSelector((s) => s.superAdmin);
+  const [page, setPage]       = useState(1);
+  const [perPage, setPerPage] = useState(10);
 
   useEffect(() => {
     if (salons.length === 0) dispatch(fetchSuperAdminSalonsThunk());
-    dispatch(fetchSuperAdminUsersThunk({}));
-  }, [dispatch, salons.length]);
+    if (salonId) dispatch(fetchSalonStaffThunk(salonId));
+  }, [dispatch, salons.length, salonId]);
 
   const salon: any = salons.find((s: any) => s.id === salonId);
-  const staff = users.filter((u: any) => u.salon_id === salonId);
+  const owner = salonStaff.find((u: any) => u.role === "owner");
+  const staff = salonStaff.filter((u: any) => u.role !== "owner");
+  const pagedStaff = staff.slice((page - 1) * perPage, page * perPage);
+  const fmtMoney = (n: any) => (n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—");
 
   if (loading.salons && !salon) {
     return (
@@ -85,23 +91,50 @@ export default function SalonDetailPage() {
         <StatCard label="Created" value={fmtDateShort(salon.created_at)} />
       </div>
 
-      <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: "0 0 12px" }}>Staff & Users</h2>
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: "0 0 12px" }}>Salon Owner</h2>
+      <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", padding: "16px 20px", marginBottom: 28, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        {loading.salonStaff && !owner ? (
+          <span style={{ color: "#94a3b8", fontSize: 13.5 }}>Loading…</span>
+        ) : owner ? (
+          <>
+            <div style={{ width: 40, height: 40, borderRadius: "50%", background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 15, fontWeight: 700, flexShrink: 0 }}>
+              {owner.name?.[0]?.toUpperCase() || "?"}
+            </div>
+            <div style={{ minWidth: 160 }}>
+              <div style={{ color: "#0f172a", fontWeight: 700, fontSize: 14 }}>{owner.name || "—"}</div>
+              <div style={{ color: "#94a3b8", fontSize: 12 }}>{owner.email}{owner.phone ? ` · ${owner.phone}` : ""}</div>
+            </div>
+            <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11.5, fontWeight: 600, background: "#eef2ff", color: "#6366f1" }}>Owner</span>
+            <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11.5, fontWeight: 600, background: owner.is_active ? "#f0fdf4" : "#fef2f2", color: owner.is_active ? "#16a34a" : "#dc2626" }}>
+              {owner.is_active ? "Active" : "Inactive"}
+            </span>
+            <div style={{ marginLeft: "auto", color: "#64748b", fontSize: 12.5 }}>
+              Logins: <strong style={{ color: "#374151" }}>{owner.login_count ?? 0}</strong>
+              {" · "}Last active: {owner.last_login ? new Date(owner.last_login).toLocaleDateString("en-IN") : "Never"}
+            </div>
+          </>
+        ) : (
+          <span style={{ color: "#94a3b8", fontSize: 13.5 }}>No owner found for this salon</span>
+        )}
+      </div>
+
+      <h2 style={{ fontSize: 15, fontWeight: 700, color: "#0f172a", margin: "0 0 12px" }}>Staff</h2>
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "auto", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 700 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 780 }}>
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-              {["Name", "Contact", "Role", "Status", "Login Count", "Last Active"].map(h => (
+              {["Name", "Contact", "Role", "Status", "Revenue", "Login Count", "Last Active"].map(h => (
                 <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
-            {loading.users ? (
-              <tr><td colSpan={6} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>Loading…</td></tr>
+            {loading.salonStaff ? (
+              <tr><td colSpan={7} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>Loading…</td></tr>
             ) : staff.length === 0 ? (
-              <tr><td colSpan={6} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No staff/users found for this salon</td></tr>
+              <tr><td colSpan={7} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No staff found for this salon</td></tr>
             ) : (
-              staff.map((u: any) => (
+              pagedStaff.map((u: any) => (
                 <tr key={u.id} style={{ borderTop: "1px solid #f1f5f9" }}>
                   <td style={{ padding: "13px 16px", color: "#0f172a", fontWeight: 700 }}>{u.name || "—"}</td>
                   <td style={{ padding: "13px 16px" }}>
@@ -114,6 +147,7 @@ export default function SalonDetailPage() {
                       {u.is_active ? "Active" : "Inactive"}
                     </span>
                   </td>
+                  <td style={{ padding: "13px 16px", color: "#16a34a", fontWeight: 700 }}>{fmtMoney(u.revenue)}</td>
                   <td style={{ padding: "13px 16px", color: "#374151" }}>{u.login_count ?? 0}</td>
                   <td style={{ padding: "13px 16px", color: "#94a3b8", fontSize: 12 }}>
                     {u.last_login ? new Date(u.last_login).toLocaleDateString("en-IN") : "Never"}
@@ -123,6 +157,11 @@ export default function SalonDetailPage() {
             )}
           </tbody>
         </table>
+        <Pagination
+          total={staff.length} page={page} perPage={perPage}
+          onPageChange={setPage} onPerPageChange={setPerPage}
+          itemLabel="staff"
+        />
       </div>
     </div>
   );
