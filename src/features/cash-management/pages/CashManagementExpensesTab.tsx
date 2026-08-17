@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, SortDown, SortUp } from "react-bootstrap-icons";
-import { Button, Pagination } from "../../../components/ui";
+import { Pagination } from "../../../components/ui";
 import type { DateRangePreset } from "../../../components/ui";
 import type { CashManagementExportDataset } from "../cashManagement.export";
 import type { CashExpenseRecord } from "../cashManagement.types";
@@ -20,7 +20,6 @@ interface Props {
   sharedDateTo: string;
   onFilteredCountChange?: (count: number) => void;
   onExportDataChange?: (dataset: CashManagementExportDataset) => void;
-  onAdd: () => void;
   onEdit: (expense: CashExpenseRecord) => void;
   onDelete: (expense: CashExpenseRecord) => void;
 }
@@ -68,7 +67,6 @@ export default function CashManagementExpensesTab({
   sharedDateTo,
   onFilteredCountChange,
   onExportDataChange,
-  onAdd,
   onEdit,
   onDelete,
 }: Props) {
@@ -215,9 +213,6 @@ export default function CashManagementExpensesTab({
             }}
           />
         </div>
-        <Button variant="dark" onClick={onAdd} disabled={!canManage || actionsDisabled}>
-          Add Expense
-        </Button>
       </div>
 
       {actionsDisabled ? (

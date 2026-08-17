@@ -342,17 +342,6 @@ export default function DashboardTopbar({ onLogout }: Props) {
               Salon<span className="brand-wordmark-accent">OX</span>
             </span>
           </h2>
-
-          {isCashCounterOpen && (
-            <button
-              type="button"
-              className="topbar-close-counter-btn"
-              onClick={() => setShowCloseCounterConfirm(true)}
-            >
-              <LockFill size={13} />
-              <span>Close Counter</span>
-            </button>
-          )}
         </div>
 
         <div className="topbar-right">
