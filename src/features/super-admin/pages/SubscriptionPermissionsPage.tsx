@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import {
   searchSalonsForSubscriptionPermissionsThunk,
@@ -7,6 +7,7 @@ import {
   fetchSubscriptionPermissionAuditLogThunk,
   grantSubscriptionDaysThunk,
 } from "../../../middleware/superAdmin/superAdmin.thunk";
+import Pagination from "../components/Pagination";
 
 // The 7 subscription actions a super admin can grant/revoke per account —
 // keys must match SUBSCRIPTION_PERMISSION_KEYS in
@@ -62,15 +63,115 @@ const Spinner = ({ color = "#6366f1" }: { color?: string }) => (
   </svg>
 );
 
+const fmtDate = (iso?: string | null) =>
+  iso ? new Date(iso).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+
+function daysRemaining(endDate?: string | null): number | null {
+  if (!endDate) return null;
+  const end = new Date(endDate);
+  end.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((end.getTime() - today.getTime()) / 86400000);
+}
+
+// Single source of truth for the day-count → bucket mapping, shared by the
+// row badge and the "Days Remaining" filter so they can never drift apart.
+type DaysBucket = "active" | "expiring_soon" | "expiring_very_soon" | "expires_today" | "expired" | "unknown";
+
+function daysRemainingBucket(endDate?: string | null): DaysBucket {
+  const days = daysRemaining(endDate);
+  if (days === null) return "unknown";
+  if (days < 0)  return "expired";
+  if (days === 0) return "expires_today";
+  if (days <= 7)  return "expiring_very_soon";
+  if (days <= 30) return "expiring_soon";
+  return "active";
+}
+
+const DAYS_BUCKET_OPTIONS: { value: DaysBucket; label: string }[] = [
+  { value: "active",              label: "30+ days — Active" },
+  { value: "expiring_soon",       label: "8–30 days — Expiring Soon" },
+  { value: "expiring_very_soon",  label: "1–7 days — Expiring Very Soon" },
+  { value: "expires_today",       label: "0 days — Expires Today" },
+  { value: "expired",             label: "Expired" },
+];
+
+function daysRemainingBadge(endDate?: string | null) {
+  const days = daysRemaining(endDate);
+  const bucket = daysRemainingBucket(endDate);
+  const labels: Record<DaysBucket, string> = {
+    unknown: "—",
+    expired: "Expired",
+    expires_today: "Expires Today",
+    expiring_very_soon: `${days}d — Very Soon`,
+    expiring_soon: `${days}d — Soon`,
+    active: `${days}d — Active`,
+  };
+  const styles: Record<DaysBucket, { bg: string; text: string }> = {
+    unknown:             { bg: "#f8fafc", text: "#94a3b8" },
+    expired:              { bg: "#fef2f2", text: "#dc2626" },
+    expires_today:        { bg: "#fef2f2", text: "#dc2626" },
+    expiring_very_soon:   { bg: "#fff7ed", text: "#ea580c" },
+    expiring_soon:        { bg: "#fffbeb", text: "#d97706" },
+    active:                { bg: "#f0fdf4", text: "#16a34a" },
+  };
+  return { label: labels[bucket], ...styles[bucket] };
+}
+
+function autoRenewalBadge(row: any) {
+  if (!row.subscription_status) return { label: "—", bg: "#f8fafc", text: "#94a3b8" };
+  if (row.subscription_cancelled_at || row.subscription_cancel_at_period_end) {
+    return { label: "Will Not Renew", bg: "#fef2f2", text: "#dc2626" };
+  }
+  if (row.subscription_status === "active") {
+    return { label: "Auto-Renews", bg: "#f0fdf4", text: "#16a34a" };
+  }
+  return { label: "—", bg: "#f8fafc", text: "#94a3b8" };
+}
+
+function subscriptionStatusBadge(row: any) {
+  if (!row.subscription_status) return { label: "—", bg: "#f8fafc", text: "#94a3b8" };
+  if (row.subscription_is_trial) return { label: "Trialing", bg: "#eef2ff", text: "#6366f1" };
+  const styles: Record<string, { bg: string; text: string }> = {
+    active:        { bg: "#f0fdf4", text: "#16a34a" },
+    paused:        { bg: "#fffbeb", text: "#d97706" },
+    cancelled:     { bg: "#fef2f2", text: "#dc2626" },
+    expired:       { bg: "#fef2f2", text: "#dc2626" },
+    completed:     { bg: "#f8fafc", text: "#64748b" },
+    created:       { bg: "#f8fafc", text: "#64748b" },
+    authenticated: { bg: "#f8fafc", text: "#64748b" },
+  };
+  const c = styles[row.subscription_status] ?? { bg: "#f8fafc", text: "#64748b" };
+  return { label: row.subscription_status, ...c };
+}
+
+function permissionsCount(row: any): { enabled: number; total: number } {
+  let parsed: Record<string, boolean> = {};
+  try { parsed = row.subscription_permissions ? JSON.parse(row.subscription_permissions) : {}; } catch { /* ignore */ }
+  const enabled = SUBSCRIPTION_PERMISSIONS.filter(p => parsed[p.key] ?? true).length;
+  return { enabled, total: SUBSCRIPTION_PERMISSIONS.length };
+}
+
 export default function SubscriptionPermissionsPage() {
   const dispatch = useAppDispatch();
 
-  const [query, setQuery]               = useState("");
-  const [results, setResults]           = useState<any[]>([]);
-  const [searching, setSearching]       = useState(false);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const dropRef                         = useRef<HTMLDivElement>(null);
+  const [query, setQuery]     = useState("");
+  const [results, setResults] = useState<any[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [statusFilter, setStatusFilter] = useState("");
+  const [daysFilter, setDaysFilter]     = useState<DaysBucket | "">("");
+  const [page, setPage]       = useState(1);
+  const [perPage, setPerPage] = useState(10);
 
+  const filteredResults = results.filter((row: any) => {
+    if (statusFilter === "trialing" && !row.subscription_is_trial) return false;
+    if (statusFilter && statusFilter !== "trialing" && (row.subscription_status ?? "") !== statusFilter) return false;
+    if (daysFilter && daysRemainingBucket(row.subscription_end_date) !== daysFilter) return false;
+    return true;
+  });
+
+  const [modalOpen, setModalOpen] = useState(false);
   const [salon, setSalon]     = useState<any>(null);
   const [perms, setPerms]     = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(false);
@@ -86,28 +187,20 @@ export default function SubscriptionPermissionsPage() {
   const [grantMsg, setGrantMsg]         = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
-    function handle(e: MouseEvent) {
-      if (dropRef.current && !dropRef.current.contains(e.target as Node)) setShowDropdown(false);
-    }
-    document.addEventListener("mousedown", handle);
-    return () => document.removeEventListener("mousedown", handle);
-  }, []);
-
-  useEffect(() => {
-    if (!query.trim()) { setResults([]); setShowDropdown(false); return; }
     const t = setTimeout(async () => {
       setSearching(true);
       const res = await dispatch(searchSalonsForSubscriptionPermissionsThunk(query.trim()));
       setSearching(false);
       if (searchSalonsForSubscriptionPermissionsThunk.fulfilled.match(res)) {
-        setResults(res.payload); setShowDropdown(true);
+        setResults(res.payload);
+        setPage(1);
       }
-    }, 350);
+    }, 300);
     return () => clearTimeout(t);
   }, [query]);
 
   async function selectSalon(row: any) {
-    setShowDropdown(false); setQuery(row.name);
+    setModalOpen(true);
     setSalon(null); setPerms({}); setSaveMsg(""); setLoading(true);
     setShowAudit(false); setAuditLog([]);
     setGrantDays(""); setGrantMsg(null);
@@ -125,6 +218,11 @@ export default function SubscriptionPermissionsPage() {
       }
       setPerms(seeded);
     }
+  }
+
+  function closeModal() {
+    setModalOpen(false);
+    setSalon(null); setPerms({}); setSaveMsg("");
   }
 
   function toggle(key: string) {
@@ -228,62 +326,134 @@ export default function SubscriptionPermissionsPage() {
         </div>
         <div>
           <h1 style={{ margin: 0, fontSize: 20, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.3px" }}>Subscription Permissions</h1>
-          <p style={{ margin: 0, color: "#94a3b8", fontSize: 12 }}>Search an account to control which subscription actions it can perform</p>
+          <p style={{ margin: 0, color: "#94a3b8", fontSize: 12 }}>Click an account to control which subscription actions it can perform</p>
         </div>
       </div>
 
-      {/* ── Card ── */}
-      <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", overflow: "visible", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
-
-        {/* Card header */}
-        <div style={{ padding: "14px 20px", borderBottom: "1px solid #f1f5f9", background: "linear-gradient(135deg,#f8fafc,#eef2ff22)", borderRadius: "16px 16px 0 0", display: "flex", alignItems: "center", gap: 10 }}>
-          <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "0 3px 10px rgba(99,102,241,0.3)", flexShrink: 0 }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/>
-            </svg>
+      {/* ── Search + filters ── */}
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ position: "relative", flex: "1 1 320px", maxWidth: 420 }}>
+          <div style={{ padding: "0 12px", color: "#94a3b8", position: "absolute", left: 0, top: 0, bottom: 0, display: "flex", alignItems: "center" }}>
+            {searching ? <Spinner /> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>}
           </div>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>Per-Account Subscription Actions</div>
-            <div style={{ fontSize: 11, color: "#94a3b8" }}>Changes apply immediately — no logout required for the account</div>
-          </div>
+          <input type="text" placeholder="Search by salon name or owner email…" value={query}
+            onChange={e => setQuery(e.target.value)}
+            style={{ width: "100%", boxSizing: "border-box", border: "1.5px solid #e2e8f0", borderRadius: 10, background: "#fff", fontSize: 13, color: "#0f172a", padding: "10px 14px 10px 36px", fontFamily: "inherit", outline: "none", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }} />
         </div>
 
-        {/* Search */}
-        <div style={{ padding: "16px 20px", borderBottom: salon ? "1px solid #f1f5f9" : "none", position: "relative" }} ref={dropRef}>
-          <div style={{ position: "relative", maxWidth: 480 }}>
-            <div style={{ display: "flex", alignItems: "center", border: `1.5px solid ${showDropdown ? "#6366f1" : "#e2e8f0"}`, borderRadius: 10, background: "#fff", overflow: "hidden", boxShadow: showDropdown ? "0 0 0 3px rgba(99,102,241,0.12)" : "0 1px 4px rgba(0,0,0,0.04)", transition: "all 0.2s" }}>
-              <div style={{ padding: "0 12px", color: "#94a3b8" }}>
-                {searching ? <Spinner /> : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>}
-              </div>
-              <input type="text" placeholder="Search by salon name or owner email…" value={query}
-                onChange={e => { setQuery(e.target.value); setSalon(null); setSaveMsg(""); }}
-                onFocus={() => results.length > 0 && setShowDropdown(true)}
-                style={{ flex: 1, border: "none", outline: "none", fontSize: 13, color: "#0f172a", padding: "10px 0", fontFamily: "inherit", background: "transparent" }} />
-              {query && <button onClick={() => { setQuery(""); setResults([]); setSalon(null); setShowDropdown(false); }} style={{ padding: "0 14px", background: "none", border: "none", cursor: "pointer", color: "#94a3b8", fontSize: 17, lineHeight: 1 }}>×</button>}
-            </div>
+        <select value={statusFilter} onChange={e => { setStatusFilter(e.target.value); setPage(1); }}
+          style={{ padding: "9px 14px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "#fff", color: "#374151", fontSize: 13, outline: "none", appearance: "none", cursor: "pointer" }}>
+          <option value="">All Statuses</option>
+          <option value="active">Active</option>
+          <option value="trialing">Trialing</option>
+          <option value="paused">Paused</option>
+          <option value="cancelled">Cancelled</option>
+          <option value="expired">Expired</option>
+        </select>
 
-            {showDropdown && results.length > 0 && (
-              <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, background: "#fff", border: "1.5px solid #e2e8f0", borderRadius: 12, boxShadow: "0 12px 32px rgba(0,0,0,0.14)", zIndex: 100, maxHeight: 260, overflowY: "auto" }}>
-                {results.map((row, i) => (
-                  <div key={row.id} onClick={() => selectSalon(row)}
-                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", cursor: "pointer", borderBottom: i < results.length - 1 ? "1px solid #f1f5f9" : "none", transition: "background 0.12s" }}
+        <select value={daysFilter} onChange={e => { setDaysFilter(e.target.value as DaysBucket | ""); setPage(1); }}
+          style={{ padding: "9px 14px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "#fff", color: "#374151", fontSize: 13, outline: "none", appearance: "none", cursor: "pointer" }}>
+          <option value="">All Days Remaining</option>
+          {DAYS_BUCKET_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+
+        {(statusFilter || daysFilter) && (
+          <button onClick={() => { setStatusFilter(""); setDaysFilter(""); setPage(1); }}
+            style={{ padding: "9px 14px", borderRadius: 10, border: "1.5px solid #e2e8f0", background: "#fff", color: "#64748b", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+            Clear filters
+          </button>
+        )}
+      </div>
+
+      {/* ── Account table ── */}
+      <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "auto", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 1380 }}>
+          <thead>
+            <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              {["Salon Name", "Owner", "Plan", "Subscription Status", "Start Date", "Expiry Date", "Days Remaining", "Auto-Renewal", "Permissions", ""].map(h => (
+                <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredResults.length === 0 ? (
+              <tr><td colSpan={10} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No accounts found</td></tr>
+            ) : (
+              filteredResults.slice((page - 1) * perPage, page * perPage).map((row: any) => {
+                const daysBadge  = daysRemainingBadge(row.subscription_end_date);
+                const renewBadge = autoRenewalBadge(row);
+                const permCount  = permissionsCount(row);
+                return (
+                  <tr key={row.id} onClick={() => selectSalon(row)}
+                    style={{ borderTop: "1px solid #f1f5f9", cursor: "pointer", transition: "background 0.1s" }}
                     onMouseEnter={e => (e.currentTarget.style.background = "#f8fafc")}
                     onMouseLeave={e => (e.currentTarget.style.background = "#fff")}>
-                    <div style={{ width: 34, height: 34, borderRadius: 9, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 800, flexShrink: 0 }}>
-                      {row.name?.[0]?.toUpperCase() ?? "S"}
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.name}</div>
-                      <div style={{ fontSize: 11, color: "#94a3b8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.owner_email}</div>
-                    </div>
-                    {row.plan_name && <span style={{ fontSize: 10, fontWeight: 700, color: "#6366f1", background: "#eef2ff", padding: "2px 7px", borderRadius: 20 }}>{row.plan_name}</span>}
-                  </div>
-                ))}
-              </div>
+                    <td style={{ padding: "13px 16px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                        <div style={{ width: 30, height: 30, borderRadius: 8, background: "linear-gradient(135deg,#6366f1,#8b5cf6)", display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 800, flexShrink: 0 }}>
+                          {row.name?.[0]?.toUpperCase() ?? "S"}
+                        </div>
+                        <span style={{ color: "#0f172a", fontWeight: 700, whiteSpace: "nowrap" }}>{row.name}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: "13px 16px" }}>
+                      <div style={{ color: "#374151", fontSize: 13 }}>{row.owner_name || "—"}</div>
+                      <div style={{ color: "#94a3b8", fontSize: 11.5 }}>{row.owner_email}</div>
+                    </td>
+                    <td style={{ padding: "13px 16px" }}>
+                      {row.plan_name ? <span style={{ fontSize: 11, fontWeight: 700, color: "#6366f1", background: "#eef2ff", padding: "3px 10px", borderRadius: 20, whiteSpace: "nowrap" }}>{row.plan_name}</span> : <span style={{ color: "#cbd5e1" }}>—</span>}
+                    </td>
+                    <td style={{ padding: "13px 16px" }}>
+                      {(() => {
+                        const statusBadge = subscriptionStatusBadge(row);
+                        return (
+                          <span style={{ fontSize: 11.5, fontWeight: 600, padding: "3px 10px", borderRadius: 20, background: statusBadge.bg, color: statusBadge.text, textTransform: "capitalize", whiteSpace: "nowrap" }}>
+                            {statusBadge.label}
+                          </span>
+                        );
+                      })()}
+                    </td>
+                    <td style={{ padding: "13px 16px", color: "#374151", fontSize: 12.5, whiteSpace: "nowrap" }}>{fmtDate(row.subscription_start_date)}</td>
+                    <td style={{ padding: "13px 16px", color: "#374151", fontSize: 12.5, whiteSpace: "nowrap" }}>{fmtDate(row.subscription_end_date)}</td>
+                    <td style={{ padding: "13px 16px" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: daysBadge.bg, color: daysBadge.text, whiteSpace: "nowrap" }}>
+                        {daysBadge.label}
+                      </span>
+                    </td>
+                    <td style={{ padding: "13px 16px" }}>
+                      <span style={{ fontSize: 11, fontWeight: 700, padding: "3px 10px", borderRadius: 20, background: renewBadge.bg, color: renewBadge.text, whiteSpace: "nowrap" }}>
+                        {renewBadge.label}
+                      </span>
+                    </td>
+                    <td style={{ padding: "13px 16px", color: "#374151", fontSize: 12.5, whiteSpace: "nowrap" }}>{permCount.enabled}/{permCount.total}</td>
+                    <td style={{ padding: "13px 16px", textAlign: "right" }}>
+                      <span style={{ fontSize: 11.5, fontWeight: 700, color: "#6366f1", whiteSpace: "nowrap" }}>Configure →</span>
+                    </td>
+                  </tr>
+                );
+              })
             )}
-          </div>
-          {loading && <div style={{ marginTop: 10, color: "#6366f1", fontSize: 12, display: "flex", alignItems: "center", gap: 7 }}><Spinner />Loading permissions…</div>}
-        </div>
+          </tbody>
+        </table>
+        <Pagination
+          total={filteredResults.length} page={page} perPage={perPage}
+          onPageChange={setPage} onPerPageChange={setPerPage}
+          itemLabel="accounts"
+        />
+      </div>
+
+      {/* ── Subscription permissions modal ── */}
+      {modalOpen && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(15,23,42,0.5)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+          onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
+        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid #e2e8f0", boxShadow: "0 24px 60px rgba(0,0,0,0.25)", width: "min(720px, 100%)", maxHeight: "88vh", overflowY: "auto", position: "relative" }}>
+          <button onClick={closeModal} style={{ position: "absolute", top: 14, right: 14, zIndex: 2, background: "#f1f5f9", border: "none", borderRadius: 8, width: 30, height: 30, cursor: "pointer", color: "#64748b", fontSize: 18, lineHeight: 1 }}>×</button>
+
+          {loading && (
+            <div style={{ padding: "60px 24px", textAlign: "center", color: "#6366f1", fontSize: 13, display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+              <Spinner />Loading permissions…
+            </div>
+          )}
 
         {/* ── Selected salon ── */}
         {salon && !loading && (
@@ -433,18 +603,9 @@ export default function SubscriptionPermissionsPage() {
             </div>
           </>
         )}
-
-        {/* Empty state */}
-        {!salon && !loading && (
-          <div style={{ padding: "48px 24px", textAlign: "center" }}>
-            <div style={{ width: 56, height: 56, borderRadius: 16, background: "linear-gradient(135deg,#f1f5f9,#e2e8f0)", display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 14px", boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-            </div>
-            <div style={{ color: "#374151", fontSize: 14, fontWeight: 700 }}>Search for an account</div>
-            <div style={{ color: "#94a3b8", fontSize: 12, marginTop: 5 }}>Type a salon name or owner email to configure its subscription permissions</div>
-          </div>
-        )}
-      </div>
+        </div>
+        </div>
+      )}
 
       <style>{`@keyframes sxp-spin { to { transform: rotate(360deg); } }`}</style>
     </div>

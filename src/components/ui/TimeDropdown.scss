@@ -1,0 +1,62 @@
+// A native <select>'s dropdown is positioned by the browser/OS with no way to
+// control it — a 60-option list opened near the bottom of a modal can flip
+// upward and stretch off past the top of the viewport. TimeDropdown.tsx is a
+// custom-positioned listbox that flips and clamps within the viewport and is
+// always height-capped with an internal scroll.
+
+.at-time-dd {
+  position: relative;
+}
+
+.at-time-dd__trigger {
+  width: 100%;
+  padding: 8px 6px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 13px;
+  font-family: inherit;
+  outline: none;
+  box-sizing: border-box;
+  background: #fff;
+  text-align: left;
+  cursor: pointer;
+
+  &:focus { border-color: #6366f1; }
+}
+
+.at-time-dd__backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2200;
+}
+
+.at-time-dd__list {
+  position: fixed;
+  z-index: 2201;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  scrollbar-width: thin;
+}
+
+.at-time-dd__opt {
+  padding: 6px 10px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+  color: #111827;
+  cursor: pointer;
+  white-space: nowrap;
+
+  &:hover { background: #f3f4f6; }
+
+  &.at-time-dd__opt--active {
+    background: #6366f1;
+    color: #fff;
+  }
+}

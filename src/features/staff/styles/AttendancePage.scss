@@ -901,12 +901,9 @@ $radius:  12px;
 .at-input--upper { text-transform: uppercase; }
 
 // ── 12-hour time picker (hour / minute / AM-PM custom dropdowns) ──────────────
-// Native <select> popups are positioned by the browser with no way for us to
-// control them — a 60-option minute list opened near the bottom of a modal
-// would flip upward and stretch off past the top of the viewport. These are
-// custom-positioned listboxes (see TimeDropdown in AttendancePage.tsx) that
-// flip and clamp within the viewport and are always height-capped with an
-// internal scroll.
+// The dropdown mechanism itself (.at-time-dd*) now lives in the shared
+// src/components/ui/TimeDropdown.scss — only this field's own 3-segment
+// layout stays local here.
 
 .at-time12 {
   display: flex;
@@ -925,63 +922,6 @@ $radius:  12px;
 .at-time12__sep {
   font-weight: 600;
   color: $muted;
-}
-
-.at-time-dd {
-  position: relative;
-}
-
-.at-time-dd__trigger {
-  width: 100%;
-  padding: 8px 6px;
-  border: 1px solid $border;
-  border-radius: 8px;
-  font-size: 13px;
-  font-family: $font;
-  outline: none;
-  box-sizing: border-box;
-  background: #fff;
-  text-align: left;
-  cursor: pointer;
-
-  &:focus { border-color: $accent; }
-}
-
-.at-time-dd__backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 2200;
-}
-
-.at-time-dd__list {
-  position: fixed;
-  z-index: 2201;
-  overflow-y: auto;
-  overflow-x: hidden;
-  box-sizing: border-box;
-  background: #fff;
-  border: 1px solid $border;
-  border-radius: 8px;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
-  padding: 4px;
-  scrollbar-width: thin;
-}
-
-.at-time-dd__opt {
-  padding: 6px 10px;
-  border-radius: 6px;
-  font-size: 13px;
-  font-family: $font;
-  color: #111827;
-  cursor: pointer;
-  white-space: nowrap;
-
-  &:hover { background: #f3f4f6; }
-
-  &.at-time-dd__opt--active {
-    background: $accent;
-    color: #fff;
-  }
 }
 
 // ── Shared button styles (used inside modals) ─────────────────────────────────

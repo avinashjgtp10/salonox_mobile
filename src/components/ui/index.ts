@@ -44,3 +44,5 @@ export { default as MultiSelectCheckbox } from "./MultiSelectCheckbox";
 export type { FilterOption } from "./MultiSelectCheckbox";
 export { default as JiraFilterMenu } from "./JiraFilterMenu";
 export type { JiraFilterField, FilterDropdownOption } from "./JiraFilterMenu";
+export { default as TimeDropdown } from "./TimeDropdown";
+export type { TimeDropdownProps } from "./TimeDropdown";
