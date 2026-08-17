@@ -6,9 +6,9 @@ export type DateRangePreset =
   | "today"
   | "yesterday"
   | "this_week"
-  | "last_7_days"
   | "this_month"
   | "last_month"
+  | "this_quarter"
   | "this_year"
   | "all_time"
   | "custom";
@@ -33,9 +33,9 @@ export const DATE_RANGE_PRESET_LABELS: Record<DateRangePreset, string> = {
   today: "Today",
   yesterday: "Yesterday",
   this_week: "This week",
-  last_7_days: "Last 7 days",
   this_month: "This month",
   last_month: "Last month",
+  this_quarter: "This quarter",
   this_year: "This year",
   all_time: "All time",
   custom: "Custom range",
@@ -45,12 +45,12 @@ const QUICK_RANGES: { key: DateRangePreset; label: string }[] = [
   { key: "today", label: "Today" },
   { key: "yesterday", label: "Yesterday" },
   { key: "this_week", label: "This week" },
-  { key: "last_7_days", label: "Last 7 days" },
 ];
 
 const BY_PERIOD: { key: DateRangePreset; label: string }[] = [
   { key: "this_month", label: "This month" },
   { key: "last_month", label: "Last month" },
+  { key: "this_quarter", label: "This quarter" },
   { key: "this_year", label: "This year" },
   { key: "all_time", label: "All time" },
 ];
@@ -92,9 +92,9 @@ function getMonthDays(year: number, month0: number): (string | null)[] {
 /**
  * Computes the start/end dates for every preset except "custom" (which has
  * no fixed range — its dates come from user selection). "This week" runs
- * Sunday–Saturday and "Last 7 days" is the rolling 6-days-ago-through-today
- * window; both are the system-wide definitions other modules should match
- * rather than re-deriving their own.
+ * Sunday–Saturday and "This quarter" follows calendar quarters (Jan–Mar,
+ * Apr–Jun, Jul–Sep, Oct–Dec); both are the system-wide definitions other
+ * modules should match rather than re-deriving their own.
  */
 export function getDateRangePresetValue(preset: Exclude<DateRangePreset, "custom">): { startDate: string; endDate: string } {
   const now = new Date();
@@ -111,11 +111,6 @@ export function getDateRangePresetValue(preset: Exclude<DateRangePreset, "custom
     }
     case "this_week":
       return { startDate: toISO(startOfWeek(now)), endDate: toISO(endOfWeek(now)) };
-    case "last_7_days": {
-      const start = new Date(now);
-      start.setDate(now.getDate() - 6);
-      return { startDate: toISO(start), endDate: toISO(now) };
-    }
     case "this_month": {
       const y = now.getFullYear(), m = now.getMonth();
       return { startDate: toISO(new Date(y, m, 1)), endDate: toISO(new Date(y, m + 1, 0)) };
@@ -123,6 +118,11 @@ export function getDateRangePresetValue(preset: Exclude<DateRangePreset, "custom
     case "last_month": {
       const y = now.getFullYear(), m = now.getMonth() - 1;
       return { startDate: toISO(new Date(y, m, 1)), endDate: toISO(new Date(y, m + 1, 0)) };
+    }
+    case "this_quarter": {
+      const y = now.getFullYear();
+      const quarterStartMonth = Math.floor(now.getMonth() / 3) * 3;
+      return { startDate: toISO(new Date(y, quarterStartMonth, 1)), endDate: toISO(new Date(y, quarterStartMonth + 3, 0)) };
     }
     case "this_year": {
       const y = now.getFullYear();
