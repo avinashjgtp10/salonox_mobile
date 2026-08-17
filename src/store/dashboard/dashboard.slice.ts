@@ -131,12 +131,4 @@ export const selectDashboardLastFetchedAt = (state: RootState) => state.dashboar
 export const selectDashboardIsStale = (state: RootState) =>
   state.dashboard.lastFetchedAt === null ||
   Date.now() - state.dashboard.lastFetchedAt > DASHBOARD_STALE_MS;
-export const selectDashboardTopClient = (state: RootState) => state.dashboard.topClient;
-export const selectDashboardInventoryAlerts = (state: RootState) =>
-  state.dashboard.inventoryAlerts;
-export const selectDashboardQuickSaleServices = (state: RootState) =>
-  state.dashboard.quickSaleServices;
-export const selectDashboardQuickSaleRevenueToday = (state: RootState) =>
-  state.dashboard.quickSaleRevenueToday;
-
 export default dashboardSlice.reducer;

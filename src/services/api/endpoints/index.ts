@@ -1,6 +1,7 @@
 export * from "./appointment.endpoints";
 export * from "./attendance.endpoints";
 export * from "./client.endpoints";
+export * from "./consumable.endpoints";
 export * from "./coupon.endpoints";
 export * from "./dashboard.endpoints";
 export * from "./membership.endpoints";
@@ -16,3 +17,4 @@ export * from "./staff.endpoints";
 export * from "./pricing.endpoints";
 export * from "./subscription.endpoints";
 export * from "./user.endpoints";
+export * from "./wallet.endpoints";

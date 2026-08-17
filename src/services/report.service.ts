@@ -1,6 +1,7 @@
 import { API_BASE_URL, api } from "@/services/api";
 import { REPORT } from "@/services/api/endpoints/report.endpoints";
 import type { ApiResponse } from "@/types/auth";
+import type { ConsumableUsageReportResponse, ConsumableUsageReportRow } from "@/types/report";
 
 const getApiOrigin = (apiBaseUrl: string) => {
   try {
@@ -34,6 +35,16 @@ const camelize = <T>(value: unknown): T => {
 
 const unwrap = <T>(response: { data: ApiResponse<unknown> }) =>
   camelize<T>(response.data.data);
+
+const toReportNumber = (value: unknown): number => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+
+  const parsed = typeof value === "string" ? Number(value) : NaN;
+
+  return Number.isFinite(parsed) ? parsed : 0;
+};
 
 export type GenericReportRequest = Record<string, unknown>;
 export type GenericReportResponse = Record<string, unknown>;
@@ -109,5 +120,37 @@ export const reportService = {
     );
 
     return unwrap<SalesSummaryDetailResponse>(response);
+  },
+
+  // Web-parity legacy report endpoint — see types/report.ts. Unlike
+  // getReport() above, this is a GET against the versioned /api/v1 API (the
+  // shared `api` client's own baseURL), not a POST to the unversioned
+  // REPORT_API_ORIGIN — it is not a /api/report/* route. The Web app sends
+  // only branch_id; no date range, search, or category filter is sent to
+  // the backend (those are applied client-side by the caller).
+  async getConsumableUsage(branchId: string): Promise<ConsumableUsageReportResponse> {
+    const response = await api.get<ApiResponse<unknown>>(REPORT.STOCK_RECONCILIATION, {
+      params: { branch_id: branchId },
+    });
+    const rows = camelize<ConsumableUsageReportRow[]>(response.data.data);
+
+    // Verified live: every numeric-looking field in this legacy endpoint's
+    // response ("0", "1.00", "675.00") comes back as a string, not a JSON
+    // number — camelize() only renames keys, it doesn't touch values. Left
+    // uncoerced, ReportRowCard's shared formatReportValue() would skip its
+    // number/currency formatting (typeof value !== "number") and fall back
+    // to printing the raw string.
+    return {
+      rows: (Array.isArray(rows) ? rows : []).map((row) => ({
+        ...row,
+        actualConsumable: toReportNumber(row.actualConsumable),
+        actualStock: toReportNumber(row.actualStock),
+        adjustConsumable: toReportNumber(row.adjustConsumable),
+        adjustStock: toReportNumber(row.adjustStock),
+        consumableDifference: toReportNumber(row.consumableDifference),
+        stockDifference: toReportNumber(row.stockDifference),
+        stockValue: toReportNumber(row.stockValue),
+      })),
+    };
   },
 };

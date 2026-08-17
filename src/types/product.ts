@@ -42,10 +42,18 @@ export type ProductApiItem = {
   id?: string | number | null;
   is_active?: boolean | null;
   isActive?: boolean | null;
+  bottle_size?: number | string | null;
+  bottleSize?: number | string | null;
   low_stock_threshold?: number | string | null;
   lowStockThreshold?: number | string | null;
+  markup_percentage?: number | string | null;
+  markupPercentage?: number | string | null;
+  measure_unit?: string | null;
+  measureUnit?: string | null;
   name?: string | null;
   price?: number | string | null;
+  product_type?: string | null;
+  productType?: string | null;
   qty_alert?: number | string | null;
   qtyAlert?: number | string | null;
   retail_price?: number | string | null;
@@ -101,6 +109,7 @@ export type BrandListApiData =
     };
 
 export type Product = {
+  bottleSize?: number | null;
   brandId: string | null;
   brandName: string | null;
   category: string | null;
@@ -109,10 +118,15 @@ export type Product = {
   id: string;
   isActive: boolean;
   lowStockThreshold: number;
+  markupPercentage?: number | null;
+  measureUnit?: string | null;
   name: string;
   price: number;
+  productType?: string | null;
+  retailPrice?: number | null;
   sku: string | null;
   stockQuantity: number;
+  supplyPrice?: number | null;
 };
 
 export type ProductListItem = Product;

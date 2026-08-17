@@ -10,6 +10,7 @@ import attendanceReducer from "@/store/attendance/attendance.slice";
 import branchReducer from "@/store/branch/branch.slice";
 import clientMembershipReducer from "@/store/clientMembership/clientMembership.slice";
 import clientReducer from "@/store/client/client.slice";
+import consumableReducer from "@/store/consumable/consumable.slice";
 import dashboardReducer from "@/store/dashboard/dashboard.slice";
 import membershipReducer from "@/store/membership/membership.slice";
 import networkReducer from "@/store/network/network.slice";
@@ -40,6 +41,7 @@ const appReducer = combineReducers({
   branch: branchReducer,
   client: clientReducer,
   clientMembership: clientMembershipReducer,
+  consumable: consumableReducer,
   dashboard: dashboardReducer,
   membership: membershipReducer,
   network: networkReducer,

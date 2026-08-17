@@ -10,20 +10,28 @@ export type PaymentTaxBreakdownEntry = {
 };
 
 export type CreatePaymentRequest = {
+  apply_loyalty_discount?: boolean;
+  apply_membership_discount?: boolean;
   appointment_id: string;
   apply_membership_wallet?: boolean;
   client_id?: string;
   coupon_code?: string;
+  coupon_discount_amount?: number;
   discount_amount?: number;
   due_amount: number;
   ewallet_used?: number;
   gross_amount: number;
+  include_gst?: boolean;
+  manual_discount_amount?: number;
+  membership_wallet_requested?: number;
   net_amount: number;
   notes?: string;
+  package_covered_amount?: number;
   paid_amount: number;
   payment_method: string;
   referral_credit_used?: number;
   reward_points_used?: number;
+  reward_points_value?: number;
   salon_id?: string;
   split_details?: PaymentSplitDetails;
   status: Extract<PaymentStatus, "completed" | "partial">;

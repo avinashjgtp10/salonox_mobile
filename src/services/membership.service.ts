@@ -15,6 +15,7 @@ import type {
   UpdateMembershipRequest,
   UpdateMembershipResponse,
 } from "@/types/membership";
+import type { LoyaltyEligibility } from "@/types/wallet";
 
 type MembershipApiData =
   | Membership
@@ -168,6 +169,25 @@ const buildExportResponse = <TFormat extends MembershipExportResponse["format"]>
   }) as Extract<MembershipExportResponse, { format: TFormat }>;
 
 export const membershipService = {
+  async getLoyaltyEligibility(clientId: string, salonId?: string | null): Promise<LoyaltyEligibility> {
+    const response = await api.get<ApiResponse<Record<string, unknown>>>(MEMBERSHIP.LOYALTY_ELIGIBILITY, {
+      params: {
+        clientId,
+        client_id: clientId,
+        ...(salonId ? { salon_id: salonId } : {}),
+      },
+      validateStatus: (status) => (status >= 200 && status < 300) || status === 404,
+    });
+
+    if (response.status === 404) {
+      return { eligible: false };
+    }
+
+    const data = response.data.data;
+
+    return { eligible: toSafeBoolean(data?.eligible) };
+  },
+
   async getMemberships(query: MembershipListQuery = {}, salonId?: string | null): Promise<MembershipListResponse> {
     const response = await api.get<MembershipListApiResponse>(MEMBERSHIP.LIST, {
       params: {

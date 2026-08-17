@@ -1,3 +1,9 @@
+import type {
+  ConsumableRecipeApiItem,
+  ConsumableRecipeItem,
+  ConsumableRecipeRequestItem,
+} from "@/types/consumable";
+
 export type ServiceSortOrder = "asc" | "desc";
 
 export type ServiceListQuery = {
@@ -18,6 +24,7 @@ export type ServiceApiItem = {
   categoryId?: string | number | null;
   category_id?: string | number | null;
   category_name?: string | null;
+  consumables_used?: ConsumableRecipeApiItem[] | null;
   created_at?: string | null;
   duration?: number | string | null;
   duration_minutes?: number | string | null;
@@ -92,6 +99,7 @@ export type ServiceListApiData =
 export type ServiceListItem = {
   category: string | null;
   categoryId: string | null;
+  consumablesUsed?: ConsumableRecipeItem[];
   createdAt: string | null;
   durationMinutes: number | null;
   discountAmount?: number;
@@ -127,6 +135,7 @@ export type ServiceCategoryItem = {
 export type CreateServiceRequest = {
   category?: string;
   category_id?: string;
+  consumables_used?: ConsumableRecipeRequestItem[];
   duration_minutes?: number;
   name: string;
   price: number;
@@ -141,6 +150,7 @@ export type CreateServiceResponse = {
 export type UpdateServiceRequest = {
   category?: string;
   category_id?: string;
+  consumables_used?: ConsumableRecipeRequestItem[];
   duration_minutes?: number;
   is_active?: boolean;
   name?: string;

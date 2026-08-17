@@ -41,15 +41,17 @@ import { ServiceCatalogTab } from "@/features/quickSale/components/ServiceCatalo
 import { useCart } from "@/features/quickSale/hooks/useCart";
 import { useCheckoutSubmissionController } from "@/features/quickSale/hooks/useCheckoutSubmissionController";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
+import { useRedemptions } from "@/features/quickSale/hooks/useRedemptions";
 import { WALK_IN_CLIENT, type CartItem, type QuickSaleClient } from "@/features/quickSale/types";
 import { adaptPricingResponseToBillTotals } from "@/features/quickSale/utils/calculations";
+import { toConsumableUsagePayload } from "@/features/quickSale/utils/consumables";
 import { pricingService } from "@/services/pricing.service";
 import type { CalculateTotalsResponse, LineItem as ApiLineItem } from "@/types/pricing";
 import {
   EMPTY_QUICK_SALE_DIRTY_SIGNATURE,
   getQuickSaleDirtySignature,
 } from "@/features/quickSale/utils/dirtyState";
-import { parseAmount } from "@/features/quickSale/utils/money";
+import { formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
 import {
   type ProductStockErrors,
   validateProductStock,
@@ -169,6 +171,7 @@ export default function QuickSaleScreen() {
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const [isGlobalSearchLoading, setIsGlobalSearchLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState<QuickSaleClient>(WALK_IN_CLIENT);
+  const redemptions = useRedemptions(selectedClient.id, salonId);
   const [isClientStepComplete, setIsClientStepComplete] = useState(Boolean(params.draftId));
   const [hasClientStepSelection, setHasClientStepSelection] = useState(Boolean(params.draftId));
   const [clientSearchQuery, setClientSearchQuery] = useState("");
@@ -227,6 +230,11 @@ export default function QuickSaleScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [productStockErrors, setProductStockErrors] = useState<ProductStockErrors>({});
   const [isSaleFinalized, setIsSaleFinalized] = useState(false);
+  // Consumable recipe items only carry a productId — this fills in display
+  // names for the Actual Qty UI by reusing the existing product-by-id
+  // lookup (same call `verifyProductStock` already makes), not a new API.
+  const [consumableProductNames, setConsumableProductNames] = useState<Record<string, string>>({});
+  const requestedConsumableProductIdsRef = useRef<Set<string>>(new Set());
   const debouncedClientSearchQuery = useDebouncedValue(clientSearchQuery, 260);
   const trimmedClientSearchQuery = debouncedClientSearchQuery.trim();
   const visibleClientOptions = useMemo(
@@ -628,6 +636,8 @@ export default function QuickSaleScreen() {
     setSubmitError(null);
     setProductStockErrors({});
     setIsSaleFinalized(false);
+    setConsumableProductNames({});
+    requestedConsumableProductIdsRef.current = new Set();
     setBackendTotalsResponse(null);
     setIsPricingLoading(false);
     setPricingError(null);
@@ -653,19 +663,21 @@ export default function QuickSaleScreen() {
 
   useEffect(() => {
     let isSubscribed = true;
-    const timer = setTimeout(async () => {
-      if (cart.items.length === 0) {
-        if (isSubscribed) {
-          setBackendTotalsResponse(null);
-          setIsPricingLoading(false);
-          setPricingError(null);
-        }
-        return;
-      }
 
-      setIsPricingLoading(true);
+    if (cart.items.length === 0) {
+      setBackendTotalsResponse(null);
+      setIsPricingLoading(false);
       setPricingError(null);
+      return;
+    }
 
+    // Mark pricing as stale for the whole debounce + in-flight window (not
+    // just once the request starts) so a rapid redemption toggle followed by
+    // an immediate "Complete Sale" tap can't submit against a stale total.
+    setIsPricingLoading(true);
+    setPricingError(null);
+
+    const timer = setTimeout(async () => {
       try {
         const serviceRows: ApiLineItem[] = [];
         const productRows: ApiLineItem[] = [];
@@ -698,6 +710,7 @@ export default function QuickSaleScreen() {
           exCharges: extraChargesTotal,
           tip: parseAmount(tipInput),
           includeGst,
+          ...redemptions.buildPricingFlags(),
         });
 
         if (isSubscribed) {
@@ -716,6 +729,9 @@ export default function QuickSaleScreen() {
       isSubscribed = false;
       clearTimeout(timer);
     };
+    // redemptions is a fresh object every render; only its memoized
+    // buildPricingFlags identity matters for re-running this effect.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     cart.items,
     selectedClient.id,
@@ -725,6 +741,7 @@ export default function QuickSaleScreen() {
     extraChargesTotal,
     tipInput,
     includeGst,
+    redemptions.buildPricingFlags,
   ]);
 
   const totals = useMemo(() => {
@@ -738,6 +755,11 @@ export default function QuickSaleScreen() {
     }
 
     return {
+      appliedEWallet: 0,
+      appliedMembershipDiscount: 0,
+      appliedMembershipWallet: 0,
+      appliedReferralCredit: 0,
+      appliedRewardPointsValue: 0,
       couponDiscount: appliedCoupon?.valid ? appliedCoupon.discountAmount : 0,
       exCharges: extraChargesTotal,
       grandTotal: 0,
@@ -795,6 +817,48 @@ export default function QuickSaleScreen() {
     }
   }, [isCheckoutVisible, isClientPackageDataReliable]);
 
+  // Resolve consumable product names lazily as recipes appear in the cart —
+  // never blocks adding a service, and never refetches a name already seen.
+  useEffect(() => {
+    const missingIds = new Set<string>();
+
+    cart.items.forEach((item) => {
+      item.consumables?.forEach((consumable) => {
+        if (!requestedConsumableProductIdsRef.current.has(consumable.productId)) {
+          missingIds.add(consumable.productId);
+        }
+      });
+    });
+
+    if (missingIds.size === 0) {
+      return;
+    }
+
+    const idsToFetch = Array.from(missingIds);
+    idsToFetch.forEach((id) => requestedConsumableProductIdsRef.current.add(id));
+
+    let isSubscribed = true;
+
+    void Promise.allSettled(idsToFetch.map((id) => productService.fetchProductById(id))).then((results) => {
+      if (!isSubscribed) {
+        return;
+      }
+
+      setConsumableProductNames((current) => {
+        const next = { ...current };
+        results.forEach((result, index) => {
+          const id = idsToFetch[index];
+          next[id] = result.status === "fulfilled" ? result.value.name : id;
+        });
+        return next;
+      });
+    });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [cart.items]);
+
   const handleSelectProductResult = useCallback(
     (product: Product) => {
       if (product.stockQuantity <= 0) {
@@ -848,6 +912,11 @@ export default function QuickSaleScreen() {
   );
 
   const handleSelectClientForStep = useCallback((client: ClientListItem | null) => {
+    resetCheckoutSubmission();
+    setIsCheckoutVisible(false);
+    setShouldShowCheckoutStaffValidation(false);
+    setSubmitError(null);
+
     if (hasClientStepSelection && selectedClient.id === (client?.id ?? "")) {
       setSelectedClient(WALK_IN_CLIENT);
       setHasClientStepSelection(false);
@@ -858,9 +927,14 @@ export default function QuickSaleScreen() {
     setSelectedClient(client ? clientFromListItem(client) : WALK_IN_CLIENT);
     setHasClientStepSelection(true);
     setClientSearchQuery("");
-  }, [hasClientStepSelection, selectedClient.id]);
+  }, [hasClientStepSelection, resetCheckoutSubmission, selectedClient.id]);
 
   const handleClientPickerSelect = useCallback((client: ClientListItem | null) => {
+    resetCheckoutSubmission();
+    setIsCheckoutVisible(false);
+    setShouldShowCheckoutStaffValidation(false);
+    setSubmitError(null);
+
     if (hasClientStepSelection && selectedClient.id === (client?.id ?? "")) {
       setSelectedClient(WALK_IN_CLIENT);
       setClientSearchQuery("");
@@ -871,7 +945,7 @@ export default function QuickSaleScreen() {
     setSelectedClient(client ? clientFromListItem(client) : WALK_IN_CLIENT);
     setClientSearchQuery("");
     setHasClientStepSelection(true);
-  }, [hasClientStepSelection, selectedClient.id]);
+  }, [hasClientStepSelection, resetCheckoutSubmission, selectedClient.id]);
 
   const handleApplyCoupon = useCallback(async () => {
     const trimmedCode = couponCode.trim();
@@ -1097,6 +1171,13 @@ export default function QuickSaleScreen() {
     });
   }, [cart]);
 
+  const handleSetConsumableActualQty = useCallback(
+    (lineId: string, productId: string, actualQty: number) => {
+      cart.setConsumableActualQty(lineId, productId, actualQty);
+    },
+    [cart],
+  );
+
   const openCheckout = useCallback((step: CheckoutInitialStep) => {
     if (!isClientPackageDataReliable) {
       setSubmitError(
@@ -1107,13 +1188,14 @@ export default function QuickSaleScreen() {
       return;
     }
 
+    resetCheckoutSubmission();
     setSubmitError(null);
     setProductStockErrors({});
     const hasServicesMissingStaff = cart.items.some((item) => item.itemType === "service" && !item.staffId);
     setShouldShowCheckoutStaffValidation(hasServicesMissingStaff);
     setCheckoutInitialStep(hasServicesMissingStaff ? "review" : step);
     setIsCheckoutVisible(true);
-  }, [cart.items, currentClientPackageLoadStatus, isClientPackageDataReliable]);
+  }, [cart.items, currentClientPackageLoadStatus, isClientPackageDataReliable, resetCheckoutSubmission]);
 
   const closeCheckout = useCallback(() => {
     setIsCheckoutVisible(false);
@@ -1133,6 +1215,7 @@ export default function QuickSaleScreen() {
 
       cart.addItem({
         category: service.category,
+        consumables: service.consumablesUsed,
         defaultStaffId: singleEligibleStaff?.id ?? null,
         defaultStaffName: singleEligibleStaff?.name ?? null,
         duration: service.durationMinutes ? `${service.durationMinutes} min` : undefined,
@@ -1291,6 +1374,7 @@ export default function QuickSaleScreen() {
       service_id: firstService?.itemId,
       service_name: firstService?.name,
       services: serviceItems.map((item) => ({
+        consumables: toConsumableUsagePayload(item.consumables),
         is_package_service: getPackageCoveredQuantity(item) === item.quantity || undefined,
         name: item.name,
         price: item.unitPrice,
@@ -1407,8 +1491,12 @@ export default function QuickSaleScreen() {
   const buildPaymentPayload = useCallback(
     (
       appointmentId: string,
-      payment: { method: SalePaymentMethod; splitEntries?: CheckoutSaleSplitEntry[] },
+      payment: { method: SalePaymentMethod; paidAmount?: number; splitEntries?: CheckoutSaleSplitEntry[] },
     ): CreatePaymentRequest => {
+      const paidAmount = isFullyPackageCoveredSale
+        ? 0
+        : Math.max(0, Math.min(payment.paidAmount ?? totals.grandTotal, totals.grandTotal));
+      const dueAmount = isFullyPackageCoveredSale ? 0 : Math.max(0, totals.grandTotal - paidAmount);
       const methodLabel =
         isFullyPackageCoveredSale
           ? "Package"
@@ -1429,29 +1517,54 @@ export default function QuickSaleScreen() {
                 entry.amount,
               ]),
             )
-          : { [methodLabel]: totals.grandTotal };
+          : { [methodLabel]: paidAmount };
+      const redemptionFlags = redemptions.buildPricingFlags();
 
       return {
         appointment_id: appointmentId,
+        ...(redemptionFlags.applyLoyaltyDiscount ? { apply_loyalty_discount: true } : {}),
+        ...(redemptionFlags.applyMembershipDiscount ? { apply_membership_discount: true } : {}),
+        ...(redemptionFlags.applyMembershipWallet
+          ? { apply_membership_wallet: true, membership_wallet_requested: redemptionFlags.membershipWalletRequested }
+          : {}),
         client_id: selectedClient.id || undefined,
         coupon_code: appliedCoupon?.valid ? appliedCoupon.couponCode : undefined,
+        coupon_discount_amount: totals.couponDiscount || undefined,
         discount_amount: totals.overallDiscount + totals.couponDiscount,
-        due_amount: 0,
+        due_amount: dueAmount,
+        ...(redemptionFlags.applyEwallet ? { ewallet_used: totals.appliedEWallet } : {}),
         gross_amount: isFullyPackageCoveredSale ? packageCatalogTotal : totals.lineSubtotal,
+        include_gst: includeGst,
+        manual_discount_amount: totals.overallDiscount || undefined,
         net_amount: isFullyPackageCoveredSale ? 0 : totals.grandTotal,
-        paid_amount: isFullyPackageCoveredSale ? 0 : totals.grandTotal,
+        notes: saleNotes.trim() || undefined,
+        ...(isFullyPackageCoveredSale ? { package_covered_amount: packageCatalogTotal } : {}),
+        paid_amount: paidAmount,
         payment_method: methodLabel,
+        ...(redemptionFlags.applyReferralCredit ? { referral_credit_used: totals.appliedReferralCredit } : {}),
+        ...(redemptionFlags.applyRewardPoints
+          ? {
+              reward_points_used: redemptionFlags.rewardPointsToRedeem,
+              reward_points_value: totals.appliedRewardPointsValue,
+            }
+          : {}),
         salon_id: salonId ?? undefined,
         split_details: splitDetails,
-        status: "completed",
+        status: dueAmount > 0 ? "partial" : "completed",
       };
     },
     [
       appliedCoupon,
+      includeGst,
       isFullyPackageCoveredSale,
       packageCatalogTotal,
+      redemptions,
+      saleNotes,
       salonId,
       selectedClient.id,
+      totals.appliedEWallet,
+      totals.appliedReferralCredit,
+      totals.appliedRewardPointsValue,
       totals.couponDiscount,
       totals.grandTotal,
       totals.lineSubtotal,
@@ -1556,7 +1669,11 @@ export default function QuickSaleScreen() {
     }
   };
 
-  const handleCompleteSale = async (payment: { method: SalePaymentMethod; splitEntries?: CheckoutSaleSplitEntry[] }) => {
+  const handleCompleteSale = async (payment: {
+    method: SalePaymentMethod;
+    paidAmount?: number;
+    splitEntries?: CheckoutSaleSplitEntry[];
+  }) => {
     if (!checkoutSubmission.begin("checkingOut")) {
       return;
     }
@@ -1644,8 +1761,52 @@ export default function QuickSaleScreen() {
       }
 
       const appointmentId = appointment.appointment.id;
-      await paymentService.createPayment(buildPaymentPayload(appointmentId, payment));
-      const checkout = await appointmentService.checkoutAppointment(appointmentId);
+      const paymentBody = buildPaymentPayload(appointmentId, payment);
+      await paymentService.createPayment(paymentBody);
+      void redemptions.refreshBalances();
+
+      const finishAsIncomplete = (message: string) => {
+        if (!checkoutSubmission.commitSuccess()) {
+          return;
+        }
+        setIsSaleFinalized(true);
+        allowExpectedExitRef.current = true;
+        setIsCheckoutVisible(false);
+        cart.clearCart();
+        setSelectedClient(WALK_IN_CLIENT);
+        setIsClientStepComplete(false);
+        setHasClientStepSelection(false);
+        setClientSearchQuery("");
+        setSaleNotes("");
+        Alert.alert("Payment recorded", message);
+      };
+
+      // Web parity: a partial payment (due_amount > 0) only creates the
+      // payment record. Checkout is a separate step that only happens once
+      // the full amount has been collected.
+      if (paymentBody.status !== "completed") {
+        finishAsIncomplete(
+          `${formatCurrency(paymentBody.paid_amount)} collected. ${formatCurrency(paymentBody.due_amount)} remains due for this appointment.`,
+        );
+        return;
+      }
+
+      let checkout: Awaited<ReturnType<typeof appointmentService.checkoutAppointment>>;
+      try {
+        checkout = await appointmentService.checkoutAppointment(appointmentId);
+      } catch (checkoutError) {
+        // Payment already succeeded — do not report this as a payment
+        // failure. There is no retry-checkout surface yet, so we log for
+        // diagnosis and tell the operator where to follow up.
+        console.error("[Quick Sale] Checkout failed after a successful payment", {
+          appointmentId,
+          message: checkoutError instanceof Error ? checkoutError.message : "Unknown checkout error",
+        });
+        finishAsIncomplete(
+          "The payment was saved, but the sale could not be finalized automatically. Check Sales History for this client to finish it.",
+        );
+        return;
+      }
 
       await markPackageSessionsAfterCheckout(appointmentId);
 
@@ -2256,6 +2417,7 @@ export default function QuickSaleScreen() {
           if (changeServiceLineId) {
             cart.replaceItem(changeServiceLineId, {
               category: service.category,
+              consumables: service.consumablesUsed,
               duration: service.durationMinutes ? `${service.durationMinutes} min` : undefined,
               itemId: service.id,
               itemType: "service",
@@ -2288,8 +2450,11 @@ export default function QuickSaleScreen() {
         initialStaffValidationAttempted={shouldShowCheckoutStaffValidation}
         isApplyingCoupon={isApplyingCoupon}
         isCheckingOut={checkoutSubmission.isCheckingOut}
+        isPricingLoading={isPricingLoading}
+        pricingError={pricingError}
         isSaving={checkoutSubmission.isSaving}
         isSuccess={checkoutSubmission.isSuccess}
+        consumableProductNames={consumableProductNames}
         items={cart.items}
         onAddMore={closeCheckout}
         onApplyCoupon={() => void handleApplyCoupon()}
@@ -2324,11 +2489,13 @@ export default function QuickSaleScreen() {
         onRemoveCoupon={handleRemoveCoupon}
         onRemoveItem={handleRemoveItem}
         onSavePending={() => void handleSavePending()}
+        onSetConsumableActualQty={handleSetConsumableActualQty}
         onSetQuantity={handleSetQuantity}
         onToggleIncludeGst={() => setIncludeGst((current) => !current)}
         overallDiscountInput={overallDiscountInput}
         overallDiscountPercent={draftDiscountPercent}
         overallDiscountType={draftDiscountType}
+        redemptions={redemptions}
         selectedClient={selectedClient}
         staffOptions={initData?.staff ?? []}
         productStockErrors={productStockErrors}

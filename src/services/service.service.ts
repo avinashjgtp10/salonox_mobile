@@ -1,6 +1,7 @@
 import { api } from "@/services/api";
 import { SERVICE } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
+import type { ConsumableRecipeApiItem, ConsumableRecipeItem } from "@/types/consumable";
 import type {
   CreateServiceRequest,
   CreateServiceResponse,
@@ -263,6 +264,32 @@ const getIsActive = (service: ServiceApiItem) => {
   return true;
 };
 
+const normalizeConsumablesUsed = (
+  value: ConsumableRecipeApiItem[] | null | undefined,
+): ConsumableRecipeItem[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const items = value
+    .map((item): ConsumableRecipeItem | null => {
+      const productId = toSafeString(item?.product_id);
+
+      if (!productId) {
+        return null;
+      }
+
+      return {
+        productId,
+        qty: toSafeNumber(item?.qty),
+        unit: toSafeString(item?.unit),
+      };
+    })
+    .filter((item): item is ConsumableRecipeItem => item !== null);
+
+  return items.length > 0 ? items : undefined;
+};
+
 const normalizeService = (service: ServiceApiItem, index: number): ServiceListItem => {
   const name =
     toSafeString(service.name) ||
@@ -271,10 +298,12 @@ const normalizeService = (service: ServiceApiItem, index: number): ServiceListIt
     `Service ${index + 1}`;
 
   const category = getServiceCategory(service);
+  const consumablesUsed = normalizeConsumablesUsed(service.consumables_used);
 
   return {
     category: category.category,
     categoryId: category.categoryId,
+    ...(consumablesUsed ? { consumablesUsed } : {}),
     createdAt: toSafeString(service.created_at) || null,
     ...(toSafeNumber(service.discount_amount) || toSafeNumber(service.discount)
       ? { discountAmount: toSafeNumber(service.discount_amount) || toSafeNumber(service.discount) }
