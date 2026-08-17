@@ -11,6 +11,7 @@ import { useServices } from "../hooks/useServices";
 import type { Service as ApiService } from "../types/catalog.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import Dropdown from "../../../components/ui/Dropdown";
+import { DatePicker } from "../../../components/ui";
 import { toTitleCase } from "../../../utils/titleCase";
 import type { AppDispatch } from "../../../store/store";
 import { setPackagesList } from "../../../store/schedulerSlice";
@@ -429,11 +430,11 @@ const EditPackagePage: React.FC = () => {
                     </div>
                     <div className="col-md-4">
                       <label className="pkg-create__label">START DATE</label>
-                      <input type="date" className="form-control pkg-create__input" value={offer.startDate} onChange={(e) => updateOffer(offer.id, "startDate", e.target.value)} />
+                      <DatePicker value={offer.startDate} max={offer.endDate || undefined} onChange={(d) => updateOffer(offer.id, "startDate", d)} />
                     </div>
                     <div className="col-md-4">
                       <label className="pkg-create__label">END DATE</label>
-                      <input type="date" className="form-control pkg-create__input" value={offer.endDate} onChange={(e) => updateOffer(offer.id, "endDate", e.target.value)} />
+                      <DatePicker value={offer.endDate} min={offer.startDate || undefined} onChange={(d) => updateOffer(offer.id, "endDate", d)} />
                     </div>
                     <div className="col-md-4">
                       <label className="pkg-create__label">MIN ORDER ({currencySymbol})</label>
