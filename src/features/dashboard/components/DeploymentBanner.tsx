@@ -10,7 +10,11 @@ interface ActiveAnnouncement {
   end_time: string;
 }
 
-const POLL_INTERVAL_MS = 45_000;
+// Deployments can now be as short as a few seconds (custom minute/second
+// timer on the super-admin side), so this needs to be short enough that a
+// short-lived announcement is actually seen rather than polled straight
+// through.
+const POLL_INTERVAL_MS = 10_000;
 
 function formatRemaining(endTime: string): string {
   const ms = new Date(endTime).getTime() - Date.now();
@@ -26,14 +30,11 @@ function formatRemaining(endTime: string): string {
 // Persistent, non-dismissible banner shown on every dashboard page while a
 // Super Admin deployment announcement is active — pushed rather than a
 // Socket.IO event (that infra is salon-room-scoped, not built for a global
-// broadcast). To avoid hitting /active on a fixed interval for the entire
-// session regardless of whether anything is ever announced, this only
-// checks once per mount; if that check finds an active announcement, it
-// then polls every POLL_INTERVAL_MS solely to detect when that announcement
-// ends, and stops polling again once it's gone.
+// broadcast). Polls every POLL_INTERVAL_MS for the whole session (not just
+// once one is already active) so the banner appears on its own the moment a
+// super admin starts a deployment, without the user needing to reload.
 export default function DeploymentBanner() {
   const [announcement, setAnnouncement] = useState<ActiveAnnouncement | null>(null);
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bannerRef = useRef<HTMLDivElement | null>(null);
 
   const checkActive = useCallback(async () => {
@@ -46,17 +47,11 @@ export default function DeploymentBanner() {
     }
   }, []);
 
-  useEffect(() => { checkActive(); }, [checkActive]);
-
   useEffect(() => {
-    if (announcement) {
-      intervalRef.current = setInterval(checkActive, POLL_INTERVAL_MS);
-    } else if (intervalRef.current) {
-      clearInterval(intervalRef.current);
-      intervalRef.current = null;
-    }
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current); };
-  }, [announcement, checkActive]);
+    checkActive();
+    const interval = setInterval(checkActive, POLL_INTERVAL_MS);
+    return () => clearInterval(interval);
+  }, [checkActive]);
 
   // The banner is position:fixed (so it stacks above the also-fixed topbar
   // instead of being hidden behind it) — push the topbar/body down by its
