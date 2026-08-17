@@ -6,12 +6,11 @@ import { PACKAGE_HISTORY_REPORT } from "../../../services/api/endpoints";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
-import { Pagination, JiraFilterMenu } from "../../../components/ui";
-import type { JiraFilterField } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
+import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import DateRangeFields from "../../../components/ui/DateRangeFields";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import "./PackageHistoryReport.scss";
 
@@ -70,10 +69,8 @@ function mapRow(row: any): HistoryRow {
 
 export default function PackageHistoryReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
-  const today   = new Date().toISOString().slice(0, 10);
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
-  const [dateFrom, setDateFrom] = useState(monthStart);
-  const [dateTo,   setDateTo]   = useState(today);
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
   const [search,   setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [packageFilter, setPackageFilter] = useState<string[]>([]);
@@ -203,7 +200,7 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
       </div>
 
       <div className="rp-detail-filters">
-        <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />

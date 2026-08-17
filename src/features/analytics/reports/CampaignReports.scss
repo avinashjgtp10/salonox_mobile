@@ -1,35 +1,11 @@
 // Open Rate Report — reuses the shared .rp-detail-* / .rp-sra-summary-*
 // report chrome and the .rp-wac-status pills from WaCampaignReport.scss, so
-// only what's genuinely new to this report lives here: the date presets, the
-// no-delivery notice, and the drill-down modal.
-
-// ── Date-range presets ──────────────────────────────────────────────────────
-.rp-camp-presets {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  padding: 0 0 10px;
-}
-
-.rp-camp-preset {
-  padding: 5px 12px;
-  font-size: 12px;
-  border: 1px solid #d1d5db;
-  border-radius: 999px;
-  background: #fff;
-  color: #374151;
-  cursor: pointer;
-  transition: background 0.15s, border-color 0.15s, color 0.15s;
-
-  &:hover { background: #f9fafb; }
-
-  &--on {
-    background: #2563eb;
-    border-color: #2563eb;
-    color: #fff;
-    &:hover { background: #1d4ed8; }
-  }
-}
+// only what's genuinely new to this report lives here: the no-delivery
+// notice and the drill-down modal.
+//
+// The .rp-camp-preset* date-preset pills that used to live here were removed
+// once Open Rate / Reply Rate moved to the shared DateRangeFilter, whose own
+// preset list replaced their separate button row.
 
 // ── "No delivery receipts" notice ───────────────────────────────────────────
 .rp-camp-notice {

@@ -5,10 +5,9 @@ import { WA_CAMPAIGN_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination, JiraFilterMenu } from "../../../components/ui";
-import type { JiraFilterField } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DateRangeFilter } from "../../../components/ui";
+import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import DateRangeFields from "../../../components/ui/DateRangeFields";
 import "./WaCampaignReport.scss";
 
 const REPORT_NAME = "WA Marketing Campaign";
@@ -75,8 +74,10 @@ const campStatusClass = (s: string) =>
 export default function WaCampaignReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const [search, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  // Unfiltered by default — "all_time" is exactly the empty start/end pair
+  // this report previously used.
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
   const [statuses, setStatuses] = useState<string[]>([]);
   const [templateIds, setTemplateIds] = useState<string[]>([]);
   const [deliveryBucketFilter, setDeliveryBucketFilter] = useState<string[]>([]);
@@ -231,7 +232,7 @@ export default function WaCampaignReport({ onBack, category, categoryKey }: { on
       </div>
 
       <div className="rp-detail-filters">
-        <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
