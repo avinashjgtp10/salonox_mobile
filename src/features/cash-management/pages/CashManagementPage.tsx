@@ -118,6 +118,7 @@ export default function CashManagementPage() {
   const [sharedDateTo, setSharedDateTo] = useState(() => formatDateInput(new Date()));
   const [expenseActionLoading, setExpenseActionLoading] = useState(false);
   const exportMenuRef = useRef<HTMLDivElement | null>(null);
+  const dailyCashFlowRef = useRef<HTMLElement | null>(null);
   const expenseActionsLoading =
     expenseActionLoading || loading.saveExpense || loading.deleteExpense;
 
@@ -352,8 +353,15 @@ export default function CashManagementPage() {
   );
   const openExpenseCreate = () => {
     if (expenseActionsLoading) return;
+    // Both "Add Expenses" buttons live outside the Daily Cash Flow tabs, so
+    // clicking them switches Daily Cash Flow to its Expenses tab (showing
+    // the full history) at the same time the add-expense modal opens on top
+    // of it — closing the modal (with or without saving) leaves the history
+    // table right there instead of dropping the user back on Transactions.
+    setActiveTab("expenses");
     setEditingExpense(null);
     setShowExpenseModal(true);
+    dailyCashFlowRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const openExpenseEdit = (expense: CashExpenseRecord) => {
@@ -581,11 +589,11 @@ export default function CashManagementPage() {
         </section>
 
 
-        <section className="cash-mgmt__surface">
+        <section className="cash-mgmt__surface" ref={dailyCashFlowRef}>
           <div className="cash-mgmt__surface-header">
             <div className="cash-mgmt__surface-copy">
               <h2 className="cash-mgmt__surface-title">Daily Cash Flow</h2>
-             
+
             </div>
           </div>
 

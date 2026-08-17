@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, SortDown, SortUp } from "react-bootstrap-icons";
-import { Button, Pagination } from "../../../components/ui";
+import { Pagination } from "../../../components/ui";
 import type { CashManagementExportDataset } from "../cashManagement.export";
 import type { CashExpenseRecord } from "../cashManagement.types";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -214,9 +214,6 @@ export default function CashManagementExpensesTab({
             }}
           />
         </div>
-        <Button variant="dark" onClick={onAdd} disabled={!canManage || actionsDisabled}>
-          Add Expense
-        </Button>
       </div>
 
       {actionsDisabled ? (
