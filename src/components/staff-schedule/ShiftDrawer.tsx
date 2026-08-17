@@ -58,20 +58,33 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
 
   const handleSave = () => {
     if (!staff || !date) return;
-    
+
     if (isAvailable) {
       if (!startTime || !endTime) {
         setError("Start Time and End Time must be selected.");
         return;
       }
-      
+
+      if (startTime === endTime) {
+        setError("Start Time and End Time cannot be the same.");
+        return;
+      }
+
       const total = calcTotalHours(startTime, endTime);
       if (total === "0 hrs") {
         setError("End Time must be later than Start Time.");
         return;
       }
+
+      // Only one shift record exists per staff/day, so "already saved" means
+      // resubmitting the exact same range as what's already stored for this
+      // day rather than an actual change.
+      if (shift?.isAvailable && shift.startTime === startTime && shift.endTime === endTime) {
+        setError("This working-hour time range already exists. Please select a different time.");
+        return;
+      }
     }
-    
+
     setError(null);
     onSave(staff.id, date, isAvailable, startTime, endTime, breaks.map((b) => ({ start: b.start, end: b.end })));
     onClose();
