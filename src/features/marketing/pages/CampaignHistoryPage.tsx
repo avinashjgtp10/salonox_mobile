@@ -7,7 +7,8 @@ import {
   resumeCampaignThunk,
   resendCampaignThunk,
 } from "../../../middleware/marketing/marketing.thunk";
-import { Button, Badge, Input } from "../../../components/ui";
+import { Button, Badge, Input, DateRangeFilter } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import "../styles/CampaignHistoryPage.scss";
 
@@ -94,8 +95,7 @@ export default function CampaignHistoryPage() {
   // ── Campaign filters ──────────────────────────────────────────────────────
   const [search,       setSearch]       = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
-  const [dateStart,    setDateStart]    = useState("");
-  const [dateEnd,      setDateEnd]      = useState("");
+  const [dateRange,    setDateRange]    = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
   const [filtersOpen,  setFiltersOpen]  = useState(false);
   const [page,         setPage]         = useState(1);
 
@@ -107,7 +107,7 @@ export default function CampaignHistoryPage() {
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => { dispatch(fetchCampaignsThunk()); }, [dispatch]);
-  useEffect(() => { setPage(1); }, [search, statusFilter, dateStart, dateEnd]);
+  useEffect(() => { setPage(1); }, [search, statusFilter, dateRange.startDate, dateRange.endDate]);
 
   // ── Load contacts (server-side paginated) ─────────────────────────────────
   const loadContacts = useCallback(async (
@@ -184,18 +184,18 @@ export default function CampaignHistoryPage() {
     return campaigns.filter(c => {
       if (statusFilter !== "ALL" && c.status !== statusFilter) return false;
       if (search && !c.name?.toLowerCase().includes(search.toLowerCase())) return false;
-      if (dateStart && new Date(c.created_at) < new Date(dateStart)) return false;
-      if (dateEnd   && new Date(c.created_at) > new Date(dateEnd + "T23:59:59")) return false;
+      if (dateRange.startDate && new Date(c.created_at) < new Date(dateRange.startDate)) return false;
+      if (dateRange.endDate   && new Date(c.created_at) > new Date(dateRange.endDate + "T23:59:59")) return false;
       return true;
     });
-  }, [campaigns, statusFilter, search, dateStart, dateEnd]);
+  }, [campaigns, statusFilter, search, dateRange.startDate, dateRange.endDate]);
 
   const totalPages     = Math.ceil(filteredCampaigns.length / PAGE_SIZE);
   const pagedCampaigns = useMemo(() =>
     filteredCampaigns.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
   [filteredCampaigns, page]);
 
-  const hasActiveFilters = !!(search || statusFilter !== "ALL" || dateStart || dateEnd);
+  const hasActiveFilters = !!(search || statusFilter !== "ALL" || dateRange.preset !== "all_time");
 
   const counts = {
     total:     campaigns.length,
@@ -250,7 +250,7 @@ export default function CampaignHistoryPage() {
         </button>
         {hasActiveFilters && (
           <button className="ch-clear-btn" onClick={() => {
-            setSearch(""); setStatusFilter("ALL"); setDateStart(""); setDateEnd("");
+            setSearch(""); setStatusFilter("ALL"); setDateRange({ preset: "all_time", startDate: "", endDate: "" });
           }}>
             Clear
           </button>
@@ -277,11 +277,7 @@ export default function CampaignHistoryPage() {
             </div>
             <div className="ch-filter-group">
               <label className="ch-filter-label">Date range</label>
-              <div className="ch-date-row">
-                <input type="date" className="ch-date-input" value={dateStart} max={dateEnd || undefined} onChange={e => setDateStart(e.target.value)} />
-                <span className="ch-date-sep">→</span>
-                <input type="date" className="ch-date-input" value={dateEnd} min={dateStart || undefined} onChange={e => setDateEnd(e.target.value)} />
-              </div>
+              <DateRangeFilter value={dateRange} onChange={setDateRange} />
             </div>
           </div>
         </div>

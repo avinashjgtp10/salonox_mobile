@@ -8,7 +8,8 @@ import {
   fetchCampaignsThunk,
   syncTemplateThunk,
 } from "../../../middleware/marketing/marketing.thunk";
-import { Button, Badge } from "../../../components/ui";
+import { Button, Badge, DateRangeFilter } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import "../styles/MarketingDashboardPage.scss";
 
 type CampaignStatusFilter = "ALL" | "RUNNING" | "COMPLETED" | "PAUSED" | "FAILED" | "SCHEDULED";
@@ -84,8 +85,7 @@ export default function MarketingDashboardPage() {
   const prevStatuses = useRef<Record<string, string>>({});
 
   // ── ALL useState hooks ────────────────────────────────────────────────────
-  const [dateStart,   setDateStart]   = useState("");
-  const [dateEnd,     setDateEnd]     = useState("");
+  const [dateRange,   setDateRange]   = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
   const [campFilter,  setCampFilter]  = useState<CampaignStatusFilter>("ALL");
   const [filtersOpen, setFiltersOpen] = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
@@ -122,15 +122,15 @@ export default function MarketingDashboardPage() {
   // ── ALL derived values & useMemo hooks ───────────────────────────────────
   const stats            = data ?? ({} as any);
   const isLoading        = loading.fetchDashboardStats || loading.fetchCampaigns;
-  const hasActiveFilters = !!(dateStart || dateEnd || campFilter !== "ALL");
+  const hasActiveFilters = !!(dateRange.preset !== "all_time" || campFilter !== "ALL");
 
   const filteredCampaigns = useMemo(() => {
     return campaigns.filter((c) => {
       if (campFilter !== "ALL" && c.status !== campFilter) return false;
-      if (!inDateRange(c.created_at, dateStart, dateEnd)) return false;
+      if (!inDateRange(c.created_at, dateRange.startDate, dateRange.endDate)) return false;
       return true;
     });
-  }, [campaigns, campFilter, dateStart, dateEnd]);
+  }, [campaigns, campFilter, dateRange.startDate, dateRange.endDate]);
 
   const kpiNumbers = useMemo(() => {
     if (hasActiveFilters) {
@@ -361,23 +361,7 @@ export default function MarketingDashboardPage() {
           <div className="mkt-filter-row">
             <div className="mkt-filter-group">
               <label className="mkt-filter-label">Date range</label>
-              <div className="mkt-filter-dates">
-                <input
-                  type="date"
-                  className="mkt-date-input"
-                  value={dateStart}
-                  max={dateEnd || undefined}
-                  onChange={(e) => setDateStart(e.target.value)}
-                />
-                <span className="mkt-date-sep">→</span>
-                <input
-                  type="date"
-                  className="mkt-date-input"
-                  value={dateEnd}
-                  min={dateStart || undefined}
-                  onChange={(e) => setDateEnd(e.target.value)}
-                />
-              </div>
+              <DateRangeFilter value={dateRange} onChange={setDateRange} />
             </div>
             <div className="mkt-filter-group">
               <label className="mkt-filter-label">Campaign status</label>
@@ -396,7 +380,7 @@ export default function MarketingDashboardPage() {
             {hasActiveFilters && (
               <button
                 className="mkt-filter-clear"
-                onClick={() => { setDateStart(""); setDateEnd(""); setCampFilter("ALL"); }}
+                onClick={() => { setDateRange({ preset: "all_time", startDate: "", endDate: "" }); setCampFilter("ALL"); }}
               >
                 Clear all
               </button>
