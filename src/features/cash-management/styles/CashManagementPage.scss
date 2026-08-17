@@ -274,6 +274,14 @@
 .cash-mgmt__summary-card,
 .cash-mgmt__surface {
   position: relative;
+}
+
+// Unlike the summary cards, this surface hosts the Date Filter dropdown —
+// it must not clip an absolutely-positioned panel that can extend past the
+// surface's own in-flow height (e.g. before the table below it has loaded).
+// The card's rounded-corner background above is painted directly on this
+// element, so it stays clipped to border-radius regardless of overflow.
+.cash-mgmt__summary-card {
   overflow: hidden;
 }
 
@@ -457,16 +465,15 @@
   text-transform: uppercase;
 }
 
-.cash-mgmt__shared-filter-select-wrap,
 .cash-mgmt__tab-search,
 .cash-mgmt__export {
   position: relative;
 }
 
-.cash-mgmt__field,
-.cash-mgmt__shared-filter-select,
-.cash-mgmt__shared-filter-date {
+.cash-mgmt__field {
   min-height: 2.85rem;
+  padding: 0.7rem 0.95rem;
+  font-size: 0.94rem;
   border: 1px solid var(--cash-mgmt-border);
   border-radius: var(--cash-mgmt-radius-sm);
   background: #fff;
@@ -478,40 +485,14 @@
     background-color var(--cash-mgmt-transition);
 }
 
-.cash-mgmt__field:focus,
-.cash-mgmt__shared-filter-select:focus,
-.cash-mgmt__shared-filter-date:focus {
+.cash-mgmt__field:focus {
   outline: none;
   border-color: #94a3b8;
   box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.16);
 }
 
-.cash-mgmt__shared-filter-select,
 .cash-mgmt__filter-select {
   appearance: none;
-}
-
-.cash-mgmt__shared-filter-select {
-  padding: 0.7rem 2.5rem 0.7rem 0.95rem;
-  min-width: 12rem;
-  font-size: 0.94rem;
-  font-weight: 600;
-  line-height: 1;
-}
-
-.cash-mgmt__shared-filter-select-icon {
-  position: absolute;
-  right: 0.9rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--cash-mgmt-text-soft);
-  pointer-events: none;
-}
-
-.cash-mgmt__shared-filter-date,
-.cash-mgmt__field {
-  padding: 0.7rem 0.95rem;
-  font-size: 0.94rem;
 }
 
 .cash-mgmt__surface-actions {
@@ -1265,14 +1246,20 @@
   }
 
   .cash-mgmt__tab-search,
-  .cash-mgmt__shared-filter-select-wrap,
-  .cash-mgmt__shared-filter-select,
-  .cash-mgmt__shared-filter-date,
   .cash-mgmt__filter-select,
   .cash-mgmt__field,
   .cash-mgmt__export {
     width: 100%;
     min-width: 100%;
+  }
+
+  .cash-mgmt__shared-filter-group .drf,
+  .cash-mgmt__shared-filter-group .drf-trigger {
+    width: 100%;
+  }
+
+  .cash-mgmt__shared-filter-group .drf-trigger {
+    justify-content: space-between;
   }
 
   .cash-mgmt__export-menu {
