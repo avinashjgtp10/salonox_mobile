@@ -161,6 +161,9 @@ const normalizePackageTemplate = (raw: AnyRecord): PackageTemplate => {
   };
 };
 
+const isTemplateExpired = (template: PackageTemplate) =>
+  !(template.neverExpires === true || (template.expiryDays ?? 0) > 0);
+
 const templateToPackageListItem = (template: PackageTemplate): PackageListItem => ({
   basePrice: template.basePrice,
   category: null,
@@ -347,7 +350,10 @@ export const packageService = {
       this.getPackageTemplates(salonId),
       this.getAllActiveCatalogPackages(query, salonId),
     ]);
-    const templateItems = templates.map(templateToPackageListItem).filter((item) => matchesPackageSearch(item, search));
+    const templateItems = templates
+      .filter((template) => !isTemplateExpired(template))
+      .map(templateToPackageListItem)
+      .filter((item) => matchesPackageSearch(item, search));
     const mergedItems = mergePackageSources(templateItems, catalogPackages);
 
     return {

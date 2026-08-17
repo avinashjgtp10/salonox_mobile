@@ -99,7 +99,12 @@ type ReportAvailability = "available" | "unavailable";
 
 export type ReportConfig = {
   emptyMessage: string;
-  endpoint?: `/api/report/${string}`;
+  // Every report is a POST /api/report/* route except "consumable-usage",
+  // whose one legacy exception (/inventory/stock-reconciliation) mirrors
+  // exactly what the Web app still calls — see report.thunk.ts's
+  // special-cased fetch and types/report.ts for the full rationale. Do not
+  // widen this further; new reports should get a real /api/report/* route.
+  endpoint?: `/api/report/${string}` | "/inventory/stock-reconciliation";
   exportSupported: boolean;
   filters: ReportFilterKey[];
   group: ReportGroup;
@@ -165,7 +170,14 @@ export const REPORT_CONFIGS: ReportConfig[] = [
   available({ slug: "upcoming-appointments", title: "Upcoming Appointments Report", subtitle: "Future appointments still booked.", group: "Appointments", icon: "alarm-outline", endpoint: "/api/report/upcoming-appointments", filters: ["from", "to", "client_ids", "staff_ids", "service_ids", "package_ids", "statuses", "appointment_types", "search"], paginated: true, primaryFields: ["appointmentDate", "time", "clientName", "mobileNumber", "serviceName", "packageName", "staffName", "appointmentStatus", "appointmentType", "description"], emptyMessage: "No upcoming appointments found" }),
 
   available({ slug: "product-inventory", title: "Product Inventory", subtitle: "Current on-hand stock, reorder levels and stock value.", group: "Inventory", icon: "layers-outline", endpoint: "/api/report/product-inventory", filters: ["start_date", "end_date", "category_id", "search"], paginated: true, primaryFields: ["productName", "currentStock", "salesRevenue", "status"], emptyMessage: "No inventory products found" }),
-  unavailable({ slug: "consumable-usage", title: "Consumable Usage", subtitle: "Products used by staff during services.", group: "Inventory", icon: "flask-outline", filters: ["start_date", "end_date", "staff_id", "product_id"], paginated: true, primaryFields: ["productName", "staffName", "quantityUsed", "date"], emptyMessage: "No consumable usage found", statusReason: "No verified POST /api/report/consumable-usage backend route." }),
+  // Web-parity legacy report: mirrors the Web app's ConsumableUsageReport.tsx
+  // exactly, calling GET /inventory/stock-reconciliation (branch_id only) —
+  // there is no POST /api/report/consumable-usage route to migrate to. All
+  // totals are all-time (no date range); search/category filtering and
+  // pagination happen client-side against the single full response, so this
+  // report is routed to a dedicated screen rather than the generic one — see
+  // src/app/reports/[slug].tsx.
+  available({ slug: "consumable-usage", title: "Consumable Usage", subtitle: "Products used by staff during services — all-time totals.", group: "Inventory", icon: "flask-outline", endpoint: "/inventory/stock-reconciliation", filters: ["search", "category_id"], paginated: false, primaryFields: ["itemName", "categoryName", "actualConsumable", "adjustConsumable", "consumableDifference", "unit", "remark"], emptyMessage: "No consumable usage found" }),
   unavailable({ slug: "supplier-report", title: "Supplier Report", subtitle: "Suppliers, contact details and location.", group: "Inventory", icon: "business-outline", filters: ["search"], paginated: true, primaryFields: ["name", "phone", "email", "city"], emptyMessage: "No suppliers found", statusReason: "Supplier API exists under /inventory/suppliers, not as POST /api/report/*." }),
 
   available({ slug: "package-sale", title: "Package Sale", subtitle: "Packages purchased by clients.", group: "Package & Membership", icon: "cube-outline", endpoint: "/api/report/package-sale", filters: ["start_date", "end_date", "search"], paginated: true, primaryFields: ["packageName", "clientName", "totalAmount", "paymentStatus"], emptyMessage: "No package sales found" }),
@@ -199,6 +211,7 @@ export const MOBILE_DAILY_REPORT_SLUGS = [
   "product-retail",
   "product-inventory",
   "ewallet",
+  "consumable-usage",
 ] as const satisfies readonly ReportSlug[];
 
 const mobileDailyReportSlugSet = new Set<ReportSlug>(MOBILE_DAILY_REPORT_SLUGS);

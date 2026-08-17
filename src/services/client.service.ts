@@ -22,8 +22,11 @@ import type {
   UnblockClientResponse,
   ClientHistoryItem,
   ClientHistoryItemApi,
+  ClientHistoryResult,
   ClientHistoryStats,
   ClientHistoryStatsApi,
+  ClientHistorySummary,
+  ClientHistorySummaryApi,
   ClientWithHistoryStats,
 } from "@/types/client";
 import { formatAppDate } from "@/utils/dateTime";
@@ -39,14 +42,22 @@ type CreateClientApiResponse = ApiResponse<CreateClientApiData>;
 type DeleteClientApiResponse = ApiResponse<unknown>;
 type ClientHistoryApiData =
   | ClientHistoryItemApi[]
-  | {
+  | (ClientHistorySummaryApi & {
+      appointments?: unknown[] | null;
       data?: ClientHistoryItemApi[] | null;
       history?: ClientHistoryItemApi[] | null;
       items?: ClientHistoryItemApi[] | null;
+      memberships?: unknown[] | null;
+      packages?: unknown[] | null;
       records?: ClientHistoryItemApi[] | null;
       rows?: ClientHistoryItemApi[] | null;
+      sales?: unknown[] | null;
+      stats?: ClientHistoryStatsApi | null;
       timeline?: ClientHistoryItemApi[] | null;
-    }
+      // Some responses nest the client summary fields under `client` instead
+      // of putting them flat alongside `history` — check both locations.
+      client?: ClientHistorySummaryApi | null;
+    })
   | null
   | undefined;
 
@@ -112,6 +123,33 @@ const toOptionalBoolean = (value: unknown) => {
   return false;
 };
 
+type UnknownRecord = Record<string, unknown>;
+
+const asRecord = (value: unknown): UnknownRecord =>
+  value && typeof value === "object" && !Array.isArray(value) ? value as UnknownRecord : {};
+
+const firstValue = (record: UnknownRecord, keys: string[]) => {
+  for (const key of keys) {
+    if (record[key] !== undefined && record[key] !== null) {
+      return record[key];
+    }
+  }
+
+  return undefined;
+};
+
+const firstArray = (record: UnknownRecord, keys: string[]) => {
+  for (const key of keys) {
+    const value = record[key];
+
+    if (Array.isArray(value)) {
+      return value;
+    }
+  }
+
+  return [];
+};
+
 const getClientArray = (payload: ClientListApiData) => {
   if (Array.isArray(payload)) {
     return payload;
@@ -123,6 +161,18 @@ const getClientArray = (payload: ClientListApiData) => {
 const getClientHistoryArray = (payload: ClientHistoryApiData) => {
   if (Array.isArray(payload)) {
     return payload;
+  }
+
+  const record = asRecord(payload);
+  const structuredHistory = [
+    ...firstArray(record, ["appointments"]).map(normalizeAppointmentHistoryItem),
+    ...firstArray(record, ["sales"]).map(normalizeSaleHistoryItem),
+    ...firstArray(record, ["packages"]).map(normalizePackageHistoryItem),
+    ...firstArray(record, ["memberships"]).map(normalizeMembershipHistoryItem),
+  ].sort(sortHistoryItemsByDateDesc);
+
+  if (structuredHistory.length > 0) {
+    return structuredHistory;
   }
 
   return payload?.history ?? payload?.timeline ?? payload?.items ?? payload?.records ?? payload?.rows ?? payload?.data ?? [];
@@ -287,26 +337,238 @@ const normalizeDuplicateGroup = (group: ClientDuplicateGroupApi): ClientDuplicat
   };
 };
 
+const getNestedName = (value: unknown, fallback = "") => {
+  const record = asRecord(value);
+
+  return (
+    toSafeString(value) ||
+    toSafeString(firstValue(record, ["name", "title", "service_name", "serviceName", "package_name", "packageName", "membership_name", "membershipName"])) ||
+    fallback
+  );
+};
+
+const getStaffNameFromRecord = (record: UnknownRecord) => {
+  const staffValue = firstValue(record, ["staff_name", "staffName", "staff", "employee"]);
+  const staffRecord = asRecord(staffValue);
+
+  return (
+    toSafeString(staffValue) ||
+    toSafeString(firstValue(staffRecord, ["name", "full_name", "fullName"])) ||
+    [firstValue(staffRecord, ["first_name", "firstName"]), firstValue(staffRecord, ["last_name", "lastName"])]
+      .map((part) => toSafeString(part))
+      .filter(Boolean)
+      .join(" ")
+  );
+};
+
+const getHistoryDate = (record: UnknownRecord) =>
+  toSafeString(firstValue(record, [
+    "date",
+    "appointment_date",
+    "appointmentDate",
+    "scheduled_at",
+    "scheduledAt",
+    "start_time",
+    "startTime",
+    "created_at",
+    "createdAt",
+    "purchase_date",
+    "purchaseDate",
+    "assigned_at",
+    "assignedAt",
+    "updated_at",
+    "updatedAt",
+  ])) || null;
+
+const getHistoryAmount = (record: UnknownRecord) =>
+  toSafeNumber(firstValue(record, [
+    "amount",
+    "total",
+    "total_amount",
+    "totalAmount",
+    "net_amount",
+    "netAmount",
+    "paid_amount",
+    "paidAmount",
+    "price",
+    "base_price",
+    "basePrice",
+  ]));
+
+const normalizeHistorySubItem = (
+  value: unknown,
+  fallbackType: ClientHistoryItem["items"][number]["type"],
+) => {
+  const record = asRecord(value);
+  const type = toSafeString(firstValue(record, ["type", "item_type", "itemType"])).toLowerCase();
+
+  return {
+    name: getNestedName(firstValue(record, ["name", "title", "service", "product", "membership", "package"]), "Item"),
+    type:
+      type === "membership" || type === "package" || type === "product" || type === "service"
+        ? type
+        : fallbackType,
+    price: toSafeNumber(firstValue(record, ["price", "amount", "total", "total_price", "totalPrice", "unit_price", "unitPrice"])),
+  };
+};
+
+function normalizeAppointmentHistoryItem(value: unknown, index: number): ClientHistoryItemApi {
+  const record = asRecord(value);
+  const services = firstArray(record, ["services", "items", "line_items", "lineItems"]);
+  const serviceName =
+    toSafeString(firstValue(record, ["service_name", "serviceName"])) ||
+    getNestedName(firstValue(record, ["service"]), "");
+  const items = services.length > 0
+    ? services.map((item) => normalizeHistorySubItem(item, "service"))
+    : serviceName
+      ? [{ name: serviceName, type: "service" as const, price: toSafeNumber(firstValue(record, ["price", "amount", "total"])) }]
+      : [];
+  const date = getHistoryDate(record);
+
+  return {
+    amount: getHistoryAmount(record),
+    created_at: date,
+    date,
+    description: toSafeString(firstValue(record, ["notes", "description", "status"])) || "",
+    id: toSafeString(firstValue(record, ["id", "_id"]), `appointment-${index}`),
+    items,
+    staff_name: getStaffNameFromRecord(record),
+    status: toSafeString(firstValue(record, ["status"])),
+    title: serviceName || toSafeString(firstValue(record, ["title"]), "Appointment"),
+    type: "appointment",
+  };
+}
+
+function normalizeSaleHistoryItem(value: unknown, index: number): ClientHistoryItemApi {
+  const record = asRecord(value);
+  const items = firstArray(record, ["items", "line_items", "lineItems"]).map((item) =>
+    normalizeHistorySubItem(item, "service"),
+  );
+  const receiptNumber = toSafeString(firstValue(record, ["invoice_number", "invoiceNumber", "receipt_number", "receiptNumber"]));
+  const date = getHistoryDate(record);
+
+  return {
+    amount: getHistoryAmount(record),
+    created_at: date,
+    date,
+    description: toSafeString(firstValue(record, ["notes", "description"])) || (receiptNumber ? `Receipt ${receiptNumber}` : ""),
+    id: toSafeString(firstValue(record, ["id", "_id", "sale_id", "saleId"]), `sale-${index}`),
+    items,
+    staff_name: getStaffNameFromRecord(record),
+    status: toSafeString(firstValue(record, ["status"])),
+    title: receiptNumber ? `Sale ${receiptNumber}` : "Sale",
+    type: "sale",
+  };
+}
+
+function normalizePackageHistoryItem(value: unknown, index: number): ClientHistoryItemApi {
+  const record = asRecord(value);
+  const services = firstArray(record, ["services", "items"]).map((item) => normalizeHistorySubItem(item, "service"));
+  const packageName =
+    toSafeString(firstValue(record, ["package_name", "packageName", "name", "title"])) ||
+    getNestedName(firstValue(record, ["package", "template"]), "Package");
+  const date = getHistoryDate(record);
+
+  return {
+    amount: getHistoryAmount(record),
+    created_at: date,
+    date,
+    description: toSafeString(firstValue(record, ["description", "status"])) || "",
+    id: toSafeString(firstValue(record, ["id", "_id", "client_package_id", "clientPackageId"]), `package-${index}`),
+    items: services.length > 0 ? services : [{ name: packageName, type: "package", price: getHistoryAmount(record) }],
+    staff_name: getStaffNameFromRecord(record),
+    status: toSafeString(firstValue(record, ["status"])),
+    title: packageName,
+    type: "package",
+  };
+}
+
+function normalizeMembershipHistoryItem(value: unknown, index: number): ClientHistoryItemApi {
+  const record = asRecord(value);
+  const membershipName =
+    toSafeString(firstValue(record, ["membership_name", "membershipName", "name", "title"])) ||
+    getNestedName(firstValue(record, ["membership"]), "Membership");
+  const date = getHistoryDate(record);
+
+  return {
+    amount: getHistoryAmount(record),
+    created_at: date,
+    date,
+    description: toSafeString(firstValue(record, ["description", "status", "valid_for", "validFor"])) || "",
+    id: toSafeString(firstValue(record, ["id", "_id", "client_membership_id", "clientMembershipId"]), `membership-${index}`),
+    items: [{ name: membershipName, type: "membership", price: getHistoryAmount(record) }],
+    staff_name: getStaffNameFromRecord(record),
+    status: toSafeString(firstValue(record, ["status"])),
+    title: membershipName,
+    type: "membership",
+  };
+}
+
+const getHistoryTime = (item: ClientHistoryItemApi) => {
+  const date = item.date || item.created_at;
+  const time = date ? new Date(date).getTime() : 0;
+
+  return Number.isNaN(time) ? 0 : time;
+};
+
+function sortHistoryItemsByDateDesc(left: ClientHistoryItemApi, right: ClientHistoryItemApi) {
+  return getHistoryTime(right) - getHistoryTime(left);
+}
+
 const normalizeHistoryItem = (item: ClientHistoryItemApi): ClientHistoryItem => {
   const rawDate = item.date || item.created_at || null;
   const dateLabel = formatCreatedDate(rawDate);
   const items = Array.isArray(item.items) ? item.items : [];
+  const normalizedType = toSafeString(item.type).toLowerCase();
+  const type: ClientHistoryItem["type"] =
+    normalizedType === "appointment" ||
+    normalizedType === "sale" ||
+    normalizedType === "package" ||
+    normalizedType === "membership" ||
+    normalizedType === "note" ||
+    normalizedType === "visit"
+      ? normalizedType
+      : "visit";
 
   return {
     id: item.id || String(Math.random()),
     date: rawDate || "",
-    type: (item.type as ClientHistoryItem["type"]) || "visit",
+    type,
     title: item.title || "Visit",
     description: item.description || "",
     amount: toSafeNumber(item.amount),
     status: item.status || "",
     items: items.map(i => ({
       name: i.name || "",
-      type: (i.type as "service" | "product") || "service",
+      type:
+        i.type === "membership" || i.type === "package" || i.type === "product" || i.type === "service"
+          ? i.type
+          : "service",
       price: toSafeNumber(i.price),
     })),
     staffName: item.staff_name || item.staffName || "",
     dateLabel,
+  };
+};
+
+const normalizeHistorySummary = (
+  payload: ClientHistoryApiData,
+): ClientHistorySummary => {
+  const record = Array.isArray(payload) || !payload ? null : payload;
+  // Some backends nest these fields under `client`, others put them flat
+  // alongside `history` — prefer the flat value, fall back to `client.*`.
+  const client: ClientHistorySummaryApi = record?.client ?? {};
+
+  const pick = (flatKey: keyof ClientHistorySummaryApi, nestedKey: keyof ClientHistorySummaryApi) =>
+    record?.[flatKey] ?? record?.[nestedKey] ?? client[flatKey] ?? client[nestedKey];
+
+  return {
+    walletBalance: toSafeNumber(pick("wallet_balance", "walletBalance")),
+    rewardPointsBalance: toSafeNumber(pick("reward_points_balance", "rewardPointsBalance")),
+    referralBalance: toSafeNumber(pick("referral_balance", "referralBalance")),
+    referralCode: toSafeString(pick("referral_code", "referralCode")) || null,
+    totalReferralEarnings: toSafeNumber(pick("total_referral_earnings", "totalReferralEarnings")),
+    totalSuccessfulReferrals: toSafeNumber(pick("total_successful_referrals", "totalSuccessfulReferrals")),
   };
 };
 
@@ -377,6 +639,15 @@ const getClientList = async (
     pagination,
     query,
     totalCount,
+  };
+};
+
+const fetchClientHistory = async (clientId: string): Promise<ClientHistoryResult> => {
+  const response = await api.get<ApiResponse<ClientHistoryApiData>>(`${CLIENT.DETAIL}/${clientId}/history`);
+
+  return {
+    history: getClientHistoryArray(response.data.data).map(normalizeHistoryItem),
+    summary: normalizeHistorySummary(response.data.data),
   };
 };
 
@@ -559,9 +830,16 @@ export const clientService = {
   },
 
   async getClientHistory(clientId: string): Promise<ClientHistoryItem[]> {
-    const response = await api.get<ApiResponse<ClientHistoryApiData>>(`${CLIENT.DETAIL}/${clientId}/history`);
-    const history = getClientHistoryArray(response.data.data);
-    return history.map(normalizeHistoryItem);
+    const result = await fetchClientHistory(clientId);
+    return result.history;
+  },
+
+  // Same request as getClientHistory(), but also surfaces the top-level
+  // wallet/reward-points/referral summary fields the backend returns
+  // alongside the history array — used by Quick Sale so it doesn't need
+  // separate (nonexistent) balance endpoints per redemption type.
+  async getClientHistoryWithSummary(clientId: string): Promise<ClientHistoryResult> {
+    return fetchClientHistory(clientId);
   },
 
   async getClientsWithHistoryStats(

@@ -1,3 +1,5 @@
+import type { ConsumableUsageItem } from "@/types/consumable";
+
 export type AppointmentStatus =
   | "Upcoming"
   | "Confirmed"
@@ -271,6 +273,9 @@ export type CreateAppointmentRequest = {
   service_id?: string;
   service_name?: string;
   services?: {
+    // Not yet sent to the backend — Phase 1 type foundation only, populated
+    // starting Phase 2 once `buildAppointmentPayload()` is updated.
+    consumables?: ConsumableUsageItem[];
     discount?: number;
     duration?: number;
     is_package_service?: boolean;

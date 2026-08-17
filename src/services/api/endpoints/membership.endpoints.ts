@@ -6,6 +6,7 @@ export const MEMBERSHIP = {
   EXPORT_EXCEL: "/memberships/export/excel",
   EXPORT_PDF: "/memberships/export/pdf",
   LIST: "/memberships",
+  LOYALTY_ELIGIBILITY: "/memberships/loyalty-eligibility",
   UPDATE: (id: string) => `/memberships/${id}`,
 } as const;
 

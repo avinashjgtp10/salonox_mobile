@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   ActivityIndicator,
   FlatList,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -230,6 +231,9 @@ const CLIENT_SEARCH_DEBOUNCE_MS = 240;
 const SERVICE_SEARCH_NAME_RESULT_LIMIT = 25;
 const SERVICE_CATALOG_MAX_PAGES = 50;
 const SERVICE_CATALOG_PAGE_SIZE = 100;
+const DEFAULT_TIME_SLOT_START_MINUTES = 0;
+const DEFAULT_TIME_SLOT_END_MINUTES = 24 * 60;
+const DEFAULT_TIME_SLOT_INTERVAL_MINUTES = 30;
 
 const getStatusStyles = (Colors: ThemeColors): Record<AppointmentStatus, { bg: string; color: string }> => ({
   Cancelled: { bg: Colors.errorBg, color: Colors.error },
@@ -727,6 +731,40 @@ const minutesToDisplayTime = (minutes: number) => {
   const hours12 = hours24 % 12 || 12;
 
   return `${hours12}:${minuteLabel} ${suffix}`;
+};
+
+const minutesToClockTime = (minutes: number) =>
+  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+
+const getDefaultTimeSlots = (date: string): StaffAvailabilitySlot[] => {
+  if (!validateDate(date)) {
+    return [];
+  }
+
+  const now = new Date();
+  const isToday = date === todayIsoDate();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const minimumMinutes = isToday
+    ? Math.ceil(currentMinutes / DEFAULT_TIME_SLOT_INTERVAL_MINUTES) * DEFAULT_TIME_SLOT_INTERVAL_MINUTES
+    : DEFAULT_TIME_SLOT_START_MINUTES;
+  const startMinutes = Math.max(DEFAULT_TIME_SLOT_START_MINUTES, minimumMinutes);
+  const slots: StaffAvailabilitySlot[] = [];
+
+  for (
+    let minutes = startMinutes;
+    minutes < DEFAULT_TIME_SLOT_END_MINUTES;
+    minutes += DEFAULT_TIME_SLOT_INTERVAL_MINUTES
+  ) {
+    const value = minutesToClockTime(minutes);
+
+    slots.push({
+      display: minutesToDisplayTime(minutes),
+      endTime: minutesToClockTime(Math.min(minutes + DEFAULT_TIME_SLOT_INTERVAL_MINUTES, DEFAULT_TIME_SLOT_END_MINUTES)),
+      value,
+    });
+  }
+
+  return slots;
 };
 
 const staffIdMatches = (staffMember: StaffMember, staffId?: string | null) =>
@@ -2090,6 +2128,7 @@ function SearchableClientField({
   onSelectClient,
   onSelectExisting,
   onSelectWalkIn,
+  searchInputRef,
   results,
   resultsError,
   resultsLoading,
@@ -2106,6 +2145,7 @@ function SearchableClientField({
   onSelectClient: (client: ClientListItem) => void;
   onSelectExisting: () => void;
   onSelectWalkIn: () => void;
+  searchInputRef?: RefObject<TextInput | null>;
   results: ClientListItem[];
   resultsError: string | null;
   resultsLoading: boolean;
@@ -2175,6 +2215,7 @@ function SearchableClientField({
             <View style={[styles.searchWrap, error && styles.inputError]}>
               <Ionicons name="search-outline" size={18} color={Colors.text2} />
               <TextInput
+                ref={searchInputRef}
                 onChangeText={onSearchChange}
                 onFocus={onSelectExisting}
                 placeholder="Type at least 3 letters to search clients"
@@ -2493,6 +2534,22 @@ function TimeSlotSelector({
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const selectedSlot = slots.find((slot) => slot.value === selectedTime);
+  const canOpenDropdown = !disabledReason && slots.length > 0 && !loading;
+
+  const handleToggleDropdown = () => {
+    if (!canOpenDropdown) {
+      return;
+    }
+
+    setDropdownOpen((current) => !current);
+  };
+
+  const handleSelectSlot = (time: string) => {
+    onSelect(time);
+    setDropdownOpen(false);
+  };
 
   return (
     <View style={styles.inputGroup}>
@@ -2505,23 +2562,53 @@ function TimeSlotSelector({
         <Text style={styles.fieldHint}>No available slots for this staff member and date.</Text>
       ) : null}
       {slots.length > 0 ? (
-        <View style={styles.slotGrid}>
-          {slots.map((slot) => {
-            const selected = slot.value === selectedTime;
+        <View style={styles.timeDropdownWrap}>
+          <TouchableOpacity
+            activeOpacity={0.84}
+            disabled={!canOpenDropdown}
+            onPress={handleToggleDropdown}
+            style={[
+              styles.timeDropdownButton,
+              error && styles.inputError,
+              !canOpenDropdown && styles.inputDisabled,
+            ]}
+          >
+            <Text
+              numberOfLines={1}
+              style={[styles.timeDropdownValue, !selectedSlot && styles.timeDropdownPlaceholder]}
+            >
+              {selectedSlot?.display ?? "Select time"}
+            </Text>
+            <Ionicons
+              name={dropdownOpen ? "chevron-up" : "chevron-down"}
+              size={18}
+              color={Colors.text2}
+            />
+          </TouchableOpacity>
 
-            return (
-              <TouchableOpacity
-                key={slot.value}
-                activeOpacity={0.84}
-                onPress={() => onSelect(slot.value)}
-                style={[styles.slotChip, selected && styles.slotChipActive]}
-              >
-                <Text style={[styles.slotChipText, selected && styles.slotChipTextActive]}>
-                  {slot.display}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
+          {dropdownOpen ? (
+            <View style={styles.timeDropdownMenu}>
+              <ScrollView nestedScrollEnabled showsVerticalScrollIndicator={slots.length > 5}>
+                {slots.map((slot) => {
+                  const selected = slot.value === selectedTime;
+
+                  return (
+                    <TouchableOpacity
+                      activeOpacity={0.84}
+                      key={slot.value}
+                      onPress={() => handleSelectSlot(slot.value)}
+                      style={[styles.timeDropdownOption, selected && styles.timeDropdownOptionActive]}
+                    >
+                      <Text style={[styles.timeDropdownOptionText, selected && styles.timeDropdownOptionTextActive]}>
+                        {slot.display}
+                      </Text>
+                      {selected ? <Ionicons name="checkmark-circle" size={18} color={Colors.primary} /> : null}
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+          ) : null}
         </View>
       ) : null}
       {error ? <Text style={styles.fieldError}>{error}</Text> : null}
@@ -2704,25 +2791,6 @@ function StaffCardSelector({
   );
 }
 
-function BookingStepHeader() {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const steps = ["Client", "Services", "Staff", "Date", "Time", "Review"];
-
-  return (
-    <View style={styles.bookingSteps}>
-      {steps.map((step, index) => (
-        <View key={step} style={styles.bookingStepItem}>
-          <View style={[styles.bookingStepDot, index === 0 && styles.bookingStepDotActive]}>
-            <Text style={[styles.bookingStepNumber, index === 0 && styles.bookingStepNumberActive]}>{index + 1}</Text>
-          </View>
-          <Text style={styles.bookingStepLabel}>{step}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
 function BookingSection({
   action,
   children,
@@ -2757,6 +2825,7 @@ function SearchableServiceField({
   onSearchChange,
   onSelect,
   search,
+  searchInputRef,
   selectedServiceIds,
   services,
   serviceError,
@@ -2769,6 +2838,7 @@ function SearchableServiceField({
   onSearchChange: (value: string) => void;
   onSelect: (service: ServiceListItem) => void;
   search: string;
+  searchInputRef?: RefObject<TextInput | null>;
   selectedServiceIds: string[];
   services: ServiceListItem[];
   serviceError: string | null;
@@ -2787,6 +2857,7 @@ function SearchableServiceField({
         <View style={[styles.searchWrap, error && styles.inputError]}>
           <Ionicons name="search-outline" size={18} color={Colors.text2} />
           <TextInput
+            ref={searchInputRef}
             onFocus={onFocus}
             onChangeText={onSearchChange}
             placeholder={SERVICE_SEARCH_PLACEHOLDER}
@@ -3008,6 +3079,8 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   const [clientResultsError, setClientResultsError] = useState<string | null>(null);
   const [clientResultsLoading, setClientResultsLoading] = useState(false);
   const clientCacheRef = useRef(new Map<string, ClientListItem[] | Promise<ClientListItem[]>>());
+  const clientSearchInputRef = useRef<TextInput | null>(null);
+  const serviceSearchInputRef = useRef<TextInput | null>(null);
   const clientRequestIdRef = useRef(0);
   const [serviceError, setServiceError] = useState<string | null>(null);
   const [serviceLoading, setServiceLoading] = useState(false);
@@ -3053,9 +3126,20 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     [selectedServices],
   );
   const totalServicePrice = servicePricingTotals.grandTotal;
+  const defaultTimeSlots = useMemo(() => getDefaultTimeSlots(form.date), [form.date]);
   const availableSlots = useMemo<StaffAvailabilitySlot[]>(
-    () => (form.staffId && validateDate(form.date) ? staffAvailability?.availableSlots ?? [] : []),
-    [form.date, form.staffId, staffAvailability?.availableSlots],
+    () => {
+      if (!validateDate(form.date)) {
+        return [];
+      }
+
+      if (form.staffId) {
+        return staffAvailability?.availableSlots ?? [];
+      }
+
+      return defaultTimeSlots;
+    },
+    [defaultTimeSlots, form.date, form.staffId, staffAvailability?.availableSlots],
   );
   const staffInactiveReason = !selectedStaff
     ? null
@@ -3100,17 +3184,13 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
           : form.staffId
             ? "Busy"
             : "Select staff";
-  const slotDisabledReason = !form.staffId
-    ? "Select a staff member to view slots."
-    : selectedServices.length === 0
-      ? "Select a service to calculate available slots."
-      : totalServiceDuration <= 0
-        ? "Selected service has no duration configured."
-        : availabilityBlockReason
-          ? availabilityBlockReason
-          : !staffAvailability && !schedulerLoading
-            ? "Availability is not loaded for this staff member."
-            : null;
+  const slotDisabledReason = !validateDate(form.date)
+    ? "Select a date to view times."
+    : form.staffId && availabilityBlockReason
+      ? availabilityBlockReason
+      : form.staffId && !staffAvailability && !schedulerLoading
+        ? "Availability is not loaded for this staff member."
+        : null;
   useEffect(() => {
     if (!__DEV__ || !form.staffId) {
       return;
@@ -3215,10 +3295,14 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
       };
     });
     setErrors((current) => ({ ...current, startTime: undefined }));
-  }, [form.date, form.staffId]);
+  }, [form.date]);
 
   useEffect(() => {
     if (!form.startTime) {
+      return;
+    }
+
+    if (form.staffId && (schedulerLoading || !staffAvailability)) {
       return;
     }
 
@@ -3231,35 +3315,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         startTime: "",
       }));
     }
-  }, [availableSlots, form.startTime]);
-
-  useEffect(() => {
-    if (
-      form.startTime ||
-      schedulerLoading ||
-      availableSlots.length === 0 ||
-      selectedServices.length === 0 ||
-      !form.staffId
-    ) {
-      return;
-    }
-
-    const firstSlot = availableSlots[0];
-
-    setForm((current) => ({
-      ...current,
-      endTime: firstSlot.endTime ?? "",
-      startTime: firstSlot.value,
-    }));
-    setErrors((current) => ({ ...current, endTime: undefined, startTime: undefined }));
-  }, [
-    availableSlots,
-    form.date,
-    form.staffId,
-    form.startTime,
-    schedulerLoading,
-    selectedServices.length,
-  ]);
+  }, [availableSlots, form.staffId, form.startTime, schedulerLoading, staffAvailability]);
 
   useEffect(() => {
     const query = getServiceSearchQuery(serviceSearch);
@@ -3484,14 +3540,14 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
 
     if (existingClient) {
       setSelectedClientRecord(existingClient);
-      setClientSearch(existingClient.fullName);
+      setClientSearch("");
       return;
     }
 
     void dispatch(fetchClientByIdThunk(returnedClientId)).then((result) => {
       if (!cancelled && fetchClientByIdThunk.fulfilled.match(result)) {
         setSelectedClientRecord(result.payload);
-        setClientSearch(result.payload.fullName);
+        setClientSearch("");
       }
     });
 
@@ -3499,14 +3555,6 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
       cancelled = true;
     };
   }, [clients, dispatch, mode, returnedClientId]);
-
-  useEffect(() => {
-    if (!selectedClient || clientBookingMode !== "existing") {
-      return;
-    }
-
-    setClientSearch(selectedClient.fullName);
-  }, [clientBookingMode, selectedClient]);
 
   useEffect(() => {
     const firstService = selectedServices[0];
@@ -3602,7 +3650,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
 
   const handleSelectClient = (client: ClientListItem) => {
     setClientBookingMode("existing");
-    setClientSearch(client.fullName);
+    setClientSearch("");
     setClientDropdownOpen(false);
     setSelectedClientRecord(client);
     setForm((current) => ({
@@ -3618,6 +3666,9 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   };
 
   const handleSelectService = (service: ServiceListItem) => {
+    serviceSearchInputRef.current?.blur();
+    clientSearchInputRef.current?.blur();
+    Keyboard.dismiss();
     setSelectedServices((current) => {
       if (current.some((selectedService) => getSelectedServiceCatalogId(selectedService) === service.id)) {
         return current.filter((selectedService) => getSelectedServiceCatalogId(selectedService) !== service.id);
@@ -3625,6 +3676,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
 
       return [...current, service];
     });
+    setServiceSearch("");
     setServiceDropdownOpen(false);
     setErrors((current) => ({
       ...current,
@@ -3694,7 +3746,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
       return;
     }
 
-    if (schedulerLoading) {
+    if (form.staffId && schedulerLoading) {
       setFormSubmitError("Availability is still loading. Please wait a moment.");
       return;
     }
@@ -3833,7 +3885,6 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
             <Text style={styles.headerTitle}>{mode === "create" ? "Create Appointment" : "Edit Appointment"}</Text>
             <View style={styles.iconButtonGhost} />
           </View>
-          <BookingStepHeader />
 
           <View style={styles.bookingFlow}>
             {clientDropdownOpen || serviceDropdownOpen ? (
@@ -3862,6 +3913,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
                 resultsError={clientResultsError}
                 resultsLoading={clientResultsLoading}
                 search={clientSearch}
+                searchInputRef={clientSearchInputRef}
                 selectedClient={selectedClient}
                 selectedClientId={form.clientId}
               />
@@ -3881,6 +3933,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
                 onSearchChange={handleServiceSearchChange}
                 onSelect={handleSelectService}
                 search={serviceSearch}
+                searchInputRef={serviceSearchInputRef}
                 selectedServiceIds={selectedServices.map(getSelectedServiceCatalogId)}
                 serviceError={serviceError}
                 services={services}
@@ -5148,43 +5201,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 18,
     fontWeight: "900",
   },
-  bookingStepDot: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: 17,
-    borderWidth: 1,
-    height: 34,
-    justifyContent: "center",
-    width: 34,
-  },
-  bookingStepDotActive: {
-    backgroundColor: Colors.primaryDark,
-    borderColor: Colors.primaryDark,
-  },
-  bookingStepItem: {
-    alignItems: "center",
-    flex: 1,
-    gap: 6,
-  },
-  bookingStepLabel: {
-    color: Colors.text2,
-    fontSize: 11,
-    fontWeight: "800",
-  },
-  bookingStepNumber: {
-    color: Colors.text2,
-    fontSize: 13,
-    fontWeight: "900",
-  },
-  bookingStepNumberActive: {
-    color: "#FFFFFF",
-  },
-  bookingSteps: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-    marginBottom: AppLayout.sectionGap,
-  },
   bookingTwoColumnSection: {
     gap: Spacing.md,
   },
@@ -5647,6 +5663,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   inputError: {
     borderColor: Colors.error,
+  },
+  inputDisabled: {
+    opacity: 0.55,
   },
   inputGroup: {
     marginBottom: Spacing.lg,
@@ -6159,32 +6178,64 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     height: 18,
     width: "55%",
   },
-  slotChip: {
+  timeDropdownButton: {
     alignItems: "center",
-    backgroundColor: Colors.bg,
+    backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: AppRadius.pill,
+    borderRadius: AppRadius.control,
     borderWidth: 1,
-    justifyContent: "center",
-    minHeight: 40,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    justifyContent: "space-between",
+    minHeight: 48,
     paddingHorizontal: Spacing.md,
   },
-  slotChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+  timeDropdownMenu: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    elevation: 8,
+    marginTop: Spacing.sm,
+    maxHeight: 220,
+    overflow: "hidden",
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 18,
   },
-  slotChipText: {
+  timeDropdownOption: {
+    alignItems: "center",
+    borderBottomColor: Colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 44,
+    paddingHorizontal: Spacing.md,
+  },
+  timeDropdownOptionActive: {
+    backgroundColor: Colors.backgroundSelected,
+  },
+  timeDropdownOptionText: {
     color: Colors.heading,
-    fontSize: 12,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  timeDropdownOptionTextActive: {
+    color: Colors.primaryDark,
     fontWeight: "900",
   },
-  slotChipTextActive: {
-    color: "#FFFFFF",
+  timeDropdownPlaceholder: {
+    color: Colors.placeholder,
   },
-  slotGrid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: Spacing.sm,
+  timeDropdownValue: {
+    color: Colors.heading,
+    flex: 1,
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  timeDropdownWrap: {
+    position: "relative",
   },
   stickySearchDropdown: {
     backgroundColor: Colors.card,
@@ -6233,6 +6284,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: "row",
     gap: Spacing.sm,
     paddingBottom: 2,
+    paddingTop: Spacing.sm,
   },
   staffSelectCard: {
     alignItems: "center",
