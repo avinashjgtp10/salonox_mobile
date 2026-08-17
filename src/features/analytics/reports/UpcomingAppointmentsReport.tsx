@@ -8,7 +8,8 @@ import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, JiraFilterMenu } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import DateRangeFields from "../../../components/ui/DateRangeFields";
+import { DateRangeFilter } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import "./AppointmentDetailReport.scss";
 
@@ -79,8 +80,11 @@ export default function UpcomingAppointmentsReport({ onBack, category, categoryK
   const today     = new Date().toISOString().slice(0, 10);
   const weekAhead = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const abortRef = useRef<AbortController | null>(null);
-  const [dateFrom, setDateFrom] = useState(today);
-  const [dateTo,   setDateTo]   = useState(weekAhead);
+  // This report looks FORWARD (today → a week ahead), unlike every other
+  // report's backward-looking window — no fixed preset covers a future range,
+  // so it starts as a custom one.
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "custom", startDate: today, endDate: weekAhead });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
   const [search,   setSearch]   = useState("");
   const [clientFilterIds,  setClientFilterIds]  = useState<string[]>([]);
   const [staffFilterIds,   setStaffFilterIds]   = useState<string[]>([]);
@@ -215,7 +219,7 @@ export default function UpcomingAppointmentsReport({ onBack, category, categoryK
       </div>
 
       <div className="rp-detail-filters">
-        <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
 

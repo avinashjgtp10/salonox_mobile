@@ -8,11 +8,9 @@ import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination, JiraFilterMenu } from "../../../components/ui";
-import type { JiraFilterField } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
+import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import DateRangeFields from "../../../components/ui/DateRangeFields";
-import Select from "../../../components/ui/Select";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "./CommissionReport.scss";
 
@@ -58,15 +56,6 @@ const CATEGORY_LABELS: Record<string, string> = {
   cancellation: "Cancellation",
 };
 
-const DATE_PRESET_LABELS: Record<string, string> = {
-  today: "Today",
-  yesterday: "Yesterday",
-  this_week: "This Week",
-  this_month: "This Month",
-  last_month: "Last Month",
-  custom: "Custom Date Range",
-};
-
 function formatDate(input: string): string {
   const d = new Date(input);
   if (isNaN(d.getTime())) return "—";
@@ -76,41 +65,11 @@ function formatDate(input: string): string {
   return `${dd}/${mm}/${yyyy}`;
 }
 
-function datePresetRange(preset: string): { from: string; to: string } | null {
-  const now = new Date();
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  if (preset === "today") return { from: iso(now), to: iso(now) };
-  if (preset === "yesterday") {
-    const y = new Date(now);
-    y.setDate(y.getDate() - 1);
-    return { from: iso(y), to: iso(y) };
-  }
-  if (preset === "this_week") {
-    const s = new Date(now);
-    s.setDate(s.getDate() - s.getDay());
-    return { from: iso(s), to: iso(now) };
-  }
-  if (preset === "this_month") {
-    const s = new Date(now.getFullYear(), now.getMonth(), 1);
-    return { from: iso(s), to: iso(now) };
-  }
-  if (preset === "last_month") {
-    const s = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const e = new Date(now.getFullYear(), now.getMonth(), 0);
-    return { from: iso(s), to: iso(e) };
-  }
-  return null;
-}
-
 export default function CommissionReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
   const { currencySymbol, formatAmount } = useCurrency();
-  const today       = new Date().toISOString().slice(0, 10);
-  const monthStart  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
-
-  const [datePreset, setDatePreset] = useState("this_month");
-  const [dateFrom,    setDateFrom]    = useState(monthStart);
-  const [dateTo,      setDateTo]      = useState(today);
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
   const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
   const [staffOptions,   setStaffOptions]   = useState<{ id: string; label: string }[]>([]);
   const [itemFilter, setItemFilter] = useState<string[]>([]);
@@ -136,12 +95,6 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
       setStaffOptions(opts);
     }).catch(() => {});
   }, [dispatch]);
-
-  useEffect(() => {
-    if (datePreset === "custom") return;
-    const r = datePresetRange(datePreset);
-    if (r) { setDateFrom(r.from); setDateTo(r.to); }
-  }, [datePreset]);
 
   const fetchData = useCallback(async () => {
     if (dateRangeError) return;
@@ -258,12 +211,7 @@ export default function CommissionReport({ onBack, category, categoryKey }: { on
       <div className="rp-detail-filters">
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Date</label>
-          <Select containerClass="rp-cmr-date-preset" value={datePreset} onChange={e => setDatePreset(e.target.value)}>
-            {Object.entries(DATE_PRESET_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </Select>
-          {datePreset === "custom" && (
-            <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} hideLabel bare />
-          )}
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">

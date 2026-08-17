@@ -115,12 +115,13 @@ export const PRESETS: { id: string; label: string; range: () => [string, string]
 ];
 
 // PRESETS plus a "Custom Date Range" entry, for reports that pair the preset
-// row with their own from/to date inputs. Kept as a separate array rather
-// than appended to PRESETS because the campaign reports (Open Rate / Reply
-// Rate) render PRESETS directly — adding Custom there would give them a
-// button that just blanks their date range with no way to pick one.
+// row with their own from/to date inputs.
 // Selecting Custom computes no range; it hands control to the caller's
 // inputs, so range() returns empty strings the caller ignores.
+// NOTE: PRESETS itself no longer has any direct importer — Open Rate / Reply
+// Rate used to render it as a button row and have since moved to the shared
+// DateRangeFilter. It must still be exported/kept, though, because it is
+// spread into PRESETS_WITH_CUSTOM below, which is still live.
 export const PRESETS_WITH_CUSTOM: typeof PRESETS = [
   ...PRESETS,
   { id: CUSTOM_PRESET_ID, label: "Custom Date Range", range: () => ["", ""] },

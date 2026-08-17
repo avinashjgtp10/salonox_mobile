@@ -8,10 +8,9 @@ import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination, JiraFilterMenu } from "../../../components/ui";
-import type { JiraFilterField } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
+import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import DateRangeFields from "../../../components/ui/DateRangeFields";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "./ClientRevenueReport.scss";
@@ -56,10 +55,8 @@ function formatDate(input: string | null): string {
 export default function LostCustomersReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
   const { currencySymbol, formatAmount } = useCurrency();
-  const today       = new Date().toISOString().slice(0, 10);
-  const monthStart  = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
-  const [dateFrom,     setDateFrom]     = useState(monthStart);
-  const [dateTo,       setDateTo]       = useState(today);
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
   // How many days without a visit before a client counts as "lost" — a
   // user-set cutoff, unlike Customer Frequency's fixed 90-day rule.
   const [lostDaysInput, setLostDaysInput] = useState(String(DEFAULT_LOST_DAYS));
@@ -190,7 +187,7 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
       </div>
 
       <div className="rp-detail-filters">
-        <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
         <div className="rp-detail-filter-group" style={{ minWidth: 100 }}>
           <label htmlFor="lost-days-input" className="rp-detail-filter-label">Inactive for (days)</label>
           <input
