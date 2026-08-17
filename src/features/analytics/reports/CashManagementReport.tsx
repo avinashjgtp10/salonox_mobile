@@ -5,12 +5,10 @@ import { CASH_MANAGEMENT_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination, JiraFilterMenu } from "../../../components/ui";
-import type { JiraFilterField } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
+import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import DateRangeFields from "../../../components/ui/DateRangeFields";
 import { useCurrency } from "../../../hooks/useCurrency";
-import { PRESETS_WITH_CUSTOM, CUSTOM_PRESET_ID } from "./campaignReportShared";
 
 const REPORT_NAME = "Cash Management Report";
 
@@ -60,11 +58,8 @@ function formatDate(input: string | null): string {
 
 export default function CashManagementReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { formatAmount } = useCurrency();
-  const today      = new Date().toISOString().slice(0, 10);
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
-  const [dateFrom, setDateFrom] = useState(monthStart);
-  const [dateTo,   setDateTo]   = useState(today);
-  const [activePreset, setActivePreset] = useState("this_month");
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
   const [statusOptions, setStatusOptions] = useState<{ id: string; label: string }[]>([]);
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
   const [search, setSearchInput] = useState("");
@@ -140,16 +135,6 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, statusFilter, debouncedSearch]);
 
-  const applyPreset = (id: string) => {
-    setActivePreset(id);
-    if (id === CUSTOM_PRESET_ID) return;
-    const preset = PRESETS_WITH_CUSTOM.find(p => p.id === id);
-    if (!preset) return;
-    const [from, to] = preset.range();
-    setDateFrom(from);
-    setDateTo(to);
-  };
-
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "status", label: "Status", options: statusOptions },
   ], [statusOptions]);
@@ -208,26 +193,8 @@ export default function CashManagementReport({ onBack, category, categoryKey }: 
         </div>
       </div>
 
-      <div className="rp-pc-presets">
-        {PRESETS_WITH_CUSTOM.map(p => (
-          <button
-            key={p.id}
-            type="button"
-            className={`rp-pc-preset${activePreset === p.id ? " rp-pc-preset--on" : ""}`}
-            onClick={() => applyPreset(p.id)}
-          >
-            {p.label}
-          </button>
-        ))}
-      </div>
-
       <div className="rp-detail-filters">
-        <DateRangeFields
-          from={dateFrom}
-          to={dateTo}
-          onFromChange={v => { setDateFrom(v); setActivePreset(CUSTOM_PRESET_ID); }}
-          onToChange={v => { setDateTo(v); setActivePreset(CUSTOM_PRESET_ID); }}
-        />
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
