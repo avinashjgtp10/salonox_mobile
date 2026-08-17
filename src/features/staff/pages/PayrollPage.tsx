@@ -225,7 +225,7 @@ const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart
 // names), so this just derives which preset that pair currently matches for
 // display — it never drives the underlying state.
 const QUICK_DATE_PRESETS: Exclude<DateRangePreset, "custom">[] = [
-  "today", "yesterday", "this_week", "last_7_days", "this_month", "last_month", "this_year", "all_time",
+  "today", "yesterday", "this_week", "this_month", "last_month", "this_quarter", "this_year", "all_time",
 ];
 function derivePayrollDatePreset(start: string, end: string): DateRangePreset {
   for (const preset of QUICK_DATE_PRESETS) {

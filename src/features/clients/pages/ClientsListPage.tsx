@@ -41,7 +41,9 @@ import {
   Modal,
   DownloadButton,
   Loader,
+  DateRangeFilter,
 } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import { useTranslation } from "react-i18next";
 
 import "../styles/ClientsListPage.scss";
@@ -152,20 +154,30 @@ export default function ClientsListPage() {
   const [showFilter, setShowFilter] = useState(false);
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
   // Created-at date range (YYYY-MM-DD) and total-sales revenue range.
-  const [dateFrom, setDateFrom] = useState("");
-  const [dateTo, setDateTo] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
   const [minRevenue, setMinRevenue] = useState("");
   const [maxRevenue, setMaxRevenue] = useState("");
 
   useEffect(() => {
-    rangeFiltersRef.current = { dateFrom, dateTo, minRevenue, maxRevenue };
-  }, [dateFrom, dateTo, minRevenue, maxRevenue]);
+    rangeFiltersRef.current = { dateFrom: dateRange.startDate, dateTo: dateRange.endDate, minRevenue, maxRevenue };
+  }, [dateRange, minRevenue, maxRevenue]);
 
-  // One badge count per active filter group (gender / date / revenue).
+  // One badge count per active filter group inside the Filters panel — date
+  // range now lives outside it as its own always-visible control, whose
+  // trigger already shows its own applied state, so it isn't counted here.
   const activeFilterCount =
     (selectedGender ? 1 : 0) +
-    (dateFrom || dateTo ? 1 : 0) +
     (minRevenue || maxRevenue ? 1 : 0);
+
+  // Date range applies immediately (it's a standalone toolbar control, not
+  // part of the deferred-apply Filters panel) — sync the ref synchronously
+  // like Apply/Clear do, since fetchClients reads from it and the state
+  // update above won't have flushed through the sync effect yet.
+  const handleDateRangeChange = (next: DateRangeFilterValue) => {
+    setDateRange(next);
+    rangeFiltersRef.current = { dateFrom: next.startDate, dateTo: next.endDate, minRevenue, maxRevenue };
+    fetchClients(1, selectedSort, selectedGender);
+  };
 
   const genderOptions = [
     "All",
@@ -207,12 +219,12 @@ export default function ClientsListPage() {
     const params: Record<string, any> = { sort_by, sort_order };
     if (selectedGender && selectedGender !== "All") params.gender = selectedGender.toLowerCase();
     if (searchQuery && searchQuery.trim()) params.search = searchQuery.trim();
-    if (dateFrom) params.created_from = dateFrom;
-    if (dateTo) params.created_to = dateTo;
+    if (dateRange.startDate) params.created_from = dateRange.startDate;
+    if (dateRange.endDate) params.created_to = dateRange.endDate;
     if (minRevenue !== "") params.min_sales = minRevenue;
     if (maxRevenue !== "") params.max_sales = maxRevenue;
     return params;
-  }, [selectedSort, selectedGender, searchQuery, dateFrom, dateTo, minRevenue, maxRevenue]);
+  }, [selectedSort, selectedGender, searchQuery, dateRange, minRevenue, maxRevenue]);
 
   // Debounced live filter: typing in the search box re-fetches the table
   // itself (page 1) instead of showing a separate floating results dropdown.
@@ -474,27 +486,6 @@ export default function ClientsListPage() {
               </div>
 
               <div className="clients-filter-field">
-                <label>Created date</label>
-                <div className="clients-filter-range">
-                  <input
-                    type="date"
-                    className="form-control form-control-lg custom-focus-select"
-                    value={dateFrom}
-                    max={dateTo || undefined}
-                    onChange={(e) => setDateFrom(e.target.value)}
-                  />
-                  <span className="clients-filter-range__sep">to</span>
-                  <input
-                    type="date"
-                    className="form-control form-control-lg custom-focus-select"
-                    value={dateTo}
-                    min={dateFrom || undefined}
-                    onChange={(e) => setDateTo(e.target.value)}
-                  />
-                </div>
-              </div>
-
-              <div className="clients-filter-field">
                 <label>Revenue ({currencySymbol})</label>
                 <div className="clients-filter-range">
                   <input
@@ -523,8 +514,7 @@ export default function ClientsListPage() {
                 className="clear-btn"
                 onClick={() => {
                   setSelectedGender(null);
-                  setDateFrom("");
-                  setDateTo("");
+                  setDateRange({ preset: "all_time", startDate: "", endDate: "" });
                   setMinRevenue("");
                   setMaxRevenue("");
                   // Sync the ref synchronously — fetchClients reads range
@@ -541,7 +531,7 @@ export default function ClientsListPage() {
               <button
                 className="apply-btn"
                 onClick={() => {
-                  rangeFiltersRef.current = { dateFrom, dateTo, minRevenue, maxRevenue };
+                  rangeFiltersRef.current = { dateFrom: dateRange.startDate, dateTo: dateRange.endDate, minRevenue, maxRevenue };
                   setShowFilter(false);
                   fetchClients(1, selectedSort, selectedGender);
                 }}
@@ -716,6 +706,8 @@ export default function ClientsListPage() {
                 </Badge>
               )}
             </Button>
+
+            <DateRangeFilter value={dateRange} onChange={handleDateRangeChange} />
           </div>
 
           <div className="sort-dropdown position-relative" ref={sortRef}>

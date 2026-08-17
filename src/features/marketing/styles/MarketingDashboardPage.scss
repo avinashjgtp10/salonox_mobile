@@ -84,13 +84,6 @@
 .mkt-filter-row   { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end; }
 .mkt-filter-group { display: flex; flex-direction: column; gap: 6px; }
 .mkt-filter-label { font-size: 10px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; }
-.mkt-filter-dates { display: flex; align-items: center; gap: 8px; }
-.mkt-date-input {
-  font-size: 12px; color: #111827; border: 1px solid #e5e7eb;
-  border-radius: 8px; padding: 6px 10px; background: #fff; outline: none;
-  &:focus { border-color: #10b981; }
-}
-.mkt-date-sep    { font-size: 12px; color: #d1d5db; }
 .mkt-pill-group  { display: flex; gap: 4px; flex-wrap: wrap; }
 .mkt-pill {
   font-size: 11px; font-weight: 500; color: #6b7280;

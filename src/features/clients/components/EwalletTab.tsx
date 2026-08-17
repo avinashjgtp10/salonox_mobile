@@ -3,6 +3,7 @@ import PlainStatCard from "./PlainStatCard";
 import Pagination from "../../../components/ui/Pagination";
 import TabToolbar from "./TabToolbar";
 import { useTableSearchSort } from "../hooks/useTableSearchSort";
+import type { DateRangeFilterValue } from "../../../components/ui";
 
 interface LedgerEntry {
   id: string;
@@ -45,7 +46,7 @@ interface Row {
 const EwalletTab: React.FC<EwalletTabProps> = ({
   balance, ledger, formatAmount, page, pageSize, onPageChange, onPageSizeChange,
 }) => {
-  const [dateRange, setDateRange] = useState({ startDate: "", endDate: "" });
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
 
   const rows: Row[] = useMemo(() => ledger.map((l) => {
     const amt = Number(l.amount ?? 0);
@@ -90,7 +91,7 @@ const EwalletTab: React.FC<EwalletTabProps> = ({
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search transactions..."
-        dateRange={{ ...dateRange, onChange: (s, e) => setDateRange({ startDate: s, endDate: e }) }}
+        dateRange={{ value: dateRange, onChange: setDateRange }}
         exportConfig={{
           title: "E-Wallet Ledger",
           headers: ["Date", "Transaction Type", "Credit", "Debit", "Balance", "Reference", "Remarks"],
