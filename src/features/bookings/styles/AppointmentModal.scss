@@ -464,19 +464,6 @@ $item-field-text-inset: 9px;
   }
 }
 
-.client-date-input {
-  height: 38px;
-  padding: 0 10px;
-  border: 1px solid $border;
-  border-radius: 8px;
-  font-size: 12.5px;
-  font-family: inherit;
-  color: $primary;
-  background: $white;
-  cursor: pointer;
-  outline: none;
-  &:focus { border-color: $info; }
-}
 
 .add-client-form {
   display: grid;

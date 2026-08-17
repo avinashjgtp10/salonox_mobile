@@ -9,7 +9,7 @@ import type { ClientPackage } from "../../../../services/api/endpoints/packages.
 import type { ClientMembership } from "../../../../services/api/endpoints/clientMemberships.endpoints";
 import type { LoyaltyEligibility } from "../../../../services/api/endpoints/memberships.endpoints";
 import api from "../../../../services/api/axios";
-import { Button } from "../../../../components/ui";
+import { Button, DatePicker } from "../../../../components/ui";
 import Skeleton from "../../../../components/ui/Skeleton";
 import Dropdown from "../../../../components/ui/Dropdown";
 import ClientHistoryModal from "../../../clients/components/ClientHistoryModal";
@@ -513,12 +513,7 @@ export const ClientPanel: React.FC<Props> = ({
           >
             + Add Client
           </button>
-          <input
-            type="date"
-            className="client-date-input"
-            value={calDate}
-            onChange={(e) => onDateChange(e.target.value)}
-          />
+          <DatePicker value={calDate} onChange={onDateChange} />
         </div>
       </div>
 

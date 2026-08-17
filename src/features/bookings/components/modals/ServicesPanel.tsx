@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import ServiceRow from "./ServiceRow";
-import { Trash, CalendarPlus, CalendarCheckFill, CalendarEvent, InfoCircle } from "react-bootstrap-icons";
+import { Trash, CalendarPlus, CalendarCheckFill, InfoCircle } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
 import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
 import type { ServiceItem, PackageItem, ProductItem, MembershipItem } from "../../types";
@@ -10,6 +10,7 @@ import { useSchedulerContext } from "../../store/SchedulerContext";
 import TimeSelect from "../shared/TimeSelect";
 import NameSelect from "../shared/NameSelect";
 import Dropdown from "../../../../components/ui/Dropdown";
+import { DatePicker } from "../../../../components/ui";
 import type { IntervalOption } from "../../types/scheduler-types";
 
 const MIN_SEARCH_LENGTH = 3;
@@ -1035,27 +1036,17 @@ function PackageRow({
                   {/* The native date glyph is hidden in CSS and replaced with
                       this icon so it matches the rest of the modal's iconography;
                       clicking anywhere in the field opens the real picker. */}
-                  <div
-                    className="pkg-schedule__date"
-                    onClick={(e) => {
-                      if (capReached) return;
-                      const input = e.currentTarget.querySelector("input");
-                      try { (input as any)?.showPicker?.(); } catch { /* not user-activated / unsupported — the field is still typable */ }
+                  <DatePicker
+                    disabled={frozen || capReached}
+                    min={new Date().toISOString().slice(0, 10)}
+                    value={svc.schedule?.scheduledAt ? svc.schedule.scheduledAt.slice(0, 10) : ""}
+                    onChange={(d) => {
+                      // Keep whatever time was already picked; a row that has
+                      // never been scheduled starts at 10:00.
+                      const time = svc.schedule?.scheduledAt ? svc.schedule.scheduledAt.slice(11, 16) : "10:00";
+                      updateRowService(i, { schedule: { ...svc.schedule, scheduledAt: `${d}T${time}` } });
                     }}
-                  >
-                    <input
-                      type="date"
-                      disabled={frozen || capReached}
-                      min={new Date().toISOString().slice(0, 10)}
-                      value={svc.schedule?.scheduledAt ? svc.schedule.scheduledAt.slice(0, 10) : ""}
-                      onChange={(e) => {
-                        const time = svc.schedule?.scheduledAt ? svc.schedule.scheduledAt.slice(11, 16) : "10:00";
-                        updateRowService(i, { schedule: { ...svc.schedule, scheduledAt: `${e.target.value}T${time}` } });
-                      }}
-                      className="svc-field__input"
-                    />
-                    <CalendarEvent size={13} aria-hidden />
-                  </div>
+                  />
                   {/* Same picker the service rows use — 12-hour labels, snapped
                       to the calendar's configured slot interval. */}
                   <TimeSelect
