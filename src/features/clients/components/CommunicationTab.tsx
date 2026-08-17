@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import Pagination from "../../../components/ui/Pagination";
 import TabToolbar from "./TabToolbar";
 import { useTableSearchSort } from "../hooks/useTableSearchSort";
+import type { DateRangeFilterValue } from "../../../components/ui";
 
 interface CommunicationEntry {
   channel: "whatsapp";
@@ -43,7 +44,7 @@ interface CommunicationTabProps {
 const CommunicationTab: React.FC<CommunicationTabProps> = ({
   entries, page, pageSize, onPageChange, onPageSizeChange,
 }) => {
-  const [dateRange, setDateRange] = useState({ startDate: "", endDate: "" });
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
 
   const rows: Row[] = useMemo(() => entries.map((e, i) => ({
     id: `${e.source}-${i}-${e.created_at}`,
@@ -79,7 +80,7 @@ const CommunicationTab: React.FC<CommunicationTabProps> = ({
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search communication history..."
-        dateRange={{ ...dateRange, onChange: (s, e) => setDateRange({ startDate: s, endDate: e }) }}
+        dateRange={{ value: dateRange, onChange: setDateRange }}
         exportConfig={{
           title: "Communication History",
           headers: ["Channel", "Campaign Name", "Sent Date & Time", "Delivery Status", "Read Status"],

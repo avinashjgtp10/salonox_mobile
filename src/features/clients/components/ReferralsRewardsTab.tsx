@@ -3,6 +3,7 @@ import PlainStatCard from "./PlainStatCard";
 import Pagination from "../../../components/ui/Pagination";
 import TabToolbar from "./TabToolbar";
 import { useTableSearchSort } from "../hooks/useTableSearchSort";
+import type { DateRangeFilterValue } from "../../../components/ui";
 
 interface LedgerEntry {
   id: string;
@@ -77,8 +78,8 @@ const ReferralsRewardsTab: React.FC<ReferralsRewardsTabProps> = ({
 }) => {
   const reward = useLedgerTable(rewardLedger, "points");
   const referral = useLedgerTable(referralLedger, "amount");
-  const [rewardDateRange, setRewardDateRange] = useState({ startDate: "", endDate: "" });
-  const [referralDateRange, setReferralDateRange] = useState({ startDate: "", endDate: "" });
+  const [rewardDateRange, setRewardDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
+  const [referralDateRange, setReferralDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
 
   const rewardRows = reward.filteredSortedRows;
   const referralRows = referral.filteredSortedRows;
@@ -143,7 +144,7 @@ const ReferralsRewardsTab: React.FC<ReferralsRewardsTabProps> = ({
         searchValue={reward.search}
         onSearchChange={reward.setSearch}
         searchPlaceholder="Search reward points history..."
-        dateRange={{ ...rewardDateRange, onChange: (s, e) => setRewardDateRange({ startDate: s, endDate: e }) }}
+        dateRange={{ value: rewardDateRange, onChange: setRewardDateRange }}
         exportConfig={{
           title: "Reward Points History",
           headers: ["Date", "Type", "Points", "Balance", "Reference", "Remarks"],
@@ -166,7 +167,7 @@ const ReferralsRewardsTab: React.FC<ReferralsRewardsTabProps> = ({
         searchValue={referral.search}
         onSearchChange={referral.setSearch}
         searchPlaceholder="Search referral credit history..."
-        dateRange={{ ...referralDateRange, onChange: (s, e) => setReferralDateRange({ startDate: s, endDate: e }) }}
+        dateRange={{ value: referralDateRange, onChange: setReferralDateRange }}
         exportConfig={{
           title: "Referral Credit History",
           headers: ["Date", "Type", "Amount", "Balance", "Reference", "Remarks"],

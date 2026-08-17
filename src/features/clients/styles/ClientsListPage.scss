@@ -459,7 +459,8 @@
     }
 
     .clients-filter-btn,
-    .clients-sort-btn {
+    .clients-sort-btn,
+    .drf {
       flex-shrink: 0;
       white-space: nowrap;
     }
@@ -535,6 +536,15 @@
     .search-section .clients-filter-btn {
       width: 100%;
       justify-content: center;
+    }
+
+    .search-section .drf,
+    .search-section .drf-trigger {
+      width: 100%;
+    }
+
+    .search-section .drf-trigger {
+      justify-content: space-between;
     }
   }
 

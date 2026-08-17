@@ -196,6 +196,10 @@ export default function CampaignHistoryPage() {
   [filteredCampaigns, page]);
 
   const hasActiveFilters = !!(search || statusFilter !== "ALL" || dateRange.preset !== "all_time");
+  // Just the fields still inside the collapsible Filters panel — date range
+  // is now a standalone always-visible control whose own trigger shows its
+  // state, so it isn't counted toward the Filters button's own badge.
+  const panelFilterCount = statusFilter !== "ALL" ? 1 : 0;
 
   const counts = {
     total:     campaigns.length,
@@ -242,12 +246,15 @@ export default function CampaignHistoryPage() {
           containerClass="mb-0 ch-search"
         />
         <button
-          className={`ch-filter-btn${filtersOpen ? " ch-filter-btn--active" : ""}${hasActiveFilters ? " ch-filter-btn--has" : ""}`}
+          className={`ch-filter-btn${filtersOpen ? " ch-filter-btn--active" : ""}${panelFilterCount > 0 ? " ch-filter-btn--has" : ""}`}
           onClick={() => setFiltersOpen(o => !o)}
         >
           ⚙ Filters
-          {hasActiveFilters && <span className="ch-filter-dot" />}
+          {panelFilterCount > 0 && <span className="ch-filter-dot" />}
         </button>
+
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
+
         {hasActiveFilters && (
           <button className="ch-clear-btn" onClick={() => {
             setSearch(""); setStatusFilter("ALL"); setDateRange({ preset: "all_time", startDate: "", endDate: "" });
@@ -274,10 +281,6 @@ export default function CampaignHistoryPage() {
                   </button>
                 ))}
               </div>
-            </div>
-            <div className="ch-filter-group">
-              <label className="ch-filter-label">Date range</label>
-              <DateRangeFilter value={dateRange} onChange={setDateRange} />
             </div>
           </div>
         </div>

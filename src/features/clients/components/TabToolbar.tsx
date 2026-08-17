@@ -1,6 +1,7 @@
 import React from "react";
 import { Search } from "react-bootstrap-icons";
-import DateRangePicker from "../../../components/ui/DateRangePicker";
+import { DateRangeFilter } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 
 interface TabToolbarProps {
@@ -9,9 +10,8 @@ interface TabToolbarProps {
   searchPlaceholder?: string;
   /** Omit when a tab genuinely has no per-row date to filter on. */
   dateRange?: {
-    startDate: string;
-    endDate: string;
-    onChange: (startDate: string, endDate: string) => void;
+    value: DateRangeFilterValue;
+    onChange: (value: DateRangeFilterValue) => void;
   };
   exportConfig: {
     title: string;
@@ -38,9 +38,8 @@ const TabToolbar: React.FC<TabToolbarProps> = ({
       />
     </div>
     {dateRange && (
-      <DateRangePicker
-        startDate={dateRange.startDate}
-        endDate={dateRange.endDate}
+      <DateRangeFilter
+        value={dateRange.value}
         onChange={dateRange.onChange}
       />
     )}

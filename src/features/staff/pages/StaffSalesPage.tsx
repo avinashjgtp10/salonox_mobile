@@ -129,6 +129,10 @@ export default function StaffSalesPage() {
 
   const activeFilters =
     (statusFilter !== "all" ? 1 : 0) + (dateRange.preset !== "all_time" ? 1 : 0);
+  // Just the fields still inside the collapsible Filters panel — date range
+  // is now a standalone always-visible control whose own trigger shows its
+  // state, so it isn't counted toward the Filters button's own badge.
+  const panelFilterCount = statusFilter !== "all" ? 1 : 0;
 
   const clearFilters = () => {
     setStatusFilter("all");
@@ -224,15 +228,20 @@ export default function StaffSalesPage() {
         </div>
 
         <button
-          className={`sale-page__filter-btn ${activeFilters > 0 ? "sale-page__filter-btn--active" : ""}`}
+          className={`sale-page__filter-btn ${panelFilterCount > 0 ? "sale-page__filter-btn--active" : ""}`}
           onClick={() => setShowFilters(!showFilters)}
         >
           <Filter size={13} />
           Filters
-          {activeFilters > 0 && (
-            <span className="sale-page__filter-count">{activeFilters}</span>
+          {panelFilterCount > 0 && (
+            <span className="sale-page__filter-count">{panelFilterCount}</span>
           )}
         </button>
+
+        <DateRangeFilter
+          value={dateRange}
+          onChange={(next) => { setDateRange(next); setPage(1); }}
+        />
       </div>
 
       {/* ── Filter Panel ── */}
@@ -252,14 +261,7 @@ export default function StaffSalesPage() {
               ))}
             </div>
           </div>
-          <div className="sale-filter-group">
-            <label className="sale-filter-label">Date Range</label>
-            <DateRangeFilter
-              value={dateRange}
-              onChange={(next) => { setDateRange(next); setPage(1); }}
-            />
-          </div>
-          {activeFilters > 0 && (
+          {panelFilterCount > 0 && (
             <button className="sale-clear-btn" onClick={clearFilters}>
               Clear all
             </button>
