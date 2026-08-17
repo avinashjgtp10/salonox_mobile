@@ -8,7 +8,7 @@ import Breadcrumb from "../../../components/ui/Breadcrumb";
 import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
 import { SkeletonTableRows, SkeletonStatCards } from "./ReportSkeleton";
-import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DatePicker } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
@@ -211,7 +211,7 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
       <div className="rp-detail-filters">
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Date</label>
-          <input type="date" value={date} onChange={e => setDate(e.target.value)} className="rp-detail-date-input rp-detail-date-input--boxed" />
+          <DatePicker value={date} onChange={setDate} />
         </div>
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">

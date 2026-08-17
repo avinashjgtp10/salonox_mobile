@@ -9,6 +9,7 @@ import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import CountryCodeSelect from "./CountryCodeSelect";
 import ClientSelect from "./ClientSelect";
+import { DatePicker } from "../../../components/ui";
 import "../styles/ClientHistoryModal.scss";
 import "./QuickEditClientModal.scss";
 
@@ -183,12 +184,10 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved }: Pro
               />
 
               <label className="qec-label">Date of Birth</label>
-              <input
-                className="qec-input"
-                type="date"
+              <DatePicker
                 max={today}
                 value={dob}
-                onChange={(e) => { setDob(e.target.value); setError(null); }}
+                onChange={(d) => { setDob(d); setError(null); }}
               />
 
               <label className="qec-label">Client Source</label>

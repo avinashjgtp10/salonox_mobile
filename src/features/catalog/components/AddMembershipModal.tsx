@@ -22,6 +22,7 @@ import type { AppDispatch } from "../../../store/store";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import { toTitleCase } from "../../../utils/titleCase";
+import { DatePicker } from "../../../components/ui";
 import { createMembershipThunk, updateMembershipThunk } from "../../../middleware/membership/membership.thunk";
 import { selectMembershipsSubmitting, selectMembershipsError } from "../../../store/selectors/membership.selectors";
 import { clearMembershipError } from "../../../store/membershipSlice";
@@ -409,12 +410,10 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                   {pricingType !== "loyalty" && (
                     <div className="amm__field">
                       <label className="amm__label">Expiry <span className="amm__req">*</span></label>
-                      <input
-                        type="date"
-                        className={`amm__input${errors.expiryDate ? " amm__input--err" : ""}`}
+                      <DatePicker
                         min={toIsoDate(addDays(todayMidnight(), 1))}
                         value={form.expiryDate}
-                        onChange={(e) => patch({ expiryDate: e.target.value })}
+                        onChange={(d) => patch({ expiryDate: d })}
                       />
                       {errors.expiryDate
                         ? <p className="amm__err">{errors.expiryDate}</p>

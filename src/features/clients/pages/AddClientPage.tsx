@@ -8,6 +8,7 @@ import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import CountryCodeSelect from "../components/CountryCodeSelect";
 import Dropdown from "../../../components/ui/Dropdown";
+import { DatePicker } from "../../../components/ui";
 import { toTitleCase } from "../../../utils/titleCase";
 
 const DOB_PLACEHOLDER_YEAR = 2000;
@@ -447,23 +448,19 @@ const AddClientPage: React.FC = () => {
 
               <div className="cli-field">
                 <label className="cli-field__label">Birthday</label>
-                <input
-                  className={`cli-input ${isBirthdayInvalid ? "cli-input--invalid" : ""}`}
-                  type="date"
+                <DatePicker
                   max={today}
                   value={form.birthday}
-                  onChange={(e) => setField("birthday")(e.target.value)}
+                  onChange={setField("birthday")}
                 />
                 {isBirthdayInvalid && <span className="cli-field__error">Birthday cannot be in the future</span>}
               </div>
 
               <div className="cli-field">
                 <label className="cli-field__label">Anniversary</label>
-                <input
-                  className="cli-input"
-                  type="date"
+                <DatePicker
                   value={form.anniversary}
-                  onChange={(e) => setField("anniversary")(e.target.value)}
+                  onChange={setField("anniversary")}
                 />
               </div>
 
