@@ -28,9 +28,9 @@ export { default as PhoneInput } from "./PhoneInput";
 export type { PhoneInputProps } from "./PhoneInput";
 export { default as CountryPhoneSelect } from "./CountryPhoneSelect";
 export type { CountryOption } from "./CountryPhoneSelect";
-export { default as DateRangePicker } from "./DateRangePicker";
-export type { DateRangePickerProps } from "./DateRangePicker";
-export { default as DateRangeFields, getDateRangeError } from "./DateRangeFields";
+// The app's only two date controls: DateRangeFilter for a from/to span,
+// DatePicker for a single date. The older DateRangePicker/DateRangeFields
+// were removed — don't reintroduce a third.
 export {
   default as DateRangeFilter,
   DATE_RANGE_PRESET_LABELS,
@@ -38,6 +38,7 @@ export {
   getDateRangePresetValue,
 } from "./DateRangeFilter";
 export type { DateRangePreset, DateRangeFilterValue } from "./DateRangeFilter";
+export { default as DatePicker } from "./DatePicker";
 export { default as SuccessOverlay } from "./SuccessOverlay";
 export { default as ErrorOverlay } from "./ErrorOverlay";
 export { default as MultiSelectCheckbox } from "./MultiSelectCheckbox";

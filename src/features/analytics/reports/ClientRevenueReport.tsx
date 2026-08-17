@@ -7,10 +7,9 @@ import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
-import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue, DATE_RANGE_PRESET_LABELS } from "../../../components/ui";
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import DateRangeFields from "../../../components/ui/DateRangeFields";
 import Select from "../../../components/ui/Select";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
@@ -92,36 +91,6 @@ const SORT_OPTIONS: { label: string; sortBy: string; sortDir: "asc" | "desc" }[]
   { label: "Client Name (Z–A)", sortBy: "client_name", sortDir: "desc" },
 ];
 
-const LAST_VISIT_PRESET_LABELS: Record<string, string> = {
-  today: "Today",
-  yesterday: "Yesterday",
-  last7: "Last 7 Days",
-  last30: "Last 30 Days",
-  custom: "Custom Date Range",
-};
-
-function lastVisitPresetRange(preset: string): { from: string; to: string } | null {
-  const now = new Date();
-  const iso = (d: Date) => d.toISOString().slice(0, 10);
-  if (preset === "today") return { from: iso(now), to: iso(now) };
-  if (preset === "yesterday") {
-    const y = new Date(now);
-    y.setDate(y.getDate() - 1);
-    return { from: iso(y), to: iso(y) };
-  }
-  if (preset === "last7") {
-    const s = new Date(now);
-    s.setDate(s.getDate() - 6);
-    return { from: iso(s), to: iso(now) };
-  }
-  if (preset === "last30") {
-    const s = new Date(now);
-    s.setDate(s.getDate() - 29);
-    return { from: iso(s), to: iso(now) };
-  }
-  return null;
-}
-
 export default function ClientRevenueReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
@@ -131,9 +100,10 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
   const [membershipFilter, setMembershipFilter] = useState<string[]>([]);
   const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
   const [staffOptions, setStaffOptions] = useState<{ id: string; label: string }[]>([]);
-  const [lastVisitPreset, setLastVisitPreset] = useState("All");
-  const [lastVisitFrom, setLastVisitFrom] = useState("");
-  const [lastVisitTo, setLastVisitTo] = useState("");
+  // Independent of the primary range above — this one narrows by each
+  // client's own last-visit date (last_visit_from/last_visit_to), so it gets
+  // its own DateRangeFilter rather than sharing the page's range.
+  const [lastVisitRange, setLastVisitRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
   const [sortBy, setSortBy] = useState("last_visit");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [search,      setSearchInput] = useState("");
@@ -188,10 +158,10 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
       if (genderFilter.length === 1) body.gender = genderFilter[0];
       if (membershipFilter.length === 1) body.membership_status = membershipFilter[0];
       if (staffFilterIds.length > 0) body.staff_ids = staffFilterIds;
-      const lv = lastVisitPreset === "custom"
-        ? (lastVisitFrom && lastVisitTo ? { from: lastVisitFrom, to: lastVisitTo } : null)
-        : lastVisitPresetRange(lastVisitPreset);
-      if (lv) { body.last_visit_from = lv.from; body.last_visit_to = lv.to; }
+      if (lastVisitRange.startDate && lastVisitRange.endDate) {
+        body.last_visit_from = lastVisitRange.startDate;
+        body.last_visit_to = lastVisitRange.endDate;
+      }
       body.sort_by = sortBy;
       body.sort_dir = sortDir;
       const res = await api.post(CLIENT_REVENUE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
@@ -216,7 +186,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
     }
   }, [
     dateFrom, dateTo, debouncedSearch,
-    genderFilter, membershipFilter, staffFilterIds, lastVisitPreset, lastVisitFrom, lastVisitTo,
+    genderFilter, membershipFilter, staffFilterIds, lastVisitRange,
     sortBy, sortDir, currentPage, pageSize,
   ]);
 
@@ -225,7 +195,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
     setCurrentPage(1);
   }, [
     dateFrom, dateTo, debouncedSearch,
-    genderFilter, membershipFilter, staffFilterIds, lastVisitPreset, lastVisitFrom, lastVisitTo,
+    genderFilter, membershipFilter, staffFilterIds, lastVisitRange,
     sortBy, sortDir,
   ]);
 
@@ -278,7 +248,9 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
                 ...(staffFilterIds.length > 0
                   ? [`Staff: ${staffOptions.filter(o => staffFilterIds.includes(o.id)).map(o => o.label).join(", ")}`]
                   : []),
-                ...(lastVisitPreset !== "All" ? [`Last Visit: ${LAST_VISIT_PRESET_LABELS[lastVisitPreset] ?? lastVisitPreset}`] : []),
+                ...(lastVisitRange.preset !== "all_time"
+                  ? [`Last Visit: ${DATE_RANGE_PRESET_LABELS[lastVisitRange.preset]}${lastVisitRange.preset === "custom" ? ` (${lastVisitRange.startDate} - ${lastVisitRange.endDate})` : ""}`]
+                  : []),
                 `Sort: ${currentSortLabel}`,
               ]}
               summaryLines={[
@@ -295,21 +267,10 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
       <div className="rp-detail-filters">
         <DateRangeFilter value={dateRange} onChange={setDateRange} />
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
-        <Select containerClass="rp-cr-filter-field" value={lastVisitPreset} onChange={e => setLastVisitPreset(e.target.value)}>
-          <option value="All">Last Visit: All</option>
-          <option value="today">Today</option>
-          <option value="yesterday">Yesterday</option>
-          <option value="last7">Last 7 Days</option>
-          <option value="last30">Last 30 Days</option>
-          <option value="custom">Custom Date Range</option>
-        </Select>
-        {lastVisitPreset === "custom" && (
-          <DateRangeFields
-            from={lastVisitFrom} to={lastVisitTo}
-            onFromChange={setLastVisitFrom} onToChange={setLastVisitTo}
-            hideLabel containerClassName="rp-cr-filter-field"
-          />
-        )}
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Last Visit</label>
+          <DateRangeFilter value={lastVisitRange} onChange={setLastVisitRange} />
+        </div>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
