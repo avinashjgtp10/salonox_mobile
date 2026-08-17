@@ -4,8 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { Search, PlusLg, PencilSquare, Trash3, ChatSquareText, ThreeDotsVertical, CalendarCheck, ArrowCounterclockwise, ExclamationCircle } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { ENQUIRY } from "../../../services/api/endpoints";
-import { Pagination, JiraFilterMenu, Modal, Button, Input, DateRangePicker } from "../../../components/ui";
-import type { JiraFilterField } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, Modal, Button, Input, DateRangeFilter } from "../../../components/ui";
+import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import EnquiryViewModal from "../components/EnquiryViewModal";
 import EnquiryRescheduleModal from "../components/EnquiryRescheduleModal";
 import { formatEnquiryId, formatEnquiryDate, formatFollowUpAt, datetimeLocalToIso } from "../utils/enquiryFormat";
@@ -35,8 +35,7 @@ export default function EnquiriesListPage() {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string[]>([]);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -55,6 +54,8 @@ export default function EnquiriesListPage() {
   const kebabPortalRef = useRef<HTMLUListElement>(null);
 
   const abortRef = useRef<AbortController | null>(null);
+
+  const { startDate, endDate } = dateRange;
 
   const dateError = useMemo(() => {
     if (startDate && endDate && startDate > endDate) {
@@ -225,20 +226,7 @@ export default function EnquiriesListPage() {
           />
         </div>
 
-        <DateRangePicker
-          startDate={startDate}
-          endDate={endDate}
-          showQuickPresets
-          onChange={(start, end) => {
-            setStartDate(start);
-            setEndDate(end);
-          }}
-          onClear={() => {
-            setStartDate("");
-            setEndDate("");
-          }}
-          placeholder="Filter by Date Range"
-        />
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
         <JiraFilterMenu
           fields={STATUS_FILTER_FIELDS}
@@ -246,15 +234,14 @@ export default function EnquiriesListPage() {
           onApply={(next) => setStatusFilter(next.status ?? [])}
         />
 
-        {(search || statusFilter.length > 0 || startDate || endDate) && (
+        {(search || statusFilter.length > 0 || dateRange.preset !== "all_time") && (
           <button
             type="button"
             className="enq-btn-reset-filters"
             onClick={() => {
               setSearch("");
               setStatusFilter([]);
-              setStartDate("");
-              setEndDate("");
+              setDateRange({ preset: "all_time", startDate: "", endDate: "" });
             }}
             title="Reset All Filters"
           >
