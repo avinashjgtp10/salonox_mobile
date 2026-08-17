@@ -10,6 +10,7 @@ import {
   selectCategoriesLoading,
   selectCategoriesError,
 } from "../../../store/selectors/slices.selectors";
+import { toTitleCase } from "../../../utils/titleCase";
 
 export const useCategories = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -22,11 +23,11 @@ export const useCategories = () => {
   // fall through to the backend's 'both' default and leak into the Product
   // picker too. An explicit type (rare) still overrides it.
   const createCategory = async (cat: { name: string; description?: string; color?: string; type?: CategoryType }) => {
-    await dispatch(createCategoryThunk({ ...cat, type: cat.type ?? "service" }));
+    await dispatch(createCategoryThunk({ ...cat, name: toTitleCase(cat.name.trim()), type: cat.type ?? "service" }));
   };
 
   const updateCategory = async (id: string, data: { name: string; description?: string; type?: CategoryType }) => {
-    await dispatch(updateCategoryThunk({ id, data }));
+    await dispatch(updateCategoryThunk({ id, data: { ...data, name: toTitleCase(data.name.trim()) } }));
   };
 
   const deleteCategory = async (id: string) => {

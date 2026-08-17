@@ -17,6 +17,7 @@ import {
   type FetchProductsParams,
   type ExportProductsParams,
 } from "../../../middleware/catalog/products.thunk";
+import { toTitleCase } from "../../../utils/titleCase";
 
 export const useProducts = () => {
   const dispatch = useDispatch<AppDispatch>();
@@ -40,7 +41,7 @@ export const useProducts = () => {
   }, [dispatch]);
 
   const createBrand = useCallback((name: string) => {
-    return dispatch(createBrandThunk({ name }));
+    return dispatch(createBrandThunk({ name: toTitleCase(name.trim()) }));
   }, [dispatch]);
 
   const deleteBrand = useCallback((id: string) => {
@@ -60,7 +61,7 @@ export const useProducts = () => {
   }, [dispatch]);
 
   const createCategory = useCallback((name: string) => {
-    return dispatch(createCategoryThunk({ name, type: "product" }));
+    return dispatch(createCategoryThunk({ name: toTitleCase(name.trim()), type: "product" }));
   }, [dispatch]);
 
   const deleteCategory = useCallback((id: string) => {

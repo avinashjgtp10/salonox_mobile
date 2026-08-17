@@ -21,6 +21,7 @@ import {
 import type { AppDispatch } from "../../../store/store";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
+import { toTitleCase } from "../../../utils/titleCase";
 import { createMembershipThunk, updateMembershipThunk } from "../../../middleware/membership/membership.thunk";
 import { selectMembershipsSubmitting, selectMembershipsError } from "../../../store/selectors/membership.selectors";
 import { clearMembershipError } from "../../../store/membershipSlice";
@@ -267,7 +268,7 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
     });
 
     const payload = {
-      name: form.name.trim(),
+      name: toTitleCase(form.name.trim()),
       description: metaDescription,
       includedServices: [],
       sessionType: "unlimited",

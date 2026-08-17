@@ -9,6 +9,7 @@ import {
 } from "../../../../middleware/services/services.thunk";
 import type { FormsData, ServiceConsultationFormValues, ServiceForm, TeamMember } from "../../types/catalog.types.ts";
 import ConsultationFormModal from "../ConsultationFormModal.tsx";
+import { toTitleCase } from "../../../../utils/titleCase";
 
 interface Props {
   data: FormsData;
@@ -66,7 +67,7 @@ const FormsTab: React.FC<Props> = ({ data, onChange, serviceId, staffMembers = [
   };
 
   const handleCreateForm = async () => {
-    const name = newFormName.trim();
+    const name = toTitleCase(newFormName.trim());
     if (!name) return;
 
     if (serviceId) {

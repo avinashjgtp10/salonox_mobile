@@ -8,6 +8,7 @@ import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import CountryCodeSelect from "../components/CountryCodeSelect";
 import Dropdown from "../../../components/ui/Dropdown";
+import { toTitleCase } from "../../../utils/titleCase";
 
 const DOB_PLACEHOLDER_YEAR = 2000;
 
@@ -258,8 +259,8 @@ const AddClientPage: React.FC = () => {
       }
 
       const payload: Record<string, any> = {
-        first_name: form.firstName.trim(),
-        last_name: form.lastName.trim() || null,
+        first_name: toTitleCase(form.firstName.trim()),
+        last_name: form.lastName.trim() ? toTitleCase(form.lastName.trim()) : null,
         email: form.email.trim() || null,
         phone_number: form.phone.trim(),
         phone_country_code: form.phoneCountryCode,

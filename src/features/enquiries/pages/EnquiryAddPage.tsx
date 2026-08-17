@@ -10,6 +10,7 @@ import api from "../../../services/api/axios";
 import { ENQUIRY } from "../../../services/api/endpoints";
 import { datetimeLocalToIso, isoToDatetimeLocal } from "../utils/enquiryFormat";
 import { DEFAULT_ENQUIRY_STATUSES, ENQUIRY_SOURCES, type EnquiryFormValues } from "../types/enquiry.types";
+import { toTitleCase } from "../../../utils/titleCase";
 import "../styles/EnquiryAddPage.scss";
 
 /** Enquiry stores a plain national number (no country code field), so the
@@ -141,7 +142,7 @@ export default function EnquiryAddPage() {
     setIsSaving(true);
     try {
       const payload = {
-        name: form.name.trim(),
+        name: toTitleCase(form.name.trim()),
         phone: toNationalPhone(form.phone.trim()),
         service_id: form.service_id || null,
         staff_id: form.staff_id || null,

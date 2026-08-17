@@ -17,6 +17,7 @@ import CountryCodeSelect from "../../clients/components/CountryCodeSelect";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { sendEmailOtpThunk, verifyEmailOtpThunk } from "../../../middleware/auth/otpThunk";
+import { toTitleCase } from "../../../utils/titleCase";
 
 // Three real choices only. There used to be a leading { value: "", label:
 // "Gender" } entry — the standard trick for giving a native <select> a
@@ -301,7 +302,7 @@ const AddStaffPage: React.FC = () => {
     try {
       setIsLoading(true);
 
-      const nameParts = form.name.trim().split(/\s+/);
+      const nameParts = toTitleCase(form.name.trim()).split(/\s+/);
       const first_name = nameParts[0];
       const last_name = nameParts.slice(1).join(" ") || undefined;
 

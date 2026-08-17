@@ -8,6 +8,7 @@ import { ExcelUpload } from "../components";
 import { Button, Input } from "../../../components/ui";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useOnce } from "../../../hooks/useOnce";
+import { toTitleCase } from "../../../utils/titleCase";
 import api from "../../../services/api/axios";
 import "../styles/CreateCampaignPage.scss";
 
@@ -322,7 +323,7 @@ const hasAnyFilter =
       return;
     }
     const result = await dispatch(createCampaignThunk({
-      name:         form.name,
+      name:         toTitleCase(form.name.trim()),
       template_id:  form.templateId,
       batch_size:   form.batchSize,
       scheduled_at: scheduledAt || null,

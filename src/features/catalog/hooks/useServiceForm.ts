@@ -12,6 +12,7 @@ import {
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
 import { selectAllServices } from "../../../store/selectors/slices.selectors";
 import type { CatalogFormData, Service, ConsumableUsagePayloadItem } from "../types/catalog.types.ts";
+import { toTitleCase } from "../../../utils/titleCase";
 
 // One hook for create AND edit, mirroring ProductFormPage's single-page
 // approach. They used to be two hooks with two payload builders, which had
@@ -118,7 +119,7 @@ const buildPayload = (formData: CatalogFormData, allStaffIds: string[]) => {
     allStaffIds.every((id) => selected.includes(id));
 
   return {
-    name: formData.basic.name,
+    name: toTitleCase(formData.basic.name.trim()),
     description: formData.basic.description || undefined,
     category_id: formData.basic.categoryId || null,
     price: formData.basic.price,
