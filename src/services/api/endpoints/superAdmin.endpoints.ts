@@ -1,7 +1,6 @@
 export const SUPER_ADMIN = {
   LOGIN:          "/api/v1/super-admin/login",
   STATS:          "/api/v1/super-admin/stats",
-  RECENT_LOGINS:     "/api/v1/super-admin/recent-logins",
   FREQUENT_LOGINS:   "/api/v1/super-admin/frequent-logins",
   USERS_NO_PLAN:          "/api/v1/super-admin/users-no-plan",
   SALON_PERMISSIONS_SEARCH: "/api/v1/super-admin/salon-permissions/search",
@@ -17,6 +16,7 @@ export const SUPER_ADMIN = {
   SALON_ONBOARD: (id: string) => `/api/v1/super-admin/salons/${id}/onboarding`,
   SALON_IMPERSONATE: (id: string) => `/api/v1/super-admin/salons/${id}/impersonate`,
   SALON_DELETE:      (id: string) => `/api/v1/super-admin/salons/${id}`,
+  SALON_STAFF:       (id: string) => `/api/v1/super-admin/salons/${id}/staff`,
   PAYMENTS:      "/api/v1/super-admin/payments",
   USERS:         "/api/v1/super-admin/users",
   USER_STATUS:   (id: string) => `/api/v1/super-admin/users/${id}/status`,
@@ -25,8 +25,6 @@ export const SUPER_ADMIN = {
   USER_IMPERSONATE:  (id: string) => `/api/v1/super-admin/users/${id}/impersonate`,
   USER_DELETE:       (id: string) => `/api/v1/super-admin/users/${id}`,
   USER_CREATE:       "/api/v1/super-admin/users/create",
-  SUBSCRIPTIONS: "/api/v1/super-admin/subscriptions",
-  PLANS:         "/api/v1/super-admin/plans",
   DEMO_REQUESTS:        "/api/v1/super-admin/demo-requests",
   DEMO_REQUEST_STATUS:  (id: string) => `/api/v1/super-admin/demo-requests/${id}/status`,
 } as const;

@@ -12,7 +12,11 @@ import api from "../../../services/api/axios";
 import { STAFF, SALE, ATTENDANCE, REVIEWS } from "../../../services/api/endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
 import Dropdown from "../../../components/ui/Dropdown";
+import { DateRangeFilter } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import "../styles/StaffHistoryPage.scss";
+
+const DEFAULT_TAB_DATE_RANGE: DateRangeFilterValue = { preset: "all_time", startDate: "", endDate: "" };
 
 // ─── Shared types/helpers ───────────────────────────────────────────────────
 
@@ -348,8 +352,7 @@ function OverviewTab({ salesTotal, servicesRecent, commissionTotal, attendancePc
 function TimelineTab({ staffId }: { staffId: string }) {
   const { formatAmount: fmtMoney } = useCurrency();
   const [typeFilter, setTypeFilter] = useState("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>(DEFAULT_TAB_DATE_RANGE);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(TAB_PAGE_SIZE);
 
@@ -383,6 +386,7 @@ function TimelineTab({ staffId }: { staffId: string }) {
   }, [items, attendance]);
 
   const filteredEvents = useMemo(() => {
+    const { startDate, endDate } = dateRange;
     return events.filter((e) => {
       const matchesType = typeFilter === "all" || e.type === typeFilter;
       const eventDate = e.at ? e.at.slice(0, 10) : "";
@@ -390,9 +394,9 @@ function TimelineTab({ staffId }: { staffId: string }) {
       const matchesEnd = !endDate || eventDate <= endDate;
       return matchesType && matchesStart && matchesEnd;
     });
-  }, [events, typeFilter, startDate, endDate]);
+  }, [events, typeFilter, dateRange]);
 
-  useEffect(() => { setCurrentPage(1); }, [typeFilter, startDate, endDate, pageSize]);
+  useEffect(() => { setCurrentPage(1); }, [typeFilter, dateRange, pageSize]);
 
   const totalPages = Math.ceil(filteredEvents.length / pageSize) || 1;
   const paginatedEvents = useMemo(() => {
@@ -420,12 +424,8 @@ function TimelineTab({ staffId }: { staffId: string }) {
           />
         </div>
         <div className="shp-filter-group">
-          <label>From:</label>
-          <input className="shp-input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        </div>
-        <div className="shp-filter-group">
-          <label>To:</label>
-          <input className="shp-input" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <label>Date:</label>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
       </div>
 
@@ -465,8 +465,7 @@ function ServicesTab({ staffId }: { staffId: string }) {
   const { formatAmount: fmtMoney } = useCurrency();
   const [search, setSearch] = useState("");
   const [sourceFilter, setSourceFilter] = useState("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>(DEFAULT_TAB_DATE_RANGE);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(TAB_PAGE_SIZE);
 
@@ -476,6 +475,7 @@ function ServicesTab({ staffId }: { staffId: string }) {
   );
 
   const filtered = useMemo(() => {
+    const { startDate, endDate } = dateRange;
     return data.filter((i) => {
       const q = search.toLowerCase();
       const name = i.name.toLowerCase();
@@ -496,9 +496,9 @@ function ServicesTab({ staffId }: { staffId: string }) {
 
       return matchesSearch && matchesSource && matchesStart && matchesEnd;
     });
-  }, [data, search, sourceFilter, startDate, endDate]);
+  }, [data, search, sourceFilter, dateRange]);
 
-  useEffect(() => { setCurrentPage(1); }, [search, sourceFilter, startDate, endDate, pageSize]);
+  useEffect(() => { setCurrentPage(1); }, [search, sourceFilter, dateRange, pageSize]);
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
@@ -536,12 +536,8 @@ function ServicesTab({ staffId }: { staffId: string }) {
           />
         </div>
         <div className="shp-filter-group">
-          <label>From:</label>
-          <input className="shp-input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        </div>
-        <div className="shp-filter-group">
-          <label>To:</label>
-          <input className="shp-input" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <label>Date:</label>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
       </div>
 
@@ -585,8 +581,7 @@ function SalesTab({ staffId }: { staffId: string }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>(DEFAULT_TAB_DATE_RANGE);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(TAB_PAGE_SIZE);
 
@@ -596,6 +591,7 @@ function SalesTab({ staffId }: { staffId: string }) {
   );
 
   const filtered = useMemo(() => {
+    const { startDate, endDate } = dateRange;
     return data.filter((s) => {
       const q = search.toLowerCase();
       const client = (s.client_name ?? "Walk-in").toLowerCase();
@@ -611,9 +607,9 @@ function SalesTab({ staffId }: { staffId: string }) {
 
       return matchesSearch && matchesStatus && matchesPayment && matchesStart && matchesEnd;
     });
-  }, [data, search, statusFilter, paymentFilter, startDate, endDate]);
+  }, [data, search, statusFilter, paymentFilter, dateRange]);
 
-  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, paymentFilter, startDate, endDate, pageSize]);
+  useEffect(() => { setCurrentPage(1); }, [search, statusFilter, paymentFilter, dateRange, pageSize]);
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
@@ -666,12 +662,8 @@ function SalesTab({ staffId }: { staffId: string }) {
           />
         </div>
         <div className="shp-filter-group">
-          <label>From:</label>
-          <input className="shp-input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        </div>
-        <div className="shp-filter-group">
-          <label>To:</label>
-          <input className="shp-input" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <label>Date:</label>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
       </div>
 
@@ -831,8 +823,7 @@ interface ReviewStats {
 
 function ReviewsTab({ staffId }: { staffId: string }) {
   const [ratingFilter, setRatingFilter] = useState("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>(DEFAULT_TAB_DATE_RANGE);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(TAB_PAGE_SIZE);
 
@@ -846,6 +837,7 @@ function ReviewsTab({ staffId }: { staffId: string }) {
   );
 
   const filtered = useMemo(() => {
+    const { startDate, endDate } = dateRange;
     return data.filter((r) => {
       const matchesRating = ratingFilter === "all" || String(r.rating) === ratingFilter;
       const d = r.created_at ? r.created_at.slice(0, 10) : "";
@@ -853,9 +845,9 @@ function ReviewsTab({ staffId }: { staffId: string }) {
       const matchesEnd = !endDate || d <= endDate;
       return matchesRating && matchesStart && matchesEnd;
     });
-  }, [data, ratingFilter, startDate, endDate]);
+  }, [data, ratingFilter, dateRange]);
 
-  useEffect(() => { setCurrentPage(1); }, [ratingFilter, startDate, endDate, pageSize]);
+  useEffect(() => { setCurrentPage(1); }, [ratingFilter, dateRange, pageSize]);
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
@@ -886,12 +878,8 @@ function ReviewsTab({ staffId }: { staffId: string }) {
           />
         </div>
         <div className="shp-filter-group">
-          <label>From:</label>
-          <input className="shp-input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        </div>
-        <div className="shp-filter-group">
-          <label>To:</label>
-          <input className="shp-input" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <label>Date:</label>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
       </div>
 
@@ -934,8 +922,7 @@ function ReviewsTab({ staffId }: { staffId: string }) {
 
 function AttendanceTab({ staffId }: { staffId: string }) {
   const [statusFilter, setStatusFilter] = useState("all");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>(DEFAULT_TAB_DATE_RANGE);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(TAB_PAGE_SIZE);
 
@@ -945,6 +932,7 @@ function AttendanceTab({ staffId }: { staffId: string }) {
   );
 
   const filtered = useMemo(() => {
+    const { startDate, endDate } = dateRange;
     return data.filter((a) => {
       const matchesStatus = statusFilter === "all" || a.status === statusFilter;
       const d = a.date ? a.date.slice(0, 10) : "";
@@ -952,9 +940,9 @@ function AttendanceTab({ staffId }: { staffId: string }) {
       const matchesEnd = !endDate || d <= endDate;
       return matchesStatus && matchesStart && matchesEnd;
     });
-  }, [data, statusFilter, startDate, endDate]);
+  }, [data, statusFilter, dateRange]);
 
-  useEffect(() => { setCurrentPage(1); }, [statusFilter, startDate, endDate, pageSize]);
+  useEffect(() => { setCurrentPage(1); }, [statusFilter, dateRange, pageSize]);
 
   const totalPages = Math.ceil(filtered.length / pageSize) || 1;
   const paginatedData = useMemo(() => {
@@ -985,12 +973,8 @@ function AttendanceTab({ staffId }: { staffId: string }) {
           />
         </div>
         <div className="shp-filter-group">
-          <label>From:</label>
-          <input className="shp-input" type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-        </div>
-        <div className="shp-filter-group">
-          <label>To:</label>
-          <input className="shp-input" type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
+          <label>Date:</label>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
       </div>
 

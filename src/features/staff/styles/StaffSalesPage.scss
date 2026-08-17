@@ -249,31 +249,6 @@ $radius-sm: 8px;
   &--active { background: $accent; border-color: $accent; color: $white; }
 }
 
-.sale-date-range {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.sale-date-input {
-  height: 34px;
-  padding: 0 10px;
-  border: 1px solid $border;
-  border-radius: $radius-sm;
-  font-family: $font;
-  font-size: 13px;
-  color: $primary;
-  outline: none;
-  background: $white;
-
-  &:focus { border-color: $accent; }
-}
-
-.sale-date-sep {
-  font-size: 12px;
-  color: $muted;
-}
-
 .sale-clear-btn {
   padding: 6px 14px;
   border: 1px solid $border;
