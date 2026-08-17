@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchSuperAdminStatsThunk, fetchSuperAdminSalonsThunk, fetchSuperAdminPaymentsThunk, fetchRecentLoginsThunk, fetchFrequentLoginsThunk, fetchUsersNoPlanThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
+import { fetchSuperAdminStatsThunk, fetchSuperAdminSalonsThunk, fetchSuperAdminPaymentsThunk, fetchFrequentLoginsThunk, fetchUsersNoPlanThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
+import { fetchSupportStatsThunk } from "../../../middleware/support/support.thunk";
 
 function StatCard({ label, value, sub, icon, accent, bg }: {
   label: string; value: string | number; sub?: string;
@@ -43,15 +44,16 @@ function Badge({ status }: { status: string }) {
 
 export default function OverviewPage() {
   const dispatch = useAppDispatch();
-  const { stats, salons, payments, recentLogins, frequentLogins, usersNoPlan, loading } = useAppSelector((s) => s.superAdmin);
+  const { stats, salons, payments, frequentLogins, usersNoPlan, loading } = useAppSelector((s) => s.superAdmin);
+  const { stats: supportStats } = useAppSelector((s) => s.support);
 
   useEffect(() => {
     dispatch(fetchSuperAdminStatsThunk());
     dispatch(fetchSuperAdminSalonsThunk(undefined));
     dispatch(fetchSuperAdminPaymentsThunk(undefined));
-    dispatch(fetchRecentLoginsThunk(10));
-    dispatch(fetchFrequentLoginsThunk(10));
-    dispatch(fetchUsersNoPlanThunk(20));
+    dispatch(fetchFrequentLoginsThunk(3));
+    dispatch(fetchUsersNoPlanThunk(3));
+    dispatch(fetchSupportStatsThunk());
   }, [dispatch]);
 
   const fmt = (n: any) => n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—";
@@ -96,50 +98,6 @@ export default function OverviewPage() {
         </>)}
       </div>
 
-      {/* Second row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 28 }}>
-        {loading.stats ? [...Array(4)].map((_, i) => <Shimmer key={i} />) : (<>
-          <StatCard label="Active Salons" value={stats?.active_salons ?? "—"}
-            bg="#f0fdf4" accent="#16a34a"
-            icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>}
-          />
-          <StatCard label="Bookings Today" value={stats?.bookings_today ?? "—"}
-            sub={stats?.total_bookings ? `${stats.total_bookings} total` : undefined}
-            bg="#eff6ff" accent="#2563eb"
-            icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}
-          />
-          <StatCard label="Signups This Week" value={stats?.signups_this_week ?? "—"}
-            sub={stats?.signups_this_month ? `${stats.signups_this_month} this month` : undefined}
-            bg="#faf5ff" accent="#7c3aed"
-            icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>}
-          />
-          <StatCard label="Failed Payments" value={stats?.failed_payments ?? "0"}
-            bg="#fef2f2" accent="#dc2626"
-            icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>}
-          />
-        </>)}
-      </div>
-
-      {/* User breakdown */}
-      {stats && (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 28 }}>
-          {[
-            { label: "Salon Owners", value: stats.total_owners ?? 0, color: "#6366f1", bg: "#eef2ff" },
-            { label: "Staff Members", value: stats.total_staff ?? 0,  color: "#8b5cf6", bg: "#faf5ff" },
-            { label: "Clients",       value: stats.total_clients ?? 0, color: "#0891b2", bg: "#ecfeff" },
-          ].map(({ label, value, color, bg }) => (
-            <div key={label} style={{ background: "#fff", borderRadius: 14, padding: "18px 22px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: 16 }}>
-              <div style={{ width: 44, height: 44, borderRadius: 11, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-              </div>
-              <div>
-                <div style={{ color: "#64748b", fontSize: 12.5, fontWeight: 500 }}>{label}</div>
-                <div style={{ color: "#0f172a", fontSize: 22, fontWeight: 800, letterSpacing: "-0.3px" }}>{value.toLocaleString()}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Tables row */}
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
@@ -202,96 +160,6 @@ export default function OverviewPage() {
             </table>
           )}
         </div>
-      </div>
-
-      {/* Recent User Logins */}
-      <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ width: 32, height: 32, borderRadius: 9, background: "#eef2ff", display: "flex", alignItems: "center", justifyContent: "center" }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/>
-                <polyline points="10 17 15 12 10 7"/>
-                <line x1="15" y1="12" x2="3" y2="12"/>
-              </svg>
-            </div>
-            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Recent User Logins</h3>
-          </div>
-          <span style={{ color: "#94a3b8", fontSize: 12 }}>Last {recentLogins.length} logins</span>
-        </div>
-
-        {loading.recentLogins ? (
-          <div style={{ padding: 16, display: "grid", gap: 6 }}>{[...Array(5)].map((_, i) => <Shimmer key={i} h={44} />)}</div>
-        ) : recentLogins.length === 0 ? (
-          <div style={{ padding: 40, textAlign: "center" }}>
-            <div style={{ color: "#cbd5e1", fontSize: 32, marginBottom: 8 }}>
-              <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#cbd5e1" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline-block" }}>
-                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>
-              </svg>
-            </div>
-            <div style={{ color: "#94a3b8", fontSize: 13 }}>No login activity yet</div>
-          </div>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-            <thead>
-              <tr style={{ background: "#f8fafc" }}>
-                {["User", "Email", "Role", "Salon", "Last Login", "Status"].map(h => (
-                  <th key={h} style={{ padding: "9px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {recentLogins.map((u: any, i: number) => {
-                const roleColors: Record<string, { bg: string; text: string }> = {
-                  salon_owner: { bg: "#eef2ff", text: "#6366f1" },
-                  staff:       { bg: "#f0fdf4", text: "#16a34a" },
-                  client:      { bg: "#fffbeb", text: "#d97706" },
-                  admin:       { bg: "#fef2f2", text: "#dc2626" },
-                };
-                const rc = roleColors[u.role] ?? { bg: "#f8fafc", text: "#64748b" };
-                const initials = (u.name || u.email || "?").split(" ").slice(0, 2).map((w: string) => w[0]).join("").toUpperCase();
-                const avatarColors = ["#6366f1","#8b5cf6","#0891b2","#16a34a","#d97706","#dc2626"];
-                const ac = avatarColors[i % avatarColors.length];
-                const loginTime = u.last_login
-                  ? new Date(u.last_login).toLocaleString("en-IN", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })
-                  : "—";
-                const minutesAgo = u.last_login
-                  ? Math.round((Date.now() - new Date(u.last_login).getTime()) / 60000)
-                  : null;
-                const timeAgo = minutesAgo === null ? "" : minutesAgo < 60
-                  ? `${minutesAgo}m ago`
-                  : minutesAgo < 1440
-                    ? `${Math.round(minutesAgo / 60)}h ago`
-                    : `${Math.round(minutesAgo / 1440)}d ago`;
-                return (
-                  <tr key={u.id} style={{ borderTop: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "10px 16px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        <div style={{ width: 32, height: 32, borderRadius: "50%", background: ac, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 12, fontWeight: 700, flexShrink: 0 }}>{initials}</div>
-                        <span style={{ color: "#0f172a", fontWeight: 600 }}>{u.name || "—"}</span>
-                      </div>
-                    </td>
-                    <td style={{ padding: "10px 16px", color: "#64748b", fontSize: 12 }}>{u.email}</td>
-                    <td style={{ padding: "10px 16px" }}>
-                      <span style={{ padding: "3px 9px", borderRadius: 20, fontSize: 11.5, fontWeight: 600, background: rc.bg, color: rc.text, textTransform: "capitalize" }}>{u.role.replace("_", " ")}</span>
-                    </td>
-                    <td style={{ padding: "10px 16px", color: "#64748b", fontSize: 12 }}>{u.salon_name || "—"}</td>
-                    <td style={{ padding: "10px 16px" }}>
-                      <div style={{ color: "#0f172a", fontSize: 12, fontWeight: 500 }}>{loginTime}</div>
-                      {timeAgo && <div style={{ color: "#94a3b8", fontSize: 11 }}>{timeAgo}</div>}
-                    </td>
-                    <td style={{ padding: "10px 16px" }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: u.is_active ? "#10b981" : "#94a3b8" }} />
-                        <span style={{ color: u.is_active ? "#16a34a" : "#94a3b8", fontSize: 12, fontWeight: 500 }}>{u.is_active ? "Active" : "Inactive"}</span>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
       </div>
 
       {/* Two-column panels: Frequent Logins + No-Plan Users */}
@@ -424,6 +292,53 @@ export default function OverviewPage() {
           )}
         </div>
 
+      </div>
+
+      {/* Bottom quick-stat row */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginTop: 20 }}>
+        {loading.stats ? [...Array(4)].map((_, i) => <Shimmer key={i} h={84} />) : (<>
+          <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#faf5ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+            </div>
+            <div>
+              <div style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>New Clients Today</div>
+              <div style={{ color: "#0f172a", fontSize: 20, fontWeight: 800 }}>{stats?.new_clients_today ?? 0}</div>
+            </div>
+          </div>
+
+          <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+            </div>
+            <div>
+              <div style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>Today's Revenue</div>
+              <div style={{ color: "#0f172a", fontSize: 20, fontWeight: 800 }}>{fmt(stats?.revenue_today)}</div>
+            </div>
+          </div>
+
+          <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#fff7ed", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            </div>
+            <div>
+              <div style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>Support Tickets</div>
+              <div style={{ color: "#0f172a", fontSize: 20, fontWeight: 800 }}>{supportStats?.total ?? 0}</div>
+              <div style={{ color: "#94a3b8", fontSize: 11 }}>{supportStats?.open ?? 0} Open · {supportStats?.closed ?? 0} Closed</div>
+            </div>
+          </div>
+
+          <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: 14 }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+            </div>
+            <div>
+              <div style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>System Health</div>
+              <div style={{ color: "#0f172a", fontSize: 20, fontWeight: 800 }}>99.9%</div>
+              <div style={{ color: "#16a34a", fontSize: 11 }}>All systems operational</div>
+            </div>
+          </div>
+        </>)}
       </div>
 
       <style>{`@keyframes sa-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>

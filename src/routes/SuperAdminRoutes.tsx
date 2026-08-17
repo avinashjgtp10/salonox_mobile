@@ -8,9 +8,6 @@ const OverviewPage        = lazy(() => import("../features/super-admin/pages/Ove
 const SalonsPage          = lazy(() => import("../features/super-admin/pages/SalonsPage"));
 const SalonDetailPage     = lazy(() => import("../features/super-admin/pages/SalonDetailPage"));
 const VisitedPage         = lazy(() => import("../features/super-admin/pages/VisitedPage"));
-const UsersPage           = lazy(() => import("../features/super-admin/pages/UsersPage"));
-const PaymentsPage        = lazy(() => import("../features/super-admin/pages/PaymentsPage"));
-const BillingPage         = lazy(() => import("../features/super-admin/pages/BillingPage"));
 const PermissionsPage     = lazy(() => import("../features/super-admin/pages/PermissionsPage"));
 const SubscriptionPermissionsPage = lazy(() => import("../features/super-admin/pages/SubscriptionPermissionsPage"));
 const SupportPage         = lazy(() => import("../features/super-admin/pages/SupportPage"));
@@ -27,9 +24,6 @@ export const SuperAdminRoutes = (
         <Route path="salons"       element={<SalonsPage />} />
         <Route path="salons/:salonId" element={<SalonDetailPage />} />
         <Route path="visited"      element={<VisitedPage />} />
-        <Route path="users"        element={<UsersPage />} />
-        <Route path="payments"     element={<PaymentsPage />} />
-        <Route path="billing"      element={<BillingPage />} />
         <Route path="permissions"  element={<PermissionsPage />} />
         <Route path="subscription-permissions" element={<SubscriptionPermissionsPage />} />
         <Route path="support"      element={<SupportPage />} />

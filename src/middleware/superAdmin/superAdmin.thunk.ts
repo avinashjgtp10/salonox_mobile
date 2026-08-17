@@ -1,22 +1,9 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
 import { SUPER_ADMIN } from "../../services/api/endpoints/superAdmin.endpoints";
-import type { SuperAdminStats, SuperAdminSalon, SuperAdminPayment, SuperAdminUser, SuperAdminDemoRequest } from "../../store/superAdminSlice";
+import type { SuperAdminStats, SuperAdminSalon, SuperAdminPayment, SuperAdminUser, SuperAdminDemoRequest, SuperAdminSalonStaff } from "../../store/superAdminSlice";
 
-// ── RECENT / FREQUENT LOGINS ──────────────────────────────────────────────────
-
-export const fetchRecentLoginsThunk = createAsyncThunk<any[], number | undefined, { rejectValue: string }>(
-  "superAdmin/fetchRecentLogins",
-  async (limit = 10, { rejectWithValue }) => {
-    try {
-      const res = await api.get(SUPER_ADMIN.RECENT_LOGINS, { params: { limit } });
-      const data = res.data?.data ?? res.data;
-      return Array.isArray(data) ? data : [];
-    } catch (err: any) {
-      return rejectWithValue(err?.message ?? "Failed to fetch recent logins");
-    }
-  }
-);
+// ── FREQUENT LOGINS ────────────────────────────────────────────────────────────
 
 export const fetchFrequentLoginsThunk = createAsyncThunk<any[], number | undefined, { rejectValue: string }>(
   "superAdmin/fetchFrequentLogins",
@@ -115,6 +102,19 @@ export const deleteSalonThunk = createAsyncThunk<void, string, { rejectValue: st
       await api.delete(SUPER_ADMIN.SALON_DELETE(id));
     } catch (err: any) {
       return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to delete salon");
+    }
+  }
+);
+
+export const fetchSalonStaffThunk = createAsyncThunk<SuperAdminSalonStaff[], string, { rejectValue: string }>(
+  "superAdmin/fetchSalonStaff",
+  async (salonId, { rejectWithValue }) => {
+    try {
+      const res = await api.get(SUPER_ADMIN.SALON_STAFF(salonId));
+      const data = res.data?.data ?? res.data;
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      return rejectWithValue(err?.message ?? "Failed to fetch salon staff");
     }
   }
 );
@@ -327,22 +327,6 @@ export const grantSubscriptionDaysThunk = createAsyncThunk<any, { salonId: strin
   }
 );
 
-// ── BILLING ───────────────────────────────────────────────────────────────────
-
-export const fetchSuperAdminSubscriptionsThunk = createAsyncThunk<any[], string | undefined, { rejectValue: string }>(
-  "superAdmin/fetchSubscriptions",
-  async (status, { rejectWithValue }) => {
-    try {
-      const params = status ? { status } : {};
-      const res = await api.get(SUPER_ADMIN.SUBSCRIPTIONS, { params });
-      const data = res.data?.data ?? res.data;
-      return Array.isArray(data) ? data : [];
-    } catch (err: any) {
-      return rejectWithValue(err?.message ?? "Failed");
-    }
-  }
-);
-
 // ── DEMO INQUIRIES ────────────────────────────────────────────────────────────
 
 export const fetchSuperAdminDemoRequestsThunk = createAsyncThunk<SuperAdminDemoRequest[], { search?: string } | undefined, { rejectValue: string }>(
@@ -372,15 +356,3 @@ export const setDemoRequestStatusThunk = createAsyncThunk<SuperAdminDemoRequest,
   }
 );
 
-export const fetchSuperAdminPlansThunk = createAsyncThunk<any[], void, { rejectValue: string }>(
-  "superAdmin/fetchPlans",
-  async (_, { rejectWithValue }) => {
-    try {
-      const res = await api.get(SUPER_ADMIN.PLANS);
-      const data = res.data?.data ?? res.data;
-      return Array.isArray(data) ? data : [];
-    } catch (err: any) {
-      return rejectWithValue(err?.message ?? "Failed");
-    }
-  }
-);

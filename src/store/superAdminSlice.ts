@@ -4,13 +4,11 @@ import {
   fetchSuperAdminSalonsThunk,
   fetchSuperAdminPaymentsThunk,
   fetchSuperAdminUsersThunk,
-  fetchSuperAdminSubscriptionsThunk,
-  fetchSuperAdminPlansThunk,
-  fetchRecentLoginsThunk,
   fetchFrequentLoginsThunk,
   fetchUsersNoPlanThunk,
   fetchSuperAdminDemoRequestsThunk,
   setDemoRequestStatusThunk,
+  fetchSalonStaffThunk,
 } from "../middleware/superAdmin/superAdmin.thunk";
 
 export interface SuperAdminSalon {
@@ -54,6 +52,18 @@ export interface SuperAdminUser {
   login_count?: number;
 }
 
+export interface SuperAdminSalonStaff {
+  id: string;
+  name: string;
+  email: string;
+  phone?: string;
+  role: string; // "owner" for the salon owner row, else designation/"staff"
+  is_active: boolean;
+  last_login?: string | null;
+  login_count?: number;
+  revenue: number;
+}
+
 export interface SuperAdminDemoRequest {
   id: string;
   name: string;
@@ -92,6 +102,8 @@ export interface SuperAdminStats {
   total_bookings: number;
   bookings_today: number;
   signups_today: number;
+  new_clients_today: number;
+  revenue_today: number;
   signups_this_week: number;
   signups_this_month: number;
   failed_payments: number;
@@ -104,23 +116,19 @@ interface SuperAdminState {
   salons: SuperAdminSalon[];
   payments: SuperAdminPayment[];
   users: SuperAdminUser[];
-  subscriptions: any[];
-  plans: any[];
-  recentLogins: RecentLogin[];
   frequentLogins: RecentLogin[];
   usersNoPlan: RecentLogin[];
   demoRequests: SuperAdminDemoRequest[];
+  salonStaff: SuperAdminSalonStaff[];
   loading: {
     stats: boolean;
     salons: boolean;
     payments: boolean;
     users: boolean;
-    subscriptions: boolean;
-    plans: boolean;
-    recentLogins: boolean;
     frequentLogins: boolean;
     usersNoPlan: boolean;
     demoRequests: boolean;
+    salonStaff: boolean;
   };
   error: string | null;
 }
@@ -130,13 +138,11 @@ const initialState: SuperAdminState = {
   salons: [],
   payments: [],
   users: [],
-  subscriptions: [],
-  plans: [],
-  recentLogins: [],
   frequentLogins: [],
   usersNoPlan: [],
   demoRequests: [],
-  loading: { stats: false, salons: false, payments: false, users: false, subscriptions: false, plans: false, recentLogins: false, frequentLogins: false, usersNoPlan: false, demoRequests: false },
+  salonStaff: [],
+  loading: { stats: false, salons: false, payments: false, users: false, frequentLogins: false, usersNoPlan: false, demoRequests: false, salonStaff: false },
   error: null,
 };
 
@@ -168,21 +174,6 @@ const superAdminSlice = createSlice({
       .addCase(fetchSuperAdminUsersThunk.rejected,  (state, { payload }) => { state.loading.users = false; state.error = payload ?? null; });
 
     builder
-      .addCase(fetchSuperAdminSubscriptionsThunk.pending,   (state) => { state.loading.subscriptions = true; })
-      .addCase(fetchSuperAdminSubscriptionsThunk.fulfilled, (state, { payload }) => { state.loading.subscriptions = false; state.subscriptions = payload; })
-      .addCase(fetchSuperAdminSubscriptionsThunk.rejected,  (state, { payload }) => { state.loading.subscriptions = false; state.error = payload ?? null; });
-
-    builder
-      .addCase(fetchSuperAdminPlansThunk.pending,   (state) => { state.loading.plans = true; })
-      .addCase(fetchSuperAdminPlansThunk.fulfilled, (state, { payload }) => { state.loading.plans = false; state.plans = payload; })
-      .addCase(fetchSuperAdminPlansThunk.rejected,  (state, { payload }) => { state.loading.plans = false; state.error = payload ?? null; });
-
-    builder
-      .addCase(fetchRecentLoginsThunk.pending,   (state) => { state.loading.recentLogins = true; })
-      .addCase(fetchRecentLoginsThunk.fulfilled, (state, { payload }) => { state.loading.recentLogins = false; state.recentLogins = payload; })
-      .addCase(fetchRecentLoginsThunk.rejected,  (state, { payload }) => { state.loading.recentLogins = false; state.error = payload ?? null; });
-
-    builder
       .addCase(fetchFrequentLoginsThunk.pending,   (state) => { state.loading.frequentLogins = true; })
       .addCase(fetchFrequentLoginsThunk.fulfilled, (state, { payload }) => { state.loading.frequentLogins = false; state.frequentLogins = payload; })
       .addCase(fetchFrequentLoginsThunk.rejected,  (state, { payload }) => { state.loading.frequentLogins = false; state.error = payload ?? null; });
@@ -196,6 +187,11 @@ const superAdminSlice = createSlice({
       .addCase(fetchSuperAdminDemoRequestsThunk.pending,   (state) => { state.loading.demoRequests = true; })
       .addCase(fetchSuperAdminDemoRequestsThunk.fulfilled, (state, { payload }) => { state.loading.demoRequests = false; state.demoRequests = payload; })
       .addCase(fetchSuperAdminDemoRequestsThunk.rejected,  (state, { payload }) => { state.loading.demoRequests = false; state.error = payload ?? null; });
+
+    builder
+      .addCase(fetchSalonStaffThunk.pending,   (state) => { state.loading.salonStaff = true; })
+      .addCase(fetchSalonStaffThunk.fulfilled, (state, { payload }) => { state.loading.salonStaff = false; state.salonStaff = payload; })
+      .addCase(fetchSalonStaffThunk.rejected,  (state, { payload }) => { state.loading.salonStaff = false; state.error = payload ?? null; });
 
     builder
       .addCase(setDemoRequestStatusThunk.fulfilled, (state, { payload }) => {
