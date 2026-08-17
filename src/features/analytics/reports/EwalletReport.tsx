@@ -4,8 +4,8 @@ import api from "../../../services/api/axios";
 import { EWALLET, EWALLET_REPORT } from "../../../services/api/endpoints";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
-import { Pagination, JiraFilterMenu } from "../../../components/ui";
-import type { JiraFilterField } from "../../../components/ui";
+import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
+import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -56,8 +56,13 @@ function formatDate(input: string): string {
 
 export default function EwalletReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const { currencySymbol, formatAmount } = useCurrency();
-  const today   = new Date().toISOString().slice(0, 10);
-  const [asOfDate,    setAsOfDate]    = useState(today);
+  const today = new Date().toISOString().slice(0, 10);
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "today", ...getDateRangePresetValue("today") });
+  // Wallet balance is a point-in-time snapshot, not a period query — the
+  // backend only accepts a single as-of-date. The range's end date stands in
+  // for it, clamped to today since a balance can't be computed for a date
+  // that hasn't happened yet (also covers "All time", whose end date is "").
+  const asOfDate = dateRange.endDate && dateRange.endDate <= today ? dateRange.endDate : today;
   const [rows,        setRows]        = useState<ClientRow[]>([]);
   const [total,       setTotal]       = useState(0);
   const [stats,       setStats]       = useState({ totalClients: 0, withBalance: 0, totalValue: 0, avgBalance: 0 });
@@ -213,9 +218,7 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
       <div className="rp-detail-filters">
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">As of Date</label>
-          <div className="rp-detail-date-range">
-            <input type="date" value={asOfDate} max={today} onChange={e => setAsOfDate(e.target.value)} className="rp-detail-date-input" />
-          </div>
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Balance Status" />
         <div className="rp-detail-filter-group">
