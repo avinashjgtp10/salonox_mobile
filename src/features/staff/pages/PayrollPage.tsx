@@ -107,6 +107,8 @@ interface StaffPayroll {
   color: string;
   base_salary: number;
   commission: number;
+  commission_earned: number;
+  commission_paid: number;
   commission_frequency: "daily" | "monthly" | "";
   commission_rule_name: string;
   commission_applicable_date: string;
@@ -589,6 +591,8 @@ function mapEntryToRow(r: any): StaffPayroll {
     color: avatarColorFor(r.staff_id, r.staff_calendar_color),
     base_salary: Number(r.base_salary) || 0,
     commission,
+    commission_earned: Number(r.commission_earned ?? r.total_commission) || 0,
+    commission_paid: Number(r.commission_paid ?? r.total_paid) || 0,
     commission_frequency: (r.commission_frequency ?? r.frequency ?? r.payout_frequency) === "daily"
       ? "daily"
       : (r.commission_frequency ?? r.frequency ?? r.payout_frequency) === "monthly"
@@ -636,6 +640,8 @@ function mapStaffToEmptyPayroll(s: any, fixedSalary = 0): StaffPayroll {
     color: avatarColorFor(staffId, s.calendar_color),
     base_salary: fixedSalary,
     commission: 0,
+    commission_earned: 0,
+    commission_paid: 0,
     commission_frequency: "",
     commission_rule_name: "",
     commission_applicable_date: "",
@@ -796,7 +802,12 @@ function PayrollDetailsModal({
   const commissionPeriodLabel = staff.commission_frequency === "daily"
     ? staff.commission_applicable_date
     : staff.commission_payroll_period || periodLabel;
-  const showCommissionMeta = staff.commission > 0 || !!staff.commission_rule_name || !!staff.commission_frequency;
+  const showCommissionMeta =
+    staff.commission > 0 ||
+    staff.commission_earned > 0 ||
+    staff.commission_paid > 0 ||
+    !!staff.commission_rule_name ||
+    !!staff.commission_frequency;
   const amountLabel = (row: typeof rows[number]) => {
     const canShow =
       staff.hasPayrollData ||
@@ -867,7 +878,15 @@ function PayrollDetailsModal({
                 <strong>{commissionPeriodLabel || "No Data"}</strong>
               </div>
               <div className="pr-details-row">
-                <span>Calculated Commission</span>
+                <span>Commission Earned</span>
+                <strong>{formatAmount(staff.commission_earned || staff.calculated_commission || staff.commission)}</strong>
+              </div>
+              <div className="pr-details-row">
+                <span>Commission Paid</span>
+                <strong>{formatAmount(staff.commission_paid)}</strong>
+              </div>
+              <div className="pr-details-row">
+                <span>Commission Pending</span>
                 <strong>{formatAmount(staff.calculated_commission || staff.commission)}</strong>
               </div>
             </div>
@@ -1460,6 +1479,12 @@ export default function PayrollPage() {
       const staffRow = mapStaffToEmptyPayroll(staff, staffFixedSalaries[staffId] || 0);
       const commissionSummary = staffCommissionSummaries[staffId];
 
+      // Commission Earned/Paid always come from the live settlement summary
+      // (staffCommissionSummaries, sourced from /commissions/earned — see
+      // fetchAllStaffEarnedCommissions above) rather than whatever was
+      // snapshotted onto a saved payroll entry, so a settlement made on the
+      // Commissions page is reflected here the next time this page loads —
+      // no separate "refresh" step needed.
       const row = payroll
         ? {
             ...payroll,
@@ -1467,10 +1492,14 @@ export default function PayrollPage() {
             role: staffRow.role,
             avatar: staffRow.avatar,
             color: staffRow.color,
+            commission_earned: commissionSummary?.total_commission ?? payroll.commission_earned ?? 0,
+            commission_paid: commissionSummary?.total_paid ?? payroll.commission_paid ?? 0,
           }
         : {
             ...staffRow,
             commission: commissionSummary?.total_pending || 0,
+            commission_earned: commissionSummary?.total_commission || 0,
+            commission_paid: commissionSummary?.total_paid || 0,
             commission_frequency: commissionSummary?.frequency || "",
             commission_rule_name: commissionSummary?.rule_name || "",
             commission_applicable_date: commissionSummary?.applicable_date || "",
@@ -1916,7 +1945,8 @@ export default function PayrollPage() {
                 <th className="pr-th--staff">Staff Name</th>
                 <th>Role</th>
                 <th>Base Salary</th>
-                <th>Commission</th>
+                <th>Commission Paid</th>
+                <th>Commission Pending</th>
                 <th>Tips</th>
                 <th>Bonus / Incentive</th>
                 <th>Salary Advance</th>
@@ -1932,7 +1962,7 @@ export default function PayrollPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={14}>
+                  <td colSpan={15}>
                     <div className="pr-empty">
                       <p>No staff found for the selected filters</p>
                     </div>
@@ -1970,6 +2000,7 @@ export default function PayrollPage() {
                       </td>
                       <td>{e.role}</td>
                       {amountCell(e.base_salary, undefined, true)}
+                      {amountCell(e.commission_paid, undefined, false, false, true)}
                       {amountCell(e.commission, undefined, false, false, true)}
                       {amountCell(e.tips)}
                       {amountCell(e.bonus)}
