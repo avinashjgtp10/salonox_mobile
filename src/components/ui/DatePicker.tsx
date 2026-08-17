@@ -6,17 +6,23 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July", 
 // Monday-first, matching the calendar's own header row.
 const DAYS_ABBR = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 
-interface DatePickerProps {
+interface DatePickerPanelProps {
   /** "YYYY-MM-DD", or "" when nothing is selected. */
   value: string;
   onChange: (value: string) => void;
-  /** Trigger text shown while `value` is empty. */
-  placeholder?: string;
   /** "YYYY-MM-DD" bounds — days outside them are disabled, as is Today when it falls outside. */
   min?: string;
   max?: string;
-  disabled?: boolean;
+  /** Called after a pick, and on outside-click/Escape. Only meaningful for
+   *  the standalone panel — DatePicker handles its own dismissal. */
+  onClose?: () => void;
   className?: string;
+}
+
+interface DatePickerProps extends Omit<DatePickerPanelProps, "onClose"> {
+  /** Trigger text shown while `value` is empty. */
+  placeholder?: string;
+  disabled?: boolean;
 }
 
 const toISO = (d: Date) =>
@@ -43,35 +49,34 @@ function getGridDays(year: number, month0: number): { iso: string; outside: bool
 }
 
 /**
- * Standard single-date picker: trigger + month/year dropdowns + calendar.
- * The counterpart to DateRangeFilter — use this wherever ONE date is meant
- * (a day to view, an expiry, a birthday), and DateRangeFilter wherever a
- * from/to span is. Between them they're the only two date controls the app
- * should use, so spacing, palette and behaviour stay consistent everywhere.
+ * The calendar surface on its own — month/year dropdowns, day grid,
+ * Clear/Today. Exported separately for callers that already own a trigger
+ * and their own positioning (e.g. the scheduler toolbars, which portal this
+ * out of an overflow-clipped bar). Everything else should use DatePicker,
+ * which wraps this in a trigger + popover.
  */
-export default function DatePicker({
-  value, onChange, placeholder = "Select date", min, max, disabled = false, className = "",
-}: DatePickerProps) {
-  const [open, setOpen] = useState(false);
+export function DatePickerPanel({
+  value, onChange, min, max, onClose, className = "",
+}: DatePickerPanelProps) {
   const today = toISO(new Date());
   const seed = value || today;
   const [viewYear, setViewYear] = useState(() => Number(seed.slice(0, 4)));
   const [viewMonth0, setViewMonth0] = useState(() => Number(seed.slice(5, 7)) - 1);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!onClose) return;
     const onDocClick = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
     };
-    const onEscape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onEscape = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     document.addEventListener("mousedown", onDocClick);
     document.addEventListener("keydown", onEscape);
     return () => {
       document.removeEventListener("mousedown", onDocClick);
       document.removeEventListener("keydown", onEscape);
     };
-  }, [open]);
+  }, [onClose]);
 
   // Wide enough to cover birthdays at one end and future expiries at the
   // other, then widened further if min/max reach past it.
@@ -86,41 +91,16 @@ export default function DatePicker({
 
   const outOfBounds = (iso: string) => (!!min && iso < min) || (!!max && iso > max);
 
-  const openPanel = () => {
-    if (disabled) return;
-    if (!open) {
-      const s = value || today;
-      setViewYear(Number(s.slice(0, 4)));
-      setViewMonth0(Number(s.slice(5, 7)) - 1);
-    }
-    setOpen(v => !v);
-  };
-
   const pick = (iso: string) => {
     if (outOfBounds(iso)) return;
     onChange(iso);
-    setOpen(false);
+    onClose?.();
   };
 
   const days = getGridDays(viewYear, viewMonth0);
 
   return (
-    <div className={`dp${className ? ` ${className}` : ""}`} ref={containerRef}>
-      <button
-        type="button"
-        className={`dp-trigger${open ? " dp-trigger--open" : ""}`}
-        onClick={openPanel}
-        disabled={disabled}
-      >
-        <Calendar3 size={13} />
-        <span className={value ? undefined : "dp-trigger__placeholder"}>
-          {value ? fmtLabel(value) : placeholder}
-        </span>
-        <ChevronDown size={12} className={`dp-trigger__chevron${open ? " dp-trigger__chevron--open" : ""}`} />
-      </button>
-
-      {open && (
-        <div className="dp-panel" onMouseDown={e => e.stopPropagation()}>
+    <div className={`dp-panel${className ? ` ${className}` : ""}`} ref={panelRef}>
           <div className="dp-selects">
             <div className="dp-select-wrap">
               <select
@@ -172,7 +152,7 @@ export default function DatePicker({
           </div>
 
           <div className="dp-footer">
-            <button type="button" className="dp-link" onClick={() => { onChange(""); setOpen(false); }}>
+            <button type="button" className="dp-link" onClick={() => { onChange(""); onClose?.(); }}>
               Clear
             </button>
             <button
@@ -184,7 +164,64 @@ export default function DatePicker({
               Today
             </button>
           </div>
-        </div>
+    </div>
+  );
+}
+
+/**
+ * Standard single-date picker: trigger + the panel above.
+ * The counterpart to DateRangeFilter — use this wherever ONE date is meant
+ * (a day to view, an expiry, a birthday), and DateRangeFilter wherever a
+ * from/to span is. Between them they're the only two date controls the app
+ * should use, so spacing, palette and behaviour stay consistent everywhere.
+ */
+export default function DatePicker({
+  value, onChange, placeholder = "Select date", min, max, disabled = false, className = "",
+}: DatePickerProps) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onEscape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [open]);
+
+  return (
+    <div className={`dp${className ? ` ${className}` : ""}`} ref={containerRef}>
+      <button
+        type="button"
+        className={`dp-trigger${open ? " dp-trigger--open" : ""}`}
+        onClick={() => { if (!disabled) setOpen(v => !v); }}
+        disabled={disabled}
+      >
+        <Calendar3 size={13} />
+        <span className={value ? undefined : "dp-trigger__placeholder"}>
+          {value ? fmtLabel(value) : placeholder}
+        </span>
+        <ChevronDown size={12} className={`dp-trigger__chevron${open ? " dp-trigger__chevron--open" : ""}`} />
+      </button>
+
+      {open && (
+        // Remounted per open (key on `value`) so the grid always re-seeds to
+        // the current selection rather than wherever it was left last time.
+        <DatePickerPanel
+          key={value || "empty"}
+          value={value}
+          onChange={onChange}
+          min={min}
+          max={max}
+          onClose={() => setOpen(false)}
+          className="dp-panel--anchored"
+        />
       )}
     </div>
   );

@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import type { ViewMode, IntervalOption } from "../../types/booking.types.ts";
 import { useSchedulerContext } from "../../store/SchedulerContext";
 import { formatDateLabel } from "../../utils/timeUtils";
-import MiniCalendar from "../shared/MiniCalendar.tsx";
+import { DatePickerPanel } from "../../../../components/ui";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import api from "../../../../services/api/axios";
 import "../../styles/TopBar.scss";
@@ -257,11 +257,11 @@ const TopBarComponent: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime 
       {/* Date picker portal */}
       {showDatePicker && ReactDOM.createPortal(
         <div ref={datePickerRef} className="topbar-cal-portal" style={{ top: datePickerPos.top, left: datePickerPos.left }}>
-          <MiniCalendar
+          <DatePickerPanel
             value={currentDate}
             onChange={(d) => { setCurrentDate(d); setShowDatePicker(false); }}
             onClose={() => setShowDatePicker(false)}
-          />
+            />
         </div>,
         document.body,
       )}

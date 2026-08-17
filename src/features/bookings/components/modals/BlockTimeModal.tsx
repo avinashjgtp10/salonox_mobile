@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import type { BlockedTime } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
-import MiniCalendar from "../shared/MiniCalendar.tsx";
+import { DatePicker } from "../../../../components/ui";
 import TimeSelect from "../shared/TimeSelect";
 import Dropdown from "../../../../components/ui/Dropdown";
 import Button from "../../../../components/ui/Button";
@@ -27,7 +27,6 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
   const [startTime, setStartTime] = useState(editingBlock?.startTime || "");
   const [endTime,   setEndTime]   = useState(editingBlock?.endTime   || "");
   const [reason,    setReason]    = useState(editingBlock?.reason    || "");
-  const [showCal,   setShowCal]   = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [conflictError, setConflictError] = useState("");
 
@@ -91,17 +90,10 @@ const BlockTimeModal: React.FC<Props> = ({ onClose, defaultStaffId, editingBlock
           {/* Date */}
           <div className="position-relative">
             <label className="form-label fw-semibold text-uppercase text-muted btm-label">Date *</label>
-            <input
-              readOnly
+            <DatePicker
               value={date}
-              onClick={() => setShowCal((v) => !v)}
-              className="form-control btm-date-input"
+              onChange={(d) => { setDate(d); setConflictError(""); }}
             />
-            {showCal && (
-              <div className="position-absolute btm-cal-portal">
-                <MiniCalendar value={date} onChange={(d) => { setDate(d); setShowCal(false); setConflictError(""); }} onClose={() => setShowCal(false)} />
-              </div>
-            )}
           </div>
 
           {/* Staff */}

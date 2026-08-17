@@ -38,7 +38,7 @@ export {
   getDateRangePresetValue,
 } from "./DateRangeFilter";
 export type { DateRangePreset, DateRangeFilterValue } from "./DateRangeFilter";
-export { default as DatePicker } from "./DatePicker";
+export { default as DatePicker, DatePickerPanel } from "./DatePicker";
 export { default as SuccessOverlay } from "./SuccessOverlay";
 export { default as ErrorOverlay } from "./ErrorOverlay";
 export { default as MultiSelectCheckbox } from "./MultiSelectCheckbox";
