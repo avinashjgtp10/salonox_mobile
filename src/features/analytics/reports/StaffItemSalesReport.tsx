@@ -8,7 +8,8 @@ import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination, DateRangePicker, JiraFilterMenu } from "../../../components/ui";
+import { Pagination, DateRangeFilter, getDateRangePresetValue, JiraFilterMenu } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -53,10 +54,8 @@ function mapRow(row: any): ItemRow {
 export default function StaffItemSalesReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
   const { currencySymbol, formatAmount } = useCurrency();
-  const today      = new Date().toISOString().slice(0, 10);
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
-  const [dateFrom,      setDateFrom]      = useState(monthStart);
-  const [dateTo,        setDateTo]        = useState(today);
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
   const [itemType,      setItemType]      = useState<ItemType>("service");
   const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
   const [staffOptions,  setStaffOptions]  = useState<{ id: string; label: string }[]>([]);
@@ -172,7 +171,7 @@ export default function StaffItemSalesReport({ onBack, category, categoryKey }: 
       <div className="rp-detail-filters">
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Date Range</label>
-          <DateRangePicker startDate={dateFrom} endDate={dateTo} onChange={(s, e) => { setDateFrom(s); setDateTo(e); }} showQuickPresets />
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
         <div className="rp-detail-filter-actions">

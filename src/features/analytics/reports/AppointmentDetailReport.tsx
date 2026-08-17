@@ -12,7 +12,8 @@ import { SkeletonTableRows } from "./ReportSkeleton";
 import { Pagination, JiraFilterMenu } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
-import DateRangeFields from "../../../components/ui/DateRangeFields";
+import { DateRangeFilter } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
 import { BulkDeleteBar, BulkDeleteConfirmModal } from "./BulkDeleteBar";
@@ -92,8 +93,10 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
     if (!raw) return [];
     return raw.split(",").map(s => s.trim()).filter(s => APPT_STATUSES.includes(s));
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [dateFrom,          setDateFrom]          = useState(monthAgo);
-  const [dateTo,            setDateTo]            = useState(today);
+  // Rolling 30-day lookback — no fixed preset matches it, so it starts as a
+  // custom range rather than snapping to a calendar period.
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "custom", startDate: monthAgo, endDate: today });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
   const [search,            setSearchInput]       = useState("");
   const [debouncedSearch,   setDebouncedSearch]   = useState("");
   const [selectedStatuses,  setSelectedStatuses]  = useState<string[]>(initialStatuses);
@@ -217,7 +220,7 @@ export default function AppointmentDetailReport({ onBack, category, categoryKey 
       </div>
 
       <div className="rp-detail-filters">
-        <DateRangeFields from={dateFrom} to={dateTo} onFromChange={setDateFrom} onToChange={setDateTo} />
+        <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
         <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
 

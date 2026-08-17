@@ -9,7 +9,8 @@ import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import Select from "../../../components/ui/Select";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination, DateRangePicker, JiraFilterMenu } from "../../../components/ui";
+import { Pagination, DateRangeFilter, getDateRangePresetValue, JiraFilterMenu } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import "./ClientRevenueReport.scss";
@@ -43,10 +44,8 @@ function mapRow(row: any): RebookingRateRow {
 
 export default function RebookingRateReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
-  const today      = new Date().toISOString().slice(0, 10);
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString().slice(0, 10);
-  const [dateFrom,       setDateFrom]       = useState(monthStart);
-  const [dateTo,         setDateTo]         = useState(today);
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
+  const { startDate: dateFrom, endDate: dateTo } = dateRange;
   // Rebooking window in days — manually entered by the user (no preset
   // default shown), same commit-on-blur/Enter pattern as Lost Customers'
   // "Inactive for (days)" field.
@@ -179,7 +178,7 @@ export default function RebookingRateReport({ onBack, category, categoryKey }: {
       <div className="rp-detail-filters">
         <div className="rp-detail-filter-group">
           <label className="rp-detail-filter-label">Date Range</label>
-          <DateRangePicker startDate={dateFrom} endDate={dateTo} onChange={(s, e) => { setDateFrom(s); setDateTo(e); }} showQuickPresets />
+          <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
         <div className="rp-detail-filter-group" style={{ minWidth: 140 }}>
           <label htmlFor="rebooking-days-input" className="rp-detail-filter-label">Rebooking Window (days)</label>
