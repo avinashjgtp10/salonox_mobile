@@ -9,7 +9,8 @@ import { fetchUsageHistoryThunk } from "../../../middleware/inventory/inventory.
 import type { ConsumableListResult } from "../../../middleware/inventory/inventory.thunk";
 import type { InventoryResponse, UsageHistoryFilters, UsageHistoryRow } from "../../../types/inventory.types";
 import Dropdown from "../../../components/ui/Dropdown";
-import { Pagination } from "../../../components/ui";
+import { Pagination, DateRangeFilter } from "../../../components/ui";
+import type { DateRangeFilterValue } from "../../../components/ui";
 import Skeleton from "../../../components/ui/Skeleton";
 import "../styles/ConsumableInventoryPage.scss";
 import "../styles/ConsumableUsageHistoryPage.scss";
@@ -39,6 +40,7 @@ const ConsumableUsageHistoryPage: React.FC = () => {
   const [filters, setFilters] = useState<UsageHistoryFilters>({
     product_id: searchParams.get("product_id") || undefined,
   });
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
 
   const load = useCallback(async (nextFilters: UsageHistoryFilters, nextPage: number, nextPageSize: number) => {
     setLoading(true);
@@ -79,6 +81,12 @@ const ConsumableUsageHistoryPage: React.FC = () => {
     setPage(1);
   };
 
+  const handleDateRangeChange = (next: DateRangeFilterValue) => {
+    setDateRange(next);
+    setFilters((prev) => ({ ...prev, from: next.startDate || undefined, to: next.endDate || undefined }));
+    setPage(1);
+  };
+
   const selectedProductName = filters.product_id
     ? productOptions.find((c) => c.product_id === filters.product_id)?.name
     : undefined;
@@ -98,6 +106,7 @@ const ConsumableUsageHistoryPage: React.FC = () => {
       </div>
 
       <div className="ci-filters">
+        <DateRangeFilter value={dateRange} onChange={handleDateRangeChange} />
         <Dropdown
           searchable={false}
           value={filters.product_id ?? ""}
@@ -114,14 +123,6 @@ const ConsumableUsageHistoryPage: React.FC = () => {
           ]}
           onChange={(id) => updateFilter("direction", id as any)}
         />
-        <label className="ci-date-filter">
-          From
-          <input type="date" value={filters.from ?? ""} onChange={(e) => updateFilter("from", e.target.value)} />
-        </label>
-        <label className="ci-date-filter">
-          To
-          <input type="date" value={filters.to ?? ""} onChange={(e) => updateFilter("to", e.target.value)} />
-        </label>
       </div>
 
       <div className="ci-table-wrap">
