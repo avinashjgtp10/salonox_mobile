@@ -2,6 +2,7 @@ import React, { useRef, useEffect, useState, useLayoutEffect } from "react";
 import ReactDOM from "react-dom";
 
 interface CellDropdownProps {
+  hasWorkingHours?: boolean;
   onEditWorkingHours: () => void;
   onAddTimeOff: () => void;
   onManageDayOff: () => void;
@@ -12,6 +13,7 @@ interface CellDropdownProps {
 }
 
 const CellDropdown: React.FC<CellDropdownProps> = ({
+  hasWorkingHours = false,
   onEditWorkingHours,
   onAddTimeOff,
   onManageDayOff,
@@ -81,7 +83,7 @@ const CellDropdown: React.FC<CellDropdownProps> = ({
   const menu = (
     <div ref={menuRef} className="sched-dropdown" style={style} onClick={(e) => e.stopPropagation()}>
       <button className="sched-dropdown__item" onClick={(e) => { e.stopPropagation(); onEditWorkingHours(); onClose(); }}>
-        Edit Working Hours
+        {hasWorkingHours ? "Edit Working Hours" : "Add Working Hours"}
       </button>
       <button className="sched-dropdown__item" onClick={(e) => { e.stopPropagation(); onAddTimeOff(); onClose(); }}>
         Add Time Off

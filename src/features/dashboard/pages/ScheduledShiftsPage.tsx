@@ -156,6 +156,7 @@ const ScheduledShiftsPage: React.FC = () => {
     endTime: string,
     breaks: { start: string; end: string }[]
   ) => {
+    const isAddingWorkingHours = drawer.mode === "edit" && shifts[staffId]?.[date]?.type !== "working";
     // 8. Add Temporary Debug Logs
     console.log("[DEBUG] selectedDate:", date);
 
@@ -187,7 +188,7 @@ const ScheduledShiftsPage: React.FC = () => {
       .unwrap()
       .then((res) => {
         console.log("[DEBUG] API response:", res);
-        showSuccess("Availability updated");
+        showSuccess(isAddingWorkingHours ? "Working hours added" : "Availability updated");
         // No full-week repaint
         // Calendar/Quick Sale cache their own copy of staff working hours
         // (schedulerSlice.staffSchedules, via useStaffSchedule) and only ever
@@ -225,6 +226,21 @@ const ScheduledShiftsPage: React.FC = () => {
     drawer.staffId && drawer.date
       ? shifts[drawer.staffId]?.[drawer.date]
       : undefined;
+  const isCreatingWorkingHours = drawer.mode === "edit" && drawerShift?.type !== "working";
+  const drawerTitle =
+    drawer.mode === "edit"
+      ? isCreatingWorkingHours ? "Add Working Hours" : "Edit Working Hours"
+      : drawer.mode === "timeoff"
+        ? "Add Time Off"
+        : drawer.mode === "dayoff"
+          ? "Manage Day Off"
+          : drawer.mode === "blocked"
+            ? "Manage Blocked Day"
+            : "Update Availability";
+  const drawerSaveLabel =
+    drawer.mode === "edit"
+      ? isCreatingWorkingHours ? "Add Working Hours" : "Apply Changes"
+      : "Apply Changes";
   const copyStaff = staffMembers.find((s) => s.id === copyStaffId) ?? null;
   const todayDisplay = formatNavDate(new Date());
 
@@ -351,6 +367,9 @@ const ScheduledShiftsPage: React.FC = () => {
         staff={drawerStaff}
         date={drawer.date}
         shift={drawerShift}
+        isCreating={isCreatingWorkingHours}
+        title={drawerTitle}
+        saveLabel={drawerSaveLabel}
         onClose={closeDrawer}
         onSave={handleSaveAvailability}
       />

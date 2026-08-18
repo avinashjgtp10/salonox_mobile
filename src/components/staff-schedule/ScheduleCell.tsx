@@ -28,6 +28,7 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
   readOnly,
 }) => {
   const [open, setOpen] = useState(false);
+  const hasWorkingHours = shift?.type === "working";
 
   useEffect(() => {
     if (isModalOpen) {
@@ -65,6 +66,7 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
         {open && (
           <CellDropdown
             anchorRef={cellRef}
+            hasWorkingHours={hasWorkingHours}
             onEditWorkingHours={() => onEditWorkingHours(staffId, date)}
             onAddTimeOff={() => onAddTimeOff(staffId, date)}
             onManageDayOff={() => onManageDayOff(staffId, date)}
@@ -97,6 +99,7 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
         {open && !readOnly && (
           <CellDropdown
             anchorRef={cellRef}
+            hasWorkingHours={hasWorkingHours}
             onEditWorkingHours={() => onEditWorkingHours(staffId, date)}
             onAddTimeOff={() => onAddTimeOff(staffId, date)}
             onManageDayOff={() => onManageDayOff(staffId, date)}
@@ -139,6 +142,7 @@ const ScheduleCell: React.FC<ScheduleCellProps> = ({
       {open && !readOnly && (
         <CellDropdown
           anchorRef={cellRef}
+          hasWorkingHours={hasWorkingHours}
           onEditWorkingHours={() => onEditWorkingHours(staffId, date)}
           onAddTimeOff={() => onAddTimeOff(staffId, date)}
           onManageDayOff={() => onManageDayOff(staffId, date)}

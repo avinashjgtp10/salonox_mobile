@@ -10,12 +10,15 @@ interface ShiftDrawerProps {
   staff: StaffMember | null;
   date: string | null;
   shift?: ShiftEntry;
+  isCreating?: boolean;
+  title?: string;
+  saveLabel?: string;
   onClose: () => void;
   onSave: (staffId: string, date: string, isAvailable: boolean, startTime: string, endTime: string, breaks: { start: string; end: string }[]) => void;
 }
 
 const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
-  open, staff, date, shift, onClose, onSave,
+  open, staff, date, shift, isCreating = false, title: titleProp, saveLabel: saveLabelProp, onClose, onSave,
 }) => {
   const [isAvailable, setIsAvailable] = useState(true);
   const [startTime, setStartTime] = useState("10:30 AM");
@@ -92,6 +95,9 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
 
   if (!open || !staff || !date) return null;
 
+  const title = titleProp ?? (isCreating ? "Add Working Hours" : "Update Availability");
+  const saveLabel = saveLabelProp ?? (isCreating ? "Add Working Hours" : "Apply Changes");
+
   return (
     <>
       {/* Backdrop */}
@@ -103,7 +109,7 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
         {/* Header */}
         <div className="shift-drawer__header">
           <div>
-            <h2 className="shift-drawer__title">Update Availability</h2>
+            <h2 className="shift-drawer__title">{title}</h2>
             <p className="shift-drawer__subtitle">
               {staff.name} &bull; {formatDrawerDate(date)}
             </p>
@@ -238,7 +244,7 @@ const ShiftDrawer: React.FC<ShiftDrawerProps> = ({
         {/* Footer */}
         <div className="shift-drawer__footer">
           <button className="shift-drawer__cancel" onClick={onClose}>Cancel</button>
-          <button className="shift-drawer__save" onClick={handleSave}>Apply Changes</button>
+          <button className="shift-drawer__save" onClick={handleSave}>{saveLabel}</button>
         </div>
 
       </div>

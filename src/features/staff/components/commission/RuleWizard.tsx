@@ -29,7 +29,6 @@ const SOURCES: CommissionRuleSource[] = ["services", "products", "memberships", 
 const TYPE_OPTIONS: { key: CommissionRuleType; label: string }[] = [
   { key: "percentage", label: "Percentage" },
   { key: "fixed", label: "Fixed Amount" },
-  { key: "milestone", label: "Milestone Bonus" },
 ];
 const TYPE_FIELD_LABEL: Record<CommissionRuleType, string> = {
   percentage: "Commission",
@@ -49,7 +48,7 @@ export default function RuleWizard({ staffOptions, staffLoading, editing, initia
 
   const [name, setName] = useState(editing?.name ?? "");
   const [source, setSource] = useState<CommissionRuleSource>(editing?.source ?? "services");
-  const [type, setType] = useState<CommissionRuleType>(editing?.type ?? "percentage");
+  const [type, setType] = useState<CommissionRuleType>(editing?.type === "milestone" ? "percentage" : editing?.type ?? "percentage");
   const [rate, setRate] = useState(editing?.rate != null ? String(editing.rate) : "");
 
   const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>(
