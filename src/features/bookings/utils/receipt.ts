@@ -404,6 +404,7 @@ export function printReceipt(
   const membershipLoyaltyDiscountAmt = Math.max(0, membershipDiscountAmt - membershipPercentageDiscountAmt);
   const exCharges   = Number((booking as any).exCharges     || 0);
   const tipAmt      = Number((booking as any).tipAmount     || 0);
+  const tipAddedToSalon = !!(booking as any).tipAddedToSalon;
   const gstPct      = Number((booking as any).gst           || 0);
   const gstAmt      = Number((booking as any).gstAmount     || 0);
   const taxBreakdown = ((booking as any).taxBreakdown || []) as { name: string; rate: number; amount: number; inclusive: boolean }[];
@@ -442,10 +443,13 @@ export function printReceipt(
   const billTotalBeforeSvcDiscount = subtotalAmt - couponDisc - membershipDiscountAmt - packageCoveredAmt + exclusiveTaxTotal;
   const afterSvcDiscount = billTotalBeforeSvcDiscount - manualDisc;
   // Extra Charges are excluded from the Bill Discount base above — added
-  // here, after the discount. tipAmt is deliberately NOT added — Staff Tip
-  // is display/record-only and never part of what the client is charged
-  // (matches pricing.engine.ts's computeBillTotals).
-  const withCharges = afterSvcDiscount + exCharges;
+  // here, after the discount. tipAmt is only added when this bill was
+  // charged with "Add Tip to Salon" checked (matches pricing.engine.ts's
+  // computeBillTotals) — omitting it here even then would understate
+  // withCharges/preRedemptionTotal by the tip amount and print a bogus
+  // inflated "Round Off" line reconciling against the real (tip-inclusive)
+  // grandTotal below, same bug packageCoveredAmt's identical term fixed above.
+  const withCharges = afterSvcDiscount + exCharges + (tipAddedToSalon ? tipAmt : 0);
   // Referral Discount is a POST-tax, POST-Svc-Discount deduction now —
   // subtracted here, not folded into the pre-tax coupon discount above.
   const preRedemptionTotal = withCharges - referralDisc;
@@ -524,9 +528,10 @@ export function printReceipt(
       : "",
     sumRow("Grand Total", fmt(isPackagePaid ? 0 : grandTotal), true, "#111827", true),
     sumRow("Amount to Pay", fmt(isPackagePaid ? 0 : grandTotal), true, "#111827"),
-    // Display/record-only — never part of Grand Total/Amount to Pay above.
-    // Placed after every bill-total row so it reads as separate info.
-    tipAmt > 0 ? sumRow("Staff Tip", fmt(tipAmt), false, "#6b7280") : "",
+    // Part of Grand Total/Amount to Pay above only when this bill was charged
+    // with "Add Tip to Salon" checked; otherwise display/record-only.
+    // Placed after every bill-total row so it reads as separate info either way.
+    tipAmt > 0 ? sumRow(`Staff Tip${tipAddedToSalon ? " (included above)" : ""}`, fmt(tipAmt), false, "#6b7280") : "",
     showPaymentBreakdown
       ? splitEntries.map(([method, amt]) =>
           sumRow(`Paid via ${method}`, fmt(amt), false, METHOD_COLOR[method.toLowerCase()] ?? "#111827")
@@ -861,7 +866,7 @@ export function printReceipt(
     } else {
       push(gstPct > 0 ? `GST (${gstPct}%)` : "GST", exclusiveTaxTotal);
     }
-    push("Tip", tipAmt);
+    push(`Tip${tipAddedToSalon ? " (incl.)" : ""}`, tipAmt);
 
     const payments: ThermalReceiptData["payments"] = [];
     if (Math.abs(paidAmt) > 0.005) payments.push({ label: "Paid", value: fmt(paidAmt) });
