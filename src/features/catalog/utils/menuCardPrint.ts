@@ -198,7 +198,7 @@ function renderMenuCardBody(
     .mc-grid{${cfg.columns === 2 ? "display:grid;grid-template-columns:1fr 1fr;gap:0 30px" : ""}}
     .mc-section{margin-bottom:20px;${cfg.columns === 2 ? "break-inside:avoid" : ""}}
 
-    .mc-cat{margin-bottom:10px;font-size:0.875rem;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:${cfg.accentColor}}
+    .mc-cat{margin-bottom:10px;font-size:0.875rem;letter-spacing:1.5px;text-transform:uppercase;font-weight:700;color:${cfg.accentColor};page-break-after:avoid;break-after:avoid}
     .mc-cat--underline{border-bottom:1px solid ${cfg.mutedColor}66;padding-bottom:6px}
     .mc-cat--pill{display:inline-block;background:${cfg.accentColor}1f;padding:4px 12px;border-radius:999px}
     .mc-cat--boxed{text-align:center;padding-bottom:2px}
@@ -271,10 +271,16 @@ export function buildMenuCardDocument(params: BuildMenuCardParams, withToolbar: 
   html{font-size:${rootFontSize}px}
   *{box-sizing:border-box;margin:0;padding:0}
   @media print{
-    .mc-page{margin:0;box-shadow:none}
-    .mc-section,.mc-row{page-break-inside:avoid}
+    /* Real multi-page pagination: the on-screen "sheet of paper" look
+       (fixed width/height, its own padding, drop shadow) only makes sense
+       for a single simulated page. For print, each physical page's margin
+       comes from @page below instead, so a selection longer than one A4
+       page flows across as many pages as it needs with a consistent
+       margin on every one of them, not just the first. */
+    .mc-page{width:auto;min-height:0;margin:0;padding:0;box-shadow:none}
+    .mc-section,.mc-row{page-break-inside:avoid;break-inside:avoid}
   }
-  @page{size:A4 portrait;margin:0}
+  @page{size:A4 portrait;margin:16mm 18mm}
 </style>
 </head>
 <body>

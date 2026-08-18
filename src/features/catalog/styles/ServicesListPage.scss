@@ -1159,16 +1159,16 @@
   }
 }
 
-.pmc-warning {
+.pmc-info {
   display: flex;
   align-items: flex-start;
   gap: 8px;
   padding: 10px 12px;
   margin-bottom: 10px;
-  background: #fffaeb;
-  border: 1px solid #fedf89;
+  background: #eff8ff;
+  border: 1px solid #b2ddff;
   border-radius: 8px;
-  color: #b54708;
+  color: #175cd3;
   font-size: 12.5px;
   line-height: 1.5;
 
@@ -1310,25 +1310,45 @@
 // A4 at 96dpi (794×1123px) scaled down to fit the preview pane, rather than
 // a second, hand-maintained "small" layout — this guarantees the preview is
 // pixel-for-pixel what the print window (buildMenuCardDocument) renders.
+// Height is set inline (PrintMenuCardModal.tsx) from the measured content
+// height, so a selection spanning several pages grows this box instead of
+// getting clipped to one page — .pmc-preview-frame's own overflow:auto
+// makes the extra pages scrollable.
 .pmc-preview-scale {
+  position: relative;
   width: 794px * 0.46;
-  height: 1123px * 0.46;
-  overflow: hidden;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
   flex-shrink: 0;
-  outline: 2px solid transparent;
-  transition: outline-color 0.15s;
-
-  &--overflow {
-    outline-color: #f04438;
-  }
 
   iframe {
+    display: block;
     width: 794px;
-    height: 1123px;
     border: none;
     transform: scale(0.46);
     transform-origin: top left;
+  }
+}
+
+// One line per page break, positioned at each A4-height multiple — mirrors
+// where the browser will actually cut the printed pages (see menuCardPrint.ts's
+// @page rule), so the owner can see the split before printing.
+.pmc-page-break-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-top: 1px dashed rgba(17, 24, 39, 0.35);
+  pointer-events: none;
+
+  span {
+    position: absolute;
+    top: 2px;
+    right: 4px;
+    font-size: 9px;
+    font-weight: 600;
+    color: #667085;
+    background: #fff;
+    padding: 1px 4px;
+    border-radius: 3px;
   }
 }
 

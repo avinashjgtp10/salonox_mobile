@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSelector as useReduxSelector } from "react-redux";
-import { X, Search, Printer, ExclamationTriangleFill } from "react-bootstrap-icons";
+import { X, Search, Printer, InfoCircle } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import type { Service } from "../types/catalog.types";
@@ -82,10 +82,12 @@ const TEXT_SIZE_OPTIONS: { id: string; label: string; scale: number }[] = [
 ];
 
 // A4 at 96dpi (the same pixel grid the preview iframe and print window both
-// render at — see .pmc-preview-scale's iframe width/height in the SCSS). A
-// couple of px of slack absorbs sub-pixel rounding, not genuine overflow.
+// render at — see .pmc-preview-scale's iframe width/height in the SCSS).
+// Used to turn the preview's measured content height into a page count and
+// to draw page-break divider lines, now that a selection is allowed to span
+// more than one printed page.
 const A4_HEIGHT_PX = 1123;
-const OVERFLOW_TOLERANCE_PX = 4;
+const PREVIEW_SCALE = 0.46;
 
 const PrintMenuCardModal: React.FC<Props> = ({ onClose }) => {
   const currentSalon = useReduxSelector(selectCurrentSalon);
@@ -169,26 +171,30 @@ const PrintMenuCardModal: React.FC<Props> = ({ onClose }) => {
   );
 
   // Measures the ACTUAL rendered height of the preview (same markup the print
-  // window uses) against one A4 page, rather than estimating row heights in
-  // JS — the browser's own layout engine is the only thing that can account
-  // for template/font-size/wrapping accurately. Re-measured every time
+  // window uses), rather than estimating row heights in JS — the browser's
+  // own layout engine is the only thing that can account for
+  // template/font-size/wrapping accurately. Re-measured every time
   // previewHtml changes (new selection, template, or text size) via the
-  // iframe's key forcing a fresh load each time.
+  // iframe's key forcing a fresh load each time. A selection longer than one
+  // A4 page is fine — it just prints across as many pages as it needs (see
+  // menuCardPrint.ts's @page rule), so this now drives the preview's height
+  // and page-break markers instead of blocking printing.
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [overflowsPage, setOverflowsPage] = useState(false);
+  const [contentHeightPx, setContentHeightPx] = useState(A4_HEIGHT_PX);
 
   const measurePreview = useCallback(() => {
     const page = iframeRef.current?.contentDocument?.querySelector<HTMLElement>(".mc-page");
-    if (!page) { setOverflowsPage(false); return; }
-    setOverflowsPage(page.scrollHeight > A4_HEIGHT_PX + OVERFLOW_TOLERANCE_PX);
+    if (!page) { setContentHeightPx(A4_HEIGHT_PX); return; }
+    setContentHeightPx(Math.max(A4_HEIGHT_PX, page.scrollHeight));
   }, []);
 
-  const canPrint = selectedServices.length > 0 && !overflowsPage;
+  const pageCount = Math.max(1, Math.ceil(contentHeightPx / A4_HEIGHT_PX));
+  const canPrint = selectedServices.length > 0;
 
   // Clearing the selection removes the preview iframe entirely (see the JSX
-  // below) — its onLoad measurement can't fire again to clear a stale
-  // overflow flag left over from a bigger selection, so this does it directly.
-  useEffect(() => { if (selectedServices.length === 0) setOverflowsPage(false); }, [selectedServices.length]);
+  // below) — its onLoad measurement can't fire again to reset a stale height
+  // left over from a bigger selection, so this does it directly.
+  useEffect(() => { if (selectedServices.length === 0) setContentHeightPx(A4_HEIGHT_PX); }, [selectedServices.length]);
 
   const handlePrint = () => {
     if (!canPrint) return;
@@ -310,10 +316,10 @@ const PrintMenuCardModal: React.FC<Props> = ({ onClose }) => {
           <div className="pmc-right">
             <div className="pmc-preview-label">Preview — {MENU_CARD_TEMPLATES.find((t) => t.id === templateId)?.label}</div>
 
-            {overflowsPage && (
-              <div className="pmc-warning">
-                <ExclamationTriangleFill size={14} />
-                This selection is too long to fit on one A4 page. Remove a few services or switch to a smaller text size.
+            {pageCount > 1 && (
+              <div className="pmc-info">
+                <InfoCircle size={14} />
+                This menu spans {pageCount} pages — page breaks are added automatically when printing.
               </div>
             )}
 
@@ -321,7 +327,7 @@ const PrintMenuCardModal: React.FC<Props> = ({ onClose }) => {
               {selectedServices.length === 0 ? (
                 <div className="pmc-preview-empty">Select at least one service to see a preview.</div>
               ) : (
-                <div className={`pmc-preview-scale${overflowsPage ? " pmc-preview-scale--overflow" : ""}`}>
+                <div className="pmc-preview-scale" style={{ height: contentHeightPx * PREVIEW_SCALE }}>
                   {/* Keyed on the document itself so a fresh `srcDoc` always
                       forces a full reload (and thus a fresh onLoad) rather
                       than relying on browsers to refire onLoad for an
@@ -331,8 +337,18 @@ const PrintMenuCardModal: React.FC<Props> = ({ onClose }) => {
                     ref={iframeRef}
                     title="Menu card preview"
                     srcDoc={previewHtml}
+                    style={{ height: contentHeightPx }}
                     onLoad={measurePreview}
                   />
+                  {Array.from({ length: pageCount - 1 }, (_, i) => (
+                    <div
+                      key={i}
+                      className="pmc-page-break-line"
+                      style={{ top: (i + 1) * A4_HEIGHT_PX * PREVIEW_SCALE }}
+                    >
+                      <span>Page {i + 2}</span>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
@@ -343,9 +359,7 @@ const PrintMenuCardModal: React.FC<Props> = ({ onClose }) => {
           <span className="pmc-footer-hint">
             {selectedServices.length === 0
               ? "Select at least one service."
-              : overflowsPage
-                ? "Won't fit on one A4 page — trim the selection or shrink the text."
-                : `${selectedServices.length} service${selectedServices.length === 1 ? "" : "s"} on one A4 page.`}
+              : `${selectedServices.length} service${selectedServices.length === 1 ? "" : "s"} across ${pageCount} page${pageCount === 1 ? "" : "s"}.`}
           </span>
           <div className="pmc-footer-actions">
             <button className="slp__btn slp__btn--ghost" onClick={onClose}>Cancel</button>
