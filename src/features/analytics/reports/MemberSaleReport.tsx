@@ -33,6 +33,7 @@ interface MemberSaleRow {
   id: string;
   clientId: string;
   purchasedAt: string;
+  expiryDate: string;
   invoiceNo: string;
   clientName: string;
   staffName: string;
@@ -64,6 +65,7 @@ function mapRow(row: any): MemberSaleRow {
     id: row.id,
     clientId: row.client_id ? String(row.client_id) : "",
     purchasedAt: row.purchased_at ? formatDate(row.purchased_at) : "—",
+    expiryDate: row.expiry_date ? formatDate(row.expiry_date) : "—",
     invoiceNo: row.invoice_number ?? "—",
     clientName: row.client_name || "—",
     staffName: row.staff_name || "—",
@@ -192,9 +194,9 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
     return "—";
   };
 
-  const HEADERS = ["Date", "Invoice No", "Client", "Staff", "Membership", "Value", "Description", `Price Paid (${currencySymbol})`, "Payment Method", "Status"];
+  const HEADERS = ["Date", "Expiry Date", "Invoice No", "Client", "Staff", "Membership", "Value", "Description", `Price Paid (${currencySymbol})`, "Payment Method", "Status"];
   const exportRows = () => rows.map(r => [
-    r.purchasedAt, r.invoiceNo, r.clientName, r.staffName, r.membershipName,
+    r.purchasedAt, r.expiryDate, r.invoiceNo, r.clientName, r.staffName, r.membershipName,
     formatValue(r), r.extraBenefits, r.pricePaid, r.paymentMethod,
     STATUS_OPTIONS.find(o => o.id === r.status)?.label ?? r.status,
   ]);
@@ -248,16 +250,16 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Membership</th>
+              <th>Date</th><th>Expiry Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Membership</th>
               <th>Value</th><th>Description</th><th>Price Paid ({currencySymbol})</th>
               <th>Payment Method</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={10} />
+              <SkeletonTableRows columns={11} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={10} className="rp-detail-empty-cell">No membership sales found</td></tr>
+              <tr><td colSpan={11} className="rp-detail-empty-cell">No membership sales found</td></tr>
             ) : rows.map((r) => (
               <tr
                 key={r.id}
@@ -265,6 +267,7 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
                 onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
                 <td>{r.purchasedAt}</td>
+                <td>{r.expiryDate}</td>
                 <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td className="fw-semibold">{r.clientName}</td>
                 <td>{r.staffName}</td>

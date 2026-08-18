@@ -49,6 +49,7 @@ const MEMBERSHIP_TYPE_OPTIONS: FilterOption[] = [
 
 interface HistoryRow {
   date: string;
+  startDate: string;
   client: string;
   clientId: string;
   membershipName: string;
@@ -76,6 +77,7 @@ function formatDate(input: string): string {
 function mapRow(row: any): HistoryRow {
   return {
     date: row.date ? formatDate(row.date) : "—",
+    startDate: row.start_date ? formatDate(row.start_date) : "—",
     client: row.client_name || "—",
     clientId: row.client_id ? String(row.client_id) : "",
     membershipName: row.membership_name || "—",
@@ -234,12 +236,12 @@ export default function MembershipHistoryReport({ onBack, category, categoryKey 
   const HEADERS = [
     "Date", "Client", "Membership", "Type", "Service", "Benefit",
     `Deducted (${currencySymbol})`, `Remaining (${currencySymbol})`,
-    "Staff", "Expiry Date", "Status",
+    "Staff", "Start Date", "Expiry Date", "Status",
   ];
   const exportRows = () => rows.map(r => [
     r.date, r.client, r.membershipName, typeLabel(r.membershipType), r.serviceName, benefitLabel(r.benefitType),
     r.amountDeducted, r.remainingBalance ?? "",
-    r.staff, r.expiryDate, statusLabel(r.status),
+    r.staff, r.startDate, r.expiryDate, statusLabel(r.status),
   ]);
 
   const activeFilterLines = [
@@ -316,14 +318,14 @@ export default function MembershipHistoryReport({ onBack, category, categoryKey 
               <th>Benefit</th>
               <th>Deducted ({currencySymbol})</th>
               <th>Remaining ({currencySymbol})</th>
-              <th>Staff</th><th>Expiry Date</th><th>Status</th>
+              <th>Staff</th><th>Start Date</th><th>Expiry Date</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={11} />
+              <SkeletonTableRows columns={12} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={11} className="rp-detail-empty-cell">No membership usage found</td></tr>
+              <tr><td colSpan={12} className="rp-detail-empty-cell">No membership usage found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -339,6 +341,7 @@ export default function MembershipHistoryReport({ onBack, category, categoryKey 
                 <td className="fw-semibold">{formatAmount(r.amountDeducted)}</td>
                 <td>{r.remainingBalance === null ? "—" : formatAmount(r.remainingBalance)}</td>
                 <td>{r.staff}</td>
+                <td>{r.startDate}</td>
                 <td>{r.expiryDate}</td>
                 <td><span className={`rp-status-badge rp-mh-status-${r.status}`}>{statusLabel(r.status)}</span></td>
               </tr>
