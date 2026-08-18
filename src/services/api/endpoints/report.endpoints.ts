@@ -40,6 +40,21 @@ export const PRODUCT_INVENTORY_REPORT = {
   SUMMARY: () => `/api/report/product-inventory`,
 } as const;
 
+// Independent Slow Moving Products reporting API — products with low/no
+// sales within a selected date range, reads products/sale_items/sales
+// directly, never through the Appointment API. Mounted at /api/report.
+export const SLOW_MOVING_PRODUCTS_REPORT = {
+  SUMMARY: () => `/api/report/slow-moving-products`,
+} as const;
+
+// Independent Fast Moving Products reporting API — products with the
+// highest sales volume within a selected date range. Shares its backend
+// query with SLOW_MOVING_PRODUCTS_REPORT, sorted the opposite way by
+// default. Mounted at /api/report.
+export const FAST_MOVING_PRODUCTS_REPORT = {
+  SUMMARY: () => `/api/report/fast-moving-products`,
+} as const;
+
 export const BRAND_PERFORMANCE_REPORT = {
   SUMMARY: () => `/api/report/brand-performance`,
 } as const;
@@ -231,6 +246,15 @@ export const OPEN_RATE_REPORT = {
 export const REPLY_RATE_REPORT = {
   SUMMARY: () => `/api/report/reply-rate`,
   CAMPAIGN_DETAIL: () => `/api/report/reply-rate/campaign`,
+} as const;
+
+// Independent Birthday Campaign Performance reporting API — reads
+// wa_automation_logs directly (event_type = 'birthday_wishes'), never
+// through the whatsapp-automation module's own API. One row per message
+// send, not per-campaign — birthday wishes have no campaign grouping.
+// Mounted at /api/report.
+export const BIRTHDAY_CAMPAIGN_REPORT = {
+  SUMMARY: () => `/api/report/birthday-campaign`,
 } as const;
 
 // Independent Client Rating reporting API — reads the reviews table
