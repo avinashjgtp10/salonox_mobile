@@ -1,11 +1,10 @@
-import { useEffect, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import Pagination from "../../../components/ui/Pagination";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useNavigate, useLocation } from "react-router-dom";
 import {
-  Sliders,
   ChevronDown,
   ChevronUp,
   ArrowUp,
@@ -42,8 +41,9 @@ import {
   DownloadButton,
   Loader,
   DateRangeFilter,
+  JiraFilterMenu,
 } from "../../../components/ui";
-import type { DateRangeFilterValue } from "../../../components/ui";
+import type { DateRangeFilterValue, JiraFilterField } from "../../../components/ui";
 import { useTranslation } from "react-i18next";
 
 import "../styles/ClientsListPage.scss";
@@ -151,7 +151,6 @@ export default function ClientsListPage() {
   }, []);
 
   /* ================= FILTER STATE ================= */
-  const [showFilter, setShowFilter] = useState(false);
   const [selectedGender, setSelectedGender] = useState<string | null>(null);
   // Created-at date range (YYYY-MM-DD) and total-sales revenue range.
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
@@ -161,13 +160,6 @@ export default function ClientsListPage() {
   useEffect(() => {
     rangeFiltersRef.current = { dateFrom: dateRange.startDate, dateTo: dateRange.endDate, minRevenue, maxRevenue };
   }, [dateRange, minRevenue, maxRevenue]);
-
-  // One badge count per active filter group inside the Filters panel — date
-  // range now lives outside it as its own always-visible control, whose
-  // trigger already shows its own applied state, so it isn't counted here.
-  const activeFilterCount =
-    (selectedGender ? 1 : 0) +
-    (minRevenue || maxRevenue ? 1 : 0);
 
   // Date range applies immediately (it's a standalone toolbar control, not
   // part of the deferred-apply Filters panel) — sync the ref synchronously
@@ -179,12 +171,66 @@ export default function ClientsListPage() {
     fetchClients(1, selectedSort, selectedGender);
   };
 
-  const genderOptions = [
-    "All",
-    "Female",
-    "Male",
-    "Other",
-  ];
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "gender", label: "Gender", options: [
+      { id: "Female", label: "Female" },
+      { id: "Male", label: "Male" },
+      { id: "Other", label: "Other" },
+    ] },
+    {
+      key: "revenue",
+      label: `Revenue (${currencySymbol})`,
+      options: [],
+      // Not a checkbox list — a min/max pair. The draft carries it as
+      // [min, max]; an empty array means "no revenue filter".
+      render: (draft, setDraft) => (
+        <div className="clients-filter-range">
+          <input
+            type="number"
+            min="0"
+            placeholder="Min"
+            className="form-control custom-focus-select"
+            value={draft[0] ?? ""}
+            onChange={(e) => setDraft([e.target.value, draft[1] ?? ""])}
+          />
+          <span className="clients-filter-range__sep">to</span>
+          <input
+            type="number"
+            min="0"
+            placeholder="Max"
+            className="form-control custom-focus-select"
+            value={draft[1] ?? ""}
+            onChange={(e) => setDraft([draft[0] ?? "", e.target.value])}
+          />
+        </div>
+      ),
+    },
+  ], [currencySymbol]);
+
+  const filterMenuSelected = useMemo(() => ({
+    gender: selectedGender ? [selectedGender] : [],
+    revenue: minRevenue || maxRevenue ? [minRevenue, maxRevenue] : [],
+  }), [selectedGender, minRevenue, maxRevenue]);
+
+  // Mirrors what the old Apply button did: commit every field at once, sync
+  // the ref synchronously (fetchClients reads ranges from it, and the state
+  // sets below won't have flushed through their effect yet), then refetch.
+  // The date range is deliberately preserved — it's a separate always-visible
+  // control, so this menu must not silently clear it.
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    const gender = next.gender?.length ? next.gender[next.gender.length - 1] : null;
+    const [min = "", max = ""] = next.revenue ?? [];
+    setSelectedGender(gender);
+    setMinRevenue(min);
+    setMaxRevenue(max);
+    rangeFiltersRef.current = {
+      dateFrom: dateRange.startDate,
+      dateTo: dateRange.endDate,
+      minRevenue: min,
+      maxRevenue: max,
+    };
+    fetchClients(1, selectedSort, gender);
+  };
 
   /* ================= SORT STATE ================= */
   const [sortOpen, setSortOpen] = useState(false);
@@ -452,97 +498,6 @@ export default function ClientsListPage() {
   return (
     <div className="clients-page">
       {overlay}
-      {/* ================= FILTER MODAL ================= */}
-      {showFilter && (
-        <div
-          className="clients-filter-overlay"
-          onClick={() => setShowFilter(false)}
-        >
-          <div
-            className="clients-filter-modal"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="clients-filter-modal__header">
-              <h5>Filters</h5>
-              <button
-                className="clients-filter-modal__close"
-                onClick={() => setShowFilter(false)}
-                aria-label="Close filters"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="clients-filter-modal__body">
-              <div className="clients-filter-field">
-                <label>Gender</label>
-                <Dropdown
-                  className="form-select form-select-lg custom-focus-select"
-                  searchable={false}
-                  value={selectedGender ?? ""}
-                  options={genderOptions.map((g) => ({ id: g === "All" ? "" : g, name: g }))}
-                  onChange={(id) => setSelectedGender(id || null)}
-                />
-              </div>
-
-              <div className="clients-filter-field">
-                <label>Revenue ({currencySymbol})</label>
-                <div className="clients-filter-range">
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Min"
-                    className="form-control form-control-lg custom-focus-select"
-                    value={minRevenue}
-                    onChange={(e) => setMinRevenue(e.target.value)}
-                  />
-                  <span className="clients-filter-range__sep">to</span>
-                  <input
-                    type="number"
-                    min="0"
-                    placeholder="Max"
-                    className="form-control form-control-lg custom-focus-select"
-                    value={maxRevenue}
-                    onChange={(e) => setMaxRevenue(e.target.value)}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="clients-filter-modal__footer">
-              <button
-                className="clear-btn"
-                onClick={() => {
-                  setSelectedGender(null);
-                  setDateRange({ preset: "all_time", startDate: "", endDate: "" });
-                  setMinRevenue("");
-                  setMaxRevenue("");
-                  // Sync the ref synchronously — fetchClients reads range
-                  // filters from it, and the state resets above won't have
-                  // flushed to the ref (via its effect) before this call.
-                  rangeFiltersRef.current = { dateFrom: "", dateTo: "", minRevenue: "", maxRevenue: "" };
-                  setShowFilter(false);
-                  fetchClients(1, selectedSort, null);
-                }}
-              >
-                Clear filters
-              </button>
-
-              <button
-                className="apply-btn"
-                onClick={() => {
-                  rangeFiltersRef.current = { dateFrom: dateRange.startDate, dateTo: dateRange.endDate, minRevenue, maxRevenue };
-                  setShowFilter(false);
-                  fetchClients(1, selectedSort, selectedGender);
-                }}
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ================= HEADER ================= */}
       <div className="page-header d-flex align-items-center justify-content-between mb-4">
         <div className="header-left">
@@ -693,19 +648,12 @@ export default function ClientsListPage() {
               }}
             />
 
-            <Button
-              className="clients-filter-btn"
-              variant="outline-dark"
-              onClick={() => setShowFilter(true)}
-              iconLeft={<Sliders size={14} />}
-            >
-              Filters
-              {activeFilterCount > 0 && (
-                <Badge variant="dark" pill className="ms-2">
-                  {activeFilterCount}
-                </Badge>
-              )}
-            </Button>
+            <JiraFilterMenu
+              fields={filterFields}
+              selected={filterMenuSelected}
+              onApply={handleFiltersApply}
+              triggerLabel="Filters"
+            />
 
             <DateRangeFilter value={dateRange} onChange={handleDateRangeChange} />
           </div>
