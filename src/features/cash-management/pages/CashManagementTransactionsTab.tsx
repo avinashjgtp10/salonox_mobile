@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, SortDown, SortUp } from "react-bootstrap-icons";
-import { Pagination } from "../../../components/ui";
+import { FormattedDate, Pagination } from "../../../components/ui";
 import type { DateRangePreset } from "../../../components/ui";
 import type { CashManagementExportDataset } from "../cashManagement.export";
 import type { CashTransactionRecord } from "../cashManagement.types";
@@ -57,6 +57,13 @@ const formatDate = (value: string) => {
   if (Number.isNaN(next.getTime())) return value;
   const time = next.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
   return `${formatDateDDMMYYYY(next)} ${time}`;
+};
+
+const formatTime = (value: string) => {
+  if (!value) return "--";
+  const next = new Date(value);
+  if (Number.isNaN(next.getTime())) return value;
+  return next.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
 };
 
 export default function CashManagementTransactionsTab({
@@ -281,7 +288,7 @@ export default function CashManagementTransactionsTab({
                       onClick={() => setViewingIncomeFor(session)}
                       title="View individual cash payments"
                     >
-                      {formatDate(row.dateTime)}
+                      <FormattedDate value={row.dateTime} fallback="--" /> {formatTime(row.dateTime)}
                     </button>
                   </td>
                   <td>
