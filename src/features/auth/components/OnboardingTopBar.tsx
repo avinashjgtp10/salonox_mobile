@@ -1,5 +1,5 @@
 import { useLocation } from "react-router-dom";
-import salonoxIcon from "../../../assets/salonox_icon.svg";
+import salonoxMark from "../../../assets/salonox_mark.jpg";
 import "../styles/onboarding-layout.scss";
 
 // ── Step → section mapping ────────────────────────────────────────────────────
@@ -38,7 +38,7 @@ export default function OnboardingTopBar() {
     <div className="ob-topbar">
       {/* Logo */}
       <div className="ob-topbar__logo">
-        <img src={salonoxIcon} alt="" className="ob-topbar__logo-icon" width="28" height="28" />
+        <img src={salonoxMark} alt="" className="ob-topbar__logo-icon" width="28" height="28" />
         <span className="ob-topbar__logo-wordmark">
           Salon<span className="ob-topbar__logo-wordmark-accent">OX</span>
         </span>

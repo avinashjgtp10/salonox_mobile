@@ -146,6 +146,8 @@ $surface:    #F9F8F6;
   height: 32px;
   display: block;
   flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .rp-brand__logo {
