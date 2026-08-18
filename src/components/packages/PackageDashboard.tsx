@@ -1,9 +1,9 @@
 // src/components/packages/PackageDashboard.tsx
 import React, { useState, useMemo, useEffect } from "react";
-import { Package, CheckCircle2, Clock, Target, Search, History, X, Loader2, Sparkles, PenLine, ChevronRight, Layers } from "lucide-react";
+import { Package, CheckCircle2, Clock, Target, Search, History, X, Loader2, Sparkles, PenLine, ChevronRight, Layers, MoreVertical } from "lucide-react";
 import styles from "./packages.module.scss";
 import { Pagination } from "../ui/Pagination";
-import type { ClientPackage, PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
+import type { PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
 import { useListPackageTemplatesQuery } from "../../services/api/endpoints/packages.endpoints";
 import type { ClientSearchResult } from "../../features/clients/components/ClientSearchInput";
 import { useGetClientPackages } from "../../hooks/packages/usePackages";
@@ -31,6 +31,15 @@ const PAGE_SIZE = 20;
 function daysUntil(dateStr: string | null) {
   if (dateStr === null) return Infinity;
   return Math.ceil((new Date(dateStr).getTime() - Date.now()) / 86_400_000);
+}
+
+function formatDMY(dateStr: string | null): string {
+  if (!dateStr) return "—";
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return "—";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}-${mm}-${d.getFullYear()}`;
 }
 
 const PackageDashboard: React.FC<Props> = ({
@@ -86,21 +95,12 @@ const PackageDashboard: React.FC<Props> = ({
   const expiredPkgs = allPkgs.length - activePkgs;
   const totalRem    = allPkgs.reduce((a, p) => a + p.services.reduce((s, sv) => s + sv.remainingSessions, 0), 0);
 
-  // One row per client — groups all of the client's packages FROM THE CURRENT
-  // PAGE together (pagination is still server-side per-package, so a client
-  // whose packages straddle a page boundary will show a partial group on each
-  // page — same tradeoff the existing page-scoped stats above already accept).
-  const clientGroups = useMemo(() => {
-    const map = new Map<string, ClientPackage[]>();
-    for (const pkg of clientPkgs) {
-      const list = map.get(pkg.clientId);
-      if (list) list.push(pkg); else map.set(pkg.clientId, [pkg]);
-    }
-    return Array.from(map.values());
-  }, [clientPkgs]);
-
-  const toggleExpand = (clientId: string) => {
-    setExpandedId(prev => (prev === clientId ? null : clientId));
+  // One row per PACKAGE, not per client — a client with several packages
+  // simply appears several times, once per package (see the table below),
+  // so each record can show its own price/sessions/dates/status alongside
+  // the client's name.
+  const toggleExpand = (packageId: string) => {
+    setExpandedId(prev => (prev === packageId ? null : packageId));
     setActiveTab("");
   };
 
@@ -111,7 +111,7 @@ const PackageDashboard: React.FC<Props> = ({
     { label: "Sessions Remaining", value: totalRem,     icon: <Target size={16} />,       variant: "indigo"  as const },
   ];
 
-  const expandedGroup = expandedId ? clientGroups.find(g => g[0].clientId === expandedId) ?? null : null;
+  const expandedPkg = expandedId ? allPkgs.find(p => p.id === expandedId) ?? null : null;
 
   return (
     <>
@@ -207,43 +207,57 @@ const PackageDashboard: React.FC<Props> = ({
           </div>
         ) : (
           <div className={styles.card} style={{ overflow: "hidden" }}>
+            <div style={{ overflowX: "auto" }}>
             <table className={styles.table}>
               <thead>
-                <tr>{["Client", "Packages"].map(h => <th key={h} className={styles.tableTh}>{h}</th>)}</tr>
+                <tr>
+                  {["Client", "Package Name", "Package Price", "Sessions Used", "Sessions Remaining", "Purchase Date", "Expiry Date", "Status", ""].map(h => (
+                    <th key={h || "actions"} className={styles.tableTh}>{h}</th>
+                  ))}
+                </tr>
               </thead>
               <tbody>
-                {clientGroups.map(group => {
-                  const first   = group[0];
-                  const isOpen  = expandedId === first.clientId;
-                  const names   = group.map(p => p.packageName).join(", ");
+                {clientPkgs.map(pkg => {
+                  const expired    = daysUntil(pkg.expiryDate) < 0;
+                  const usedTotal  = pkg.services.reduce((s, sv) => s + sv.completedSessions, 0);
+                  const remTotal   = pkg.services.reduce((s, sv) => s + sv.remainingSessions, 0);
+                  const isOpen     = expandedId === pkg.id;
                   return (
                     <tr
-                      key={first.clientId}
-                      onClick={() => toggleExpand(first.clientId)}
+                      key={pkg.id}
+                      onClick={() => toggleExpand(pkg.id)}
                       className={`${styles.tableRow} ${styles["tableRow--clickable"]} ${isOpen ? styles["tableRow--active"] : ""}`}
                     >
                       <td className={styles.tableTd}>
-                        <div style={{ fontWeight: 600, color: "#111827" }}>{first.clientName}</div>
-                        {first.mobile && <div style={{ fontSize: 11, color: "#6b7280" }}>{first.mobile}</div>}
+                        <div style={{ fontWeight: 600, color: "#111827" }}>{pkg.clientName}</div>
+                        {pkg.mobile && <div style={{ fontSize: 11, color: "#6b7280" }}>{pkg.mobile}</div>}
                       </td>
+                      <td className={styles.tableTd} style={{ fontWeight: 600, color: "#111827" }}>{pkg.packageName}</td>
+                      <td className={styles.tableTd} style={{ whiteSpace: "nowrap" }}>{formatAmount(pkg.totalAmount)}</td>
+                      <td className={styles.tableTd}>{usedTotal}</td>
+                      <td className={styles.tableTd} style={{ fontWeight: 700, color: "#7c3aed" }}>{remTotal}</td>
+                      <td className={styles.tableTd} style={{ whiteSpace: "nowrap" }}>{formatDMY(pkg.createdDate)}</td>
+                      <td className={styles.tableTd} style={{ whiteSpace: "nowrap" }}>{pkg.expiryDate ? formatDMY(pkg.expiryDate) : "Never expires"}</td>
                       <td className={styles.tableTd}>
-                        <span className={styles.badge} style={{ marginRight: 8 }}>{group.length} package{group.length !== 1 ? "s" : ""}</span>
-                        <span
-                          style={{
-                            display: "inline-block", maxWidth: 280, verticalAlign: "middle",
-                            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                            fontSize: 12, color: "#6b7280",
-                          }}
-                          title={names}
-                        >
-                          {names}
+                        <span className={`${styles.badge} ${expired ? styles["badge--red"] : styles["badge--green"]}`}>
+                          <span className={styles.badgeDot} /> {expired ? "Expired" : pkg.status}
                         </span>
+                      </td>
+                      <td className={styles.tableTd} onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className={styles.kebabBtn}
+                          onClick={() => toggleExpand(pkg.id)}
+                          title="View package details"
+                        >
+                          <MoreVertical size={16} />
+                        </button>
                       </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+            </div>
           </div>
         )
       )}
@@ -260,12 +274,23 @@ const PackageDashboard: React.FC<Props> = ({
         />
       )}
 
-      {/* Client detail — right-side sliding panel, one card per package */}
-      {expandedGroup && (
+      {/* Package detail — right-side sliding panel for the single expanded package */}
+      {expandedPkg && (() => {
+        const pkg            = expandedPkg;
+        const expired        = daysUntil(pkg.expiryDate) < 0;
+        const days           = daysUntil(pkg.expiryDate);
+        const expiringSoon   = !expired && days <= 30;
+        const currentTabId   = activeTab.startsWith(`${pkg.id}:`) ? activeTab.slice(pkg.id.length + 1) : (pkg.services[0]?.serviceId ?? "");
+        const histSvc        = pkg.services.find(s => s.serviceId === currentTabId) ?? pkg.services[0];
+        const expiryFmt      = pkg.expiryDate
+          ? new Date(pkg.expiryDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
+          : "Never expires";
+
+        return (
         <>
           <div
             style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.4)", zIndex: 1050 }}
-            onClick={() => toggleExpand(expandedGroup[0].clientId)}
+            onClick={() => toggleExpand(pkg.id)}
           />
           <div
             style={{
@@ -282,31 +307,18 @@ const PackageDashboard: React.FC<Props> = ({
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <div>
-                <div style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>{expandedGroup[0].clientName}</div>
-                <div style={{ fontSize: 12, color: "#6b7280" }}>{expandedGroup.length} package{expandedGroup.length !== 1 ? "s" : ""}</div>
+                <div style={{ fontSize: 15, fontWeight: 700, color: "#111827" }}>{pkg.clientName}</div>
+                <div style={{ fontSize: 12, color: "#6b7280" }}>{pkg.packageName}</div>
               </div>
               <button
-                onClick={() => toggleExpand(expandedGroup[0].clientId)}
+                onClick={() => toggleExpand(pkg.id)}
                 style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid #e5e7eb", background: "#fff", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", color: "#6b7280", flexShrink: 0 }}
               >
                 <X size={16} />
               </button>
             </div>
 
-            {expandedGroup.map(pkg => {
-              const expired       = daysUntil(pkg.expiryDate) < 0;
-              const days          = daysUntil(pkg.expiryDate);
-              const expiringSoon  = !expired && days <= 30;
-              const currentTabId  = activeTab.startsWith(`${pkg.id}:`) ? activeTab.slice(pkg.id.length + 1) : (pkg.services[0]?.serviceId ?? "");
-              const histSvc       = pkg.services.find(s => s.serviceId === currentTabId) ?? pkg.services[0];
-              const expiryFmt     = pkg.expiryDate
-                ? new Date(pkg.expiryDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" })
-                : "Never expires";
-
-              return (
-                <React.Fragment key={pkg.id}>
-
-                  {/* Package detail card */}
+            {/* Package detail card */}
                   <div className={styles.card}>
                     <div className={styles.cardHead}>
                       <div className={styles.cardTitle}>
@@ -436,13 +448,10 @@ const PackageDashboard: React.FC<Props> = ({
                       </div>
                     )}
                   </div>
-
-                </React.Fragment>
-              );
-            })}
           </div>
         </>
-      )}
+        );
+      })()}
 
       {/* ── Choice modal ─────────────────────────────────────────────────────── */}
       {showChoice && (

@@ -614,6 +614,18 @@ $shadow-focus: 0 0 0 3px rgba(99,102,241,.18);
   &--clickable { cursor:pointer; }
 }
 
+// Per-row "⋮" actions trigger — one row now equals one package (see
+// PackageDashboard.tsx), so this just reopens the same detail panel a row
+// click does; a plain icon button rather than a dropdown since there's only
+// the one action today.
+.kebabBtn {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:28px; height:28px; border-radius:6px; border:none;
+  background:transparent; color:$muted; cursor:pointer;
+  @include transition(background);
+  &:hover { background:$bg; color:$primary; }
+}
+
 // ─── Responsive ───────────────────────────────────────────────────────────────
 @media(max-width:768px) {
   .metaGrid { grid-template-columns:1fr; }
