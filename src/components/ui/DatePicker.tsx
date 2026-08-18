@@ -175,10 +175,20 @@ export function DatePickerPanel({
  * from/to span is. Between them they're the only two date controls the app
  * should use, so spacing, palette and behaviour stay consistent everywhere.
  */
+// Panel's fixed width (see .dp-panel in DatePicker.scss) plus a little
+// breathing room, used to decide which edge to anchor to before the panel
+// itself has mounted.
+const PANEL_WIDTH = 268;
+
 export default function DatePicker({
   value, onChange, placeholder = "Select date", min, max, disabled = false, className = "",
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
+  // Left-anchored by default; flipped to the right edge when the trigger
+  // sits close enough to the right side of the viewport that a left-anchored
+  // panel would run off-screen (e.g. the "Select date" trigger in the
+  // booking Client panel, which sits flush against the drawer's right edge).
+  const [alignRight, setAlignRight] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -195,12 +205,21 @@ export default function DatePicker({
     };
   }, [open]);
 
+  const handleToggle = () => {
+    if (disabled) return;
+    if (!open) {
+      const rect = containerRef.current?.getBoundingClientRect();
+      setAlignRight(!!rect && rect.left + PANEL_WIDTH > window.innerWidth - 8);
+    }
+    setOpen(v => !v);
+  };
+
   return (
     <div className={`dp${className ? ` ${className}` : ""}`} ref={containerRef}>
       <button
         type="button"
         className={`dp-trigger${open ? " dp-trigger--open" : ""}`}
-        onClick={() => { if (!disabled) setOpen(v => !v); }}
+        onClick={handleToggle}
         disabled={disabled}
       >
         <Calendar3 size={13} />
@@ -220,7 +239,7 @@ export default function DatePicker({
           min={min}
           max={max}
           onClose={() => setOpen(false)}
-          className="dp-panel--anchored"
+          className={`dp-panel--anchored${alignRight ? " dp-panel--anchored-right" : ""}`}
         />
       )}
     </div>

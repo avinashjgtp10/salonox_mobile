@@ -1,4 +1,5 @@
 ﻿import React, { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import toast from "react-hot-toast";
 import { SuccessOverlay } from "../../../../components/ui";
 import MultiSelectCheckbox from "../../../../components/ui/MultiSelectCheckbox";
 import Dropdown from "../../../../components/ui/Dropdown";
@@ -17,6 +18,8 @@ import { fetchProductsThunk } from "../../../../middleware/catalog/products.thun
 import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
 import { setPackagesList, patchPaymentStatus } from "../../../../store/schedulerSlice";
 import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
+import { fetchReceiptPdfThunk } from "../../../../middleware/booking/booking.thunk";
+import { downloadBlob } from "../../../../utils/downloadBlob";
 import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
 import { getActiveTaxes } from "../../../settings/utils/taxSettings";
 import { getTaxModuleConfig } from "../../../settings/utils/taxModuleSettings";
@@ -49,7 +52,7 @@ import { PaymentPanel }  from "./PaymentPanel";
 import { computeSplitTotal } from "../../../../components/shared/PaymentMethodPicker";
 import TotalsPanel       from "./TotalsPanel";
 import PaymentButton     from "../shared/PaymentButton";
-import { printReceipt }  from "../../utils/receipt";
+import { printReceipt, buildClientWhatsAppLink } from "../../utils/receipt";
 import { store }         from "../../../../store/store";
 import { useFocusTrap }  from "../../../../hooks/useFocusTrap";
 import "../../styles/AppointmentModal.scss";
@@ -1889,6 +1892,7 @@ export const AppointmentModal: React.FC<Props> = ({
   ]);
 
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [sendingReceipt, setSendingReceipt] = useState(false);
   // ── Zero-payment for fully package-covered appointments ─────────────────
   const handleZeroPackagePayment = useCallback(async () => {
     // Persist the current services/prices first — Continue to Payment no
@@ -2050,7 +2054,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // exactly like a genuinely-partial booking already does. No separate
   // "paid" case needed anymore; this one condition covers both.
   const isPaymentFrozen =
-    existingBooking?.status !== "partial"
+    !isPartialBooking
         && alreadyPaidAmount > 0
         && alreadyPaidAmount >= reconciledEffectiveTotal;
 
@@ -2708,8 +2712,8 @@ export const AppointmentModal: React.FC<Props> = ({
               </span>
             )
           )}
-          {/* Three-dot menu — hidden for partial-payment appointments */}
-          {existingBooking && !isPartialBooking && (
+          {/* Three-dot menu */}
+          {existingBooking && (
             <div style={{ position: "relative", marginLeft: "auto" }}>
               <button
                 onClick={() => setHeaderMenuOpen((v) => !v)}
@@ -2732,7 +2736,99 @@ export const AppointmentModal: React.FC<Props> = ({
                     borderRadius: 8, boxShadow: "0 4px 20px rgba(0,0,0,0.13)",
                     zIndex: 9999, minWidth: 190, padding: "4px 0",
                   }}>
-                    {!isCancelledBooking && existingBooking?.status !== "partial" && onCancelBooking && (
+                    {(existingBooking.status === "paid" || existingBooking.status === "partial") && (
+                      <button
+                        style={apptMenuItemStyle}
+                        onClick={() => {
+                          setHeaderMenuOpen(false);
+                          printReceipt(existingBooking as any, schedulerStaff, currentSalon, printClientExtras, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount, paperProfile });
+                        }}
+                      >
+                        🖨️ Print Receipt
+                      </button>
+                    )}
+                    {(existingBooking.status === "paid" || existingBooking.status === "partial") && (
+                      <button
+                        style={{ ...apptMenuItemStyle, opacity: sendingReceipt ? 0.6 : 1 }}
+                        disabled={sendingReceipt}
+                        onClick={async () => {
+                          setHeaderMenuOpen(false);
+                          const waLink = buildClientWhatsAppLink(existingBooking.clientPhone, existingBooking.clientPhoneCode);
+                          setSendingReceipt(true);
+                          const result: any = await dispatch(fetchReceiptPdfThunk(existingBooking.id));
+                          setSendingReceipt(false);
+
+                          if (!fetchReceiptPdfThunk.fulfilled.match(result)) {
+                            toast.error(result.payload || "Failed to get the receipt PDF.");
+                            return;
+                          }
+
+                          const blob: Blob = result.payload;
+                          const filename = `Receipt-${(existingBooking as any).invoiceNumber || existingBooking.id}.pdf`;
+
+                          // Best-effort first: the native share sheet actually attaches the
+                          // PDF, ready to send — the user only has to pick WhatsApp and the
+                          // contact themselves (no web API can pre-select a WhatsApp contact
+                          // AND attach a file at once — that combination only exists through
+                          // Meta's Business API, which this deliberately avoids). Falls
+                          // through silently on any failure (unsupported, cancelled, or lost
+                          // activation from a slow PDF render) to the reliable path below.
+                          if (navigator.share) {
+                            try {
+                              const file = new File([blob], filename, { type: "application/pdf" });
+                              if (navigator.canShare?.({ files: [file] })) {
+                                await navigator.share({
+                                  files: [file],
+                                  text: `Receipt for ${existingBooking.clientName || "your visit"}`,
+                                });
+                                return;
+                              }
+                            } catch { /* cancelled or blocked — fall through */ }
+                          }
+
+                          // Fallback (desktop, or share unsupported/failed): download the PDF,
+                          // then hand the user a REAL link to tap themselves instead of trying
+                          // to auto-open a WhatsApp tab via script. Every programmatic attempt
+                          // (window.open after the await, a synthetic <a target="_blank">
+                          // .click()) is still a script-initiated new-tab open and gets
+                          // silently blocked by one browser or another once it happens after
+                          // an await — desktop Chrome blocks it outright, mobile browsers
+                          // additionally block the "blank tab now, redirect later" workaround.
+                          // A link the user physically taps is a genuine, fresh user gesture,
+                          // so it can never be popup-blocked on any platform — the one
+                          // reliable option left.
+                          downloadBlob(blob, filename, "application/pdf");
+                          if (waLink) {
+                            const text = `Hi ${existingBooking.clientName || ""}, please find your receipt attached.`.trim();
+                            const target = `${waLink}?text=${encodeURIComponent(text)}`;
+                            toast((t) => (
+                              <span>
+                                Receipt downloaded.{" "}
+                                <a
+                                  href={target}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={() => toast.dismiss(t.id)}
+                                  style={{ color: "#2563eb", fontWeight: 700, textDecoration: "underline" }}
+                                >
+                                  Tap to open WhatsApp
+                                </a>{" "}
+                                and attach it.
+                              </span>
+                            ), { duration: 10000 });
+                          } else {
+                            toast("Receipt downloaded. This client has no phone number on file to open WhatsApp automatically.", { duration: 5000 });
+                          }
+                        }}
+                      >
+                        📤 {sendingReceipt ? "Preparing…" : "Send to WhatsApp"}
+                      </button>
+                    )}
+                    {(existingBooking.status === "paid" || existingBooking.status === "partial") && <div style={{ height: 1, background: "#f3f4f6" }} />}
+                    {/* One action per status — nothing collected yet (booked/no-show) can
+                        only be cancelled; money already collected (paid/partial) can only
+                        be deleted, never "cancelled" in the traditional sense. */}
+                    {(existingBooking.status === "booked" || existingBooking.status === "no-show") && onCancelBooking && (
                       <button
                         style={apptMenuItemStyle}
                         onClick={() => { setHeaderMenuOpen(false); onCancelBooking(existingBooking); onClose(); }}
@@ -2740,7 +2836,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         🚫 Cancel Appointment
                       </button>
                     )}
-                    {onDeleteBooking && (
+                    {(existingBooking.status === "paid" || existingBooking.status === "partial") && onDeleteBooking && (
                       <button
                         style={{ ...apptMenuItemStyle, color: "#ef4444" }}
                         onClick={() => { setHeaderMenuOpen(false); onDeleteBooking(existingBooking); onClose(); }}
