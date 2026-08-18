@@ -174,7 +174,7 @@ const createStyles = (Colors: ThemeColors) =>
       alignItems: "center",
       backgroundColor: "rgba(15, 23, 32, 0.45)",
       flex: 1,
-      justifyContent: "center",
+      justifyContent: "flex-end",
     },
     modalCard: {
       backgroundColor: Colors.card,
