@@ -1,4 +1,5 @@
 import type { IntervalOption } from "../types/scheduler-types";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 export function generateTimeSlots(
   interval: IntervalOption = "30 Mins",
@@ -90,20 +91,16 @@ export function getMonthDays(dateStr: string): (string | null)[] {
 export function formatDateLabel(dateStr: string, viewMode: string): string {
   const d = new Date(dateStr);
   if (viewMode === "Day") {
-    return d.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "long",
-      day: "numeric",
-      year: "numeric",
-    });
+    return formatDateDDMMYYYY(d);
   }
   if (viewMode === "Month") {
+    // No day component to format here — kept as month/year only.
     return d.toLocaleDateString("en-US", { month: "long", year: "numeric" });
   }
   const days = getWeekDays(dateStr);
   const s = new Date(days[0]);
   const e = new Date(days[6]);
-  return `${s.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${e.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+  return `${formatDateDDMMYYYY(s)} – ${formatDateDDMMYYYY(e)}`;
 }
 
 export const MONTHS = [

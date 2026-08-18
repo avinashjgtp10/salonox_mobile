@@ -7,6 +7,7 @@ import type { ClientMembership } from "../../../../services/api/endpoints/client
 import type { LoyaltyEligibility } from "../../../../services/api/endpoints/memberships.endpoints";
 import Skeleton from "../../../../components/ui/Skeleton";
 import { getPackageExpiryStatus, getExpiryStatus } from "../../utils/packageStatus";
+import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
 
 interface Props {
   name: string;
@@ -78,7 +79,7 @@ function fmtExpiry(date: string | null | undefined): string {
 function fmtDate(raw: string | null | undefined): string {
   if (!raw) return "N/A";
   try {
-    return new Date(raw).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    return formatDateDDMMYYYY(new Date(raw));
   } catch { return raw; }
 }
 
