@@ -23,16 +23,20 @@ interface DatePickerProps extends Omit<DatePickerPanelProps, "onClose"> {
   /** Trigger text shown while `value` is empty. */
   placeholder?: string;
   disabled?: boolean;
+  /** Separator for the displayed dd?mm?yyyy label. Defaults to "/" — pass
+   *  "-" for a dd-mm-yyyy display without changing the "YYYY-MM-DD" value
+   *  every caller already stores/sends. */
+  separator?: "/" | "-";
 }
 
 const toISO = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
-const fmtLabel = (iso: string) => {
+const fmtLabel = (iso: string, separator: string = "/") => {
   if (!iso) return "";
   const d = new Date(`${iso}T12:00:00`);
   if (isNaN(d.getTime())) return iso;
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  return `${String(d.getDate()).padStart(2, "0")}${separator}${String(d.getMonth() + 1).padStart(2, "0")}${separator}${d.getFullYear()}`;
 };
 
 /** Every cell of the 6-row grid, including the leading/trailing days that
@@ -176,7 +180,7 @@ export function DatePickerPanel({
  * should use, so spacing, palette and behaviour stay consistent everywhere.
  */
 export default function DatePicker({
-  value, onChange, placeholder = "Select date", min, max, disabled = false, className = "",
+  value, onChange, placeholder = "Select date", min, max, disabled = false, className = "", separator = "/",
 }: DatePickerProps) {
   const [open, setOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -205,7 +209,7 @@ export default function DatePicker({
       >
         <Calendar3 size={13} />
         <span className={value ? undefined : "dp-trigger__placeholder"}>
-          {value ? fmtLabel(value) : placeholder}
+          {value ? fmtLabel(value, separator) : placeholder}
         </span>
         <ChevronDown size={12} className={`dp-trigger__chevron${open ? " dp-trigger__chevron--open" : ""}`} />
       </button>
