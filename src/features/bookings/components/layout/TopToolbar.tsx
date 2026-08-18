@@ -36,7 +36,7 @@ const INTERVAL_OPTIONS: IntervalOption[] = ["15 Mins", "30 Mins", "60 Mins"];
 const TopBarComponent: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime }) => {
   const { viewMode, setViewMode, currentDate, setCurrentDate, navigate, interval, setInterval } = useSchedulerContext();
   const navTo   = useNavigate();
-  const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
+  const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.salonId ?? "");
 
   // ── Client search ──────────────────────────────────────────────────────────
   const [clientQuery, setClientQuery]       = useState("");

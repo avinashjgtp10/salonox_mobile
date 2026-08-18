@@ -30,7 +30,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
     navigate, interval, setInterval, staffList, selectedStaffIds, setSelectedStaffIds,
   } = useSchedulerContext();
   const navTo   = useNavigate();
-  const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
+  const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.salonId ?? "");
 
   // ── Client search ──────────────────────────────────────────────────────────
   const [clientQuery, setClientQuery]         = useState("");
