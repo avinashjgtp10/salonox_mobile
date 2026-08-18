@@ -20,6 +20,10 @@ export const HELP_TOPICS: Record<string, HelpTopic> = {
     title: "Service add-ons",
     description: "Add-ons let clients customize a booking with optional extras (e.g. a deep conditioning treatment) for an additional charge and time.",
   },
+  "service-consumables": {
+    title: "Service consumables",
+    description: "Track back-bar products a service uses (e.g. color, developer) so stock is automatically deducted when the appointment is completed.",
+  },
   "staff-wages": {
     title: "Staff member wages",
     description: "Set up how a staff member earns — hourly wage, salary, or a mix — so wages calculate correctly on their pay runs and timesheets.",
