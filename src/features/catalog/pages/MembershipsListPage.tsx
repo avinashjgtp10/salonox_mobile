@@ -11,6 +11,7 @@ import {
 } from "react-bootstrap-icons";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
@@ -75,7 +76,7 @@ function formatDate(value?: string | Date) {
   if (!value) return "—";
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  return formatDateDDMMYYYY(d);
 }
 
 const MembershipsListPage: React.FC = () => {

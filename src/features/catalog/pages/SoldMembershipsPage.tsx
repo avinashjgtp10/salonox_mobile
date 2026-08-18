@@ -17,6 +17,7 @@ import {
 import { clearError } from "../../../store/clientMembershipSlice";
 import type { ClientMembership } from "../../../services/api/endpoints/clientMemberships.endpoints";
 import Dropdown from "../../../components/ui/Dropdown";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../styles/SoldMembershipsPage.scss";
 
 const PAGE_SIZE = 20;
@@ -286,9 +287,7 @@ const SoldMembershipsPage: React.FC = () => {
                         </span>
                       </td>
                       <td className="smp__td-muted">
-                        {new Date(item.purchasedAt).toLocaleDateString("en-IN", {
-                          day: "2-digit", month: "short", year: "numeric"
-                        })}
+                        {formatDateDDMMYYYY(new Date(item.purchasedAt))}
                       </td>
                       <td onClick={e => e.stopPropagation()}>
                         <div className="smp__row-actions">
@@ -421,10 +420,7 @@ const SoldMembershipsPage: React.FC = () => {
                         {entry.sessionsConsumed > 1 && ` × ${entry.sessionsConsumed}`}
                       </span>
                       <span className="smp__log-date">
-                        {new Date(entry.usedAt).toLocaleDateString("en-IN", {
-                          day: "2-digit", month: "short", year: "numeric",
-                          hour: "2-digit", minute: "2-digit",
-                        })}
+                        {formatDateDDMMYYYY(new Date(entry.usedAt))} {new Date(entry.usedAt).toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                       {entry.notes && <span className="smp__log-note">{entry.notes}</span>}
                     </div>

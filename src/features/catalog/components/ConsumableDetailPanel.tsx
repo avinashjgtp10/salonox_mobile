@@ -6,6 +6,7 @@ import { fetchConsumableByIdThunk, adjustConsumableStockThunk } from "../../../m
 import { clearConsumableDetail } from "../../../store/inventorySlice";
 import type { AdjustStockReason } from "../../../types/inventory.types";
 import Dropdown from "../../../components/ui/Dropdown";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../styles/ConsumableDetailPanel.scss";
 
 interface Props {
@@ -174,7 +175,7 @@ const ConsumableDetailPanel: React.FC<Props> = ({ productId, onClose, onAdjusted
                   <tbody>
                     {detail.recent_consumption.map((r, i) => (
                       <tr key={i}>
-                        <td>{new Date(r.date).toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}</td>
+                        <td>{formatDateDDMMYYYY(new Date(r.date))}</td>
                         <td>{r.service_name || "—"}</td>
                         <td>{r.staff_name?.trim() || "—"}</td>
                         <td>{r.direction === "return" ? "+" : "−"}{r.qty} {detail.unit}</td>

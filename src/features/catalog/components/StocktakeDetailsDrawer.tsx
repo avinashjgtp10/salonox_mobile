@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { XLg, Pencil, BoxSeam, InfoCircle, Shop } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../styles/StocktakeDetailsDrawer.scss";
 
 interface StocktakeDetailsDrawerProps {
@@ -102,13 +103,13 @@ const StocktakeDetailsDrawer: React.FC<StocktakeDetailsDrawerProps> = ({
                 <div className="summary-item">
                   <span className="label">Started on</span>
                   <span className="value">
-                    {stocktake?.created_at ? new Date(stocktake.created_at).toLocaleDateString() : "–"}
+                    {stocktake?.created_at ? formatDateDDMMYYYY(new Date(stocktake.created_at)) : "–"}
                   </span>
                 </div>
                 <div className="summary-item">
                   <span className="label">Completed on</span>
                   <span className="value">
-                    {stocktake?.completed_at ? new Date(stocktake.completed_at).toLocaleDateString() : "In progress"}
+                    {stocktake?.completed_at ? formatDateDDMMYYYY(new Date(stocktake.completed_at)) : "In progress"}
                   </span>
                 </div>
               </div>
