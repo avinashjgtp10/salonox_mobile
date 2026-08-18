@@ -40,7 +40,7 @@ const SchedulerContent: React.FC = () => {
   const dispatch    = useAppDispatch();
   const location    = useLocation();
   const navigate    = useNavigate();
-  const salonId     = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
+  const salonId     = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.salonId ?? "");
   const { viewMode, setViewMode, currentDate, setCurrentDate, setHighlightedBookingId } = useSchedulerContext();
 
   const apiServices = useAppSelector((s: any) => s.services?.items ?? EMPTY_ARR);

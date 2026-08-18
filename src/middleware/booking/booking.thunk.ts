@@ -26,7 +26,7 @@ export const fetchBookingsThunk = createAsyncThunk<
 >("booking/fetchAll", async (filters, { rejectWithValue, getState }) => {
   try {
     const state = getState() as any;
-    const salonId = state.salon?.currentSalon?.id ?? state.auth?.user?.salon_id;
+    const salonId = state.salon?.currentSalon?.id ?? state.auth?.salonId;
     const servicesList = state.scheduler?.servicesList || [];
     const params = new URLSearchParams();
     if (salonId) params.set("salon_id", String(salonId));

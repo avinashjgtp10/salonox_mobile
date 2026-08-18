@@ -29,7 +29,7 @@ const EMPTY_ARR: never[] = [];
 
 export default function AppointmentDetailModal({ appointmentId, onClose, initialMode = "view", onChanged }: Props) {
   const dispatch = useAppDispatch();
-  const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.user?.salon_id ?? "");
+  const salonId = useAppSelector((s: any) => s.salon?.currentSalon?.id ?? s.auth?.salonId ?? "");
   const apiServices = useAppSelector((s: any) => s.services?.items ?? EMPTY_ARR);
   const apiStaff    = useAppSelector((s: any) => s.staff?.items   ?? EMPTY_ARR);
   const apiClients  = useAppSelector((s: any) => s.client?.items  ?? EMPTY_ARR);
