@@ -256,6 +256,12 @@ export interface Booking {
    *  grandTotal/salon revenue. Unchecked (default): tipAmount stays
    *  record-only, passed straight to staff. */
   tipAddedToSalon?: boolean;
+  /** Optional per-staff split of tipAmount, entered via the "Split by
+   *  staff" popup — see StaffTipsModal.tsx. Undefined/empty when the tip
+   *  wasn't split (single-staff sale, or staff just used the plain Tip
+   *  field); tipAmount stays the source of truth for bill math either way
+   *  and is expected to equal the sum of these entries. */
+  tipBreakdown?: { staffId: string; staffName: string; amount: number }[];
   taxableAmount: number;
   grandTotal: number;
   payingNow: number;

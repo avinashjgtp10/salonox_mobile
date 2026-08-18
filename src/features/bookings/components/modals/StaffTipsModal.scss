@@ -1,0 +1,157 @@
+// Reuses .chm-overlay's centering/backdrop chrome (ClientHistoryModal.scss) —
+// this only overrides the panel to a small, auto-height size for a per-staff
+// tip amount list.
+
+.stm-panel {
+  width: min(420px, 100%);
+  height: auto;
+  max-height: min(560px, 90vh);
+  display: flex;
+  flex-direction: column;
+}
+
+.stm-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 20px;
+  border-bottom: 1px solid #e5e7eb;
+
+  h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827;
+  }
+}
+
+.stm-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: #f3f4f6;
+  border-radius: 8px;
+  cursor: pointer;
+  flex-shrink: 0;
+  &:hover { background: #e5e7eb; }
+}
+
+.stm-body {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.stm-hint {
+  font-size: 12.5px;
+  color: #6b7280;
+  margin: 0 0 4px;
+
+  &--remaining {
+    margin: 2px 0 0;
+    font-size: 11.5px;
+    color: #b45309;
+  }
+}
+
+.stm-empty {
+  font-size: 13px;
+  color: #6b7280;
+  text-align: center;
+  padding: 24px 8px;
+  margin: 0;
+}
+
+.stm-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+
+  &__name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #1e293b;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__input-wrap {
+    display: flex;
+    align-items: center;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 0 10px;
+    width: 110px;
+    flex-shrink: 0;
+
+    input {
+      border: none;
+      outline: none;
+      padding: 8px 0;
+      font-size: 13.5px;
+      width: 100%;
+      background: transparent;
+      text-align: right;
+    }
+  }
+}
+
+.stm-pfx {
+  color: #6b7280;
+  font-weight: 600;
+  margin-right: 4px;
+}
+
+.stm-total {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px dashed #e5e7eb;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.stm-actions {
+  display: flex;
+  gap: 10px;
+  padding: 16px 20px;
+  border-top: 1px solid #e5e7eb;
+
+  button { flex: 1; }
+}
+
+.stm-btn {
+  padding: 10px 16px;
+  border-radius: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: background 0.15s;
+
+  &--outline {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #0f172a;
+    &:hover { background: #f8fafc; }
+  }
+
+  &--dark {
+    background: #0f172a;
+    color: #fff;
+    &:hover { background: #1e293b; }
+    &:disabled { opacity: 0.5; cursor: not-allowed; }
+  }
+}

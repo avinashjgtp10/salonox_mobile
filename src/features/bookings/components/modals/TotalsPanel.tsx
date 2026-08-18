@@ -45,6 +45,11 @@ interface TotalsPanelProps {
    *  Read-only here — toggled via PaymentPanel's own checkbox, not this
    *  panel; this just reflects the current state in the Staff Tip row. */
   addTipToSalon?: boolean;
+  /** Optional per-staff split of `tip`, entered via StaffTipsModal — when
+   *  present, rendered as indented sub-rows under the Staff Tip row instead
+   *  of (or alongside) the single lump figure. Empty/undefined for a plain,
+   *  unsplit tip. */
+  tipBreakdown?: { staffId: string; staffName: string; amount: number }[];
   // ₹ drawn from the client's balances for this bill — each shown as its own
   // deduction line so the discount is visible in the summary itself, not just
   // implied by a smaller "Due" figure with no line item explaining where it
@@ -82,7 +87,7 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   exCharges, discount, discountType, manualDiscount, couponDiscount = 0, couponCode,
   referralDiscount = 0, membershipDiscountUsed = 0,
   totalDiscount: totalDiscountProp,
-  gstAmount = 0, taxBreakdown = [], tip = 0, addTipToSalon = false,
+  gstAmount = 0, taxBreakdown = [], tip = 0, addTipToSalon = false, tipBreakdown = [],
   membershipWalletUsed = 0,
   ewalletUsed = 0, rewardPointsValue = 0, referralCreditUsed = 0,
   alreadyPaid = 0, paidLabel = "Paid", dueAmount = 0, packageServiceCount = 0,
@@ -222,6 +227,12 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
             </span>
           </div>
         )}
+        {tip > 0 && tipBreakdown.map((t) => (
+          <div key={t.staffId} className="d-flex justify-content-between align-items-center py-1" style={{ paddingLeft: 14 }}>
+            <span className="text-secondary" style={{ fontSize: 11 }}>{t.staffName}</span>
+            <span className="text-secondary" style={{ fontSize: 11 }}>{currencySymbol}{t.amount.toFixed(2)}</span>
+          </div>
+        ))}
       </div>
     </div>
   );
