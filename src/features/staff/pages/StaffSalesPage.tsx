@@ -14,6 +14,7 @@ import { SALE } from "../../../services/api/endpoints";
 import { DateRangeFilter, DownloadButton } from "../../../components/ui";
 import type { DateRangeFilterValue } from "../../../components/ui";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import "../styles/StaffSalesPage.scss";
 
@@ -53,11 +54,7 @@ const STATUS_CLASSES: Record<string, string> = {
 function formatDate(val?: string) {
   if (!val) return "—";
   try {
-    return new Date(val).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
+    return formatDateDDMMYYYY(new Date(val));
   } catch {
     return val;
   }

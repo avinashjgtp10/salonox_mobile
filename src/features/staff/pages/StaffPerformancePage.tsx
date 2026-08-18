@@ -16,6 +16,7 @@ import api from "../../../services/api/axios";
 import { STAFF, BOOKING, SALE } from "../../../services/api/endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/StaffPerformancePage.scss";
 
@@ -288,7 +289,7 @@ export default function StaffPerformancePage() {
     : "";
 
   const selectedDateFormatted = selectedDate
-    ? new Date(selectedDate + "T12:00:00").toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" })
+    ? formatDateDDMMYYYY(new Date(selectedDate + "T12:00:00"))
     : "";
 
   return (

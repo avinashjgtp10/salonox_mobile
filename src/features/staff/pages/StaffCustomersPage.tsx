@@ -12,6 +12,7 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../styles/StaffCustomersPage.scss";
 
 interface Client {
@@ -44,11 +45,7 @@ function getAvatarColor(id: number) {
 function formatDate(val?: string) {
   if (!val) return "—";
   try {
-    return new Date(val).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
+    return formatDateDDMMYYYY(new Date(val));
   } catch {
     return val;
   }

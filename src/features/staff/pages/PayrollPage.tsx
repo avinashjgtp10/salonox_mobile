@@ -16,6 +16,7 @@ import {
   Printer,
 } from "react-bootstrap-icons";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import { printPayrollReceipt } from "../utils/payrollReceipt";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -214,8 +215,8 @@ const HALF_DAY_DEDUCTION_REASON = "Late Arrival - Half Day";
 
 const startOfMonth = (d: Date): Date => new Date(d.getFullYear(), d.getMonth(), 1);
 const endOfMonth = (d: Date): Date => new Date(d.getFullYear(), d.getMonth() + 1, 0);
-const formatShort = (d: Date) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
-const formatShortYear = (d: Date) => d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+const formatShort = (d: Date) => formatDateDDMMYYYY(d);
+const formatShortYear = (d: Date) => formatDateDDMMYYYY(d);
 // Local YYYY-MM-DD avoids the UTC-shift bug from Date#toISOString(), which
 // can land the date on the wrong calendar day depending on the browser's timezone.
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

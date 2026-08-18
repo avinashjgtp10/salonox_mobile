@@ -27,6 +27,7 @@ import HalfDayRulePage from "../../settings/pages/HalfDayRulePage";
 import { scheduleDateToYMD } from "../../../components/staff-schedule/utils";
 import Dropdown from "../../../components/ui/Dropdown";
 import TimeDropdown from "../../../components/ui/TimeDropdown";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../styles/AttendancePage.scss";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -116,9 +117,7 @@ function shiftDate(base: string, days: number): string {
 }
 
 function fmtDateLabel(iso: string): string {
-  return new Date(iso + "T12:00:00").toLocaleDateString("en-IN", {
-    weekday: "short", day: "numeric", month: "short", year: "numeric",
-  });
+  return formatDateDDMMYYYY(new Date(iso + "T12:00:00"));
 }
 
 function initials(name: string) {
@@ -1219,7 +1218,7 @@ export default function AttendancePage() {
                   {d.location && <div className="ap-device-card__loc">{d.location}</div>}
                   <div className="ap-device-card__lastseen">
                     {d.last_seen
-                      ? `Last seen ${new Date(d.last_seen).toLocaleString("en-IN", { timeZone: "Asia/Kolkata", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit", hour12: true })}`
+                      ? `Last seen ${new Date(d.last_seen).toLocaleDateString("en-GB", { timeZone: "Asia/Kolkata", day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, "-")} ${new Date(d.last_seen).toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit", hour12: true })}`
                       : "Never connected"}
                   </div>
                   {d.last_ip && <div className="ap-device-card__ip">IP: {d.last_ip}</div>}

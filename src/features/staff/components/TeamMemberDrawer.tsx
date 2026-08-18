@@ -5,6 +5,7 @@ import api from "../../../services/api/axios";
 import { STAFF } from "../../../services/api/endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../styles/TeamMemberDrawer.scss";
 
 const MONTH_NAMES = [
@@ -21,7 +22,7 @@ function formatJoined(dateStr?: string | null): string | null {
   if (!dateStr) return null;
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+  return formatDateDDMMYYYY(d);
 }
 
 function formatColorLabel(key?: string | null): string | null {

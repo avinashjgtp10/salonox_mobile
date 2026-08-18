@@ -6,6 +6,7 @@ import { ChevronLeft, Printer, Download, ClockHistory, CashStack } from "react-b
 import Loader from "../../../components/ui/Loader";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../styles/PayRunBreakdownPage.scss";
 
 const TABS = ["Overview", "Earnings", "Deductions", "History"];
@@ -134,8 +135,8 @@ const PayRunBreakdownPage: React.FC = () => {
           <div>
             <h1 className="prb-page__title">Pay Run Breakdown</h1>
             <p className="prb-page__subtitle">
-              {periodStart ? new Date(periodStart).toLocaleDateString("en-IN") : "—"} –{" "}
-              {periodEnd ? new Date(periodEnd).toLocaleDateString("en-IN") : "—"}
+              {periodStart ? formatDateDDMMYYYY(new Date(periodStart)) : "—"} –{" "}
+              {periodEnd ? formatDateDDMMYYYY(new Date(periodEnd)) : "—"}
             </p>
           </div>
         </div>

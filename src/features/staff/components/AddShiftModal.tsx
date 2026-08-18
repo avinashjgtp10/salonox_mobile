@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { X, Trash3, Plus } from "react-bootstrap-icons";
 import Dropdown from "../../../components/ui/Dropdown";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../../staff/styles/AddShiftModal.scss";
 
 export interface ShiftTime {
@@ -66,14 +67,7 @@ const AddShiftModal: React.FC<AddShiftModalProps> = ({
 
   if (!show || !member || !date) return null;
 
-  const formatDate = (dateStr: string) => {
-    const d = new Date(dateStr);
-    return d.toLocaleDateString("en-US", {
-      weekday: "short",
-      month: "short",
-      day: "numeric",
-    });
-  };
+  const formatDate = (dateStr: string) => formatDateDDMMYYYY(new Date(dateStr));
 
   const handleAddShift = () => {
     setShifts([...shifts, { start: "10:00 AM", end: "7:00 PM" }]);

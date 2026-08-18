@@ -11,6 +11,7 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import api from "../../../services/api/axios";
 import { BOOKING } from "../../../services/api/endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import { DateRangeFilter } from "../../../components/ui";
 import type { DateRangeFilterValue } from "../../../components/ui";
 import "../styles/StaffAppointmentsPage.scss";
@@ -60,11 +61,7 @@ function formatTime(val?: string) {
 function formatDate(val?: string) {
   if (!val) return "—";
   try {
-    return new Date(val).toLocaleDateString("en-IN", {
-      day: "numeric",
-      month: "short",
-      year: "numeric",
-    });
+    return formatDateDDMMYYYY(new Date(val));
   } catch {
     return val;
   }
