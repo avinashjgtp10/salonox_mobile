@@ -316,8 +316,8 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             <Text style={styles.title}>{mode === "edit" ? "Edit Staff" : "Add Staff"}</Text>
             <Text style={styles.subtitle}>
               {mode === "edit"
-                ? "Update team profile and work details"
-                : "Create a new team profile for your salon"}
+                ? "Update staff profile and work details"
+                : "Create a new staff profile for your salon"}
             </Text>
           </View>
         </View>

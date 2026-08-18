@@ -252,6 +252,22 @@ export const getTodayAttendanceDateKey = (): string => {
   return `${year}-${month}-${day}`;
 };
 
+export const formatAttendanceDate = (dateKey: string | null | undefined, fallback = "--") => {
+  if (!dateKey) {
+    return fallback;
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey.trim());
+
+  if (!match) {
+    return fallback;
+  }
+
+  const [, year, month, day] = match;
+
+  return `${day}-${month}-${year}`;
+};
+
 const ATTENDANCE_ERROR_MESSAGES: Record<AttendanceErrorKind, string> = {
   forbidden: "You don't have permission to manage attendance.",
   network: "No internet connection. Please check your network and try again.",

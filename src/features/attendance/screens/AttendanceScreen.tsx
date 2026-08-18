@@ -28,7 +28,7 @@ import { AttendanceToast } from "@/features/attendance/components/AttendanceToas
 import { EditAttendanceModal } from "@/features/attendance/components/EditAttendanceModal";
 import { useAttendanceActions } from "@/features/attendance/hooks/useAttendanceActions";
 import { type AttendanceStaffRowData, useAttendanceScreen } from "@/features/attendance/hooks/useAttendanceScreen";
-import { getAttendanceAction } from "@/features/attendance/utils/attendanceStatus";
+import { formatAttendanceDate, getAttendanceAction } from "@/features/attendance/utils/attendanceStatus";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -71,6 +71,7 @@ export default function AttendanceScreen() {
   const [editStaffId, setEditStaffId] = useState<string | null>(null);
   const [checkModal, setCheckModal] = useState<CheckModalState>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  const selectedDateLabel = formatAttendanceDate(selectedDate);
 
   const modalRow = rows.find((row) => row.staffMember.id === editStaffId) ?? null;
   const checkModalRow = rows.find((row) => row.staffMember.id === checkModal?.staffId) ?? null;
@@ -160,7 +161,7 @@ export default function AttendanceScreen() {
           style={styles.datePickerButton}
         >
           <Ionicons name="calendar-outline" size={16} color={Colors.text2} />
-          <Text style={styles.datePickerText}>{selectedDate}</Text>
+          <Text style={styles.datePickerText}>{selectedDateLabel}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.84}

@@ -25,6 +25,16 @@ export const environmentConfig = {
   socketUrl: readPublicEnv("EXPO_PUBLIC_SOCKET_URL"),
 } as const;
 
+// SCRUM-1840: Mobile has no dedicated EXPO_PUBLIC_WEB_APP_URL — the Web app
+// lives on the same per-environment origin already configured for the
+// realtime socket (dev.salonox.com / qa.salonox.com / www.salonox.com), so
+// this reuses socketUrl rather than hardcoding a production-only URL (the
+// way WEB_APP_URL in more.tsx/StaffSettingsScreen.tsx does for the
+// environment-agnostic /terms and /about static pages).
+export const webRegistrationUrl = environmentConfig.socketUrl
+  ? `${environmentConfig.socketUrl}/register`
+  : "";
+
 export const getMissingEnvironmentVariables = () =>
   (Object.keys(PUBLIC_ENV) as PublicEnvKey[]).filter((key) => !PUBLIC_ENV[key]?.trim());
 
