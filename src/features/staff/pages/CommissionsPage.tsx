@@ -22,7 +22,7 @@ import { SuccessOverlay } from "../../../components/ui";
 import RuleCard from "../components/commission/RuleCard";
 import RuleWizard from "../components/commission/RuleWizard";
 import RuleDetailModal from "../components/commission/RuleDetailModal";
-import SettleCommissionModal from "../components/commission/SettleCommissionModal";
+import SettleCommissionModal, { type CommissionSettlementPaymentMethod } from "../components/commission/SettleCommissionModal";
 import { SOURCE_META, groupCommissionRules } from "../components/commission/commissionRuleMeta";
 import { exportCommissionsPDF } from "../utils/commissionExport";
 import type { CommissionRule, CommissionRuleFormData, CommissionRuleSource, RuleGroup } from "../types/commissionRules.types";
@@ -510,6 +510,7 @@ function CommissionHistoryDrawer({
 
   const totalEarned  = history.reduce((s, h) => s + parseFloat(h.commission_amount), 0);
   const totalRevenue = history.reduce((s, h) => s + parseFloat(h.revenue_amount), 0);
+  const formatPaymentMethod = (method?: string | null) => method ? method.toUpperCase() : "—";
 
   return (
     <div className="cm-history-overlay" onClick={onClose}>
@@ -572,7 +573,9 @@ function CommissionHistoryDrawer({
           ) : (
             history.map((h) => {
               const cat     = getCatMeta(h.category as CommissionCategory);
-              const isPaid  = h.status === "paid";
+              const isPaid = h.status === "paid";
+              const isPartial = h.status === "partial";
+              const hasSettlement = isPaid || isPartial;
               const date    = formatDateDDMMYYYY(new Date(h.earned_at));
               return (
                 <div key={h.id} className="cm-history-row">
@@ -592,9 +595,14 @@ function CommissionHistoryDrawer({
                       {" → "}
                       <strong>{fmt(parseFloat(h.commission_amount))}</strong>
                     </div>
+                    {hasSettlement && (
+                      <div className="cm-history-payment">
+                        Payment Method: <strong>{formatPaymentMethod(h.payment_method)}</strong>
+                      </div>
+                    )}
                   </div>
-                  <span className={`cm-history-status ${isPaid ? "cm-history-status--paid" : "cm-history-status--pending"}`}>
-                    {isPaid ? "Paid" : "Pending"}
+                  <span className={`cm-history-status ${hasSettlement ? "cm-history-status--paid" : "cm-history-status--pending"}`}>
+                    {isPaid ? "Paid" : isPartial ? "Partial" : "Pending"}
                   </span>
                 </div>
               );
@@ -769,12 +777,20 @@ export default function CommissionsPage() {
     }).catch(() => {});
   }, [summaryMonth, salonId]);
 
-  const handleSettle = async (staffId: string, name: string, amount: number) => {
+  const handleSettle = async (
+    staffId: string,
+    name: string,
+    amount: number,
+    paymentMethod: CommissionSettlementPaymentMethod,
+  ) => {
     setSettlingId(staffId);
     try {
       // `amount` is sent to the backend so a partial entry only settles that
       // much — the remainder stays pending (status becomes "partial" there).
-      await api.post(STAFF.SETTLE_COMMISSION(staffId), { amount });
+      await api.post(STAFF.SETTLE_COMMISSION(staffId), {
+        amount,
+        payment_method: paymentMethod,
+      });
       showSuccess(`${formatAmount(amount)} settled for ${name}`);
       setSettleTarget(null);
       const [summaryRes, earnedRes] = await Promise.all([
@@ -1000,7 +1016,7 @@ export default function CommissionsPage() {
           staffName={settleTarget.name}
           totalUnpaid={settleTarget.pending}
           formatAmount={formatAmount}
-          onConfirm={(amount) => handleSettle(settleTarget.staffId, settleTarget.name, amount)}
+          onConfirm={(amount, paymentMethod) => handleSettle(settleTarget.staffId, settleTarget.name, amount, paymentMethod)}
           onClose={() => setSettleTarget(null)}
         />
       )}

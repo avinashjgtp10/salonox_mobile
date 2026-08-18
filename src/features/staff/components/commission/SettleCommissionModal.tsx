@@ -2,19 +2,25 @@ import { useState } from "react";
 import Modal from "../../../../components/ui/Modal";
 import Input from "../../../../components/ui/Input";
 import Button from "../../../../components/ui/Button";
+import Select from "../../../../components/ui/Select";
+
+export type CommissionSettlementPaymentMethod = "Cash" | "UPI";
 
 interface Props {
   staffName: string;
   totalUnpaid: number;
   formatAmount: (n: number) => string;
-  onConfirm: (amount: number) => Promise<void> | void;
+  onConfirm: (amount: number, paymentMethod: CommissionSettlementPaymentMethod) => Promise<void> | void;
   onClose: () => void;
 }
+
+const PAYMENT_METHODS: CommissionSettlementPaymentMethod[] = ["Cash", "UPI"];
 
 export default function SettleCommissionModal({
   staffName, totalUnpaid, formatAmount, onConfirm, onClose,
 }: Props) {
   const [amountInput, setAmountInput] = useState(String(totalUnpaid));
+  const [paymentMethod, setPaymentMethod] = useState<CommissionSettlementPaymentMethod>("Cash");
   const [submitting, setSubmitting] = useState(false);
 
   const amount = Number(amountInput);
@@ -31,7 +37,7 @@ export default function SettleCommissionModal({
     if (error) return;
     setSubmitting(true);
     try {
-      await onConfirm(amount);
+      await onConfirm(amount, paymentMethod);
     } finally {
       setSubmitting(false);
     }
@@ -62,6 +68,18 @@ export default function SettleCommissionModal({
           containerClass="mb-0"
           autoFocus
         />
+
+        <Select
+          label="Payment Method"
+          value={paymentMethod}
+          onChange={(e) => setPaymentMethod(e.target.value as CommissionSettlementPaymentMethod)}
+          disabled={submitting}
+          containerClass="mb-0"
+        >
+          {PAYMENT_METHODS.map((method) => (
+            <option key={method} value={method}>{method}</option>
+          ))}
+        </Select>
 
         <div>
           <div className="text-muted small">Remaining Balance</div>
