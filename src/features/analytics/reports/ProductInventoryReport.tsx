@@ -27,6 +27,7 @@ interface InventoryRow {
   brand: string;
   sku: string;
   dateAdded: string;
+  expiryDate: string;
   currentStock: number;
   reorderLevel: number;
   unitCost: number;
@@ -52,6 +53,7 @@ function mapRow(row: any): InventoryRow {
     // column is labelled "Barcode" in the UI to match the Add Product form.
     sku: row.sku || "—",
     dateAdded: row.date_added || "",
+    expiryDate: row.expiry_date || "",
     currentStock: Number(row.current_stock) || 0,
     reorderLevel: Number(row.reorder_level) || 0,
     unitCost: Number(row.unit_cost) || 0,
@@ -175,9 +177,9 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
   // same number isn't called two different things in two places — "Barcode"
   // and "Low Stock Alert" there, not "SKU"/"Reorder Level". Keep this list and
   // the <thead> below in step; this one is what the Download export writes.
-  const HEADERS = ["Product", "Category", "Brand", "Barcode", "Current Stock", "Low Stock Alert", `Unit Cost (${currencySymbol})`, `Total Value (${currencySymbol})`, "Sales", "Status"];
+  const HEADERS = ["Product", "Category", "Brand", "Barcode", "Product Expiry", "Current Stock", "Low Stock Alert", `Unit Cost (${currencySymbol})`, `Total Value (${currencySymbol})`, "Sales", "Status"];
   const exportRows = () => rows.map(r => [
-    r.product, r.category, r.brand, r.sku,
+    r.product, r.category, r.brand, r.sku, r.expiryDate ? formatDate(r.expiryDate) : "—",
     r.currentStock, r.reorderLevel, r.unitCost, r.totalValue,
     r.unitsSold > 0 ? `${r.unitsSold} unit${r.unitsSold !== 1 ? "s" : ""} · ${formatAmount(r.salesRevenue)}` : "—",
     STATUS_LABELS[r.status] ?? r.status,
@@ -266,6 +268,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
               <th>Category</th>
               <th>Brand</th>
               <th>Barcode</th>
+              <th>Product Expiry</th>
               <th>Current Stock</th>
               <th>Low Stock Alert</th>
               <th>Unit Cost ({currencySymbol})</th>
@@ -276,15 +279,16 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={10} />
+              <SkeletonTableRows columns={11} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={10} className="rp-detail-empty-cell">No data available</td></tr>
+              <tr><td colSpan={11} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.map((r) => (
               <tr key={r.productId}>
                 <td className="fw-semibold rp-inv-product-cell" title={r.product}>{r.product}</td>
                 <td>{r.category}</td>
                 <td>{r.brand}</td>
                 <td><span className="rp-detail-link">{r.sku}</span></td>
+                <td>{r.expiryDate ? formatDate(r.expiryDate) : "—"}</td>
                 <td>{r.currentStock}</td>
                 <td>{r.reorderLevel}</td>
                 <td>{formatAmount(r.unitCost)}</td>
