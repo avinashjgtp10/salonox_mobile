@@ -41,3 +41,4 @@ export * from "./reviews.endpoints";
 export * from "./feedback.endpoints";
 export * from "./enquiries.endpoints";
 export * from "./payroll.endpoints";
+export * from "./botQuestions.endpoints";
