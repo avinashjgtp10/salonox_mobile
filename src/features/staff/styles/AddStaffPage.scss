@@ -419,6 +419,11 @@ $transition:      0.18s ease;
     font-size: 10px;
     font-weight: 800;
   }
+
+  &--email {
+    margin-top: 2px;
+    align-self: flex-start;
+  }
 }
 
 .emp-otp-msg {
