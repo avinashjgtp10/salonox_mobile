@@ -18,6 +18,7 @@ import type { ConsumableDetail } from "../../../types/inventory.types";
 // stay visually and behaviourally identical, so they use one control, not two.
 import SearchSelect from "../components/form/SearchSelect";
 import QuickAdd from "../components/form/QuickAdd";
+import { DatePicker } from "../../../components/ui";
 import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/ConsumableFormPage.scss";
 
@@ -102,6 +103,9 @@ const ProductFormPage: React.FC = () => {
   const [customTaxRate, setCustomTaxRate] = useState("");
   const [hsnSac, setHsnSac] = useState("");
   const [retailPrice, setRetailPrice] = useState("");
+  // "YYYY-MM-DD", or "" when not set — same internal format DatePicker uses
+  // everywhere else; only its displayed label is dd-mm-yyyy (see below).
+  const [expiryDate, setExpiryDate] = useState("");
 
   // ── Usage stats, for the live preview (edit mode only — a new product has no history yet) ──
   const [usageStats, setUsageStats] = useState<ConsumableDetail["usage_stats"] | null>(null);
@@ -150,6 +154,7 @@ const ProductFormPage: React.FC = () => {
         setCustomTaxRate(p.custom_tax_rate != null ? String(p.custom_tax_rate) : "");
         setHsnSac(p.hsn_sac || "");
         setRetailPrice(p.retail_price != null ? String(p.retail_price) : "");
+        setExpiryDate(p.expiry_date ? String(p.expiry_date).slice(0, 10) : "");
         if (detail) {
           setUsageStats(detail.usage_stats);
           const drafts = detail.assigned_services.map((s) => ({ service_id: s.service_id, name: s.name, qty: String(s.qty), unit: s.unit || "" }));
@@ -292,9 +297,17 @@ const ProductFormPage: React.FC = () => {
   // since its own check compared bottles against base units.
   const alertError = submitAttempted && qtyAlert.trim() !== "" && qtyNum > 0 && alertNum >= qtyNum
     ? "Low Stock Alert must be less than the Product Quantity" : "";
+  // Only enforced when adding a fresh product — an already-expired product
+  // being edited (e.g. old stock entered late) must still be saveable, so
+  // this doesn't retroactively block edits to a date that was fine when set.
+  const todayIso = new Date().toISOString().slice(0, 10);
+  const isExpiryInPast = !!expiryDate && expiryDate < todayIso;
+  const expiryDateError = submitAttempted && !isEdit && isExpiryInPast
+    ? "Expiry date cannot be in the past" : "";
   const isValid = !!name.trim() && !!categoryId && !!productQty && qtyNum >= 0
     && (!isConsumable || !!unitSize) && (!sellsRetail || (!!retailPrice && parseFloat(retailPrice) > 0))
-    && !(qtyAlert.trim() !== "" && qtyNum > 0 && alertNum >= qtyNum);
+    && !(qtyAlert.trim() !== "" && qtyNum > 0 && alertNum >= qtyNum)
+    && !(!isEdit && isExpiryInPast);
 
   async function syncServiceAssignments(productId: string) {
     const currentIds = new Set(assignedServices.map((a) => a.service_id));
@@ -345,6 +358,7 @@ const ProductFormPage: React.FC = () => {
         hsn_sac: hsnSac.trim() || undefined,
         retail_sales_enabled: sellsRetail,
         retail_price: sellsRetail ? (parseFloat(retailPrice) || 0) : undefined,
+        expiry_date: expiryDate || null,
       };
 
       let productId = id;
@@ -638,6 +652,17 @@ const ProductFormPage: React.FC = () => {
           <div className="cf-field">
             <label>HSN/SAC</label>
             <input value={hsnSac} onChange={(e) => setHsnSac(e.target.value)} />
+          </div>
+          <div className="cf-field">
+            <label>Expiry Date</label>
+            <DatePicker
+              value={expiryDate}
+              onChange={setExpiryDate}
+              placeholder="dd-mm-yyyy"
+              separator="-"
+              min={isEdit ? undefined : todayIso}
+            />
+            {expiryDateError && <span className="cf-field__error">{expiryDateError}</span>}
           </div>
           {sellsRetail && (
             <div className="cf-field">
