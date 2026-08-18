@@ -1,6 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { router, useLocalSearchParams } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   ActivityIndicator,
@@ -19,6 +20,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { KeyboardAwareScrollView, type KeyboardAwareScrollViewHandle } from "@/components/ui/KeyboardAwareScrollView";
+import { webRegistrationUrl } from "@/config/environment";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
@@ -280,12 +282,17 @@ export default function LoginScreen() {
     handleLogin();
   };
 
-  // SCRUM-1838: self-registration removed from the mobile app. The "Create
-  // account" link stays visible in the UI (per product decision) but is now
-  // inert — tapping it does nothing. New salons are provisioned some other
-  // way; see AuthContext's still-intact signUp()/authService.register() if
-  // this ever needs to come back.
-  const handleCreateAccountPress = () => {};
+  // SCRUM-1838 removed the in-app self-registration form; SCRUM-1840
+  // reconnects "Create account" to the existing Web registration flow
+  // instead of rebuilding it natively. AuthContext's signUp()/
+  // authService.register() are still intact but unused here.
+  const handleCreateAccountPress = () => {
+    if (!webRegistrationUrl) {
+      return;
+    }
+
+    void WebBrowser.openBrowserAsync(webRegistrationUrl);
+  };
 
   const handleGoogleLogin = async () => {
     if (isGoogleLoading) {
@@ -546,8 +553,8 @@ export default function LoginScreen() {
               </Pressable>
             </Animated.View>
 
-            {/* Bottom Row — SCRUM-1838: self-registration removed, but this
-                link stays visible per product decision; handleCreateAccountPress is now a no-op. */}
+            {/* Bottom Row — SCRUM-1840: opens the existing Web registration
+                flow rather than an in-app form (removed by SCRUM-1838). */}
             <Pressable
               onPress={handleCreateAccountPress}
               style={styles.createAccountRow}

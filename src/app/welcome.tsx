@@ -1,4 +1,5 @@
 import { router } from "expo-router";
+import * as WebBrowser from "expo-web-browser";
 import { useEffect, useMemo, useRef } from "react";
 import {
   Animated,
@@ -21,6 +22,7 @@ import {
   useLuxuryColors,
   type LuxuryColors,
 } from "@/components/auth/luxuryTheme";
+import { webRegistrationUrl } from "@/config/environment";
 
 const WELCOME_HERO_IMAGE = require("../../assets/images/auth/salon-welcome-hero.png");
 
@@ -56,9 +58,16 @@ export default function WelcomeScreen() {
         </Animated.View>
 
         <View style={styles.actions}>
+          {/* SCRUM-1840: opens the existing Web registration flow — the
+              in-app form (and the mode=register param this used to pass to
+              Login) was removed by SCRUM-1838. */}
           <Pressable
             accessibilityRole="button"
-            onPress={() => router.push({ pathname: "/login", params: { mode: "register" } })}
+            onPress={() => {
+              if (webRegistrationUrl) {
+                void WebBrowser.openBrowserAsync(webRegistrationUrl);
+              }
+            }}
             style={({ pressed }) => pressed && styles.pressed}
           >
             <LuxuryButtonSurface>
