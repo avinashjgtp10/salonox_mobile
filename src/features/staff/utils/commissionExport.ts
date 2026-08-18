@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 interface CommissionExportRow {
   staff_name?: string;
@@ -36,7 +37,7 @@ export const exportCommissionsPDF = (rows: CommissionExportRow[], month?: string
   doc.setFont("helvetica", "normal");
   doc.setTextColor(100);
   const now = new Date();
-  const generatedAt = `${now.toLocaleDateString("en-GB")} ${now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`;
+  const generatedAt = `${formatDateDDMMYYYY(now)} ${now.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true })}`;
   doc.text(`${month ? `Month: ${month}  ·  ` : ""}Generated: ${generatedAt}`, 14, 25);
 
   autoTable(doc, {

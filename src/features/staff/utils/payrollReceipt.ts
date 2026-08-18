@@ -1,4 +1,5 @@
 import type { Salon } from "../../../types/salon.types";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 // Salary receipt printer for the Payroll page — mirrors the bookings
 // receipt.ts pattern (build an HTML invoice, open it in a new window, let the
@@ -51,7 +52,7 @@ export function printPayrollReceipt(
   const fmtDate = (raw?: string) => {
     if (!raw) return "—";
     const d = new Date(raw);
-    return isNaN(d.getTime()) ? "—" : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    return isNaN(d.getTime()) ? "—" : formatDateDDMMYYYY(d);
   };
 
   const row = (label: string, value: string, bold = false, color = "#111827") =>

@@ -16,6 +16,7 @@ import {
 } from "react-bootstrap-icons";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../styles/CommissionsPage.scss";
 import { SuccessOverlay } from "../../../components/ui";
 import RuleCard from "../components/commission/RuleCard";
@@ -572,7 +573,7 @@ function CommissionHistoryDrawer({
             history.map((h) => {
               const cat     = getCatMeta(h.category as CommissionCategory);
               const isPaid  = h.status === "paid";
-              const date    = new Date(h.earned_at).toLocaleDateString("en-IN", { day: "2-digit", month: "short" });
+              const date    = formatDateDDMMYYYY(new Date(h.earned_at));
               return (
                 <div key={h.id} className="cm-history-row">
                   <div className="cm-history-cat-icon" style={{ "--icon-bg": cat.bg, "--icon-color": cat.color } as React.CSSProperties}>

@@ -11,6 +11,7 @@ import {
 import api from "../../../services/api/axios";
 import { STAFF, SALE, ATTENDANCE, REVIEWS } from "../../../services/api/endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import Dropdown from "../../../components/ui/Dropdown";
 import { DateRangeFilter } from "../../../components/ui";
 import type { DateRangeFilterValue } from "../../../components/ui";
@@ -78,12 +79,14 @@ interface AttendanceRow {
 
 function fmtDate(d: string | undefined | null) {
   if (!d) return "—";
-  return new Date(d).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDateDDMMYYYY(new Date(d));
 }
 
 function fmtDateTime(d: string | undefined | null) {
   if (!d) return "—";
-  return new Date(d).toLocaleString("en-IN", { day: "2-digit", month: "short", hour: "numeric", minute: "2-digit", hour12: true });
+  const dt = new Date(d);
+  const time = dt.toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true });
+  return `${formatDateDDMMYYYY(dt)} ${time}`;
 }
 
 function SourceBadge({ source }: { source: string }) {
