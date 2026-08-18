@@ -1,7 +1,12 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { type Country } from 'react-phone-number-input';
-import { isPossiblePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
+import {
+  isPossiblePhoneNumber,
+  isValidPhoneNumber,
+  parsePhoneNumberFromString,
+  validatePhoneNumberLength,
+} from 'libphonenumber-js';
 import api from '../../../services/api/axios';
 import { DEMO_REQUESTS } from '../../../services/api/endpoints';
 import 'react-phone-number-input/style.css';
@@ -712,9 +717,18 @@ const LandingPage: React.FC = () => {
 
   const validatePhone = useCallback((value: string, country: Country | undefined) => {
     if (!value) return 'Mobile number is required.';
+    const selectedCountryName = country ? countryName(country) : 'the selected country';
     if (!isPossiblePhoneNumber(value)) return 'Enter a complete mobile number.';
-    if (!isValidPhoneNumber(value, country)) {
-      return `Enter a valid mobile number for ${country ? countryName(country) : 'the selected country'}.`;
+    const phoneNumber = parsePhoneNumberFromString(value, country);
+    if (!phoneNumber || !phoneNumber.isValid() || !isValidPhoneNumber(value, country)) {
+      return `Enter a valid mobile number for ${selectedCountryName}.`;
+    }
+    if (country && phoneNumber.country && phoneNumber.country !== country) {
+      return `Enter a mobile number that matches ${selectedCountryName}.`;
+    }
+    const numberType = phoneNumber.getType();
+    if (numberType && numberType !== 'MOBILE' && numberType !== 'FIXED_LINE_OR_MOBILE') {
+      return `Enter a valid mobile number for ${selectedCountryName}.`;
     }
     return '';
   }, []);
@@ -787,15 +801,33 @@ const LandingPage: React.FC = () => {
   }, [demoForm.locations, locationsTouched, validateLocations]);
 
   const handlePhoneChange = useCallback((value?: string) => {
-    setDemoForm((prev) => ({ ...prev, phone: value || '' }));
+    const nextPhone = value || '';
+    setDemoForm((prev) => ({ ...prev, phone: nextPhone }));
     setDemoError('');
-  }, []);
+
+    const selectedCountryName = phoneCountry ? countryName(phoneCountry) : 'the selected country';
+    const phoneLengthError = nextPhone ? validatePhoneNumberLength(nextPhone, phoneCountry) : undefined;
+
+    if (phoneLengthError === 'TOO_LONG' || phoneLengthError === 'INVALID_LENGTH') {
+      setPhoneTouched(true);
+      setPhoneError(`Enter a valid mobile number for ${selectedCountryName}.`);
+      return;
+    }
+
+    if (phoneTouched) {
+      setPhoneError(validatePhone(nextPhone, phoneCountry));
+      return;
+    }
+
+    setPhoneError('');
+  }, [phoneCountry, phoneTouched, validatePhone]);
 
   const handlePhoneBlur = useCallback(() => {
     setPhoneTouched(true);
   }, []);
 
   const handlePhoneCountryChange = useCallback((country?: Country) => {
+    if (!country) return;
     setPhoneCountry(country);
   }, []);
 
@@ -1033,6 +1065,7 @@ const LandingPage: React.FC = () => {
         nameError={nameError}
         emailTouched={emailTouched}
         emailError={emailError}
+        phoneCountry={phoneCountry}
         phoneTouched={phoneTouched}
         phoneError={phoneError}
         salonTouched={salonTouched}

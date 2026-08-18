@@ -22,6 +22,7 @@ type BookDemoProps = {
   nameError: string;
   emailTouched: boolean;
   emailError: string;
+  phoneCountry: import('react-phone-number-input').Country | undefined;
   phoneTouched: boolean;
   phoneError: string;
   salonTouched: boolean;
@@ -51,6 +52,7 @@ const BookDemo: React.FC<BookDemoProps> = ({
   nameError,
   emailTouched,
   emailError,
+  phoneCountry,
   phoneTouched,
   phoneError,
   salonTouched,
@@ -236,6 +238,7 @@ const BookDemo: React.FC<BookDemoProps> = ({
                   <span id="demo-phone-label">Mobile Number</span>
                   <PhoneInput
                     addInternationalOption={false}
+                    country={phoneCountry}
                     defaultCountry={DEMO_PHONE_DEFAULT_COUNTRY}
                     flags={flags}
                     countrySelectComponent={CountrySelectSearch}
