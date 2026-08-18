@@ -705,7 +705,10 @@ export default function QuickSaleScreen() {
           productRows,
           membershipRows,
           discountType: draftDiscountType === "percentage" ? "percentage" : "flat",
-          discountValue: parseAmount(overallDiscountInput),
+          discountValue:
+            draftDiscountType === "percentage"
+              ? draftDiscountPercent
+              : parseAmount(overallDiscountInput),
           couponCode: appliedCoupon?.valid ? appliedCoupon.couponCode : undefined,
           exCharges: extraChargesTotal,
           tip: parseAmount(tipInput),
@@ -735,6 +738,7 @@ export default function QuickSaleScreen() {
   }, [
     cart.items,
     selectedClient.id,
+    draftDiscountPercent,
     draftDiscountType,
     overallDiscountInput,
     appliedCoupon,
