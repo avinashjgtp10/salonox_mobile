@@ -932,3 +932,18 @@ export function printReceipt(
   win.document.close();
   win.focus();
 }
+
+/** wa.me deep link for a client's phone. Defaults to India's country code
+ *  (91) when none is known — same fallback ClientHistoryDetail.tsx's own
+ *  WhatsApp button uses, since booking-scoped client data rarely carries a
+ *  separate country code field. */
+export function buildClientWhatsAppLink(phone?: string | null, countryCode?: string | null): string | null {
+  const pn = (phone || "").replace(/[^0-9]/g, "");
+  if (!pn) return null;
+  // A bare local mobile number (≤10 digits) has no country code attached —
+  // prepend one. Anything longer is already carrying a country code (some
+  // client records store the phone with it baked in) — don't double it up.
+  if (pn.length > 10) return `https://wa.me/${pn}`;
+  const cc = (countryCode || "").replace(/[^0-9]/g, "") || "91";
+  return `https://wa.me/${cc}${pn}`;
+}

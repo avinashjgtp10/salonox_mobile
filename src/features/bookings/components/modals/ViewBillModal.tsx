@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
+import toast from "react-hot-toast";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import type { Booking } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
-import { useAppSelector } from "../../../../hooks/useAppRedux";
+import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
 import { formatTime12 } from "../../utils/timeUtils";
 import Badge from "../../../../components/ui/Badge";
 import { getActiveTaxes } from "../../../settings/utils/taxSettings";
@@ -12,10 +13,12 @@ import { computeTotals } from "../../utils/totalsUtils";
 import { useClientDetails } from "../../hooks/useClientDetails";
 import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
 import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
-import { printReceipt } from "../../utils/receipt";
+import { printReceipt, buildClientWhatsAppLink } from "../../utils/receipt";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { useFocusTrap } from "../../../../hooks/useFocusTrap";
 import { computeBillBreakdown } from "../../../../components/shared/billBreakdown";
+import { fetchReceiptPdfThunk } from "../../../../middleware/booking/booking.thunk";
+import { downloadBlob } from "../../../../utils/downloadBlob";
 import "../../styles/ViewBillModal.scss";
 
 interface Props { booking: Booking; onClose: () => void; onEdit?: (booking: Booking) => void; onCollectDue?: (booking: Booking) => void }
@@ -44,6 +47,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   const { currencySymbol, formatAmount } = useCurrency();
   const { staffList, clientsList } = useSchedulerContext();
   const currentSalon = useAppSelector((s) => s.salon.currentSalon);
+  const dispatch = useAppDispatch();
   const dialogRef = useRef<HTMLDivElement>(null);
   useFocusTrap(dialogRef, true, onClose);
   const settingItems = useAppSelector((s) => s.setting.items);
@@ -54,6 +58,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   const paperProfile = useMemo(() => getPaperProfile(settingItems), [settingItems]);
   const [tab, setTab] = useState<"Booking Details" | "Activity Log">("Booking Details");
   const [showDotMenu, setShowDotMenu] = useState(false);
+  const [sendingReceipt, setSendingReceipt] = useState(false);
 
   const dotMenuRef = useRef<HTMLDivElement>(null);
 
@@ -344,11 +349,75 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                         activePackages: activePackagesForBill,
                       }, { showTaxBreakup: showTaxBreakupOnInvoice, formatAmount, paperProfile });
                     }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: "0 0 10px 10px", textAlign: "left" }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: 0, textAlign: "left" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
                   >
                     <span>🖨️</span> Print Receipt
+                  </button>}
+                  {canPrintReceipt && <div style={{ height: 1, background: "#f3f4f6" }} />}
+                  {canPrintReceipt && <button
+                    disabled={sendingReceipt}
+                    onClick={async () => {
+                      setShowDotMenu(false);
+                      const waLink = buildClientWhatsAppLink(booking.clientPhone, booking.clientPhoneCode);
+                      setSendingReceipt(true);
+                      const result: any = await dispatch(fetchReceiptPdfThunk(booking.id));
+                      setSendingReceipt(false);
+
+                      if (!fetchReceiptPdfThunk.fulfilled.match(result)) {
+                        toast.error(result.payload || "Failed to get the receipt PDF.");
+                        return;
+                      }
+
+                      const blob: Blob = result.payload;
+                      const filename = `Receipt-${(booking as any).invoiceNumber || booking.id}.pdf`;
+
+                      // Best-effort first: native share sheet attaches the PDF directly —
+                      // see AppointmentModal.tsx's identical button for the full reasoning
+                      // (why this can't pre-select a WhatsApp contact too, and why the
+                      // fallback below uses a real link instead of window.open()).
+                      if (navigator.share) {
+                        try {
+                          const file = new File([blob], filename, { type: "application/pdf" });
+                          if (navigator.canShare?.({ files: [file] })) {
+                            await navigator.share({
+                              files: [file],
+                              text: `Receipt for ${booking.clientName || "your visit"}`,
+                            });
+                            return;
+                          }
+                        } catch { /* cancelled or blocked — fall through */ }
+                      }
+
+                      downloadBlob(blob, filename, "application/pdf");
+                      if (waLink) {
+                        const text = `Hi ${booking.clientName || ""}, please find your receipt attached.`.trim();
+                        const target = `${waLink}?text=${encodeURIComponent(text)}`;
+                        toast((t) => (
+                          <span>
+                            Receipt downloaded.{" "}
+                            <a
+                              href={target}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              onClick={() => toast.dismiss(t.id)}
+                              style={{ color: "#2563eb", fontWeight: 700, textDecoration: "underline" }}
+                            >
+                              Tap to open WhatsApp
+                            </a>{" "}
+                            and attach it.
+                          </span>
+                        ), { duration: 10000 });
+                      } else {
+                        toast("Receipt downloaded. This client has no phone number on file to open WhatsApp automatically.", { duration: 5000 });
+                      }
+                    }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: sendingReceipt ? "default" : "pointer", opacity: sendingReceipt ? 0.6 : 1, fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: "0 0 10px 10px", textAlign: "left" }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                  >
+                    <span>📤</span> {sendingReceipt ? "Preparing…" : "Send to WhatsApp"}
                   </button>}
                 </div>
               )}

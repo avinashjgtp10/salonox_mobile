@@ -124,6 +124,20 @@ export const checkoutBookingThunk = createAsyncThunk<any, { id: string | number;
   }
 );
 
+// Raw PDF bytes, not a link — the caller shares them locally (native share
+// sheet or a manual WhatsApp attach) instead of relying on any public URL.
+export const fetchReceiptPdfThunk = createAsyncThunk<Blob, string | number, { rejectValue: string }>(
+  "booking/fetchReceiptPdf", async (id, { rejectWithValue }) => {
+    try {
+      const res = await api.get(BOOKING.RECEIPT_PDF(id), { responseType: "blob" });
+      return res.data as Blob;
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to get the receipt PDF");
+    }
+  }
+);
+
 export const exportBookingsThunk = createAsyncThunk<void, { format: "excel" | "csv" | "pdf"; filters?: { salon_id?: string; status?: string; start_date?: string; end_date?: string } }, { rejectValue: string }>(
   "booking/export", async ({ format, filters }, { rejectWithValue, getState }) => {
     try {
