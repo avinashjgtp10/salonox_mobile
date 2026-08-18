@@ -23,6 +23,7 @@ import type {
 import { useUpdatePackageMutation } from "../../../../services/api/endpoints/packages.endpoints";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../../utils/currencyIcon";
+import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
 import Dropdown from "../../../../components/ui/Dropdown";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -170,11 +171,7 @@ const ViewContent: React.FC<ViewContentProps> = ({ pkg }) => {
         <DetailRow
           icon={<CalendarEvent size={15} />}
           label="Created"
-          value={new Date(pkg.createdAt).toLocaleDateString("en-IN", {
-            day: "2-digit",
-            month: "short",
-            year: "numeric",
-          })}
+          value={formatDateDDMMYYYY(new Date(pkg.createdAt))}
         />
       )}
     </div>

@@ -19,6 +19,7 @@ import { fetchBranchesThunk } from "../../../middleware/salon/salon.thunk";
 import StocktakeDetailsDrawer from "../components/StocktakeDetailsDrawer";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import Dropdown from "../../../components/ui/Dropdown";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../styles/StocktakesListPage.scss";
 
 // Types - Keeping these but mapping from state if needed
@@ -239,8 +240,8 @@ const StocktakesListPage: React.FC = () => {
                     {stocktake.status}
                   </span>
                 </td>
-                <td className="date-cell">{new Date(stocktake.created_at).toLocaleDateString()}</td>
-                <td className="date-cell">{stocktake.completed_at ? new Date(stocktake.completed_at).toLocaleDateString() : "-"}</td>
+                <td className="date-cell">{formatDateDDMMYYYY(new Date(stocktake.created_at))}</td>
+                <td className="date-cell">{stocktake.completed_at ? formatDateDDMMYYYY(new Date(stocktake.completed_at)) : "-"}</td>
                 <td className="text-end" onClick={(e) => e.stopPropagation()}>
                   <div className="dropdown position-relative">
                     <button

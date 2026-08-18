@@ -1,5 +1,6 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 export interface PDFExportOptions {
   salon?: {
@@ -27,11 +28,7 @@ const formatDateISO = (date: Date) => {
   return `${y}-${m}-${day}`;
 };
 
-const formatDisplayDate = (date: Date) => {
-  const day = String(date.getDate()).padStart(2, "0");
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return `${day} ${months[date.getMonth()]} ${date.getFullYear()}`;
-};
+const formatDisplayDate = (date: Date) => formatDateDDMMYYYY(date);
 
 const formatGeneratedDateTime = (date: Date) => {
   const timeStr = date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: true });

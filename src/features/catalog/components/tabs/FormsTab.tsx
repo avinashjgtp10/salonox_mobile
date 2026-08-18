@@ -10,6 +10,7 @@ import {
 import type { FormsData, ServiceConsultationFormValues, ServiceForm, TeamMember } from "../../types/catalog.types.ts";
 import ConsultationFormModal from "../ConsultationFormModal.tsx";
 import { toTitleCase } from "../../../../utils/titleCase";
+import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
 
 interface Props {
   data: FormsData;
@@ -178,7 +179,7 @@ const FormsTab: React.FC<Props> = ({ data, onChange, serviceId, staffMembers = [
                     <span className="fw-medium text-dark">{form.name}</span>
                   </div>
                   <span className="text-muted small">
-                    {new Date(form.createdAt).toLocaleDateString()}
+                    {formatDateDDMMYYYY(new Date(form.createdAt))}
                   </span>
                 </label>
               </div>
