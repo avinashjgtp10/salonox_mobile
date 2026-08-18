@@ -39,13 +39,12 @@ interface TotalsPanelProps {
    *  record-only, shown as its own row so the tip given to staff is
    *  recorded and visible on the receipt/summary. */
   tip?: number;
-  /** "Add Tip to Salon" checkbox state — checked: tip counts toward Grand
-   *  Total, staff paid out separately outside this transaction. Unchecked
+  /** "Add Tip to Salon" state — checked: tip counts toward Grand Total,
+   *  staff paid out separately outside this transaction. Unchecked
    *  (default): tip passes straight to staff, never part of the bill.
-   *  Omit both this and onToggleAddTipToSalon to hide the checkbox entirely
-   *  (e.g. a read-only bill view with nothing left to toggle). */
+   *  Read-only here — toggled via PaymentPanel's own checkbox, not this
+   *  panel; this just reflects the current state in the Staff Tip row. */
   addTipToSalon?: boolean;
-  onToggleAddTipToSalon?: (checked: boolean) => void;
   // ₹ drawn from the client's balances for this bill — each shown as its own
   // deduction line so the discount is visible in the summary itself, not just
   // implied by a smaller "Due" figure with no line item explaining where it
@@ -83,7 +82,7 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   exCharges, discount, discountType, manualDiscount, couponDiscount = 0, couponCode,
   referralDiscount = 0, membershipDiscountUsed = 0,
   totalDiscount: totalDiscountProp,
-  gstAmount = 0, taxBreakdown = [], tip = 0, addTipToSalon = false, onToggleAddTipToSalon,
+  gstAmount = 0, taxBreakdown = [], tip = 0, addTipToSalon = false,
   membershipWalletUsed = 0,
   ewalletUsed = 0, rewardPointsValue = 0, referralCreditUsed = 0,
   alreadyPaid = 0, paidLabel = "Paid", dueAmount = 0, packageServiceCount = 0,
@@ -210,36 +209,17 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
           </div>
         ))}
         {/* Staff Tip stays its own footnote-style row, separate from the bill
-            total above — the checkbox controls whether that total already
-            includes it (see withCharges) or it's passed to staff untouched. */}
+            total above — whether that total already includes it (see
+            withCharges) is controlled by the "Add Tip to Salon" checkbox in
+            PaymentPanel, not here; this just reflects its current state. */}
         {tip > 0 && (
-          <div className="border-top mt-1 pt-2">
-            <div className="d-flex justify-content-between align-items-center py-1">
-              <span className="text-secondary" style={{ fontSize: 12 }}>
-                Staff Tip{addTipToSalon ? " (included above)" : ""}
-              </span>
-              <span className="fw-semibold text-secondary" style={{ fontSize: 12 }}>
-                {currencySymbol}{tip.toFixed(2)}
-              </span>
-            </div>
-            {onToggleAddTipToSalon && (
-              <div className="d-flex align-items-center gap-2 py-1">
-                <input
-                  type="checkbox"
-                  id="totals-add-tip-to-salon"
-                  checked={addTipToSalon}
-                  onChange={(e) => onToggleAddTipToSalon(e.target.checked)}
-                  style={{ cursor: "pointer" }}
-                />
-                <label
-                  htmlFor="totals-add-tip-to-salon"
-                  className="text-secondary"
-                  style={{ fontSize: 11.5, cursor: "pointer", userSelect: "none" }}
-                >
-                  Add Tip to Salon
-                </label>
-              </div>
-            )}
+          <div className="d-flex justify-content-between align-items-center py-1 border-top mt-1 pt-2">
+            <span className="text-secondary" style={{ fontSize: 12 }}>
+              Staff Tip{addTipToSalon ? " (included above)" : ""}
+            </span>
+            <span className="fw-semibold text-secondary" style={{ fontSize: 12 }}>
+              {currencySymbol}{tip.toFixed(2)}
+            </span>
           </div>
         )}
       </div>

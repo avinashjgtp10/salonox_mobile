@@ -58,7 +58,7 @@ export interface DashboardAllResponse {
   };
   todayTimeline: Array<{ hour: string; count: number }>;
   pendingPayments: { count: number; amount: number };
-  todaysBirthdays: { count: number; clients: Array<{ id: string; name: string }> };
+  todaysBirthdays: { count: number; clients: Array<{ id: string; name: string; phone: string | null; phoneCountryCode: string | null }> };
   inactiveClients: { count: number };
   recentActivity: Array<{ id: string; type: string; title: string; body: string | null; createdAt: string }>;
 }

@@ -47,9 +47,11 @@ import {
   BellFill,
   CreditCard2Front,
   PersonFill,
+  Whatsapp,
 } from "react-bootstrap-icons";
 import { getInitialsFromFullName } from "../../../utils/initials";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { buildClientWhatsAppLink } from "../../../utils/whatsapp";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Skeleton from "../../../components/ui/Skeleton";
 import {
@@ -595,58 +597,80 @@ const RecentActivityCard = memo(function RecentActivityCard({
 // ─── Section: Bottom Stat Cards (Pending Payments / Birthdays / Inactive Clients) ──
 
 const BottomStatCards = memo(function BottomStatCards({
-  pendingPayments, birthdays, loading, pendingLoading, onNavigateWhatsApp, onNavigatePendingAppointments,
+  pendingPayments, birthdays, loading, pendingLoading, onNavigatePendingAppointments, salonName,
 }: {
   pendingPayments: { count: number; amount: number } | undefined;
-  birthdays: { count: number; clients: Array<{ id: string; name: string }> } | undefined;
+  birthdays: { count: number; clients: Array<{ id: string; name: string; phone: string | null; phoneCountryCode: string | null }> } | undefined;
   loading: boolean;
   pendingLoading: boolean;
-  onNavigateWhatsApp: () => void;
   onNavigatePendingAppointments: () => void;
+  salonName: string;
 }) {
   const { formatAmount } = useCurrency();
   const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
-  const cards = [
-    {
-      label: "Pending Payments",
-      value: fmt(pendingPayments?.amount),
-      sub: `${pendingPayments?.count ?? 0} client${(pendingPayments?.count ?? 0) !== 1 ? "s" : ""}`,
-      icon: <CreditCard2Front size={18} />,
-      tone: "danger",
-      cta: "Collect Now",
-      onClick: onNavigatePendingAppointments,
-      loading: pendingLoading,
-    },
-    {
-      label: "Today's Birthdays",
-      value: String(birthdays?.count ?? 0),
-      sub: (birthdays?.count ?? 0) > 0 ? "Clients" : "None today",
-      icon: <Cake2 size={18} />,
-      tone: "pink",
-      cta: "Send Wishes",
-      onClick: onNavigateWhatsApp,
-      loading,
-    },
-  ];
+  const birthdayClients = birthdays?.clients ?? [];
+
   return (
     <div className="db-mini-stats-row">
-      {cards.map((c) => (
-        <div key={c.label} className={`db-mini-stat-card db-mini-stat-card--${c.tone}`}>
-          <div className="db-mini-stat-card__top">
-            <span className="db-mini-stat-card__label">{c.label}</span>
-            <span className="db-mini-stat-card__icon">{c.icon}</span>
-          </div>
-          {c.loading ? (
-            <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
-          ) : (
-            <div className="db-mini-stat-card__value">{c.value}</div>
-          )}
-          <div className="db-mini-stat-card__sub">{c.sub}</div>
-          <button className="db-mini-stat-card__cta" onClick={c.onClick}>
-            {c.cta} <ChevronRight size={11} />
-          </button>
+      <div className="db-mini-stat-card db-mini-stat-card--danger">
+        <div className="db-mini-stat-card__top">
+          <span className="db-mini-stat-card__label">Pending Payments</span>
+          <span className="db-mini-stat-card__icon"><CreditCard2Front size={18} /></span>
         </div>
-      ))}
+        {pendingLoading ? (
+          <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
+        ) : (
+          <div className="db-mini-stat-card__value">{fmt(pendingPayments?.amount)}</div>
+        )}
+        <div className="db-mini-stat-card__sub">
+          {pendingPayments?.count ?? 0} client{(pendingPayments?.count ?? 0) !== 1 ? "s" : ""}
+        </div>
+        <button className="db-mini-stat-card__cta" onClick={onNavigatePendingAppointments}>
+          Collect Now <ChevronRight size={11} />
+        </button>
+      </div>
+
+      <div className="db-mini-stat-card db-mini-stat-card--pink">
+        <div className="db-mini-stat-card__top">
+          <span className="db-mini-stat-card__label">Today's Birthdays</span>
+          <span className="db-mini-stat-card__icon"><Cake2 size={18} /></span>
+        </div>
+        {loading ? (
+          <Skeleton width="50%" height={26} className="db-mini-stat-card__value-skel" />
+        ) : birthdayClients.length > 0 ? (
+          <div className="db-birthday-list">
+            {birthdayClients.map((c) => {
+              const waLink = buildClientWhatsAppLink(c.phone, c.phoneCountryCode);
+              const text = `Happy Birthday, ${c.name}! 🎉 Wishing you a wonderful day, from all of us at ${salonName}.`;
+              return (
+                <div key={c.id} className="db-birthday-list__row">
+                  <span className="db-birthday-list__name" title={c.name}>{c.name}</span>
+                  {waLink ? (
+                    <a
+                      className="db-birthday-list__wa"
+                      href={`${waLink}?text=${encodeURIComponent(text)}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Send birthday wishes to ${c.name} on WhatsApp`}
+                    >
+                      <Whatsapp size={15} />
+                    </a>
+                  ) : (
+                    <span className="db-birthday-list__wa db-birthday-list__wa--disabled" title="No phone number on file">
+                      <Whatsapp size={15} />
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <>
+            <div className="db-mini-stat-card__value">0</div>
+            <div className="db-mini-stat-card__sub">None today</div>
+          </>
+        )}
+      </div>
     </div>
   );
 });
@@ -1279,6 +1303,7 @@ export default function DashboardPage() {
   const staffRevenueError   = useAppSelector((s) => s.dashboard.staffRevenueError);
   const pendingPayments = useAppSelector((s) => s.dashboard.data?.pendingPayments);
   const todaysBirthdays = useAppSelector((s) => s.dashboard.data?.todaysBirthdays);
+  const salonName = useAppSelector((s: any) => s.salon?.currentSalon?.business_name) || "our salon";
   const recentActivity  = useAppSelector((s) => s.dashboard.data?.recentActivity ?? EMPTY_ACTIVITY);
   const dashLoading  = useAppSelector((s) => s.dashboard.loading);
   const chartLoading = useAppSelector((s) => s.dashboard.chartLoading);
@@ -1452,7 +1477,6 @@ export default function DashboardPage() {
   const goToSales     = useCallback(() => navigate("/dashboard/sales/quick"),      [navigate]);
   const goToMarketing = useCallback(() => navigate("/dashboard/marketing"),        [navigate]);
   const goToStaff     = useCallback(() => navigate("/dashboard/team/members"),     [navigate]);
-  const goToQuickWhatsApp = useCallback(() => navigate("/dashboard/marketing/quick-whatsapp"), [navigate]);
   // "Collect Now" on the Pending Payments card — goes to the Detailed
   // Appointment Report pre-filtered to unpaid/partially-paid appointments,
   // not the Sales Summary report (which has no pending/unpaid status).
@@ -1553,8 +1577,8 @@ export default function DashboardPage() {
         birthdays={todaysBirthdays}
         loading={dashLoading}
         pendingLoading={dashLoading}
-        onNavigateWhatsApp={goToQuickWhatsApp}
         onNavigatePendingAppointments={goToPendingAppointments}
+        salonName={salonName}
       />
 
       {/* ── STAFF REVENUE / TOP STAFF / RECENT ACTIVITY ── */}

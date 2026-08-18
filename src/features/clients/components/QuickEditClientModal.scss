@@ -81,32 +81,6 @@
 
 .qec-select { cursor: pointer; }
 
-.qec-phone-wrap {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  .ccs-root {
-    display: flex;
-  }
-
-  .ccs-trigger {
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    height: 42px;
-    padding: 0 8px;
-    background: #f9fafb;
-    width: 95px;
-    font-size: 14px;
-
-    &:hover {
-      border-color: #9ca3af;
-    }
-  }
-
-  .qec-phone-input { flex: 1; }
-}
-
 .qec-error {
   color: #dc2626;
   font-size: 12.5px;
