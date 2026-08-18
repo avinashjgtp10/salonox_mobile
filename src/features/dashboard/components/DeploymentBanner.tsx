@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef, useLayoutEffect } from "react";
 import api from "../../../services/api/axios";
 import { DEPLOYMENT_ANNOUNCEMENTS } from "../../../services/api/endpoints";
+import { getSocket } from "../../../services/socket/socket";
 import "../styles/DeploymentBanner.scss";
 
 interface ActiveAnnouncement {
@@ -9,12 +10,6 @@ interface ActiveAnnouncement {
   start_time: string;
   end_time: string;
 }
-
-// Deployments can now be as short as a few seconds (custom minute/second
-// timer on the super-admin side), so this needs to be short enough that a
-// short-lived announcement is actually seen rather than polled straight
-// through.
-const POLL_INTERVAL_MS = 10_000;
 
 function formatRemaining(endTime: string): string {
   const ms = new Date(endTime).getTime() - Date.now();
@@ -28,30 +23,65 @@ function formatRemaining(endTime: string): string {
 }
 
 // Persistent, non-dismissible banner shown on every dashboard page while a
-// Super Admin deployment announcement is active — pushed rather than a
-// Socket.IO event (that infra is salon-room-scoped, not built for a global
-// broadcast). Polls every POLL_INTERVAL_MS for the whole session (not just
-// once one is already active) so the banner appears on its own the moment a
-// super admin starts a deployment, without the user needing to reload.
+// Super Admin deployment announcement is active. A single GET on mount covers
+// a deployment already in progress when the page loads; after that, the
+// backend pushes "deployment_announcement:started"/"stopped" over the socket
+// connection every dashboard already holds open (see socket.ts), so nothing
+// polls on a timer — nothing is called at all until a deployment actually
+// starts or stops.
 export default function DeploymentBanner() {
   const [announcement, setAnnouncement] = useState<ActiveAnnouncement | null>(null);
   const bannerRef = useRef<HTMLDivElement | null>(null);
+  const hideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const checkActive = useCallback(async () => {
-    try {
-      const res = await api.get(DEPLOYMENT_ANNOUNCEMENTS.ACTIVE);
-      setAnnouncement(res.data?.data ?? null);
-    } catch {
-      // Silently keep whatever state we last had — a transient failure here
-      // shouldn't flicker the banner on/off.
-    }
+  const scheduleAutoHide = useCallback((a: ActiveAnnouncement | null) => {
+    if (hideTimerRef.current) { clearTimeout(hideTimerRef.current); hideTimerRef.current = null; }
+    if (!a) return;
+    const ms = new Date(a.end_time).getTime() - Date.now();
+    if (ms <= 0) { setAnnouncement(null); return; }
+    hideTimerRef.current = setTimeout(() => setAnnouncement(null), ms);
   }, []);
 
   useEffect(() => {
-    checkActive();
-    const interval = setInterval(checkActive, POLL_INTERVAL_MS);
-    return () => clearInterval(interval);
-  }, [checkActive]);
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get(DEPLOYMENT_ANNOUNCEMENTS.ACTIVE);
+        if (cancelled) return;
+        const a = res.data?.data ?? null;
+        setAnnouncement(a);
+        scheduleAutoHide(a);
+      } catch {
+        // Silently keep whatever state we last had.
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [scheduleAutoHide]);
+
+  useEffect(() => {
+    const socket = getSocket();
+
+    const handleStarted = (a: ActiveAnnouncement) => {
+      setAnnouncement(a);
+      scheduleAutoHide(a);
+    };
+    const handleStopped = () => {
+      setAnnouncement(null);
+      scheduleAutoHide(null);
+    };
+
+    socket.on("deployment_announcement:started", handleStarted);
+    socket.on("deployment_announcement:stopped", handleStopped);
+
+    return () => {
+      socket.off("deployment_announcement:started", handleStarted);
+      socket.off("deployment_announcement:stopped", handleStopped);
+    };
+  }, [scheduleAutoHide]);
+
+  useEffect(() => () => {
+    if (hideTimerRef.current) clearTimeout(hideTimerRef.current);
+  }, []);
 
   // The banner is position:fixed (so it stacks above the also-fixed topbar
   // instead of being hidden behind it) — push the topbar/body down by its
