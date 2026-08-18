@@ -65,6 +65,7 @@ interface CommissionRow {
   commission_rate: string;
   commission_amount: string;
   status: string;
+  payment_method?: string | null;
   earned_at: string;
 }
 
@@ -767,6 +768,7 @@ function CommissionTab({ staffId }: { staffId: string }) {
             options={[
               { id: "all", name: "All Statuses" },
               { id: "paid", name: "Paid" },
+              { id: "partial", name: "Partial" },
               { id: "pending", name: "Pending" },
             ]}
             onChange={setStatusFilter}
@@ -781,7 +783,7 @@ function CommissionTab({ staffId }: { staffId: string }) {
       ) : (
         <>
           <table className="shp-table">
-            <thead><tr><th>Date</th><th>Category</th><th>Revenue</th><th>Rate</th><th>Commission</th><th>Status</th></tr></thead>
+            <thead><tr><th>Date</th><th>Category</th><th>Revenue</th><th>Rate</th><th>Commission</th><th>Payment Method</th><th>Status</th></tr></thead>
             <tbody>
               {paginatedData.map((r) => (
                 <tr key={r.id}>
@@ -790,6 +792,7 @@ function CommissionTab({ staffId }: { staffId: string }) {
                   <td>{fmtMoney(Number(r.revenue_amount))}</td>
                   <td>{r.commission_kind === "percentage" ? `${r.commission_rate}%` : `${currencySymbol}${r.commission_rate}`}</td>
                   <td>{fmtMoney(Number(r.commission_amount))}</td>
+                  <td>{r.status === "paid" || r.status === "partial" ? (r.payment_method?.toUpperCase() ?? "—") : "—"}</td>
                   <td><span className={`shp-status shp-status--${r.status}`}>{r.status}</span></td>
                 </tr>
               ))}
