@@ -79,15 +79,19 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
   const segments = useSegments();
 
   useEffect(() => {
-    if (!isAuthenticated || !user?.isOnboardingComplete) {
+    if (!isAuthenticated) {
       setSubscriptionCheck({ isActive: false, salonId: null, status: "idle" });
       return;
     }
 
-    const salonId = user.salonId?.trim() ?? "";
+    const salonId = user?.salonId?.trim() ?? "";
 
     if (!salonId) {
-      setSubscriptionCheck({ isActive: false, salonId: null, status: "ready" });
+      // SCRUM-1838: no salon yet (onboarding no longer runs before this
+      // check can fire) — there's nothing to check a subscription against,
+      // so fail open rather than blocking the user behind the subscription
+      // paywall route.
+      setSubscriptionCheck({ isActive: true, salonId: null, status: "ready" });
       return;
     }
 
@@ -118,7 +122,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
     return () => {
       isMounted = false;
     };
-  }, [isAuthenticated, pathname, user?.isOnboardingComplete, user?.salonId]);
+  }, [isAuthenticated, pathname, user?.salonId]);
 
   useEffect(() => {
     if (!rootNavigationState?.key || isLoading) {
@@ -137,39 +141,35 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
         return;
       }
 
-      if (user?.isOnboardingComplete) {
-        if (subscriptionCheck.status !== "ready") {
-          return;
-        }
+      // SCRUM-1838: onboarding no longer gates authenticated routing — every
+      // authenticated user goes straight through the subscription check into
+      // their dashboard/home, regardless of isOnboardingComplete. A user who
+      // somehow lands on /onboarding (e.g. a stale deep link) is bounced back
+      // out via isOnboardingRoute below, same as any other unexpected route.
+      if (subscriptionCheck.status !== "ready") {
+        return;
+      }
 
-        if (!subscriptionCheck.isActive) {
-          if (!isSubscriptionRoute) {
-            router.replace(SUBSCRIPTION_ROUTE);
-          } else {
-            onReady();
-          }
-          return;
-        }
-
-        const shouldUseStaffApp = isStaffExperienceUser(user);
-        const isWrongAuthenticatedApp =
-          (shouldUseStaffApp && isOwnerRouteGroup(topLevelSegment)) ||
-          (shouldUseStaffApp && isOwnerOnlyRoute(topLevelSegment)) ||
-          (!shouldUseStaffApp && isStaffRouteGroup(topLevelSegment));
-
-        if (isPublicRoute || isOnboardingRoute || isSubscriptionRoute || isWrongAuthenticatedApp) {
-          router.replace(resolveAuthenticatedRoute(user));
+      if (!subscriptionCheck.isActive) {
+        if (!isSubscriptionRoute) {
+          router.replace(SUBSCRIPTION_ROUTE);
         } else {
-          // The target authenticated route (dashboard/home) is now active in the navigator.
           onReady();
         }
+        return;
+      }
+
+      const shouldUseStaffApp = isStaffExperienceUser(user);
+      const isWrongAuthenticatedApp =
+        (shouldUseStaffApp && isOwnerRouteGroup(topLevelSegment)) ||
+        (shouldUseStaffApp && isOwnerOnlyRoute(topLevelSegment)) ||
+        (!shouldUseStaffApp && isStaffRouteGroup(topLevelSegment));
+
+      if (isPublicRoute || isOnboardingRoute || isSubscriptionRoute || isWrongAuthenticatedApp) {
+        router.replace(resolveAuthenticatedRoute(user));
       } else {
-        if (!isOnboardingRoute) {
-          router.replace(resolveAuthenticatedRoute(user));
-        } else {
-          // The onboarding route is now active in the navigator.
-          onReady();
-        }
+        // The target authenticated route (dashboard/home) is now active in the navigator.
+        onReady();
       }
     } else {
       if (!isPublicRoute) {

@@ -87,8 +87,9 @@ export default function VerifyEmailScreen() {
   );
 
   const navigateOnward = () => {
-    // The root auth guard resolves the correct destination (onboarding vs. dashboard)
-    // based on the freshest user state, so we just leave the public verify route.
+    // The root auth guard resolves the correct destination (owner dashboard
+    // vs. staff home) based on the freshest user state, so we just leave the
+    // public verify route.
     router.replace("/dashboard" as Href);
   };
 
