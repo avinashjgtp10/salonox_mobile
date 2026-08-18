@@ -35,6 +35,13 @@ const unwrapList = <T,>(payload: any): T[] => {
   return [];
 };
 
+const isCashCounterNotFoundError = (err: any) => {
+  const message = String(err?.message ?? "").trim().toLowerCase();
+  const code = String(err?.code ?? "").trim().toUpperCase();
+
+  return code === "CASH_COUNTER_NOT_FOUND" || message === "no cash counter found for this salon";
+};
+
 const normalizeDashboard = (raw: any): CashDashboardSummary => ({
   cashManagementId: asString(raw?.cash_management_id ?? raw?.cashManagementId ?? raw?.id),
   status: asString(raw?.status ?? raw?.counter_status ?? raw?.counterStatus, "closed"),
@@ -111,8 +118,17 @@ const normalizeExpense = (raw: any): CashExpenseRecord => ({
 });
 
 export async function openCashCounter(payload: OpenCounterPayload) {
-  const response = await api.post(`${BASE}/open`, payload);
-  return normalizeDashboard(unwrapData<any>(response));
+  try {
+    const response = await api.post(`${BASE}/open`, payload);
+    return normalizeDashboard(unwrapData<any>(response));
+  } catch (err) {
+    if (!isCashCounterNotFoundError(err)) {
+      throw err;
+    }
+
+    const response = await api.post(BASE, payload);
+    return normalizeDashboard(unwrapData<any>(response));
+  }
 }
 
 export async function fetchCashDashboard() {
