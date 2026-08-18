@@ -4,6 +4,7 @@ import {
   Images, Trash3, ArrowRepeat, CloudArrowUp, PlusLg, XCircleFill,
 } from "react-bootstrap-icons";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/OnlineBooking.scss";
 import BookingPreviewModal from "../components/BookingPreviewModal";
 import api from "../../../services/api/axios";
@@ -77,6 +78,13 @@ export default function MarketplaceProfilePage() {
   const [hours,        setHours]        = useState(defaultHours);
   const [saved,        setSaved]        = useState(false);
   const [showPreview,  setShowPreview]  = useState(false);
+  // Booking-policy selects. These were static, unwired <select>s before —
+  // they now hold their selection locally so the controls behave, but there
+  // is still no endpoint persisting them, so nothing here survives a reload.
+  const [maxAdvance,   setMaxAdvance]   = useState("30");
+  const [minNotice,    setMinNotice]    = useState("0");
+  const [cancelNotice, setCancelNotice] = useState("0");
+  const [slotInterval, setSlotInterval] = useState("15");
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // Load profile from Redux
@@ -842,39 +850,63 @@ export default function MarketplaceProfilePage() {
         <div className="ob-form-grid">
           <div className="ob-form-group">
             <label className="ob-label">Maximum advance booking</label>
-            <select className="ob-select">
-              <option value={30}>1 month</option>
-              <option value={60}>2 months</option>
-              <option value={90}>3 months</option>
-              <option value={180}>6 months</option>
-            </select>
+            <Dropdown
+              className="ob-select"
+              searchable={false}
+              value={maxAdvance}
+              onChange={setMaxAdvance}
+              options={[
+                { id: "30", name: "1 month" },
+                { id: "60", name: "2 months" },
+                { id: "90", name: "3 months" },
+                { id: "180", name: "6 months" },
+              ]}
+            />
           </div>
           <div className="ob-form-group">
             <label className="ob-label">Minimum notice period</label>
-            <select className="ob-select">
-              <option value={0}>No notice required</option>
-              <option value={1}>1 hour</option>
-              <option value={4}>4 hours</option>
-              <option value={24}>24 hours</option>
-              <option value={48}>48 hours</option>
-            </select>
+            <Dropdown
+              className="ob-select"
+              searchable={false}
+              value={minNotice}
+              onChange={setMinNotice}
+              options={[
+                { id: "0", name: "No notice required" },
+                { id: "1", name: "1 hour" },
+                { id: "4", name: "4 hours" },
+                { id: "24", name: "24 hours" },
+                { id: "48", name: "48 hours" },
+              ]}
+            />
           </div>
           <div className="ob-form-group">
             <label className="ob-label">Cancellation notice</label>
-            <select className="ob-select">
-              <option value={0}>No restriction</option>
-              <option value={2}>2 hours before</option>
-              <option value={12}>12 hours before</option>
-              <option value={24}>24 hours before</option>
-            </select>
+            <Dropdown
+              className="ob-select"
+              searchable={false}
+              value={cancelNotice}
+              onChange={setCancelNotice}
+              options={[
+                { id: "0", name: "No restriction" },
+                { id: "2", name: "2 hours before" },
+                { id: "12", name: "12 hours before" },
+                { id: "24", name: "24 hours before" },
+              ]}
+            />
           </div>
           <div className="ob-form-group">
             <label className="ob-label">Slot interval</label>
-            <select className="ob-select">
-              <option value={15}>15 minutes</option>
-              <option value={30}>30 minutes</option>
-              <option value={60}>60 minutes</option>
-            </select>
+            <Dropdown
+              className="ob-select"
+              searchable={false}
+              value={slotInterval}
+              onChange={setSlotInterval}
+              options={[
+                { id: "15", name: "15 minutes" },
+                { id: "30", name: "30 minutes" },
+                { id: "60", name: "60 minutes" },
+              ]}
+            />
           </div>
         </div>
         <div className="ob-info-banner">
