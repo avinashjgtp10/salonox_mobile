@@ -405,6 +405,7 @@ export function printReceipt(
   const exCharges   = Number((booking as any).exCharges     || 0);
   const tipAmt      = Number((booking as any).tipAmount     || 0);
   const tipAddedToSalon = !!(booking as any).tipAddedToSalon;
+  const tipBreakdown = ((booking as any).tipBreakdown || []) as { staffId: string; staffName: string; amount: number }[];
   const gstPct      = Number((booking as any).gst           || 0);
   const gstAmt      = Number((booking as any).gstAmount     || 0);
   const taxBreakdown = ((booking as any).taxBreakdown || []) as { name: string; rate: number; amount: number; inclusive: boolean }[];
@@ -532,6 +533,7 @@ export function printReceipt(
     // with "Add Tip to Salon" checked; otherwise display/record-only.
     // Placed after every bill-total row so it reads as separate info either way.
     tipAmt > 0 ? sumRow(`Staff Tip${tipAddedToSalon ? " (included above)" : ""}`, fmt(tipAmt), false, "#6b7280") : "",
+    tipAmt > 0 ? tipBreakdown.map((t) => sumRow(`&nbsp;&nbsp;&nbsp;${t.staffName}`, fmt(t.amount), false, "#9ca3af")).join("") : "",
     showPaymentBreakdown
       ? splitEntries.map(([method, amt]) =>
           sumRow(`Paid via ${method}`, fmt(amt), false, METHOD_COLOR[method.toLowerCase()] ?? "#111827")
@@ -867,6 +869,9 @@ export function printReceipt(
       push(gstPct > 0 ? `GST (${gstPct}%)` : "GST", exclusiveTaxTotal);
     }
     push(`Tip${tipAddedToSalon ? " (incl.)" : ""}`, tipAmt);
+    if (tipAmt > 0.005) {
+      tipBreakdown.forEach((t) => push(`  ${t.staffName}`, t.amount, { muted: true }));
+    }
 
     const payments: ThermalReceiptData["payments"] = [];
     if (Math.abs(paidAmt) > 0.005) payments.push({ label: "Paid", value: fmt(paidAmt) });

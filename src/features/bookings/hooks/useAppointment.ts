@@ -293,6 +293,9 @@ export function useAppointment() {
         ex_charges:     (booking as any).exCharges ?? 0,
         tip_amount:     (booking as any).tipAmount ?? 0,
         tip_added_to_salon: (booking as any).tipAddedToSalon ?? false,
+        tip_breakdown: ((booking as any).tipBreakdown ?? []).map((t: any) => ({
+          staff_id: t.staffId, staff_name: t.staffName, amount: t.amount,
+        })),
         gst_percent:    (booking as any).gst ?? 0,
         apply_membership_wallet: applyMembershipWallet ?? false,
         apply_membership_discount: applyMembershipDiscount ?? false,
