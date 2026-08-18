@@ -268,7 +268,7 @@ export default function StaffProfileScreen() {
             </View>
             <Text style={styles.missingTitle}>Staff member not found</Text>
             <Text style={styles.missingText}>
-              The selected profile is unavailable. Return to the Team screen and choose another staff member.
+              The selected profile is unavailable. Return to the Staff screen and choose another staff member.
             </Text>
           </View>
         </View>

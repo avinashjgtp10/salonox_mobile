@@ -138,7 +138,7 @@ function ErrorState({ onRetry }: { onRetry: () => void }) {
       </View>
       <Text style={styles.stateTitle}>Unable to load staff</Text>
       <Text style={styles.stateDescription}>
-        Please try again. We could not refresh your team view right now.
+        Please try again. We could not refresh your staff view right now.
       </Text>
       <TouchableOpacity activeOpacity={0.85} onPress={onRetry} style={styles.stateButton}>
         <Text style={styles.stateButtonText}>Retry</Text>
@@ -425,7 +425,7 @@ export default function TeamScreen() {
     <View>
       <View style={styles.header}>
         <View style={styles.headerCopy}>
-          <Text style={styles.title}>Team</Text>
+          <Text style={styles.title}>Staff</Text>
           <Text style={styles.subtitle}>Manage your salon staff</Text>
         </View>
 
@@ -591,7 +591,7 @@ export default function TeamScreen() {
       >
         <Pressable onPress={() => setIsFilterVisible(false)} style={styles.modalOverlay}>
           <Pressable style={styles.sheetCard}>
-            <Text style={styles.sheetTitle}>Sort Team</Text>
+            <Text style={styles.sheetTitle}>Sort Staff</Text>
             {TEAM_SORT_OPTIONS.map((option) => {
               const isActive = option === sortOption;
 

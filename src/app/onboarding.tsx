@@ -85,7 +85,7 @@ const useOnboardingColors = () => {
 const STEPS = [
   { id: 1, title: "Business" },
   { id: 2, title: "Category" },
-  { id: 3, title: "Team" },
+  { id: 3, title: "Staff" },
   { id: 4, title: "Location" },
   { id: 5, title: "Finishing" },
 ] as const;
@@ -956,7 +956,7 @@ export default function OnboardingScreen() {
               <Text style={[styles.stepTitle, isCategoryStep && styles.categoryStepTitle]}>
                 {currentStep === 1 && "Business Information"}
                 {currentStep === 2 && "Business Category"}
-                {currentStep === 3 && "Team Settings"}
+                {currentStep === 3 && "Staff Settings"}
                 {currentStep === 4 && "Business Location"}
                 {currentStep === 5 && "Finishing Up"}
               </Text>
@@ -1083,7 +1083,7 @@ export default function OnboardingScreen() {
                         teamType === "team" && styles.optionCardTitleSelected,
                       ]}
                     >
-                      I manage a Team
+                      I manage Staff
                     </Text>
                     <Text
                       style={[
@@ -1098,7 +1098,7 @@ export default function OnboardingScreen() {
 
                 {teamType === "team" && (
                   <View style={styles.teamSizeSection}>
-                    <Text style={styles.inputLabel}>Select Team Size</Text>
+                    <Text style={styles.inputLabel}>Select Staff Size</Text>
                     <View style={styles.sizeButtonsRow}>
                       {(["2-5", "6-10", "11+"] as const).map((size) => {
                         const isSelected = teamSize === size;
