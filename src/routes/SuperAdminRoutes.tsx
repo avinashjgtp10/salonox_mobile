@@ -13,6 +13,7 @@ const SubscriptionPermissionsPage = lazy(() => import("../features/super-admin/p
 const SupportPage         = lazy(() => import("../features/super-admin/pages/SupportPage"));
 const DemoInquiriesPage   = lazy(() => import("../features/super-admin/pages/DemoInquiriesPage"));
 const DeploymentAnnouncementsPage = lazy(() => import("../features/super-admin/pages/DeploymentAnnouncementsPage"));
+const ChatbotQuestionHistoryPage  = lazy(() => import("../features/super-admin/pages/ChatbotQuestionHistoryPage"));
 
 export const SuperAdminRoutes = (
   <>
@@ -29,6 +30,7 @@ export const SuperAdminRoutes = (
         <Route path="support"      element={<SupportPage />} />
         <Route path="demo-inquiries" element={<DemoInquiriesPage />} />
         <Route path="deployment-announcements" element={<DeploymentAnnouncementsPage />} />
+        <Route path="chatbot-questions" element={<ChatbotQuestionHistoryPage />} />
       </Route>
     </Route>
   </>
