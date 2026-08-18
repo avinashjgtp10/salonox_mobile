@@ -6,6 +6,7 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { Loader } from "../../../components/ui";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import WalletBreakdownModal from "./WalletBreakdownModal";
 import "../styles/ClientDetailsDrawer.scss";
 
@@ -23,10 +24,9 @@ function formatBirthday(dayMonth?: string | null, year?: number | null): string 
   if (!dayMonth) return null;
   const [mm, dd] = dayMonth.split("-").map(Number);
   if (!mm || !dd) return null;
-  const d = new Date(year || 2000, mm - 1, dd);
-  return d.toLocaleDateString("en-GB", year
-    ? { day: "numeric", month: "long", year: "numeric" }
-    : { day: "numeric", month: "long" });
+  const ddStr = String(dd).padStart(2, "0");
+  const mmStr = String(mm).padStart(2, "0");
+  return year ? `${ddStr}-${mmStr}-${year}` : `${ddStr}-${mmStr}`;
 }
 
 function InfoRow({
@@ -146,20 +146,12 @@ export default function ClientDetailsDrawer({
     ? `${client.phone_country_code || ""} ${client.phone_number}`.trim()
     : null;
   const createdAt = client?.created_at
-    ? new Date(client.created_at).toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
+    ? formatDateDDMMYYYY(new Date(client.created_at))
     : null;
 
   const birthday = formatBirthday(client?.birthday_day_month, client?.birthday_year);
   const anniversary = client?.anniversary
-    ? new Date(client.anniversary).toLocaleDateString("en-GB", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      })
+    ? formatDateDDMMYYYY(new Date(client.anniversary))
     : null;
   const gender = client?.gender || null;
   const clientSource = client?.client_source || null;

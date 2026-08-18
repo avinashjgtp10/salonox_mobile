@@ -3,6 +3,7 @@ import Pagination from "../../../components/ui/Pagination";
 import TabToolbar from "./TabToolbar";
 import { useTableSearchSort } from "../hooks/useTableSearchSort";
 import type { DateRangeFilterValue } from "../../../components/ui";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 interface CommunicationEntry {
   channel: "whatsapp";
@@ -19,7 +20,7 @@ const fmtDMYTime = (iso: string | null) => {
   if (!iso) return "–";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "–";
-  const date = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  const date = formatDateDDMMYYYY(d);
   const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
   return `${date} ${time}`;
 };
