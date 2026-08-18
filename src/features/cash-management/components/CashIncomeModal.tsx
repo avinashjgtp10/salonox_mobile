@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { Modal } from "../../../components/ui";
+import { FormattedDate, Modal } from "../../../components/ui";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { fetchCashIncomeEntries } from "../cashManagement.api";
 import type { CashIncomeEntryRecord } from "../cashManagement.types";
-import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 interface Props {
   show: boolean;
@@ -11,12 +10,11 @@ interface Props {
   onClose: () => void;
 }
 
-const formatDateTime = (value: string) => {
+const formatTime = (value: string) => {
   if (!value) return "--";
   const next = new Date(value);
   if (Number.isNaN(next.getTime())) return value;
-  const time = next.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
-  return `${formatDateDDMMYYYY(next)} ${time}`;
+  return next.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
 };
 
 // Drill-down for a counter session's Cash Revenue total — lists every
@@ -87,7 +85,10 @@ export default function CashIncomeModal({ show, cashManagementId, onClose }: Pro
               <tbody>
                 {entries.map((entry) => (
                   <tr key={entry.id}>
-                    <td>{formatDateTime(entry.occurredAt)}</td>
+                    <td>
+                      <FormattedDate value={entry.occurredAt} fallback="--" />{" "}
+                      {formatTime(entry.occurredAt)}
+                    </td>
                     <td>{entry.source}</td>
                     <td>{entry.clientName}</td>
                     <td>{entry.reference || "--"}</td>

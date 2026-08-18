@@ -9,6 +9,8 @@ export { default as DownloadButton } from "./DownloadButton";
 export { default as EmptyState } from "./EmptyState";
 export { default as FormField } from "./FormField";
 export { FullScreenLoader } from "./FullScreenLoader";
+export { default as FormattedDate } from "./FormattedDate";
+export type { FormattedDateProps } from "./FormattedDate";
 export { default as Input } from "./Input";
 export { default as Modal } from "./Modal";
 export { default as ProgressBar } from "./ProgressBar";

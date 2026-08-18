@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Search, SortDown, SortUp } from "react-bootstrap-icons";
-import { Pagination } from "../../../components/ui";
+import { FormattedDate, Pagination } from "../../../components/ui";
 import type { DateRangePreset } from "../../../components/ui";
 import type { CashManagementExportDataset } from "../cashManagement.export";
 import type { CashExpenseRecord } from "../cashManagement.types";
@@ -275,7 +275,7 @@ export default function CashManagementExpensesTab({
                 <tr key={row.id}>
                   <td>
                     <div className="cash-mgmt__detail-cell">
-                      <span>{formatDate(row.expenseDate)}</span>
+                      <FormattedDate value={row.expenseDate} fallback="--" />
                       {createdTime ? (
                         <span className="cash-mgmt__detail-time">{createdTime}</span>
                       ) : null}
