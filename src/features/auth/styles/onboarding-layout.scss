@@ -46,6 +46,8 @@ $bar-h: 64px;
     &-icon {
       display: block;
       flex-shrink: 0;
+      border-radius: 50%;
+      object-fit: cover;
     }
 
     &-wordmark {
@@ -59,6 +61,7 @@ $bar-h: 64px;
     &-wordmark-accent {
       color: #14b8a6;
     }
+
   }
 
   // ── Steps nav ────────────────────────────────────────────

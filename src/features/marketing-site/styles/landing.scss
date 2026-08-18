@@ -347,6 +347,7 @@ body.landing-page-active {
       box-shadow: 0 8px 20px rgba(88, 28, 235, 0.35);
       flex-shrink: 0;
       display: block;
+      object-fit: cover;
     }
 
     .logo-text .accent {

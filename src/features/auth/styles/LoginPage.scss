@@ -135,6 +135,8 @@ $border:     #E8E4DE;
   height: 32px;
   display: block;
   flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .lp-brand__logo {

@@ -967,7 +967,7 @@ const LandingPage: React.FC = () => {
       <nav ref={navRef} className={`nav ${scrolled ? 'nav-scrolled' : ''}`}>
         <div className="container nav-inner">
           <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
-            <img src="/appIcon.svg" alt="" className="logo-mark" width="36" height="36" />
+            <img src="/salonox-mark.jpg" alt="" className="logo-mark" width="36" height="36" />
             <span className="logo-text">
               Salon<span className="accent">OX</span>
             </span>
@@ -1007,7 +1007,7 @@ const LandingPage: React.FC = () => {
         <div className="mobile-drawer-panel" onClick={(e) => e.stopPropagation()}>
           <div className="mobile-drawer-header">
             <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
-              <img src="/appIcon.svg" alt="" className="logo-mark" width="32" height="32" />
+              <img src="/salonox-mark.jpg" alt="" className="logo-mark" width="32" height="32" />
               <span className="logo-text">
                 Salon<span className="accent">OX</span>
               </span>
