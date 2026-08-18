@@ -12,6 +12,7 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { getTaxModuleConfig } from "../../settings/utils/taxModuleSettings";
 import { getPaperProfile } from "../../settings/utils/printSettings";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import {
   Telephone,
   Whatsapp,
@@ -250,12 +251,9 @@ const fmtDate = (iso: string, durationMinutes?: number) => {
   };
 };
 
-const fmtDateShort = (iso: string) =>
-  new Date(iso).toLocaleDateString("en-IN", {
-    day: "2-digit", month: "short", year: "numeric",
-  });
+const fmtDateShort = (iso: string) => formatDateDDMMYYYY(new Date(iso));
 
-// dd/MM/yyyy — the app's standard date format (matches the shared
+// dd-MM-yyyy — the app's standard date format (matches the shared
 // DateRangeFilter/DatePicker label formatters), used across the new
 // Overview/Notes/E-Wallet/Referrals & Rewards/Communication tabs and their
 // exports.
@@ -263,9 +261,7 @@ const fmtDMY = (iso: string | null | undefined) => {
   if (!iso) return "–";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "–";
-  const dd = String(d.getDate()).padStart(2, "0");
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  return `${dd}/${mm}/${d.getFullYear()}`;
+  return formatDateDDMMYYYY(d);
 };
 
 const fmtDMYTime = (iso: string | null | undefined) => {
@@ -283,7 +279,7 @@ const fmtBirthday = (dayMonth: string | null, year: number | null) => {
   if (!dayMonth) return "–";
   const [mm, dd] = dayMonth.split("-");
   if (!mm || !dd) return "–";
-  return year ? `${dd}/${mm}/${year}` : `${dd}/${mm}`;
+  return year ? `${dd}-${mm}-${year}` : `${dd}-${mm}`;
 };
 
 const getInitials = (name: string) =>

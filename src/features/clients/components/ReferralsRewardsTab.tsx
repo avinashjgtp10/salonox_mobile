@@ -4,6 +4,7 @@ import Pagination from "../../../components/ui/Pagination";
 import TabToolbar from "./TabToolbar";
 import { useTableSearchSort } from "../hooks/useTableSearchSort";
 import type { DateRangeFilterValue } from "../../../components/ui";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 interface LedgerEntry {
   id: string;
@@ -27,7 +28,7 @@ interface ClientLike {
 const fmtDMY = (iso: string) => {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "–";
-  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  return formatDateDDMMYYYY(d);
 };
 
 const TYPE_LABEL: Record<string, string> = { earn: "Earned", redeem: "Redeemed", adjust: "Adjusted" };

@@ -31,6 +31,7 @@ import ClientImportModal from "../components/ClientImportModal";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useCurrency } from "../../../hooks/useCurrency";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 // UI Components
 import {
@@ -898,11 +899,7 @@ export default function ClientsListPage() {
                     </div>
                     <div className="col-created">
                       {client.created_at
-                        ? new Date(client.created_at).toLocaleDateString("en-GB", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "2-digit",
-                          })
+                        ? formatDateDDMMYYYY(new Date(client.created_at))
                         : "-"}
                     </div>
 
