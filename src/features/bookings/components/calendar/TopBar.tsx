@@ -7,6 +7,7 @@ import { formatDateLabel } from "../../utils/timeUtils";
 import { DatePickerPanel } from "../../../../components/ui";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import api from "../../../../services/api/axios";
+import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
 import ClientHistoryModal from "../../../clients/components/ClientHistoryModal";
 import "../../styles/TopBar.scss";
 
@@ -144,7 +145,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
 
   function getShortDateLabel() {
     if (viewMode === "Day") {
-      return new Date(currentDate + "T12:00:00").toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
+      return formatDateDDMMYYYY(new Date(currentDate + "T12:00:00"));
     }
     return formatDateLabel(currentDate, viewMode);
   }

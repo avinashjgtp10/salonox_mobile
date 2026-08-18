@@ -1,13 +1,12 @@
 import { useState, useEffect, useCallback } from "react";
 import api from "../../../services/api/axios";
 import type { ClientDetails, ClientStats } from "../types";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 function formatDate(raw?: string | null): string {
   if (!raw || raw === "N/A") return "N/A";
   try {
-    return new Date(raw).toLocaleDateString("en-IN", {
-      day: "numeric", month: "short", year: "numeric",
-    });
+    return formatDateDDMMYYYY(new Date(raw));
   } catch { return raw; }
 }
 

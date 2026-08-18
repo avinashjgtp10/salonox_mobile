@@ -5,6 +5,7 @@ import { useAppSelector } from "../../../../hooks/useAppRedux";
 import { getWeekDays, formatTime12 } from "../../utils/timeUtils";
 import { computeChipStatusClass } from "../../utils/bookingStatusUtils";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
+import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
 import Badge from "../../../../components/ui/Badge";
 import "../../styles/Scheduler.scss";
 
@@ -63,9 +64,7 @@ const ListWeekViewComponent: React.FC<ListWeekViewProps> = ({ onViewBill }) => {
       {weekDays.map((day) => {
         const dayBk = getBookingsByDate(day);
         const isToday = day === today;
-        const label = new Date(day + "T12:00:00").toLocaleDateString("en-US", {
-          weekday: "long", month: "long", day: "numeric",
-        });
+        const label = formatDateDDMMYYYY(new Date(day + "T12:00:00"));
         return (
           <div key={day} className="lwv__day">
             <div className={`lwv__day-header${isToday ? " lwv__day-header--today" : ""}`}>

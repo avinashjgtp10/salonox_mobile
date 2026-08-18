@@ -4,6 +4,7 @@ import { formatTime12 } from "./timeUtils";
 import { normalizePaymentStatus } from "./bookingMapper";
 import type { PaperProfile } from "../../settings/utils/printSettings";
 import { buildThermalDocument, buildPageCss, type ThermalReceiptData } from "./printTemplates";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Single reusable source for "print a bill/receipt" — every entry point in the
@@ -219,7 +220,7 @@ export function printReceipt(
   const fmtDate = (raw?: string | null) => {
     if (!raw) return "";
     const d = new Date(raw);
-    return isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+    return isNaN(d.getTime()) ? "" : formatDateDDMMYYYY(d);
   };
 
   // invoiceNumber now already carries the full "INV-00002"-style value from
@@ -238,9 +239,8 @@ export function printReceipt(
   const apptDate = (booking as any).billDate || (booking as any).date || "—";
   const fmtDDMMYYYY = (raw: string) => {
     if (!raw || raw === "—") return "—";
-    const d = new Date(raw);
-    if (isNaN(d.getTime())) return raw;
-    return `${String(d.getDate()).padStart(2, "0")}-${String(d.getMonth() + 1).padStart(2, "0")}-${d.getFullYear()}`;
+    const formatted = formatDateDDMMYYYY(raw);
+    return formatted === "—" ? raw : formatted;
   };
   const apptTime = `${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}`;
 
@@ -726,7 +726,7 @@ export function printReceipt(
     <div class="inv-info-col">
       <div class="inv-section-label">Appointment Details</div>
       <div class="inv-info-grid">
-        ${infoCell("Date",           apptDate)}
+        ${infoCell("Date",           fmtDDMMYYYY(apptDate))}
         ${infoCell("Time",           apptTime)}
         ${infoCell("Staff",          allStaffDisplay)}
         ${infoCell("Payment Method", (booking as any).paymentMode || "—")}
@@ -876,7 +876,7 @@ export function printReceipt(
         gstNumber: gst,
         logoUrl,
         invoiceNo,
-        dateTime: apptDate,
+        dateTime: fmtDDMMYYYY(apptDate),
         clientName: booking.clientName || "Walk-In",
         clientPhone: clientPhone || undefined,
         staffName: allStaffDisplay,

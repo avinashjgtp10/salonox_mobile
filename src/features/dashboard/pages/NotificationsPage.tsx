@@ -15,6 +15,7 @@ import {
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { NOTIFICATIONS } from "../../../services/api/endpoints";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../styles/NotificationsPage.scss";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -76,7 +77,7 @@ function timeAgo(isoDate: string): string {
   if (hrs < 24)  return `${hrs} hr${hrs > 1 ? "s" : ""} ago`;
   const days = Math.floor(hrs / 24);
   if (days < 7)  return `${days} day${days > 1 ? "s" : ""} ago`;
-  return new Date(isoDate).toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDateDDMMYYYY(isoDate);
 }
 
 // ── Component ──────────────────────────────────────────────────────────────────
@@ -132,7 +133,7 @@ export default function NotificationsPage() {
     let label: string;
     if (date.toDateString() === today.toDateString())          label = "Today";
     else if (date.toDateString() === yesterday.toDateString()) label = "Yesterday";
-    else label = date.toLocaleDateString("en-IN", { day: "2-digit", month: "long", year: "numeric" });
+    else label = formatDateDDMMYYYY(date);
 
     (acc[label] ??= []).push(n);
     return acc;

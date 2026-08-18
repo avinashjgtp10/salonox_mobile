@@ -18,6 +18,7 @@ import {
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
 import salonoxMark from "../../../assets/salonox_mark.jpg";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import SearchOverlay from "./SearchOverlay";
 import api from "../../../services/api/axios";
 import { NOTIFICATIONS } from "../../../services/api/endpoints";
@@ -127,9 +128,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
-  const todayLabel = now.toLocaleDateString("en-IN", {
-    day: "numeric", month: "short", year: "numeric",
-  });
+  const todayLabel = formatDateDDMMYYYY(now);
   const timeLabel = now.toLocaleTimeString("en-IN", {
     hour: "2-digit", minute: "2-digit", hour12: true,
   });

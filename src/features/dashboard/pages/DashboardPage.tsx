@@ -49,6 +49,7 @@ import {
   PersonFill,
 } from "react-bootstrap-icons";
 import { getInitialsFromFullName } from "../../../utils/initials";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Skeleton from "../../../components/ui/Skeleton";
 import {
@@ -1443,12 +1444,7 @@ export default function DashboardPage() {
     }));
   }, [revenueChart, revPeriod]);
 
-  const today = useMemo(
-    () => new Date().toLocaleDateString("en-IN", {
-      weekday: "long", year: "numeric", month: "long", day: "numeric",
-    }),
-    []
-  );
+  const today = useMemo(() => formatDateDDMMYYYY(new Date()), []);
 
   // Navigate callbacks (stable references for memoized children)
   const goToCalendar  = useCallback(() => navigate("/dashboard/calendar"),        [navigate]);
