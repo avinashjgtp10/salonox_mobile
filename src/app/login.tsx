@@ -15,27 +15,15 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { validatePhoneNumberLength, isValidPhoneNumber } from "libphonenumber-js";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { useAuth } from "@/context/AuthContext";
 import { KeyboardAwareScrollView, type KeyboardAwareScrollViewHandle } from "@/components/ui/KeyboardAwareScrollView";
 import { ApiError, getApiErrorMessage } from "@/services/api";
-import { authService } from "@/services/authService";
-import { PhoneInput } from "@/components/ui/PhoneInput";
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
 import { resolveLoginRoute } from "@/utils/routeResolver";
-import {
-  CONFIRM_PASSWORD_MISMATCH_MESSAGE_GENERIC,
-  EMAIL_INVALID_MESSAGE,
-  PERSON_NAME_INVALID_MESSAGE,
-  isValidEmail,
-  isValidPersonName,
-  isValidPassword,
-  PASSWORD_REQUIREMENT_MESSAGE,
-} from "@/utils/validation";
-import type { CountryCode } from "libphonenumber-js";
+import { EMAIL_INVALID_MESSAGE, isValidEmail } from "@/utils/validation";
 
 // ─── Color Palette ───────────────────────────────────────────
 // Derived straight from the real theme tokens (constants/theme.ts) so this
@@ -77,10 +65,6 @@ const useAuthColors = () => {
   return useMemo(() => createAuthColors(colors, scheme), [colors, scheme]);
 };
 
-const DEFAULT_COUNTRY = "India";
-const DEFAULT_PHONE_COUNTRY_CODE = "IN";
-const INDIA_DIAL_CODE = "+91";
-const INDIA_MOBILE_DIGIT_COUNT = 10;
 const getRouteParam = (value: string | string[] | undefined) =>
   Array.isArray(value) ? value[0] : value;
 
@@ -105,82 +89,10 @@ const isAccountLockedError = (loginError: unknown) =>
 const FORGOT_PASSWORD_HINT =
   "Forgot your password? You can reset it using the 'Forgot Password' option below.";
 
-const OTP_RESEND_COOLDOWN_SECONDS = 60;
-
-const formatCountdown = (totalSeconds: number) => {
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-
-  return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-};
-
-const getEmailOtpError = (otpError: unknown) => {
-  const message = getApiErrorMessage(otpError);
-  const normalizedMessage = message.toLowerCase();
-
-  if (normalizedMessage.includes("expired")) {
-    return "This OTP has expired. Please request a new code.";
-  }
-
-  if (
-    normalizedMessage.includes("invalid") ||
-    normalizedMessage.includes("incorrect") ||
-    normalizedMessage.includes("wrong") ||
-    normalizedMessage.includes("does not match")
-  ) {
-    return "Invalid OTP. Please check the code and try again.";
-  }
-
-  return message;
-};
-
 const getInvalidCredentialsMessage = (consecutiveFailedAttempts: number) => {
   const baseMessage = "The email or password you entered is incorrect.";
 
   return consecutiveFailedAttempts >= 3 ? `${baseMessage}\n${FORGOT_PASSWORD_HINT}` : baseMessage;
-};
-
-const getPhoneDigitsForDialCode = (e164Value: string, dialCode: string) => {
-  const dialDigits = dialCode.replace(/\D/g, "");
-  const allDigits = e164Value.trim().replace(/\D/g, "");
-
-  return allDigits.startsWith(dialDigits) ? allDigits.slice(dialDigits.length) : allDigits;
-};
-
-const getRegisterPhoneError = (phone: string, dialCode: string) => {
-  const trimmedPhone = phone.trim();
-
-  if (!trimmedPhone) {
-    return "Mobile number is required.";
-  }
-
-  if (/[A-Za-z]/.test(trimmedPhone)) {
-    return "Mobile number can contain digits only.";
-  }
-
-  if (dialCode === INDIA_DIAL_CODE) {
-    const nationalDigits = getPhoneDigitsForDialCode(trimmedPhone, INDIA_DIAL_CODE);
-
-    if (nationalDigits.length !== INDIA_MOBILE_DIGIT_COUNT) {
-      return "Enter a valid 10-digit Indian mobile number.";
-    }
-  }
-
-  const lengthResult = validatePhoneNumberLength(trimmedPhone);
-
-  if (lengthResult === "TOO_SHORT") {
-    return "Mobile number is too short.";
-  }
-
-  if (lengthResult === "TOO_LONG") {
-    return "Mobile number is too long.";
-  }
-
-  if (!isValidPhoneNumber(trimmedPhone)) {
-    return "Please enter a valid mobile number.";
-  }
-
-  return null;
 };
 
 const getFriendlyLoginErrorMessage = (loginError: unknown) => {
@@ -194,52 +106,14 @@ const getFriendlyLoginErrorMessage = (loginError: unknown) => {
   return cleanedMessage || "We could not sign you in. Please try again.";
 };
 
-type RegisterFieldErrors = Partial<
-  Record<
-    | "fullName"
-    | "businessName"
-    | "address"
-    | "email"
-    | "phone"
-    | "password"
-    | "confirmPassword"
-    | "terms",
-    string
-  >
->;
-
-type RegisterStep = 1 | 2 | 3;
-
-const REGISTER_STEP_TITLES: Record<RegisterStep, string> = {
-  1: "Personal Details",
-  2: "Business Details",
-  3: "Security",
-};
-
-const REGISTER_STEP_FIELDS: Record<RegisterStep, (keyof RegisterFieldErrors)[]> = {
-  1: ["fullName", "email", "phone"],
-  2: ["businessName", "address"],
-  3: ["password", "confirmPassword", "terms"],
-};
-
 export default function LoginScreen() {
   const Colors = useAuthColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const params = useLocalSearchParams<{ mode?: string; successMessage?: string }>();
+  const params = useLocalSearchParams<{ successMessage?: string }>();
   const routeSuccessMessage = getRouteParam(params.successMessage);
-  const { clearError, error, isLoading, signIn, signInWithGoogle, signUp } = useAuth();
-  const [isRegisterMode, setIsRegisterMode] = useState(getRouteParam(params.mode) === "register");
-  const [registrationStep, setRegistrationStep] = useState<RegisterStep>(1);
-  const [fullName, setFullName] = useState("");
-  const [businessName, setBusinessName] = useState("");
-  const [address, setAddress] = useState("");
+  const { clearError, error, isLoading, signIn, signInWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
-  const [countryCode, setCountryCode] = useState<CountryCode>(DEFAULT_PHONE_COUNTRY_CODE);
-  const [countryDialCode, setCountryDialCode] = useState(INDIA_DIAL_CODE);
-  const [phoneE164, setPhoneE164] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [formSuccess, setFormSuccess] = useState<string | null>(null);
   // Consecutive failed login attempts, tracked locally for this app session
@@ -250,15 +124,6 @@ export default function LoginScreen() {
   const [dismissedRouteSuccessMessage, setDismissedRouteSuccessMessage] = useState<string | null>(
     null,
   );
-  const [fieldErrors, setFieldErrors] = useState<RegisterFieldErrors>({});
-  const [verifiedEmail, setVerifiedEmail] = useState<string | null>(null);
-  const [emailOtp, setEmailOtp] = useState("");
-  const [emailOtpError, setEmailOtpError] = useState<string | null>(null);
-  const [emailOtpSuccess, setEmailOtpSuccess] = useState<string | null>(null);
-  const [isEmailOtpSent, setIsEmailOtpSent] = useState(false);
-  const [isSendingEmailOtp, setIsSendingEmailOtp] = useState(false);
-  const [isVerifyingEmailOtp, setIsVerifyingEmailOtp] = useState(false);
-  const [emailOtpCooldownSeconds, setEmailOtpCooldownSeconds] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -268,15 +133,8 @@ export default function LoginScreen() {
   const [scrollViewHeight, setScrollViewHeight] = useState(0);
   const [scrollContentHeight, setScrollContentHeight] = useState(0);
   const scrollViewRef = useRef<KeyboardAwareScrollViewHandle | null>(null);
-  const fullNameInputRef = useRef<TextInput>(null);
   const emailInputRef = useRef<TextInput>(null);
-  const emailOtpInputRef = useRef<TextInput>(null);
-  const phoneInputRef = useRef<TextInput>(null);
-  const businessNameInputRef = useRef<TextInput>(null);
-  const addressInputRef = useRef<TextInput>(null);
   const passwordInputRef = useRef<TextInput>(null);
-  const confirmPasswordInputRef = useRef<TextInput>(null);
-  const fieldOffsets = useRef<Partial<Record<keyof RegisterFieldErrors, number>>>({});
   const contentOverflows = scrollContentHeight > scrollViewHeight + 1;
   const shouldEnableScroll = contentOverflows || isKeyboardVisible;
 
@@ -292,51 +150,14 @@ export default function LoginScreen() {
     (routeSuccessMessage && dismissedRouteSuccessMessage !== routeSuccessMessage
       ? routeSuccessMessage
       : null);
-  const normalizedRegistrationEmail = email.trim().toLowerCase();
-  const isEmailVerifiedForCurrentEmail =
-    Boolean(normalizedRegistrationEmail) && verifiedEmail === normalizedRegistrationEmail;
-  const isEmailOtpBusy = isSendingEmailOtp || isVerifyingEmailOtp;
-  const isEmailOtpCooldownActive = emailOtpCooldownSeconds > 0;
-  const emailOtpCountdown = useMemo(
-    () => formatCountdown(emailOtpCooldownSeconds),
-    [emailOtpCooldownSeconds],
+  const keyboardNavigationFields = useMemo(
+    () => [{ ref: emailInputRef }, { ref: passwordInputRef }],
+    [],
   );
-  const keyboardNavigationFields = useMemo(() => {
-    if (!isRegisterMode) {
-      return [{ ref: emailInputRef }, { ref: passwordInputRef }];
-    }
-
-    if (registrationStep === 1) {
-      return [
-        { ref: fullNameInputRef },
-        { ref: emailInputRef },
-        ...(isEmailOtpSent && !isEmailVerifiedForCurrentEmail ? [{ ref: emailOtpInputRef }] : []),
-        { ref: phoneInputRef },
-      ];
-    }
-
-    if (registrationStep === 2) {
-      return [{ ref: businessNameInputRef }, { ref: addressInputRef }];
-    }
-
-    return [{ ref: passwordInputRef }, { ref: confirmPasswordInputRef }];
-  }, [isEmailOtpSent, isEmailVerifiedForCurrentEmail, isRegisterMode, registrationStep]);
 
   const handleKeyboardFieldFocus = (fieldRef: RefObject<TextInput | null>) => {
     setActiveKeyboardFieldRef(fieldRef);
   };
-
-  useEffect(() => {
-    if (emailOtpCooldownSeconds <= 0) {
-      return;
-    }
-
-    const timeoutId = setTimeout(() => {
-      setEmailOtpCooldownSeconds((currentSeconds) => Math.max(currentSeconds - 1, 0));
-    }, 1000);
-
-    return () => clearTimeout(timeoutId);
-  }, [emailOtpCooldownSeconds]);
 
   const clearFormSuccess = () => {
     setFormSuccess(null);
@@ -344,15 +165,6 @@ export default function LoginScreen() {
     if (routeSuccessMessage) {
       setDismissedRouteSuccessMessage(routeSuccessMessage);
     }
-  };
-
-  const resetEmailVerificationState = () => {
-    setVerifiedEmail(null);
-    setEmailOtp("");
-    setEmailOtpError(null);
-    setEmailOtpSuccess(null);
-    setIsEmailOtpSent(false);
-    setEmailOtpCooldownSeconds(0);
   };
 
   useEffect(() => {
@@ -401,136 +213,18 @@ export default function LoginScreen() {
     }).start();
   };
 
-  const registerFieldPosition = (fieldName: keyof RegisterFieldErrors, y: number) => {
-    fieldOffsets.current[fieldName] = y;
-  };
-
-  const scrollToFirstInvalidField = (errors: RegisterFieldErrors) => {
-    const fieldOrder: (keyof RegisterFieldErrors)[] = [
-      "fullName",
-      "businessName",
-      "address",
-      "email",
-      "phone",
-      "password",
-      "confirmPassword",
-      "terms",
-    ];
-    const firstInvalidField = fieldOrder.find((fieldName) => Boolean(errors[fieldName]));
-
-    if (!firstInvalidField) {
-      return;
-    }
-
-    setTimeout(() => {
-      const fieldOffset = fieldOffsets.current[firstInvalidField] ?? 0;
-
-      scrollViewRef.current?.scrollTo({
-        y: Math.max(fieldOffset - 24, 0),
-        animated: true,
-      });
-    }, 50);
-  };
-
-  const clearRegisterFieldError = (fieldName: keyof RegisterFieldErrors) => {
-    setFieldErrors((currentErrors) => {
-      if (!currentErrors[fieldName]) {
-        return currentErrors;
-      }
-
-      const nextErrors = { ...currentErrors };
-      delete nextErrors[fieldName];
-      return nextErrors;
-    });
-  };
-
   const handleEmailChange = (nextEmail: string) => {
-    const nextNormalizedEmail = nextEmail.trim().toLowerCase();
-
     setEmail(nextEmail);
     setFormError(null);
     clearFormSuccess();
-    clearRegisterFieldError("email");
     clearError();
     setFailedLoginAttempts(0);
-
-    if (
-      (verifiedEmail && verifiedEmail !== nextNormalizedEmail) ||
-      (isEmailOtpSent && normalizedRegistrationEmail !== nextNormalizedEmail)
-    ) {
-      resetEmailVerificationState();
-    } else {
-      setEmailOtpError(null);
-      setEmailOtpSuccess(null);
-    }
-  };
-
-  const handleFullNameChange = (nextFullName: string) => {
-    setFullName(nextFullName);
-    setFormError(null);
-    clearFormSuccess();
-    if (!nextFullName.trim() || isValidPersonName(nextFullName)) {
-      clearRegisterFieldError("fullName");
-    }
-    clearError();
-  };
-
-  const handleBusinessNameChange = (nextBusinessName: string) => {
-    setBusinessName(nextBusinessName);
-    setFormError(null);
-    clearFormSuccess();
-    clearRegisterFieldError("businessName");
-    clearError();
-  };
-
-
-
-  const handleAddressChange = (nextAddress: string) => {
-    setAddress(nextAddress);
-    setFormError(null);
-    clearFormSuccess();
-    clearRegisterFieldError("address");
-    clearError();
-  };
-
-  const handlePhoneChange = (e164: string) => {
-    setPhoneE164(e164);
-    setFormError(null);
-    clearFormSuccess();
-    if (!getRegisterPhoneError(e164, countryDialCode)) {
-      clearRegisterFieldError("phone");
-    }
-    clearError();
-  };
-
-  const handlePhoneCountryChange = (nextCountryCode: CountryCode) => {
-    setCountryCode(nextCountryCode);
-    setCountryDialCode(nextCountryCode === "IN" ? INDIA_DIAL_CODE : "");
-    clearRegisterFieldError("phone");
   };
 
   const handlePasswordChange = (nextPassword: string) => {
     setPassword(nextPassword);
     setFormError(null);
     clearFormSuccess();
-    clearRegisterFieldError("password");
-    clearRegisterFieldError("confirmPassword");
-    clearError();
-  };
-
-  const handleConfirmPasswordChange = (nextConfirmPassword: string) => {
-    setConfirmPassword(nextConfirmPassword);
-    setFormError(null);
-    clearFormSuccess();
-    clearRegisterFieldError("confirmPassword");
-    clearError();
-  };
-
-  const handleTermsPress = () => {
-    setTermsAccepted((currentValue) => !currentValue);
-    setFormError(null);
-    clearFormSuccess();
-    clearRegisterFieldError("terms");
     clearError();
   };
 
@@ -582,336 +276,16 @@ export default function LoginScreen() {
     }
   };
 
-  const getRegisterPayload = () => ({
-      fullName: fullName.trim(),
-      businessName: businessName.trim(),
-      address: address.trim(),
-      email: email.trim(),
-      country: DEFAULT_COUNTRY,
-      countryCode: countryDialCode,
-      // phoneE164 is already in E.164 format (e.g. +919876543210)
-      phone: phoneE164,
-      password,
-      terms: termsAccepted,
-      formatted_address: address.trim(),
-      address_line_1: address.trim(),
-      area: "",
-      city: "",
-      state: "",
-      country_name: DEFAULT_COUNTRY,
-      postal_code: "",
-      latitude: 0,
-      longitude: 0,
-      place_id: address.trim() ? "manual" : "",
-  });
-
-  const getRegisterStepErrors = (step: RegisterStep) => {
-    const registerPayload = getRegisterPayload();
-    const nextFieldErrors: RegisterFieldErrors = {};
-
-    if (step === 1) {
-      if (!registerPayload.fullName) {
-        nextFieldErrors.fullName = "Full Name is required.";
-      } else if (!isValidPersonName(registerPayload.fullName)) {
-        nextFieldErrors.fullName = PERSON_NAME_INVALID_MESSAGE;
-      }
-
-      if (!registerPayload.email) {
-        nextFieldErrors.email = "Email is required.";
-      } else if (!isValidEmail(registerPayload.email)) {
-        nextFieldErrors.email = EMAIL_INVALID_MESSAGE;
-      }
-
-      const phoneError = getRegisterPhoneError(registerPayload.phone, countryDialCode);
-      if (phoneError) {
-        nextFieldErrors.phone = phoneError;
-      }
-    }
-
-    if (step === 2) {
-      if (!registerPayload.businessName) {
-        nextFieldErrors.businessName = "Business Name is required.";
-      }
-
-      if (!registerPayload.address) {
-        nextFieldErrors.address = "Address is required.";
-      }
-    }
-
-    if (step === 3) {
-      if (!registerPayload.password) {
-        nextFieldErrors.password = "Password is required.";
-      } else if (!isValidPassword(registerPayload.password)) {
-        nextFieldErrors.password = PASSWORD_REQUIREMENT_MESSAGE;
-      }
-
-      if (!confirmPassword) {
-        nextFieldErrors.confirmPassword = "Confirm Password is required.";
-      } else if (registerPayload.password !== confirmPassword) {
-        nextFieldErrors.confirmPassword = CONFIRM_PASSWORD_MISMATCH_MESSAGE_GENERIC;
-      }
-
-      if (!registerPayload.terms) {
-        nextFieldErrors.terms = "Terms & Conditions must be accepted.";
-      }
-    }
-
-    return nextFieldErrors;
-  };
-
-  const getFirstInvalidRegisterStep = (errors: RegisterFieldErrors): RegisterStep => {
-    if (REGISTER_STEP_FIELDS[1].some((fieldName) => errors[fieldName])) {
-      return 1;
-    }
-
-    if (REGISTER_STEP_FIELDS[2].some((fieldName) => errors[fieldName])) {
-      return 2;
-    }
-
-    return 3;
-  };
-
-  const validateRegisterStep = (step: RegisterStep) => {
-    const nextStepErrors = getRegisterStepErrors(step);
-    const hasStepErrors = Object.keys(nextStepErrors).length > 0;
-
-    if (hasStepErrors) {
-      setFieldErrors((currentErrors) => ({ ...currentErrors, ...nextStepErrors }));
-      setFormError(null);
-      scrollToFirstInvalidField(nextStepErrors);
-      return false;
-    }
-
-    setFieldErrors((currentErrors) => {
-      const nextErrors = { ...currentErrors };
-      REGISTER_STEP_FIELDS[step].forEach((fieldName) => {
-        delete nextErrors[fieldName];
-      });
-      return nextErrors;
-    });
-    setFormError(null);
-    return true;
-  };
-
-  const validateEmailForOtp = () => {
-    const trimmedEmail = email.trim();
-
-    if (!trimmedEmail) {
-      setFieldErrors((currentErrors) => ({ ...currentErrors, email: "Email is required." }));
-      return false;
-    }
-
-    if (!isValidEmail(trimmedEmail)) {
-      setFieldErrors((currentErrors) => ({ ...currentErrors, email: EMAIL_INVALID_MESSAGE }));
-      return false;
-    }
-
-    clearRegisterFieldError("email");
-    return true;
-  };
-
-  const handleSendEmailOtp = async () => {
-    if (isSendingEmailOtp || isVerifyingEmailOtp || isEmailVerifiedForCurrentEmail) {
-      return;
-    }
-
-    if (!validateEmailForOtp()) {
-      return;
-    }
-
-    setIsSendingEmailOtp(true);
-    setEmailOtp("");
-    setEmailOtpError(null);
-    setEmailOtpSuccess(null);
-    setFormError(null);
-    clearFormSuccess();
-    clearError();
-
-    try {
-      const response = await authService.sendEmailOtp({ email: email.trim() });
-
-      setIsEmailOtpSent(true);
-      setEmailOtpSuccess(response.message);
-      setEmailOtpCooldownSeconds(OTP_RESEND_COOLDOWN_SECONDS);
-    } catch (sendOtpError) {
-      const apiError = sendOtpError as ApiError | undefined;
-      const responseData = apiError?.responseData as { code?: string; error?: { code?: string } } | undefined;
-      const errorCode = responseData?.code ?? responseData?.error?.code;
-
-      if (errorCode === "EMAIL_EXISTS") {
-        setFieldErrors((currentErrors) => ({
-          ...currentErrors,
-          email: "Email already exists",
-        }));
-        setIsEmailOtpSent(false);
-        setEmailOtpError(null);
-        setEmailOtpSuccess(null);
-      } else {
-        setEmailOtpError(getApiErrorMessage(sendOtpError));
-      }
-    } finally {
-      setIsSendingEmailOtp(false);
-    }
-  };
-
-  const handleResendEmailOtp = async () => {
-    if (
-      isSendingEmailOtp ||
-      isVerifyingEmailOtp ||
-      isEmailOtpCooldownActive ||
-      isEmailVerifiedForCurrentEmail
-    ) {
-      return;
-    }
-
-    await handleSendEmailOtp();
-  };
-
-  const handleEmailOtpChange = (nextOtp: string) => {
-    setEmailOtp(nextOtp.replace(/\D/g, ""));
-    setEmailOtpError(null);
-    setEmailOtpSuccess(null);
-  };
-
-  const handleVerifyEmailOtp = async () => {
-    const trimmedOtp = emailOtp.trim();
-
-    if (isVerifyingEmailOtp || isSendingEmailOtp || isEmailVerifiedForCurrentEmail) {
-      return;
-    }
-
-    if (!validateEmailForOtp()) {
-      return;
-    }
-
-    if (!trimmedOtp) {
-      setEmailOtpError("OTP is required.");
-      return;
-    }
-
-    if (trimmedOtp.length < 4) {
-      setEmailOtpError("Please enter a valid OTP.");
-      return;
-    }
-
-    setIsVerifyingEmailOtp(true);
-    setEmailOtpError(null);
-    setEmailOtpSuccess(null);
-    setFormError(null);
-    clearFormSuccess();
-    clearError();
-
-    try {
-      await authService.verifyEmailOtp({ email: email.trim(), otp: trimmedOtp });
-
-      setVerifiedEmail(normalizedRegistrationEmail);
-      setEmailOtp("");
-      setEmailOtpError(null);
-      setEmailOtpSuccess("Email Verified");
-      setIsEmailOtpSent(false);
-      setEmailOtpCooldownSeconds(0);
-      clearRegisterFieldError("email");
-    } catch (verifyOtpError) {
-      setEmailOtpError(getEmailOtpError(verifyOtpError));
-    } finally {
-      setIsVerifyingEmailOtp(false);
-    }
-  };
-
-  const handleRegisterNext = () => {
-    if (!validateRegisterStep(registrationStep)) {
-      return;
-    }
-
-    if (registrationStep === 1 && !isEmailVerifiedForCurrentEmail) {
-      setFieldErrors((currentErrors) => ({
-        ...currentErrors,
-        email: "Please verify your email before continuing.",
-      }));
-      setEmailOtpError("Please verify your email before continuing.");
-      scrollToFirstInvalidField({ email: "Please verify your email before continuing." });
-      return;
-    }
-
-    setRegistrationStep((currentStep) => (currentStep === 1 ? 2 : 3));
-    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-  };
-
-  const handleRegisterBack = () => {
-    setRegistrationStep((currentStep) => (currentStep === 3 ? 2 : 1));
-    setFormError(null);
-    clearError();
-    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
-  };
-
-  const handleRegister = async () => {
-    const registerPayload = getRegisterPayload();
-    const nextFieldErrors = {
-      ...getRegisterStepErrors(1),
-      ...getRegisterStepErrors(2),
-      ...getRegisterStepErrors(3),
-    };
-
-    if (Object.keys(nextFieldErrors).length > 0) {
-      const firstInvalidStep = getFirstInvalidRegisterStep(nextFieldErrors);
-
-      setRegistrationStep(firstInvalidStep);
-      setFieldErrors(nextFieldErrors);
-      setFormError(null);
-      setTimeout(() => scrollToFirstInvalidField(nextFieldErrors), 50);
-      return;
-    }
-
-    setFieldErrors({});
-    setFormError(null);
-
-    try {
-      await signUp(registerPayload);
-    } catch (registerError) {
-      const apiError = registerError as ApiError | undefined;
-      const responseData = apiError?.responseData as { code?: string; error?: { code?: string } } | undefined;
-      const errorCode = responseData?.code ?? responseData?.error?.code;
-
-      if (errorCode === "EMAIL_EXISTS") {
-        setRegistrationStep(1);
-        setFieldErrors((currentErrors) => ({
-          ...currentErrors,
-          email: "Email already exists",
-        }));
-        setFormError(null);
-        setTimeout(() => scrollToFirstInvalidField({ email: "Email already exists" }), 50);
-      } else {
-        const errorMessage = getApiErrorMessage(registerError);
-        setFormError(errorMessage);
-      }
-    }
-  };
-
   const handleSubmit = () => {
-    if (isRegisterMode) {
-      if (registrationStep < 3) {
-        handleRegisterNext();
-        return;
-      }
-
-      handleRegister();
-      return;
-    }
-
     handleLogin();
   };
 
-  const handleCreateAccountPress = () => {
-    const nextRegisterMode = !isRegisterMode;
-
-    setIsRegisterMode(nextRegisterMode);
-    setRegistrationStep(1);
-    setFormError(null);
-    clearFormSuccess();
-    setFieldErrors({});
-    resetEmailVerificationState();
-    clearError();
-  };
+  // SCRUM-1838: self-registration removed from the mobile app. The "Create
+  // account" link stays visible in the UI (per product decision) but is now
+  // inert — tapping it does nothing. New salons are provisioned some other
+  // way; see AuthContext's still-intact signUp()/authService.register() if
+  // this ever needs to come back.
+  const handleCreateAccountPress = () => {};
 
   const handleGoogleLogin = async () => {
     if (isGoogleLoading) {
@@ -925,7 +299,7 @@ export default function LoginScreen() {
 
     try {
       await signInWithGoogle();
-      // Root auth guard routes to onboarding/dashboard once the session is established.
+      // Root auth guard routes to the correct dashboard/home once the session is established.
     } catch (googleError) {
       setFormError(getApiErrorMessage(googleError));
     } finally {
@@ -976,10 +350,7 @@ export default function LoginScreen() {
           overScrollMode="never"
           onLayout={(event) => setScrollViewHeight(event.nativeEvent.layout.height)}
           onContentSizeChange={(_, contentHeight) => setScrollContentHeight(contentHeight)}
-          contentContainerStyle={[
-            styles.scrollContainer,
-            isRegisterMode && styles.registrationScrollContainer,
-          ]}
+          contentContainerStyle={styles.scrollContainer}
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -1003,556 +374,80 @@ export default function LoginScreen() {
             >
             {/* Branding Section */}
             <View style={styles.brandContainer}>
-              <Text style={styles.logoText}>
-                {isRegisterMode ? "Create Your Account" : "Welcome Back"}
-              </Text>
+              <Text style={styles.logoText}>Welcome Back</Text>
 
-              <Text style={styles.tagline}>
-                {isRegisterMode
-                  ? "Start managing your salon in minutes."
-                  : "Sign in to continue managing your salon."}
-              </Text>
+              <Text style={styles.tagline}>Sign in to continue managing your salon.</Text>
             </View>
 
-            {isRegisterMode && (
-              <View style={styles.stepHeader}>
-                <View style={styles.progressSteps}>
-                  {([1, 2, 3] as RegisterStep[]).map((step, index) => {
-                    const isCompleted = registrationStep > step;
-                    const isActive = registrationStep === step;
-                    const isLineCompleted = registrationStep > step;
-
-                    return (
-                      <View key={step} style={styles.progressStepGroup}>
-                        <View style={styles.progressStepItem}>
-                          <View
-                            style={[
-                              styles.progressCircle,
-                              isCompleted && styles.progressCircleCompleted,
-                              isActive && styles.progressCircleActive,
-                            ]}
-                          >
-                            {isCompleted ? (
-                              <Ionicons name="checkmark" size={15} color="#FFFFFF" />
-                            ) : (
-                              <Text
-                                style={[
-                                  styles.progressCircleText,
-                                  isActive && styles.progressCircleTextActive,
-                                ]}
-                              >
-                                {step}
-                              </Text>
-                            )}
-                          </View>
-                          <Text
-                            style={[
-                              styles.progressLabel,
-                              (isActive || isCompleted) && styles.progressLabelActive,
-                            ]}
-                            numberOfLines={2}
-                          >
-                            {REGISTER_STEP_TITLES[step]}
-                          </Text>
-                        </View>
-                        {index < 2 && (
-                          <View
-                            style={[
-                              styles.progressLine,
-                              isLineCompleted && styles.progressLineCompleted,
-                            ]}
-                          />
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
-                <Text style={styles.stepTitle}>
-                  {REGISTER_STEP_TITLES[registrationStep]}
-                </Text>
-              </View>
-            )}
-
-            {isRegisterMode && registrationStep === 1 && (
-              /* Full Name Field */
-              <View
-                onLayout={(event) =>
-                  registerFieldPosition("fullName", event.nativeEvent.layout.y)
-                }
-                style={styles.inputGroup}
-              >
-                <Text style={styles.inputLabel}>Full Name</Text>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    fieldErrors.fullName && styles.inputContainerError,
-                  ]}
-                >
-                  <Ionicons
-                    name="person-outline"
-                    size={20}
-                    color={Colors.secondary}
-                    style={{ marginRight: 12 }}
-                  />
-                  <TextInput
-                    ref={fullNameInputRef}
-                    style={styles.textInput}
-                    placeholder="Full name"
-                    placeholderTextColor={Colors.placeholder}
-                    value={fullName}
-                    onChangeText={handleFullNameChange}
-                    onFocus={() => handleKeyboardFieldFocus(fullNameInputRef)}
-                    textContentType="name"
-                    autoComplete="name"
-                    autoCapitalize="words"
-                    returnKeyType="next"
-                  />
-                </View>
-                {fieldErrors.fullName && (
-                  <Text style={styles.fieldErrorText}>{fieldErrors.fullName}</Text>
-                )}
-              </View>
-            )}
-
-            {(!isRegisterMode || registrationStep === 1) && (
-              /* Email Field */
-              <View
-                onLayout={(event) => {
-                  if (isRegisterMode) {
-                    registerFieldPosition("email", event.nativeEvent.layout.y);
-                  }
-                }}
-                style={styles.inputGroup}
-              >
-                <Text style={styles.inputLabel}>Email Address</Text>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    isRegisterMode && fieldErrors.email && styles.inputContainerError,
-                  ]}
-                >
-                  <Ionicons
-                    name="mail-outline"
-                    size={20}
-                    color={Colors.secondary}
-                    style={{ marginRight: 12 }}
-                  />
-                  <TextInput
-                    ref={emailInputRef}
-                    style={styles.textInput}
-                    placeholder="name@company.com"
-                    placeholderTextColor={Colors.placeholder}
-                    value={email}
-                    onChangeText={handleEmailChange}
-                    onFocus={() => handleKeyboardFieldFocus(emailInputRef)}
-                    keyboardType="email-address"
-                    textContentType="emailAddress"
-                    autoComplete="email"
-                    autoCapitalize="none"
-                    autoCorrect={false}
-                    returnKeyType="next"
-                  />
-                </View>
-                {isRegisterMode && fieldErrors.email && (
-                  <Text style={styles.fieldErrorText}>{fieldErrors.email}</Text>
-                )}
-                {isRegisterMode && (
-                  <View style={styles.emailVerificationPanel}>
-                    {isEmailVerifiedForCurrentEmail ? (
-                      <View style={styles.emailVerifiedRow}>
-                        <Ionicons name="checkmark-circle-outline" size={18} color={Colors.success} />
-                        <Text style={styles.emailVerifiedText}>Email Verified</Text>
-                      </View>
-                    ) : (
-                      <>
-                        {!isEmailOtpSent && (
-                        <Pressable
-                          disabled={isEmailOtpBusy}
-                          onPress={handleSendEmailOtp}
-                          style={[
-                            styles.emailVerificationButton,
-                            isEmailOtpBusy && styles.emailVerificationButtonDisabled,
-                          ]}
-                        >
-                          {isSendingEmailOtp ? (
-                            <ActivityIndicator color="#FFFFFF" size="small" />
-                          ) : (
-                            <>
-                              <Ionicons name="shield-checkmark-outline" size={17} color="#FFFFFF" />
-                              <Text style={styles.emailVerificationButtonText}>
-                                Verify Email
-                              </Text>
-                            </>
-                          )}
-                        </Pressable>
-                        )}
-
-                        {isEmailOtpSent && (
-                          <View style={styles.emailOtpInlineCard}>
-                            <Text style={styles.emailOtpTitle}>Enter Email OTP</Text>
-                            <Text style={styles.emailOtpDescription}>
-                              We sent a verification code to {email.trim()}.
-                            </Text>
-
-                            <View
-                              style={[
-                                styles.inputContainer,
-                                styles.emailOtpInputContainer,
-                                emailOtpError && styles.inputContainerError,
-                              ]}
-                            >
-                              <Ionicons
-                                name="keypad-outline"
-                                size={20}
-                                color={Colors.secondary}
-                                style={{ marginRight: 12 }}
-                              />
-                              <TextInput
-                                ref={emailOtpInputRef}
-                                autoComplete="one-time-code"
-                                keyboardType="number-pad"
-                                maxLength={8}
-                                onChangeText={handleEmailOtpChange}
-                                onFocus={() => handleKeyboardFieldFocus(emailOtpInputRef)}
-                                onSubmitEditing={handleVerifyEmailOtp}
-                                placeholder="Enter OTP"
-                                placeholderTextColor={Colors.placeholder}
-                                returnKeyType="done"
-                                style={styles.textInput}
-                                textContentType="oneTimeCode"
-                                value={emailOtp}
-                              />
-                            </View>
-
-                            {emailOtpError && (
-                              <Text style={styles.fieldErrorText}>{emailOtpError}</Text>
-                            )}
-
-                            {emailOtpSuccess && (
-                              <View style={styles.emailOtpSuccessRow}>
-                                <Ionicons
-                                  name="checkmark-circle-outline"
-                                  size={15}
-                                  color={Colors.success}
-                                />
-                                <Text style={styles.emailOtpSuccessText}>{emailOtpSuccess}</Text>
-                              </View>
-                            )}
-
-                            <View style={styles.emailOtpActions}>
-                              <Pressable
-                                disabled={isEmailOtpBusy}
-                                onPress={handleVerifyEmailOtp}
-                                style={[
-                                  styles.emailOtpVerifyButton,
-                                  isEmailOtpBusy && styles.emailVerificationButtonDisabled,
-                                ]}
-                              >
-                                {isVerifyingEmailOtp ? (
-                                  <ActivityIndicator color="#FFFFFF" size="small" />
-                                ) : (
-                                  <Text style={styles.emailOtpVerifyButtonText}>Verify OTP</Text>
-                                )}
-                              </Pressable>
-
-                              <Pressable
-                                disabled={isEmailOtpBusy || isEmailOtpCooldownActive}
-                                onPress={handleResendEmailOtp}
-                                style={styles.emailOtpResendButton}
-                              >
-                                <Text
-                                  style={[
-                                    styles.emailOtpResendText,
-                                    (isEmailOtpBusy || isEmailOtpCooldownActive) &&
-                                      styles.emailOtpResendTextDisabled,
-                                  ]}
-                                >
-                                  {isSendingEmailOtp
-                                    ? "Resending..."
-                                    : isEmailOtpCooldownActive
-                                      ? `Resend in ${emailOtpCountdown}`
-                                      : "Resend OTP"}
-                                </Text>
-                              </Pressable>
-                            </View>
-                          </View>
-                        )}
-                      </>
-                    )}
-                  </View>
-                )}
-              </View>
-            )}
-
-            {isRegisterMode && registrationStep === 1 && (
-              /* Phone Field */
-              <View
-                onLayout={(event) =>
-                  registerFieldPosition("phone", event.nativeEvent.layout.y)
-                }
-                style={styles.inputGroup}
-              >
-                <Text style={styles.inputLabel}>Mobile Number</Text>
-                <PhoneInput
-                  ref={phoneInputRef}
-                  value={phoneE164}
-                  onChange={handlePhoneChange}
-                  country={countryCode}
-                  onCountryChange={handlePhoneCountryChange}
-                  error={fieldErrors.phone}
-                  onFocus={() => handleKeyboardFieldFocus(phoneInputRef)}
-                  onBlur={() => {
-                    const stepErrors = getRegisterStepErrors(1);
-                    if (stepErrors.phone) {
-                      setFieldErrors((currentErrors) => ({
-                        ...currentErrors,
-                        phone: stepErrors.phone,
-                      }));
-                    } else {
-                      setFieldErrors((currentErrors) => {
-                        const nextErrors = { ...currentErrors };
-                        delete nextErrors.phone;
-                        return nextErrors;
-                      });
-                    }
-                  }}
+            {/* Email Field */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email Address</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="mail-outline"
+                  size={20}
+                  color={Colors.secondary}
+                  style={{ marginRight: 12 }}
+                />
+                <TextInput
+                  ref={emailInputRef}
+                  style={styles.textInput}
+                  placeholder="name@company.com"
+                  placeholderTextColor={Colors.placeholder}
+                  value={email}
+                  onChangeText={handleEmailChange}
+                  onFocus={() => handleKeyboardFieldFocus(emailInputRef)}
+                  keyboardType="email-address"
+                  textContentType="emailAddress"
+                  autoComplete="email"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  returnKeyType="next"
                 />
               </View>
-            )}
+            </View>
 
-            {isRegisterMode && registrationStep === 2 && (
-              /* Business Name Field */
-              <View
-                onLayout={(event) =>
-                  registerFieldPosition("businessName", event.nativeEvent.layout.y)
-                }
-                style={styles.inputGroup}
-              >
-                <Text style={styles.inputLabel}>Business Name</Text>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    fieldErrors.businessName && styles.inputContainerError,
-                  ]}
-                >
-                  <Ionicons
-                    name="business-outline"
-                    size={20}
-                    color={Colors.secondary}
-                    style={{ marginRight: 12 }}
-                  />
-                  <TextInput
-                    ref={businessNameInputRef}
-                    style={styles.textInput}
-                    placeholder="Business name"
-                    placeholderTextColor={Colors.placeholder}
-                    value={businessName}
-                    onChangeText={handleBusinessNameChange}
-                    onFocus={() => handleKeyboardFieldFocus(businessNameInputRef)}
-                    textContentType="organizationName"
-                    autoComplete="organization"
-                    autoCapitalize="words"
-                    returnKeyType="next"
-                  />
-                </View>
-                {fieldErrors.businessName && (
-                  <Text style={styles.fieldErrorText}>{fieldErrors.businessName}</Text>
-                )}
-              </View>
-            )}
-
-            {isRegisterMode && registrationStep === 2 && (
-              /* Single business address field */
-              <View
-                onLayout={(event) =>
-                  registerFieldPosition("address", event.nativeEvent.layout.y)
-                }
-                style={styles.inputGroup}
-              >
-                <Text style={styles.inputLabel}>Business Address</Text>
-
-                {/* Single business address field */}
-                <View
-                  style={[
-                    styles.inputContainer,
-                    styles.addressInputContainer,
-                    fieldErrors.address && styles.inputContainerError,
-                  ]}
-                >
-                  <Ionicons
-                    name="location-outline"
-                    size={20}
-                    color={Colors.secondary}
-                    style={{ marginRight: 12, marginTop: 13 }}
-                  />
-                  <TextInput
-                    ref={addressInputRef}
-                    style={[styles.textInput, styles.addressTextInput]}
-                    placeholder="Enter your salon address"
-                    placeholderTextColor={Colors.placeholder}
-                    value={address}
-                    onChangeText={handleAddressChange}
-                    onFocus={() => handleKeyboardFieldFocus(addressInputRef)}
-                    multiline
-                    textAlignVertical="top"
-                    autoCapitalize="words"
-                    returnKeyType="next"
-                  />
-                </View>
-
-                {/* Error Banner */}
-                {fieldErrors.address && (
-                  <Text style={styles.fieldErrorText}>{fieldErrors.address}</Text>
-                )}
-              </View>
-            )}
-
-            {(!isRegisterMode || registrationStep === 3) && (
-              /* Password Field */
-              <View
-                onLayout={(event) => {
-                  if (isRegisterMode) {
-                    registerFieldPosition("password", event.nativeEvent.layout.y);
-                  }
-                }}
-                style={styles.inputGroup}
-              >
-                <Text style={styles.inputLabel}>Password</Text>
-                <View
-                  style={[
-                    styles.inputContainer,
-                    isRegisterMode && fieldErrors.password && styles.inputContainerError,
-                  ]}
-                >
-                  <Ionicons
-                    name="lock-closed-outline"
-                    size={20}
-                    color={Colors.secondary}
-                    style={{ marginRight: 12 }}
-                  />
-                  <TextInput
-                    ref={passwordInputRef}
-                    style={styles.textInput}
-                    placeholder="Enter your password"
-                    placeholderTextColor={Colors.placeholder}
-                    value={password}
-                    onChangeText={handlePasswordChange}
-                    onFocus={() => handleKeyboardFieldFocus(passwordInputRef)}
-                    secureTextEntry={!showPassword}
-                    textContentType="password"
-                    autoComplete="password"
-                    autoCapitalize="none"
-                    returnKeyType="done"
-                    onSubmitEditing={handleSubmit}
-                  />
-                  <Pressable
-                    onPress={() => setShowPassword(!showPassword)}
-                    style={styles.passwordToggle}
-                    hitSlop={12}
-                  >
-                    <Ionicons
-                      name={showPassword ? "eye-outline" : "eye-off-outline"}
-                      size={20}
-                      color={Colors.secondary}
-                      style={styles.eyeIcon}
-                    />
-                  </Pressable>
-                </View>
-                {isRegisterMode && fieldErrors.password && (
-                  <Text style={styles.fieldErrorText}>{fieldErrors.password}</Text>
-                )}
-              </View>
-            )}
-
-            {isRegisterMode && registrationStep === 3 && (
-              <>
-                {/* Confirm Password Field */}
-                <View
-                  onLayout={(event) =>
-                    registerFieldPosition("confirmPassword", event.nativeEvent.layout.y)
-                  }
-                  style={styles.inputGroup}
-                >
-                  <Text style={styles.inputLabel}>Confirm Password</Text>
-                  <View
-                    style={[
-                      styles.inputContainer,
-                      fieldErrors.confirmPassword && styles.inputContainerError,
-                    ]}
-                  >
-                    <Ionicons
-                      name="lock-closed-outline"
-                      size={20}
-                      color={Colors.secondary}
-                      style={{ marginRight: 12 }}
-                    />
-                    <TextInput
-                      ref={confirmPasswordInputRef}
-                      style={styles.textInput}
-                      placeholder="Confirm your password"
-                      placeholderTextColor={Colors.placeholder}
-                      value={confirmPassword}
-                      onChangeText={handleConfirmPasswordChange}
-                      onFocus={() => handleKeyboardFieldFocus(confirmPasswordInputRef)}
-                      secureTextEntry={!showPassword}
-                      textContentType="password"
-                      autoComplete="password"
-                      autoCapitalize="none"
-                      returnKeyType="done"
-                      onSubmitEditing={handleSubmit}
-                    />
-                    <Pressable
-                      onPress={() => setShowPassword(!showPassword)}
-                      style={styles.passwordToggle}
-                      hitSlop={12}
-                    >
-                      <Ionicons
-                        name={showPassword ? "eye-outline" : "eye-off-outline"}
-                        size={20}
-                        color={Colors.secondary}
-                        style={styles.eyeIcon}
-                      />
-                    </Pressable>
-                  </View>
-                  {fieldErrors.confirmPassword && (
-                    <Text style={styles.fieldErrorText}>{fieldErrors.confirmPassword}</Text>
-                  )}
-                </View>
-
-                {/* Terms Field */}
+            {/* Password Field */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Password</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons
+                  name="lock-closed-outline"
+                  size={20}
+                  color={Colors.secondary}
+                  style={{ marginRight: 12 }}
+                />
+                <TextInput
+                  ref={passwordInputRef}
+                  style={styles.textInput}
+                  placeholder="Enter your password"
+                  placeholderTextColor={Colors.placeholder}
+                  value={password}
+                  onChangeText={handlePasswordChange}
+                  onFocus={() => handleKeyboardFieldFocus(passwordInputRef)}
+                  secureTextEntry={!showPassword}
+                  textContentType="password"
+                  autoComplete="password"
+                  autoCapitalize="none"
+                  returnKeyType="done"
+                  onSubmitEditing={handleSubmit}
+                />
                 <Pressable
-                  onLayout={(event) =>
-                    registerFieldPosition("terms", event.nativeEvent.layout.y)
-                  }
-                  onPress={handleTermsPress}
-                  style={styles.termsRow}
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: termsAccepted }}
+                  onPress={() => setShowPassword(!showPassword)}
+                  style={styles.passwordToggle}
+                  hitSlop={12}
                 >
-                  <View
-                    style={[
-                      styles.checkbox,
-                      fieldErrors.terms && styles.checkboxError,
-                      termsAccepted && styles.checkboxChecked,
-                    ]}
-                  >
-                    {termsAccepted && (
-                      <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                    )}
-                  </View>
-                  <Text style={styles.termsText}>
-                    I agree to the Terms & Conditions
-                  </Text>
+                  <Ionicons
+                    name={showPassword ? "eye-outline" : "eye-off-outline"}
+                    size={20}
+                    color={Colors.secondary}
+                    style={styles.eyeIcon}
+                  />
                 </Pressable>
-                {fieldErrors.terms && (
-                  <Text style={[styles.fieldErrorText, styles.termsErrorText]}>
-                    {fieldErrors.terms}
-                  </Text>
-                )}
-              </>
-            )}
+              </View>
+            </View>
 
-            {!isRegisterMode && displayedSuccess && (
+            {displayedSuccess && (
               <View style={styles.successContainer} accessibilityRole="alert">
                 <Ionicons
                   name="checkmark-circle-outline"
@@ -1576,50 +471,32 @@ export default function LoginScreen() {
               </View>
             )}
 
-            {!isRegisterMode && (
-              <View style={styles.loginOptionsRow}>
-                <Pressable
-                  accessibilityRole="checkbox"
-                  accessibilityState={{ checked: rememberMe }}
-                  onPress={() => setRememberMe((current) => !current)}
-                  style={styles.rememberRow}
-                >
-                  <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
-                    {rememberMe ? <Ionicons color="#FFFFFF" name="checkmark" size={15} /> : null}
-                  </View>
-                  <Text style={styles.rememberText}>Remember me</Text>
-                </Pressable>
-                <Pressable
-                  onPress={() => router.push("/forgot-password")}
-                  style={styles.forgotPassword}
-                >
-                  <Text
-                    style={[
-                      styles.forgotPasswordText,
-                      failedLoginAttempts >= 3 && styles.forgotPasswordTextEmphasized,
-                    ]}
-                  >
-                    Forgot password?
-                  </Text>
-                </Pressable>
-              </View>
-            )}
-
-            {isRegisterMode && registrationStep > 1 && (
+            <View style={styles.loginOptionsRow}>
               <Pressable
-                onPress={handleRegisterBack}
-                disabled={isLoading}
-                style={styles.backButton}
+                accessibilityRole="checkbox"
+                accessibilityState={{ checked: rememberMe }}
+                onPress={() => setRememberMe((current) => !current)}
+                style={styles.rememberRow}
               >
-                <Ionicons
-                  name="chevron-back-outline"
-                  size={18}
-                  color={Colors.secondary}
-                  style={{ marginRight: 6 }}
-                />
-                <Text style={styles.backButtonText}>Back</Text>
+                <View style={[styles.checkbox, rememberMe && styles.checkboxChecked]}>
+                  {rememberMe ? <Ionicons color="#FFFFFF" name="checkmark" size={15} /> : null}
+                </View>
+                <Text style={styles.rememberText}>Remember me</Text>
               </Pressable>
-            )}
+              <Pressable
+                onPress={() => router.push("/forgot-password")}
+                style={styles.forgotPassword}
+              >
+                <Text
+                  style={[
+                    styles.forgotPasswordText,
+                    failedLoginAttempts >= 3 && styles.forgotPasswordTextEmphasized,
+                  ]}
+                >
+                  Forgot password?
+                </Text>
+              </Pressable>
+            </View>
 
             {/* Login Button */}
             <Animated.View style={{ transform: [{ scale: signInScale }] }}>
@@ -1637,13 +514,7 @@ export default function LoginScreen() {
                   {isLoading ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.submitButtonText}>
-                      {isRegisterMode
-                        ? registrationStep < 3
-                          ? "Next"
-                          : "Get Started"
-                        : "Log In"}
-                    </Text>
+                    <Text style={styles.submitButtonText}>Log In</Text>
                   )}
                 </View>
               </Pressable>
@@ -1651,9 +522,7 @@ export default function LoginScreen() {
 
             <View style={styles.dividerContainer}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>
-                {isRegisterMode ? "Or sign up with" : "Or continue with"}
-              </Text>
+              <Text style={styles.dividerText}>Or continue with</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -1677,16 +546,15 @@ export default function LoginScreen() {
               </Pressable>
             </Animated.View>
 
-            {/* Bottom Row */}
+            {/* Bottom Row — SCRUM-1838: self-registration removed, but this
+                link stays visible per product decision; handleCreateAccountPress is now a no-op. */}
             <Pressable
               onPress={handleCreateAccountPress}
               style={styles.createAccountRow}
             >
               <Text style={styles.createAccountText}>
-                {isRegisterMode ? "Already have an account? " : "Don't have an account? "}
-                <Text style={styles.createAccountHighlight}>
-                  {isRegisterMode ? "Log in" : "Create account"}
-                </Text>
+                Don&apos;t have an account?{" "}
+                <Text style={styles.createAccountHighlight}>Create account</Text>
               </Text>
             </Pressable>
             </Animated.View>
@@ -1727,23 +595,12 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   safeArea: {
     flex: 1,
   },
-  header: {
-    alignItems: "flex-start",
-    flexShrink: 0,
-    paddingHorizontal: 24,
-    paddingVertical: 8,
-    zIndex: 1,
-  },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: "center",
     paddingHorizontal: 24,
     paddingTop: 16,
     paddingBottom: 32,
-  },
-  registrationScrollContainer: {
-    justifyContent: "flex-start",
-    paddingTop: 24,
   },
   floralArtwork: {
     height: 245,
@@ -1768,11 +625,6 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     alignItems: "center",
     marginBottom: 24,
   },
-  logoImage: {
-    width: 64,
-    height: 64,
-    marginBottom: 12,
-  },
   logoText: {
     fontFamily: "Georgia",
     fontSize: 40,
@@ -1780,10 +632,6 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     color: Colors.text,
     letterSpacing: -0.5,
     textAlign: "center",
-  },
-  logoAccent: {
-    color: Colors.accent,
-    fontWeight: "800",
   },
   tagline: {
     fontSize: 16,
@@ -1817,12 +665,6 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   googleButtonDisabled: {
     opacity: 0.6,
   },
-  googleButtonText: {
-    fontSize: 15,
-    fontWeight: "600",
-    color: Colors.textPrimary,
-    letterSpacing: 0,
-  },
   dividerContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -1844,116 +686,6 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   inputGroup: {
     marginBottom: 16,
   },
-  emailVerificationPanel: {
-    marginTop: 10,
-  },
-  emailVerificationButton: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: Colors.primary,
-    borderRadius: 16,
-    flexDirection: "row",
-    gap: 8,
-    minHeight: 44,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-  },
-  emailVerificationButtonDisabled: {
-    opacity: 0.68,
-  },
-  emailVerificationButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  emailVerifiedRow: {
-    alignItems: "center",
-    alignSelf: "flex-start",
-    backgroundColor: Colors.successBg,
-    borderColor: Colors.successBorder,
-    borderRadius: 16,
-    borderWidth: 1,
-    flexDirection: "row",
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 9,
-  },
-  emailVerifiedText: {
-    color: Colors.success,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  emailOtpInlineCard: {
-    backgroundColor: Colors.cardBg,
-    borderColor: Colors.cardBorder,
-    borderRadius: 18,
-    borderWidth: 1,
-    marginTop: 10,
-    padding: 12,
-  },
-  emailOtpTitle: {
-    color: Colors.text,
-    fontSize: 14,
-    fontWeight: "800",
-    marginBottom: 4,
-  },
-  emailOtpDescription: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 17,
-    marginBottom: 10,
-  },
-  emailOtpInputContainer: {
-    height: 48,
-  },
-  emailOtpSuccessRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 6,
-    marginTop: 8,
-  },
-  emailOtpSuccessText: {
-    color: Colors.success,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  emailOtpActions: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: 12,
-    justifyContent: "space-between",
-    marginTop: 12,
-  },
-  emailOtpVerifyButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: 14,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 44,
-    paddingHorizontal: 14,
-  },
-  emailOtpVerifyButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  emailOtpResendButton: {
-    alignItems: "center",
-    justifyContent: "center",
-    minHeight: 44,
-    paddingHorizontal: 4,
-  },
-  emailOtpResendText: {
-    color: Colors.secondary,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  emailOtpResendTextDisabled: {
-    color: Colors.textSecondary,
-    opacity: 0.72,
-  },
   inputLabel: {
     display: "none",
   },
@@ -1967,43 +699,11 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     paddingHorizontal: 16,
     height: 52,
   },
-  inputContainerError: {
-    borderColor: Colors.error,
-  },
-  addressInputContainer: {
-    alignItems: "flex-start",
-    minHeight: 52,
-    paddingVertical: 0,
-  },
-  phoneRow: {
-    flexDirection: "row",
-    gap: 10,
-  },
-  countryCodeSelector: {
-    width: 88,
-    justifyContent: "center",
-    paddingHorizontal: 12,
-  },
-  countryCodeText: {
-    color: Colors.text,
-    fontSize: 15,
-    fontWeight: "700",
-    marginRight: 6,
-  },
-  phoneInputContainer: {
-    flex: 1,
-  },
-
   textInput: {
     flex: 1,
     fontSize: 15,
     color: Colors.text,
     height: "100%",
-  },
-  addressTextInput: {
-    minHeight: 50,
-    paddingTop: 10,
-    textAlignVertical: "top",
   },
   passwordToggle: {
     paddingVertical: 8,
@@ -2052,103 +752,6 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
     fontWeight: "600",
     lineHeight: 18,
   },
-  fieldErrorText: {
-    color: Colors.error,
-    fontSize: 12,
-    fontWeight: "600",
-    lineHeight: 16,
-    marginTop: 6,
-  },
-  stepHeader: {
-    alignItems: "center",
-    marginBottom: 16,
-    marginTop: -4,
-    width: "100%",
-  },
-  progressSteps: {
-    flexDirection: "row",
-    alignItems: "flex-start",
-    justifyContent: "space-between",
-    width: "100%",
-    marginBottom: 12,
-  },
-  progressStepGroup: {
-    flex: 1,
-    flexDirection: "row",
-    alignItems: "flex-start",
-  },
-  progressStepItem: {
-    alignItems: "center",
-    width: 84,
-  },
-  progressCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1.5,
-    borderColor: Colors.inputBorder,
-    backgroundColor: Colors.cardBg,
-    alignItems: "center",
-    justifyContent: "center",
-    shadowColor: Colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  progressCircleActive: {
-    borderColor: Colors.secondary,
-    backgroundColor: Colors.secondary,
-    transform: [{ scale: 1.08 }],
-  },
-  progressCircleCompleted: {
-    borderColor: Colors.accent,
-    backgroundColor: Colors.accent,
-  },
-  progressCircleText: {
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  progressCircleTextActive: {
-    color: "#FFFFFF",
-  },
-  progressLabel: {
-    color: Colors.textSecondary,
-    fontSize: 12,
-    fontWeight: "600",
-    marginTop: 6,
-    paddingHorizontal: 4,
-    textAlign: "center",
-    lineHeight: 16,
-    width: 84,
-  },
-  progressLabelActive: {
-    color: Colors.secondary,
-  },
-  progressLine: {
-    flex: 1,
-    height: 3,
-    borderRadius: 999,
-    backgroundColor: Colors.inputBorder,
-    marginTop: 19,
-    marginHorizontal: 2,
-  },
-  progressLineCompleted: {
-    backgroundColor: Colors.accent,
-  },
-  stepTitle: {
-    color: Colors.text,
-    fontFamily: "Georgia",
-    fontSize: 28,
-    fontWeight: "400",
-  },
-  termsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: -4,
-    marginBottom: 20,
-  },
   checkbox: {
     width: 22,
     height: 22,
@@ -2163,21 +766,6 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   checkboxChecked: {
     backgroundColor: Colors.secondary,
     borderColor: Colors.secondary,
-  },
-  checkboxError: {
-    borderColor: Colors.error,
-  },
-  termsText: {
-    flex: 1,
-    color: Colors.textSecondary,
-    fontSize: 13,
-    fontWeight: "600",
-    lineHeight: 18,
-  },
-  termsErrorText: {
-    marginTop: -14,
-    marginBottom: 16,
-    marginLeft: 32,
   },
   forgotPassword: {
     alignSelf: "center",
@@ -2206,20 +794,6 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   forgotPasswordTextEmphasized: {
     fontWeight: "800",
     color: Colors.primaryDark,
-  },
-  backButton: {
-    alignSelf: "center",
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 14,
-    paddingHorizontal: 18,
-    paddingVertical: 10,
-  },
-  backButtonText: {
-    color: Colors.secondary,
-    fontSize: 14,
-    fontWeight: "700",
   },
   submitButtonWrapper: {
     borderRadius: 20,
@@ -2257,50 +831,5 @@ const createStyles = (Colors: AuthColors) => StyleSheet.create({
   createAccountHighlight: {
     color: Colors.accentDark,
     fontWeight: "700",
-  },
-  manualEntryToggle: {
-    paddingVertical: 8,
-    marginTop: 4,
-    marginBottom: 12,
-    alignSelf: "flex-start",
-  },
-  manualEntryToggleText: {
-    color: Colors.secondary,
-    fontSize: 13,
-    fontWeight: "600",
-  },
-  detailsContainer: {
-    width: "100%",
-    marginTop: 14,
-    borderTopWidth: 1.5,
-    borderTopColor: Colors.cardBorder,
-    paddingTop: 16,
-  },
-  detailsHeader: {
-    fontSize: 15,
-    fontWeight: "700",
-    color: Colors.text,
-    marginBottom: 14,
-  },
-  detailInputGroup: {
-    marginBottom: 14,
-  },
-  detailLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.textSecondary,
-    marginBottom: 6,
-  },
-  warningRow: {
-    alignItems: "flex-start",
-    flexDirection: "row",
-    gap: 5,
-    marginTop: 4,
-  },
-  warningText: {
-    color: Colors.warning,
-    flex: 1,
-    fontSize: 11,
-    fontWeight: "500",
   },
 });
