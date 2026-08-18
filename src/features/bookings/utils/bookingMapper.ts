@@ -429,6 +429,11 @@ export function mapApiBooking(
       || "";
   })();
   const clientPhone = appt.clientPhone || appt.client_phone || appt.client?.phone || appt.client?.mobile || "";
+  // See appointments.repository.ts's findById() — `c.phone_country_code AS
+  // client_phone_code` — without this, any WhatsApp deep link built from
+  // this booking has to guess a country code (defaulting to India), which
+  // is wrong for any client actually registered under a different one.
+  const clientPhoneCode = appt.clientPhoneCode || appt.client_phone_code || appt.client?.phone_country_code || appt.client?.country_code || "";
   const clientEmail = appt.clientEmail || appt.client_email || appt.client?.email || "";
   const clientGst   = appt.clientGst   || appt.client_gst   || appt.client?.gst_number || appt.client?.gst || "";
   const staffName   = appt.staffName   || appt.staff_name   || "";
@@ -459,6 +464,7 @@ export function mapApiBooking(
     invoiceNumber: appt.invoice_number ? String(appt.invoice_number) : undefined,
     clientName,
     clientPhone,
+    clientPhoneCode,
     clientEmail,
     clientGst,
     staffName,

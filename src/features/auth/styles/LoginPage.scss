@@ -140,9 +140,11 @@ $border:     #E8E4DE;
 }
 
 .lp-brand__logo {
-  width: 124px;
+  width: 210px;
+  max-width: 62vw;
   height: auto;
   display: block;
+  object-fit: contain;
 }
 
 .lp-brand__wordmark {

@@ -62,6 +62,16 @@ $bar-h: 64px;
       color: #14b8a6;
     }
 
+    &-image {
+      width: 190px;
+      max-width: 28vw;
+      height: auto;
+      max-height: 61px;
+      object-fit: contain;
+      display: block;
+      flex-shrink: 0;
+    }
+
   }
 
   // ── Steps nav ────────────────────────────────────────────

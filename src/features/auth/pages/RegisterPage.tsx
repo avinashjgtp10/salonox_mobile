@@ -9,7 +9,7 @@ import {
 } from "../../../middleware/auth/otpThunk";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import salonImg from "../../../assets/images/dashboard-hero.jpg.png";
-import salonoxMark from "../../../assets/salonox_mark.jpg";
+import salonoxLogo from "../../../assets/salonox_full_logo.png";
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
 import SplitLayout from "../../../components/ui/SplitLayout";
@@ -279,10 +279,7 @@ export default function RegisterPage() {
 
       <div className="rp-inner">
         <div className="rp-brand">
-          <img src={salonoxMark} alt="" className="rp-brand__icon" width="32" height="32" />
-          <span className="rp-brand__wordmark">
-            Salon<span className="rp-brand__wordmark-accent">OX</span>
-          </span>
+          <img src={salonoxLogo} alt="SalonOX" className="rp-brand__logo" width="210" height="68" />
         </div>
 
         <div className="rp-heading-block">

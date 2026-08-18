@@ -192,6 +192,9 @@ export interface Booking {
   clientId?: string;
   clientName: string;
   clientPhone: string;
+  /** Dialing code for clientPhone (e.g. "91") — omit only when genuinely
+   *  unknown; buildClientWhatsAppLink then falls back to India as a default. */
+  clientPhoneCode?: string;
   clientEmail?: string;
   staffId: string;
   staffName?: string;
