@@ -75,6 +75,14 @@ interface Props {
   onToggleIncludeGst?: (v: boolean) => void;
   hasActiveTaxes?: boolean;
 
+  // Tip — checked: tip counts toward Grand Total/salon revenue (staff paid
+  // out separately, outside this transaction). Unchecked (default): tip
+  // stays record-only, passed straight to staff. Hidden entirely when
+  // there's no tip on this bill to begin with.
+  tip?: number;
+  addTipToSalon?: boolean;
+  onToggleAddTipToSalon?: (v: boolean) => void;
+
   // Rewards preview
   previewPoints: number;
   previewWalletCredit: number;
@@ -97,6 +105,7 @@ export const PaymentPanel: React.FC<Props> = ({
   priorDueAmt, priorDueBookings, selectedDueIds, isAllDueSelected, onToggleAllDue, onToggleOneDue,
   printAfterPayment, onTogglePrint,
   includeGst = true, onToggleIncludeGst, hasActiveTaxes = false,
+  tip = 0, addTipToSalon = false, onToggleAddTipToSalon,
   previewPoints, previewWalletCredit,
   frozen,
 }) => {
@@ -261,6 +270,19 @@ export const PaymentPanel: React.FC<Props> = ({
             onChange={(e) => onToggleIncludeGst?.(e.target.checked)}
           />
           <label htmlFor="include-gst">Include GST in this bill</label>
+        </div>
+      )}
+
+      {/* Tip — checked: tip counts toward Grand Total/salon revenue, same
+          spot/style as Include GST just above. Hidden when there's no tip. */}
+      {!frozen && tip > 0 && (
+        <div className="pay-gst">
+          <input
+            type="checkbox" id="add-tip-to-salon"
+            checked={addTipToSalon}
+            onChange={(e) => onToggleAddTipToSalon?.(e.target.checked)}
+          />
+          <label htmlFor="add-tip-to-salon">Add Tip to Salon</label>
         </div>
       )}
 

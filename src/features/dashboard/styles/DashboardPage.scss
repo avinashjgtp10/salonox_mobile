@@ -1276,6 +1276,54 @@ body {
   &--warning .db-mini-stat-card__icon { color: #d97706; }
 }
 
+/* ── Today's Birthdays — per-client list with a direct WhatsApp action ── */
+.db-birthday-list {
+  max-height: 108px;
+  overflow-y: auto;
+  margin: 2px 0 4px;
+
+  &__row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 5px 0;
+
+    & + & { border-top: 1px solid #f3f4f6; }
+  }
+
+  &__name {
+    font-size: 12.5px;
+    font-weight: 600;
+    color: $dashboard-primary;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  &__wa {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #e6f9ee;
+    color: #25d366;
+    cursor: pointer;
+    transition: background 0.15s;
+
+    &:hover { background: #d1f5e0; }
+
+    &--disabled {
+      background: #f3f4f6;
+      color: #9ca3af;
+      cursor: not-allowed;
+    }
+  }
+}
+
 .db-right-col {
   display: flex;
   flex-direction: column;

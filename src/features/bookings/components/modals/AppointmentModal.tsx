@@ -52,7 +52,8 @@ import { PaymentPanel }  from "./PaymentPanel";
 import { computeSplitTotal } from "../../../../components/shared/PaymentMethodPicker";
 import TotalsPanel       from "./TotalsPanel";
 import PaymentButton     from "../shared/PaymentButton";
-import { printReceipt, buildClientWhatsAppLink } from "../../utils/receipt";
+import { printReceipt } from "../../utils/receipt";
+import { buildClientWhatsAppLink } from "../../../../utils/whatsapp";
 import { store }         from "../../../../store/store";
 import { useFocusTrap }  from "../../../../hooks/useFocusTrap";
 import "../../styles/AppointmentModal.scss";
@@ -2984,25 +2985,13 @@ export const AppointmentModal: React.FC<Props> = ({
                       to Salon" is checked (see totalsUtils.ts's addTipToSalon) —
                       otherwise display/record-only, passed straight to staff.
                       Placed after every bill-total row so it reads as separate
-                      info, not part of the running total either way. */}
+                      info, not part of the running total either way. The
+                      checkbox itself lives in PaymentPanel, next to Include GST. */}
                   {tip > 0 && (
-                    <>
-                      <div className="qs-summary-row">
-                        <span>Staff Tip{addTipToSalon ? " (included above)" : ""}</span>
-                        <span>{currencySymbol}{tip.toFixed(2)}</span>
-                      </div>
-                      <div className="qs-summary-row" style={{ alignItems: "center" }}>
-                        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: "#6b7280" }}>
-                          <input
-                            type="checkbox"
-                            checked={addTipToSalon}
-                            onChange={(e) => setAddTipToSalon(e.target.checked)}
-                            style={{ cursor: "pointer" }}
-                          />
-                          Add Tip to Salon
-                        </label>
-                      </div>
-                    </>
+                    <div className="qs-summary-row">
+                      <span>Staff Tip{addTipToSalon ? " (included above)" : ""}</span>
+                      <span>{currencySymbol}{tip.toFixed(2)}</span>
+                    </div>
                   )}
                 </div>
 
@@ -3067,6 +3056,9 @@ export const AppointmentModal: React.FC<Props> = ({
                     includeGst={includeGst}
                     onToggleIncludeGst={setIncludeGst}
                     hasActiveTaxes={activeTaxes.length > 0}
+                    tip={tip}
+                    addTipToSalon={addTipToSalon}
+                    onToggleAddTipToSalon={setAddTipToSalon}
                     previewPoints={previewPoints}
                     previewWalletCredit={previewWalletCredit}
                     frozen={false}
@@ -3136,7 +3128,6 @@ export const AppointmentModal: React.FC<Props> = ({
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
                         addTipToSalon={addTipToSalon}
-                        onToggleAddTipToSalon={setAddTipToSalon}
                         membershipWalletUsed={membershipWalletUsedTotal}
                         ewalletUsed={useEWallet ? eWalletAmt : 0}
                         rewardPointsValue={rewardPointsRedeemedValue}
@@ -3195,7 +3186,6 @@ export const AppointmentModal: React.FC<Props> = ({
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
                         addTipToSalon={addTipToSalon}
-                        onToggleAddTipToSalon={setAddTipToSalon}
                         membershipWalletUsed={membershipWalletUsedTotal}
                         ewalletUsed={useEWallet ? eWalletAmt : 0}
                         rewardPointsValue={rewardPointsRedeemedValue}
@@ -3271,6 +3261,9 @@ export const AppointmentModal: React.FC<Props> = ({
                     includeGst={includeGst}
                     onToggleIncludeGst={setIncludeGst}
                     hasActiveTaxes={activeTaxes.length > 0}
+                    tip={tip}
+                    addTipToSalon={addTipToSalon}
+                    onToggleAddTipToSalon={setAddTipToSalon}
                     previewPoints={previewPoints}
                     previewWalletCredit={previewWalletCredit}
                     frozen={isPaymentFrozen}

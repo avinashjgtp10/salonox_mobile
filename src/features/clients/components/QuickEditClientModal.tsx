@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
-import CountryCodeSelect from "./CountryCodeSelect";
 import ClientSelect from "./ClientSelect";
 import { DatePicker } from "../../../components/ui";
 import "../styles/ClientHistoryModal.scss";
@@ -159,20 +158,14 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved }: Pro
               />
 
               <label className="qec-label">Phone<span className="qec-req-star">*</span></label>
-              <div className="qec-phone-wrap">
-                <CountryCodeSelect
-                  value={phoneCountryCode}
-                  onChange={(code) => setPhoneCountryCode(code)}
-                />
-                <input
-                  className="qec-input qec-phone-input"
-                  inputMode="numeric"
-                  maxLength={10}
-                  value={phone}
-                  onChange={(e) => { setPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setError(null); }}
-                  onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
-                />
-              </div>
+              <input
+                className="qec-input"
+                inputMode="numeric"
+                maxLength={10}
+                value={phone}
+                onChange={(e) => { setPhone(e.target.value.replace(/\D/g, "").slice(0, 10)); setError(null); }}
+                onKeyDown={(e) => { if (e.key === "Enter") handleSubmit(); }}
+              />
 
               <label className="qec-label">Email</label>
               <input
