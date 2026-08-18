@@ -558,6 +558,7 @@ export function mapApiBooking(
       : undefined,
     exCharges: parseFloat(String(appt.ex_charges ?? 0)) || 0,
     tipAmount: parseFloat(String(appt.tip_amount ?? 0)) || 0,
+    tipAddedToSalon: !!(appt.tip_added_to_salon ?? appt.tipAddedToSalon),
     gst: parseFloat(String(appt.gst_percent ?? 0)) || 0,
     subtotal: subtotalVal,
     taxableAmount: taxableAmountVal,

@@ -292,6 +292,7 @@ export function useAppointment() {
         discount_applies_to: (booking as any).discountAppliesTo ?? null,
         ex_charges:     (booking as any).exCharges ?? 0,
         tip_amount:     (booking as any).tipAmount ?? 0,
+        tip_added_to_salon: (booking as any).tipAddedToSalon ?? false,
         gst_percent:    (booking as any).gst ?? 0,
         apply_membership_wallet: applyMembershipWallet ?? false,
         apply_membership_discount: applyMembershipDiscount ?? false,

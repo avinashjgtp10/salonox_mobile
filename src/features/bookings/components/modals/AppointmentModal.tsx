@@ -407,6 +407,10 @@ export const AppointmentModal: React.FC<Props> = ({
   const [discountValue, setDiscountValue] = useState(existingBooking?.discount ?? 0);
   const [exCharges, setExCharges]         = useState(existingBooking?.exCharges ?? 0);
   const [tip, setTip]                     = useState(existingBooking?.tipAmount ?? 0);
+  // "Add Tip to Salon" — checked: tip counts toward Grand Total/salon
+  // revenue (staff paid out separately, outside this transaction).
+  // Unchecked (default): tip stays record-only, passed straight to staff.
+  const [addTipToSalon, setAddTipToSalon] = useState((existingBooking as any)?.tipAddedToSalon ?? false);
   const [focusedField, setFocusedField]   = useState<"exCharges" | "tip" | "discountValue" | null>(null);
   const [discountValueWarning, setDiscountValueWarning] = useState<string | null>(null);
   // Which buckets the Bill Discount applies to. New bills start with all four
@@ -659,7 +663,17 @@ export const AppointmentModal: React.FC<Props> = ({
       // package — and would wrongly consume a pool slot a genuinely
       // fuzzy-covered row elsewhere on this bill might need.
       if (row.clientPackageId) return;
-      const rowCatalogId = (row as any).id || null;
+      // service_id first — on a row loaded from a saved appointment, row.id
+      // is the appointment-service ROW id (assigned server-side on save) and
+      // only service_id is the actual catalog service; a freshly-picked,
+      // not-yet-saved row has no row id yet so its .id holds the catalog id
+      // directly (see ServiceRow.tsx's onChange(..., "id", service.id)).
+      // Reading row.id alone here matched nothing in servicePool (keyed by
+      // real catalog ids) for any RELOADED row, silently hiding its package
+      // coverage until the row was removed and re-picked from scratch — same
+      // bug ServiceRow.tsx's confirmAddConsumable/reminder patch already hit
+      // and fixed for consumables.
+      const rowCatalogId = (row as any).service_id || (row as any).id || null;
       const nameKey = `name:${row.service.toLowerCase()}`;
       const key = (rowCatalogId && servicePool.has(rowCatalogId)) ? rowCatalogId : nameKey;
       const entries = servicePool.get(key);
@@ -994,7 +1008,11 @@ export const AppointmentModal: React.FC<Props> = ({
     const calls: Array<{ id: string; body: { serviceId: string; staffName: string; appointmentId?: string } }> = [];
     for (let idx = 0; idx < serviceRows.length; idx++) {
       const row = serviceRows[idx];
-      const rowCatalogId = row.id || null;
+      // service_id first — see perRowCoveredRemaining's identical comment;
+      // row.id alone is the appointment-service ROW id once this booking has
+      // been saved and reloaded, not the catalog service id pkg.services is
+      // keyed by.
+      const rowCatalogId = (row as any).service_id || row.id || null;
       const nameKey = row.service.toLowerCase();
       // Pooled allocation for THIS row (see perRowCoveredRemaining) — not the
       // raw, unpooled coverage map — so two rows of the same service (e.g.
@@ -1188,7 +1206,7 @@ export const AppointmentModal: React.FC<Props> = ({
           discountValue,
           discountAppliesTo,
           couponCode: coupon.applied || undefined,
-          exCharges, tip,
+          exCharges, tip, tipAddedToSalon: addTipToSalon,
           includeGst,
           applyEwallet: useEWallet,
           eWalletRequested: useEWallet ? eWalletAmt : 0,
@@ -1241,7 +1259,7 @@ export const AppointmentModal: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     pricingRelevantSignature,
-    discountType, discountValue, discountAppliesTo, exCharges, tip, includeGst,
+    discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, includeGst,
     coupon.applied, coupon.discount,
     // referral.applied: linking a client to a referrer (the "Apply" button on
     // the referral-code field) is its own API call, separate from this bill's
@@ -1716,6 +1734,7 @@ export const AppointmentModal: React.FC<Props> = ({
         discountAppliesTo,
         exCharges,
         tipAmount:     tip,
+        tipAddedToSalon: addTipToSalon,
         gst:           totals.taxable > 0 ? Number(((totals.gstAmount / totals.taxable) * 100).toFixed(4)) : 0,
         gstAmount:     totals.gstAmount,
         taxBreakdown:  totals.taxBreakdown,
@@ -1756,7 +1775,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, dispatch, reconciledEffectiveTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, discountAppliesTo, exCharges, tip, activeTaxes, totals,
+      discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, activeTaxes, totals,
       onRefresh, onClose]);
 
   const handleUpdate = useCallback(async () => {
@@ -1767,7 +1786,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, discountAppliesTo, exCharges, tip, activeTaxes, totals,
+      discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, activeTaxes, totals,
       onRefresh, onClose]);
 
   // Reveal the payment section only — does NOT persist anything. The
@@ -1885,7 +1904,7 @@ export const AppointmentModal: React.FC<Props> = ({
     // these; handlePay/handleQuickSaleCheckout must match.
     serviceRows, packageRows, productRows, membershipRows,
     calDate, defaultTime, notes, staffAlert, defaultStaffId,
-    discountType, discountValue, discountAppliesTo, exCharges, tip,
+    discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon,
     reconciledEffectiveTotal, remainingDue, applyMembershipDiscount, applyLoyaltyDiscount,
     includeGst, consumableActuals, isPackageZero,
     printClientExtras, showTaxBreakupOnInvoice, formatAmount,
@@ -2294,7 +2313,13 @@ export const AppointmentModal: React.FC<Props> = ({
   const hasPackageEligibleRow = useMemo(
     () => serviceRows.some((row) => {
       if (!row.service.trim()) return false;
-      const rowCatalogId = (row as any).id || null;
+      // service_id first — see perRowCoveredRemaining's identical comment
+      // above. row.id alone is the appointment-service ROW id once this
+      // booking has been saved and reloaded, not the catalog service id
+      // coveredServices is keyed by — so a package-covered service already
+      // on a reopened/Pending appointment never matched here, hiding its
+      // "Package" benefit card until the row was removed and re-added.
+      const rowCatalogId = (row as any).service_id || (row as any).id || null;
       return (rowCatalogId && coveredServices.has(rowCatalogId))
         || coveredServices.has(`name:${row.service.toLowerCase()}`);
     }),
@@ -2955,12 +2980,29 @@ export const AppointmentModal: React.FC<Props> = ({
                       <span>{currencySymbol}{liveDueAmount.toFixed(2)}</span>
                     </div>
                   )}
-                  {/* Display/record-only — never part of Grand Total/Amount to Pay
-                      above (totals.grandTotal deliberately never adds `tip`, see
-                      totalsUtils.ts). Placed after every bill-total row so it
-                      reads as separate info, not part of the running total. */}
+                  {/* Only part of Grand Total/Amount to Pay above when "Add Tip
+                      to Salon" is checked (see totalsUtils.ts's addTipToSalon) —
+                      otherwise display/record-only, passed straight to staff.
+                      Placed after every bill-total row so it reads as separate
+                      info, not part of the running total either way. */}
                   {tip > 0 && (
-                    <div className="qs-summary-row"><span>Staff Tip</span><span>{currencySymbol}{tip.toFixed(2)}</span></div>
+                    <>
+                      <div className="qs-summary-row">
+                        <span>Staff Tip{addTipToSalon ? " (included above)" : ""}</span>
+                        <span>{currencySymbol}{tip.toFixed(2)}</span>
+                      </div>
+                      <div className="qs-summary-row" style={{ alignItems: "center" }}>
+                        <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 12, color: "#6b7280" }}>
+                          <input
+                            type="checkbox"
+                            checked={addTipToSalon}
+                            onChange={(e) => setAddTipToSalon(e.target.checked)}
+                            style={{ cursor: "pointer" }}
+                          />
+                          Add Tip to Salon
+                        </label>
+                      </div>
+                    </>
                   )}
                 </div>
 
@@ -3093,6 +3135,8 @@ export const AppointmentModal: React.FC<Props> = ({
                         gstAmount={totals.gstAmount}
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
+                        addTipToSalon={addTipToSalon}
+                        onToggleAddTipToSalon={setAddTipToSalon}
                         membershipWalletUsed={membershipWalletUsedTotal}
                         ewalletUsed={useEWallet ? eWalletAmt : 0}
                         rewardPointsValue={rewardPointsRedeemedValue}
@@ -3150,6 +3194,8 @@ export const AppointmentModal: React.FC<Props> = ({
                         gstAmount={totals.gstAmount}
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
+                        addTipToSalon={addTipToSalon}
+                        onToggleAddTipToSalon={setAddTipToSalon}
                         membershipWalletUsed={membershipWalletUsedTotal}
                         ewalletUsed={useEWallet ? eWalletAmt : 0}
                         rewardPointsValue={rewardPointsRedeemedValue}

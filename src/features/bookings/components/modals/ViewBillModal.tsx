@@ -224,8 +224,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               (booking.rewardPointsValue || 0) > 0 ? ["🎁 Paid from Reward Points", `${currencySymbol}${(booking.rewardPointsValue || 0).toFixed(2)}`, "#7c3aed", false] : null,
               ["Paid",  `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}`, "#111827", false],
               (booking.dueAmount || 0) > 0 ? ["Due", `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}`, "#ef4444", false] : null,
-              // Display/record-only — never part of Total/Paid/Due above.
-              booking.tipAmount      ? ["Staff Tip", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
+              // Part of Total/Paid/Due above only when this bill was charged
+              // with "Add Tip to Salon" checked; otherwise display/record-only.
+              booking.tipAmount      ? [`Staff Tip${booking.tipAddedToSalon ? " (included above)" : ""}`, `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
             ].filter((row): row is [string, string, string, boolean] => row !== null).map(([l, v, c, bold]) => (
               <div key={l as string} className={`vbm-summary-row${bold ? " vbm-summary-row--bold" : ""}`} style={{ color: c as string }}>
                 <span>{l as string}</span>
@@ -335,6 +336,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                           taxes:          activeTaxes,
                           exCharges:      Number((booking as any).exCharges || 0),
                           tip:            Number((booking as any).tipAmount || 0),
+                          addTipToSalon:  !!(booking as any).tipAddedToSalon,
                           couponDiscount: Number((booking as any).couponDiscount || 0),
                           referralDiscount: Number((booking as any).referralDiscount || 0),
                           eWalletUsed:    0,
@@ -566,9 +568,13 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   {(booking.dueAmount || 0) > 0 && (
                     <div className="vbm-breakdown-row vbm-breakdown-row--due"><span>Balance Due</span><span>{currencySymbol}{(booking.dueAmount || 0).toFixed(2)}</span></div>
                   )}
-                  {/* Display/record-only — never part of Grand Total/Paid/Due above. */}
+                  {/* Part of Grand Total/Paid/Due above only when this bill was
+                      charged with "Add Tip to Salon" checked. */}
                   {(booking.tipAmount || 0) > 0 && (
-                    <div className="vbm-breakdown-row"><span>Staff Tip</span><span>{currencySymbol}{(booking.tipAmount || 0).toFixed(2)}</span></div>
+                    <div className="vbm-breakdown-row">
+                      <span>Staff Tip{booking.tipAddedToSalon ? " (included above)" : ""}</span>
+                      <span>{currencySymbol}{(booking.tipAmount || 0).toFixed(2)}</span>
+                    </div>
                   )}
                 </div>
               </div>

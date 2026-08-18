@@ -252,6 +252,10 @@ export interface Booking {
   referralDiscount?: number; // ₹ instantly discounted off this bill for a referred client's first qualifying visit
   subtotal: number;
   tipAmount?: number;
+  /** "Add Tip to Salon" checkbox — checked: tipAmount counts toward
+   *  grandTotal/salon revenue. Unchecked (default): tipAmount stays
+   *  record-only, passed straight to staff. */
+  tipAddedToSalon?: boolean;
   taxableAmount: number;
   grandTotal: number;
   payingNow: number;
