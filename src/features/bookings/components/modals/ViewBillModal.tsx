@@ -228,8 +228,11 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               // Part of Total/Paid/Due above only when this bill was charged
               // with "Add Tip to Salon" checked; otherwise display/record-only.
               booking.tipAmount      ? [`Staff Tip${booking.tipAddedToSalon ? " (included above)" : ""}`, `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
-            ].filter((row): row is [string, string, string, boolean] => row !== null).map(([l, v, c, bold]) => (
-              <div key={l as string} className={`vbm-summary-row${bold ? " vbm-summary-row--bold" : ""}`} style={{ color: c as string }}>
+              ...((booking.tipAmount && (booking as any).tipBreakdown?.length)
+                ? (booking as any).tipBreakdown.map((t: any) => [t.staffName, `${currencySymbol}${Number(t.amount || 0).toFixed(2)}`, "#98a2b3", false, true])
+                : []),
+            ].filter((row): row is [string, string, string, boolean, boolean?] => row !== null).map(([l, v, c, bold, sub]) => (
+              <div key={l as string} className={`vbm-summary-row${bold ? " vbm-summary-row--bold" : ""}${sub ? " vbm-summary-row--sub" : ""}`} style={{ color: c as string }}>
                 <span>{l as string}</span>
                 <span>{v as string}</span>
               </div>
@@ -577,6 +580,12 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                       <span>{currencySymbol}{(booking.tipAmount || 0).toFixed(2)}</span>
                     </div>
                   )}
+                  {(booking.tipAmount || 0) > 0 && ((booking as any).tipBreakdown || []).map((t: any) => (
+                    <div key={t.staffId} className="vbm-breakdown-row vbm-breakdown-row--sub">
+                      <span>{t.staffName}</span>
+                      <span>{currencySymbol}{Number(t.amount || 0).toFixed(2)}</span>
+                    </div>
+                  ))}
                 </div>
               </div>
             ) : (

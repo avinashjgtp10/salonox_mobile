@@ -559,6 +559,13 @@ export function mapApiBooking(
     exCharges: parseFloat(String(appt.ex_charges ?? 0)) || 0,
     tipAmount: parseFloat(String(appt.tip_amount ?? 0)) || 0,
     tipAddedToSalon: !!(appt.tip_added_to_salon ?? appt.tipAddedToSalon),
+    tipBreakdown: Array.isArray(appt.tip_breakdown ?? appt.tipBreakdown)
+      ? (appt.tip_breakdown ?? appt.tipBreakdown).map((t: any) => ({
+          staffId: String(t.staff_id ?? t.staffId ?? ""),
+          staffName: t.staff_name ?? t.staffName ?? "",
+          amount: parseFloat(String(t.amount ?? 0)) || 0,
+        }))
+      : undefined,
     gst: parseFloat(String(appt.gst_percent ?? 0)) || 0,
     subtotal: subtotalVal,
     taxableAmount: taxableAmountVal,

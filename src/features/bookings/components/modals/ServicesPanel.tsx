@@ -86,6 +86,10 @@ interface Props {
   onSellPackage?: () => void;
   // Opens the manual eWallet top-up popup — omit to hide the trigger.
   onTopupEwallet?: () => void;
+  // Opens the per-staff Tip split popup — omit to hide the trigger (the
+  // caller only passes this once at least one row has a staff assigned;
+  // with nobody to attribute a tip to, there's nothing to split).
+  onStaffTips?: () => void;
 
   availablePackages: any[];
   availableProducts: any[];
@@ -1794,7 +1798,7 @@ export const ServicesPanel: React.FC<Props> = ({
   packageRows, onUpdatePackage, onRemovePackage, onAddPackage,
   productRows, onUpdateProduct, onRemoveProduct, onAddProduct,
   membershipRows, onUpdateMembership, onRemoveMembership, onAddMembership,
-  onSellPackage, onTopupEwallet,
+  onSellPackage, onTopupEwallet, onStaffTips,
   availablePackages, availableProducts, availableMemberships, serviceCatalog,
   frozen, packageRemainingByRow, membershipWalletInfo, serviceTaxByRow,
   consumableActuals, onConsumableActualChange, clientName,
@@ -1944,6 +1948,9 @@ export const ServicesPanel: React.FC<Props> = ({
         )}
         {onTopupEwallet && (
           <button className="add-row-btn add-row-btn--sell" onClick={onTopupEwallet}>+ Topup eWallet</button>
+        )}
+        {onStaffTips && (
+          <button className="add-row-btn add-row-btn--sell" onClick={onStaffTips}>+ Split Tip by Staff</button>
         )}
       </div>
     )}

@@ -45,6 +45,7 @@ import { ClientPanel }   from "./ClientPanel";
 import { ServicesPanel } from "./ServicesPanel";
 import { AvailableBenefitsPanel, type BenefitCardConfig } from "./AvailableBenefitsPanel";
 import EwalletTopupModal from "../../../clients/components/EwalletTopupModal";
+import StaffTipsModal, { type StaffTipEntry } from "./StaffTipsModal";
 import PackageCreateForm from "../../../../components/packages/PackageCreateForm";
 import type { ClientSearchResult } from "../../../clients/components/ClientSearchInput";
 import { customPackageLineItemToPackageRow } from "../../utils/customPackageItem";
@@ -301,6 +302,10 @@ export const AppointmentModal: React.FC<Props> = ({
   // one via "+ Package". A separate transaction from this bill, same as
   // eWallet top-up above — it doesn't add a line item here.
   const [showSellPackageModal, setShowSellPackageModal] = useState(false);
+  // "Split by staff" — opens a small popup listing every staff member
+  // currently assigned to a row on this bill, each with their own tip
+  // amount, similar interaction to the two modals above.
+  const [showStaffTipsModal, setShowStaffTipsModal] = useState(false);
   // Bumped after a successful top-up to force ClientPanel to refetch this
   // client's real balance from the backend — the eWallet figure on the card
   // is driven by ClientPanel's own useClientDetails() fetch, not clientStats.
@@ -412,6 +417,51 @@ export const AppointmentModal: React.FC<Props> = ({
   // revenue (staff paid out separately, outside this transaction).
   // Unchecked (default): tip stays record-only, passed straight to staff.
   const [addTipToSalon, setAddTipToSalon] = useState((existingBooking as any)?.tipAddedToSalon ?? false);
+  // Optional per-staff split of `tip`, entered via StaffTipsModal — empty
+  // when the tip wasn't split (plain single Tip field). `tip` stays the one
+  // number the pricing engine/receipt/totals actually use; this is purely
+  // attribution ("who got what") kept in sync with it (see handleSaveStaffTips).
+  const [tipBreakdown, setTipBreakdown]   = useState<StaffTipEntry[]>((existingBooking as any)?.tipBreakdown ?? []);
+
+  // Every distinct staff member currently assigned to a row on this bill —
+  // what StaffTipsModal offers a tip field for. ServiceItem carries its own
+  // staff name; package/product/membership rows only carry staffId, so
+  // those fall back to a schedulerStaff lookup.
+  const involvedStaff = useMemo(() => {
+    const byId = new Map<string, string>();
+    const add = (staffId?: string | null, staffName?: string | null) => {
+      if (!staffId) return;
+      if (byId.has(staffId)) return;
+      const name = staffName || schedulerStaff.find((st: any) => String(st.id) === String(staffId))?.name || "Staff";
+      byId.set(staffId, name);
+    };
+    serviceRows.forEach((r: any) => add(r.staffId, r.staff));
+    packageRows.forEach((r: any) => add(r.staffId));
+    productRows.forEach((r: any) => add(r.staffId));
+    membershipRows.forEach((r: any) => add(r.staffId));
+    return Array.from(byId.entries()).map(([staffId, staffName]) => ({ staffId, staffName }));
+  }, [serviceRows, packageRows, productRows, membershipRows, schedulerStaff]);
+
+  const handleSaveStaffTips = useCallback((entries: StaffTipEntry[]) => {
+    setTipBreakdown(entries);
+    setTip(entries.reduce((sum, e) => sum + e.amount, 0));
+  }, []);
+
+  // A staff-tip split references specific staffIds, but rows can be removed
+  // (or reassigned) AFTER the split was saved — without this, a departed
+  // staff member's share silently kept counting toward the Tip total forever
+  // (e.g. split ₹200×3=₹600, remove one staff row, bill still showed ₹600).
+  // Drop any entry whose staffId is no longer on the bill and shrink `tip`
+  // to match, the moment the row list changes.
+  useEffect(() => {
+    if (tipBreakdown.length === 0) return;
+    const validIds = new Set(involvedStaff.map((s) => s.staffId));
+    const stillValid = tipBreakdown.filter((t) => validIds.has(t.staffId));
+    if (stillValid.length !== tipBreakdown.length) {
+      setTipBreakdown(stillValid);
+      setTip(stillValid.reduce((sum, e) => sum + e.amount, 0));
+    }
+  }, [involvedStaff, tipBreakdown]);
   const [focusedField, setFocusedField]   = useState<"exCharges" | "tip" | "discountValue" | null>(null);
   const [discountValueWarning, setDiscountValueWarning] = useState<string | null>(null);
   // Which buckets the Bill Discount applies to. New bills start with all four
@@ -1736,6 +1786,7 @@ export const AppointmentModal: React.FC<Props> = ({
         exCharges,
         tipAmount:     tip,
         tipAddedToSalon: addTipToSalon,
+        tipBreakdown,
         gst:           totals.taxable > 0 ? Number(((totals.gstAmount / totals.taxable) * 100).toFixed(4)) : 0,
         gstAmount:     totals.gstAmount,
         taxBreakdown:  totals.taxBreakdown,
@@ -1776,7 +1827,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, dispatch, reconciledEffectiveTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, activeTaxes, totals,
+      discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, tipBreakdown, activeTaxes, totals,
       onRefresh, onClose]);
 
   const handleUpdate = useCallback(async () => {
@@ -1787,7 +1838,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, activeTaxes, totals,
+      discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, tipBreakdown, activeTaxes, totals,
       onRefresh, onClose]);
 
   // Reveal the payment section only — does NOT persist anything. The
@@ -1905,7 +1956,7 @@ export const AppointmentModal: React.FC<Props> = ({
     // these; handlePay/handleQuickSaleCheckout must match.
     serviceRows, packageRows, productRows, membershipRows,
     calDate, defaultTime, notes, staffAlert, defaultStaffId,
-    discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon,
+    discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, tipBreakdown,
     reconciledEffectiveTotal, remainingDue, applyMembershipDiscount, applyLoyaltyDiscount,
     includeGst, consumableActuals, isPackageZero,
     printClientExtras, showTaxBreakupOnInvoice, formatAmount,
@@ -2220,6 +2271,7 @@ export const AppointmentModal: React.FC<Props> = ({
           }}
           onSellPackage={isSellableClient ? () => setShowSellPackageModal(true) : undefined}
           onTopupEwallet={isSellableClient ? () => setShowTopupModal(true) : undefined}
+          onStaffTips={involvedStaff.length > 0 ? () => setShowStaffTipsModal(true) : undefined}
           availablePackages={availablePackages}
           availableProducts={availableProducts}
           availableMemberships={availableMemberships}
@@ -2601,10 +2653,13 @@ export const AppointmentModal: React.FC<Props> = ({
         <div className="field-group">
           <label>Tip</label>
           <input className="fg-input" type="text" inputMode="decimal"
+            readOnly={tipBreakdown.length > 0}
+            title={tipBreakdown.length > 0 ? "Split by staff — use \"+ Split Tip by Staff\" above to change" : undefined}
             value={focusedField === "tip" && tip === 0 ? "" : tip}
-            onFocus={() => setFocusedField("tip")}
+            onFocus={() => { if (tipBreakdown.length === 0) setFocusedField("tip"); }}
             onBlur={() => setFocusedField(null)}
             onChange={(e) => {
+              if (tipBreakdown.length > 0) return;
               const cleaned = e.target.value.replace(/[^0-9.]/g, "");
               setTip(cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0));
             }} />
@@ -2993,6 +3048,12 @@ export const AppointmentModal: React.FC<Props> = ({
                       <span>{currencySymbol}{tip.toFixed(2)}</span>
                     </div>
                   )}
+                  {tip > 0 && tipBreakdown.map((t) => (
+                    <div key={t.staffId} className="qs-summary-row qs-summary-row--sub">
+                      <span>{t.staffName}</span>
+                      <span>{currencySymbol}{t.amount.toFixed(2)}</span>
+                    </div>
+                  ))}
                 </div>
 
                 {showFullyCoveredBanner ? (
@@ -3128,6 +3189,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
                         addTipToSalon={addTipToSalon}
+                        tipBreakdown={tipBreakdown}
                         membershipWalletUsed={membershipWalletUsedTotal}
                         ewalletUsed={useEWallet ? eWalletAmt : 0}
                         rewardPointsValue={rewardPointsRedeemedValue}
@@ -3186,6 +3248,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
                         addTipToSalon={addTipToSalon}
+                        tipBreakdown={tipBreakdown}
                         membershipWalletUsed={membershipWalletUsedTotal}
                         ewalletUsed={useEWallet ? eWalletAmt : 0}
                         rewardPointsValue={rewardPointsRedeemedValue}
@@ -3412,6 +3475,17 @@ export const AppointmentModal: React.FC<Props> = ({
             />
           </div>
         </div>
+      )}
+
+      {showStaffTipsModal && (
+        <StaffTipsModal
+          staffOptions={involvedStaff}
+          initialBreakdown={tipBreakdown}
+          tipTotal={tip}
+          currencySymbol={currencySymbol}
+          onClose={() => setShowStaffTipsModal(false)}
+          onSave={handleSaveStaffTips}
+        />
       )}
     </div>
   );
