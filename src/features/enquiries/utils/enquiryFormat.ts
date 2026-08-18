@@ -1,3 +1,5 @@
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+
 export function formatEnquiryId(enquiryNo: number): string {
   return `#${enquiryNo}`;
 }
@@ -5,16 +7,15 @@ export function formatEnquiryId(enquiryNo: number): string {
 export function formatEnquiryDate(iso: string): string {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
-  return d.toLocaleDateString("en-IN", { day: "2-digit", month: "short", year: "numeric" });
+  return formatDateDDMMYYYY(d);
 }
 
 export function formatFollowUpAt(iso: string | null): string {
   if (!iso) return "—";
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
-  return d.toLocaleString("en-IN", {
-    day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit",
-  });
+  const time = d.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  return `${formatDateDDMMYYYY(d)} ${time}`;
 }
 
 // <input type="datetime-local"> works in local time with no timezone info
