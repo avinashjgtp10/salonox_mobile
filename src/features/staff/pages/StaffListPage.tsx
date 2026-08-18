@@ -6,15 +6,11 @@ import {  selectAllStaff, selectStaffLoading } from "../../../store/selectors/sl
 import { fetchStaffThunk, deleteStaffThunk, activateStaffThunk, deactivateStaffThunk } from "../../../middleware/staff/staff.thunk";
 import {
   Search as SearchIcon,
-  Sliders,
+  ToggleOn,
   ChevronDown,
-  ChevronUp,
   ArrowDownUp,
-  X,
   PersonBadge,
   PersonPlus,
-  Calendar2Check,
-  ToggleOn,
   FileEarmarkExcel,
   FiletypeCsv,
   FiletypePdf,
@@ -27,7 +23,8 @@ import {
 import "../styles/StaffListPage.scss";
 
 import Dropdown from "../../../components/ui/Dropdown";
-import { Button, Input, DownloadButton, Modal } from "../../../components/ui";
+import { Button, Input, DownloadButton, Modal, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import StaffImportModal from "../components/StaffImportModal";
 import TeamMemberDrawer from "../components/TeamMemberDrawer";
@@ -94,7 +91,6 @@ export default function StaffListPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   const [searchTerm, setSearchTerm] = useState("");
-  const [showFilter, setShowFilter] = useState(false);
   const [selectedSort, setSelectedSort] = useState("Custom order");
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [optionsOpen, setOptionsOpen] = useState(false);
@@ -159,15 +155,36 @@ export default function StaffListPage() {
     return () => document.removeEventListener("click", handler);
   }, []);
 
+  // Drives the empty-state copy ("No results found" vs "No staff members
+  // yet") — JiraFilterMenu shows its own applied-count badge on the trigger.
   const totalFilterBadge =
-    (bookable ? 1 : 0) +
-    (nonBookable ? 1 : 0) +
-    (selectedStatus !== "all" ? 1 : 0);
+    (bookable ? 1 : 0) + (nonBookable ? 1 : 0) + (selectedStatus !== "all" ? 1 : 0);
 
-  const clearFilters = () => {
-    setBookable(false);
-    setNonBookable(false);
-    setSelectedStatus("all");
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    // The two booleans were always a two-checkbox group — this is the same
+    // thing, just expressed as one multi-select field.
+    { key: "type", label: "Type", options: [
+      { id: "bookable", label: "Bookable" },
+      { id: "non_bookable", label: "Non-bookable" },
+    ] },
+    { key: "status", label: "Status", options: [
+      { id: "active", label: "Active" },
+      { id: "archived", label: "Inactive" },
+    ] },
+  ], []);
+
+  const filterMenuSelected = useMemo(() => ({
+    type: [...(bookable ? ["bookable"] : []), ...(nonBookable ? ["non_bookable"] : [])],
+    // "all" is the absence of a status filter, so it maps to an empty array
+    // rather than being an option of its own.
+    status: selectedStatus === "all" ? [] : [selectedStatus],
+  }), [bookable, nonBookable, selectedStatus]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setBookable(!!next.type?.includes("bookable"));
+    setNonBookable(!!next.type?.includes("non_bookable"));
+    const status = next.status?.length ? next.status[next.status.length - 1] : "all";
+    setSelectedStatus(status as "all" | "active" | "archived");
   };
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -268,61 +285,6 @@ export default function StaffListPage() {
   return (
     <div className="staff-list-page">
       {overlay}
-
-      {/* ===== FILTER DRAWER ===== */}
-      {showFilter && (
-        <div className="sl-filter-overlay" onClick={() => setShowFilter(false)}>
-          <div className="sl-filter-drawer" onClick={(e) => e.stopPropagation()}>
-            <div className="sl-filter-header">
-              <button className="sl-close-btn" onClick={() => setShowFilter(false)}>
-                <X size={16} />
-              </button>
-              <h4>All filters</h4>
-            </div>
-            <div className="sl-filter-body">
-              <FilterSection
-                title="Type"
-                icon={<Calendar2Check size={15} />}
-                badge={(bookable ? 1 : 0) + (nonBookable ? 1 : 0) || undefined}
-                onClear={() => { setBookable(false); setNonBookable(false); }}
-              >
-                <label className="fs-checkbox-row">
-                  <input type="checkbox" checked={bookable} onChange={() => setBookable(!bookable)} />
-                  <span>Bookable</span>
-                </label>
-                <label className="fs-checkbox-row">
-                  <input type="checkbox" checked={nonBookable} onChange={() => setNonBookable(!nonBookable)} />
-                  <span>Non-bookable</span>
-                </label>
-              </FilterSection>
-
-              <FilterSection
-                title="Status"
-                icon={<ToggleOn size={15} />}
-                badge={selectedStatus !== "all" ? 1 : undefined}
-                onClear={() => setSelectedStatus("all")}
-              >
-                {(["all", "active", "archived"] as const).map((s) => (
-                  <div
-                    key={s}
-                    className={`fs-radio-row ${selectedStatus === s ? "fs-radio-active" : ""}`}
-                    onClick={() => setSelectedStatus(s)}
-                  >
-                    <span>
-                      {s === "all" ? "All staff members" : s === "active" ? "Active" : "Inactive"}
-                    </span>
-                    {selectedStatus === s && <span className="fs-radio-check">✓</span>}
-                  </div>
-                ))}
-              </FilterSection>
-            </div>
-            <div className="sl-filter-footer">
-              <button className="sl-clear-btn" onClick={clearFilters}>Clear filters</button>
-              <button className="sl-apply-btn" onClick={() => setShowFilter(false)}>Apply</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* ===== HEADER ===== */}
       <div className="slp-header">
@@ -432,16 +394,12 @@ export default function StaffListPage() {
               iconLeft={<SearchIcon size={15} />}
             />
           </div>
-          <button
-            className="slp-filter-btn"
-            onClick={() => setShowFilter(true)}
-          >
-            <Sliders size={14} />
-            Filters
-            {totalFilterBadge > 0 && (
-              <span className="slp-filter-count">{totalFilterBadge}</span>
-            )}
-          </button>
+          <JiraFilterMenu
+            fields={filterFields}
+            selected={filterMenuSelected}
+            onApply={handleFiltersApply}
+            triggerLabel="Filters"
+          />
         </div>
         {/* Reusable Dropdown in place of the hand-rolled trigger + menu this
             used to render. The sort/chevron glyphs stay as siblings rather
@@ -778,45 +736,6 @@ export default function StaffListPage() {
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-// ─── Filter Section Sub-component ────────────────────────────────────────────
-function FilterSection({
-  title,
-  icon,
-  badge,
-  onClear,
-  children,
-  defaultOpen = false,
-}: {
-  title: string;
-  icon: React.ReactNode;
-  badge?: number;
-  onClear?: () => void;
-  children: React.ReactNode;
-  defaultOpen?: boolean;
-}) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="fs-section">
-      <div className="fs-section-header" onClick={() => setOpen(!open)}>
-        <div className="fs-section-title">
-          {icon}
-          <span>{title}</span>
-          {badge ? <span className="fs-badge">{badge}</span> : null}
-        </div>
-        <div className="fs-right">
-          {badge && onClear && (
-            <span className="fs-clear" onClick={(e) => { e.stopPropagation(); onClear(); }}>
-              Clear
-            </span>
-          )}
-          {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
-        </div>
-      </div>
-      {open && <div className="fs-section-body">{children}</div>}
     </div>
   );
 }

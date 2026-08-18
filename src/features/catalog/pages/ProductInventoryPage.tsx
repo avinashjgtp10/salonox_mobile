@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSelector } from "react-redux";
-import { Search, PlusLg, X, Download, ClockHistory, ExclamationTriangle } from "react-bootstrap-icons";
+import { Search, PlusLg, X, Download, ClockHistory } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { selectCurrentSalon, selectUserProfile } from "../../../store/selectors/slices.selectors";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
-import { Pagination } from "../../../components/ui";
-import Dropdown from "../../../components/ui/Dropdown";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import {
   exportInventoryPDF,
   exportInventoryExcel,
@@ -199,6 +199,29 @@ export default function ProductInventoryPage() {
   };
   const hasFilters = !!(search || categoryId || brandId || lowOnly);
 
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "category", label: "Category", searchable: true, options: categories.map((c) => ({ id: String(c.id), label: String(c.name) })) },
+    { key: "brand", label: "Brand", searchable: true, options: brands.map((b) => ({ id: String(b.id), label: String(b.name) })) },
+    // A single-option field standing in for the old "Low stock only" toggle —
+    // ticked or not, which is exactly what the boolean meant.
+    { key: "stock", label: "Stock", options: [{ id: "low", label: "Low stock only" }] },
+  ], [categories, brands]);
+
+  const filterMenuSelected = useMemo(() => ({
+    category: categoryId ? [categoryId] : [],
+    brand: brandId ? [brandId] : [],
+    stock: lowOnly ? ["low"] : [],
+  }), [categoryId, brandId, lowOnly]);
+
+  // category_id/brand_id are scalars server-side, so the newest tick wins.
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    const one = (v?: string[]) => (v?.length ? v[v.length - 1] : "");
+    setCategoryId(one(next.category));
+    setBrandId(one(next.brand));
+    setLowOnly(!!next.stock?.length);
+    setPage(1);
+  };
+
   return (
     <div className="pinv-page">
       {overlay}
@@ -243,27 +266,12 @@ export default function ProductInventoryPage() {
           {search && <button className="pinv-search__clear" onClick={() => setSearch("")}><X size={14} /></button>}
         </div>
 
-        <Dropdown
-          className="pinv-select"
-          placeholder="All categories"
-          value={categoryId}
-          options={[{ id: "", name: "All categories" }, ...categories]}
-          onChange={setCategoryId}
+        <JiraFilterMenu
+          fields={filterFields}
+          selected={filterMenuSelected}
+          onApply={handleFiltersApply}
+          triggerLabel="Filters"
         />
-        <Dropdown
-          className="pinv-select"
-          placeholder="All brands"
-          value={brandId}
-          options={[{ id: "", name: "All brands" }, ...brands]}
-          onChange={setBrandId}
-        />
-
-        <button
-          className={`pinv-chip${lowOnly ? " pinv-chip--on" : ""}`}
-          onClick={() => setLowOnly((v) => !v)}
-        >
-          <ExclamationTriangle size={12} /> Low stock only
-        </button>
 
         {hasFilters && (
           <button className="pinv-clear" onClick={clearFilters}>Clear</button>

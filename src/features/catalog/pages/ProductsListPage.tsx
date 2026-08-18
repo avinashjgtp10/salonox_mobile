@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import api from "../../../services/api/axios";
 import { PRODUCTS } from "../../../services/api/endpoints";
@@ -6,7 +6,6 @@ import { selectCurrentSalon, selectUserProfile } from "../../../store/selectors/
 import { exportProductsPDF } from "../utils/productExport";
 import {
   Search,
-  Sliders,
   BoxSeam,
   X,
   Tag,
@@ -27,7 +26,8 @@ import { fetchSuppliersThunk } from "../../../middleware/inventory/inventory.thu
 import { useProducts } from "../hooks/useProducts";
 import ProductDrawer from "../components/ProductDrawer";
 import Pagination from "../../../components/ui/Pagination";
-import UiDropdown from "../../../components/ui/Dropdown";
+import { JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import Button from "../../../components/ui/Button";
 import Skeleton from "../../../components/ui/Skeleton";
 import Modal from "../../../components/ui/Modal";
@@ -63,90 +63,6 @@ const formatCategoryName = (name: unknown) =>
     .toLowerCase()
     .replace(/\b\w/g, (char) => char.toUpperCase());
 
-// Native <select> popups are painted by the OS and can render past the
-// browser viewport when the option list is long (e.g. many brands). This
-// draws its own menu inside the drawer and gives the menu its own scrollbar.
-const FilterSelect: React.FC<{
-  value: string;
-  options: FilterOption[];
-  onChange: (value: string) => void;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}> = ({ value, options, onChange, open, onOpenChange }) => {
-  const [menuStyle, setMenuStyle] = useState<React.CSSProperties>({});
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const updateMenuPosition = () => {
-    if (!containerRef.current) return;
-
-    const rect = containerRef.current.getBoundingClientRect();
-    const drawer = containerRef.current.closest(".product-filter-drawer");
-    const drawerRect = drawer?.getBoundingClientRect();
-    const gap = 6;
-    const padding = 16;
-    const lowerBound = (drawerRect?.bottom ?? window.innerHeight) - padding;
-    const upperBound = (drawerRect?.top ?? 0) + padding;
-    const spaceBelow = lowerBound - rect.bottom - gap;
-    const spaceAbove = rect.top - upperBound - gap;
-    const openUpward = spaceBelow < 100 && spaceAbove > spaceBelow;
-    const availableSpace = openUpward ? spaceAbove : spaceBelow;
-    const maxHeight = Math.max(120, Math.min(280, availableSpace));
-
-    setMenuStyle(
-      openUpward
-        ? { bottom: `calc(100% + ${gap}px)`, top: "auto", maxHeight }
-        : { top: `calc(100% + ${gap}px)`, bottom: "auto", maxHeight }
-    );
-  };
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClickOutside = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        onOpenChange(false);
-      }
-    };
-    updateMenuPosition();
-    document.addEventListener("mousedown", handleClickOutside);
-    window.addEventListener("resize", updateMenuPosition);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-      window.removeEventListener("resize", updateMenuPosition);
-    };
-  }, [open, onOpenChange]);
-
-  const handleToggle = () => {
-    if (!open) updateMenuPosition();
-    onOpenChange(!open);
-  };
-
-  const selected = options.find((o) => o.value === value);
-
-  return (
-    <div className="filter-select" ref={containerRef}>
-      <button
-        type="button"
-        className={`filter-select__toggle${open ? " is-open" : ""}`}
-        onClick={handleToggle}
-      >
-        <span className="filter-select__value">{selected?.label ?? options[0]?.label}</span>
-      </button>
-      <div className={`filter-select__menu${open ? " is-open" : ""}`} style={menuStyle}>
-        {options.map((opt) => (
-          <button
-            type="button"
-            key={opt.value}
-            className={`filter-select__option${opt.value === value ? " active" : ""}`}
-            onClick={() => { onChange(opt.value); onOpenChange(false); }}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-};
-
 const ProductsListPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch<AppDispatch>();
@@ -166,23 +82,20 @@ const ProductsListPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [drawerProduct, setDrawerProduct] = useState<any | null>(null);
-  const [isFilterModalOpen, setIsFilterModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [deleteInput, setDeleteInput] = useState("");
   const [productsToDelete, setProductsToDelete] = useState<string[]>([]);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Pending filter state (inside modal, not yet applied)
-  const [pendingFilters, setPendingFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  // Applied filter state (triggers server fetch when changed)
+  // Applied filter state (triggers server fetch when changed). JiraFilterMenu
+  // keeps its own draft internally and only hands values over on Apply, so
+  // there's no separate "pending" copy to maintain here any more.
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [openFilterSelect, setOpenFilterSelect] = useState<"category" | "brand" | "productType" | null>(null);
   // Quick category filter — sits in the toolbar beside "Filters" (same spot
   // Services keeps its Category control beside Sort) so switching category
-  // doesn't require opening the full Filters drawer. Applies immediately,
-  // straight into the same appliedFilters.category the drawer reads/writes —
-  // handleOpenFilter already resyncs pendingFilters from appliedFilters on
-  // open, so the drawer always reflects whatever was picked here.
+  // doesn't require opening the full Filters menu. Applies immediately,
+  // straight into the same appliedFilters.category the menu reads/writes, so
+  // the menu always reflects whatever was picked here.
   const [showCategoryFilter, setShowCategoryFilter] = useState(false);
   const categoryFilterRef = useRef<HTMLDivElement>(null);
 
@@ -270,9 +183,6 @@ const ProductsListPage: React.FC = () => {
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [fetchProducts, currentPage, searchQuery, appliedFilters, pageSize]);
 
-  const hasActiveFilters =
-    !!appliedFilters.category || !!appliedFilters.brand || !!appliedFilters.stock || !!appliedFilters.productType;
-
   const handlePageChange = (newPage: number) => {
     setSelectedProducts([]);
     fetchProducts(buildParams(newPage, searchQuery, appliedFilters));
@@ -285,23 +195,37 @@ const ProductsListPage: React.FC = () => {
     fetchProducts(buildParams(1, "", appliedFilters));
   };
 
-  const handleOpenFilter = () => {
-    setPendingFilters(appliedFilters);
-    setOpenFilterSelect(null);
-    setIsFilterModalOpen(true);
-  };
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "category", label: "Category", searchable: true, options: categories.map((c: { id: string | number; name: string }) => ({ id: String(c.id), label: String(c.name) })) },
+    { key: "brand", label: "Brand", searchable: true, options: brands.map((b: { id: string | number; name: string }) => ({ id: String(b.id), label: String(b.name) })) },
+    { key: "stock", label: "Stock", options: [
+      { id: "low", label: "Low in stock" },
+      { id: "out", label: "Out of stock" },
+    ] },
+    { key: "productType", label: "Product type", options: PRODUCT_TYPE_FILTER_OPTIONS
+      .filter(o => o.value)
+      .map(o => ({ id: o.value, label: o.label })) },
+  ], [categories, brands]);
 
-  const handleApplyFilters = () => {
-    setOpenFilterSelect(null);
-    setAppliedFilters(pendingFilters);
-    setIsFilterModalOpen(false);
-  };
+  const filterMenuSelected = useMemo(() => ({
+    category: appliedFilters.category ? [appliedFilters.category] : [],
+    brand: appliedFilters.brand ? [appliedFilters.brand] : [],
+    stock: appliedFilters.stock ? [appliedFilters.stock] : [],
+    productType: appliedFilters.productType ? [appliedFilters.productType] : [],
+  }), [appliedFilters]);
 
-  const handleClearFilters = () => {
-    setOpenFilterSelect(null);
-    setPendingFilters(DEFAULT_FILTERS);
-    setAppliedFilters(DEFAULT_FILTERS);
-    setIsFilterModalOpen(false);
+  // The backend takes ONE value per field (category_id/brand_id/stock/
+  // product_type are scalars), while JiraFilterMenu is inherently
+  // multi-select — so the newest tick wins. It appends to the end of the
+  // array, so the last entry is whatever the user just picked.
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    const one = (v?: string[]) => (v?.length ? v[v.length - 1] : "");
+    setAppliedFilters({
+      category: one(next.category),
+      brand: one(next.brand),
+      stock: one(next.stock),
+      productType: one(next.productType),
+    });
   };
 
   const handleSaveCategory = async () => {
@@ -472,18 +396,12 @@ const ProductsListPage: React.FC = () => {
             </button>
           )}
         </div>
-        <Button
-          variant={hasActiveFilters ? "primary" : "outline"}
-          className={`filter-btn flex-shrink-0${hasActiveFilters ? " filter-btn--active" : ""}`}
-          onClick={handleOpenFilter}
-        >
-          Filters <Sliders size={16} />
-          {hasActiveFilters && (
-            <span className="ms-1 badge bg-dark rounded-pill" style={{ fontSize: "10px" }}>
-              {[appliedFilters.category, appliedFilters.brand, appliedFilters.stock, appliedFilters.productType].filter(Boolean).length}
-            </span>
-          )}
-        </Button>
+        <JiraFilterMenu
+          fields={filterFields}
+          selected={filterMenuSelected}
+          onApply={handleFiltersApply}
+          triggerLabel="Filters"
+        />
 
         <div className="position-relative flex-shrink-0" ref={categoryFilterRef}>
           <Button
@@ -872,116 +790,6 @@ const ProductsListPage: React.FC = () => {
           loading={loading.update}
           onClose={() => setDrawerProduct(null)}
         />
-      )}
-
-      {/* Filter Modal */}
-      {isFilterModalOpen && (
-        <div
-          className="position-fixed top-0 start-0 w-100 h-100 d-flex justify-content-center align-items-center"
-          style={{ backgroundColor: "rgba(0,0,0,0.4)", zIndex: 1050 }}
-        >
-          <div
-            className="product-filter-drawer bg-white rounded-4 shadow-lg d-flex flex-column"
-            style={{ width: "480px", maxWidth: "90vw" }}
-          >
-            <div className="d-flex justify-content-between align-items-center p-4 pb-3">
-              <h5 className="mb-0 fw-bold fs-5 text-dark">Filters</h5>
-              <button
-                className="btn-close shadow-none"
-                onClick={() => {
-                  setOpenFilterSelect(null);
-                  setIsFilterModalOpen(false);
-                }}
-              ></button>
-            </div>
-
-            <div className="p-4 pt-2 d-flex flex-column gap-3">
-              {/* Categories */}
-              <div className="d-flex flex-column gap-2 mb-2">
-                <label className="form-label mb-0 fw-medium text-dark" style={{ fontSize: "14px" }}>
-                  Categories
-                </label>
-                <FilterSelect
-                  value={pendingFilters.category}
-                  onChange={(v) => setPendingFilters((f) => ({ ...f, category: v }))}
-                  options={[
-                    { value: "", label: "All categories" },
-                    { value: "none", label: "No category" },
-                    ...categories.map((c: any) => ({ value: c.id, label: formatCategoryName(c.name) })),
-                  ]}
-                  open={openFilterSelect === "category"}
-                  onOpenChange={(nextOpen) => setOpenFilterSelect(nextOpen ? "category" : null)}
-                />
-              </div>
-
-              {/* Brands */}
-              <div className="d-flex flex-column gap-2 mb-2">
-                <label className="form-label mb-0 fw-medium text-dark" style={{ fontSize: "14px" }}>
-                  Brands
-                </label>
-                <FilterSelect
-                  value={pendingFilters.brand}
-                  onChange={(v) => setPendingFilters((f) => ({ ...f, brand: v }))}
-                  options={[
-                    { value: "", label: "All brands" },
-                    { value: "none", label: "No brand" },
-                    ...brands.map((b: any) => ({ value: b.id, label: b.name })),
-                  ]}
-                  open={openFilterSelect === "brand"}
-                  onOpenChange={(nextOpen) => setOpenFilterSelect(nextOpen ? "brand" : null)}
-                />
-              </div>
-
-              {/* Stock */}
-              <div className="d-flex flex-column gap-2 mb-2">
-                <label className="form-label mb-0 fw-medium text-dark" style={{ fontSize: "14px" }}>
-                  Stock
-                </label>
-                <UiDropdown
-                  className="form-select form-select-lg shadow-none border-secondary-subtle custom-focus-select"
-                  style={{ fontSize: "15px" }}
-                  searchable={false}
-                  value={pendingFilters.stock}
-                  options={[
-                    { id: "", name: "All products" },
-                    { id: "low", name: "Low in stock" },
-                    { id: "out", name: "Out of stock" },
-                  ]}
-                  onChange={(id) => setPendingFilters((f) => ({ ...f, stock: id }))}
-                />
-              </div>
-
-              {/* Product type */}
-              <div className="d-flex flex-column gap-2 mb-2">
-                <label className="form-label mb-0 fw-medium text-dark" style={{ fontSize: "14px" }}>
-                  Product type
-                </label>
-                <FilterSelect
-                  value={pendingFilters.productType}
-                  onChange={(v) => setPendingFilters((f) => ({ ...f, productType: v }))}
-                  options={PRODUCT_TYPE_FILTER_OPTIONS}
-                  open={openFilterSelect === "productType"}
-                  onOpenChange={(nextOpen) => setOpenFilterSelect(nextOpen ? "productType" : null)}
-                />
-              </div>
-            </div>
-
-            <div className="d-flex justify-content-end p-4 pt-1 gap-3">
-              <Button
-                variant="outline"
-                onClick={handleClearFilters}
-              >
-                Clear filters
-              </Button>
-              <Button
-                variant="primary"
-                onClick={handleApplyFilters}
-              >
-                Apply
-              </Button>
-            </div>
-          </div>
-        </div>
       )}
 
       {/* Brands Modal */}
