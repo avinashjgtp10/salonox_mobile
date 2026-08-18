@@ -17,7 +17,7 @@ import {
   X,
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
-import salonoxMark from "../../../assets/salonox_mark.jpg";
+import salonoxLogo from "../../../assets/salonox_full_logo.png";
 import SearchOverlay from "./SearchOverlay";
 import api from "../../../services/api/axios";
 import { NOTIFICATIONS } from "../../../services/api/endpoints";
@@ -337,10 +337,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
       <div className="topbar">
         <div className="topbar-left">
           <h2 className="brand">
-            <img src={salonoxMark} alt="" className="brand-icon" width="26" height="26" />
-            <span className="brand-wordmark">
-              Salon<span className="brand-wordmark-accent">OX</span>
-            </span>
+            <img src={salonoxLogo} alt="SalonOX" className="brand-logo" width="190" height="61" />
           </h2>
         </div>
 

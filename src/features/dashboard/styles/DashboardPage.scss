@@ -41,7 +41,7 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0 20px;
+  padding: 0 20px 0 8px;
   position: fixed;
   top: 0;
   left: 0;
@@ -49,7 +49,7 @@ body {
   box-sizing: border-box;
 
   @media (max-width: 768px) {
-    padding: 0 12px;
+    padding: 0 12px 0 6px;
   }
 }
 
@@ -58,11 +58,13 @@ body {
   align-items: center;
   gap: 18px;
   min-width: 0;
+  justify-content: flex-start;
 }
 
 .brand {
   display: flex;
   align-items: center;
+  justify-content: flex-start;
   gap: 8px;
   font-size: 17px;
   font-weight: 700;
@@ -139,6 +141,17 @@ body {
 
 .brand-wordmark-accent {
   color: #14b8a6;
+}
+
+.brand-logo {
+  width: 190px;
+  max-width: 28vw;
+  height: auto;
+  max-height: 61px;
+  object-fit: contain;
+  object-position: left center;
+  display: block;
+  flex-shrink: 0;
 }
 
 .topbar-right {
