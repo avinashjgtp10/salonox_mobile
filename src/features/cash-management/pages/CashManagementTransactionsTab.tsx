@@ -7,6 +7,7 @@ import type { CashTransactionRecord } from "../cashManagement.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import CashMgmtFilterSelect from "../components/CashMgmtFilterSelect";
 import CashIncomeModal from "../components/CashIncomeModal";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 const STATUS_FILTER_OPTIONS = [
   { value: "all", label: "All Status" },
@@ -54,13 +55,8 @@ const formatDate = (value: string) => {
   if (!value) return "--";
   const next = new Date(value);
   if (Number.isNaN(next.getTime())) return value;
-  return next.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  const time = next.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit" });
+  return `${formatDateDDMMYYYY(next)} ${time}`;
 };
 
 export default function CashManagementTransactionsTab({

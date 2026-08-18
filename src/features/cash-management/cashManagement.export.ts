@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { formatDateDDMMYYYY } from "../../utils/dateFormat";
 
 export type CashManagementExportFormat = "pdf" | "excel" | "csv";
 
@@ -21,14 +22,11 @@ interface ExportOptions {
 const formatFileDate = (value: Date) => value.toISOString().slice(0, 10);
 
 const formatGeneratedAt = (value: Date) =>
-  value.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
+  `${formatDateDDMMYYYY(value)} ${value.toLocaleTimeString("en-IN", {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-  });
+  })}`;
 
 export const getCashManagementExportFilename = (
   format: CashManagementExportFormat,

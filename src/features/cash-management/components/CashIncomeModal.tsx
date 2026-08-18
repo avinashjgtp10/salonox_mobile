@@ -3,6 +3,7 @@ import { Modal } from "../../../components/ui";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { fetchCashIncomeEntries } from "../cashManagement.api";
 import type { CashIncomeEntryRecord } from "../cashManagement.types";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 interface Props {
   show: boolean;
@@ -14,13 +15,8 @@ const formatDateTime = (value: string) => {
   if (!value) return "--";
   const next = new Date(value);
   if (Number.isNaN(next.getTime())) return value;
-  return next.toLocaleString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
+  const time = next.toLocaleTimeString("en-IN", { hour: "2-digit", minute: "2-digit", hour12: true });
+  return `${formatDateDDMMYYYY(next)} ${time}`;
 };
 
 // Drill-down for a counter session's Cash Revenue total — lists every

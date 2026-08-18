@@ -7,6 +7,7 @@ import type { CashExpenseRecord } from "../cashManagement.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import CashMgmtFilterSelect from "../components/CashMgmtFilterSelect";
 import CashMgmtRowActionsMenu from "../components/CashMgmtRowActionsMenu";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 const ALL_EXPENSE_TYPES = "all";
 
@@ -30,11 +31,7 @@ const formatDate = (value: string) => {
   if (!value) return "--";
   const next = new Date(value);
   if (Number.isNaN(next.getTime())) return value;
-  return next.toLocaleDateString("en-IN", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  });
+  return formatDateDDMMYYYY(next);
 };
 
 
