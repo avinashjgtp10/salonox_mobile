@@ -6,6 +6,7 @@ import {
   PieChartFill, Bag, Scissors, BarChartLine, Receipt, Award, Wallet2,
   PersonCircle, PersonCheck, PeopleFill, Droplet, Whatsapp, FileEarmarkBarGraph,
   CashCoin, PersonCheckFill, Truck, ChatDots, PersonDash, ArrowRepeat, ArrowLeftRight,
+  Gift, HourglassSplit, LightningChargeFill,
 } from "react-bootstrap-icons";
 import "../styles/ReportsPage.scss";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -48,6 +49,8 @@ import UpcomingAppointmentsReport from "../reports/UpcomingAppointmentsReport";
 import WaCampaignReport from "../reports/WaCampaignReport";
 import OpenRateReport from "../reports/OpenRateReport";
 import ReplyRateReport from "../reports/ReplyRateReport";
+import BirthdayCampaignReport from "../reports/BirthdayCampaignReport";
+import { SlowMovingProductsReport, FastMovingProductsReport } from "../reports/ProductMovementReport";
 import ProductMarginReport from "../reports/ProductMarginReport";
 import SupplierReport from "../reports/SupplierReport";
 
@@ -108,6 +111,8 @@ const REPORTS: ReportDef[] = [
   { id: "appointment_detail",     slug: "appointment-detail",     name: "Detailed Appointment Reports",                description: "Every appointment for a period, with status, staff, service and payment detail.",                 category: "appointments", icon: CalendarCheck,  Component: AppointmentDetailReport },
   { id: "upcoming_appointments",  slug: "upcoming-appointments",  name: "Upcoming Appointments Report",                description: "Future appointments still booked — date, time, client, service and staff.",                       category: "appointments", icon: ClockHistory,   Component: UpcomingAppointmentsReport },
   { id: "product_inventory",      slug: "product-inventory",      name: "Product Inventory",                           description: "Current on-hand stock, reorder levels and stock value by product.",                                category: "inventory",    icon: BoxSeam,        Component: ProductInventoryReport },
+  { id: "slow_moving_products",   slug: "slow-moving-products",   name: "Slow Moving Products Report",                 description: "Products that stay in stock the longest with the fewest or no sales, to help optimize inventory.", category: "inventory",    icon: HourglassSplit, Component: SlowMovingProductsReport },
+  { id: "fast_moving_products",   slug: "fast-moving-products",   name: "Fast Moving Products Report",                 description: "Products with the highest sales volume in a selected period, to guide stock levels and purchase planning.", category: "inventory", icon: LightningChargeFill, Component: FastMovingProductsReport },
   { id: "brand_performance",      slug: "brand-performance",      name: "Brand Performance Report",                    description: "Units sold, sales revenue and stock value grouped by product brand.",                              category: "inventory",    icon: Tags,           Component: BrandPerformanceReport },
   { id: "purchase_vs_sales",      slug: "purchase-vs-sales",      name: "Purchase vs Sales Inventory Report",          description: "Purchase value, sales value and stock consumption per product, with net movement and turnover.",   category: "inventory",    icon: ArrowLeftRight, Component: PurchaseVsSalesReport },
   { id: "consumable_usage",       slug: "consumable-usage",       name: "Consumable Usage",                            description: "Products used up by staff during services (back-bar stock), separate from client sales.",       category: "inventory",    icon: Droplet,        Component: ConsumableUsageReport },
@@ -120,6 +125,7 @@ const REPORTS: ReportDef[] = [
   { id: "mkt_feedback",           slug: "client-rating",          name: "Marketing Feedback & Ratings",                description: "Post-visit WhatsApp feedback ratings, reviews, and client spend insights.",                       category: "marketing",    icon: StarFill,       Component: ClientRatingReport },
   { id: "open_rate",              slug: "open-rate",              name: "Open Rate Report",                            description: "How many delivered campaign messages were actually opened — engagement per campaign, with recipient-level detail.", category: "marketing", icon: FileEarmarkBarGraph, Component: OpenRateReport },
   { id: "reply_rate",             slug: "reply-rate",             name: "Reply Rate Report",                           description: "How many recipients wrote back within 24 hours of a campaign reaching them, per campaign and per customer.", category: "marketing", icon: ChatDots,       Component: ReplyRateReport },
+  { id: "birthday_campaign",      slug: "birthday-campaign",      name: "Birthday Campaign Performance Report",        description: "Delivery, read and failure rates for automated birthday WhatsApp wishes, one row per client send.", category: "marketing", icon: Gift, Component: BirthdayCampaignReport },
 ];
 
 const DEFAULT_FAVORITES = ["sales_summary", "staff_sales", "appointment_detail", "client_revenue", "daily_sheet"];
