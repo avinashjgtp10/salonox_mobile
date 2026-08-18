@@ -7,7 +7,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { loginThunk } from "../../../middleware/auth/authThunk";
 import { API_ORIGIN } from "../../../services/api/baseUrl";
 import salonImg from "../../../assets/images/dashboard-hero.jpg.png";
-import salonoxMark from "../../../assets/salonox_mark.jpg";
+import salonoxLogo from "../../../assets/salonox_full_logo.png";
 
 import Input from "../../../components/ui/Input";
 import Button from "../../../components/ui/Button";
@@ -100,10 +100,7 @@ export default function LoginPage() {
 
       <div className="lp-inner">
         <div className="lp-brand">
-          <img src={salonoxMark} alt="" className="lp-brand__icon" width="32" height="32" />
-          <span className="lp-brand__wordmark">
-            Salon<span className="lp-brand__wordmark-accent">OX</span>
-          </span>
+          <img src={salonoxLogo} alt="SalonOX" className="lp-brand__logo" width="210" height="68" />
         </div>
 
         <div className="lp-heading-block">

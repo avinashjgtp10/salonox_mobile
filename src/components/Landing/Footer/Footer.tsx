@@ -21,10 +21,6 @@ const Footer: React.FC<FooterProps> = ({
     <div className="container">
       <div className="footer-top">
         <div className="footer-brand">
-          <a href="#top" className="nav-logo" onClick={scrollToSection('top')}>
-            <img src="/salonox-mark.jpg" alt="" className="logo-mark" width="36" height="36" />
-            <span className="logo-text">Salon<span className="accent">OX</span></span>
-          </a>
           <p>The all-in-one platform for salons and spas to book, manage, and grow with confidence.</p>
           <div className="footer-social">
             <a href="#" aria-label="Twitter"><Icon.Twitter /></a>

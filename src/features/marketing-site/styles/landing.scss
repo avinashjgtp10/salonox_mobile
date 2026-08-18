@@ -353,6 +353,15 @@ body.landing-page-active {
     .logo-text .accent {
       color: var(--emerald);
     }
+
+    .logo-full {
+      width: clamp(170px, 16vw, 210px);
+      height: auto;
+      max-height: 68px;
+      object-fit: contain;
+      display: block;
+      flex-shrink: 0;
+    }
   }
 
   /* ====================================================================
@@ -6815,6 +6824,11 @@ body.landing-page-active {
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+
+    .nav-logo .logo-full {
+      width: min(190px, 100%);
+      max-height: 61px;
+    }
   }
 
   @media (max-width: 1023px) {
@@ -6899,6 +6913,11 @@ body.landing-page-active {
       width: 32px;
       height: 32px;
       border-radius: 50%;
+    }
+
+    .mobile-drawer .nav-logo .logo-full {
+      width: min(180px, 100%);
+      max-height: 58px;
     }
 
     .mobile-close {
