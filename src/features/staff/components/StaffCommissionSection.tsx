@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ActivityIndicator, Alert, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
 import {
@@ -86,6 +86,14 @@ export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps)
   const [type, setType] = useState<string>("percentage");
   const [slabDrafts, setSlabDrafts] = useState<CommissionSlab[]>([]);
 
+  // Track initialization per staffId to avoid re-syncing on every Redux update
+  const initRef = useRef<{ staffId: string | null | undefined; commissionRate: number | undefined; commissionType: string | undefined; slabsLength: number }>({
+    staffId: null,
+    commissionRate: undefined,
+    commissionType: undefined,
+    slabsLength: -1,
+  });
+
   useEffect(() => {
     if (staffId && isValidStaffId(staffId)) {
       if (!settingsLoaded && !settingsLoading) {
@@ -98,19 +106,44 @@ export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps)
         void dispatch(fetchCommissionHistoryThunk(staffId));
       }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dispatch, staffId]);
+  }, [dispatch, staffId, settingsLoaded, settingsLoading, slabsLoaded, slabsLoading, historyLoaded, historyLoading]);
+
+  // Initialize/sync form state from Redux only when staffId changes or data first loads
+  const commissionRate = commission?.rate;
+  const commissionType = commission?.type;
+  const slabsLength = slabs.length;
+
+  // Store latest slabs array in ref for use in effect without adding to deps
+  const slabsRef = useRef(slabs);
+  if (slabsLength !== initRef.current.slabsLength) {
+    slabsRef.current = slabs;
+  }
 
   useEffect(() => {
-    if (commission) {
-      setRate(commission.rate ? String(commission.rate) : "");
-      setType(commission.type || "percentage");
+    const current = initRef.current;
+    const staffChanged = current.staffId !== staffId;
+
+    if (staffChanged) {
+      current.staffId = staffId;
+      current.commissionRate = undefined;
+      current.commissionType = undefined;
+      current.slabsLength = -1;
     }
-  }, [commission]);
 
-  useEffect(() => {
-    setSlabDrafts(slabs);
-  }, [slabs]);
+    // Sync commission settings when first loaded or when staff changes
+    if (commissionRate !== undefined && (staffChanged || current.commissionRate !== commissionRate || current.commissionType !== commissionType)) {
+      current.commissionRate = commissionRate;
+      current.commissionType = commissionType;
+      setRate(commissionRate ? String(commissionRate) : "");
+      setType(commissionType || "percentage");
+    }
+
+    // Initialize slab drafts once per staffId when slabs first load
+    if (slabsLength > 0 && (staffChanged || current.slabsLength !== slabsLength)) {
+      current.slabsLength = slabsLength;
+      setSlabDrafts(slabsRef.current);
+    }
+  }, [staffId, commissionRate, commissionType, slabsLength]);
 
   const rateNumber = Number(rate);
   const isRateValid =

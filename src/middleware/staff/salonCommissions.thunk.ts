@@ -11,6 +11,8 @@ import type {
   SalonCommissionListResponse,
   SalonCommissionSummary,
   SalonEarnedEntry,
+  SettleCommissionRequest,
+  SettleCommissionResponse,
 } from "@/types/salonCommissions";
 
 type RejectValue = {
@@ -125,6 +127,25 @@ export const exportSalonCommissionsThunk = createAsyncThunk<
     return await salonCommissionsService.exportCommissions();
   } catch (error) {
     console.error("[SalonCommissions] Export failed", toRejectValue(error));
+
+    return rejectWithValue(toRejectValue(error));
+  }
+});
+
+export const settleCommissionThunk = createAsyncThunk<
+  SettleCommissionResponse,
+  SettleCommissionRequest,
+  { rejectValue: RejectValue; state: RootState }
+>("salonCommissions/settle", async ({ staffId, amount }, { dispatch, rejectWithValue }) => {
+  try {
+    const response = await salonCommissionsService.settleCommission(staffId, amount);
+
+    void dispatch(fetchSalonCommissionSummaryThunk());
+    void dispatch(fetchSalonCommissionsThunk({ reset: true }));
+
+    return response;
+  } catch (error) {
+    console.error("[SalonCommissions] Settle commission failed", { staffId, amount, ...toRejectValue(error) });
 
     return rejectWithValue(toRejectValue(error));
   }
