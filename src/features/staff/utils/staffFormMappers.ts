@@ -67,14 +67,8 @@ const mapPhoneToRequest = (e164Phone: string) => {
 
 export const mapStaffFormToRequest = (
   values: StaffProfileFormValues,
-  nextAutoCode?: string,
 ): Omit<CreateStaffRequest, "salon_id"> => {
   const name = splitStaffFullName(values.fullName);
-  const employeeCode = values.isAutoGenerate ? nextAutoCode : values.employeeCode;
-
-  const workingHours = (values.work_start_time && values.work_end_time)
-    ? `${values.work_start_time} - ${values.work_end_time}`
-    : undefined;
 
   const { phone, phoneCountryCode } = mapPhoneToRequest(values.phone);
   const dob = values.dob ? splitIsoDate(values.dob) : null;
@@ -86,7 +80,6 @@ export const mapStaffFormToRequest = (
     birthday_day: dob?.day,
     birthday_month: dob?.month,
     email: trimValue(values.email),
-    employee_code: trimValue(employeeCode),
     first_name: name.first_name,
     gender: trimValue(values.gender),
     holidays: values.holidays.trim() ? Number(values.holidays) : undefined,
@@ -97,9 +90,6 @@ export const mapStaffFormToRequest = (
     permission_level: ROLE_TO_PERMISSION_LEVEL[values.roleLevel] ?? "low",
     phone,
     phone_country_code: phoneCountryCode,
-    work_end_time: trimValue(values.work_end_time),
-    work_start_time: trimValue(values.work_start_time),
-    working_hours: trimValue(workingHours),
     working_hours_per_day: values.workingHoursPerDay.trim() ? Number(values.workingHoursPerDay) : undefined,
   };
 

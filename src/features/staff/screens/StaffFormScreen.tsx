@@ -22,20 +22,15 @@ import { PasswordField } from "@/components/ui/PasswordField";
 import { PhoneInput } from "@/components/ui/PhoneInput";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  DashboardRadius as Radius,
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
-import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
 import { useStaffDetails } from "@/features/staff/hooks/useStaffDetails";
 import { useStaffForm } from "@/features/staff/hooks/useStaffForm";
-import { generateTimeOptions } from "@/features/staff/utils/timeUtils";
 import { STAFF_GENDER_OPTIONS, STAFF_ROLE_OPTIONS } from "@/features/staff/validation/staff.validation";
 import { getApiErrorMessage } from "@/services/api";
 import { useThemeColors } from "@/theme/ThemeProvider";
-
-const TIME_OPTIONS = generateTimeOptions();
 
 const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024;
 const AVATAR_SIZE_ERROR_MESSAGE = "Profile image must be 2 MB or smaller.";
@@ -95,40 +90,6 @@ const getAssetSizeBytes = async (uri: string, fileSize?: number | null): Promise
   }
 };
 
-function TimeSelectField({
-  error,
-  label,
-  onPress,
-  placeholder,
-  value,
-}: {
-  error?: string;
-  label: string;
-  onPress: () => void;
-  placeholder: string;
-  value: string;
-}) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <View style={styles.timeGroup}>
-      <Text style={styles.timeLabel}>{label}</Text>
-      <TouchableOpacity
-        activeOpacity={0.84}
-        onPress={onPress}
-        style={[styles.inputButton, error ? styles.inputButtonError : null]}
-      >
-        <Text style={[styles.pickerValue, !value ? styles.pickerPlaceholder : null]}>
-          {value || placeholder}
-        </Text>
-        <Ionicons name="chevron-down" size={16} color={Colors.text2} />
-      </TouchableOpacity>
-      {error ? <Text style={styles.errorText}>{error}</Text> : null}
-    </View>
-  );
-}
-
 function SectionHeading({ title }: { title: string }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -179,8 +140,6 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
   const staffId = mode === "edit" ? id : null;
   const form = useStaffForm(staffId);
 
-  const [isPickerVisible, setIsPickerVisible] = useState(false);
-  const [pickerField, setPickerField] = useState<"work_start_time" | "work_end_time">("work_start_time");
   const [avatarValidationError, setAvatarValidationError] = useState<string | null>(null);
 
   useStaffDetails(staffId);
@@ -192,16 +151,6 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
     }
 
     router.replace("/team" as Href);
-  };
-
-  const handleOpenTimePicker = (field: "work_start_time" | "work_end_time") => {
-    setPickerField(field);
-    setIsPickerVisible(true);
-  };
-
-  const handleSelectTime = (time: string) => {
-    form.updateField(pickerField, time);
-    setIsPickerVisible(false);
   };
 
   const uploadPickedAsset = async (result: ImagePicker.ImagePickerResult) => {
@@ -377,8 +326,8 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             value={form.values.email}
           />
 
-          <View style={styles.timeGroup}>
-            <Text style={styles.timeLabel}>Contact *</Text>
+<View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Contact *</Text>
             <PhoneInput
               country={form.values.phoneCountry as CountryCode}
               error={form.validationErrors.phone}
@@ -387,37 +336,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
               required
               value={form.values.phone}
             />
-          </View>
-
-          <View style={styles.toggleRow}>
-            <TouchableOpacity
-              activeOpacity={0.84}
-              onPress={() => form.updateField("isAutoGenerate", !form.values.isAutoGenerate)}
-              style={styles.checkboxContainer}
-            >
-              <Ionicons
-                name={form.values.isAutoGenerate ? "checkbox" : "square-outline"}
-                size={20}
-                color={form.values.isAutoGenerate ? Colors.primary : Colors.text2}
-              />
-              <Text style={styles.toggleLabel}>Auto-generate Employee Code</Text>
-            </TouchableOpacity>
-          </View>
-
-          <StaffTextField
-            autoCapitalize="characters"
-            editable={!form.values.isAutoGenerate}
-            error={form.validationErrors.employeeCode}
-            label="Employee Code"
-            onChangeText={(value) => form.updateField("employeeCode", value)}
-            placeholder={
-              form.values.isAutoGenerate
-                ? `Auto-generated: ${form.autoEmployeeCode}`
-                : "Enter custom employee code"
-            }
-            value={form.values.isAutoGenerate ? "" : form.values.employeeCode}
-            style={form.values.isAutoGenerate ? styles.disabledInput : null}
-          />
+</View>
 
           <DateField
             error={form.validationErrors.dob}
@@ -446,8 +365,8 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             value={form.values.address}
           />
 
-          <View style={styles.timeGroup}>
-            <Text style={styles.timeLabel}>Gender *</Text>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Gender *</Text>
             <ChipRow
               onSelect={(option) => form.updateField("gender", option)}
               options={STAFF_GENDER_OPTIONS}
@@ -467,8 +386,8 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             value={form.values.designation}
           />
 
-          <View style={styles.timeGroup}>
-            <Text style={styles.timeLabel}>Role</Text>
+          <View style={styles.fieldGroup}>
+            <Text style={styles.fieldLabel}>Role</Text>
             <ChipRow
               onSelect={(option) => form.updateField("roleLevel", option)}
               options={STAFF_ROLE_OPTIONS}
@@ -521,36 +440,6 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
               />
             </View>
           </View>
-
-          <View style={styles.timeRow}>
-            <View style={{ flex: 1 }}>
-              <TimeSelectField
-                error={form.validationErrors.work_start_time}
-                label="Start Time"
-                onPress={() => handleOpenTimePicker("work_start_time")}
-                placeholder="Select start"
-                value={form.values.work_start_time}
-              />
-            </View>
-            <View style={{ flex: 1 }}>
-              <TimeSelectField
-                error={form.validationErrors.work_end_time}
-                label="End Time"
-                onPress={() => handleOpenTimePicker("work_end_time")}
-                placeholder="Select end"
-                value={form.values.work_end_time}
-              />
-            </View>
-          </View>
-
-          {form.values.work_start_time && form.values.work_end_time && !form.validationErrors.work_end_time ? (
-            <View style={styles.rangePreview}>
-              <Ionicons name="time-outline" size={14} color={Colors.primary} />
-              <Text style={styles.rangePreviewText}>
-                Working Hours: {form.values.work_start_time} – {form.values.work_end_time}
-              </Text>
-            </View>
-          ) : null}
 
           <StaffTextField
             label="Notes"
@@ -612,38 +501,6 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           </TouchableOpacity>
         </View>
       </KeyboardAwareScrollView>
-
-      <StaffBottomSheet
-        title={`Select ${pickerField === "work_start_time" ? "Start" : "End"} Time`}
-        subtitle="Choose a time at 30-minute intervals"
-        visible={isPickerVisible}
-        onClose={() => setIsPickerVisible(false)}
-      >
-        <View style={styles.timeOptionsContainer}>
-          {TIME_OPTIONS.map((timeOption) => {
-            const isSelected =
-              pickerField === "work_start_time"
-                ? form.values.work_start_time === timeOption
-                : form.values.work_end_time === timeOption;
-
-            return (
-              <TouchableOpacity
-                key={timeOption}
-                activeOpacity={0.84}
-                onPress={() => handleSelectTime(timeOption)}
-                style={[styles.timeOptionItem, isSelected ? styles.timeOptionItemActive : null]}
-              >
-                <Text style={[styles.timeOptionText, isSelected ? styles.timeOptionTextActive : null]}>
-                  {timeOption}
-                </Text>
-                {isSelected ? (
-                  <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
-                ) : null}
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-      </StaffBottomSheet>
     </SafeAreaView>
   );
 }
@@ -715,7 +572,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "center",
     minHeight: 50,
   },
-  saveButtonDisabled: {
+saveButtonDisabled: {
     opacity: 0.55,
   },
   saveButtonText: {
@@ -726,103 +583,25 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   disabledInput: {
     opacity: 0.65,
   },
-  toggleRow: {
-    marginBottom: Spacing.md,
-    marginTop: -Spacing.xs,
-  },
-  checkboxContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: Spacing.sm,
-    paddingVertical: Spacing.xs,
-  },
-  toggleLabel: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  timeGroup: {
-    marginBottom: Spacing.md,
-  },
-  timeLabel: {
-    color: Colors.heading,
-    fontSize: 12,
-    fontWeight: "800",
-    marginBottom: 8,
-  },
-  inputButton: {
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    height: 48,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 14,
-  },
-  inputButtonError: {
-    borderColor: Colors.error,
-  },
-  pickerValue: {
-    color: Colors.heading,
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  pickerPlaceholder: {
-    color: Colors.placeholder,
-  },
   errorText: {
     color: Colors.error,
     fontSize: 11,
     fontWeight: "700",
     marginTop: 6,
   },
+  fieldGroup: {
+    marginBottom: Spacing.md,
+  },
+  fieldLabel: {
+    color: Colors.heading,
+    fontSize: 12,
+    fontWeight: "800",
+    marginBottom: 8,
+  },
   timeRow: {
     flexDirection: "row",
     gap: Spacing.md,
     marginBottom: Spacing.xs,
-  },
-  rangePreview: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    backgroundColor: Colors.successBg,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginBottom: Spacing.md,
-  },
-  rangePreviewText: {
-    color: Colors.primaryDark,
-    fontSize: 12,
-    fontWeight: "700",
-  },
-  timeOptionsContainer: {
-    gap: 2,
-    paddingBottom: Spacing.xl,
-  },
-  timeOptionItem: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 14,
-    paddingHorizontal: Spacing.sm,
-    borderRadius: Radius.md,
-  },
-  timeOptionItemActive: {
-    backgroundColor: Colors.bg2,
-  },
-  timeOptionText: {
-    color: Colors.heading,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  timeOptionTextActive: {
-    color: Colors.primary,
-    fontWeight: "800",
   },
   chipRow: {
     flexDirection: "row",

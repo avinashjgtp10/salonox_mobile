@@ -44,13 +44,11 @@ export type StaffProfileFormValues = {
   designation: string;
   dob: string;
   email: string;
-  employeeCode: string;
   fixedSalary: string;
   fullName: string;
   gender: string;
   holidays: string;
   hourlyRate: string;
-  isAutoGenerate: boolean;
   isLoginEnabled: boolean;
   joiningDate: string;
   notes: string;
@@ -58,8 +56,6 @@ export type StaffProfileFormValues = {
   phone: string;
   phoneCountry: string;
   roleLevel: StaffRoleLevel | "";
-  work_end_time: string;
-  work_start_time: string;
   workingHoursPerDay: string;
 };
 export type StaffAddressFormValues = Omit<CreateStaffAddressRequest, "salon_id">;
