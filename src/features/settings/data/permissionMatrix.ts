@@ -12,7 +12,6 @@ export interface Permission {
 export const defaultPermissions: Permission[] = [
   // ── Dashboard ─────────────────────────────────────────────────────────────
   { key: "view_dashboard",      label: "View Dashboard",      desc: "Access the main dashboard",            category: "Dashboard",      owner: true,  staff: false, manager: true },
-  { key: "view_analytics",      label: "View Analytics",      desc: "Access reports and analytics",         category: "Dashboard",      owner: true,  staff: true,  manager: true },
 
   // ── Quick Sale ────────────────────────────────────────────────────────────
   { key: "view_quick_sale",     label: "View Quick Sale",     desc: "Access the quick sale screen",         category: "Quick Sale",     owner: true,  staff: true,  manager: true },
