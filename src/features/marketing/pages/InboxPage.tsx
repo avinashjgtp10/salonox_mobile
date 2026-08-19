@@ -260,7 +260,7 @@ type Theme_     = 'light' | 'dark'
 export default function InboxPage() {
   const dispatch = useAppDispatch()
   const { conversations, messages, activePhone, loading } = useAppSelector(s => s.inbox)
-  const salonId = useAppSelector(s => s.salon.currentSalon?.id)
+  const salonId = useAppSelector(s => s.salon.currentSalon?.id ?? s.auth?.salonId)
 
   // ── Theme toggle — persisted to localStorage ──────────────────────────────
   const [theme, setTheme] = useState<Theme_>(() =>
