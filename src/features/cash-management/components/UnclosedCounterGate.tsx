@@ -1,10 +1,18 @@
 import { useCallback, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { CalendarEvent, CashStack, JournalText, Safe2, Wallet2 } from "react-bootstrap-icons";
+import toast from "react-hot-toast";
 import { Button, Modal } from "../../../components/ui";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { closeCashCounterThunk } from "../../../middleware/cashCounter/cashCounter.thunk";
+import { useCurrency } from "../../../hooks/useCurrency";
+import {
+  closeCashCounterThunk,
+  openCashCounterThunk,
+} from "../../../middleware/cashCounter/cashCounter.thunk";
 import { logout } from "../../../store/authSlice";
 import { disconnectSocket } from "../../../services/socket/socket";
+import { exportCounterSummaryPDF } from "../cashManagement.export";
+import { OpenCounterModal } from "../pages/CashManagementModals";
 
 const formatDateInput = (date: Date) => {
   const year = date.getFullYear();
@@ -27,10 +35,13 @@ export default function UnclosedCounterGate() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
+  const { formatAmount } = useCurrency();
   const dashboard = useAppSelector((state) => state.cashCounter.dashboard);
 
   const [closing, setClosing] = useState(false);
   const [error, setError] = useState("");
+  const [showOpenTodayModal, setShowOpenTodayModal] = useState(false);
+  const [openingLoading, setOpeningLoading] = useState(false);
 
   const today = formatDateInput(new Date());
   const openedDateKey = dashboard?.openedAt ? formatDateInput(new Date(dashboard.openedAt)) : null;
@@ -42,36 +53,54 @@ export default function UnclosedCounterGate() {
 
   const isOnCashManagementPage = location.pathname.startsWith(CASH_MANAGEMENT_PATH);
   const show = isStaleOpenCounter && !isOnCashManagementPage;
+  const showPendingModal = show && !showOpenTodayModal;
 
   const handleClosePreviousCounter = useCallback(async () => {
-    if (!dashboard?.cashManagementId) return;
     setClosing(true);
     setError("");
     try {
-      // `inStoreCash`/`closingBalance` can arrive as null (uncomputed for a
-      // still-open counter) or, rarely, negative (expenses outran cash on
-      // hand). `||` treats a legitimate 0 as "missing" and falls through, and
-      // a null/non-numeric value serializes to JSON `null` — which the
-      // backend rejects as "must be a non-negative number" since there's no
-      // input field here for the user to correct it. Coerce explicitly and
-      // clamp to 0 so this auto-close path always sends a valid number.
-      const candidate = dashboard.inStoreCash ?? dashboard.closingBalance ?? 0;
-      const numericInStoreCash = Number(candidate);
-      const inStoreCash = Number.isFinite(numericInStoreCash) ? Math.max(0, numericInStoreCash) : 0;
+      // 1. Generate & download summary PDF (works with real or fallback data)
+      const summaryData = dashboard || {
+        cashManagementId: "preview-id",
+        status: "open",
+        openingBalance: 0,
+        cashRevenue: 0,
+        cashExpense: 0,
+        closingBalance: 0,
+        inStoreCash: 0,
+        reconciliationAmount: 0,
+        openedAt: new Date().toISOString(),
+        closedAt: null,
+        remarks: null,
+      };
 
-      await dispatch(
-        closeCashCounterThunk({
-          cash_management_id: dashboard.cashManagementId,
-          in_store_cash: inStoreCash,
-          remarks: dashboard.remarks ?? "",
-        }),
-      ).unwrap();
+      exportCounterSummaryPDF(summaryData);
+
+      // 2. Dispatch backend close counter request if active counter ID exists
+      if (dashboard?.cashManagementId) {
+        const candidate = dashboard.inStoreCash ?? dashboard.closingBalance ?? 0;
+        const numericInStoreCash = Number(candidate);
+        const inStoreCash = Number.isFinite(numericInStoreCash) ? Math.max(0, numericInStoreCash) : 0;
+
+        await dispatch(
+          closeCashCounterThunk({
+            cash_management_id: dashboard.cashManagementId,
+            in_store_cash: inStoreCash,
+            remarks: dashboard.remarks ?? "",
+          }),
+        ).unwrap();
+      }
+
+      toast.success("Previous counter closed! Summary PDF downloaded.");
+
+      // 3. Directly display Open Today's Counter modal
+      setShowOpenTodayModal(true);
     } catch (err: any) {
       setError(
         err?.response?.data?.message ??
-          err?.response?.data?.error ??
-          err?.message ??
-          "Failed to close the previous counter.",
+        err?.response?.data?.error ??
+        err?.message ??
+        "Failed to close the previous counter.",
       );
     } finally {
       setClosing(false);
@@ -84,36 +113,130 @@ export default function UnclosedCounterGate() {
     navigate("/login");
   }, [dispatch, navigate]);
 
+  const openedAtFormatted = dashboard?.openedAt
+    ? new Date(dashboard.openedAt).toLocaleString("en-IN", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    })
+    : null;
+
   return (
-    <Modal
-      show={show}
-      onClose={() => {}}
-      hideCloseButton
-      title="Cash Counter Pending"
-      size="sm"
-      footer={
-        <div className="topbar-confirm-footer">
-          <Button variant="ghost" onClick={handleLogout} disabled={closing}>
-            Logout
-          </Button>
-          <Button
-            variant="dark"
-            loading={closing}
-            disabled={closing}
-            onClick={() => void handleClosePreviousCounter()}
-          >
-            Close Previous Counter
-          </Button>
+    <>
+      <Modal
+        show={showPendingModal}
+        onClose={() => { }}
+        hideCloseButton
+        title="Cash Counter Pending"
+        size="md"
+        footer={
+          <div className="topbar-confirm-footer">
+            <Button variant="ghost" onClick={handleLogout} disabled={closing}>
+              Logout
+            </Button>
+            <Button
+              variant="dark"
+              loading={closing}
+              disabled={closing}
+              onClick={() => void handleClosePreviousCounter()}
+            >
+              Close Previous Counter
+            </Button>
+          </div>
+        }
+      >
+        <div className="d-flex flex-column gap-3">
+          <p className="topbar-confirm-copy mb-0">
+            The cash counter from a previous session is still open. Please review the daily summary below and close it before opening today's counter.
+          </p>
+
+          {dashboard ? (
+            <div className="p-3 bg-light rounded-3 border">
+              <div className="d-flex align-items-center gap-2 mb-3 text-muted small fw-semibold border-bottom pb-2">
+                <CalendarEvent size={15} />
+                <span>Opened on: {openedAtFormatted || "Previous Session"}</span>
+              </div>
+
+              <div className="row g-2">
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <Wallet2 size={13} className="text-primary" /> Opening Balance
+                    </div>
+                    <div className="fw-bold text-dark fs-6 mt-1">
+                      {formatAmount(dashboard.openingBalance ?? 0)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <CashStack size={13} className="text-success" /> Cash Revenue
+                    </div>
+                    <div className="fw-bold text-success fs-6 mt-1">
+                      {formatAmount(dashboard.cashRevenue ?? 0)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <JournalText size={13} className="text-warning" /> Cash Expense
+                    </div>
+                    <div className="fw-bold text-warning fs-6 mt-1">
+                      {formatAmount(dashboard.cashExpense ?? 0)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <Safe2 size={13} className="text-dark" /> Expected Closing
+                    </div>
+                    <div className="fw-bold text-dark fs-6 mt-1">
+                      {formatAmount(dashboard.closingBalance ?? 0)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+
+          {error ? (
+            <p className="topbar-confirm-copy topbar-confirm-copy--error mb-0">{error}</p>
+          ) : null}
         </div>
-      }
-    >
-      <p className="topbar-confirm-copy">
-        Previous day's cash counter is still open. Please close it first before opening today's
-        counter.
-      </p>
-      {error ? (
-        <p className="topbar-confirm-copy topbar-confirm-copy--error">{error}</p>
-      ) : null}
-    </Modal>
+      </Modal>
+
+      <OpenCounterModal
+        show={showOpenTodayModal}
+        loading={openingLoading}
+        mandatory={true}
+        onClose={() => setShowOpenTodayModal(false)}
+        onNotify={(tone, message) => {
+          if (tone === "error") toast.error(message);
+          else toast.success(message);
+        }}
+        onSubmit={async (payload) => {
+          setOpeningLoading(true);
+          try {
+            await dispatch(openCashCounterThunk(payload)).unwrap();
+            setShowOpenTodayModal(false);
+            toast.success("Today's cash counter opened successfully!");
+          } catch (err: any) {
+            const msg = err?.response?.data?.message ?? err?.message ?? "Failed to open today's counter.";
+            toast.error(msg);
+            throw err;
+          } finally {
+            setOpeningLoading(false);
+          }
+        }}
+      />
+    </>
   );
 }
+
+
+
