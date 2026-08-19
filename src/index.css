@@ -98,16 +98,53 @@ button:focus-visible {
   outline: 4px auto -webkit-focus-ring-color;
 }
 
-/* ===== Hide number input spinner controls (Chrome, Edge, Safari, Firefox) ===== */
-/* Typing, mouse wheel, and arrow-key input remain unaffected — only the visible
-   up/down spinner UI is removed. */
-input[type="number"]::-webkit-inner-spin-button,
-input[type="number"]::-webkit-outer-spin-button {
+/* ===== Hide scrollbars completely on main content areas & pages ===== */
+.main,
+.dashboard-body,
+.commissions-page,
+.sub-sidebar-body {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+.main::-webkit-scrollbar,
+.dashboard-body::-webkit-scrollbar,
+.commissions-page::-webkit-scrollbar,
+.sub-sidebar-body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+::-webkit-scrollbar {
+  width: 0px !important;
+  height: 0px !important;
+  display: none !important;
+}
+::-webkit-scrollbar-track {
+  background: transparent !important;
+}
+::-webkit-scrollbar-thumb {
+  background: transparent !important;
+}
+::-webkit-scrollbar-button {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* ===== Hide input spinner controls (Chrome, Edge, Safari, Firefox) ===== */
+input::-webkit-inner-spin-button,
+input::-webkit-outer-spin-button {
   -webkit-appearance: none !important;
   margin: 0 !important;
+  display: none !important;
 }
-input[type="number"] {
+input[type="number"],
+input[type="month"],
+input[type="date"],
+input[type="time"] {
   -moz-appearance: textfield !important;
   appearance: textfield !important;
 }
 /* ===================================== */
+
