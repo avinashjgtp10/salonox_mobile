@@ -118,6 +118,78 @@ export const exportCashManagementExcel = ({
   XLSX.writeFile(wb, filename);
 };
 
+export const exportCounterSummaryPDF = (
+  dashboard: {
+    openedAt?: string | null;
+    openingBalance?: number;
+    cashRevenue?: number;
+    cashExpense?: number;
+    closingBalance?: number;
+    remarks?: string | null;
+  },
+  salonName = "Salon",
+) => {
+  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 14;
+
+  const openedAtStr = dashboard.openedAt
+    ? formatDateDDMMYYYY(new Date(dashboard.openedAt)) +
+      " " +
+      new Date(dashboard.openedAt).toLocaleTimeString("en-IN", {
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+    : "Previous Session";
+
+  const generatedAt = formatGeneratedAt(new Date());
+
+  // Header
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.setTextColor(30, 27, 75);
+  doc.text("Cash Counter Daily Summary", margin, 20);
+
+  doc.setFont("helvetica", "normal");
+  doc.setFontSize(9);
+  doc.setTextColor(100);
+  doc.text(`Salon: ${salonName}`, margin, 27);
+  doc.text(`Opened On: ${openedAtStr}`, margin, 32);
+  doc.text(`Exported On: ${generatedAt}`, margin, 37);
+
+  // Table summary
+  const rows = [
+    ["Opening Balance", `Rs. ${(dashboard.openingBalance ?? 0).toLocaleString("en-IN")}`],
+    ["Cash Revenue", `Rs. ${(dashboard.cashRevenue ?? 0).toLocaleString("en-IN")}`],
+    ["Cash Expense", `Rs. ${(dashboard.cashExpense ?? 0).toLocaleString("en-IN")}`],
+    ["Expected Closing Balance", `Rs. ${(dashboard.closingBalance ?? 0).toLocaleString("en-IN")}`],
+  ];
+
+  autoTable(doc, {
+    head: [["Metric", "Amount"]],
+    body: rows,
+    startY: 44,
+    styles: {
+      fontSize: 10,
+      cellPadding: 4,
+      textColor: [30, 30, 30],
+    },
+    headStyles: {
+      fillColor: [30, 27, 75],
+      textColor: [255, 255, 255],
+      fontStyle: "bold",
+      fontSize: 10.5,
+    },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: {
+      0: { cellWidth: 100, fontStyle: "bold" },
+      1: { cellWidth: 80, halign: "right", fontStyle: "bold" },
+    },
+  });
+
+  doc.save(`Cash_Counter_Summary_${formatFileDate(new Date())}.pdf`);
+};
+
 export const exportCashManagementCSV = ({
   dataset,
   exportedAt = new Date(),
@@ -135,3 +207,4 @@ export const exportCashManagementCSV = ({
   anchor.click();
   URL.revokeObjectURL(url);
 };
+
