@@ -337,6 +337,7 @@ export default function NewServiceScreen() {
         onClose={() => setCategoryModalOpen(false)}
         onSelectCategory={handleSelectCategory}
         selectedCategoryId={selectedCategory?.id}
+        type="service"
         visible={categoryModalOpen}
       />
     </SafeAreaView>

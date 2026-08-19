@@ -48,6 +48,11 @@ const toBooleanValue = (value: unknown, fallback = true): boolean => {
   return fallback;
 };
 
+const getCategoryRecord = (value: unknown): { id?: unknown; name?: unknown; category_id?: unknown; category_name?: unknown } | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as { id?: unknown; name?: unknown; category_id?: unknown; category_name?: unknown })
+    : null;
+
 const normalizeBrand = (raw: BrandApiItem): Brand => ({
   createdAt: toStringValue(raw.created_at ?? raw.createdAt) || null,
   description: toStringValue(raw.description) || null,
@@ -65,12 +70,19 @@ const normalizeProduct = (raw: ProductApiItem): Product => {
   const measureUnit = raw.measure_unit ?? raw.measureUnit;
   const bottleSize = raw.bottle_size ?? raw.bottleSize;
   const productType = raw.product_type ?? raw.productType;
+  const categoryRecord = getCategoryRecord(raw.category);
 
   return {
     bottleSize: bottleSize != null ? toNumberValue(bottleSize) : null,
     brandId: toStringValue(raw.brand_id ?? raw.brandId ?? brand?.id) || null,
     brandName: toStringValue(brand?.name) || null,
-    category: toStringValue(raw.category) || null,
+    category:
+      toStringValue(categoryRecord?.name ?? categoryRecord?.category_name) ||
+      toStringValue(raw.category) ||
+      null,
+    categoryId:
+      toStringValue(raw.category_id ?? raw.categoryId ?? categoryRecord?.id ?? categoryRecord?.category_id) ||
+      null,
     createdAt: toStringValue(raw.created_at ?? raw.createdAt) || null,
     description: toStringValue(raw.description) || null,
     id: toStringValue(raw.id),

@@ -16,6 +16,7 @@ import type {
   ServiceListResponse,
   UpdateServiceRequest,
   UpdateServiceResponse,
+  CategoryType,
 } from "@/types/service";
 
 type ServiceListApiResponse = ApiResponse<ServiceListApiData>;
@@ -442,16 +443,21 @@ export const serviceService = {
     };
   },
 
-  async getCategories(salonId?: string | null): Promise<ServiceCategoryItem[]> {
+  async getCategories(type: CategoryType, salonId?: string | null): Promise<ServiceCategoryItem[]> {
+    const params = {
+      type,
+      ...(salonId ? { salon_id: salonId } : {}),
+    };
+
     try {
       const response = await api.get<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
-        params: salonId ? { salon_id: salonId } : undefined,
+        params,
       });
 
       return normalizeCategoryList(response.data?.data ?? response.data);
     } catch {
       const response = await api.get<ApiResponse<unknown>>("/categories", {
-        params: salonId ? { salon_id: salonId } : undefined,
+        params,
       });
 
       return normalizeCategoryList(response.data?.data ?? response.data);
@@ -460,6 +466,7 @@ export const serviceService = {
 
   async createCategory(
     name: string,
+    type: CategoryType,
     salonId?: string | null,
   ): Promise<ServiceCategoryItem> {
     const trimmedName = name.trim();
@@ -472,6 +479,7 @@ export const serviceService = {
     try {
       const response = await api.post<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
         name: trimmedName,
+        type,
         ...(salonId ? { salon_id: salonId } : {}),
       });
 
@@ -480,6 +488,7 @@ export const serviceService = {
       try {
         const response = await api.post<ApiResponse<unknown>>("/categories", {
           name: trimmedName,
+          type,
           ...(salonId ? { salon_id: salonId } : {}),
         });
 

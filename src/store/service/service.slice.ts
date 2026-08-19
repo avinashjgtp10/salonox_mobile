@@ -11,15 +11,21 @@ import {
   type FetchServicesArgs,
 } from "@/middleware/service/service.thunk";
 import type { RootState } from "@/store";
-import type { ServiceCategoryItem, ServiceListItem, ServiceListPagination, ServiceListQuery } from "@/types/service";
+import type {
+  CategoryType,
+  ServiceCategoryItem,
+  ServiceListItem,
+  ServiceListPagination,
+  ServiceListQuery,
+} from "@/types/service";
 
 type ServiceState = {
-  categories: ServiceCategoryItem[];
-  categoriesError: string | null;
-  categoriesLoadedAt: number | null;
-  categoriesLoading: boolean;
-  createCategoryError: string | null;
-  creatingCategory: boolean;
+  categories: Record<CategoryType, ServiceCategoryItem[]>;
+  categoriesError: Record<CategoryType, string | null>;
+  categoriesLoadedAt: Record<CategoryType, number | null>;
+  categoriesLoading: Record<CategoryType, boolean>;
+  createCategoryError: Record<CategoryType, string | null>;
+  creatingCategory: Record<CategoryType, boolean>;
   createError: string | null;
   creating: boolean;
   currentRequestId: string | null;
@@ -56,12 +62,12 @@ const initialPagination: ServiceListPagination = {
 };
 
 const initialState: ServiceState = {
-  categories: [],
-  categoriesError: null,
-  categoriesLoadedAt: null,
-  categoriesLoading: false,
-  createCategoryError: null,
-  creatingCategory: false,
+  categories: { product: [], service: [] },
+  categoriesError: { product: null, service: null },
+  categoriesLoadedAt: { product: null, service: null },
+  categoriesLoading: { product: false, service: false },
+  createCategoryError: { product: null, service: null },
+  creatingCategory: { product: false, service: false },
   createError: null,
   creating: false,
   currentRequestId: null,
@@ -218,38 +224,44 @@ const serviceSlice = createSlice({
           (serviceId) => serviceId !== action.meta.arg,
         );
       })
-      .addCase(fetchCategoriesThunk.pending, (state) => {
-        state.categoriesLoading = true;
-        state.categoriesError = null;
+      .addCase(fetchCategoriesThunk.pending, (state, action) => {
+        const type = action.meta.arg.type;
+        state.categoriesLoading[type] = true;
+        state.categoriesError[type] = null;
       })
       .addCase(fetchCategoriesThunk.fulfilled, (state, action) => {
-        state.categoriesLoading = false;
-        state.categoriesError = null;
-        state.categoriesLoadedAt = Date.now();
-        state.categories = action.payload;
+        const type = action.meta.arg.type;
+        state.categoriesLoading[type] = false;
+        state.categoriesError[type] = null;
+        state.categoriesLoadedAt[type] = Date.now();
+        state.categories[type] = action.payload;
       })
       .addCase(fetchCategoriesThunk.rejected, (state, action) => {
-        state.categoriesLoading = false;
-        state.categoriesError =
+        const type = action.meta.arg.type;
+        state.categoriesLoading[type] = false;
+        state.categoriesError[type] =
           action.payload?.message ?? action.error.message ?? "Unable to load categories.";
       })
-      .addCase(createCategoryThunk.pending, (state) => {
-        state.creatingCategory = true;
-        state.createCategoryError = null;
+      .addCase(createCategoryThunk.pending, (state, action) => {
+        const type = action.meta.arg.type;
+        state.creatingCategory[type] = true;
+        state.createCategoryError[type] = null;
       })
       .addCase(createCategoryThunk.fulfilled, (state, action) => {
-        state.creatingCategory = false;
-        state.createCategoryError = null;
-        const exists = state.categories.some((cat) => cat.id === action.payload.id);
+        const type = action.meta.arg.type;
+        state.creatingCategory[type] = false;
+        state.createCategoryError[type] = null;
+        const exists = state.categories[type].some((cat) => cat.id === action.payload.id);
         if (!exists) {
-          state.categories = [...state.categories, action.payload].sort((a, b) =>
+          state.categories[type] = [...state.categories[type], action.payload].sort((a, b) =>
             a.name.localeCompare(b.name),
           );
         }
       })
       .addCase(createCategoryThunk.rejected, (state, action) => {
-        state.creatingCategory = false;
-        state.createCategoryError =
+        const type = action.meta.arg.type;
+        state.creatingCategory[type] = false;
+        state.createCategoryError[type] =
           action.payload?.message ?? action.error.message ?? "Unable to create category.";
       });
   },
@@ -273,11 +285,27 @@ export const selectServiceUpdating = (state: RootState) => state.service.updatin
 export const selectServiceUpdateError = (state: RootState) => state.service.updateError;
 export const selectServiceDeletingIds = (state: RootState) => state.service.deletingServiceIds;
 export const selectServiceDeleteError = (state: RootState) => state.service.deleteError;
-export const selectServiceCategories = (state: RootState) => state.service.categories;
-export const selectServiceCategoriesLoadedAt = (state: RootState) => state.service.categoriesLoadedAt;
-export const selectServiceCategoriesLoading = (state: RootState) => state.service.categoriesLoading;
-export const selectServiceCategoriesError = (state: RootState) => state.service.categoriesError;
-export const selectServiceCreatingCategory = (state: RootState) => state.service.creatingCategory;
-export const selectServiceCreateCategoryError = (state: RootState) => state.service.createCategoryError;
+export const selectCategoriesByType = (state: RootState, type: CategoryType) => state.service.categories[type];
+export const selectCategoriesLoadedAtByType = (state: RootState, type: CategoryType) =>
+  state.service.categoriesLoadedAt[type];
+export const selectCategoriesLoadingByType = (state: RootState, type: CategoryType) =>
+  state.service.categoriesLoading[type];
+export const selectCategoriesErrorByType = (state: RootState, type: CategoryType) =>
+  state.service.categoriesError[type];
+export const selectCreatingCategoryByType = (state: RootState, type: CategoryType) =>
+  state.service.creatingCategory[type];
+export const selectCreateCategoryErrorByType = (state: RootState, type: CategoryType) =>
+  state.service.createCategoryError[type];
+export const selectServiceCategories = (state: RootState) => selectCategoriesByType(state, "service");
+export const selectServiceCategoriesLoadedAt = (state: RootState) =>
+  selectCategoriesLoadedAtByType(state, "service");
+export const selectServiceCategoriesLoading = (state: RootState) =>
+  selectCategoriesLoadingByType(state, "service");
+export const selectServiceCategoriesError = (state: RootState) =>
+  selectCategoriesErrorByType(state, "service");
+export const selectServiceCreatingCategory = (state: RootState) =>
+  selectCreatingCategoryByType(state, "service");
+export const selectServiceCreateCategoryError = (state: RootState) =>
+  selectCreateCategoryErrorByType(state, "service");
 
 export default serviceSlice.reducer;
