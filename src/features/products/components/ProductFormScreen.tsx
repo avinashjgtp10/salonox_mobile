@@ -22,6 +22,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { CategorySelectModal } from "@/features/services/components/CategorySelectModal";
 import {
   createProductThunk,
   fetchBrandsThunk,
@@ -35,6 +36,7 @@ import {
   selectProductById,
 } from "@/store/product/product.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import type { ServiceCategoryItem } from "@/types/service";
 
 type Props = { id?: string; mode: "create" | "edit" };
 
@@ -54,7 +56,9 @@ export default function ProductFormScreen({ id, mode }: Props) {
   const state = useAppSelector((root) => root.product);
   const [brandId, setBrandId] = useState<string | null>(null);
   const [brandModalOpen, setBrandModalOpen] = useState(false);
-  const [category, setCategory] = useState("");
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [legacyCategoryName, setLegacyCategoryName] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState<ServiceCategoryItem | null>(null);
   const [description, setDescription] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isActive, setIsActive] = useState(true);
@@ -81,7 +85,12 @@ export default function ProductFormScreen({ id, mode }: Props) {
   useEffect(() => {
     if (mode === "edit" && liveProduct && !prefilled.current) {
       setBrandId(liveProduct.brandId);
-      setCategory(liveProduct.category ?? "");
+      setSelectedCategory(
+        liveProduct.categoryId && liveProduct.category
+          ? { id: liveProduct.categoryId, name: liveProduct.category }
+          : null,
+      );
+      setLegacyCategoryName(liveProduct.category ?? "");
       setDescription(liveProduct.description ?? "");
       setIsActive(liveProduct.isActive);
       setLowStockThreshold(String(liveProduct.lowStockThreshold));
@@ -115,9 +124,12 @@ export default function ProductFormScreen({ id, mode }: Props) {
       return setFormError("Low stock threshold must be a whole number of zero or more.");
     }
 
+    const categoryName = selectedCategory?.name ?? legacyCategoryName.trim();
+    const categoryId = selectedCategory?.id ?? liveProduct?.categoryId ?? "";
     const data = {
       ...(mode === "edit" || brandId ? { brand_id: brandId } : {}),
-      ...(mode === "edit" || category.trim() ? { category: category.trim() } : {}),
+      ...(mode === "edit" || categoryName ? { category: categoryName } : {}),
+      ...((mode === "edit" && categoryId) || selectedCategory ? { category_id: categoryId } : {}),
       ...(mode === "edit" || description.trim()
         ? { description: description.trim() }
         : {}),
@@ -166,7 +178,16 @@ export default function ProductFormScreen({ id, mode }: Props) {
                 </View>
               </TouchableOpacity>
               <Field icon="barcode-outline" label="SKU" value={sku} onChangeText={setSku} placeholder="Optional" />
-              <Field icon="layers-outline" label="Category" value={category} onChangeText={setCategory} placeholder="Optional" />
+              <TouchableOpacity activeOpacity={0.8} onPress={() => setCategoryModalOpen(true)} style={styles.inputGroup}>
+                <Text style={styles.label}>Category</Text>
+                <View style={styles.inputWrap}>
+                  <Ionicons name="layers-outline" size={18} color={Colors.text2} />
+                  <Text style={[styles.selectText, !selectedCategory && !legacyCategoryName && styles.placeholder]}>
+                    {(selectedCategory?.name ?? legacyCategoryName) || "Select category"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={18} color={Colors.text2} />
+                </View>
+              </TouchableOpacity>
               <View style={styles.twoColumn}>
                 <View style={styles.column}><Field icon="archive-outline" keyboardType="number-pad" label="Stock" value={stockQuantity} onChangeText={setStockQuantity} placeholder="0" /></View>
                 <View style={styles.column}><Field icon="warning-outline" keyboardType="number-pad" label="Low stock at" value={lowStockThreshold} onChangeText={setLowStockThreshold} placeholder="5" /></View>
@@ -199,6 +220,16 @@ export default function ProductFormScreen({ id, mode }: Props) {
           </Pressable>
         </Pressable>
       </Modal>
+      <CategorySelectModal
+        onClose={() => setCategoryModalOpen(false)}
+        onSelectCategory={(category) => {
+          setSelectedCategory(category);
+          setLegacyCategoryName("");
+        }}
+        selectedCategoryId={selectedCategory?.id}
+        type="product"
+        visible={categoryModalOpen}
+      />
     </SafeAreaView>
   );
 }

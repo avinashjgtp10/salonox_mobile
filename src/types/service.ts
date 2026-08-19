@@ -132,6 +132,8 @@ export type ServiceCategoryItem = {
   name: string;
 };
 
+export type CategoryType = "service" | "product";
+
 export type CreateServiceRequest = {
   category?: string;
   category_id?: string;

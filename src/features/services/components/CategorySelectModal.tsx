@@ -16,16 +16,16 @@ import { AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { createCategoryThunk, fetchCategoriesThunk } from "@/middleware/service/service.thunk";
 import {
-  selectServiceCategories,
-  selectServiceCategoriesError,
-  selectServiceCategoriesLoadedAt,
-  selectServiceCategoriesLoading,
-  selectServiceCreateCategoryError,
-  selectServiceCreatingCategory,
+  selectCategoriesByType,
+  selectCategoriesErrorByType,
+  selectCategoriesLoadedAtByType,
+  selectCategoriesLoadingByType,
+  selectCreateCategoryErrorByType,
+  selectCreatingCategoryByType,
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import type { ServiceCategoryItem } from "@/types/service";
+import type { CategoryType, ServiceCategoryItem } from "@/types/service";
 
 const CATEGORY_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -33,6 +33,7 @@ type CategorySelectModalProps = {
   onClose: () => void;
   onSelectCategory: (category: ServiceCategoryItem) => void;
   selectedCategoryId?: string | null;
+  type: CategoryType;
   visible: boolean;
 };
 
@@ -40,18 +41,19 @@ export function CategorySelectModal({
   onClose,
   onSelectCategory,
   selectedCategoryId,
+  type,
   visible,
 }: CategorySelectModalProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
 
-  const categories = useAppSelector(selectServiceCategories);
-  const categoriesLoadedAt = useAppSelector(selectServiceCategoriesLoadedAt);
-  const categoriesLoading = useAppSelector(selectServiceCategoriesLoading);
-  const categoriesError = useAppSelector(selectServiceCategoriesError);
-  const creatingCategory = useAppSelector(selectServiceCreatingCategory);
-  const createCategoryError = useAppSelector(selectServiceCreateCategoryError);
+  const categories = useAppSelector((state) => selectCategoriesByType(state, type));
+  const categoriesLoadedAt = useAppSelector((state) => selectCategoriesLoadedAtByType(state, type));
+  const categoriesLoading = useAppSelector((state) => selectCategoriesLoadingByType(state, type));
+  const categoriesError = useAppSelector((state) => selectCategoriesErrorByType(state, type));
+  const creatingCategory = useAppSelector((state) => selectCreatingCategoryByType(state, type));
+  const createCategoryError = useAppSelector((state) => selectCreateCategoryErrorByType(state, type));
 
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
@@ -62,12 +64,12 @@ export function CategorySelectModal({
       !categoriesLoadedAt || Date.now() - categoriesLoadedAt > CATEGORY_CACHE_TTL_MS;
 
     if (visible && !categoriesLoading && (categories.length === 0 || categoriesError || categoriesAreStale)) {
-      void dispatch(fetchCategoriesThunk());
+      void dispatch(fetchCategoriesThunk({ type }));
     }
-  }, [categories.length, categoriesError, categoriesLoadedAt, categoriesLoading, dispatch, visible]);
+  }, [categories.length, categoriesError, categoriesLoadedAt, categoriesLoading, dispatch, type, visible]);
 
   const handleRetryFetch = () => {
-    void dispatch(fetchCategoriesThunk());
+    void dispatch(fetchCategoriesThunk({ type }));
   };
 
   const handleSelect = (category: ServiceCategoryItem) => {
@@ -95,7 +97,7 @@ export function CategorySelectModal({
     }
 
     setCreateValidationError(null);
-    const resultAction = await dispatch(createCategoryThunk(trimmed));
+    const resultAction = await dispatch(createCategoryThunk({ name: trimmed, type }));
 
     if (createCategoryThunk.fulfilled.match(resultAction)) {
       const createdCategory = resultAction.payload;
