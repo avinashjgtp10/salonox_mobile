@@ -27,6 +27,8 @@ import type {
   UpdateSaleResponse,
 } from "@/types/sales";
 
+export type ExportFormat = "csv" | "excel" | "pdf";
+
 type SalesInitApiResponse = ApiResponse<SalesInitApiData>;
 
 type UnknownRecord = Record<string, unknown>;
@@ -603,8 +605,9 @@ export const salesService = {
     };
   },
 
-  async exportSales(query?: Partial<SalesListQuery>): Promise<ExportSalesResponse> {
-    const response = await api.get<ExportSalesApiResponse>(SALES.EXPORT, {
+  async exportSales(query?: Partial<SalesListQuery>, format: ExportFormat = "csv"): Promise<ExportSalesResponse> {
+    const endpoint = format === "csv" ? SALES.EXPORT_CSV : format === "excel" ? SALES.EXPORT_EXCEL : SALES.EXPORT_PDF;
+    const response = await api.get<ExportSalesApiResponse>(endpoint, {
       params: query,
     });
 
