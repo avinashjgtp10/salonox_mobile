@@ -819,6 +819,38 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     return map;
   }, [realMemberships, sales]);
 
+  // Membership purchases sold from the calendar (AppointmentModal) that
+  // never got a real `client_memberships` row — the backend only seems to
+  // create that row once the sale reaches "completed", so a membership
+  // bought with a partial payment (any due_amount > 0) is otherwise
+  // invisible on the Memberships tab even though the appointment itself
+  // correctly shows it in Visit History via isApptPaidOrPartial. Same
+  // appointment-fallback pattern as packagesFromAppointments above — a
+  // synthetic row here just for display, not a real client_memberships
+  // record, so it carries no id staff can act on (no renew/cancel).
+  const realMembershipApptIds = new Set(realMemberships.map((m) => m.appointment_id).filter(Boolean));
+  const membershipsFromAppointments: MembershipRecord[] = appointments
+    .filter((a) => (a.membership_items?.length ?? 0) > 0 && !realMembershipApptIds.has(a.id))
+    .filter(isApptPaidOrPartial)
+    .map((a) => {
+      const item = a.membership_items![0];
+      return {
+        id: `appt-${a.id}`,
+        membership_name: item.name || a.linked_membership_name || "Membership",
+        status: a.status === "partial" ? "partial" : "active",
+        price_paid: String(item.total ?? item.price ?? a.amount_paid ?? 0),
+        expires_at: null,
+        purchased_at: a.scheduled_at,
+        total_sessions: 0,
+        used_sessions: 0,
+        membership_wallet_balance: "0",
+        staff_id: a.staff_id ?? a.staff?.id ?? null,
+        sale_id: null,
+        appointment_id: a.id,
+      };
+    });
+  const allMemberships = [...realMemberships, ...membershipsFromAppointments];
+
   // Sale ids already accounted for by a real `packages` (client_packages) purchase
   // record — excludes a package purchase's sale-line-item mirror below (Packages
   // tab), AND excludes it from the walk-in visit count further down (SCRUM-1109) —
@@ -906,14 +938,14 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   // display a package sale that never got matched to a real purchase row,
   // an edge case, not the common one this card is meant to represent).
   const packageRevenueTotal = packages.reduce((sum, p) => sum + (Number(p.total_amount) || 0), 0);
-  const membershipRevenueTotal = realMemberships.reduce((sum, m) => sum + (Number(m.price_paid) || 0), 0);
+  const membershipRevenueTotal = allMemberships.reduce((sum, m) => sum + (Number(m.price_paid) || 0), 0);
 
   const displayPkgStatus = (p: { status: string; expiry_date?: string | null }) => {
     const expiryStatus = getPackageExpiryStatus(p.expiry_date);
     return (expiryStatus === "active" ? p.status : expiryStatus) || "";
   };
   const activePackageCount = packages.filter((p) => displayPkgStatus(p).toLowerCase() === "active").length;
-  const activeMembership = realMemberships.find(
+  const activeMembership = allMemberships.find(
     (m) => displayPkgStatus({ status: m.status, expiry_date: m.expires_at }).toLowerCase() === "active"
   );
 
@@ -1020,7 +1052,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       ),
       filteredProductsFromSales: productsFromSales.filter((it) => matchDate(it.sale_date)),
       filteredPackages: packages.filter((pkg) => matchDate(pkg.created_date)),
-      filteredRealMemberships: realMemberships.filter((m) => matchDate(m.purchased_at)),
+      filteredRealMemberships: allMemberships.filter((m) => matchDate(m.purchased_at)),
       filteredSales: sales.filter((s) => {
         if (!matchDate(s.created_at)) return false;
         if (globalServiceFilter !== "all") {
@@ -1036,7 +1068,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
       }),
     };
   }, [
-    appointments, quickSales, allServices, productsFromSales, packages, realMemberships, sales,
+    appointments, quickSales, allServices, productsFromSales, packages, allMemberships, sales,
     globalCalDay, globalDatePreset, globalServiceFilter, globalStaffFilter,
     appointmentServicesMap, appointmentStaffMap,
   ]);
