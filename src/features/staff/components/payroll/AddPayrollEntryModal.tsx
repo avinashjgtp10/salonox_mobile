@@ -4,7 +4,7 @@ import Input from "../../../../components/ui/Input";
 import Button from "../../../../components/ui/Button";
 import Dropdown from "../../../../components/ui/Dropdown";
 import api from "../../../../services/api/axios";
-import { ATTENDANCE, COMMISSION_RULES, PAYROLL, STAFF } from "../../../../services/api/endpoints";
+import { ATTENDANCE, COMMISSION_RULES, STAFF } from "../../../../services/api/endpoints";
 import {
   DEFAULT_HALF_DAY_RULE_CONFIG,
   appliesToStaff,
@@ -28,6 +28,7 @@ interface Props {
   startDate: string;
   endDate: string;
   mode?: "create" | "edit";
+  initialStaffId?: string;
   initialValues?: {
     staffId: string;
     base_salary: number;
@@ -113,27 +114,6 @@ interface CommissionRecord {
 }
 
 const money = (value: number) => `\u20b9${(Number(value) || 0).toFixed(2)}`;
-
-function normalizeSummary(raw: any): Required<AttendanceSummary> {
-  const summary = raw?.data ?? raw ?? {};
-  const present = Number(summary.total_present_days) || 0;
-  const half = Number(summary.total_half_days) || 0;
-  const absent = Number(summary.total_absent_days) || 0;
-  const late = Number(summary.total_late_days ?? summary.total_late_instances) || 0;
-  const lateHours = Number(summary.total_late_hours) || 0;
-  const explicitWorkingDays = Number(summary.total_working_days);
-
-  return {
-    total_present_days: present,
-    total_half_days: half,
-    total_absent_days: absent,
-    total_late_days: late,
-    total_late_hours: lateHours,
-    total_working_days: Number.isFinite(explicitWorkingDays) && explicitWorkingDays > 0
-      ? explicitWorkingDays
-      : present + half + absent + late,
-  };
-}
 
 function normalizeAttendanceStatus(status: unknown) {
   const normalized = String(status ?? "")
@@ -267,34 +247,6 @@ function countAttendanceRecords(
   }, { ...EMPTY_ATTENDANCE_SUMMARY });
 }
 
-function normalizeCommissionSummary(raw: any): CommissionSummary {
-  const summary = raw?.data ?? raw ?? {};
-  const totalCommission = Number(summary.total_commission) || 0;
-  const totalPaid = Number(summary.total_paid) || 0;
-  const explicitPending = Number(summary.total_pending);
-  const ruleAmount = Number(summary.commission_amount ?? summary.rule_amount ?? summary.rate) || 0;
-  const pending = Number.isFinite(explicitPending)
-    ? Math.max(0, explicitPending)
-    : Math.max(0, totalCommission - totalPaid);
-  const calculated = Number(summary.calculated_commission) || pending || ruleAmount;
-  const frequency = summary.frequency === "daily" || summary.payout_frequency === "daily"
-    ? "daily"
-    : summary.frequency === "monthly" || summary.payout_frequency === "monthly"
-      ? "monthly"
-      : "";
-
-  return {
-    total_commission: totalCommission || calculated,
-    total_paid: totalPaid,
-    total_pending: pending || calculated,
-    frequency,
-    rule_name: String(summary.rule_name ?? summary.commission_rule_name ?? ""),
-    applicable_date: String(summary.applicable_date ?? summary.date ?? ""),
-    payroll_period: String(summary.payroll_period ?? ""),
-    calculated_commission: calculated,
-  };
-}
-
 function monthKeysBetween(startDate: string, endDate: string) {
   const start = new Date(`${startDate}T00:00:00`);
   const end = new Date(`${endDate}T00:00:00`);
@@ -379,21 +331,6 @@ async function fetchAttendanceSummary(
   rule: HalfDayRuleConfig,
   defaultShiftStart: string | null
 ) {
-  const params = { staff_id: staffId, start_date: startDate, end_date: endDate };
-  let apiSummary: Required<AttendanceSummary> | null = null;
-
-  try {
-    const res = await api.get(PAYROLL.ATTENDANCE_SUMMARY_V1, { params });
-    apiSummary = normalizeSummary(res.data);
-  } catch {
-    try {
-      const res = await api.get(PAYROLL.ATTENDANCE_SUMMARY, { params });
-      apiSummary = normalizeSummary(res.data);
-    } catch {
-      apiSummary = null;
-    }
-  }
-
   try {
     const res = await api.get(ATTENDANCE.RANGE, {
       params: {
@@ -403,24 +340,11 @@ async function fetchAttendanceSummary(
     });
     const records = unwrapAttendanceRecords(res.data);
     const recalculated = countAttendanceRecords(records, staffId, rule, defaultShiftStart);
-    console.info("[Payroll Attendance Debug]", {
-      source: "attendance-range",
-      selectedStaffId: staffId,
-      payrollStartDate: startDate,
-      payrollEndDate: endDate,
-      recordsReturned: records.length,
-      halfDayCount: recalculated.total_half_days,
-      lateCount: recalculated.total_late_days,
-      totalLateHours: recalculated.total_late_hours,
-    });
     if (recalculated.total_working_days > 0) {
-      return {
-        ...recalculated,
-        total_working_days: Math.max(recalculated.total_working_days, apiSummary?.total_working_days ?? 0),
-      };
+      return recalculated;
     }
   } catch {
-    // Fall back to the summary endpoint if the raw attendance range is unavailable.
+    // Fall back to per-staff attendance below if the range endpoint is unavailable.
   }
 
   try {
@@ -432,59 +356,37 @@ async function fetchAttendanceSummary(
     });
     const records = unwrapAttendanceRecords(res.data);
     const recalculated = countAttendanceRecords(records, staffId, rule, defaultShiftStart);
-    console.info("[Payroll Attendance Debug]", {
-      source: "attendance-staff",
-      selectedStaffId: staffId,
-      payrollStartDate: startDate,
-      payrollEndDate: endDate,
-      recordsReturned: records.length,
-      halfDayCount: recalculated.total_half_days,
-      lateCount: recalculated.total_late_days,
-      totalLateHours: recalculated.total_late_hours,
-    });
     if (recalculated.total_working_days > 0) return recalculated;
   } catch {
-    // Fall back to payroll summary/defaults below.
+    // Fall back to defaults below.
   }
 
-  return apiSummary ?? { ...EMPTY_ATTENDANCE_SUMMARY };
+  return { ...EMPTY_ATTENDANCE_SUMMARY };
 }
 
 async function fetchCommissionSummary(staffId: string, startDate: string, endDate: string) {
-  const params = { staff_id: staffId, start_date: startDate, end_date: endDate };
-
-  try {
-    const res = await api.get(PAYROLL.COMMISSION_SUMMARY, { params });
-    return normalizeCommissionSummary(res.data);
-  } catch {
-    try {
-      const res = await api.get(PAYROLL.COMMISSION_SUMMARY_V1, { params });
-      return normalizeCommissionSummary(res.data);
-    } catch {
-      const histories = await Promise.all(
-        monthKeysBetween(startDate, endDate).map((month) =>
-          api.get(`${STAFF.BY_ID(staffId)}/commissions/history`, { params: { month } })
-            .then((res) => res.data?.data?.items ?? [])
-            .catch(() => [])
-        )
-      );
-      const summary = summarizeCommissionHistory(histories.flat(), startDate, endDate);
-      const ruleMeta = summary.frequency ? null : await fetchRuleMeta(staffId);
-      const ruleAmount = ruleMeta?.amount || 0;
-      const calculated = summary.calculated_commission || summary.total_pending || ruleAmount;
-      const frequency = summary.frequency || ruleMeta?.frequency || "";
-      return {
-        ...summary,
-        total_commission: summary.total_commission || calculated,
-        total_pending: summary.total_pending || calculated,
-        calculated_commission: calculated,
-        rule_name: summary.rule_name || ruleMeta?.rule_name || "",
-        frequency,
-        applicable_date: summary.applicable_date || (frequency === "daily" ? dailyRuleDate(startDate, endDate) : ""),
-        payroll_period: frequency === "monthly" ? `${startDate} - ${endDate}` : "",
-      };
-    }
-  }
+  const histories = await Promise.all(
+    monthKeysBetween(startDate, endDate).map((month) =>
+      api.get(`${STAFF.BY_ID(staffId)}/commissions/history`, { params: { month } })
+        .then((res) => res.data?.data?.items ?? [])
+        .catch(() => [])
+    )
+  );
+  const summary = summarizeCommissionHistory(histories.flat(), startDate, endDate);
+  const ruleMeta = summary.frequency ? null : await fetchRuleMeta(staffId);
+  const ruleAmount = ruleMeta?.amount || 0;
+  const calculated = summary.calculated_commission || summary.total_pending || ruleAmount;
+  const frequency: CommissionSummary["frequency"] = summary.frequency || ruleMeta?.frequency || "";
+  return {
+    ...summary,
+    total_commission: summary.total_commission || calculated,
+    total_pending: summary.total_pending || calculated,
+    calculated_commission: calculated,
+    rule_name: summary.rule_name || ruleMeta?.rule_name || "",
+    frequency,
+    applicable_date: summary.applicable_date || (frequency === "daily" ? dailyRuleDate(startDate, endDate) : ""),
+    payroll_period: frequency === "monthly" ? `${startDate} - ${endDate}` : "",
+  };
 }
 
 export default function AddPayrollEntryModal({
@@ -492,6 +394,7 @@ export default function AddPayrollEntryModal({
   startDate,
   endDate,
   mode = "create",
+  initialStaffId,
   initialValues,
   onSave,
   onClose,
@@ -507,7 +410,7 @@ export default function AddPayrollEntryModal({
         deductions: String(initialValues.deductions ?? 0),
       }
     : EMPTY_AMOUNTS;
-  const [staffId, setStaffId] = useState(initialValues?.staffId ? String(initialValues.staffId) : "");
+  const [staffId, setStaffId] = useState(initialValues?.staffId ? String(initialValues.staffId) : initialStaffId ? String(initialStaffId) : "");
   const [amounts, setAmounts] = useState(initialAmounts);
   const [staffPayrollProfile, setStaffPayrollProfile] = useState<any>(null);
   const [attendanceSummary, setAttendanceSummary] = useState<Required<AttendanceSummary>>(EMPTY_ATTENDANCE_SUMMARY);
@@ -610,8 +513,8 @@ export default function AddPayrollEntryModal({
           patch("base_salary")(String(salary));
         }
       }
-    } catch (error) {
-      console.error("Error fetching staff wages:", error);
+    } catch {
+      // Staff detail/list data still provides a safe fallback.
     }
 
     try {
@@ -662,37 +565,6 @@ export default function AddPayrollEntryModal({
       setAmounts((prev) => ({ ...prev, deductions: autoDeduction > 0 ? String(autoDeduction) : "0" }));
     }
   }, [autoDeduction, deductionsOverridden]);
-
-  useEffect(() => {
-    if (!staffId || !startDate || !endDate) return;
-    console.info("[Payroll Attendance Debug]", {
-      selectedStaffId: staffId,
-      payrollStartDate: startDate,
-      payrollEndDate: endDate,
-      attendanceSummary,
-      halfDayCount: safeHalfDays,
-      lateCount: safeLateDays,
-      totalLateHours: safeLateHours,
-      perDaySalary,
-      perHourSalary,
-      halfDayDeduction,
-      lateDeduction: cappedLateDeduction,
-      totalAutoDeduction: autoDeduction,
-    });
-  }, [
-    staffId,
-    startDate,
-    endDate,
-    attendanceSummary,
-    safeHalfDays,
-    safeLateDays,
-    safeLateHours,
-    perDaySalary,
-    perHourSalary,
-    halfDayDeduction,
-    cappedLateDeduction,
-    autoDeduction,
-  ]);
 
   useEffect(() => {
     const requestId = commissionRequestRef.current + 1;

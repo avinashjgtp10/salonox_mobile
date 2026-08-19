@@ -11,7 +11,6 @@ import {
   PlusLg,
   PencilSquare,
   Trash3,
-  ThreeDotsVertical,
   ThreeDots,
   Printer,
 } from "react-bootstrap-icons";
@@ -311,34 +310,6 @@ function attendanceShiftStartISO(
   return value.includes("T") ? value : `${date}T${value.slice(0, 5)}:00+05:30`;
 }
 
-function normalizeCommissionSummary(raw: any): CommissionSummary {
-  const summary = raw?.data ?? raw ?? {};
-  const totalCommission = Number(summary.total_commission) || 0;
-  const totalPaid = Number(summary.total_paid) || 0;
-  const explicitPending = Number(summary.total_pending);
-  const ruleAmount = Number(summary.commission_amount ?? summary.rule_amount ?? summary.rate) || 0;
-  const pending = Number.isFinite(explicitPending)
-    ? Math.max(0, explicitPending)
-    : Math.max(0, totalCommission - totalPaid);
-  const calculated = Number(summary.calculated_commission) || pending || ruleAmount;
-  const frequency = summary.frequency === "daily" || summary.payout_frequency === "daily"
-    ? "daily"
-    : summary.frequency === "monthly" || summary.payout_frequency === "monthly"
-      ? "monthly"
-      : "";
-
-  return {
-    total_commission: totalCommission || calculated,
-    total_paid: totalPaid,
-    total_pending: pending || calculated,
-    frequency,
-    rule_name: String(summary.rule_name ?? summary.commission_rule_name ?? ""),
-    applicable_date: String(summary.applicable_date ?? summary.date ?? ""),
-    payroll_period: String(summary.payroll_period ?? ""),
-    calculated_commission: calculated,
-  };
-}
-
 function monthKeysBetween(startDate: string, endDate: string) {
   const start = new Date(`${startDate}T00:00:00`);
   const end = new Date(`${endDate}T00:00:00`);
@@ -422,7 +393,7 @@ async function fetchRuleMeta(staffId: string) {
 // `staffOptions.length` identical requests to the same endpoint, one per
 // staff, which is what made the page slow to load) and aggregates the rows
 // into a per-staff map the caller can look up. Preferred over
-// PAYROLL.COMMISSION_SUMMARY below: that endpoint often comes back without a
+// payroll commission summary endpoints: those may not exist in some deployments,
 // usable total, and the fallback chain that follows ends up substituting the
 // commission RULE's raw rate (e.g. "10" for 10%) as if it were a ₹ amount —
 // which is what caused Payroll to show ₹10 instead of the real ₹120.
@@ -472,40 +443,28 @@ async function fetchStaffCommissionSummary(
   startDate: string,
   endDate: string,
 ): Promise<CommissionSummary> {
-  const params = { staff_id: staffId, start_date: startDate, end_date: endDate };
-
-  try {
-    const res = await api.get(PAYROLL.COMMISSION_SUMMARY, { params });
-    return normalizeCommissionSummary(res.data);
-  } catch {
-    try {
-      const res = await api.get(PAYROLL.COMMISSION_SUMMARY_V1, { params });
-      return normalizeCommissionSummary(res.data);
-    } catch {
-      const histories = await Promise.all(
-        monthKeysBetween(startDate, endDate).map((month) =>
-          api.get(`${STAFF.BY_ID(staffId)}/commissions/history`, { params: { month } })
-            .then((res) => res.data?.data?.items ?? [])
-            .catch(() => [])
-        )
-      );
-      const summary = summarizeCommissionHistory(histories.flat(), startDate, endDate);
-      const ruleMeta = summary.frequency ? null : await fetchRuleMeta(staffId);
-      const ruleAmount = ruleMeta?.amount || 0;
-      const calculated = summary.calculated_commission || summary.total_pending || ruleAmount;
-      const frequency = summary.frequency || ruleMeta?.frequency || "";
-      return {
-        ...summary,
-        total_commission: summary.total_commission || calculated,
-        total_pending: summary.total_pending || calculated,
-        calculated_commission: calculated,
-        rule_name: summary.rule_name || ruleMeta?.rule_name || "",
-        frequency,
-        applicable_date: summary.applicable_date || (frequency === "daily" ? dailyRuleDate(startDate, endDate) : ""),
-        payroll_period: frequency === "monthly" ? `${startDate} - ${endDate}` : "",
-      };
-    }
-  }
+  const histories = await Promise.all(
+    monthKeysBetween(startDate, endDate).map((month) =>
+      api.get(`${STAFF.BY_ID(staffId)}/commissions/history`, { params: { month } })
+        .then((res) => res.data?.data?.items ?? [])
+        .catch(() => [])
+    )
+  );
+  const summary = summarizeCommissionHistory(histories.flat(), startDate, endDate);
+  const ruleMeta = summary.frequency ? null : await fetchRuleMeta(staffId);
+  const ruleAmount = ruleMeta?.amount || 0;
+  const calculated = summary.calculated_commission || summary.total_pending || ruleAmount;
+  const frequency: CommissionSummary["frequency"] = summary.frequency || ruleMeta?.frequency || "";
+  return {
+    ...summary,
+    total_commission: summary.total_commission || calculated,
+    total_pending: summary.total_pending || calculated,
+    calculated_commission: calculated,
+    rule_name: summary.rule_name || ruleMeta?.rule_name || "",
+    frequency,
+    applicable_date: summary.applicable_date || (frequency === "daily" ? dailyRuleDate(startDate, endDate) : ""),
+    payroll_period: frequency === "monthly" ? `${startDate} - ${endDate}` : "",
+  };
 }
 
 
@@ -573,6 +532,9 @@ function saveCompletedPayrollIds(ids: Set<string>) {
   }
 }
 
+const staffFixedSalaryCache = new Map<string, number>();
+const staffFixedSalaryRequests = new Map<string, Promise<number>>();
+
 function getStaffRole(s: any): string {
   if (!s) return "Staff";
   const designation = s.designation || s.job_title || s.jobTitle || s.staff_designation;
@@ -587,6 +549,45 @@ function getStaffRole(s: any): string {
     return String(s.role).trim();
   }
   return "Staff";
+}
+
+function inlineStaffFixedSalary(staff: any): number | null {
+  const salary = Number(staff.salary_amount ?? staff.fixed_salary);
+  return Number.isFinite(salary) && salary > 0 ? salary : null;
+}
+
+async function getStaffFixedSalary(staff: any): Promise<number> {
+  const staffId = String(staff.id);
+  const inlineSalary = inlineStaffFixedSalary(staff);
+
+  if (inlineSalary != null) {
+    staffFixedSalaryCache.set(staffId, inlineSalary);
+    return inlineSalary;
+  }
+
+  const cached = staffFixedSalaryCache.get(staffId);
+  if (cached != null) return cached;
+
+  const pending = staffFixedSalaryRequests.get(staffId);
+  if (pending) return pending;
+
+  const request = api.get(STAFF.WAGES(staffId))
+    .then((res) => {
+      const wages = res.data?.data || res.data;
+      const salary = Number(wages?.salary_amount ?? wages?.fixed_salary);
+      return wages?.compensation_type === "salary" && Number.isFinite(salary) ? salary : 0;
+    })
+    .catch(() => 0)
+    .then((salary) => {
+      staffFixedSalaryCache.set(staffId, salary);
+      return salary;
+    })
+    .finally(() => {
+      staffFixedSalaryRequests.delete(staffId);
+    });
+
+  staffFixedSalaryRequests.set(staffId, request);
+  return request;
 }
 
 function mapEntryToRow(r: any): StaffPayroll {
@@ -967,7 +968,6 @@ function SalaryAdvanceModal({
   const [saving, setSaving] = useState(false);
   const [amountTouched, setAmountTouched] = useState(false);
   const total = advances.reduce((sum, advance) => sum + (Number(advance.amount) || 0), 0);
-  const selectedStaff = staffRows.find((staff) => String(staff.staff_id) === String(selectedStaffId));
   const amountValue = Number(amount);
   const amountError = amountTouched && (!amount.trim() || !Number.isFinite(amountValue) || amountValue <= 0)
     ? (!amount.trim() ? "Amount is required" : "Enter a valid positive amount")
@@ -1208,24 +1208,19 @@ export default function PayrollPage() {
     Promise.all(
       activeStaff.map(async (staff: any) => {
         const staffId = String(staff.id);
-        const staffSalary = Number(staff.salary_amount ?? staff.fixed_salary);
-        if (Number.isFinite(staffSalary) && staffSalary > 0) return [staffId, staffSalary] as const;
-
-        try {
-          const res = await api.get(STAFF.WAGES(staffId));
-          const wages = res.data?.data || res.data;
-          const salary = Number(wages?.salary_amount ?? wages?.fixed_salary);
-
-          return [
-            staffId,
-            wages?.compensation_type === "salary" && Number.isFinite(salary) ? salary : 0,
-          ] as const;
-        } catch {
-          return [staffId, 0] as const;
-        }
+        return [staffId, await getStaffFixedSalary(staff)] as const;
       })
     ).then((entries) => {
-      if (!cancelled) setStaffFixedSalaries(Object.fromEntries(entries));
+      if (cancelled) return;
+      const next = Object.fromEntries(entries);
+      setStaffFixedSalaries((prev) => {
+        const prevKeys = Object.keys(prev);
+        const nextKeys = Object.keys(next);
+        const same =
+          prevKeys.length === nextKeys.length &&
+          nextKeys.every((key) => prev[key] === next[key]);
+        return same ? prev : next;
+      });
     });
 
     return () => {
@@ -1517,7 +1512,7 @@ export default function PayrollPage() {
             commission: commissionSummary?.total_pending || 0,
             commission_earned: commissionSummary?.total_commission || 0,
             commission_paid: commissionSummary?.total_paid || 0,
-            commission_frequency: commissionSummary?.frequency || "",
+            commission_frequency: (commissionSummary?.frequency || "") as StaffPayroll["commission_frequency"],
             commission_rule_name: commissionSummary?.rule_name || "",
             commission_applicable_date: commissionSummary?.applicable_date || "",
             commission_payroll_period: commissionSummary?.payroll_period || "",
