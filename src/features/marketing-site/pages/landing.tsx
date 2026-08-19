@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { type Country } from 'react-phone-number-input';
 import {
+  getCountryCallingCode,
   isPossiblePhoneNumber,
   isValidPhoneNumber,
   parsePhoneNumberFromString,
@@ -13,7 +14,6 @@ import 'react-phone-number-input/style.css';
 import '../../../components/Landing/styles/main.scss';
 import {
   AboutContent,
-  CITY_NAME_REGEX,
   countryName,
   DEMO_EMAIL,
   DEMO_PHONE_DEFAULT_COUNTRY,
@@ -43,6 +43,9 @@ import Footer from '../../../components/Landing/Footer/Footer';
 const DEMO_NOTIFICATION_TIME_ZONE = 'Asia/Kolkata';
 const EMAIL_LOCAL_HAS_LETTER_REGEX = /\p{L}/u;
 const EMAIL_DOMAIN_LABEL_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
+const DEMO_NAME_REGEX = /^[\p{L}\s]+$/u;
+const DEMO_SALON_REGEX = /^[\p{L}\p{N}\s&.,'’()/-]+$/u;
+const DEMO_CITY_REGEX = /^[\p{L}\s.'’-]+$/u;
 
 type DemoNotificationRow = {
   field: string;
@@ -103,6 +106,14 @@ const isRealLookingDemoEmail = (value: string) => {
     domainLabels.every((label) => EMAIL_DOMAIN_LABEL_REGEX.test(label)) &&
     domainLabels[domainLabels.length - 1].length >= 2
   );
+};
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === 'object' && value !== null;
+
+const stringFromUnknown = (value: unknown) => {
+  if (Array.isArray(value)) return stringFromUnknown(value[0]);
+  return typeof value === 'string' ? value : '';
 };
 
 const buildDemoNotificationEmail = (rows: DemoNotificationRow[]) => {
@@ -687,7 +698,11 @@ const LandingPage: React.FC = () => {
     (field: keyof Omit<DemoForm, 'phone'>) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
       const value = e.target instanceof HTMLInputElement && e.target.type === 'checkbox'
         ? e.target.checked
-        : e.target.value;
+        : field === 'name'
+          ? e.target.value.replace(/[^\p{L}\s]/gu, '')
+        : field === 'locations'
+          ? e.target.value.replace(/[^\d]/g, '')
+          : e.target.value;
 
       setDemoForm((prev) => ({ ...prev, [field]: value }));
       setDemoError('');
@@ -726,6 +741,9 @@ const LandingPage: React.FC = () => {
     if (country && phoneNumber.country && phoneNumber.country !== country) {
       return `Enter a mobile number that matches ${selectedCountryName}.`;
     }
+    if (country === 'IN' && phoneNumber.nationalNumber.length !== 10) {
+      return 'Please enter a valid 10-digit mobile number.';
+    }
     const numberType = phoneNumber.getType();
     if (numberType && numberType !== 'MOBILE' && numberType !== 'FIXED_LINE_OR_MOBILE') {
       return `Enter a valid mobile number for ${selectedCountryName}.`;
@@ -736,35 +754,79 @@ const LandingPage: React.FC = () => {
   const validateCity = useCallback((value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return 'City is required.';
-    if (trimmed.length < 2) return 'Enter a valid city name.';
-    if (!CITY_NAME_REGEX.test(trimmed)) {
-      return 'City name can only contain letters, spaces, hyphens, and apostrophes.';
+    if (trimmed.length < 2 || trimmed.length > 100 || !DEMO_CITY_REGEX.test(trimmed)) {
+      return 'Please enter a valid city name (2-100 characters).';
     }
     return '';
   }, []);
 
   const validateName = useCallback((value: string) => {
     const trimmed = value.trim();
-    if (!trimmed) return 'Full name is required.';
-    if (trimmed.length < 2) return 'Name must be at least 2 characters.';
+    if (!trimmed) return 'Your name is required.';
+    if (trimmed.length < 2 || trimmed.length > 50 || !DEMO_NAME_REGEX.test(trimmed)) {
+      return 'Please enter a valid name (2-50 characters, letters and spaces only).';
+    }
     return '';
   }, []);
 
   const validateEmail = useCallback((value: string) => {
     const trimmed = value.trim();
     if (!trimmed) return 'Work email is required.';
-    if (!isRealLookingDemoEmail(trimmed)) return 'Enter a valid work email address.';
+    if (!isRealLookingDemoEmail(trimmed)) return 'Please enter a valid email address.';
     return '';
   }, []);
 
   const validateSalon = useCallback((value: string) => {
-    if (!value.trim()) return 'Salon name is required.';
+    const trimmed = value.trim();
+    if (!trimmed) return 'Salon name is required.';
+    if (trimmed.length < 2 || trimmed.length > 100 || !DEMO_SALON_REGEX.test(trimmed)) {
+      return 'Please enter a valid salon name (2-100 characters).';
+    }
     return '';
   }, []);
 
   const validateLocations = useCallback((value: string) => {
-    if (!value) return 'Select the number of locations.';
+    const trimmed = value.trim();
+    if (!/^[1-9]\d*$/.test(trimmed)) {
+      return 'Locations must be a whole number greater than or equal to 1.';
+    }
     return '';
+  }, []);
+
+  const mapDemoBackendErrorToField = useCallback((error: unknown) => {
+    const errorRecord = isRecord(error) ? error : {};
+    const response = isRecord(errorRecord.response) ? errorRecord.response : {};
+    const responseData = isRecord(response.data) ? response.data : {};
+    const errorData = isRecord(responseData.error) ? responseData.error : {};
+    const rawMessage =
+      stringFromUnknown(errorData.message) ||
+      stringFromUnknown(responseData.message) ||
+      stringFromUnknown(errorRecord.message) ||
+      '';
+    const message = String(rawMessage || '').toLowerCase();
+    const fields = responseData.errors ?? errorData.errors ?? {};
+    const fieldEntries = Array.isArray(fields) ? fields : Object.entries(fields);
+
+    for (const entry of fieldEntries) {
+      const entryRecord = isRecord(entry) ? entry : {};
+      const field = Array.isArray(entry) ? String(entry[0]).toLowerCase() : stringFromUnknown(entryRecord.field).toLowerCase();
+      const fieldMessage = Array.isArray(entry)
+        ? stringFromUnknown(entry[1]) || rawMessage
+        : stringFromUnknown(entryRecord.message) || rawMessage;
+
+      if (field.includes('email')) return { field: 'email', message: fieldMessage || 'Please enter a valid email address.' };
+      if (field.includes('phone') || field.includes('mobile')) return { field: 'phone', message: fieldMessage || 'Please enter a valid 10-digit mobile number.' };
+      if (field.includes('salon')) return { field: 'salon', message: fieldMessage || 'Please enter a valid salon name (2-100 characters).' };
+      if (field.includes('city')) return { field: 'city', message: fieldMessage || 'Please enter a valid city name (2-100 characters).' };
+      if (field.includes('location')) return { field: 'locations', message: fieldMessage || 'Locations must be a whole number greater than or equal to 1.' };
+      if (field.includes('name')) return { field: 'name', message: fieldMessage || 'Please enter a valid name (2-50 characters, letters and spaces only).' };
+    }
+
+    if (message.includes('email') && (message.includes('exist') || message.includes('registered') || message.includes('duplicate'))) {
+      return { field: 'email', message: 'This email is already registered.' };
+    }
+    if (message.includes('email')) return { field: 'email', message: 'Please enter a valid email address.' };
+    return null;
   }, []);
 
   // Re-runs off committed state (not handler closures) so a country switch —
@@ -801,7 +863,14 @@ const LandingPage: React.FC = () => {
   }, [demoForm.locations, locationsTouched, validateLocations]);
 
   const handlePhoneChange = useCallback((value?: string) => {
-    const nextPhone = value || '';
+    let nextPhone = value || '';
+    if (phoneCountry === 'IN' && nextPhone) {
+      const phoneNumber = parsePhoneNumberFromString(nextPhone, phoneCountry);
+      if (phoneNumber && phoneNumber.nationalNumber.length > 10) {
+        nextPhone = `+${getCountryCallingCode(phoneCountry)}${phoneNumber.nationalNumber.slice(0, 10)}`;
+      }
+    }
+
     setDemoForm((prev) => ({ ...prev, phone: nextPhone }));
     setDemoError('');
 
@@ -834,6 +903,7 @@ const LandingPage: React.FC = () => {
   const handleDemoSubmit = useCallback(
     async (e: React.FormEvent<HTMLFormElement>) => {
       e.preventDefault();
+      const formElement = e.currentTarget;
 
       const nameValidationError = validateName(demoForm.name);
       const emailValidationError = validateEmail(demoForm.email);
@@ -862,6 +932,11 @@ const LandingPage: React.FC = () => {
         setCityError(cityValidationError);
         setLocationsTouched(true);
         setLocationsError(locationsValidationError);
+        window.requestAnimationFrame(() => {
+          const firstInvalid = formElement.querySelector<HTMLElement>('[aria-invalid="true"] input, input[aria-invalid="true"], .PhoneInput--invalid input');
+          firstInvalid?.focus();
+          firstInvalid?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        });
         return;
       }
 
@@ -918,7 +993,7 @@ const LandingPage: React.FC = () => {
           throw new Error(`Email notification failed with status ${formSubmitResponse.status}`);
         }
 
-        api.post(DEMO_REQUESTS.CREATE, {
+        await api.post(DEMO_REQUESTS.CREATE, {
           name: demoForm.name,
           email: demoForm.email,
           phone: demoForm.phone,
@@ -946,19 +1021,40 @@ const LandingPage: React.FC = () => {
             html: notificationEmail.html,
             text: notificationEmail.text,
           },
-        }).catch((error) => {
-          console.warn('SalonOX demo request was emailed but could not be saved to the backend.', error);
         });
 
         setDemoSubmitted(true);
       } catch (error) {
         console.error('SalonOX demo booking submission failed', error);
+        const fieldError = mapDemoBackendErrorToField(error);
+        if (fieldError) {
+          if (fieldError.field === 'name') {
+            setNameTouched(true);
+            setNameError(fieldError.message);
+          } else if (fieldError.field === 'email') {
+            setEmailTouched(true);
+            setEmailError(fieldError.message);
+          } else if (fieldError.field === 'phone') {
+            setPhoneTouched(true);
+            setPhoneError(fieldError.message);
+          } else if (fieldError.field === 'salon') {
+            setSalonTouched(true);
+            setSalonError(fieldError.message);
+          } else if (fieldError.field === 'city') {
+            setCityTouched(true);
+            setCityError(fieldError.message);
+          } else if (fieldError.field === 'locations') {
+            setLocationsTouched(true);
+            setLocationsError(fieldError.message);
+          }
+          return;
+        }
         setDemoError('We could not send your demo request. Please try again or email support@salonox.com.');
       } finally {
         setDemoSubmitting(false);
       }
     },
-    [demoForm, phoneCountry, validateName, validateEmail, validatePhone, validateSalon, validateCity, validateLocations]
+    [demoForm, phoneCountry, validateName, validateEmail, validatePhone, validateSalon, validateCity, validateLocations, mapDemoBackendErrorToField]
   );
 
   return (
