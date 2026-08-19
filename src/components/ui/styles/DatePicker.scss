@@ -51,6 +51,16 @@
   &--open { transform: rotate(180deg); }
 }
 
+// Full-width variant for form grids, where the trigger has to line up with
+// sibling inputs that are width:100%. Plain `.dp` stays inline-block so
+// toolbar triggers keep their natural width.
+.dp--block {
+  display: block;
+
+  .dp-trigger { width: 100%; }
+  .dp-trigger__chevron { margin-left: auto; }
+}
+
 // Free-standing by default, so callers that own their own positioning (the
 // scheduler toolbars portal it next to their trigger) can drop it anywhere.
 .dp-panel {
