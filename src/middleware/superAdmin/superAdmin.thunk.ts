@@ -224,6 +224,34 @@ export const impersonateUserThunk = createAsyncThunk<{ token: string; isOnboardi
   }
 );
 
+// ── BRANCH OWNER SALON ASSIGNMENT ─────────────────────────────────────────────
+
+export const fetchBranchOwnerSalonsThunk = createAsyncThunk<any[], string, { rejectValue: string }>(
+  "superAdmin/fetchBranchOwnerSalons",
+  async (branchOwnerId, { rejectWithValue }) => {
+    try {
+      const res = await api.get(SUPER_ADMIN.BRANCH_OWNER_SALONS_GET(branchOwnerId));
+      const data = res.data?.data ?? res.data;
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to fetch assigned salons");
+    }
+  }
+);
+
+export const assignBranchOwnerSalonsThunk = createAsyncThunk<any[], { branchOwnerId: string; salonIds: string[] }, { rejectValue: string }>(
+  "superAdmin/assignBranchOwnerSalons",
+  async ({ branchOwnerId, salonIds }, { rejectWithValue }) => {
+    try {
+      const res = await api.put(SUPER_ADMIN.BRANCH_OWNER_SALONS_PUT(branchOwnerId), { salonIds });
+      const data = res.data?.data ?? res.data;
+      return Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to assign salons");
+    }
+  }
+);
+
 // ── SALON PERMISSIONS ─────────────────────────────────────────────────────────
 
 export const searchSalonsForPermissionsThunk = createAsyncThunk<any[], string, { rejectValue: string }>(

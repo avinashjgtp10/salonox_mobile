@@ -30,6 +30,7 @@ import billingReducer from "./billingSlice";
 import marketplaceReducer from "./marketplaceSlice";
 import onlineBookingReducer from "./onlineBookingSlice";
 import superAdminReducer from "./superAdminSlice";
+import branchOwnerReducer from "./branchOwnerSlice";
 import supportReducer from "./supportSlice";
 import cashCounterReducer from "./cashCounterSlice";
 
@@ -85,6 +86,7 @@ export const store = configureStore({
     marketplace: marketplaceReducer,
     onlineBooking: onlineBookingReducer,
     superAdmin: superAdminReducer,
+    branchOwner: branchOwnerReducer,
     support: supportReducer,
     cashCounter: cashCounterReducer,
   },

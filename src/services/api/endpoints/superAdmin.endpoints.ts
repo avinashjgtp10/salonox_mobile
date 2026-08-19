@@ -25,6 +25,9 @@ export const SUPER_ADMIN = {
   USER_IMPERSONATE:  (id: string) => `/api/v1/super-admin/users/${id}/impersonate`,
   USER_DELETE:       (id: string) => `/api/v1/super-admin/users/${id}`,
   USER_CREATE:       "/api/v1/super-admin/users/create",
+  BRANCH_OWNER_SALONS_GET:      (id: string) => `/api/v1/super-admin/users/${id}/branch-salons`,
+  BRANCH_OWNER_SALONS_PUT:      (id: string) => `/api/v1/super-admin/users/${id}/branch-salons`,
+  BRANCH_OWNER_SALON_UNASSIGN:  (id: string, salonId: string) => `/api/v1/super-admin/users/${id}/branch-salons/${salonId}`,
   DEMO_REQUESTS:        "/api/v1/super-admin/demo-requests",
   DEMO_REQUEST_STATUS:  (id: string) => `/api/v1/super-admin/demo-requests/${id}/status`,
 } as const;
