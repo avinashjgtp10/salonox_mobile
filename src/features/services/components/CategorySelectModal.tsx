@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Keyboard,
   Modal,
   Pressable,
   ScrollView,
@@ -78,6 +79,7 @@ export function CategorySelectModal({
   };
 
   const handleOpenCreateModal = () => {
+    Keyboard.dismiss();
     setNewCategoryName("");
     setCreateValidationError(null);
     setCreateModalOpen(true);
