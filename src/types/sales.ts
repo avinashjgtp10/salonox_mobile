@@ -201,6 +201,8 @@ export type SalesSummary = {
   totalTransactions: number;
 };
 
+export type ExportFormat = "csv" | "excel" | "pdf";
+
 export type ExportSalesResponse = {
   message?: string;
   url: string | null;

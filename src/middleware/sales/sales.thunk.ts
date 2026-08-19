@@ -242,13 +242,16 @@ export const fetchSalesSummaryThunk = createAsyncThunk<
   }
 });
 
+export type ExportSalesThunkArgs = Partial<SalesListQuery> & { format?: "csv" | "excel" | "pdf" };
+
 export const exportSalesThunk = createAsyncThunk<
   ExportSalesResponse,
-  Partial<SalesListQuery> | undefined,
+  ExportSalesThunkArgs | undefined,
   { rejectValue: SalesRejectValue; state: RootState }
->("sales/exportSales", async (query, { rejectWithValue }) => {
+>("sales/exportSales", async (args, { rejectWithValue }) => {
   try {
-    return await salesService.exportSales(query);
+    const { format = "csv", ...query } = args || {};
+    return await salesService.exportSales(query, format);
   } catch (error) {
     console.error("[Sales] Export failed", toRejectValue(error));
 
