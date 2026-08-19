@@ -50,13 +50,8 @@ export default function SuperAdminLoginPage() {
         display: "flex", flexDirection: "column", justifyContent: "space-between",
         padding: "48px 52px", flexShrink: 0,
       }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 38, height: 38, borderRadius: 10, background: "rgba(255,255,255,0.2)", display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-            </svg>
-          </div>
-          <span style={{ color: "#fff", fontSize: 18, fontWeight: 700 }}>SalonOx</span>
+        <div style={{ display: "inline-flex", alignItems: "center", background: "#fff", borderRadius: 12, padding: "10px 16px", boxShadow: "0 2px 12px rgba(0,0,0,0.12)" }}>
+          <img src="/salonox-full-logo.png" alt="SalonOX" width="140" height="45" style={{ display: "block", width: 140, height: "auto" }} />
         </div>
 
         <div>

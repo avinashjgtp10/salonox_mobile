@@ -48,7 +48,7 @@ export default function SuperAdminLayout() {
 
   function handleLogout() {
     dispatch(logout());
-    navigate("/super-admin/login", { replace: true });
+    navigate("/login", { replace: true });
   }
 
   const name = user?.first_name
