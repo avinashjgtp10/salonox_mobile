@@ -195,7 +195,7 @@ const BookDemo: React.FC<BookDemoProps> = ({
               <p>See SalonOX live in action and ask all your questions.</p>
               <form className="demo-form" onSubmit={handleDemoSubmit}>
                 <label className="demo-field">
-                  <span>Your Name</span>
+                  <span>Your Name <span className="demo-required" aria-label="required">*</span></span>
                   <input
                     type="text"
                     required
@@ -213,11 +213,11 @@ const BookDemo: React.FC<BookDemoProps> = ({
                   )}
                 </label>
                 <label className="demo-field">
-                  <span>Work Email</span>
+                  <span>Work Email <span className="demo-required" aria-label="required">*</span></span>
                   <input
                     type="email"
                     required
-                    placeholder="you@yoursalon.com"
+                    placeholder="name@gmail.com"
                     value={demoForm.email}
                     onChange={handleDemoChange('email')}
                     onBlur={handleEmailBlur}
@@ -235,7 +235,7 @@ const BookDemo: React.FC<BookDemoProps> = ({
                     associated control (the country trigger button), reopening the dropdown
                     right after a selection. `aria-labelledby` keeps it accessibly labeled. */}
                 <div className="demo-field">
-                  <span id="demo-phone-label">Mobile Number</span>
+                  <span id="demo-phone-label">Mobile Number <span className="demo-required" aria-label="required">*</span></span>
                   <PhoneInput
                     addInternationalOption={false}
                     country={phoneCountry}
@@ -247,7 +247,10 @@ const BookDemo: React.FC<BookDemoProps> = ({
                     onChange={handlePhoneChange}
                     onCountryChange={handlePhoneCountryChange}
                     onBlur={handlePhoneBlur}
-                    numberInputProps={{ required: true }}
+                    numberInputProps={{
+                      required: true,
+                      maxLength: phoneCountry === 'IN' ? 11 : undefined,
+                    }}
                     className={phoneTouched && phoneError ? 'PhoneInput--invalid' : ''}
                     aria-labelledby="demo-phone-label"
                     aria-invalid={phoneTouched && !!phoneError}
@@ -258,7 +261,7 @@ const BookDemo: React.FC<BookDemoProps> = ({
                   )}
                 </div>
                 <label className="demo-field">
-                  <span>Salon Name</span>
+                  <span>Salon Name <span className="demo-required" aria-label="required">*</span></span>
                   <input
                     type="text"
                     required
@@ -275,7 +278,7 @@ const BookDemo: React.FC<BookDemoProps> = ({
                   )}
                 </label>
                 <label className="demo-field">
-                  <span>City</span>
+                  <span>City <span className="demo-required" aria-label="required">*</span></span>
                   <input
                     type="text"
                     required
@@ -292,22 +295,22 @@ const BookDemo: React.FC<BookDemoProps> = ({
                   )}
                 </label>
                 <label className="demo-field">
-                  <span>Locations</span>
-                  <select
+                  <span>Locations <span className="demo-required" aria-label="required">*</span></span>
+                  <input
+                    type="number"
                     required
+                    min="1"
+                    step="1"
+                    inputMode="numeric"
+                    pattern="[1-9][0-9]*"
+                    placeholder="e.g. 1"
                     value={demoForm.locations}
                     onChange={handleDemoChange('locations')}
                     onBlur={handleLocationsBlur}
                     className={locationsTouched && locationsError ? 'is-invalid' : ''}
                     aria-invalid={locationsTouched && !!locationsError}
                     aria-describedby={locationsTouched && locationsError ? 'demo-locations-error' : undefined}
-                  >
-                    <option value="" disabled>Select locations count</option>
-                    <option value="1">1 location</option>
-                    <option value="2-5">2–5 locations</option>
-                    <option value="6-15">6–15 locations</option>
-                    <option value="16+">16+ locations</option>
-                  </select>
+                  />
                   {locationsTouched && locationsError && (
                     <span className="demo-field-error" id="demo-locations-error" role="alert">{locationsError}</span>
                   )}
