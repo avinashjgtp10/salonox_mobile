@@ -11,6 +11,14 @@ import TimeSelect from "../shared/TimeSelect";
 import NameSelect from "../shared/NameSelect";
 import Dropdown from "../../../../components/ui/Dropdown";
 import { DatePicker } from "../../../../components/ui";
+import {
+  sanitizeDiscountPercentInput,
+  parseDiscountPercent,
+  formatDiscountPercent,
+  DISCOUNT_INPUT_MAX_LENGTH,
+  MAX_LINE_QTY,
+  QTY_INPUT_MAX_LENGTH,
+} from "../../utils/lineItemInput";
 import type { IntervalOption } from "../../types/scheduler-types";
 
 const MIN_SEARCH_LENGTH = 3;
@@ -413,7 +421,7 @@ function MembershipRow({
   useEffect(() => { setShowDesc(false); }, [(row as any).membershipId]);
 
   function handleQtyChange(value: string) {
-    const normalizedValue = value.slice(0, 2);
+    const normalizedValue = value.slice(0, QTY_INPUT_MAX_LENGTH);
     setQtyInput(normalizedValue);
     if (!normalizedValue) return;
     const qty = parseInt(normalizedValue, 10);
@@ -424,21 +432,21 @@ function MembershipRow({
 
   function handleQtyBlur() {
     const qty = parseInt(qtyInput, 10);
-    const clampedQty = Number.isInteger(qty) && qty > 0 ? Math.min(qty, 99) : 1;
+    const clampedQty = Number.isInteger(qty) && qty > 0 ? Math.min(qty, MAX_LINE_QTY) : 1;
     setQtyInput(String(clampedQty));
     onUpdateMembership(index, { ...row, qty: clampedQty, total: calcTotal(row.price, clampedQty, row.discount || 0) });
   }
 
   function handleDiscountChange(value: string) {
-    const normalizedValue = value.slice(0, 3);
+    const normalizedValue = sanitizeDiscountPercentInput(value);
     setDiscountInput(normalizedValue);
-    const discount = Math.min(100, parseInt(normalizedValue, 10) || 0);
+    const discount = parseDiscountPercent(normalizedValue);
     onUpdateMembership(index, { ...row, discount, total: calcTotal(row.price, getSafeQty(row.qty), discount) });
   }
 
   function handleDiscountBlur() {
-    const discount = Math.min(100, Math.max(0, parseInt(discountInput, 10) || 0));
-    setDiscountInput(discount > 0 ? String(discount) : "");
+    const discount = parseDiscountPercent(discountInput);
+    setDiscountInput(formatDiscountPercent(discount));
     onUpdateMembership(index, { ...row, discount, total: calcTotal(row.price, getSafeQty(row.qty), discount) });
   }
 
@@ -511,7 +519,7 @@ function MembershipRow({
         className="svc-field__input"
         type="text"
         inputMode="numeric"
-        maxLength={2}
+        maxLength={QTY_INPUT_MAX_LENGTH}
         disabled={frozen}
         placeholder="1"
         value={qtyInput}
@@ -523,12 +531,12 @@ function MembershipRow({
       <input
         className="svc-field__input"
         type="text"
-        inputMode="numeric"
-        maxLength={3}
+        inputMode="decimal"
+        maxLength={DISCOUNT_INPUT_MAX_LENGTH}
         disabled={frozen}
         placeholder="0"
         value={discountInput}
-        onChange={(e) => handleDiscountChange(e.target.value.replace(/\D/g, ""))}
+        onChange={(e) => handleDiscountChange(e.target.value)}
         onBlur={handleDiscountBlur}
       />
 
@@ -744,7 +752,7 @@ function PackageRow({
   }, [row.packageId]);
 
   function handleQtyChange(value: string) {
-    const normalizedValue = value.slice(0, 2);
+    const normalizedValue = value.slice(0, QTY_INPUT_MAX_LENGTH);
     setQtyInput(normalizedValue);
     if (!normalizedValue) return;
     const qty = parseInt(normalizedValue, 10);
@@ -755,21 +763,21 @@ function PackageRow({
 
   function handleQtyBlur() {
     const qty = parseInt(qtyInput, 10);
-    const clampedQty = Number.isInteger(qty) && qty > 0 ? Math.min(qty, 99) : 1;
+    const clampedQty = Number.isInteger(qty) && qty > 0 ? Math.min(qty, MAX_LINE_QTY) : 1;
     setQtyInput(String(clampedQty));
     onUpdatePackage(index, { ...row, qty: clampedQty, total: calcTotal(row.price, clampedQty, row.discount || 0) });
   }
 
   function handleDiscountChange(value: string) {
-    const normalizedValue = value.slice(0, 3);
+    const normalizedValue = sanitizeDiscountPercentInput(value);
     setDiscountInput(normalizedValue);
-    const discount = Math.min(100, parseInt(normalizedValue, 10) || 0);
+    const discount = parseDiscountPercent(normalizedValue);
     onUpdatePackage(index, { ...row, discount, total: calcTotal(row.price, getSafeQty(row.qty), discount) });
   }
 
   function handleDiscountBlur() {
-    const discount = Math.min(100, Math.max(0, parseInt(discountInput, 10) || 0));
-    setDiscountInput(discount > 0 ? String(discount) : "");
+    const discount = parseDiscountPercent(discountInput);
+    setDiscountInput(formatDiscountPercent(discount));
     onUpdatePackage(index, { ...row, discount, total: calcTotal(row.price, getSafeQty(row.qty), discount) });
   }
 
@@ -861,7 +869,7 @@ function PackageRow({
         className="svc-field__input"
         type="text"
         inputMode="numeric"
-        maxLength={2}
+        maxLength={QTY_INPUT_MAX_LENGTH}
         disabled={frozen}
         placeholder="1"
         value={qtyInput}
@@ -873,12 +881,12 @@ function PackageRow({
       <input
         className="svc-field__input"
         type="text"
-        inputMode="numeric"
-        maxLength={3}
+        inputMode="decimal"
+        maxLength={DISCOUNT_INPUT_MAX_LENGTH}
         disabled={frozen}
         placeholder="0"
         value={discountInput}
-        onChange={(e) => handleDiscountChange(e.target.value.replace(/\D/g, ""))}
+        onChange={(e) => handleDiscountChange(e.target.value)}
         onBlur={handleDiscountBlur}
       />
 
@@ -1375,7 +1383,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     // the shortfall is visible; it's a warning, not a gate.
     userTypedRef.current = false;
     const qty = getSafeQty(row.qty);
-    const discount = parseInt(discountInput, 10) || 0;
+    const discount = parseDiscountPercent(discountInput);
     const price = Number(item.price ?? 0) || 0;
 
     setScanMessage("");
@@ -1405,7 +1413,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   }
 
   function handleQtyChange(value: string) {
-    const normalizedValue = value.slice(0, 2);
+    const normalizedValue = value.slice(0, QTY_INPUT_MAX_LENGTH);
     setQtyInput(normalizedValue);
 
     if (!normalizedValue) { setQtyError(""); return; }
@@ -1413,7 +1421,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
     const qty = parseInt(normalizedValue, 10);
     if (Number.isInteger(qty) && qty > 0) {
       setQtyError(stockErrorFor(qty));
-      const discount = parseInt(discountInput, 10) || 0;
+      const discount = parseDiscountPercent(discountInput);
       updateRow({
         qty,
         total: calcTotal(row.price || 0, qty, discount),
@@ -1423,13 +1431,13 @@ function SearchableItemRow(props: SearchableItemRowProps) {
 
   function handleQtyBlur() {
     const qty = parseInt(qtyInput, 10);
-    let clampedQty = Number.isInteger(qty) && qty > 0 ? Math.min(qty, 99) : 1;
+    let clampedQty = Number.isInteger(qty) && qty > 0 ? Math.min(qty, MAX_LINE_QTY) : 1;
     // Message computed off the pre-clamp value, then kept — it explains why
     // the field just snapped down instead of disappearing the instant it does.
     const message = stockErrorFor(clampedQty);
     if (message) clampedQty = availableStock as number;
     setQtyError(message);
-    const discount = parseInt(discountInput, 10) || 0;
+    const discount = parseDiscountPercent(discountInput);
 
     setQtyInput(String(clampedQty));
     updateRow({
@@ -1441,7 +1449,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   function handlePriceChange(value: string) {
     const price = Math.max(0, parseFloat(value) || 0);
     const qty = getSafeQty(row.qty);
-    const discount = parseInt(discountInput, 10) || 0;
+    const discount = parseDiscountPercent(discountInput);
 
     updateRow({
       price,
@@ -1558,10 +1566,10 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   }
 
   function handleDiscountChange(value: string) {
-    const normalizedValue = value.slice(0, 3);
+    const normalizedValue = sanitizeDiscountPercentInput(value);
     setDiscountInput(normalizedValue);
 
-    const discount = Math.min(100, parseInt(normalizedValue, 10) || 0);
+    const discount = parseDiscountPercent(normalizedValue);
     const qty = getSafeQty(row.qty);
     updateRow({
       discount,
@@ -1570,10 +1578,10 @@ function SearchableItemRow(props: SearchableItemRowProps) {
   }
 
   function handleDiscountBlur() {
-    const discount = Math.min(100, Math.max(0, parseInt(discountInput, 10) || 0));
+    const discount = parseDiscountPercent(discountInput);
     const qty = getSafeQty(row.qty);
 
-    setDiscountInput(discount > 0 ? String(discount) : "");
+    setDiscountInput(formatDiscountPercent(discount));
     updateRow({
       discount,
       total: calcTotal(row.price || 0, qty, discount),
@@ -1729,7 +1737,7 @@ function SearchableItemRow(props: SearchableItemRowProps) {
           className={`svc-field__input${qtyError ? " svc-field__input--error" : ""}`}
           type="text"
           inputMode="numeric"
-          maxLength={2}
+          maxLength={QTY_INPUT_MAX_LENGTH}
           disabled={frozen}
           placeholder="1"
           title={typeof availableStock === "number" && availableStock > 0 ? `${availableStock} in stock` : undefined}
@@ -1742,12 +1750,12 @@ function SearchableItemRow(props: SearchableItemRowProps) {
       <input
         className="svc-field__input"
         type="text"
-        inputMode="numeric"
-        maxLength={3}
+        inputMode="decimal"
+        maxLength={DISCOUNT_INPUT_MAX_LENGTH}
         disabled={frozen}
         placeholder="0"
         value={discountInput}
-        onChange={(e) => handleDiscountChange(e.target.value.replace(/\D/g, ""))}
+        onChange={(e) => handleDiscountChange(e.target.value)}
         onBlur={handleDiscountBlur}
       />
 

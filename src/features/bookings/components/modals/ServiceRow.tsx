@@ -9,6 +9,14 @@ import { Trash, Pencil } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
 import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
 import { IconClock, IconBox, IconTag } from "../../../../components/shared/QuickSaleIcons";
+import {
+  sanitizeDiscountPercentInput,
+  parseDiscountPercent,
+  formatDiscountPercent,
+  DISCOUNT_INPUT_MAX_LENGTH,
+  MAX_LINE_QTY,
+  QTY_INPUT_MAX_LENGTH,
+} from "../../utils/lineItemInput";
 import "../../styles/AppointmentModal.scss";
 
 const MIN_SEARCH_LENGTH = 3;
@@ -472,7 +480,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     pkgRemainingRef.current = remaining;
 
     const qty = getSafeQty(row.qty);
-    const discount = parseFloat(discountInput) || 0;
+    const discount = parseDiscountPercent(discountInput);
     const paidQty = Math.max(0, qty - remaining);
     const effectiveTotal = calcTotal(service.price, paidQty, discount);
 
@@ -513,7 +521,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   function handlePriceChange(value: string) {
     const price = Math.max(0, parseFloat(value) || 0);
     const qty = getSafeQty(row.qty);
-    const discount = parseFloat(discountInput) || 0;
+    const discount = parseDiscountPercent(discountInput);
 
     // Manual price edit overrides package logic
     catalogPriceRef.current = price;
@@ -526,14 +534,14 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   }
 
   function handleQtyChange(value: string) {
-    const normalizedValue = value.slice(0, 2);
+    const normalizedValue = value.slice(0, QTY_INPUT_MAX_LENGTH);
     setQtyInput(normalizedValue);
 
     if (!normalizedValue) return;
 
     const qty = parseInt(normalizedValue, 10);
     if (Number.isInteger(qty) && qty > 0) {
-      const discount = parseFloat(discountInput) || 0;
+      const discount = parseDiscountPercent(discountInput);
       const remaining = pkgRemainingRef.current;
       const catalogPrice = catalogPriceRef.current || (row.price || 0);
       const paidQty = remaining > 0 ? Math.max(0, qty - remaining) : qty;
@@ -547,8 +555,8 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
 
   function handleQtyBlur() {
     const qty = parseInt(qtyInput, 10);
-    const clampedQty = Number.isInteger(qty) && qty > 0 ? Math.min(qty, 99) : 1;
-    const discount = parseFloat(discountInput) || 0;
+    const clampedQty = Number.isInteger(qty) && qty > 0 ? Math.min(qty, MAX_LINE_QTY) : 1;
+    const discount = parseDiscountPercent(discountInput);
 
     setQtyInput(String(clampedQty));
     onChange(row.tempId, "qty", clampedQty);
@@ -563,20 +571,20 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   }
 
   function handleDiscountChange(value: string) {
-    const normalizedValue = value.slice(0, 3);
+    const normalizedValue = sanitizeDiscountPercentInput(value);
     setDiscountInput(normalizedValue);
 
-    const discount = Math.min(100, parseFloat(normalizedValue) || 0);
+    const discount = parseDiscountPercent(normalizedValue);
     const qty = getSafeQty(row.qty);
     onChange(row.tempId, "discount", discount);
     onChange(row.tempId, "total", calcTotal(row.price || 0, qty, discount));
   }
 
   function handleDiscountBlur() {
-    const discount = Math.min(100, Math.max(0, parseFloat(discountInput) || 0));
+    const discount = parseDiscountPercent(discountInput);
     const qty = getSafeQty(row.qty);
 
-    setDiscountInput(discount > 0 ? String(discount) : "");
+    setDiscountInput(formatDiscountPercent(discount));
     onChange(row.tempId, "discount", discount);
     onChange(row.tempId, "total", calcTotal(row.price || 0, qty, discount));
   }
@@ -1087,7 +1095,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
             type="text"
             disabled={disabled}
             inputMode="numeric"
-            maxLength={2}
+            maxLength={QTY_INPUT_MAX_LENGTH}
             placeholder="1"
             value={qtyInput}
             className={`svc-field__input${errorFields.qty ? " svc-field__input--error" : ""}`}
@@ -1102,12 +1110,12 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
           <input
             type="text"
             disabled={disabled}
-            inputMode="numeric"
-            maxLength={3}
+            inputMode="decimal"
+            maxLength={DISCOUNT_INPUT_MAX_LENGTH}
             placeholder="0"
             value={discountInput}
             className="svc-field__input"
-            onChange={(e) => handleDiscountChange(e.target.value.replace(/\D/g, ""))}
+            onChange={(e) => handleDiscountChange(e.target.value)}
             onBlur={handleDiscountBlur}
           />
         </div>
