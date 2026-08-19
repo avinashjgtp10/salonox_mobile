@@ -2,11 +2,15 @@ import Constants from "expo-constants";
 
 const trimTrailingSlash = (value: string) => value.trim().replace(/\/+$/, "");
 
-type PublicEnvKey = "EXPO_PUBLIC_API_BASE_URL" | "EXPO_PUBLIC_SOCKET_URL";
+type PublicEnvKey =
+  | "EXPO_PUBLIC_API_BASE_URL"
+  | "EXPO_PUBLIC_SOCKET_URL"
+  | "EXPO_PUBLIC_WEB_REGISTRATION_URL";
 
 const PUBLIC_ENV: Record<PublicEnvKey, string | undefined> = {
   EXPO_PUBLIC_API_BASE_URL: process.env.EXPO_PUBLIC_API_BASE_URL,
   EXPO_PUBLIC_SOCKET_URL: process.env.EXPO_PUBLIC_SOCKET_URL,
+  EXPO_PUBLIC_WEB_REGISTRATION_URL: process.env.EXPO_PUBLIC_WEB_REGISTRATION_URL,
 };
 
 const readPublicEnv = (key: PublicEnvKey) => {
@@ -23,6 +27,7 @@ export const appEnv = (Constants.expoConfig?.extra?.appEnv as string | undefined
 export const environmentConfig = {
   apiBaseUrl: readPublicEnv("EXPO_PUBLIC_API_BASE_URL"),
   socketUrl: readPublicEnv("EXPO_PUBLIC_SOCKET_URL"),
+  webRegistrationUrl: readPublicEnv("EXPO_PUBLIC_WEB_REGISTRATION_URL"),
 } as const;
 
 // SCRUM-1840: Mobile has no dedicated EXPO_PUBLIC_WEB_APP_URL — the Web app
@@ -31,9 +36,7 @@ export const environmentConfig = {
 // this reuses socketUrl rather than hardcoding a production-only URL (the
 // way WEB_APP_URL in more.tsx/StaffSettingsScreen.tsx does for the
 // environment-agnostic /terms and /about static pages).
-export const webRegistrationUrl = environmentConfig.socketUrl
-  ? `${environmentConfig.socketUrl}/register`
-  : "";
+export const webRegistrationUrl = environmentConfig.webRegistrationUrl;
 
 export const getMissingEnvironmentVariables = () =>
   (Object.keys(PUBLIC_ENV) as PublicEnvKey[]).filter((key) => !PUBLIC_ENV[key]?.trim());

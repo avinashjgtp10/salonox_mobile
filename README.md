@@ -63,6 +63,7 @@ Open in [Expo Go](https://expo.dev/go) on your device or an emulator.
 |---|---|---|
 | `EXPO_PUBLIC_API_BASE_URL` | Yes | Backend API base URL for the active environment |
 | `EXPO_PUBLIC_SOCKET_URL` | Yes | Socket.IO origin URL for the active environment |
+| `EXPO_PUBLIC_WEB_REGISTRATION_URL` | Yes | Web app registration page opened by Create Account |
 | `EXPO_PUBLIC_GOOGLE_MAPS_API_KEY` | Yes | Google Maps API key for Places, Geocoding, and Static Maps |
 
 All `EXPO_PUBLIC_*` variables are inlined by Metro at build time. They are **not** secret and will be included in the app bundle — use server-side API key restrictions (HTTP referrer, app restrictions) to limit their usage.
