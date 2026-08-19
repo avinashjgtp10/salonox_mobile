@@ -440,12 +440,12 @@ export const verifyAllThunk = createAsyncThunk(
 export const fetchCampaignContactsThunk = createAsyncThunk(
   "marketing/fetchCampaignContacts",
   async (
-    args: { id: string | number; page?: number; status?: string },
+    args: { id: string | number; page?: number; limit?: number; status?: string },
     { rejectWithValue }: { rejectWithValue: (v: string) => any }
   ) => {
     try {
-      const { id, page = 1, status } = args;
-      const params: Record<string, any> = { page, limit: 50 };
+      const { id, page = 1, limit = 50, status } = args;
+      const params: Record<string, any> = { page, limit };
       if (status && status !== "ALL") params.status = status;
       const res  = await api.get(MARKETING.CAMPAIGN_CONTACTS(id), { params });
       const data = res.data.data ?? res.data;

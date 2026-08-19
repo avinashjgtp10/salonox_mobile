@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { Eye, EyeOff } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
@@ -77,7 +78,11 @@ export default function WaConfigPage() {
   const [editMode,      setEditMode]      = useState(false);
   const [deleting,      setDeleting]      = useState(false);
   const [confirmOpen,   setConfirmOpen]   = useState(false);
+  const [visibleFields, setVisibleFields] = useState<Record<string, boolean>>({});
   const { showSuccess, showError, overlay } = useStatusOverlay();
+
+  const toggleVisible = (key: string) =>
+    setVisibleFields((prev) => ({ ...prev, [key]: !prev[key] }));
 
   const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`;
 
@@ -219,11 +224,24 @@ export default function WaConfigPage() {
               <div key={f.key} className="wac-field">
                 <label className="wac-label">{f.label}</label>
                 <Input
-                  type={f.type}
+                  type={f.type === "password" && visibleFields[f.key] ? "text" : f.type}
                   placeholder={f.placeholder}
                   value={form[f.key]}
                   containerClass="mb-0"
                   onChange={(e) => up(f.key, e.target.value)}
+                  iconRight={
+                    f.type === "password" ? (
+                      <button
+                        type="button"
+                        className="wac-eye-toggle"
+                        tabIndex={-1}
+                        aria-label={visibleFields[f.key] ? `Hide ${f.label}` : `Show ${f.label}`}
+                        onClick={() => toggleVisible(f.key)}
+                      >
+                        {visibleFields[f.key] ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
+                    ) : undefined
+                  }
                 />
                 <span className="wac-hint">📍 {f.hint}</span>
               </div>

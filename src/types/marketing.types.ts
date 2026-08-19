@@ -201,6 +201,7 @@ export interface DashboardStats {
   totalContacts:   number;
   totalCampaigns:  number;
   activeCampaigns: number;
+  sentToday?:      number;
   dailyVolume:     DailyVolume[];
 }
 
