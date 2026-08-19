@@ -13,6 +13,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { StaffToast } from "@/features/staff/components/StaffToast";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
@@ -134,11 +135,6 @@ export default function StaffProfileScreen() {
       );
       return;
     }
-
-    Alert.alert(
-      nextStatus === "inactive" ? "Staff deactivated" : "Staff reactivated",
-      `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "reactivated"}.`,
-    );
   };
 
   const handleToggleActive = () => {
@@ -443,6 +439,8 @@ export default function StaffProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      <StaffToast />
 
     </SafeAreaView>
   );
