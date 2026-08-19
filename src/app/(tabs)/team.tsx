@@ -22,6 +22,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { StaffToast } from "@/features/staff/components/StaffToast";
 import { StaffCard } from "@/components/team/StaffCard";
 import { SummaryCard } from "@/components/team/SummaryCard";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -329,11 +330,6 @@ export default function TeamScreen() {
       );
       return;
     }
-
-    Alert.alert(
-      nextStatus === "inactive" ? "Staff deactivated" : "Staff reactivated",
-      `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "reactivated"}.`,
-    );
   };
 
   const handleMenuOptionPress = (option: string) => {
@@ -652,6 +648,9 @@ export default function TeamScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <StaffToast />
+
     </SafeAreaView>
   );
 }
