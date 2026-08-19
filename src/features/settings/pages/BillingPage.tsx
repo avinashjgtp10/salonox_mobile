@@ -20,6 +20,7 @@ import Button from "../../../components/ui/Button";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import SettingsSection from "../components/SettingsSection";
 import UpgradeButton from "../../billing/components/UpgradeButton";
+import RazorpayCheckoutButton from "../../billing/components/RazorpayCheckoutButton";
 import api from "../../../services/api/axios";
 import type { SubscriptionPlan } from "../../billing/types/billing.types";
 
@@ -295,7 +296,18 @@ export default function BillingPage() {
                       Current plan
                     </Button>
                   ) : (subPerms.renew_subscription || subPerms.upgrade_subscription || subPerms.downgrade_subscription) ? (
-                    <UpgradeButton plan={plan} />
+                    <div className="d-flex flex-column gap-2">
+                      <UpgradeButton plan={plan} />
+                      <RazorpayCheckoutButton
+                        plan={plan}
+                        onPaid={() => {
+                          if (currentSalon?.id) {
+                            dispatch(fetchSubscriptionThunk(currentSalon.id));
+                            dispatch(fetchInvoicesThunk(currentSalon.id));
+                          }
+                        }}
+                      />
+                    </div>
                   ) : (
                     <Button fullWidth size="sm" variant="outline-secondary" disabled title="Your account does not have permission to change plans">
                       Plan changes disabled
