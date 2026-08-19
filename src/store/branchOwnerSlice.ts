@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { fetchMySalonsThunk } from "../middleware/branchOwner/branchOwner.thunk";
+import { fetchMySalonsThunk, fetchBranchOwnerStatsThunk, fetchBranchOwnerPaymentsThunk } from "../middleware/branchOwner/branchOwner.thunk";
 
 export interface BranchOwnerSalon {
   id: string;
@@ -10,15 +10,47 @@ export interface BranchOwnerSalon {
   created_at: string;
 }
 
+export interface BranchOwnerStats {
+  total_salons: number;
+  active_salons: number;
+  inactive_salons: number;
+  total_staff: number;
+  total_clients: number;
+  total_revenue: number;
+  total_bookings: number;
+  bookings_today: number;
+  revenue_today: number;
+  new_clients_today: number;
+  active_subscriptions: number;
+}
+
+export interface BranchOwnerPayment {
+  id: string;
+  salon_name: string;
+  salon_id?: string;
+  amount: number;
+  status: string;
+  payment_method: string;
+  created_at: string;
+}
+
 interface BranchOwnerState {
   salons: BranchOwnerSalon[];
-  loading: boolean;
+  stats: BranchOwnerStats | null;
+  payments: BranchOwnerPayment[];
+  loading: {
+    salons: boolean;
+    stats: boolean;
+    payments: boolean;
+  };
   error: string | null;
 }
 
 const initialState: BranchOwnerState = {
   salons: [],
-  loading: false,
+  stats: null,
+  payments: [],
+  loading: { salons: false, stats: false, payments: false },
   error: null,
 };
 
@@ -30,9 +62,19 @@ const branchOwnerSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchMySalonsThunk.pending,   (state) => { state.loading = true; })
-      .addCase(fetchMySalonsThunk.fulfilled, (state, { payload }) => { state.loading = false; state.salons = payload; })
-      .addCase(fetchMySalonsThunk.rejected,  (state, { payload }) => { state.loading = false; state.error = payload ?? null; });
+      .addCase(fetchMySalonsThunk.pending,   (state) => { state.loading.salons = true; })
+      .addCase(fetchMySalonsThunk.fulfilled, (state, { payload }) => { state.loading.salons = false; state.salons = payload; })
+      .addCase(fetchMySalonsThunk.rejected,  (state, { payload }) => { state.loading.salons = false; state.error = payload ?? null; });
+
+    builder
+      .addCase(fetchBranchOwnerStatsThunk.pending,   (state) => { state.loading.stats = true; })
+      .addCase(fetchBranchOwnerStatsThunk.fulfilled, (state, { payload }) => { state.loading.stats = false; state.stats = payload; })
+      .addCase(fetchBranchOwnerStatsThunk.rejected,  (state, { payload }) => { state.loading.stats = false; state.error = payload ?? null; });
+
+    builder
+      .addCase(fetchBranchOwnerPaymentsThunk.pending,   (state) => { state.loading.payments = true; })
+      .addCase(fetchBranchOwnerPaymentsThunk.fulfilled, (state, { payload }) => { state.loading.payments = false; state.payments = payload; })
+      .addCase(fetchBranchOwnerPaymentsThunk.rejected,  (state, { payload }) => { state.loading.payments = false; state.error = payload ?? null; });
   },
 });
 

@@ -6,12 +6,16 @@ import { updateOnboardingStatus, logout } from "../../store/authSlice";
 import { refreshSessionThunk } from "../../middleware/auth/authThunk";
 
 const AuthGuard = () => {
-  const { accessToken, refreshToken, isOnboardingComplete, role } = useAppSelector(
+  const { accessToken, refreshToken, isOnboardingComplete, role, impersonatedBy } = useAppSelector(
     (state) => state.auth,
   );
   const dispatch = useAppDispatch();
 
   const isStaff = role === "staff";
+  // Branch owners entering one of their assigned salons always land on an
+  // already-onboarded salon — the token itself carries this, so there's
+  // nothing to verify against the backend for this entry path.
+  const isBranchOwnerEntry = impersonatedBy === "branch_owner";
 
   // ── Phase 1: silent session restore ────────────────────────────────────────
   // accessToken is no longer persisted to localStorage.
@@ -21,8 +25,8 @@ const AuthGuard = () => {
 
   // ── Phase 2: onboarding verification (same as before) ──────────────────────
   const [checking, setChecking] = useState(false);
-  // Staff users skip onboarding entirely
-  const [verified, setVerified] = useState(isOnboardingComplete || isStaff);
+  // Staff users and branch-owner-entered sessions skip onboarding entirely
+  const [verified, setVerified] = useState(isOnboardingComplete || isStaff || isBranchOwnerEntry);
 
   // Phase 1 effect — runs once on mount
   useEffect(() => {
@@ -45,8 +49,8 @@ const AuthGuard = () => {
     if (restoring) return; // wait until phase 1 finishes
     if (!accessToken) return; // will redirect to /login below
 
-    // Staff users never go through onboarding
-    if (isStaff) {
+    // Staff users and branch-owner-entered sessions never go through onboarding
+    if (isStaff || isBranchOwnerEntry) {
       setVerified(true);
       return;
     }

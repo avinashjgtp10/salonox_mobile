@@ -1,6 +1,21 @@
-import { Outlet, useNavigate } from "react-router-dom";
+import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { logout } from "../../../store/authSlice";
+
+const NAV = [
+  {
+    label: "Dashboard", to: "/branch-owner", end: true,
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/></svg>,
+  },
+  {
+    label: "My Salons", to: "/branch-owner/salons",
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>,
+  },
+  {
+    label: "Payments", to: "/branch-owner/payments",
+    icon: <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>,
+  },
+];
 
 export default function BranchOwnerLayout() {
   const dispatch = useAppDispatch();
@@ -51,15 +66,24 @@ export default function BranchOwnerLayout() {
 
         <nav style={{ flex: 1, padding: "12px 12px 0", overflowY: "auto" }}>
           <div style={{ color: "#94a3b8", fontSize: 10.5, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.08em", padding: "0 8px 10px" }}>Main Menu</div>
-          <div style={{
-            display: "flex", alignItems: "center", gap: 10,
-            padding: "9px 12px", borderRadius: 9, marginBottom: 2,
-            color: "#6366f1", background: "#eef2ff",
-            fontSize: 13.5, fontWeight: 600,
-          }}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-            My Salons
-          </div>
+          {NAV.map((item) => (
+            <NavLink
+              key={item.to}
+              to={item.to}
+              end={"end" in item ? (item as any).end : false}
+              style={({ isActive }) => ({
+                display: "flex", alignItems: "center", gap: 10,
+                padding: "9px 12px", borderRadius: 9, marginBottom: 2,
+                color: isActive ? "#6366f1" : "#64748b",
+                background: isActive ? "#eef2ff" : "transparent",
+                textDecoration: "none", fontSize: 13.5, fontWeight: isActive ? 600 : 500,
+                transition: "all 0.15s",
+              })}
+            >
+              {item.icon}
+              {item.label}
+            </NavLink>
+          ))}
         </nav>
 
         <div style={{ padding: "12px 12px 16px", borderTop: "1px solid #f1f5f9" }}>

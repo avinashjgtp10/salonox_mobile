@@ -5,15 +5,18 @@ import { getMySalonThunk } from "../../middleware/salon/salon.thunk";
 import { updateOnboardingStatus } from "../../store/authSlice";
 
 const OnboardingGuard = () => {
-  const { accessToken, isOnboardingComplete, role } = useAppSelector(
+  const { accessToken, isOnboardingComplete, role, impersonatedBy } = useAppSelector(
     (state) => state.auth,
   );
   const dispatch = useAppDispatch();
   const isStaff = role === "staff";
-  const [checking, setChecking] = useState(!isOnboardingComplete && !isStaff && !!accessToken);
+  // Branch-owner-entered salons are always already onboarded — never send
+  // them through this flow.
+  const isBranchOwnerEntry = impersonatedBy === "branch_owner";
+  const [checking, setChecking] = useState(!isOnboardingComplete && !isStaff && !isBranchOwnerEntry && !!accessToken);
 
   useEffect(() => {
-    if (!isOnboardingComplete && !isStaff && accessToken) {
+    if (!isOnboardingComplete && !isStaff && !isBranchOwnerEntry && accessToken) {
       dispatch(getMySalonThunk())
         .unwrap()
         .then((salon) => {
@@ -41,7 +44,7 @@ const OnboardingGuard = () => {
     return null; // Brief loading pause while verifying
   }
 
-  if (isOnboardingComplete || isStaff) {
+  if (isOnboardingComplete || isStaff || isBranchOwnerEntry) {
     return <Navigate to="/dashboard" replace />;
   }
 

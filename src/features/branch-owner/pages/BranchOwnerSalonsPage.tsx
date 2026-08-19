@@ -13,7 +13,8 @@ function Badge({ status }: { status: string }) {
 
 export default function BranchOwnerSalonsPage() {
   const dispatch = useAppDispatch();
-  const { salons, loading } = useAppSelector((s) => s.branchOwner);
+  const { salons, loading: loadingState } = useAppSelector((s) => s.branchOwner);
+  const loading = loadingState.salons;
   const [enteringId, setEnteringId] = useState<string | null>(null);
 
   useEffect(() => { dispatch(fetchMySalonsThunk()); }, [dispatch]);
