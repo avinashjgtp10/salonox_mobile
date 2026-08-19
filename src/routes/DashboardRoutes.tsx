@@ -79,10 +79,8 @@ export const DashboardRoutes = (
         <Route path="analytics" element={<ReportsPage />} />
       </Route>
 
-      {/* Cash Management — requires view_sales */}
-      <Route element={<PermissionGuard permKey="view_sales" />}>
-        <Route path="cash-management" element={<CashManagementPage />} />
-      </Route>
+      {/* Cash Management — no permission gate, visible to all staff/managers */}
+      <Route path="cash-management" element={<CashManagementPage />} />
 
       {/* Quick Sale — requires create_quick_sale */}
       <Route element={<PermissionGuard permKey="create_quick_sale" />}>

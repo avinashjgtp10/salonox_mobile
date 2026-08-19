@@ -29,12 +29,6 @@ export const defaultPermissions: Permission[] = [
   { key: "edit_clients",        label: "Edit Clients",        desc: "Update client information",            category: "Clients",        owner: true,  staff: true,  manager: true },
   { key: "delete_clients",      label: "Delete Clients",      desc: "Remove client records",                category: "Clients",        owner: true,  staff: false, manager: true },
 
-  // ── Sales ─────────────────────────────────────────────────────────────────
-  { key: "view_sales",          label: "View Sales",          desc: "See sales transactions",               category: "Sales",          owner: true,  staff: true,  manager: true },
-  { key: "create_sales",        label: "Create Sales",        desc: "Process sales and payments",           category: "Sales",          owner: true,  staff: true,  manager: true },
-  { key: "edit_sales",          label: "Edit Sales",          desc: "Modify existing transactions",         category: "Sales",          owner: true,  staff: false, manager: true },
-  { key: "refund_sales",        label: "Refund Sales",        desc: "Cancel or refund transactions",        category: "Sales",          owner: true,  staff: false, manager: true },
-
   // ── Catalog › Services ────────────────────────────────────────────────────
   { key: "view_services",       label: "View Services",       desc: "See all salon services",               category: "Catalog", group: "Services",    owner: true, staff: true,  manager: true },
   { key: "create_services",     label: "Create Services",     desc: "Add new services",                     category: "Catalog", group: "Services",    owner: true, staff: false, manager: true },

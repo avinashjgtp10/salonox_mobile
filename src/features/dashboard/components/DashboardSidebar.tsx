@@ -190,19 +190,17 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         </button>
       )}
 
-      {can("view_sales") && (
-        <NavLink
-          to={{
-            pathname: "/dashboard/cash-management",
-          }}
-          state={{ autoloadCashManagement: Date.now() }}
-          className={({ isActive }) => navClass(isActive)}
-          onClick={() => onMenuChange(null)}
-        >
-          <Cash  size={22} />
-          <span className="nav-label">Cash Management</span>
-        </NavLink>
-      )}
+      <NavLink
+        to={{
+          pathname: "/dashboard/cash-management",
+        }}
+        state={{ autoloadCashManagement: Date.now() }}
+        className={({ isActive }) => navClass(isActive)}
+        onClick={() => onMenuChange(null)}
+      >
+        <Cash  size={22} />
+        <span className="nav-label">Cash Management</span>
+      </NavLink>
 
       {can("view_campaigns") && (
         <button
