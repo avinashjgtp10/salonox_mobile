@@ -15,17 +15,44 @@ type FetchDashboardRejectValue = {
   status?: number;
 };
 
+type DashboardFetchResult = {
+  inventoryAlerts: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["inventoryAlerts"];
+  metrics: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["metrics"];
+  quickSaleRevenueToday: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["quickSaleRevenueToday"];
+  quickSaleServices: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["quickSaleServices"];
+  requestedDate: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["requestedDate"];
+  todayAppointments: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["todayAppointments"];
+  topClient: Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>["topClient"];
+  staffRevenueTotal: number;
+};
+
 export const fetchDashboardThunk = createAsyncThunk<
-  Awaited<ReturnType<typeof dashboardService.getOwnerDashboard>>,
+  DashboardFetchResult,
   void,
   { rejectValue: FetchDashboardRejectValue; state: RootState }
 >("dashboard/fetchDashboard", async (_, { getState, rejectWithValue }) => {
   try {
-    const salonId = selectActiveBranchId(getState());
+    const state = getState();
+    const salonId = selectActiveBranchId(state);
 
-    return await timeStartup("Dashboard loading", () =>
-      dashboardService.getOwnerDashboard(new Date(), salonId),
-    );
+    const [ownerDashboard, staffRevenue] = await Promise.all([
+      timeStartup("Dashboard loading", () => dashboardService.getOwnerDashboard(new Date(), salonId)),
+      dashboardService.getStaffRevenue(new Date(), salonId),
+    ]);
+
+    // Use staff revenue total for monthlyRevenue to match Web Dashboard
+    const mergedMetrics = {
+      ...ownerDashboard.metrics,
+      monthlyRevenue: staffRevenue.totalRevenue,
+    };
+
+    const result = {
+      ...ownerDashboard,
+      metrics: mergedMetrics,
+      staffRevenueTotal: staffRevenue.totalRevenue,
+    };
+
+    return result;
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
     const state = getState();

@@ -12,6 +12,7 @@ import type {
   SalonCommissionRecord,
   SalonCommissionSummary,
   SalonEarnedEntry,
+  SettleCommissionResponse,
 } from "@/types/salonCommissions";
 import {
   asRecord,
@@ -42,6 +43,7 @@ type ListApiData =
     };
 type ListApiResponse = ApiResponse<ListApiData>;
 type MarkPaidApiResponse = ApiResponse<unknown>;
+type SettleCommissionApiResponse = ApiResponse<unknown>;
 type BulkConfigureApiData = UnknownRecord | { data?: UnknownRecord | null };
 type BulkConfigureApiResponse = ApiResponse<BulkConfigureApiData>;
 type ExportApiData = UnknownRecord | string | null;
@@ -121,6 +123,19 @@ const getListPagination = (
   return { hasMore, limit, nextOffset, offset };
 };
 
+const toOptionalSafeNumber = (value: unknown): number | undefined => {
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return value;
+  }
+  if (typeof value === "string") {
+    const parsedValue = Number(value);
+    if (Number.isFinite(parsedValue)) {
+      return parsedValue;
+    }
+  }
+  return undefined;
+};
+
 const normalizeRecord = (entry: UnknownRecord, index: number): SalonCommissionRecord => ({
   amount: toSafeNumber(firstValue(entry, ["amount"])),
   id: toSafeString(firstValue(entry, ["id", "_id"]), `commission-${index}`),
@@ -128,6 +143,7 @@ const normalizeRecord = (entry: UnknownRecord, index: number): SalonCommissionRe
   staffId: toSafeString(firstValue(entry, ["staffId", "staff_id"])),
   staffName: getStaffName(entry),
   status: toSafeString(firstValue(entry, ["status"]), "pending"),
+  unpaidAmount: toOptionalSafeNumber(firstValue(entry, ["unpaidAmount", "unpaid_amount", "remainingAmount", "remaining_amount"])),
 });
 
 export const salonCommissionsService = {
@@ -161,6 +177,19 @@ export const salonCommissionsService = {
     return {
       message: response.data.message,
       staffId,
+    };
+  },
+
+  async settleCommission(staffId: string, amount: number): Promise<SettleCommissionResponse> {
+    const response = await api.post<SettleCommissionApiResponse>(STAFF.COMMISSIONS_MARK_PAID(staffId), {
+      amount,
+    });
+
+    return {
+      message: response.data.message,
+      staffId,
+      remainingBalance: toSafeNumber(firstValue(asRecord(response.data.data), ["remainingBalance", "remaining_balance", "unpaidAmount", "unpaid_amount"])),
+      status: toSafeString(firstValue(asRecord(response.data.data), ["status"])),
     };
   },
 

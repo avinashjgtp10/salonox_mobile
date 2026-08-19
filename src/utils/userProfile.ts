@@ -50,6 +50,24 @@ export const canManageStaffLifecycle = (role?: string | null) => {
   return !NON_PRIVILEGED_STAFF_ROLES.includes(normalizedRole);
 };
 
+export const canSettleCommission = (role?: string | null, customPermissions?: string[]) => {
+  const normalizedRole = (role ?? "").trim().toLowerCase();
+
+  if (!normalizedRole) {
+    return true;
+  }
+
+  if (normalizedRole === "owner") {
+    return true;
+  }
+
+  if (customPermissions?.includes("commission.settle")) {
+    return true;
+  }
+
+  return false;
+};
+
 export const getUserInitials = (user: AuthUser | null) => {
   const nameSeed = getUserFullName(user);
   const initials = nameSeed
