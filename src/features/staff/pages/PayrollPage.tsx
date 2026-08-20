@@ -363,10 +363,28 @@ function summarizeCommissionHistory(records: CommissionRecord[], startDate: stri
   }, { ...emptyCommissionSummary });
 }
 
+// The commission-rules list is salon-wide (no staff-specific query params),
+// so every call returns the identical payload. Cache the in-flight/resolved
+// promise at module scope so N staff falling back to fetchRuleMeta in the
+// same payroll load share one request instead of firing N identical ones.
+let commissionRulesRequest: Promise<any[]> | null = null;
+
+function fetchCommissionRules(): Promise<any[]> {
+  if (!commissionRulesRequest) {
+    commissionRulesRequest = api
+      .get(COMMISSION_RULES.BASE)
+      .then((res) => res.data?.data?.items ?? res.data?.data ?? [])
+      .catch((err) => {
+        commissionRulesRequest = null;
+        throw err;
+      });
+  }
+  return commissionRulesRequest;
+}
+
 async function fetchRuleMeta(staffId: string) {
   try {
-    const res = await api.get(COMMISSION_RULES.BASE);
-    const rules = res.data?.data?.items ?? res.data?.data ?? [];
+    const rules = await fetchCommissionRules();
     const rule = Array.isArray(rules)
       ? rules.find((r: any) =>
           r.status !== "draft" &&
