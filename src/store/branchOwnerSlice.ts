@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { fetchMySalonsThunk, fetchBranchOwnerStatsThunk, fetchBranchOwnerPaymentsThunk } from "../middleware/branchOwner/branchOwner.thunk";
+import { fetchMySalonsThunk, fetchBranchOwnerDashboardThunk, fetchBranchOwnerPaymentsThunk } from "../middleware/branchOwner/branchOwner.thunk";
 
 export interface BranchOwnerSalon {
   id: string;
@@ -32,6 +32,14 @@ export interface BranchOwnerPayment {
   status: string;
   payment_method: string;
   created_at: string;
+}
+
+// Shape of GET /api/v1/branch-owner/dashboard — one combined payload for
+// everything BranchOwnerDashboardPage needs, instead of separate calls.
+export interface BranchOwnerDashboard {
+  salons: BranchOwnerSalon[];
+  stats: BranchOwnerStats;
+  payments: BranchOwnerPayment[];
 }
 
 interface BranchOwnerState {
@@ -67,9 +75,25 @@ const branchOwnerSlice = createSlice({
       .addCase(fetchMySalonsThunk.rejected,  (state, { payload }) => { state.loading.salons = false; state.error = payload ?? null; });
 
     builder
-      .addCase(fetchBranchOwnerStatsThunk.pending,   (state) => { state.loading.stats = true; })
-      .addCase(fetchBranchOwnerStatsThunk.fulfilled, (state, { payload }) => { state.loading.stats = false; state.stats = payload; })
-      .addCase(fetchBranchOwnerStatsThunk.rejected,  (state, { payload }) => { state.loading.stats = false; state.error = payload ?? null; });
+      .addCase(fetchBranchOwnerDashboardThunk.pending, (state) => {
+        state.loading.stats = true;
+        state.loading.payments = true;
+      })
+      .addCase(fetchBranchOwnerDashboardThunk.fulfilled, (state, { payload }) => {
+        state.loading.stats = false;
+        state.loading.payments = false;
+        state.stats = payload.stats;
+        state.payments = payload.payments;
+        // The dashboard payload already includes the salon list — keep it in
+        // sync here too so a page that only dispatches this thunk (not also
+        // fetchMySalonsThunk) still has it.
+        if (payload.salons) state.salons = payload.salons;
+      })
+      .addCase(fetchBranchOwnerDashboardThunk.rejected, (state, { payload }) => {
+        state.loading.stats = false;
+        state.loading.payments = false;
+        state.error = payload ?? null;
+      });
 
     builder
       .addCase(fetchBranchOwnerPaymentsThunk.pending,   (state) => { state.loading.payments = true; })

@@ -18,6 +18,13 @@ interface SalonFinanceRow {
   totalCommission: number; pendingPayout: number; paidOut: number;
 }
 interface FinanceOverview { salons: SalonFinanceRow[]; totals: Omit<SalonFinanceRow, "salonId" | "salonName">; }
+interface SalonCashRow {
+  salonId: string; salonName: string;
+  openingBalance: number; cashRevenue: number; cashExpense: number;
+  closingBalance: number; reconciliationAmount: number;
+  totalSessions: number; openSessions: number; closedSessions: number;
+}
+interface CashManagementOverview { salons: SalonCashRow[]; totals: Omit<SalonCashRow, "salonId" | "salonName">; }
 interface StaffCommissionRow {
   staff_id: string; staff_first_name: string; staff_last_name: string | null;
   staff_designation: string | null;
@@ -31,6 +38,9 @@ export default function BranchOwnerFinancePage() {
 
   const [overview, setOverview] = useState<FinanceOverview | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  const [cashOverview, setCashOverview] = useState<CashManagementOverview | null>(null);
+  const [cashLoaded, setCashLoaded] = useState(false);
 
   const [commissionSalonId, setCommissionSalonId] = useState("");
   const [commissions, setCommissions] = useState<StaffCommissionRow[]>([]);
@@ -46,6 +56,13 @@ export default function BranchOwnerFinancePage() {
       .then((r) => setOverview(r.data?.data ?? null))
       .catch(() => setOverview(null))
       .finally(() => setLoaded(true));
+  }, []);
+
+  useEffect(() => {
+    api.get(BRANCH_OWNER.FINANCE_CASH_MANAGEMENT)
+      .then((r) => setCashOverview(r.data?.data ?? null))
+      .catch(() => setCashOverview(null))
+      .finally(() => setCashLoaded(true));
   }, []);
 
   useEffect(() => {
@@ -80,6 +97,7 @@ export default function BranchOwnerFinancePage() {
   }
 
   const salonRowsPage = usePagination(overview?.salons ?? [], 5);
+  const cashRowsPage = usePagination(cashOverview?.salons ?? [], 5);
   const commissionsPage = usePagination(commissions, 6);
 
   if (salons.length === 0) {
@@ -138,6 +156,44 @@ export default function BranchOwnerFinancePage() {
               </tbody>
             </table>
             <BoPagination {...salonRowsPage} />
+          </>)}
+        </SectionCard>
+      </div>
+
+      {/* Cash management across branches */}
+      <div style={{ marginBottom: 16 }}>
+        <SectionCard title="Cash Management" noPadding>
+          {!cashLoaded ? <div style={{ padding: 20 }}><Shimmer h={160} /></div> : (cashOverview?.salons.length ?? 0) === 0 ? (
+            <BoEmptyState icon={<Wallet2 size={26} />} text="No cash counter activity yet." />
+          ) : (<>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, padding: 20 }}>
+              <StatTile icon={<CurrencyRupee size={18} />} label="Cash Revenue" value={fmtMoney(cashOverview?.totals.cashRevenue ?? 0)} variantIndex={0} />
+              <StatTile icon={<GraphUpArrow size={18} />} label="Cash Expense" value={fmtMoney(cashOverview?.totals.cashExpense ?? 0)} variantIndex={1} />
+              <StatTile icon={<Wallet2 size={17} />} label="Closing Balance" value={fmtMoney(cashOverview?.totals.closingBalance ?? 0)} variantIndex={2} />
+              <StatTile icon={<CheckCircleFill size={16} />} label="Open / Closed Sessions" value={`${cashOverview?.totals.openSessions ?? 0} / ${cashOverview?.totals.closedSessions ?? 0}`} variantIndex={3} />
+            </div>
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
+              <thead>
+                <tr style={{ background: "#f8fafc" }}>
+                  {["Salon", "Cash Revenue", "Cash Expense", "Closing Balance", "Reconciliation", "Sessions (Open/Closed)"].map((h) => (
+                    <th key={h} style={{ padding: "10px 20px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {cashRowsPage.pageItems.map((r) => (
+                  <tr key={r.salonId} style={{ borderTop: "1px solid #f8fafc" }}>
+                    <td style={{ padding: "11px 20px", fontWeight: 700, color: "#0f172a" }}>{r.salonName}</td>
+                    <td style={{ padding: "11px 20px", color: "#0f172a", fontWeight: 600 }}>{fmtMoney(r.cashRevenue)}</td>
+                    <td style={{ padding: "11px 20px", color: "#475569" }}>{fmtMoney(r.cashExpense)}</td>
+                    <td style={{ padding: "11px 20px", color: "#475569" }}>{fmtMoney(r.closingBalance)}</td>
+                    <td style={{ padding: "11px 20px", color: r.reconciliationAmount !== 0 ? "#d97706" : "#94a3b8", fontWeight: 600 }}>{fmtMoney(r.reconciliationAmount)}</td>
+                    <td style={{ padding: "11px 20px", color: "#475569" }}>{r.openSessions} / {r.closedSessions}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <BoPagination {...cashRowsPage} />
           </>)}
         </SectionCard>
       </div>

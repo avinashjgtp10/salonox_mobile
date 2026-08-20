@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchMySalonsThunk, fetchBranchOwnerStatsThunk, fetchBranchOwnerPaymentsThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
+import { fetchBranchOwnerDashboardThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
 
 function StatCard({ label, value, sub, icon, bg }: {
   label: string; value: string | number; sub?: string;
@@ -46,9 +46,7 @@ export default function BranchOwnerDashboardPage() {
   const { stats, salons, payments, loading } = useAppSelector((s) => s.branchOwner);
 
   useEffect(() => {
-    dispatch(fetchBranchOwnerStatsThunk());
-    dispatch(fetchMySalonsThunk());
-    dispatch(fetchBranchOwnerPaymentsThunk(undefined));
+    dispatch(fetchBranchOwnerDashboardThunk());
   }, [dispatch]);
 
   const fmt = (n: any) => n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—";
@@ -98,7 +96,7 @@ export default function BranchOwnerDashboardPage() {
             <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#0f172a" }}>My Salons</h3>
             <span style={{ color: "#94a3b8", fontSize: 12 }}>{salons.length} total</span>
           </div>
-          {loading.salons ? (
+          {loading.stats ? (
             <div style={{ padding: 16 }}>{[...Array(4)].map((_, i) => <div key={i} style={{ marginBottom: 6 }}><Shimmer h={36} /></div>)}</div>
           ) : salons.length === 0 ? (
             <div style={{ padding: 32, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No salons assigned yet</div>

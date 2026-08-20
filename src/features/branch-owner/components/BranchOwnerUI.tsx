@@ -10,8 +10,8 @@ import { Pagination as UIPagination } from "../../../components/ui/Pagination";
 // Thin Branch-Owner-flavored wrappers around the app's real shared
 // src/components/ui kit — not a parallel design system. Every one of these
 // just forwards to the real component with sensible defaults for this
-// portal's cards, so every page here (Inventory, Finance, Staff Performance,
-// Membership/Package Sharing) looks like the rest of the app.
+// portal's cards, so every page here (Inventory, Finance, Staff Performance)
+// looks like the rest of the app.
 
 export const inputStyle: React.CSSProperties = {
   width: "100%",

@@ -10,8 +10,6 @@ const BranchOwnerPlaceholderPage = lazy(() => import("../features/branch-owner/p
 const BranchOwnerInventoryPage = lazy(() => import("../features/branch-owner/pages/BranchOwnerInventoryPage"));
 const BranchOwnerFinancePage   = lazy(() => import("../features/branch-owner/pages/BranchOwnerFinancePage"));
 const BranchOwnerStaffPerformancePage = lazy(() => import("../features/branch-owner/pages/BranchOwnerStaffPerformancePage"));
-const BranchOwnerMembershipSharingPage = lazy(() => import("../features/branch-owner/pages/BranchOwnerMembershipSharingPage"));
-const BranchOwnerPackageSharingPage = lazy(() => import("../features/branch-owner/pages/BranchOwnerPackageSharingPage"));
 
 export const BranchOwnerRoutes = (
   <Route element={<BranchOwnerGuard />}>
@@ -23,8 +21,6 @@ export const BranchOwnerRoutes = (
       <Route path="inventory" element={<BranchOwnerInventoryPage />} />
       <Route path="finance" element={<BranchOwnerFinancePage />} />
       <Route path="staff-performance" element={<BranchOwnerStaffPerformancePage />} />
-      <Route path="membership-sharing" element={<BranchOwnerMembershipSharingPage />} />
-      <Route path="package-sharing" element={<BranchOwnerPackageSharingPage />} />
       <Route path="settings" element={<BranchOwnerPlaceholderPage title="Settings" />} />
       <Route path="help" element={<BranchOwnerPlaceholderPage title="Help" />} />
     </Route>

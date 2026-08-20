@@ -1,7 +1,7 @@
 export const BRANCH_OWNER = {
+  DASHBOARD:   "/api/v1/branch-owner/dashboard",
   SALONS:      "/api/v1/branch-owner/salons",
   SALON_ENTER: (id: string) => `/api/v1/branch-owner/salons/${id}/enter`,
-  STATS:       "/api/v1/branch-owner/stats",
   PAYMENTS:    "/api/v1/branch-owner/payments",
   SALON_PRODUCTS: (salonId: string) => `/api/v1/branch-owner/salons/${salonId}/products`,
   SUGGEST_MATCH: "/api/v1/branch-owner/stock-transfer/suggest-match",
@@ -16,14 +16,9 @@ export const BRANCH_OWNER = {
   INVENTORY_CATEGORY_PRODUCTS: (name: string) => `/api/v1/branch-owner/inventory/categories/${encodeURIComponent(name)}/products`,
 
   FINANCE_OVERVIEW: "/api/v1/branch-owner/finance/overview",
+  FINANCE_CASH_MANAGEMENT: "/api/v1/branch-owner/finance/cash-management",
   FINANCE_SALON_COMMISSIONS: (salonId: string) => `/api/v1/branch-owner/finance/salons/${salonId}/commissions`,
   FINANCE_SETTLE_COMMISSION: (salonId: string) => `/api/v1/branch-owner/finance/salons/${salonId}/commissions/settle`,
 
   STAFF_PERFORMANCE: "/api/v1/branch-owner/staff-performance",
-
-  SALON_MEMBERSHIPS: (salonId: string) => `/api/v1/branch-owner/salons/${salonId}/memberships`,
-  MEMBERSHIP_COPY: "/api/v1/branch-owner/memberships/copy",
-
-  SALON_PACKAGES: (salonId: string) => `/api/v1/branch-owner/salons/${salonId}/packages`,
-  PACKAGE_COPY: "/api/v1/branch-owner/packages/copy",
 } as const;
