@@ -11,8 +11,10 @@ import {
   fetchSubscriptionThunk,
   fetchInvoicesThunk,
   cancelSubscriptionThunk,
-} from "../../../middleware/billing/billing.thunk";
-import { setSubscriptionExpired } from "../../../store/billingSlice";
+  fetchPlansThunk,
+  verifySubscriptionThunk,
+  setSubscriptionExpired,
+} from "../../../store/billingSlice";
 import { fetchStaffThunk } from "../../../middleware/staff/staff.thunk";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { getSubscriptionPermissions } from "../utils/subscriptionPermissions";
@@ -20,8 +22,6 @@ import Button from "../../../components/ui/Button";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import SettingsSection from "../components/SettingsSection";
 import UpgradeButton from "../../billing/components/UpgradeButton";
-import api from "../../../services/api/axios";
-import type { SubscriptionPlan } from "../../billing/types/billing.types";
 
 const planIcons: Record<string, React.ReactNode> = {
   starter:    <Zap size={16} color="#6b7280" />,
@@ -32,7 +32,7 @@ const planIcons: Record<string, React.ReactNode> = {
 export default function BillingPage() {
   const dispatch = useAppDispatch();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { subscription, invoices, loading } = useAppSelector((s) => s.billing);
+  const { subscription, invoices, plans, loading } = useAppSelector((s) => s.billing);
   const { currentSalon } = useAppSelector((s) => s.salon);
   const { items: staffList } = useAppSelector((s) => s.staff);
   const settingItems = useAppSelector((s: any) => s.setting.items);
@@ -42,8 +42,6 @@ export default function BillingPage() {
   // requireSubscriptionPermission() (subscriptionPermission.middleware.ts).
   const subPerms = useMemo(() => getSubscriptionPermissions(settingItems), [settingItems]);
 
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-  const [plansLoading, setPlansLoading] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
@@ -57,18 +55,14 @@ export default function BillingPage() {
       toast.loading("Verifying payment...", { id: "verify" });
 
       // Razorpay appends these query params on redirect — pass them to the backend
-      const razorpayPaymentId = searchParams.get("razorpay_payment_id");
-      const razorpaySubscriptionId = searchParams.get("razorpay_subscription_id");
-      const razorpaySignature = searchParams.get("razorpay_signature");
-
-      api.post(`/api/v1/subscriptions/verify/${currentSalon.id}`, {
-        razorpay_payment_id: razorpayPaymentId,
-        razorpay_subscription_id: razorpaySubscriptionId,
-        razorpay_signature: razorpaySignature,
-      })
-        .then((res) => {
-          const status = res.data?.data?.status;
-          if (status === "active") {
+      dispatch(verifySubscriptionThunk({
+        salonId: currentSalon.id,
+        razorpay_payment_id: searchParams.get("razorpay_payment_id"),
+        razorpay_subscription_id: searchParams.get("razorpay_subscription_id"),
+        razorpay_signature: searchParams.get("razorpay_signature"),
+      }))
+        .then((result) => {
+          if (verifySubscriptionThunk.fulfilled.match(result) && result.payload.status === "active") {
             dispatch(setSubscriptionExpired(false));
             dispatch(fetchSubscriptionThunk(currentSalon.id));
             dispatch(fetchInvoicesThunk(currentSalon.id));
@@ -76,12 +70,9 @@ export default function BillingPage() {
             showSuccess("🎉 Subscription activated!");
           } else {
             toast.dismiss("verify");
-            showError(`Payment received but status is: ${status}. Contact support.`);
+            const status = verifySubscriptionThunk.fulfilled.match(result) ? result.payload.status : undefined;
+            showError(status ? `Payment received but status is: ${status}. Contact support.` : "Could not verify payment. Please contact support.");
           }
-        })
-        .catch(() => {
-          toast.dismiss("verify");
-          showError("Could not verify payment. Please contact support.");
         })
         .finally(() => {
           setVerifying(false);
@@ -94,12 +85,8 @@ export default function BillingPage() {
 
   // Fetch plans
   useEffect(() => {
-    setPlansLoading(true);
-    api.get<{ success: boolean; data: SubscriptionPlan[] }>("/api/v1/subscriptions/plans")
-      .then((res) => setPlans(res.data.data))
-      .catch(() => showError("Failed to load plans"))
-      .finally(() => setPlansLoading(false));
-  }, []);
+    dispatch(fetchPlansThunk());
+  }, [dispatch]);
 
   useEffect(() => {
     dispatch(fetchStaffThunk());
@@ -121,7 +108,13 @@ export default function BillingPage() {
     { label: "Analytics reports",       used: 0,                limit: 50,   icon: <BarChart2 size={15} />,    estimate: true },
   ], [staffList.length]);
 
-  const currentPlanId = subscription?.plan_id ?? null;
+  // A subscription row can exist in a not-yet-paid state (e.g. "created",
+  // right after clicking Upgrade but before Razorpay checkout completes —
+  // or if the user backs out of the hosted payment page). Only an
+  // active/trialing subscription actually counts as the current plan;
+  // anything else should still show as unsubscribed / offer Upgrade.
+  const isSubscriptionLive = subscription?.status === "active" || subscription?.status === "trialing";
+  const currentPlanId = isSubscriptionLive ? subscription!.plan_id : null;
 
   const handleCancelPlan = async () => {
     if (!subscription?.id) return;
@@ -185,7 +178,7 @@ export default function BillingPage() {
             Loading subscription…
           </div>
         </div>
-      ) : subscription ? (
+      ) : isSubscriptionLive && subscription ? (
         <div className="settings-billing-plan mb-4">
           <p className="settings-billing-plan-label">Current Plan</p>
           <p className="settings-billing-plan-name">
@@ -198,10 +191,14 @@ export default function BillingPage() {
                 currency (Settings → Configuration → Currency), which only governs
                 how the salon prices its own clients. Do not swap for useCurrency(). */}
             ₹{parseFloat(subscription.total_amount).toLocaleString()} / year
-            &nbsp;·&nbsp; Renews{" "}
-            {new Date(subscription.current_period_end).toLocaleDateString("en-IN", {
-              day: "numeric", month: "short", year: "numeric",
-            })}
+            {subscription.current_period_end && (
+              <>
+                &nbsp;·&nbsp; Renews{" "}
+                {new Date(subscription.current_period_end).toLocaleDateString("en-IN", {
+                  day: "numeric", month: "short", year: "numeric",
+                })}
+              </>
+            )}
           </p>
           {subPerms.cancel_subscription && (
             <div className="settings-billing-plan-actions">
@@ -255,7 +252,7 @@ export default function BillingPage() {
 
       {/* Plans */}
       <SettingsSection title="Available Plans" desc="Upgrade at any time.">
-        {plansLoading ? (
+        {loading.plans ? (
           <p style={{ fontSize: 13, color: "#6b7280" }}>Loading plans…</p>
         ) : plans.length === 0 ? (
           <p style={{ fontSize: 13, color: "#6b7280" }}>No plans available.</p>

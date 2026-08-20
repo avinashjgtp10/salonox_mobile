@@ -369,7 +369,7 @@ export const TESTIMONIALS = [
 export const DEMO_EMAIL = 'support@salonox.com';
 export const DEMO_SUBMIT_URL = `https://formsubmit.co/ajax/${DEMO_EMAIL}`;
 export const WHATSAPP_DEMO_URL = 'https://wa.me/919503302647?text=Hi%20SalonOX%20Team,%20I%20am%20interested%20in%20SalonOX.%20Please%20share%20more%20details%20and%20schedule%20a%20demo.';
-export const OFFICE_MAP_URL = 'https://www.google.com/maps/search/?api=1&query=SalonOX+Tech+Baramati+Maharashtra+413102';
+export const OFFICE_MAP_URL = 'https://www.google.com/maps/search/?api=1&query=123+MG+Road%2C+Koregaon+Park%2C+Pune%2C+Maharashtra+411001%2C+India';
 export const OFFICE_MAP_EMBED_URL = 'https://www.google.com/maps?q=18.16244,74.5814658&z=16&output=embed&hl=en';
 export const DEMO_VIDEO_EMBED_URL = 'https://www.youtube.com/embed/nbyWMKwCYtA?autoplay=1&rel=0';
 

@@ -167,13 +167,11 @@ export default function MarketingDashboardPage() {
   const qualityRating = waConfig?.qualityRating ?? (waConfig as any)?.quality_rating ?? null;
   const isVerified    = waConfig?.isVerified    ?? (waConfig as any)?.is_verified    ?? false;
 
-  const todayStr = new Date().toISOString().slice(0, 10);
-
-  const sentToday = useMemo(() => {
-    return campaigns
-      .filter(c => c.created_at?.slice(0, 10) === todayStr)
-      .reduce((sum, c) => sum + (c.sent_count ?? (c as any).sent ?? 0), 0);
-  }, [campaigns, todayStr]);
+  // sentToday comes from the backend, which sums across every send path —
+  // campaign blasts, automation triggers (thank_you, review_request,
+  // reminders...) and inbox replies — not just campaigns, since all of them
+  // count against Meta's daily cap.
+  const sentToday = stats.sentToday ?? 0;
 
   const usagePct    = dailyLimit > 0 ? Math.min((sentToday / dailyLimit) * 100, 100) : 0;
   const isNearLimit = usagePct >= 80 && usagePct < 100;

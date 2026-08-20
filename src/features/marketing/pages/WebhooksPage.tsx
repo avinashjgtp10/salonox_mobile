@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchWebhookEventsThunk, fetchCampaignsThunk } from "../../../middleware/marketing/marketing.thunk";
-import { Button, Badge } from "../../../components/ui";
+import { Button, Badge, Pagination } from "../../../components/ui";
 import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/WebhooksPage.scss";
 
@@ -31,7 +31,7 @@ const STATUS_MEANINGS: { status: Exclude<StatusFilter, "ALL">; label: string; de
   { status: "BLOCKED",   label: "Blocked",   desc: "Rejected by WhatsApp itself (policy or account-level issue), not a problem with this contact." },
 ];
 
-const PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 10;
 
 function formatTime(d: string | null) {
   if (!d) return "—";
@@ -56,6 +56,7 @@ export default function WebhooksPage() {
   const isLoading = loading.fetchWebhookEvents;
 
   const [page,           setPage]           = useState(1);
+  const [pageSize,       setPageSize]       = useState(DEFAULT_PAGE_SIZE);
   const [statusFilter,   setStatusFilter]   = useState<StatusFilter>("ALL");
   const [campaignFilter, setCampaignFilter] = useState<string>("ALL");
 
@@ -66,11 +67,11 @@ export default function WebhooksPage() {
   const refetch = useCallback(() => {
     dispatch(fetchWebhookEventsThunk({
       page,
-      limit:      PAGE_SIZE,
+      limit:      pageSize,
       status:     statusFilter === "ALL" ? undefined : statusFilter,
       campaignId: campaignFilter === "ALL" ? undefined : campaignFilter,
     }));
-  }, [dispatch, page, statusFilter, campaignFilter]);
+  }, [dispatch, page, pageSize, statusFilter, campaignFilter]);
 
   useEffect(() => {
     refetch();
@@ -78,11 +79,9 @@ export default function WebhooksPage() {
     return () => clearInterval(interval);
   }, [refetch]);
 
-  useEffect(() => { setPage(1); }, [statusFilter, campaignFilter]);
+  useEffect(() => { setPage(1); }, [statusFilter, campaignFilter, pageSize]);
 
   const grandTotal = (counts.SENT ?? 0) + (counts.DELIVERED ?? 0) + (counts.READ ?? 0) + (counts.FAILED ?? 0) + (counts.BLOCKED ?? 0);
-
-  const totalPages = Math.ceil(total / PAGE_SIZE);
 
   const STATUS_FILTERS: { label: string; value: StatusFilter }[] = [
     { label: `All (${grandTotal})`,                    value: "ALL"       },
@@ -217,47 +216,13 @@ export default function WebhooksPage() {
               </table>
             </div>
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="wh-pagination">
-                <span className="wh-pagination-info">
-                  Showing {((page - 1) * PAGE_SIZE) + 1}–{Math.min(page * PAGE_SIZE, total)} of {total}
-                </span>
-                <div className="wh-pagination-btns">
-                  <button
-                    className="wh-page-btn"
-                    disabled={page <= 1}
-                    onClick={() => setPage(p => p - 1)}
-                  >
-                    ← Prev
-                  </button>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(p => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
-                    .map((p, idx, arr) => (
-                      <>
-                        {idx > 0 && arr[idx - 1] !== p - 1 && (
-                          <span key={`ellipsis-${p}`} className="wh-page-ellipsis">…</span>
-                        )}
-                        <button
-                          key={p}
-                          className={`wh-page-btn${page === p ? " wh-page-btn--active" : ""}`}
-                          onClick={() => setPage(p)}
-                        >
-                          {p}
-                        </button>
-                      </>
-                    ))
-                  }
-                  <button
-                    className="wh-page-btn"
-                    disabled={page >= totalPages}
-                    onClick={() => setPage(p => p + 1)}
-                  >
-                    Next →
-                  </button>
-                </div>
-              </div>
-            )}
+            <Pagination
+              currentPage={page}
+              pageSize={pageSize}
+              totalItems={total}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </>
         )}
       </div>

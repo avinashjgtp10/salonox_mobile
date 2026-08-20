@@ -324,6 +324,7 @@ export const ClientPanel: React.FC<Props> = ({
         first_name: addFirst,
         last_name: addLast,
         phone_number: addPhone,
+        phone_country_code: "+91",
         gender: addGender,
       });
       const c = res.data?.data ?? res.data;

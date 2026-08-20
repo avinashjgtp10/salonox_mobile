@@ -181,7 +181,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
   };
 
   const HEADERS = [
-    "Date", "Invoice No.", "Customer", "Contact",
+    "Date", "Invoice No.", "Client Name", "Contact",
     `Total Amount (${currencySymbol})`, `Paid Amount (${currencySymbol})`, `Due Amount (${currencySymbol})`,
     "Payment Method", "Status", "Staff",
   ];
@@ -224,7 +224,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
                 `Total Paid: ${formatAmount(stats.totalCollected)}`,
                 `Total Pending Amount: ${formatAmount(stats.totalPendingAmount)}`,
                 `Total Pending Transactions: ${stats.totalPendingTransactions}`,
-                `Customers With Due: ${stats.totalCustomersWithDue}`,
+                `Clients With Due: ${stats.totalCustomersWithDue}`,
                 `Average Pending Amount: ${formatAmount(stats.averagePendingAmount)}`,
                 `Oldest Pending Payment: ${formatDate(stats.oldestPendingPaymentDate)}`,
                 `Billed: ${formatAmount(stats.totalBilled)} | Collected: ${formatAmount(stats.totalCollected)}`,
@@ -250,7 +250,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
           </div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.totalPendingAmount)}</div><div className="rp-sra-summary-label">Total Pending Amount</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalPendingTransactions}</div><div className="rp-sra-summary-label">Total Pending Transactions</div></div>
-          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalCustomersWithDue}</div><div className="rp-sra-summary-label">Customers With Due Amount</div></div>
+          <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{stats.totalCustomersWithDue}</div><div className="rp-sra-summary-label">Clients With Due Amount</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val">{formatAmount(stats.averagePendingAmount)}</div><div className="rp-sra-summary-label">Average Pending Amount</div></div>
           <div className="rp-sra-summary-card"><div className="rp-sra-summary-val rp-pc-date-val">{formatDate(stats.oldestPendingPaymentDate)}</div><div className="rp-sra-summary-label">Oldest Pending Payment</div></div>
         </div>
@@ -259,7 +259,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
-          <input type="text" className="rp-detail-search-input" placeholder="Customer, phone or invoice no." value={search} onChange={e => setSearchInput(e.target.value)} />
+          <input type="text" className="rp-detail-search-input" placeholder="Client name, phone or invoice no." value={search} onChange={e => setSearchInput(e.target.value)} />
         </div>
       </div>
 
@@ -267,7 +267,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Date</th><th>Invoice No.</th><th>Customer</th><th>Contact</th>
+              <th>Date</th><th>Invoice No.</th><th>Client Name</th><th>Contact</th>
               <th>Total Amount ({currencySymbol})</th>
               <th>Paid Amount ({currencySymbol})</th>
               <th>Due Amount ({currencySymbol})</th>

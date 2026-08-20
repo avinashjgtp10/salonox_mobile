@@ -116,6 +116,7 @@ export const CatalogRoutes = () => (
         <Route path="inventory/suppliers" element={<SuppliersListPage />} />
         <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
         <Route path="inventory/suppliers/edit/:id" element={<AddSupplierPage />} />
+        <Route path="inventory/suppliers/:id/edit" element={<AddSupplierPage />} />
         <Route path="inventory/products" element={<ProductInventoryPage />} />
         <Route path="inventory/consumables" element={<ConsumableInventoryPage />} />
         <Route path="inventory/consumables/add" element={<ProductFormPage />} />

@@ -205,42 +205,6 @@
 .ch-contact-status { font-weight: 600; display: flex; align-items: center; gap: 4px; }
 .ch-contact-hint   { font-size: 11px; cursor: help; }
 
-// ── Contact pagination ────────────────────────────────────────────────────────
-.ch-contact-pagination {
-  display: flex; align-items: center; justify-content: space-between;
-  padding: 14px 0 4px; margin-top: 10px;
-  border-top: 1px solid #f1f3f6;
-}
-.ch-contact-pagination-info { font-size: 11.5px; color: #94a3b8; }
-.ch-contact-pagination-btns { display: flex; align-items: center; gap: 10px; }
-.ch-contact-page-btn {
-  font-size: 11.5px; font-weight: 500; color: #334155;
-  background: #fff; border: 1px solid #e5e7eb;
-  border-radius: 8px; padding: 6px 13px; cursor: pointer; transition: all 0.18s ease;
-  &:hover:not(:disabled) { border-color: #94a3b8; background: #f8fafc; }
-  &:disabled { opacity: 0.4; cursor: not-allowed; }
-}
-.ch-contact-page-num { font-size: 11.5px; color: #64748b; }
-
-// ── Campaign pagination ───────────────────────────────────────────────────────
-.ch-pagination-wrap {
-  margin-top: 20px; padding-top: 4px;
-  display: flex; justify-content: center;
-}
-.ch-pagination {
-  display: flex; align-items: center; gap: 14px;
-  background: #fff; border: 1px solid #eef0f3;
-  border-radius: 14px; padding: 9px 18px;
-  box-shadow: 0 1px 3px rgba(16,24,40,0.04);
-}
-.ch-page-btn {
-  font-size: 12.5px; font-weight: 500; color: #334155;
-  background: #f8fafc; border: 1px solid #e5e7eb;
-  border-radius: 9px; padding: 6px 15px;
-  cursor: pointer; transition: all 0.18s ease;
-  &:hover:not(:disabled) { background: #0f172a; color: #fff; border-color: #0f172a; }
-  &:disabled { opacity: 0.35; cursor: not-allowed; }
-}
-.ch-page-info {
-  font-size: 12.5px; color: #64748b; white-space: nowrap;
-}
+// Pagination (both campaign list and per-campaign contact list) now uses the
+// shared <Pagination> component (components/ui) — its own Pagination.scss
+// covers styling.

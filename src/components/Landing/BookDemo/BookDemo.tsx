@@ -160,7 +160,7 @@ const BookDemo: React.FC<BookDemoProps> = ({
                 rel="noopener noreferrer"
               >
                 <h3>SalonOX Tech</h3>
-                <address>JI Tower, 107, near Lakme Academy, Baramati, Maharashtra 413102</address>
+                <address>123 MG Road, Koregaon Park, Pune, Maharashtra 411001, India</address>
               </a>
               <a
                 href={OFFICE_MAP_URL}

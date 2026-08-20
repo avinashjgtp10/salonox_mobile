@@ -126,7 +126,7 @@ export default function OpenRateDetailModal({ campaign, onClose }: { campaign: O
 
   useEffect(() => { fetchDetail(); }, [fetchDetail]);
 
-  const HEADERS = ["Customer Name", "Mobile", "Sent Date", "Delivered Date", "Opened Date", "Status"];
+  const HEADERS = ["Client Name", "Mobile", "Sent Date", "Delivered Date", "Opened Date", "Status"];
   const exportRows = () => customers.map((c) => [
     c.name, c.phone, fmtDateTime(c.sentAt), fmtDateTime(c.deliveredAt), fmtDateTime(c.readAt),
     STATUS_LABELS[c.status] ?? c.status,
@@ -203,7 +203,7 @@ export default function OpenRateDetailModal({ campaign, onClose }: { campaign: O
             <table className="rp-detail-table">
               <thead>
                 <tr>
-                  <th>Customer Name</th>
+                  <th>Client Name</th>
                   <th>Mobile</th>
                   <th>Sent Date</th>
                   <th>Delivered Date</th>

@@ -1,10 +1,9 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
 import { logout } from "../../../store/authSlice";
+import { fetchPlansThunk } from "../../../store/billingSlice";
 import UpgradeButton from "./UpgradeButton";
-import api from "../../../services/api/axios";
-import type { SubscriptionPlan } from "../types/billing.types";
 
 // A condensed, scannable checklist replaces the old per-category bullet dump
 // (8 headers x 4-8 sub-items each) — same coverage, one line per item instead
@@ -27,8 +26,7 @@ export default function SubscriptionWall() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const role = useAppSelector((s) => s.auth.role);
-  const [plans, setPlans] = useState<SubscriptionPlan[]>([]);
-  const [loading, setLoading] = useState(false);
+  const { plans, loading } = useAppSelector((s) => ({ plans: s.billing.plans, loading: s.billing.loading.plans }));
 
   const isOwnerOrAdmin = role === "salon_owner" || role === "admin";
 
@@ -40,17 +38,9 @@ export default function SubscriptionWall() {
     navigate("/login");
   };
 
-  const loadPlans = () => {
-    setLoading(true);
-    api.get<{ success: boolean; data: SubscriptionPlan[] }>("/api/v1/subscriptions/plans")
-      .then((res) => setPlans(res.data.data))
-      .catch(() => {})
-      .finally(() => setLoading(false));
-  };
-
   useEffect(() => {
-    if (isOwnerOrAdmin) loadPlans();
-  }, [isOwnerOrAdmin]);
+    if (isOwnerOrAdmin) dispatch(fetchPlansThunk());
+  }, [isOwnerOrAdmin, dispatch]);
 
   return (
     <div style={styles.overlay}>

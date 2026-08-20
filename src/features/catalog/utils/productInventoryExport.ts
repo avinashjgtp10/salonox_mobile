@@ -1,6 +1,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
+import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from "../../../utils/dateFormat";
 
 // Export helpers for the Product Inventory page. Kept separate from
 // productExport.ts: that one exports the product CATALOGUE (pricing, GST,
@@ -47,22 +48,9 @@ const fmtQty = (n: unknown) => {
   return Number.isInteger(num) ? String(num) : num.toFixed(2);
 };
 
-const fmtDateTime = (value?: string | null) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return "—";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  const hours = d.getHours();
-  const h12 = hours % 12 || 12;
-  const ampm = hours < 12 ? "AM" : "PM";
-  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()} ${pad(h12)}:${pad(d.getMinutes())} ${ampm}`;
-};
+const fmtDateTime = (value?: string | null) => formatDateTimeDDMMYYYY(value);
 
-const fileStamp = () => {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
-};
+const fileStamp = () => formatDateDDMMYYYY(new Date());
 
 const HEADERS = [
   "#", "Product", "SKU", "Category", "Brand", "In Stock", "Reorder At", "Status", "Last Updated",

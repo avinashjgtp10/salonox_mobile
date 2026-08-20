@@ -1,13 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
-import axios from "axios";
 import { useAppDispatch, useAppSelector } from "./useAppRedux";
-import { setSubscriptionExpired } from "../store/billingSlice";
-import api from "../services/api/axios";
-
-interface SubResp {
-  success: boolean;
-  data: Array<{ status: string; current_period_end: string | null }>;
-}
+import { fetchSubscriptionStatusThunk } from "../store/billingSlice";
 
 // Fetches subscription status once per login/session (plus on genuine
 // salon_id changes) — no recurring polling. accessToken churns multiple
@@ -17,38 +10,22 @@ interface SubResp {
 // unchanged — so this hook must key off token *presence*, not the raw
 // string, and track the last salonId actually fetched separately from the
 // effect deps to avoid re-fetching on that upstream churn.
+//
+// subscriptionExpired itself is derived inside billingSlice's
+// fetchSubscriptionStatusThunk.fulfilled reducer — this hook only decides
+// *when* to fetch, not how to interpret the result. Deliberately NOT
+// fetchSubscriptionThunk: that endpoint returns a single subscription
+// record which may not be the salon's current one (renewals/retries can
+// each leave their own row), so it must never be the sole expiry gate.
 export function useSubscriptionPoller() {
   const dispatch  = useAppDispatch();
   const hasToken  = useAppSelector((s) => !!s.auth.accessToken);
   const salonId   = useAppSelector((s) => s.salon.currentSalon?.id);
 
-  const inFlightRef           = useRef(false);
-  const abortRef              = useRef<AbortController | null>(null);
   const lastFetchedSalonIdRef = useRef<string | null>(null);
 
-  const check = useCallback(async (salon: string) => {
-    if (inFlightRef.current) return;
-    inFlightRef.current = true;
-    abortRef.current?.abort();
-    const ctrl = new AbortController();
-    abortRef.current = ctrl;
-    try {
-      const res = await api.get<SubResp>(`/api/v1/subscriptions/salon/${salon}`, { signal: ctrl.signal });
-      const subs = res.data.data ?? [];
-
-      const hasActive = subs.some((s) => {
-        if (!["active", "trialing"].includes(s.status)) return false;
-        if (!s.current_period_end) return true;
-        return new Date() < new Date(s.current_period_end);
-      });
-
-      dispatch(setSubscriptionExpired(!hasActive));
-    } catch (err) {
-      if (axios.isCancel(err)) return;
-      // Silently ignore — interceptor handles 403
-    } finally {
-      inFlightRef.current = false;
-    }
+  const check = useCallback((salon: string) => {
+    dispatch(fetchSubscriptionStatusThunk(salon));
   }, [dispatch]);
 
   useEffect(() => {

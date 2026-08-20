@@ -53,6 +53,16 @@ function StarRating({ value }: { value: number }) {
   );
 }
 
+// The backend's `contact` field sometimes carries the +91 country code
+// glued onto the number (e.g. "+919876543210"/"919876543210") — the report
+// only ever needs the plain 10-digit number, so strip any leading 91 off a
+// 12-digit run.
+function stripCountryCode(contact: string): string {
+  const digits = contact.replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("91")) return digits.slice(2);
+  return contact.replace(/^\+?91[\s-]?/, "");
+}
+
 // Maps a row from the independent Client Revenue API
 // (POST /api/report/client-revenue — reads sales/clients directly, never
 // the Appointment API) to the table's existing ClientRevenueRow shape.
@@ -60,7 +70,7 @@ function mapRow(row: any): ClientRevenueRow {
   return {
     client: row.client_name || "Walk-in",
     clientId: row.client_id ? String(row.client_id) : "",
-    contact: row.contact || "—",
+    contact: row.contact ? stripCountryCode(row.contact) : "—",
     visits: Number(row.visits) || 0,
     totalSpend: Number(row.total_spend) || 0,
     avgTicket: Number(row.avg_ticket) || 0,

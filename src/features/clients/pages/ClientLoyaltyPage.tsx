@@ -5,6 +5,7 @@ import { CLIENT } from "../../../services/api/endpoints";
 import { Pagination, Loader } from "../../../components/ui";
 import WalletBreakdownModal from "../components/WalletBreakdownModal";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../styles/ClientLoyaltyPage.scss";
 
 interface LoyaltyClientRow {
@@ -176,7 +177,7 @@ export default function ClientLoyaltyPage() {
                     {r.isActive ? "Active" : "Inactive"}
                   </span>
                 </td>
-                <td className="loyalty-muted">{r.createdAt ? r.createdAt.slice(0, 10) : "—"}</td>
+                <td className="loyalty-muted">{formatDateDDMMYYYY(r.createdAt)}</td>
               </tr>
             ))}
           </tbody>

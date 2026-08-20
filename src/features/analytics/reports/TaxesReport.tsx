@@ -186,7 +186,7 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
 
   const avgTaxPerInvoice = stats.invoicesWithTax > 0 ? stats.totalTax / stats.invoicesWithTax : 0;
 
-  const HEADERS = ["Date", "Invoice No", "Customer", `Service Amount (${currencySymbol})`, `Product Amount (${currencySymbol})`, `Package Amount (${currencySymbol})`, `Membership Amount (${currencySymbol})`, `Taxable Amount (${currencySymbol})`, `GST Amount (${currencySymbol})`, `Total Amount (${currencySymbol})`];
+  const HEADERS = ["Date", "Invoice No", "Client Name", `Service Amount (${currencySymbol})`, `Product Amount (${currencySymbol})`, `Package Amount (${currencySymbol})`, `Membership Amount (${currencySymbol})`, `Taxable Amount (${currencySymbol})`, `GST Amount (${currencySymbol})`, `Total Amount (${currencySymbol})`];
   const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.client, r.serviceAmount, r.productAmount, r.packageAmount, r.membershipAmount, r.taxableAmount, r.taxAmount, r.total]);
 
   return (
@@ -231,7 +231,7 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
           <input
             type="text"
             className="rp-detail-search-input"
-            placeholder="Search by customer name or invoice no…"
+            placeholder="Search by client name or invoice no…"
             value={customerFilter}
             onChange={e => setCustomerFilterInput(e.target.value)}
           />
@@ -244,7 +244,7 @@ export default function TaxesReport({ onBack, category, categoryKey }: { onBack:
         <table className="rp-detail-table">
           <thead>
             <tr>
-              <th>Date</th><th>Invoice No</th><th>Customer</th>
+              <th>Date</th><th>Invoice No</th><th>Client Name</th>
               <th>Service Amount ({currencySymbol})</th><th>Product Amount ({currencySymbol})</th>
               <th>Package Amount ({currencySymbol})</th><th>Membership Amount ({currencySymbol})</th>
               <th>Taxable Amount ({currencySymbol})</th>

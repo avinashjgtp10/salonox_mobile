@@ -7,7 +7,7 @@ import {
   resumeCampaignThunk,
   resendCampaignThunk,
 } from "../../../middleware/marketing/marketing.thunk";
-import { Button, Badge, Input, DateRangeFilter } from "../../../components/ui";
+import { Button, Badge, Input, DateRangeFilter, Pagination } from "../../../components/ui";
 import type { DateRangeFilterValue } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import "../styles/CampaignHistoryPage.scss";
@@ -55,7 +55,8 @@ const CONTACT_STATUS_HINT: Record<string, string> = {
 type ContactFilter = "ALL" | "SENT" | "DELIVERED" | "READ" | "FAILED" | "BLOCKED" | "PENDING";
 type StatusFilter  = "ALL" | "RUNNING" | "COMPLETED" | "PAUSED" | "FAILED" | "SCHEDULED";
 
-const PAGE_SIZE = 10;
+const DEFAULT_PAGE_SIZE = 10;
+const DEFAULT_CONTACT_PAGE_SIZE = 50;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -91,6 +92,7 @@ export default function CampaignHistoryPage() {
   const [contactData,  setContactData]  = useState<Record<string, ContactPageData>>({});
   const [loadingId,    setLoadingId]    = useState<string | null>(null);
   const [cntFilter,    setCntFilter]    = useState<Record<string, ContactFilter>>({});
+  const [cntPageSize,  setCntPageSize]  = useState<Record<string, number>>({});
 
   // ── Campaign filters ──────────────────────────────────────────────────────
   const [search,       setSearch]       = useState("");
@@ -98,27 +100,31 @@ export default function CampaignHistoryPage() {
   const [dateRange,    setDateRange]    = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
   const [filtersOpen,  setFiltersOpen]  = useState(false);
   const [page,         setPage]         = useState(1);
+  const [pageSize,     setPageSize]     = useState(DEFAULT_PAGE_SIZE);
 
   // ── Pause / Resume (no useOnce — per-campaign loading state) ─────────────
   const [pausingId,    setPausingId]    = useState<string | null>(null);
   const [resumingId,   setResumingId]   = useState<string | null>(null);
   const [resendingId,  setResendingId]  = useState<string | null>(null);
+  const [exportingId,  setExportingId]  = useState<string | null>(null);
 
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
   useEffect(() => { dispatch(fetchCampaignsThunk()); }, [dispatch]);
-  useEffect(() => { setPage(1); }, [search, statusFilter, dateRange.startDate, dateRange.endDate]);
+  useEffect(() => { setPage(1); }, [search, statusFilter, dateRange.startDate, dateRange.endDate, pageSize]);
 
   // ── Load contacts (server-side paginated) ─────────────────────────────────
   const loadContacts = useCallback(async (
   id:     string,
   pg:     number,
-  status: ContactFilter
+  status: ContactFilter,
+  limit:  number = cntPageSize[id] ?? DEFAULT_CONTACT_PAGE_SIZE
 ) => {
   setLoadingId(id);
   const res = await dispatch(fetchCampaignContactsThunk({
     id,
     page:   pg,
+    limit,
     status: status === "ALL" ? undefined : status,
   }) as any);
   const payload = res?.payload;
@@ -132,10 +138,10 @@ export default function CampaignHistoryPage() {
         totalPages: payload.totalPages ?? 1,
       },
     }));
- 
+
     }
     setLoadingId(null);
-  }, [dispatch]);
+  }, [dispatch, cntPageSize]);
 
   const toggleExpand = async (id: string) => {
   if (expandedId === id) { setExpandedId(null); return; }
@@ -148,6 +154,11 @@ export default function CampaignHistoryPage() {
   const handleFilterTab = (campaignId: string, f: ContactFilter) => {
     setCntFilter(prev => ({ ...prev, [campaignId]: f }));
     loadContacts(campaignId, 1, f);
+  };
+
+  const handleContactPageSizeChange = (campaignId: string, size: number) => {
+    setCntPageSize(prev => ({ ...prev, [campaignId]: size }));
+    loadContacts(campaignId, 1, cntFilter[campaignId] ?? "ALL", size);
   };
 
   const handlePause = async (id: string) => {
@@ -177,6 +188,33 @@ export default function CampaignHistoryPage() {
     setResendingId(null);
   };
 
+  // Export must fetch every contact, not just the current on-screen page —
+  // cd.contacts is capped at whatever page size is selected (default 50),
+  // so exporting that directly silently truncated large campaigns.
+  const handleExport = async (campaign: any) => {
+    const id = String(campaign.id);
+    const cd = contactData[id];
+    if (!cd) return;
+    setExportingId(id);
+    try {
+      const status = cntFilter[id] ?? "ALL";
+      const res = await dispatch(fetchCampaignContactsThunk({
+        id,
+        page:   1,
+        limit:  cd.total || 1,
+        status: status === "ALL" ? undefined : status,
+      }) as any);
+      const payload = res?.payload;
+      if (payload?.contacts) {
+        exportCSV(campaign, payload.contacts);
+      } else {
+        showError("Failed to export contacts");
+      }
+    } finally {
+      setExportingId(null);
+    }
+  };
+
   const pct = (a: number, b: number) => b > 0 ? `${Math.round((a / b) * 100)}%` : "0%";
 
   // ── Campaign filtering + pagination ───────────────────────────────────────
@@ -190,10 +228,9 @@ export default function CampaignHistoryPage() {
     });
   }, [campaigns, statusFilter, search, dateRange.startDate, dateRange.endDate]);
 
-  const totalPages     = Math.ceil(filteredCampaigns.length / PAGE_SIZE);
   const pagedCampaigns = useMemo(() =>
-    filteredCampaigns.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-  [filteredCampaigns, page]);
+    filteredCampaigns.slice((page - 1) * pageSize, page * pageSize),
+  [filteredCampaigns, page, pageSize]);
 
   const hasActiveFilters = !!(search || statusFilter !== "ALL" || dateRange.preset !== "all_time");
   // Just the fields still inside the collapsible Filters panel — date range
@@ -366,7 +403,9 @@ export default function CampaignHistoryPage() {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => exportCSV(c, cd.contacts)}
+                            loading={exportingId === String(c.id)}
+                            disabled={!!exportingId}
+                            onClick={() => handleExport(c)}
                           >
                             ⬇ Export
                           </Button>
@@ -475,30 +514,14 @@ export default function CampaignHistoryPage() {
                           </div>
 
                           {/* Contact pagination */}
-                          {cd.totalPages > 1 && (
-                            <div className="ch-contact-pagination">
-                              <span className="ch-contact-pagination-info">
-                                Showing {((cd.page - 1) * 50) + 1}–{Math.min(cd.page * 50, cd.total)} of {cd.total.toLocaleString("en-IN")} contacts
-                              </span>
-                              <div className="ch-contact-pagination-btns">
-                                <button
-                                  className="ch-contact-page-btn"
-                                  disabled={cd.page <= 1 || loadingId === String(c.id)}
-                                  onClick={() => loadContacts(String(c.id), cd.page - 1, cFilter)}
-                                >
-                                  ← Prev
-                                </button>
-                                <span className="ch-contact-page-num">Page {cd.page} of {cd.totalPages}</span>
-                                <button
-                                  className="ch-contact-page-btn"
-                                  disabled={cd.page >= cd.totalPages || loadingId === String(c.id)}
-                                  onClick={() => loadContacts(String(c.id), cd.page + 1, cFilter)}
-                                >
-                                  Next →
-                                </button>
-                              </div>
-                            </div>
-                          )}
+                          <Pagination
+                            currentPage={cd.page}
+                            pageSize={cntPageSize[String(c.id)] ?? DEFAULT_CONTACT_PAGE_SIZE}
+                            totalItems={cd.total}
+                            onPageChange={(pg) => loadContacts(String(c.id), pg, cFilter)}
+                            onPageSizeChange={(size) => handleContactPageSizeChange(String(c.id), size)}
+                            pageSizeOptions={[25, 50, 100, 200]}
+                          />
                         </>
                       )}
                     </div>
@@ -509,27 +532,13 @@ export default function CampaignHistoryPage() {
           </div>
 
           {/* Campaign pagination */}
-          {totalPages > 1 && (
-            <div className="ch-pagination-wrap">
-              <div className="ch-pagination">
-                <button
-                  className="ch-page-btn"
-                  disabled={page <= 1}
-                  onClick={() => setPage(p => p - 1)}
-                >
-                  ← Prev
-                </button>
-                <span className="ch-page-info">Page {page} of {totalPages} · {filteredCampaigns.length} campaigns</span>
-                <button
-                  className="ch-page-btn"
-                  disabled={page >= totalPages}
-                  onClick={() => setPage(p => p + 1)}
-                >
-                  Next →
-                </button>
-              </div>
-            </div>
-          )}
+          <Pagination
+            currentPage={page}
+            pageSize={pageSize}
+            totalItems={filteredCampaigns.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         </>
       )}
     </div>

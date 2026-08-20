@@ -122,7 +122,7 @@ export default function ReplyRateDetailModal({ campaign, onClose }: { campaign: 
 
   useEffect(() => { fetchDetail(); }, [fetchDetail]);
 
-  const HEADERS = ["Customer Name", "Mobile", "Sent Date", "Delivered Date", "Replied At", "Status"];
+  const HEADERS = ["Client Name", "Mobile", "Sent Date", "Delivered Date", "Replied At", "Status"];
   const exportRows = () => customers.map((c) => [
     c.name, c.phone, formatDateTime(c.sentAt), formatDateTime(c.deliveredAt),
     formatDateTime(c.firstReplyAt),
@@ -199,7 +199,7 @@ export default function ReplyRateDetailModal({ campaign, onClose }: { campaign: 
             <table className="rp-detail-table">
               <thead>
                 <tr>
-                  <th>Customer Name</th>
+                  <th>Client Name</th>
                   <th>Mobile</th>
                   <th>Sent Date</th>
                   <th>Delivered Date</th>

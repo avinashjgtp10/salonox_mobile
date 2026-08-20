@@ -16,7 +16,7 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import "./ClientRevenueReport.scss";
 import "./CustomerSpendReport.scss";
 
-const REPORT_NAME = "VIP Customers";
+const REPORT_NAME = "VIP Clients";
 
 // Starting points only — every salon's ₹ scale differs, so these exist just
 // to make the report render before the owner sets their own.

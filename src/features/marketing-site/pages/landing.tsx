@@ -1142,7 +1142,7 @@ const LandingPage: React.FC = () => {
 
       <Reviews />
 
-      <Pricing scrollToSection={scrollToSection} />
+      <Pricing />
 
       <MobileApp />
 

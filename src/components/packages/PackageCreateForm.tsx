@@ -1,6 +1,6 @@
 // src/components/packages/PackageCreateForm.tsx
 import React, { useState, useEffect, useRef, useMemo } from "react";
-import { Loader2, Search, Plus, X, CalendarClock, Calendar, AlertTriangle } from "lucide-react";
+import { Loader2, Search, Plus, X, CalendarClock, AlertTriangle } from "lucide-react";
 import { useSelector, useDispatch } from "react-redux";
 import styles from "./packages.module.scss";
 import type { ClientPackage, PackageTemplate } from "../../services/api/endpoints/packages.endpoints";
@@ -14,11 +14,12 @@ import { useServices } from "../../features/catalog/hooks/useServices";
 import type { Service } from "../../features/catalog/types/catalog.types";
 import { PaymentMethodPicker, type PaymentSplitEntry } from "../shared/PaymentMethodPicker";
 import { useCurrency } from "../../hooks/useCurrency";
-// Same date/time picker Quick Sale and Calendar use for a package service's
+// Same date/time pickers Quick Sale and Calendar use for a package service's
 // scheduled appointment (ServicesPanel.tsx) — reused directly here instead of
 // this form's own native <input type="date"/"time">, so all three places
 // present scheduling the same way.
 import TimeSelect from "../../features/bookings/components/shared/TimeSelect";
+import { DatePicker } from "../ui";
 
 import type { AppDispatch, RootState } from "../../store/store";
 
@@ -759,14 +760,12 @@ const PackageCreateForm: React.FC<Props> = ({
             </div>
             <div className={styles.formField}>
               <label className={styles.formLabel}>Expiry date</label>
-              <input
-                type="date"
+              <DatePicker
                 value={expiry}
                 min={minExpiryStr}
-                onChange={e => setExpiry(e.target.value)}
-                className={styles.input}
+                onChange={setExpiry}
+                className="dp--block"
                 disabled={neverExpires || isFromTemplate}
-                style={neverExpires || isFromTemplate ? { opacity: 0.4, cursor: "not-allowed" } : undefined}
               />
               <label style={{ display: "flex", alignItems: "center", gap: 6, marginTop: 6, cursor: isFromTemplate ? "not-allowed" : "pointer", fontSize: 12, color: "#6b7280", userSelect: "none" }}>
                 <input
@@ -986,26 +985,12 @@ const PackageCreateForm: React.FC<Props> = ({
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, padding: "8px 10px", background: "#faf5ff", border: "1px solid #e9d5ff", borderRadius: 8 }}>
                   <div className={styles.formField}>
                     <label className={styles.formLabel}>Date</label>
-                    {/* Native date glyph hidden below and replaced with the
-                        Calendar icon, matching ServicesPanel.tsx's package
-                        schedule row — clicking anywhere in the field still
-                        opens the real picker. */}
-                    <div
-                      className={styles.dateInputWrap}
-                      onClick={(e) => {
-                        const input = e.currentTarget.querySelector("input");
-                        try { (input as any)?.showPicker?.(); } catch { /* not user-activated / unsupported — still typable */ }
-                      }}
-                    >
-                      <input
-                        type="date"
-                        min={minScheduleDateStr}
-                        value={svc.scheduleDate}
-                        onChange={e => updateService(svc.id, { scheduleDate: e.target.value })}
-                        className={`${styles.input} ${styles.dateInput}`}
-                      />
-                      <Calendar size={13} className={styles.dateInputIcon} />
-                    </div>
+                    <DatePicker
+                      min={minScheduleDateStr}
+                      value={svc.scheduleDate}
+                      onChange={d => updateService(svc.id, { scheduleDate: d })}
+                      className="dp--block"
+                    />
                   </div>
                   <div className={styles.formField}>
                     <label className={styles.formLabel}>Time</label>

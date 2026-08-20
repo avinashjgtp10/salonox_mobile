@@ -29,6 +29,7 @@ import { getReferralConfig } from "../../../settings/utils/referralSettings";
 import { isRealId } from "../../utils/paymentUtils";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { isPackageExpired } from "../../utils/packageStatus";
+import { sanitizeDecimalInput } from "../../utils/lineItemInput";
 import type { TotalsResult } from "../../utils/totalsUtils";
 import api from "../../../../services/api/axios";
 import { PRICING } from "../../../../services/api/endpoints";
@@ -46,6 +47,7 @@ import { ServicesPanel } from "./ServicesPanel";
 import { AvailableBenefitsPanel, type BenefitCardConfig } from "./AvailableBenefitsPanel";
 import EwalletTopupModal from "../../../clients/components/EwalletTopupModal";
 import StaffTipsModal, { type StaffTipEntry } from "./StaffTipsModal";
+import { ConfirmDialog } from "../../../../components/ui";
 import PackageCreateForm from "../../../../components/packages/PackageCreateForm";
 import type { ClientSearchResult } from "../../../clients/components/ClientSearchInput";
 import { customPackageLineItemToPackageRow } from "../../utils/customPackageItem";
@@ -306,6 +308,11 @@ export const AppointmentModal: React.FC<Props> = ({
   // currently assigned to a row on this bill, each with their own tip
   // amount, similar interaction to the two modals above.
   const [showStaffTipsModal, setShowStaffTipsModal] = useState(false);
+  // "Delete Appointment" is a true hard delete (see onDeleteBooking's
+  // callers) and only ever offered on a paid/partial bill — a stray
+  // misclick on the three-dot menu shouldn't be able to fire it straight
+  // away, so it goes through this confirm step first.
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   // Bumped after a successful top-up to force ClientPanel to refetch this
   // client's real balance from the backend — the eWallet figure on the card
   // is driven by ClientPanel's own useClientDetails() fetch, not clientStats.
@@ -464,6 +471,13 @@ export const AppointmentModal: React.FC<Props> = ({
   }, [involvedStaff, tipBreakdown]);
   const [focusedField, setFocusedField]   = useState<"exCharges" | "tip" | "discountValue" | null>(null);
   const [discountValueWarning, setDiscountValueWarning] = useState<string | null>(null);
+  // Raw text for the Bill Discount / Ex Charges / Tip fields WHILE FOCUSED.
+  // These can't render their numeric state directly: typing "2." parses to 2,
+  // and re-rendering the input from that number wipes the dot before the next
+  // keystroke, so a decimal like 2.5 could never be typed at all. Only the
+  // focused field reads its text here — blurred fields still display the
+  // number, so nothing else has to stay in sync.
+  const [decimalDraft, setDecimalDraft] = useState("");
   // Which buckets the Bill Discount applies to. New bills start with all four
   // ticked — the discount means the whole bill unless staff say otherwise.
   //
@@ -2636,8 +2650,8 @@ export const AppointmentModal: React.FC<Props> = ({
         <div className="field-group">
           <label>Ex Charges</label>
           <input className="fg-input" type="text" inputMode="decimal"
-            value={focusedField === "exCharges" && exCharges === 0 ? "" : exCharges}
-            onFocus={() => setFocusedField("exCharges")}
+            value={focusedField === "exCharges" ? decimalDraft : String(exCharges)}
+            onFocus={() => { setFocusedField("exCharges"); setDecimalDraft(exCharges > 0 ? String(exCharges) : ""); }}
             onBlur={() => setFocusedField(null)}
             onChange={(e) => {
               // Digits and a single decimal point only — a native
@@ -2646,7 +2660,8 @@ export const AppointmentModal: React.FC<Props> = ({
               // the keystroke), so this is a plain text input sanitized by
               // hand instead, matching ServiceRow.tsx's price/qty/discount
               // fields.
-              const cleaned = e.target.value.replace(/[^0-9.]/g, "");
+              const cleaned = sanitizeDecimalInput(e.target.value);
+              setDecimalDraft(cleaned);
               setExCharges(cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0));
             }} />
         </div>
@@ -2655,23 +2670,24 @@ export const AppointmentModal: React.FC<Props> = ({
           <input className="fg-input" type="text" inputMode="decimal"
             readOnly={tipBreakdown.length > 0}
             title={tipBreakdown.length > 0 ? "Split by staff — use \"+ Split Tip by Staff\" above to change" : undefined}
-            value={focusedField === "tip" && tip === 0 ? "" : tip}
-            onFocus={() => { if (tipBreakdown.length === 0) setFocusedField("tip"); }}
+            value={focusedField === "tip" ? decimalDraft : String(tip)}
+            onFocus={() => { if (tipBreakdown.length === 0) { setFocusedField("tip"); setDecimalDraft(tip > 0 ? String(tip) : ""); } }}
             onBlur={() => setFocusedField(null)}
             onChange={(e) => {
               if (tipBreakdown.length > 0) return;
-              const cleaned = e.target.value.replace(/[^0-9.]/g, "");
+              const cleaned = sanitizeDecimalInput(e.target.value);
+              setDecimalDraft(cleaned);
               setTip(cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0));
             }} />
         </div>
         <div className="field-group">
           <label>Bill Discount</label>
           <input className="fg-input" type="text" inputMode="decimal"
-            value={focusedField === "discountValue" && discountValue === 0 ? "" : discountValue}
-            onFocus={() => setFocusedField("discountValue")}
+            value={focusedField === "discountValue" ? decimalDraft : String(discountValue)}
+            onFocus={() => { setFocusedField("discountValue"); setDecimalDraft(discountValue > 0 ? String(discountValue) : ""); }}
             onBlur={() => setFocusedField(null)}
             onChange={(e) => {
-              const cleaned = e.target.value.replace(/[^0-9.]/g, "");
+              const cleaned = sanitizeDecimalInput(e.target.value);
               let num = cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0);
               // A percentage discount can never exceed 100%. A flat (₹)
               // discount can never exceed the DISCOUNTABLE base either —
@@ -2697,6 +2713,9 @@ export const AppointmentModal: React.FC<Props> = ({
                 }
                 else setDiscountValueWarning(null);
               }
+              // Keep the typed text (so a trailing "." survives) unless a cap
+              // above actually changed the value — then show what will apply.
+              setDecimalDraft(num !== Number(cleaned) ? String(num) : cleaned);
               setDiscountValue(num);
             }} />
           {discountValueWarning && <span className="fg-field__err">{discountValueWarning}</span>}
@@ -2920,7 +2939,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     {(existingBooking.status === "paid" || existingBooking.status === "partial") && onDeleteBooking && (
                       <button
                         style={{ ...apptMenuItemStyle, color: "#ef4444" }}
-                        onClick={() => { setHeaderMenuOpen(false); onDeleteBooking(existingBooking); onClose(); }}
+                        onClick={() => { setHeaderMenuOpen(false); setShowDeleteConfirm(true); }}
                       >
                         🗑️ Delete Appointment
                       </button>
@@ -3485,6 +3504,16 @@ export const AppointmentModal: React.FC<Props> = ({
           currencySymbol={currencySymbol}
           onClose={() => setShowStaffTipsModal(false)}
           onSave={handleSaveStaffTips}
+        />
+      )}
+
+      {showDeleteConfirm && existingBooking && (
+        <ConfirmDialog
+          title="Delete this appointment?"
+          message="This permanently deletes the appointment and its billing record. This can't be undone."
+          confirmLabel="Delete"
+          onCancel={() => setShowDeleteConfirm(false)}
+          onConfirm={() => { setShowDeleteConfirm(false); onDeleteBooking?.(existingBooking); onClose(); }}
         />
       )}
     </div>

@@ -27,6 +27,7 @@ const LANGUAGES = [
   { value: "pa_IN", label: "Punjabi" },
 ];
 
+const NAME_LIMIT   = 512; // Meta's own cap on template name length
 const BODY_LIMIT   = 1024;
 const HEADER_LIMIT = 60;
 const FOOTER_LIMIT = 60;
@@ -114,6 +115,7 @@ export default function CreateTemplatePage() {
     const e: Record<string, string> = {};
     if (!form.name.trim()) e.name = "Required";
     else if (!/^[a-z0-9_]+$/.test(form.name)) e.name = "Lowercase, numbers and underscores only";
+    else if (form.name.length > NAME_LIMIT) e.name = `Must be under ${NAME_LIMIT} characters`;
     if (form.bodyText.length < 10) e.bodyText = "At least 10 characters";
     if (headerType === "text" && !headerText.trim()) e.headerText = "Header text required";
     if (["image", "video", "document"].includes(headerType) && !headerFile) e.headerFile = "Please upload a file";
@@ -190,9 +192,12 @@ export default function CreateTemplatePage() {
                 value={form.name}
                 error={errors.name}
                 containerClass="mb-0"
-                onChange={e => up("name", e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+                maxLength={NAME_LIMIT}
+                onChange={e => up("name", e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "").slice(0, NAME_LIMIT))}
               />
-              <span className="ct-hint">Lowercase letters, numbers and underscores only. Cannot be changed after submission.</span>
+              <span className="ct-hint">
+                Lowercase letters, numbers and underscores only. Cannot be changed after submission. ({form.name.length}/{NAME_LIMIT})
+              </span>
             </div>
 
             {/* Category cards */}

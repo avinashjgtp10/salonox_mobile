@@ -12,7 +12,8 @@ import { clearError } from "../../../store/authSlice";
 
 import SplitLayout from "../../../components/ui/SplitLayout";
 import Button from "../../../components/ui/Button";
-import salonImg from "../../../assets/images/salon.jpg";
+import salonImg from "../../../assets/images/dashboard-hero.jpg.png";
+import salonoxLogo from "../../../assets/salonox_full_logo.png";
 import "../styles/ForgotPasswordPage.scss";
 
 const STEPS = { EMAIL: 1, OTP: 2, RESET: 3, SUCCESS: 4 };
@@ -274,8 +275,7 @@ const handleResend = async () => {
 
       <div className="fp-inner">
         <div className="fp-brand">
-          <span className="fp-brand__gem" />
-          salonox
+          <img src={salonoxLogo} alt="SalonOX" className="fp-brand__logo" width="210" height="68" />
         </div>
 
         <div className="fp-step-content" key={step}>
@@ -288,29 +288,6 @@ const handleResend = async () => {
   const RightSection = (
     <div className="fp-right">
       <img src={salonImg} alt="salon" className="fp-right__img" />
-      <div className="fp-right__overlay" />
-      <div className="fp-right__content">
-        <div className="fp-badge">
-          <span className="fp-badge__dot" />
-          Trusted by 10,000+ salons across India
-        </div>
-        <div className="fp-testimonial">
-          <div className="fp-testimonial__stars">
-            {[1, 2, 3, 4, 5].map(i => (
-              <svg key={i} width="15" height="15" viewBox="0 0 24 24" fill="#C9A96E">
-                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-              </svg>
-            ))}
-          </div>
-          <blockquote className="fp-testimonial__quote">
-            "Recovering my account was effortless. The salonox team really thought of everything."
-          </blockquote>
-          <cite>
-            <div className="fp-testimonial__name">Aarti Menon</div>
-            <div className="fp-testimonial__role">Owner, Bliss Salon · Bengaluru</div>
-          </cite>
-        </div>
-      </div>
     </div>
   );
 

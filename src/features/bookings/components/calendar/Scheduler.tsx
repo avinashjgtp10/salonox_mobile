@@ -412,6 +412,7 @@ const SchedulerContent: React.FC = () => {
             onClose={() => setViewingBooking(null)}
             onEdit={(b) => handleForceEdit(b)}
             onCollectDue={handleForceEdit}
+            onDeleteBooking={handleDeleteBooking}
           />
         </Suspense>
       )}

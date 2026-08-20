@@ -77,6 +77,24 @@ const ReportExportButton = ({
     setOpen(false);
   };
 
+  // jsPDF's built-in Helvetica is WinAnsi-encoded, so ₹ (U+20B9) is truncated
+  // to its low byte 0xB9 and prints as "¹" — in column headers like
+  // "Unit Cost (₹)" and in any formatted amount inside a cell. The symbol is
+  // dropped rather than spelled out: the salon only ever bills in one
+  // currency, so the amounts are unambiguous without it.
+  //
+  // Removing it leaves "Unit Cost ()" behind, so a parenthesis left empty by
+  // the removal is dropped with it — but only when empty, so a real note like
+  // "Unit Cost (avg)" keeps its brackets.
+  //
+  // PDF only: the CSV path writes a UTF-8 BOM and XLSX stores UTF-8 natively,
+  // so ₹ renders correctly in those two and must be left alone.
+  const pdfSafe = (v: string | number) =>
+    String(v ?? "")
+      .replace(/₹/g, "")
+      .replace(/\s*\(\s*\)/g, "")
+      .trim();
+
   const exportPdf = () => {
     const data = rows();
     // Real one-click file download (no print dialog, no popup to be
@@ -86,7 +104,7 @@ const ReportExportButton = ({
 
     doc.setFontSize(14);
     doc.setFont("helvetica", "bold");
-    doc.text(title, 14, 16);
+    doc.text(pdfSafe(title), 14, 16);
 
     // Optional metadata block (date range / filters / summary) — only present
     // when the caller passes these props, so startY collapses back to the
@@ -95,20 +113,20 @@ const ReportExportButton = ({
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(80, 80, 80);
-    if (dateRangeLabel) { y += 6; doc.text(`Date Range: ${dateRangeLabel}`, 14, y); }
-    filterLines.forEach(line => { y += 5; doc.text(line, 14, y); });
+    if (dateRangeLabel) { y += 6; doc.text(pdfSafe(`Date Range: ${dateRangeLabel}`), 14, y); }
+    filterLines.forEach(line => { y += 5; doc.text(pdfSafe(line), 14, y); });
     if (summaryLines.length) {
       y += 6;
       doc.setFont("helvetica", "bold");
       doc.text("Summary", 14, y);
       doc.setFont("helvetica", "normal");
-      summaryLines.forEach(line => { y += 5; doc.text(line, 14, y); });
+      summaryLines.forEach(line => { y += 5; doc.text(pdfSafe(line), 14, y); });
     }
     doc.setTextColor(30, 30, 30);
 
     autoTable(doc, {
-      head: [headers],
-      body: data.map(r => r.map(c => String(c ?? ""))),
+      head: [headers.map(pdfSafe)],
+      body: data.map(r => r.map(pdfSafe)),
       startY: y + 6,
       styles: { fontSize: 7.5, cellPadding: 3, overflow: "linebreak", textColor: [30, 30, 30] },
       headStyles: {
