@@ -93,6 +93,7 @@ import type { ValidateCouponResult } from "@/types/coupon";
 import type {
   CheckoutSaleSplitEntry,
   CreateSaleRequest,
+  PosStaffMember,
   SaleDetail,
   SalePaymentMethod,
 } from "@/types/sales";
@@ -174,6 +175,8 @@ export default function QuickSaleScreen() {
   const redemptions = useRedemptions(selectedClient.id, salonId);
   const [isClientStepComplete, setIsClientStepComplete] = useState(Boolean(params.draftId));
   const [hasClientStepSelection, setHasClientStepSelection] = useState(Boolean(params.draftId));
+  const [selectedQuickSaleStaff, setSelectedQuickSaleStaff] = useState<PosStaffMember | null>(null);
+  const [staffSearchQuery, setStaffSearchQuery] = useState("");
   const [clientSearchQuery, setClientSearchQuery] = useState("");
   const [quickSaleClientOptions, setQuickSaleClientOptions] = useState<ClientListItem[]>([]);
   const [quickSaleClientsLoading, setQuickSaleClientsLoading] = useState(false);
@@ -254,6 +257,7 @@ export default function QuickSaleScreen() {
         otherChargesInput,
         overallDiscountInput,
         saleNotes,
+        selectedStaffId: selectedQuickSaleStaff?.id ?? "",
         selectedClientId: selectedClient.id,
         serviceChargeInput,
         tipInput,
@@ -270,6 +274,7 @@ export default function QuickSaleScreen() {
       otherChargesInput,
       overallDiscountInput,
       saleNotes,
+      selectedQuickSaleStaff?.id,
       selectedClient.id,
       serviceChargeInput,
       tipInput,
@@ -350,6 +355,21 @@ export default function QuickSaleScreen() {
     }));
 
     hydrateCart(restoredItems);
+    const restoredStaffId = sale.lineItems.find((item) => item.staffId)?.staffId ?? null;
+    const restoredStaffName = sale.lineItems.find((item) => item.staffName)?.staffName ?? null;
+    setSelectedQuickSaleStaff(
+      restoredStaffId
+        ? {
+            avatarBg: "#e4edf9",
+            avatarColor: "#7488a0",
+            id: restoredStaffId,
+            initials: getClientInitials(restoredStaffName ?? "Staff"),
+            name: restoredStaffName ?? "Selected staff",
+            role: null,
+            status: "Available",
+          }
+        : null,
+    );
     setSelectedClient(
       sale.clientId
         ? {
@@ -787,10 +807,31 @@ export default function QuickSaleScreen() {
     [overallDiscountInput, totals.subtotal],
   );
 
-  // Staff assignment is per line item (matches web), never a silent
-  // fallback to "whoever's first in the branch." The one case that skips the
-  // picker is when there's truly nothing to choose between.
-  const singleEligibleStaff = initData?.staff.length === 1 ? initData.staff[0] : null;
+  const staffOptions = useMemo(() => initData?.staff ?? [], [initData?.staff]);
+  const singleEligibleStaff = staffOptions.length === 1 ? staffOptions[0] : null;
+  const defaultLineStaff = selectedQuickSaleStaff ?? singleEligibleStaff;
+  const trimmedStaffSearchQuery = staffSearchQuery.trim().toLowerCase();
+  const filteredStaffOptions = useMemo(
+    () =>
+      trimmedStaffSearchQuery
+        ? staffOptions.filter((staffMember) =>
+            [staffMember.name, staffMember.role, staffMember.status]
+              .filter(Boolean)
+              .some((value) => String(value).toLowerCase().includes(trimmedStaffSearchQuery)),
+          )
+        : staffOptions,
+    [staffOptions, trimmedStaffSearchQuery],
+  );
+
+  useEffect(() => {
+    if (
+      selectedQuickSaleStaff &&
+      staffOptions.length > 0 &&
+      !staffOptions.some((staffMember) => staffMember.id === selectedQuickSaleStaff.id)
+    ) {
+      setSelectedQuickSaleStaff(null);
+    }
+  }, [selectedQuickSaleStaff, staffOptions]);
 
   const selectedServiceIds = useMemo(
     () =>
@@ -872,23 +913,23 @@ export default function QuickSaleScreen() {
       cart.addItem({
         availableStock: product.stockQuantity,
         category: product.category,
-        defaultStaffId: singleEligibleStaff?.id ?? null,
-        defaultStaffName: singleEligibleStaff?.name ?? null,
+        defaultStaffId: defaultLineStaff?.id ?? null,
+        defaultStaffName: defaultLineStaff?.name ?? null,
         itemId: product.id,
         itemType: "product",
         name: product.name,
         unitPrice: product.price,
       });
     },
-    [cart, singleEligibleStaff],
+    [cart, defaultLineStaff],
   );
 
   const handleSelectPackageResult = useCallback(
     (item: PackageListItem) => {
       cart.addItem({
         category: item.category,
-        defaultStaffId: singleEligibleStaff?.id ?? null,
-        defaultStaffName: singleEligibleStaff?.name ?? null,
+        defaultStaffId: defaultLineStaff?.id ?? null,
+        defaultStaffName: defaultLineStaff?.name ?? null,
         duration: item.durationMinutes ? `${item.durationMinutes} min` : undefined,
         itemId: item.id,
         itemType: "package",
@@ -896,15 +937,15 @@ export default function QuickSaleScreen() {
         unitPrice: item.basePrice,
       });
     },
-    [cart, singleEligibleStaff],
+    [cart, defaultLineStaff],
   );
 
   const handleSelectMembershipResult = useCallback(
     (item: Membership) => {
       cart.addItem({
         category: item.sessionType,
-        defaultStaffId: singleEligibleStaff?.id ?? null,
-        defaultStaffName: singleEligibleStaff?.name ?? null,
+        defaultStaffId: defaultLineStaff?.id ?? null,
+        defaultStaffName: defaultLineStaff?.name ?? null,
         itemId: item.id,
         itemType: "membership",
         name: item.name,
@@ -912,7 +953,7 @@ export default function QuickSaleScreen() {
         unitPrice: item.price,
       });
     },
-    [cart, singleEligibleStaff],
+    [cart, defaultLineStaff],
   );
 
   const handleSelectClientForStep = useCallback((client: ClientListItem | null) => {
@@ -950,6 +991,23 @@ export default function QuickSaleScreen() {
     setClientSearchQuery("");
     setHasClientStepSelection(true);
   }, [hasClientStepSelection, resetCheckoutSubmission, selectedClient.id]);
+
+  const handleSelectQuickSaleStaff = useCallback(
+    (staffMember: PosStaffMember) => {
+      resetCheckoutSubmission();
+      setIsCheckoutVisible(false);
+      setShouldShowCheckoutStaffValidation(false);
+      setSubmitError(null);
+      setSelectedQuickSaleStaff(staffMember);
+      cart.items.forEach((item) => {
+        if (item.itemType !== "quick") {
+          cart.setStaff(item.lineId, staffMember.id, staffMember.name);
+        }
+      });
+      Keyboard.dismiss();
+    },
+    [cart, resetCheckoutSubmission],
+  );
 
   const handleApplyCoupon = useCallback(async () => {
     const trimmedCode = couponCode.trim();
@@ -1220,8 +1278,8 @@ export default function QuickSaleScreen() {
       cart.addItem({
         category: service.category,
         consumables: service.consumablesUsed,
-        defaultStaffId: singleEligibleStaff?.id ?? null,
-        defaultStaffName: singleEligibleStaff?.name ?? null,
+        defaultStaffId: defaultLineStaff?.id ?? null,
+        defaultStaffName: defaultLineStaff?.name ?? null,
         duration: service.durationMinutes ? `${service.durationMinutes} min` : undefined,
         itemId: service.id,
         itemType: "service",
@@ -1239,7 +1297,7 @@ export default function QuickSaleScreen() {
       handleRemoveItem,
       isClientPackageDataReliable,
       recalculatePackageCoverage,
-      singleEligibleStaff,
+      defaultLineStaff,
       visibleActiveClientPackages,
     ],
   );
@@ -1259,8 +1317,8 @@ export default function QuickSaleScreen() {
 
   const getQuickSaleStaff = useCallback(() => {
     const firstServiceStaff = cart.items.find((item) => item.itemType === "service" && item.staffId)?.staffId;
-    return firstServiceStaff ?? cart.items.find((item) => item.staffId)?.staffId ?? null;
-  }, [cart.items]);
+    return firstServiceStaff ?? cart.items.find((item) => item.staffId)?.staffId ?? selectedQuickSaleStaff?.id ?? null;
+  }, [cart.items, selectedQuickSaleStaff?.id]);
 
   const getQuickSaleDurationMinutes = useCallback(() => {
     const serviceDuration = cart.items.reduce((total, item) => {
@@ -2355,6 +2413,93 @@ export default function QuickSaleScreen() {
         </View>
       ) : null}
 
+      <View style={styles.staffSection}>
+        <View style={styles.staffSectionHeader}>
+          <View>
+            <Text style={styles.staffSectionTitle}>3. Select Staff</Text>
+            {selectedQuickSaleStaff ? (
+              <Text numberOfLines={1} style={styles.staffSelectedSummary}>
+                {selectedQuickSaleStaff.name}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
+        <View style={styles.staffSearchWrap}>
+          <Ionicons name="search-outline" size={16} color={Colors.text2} />
+          <TextInput
+            autoCapitalize="none"
+            onChangeText={setStaffSearchQuery}
+            placeholder="Search staff"
+            placeholderTextColor={Colors.placeholder}
+            returnKeyType="search"
+            style={styles.staffSearchInput}
+            value={staffSearchQuery}
+          />
+          {staffSearchQuery ? (
+            <TouchableOpacity
+              accessibilityLabel="Clear staff search"
+              activeOpacity={0.74}
+              onPress={() => setStaffSearchQuery("")}
+            >
+              <Ionicons name="close-circle" size={16} color={Colors.text2} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
+
+        {initLoading && staffOptions.length === 0 ? (
+          <View style={styles.staffStateBlock}>
+            <ActivityIndicator color={Colors.primary} size="small" />
+            <Text style={styles.staffStateText}>Loading staff...</Text>
+          </View>
+        ) : filteredStaffOptions.length === 0 ? (
+          <View style={styles.staffStateBlock}>
+            <Text style={styles.staffStateTitle}>
+              {trimmedStaffSearchQuery ? "No matching staff" : "No staff members found."}
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+            style={styles.staffList}
+          >
+            {filteredStaffOptions.map((staffMember) => {
+              const isSelected = selectedQuickSaleStaff?.id === staffMember.id;
+
+              return (
+                <TouchableOpacity
+                  accessibilityLabel={`Select staff ${staffMember.name}`}
+                  accessibilityRole="button"
+                  activeOpacity={0.84}
+                  key={`quick-sale-staff-${staffMember.id}`}
+                  onPress={() => handleSelectQuickSaleStaff(staffMember)}
+                  style={[styles.staffCard, isSelected && styles.staffCardSelected]}
+                >
+                  <View style={[styles.staffAvatar, { backgroundColor: staffMember.avatarBg }]}>
+                    <Text style={[styles.staffAvatarText, { color: staffMember.avatarColor }]}>
+                      {staffMember.initials}
+                    </Text>
+                  </View>
+                  <Text numberOfLines={1} style={styles.staffName}>
+                    {staffMember.name}
+                  </Text>
+                  <Text numberOfLines={1} style={styles.staffRole}>
+                    {staffMember.role ?? staffMember.status}
+                  </Text>
+                  {isSelected ? (
+                    <View style={styles.staffSelectedIcon}>
+                      <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}
+      </View>
+
       <View style={styles.content}>
           <View style={styles.contentPane}>
             {initLoading && !initData ? (
@@ -2792,6 +2937,131 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.onPrimary,
     fontSize: 11,
     fontWeight: "900",
+  },
+  staffSection: {
+    gap: Spacing.sm,
+    paddingHorizontal: AppLayout.contentHorizontalPadding,
+    paddingTop: Spacing.md,
+  },
+  staffSectionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  staffSectionTitle: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  staffSelectedSummary: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+    maxWidth: 240,
+  },
+  staffSearchWrap: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    minHeight: 46,
+    paddingHorizontal: Spacing.md,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.035,
+    shadowRadius: 14,
+    elevation: 1,
+  },
+  staffSearchInput: {
+    color: Colors.heading,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  staffList: {
+    marginHorizontal: -AppLayout.contentHorizontalPadding,
+    paddingHorizontal: AppLayout.contentHorizontalPadding,
+  },
+  staffCard: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.card,
+    borderWidth: 1,
+    marginRight: Spacing.sm,
+    minHeight: 120,
+    padding: Spacing.md,
+    position: "relative",
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    width: 136,
+    elevation: 1,
+  },
+  staffCardSelected: {
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.primary,
+    borderWidth: 2,
+  },
+  staffAvatar: {
+    alignItems: "center",
+    borderRadius: Radius.full,
+    height: 46,
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
+    width: 46,
+  },
+  staffAvatarText: {
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  staffName: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "800",
+    textAlign: "center",
+    width: "100%",
+  },
+  staffRole: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 3,
+    textAlign: "center",
+    width: "100%",
+  },
+  staffSelectedIcon: {
+    position: "absolute",
+    right: 8,
+    top: 8,
+  },
+  staffStateBlock: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.card,
+    borderWidth: 1,
+    gap: 6,
+    justifyContent: "center",
+    minHeight: 92,
+    padding: Spacing.lg,
+  },
+  staffStateTitle: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  staffStateText: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
   },
   content: {
     flex: 1,

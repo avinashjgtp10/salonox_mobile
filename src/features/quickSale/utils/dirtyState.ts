@@ -12,6 +12,7 @@ export type QuickSaleDirtyStateInput = {
   overallDiscountInput: string;
   saleNotes: string;
   selectedClientId: string;
+  selectedStaffId: string;
   serviceChargeInput: string;
   tipInput: string;
 };
@@ -40,6 +41,7 @@ export const getQuickSaleDirtySignature = ({
   overallDiscountInput,
   saleNotes,
   selectedClientId,
+  selectedStaffId,
   serviceChargeInput,
   tipInput,
 }: QuickSaleDirtyStateInput) =>
@@ -67,6 +69,7 @@ export const getQuickSaleDirtySignature = ({
     overallDiscountInput: normalizeAmountInput(overallDiscountInput),
     saleNotes: normalizeText(saleNotes),
     selectedClientId: normalizeText(selectedClientId),
+    selectedStaffId: normalizeText(selectedStaffId),
     serviceChargeInput: normalizeAmountInput(serviceChargeInput),
     tipInput: normalizeAmountInput(tipInput),
   });
@@ -83,6 +86,7 @@ export const EMPTY_QUICK_SALE_DIRTY_SIGNATURE = getQuickSaleDirtySignature({
   overallDiscountInput: "",
   saleNotes: "",
   selectedClientId: "",
+  selectedStaffId: "",
   serviceChargeInput: "",
   tipInput: "",
 });
