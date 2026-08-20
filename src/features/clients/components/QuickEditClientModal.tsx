@@ -20,6 +20,20 @@ interface Props {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+// Some client records were stored with the country code baked into
+// phone_number itself (e.g. "919876543210") instead of split out into
+// phone_country_code. Strip it back off here so the field — and whatever
+// gets PATCHed back — always holds just the plain 10-digit number, same as
+// a freshly-created client.
+function stripCountryCode(rawPhone: string, countryCode: string): string {
+  const digitsOnly = rawPhone.replace(/\D/g, "");
+  const codeDigits = countryCode.replace(/\D/g, "");
+  if (codeDigits && digitsOnly.length > 10 && digitsOnly.startsWith(codeDigits)) {
+    return digitsOnly.slice(codeDigits.length);
+  }
+  return digitsOnly.slice(-10);
+}
+
 // Same fallback AddClientPage.tsx uses — a client with a day/month on record
 // but no year still needs a valid full date to populate the native date
 // input, so an arbitrary placeholder year fills the gap.
@@ -59,8 +73,9 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved }: Pro
         if (cancelled) return;
         setFirstName(c.first_name || "");
         setLastName(c.last_name || "");
-        setPhone(c.phone_number || "");
-        setPhoneCountryCode(c.phone_country_code || "+91");
+        const countryCode = c.phone_country_code || "+91";
+        setPhone(stripCountryCode(c.phone_number || "", countryCode));
+        setPhoneCountryCode(countryCode);
         setEmail(c.email || "");
         setDob(c.birthday_day_month ? `${c.birthday_year || DOB_PLACEHOLDER_YEAR}-${c.birthday_day_month}` : "");
         setClientSource(c.client_source || "walk_in");

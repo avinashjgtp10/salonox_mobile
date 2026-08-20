@@ -13,6 +13,19 @@ import { toTitleCase } from "../../../utils/titleCase";
 
 const DOB_PLACEHOLDER_YEAR = 2000;
 
+// Some client records were stored with the country code baked into the phone
+// number itself (e.g. "919876543210") instead of split out into its own
+// country-code field. Strip it back off on load so the field — and whatever
+// gets saved back — always holds just the plain 10-digit number.
+function stripCountryCode(rawPhone: string, countryCode: string): string {
+  const digitsOnly = rawPhone.replace(/\D/g, "");
+  const codeDigits = countryCode.replace(/\D/g, "");
+  if (codeDigits && digitsOnly.length > 10 && digitsOnly.startsWith(codeDigits)) {
+    return digitsOnly.slice(codeDigits.length);
+  }
+  return digitsOnly.length > 10 ? digitsOnly.slice(-10) : digitsOnly;
+}
+
 const GENDER_OPTIONS = [
   { id: "Female", name: "Female" },
   { id: "Male", name: "Male" },
@@ -96,12 +109,14 @@ const AddClientPage: React.FC = () => {
         const res = await api.get(CLIENT.BY_ID(id!));
         const c = res.data?.data || res.data;
 
+        const phoneCountryCode = c.phone_country_code || "+91";
+        const additionalPhoneCountryCode = c.additional_phone_country_code || "+91";
         const loaded = {
           firstName: c.first_name || "",
           lastName: c.last_name || "",
           email: c.email || "",
-          phone: c.phone_number || "",
-          phoneCountryCode: c.phone_country_code || "+91",
+          phone: stripCountryCode(c.phone_number || "", phoneCountryCode),
+          phoneCountryCode,
           birthday: c.birthday_day_month
             ? `${c.birthday_year || DOB_PLACEHOLDER_YEAR}-${c.birthday_day_month}`
             : "",
@@ -109,8 +124,8 @@ const AddClientPage: React.FC = () => {
           address: c.address || "",
           gender: c.gender || "",
           clientSource: c.client_source || "walk_in",
-          additionalPhone: c.additional_phone_number || "",
-          additionalPhoneCountryCode: c.additional_phone_country_code || "+91",
+          additionalPhone: stripCountryCode(c.additional_phone_number || "", additionalPhoneCountryCode),
+          additionalPhoneCountryCode,
           referredByCode: "",
         };
         setForm(loaded);
