@@ -33,11 +33,6 @@ export interface TotalsInput {
   taxes: TaxRow[];
   exCharges: number;
   tip: number;
-  // "Add Tip to Salon" checkbox — checked: tip counts toward Grand Total
-  // (staff paid out separately, outside this transaction). Unchecked
-  // (default): tip stays display/record-only, passed straight to staff,
-  // matching pricing.engine.ts's identical flag.
-  addTipToSalon?: boolean;
   couponDiscount: number;
   // First-bill referral welcome discount — unlike couponDiscount above, this
   // is a POST-tax, POST-Svc-Discount deduction (applied after GST and after
@@ -177,9 +172,6 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const {
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, discountAppliesTo, taxes,
-    // `tip` (Staff Tip) only affects the total when addTipToSalon is set —
-    // see withCharges below.
-    tip = 0, addTipToSalon = false,
     exCharges, couponDiscount, referralDiscount = 0, eWalletUsed, membershipWalletUsed = 0,
     membershipServiceWalletUsed = 0, membershipProductWalletUsed = 0,
     rewardPointsRedeemedValue = 0, referralCreditUsed = 0,
@@ -278,13 +270,14 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const manualDiscount = Math.max(0, itemDisc);
 
   const afterSvcDiscount = Math.max(0, billTotal - manualDiscount);
-  // Extra Charges are excluded from the Bill Discount base above — added here,
-  // after the discount, not before. `tip` (Staff Tip) is only added when
-  // addTipToSalon is checked ("Add Tip to Salon") — by default it stays a
-  // display-only, record-only figure shown as its own Sale Summary row,
-  // passed straight to staff, never collected as part of the bill, matching
-  // pricing.engine.ts's identical conditional.
-  const withCharges = afterSvcDiscount + exCharges + (addTipToSalon ? tip : 0);
+  // Extra Charges are excluded from the Bill Discount base above — added
+  // here, after the discount, not before. `tip` (Staff Tip) is NEVER added
+  // to the bill total — it stays a display-only, record-only figure shown
+  // as its own Sale Summary row, passed straight to staff. There was
+  // previously an "Add Tip to Salon" toggle that let it opt into the total;
+  // that control has been removed and this exclusion is now unconditional —
+  // matches pricing.engine.ts's identical (now also unconditional) exclusion.
+  const withCharges = afterSvcDiscount + exCharges;
 
   // Referral Discount is a POST-tax, POST-Svc-Discount deduction — applied
   // here, not folded into the pre-tax coupon discount above.

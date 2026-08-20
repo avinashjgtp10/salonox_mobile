@@ -419,11 +419,11 @@ export const AppointmentModal: React.FC<Props> = ({
   const [discountType, setDiscountType]   = useState<DiscountType>(existingBooking?.discountType || "Percentage (%)");
   const [discountValue, setDiscountValue] = useState(existingBooking?.discount ?? 0);
   const [exCharges, setExCharges]         = useState(existingBooking?.exCharges ?? 0);
+  // Always record-only, passed straight to staff — there was previously an
+  // "Add Tip to Salon" toggle that let it opt into Grand Total/revenue; that
+  // control has been removed, so tip never affects a total (see
+  // totalsUtils.ts's withCharges).
   const [tip, setTip]                     = useState(existingBooking?.tipAmount ?? 0);
-  // "Add Tip to Salon" — checked: tip counts toward Grand Total/salon
-  // revenue (staff paid out separately, outside this transaction).
-  // Unchecked (default): tip stays record-only, passed straight to staff.
-  const [addTipToSalon, setAddTipToSalon] = useState((existingBooking as any)?.tipAddedToSalon ?? false);
   // Optional per-staff split of `tip`, entered via StaffTipsModal — empty
   // when the tip wasn't split (plain single Tip field). `tip` stays the one
   // number the pricing engine/receipt/totals actually use; this is purely
@@ -435,18 +435,19 @@ export const AppointmentModal: React.FC<Props> = ({
   // staff name; package/product/membership rows only carry staffId, so
   // those fall back to a schedulerStaff lookup.
   const involvedStaff = useMemo(() => {
-    const byId = new Map<string, string>();
-    const add = (staffId?: string | null, staffName?: string | null) => {
+    const byId = new Map<string, { staffName: string; items: { label: string; amount: number }[] }>();
+    const add = (staffId: string | undefined | null, staffName: string | undefined | null, label: string, amount: number) => {
       if (!staffId) return;
-      if (byId.has(staffId)) return;
-      const name = staffName || schedulerStaff.find((st: any) => String(st.id) === String(staffId))?.name || "Staff";
-      byId.set(staffId, name);
+      const resolvedName = staffName || schedulerStaff.find((st: any) => String(st.id) === String(staffId))?.name || "Staff";
+      const entry = byId.get(staffId);
+      if (entry) entry.items.push({ label, amount });
+      else byId.set(staffId, { staffName: resolvedName, items: [{ label, amount }] });
     };
-    serviceRows.forEach((r: any) => add(r.staffId, r.staff));
-    packageRows.forEach((r: any) => add(r.staffId));
-    productRows.forEach((r: any) => add(r.staffId));
-    membershipRows.forEach((r: any) => add(r.staffId));
-    return Array.from(byId.entries()).map(([staffId, staffName]) => ({ staffId, staffName }));
+    serviceRows.forEach((r: any) => add(r.staffId, r.staff, r.service || "Service", Number(r.total) || 0));
+    packageRows.forEach((r: any) => add(r.staffId, undefined, r.packageName || "Package", Number(r.total) || 0));
+    productRows.forEach((r: any) => add(r.staffId, undefined, r.productName || "Product", Number(r.total) || 0));
+    membershipRows.forEach((r: any) => add(r.staffId, undefined, r.membershipName || "Membership", Number(r.total) || 0));
+    return Array.from(byId.entries()).map(([staffId, v]) => ({ staffId, staffName: v.staffName, items: v.items }));
   }, [serviceRows, packageRows, productRows, membershipRows, schedulerStaff]);
 
   const handleSaveStaffTips = useCallback((entries: StaffTipEntry[]) => {
@@ -469,6 +470,20 @@ export const AppointmentModal: React.FC<Props> = ({
       setTip(stillValid.reduce((sum, e) => sum + e.amount, 0));
     }
   }, [involvedStaff, tipBreakdown]);
+
+  // tipBreakdown itself (the saved/persisted shape) deliberately doesn't
+  // carry each staff member's service/amount — that's already owned by the
+  // bill's own rows and would just go stale if duplicated onto a separate
+  // saved field. This joins the two live, for the two places that display
+  // the full Staff/Service/Amount/Tip breakdown (the compact summary below
+  // and TotalsPanel), so both read from one derivation instead of two.
+  const tipBreakdownWithItems = useMemo(
+    () => tipBreakdown.map((t) => ({
+      ...t,
+      items: involvedStaff.find((s) => s.staffId === t.staffId)?.items ?? [],
+    })),
+    [tipBreakdown, involvedStaff],
+  );
   const [focusedField, setFocusedField]   = useState<"exCharges" | "tip" | "discountValue" | null>(null);
   const [discountValueWarning, setDiscountValueWarning] = useState<string | null>(null);
   // Raw text for the Bill Discount / Ex Charges / Tip fields WHILE FOCUSED.
@@ -1271,7 +1286,7 @@ export const AppointmentModal: React.FC<Props> = ({
           discountValue,
           discountAppliesTo,
           couponCode: coupon.applied || undefined,
-          exCharges, tip, tipAddedToSalon: addTipToSalon,
+          exCharges, tip, tipAddedToSalon: false,
           includeGst,
           applyEwallet: useEWallet,
           eWalletRequested: useEWallet ? eWalletAmt : 0,
@@ -1324,7 +1339,7 @@ export const AppointmentModal: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     pricingRelevantSignature,
-    discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, includeGst,
+    discountType, discountValue, discountAppliesTo, exCharges, tip, includeGst,
     coupon.applied, coupon.discount,
     // referral.applied: linking a client to a referrer (the "Apply" button on
     // the referral-code field) is its own API call, separate from this bill's
@@ -1799,7 +1814,7 @@ export const AppointmentModal: React.FC<Props> = ({
         discountAppliesTo,
         exCharges,
         tipAmount:     tip,
-        tipAddedToSalon: addTipToSalon,
+        tipAddedToSalon: false,
         tipBreakdown,
         gst:           totals.taxable > 0 ? Number(((totals.gstAmount / totals.taxable) * 100).toFixed(4)) : 0,
         gstAmount:     totals.gstAmount,
@@ -1841,7 +1856,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, dispatch, reconciledEffectiveTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, tipBreakdown, activeTaxes, totals,
+      discountType, discountValue, discountAppliesTo, exCharges, tip, tipBreakdown, activeTaxes, totals,
       onRefresh, onClose]);
 
   const handleUpdate = useCallback(async () => {
@@ -1852,7 +1867,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, tipBreakdown, activeTaxes, totals,
+      discountType, discountValue, discountAppliesTo, exCharges, tip, tipBreakdown, activeTaxes, totals,
       onRefresh, onClose]);
 
   // Reveal the payment section only — does NOT persist anything. The
@@ -1970,7 +1985,7 @@ export const AppointmentModal: React.FC<Props> = ({
     // these; handlePay/handleQuickSaleCheckout must match.
     serviceRows, packageRows, productRows, membershipRows,
     calDate, defaultTime, notes, staffAlert, defaultStaffId,
-    discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, tipBreakdown,
+    discountType, discountValue, discountAppliesTo, exCharges, tip, tipBreakdown,
     reconciledEffectiveTotal, remainingDue, applyMembershipDiscount, applyLoyaltyDiscount,
     includeGst, consumableActuals, isPackageZero,
     printClientExtras, showTaxBreakupOnInvoice, formatAmount,
@@ -3055,24 +3070,32 @@ export const AppointmentModal: React.FC<Props> = ({
                       <span>{currencySymbol}{liveDueAmount.toFixed(2)}</span>
                     </div>
                   )}
-                  {/* Only part of Grand Total/Amount to Pay above when "Add Tip
-                      to Salon" is checked (see totalsUtils.ts's addTipToSalon) —
-                      otherwise display/record-only, passed straight to staff.
-                      Placed after every bill-total row so it reads as separate
-                      info, not part of the running total either way. The
-                      checkbox itself lives in PaymentPanel, next to Include GST. */}
+                  {/* Never part of Grand Total/Amount to Pay above — always
+                      display/record-only, passed straight to staff (see
+                      totalsUtils.ts's withCharges). Placed after every
+                      bill-total row so it reads as separate info. */}
                   {tip > 0 && (
                     <div className="qs-summary-row">
-                      <span>Staff Tip{addTipToSalon ? " (included above)" : ""}</span>
+                      <span>Staff Tip</span>
                       <span>{currencySymbol}{tip.toFixed(2)}</span>
                     </div>
                   )}
-                  {tip > 0 && tipBreakdown.map((t) => (
-                    <div key={t.staffId} className="qs-summary-row qs-summary-row--sub">
-                      <span>{t.staffName}</span>
-                      <span>{currencySymbol}{t.amount.toFixed(2)}</span>
-                    </div>
-                  ))}
+                  {tip > 0 && tipBreakdownWithItems.map((t) => {
+                    const itemsTotal = t.items.reduce((sum, it) => sum + it.amount, 0);
+                    return (
+                      <div key={t.staffId} className="qs-summary-row qs-summary-row--sub qs-summary-row--staff">
+                        <span>
+                          {t.staffName}
+                          {t.items.length > 0 && (
+                            <span className="qs-summary-row__items">
+                              {" "}({t.items.map((it) => it.label).join(", ")} — {currencySymbol}{itemsTotal.toFixed(2)})
+                            </span>
+                          )}
+                        </span>
+                        <span>Tip {currencySymbol}{t.amount.toFixed(2)}</span>
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {showFullyCoveredBanner ? (
@@ -3136,9 +3159,6 @@ export const AppointmentModal: React.FC<Props> = ({
                     includeGst={includeGst}
                     onToggleIncludeGst={setIncludeGst}
                     hasActiveTaxes={activeTaxes.length > 0}
-                    tip={tip}
-                    addTipToSalon={addTipToSalon}
-                    onToggleAddTipToSalon={setAddTipToSalon}
                     previewPoints={previewPoints}
                     previewWalletCredit={previewWalletCredit}
                     frozen={false}
@@ -3207,8 +3227,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         gstAmount={totals.gstAmount}
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
-                        addTipToSalon={addTipToSalon}
-                        tipBreakdown={tipBreakdown}
+                        tipBreakdown={tipBreakdownWithItems}
                         membershipWalletUsed={membershipWalletUsedTotal}
                         ewalletUsed={useEWallet ? eWalletAmt : 0}
                         rewardPointsValue={rewardPointsRedeemedValue}
@@ -3266,8 +3285,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         gstAmount={totals.gstAmount}
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
-                        addTipToSalon={addTipToSalon}
-                        tipBreakdown={tipBreakdown}
+                        tipBreakdown={tipBreakdownWithItems}
                         membershipWalletUsed={membershipWalletUsedTotal}
                         ewalletUsed={useEWallet ? eWalletAmt : 0}
                         rewardPointsValue={rewardPointsRedeemedValue}
@@ -3343,9 +3361,6 @@ export const AppointmentModal: React.FC<Props> = ({
                     includeGst={includeGst}
                     onToggleIncludeGst={setIncludeGst}
                     hasActiveTaxes={activeTaxes.length > 0}
-                    tip={tip}
-                    addTipToSalon={addTipToSalon}
-                    onToggleAddTipToSalon={setAddTipToSalon}
                     previewPoints={previewPoints}
                     previewWalletCredit={previewWalletCredit}
                     frozen={isPaymentFrozen}
@@ -3500,7 +3515,6 @@ export const AppointmentModal: React.FC<Props> = ({
         <StaffTipsModal
           staffOptions={involvedStaff}
           initialBreakdown={tipBreakdown}
-          tipTotal={tip}
           currencySymbol={currencySymbol}
           onClose={() => setShowStaffTipsModal(false)}
           onSave={handleSaveStaffTips}

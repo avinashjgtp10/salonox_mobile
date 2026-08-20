@@ -34,22 +34,18 @@ interface TotalsPanelProps {
   totalDiscount?: number;
   gstAmount?: number;
   taxBreakdown?: TaxBreakdownEntry[];
-  /** Staff Tip — added into Grand Total/Amount to Pay only when
-   *  addTipToSalon is checked (see withCharges below); otherwise display/
-   *  record-only, shown as its own row so the tip given to staff is
-   *  recorded and visible on the receipt/summary. */
+  /** Staff Tip — never part of Grand Total/Amount to Pay (see withCharges
+   *  below); always display/record-only, shown as its own row so the tip
+   *  given to staff is recorded and visible on the receipt/summary. */
   tip?: number;
-  /** "Add Tip to Salon" state — checked: tip counts toward Grand Total,
-   *  staff paid out separately outside this transaction. Unchecked
-   *  (default): tip passes straight to staff, never part of the bill.
-   *  Read-only here — toggled via PaymentPanel's own checkbox, not this
-   *  panel; this just reflects the current state in the Staff Tip row. */
-  addTipToSalon?: boolean;
   /** Optional per-staff split of `tip`, entered via StaffTipsModal — when
    *  present, rendered as indented sub-rows under the Staff Tip row instead
    *  of (or alongside) the single lump figure. Empty/undefined for a plain,
-   *  unsplit tip. */
-  tipBreakdown?: { staffId: string; staffName: string; amount: number }[];
+   *  unsplit tip. `items` is the service/package/product/membership row(s)
+   *  that staff member is handling on this bill (label + amount), joined in
+   *  live by the caller (AppointmentModal's tipBreakdownWithItems) — shown
+   *  so the tip reads as "for what", not just a bare name and number. */
+  tipBreakdown?: { staffId: string; staffName: string; amount: number; items?: { label: string; amount: number }[] }[];
   // ₹ drawn from the client's balances for this bill — each shown as its own
   // deduction line so the discount is visible in the summary itself, not just
   // implied by a smaller "Due" figure with no line item explaining where it
@@ -87,7 +83,7 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   exCharges, discount, discountType, manualDiscount, couponDiscount = 0, couponCode,
   referralDiscount = 0, membershipDiscountUsed = 0,
   totalDiscount: totalDiscountProp,
-  gstAmount = 0, taxBreakdown = [], tip = 0, addTipToSalon = false, tipBreakdown = [],
+  gstAmount = 0, taxBreakdown = [], tip = 0, tipBreakdown = [],
   membershipWalletUsed = 0,
   ewalletUsed = 0, rewardPointsValue = 0, referralCreditUsed = 0,
   alreadyPaid = 0, paidLabel = "Paid", dueAmount = 0, packageServiceCount = 0,
@@ -113,8 +109,8 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   const afterSvcDiscount = Math.max(0, billTotalBeforeSvcDiscount - svcDiscountAmount);
   // Extra Charges are excluded from the Bill Discount base above — added
   // here, after the discount, matching pricing.engine.ts. Staff Tip (`tip`)
-  // is only added when addTipToSalon is checked — see the same engine.
-  const withCharges = afterSvcDiscount + exCharges + (addTipToSalon ? tip : 0);
+  // is NEVER added — always display/record-only, same as the engine.
+  const withCharges = afterSvcDiscount + exCharges;
   // Referral Discount is a POST-tax, POST-Svc-Discount deduction — subtracted
   // here (not folded into the pre-tax coupon discount), matching the engine.
   // Never itself rounded — only the fully-reduced total below is.
@@ -214,25 +210,54 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
           </div>
         ))}
         {/* Staff Tip stays its own footnote-style row, separate from the bill
-            total above — whether that total already includes it (see
-            withCharges) is controlled by the "Add Tip to Salon" checkbox in
-            PaymentPanel, not here; this just reflects its current state. */}
+            total above — never included in it (see withCharges). */}
         {tip > 0 && (
           <div className="d-flex justify-content-between align-items-center py-1 border-top mt-1 pt-2">
             <span className="text-secondary" style={{ fontSize: 12 }}>
-              Staff Tip{addTipToSalon ? " (included above)" : ""}
+              Staff Tip
             </span>
             <span className="fw-semibold text-secondary" style={{ fontSize: 12 }}>
               {currencySymbol}{tip.toFixed(2)}
             </span>
           </div>
         )}
-        {tip > 0 && tipBreakdown.map((t) => (
-          <div key={t.staffId} className="d-flex justify-content-between align-items-center py-1" style={{ paddingLeft: 14 }}>
-            <span className="text-secondary" style={{ fontSize: 11 }}>{t.staffName}</span>
-            <span className="text-secondary" style={{ fontSize: 11 }}>{currencySymbol}{t.amount.toFixed(2)}</span>
+        {/* Per-staff breakdown: name + (service amount + tip) headline, then
+            the service(s) they're handling and the tip itself as indented
+            detail lines — Staff/Service/Amount/Tip laid out as a compact
+            stack rather than a literal table, since this panel is a narrow
+            sidebar. A "Staff Total" line closes it out summing every
+            person's service amount + tip, mirroring the bottom Total row of
+            the split view itself. */}
+        {tip > 0 && tipBreakdown.map((t) => {
+          const items = t.items ?? [];
+          const itemsTotal = items.reduce((sum, it) => sum + it.amount, 0);
+          return (
+            <div key={t.staffId} className="py-1" style={{ paddingLeft: 14 }}>
+              <div className="d-flex justify-content-between align-items-center">
+                <span className="fw-semibold text-secondary" style={{ fontSize: 11.5 }}>{t.staffName}</span>
+                <span className="fw-semibold text-secondary" style={{ fontSize: 11.5 }}>{currencySymbol}{(itemsTotal + t.amount).toFixed(2)}</span>
+              </div>
+              {items.map((it, i) => (
+                <div key={i} className="d-flex justify-content-between align-items-center" style={{ paddingLeft: 10 }}>
+                  <span className="text-secondary" style={{ fontSize: 10.5 }}>{it.label}</span>
+                  <span className="text-secondary" style={{ fontSize: 10.5 }}>{currencySymbol}{it.amount.toFixed(2)}</span>
+                </div>
+              ))}
+              <div className="d-flex justify-content-between align-items-center" style={{ paddingLeft: 10 }}>
+                <span className="text-secondary" style={{ fontSize: 10.5 }}>Tip</span>
+                <span className="text-secondary" style={{ fontSize: 10.5 }}>{currencySymbol}{t.amount.toFixed(2)}</span>
+              </div>
+            </div>
+          );
+        })}
+        {tip > 0 && tipBreakdown.length > 1 && (
+          <div className="d-flex justify-content-between align-items-center py-1 border-top mt-1 pt-1" style={{ paddingLeft: 14 }}>
+            <span className="fw-bold text-secondary" style={{ fontSize: 11.5 }}>Staff Total</span>
+            <span className="fw-bold text-secondary" style={{ fontSize: 11.5 }}>
+              {currencySymbol}{(tipBreakdown.reduce((sum, t) => sum + (t.items ?? []).reduce((s, it) => s + it.amount, 0), 0) + tip).toFixed(2)}
+            </span>
           </div>
-        ))}
+        )}
       </div>
     </div>
   );

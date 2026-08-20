@@ -292,7 +292,9 @@ export function useAppointment() {
         discount_applies_to: (booking as any).discountAppliesTo ?? null,
         ex_charges:     (booking as any).exCharges ?? 0,
         tip_amount:     (booking as any).tipAmount ?? 0,
-        tip_added_to_salon: (booking as any).tipAddedToSalon ?? false,
+        // Always false — the "Add Tip to Salon" toggle that used to set this
+        // has been removed; tip is never counted toward revenue.
+        tip_added_to_salon: false,
         tip_breakdown: ((booking as any).tipBreakdown ?? []).map((t: any) => ({
           staff_id: t.staffId, staff_name: t.staffName, amount: t.amount,
         })),
