@@ -8,6 +8,8 @@ import Dropdown from "../../../../components/ui/Dropdown";
 import { Trash, Pencil } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
 import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
+import { INVENTORY } from "../../../../services/api/endpoints/inventory.endpoints";
+import { getCompatibleUnits, resolveConversionRatio } from "../../../catalog/utils/unitFamilies";
 import { IconClock, IconBox, IconTag } from "../../../../components/shared/QuickSaleIcons";
 import {
   sanitizeDiscountPercentInput,
@@ -764,15 +766,26 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   // service too, same data ConsumablesTab (Services catalog) edits.
   const [addDraft, setAddDraft] = useState<{
     productId: string; productName: string; searchText: string;
-    unit: string; qty: string; showDrop: boolean;
+    // baseUnit is the product's own measure_unit, captured once at
+    // selection and never edited — always what Total Stock is denominated
+    // in. unit is the (editable, dropdown-driven) unit this entry's Qty is
+    // expressed in; starts equal to baseUnit but staff can switch it to any
+    // compatible display unit — see unitOptionsFor below.
+    baseUnit: string; unit: string; qty: string; showDrop: boolean;
     results: Array<{ id: string; name: string; unit: string }>; isSearching: boolean;
   } | null>(null);
   const [addError, setAddError] = useState("");
   const [addSaving, setAddSaving] = useState(false);
   const addDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Per-product configured packaging units (Bottle/Tube/Sachet/...), fetched
+  // lazily once per product as it's selected — same data the Product form's
+  // own "Unit Conversion" section edits (GET .../unit-conversions). Cached
+  // by productId for the lifetime of this modal; never invalidated, since
+  // editing that config mid-booking isn't a flow this screen supports.
+  const [productConversions, setProductConversions] = useState<Record<string, { unit_name: string; conversion_to_base: number }[]>>({});
 
   function startAddConsumable() {
-    setAddDraft({ productId: "", productName: "", searchText: "", unit: "", qty: "1", showDrop: false, results: [], isSearching: false });
+    setAddDraft({ productId: "", productName: "", baseUnit: "", searchText: "", unit: "", qty: "1", showDrop: false, results: [], isSearching: false });
     setAddError("");
   }
 
@@ -813,17 +826,43 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     addDebounceRef.current = setTimeout(() => runAddProductSearch(term), 300);
   }
 
-  // The backend always lowercases measure_unit on save (products.validator.ts
-  // in salon_mgm_backend), so "L" round-trips as "l" — case-insensitively
-  // re-match it against this row's own <option> values, or the <select>
-  // silently shows its placeholder instead of the product's real unit.
-  const ADD_UNIT_OPTIONS = ["ml", "L", "g", "kg", "oz", "pcs"];
-  function normalizeAddUnit(value: string): string {
-    return ADD_UNIT_OPTIONS.find((u) => u.toLowerCase() === value.toLowerCase()) ?? value;
+  // Which units are even offered for logging this product's usage: always
+  // its own base unit, plus the system-fixed unit for that measurement
+  // family (L for ml, kg for gm/g — 1000:1, non-negotiable), plus any
+  // packaging unit (Bottle, Tube, Sachet, Cup, Jar, Packet, Box, Roll) THIS
+  // SPECIFIC product actually has configured. A packaging unit no product
+  // has configured never appears, because there's no known ratio to convert
+  // it with. This only decides what the dropdown OFFERS — the backend
+  // re-derives and enforces the same rule independently at save time (see
+  // appointments.service.ts's flattenServiceConsumables), so this list
+  // being stale or wrong can never corrupt actual stock, only confuse the
+  // picker's own dropdown.
+  function unitOptionsFor(baseUnit: string, productId: string): string[] {
+    if (!baseUnit) return [];
+    const configured = productConversions[productId] ?? [];
+    const compatible = getCompatibleUnits(baseUnit)
+      .filter((u) => u.fixedRatio !== undefined || configured.some((c) => c.unit_name.toLowerCase() === u.name.toLowerCase()))
+      .map((u) => u.name);
+    return [baseUnit, ...compatible];
+  }
+
+  async function fetchProductConversions(productId: string) {
+    if (productConversions[productId]) return;
+    try {
+      const res = await api.get(INVENTORY.CONSUMABLE_UNIT_CONVERSIONS(productId));
+      const rows = res.data?.data ?? [];
+      setProductConversions((prev) => ({ ...prev, [productId]: rows }));
+    } catch {
+      // Non-fatal — the dropdown just falls back to base-unit-only until a
+      // retry (e.g. re-selecting the product) succeeds.
+      setProductConversions((prev) => ({ ...prev, [productId]: [] }));
+    }
   }
 
   function selectAddProduct(product: { id: string; name: string; unit: string }) {
-    setAddDraft((prev) => (prev ? { ...prev, productId: product.id, productName: product.name, unit: product.unit ? normalizeAddUnit(product.unit) : prev.unit, searchText: product.name, showDrop: false, results: [] } : prev));
+    const baseUnit = product.unit || "";
+    setAddDraft((prev) => (prev ? { ...prev, productId: product.id, productName: product.name, baseUnit, unit: baseUnit, searchText: product.name, showDrop: false, results: [] } : prev));
+    if (product.id) fetchProductConversions(product.id);
   }
 
   async function confirmAddConsumable() {
@@ -850,9 +889,14 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
       // be recorded against this bill. Requiring one used to block the whole
       // action with "Save this row's service first".
       const rowQty = getSafeQty(row.qty);
+      // Display-only: the backend independently resolves and enforces this
+      // same ratio at save time (flattenServiceConsumables), so a stale
+      // value here can never mis-deduct — it only affects what this row's
+      // Total/Remaining Stock cells show before that save happens.
+      const ratio = resolveConversionRatio(addDraft.baseUnit, addDraft.unit, productConversions[addDraft.productId] ?? []) ?? 1;
       const newRowConsumables = [
         ...(row.consumables ?? []),
-        { productId: addDraft.productId, productName: addDraft.productName, qty: qty * rowQty, unitQty: qty, unit: addDraft.unit },
+        { productId: addDraft.productId, productName: addDraft.productName, qty: qty * rowQty, unitQty: qty, unit: addDraft.unit, baseUnit: addDraft.baseUnit, unitRatio: ratio },
       ];
       onChange(row.tempId, "consumables", newRowConsumables);
 
@@ -1245,14 +1289,26 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                     // product at all). ?? not || so a genuine 0 isn't treated
                     // as "unknown" and pushed to the cache lookup.
                     const availableStock = c.stock ?? productStockById.get(c.productId);
-                    const remainingStock = (availableStock ?? 0) - actualQty;
-                    const overStock = availableStock !== undefined && actualQty > availableStock;
+                    // Stock is always base-unit — c.baseUnit falls back to
+                    // c.unit because every consumable NOT added through this
+                    // row's own "+ Add Consumable" flow (i.e. everything from
+                    // the service's recipe, via ConsumablesTab) already has
+                    // unit === baseUnit by construction. actualQty is
+                    // whatever's typed in c.unit, so it's converted by
+                    // unitRatio before comparing/subtracting against a
+                    // base-unit stock figure — comparing "1 Bottle" directly
+                    // against "6000 ml" is the exact bug this replaces.
+                    const stockUnit = c.baseUnit ?? c.unit;
+                    const ratio = c.unitRatio ?? 1;
+                    const actualQtyBase = actualQty * ratio;
+                    const remainingStock = (availableStock ?? 0) - actualQtyBase;
+                    const overStock = availableStock !== undefined && actualQtyBase > availableStock;
                     const status = getConsumableStatus(availableStock, remainingStock);
                     return (
                       <div key={c.productId} className="svc-recipe-row svc-recipe-row--full">
                         <span className="svc-recipe-row__name svc-recipe-row__name--truncate" title={c.productName || "—"}>{c.productName || "—"}</span>
                         <span className="svc-recipe-row__configured">
-                          {availableStock !== undefined ? `${availableStock} ${c.unit || ""}` : "—"}
+                          {availableStock !== undefined ? `${availableStock} ${stockUnit || ""}` : "—"}
                         </span>
                         <span className="svc-recipe-row__configured">{c.qty} {c.unit || ""}</span>
                         <div>
@@ -1269,12 +1325,12 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                             onBlur={() => handleActualQtyBlur(c.productId)}
                           />
                           {overStock && (
-                            <span className="svc-recipe-row__warning">Only {availableStock} {c.unit} in stock</span>
+                            <span className="svc-recipe-row__warning">Only {availableStock} {stockUnit} in stock</span>
                           )}
                         </div>
                         <span className="svc-recipe-row__configured">{c.unit || "—"}</span>
                         <span className="svc-recipe-row__configured">
-                          {availableStock !== undefined ? `${remainingStock} ${c.unit || ""}` : "—"}
+                          {availableStock !== undefined ? `${remainingStock} ${stockUnit || ""}` : "—"}
                         </span>
                         <span className={`svc-consumable-status svc-consumable-status--${status}`}>
                           {STATUS_DOT[status]} {STATUS_LABEL[status]}
@@ -1358,7 +1414,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                 </div>
                 {addDraft.productId && (
                   <span className="svc-recipe-add-row__available">
-                    Total Stock: {productStockById.get(addDraft.productId) ?? "—"} {addDraft.unit || ""}
+                    Total Stock: {productStockById.get(addDraft.productId) ?? "—"} {addDraft.baseUnit || ""}
                   </span>
                 )}
                 <input
@@ -1375,7 +1431,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                   searchable={false}
                   placeholder="Unit"
                   value={addDraft.unit}
-                  options={ADD_UNIT_OPTIONS.map((u) => ({ id: u, name: u }))}
+                  options={unitOptionsFor(addDraft.baseUnit, addDraft.productId).map((u) => ({ id: u, name: u }))}
                   onChange={(id) => setAddDraft((p) => (p ? { ...p, unit: id } : p))}
                 />
                 <button
