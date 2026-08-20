@@ -1,19 +1,98 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import { logout } from "./authSlice";
-import {
-  fetchBillingPlansThunk,
-  fetchSubscriptionThunk,
-  fetchInvoicesThunk,
-  cancelSubscriptionThunk,
-  type BillingPlan,
-  type BillingSubscription,
-  type BillingInvoice,
-} from "../middleware/billing/billing.thunk";
+import api from "../services/api/axios";
+import { BILLING } from "../services/api/endpoints/billing.endpoints";
+import { ApiError } from "../services/api/interceptors";
+import type { SubscriptionPlan, Subscription, Invoice } from "../features/billing/types/billing.types";
+
+interface ApiResp<T> { success: boolean; data: T; message?: string }
+
+export const fetchPlansThunk = createAsyncThunk<
+  SubscriptionPlan[], void, { rejectValue: string }
+>("billing/fetchPlans", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get<ApiResp<SubscriptionPlan[]>>(BILLING.PLANS);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch plans");
+  }
+});
+
+export const fetchSubscriptionThunk = createAsyncThunk<
+  Subscription | null, string, { rejectValue: string }
+>("billing/fetchSubscription", async (salonId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<ApiResp<Subscription | null>>(
+      `${BILLING.SUBSCRIPTION}?salon_id=${salonId}`
+    );
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch subscription");
+  }
+});
+
+export const fetchInvoicesThunk = createAsyncThunk<
+  Invoice[], string, { rejectValue: string }
+>("billing/fetchInvoices", async (salonId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<ApiResp<{ items?: Invoice[]; data?: Invoice[] }>>(
+      `${BILLING.INVOICES}?salon_id=${salonId}`
+    );
+    const payload = res.data.data;
+    return Array.isArray(payload) ? payload : (payload?.items ?? payload?.data ?? []);
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch invoices");
+  }
+});
+
+export const cancelSubscriptionThunk = createAsyncThunk<
+  void, { id: string; reason?: string }, { rejectValue: string }
+>("billing/cancel", async ({ id, reason }, { rejectWithValue }) => {
+  try {
+    await api.post(BILLING.CANCEL_SUB(id), { reason });
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to cancel subscription");
+  }
+});
+
+export const createSubscriptionThunk = createAsyncThunk<
+  { short_url: string; razorpay_subscription_id: string },
+  { plan_id: string; salon_id: string; total_count: number },
+  { rejectValue: string }
+>("billing/createSubscription", async (body, { rejectWithValue }) => {
+  try {
+    const res = await api.post<ApiResp<{ short_url: string; razorpay_subscription_id: string }>>(
+      BILLING.CREATE_SUB, body
+    );
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to initiate payment");
+  }
+});
+
+export const verifySubscriptionThunk = createAsyncThunk<
+  { status: string },
+  { salonId: string; razorpay_payment_id: string | null; razorpay_subscription_id: string | null; razorpay_signature: string | null },
+  { rejectValue: string }
+>("billing/verifySubscription", async ({ salonId, ...body }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<ApiResp<{ status: string }>>(BILLING.VERIFY_SUB(salonId), body);
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Could not verify payment");
+  }
+});
 
 interface BillingState {
-  plans: BillingPlan[];
-  subscription: BillingSubscription | null;
-  invoices: BillingInvoice[];
+  plans: SubscriptionPlan[];
+  subscription: Subscription | null;
+  invoices: Invoice[];
   loading: {
     plans: boolean;
     subscription: boolean;
@@ -33,6 +112,18 @@ const initialState: BillingState = {
   subscriptionExpired: false,
 };
 
+// A subscription counts as active only if both its status AND its billing
+// period say so — status alone can lag the date (e.g. a cron hasn't flipped
+// it to past_due yet), and date alone can't tell cancelled from active.
+// Missing current_period_end fails open (treated as not-yet-expired) since
+// some plans (trial-only, lifetime) may never populate it.
+function isSubscriptionActive(sub: Subscription | null): boolean {
+  if (!sub) return false;
+  const statusOk = sub.status === "active" || sub.status === "trialing";
+  const dateOk = !sub.current_period_end || new Date() < new Date(sub.current_period_end);
+  return statusOk && dateOk;
+}
+
 const billingSlice = createSlice({
   name: "billing",
   initialState,
@@ -44,18 +135,16 @@ const billingSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchBillingPlansThunk.pending,  (s) => { s.loading.plans = true; })
-      .addCase(fetchBillingPlansThunk.fulfilled, (s, { payload }) => { s.loading.plans = false; s.plans = payload; })
-      .addCase(fetchBillingPlansThunk.rejected,  (s, { payload }) => { s.loading.plans = false; s.error = payload ?? null; });
+      .addCase(fetchPlansThunk.pending,  (s) => { s.loading.plans = true; })
+      .addCase(fetchPlansThunk.fulfilled, (s, { payload }) => { s.loading.plans = false; s.plans = payload; })
+      .addCase(fetchPlansThunk.rejected,  (s, { payload }) => { s.loading.plans = false; s.error = payload ?? null; });
 
     builder
       .addCase(fetchSubscriptionThunk.pending,  (s) => { s.loading.subscription = true; })
       .addCase(fetchSubscriptionThunk.fulfilled, (s, { payload }) => {
         s.loading.subscription = false;
         s.subscription = payload;
-        if (payload?.status === "active" || payload?.status === "trialing") {
-          s.subscriptionExpired = false;
-        }
+        s.subscriptionExpired = !isSubscriptionActive(payload);
       })
       .addCase(fetchSubscriptionThunk.rejected,  (s, { payload }) => { s.loading.subscription = false; s.error = payload ?? null; });
 
