@@ -3,7 +3,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Keyboard,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +13,9 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  useWindowDimensions,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -48,6 +52,8 @@ export function CategorySelectModal({
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
 
   const categories = useAppSelector((state) => selectCategoriesByType(state, type));
   const categoriesLoadedAt = useAppSelector((state) => selectCategoriesLoadedAtByType(state, type));
@@ -59,6 +65,7 @@ export function CategorySelectModal({
   const [createModalOpen, setCreateModalOpen] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [createValidationError, setCreateValidationError] = useState<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
 
   useEffect(() => {
     const categoriesAreStale =
@@ -107,6 +114,32 @@ export function CategorySelectModal({
       handleSelect(createdCategory);
     }
   };
+
+  useEffect(() => {
+    if (!createModalOpen) {
+      setKeyboardHeight(0);
+      return undefined;
+    }
+
+    setKeyboardHeight(Keyboard.metrics()?.height ?? 0);
+
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const onShow = (event: { endCoordinates?: { height?: number } }) => {
+      setKeyboardHeight(event.endCoordinates?.height ?? 0);
+    };
+    const onHide = () => setKeyboardHeight(0);
+    const showSub = Keyboard.addListener(showEvent, onShow);
+    const hideSub = Keyboard.addListener(hideEvent, onHide);
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, [createModalOpen]);
+
+  const createSheetBottom = keyboardHeight > 0 ? keyboardHeight + Spacing.xl : Math.max(insets.bottom, Spacing.lg);
+  const createSheetMaxHeight = Math.max(280, windowHeight - createSheetBottom - Math.max(insets.top, Spacing.lg));
 
   return (
     <Modal animationType="fade" onRequestClose={onClose} transparent visible={visible}>
@@ -176,67 +209,82 @@ export function CategorySelectModal({
       </Pressable>
 
       <Modal animationType="fade" onRequestClose={handleCloseCreateModal} transparent visible={createModalOpen}>
-        <Pressable onPress={handleCloseCreateModal} style={styles.overlay}>
-          <Pressable onPress={(e) => e.stopPropagation()} style={styles.createSheet}>
-            <View style={styles.header}>
-              <Text style={styles.sheetTitle}>New Category</Text>
-              <TouchableOpacity activeOpacity={0.7} onPress={handleCloseCreateModal} style={styles.closeButton}>
-                <Ionicons name="close" size={20} color={Colors.text2} />
-              </TouchableOpacity>
-            </View>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          pointerEvents="box-none"
+          style={styles.keyboardLayer}
+        >
+          <Pressable onPress={handleCloseCreateModal} style={styles.overlay}>
+            <Pressable
+              onPress={(e) => e.stopPropagation()}
+              style={[
+                styles.createSheet,
+                {
+                  marginBottom: createSheetBottom,
+                  maxHeight: createSheetMaxHeight,
+                },
+              ]}
+            >
+              <View style={styles.header}>
+                <Text style={styles.sheetTitle}>New Category</Text>
+                <TouchableOpacity activeOpacity={0.7} onPress={handleCloseCreateModal} style={styles.closeButton}>
+                  <Ionicons name="close" size={20} color={Colors.text2} />
+                </TouchableOpacity>
+              </View>
 
-            <View style={styles.createInputGroup}>
-              <Text style={styles.createInputLabel}>Category Name</Text>
-              <TextInput
-                autoCapitalize="words"
-                autoFocus
-                editable={!creatingCategory}
-                onChangeText={(text) => {
-                  setNewCategoryName(text);
-                  if (createValidationError) setCreateValidationError(null);
-                }}
-                placeholder="Enter category name"
-                placeholderTextColor={Colors.placeholder}
-                returnKeyType="done"
-                style={styles.createTextInput}
-                value={newCategoryName}
-              />
-              {createValidationError ? (
-                <Text style={styles.createErrorText}>{createValidationError}</Text>
-              ) : null}
-              {createCategoryError ? (
-                <Text style={styles.createErrorText}>{createCategoryError}</Text>
-              ) : null}
-            </View>
+              <View style={styles.createInputGroup}>
+                <Text style={styles.createInputLabel}>Category Name</Text>
+                <TextInput
+                  autoCapitalize="words"
+                  autoFocus
+                  editable={!creatingCategory}
+                  onChangeText={(text) => {
+                    setNewCategoryName(text);
+                    if (createValidationError) setCreateValidationError(null);
+                  }}
+                  placeholder="Enter category name"
+                  placeholderTextColor={Colors.placeholder}
+                  returnKeyType="done"
+                  style={styles.createTextInput}
+                  value={newCategoryName}
+                />
+                {createValidationError ? (
+                  <Text style={styles.createErrorText}>{createValidationError}</Text>
+                ) : null}
+                {createCategoryError ? (
+                  <Text style={styles.createErrorText}>{createCategoryError}</Text>
+                ) : null}
+              </View>
 
-            <View style={styles.createActions}>
-              <TouchableOpacity
-                activeOpacity={0.8}
-                disabled={creatingCategory}
-                onPress={handleCloseCreateModal}
-                style={styles.cancelButton}
-              >
-                <Text style={styles.cancelButtonText}>Cancel</Text>
-              </TouchableOpacity>
+              <View style={styles.createActions}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  disabled={creatingCategory}
+                  onPress={handleCloseCreateModal}
+                  style={styles.cancelButton}
+                >
+                  <Text style={styles.cancelButtonText}>Cancel</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                activeOpacity={0.88}
-                disabled={creatingCategory}
-                onPress={handleCreateCategorySubmit}
-                style={[styles.saveCategoryButton, creatingCategory && styles.buttonDisabled]}
-              >
-                {creatingCategory ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
-                )}
-                <Text style={styles.saveCategoryButtonText}>
-                  {creatingCategory ? "Saving..." : "Save Category"}
-                </Text>
-              </TouchableOpacity>
-            </View>
+                <TouchableOpacity
+                  activeOpacity={0.88}
+                  disabled={creatingCategory}
+                  onPress={handleCreateCategorySubmit}
+                  style={[styles.saveCategoryButton, creatingCategory && styles.buttonDisabled]}
+                >
+                  {creatingCategory ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
+                  )}
+                  <Text style={styles.saveCategoryButtonText}>
+                    {creatingCategory ? "Saving..." : "Save Category"}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     </Modal>
   );
@@ -248,6 +296,9 @@ const createStyles = (Colors: ThemeColors) =>
       backgroundColor: "rgba(15, 23, 32, 0.45)",
       flex: 1,
       justifyContent: "flex-end",
+    },
+    keyboardLayer: {
+      flex: 1,
     },
     sheet: {
       backgroundColor: Colors.card,
