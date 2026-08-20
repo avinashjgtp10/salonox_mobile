@@ -2,7 +2,7 @@ import React, { useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Country, State, City } from "country-state-city";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { createSupplierThunk, updateSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
+import { createSupplierThunk, updateSupplierThunk, fetchSuppliersThunk } from "../../../middleware/inventory/inventory.thunk";
 import { SUPPLIER_MESSAGES } from "../../../constants/messages";
 import Dropdown from "../../../components/ui/Dropdown";
 import { toTitleCase } from "../../../utils/titleCase";
@@ -138,8 +138,14 @@ const AddSupplierPage: React.FC = () => {
   };
 
   React.useEffect(() => {
+    if (suppliers.length === 0) {
+      dispatch(fetchSuppliersThunk());
+    }
+  }, [dispatch, suppliers.length]);
+
+  React.useEffect(() => {
     if (isEdit && suppliers.length > 0) {
-      const s = suppliers.find((sup) => sup.id === id);
+      const s = suppliers.find((sup) => String(sup.id) === String(id));
       if (s) {
         setName(s.name);
         setDescription(s.description || "");

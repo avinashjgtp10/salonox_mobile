@@ -163,6 +163,12 @@ export const useServiceForm = (serviceId?: string | number, allStaffIds: string[
   const [isSubmitted, setIsSubmitted] = useState(false);
 
   useEffect(() => {
+    if (cachedServices.length === 0) {
+      dispatch(fetchServicesThunk({ page: 1, limit: 500 }));
+    }
+  }, [dispatch, cachedServices.length]);
+
+  useEffect(() => {
     if (!isEdit) return;
     // Try the Redux store first (avoids an extra network round-trip when
     // navigating from the list page where services are already loaded).
@@ -212,6 +218,36 @@ export const useServiceForm = (serviceId?: string | number, allStaffIds: string[
     ) {
       errors.basic = [...(errors.basic || []), "Price is required"];
     }
+
+    // Duplicate check on (Service Name + Duration + Price)
+    const formName = data.basic.name.trim().toLowerCase();
+    const formDuration = Number(data.basic.duration);
+    const formPrice = Number(data.basic.price);
+
+    if (formName && formDuration > 0 && formPrice >= 0) {
+      const isDuplicate = cachedServices.some((svc) => {
+        if (isEdit && String(svc.id) === String(serviceId)) {
+          return false;
+        }
+        const svcName = (svc.name || "").trim().toLowerCase();
+        const svcDuration = Number(svc.duration ?? 30);
+        const svcPrice = Number(svc.price ?? 0);
+
+        return (
+          svcName === formName &&
+          svcDuration === formDuration &&
+          svcPrice === formPrice
+        );
+      });
+
+      if (isDuplicate) {
+        errors.basic = [
+          ...(errors.basic || []),
+          "A service with the same name, duration, and price already exists.",
+        ];
+      }
+    }
+
     // No staff validation: an empty selection is valid and means "all staff".
 
     // Only checked when the override is switched on — off means the field is
