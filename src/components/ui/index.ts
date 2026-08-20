@@ -4,6 +4,8 @@ export { default as Badge } from "./Badge";
 export { default as Breadcrumb } from "./Breadcrumb";
 export { default as Button } from "./Button";
 export { default as Card } from "./Card";
+export { default as ConfirmDialog } from "./ConfirmDialog";
+export type { ConfirmDialogProps } from "./ConfirmDialog";
 export { Divider } from "./Divider";
 export { default as DownloadButton } from "./DownloadButton";
 export { default as EmptyState } from "./EmptyState";

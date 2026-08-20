@@ -106,6 +106,7 @@ export default function AppointmentDetailModal({ appointmentId, onClose, initial
         onClose={onClose}
         onEdit={() => setMode("edit")}
         onCollectDue={() => setMode("edit")}
+        onDeleteBooking={handleDelete}
       />
     </div>
   );
