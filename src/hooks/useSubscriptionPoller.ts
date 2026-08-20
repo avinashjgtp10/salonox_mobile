@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useAppDispatch, useAppSelector } from "./useAppRedux";
-import { fetchSubscriptionThunk } from "../store/billingSlice";
+import { fetchSubscriptionStatusThunk } from "../store/billingSlice";
 
 // Fetches subscription status once per login/session (plus on genuine
 // salon_id changes) — no recurring polling. accessToken churns multiple
@@ -12,8 +12,11 @@ import { fetchSubscriptionThunk } from "../store/billingSlice";
 // effect deps to avoid re-fetching on that upstream churn.
 //
 // subscriptionExpired itself is derived inside billingSlice's
-// fetchSubscriptionThunk.fulfilled reducer (single source of truth) — this
-// hook only decides *when* to fetch, not how to interpret the result.
+// fetchSubscriptionStatusThunk.fulfilled reducer — this hook only decides
+// *when* to fetch, not how to interpret the result. Deliberately NOT
+// fetchSubscriptionThunk: that endpoint returns a single subscription
+// record which may not be the salon's current one (renewals/retries can
+// each leave their own row), so it must never be the sole expiry gate.
 export function useSubscriptionPoller() {
   const dispatch  = useAppDispatch();
   const hasToken  = useAppSelector((s) => !!s.auth.accessToken);
@@ -22,7 +25,7 @@ export function useSubscriptionPoller() {
   const lastFetchedSalonIdRef = useRef<string | null>(null);
 
   const check = useCallback((salon: string) => {
-    dispatch(fetchSubscriptionThunk(salon));
+    dispatch(fetchSubscriptionStatusThunk(salon));
   }, [dispatch]);
 
   useEffect(() => {
