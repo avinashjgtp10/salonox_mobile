@@ -1,4 +1,5 @@
 import api from "../../services/api/axios";
+import type { DailySummaryData } from "./cashManagement.export";
 import type {
   CashDashboardSummary,
   CashExpensePayload,
@@ -178,8 +179,28 @@ export async function deleteCashExpense(id: string) {
 }
 
 export async function closeCashCounter(payload: CloseCounterPayload) {
-  const response = await api.post(`${BASE}/close`, payload);
-  return normalizeDashboard(unwrapData<any>(response));
+  try {
+    const response = await api.post(`${BASE}/close`, payload);
+    return normalizeDashboard(unwrapData<any>(response));
+  } catch (err: any) {
+    if (err?.response?.status === 409) {
+      console.warn("[cash-management] Counter already closed (409 Conflict)");
+      return {
+        cashManagementId: payload.cash_management_id || "",
+        status: "closed" as const,
+        openingBalance: 0,
+        cashRevenue: 0,
+        cashExpense: 0,
+        closingBalance: 0,
+        inStoreCash: payload.in_store_cash || 0,
+        reconciliationAmount: 0,
+        openedAt: null,
+        closedAt: new Date().toISOString(),
+        remarks: payload.remarks || null,
+      };
+    }
+    throw err;
+  }
 }
 
 // Today's total revenue (all payment methods, all of today's completed/paid
@@ -190,5 +211,47 @@ export async function fetchTodaysRevenue() {
   const response = await api.get("/api/v1/dashboard/summary");
   const data = unwrapData<any>(response);
   return asNumber(data?.todayRevenue ?? data?.today_revenue);
+}
+
+export async function sendDailySummaryEmail(
+  cashManagementId: string,
+  summaryData?: Partial<DailySummaryData>,
+  ownerEmail?: string
+) {
+  console.log("%c[Daily Summary Email] Sending email summary...", "color: #4f46e5; font-weight: bold", {
+    cashManagementId,
+    ownerEmail,
+    summaryData
+  });
+
+  const payload = {
+    cash_management_id: cashManagementId,
+    email: ownerEmail,
+    opening_balance: summaryData?.openingBalance ?? 0,
+    cash_revenue: summaryData?.cashRevenue ?? 0,
+    cash_expense: summaryData?.cashExpense ?? 0,
+    closing_balance: summaryData?.closingBalance ?? 0,
+    in_store_cash: summaryData?.inStoreCash ?? 0,
+    reconciliation_amount: summaryData?.reconciliationAmount ?? 0,
+    remarks: summaryData?.remarks ?? "",
+  };
+
+  try {
+    const res = await api.post(`${BASE}/send-summary-email`, payload);
+    console.log("%c[Daily Summary Email] Success:", "color: #10b981; font-weight: bold", res.data);
+    return res.data;
+  } catch (primaryErr: any) {
+    console.warn("[Daily Summary Email] Primary endpoint returned:", primaryErr?.response?.status || primaryErr?.message);
+    try {
+      const fallbackRes = await api.post(`${BASE}/email-summary`, payload);
+      console.log("%c[Daily Summary Email] Fallback success:", "color: #10b981; font-weight: bold", fallbackRes.data);
+      return fallbackRes.data;
+    } catch (fallbackErr: any) {
+      const status = fallbackErr?.response?.status || primaryErr?.response?.status;
+      const msg = fallbackErr?.response?.data?.message || primaryErr?.response?.data?.message || (status === 404 ? "Email API endpoint not found on server (404)" : "Email delivery failed");
+      console.error("%c[Daily Summary Email] Error:", "color: #ef4444; font-weight: bold", msg);
+      throw new Error(msg);
+    }
+  }
 }
 

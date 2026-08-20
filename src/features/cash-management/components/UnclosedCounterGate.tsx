@@ -11,8 +11,10 @@ import {
 } from "../../../middleware/cashCounter/cashCounter.thunk";
 import { logout } from "../../../store/authSlice";
 import { disconnectSocket } from "../../../services/socket/socket";
-import { exportCounterSummaryPDF } from "../cashManagement.export";
+import { sendDailySummaryEmail } from "../cashManagement.api";
 import { OpenCounterModal } from "../pages/CashManagementModals";
+
+import { selectUserProfile } from "../../../store/selectors/slices.selectors";
 
 const formatDateInput = (date: Date) => {
   const year = date.getFullYear();
@@ -37,6 +39,8 @@ export default function UnclosedCounterGate() {
   const location = useLocation();
   const { formatAmount } = useCurrency();
   const dashboard = useAppSelector((state) => state.cashCounter.dashboard);
+  const userProfile = useAppSelector(selectUserProfile);
+  const userEmail = userProfile?.email;
 
   const [closing, setClosing] = useState(false);
   const [error, setError] = useState("");
@@ -59,10 +63,30 @@ export default function UnclosedCounterGate() {
     setClosing(true);
     setError("");
     try {
-      // 1. Generate & download summary PDF (works with real or fallback data)
-      const summaryData = dashboard || {
+      let closedData = dashboard;
+
+      // 1. Dispatch backend close counter request if active counter ID exists
+      if (dashboard?.cashManagementId) {
+        const candidate = dashboard.inStoreCash ?? dashboard.closingBalance ?? 0;
+        const numericInStoreCash = Number(candidate);
+        const inStoreCash = Number.isFinite(numericInStoreCash) ? Math.max(0, numericInStoreCash) : 0;
+
+        const action = await dispatch(
+          closeCashCounterThunk({
+            cash_management_id: dashboard.cashManagementId,
+            in_store_cash: inStoreCash,
+            remarks: dashboard.remarks ?? "",
+          }),
+        );
+        if (closeCashCounterThunk.fulfilled.match(action)) {
+          closedData = action.payload;
+        }
+      }
+
+      // 2. Prepare Daily Summary data
+      const summaryData = closedData || dashboard || {
         cashManagementId: "preview-id",
-        status: "open",
+        status: "closed",
         openingBalance: 0,
         cashRevenue: 0,
         cashExpense: 0,
@@ -70,30 +94,20 @@ export default function UnclosedCounterGate() {
         inStoreCash: 0,
         reconciliationAmount: 0,
         openedAt: new Date().toISOString(),
-        closedAt: null,
+        closedAt: new Date().toISOString(),
         remarks: null,
       };
 
-      exportCounterSummaryPDF(summaryData);
-
-      // 2. Dispatch backend close counter request if active counter ID exists
-      if (dashboard?.cashManagementId) {
-        const candidate = dashboard.inStoreCash ?? dashboard.closingBalance ?? 0;
-        const numericInStoreCash = Number(candidate);
-        const inStoreCash = Number.isFinite(numericInStoreCash) ? Math.max(0, numericInStoreCash) : 0;
-
-        await dispatch(
-          closeCashCounterThunk({
-            cash_management_id: dashboard.cashManagementId,
-            in_store_cash: inStoreCash,
-            remarks: dashboard.remarks ?? "",
-          }),
-        ).unwrap();
+      // 3. Send summary via email to Salon Owner's registered email address (no PDF attachment)
+      try {
+        await sendDailySummaryEmail(dashboard?.cashManagementId ?? "", summaryData, userEmail);
+        toast.success(`Previous counter closed! Summary emailed to ${userEmail || "Salon Owner"}.`);
+      } catch (emailErr: any) {
+        console.error("[UnclosedCounterGate] Email delivery error:", emailErr);
+        toast.error(`Counter closed, but email status: ${emailErr?.response?.data?.message || emailErr?.message || "check SMTP connection"}`);
       }
 
-      toast.success("Previous counter closed! Summary PDF downloaded.");
-
-      // 3. Directly display Open Today's Counter modal
+      // 4. Directly display Open Today's Counter modal
       setShowOpenTodayModal(true);
     } catch (err: any) {
       setError(
@@ -105,7 +119,7 @@ export default function UnclosedCounterGate() {
     } finally {
       setClosing(false);
     }
-  }, [dashboard, dispatch]);
+  }, [dashboard, dispatch, userEmail]);
 
   const handleLogout = useCallback(() => {
     disconnectSocket();

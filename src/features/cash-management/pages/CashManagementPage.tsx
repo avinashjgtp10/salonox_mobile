@@ -27,6 +27,9 @@ import {
   exportCashManagementExcel,
   exportCashManagementPDF,
 } from "../cashManagement.export";
+import { sendDailySummaryEmail } from "../cashManagement.api";
+import { selectUserProfile } from "../../../store/selectors/slices.selectors";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import type { CashExpenseRecord } from "../cashManagement.types";
 import { useCashManagement } from "../useCashManagement";
 import CashManagementExpensesTab from "./CashManagementExpensesTab";
@@ -84,6 +87,8 @@ function isInDateRange(date?: string | null, sharedDateFrom?: string, sharedDate
 
 export default function CashManagementPage() {
   const { formatAmount } = useCurrency();
+  const userProfile = useAppSelector(selectUserProfile);
+  const userEmail = userProfile?.email;
   const {
     dashboard,
     dashboardLoaded,
@@ -745,9 +750,15 @@ export default function CashManagementPage() {
         mandatory={isStaleOpenCounter}
         onClose={() => setShowCloseModal(false)}
         onSubmit={async (payload) => {
-          await closeCounter(payload);
+          const closed = await closeCounter(payload);
+          try {
+            await sendDailySummaryEmail(dashboard.cashManagementId, closed || dashboard, userEmail);
+          } catch (emailErr) {
+            console.error("[CashManagementPage] Daily summary email error:", emailErr);
+          }
           setShowCloseModal(false);
-          showNotification("success", "Counter closed successfully.");
+          setShowOpenModal(true);
+          showNotification("success", "Counter closed. Daily summary emailed to Salon Owner.");
         }}
         onNotify={showNotification}
       />
