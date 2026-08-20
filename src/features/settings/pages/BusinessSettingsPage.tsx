@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Building2,
   Globe,
@@ -20,6 +20,7 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { getMySalonThunk, updateSalonThunk } from "../../../middleware/salon/salon.thunk";
 import Button from "../../../components/ui/Button";
+import api from "../../../services/api/axios";
 import type { Salon, UpdateSalonPayload } from "../../../types/salon.types";
 import { TAX_ID_MESSAGES } from "../../../constants/message";
 import { toTitleCase } from "../../../utils/titleCase";
@@ -29,6 +30,9 @@ const PAN_LENGTH = 10;
 // 2-digit state code + 10-char PAN + 1-digit entity code + "Z" + 1 checksum char.
 const GSTIN_FORMAT_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const PAN_FORMAT_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+const MAX_LOGO_SIZE = 2 * 1024 * 1024;
+const ALLOWED_LOGO_TYPES = ["image/jpeg", "image/png"];
 
 type BusinessForm = Omit<UpdateSalonPayload, "phone" | "address">;
 type FormErrors = Partial<Record<"gst_number" | "pan_number", string>>;
@@ -80,6 +84,9 @@ export default function BusinessSettingsPage() {
   const [saving,    setSaving]    = useState(false);
   const [errors,    setErrors]    = useState<FormErrors>({});
   const { showSuccess, showError, overlay } = useStatusOverlay();
+
+  const [logoUploading, setLogoUploading] = useState(false);
+  const logoFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     dispatch(getMySalonThunk());
@@ -203,6 +210,44 @@ export default function BusinessSettingsPage() {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ALLOWED_LOGO_TYPES.includes(file.type)) {
+      showError("Please upload a JPG or PNG image.");
+      if (logoFileRef.current) logoFileRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_LOGO_SIZE) {
+      showError("Logo must be under 2 MB.");
+      if (logoFileRef.current) logoFileRef.current.value = "";
+      return;
+    }
+
+    setLogoUploading(true);
+    const formData = new FormData();
+    formData.append("image", file);
+    try {
+      // Same upload endpoint the Online Booking marketplace profile uses for
+      // its logo (see MarketplaceProfilePage) — it writes the salon's own
+      // logo_url, which is what Business Settings reads, so this is a
+      // separate image from the owner's Personal Profile photo (uploaded via
+      // uploadAvatarThunk to /users/me/avatar) and updating one never touches
+      // the other.
+      await api.post("/api/v1/marketplace/logo", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      await dispatch(getMySalonThunk());
+      showSuccess("Business logo updated!");
+    } catch (err: unknown) {
+      const msg = (err as any)?.response?.data?.message ?? "Logo upload failed.";
+      showError(msg);
+    } finally {
+      setLogoUploading(false);
+      if (logoFileRef.current) logoFileRef.current.value = "";
+    }
+  };
+
   // Derive initials for the logo placeholder
   const logoInitials = (form.business_name || "B")
     .split(" ")
@@ -268,7 +313,11 @@ export default function BusinessSettingsPage() {
         </div>
         <div className="settings-section-body">
           <div className="settings-avatar-row">
-            <div className="settings-avatar settings-avatar--square">
+            <div
+              className="settings-avatar settings-avatar--square"
+              onClick={() => !logoUploading && logoFileRef.current?.click()}
+              style={{ cursor: logoUploading ? "default" : "pointer" }}
+            >
               {currentSalon?.logo_url ? (
                 <img src={currentSalon.logo_url} alt="Business logo" />
               ) : (
@@ -277,6 +326,14 @@ export default function BusinessSettingsPage() {
               <div className="settings-avatar-overlay">
                 <Upload size={18} />
               </div>
+              <input
+                ref={logoFileRef}
+                type="file"
+                accept=".jpg,.jpeg,.png"
+                aria-label="Upload business logo"
+                style={{ display: "none" }}
+                onChange={handleLogoUpload}
+              />
             </div>
             <div className="settings-avatar-info">
               <p className="settings-avatar-name">
@@ -289,7 +346,8 @@ export default function BusinessSettingsPage() {
                 <Button
                   size="sm"
                   variant="outline-secondary"
-                  onClick={() => showError("Logo upload coming soon")}
+                  loading={logoUploading}
+                  onClick={() => logoFileRef.current?.click()}
                 >
                   Upload logo
                 </Button>
