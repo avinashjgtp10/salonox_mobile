@@ -14,6 +14,17 @@ const Avatar: React.FC<AvatarProps> = ({ staff, size = 36 }) => {
       ? (words[0][0] + words[1][0]).toUpperCase()
       : staff.name.slice(0, 2).toUpperCase();
 
+  if (staff.avatar) {
+    return (
+      <img
+        src={staff.avatar}
+        alt={staff.name}
+        className="staff-avatar"
+        style={{ width: size, height: size, objectFit: "cover" }}
+      />
+    );
+  }
+
   return (
     <div
       className="staff-avatar"

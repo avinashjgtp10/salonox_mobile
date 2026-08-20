@@ -91,7 +91,7 @@ export function useStaffSchedule(salonId?: string | null) {
           name,
           initials: getInitials(name),
           color: STAFF_COLORS[i % STAFF_COLORS.length],
-          avatar: s.avatar || s.profile_photo || undefined,
+          avatar: s.avatar_url || s.avatar || s.profile_photo || undefined,
         };
       });
 

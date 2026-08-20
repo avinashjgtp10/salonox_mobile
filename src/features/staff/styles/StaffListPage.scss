@@ -425,6 +425,13 @@ $radius: 12px;
   background: inherit;
 }
 
+.slp-avatar-img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 // Member info
 .slp-member-name { font-size: 14px; font-weight: 600; color: $primary; margin-bottom: 2px; }
 .slp-member-email {
