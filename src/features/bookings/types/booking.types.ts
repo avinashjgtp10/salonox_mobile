@@ -268,9 +268,10 @@ export interface Booking {
   referralDiscount?: number; // ₹ instantly discounted off this bill for a referred client's first qualifying visit
   subtotal: number;
   tipAmount?: number;
-  /** "Add Tip to Salon" checkbox — checked: tipAmount counts toward
-   *  grandTotal/salon revenue. Unchecked (default): tipAmount stays
-   *  record-only, passed straight to staff. */
+  /** Formerly the "Add Tip to Salon" checkbox's stored value — that control
+   *  has been removed and tipAmount is now always excluded from
+   *  grandTotal/revenue regardless of this flag. Kept only for reading a
+   *  previously-saved appointment's historical value; not honored anywhere. */
   tipAddedToSalon?: boolean;
   /** Optional per-staff split of tipAmount, entered via the "Split by
    *  staff" popup — see StaffTipsModal.tsx. Undefined/empty when the tip

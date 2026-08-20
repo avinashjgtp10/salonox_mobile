@@ -138,6 +138,21 @@ $item-field-text-inset: 9px;
     color: #98a2b3;
   }
 
+  // Staff-tip sub-row specifically (--sub above is shared with other
+  // breakdowns) — the "who + what they handled" text can run long, so it
+  // gets its own truncation/shrink behavior the plain --sub row doesn't need.
+  &--staff span:first-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    margin-right: 8px;
+  }
+  &--staff span:last-child { flex-shrink: 0; }
+
+  .qs-summary-row__items {
+    color: #c2c8d1;
+  }
+
   // Mid-weight running total (the "Total Bill" line at the tax boundary) —
   // deliberately lighter than --total so Grand Total stays the visual anchor.
   &--subtotal {

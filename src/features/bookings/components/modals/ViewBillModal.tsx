@@ -356,7 +356,6 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                           taxes:          activeTaxes,
                           exCharges:      Number((booking as any).exCharges || 0),
                           tip:            Number((booking as any).tipAmount || 0),
-                          addTipToSalon:  !!(booking as any).tipAddedToSalon,
                           couponDiscount: Number((booking as any).couponDiscount || 0),
                           referralDiscount: Number((booking as any).referralDiscount || 0),
                           eWalletUsed:    0,
