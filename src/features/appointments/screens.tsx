@@ -37,7 +37,6 @@ import { useAppForeground } from "@/hooks/useAppForeground";
 import {
   cancelAppointmentThunk,
   completeAppointmentThunk,
-  confirmAppointmentThunk,
   createAppointmentThunk,
   fetchAppointmentByIdThunk,
   fetchAppointmentHistoryThunk,
@@ -1280,7 +1279,7 @@ function FilterBar({
         style={styles.dateInputRow}
       >
         <Ionicons name="calendar-outline" size={18} color={Colors.text2} />
-        <Text style={styles.dateInput}>{date || "YYYY-MM-DD"}</Text>
+        <Text style={styles.dateInput}>{date ? formatAppDate(`${date}T00:00:00`) : "DD-MM-YYYY"}</Text>
       </TouchableOpacity>
 
       {isDatePickerVisible && Platform.OS === "android" ? (
@@ -4176,9 +4175,6 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
           </View>
 
           <View style={styles.actionGrid}>
-            {appointment.status === "Upcoming" || appointment.status === "Waiting" ? (
-              <ConfirmAppointmentAction appointment={appointment} />
-            ) : null}
             {appointment.status === "Confirmed" ? (
               <StartAppointmentAction appointment={appointment} />
             ) : null}
@@ -4229,104 +4225,6 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
 
 export function StaffAppointmentDetailsScreen() {
   return <AppointmentDetailsScreen mode="staff" />;
-}
-
-function ConfirmAppointmentAction({ appointment }: { appointment: AppointmentListItem }) {
-  const { Colors, styles } = useAppointmentStyles();
-  const dispatch = useAppDispatch();
-  const [confirmVisible, setConfirmVisible] = useState(false);
-  const [confirming, setConfirming] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const submitConfirm = async () => {
-    if (appointment.status !== "Upcoming" && appointment.status !== "Waiting") {
-      setError("Only upcoming or waiting appointments can be confirmed.");
-      return;
-    }
-
-    setError(null);
-    setConfirming(true);
-    const result = await dispatch(confirmAppointmentThunk(appointment.id));
-    setConfirming(false);
-
-    if (confirmAppointmentThunk.rejected.match(result)) {
-      setError(getRejectedMessage(result.payload, "Unable to confirm appointment."));
-      return;
-    }
-
-    setConfirmVisible(false);
-  };
-
-  return (
-    <>
-      <TouchableOpacity
-        activeOpacity={0.84}
-        disabled={confirming}
-        onPress={() => {
-          setError(null);
-          setConfirmVisible(true);
-        }}
-        style={[styles.actionButton, confirming && styles.disabledButton]}
-      >
-        {confirming ? (
-          <ActivityIndicator color={Colors.primary} size="small" />
-        ) : (
-          <Ionicons name="checkmark-circle-outline" size={18} color={Colors.primary} />
-        )}
-        <Text style={styles.actionButtonText}>Confirm</Text>
-      </TouchableOpacity>
-
-      <Modal
-        animationType="fade"
-        onRequestClose={() => {
-          if (!confirming) {
-            setConfirmVisible(false);
-          }
-        }}
-        transparent
-        visible={confirmVisible}
-      >
-        <View style={styles.modalBackdrop}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Confirm appointment?</Text>
-            <Text style={styles.modalText}>
-              {"This will mark "}
-              {appointment.clientName}
-              {"'s appointment as Confirmed."}
-            </Text>
-            {error ? (
-              <View style={[styles.inlineAlert, styles.modalInlineAlert]}>
-                <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
-                <Text style={styles.inlineAlertText}>{error}</Text>
-              </View>
-            ) : null}
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                disabled={confirming}
-                onPress={() => setConfirmVisible(false)}
-                style={[styles.secondaryButton, confirming && styles.disabledButton]}
-              >
-                <Text style={styles.secondaryButtonText}>Not Yet</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                activeOpacity={0.88}
-                disabled={confirming}
-                onPress={() => void submitConfirm()}
-                style={[styles.primaryButtonCompact, confirming && styles.disabledButton]}
-              >
-                {confirming ? (
-                  <ActivityIndicator color="#FFFFFF" size="small" />
-                ) : (
-                  <Ionicons name="checkmark" size={16} color="#FFFFFF" />
-                )}
-                <Text style={styles.primaryButtonText}>Confirm</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </>
-  );
 }
 
 function StartAppointmentAction({ appointment }: { appointment: AppointmentListItem }) {
