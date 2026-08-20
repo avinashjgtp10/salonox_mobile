@@ -16,6 +16,7 @@ import type {
   ServiceListResponse,
   UpdateServiceRequest,
   UpdateServiceResponse,
+  CategoryType,
 } from "@/types/service";
 
 type ServiceListApiResponse = ApiResponse<ServiceListApiData>;
@@ -442,16 +443,20 @@ export const serviceService = {
     };
   },
 
-  async getCategories(salonId?: string | null): Promise<ServiceCategoryItem[]> {
+  async getCategories(type: CategoryType, _salonId?: string | null): Promise<ServiceCategoryItem[]> {
+    const params = {
+      type,
+    };
+
     try {
-      const response = await api.get<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
-        params: salonId ? { salon_id: salonId } : undefined,
+      const response = await api.get<ApiResponse<unknown>>("/categories", {
+        params,
       });
 
       return normalizeCategoryList(response.data?.data ?? response.data);
     } catch {
-      const response = await api.get<ApiResponse<unknown>>("/categories", {
-        params: salonId ? { salon_id: salonId } : undefined,
+      const response = await api.get<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
+        params,
       });
 
       return normalizeCategoryList(response.data?.data ?? response.data);
@@ -460,7 +465,8 @@ export const serviceService = {
 
   async createCategory(
     name: string,
-    salonId?: string | null,
+    type: CategoryType,
+    _salonId?: string | null,
   ): Promise<ServiceCategoryItem> {
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -470,17 +476,17 @@ export const serviceService = {
     let rawCategory: unknown = null;
 
     try {
-      const response = await api.post<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
+      const response = await api.post<ApiResponse<unknown>>("/categories", {
         name: trimmedName,
-        ...(salonId ? { salon_id: salonId } : {}),
+        type,
       });
 
       rawCategory = response.data?.data ?? response.data;
     } catch (primaryError) {
       try {
-        const response = await api.post<ApiResponse<unknown>>("/categories", {
+        const response = await api.post<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
           name: trimmedName,
-          ...(salonId ? { salon_id: salonId } : {}),
+          type,
         });
 
         rawCategory = response.data?.data ?? response.data;

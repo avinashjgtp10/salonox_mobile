@@ -14,6 +14,7 @@ import { selectConsumableById } from "@/store/consumable/consumable.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ConsumableUsageDirection, ConsumableUsageHistoryItem } from "@/types/consumable";
+import { formatAppDateTime } from "@/utils/dateTime";
 
 const DIRECTION_OPTIONS: { label: string; value: ConsumableUsageDirection | "" }[] = [
   { label: "All", value: "" },
@@ -183,7 +184,7 @@ function UsageHistoryRow({ item }: { item: ConsumableUsageHistoryItem }) {
         <Text numberOfLines={1} style={styles.rowMeta}>
           {[item.serviceName, item.staffName, item.source].filter(Boolean).join("  |  ") || "—"}
         </Text>
-        {item.date ? <Text style={styles.rowDate}>{item.date}</Text> : null}
+        {item.date ? <Text style={styles.rowDate}>{formatAppDateTime(item.date, item.date)}</Text> : null}
       </View>
     </View>
   );

@@ -9,6 +9,7 @@ import type {
   CreateServiceRequest,
   CreateServiceResponse,
   DeleteServiceResponse,
+  CategoryType,
   ServiceCategoryItem,
   ServiceListItem,
   ServiceListQuery,
@@ -19,12 +20,12 @@ import type {
 
 export const fetchCategoriesThunk = createAsyncThunk<
   ServiceCategoryItem[],
-  void,
+  { type: CategoryType },
   { rejectValue: { message: string }; state: RootState }
->("service/fetchCategories", async (_, { getState, rejectWithValue }) => {
+>("service/fetchCategories", async ({ type }, { getState, rejectWithValue }) => {
   try {
     const salonId = selectActiveBranchId(getState());
-    return await serviceService.getCategories(salonId);
+    return await serviceService.getCategories(type, salonId);
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
     return rejectWithValue({ message });
@@ -33,12 +34,12 @@ export const fetchCategoriesThunk = createAsyncThunk<
 
 export const createCategoryThunk = createAsyncThunk<
   ServiceCategoryItem,
-  string,
+  { name: string; type: CategoryType },
   { rejectValue: { message: string }; state: RootState }
->("service/createCategory", async (name, { getState, rejectWithValue }) => {
+>("service/createCategory", async ({ name, type }, { getState, rejectWithValue }) => {
   try {
     const salonId = selectActiveBranchId(getState());
-    return await serviceService.createCategory(name, salonId);
+    return await serviceService.createCategory(name, type, salonId);
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
     return rejectWithValue({ message });

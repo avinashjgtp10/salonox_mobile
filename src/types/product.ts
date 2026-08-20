@@ -113,6 +113,7 @@ export type Product = {
   brandId: string | null;
   brandName: string | null;
   category: string | null;
+  categoryId: string | null;
   createdAt: string | null;
   description: string | null;
   id: string;
@@ -163,6 +164,7 @@ export type Brand = {
 export type CreateProductRequest = {
   brand_id?: string | null;
   category?: string;
+  category_id?: string;
   description?: string;
   is_active?: boolean;
   low_stock_threshold?: number;

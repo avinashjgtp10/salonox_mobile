@@ -7,6 +7,7 @@ import {
   fetchSalonCommissionSummaryThunk,
   fetchSalonCommissionsThunk,
   markCommissionPaidThunk,
+  settleCommissionThunk,
   type FetchSalonCommissionsArgs,
 } from "@/middleware/staff/salonCommissions.thunk";
 import type { RootState } from "@/store";
@@ -37,6 +38,8 @@ type SalonCommissionsState = {
   pagination: SalonCommissionListPagination;
   query: SalonCommissionListQuery;
   records: SalonCommissionRecord[];
+  settlingStaffIds: string[];
+  settleErrorByStaffId: Record<string, string | null>;
   summary: SalonCommissionSummary | null;
   summaryError: string | null;
   summaryLoading: boolean;
@@ -76,6 +79,8 @@ const initialState: SalonCommissionsState = {
   pagination: initialPagination,
   query: initialQuery,
   records: [],
+  settlingStaffIds: [],
+  settleErrorByStaffId: {},
   summary: null,
   summaryError: null,
   summaryLoading: false,
@@ -188,6 +193,29 @@ const salonCommissionsSlice = createSlice({
           action.payload?.message ?? action.error.message ?? "Unable to mark commission as paid.";
         state.markingPaidStaffIds = state.markingPaidStaffIds.filter((id) => id !== staffId);
       })
+      .addCase(settleCommissionThunk.pending, (state, action) => {
+        const staffId = action.meta.arg.staffId;
+
+        state.settleErrorByStaffId[staffId] = null;
+        state.settlingStaffIds = [...state.settlingStaffIds, staffId];
+      })
+      .addCase(settleCommissionThunk.fulfilled, (state, action) => {
+        const { staffId, remainingBalance, status } = action.payload;
+
+        state.settlingStaffIds = state.settlingStaffIds.filter((id) => id !== staffId);
+        state.records = state.records.map((record) =>
+          record.staffId === staffId
+            ? { ...record, unpaidAmount: remainingBalance, status: status ?? record.status }
+            : record,
+        );
+      })
+      .addCase(settleCommissionThunk.rejected, (state, action) => {
+        const staffId = action.meta.arg.staffId;
+
+        state.settleErrorByStaffId[staffId] =
+          action.payload?.message ?? action.error.message ?? "Unable to settle commission.";
+        state.settlingStaffIds = state.settlingStaffIds.filter((id) => id !== staffId);
+      })
       .addCase(bulkConfigureCommissionsThunk.pending, (state) => {
         state.bulkConfigureError = null;
         state.bulkConfiguring = true;
@@ -247,6 +275,11 @@ export const selectCommissionMarkingPaid = (state: RootState, staffId?: string |
   staffId ? state.salonCommissions.markingPaidStaffIds.includes(staffId) : false;
 export const selectCommissionMarkPaidError = (state: RootState, staffId?: string | null) =>
   staffId ? state.salonCommissions.markPaidErrorByStaffId[staffId] ?? null : null;
+
+export const selectCommissionSettling = (state: RootState, staffId?: string | null) =>
+  staffId ? state.salonCommissions.settlingStaffIds.includes(staffId) : false;
+export const selectCommissionSettleError = (state: RootState, staffId?: string | null) =>
+  staffId ? state.salonCommissions.settleErrorByStaffId[staffId] ?? null : null;
 
 export const selectBulkConfiguring = (state: RootState) => state.salonCommissions.bulkConfiguring;
 export const selectBulkConfigureError = (state: RootState) =>

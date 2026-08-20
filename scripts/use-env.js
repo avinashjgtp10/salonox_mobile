@@ -21,7 +21,12 @@ if (!fs.existsSync(sourcePath)) {
 const source = fs.readFileSync(sourcePath, "utf8");
 let existing = fs.existsSync(targetPath) ? fs.readFileSync(targetPath, "utf8") : "";
 
-const managedKeys = new Set(["APP_ENV", "EXPO_PUBLIC_API_BASE_URL", "EXPO_PUBLIC_SOCKET_URL"]);
+const managedKeys = new Set([
+  "APP_ENV",
+  "EXPO_PUBLIC_API_BASE_URL",
+  "EXPO_PUBLIC_SOCKET_URL",
+  "EXPO_PUBLIC_WEB_REGISTRATION_URL",
+]);
 const preservedLines = existing
   .split(/\r?\n/)
   .filter((line) => {

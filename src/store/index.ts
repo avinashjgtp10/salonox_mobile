@@ -31,6 +31,7 @@ import staffLeavesReducer from "@/store/staff/staffLeaves.slice";
 import staffPayRunsReducer from "@/store/staff/staffPayRuns.slice";
 import staffScheduleReducer from "@/store/staff/staffSchedule.slice";
 import staffWagesReducer from "@/store/staff/staffWages.slice";
+import toastReducer from "@/store/toast/toast.slice";
 import userReducer from "@/store/user/user.slice";
 
 export const resetAppState = createAction("app/resetState");
@@ -62,6 +63,7 @@ const appReducer = combineReducers({
   staffPayRuns: staffPayRunsReducer,
   staffSchedule: staffScheduleReducer,
   staffWages: staffWagesReducer,
+  toast: toastReducer,
   user: userReducer,
 });
 

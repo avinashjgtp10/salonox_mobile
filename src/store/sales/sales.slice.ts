@@ -22,6 +22,8 @@ import type {
   SalesSummary,
 } from "@/types/sales";
 
+export type ExportFormat = "csv" | "excel" | "pdf";
+
 type SalesState = {
   // GET /sales/init
   data: SalesInitData | null;
@@ -64,6 +66,7 @@ type SalesState = {
   // GET /sales/export
   exportError: string | null;
   exporting: boolean;
+  exportFormat: ExportFormat;
 };
 
 const initialQuery: SalesListQuery = {
@@ -117,6 +120,7 @@ const initialState: SalesState = {
 
   exportError: null,
   exporting: false,
+  exportFormat: "csv",
 };
 
 const isAppendRequest = (args?: FetchSalesArgs) =>
@@ -287,9 +291,10 @@ const salesSlice = createSlice({
         state.summaryError =
           action.payload?.message ?? action.error.message ?? "Unable to load sales summary.";
       })
-      .addCase(exportSalesThunk.pending, (state) => {
+      .addCase(exportSalesThunk.pending, (state, action) => {
         state.exporting = true;
         state.exportError = null;
+        state.exportFormat = (action.meta.arg as { format?: "csv" | "excel" | "pdf" })?.format || "csv";
       })
       .addCase(exportSalesThunk.fulfilled, (state) => {
         state.exporting = false;
@@ -336,5 +341,6 @@ export const selectSalesSummaryError = (state: RootState) => state.sales.summary
 
 export const selectSalesExporting = (state: RootState) => state.sales.exporting;
 export const selectSalesExportError = (state: RootState) => state.sales.exportError;
+export const selectSalesExportFormat = (state: RootState) => state.sales.exportFormat;
 
 export default salesSlice.reducer;

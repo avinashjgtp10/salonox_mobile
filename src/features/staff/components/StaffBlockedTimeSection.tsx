@@ -18,6 +18,7 @@ import {
   updateBlockedTimeThunk,
 } from "@/middleware/staff/staffBlockedTimes.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { formatAppDateTime } from "@/utils/dateTime";
 import {
   selectBlockedTimeCreateError,
   selectBlockedTimeCreating,
@@ -66,7 +67,7 @@ function BlockedTimeRow({ blockedTime, canManage, onDelete, onEdit, staffId }: B
       <View style={styles.rowInfo}>
         <Text style={styles.reason}>{blockedTime.reason || "Blocked time"}</Text>
         <Text style={styles.dateRange}>
-          {blockedTime.startAt ?? "-"} — {blockedTime.endAt ?? "-"}
+          {formatAppDateTime(blockedTime.startAt, "-")} — {formatAppDateTime(blockedTime.endAt, "-")}
         </Text>
         {blockedTime.notes ? <Text style={styles.meta}>{blockedTime.notes}</Text> : null}
       </View>

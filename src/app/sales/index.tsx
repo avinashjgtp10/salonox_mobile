@@ -241,6 +241,8 @@ export default function SalesHistoryScreen() {
   const [query, setQuery] = useState("");
   const [sortOption, setSortOption] = useState<SaleSortOption>("Newest");
   const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [isExportModalVisible, setIsExportModalVisible] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"csv" | "excel" | "pdf">("csv");
   const sortQuery = useMemo(() => getSortQuery(sortOption), [sortOption]);
   const statusQuery = activeFilter === "All" ? undefined : activeFilter.toLowerCase();
 
@@ -351,10 +353,16 @@ export default function SalesHistoryScreen() {
     );
   };
 
-  const handleExport = async () => {
+  const handleExport = () => {
+    setIsExportModalVisible(true);
+  };
+
+  const handleConfirmExport = async () => {
     const resultAction = await dispatch(
-      exportSalesThunk({ search: debouncedQuery, status: statusQuery }),
+      exportSalesThunk({ search: debouncedQuery, status: statusQuery, format: exportFormat }),
     );
+
+    setIsExportModalVisible(false);
 
     if (exportSalesThunk.rejected.match(resultAction)) {
       Alert.alert(
@@ -566,6 +574,47 @@ export default function SalesHistoryScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setIsExportModalVisible(false)}
+        transparent
+        visible={isExportModalVisible}
+      >
+        <Pressable onPress={() => setIsExportModalVisible(false)} style={styles.modalOverlay}>
+          <Pressable style={styles.exportSheet}>
+            <Text style={styles.exportSheetTitle}>Export Format</Text>
+            {[
+              { format: "csv" as const, label: "CSV", description: "Comma-separated values" },
+              { format: "excel" as const, label: "Excel", description: "Microsoft Excel spreadsheet" },
+              { format: "pdf" as const, label: "PDF", description: "Portable Document Format" },
+            ].map((option, index) => (
+              <TouchableOpacity
+                key={option.format}
+                activeOpacity={0.82}
+                onPress={() => {
+                  setExportFormat(option.format);
+                  handleConfirmExport();
+                }}
+                style={[styles.exportOptionRow, index > 0 && styles.exportOptionRowBorder]}
+              >
+                <View style={styles.exportOptionContent}>
+                  <Text style={[styles.exportOptionLabel, exportFormat === option.format && styles.exportOptionLabelActive]}>
+                    {option.label}
+                  </Text>
+                  <Text style={[styles.exportOptionDescription, exportFormat === option.format && styles.exportOptionDescriptionActive]}>
+                    {option.description}
+                  </Text>
+                </View>
+                {exportFormat === option.format ? (
+                  <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                ) : null}
+              </TouchableOpacity>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -969,6 +1018,47 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
   sortOptionTextActive: {
+    color: Colors.primary,
+  },
+  exportSheet: {
+    backgroundColor: Colors.card,
+    borderRadius: Radius.xl,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  exportSheetTitle: {
+    color: Colors.heading,
+    fontSize: 16,
+    fontWeight: "800",
+    marginBottom: Spacing.sm,
+  },
+  exportOptionRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingVertical: 14,
+  },
+  exportOptionRowBorder: {
+    borderTopColor: Colors.border,
+    borderTopWidth: 1,
+  },
+  exportOptionContent: {
+    flex: 1,
+  },
+  exportOptionLabel: {
+    color: Colors.heading,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  exportOptionLabelActive: {
+    color: Colors.primary,
+  },
+  exportOptionDescription: {
+    color: Colors.text2,
+    fontSize: 12,
+    marginTop: 2,
+  },
+  exportOptionDescriptionActive: {
     color: Colors.primary,
   },
 });

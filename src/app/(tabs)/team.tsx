@@ -22,6 +22,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { StaffToast } from "@/features/staff/components/StaffToast";
 import { StaffCard } from "@/components/team/StaffCard";
 import { SummaryCard } from "@/components/team/SummaryCard";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -66,15 +67,20 @@ function getRejectedMessage(payload: unknown, fallback: string) {
   return fallback;
 }
 
-const MENU_OPTIONS = [
-  "Edit Staff",
-  "View Schedule",
-  "Assign Services",
-  "Manage Leave",
-  "Performance",
-  "Deactivate",
-  "Delete",
-] as const;
+const getMenuOptions = (staffMember: StaffMember | undefined) => {
+  const isInactive = staffMember?.status === "Inactive";
+  const toggleAction = isInactive ? "Reactivate" : "Deactivate";
+
+  return [
+    "Edit Staff",
+    "View Schedule",
+    "Assign Services",
+    "Manage Leave",
+    "Performance",
+    toggleAction,
+    "Delete",
+  ] as const;
+};
 
 function SummarySkeletonCard({ index }: { index: number }) {
   const Colors = useThemeColors();
@@ -324,14 +330,9 @@ export default function TeamScreen() {
       );
       return;
     }
-
-    Alert.alert(
-      nextStatus === "inactive" ? "Staff deactivated" : "Staff reactivated",
-      `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "reactivated"}.`,
-    );
   };
 
-  const handleMenuOptionPress = (option: (typeof MENU_OPTIONS)[number]) => {
+  const handleMenuOptionPress = (option: string) => {
     const staffMember = selectedMenuStaffMember;
 
     setSelectedMenuStaffId(null);
@@ -365,7 +366,7 @@ export default function TeamScreen() {
       return;
     }
 
-    if (option === "Deactivate") {
+    if (option === "Deactivate" || option === "Reactivate") {
       if (!canManageLifecycle) {
         Alert.alert("Permission required", "You don't have permission to change a staff member's status.");
         return;
@@ -618,7 +619,7 @@ export default function TeamScreen() {
         </Pressable>
       </Modal>
 
-      <Modal
+<Modal
         animationType="fade"
         onRequestClose={() => setSelectedMenuStaffId(null)}
         transparent
@@ -627,7 +628,7 @@ export default function TeamScreen() {
         <Pressable onPress={() => setSelectedMenuStaffId(null)} style={styles.modalOverlay}>
           <Pressable style={styles.sheetCard}>
             <Text style={styles.sheetTitle}>{selectedMenuStaffMember?.name ?? "Staff Actions"}</Text>
-            {MENU_OPTIONS.map((option) => (
+            {getMenuOptions(selectedMenuStaffMember).map((option) => (
               <TouchableOpacity
                 key={option}
                 activeOpacity={0.84}
@@ -637,7 +638,7 @@ export default function TeamScreen() {
                 <Text
                   style={[
                     styles.sheetActionText,
-                    (option === "Delete" || option === "Deactivate") && styles.sheetActionDanger,
+                    (option === "Delete" || option === "Deactivate" || option === "Reactivate") && styles.sheetActionDanger,
                   ]}
                 >
                   {option}
@@ -647,6 +648,9 @@ export default function TeamScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <StaffToast />
+
     </SafeAreaView>
   );
 }

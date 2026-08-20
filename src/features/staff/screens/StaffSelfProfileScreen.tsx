@@ -149,7 +149,7 @@ export function StaffSelfProfileScreen() {
 
             <StaffSectionCard title="Basic Details">
               <DetailRow label="Full Name" value={profile.name} />
-              <DetailRow label="Employee ID" value={profile.employeeCode} />
+              <DetailRow label="Staff ID" value={profile.employeeCode} />
               <DetailRow label="Role" value={profile.role} />
               <DetailRow label="Gender" value={profile.gender} />
               <DetailRow label="Date of Birth" value="-" />

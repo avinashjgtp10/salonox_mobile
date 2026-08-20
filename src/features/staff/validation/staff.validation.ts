@@ -7,7 +7,6 @@ import type {
   StaffProfileFormValues,
   ValidationResult,
 } from "@/features/staff/types/staffFeature.types";
-import { parseTimeToMinutes } from "@/features/staff/utils/timeUtils";
 import {
   DATE_INVALID_MESSAGE,
   EMAIL_INVALID_MESSAGE,
@@ -131,36 +130,6 @@ export const validateStaffForm = (
 
     if (password && values.confirmPassword !== values.password) {
       errors.confirmPassword = "Passwords do not match";
-    }
-  }
-
-  if (!isPresent(values.work_start_time)) {
-    errors.work_start_time = "Start time is required.";
-  }
-
-  if (!isPresent(values.work_end_time)) {
-    errors.work_end_time = "End time is required.";
-  } else if (isPresent(values.work_start_time)) {
-    const startMins = parseTimeToMinutes(values.work_start_time!);
-    const endMins = parseTimeToMinutes(values.work_end_time!);
-    if (endMins <= startMins) {
-      errors.work_end_time = "End time must be after start time.";
-    }
-  }
-
-  if (values.isAutoGenerate === false) {
-    if (!isPresent(values.employeeCode)) {
-      errors.employeeCode = "Employee code is required.";
-    } else if (staffMembers) {
-      const codeToCheck = values.employeeCode!.trim().toLowerCase();
-      const isDuplicate = staffMembers.some(
-        (member) =>
-          member.id !== currentStaffId &&
-          member.employeeCode?.trim().toLowerCase() === codeToCheck,
-      );
-      if (isDuplicate) {
-        errors.employeeCode = "Employee code already exists in this salon.";
-      }
     }
   }
 

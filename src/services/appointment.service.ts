@@ -1,8 +1,9 @@
 import { api } from "@/services/api";
-import { APPOINTMENT } from "@/services/api/endpoints";
+import { APPOINTMENT, CLIENT } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import { normalizeSaleId } from "@/utils/apiNormalize";
 import type {
+  AppointmentApiClient,
   AppointmentApiItem,
   AppointmentDetailApiData,
   AppointmentDetailResponse,
@@ -22,6 +23,15 @@ import type {
 
 type AppointmentListApiResponse = ApiResponse<AppointmentListApiData>;
 type AppointmentDetailApiResponse = ApiResponse<AppointmentDetailApiData>;
+
+// The backend has no dedicated GET /appointments/history route (it 404s into
+// the /appointments/:id handler, which throws on a non-UUID "history" id).
+// The client-scoped history endpoint already returns each appointment's raw
+// API shape nested under `appointments`, so that's reused here instead.
+type ClientHistoryApiResponse = ApiResponse<{
+  appointments?: AppointmentApiItem[] | null;
+  client?: AppointmentApiClient | null;
+} | null>;
 
 const toSafeNumber = (value: unknown) => {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -381,7 +391,11 @@ export const normalizeAppointment = (
     durationLabel: formatDuration(durationMinutes),
     durationMinutes,
     endTime: toSafeString(appointment.end_time) || null,
-    id: toSafeString(appointment.id, `appointment-${index + 1}`),
+    id:
+      toSafeString(appointment.id) ||
+      toSafeString(appointment._id) ||
+      toSafeString(appointment.appointment_id) ||
+      `appointment-${index + 1}`,
     notes: toSafeString(appointment.notes),
     paidAmount: toSafeNumber(appointment.paid_amount),
     paymentMethod: titleCase(toSafeString(appointment.payment_method, "-")),
@@ -613,12 +627,24 @@ export const appointmentService = {
   },
 
   async getAppointmentHistory(clientId?: string): Promise<AppointmentHistoryResponse> {
-    const response = await api.get<AppointmentListApiResponse>(APPOINTMENT.HISTORY, {
-      params: clientId ? { client_id: clientId } : undefined,
-    });
-    return {
-      appointments: getAppointmentArray(response.data.data).map(normalizeAppointment),
-      clientId,
-    };
+    if (!clientId) {
+      return { appointments: [], clientId };
+    }
+
+    const response = await api.get<ClientHistoryApiResponse>(`${CLIENT.DETAIL}/${clientId}/history`);
+    const payload = response.data.data;
+    const client = payload?.client ?? null;
+    const appointments = (payload?.appointments ?? []).map((appointment, index) =>
+      normalizeAppointment(
+        {
+          ...appointment,
+          client: appointment.client ?? client,
+          staff_name: appointment.staff_name ?? appointment.services?.[0]?.staff_name ?? null,
+        },
+        index,
+      ),
+    );
+
+    return { appointments, clientId };
   },
 };

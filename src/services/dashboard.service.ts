@@ -105,6 +105,19 @@ export type DashboardMetrics = {
   todaysRevenue: number;
 };
 
+export type StaffRevenueRecord = {
+  id: string;
+  name: string;
+  role: string;
+  revenue: number;
+};
+
+export type StaffRevenueResponse = {
+  data?: StaffRevenueRecord[] | null;
+  message?: string;
+  success: boolean;
+};
+
 export type DashboardAppointment = {
   amount: number;
   clientName: string;
@@ -353,6 +366,29 @@ export const dashboardService = {
     };
   },
 
+  async getStaffRevenue(date = new Date(), salonId?: string | null) {
+    const params = this.getDashboardQueryParams(date);
+    const requestParams = {
+      ...params,
+      ...(salonId ? { salon_id: salonId } : {}),
+    };
+
+    const response = await api.get<StaffRevenueResponse>(DASHBOARD.STAFF_REVENUE, {
+      params: requestParams,
+    });
+
+    const staffRecords = response.data.data ?? [];
+    const totalRevenue = staffRecords.reduce(
+      (sum, record) => sum + (typeof record.revenue === "number" ? record.revenue : 0),
+      0,
+    );
+
+    return {
+      totalRevenue,
+      staffRecords,
+    };
+  },
+
   async getOwnerDashboard(date = new Date(), salonId?: string | null) {
     const params = this.getDashboardQueryParams(date);
     const requestParams = {
@@ -373,6 +409,7 @@ export const dashboardService = {
       revenueChange: toSafeNumber(summary?.revenueChange),
       todaysRevenue: toSafeNumber(summary?.todayRevenue),
     };
+
     // Ascending by scheduled start time; appointments with no parseable
     // scheduled datetime sort last rather than being dropped.
     const todayAppointments = (data?.todayAppointments ?? [])

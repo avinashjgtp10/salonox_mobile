@@ -20,6 +20,7 @@ export type SalonCommissionRecord = {
   staffId: string;
   staffName: string;
   status: string;
+  unpaidAmount?: number;
 };
 
 export type SalonCommissionListQuery = {
@@ -46,6 +47,18 @@ export type SalonCommissionListResponse = {
 export type MarkCommissionPaidResponse = {
   message?: string;
   staffId: string;
+};
+
+export type SettleCommissionRequest = {
+  staffId: string;
+  amount: number;
+};
+
+export type SettleCommissionResponse = {
+  message?: string;
+  staffId: string;
+  remainingBalance?: number;
+  status?: string;
 };
 
 export type BulkConfigureCommissionsRequest = {

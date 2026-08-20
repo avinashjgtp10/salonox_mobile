@@ -14,9 +14,7 @@ import {
   selectStaffMembers,
 } from "@/store/staff/staff.slice";
 import type { StaffProfileFormValues, StaffRoleLevel } from "@/features/staff/types/staffFeature.types";
-import { generateNextEmployeeCode } from "@/features/staff/utils/employeeCodeUtils";
 import { mapStaffFormToRequest, mapStaffWagesToRequest } from "@/features/staff/utils/staffFormMappers";
-import { parseWorkingHours } from "@/features/staff/utils/timeUtils";
 import { validateStaffForm } from "@/features/staff/validation/staff.validation";
 
 const EMPTY_STAFF_FORM: StaffProfileFormValues = {
@@ -26,13 +24,11 @@ const EMPTY_STAFF_FORM: StaffProfileFormValues = {
   designation: "",
   dob: "",
   email: "",
-  employeeCode: "",
   fixedSalary: "",
   fullName: "",
   gender: "",
   holidays: "",
   hourlyRate: "",
-  isAutoGenerate: true,
   isLoginEnabled: false,
   joiningDate: "",
   notes: "",
@@ -40,8 +36,6 @@ const EMPTY_STAFF_FORM: StaffProfileFormValues = {
   phone: "",
   phoneCountry: "IN",
   roleLevel: "Staff",
-  work_end_time: "",
-  work_start_time: "",
   workingHoursPerDay: "",
 };
 
@@ -82,8 +76,6 @@ export const useStaffForm = (staffId?: string | null) => {
   const isEditMode = Boolean(staffId);
   const submitting = creating || updating;
 
-  const autoEmployeeCode = useMemo(() => generateNextEmployeeCode(staffMembers), [staffMembers]);
-
   const validation = useMemo(
     () => validateStaffForm(values, staffMembers, staffId),
     [staffMembers, staffId, values],
@@ -106,8 +98,6 @@ export const useStaffForm = (staffId?: string | null) => {
       return;
     }
 
-    const { startTime, endTime } = parseWorkingHours(staffMember.workingHours);
-
     setValues({
       address: staffMember.address ?? "",
       avatarUrl: staffMember.avatarUrl ?? "",
@@ -115,13 +105,11 @@ export const useStaffForm = (staffId?: string | null) => {
       designation: staffMember.designation ?? "",
       dob: toPlaceholderDob(staffMember.birthdayDay, staffMember.birthdayMonth),
       email: staffMember.email === "-" ? "" : staffMember.email,
-      employeeCode: staffMember.employeeCode === "-" ? "" : (staffMember.employeeCode || ""),
       fixedSalary: "",
       fullName: staffMember.name,
       gender: staffMember.gender === "-" ? "" : staffMember.gender,
       holidays: staffMember.holidays != null ? String(staffMember.holidays) : "",
       hourlyRate: "",
-      isAutoGenerate: false,
       isLoginEnabled: false,
       joiningDate: staffMember.joiningDate === "-" ? "" : staffMember.joiningDate,
       notes: staffMember.notes,
@@ -129,8 +117,6 @@ export const useStaffForm = (staffId?: string | null) => {
       phone: staffMember.phone === "-" ? "" : staffMember.phone,
       phoneCountry: "IN",
       roleLevel: toPermissionRoleLevel(staffMember.permissionLevel),
-      work_end_time: endTime,
-      work_start_time: startTime,
       workingHoursPerDay:
         staffMember.workingHoursPerDay != null ? String(staffMember.workingHoursPerDay) : "",
     });
@@ -190,7 +176,7 @@ export const useStaffForm = (staffId?: string | null) => {
 
     setDuplicateEmailError(null);
 
-    const payload = mapStaffFormToRequest(values, autoEmployeeCode);
+    const payload = mapStaffFormToRequest(values);
     const wages = mapStaffWagesToRequest(values);
     const action =
       isEditMode && staffId
@@ -231,7 +217,6 @@ export const useStaffForm = (staffId?: string | null) => {
   };
 
   return {
-    autoEmployeeCode,
     avatarError,
     avatarUploading,
     duplicateEmailError,

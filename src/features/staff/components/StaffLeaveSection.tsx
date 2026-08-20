@@ -18,6 +18,7 @@ import {
   updateLeaveThunk,
 } from "@/middleware/staff/staffLeaves.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { formatAppDate } from "@/utils/dateTime";
 import {
   selectLeaveCreateError,
   selectLeaveCreating,
@@ -85,7 +86,7 @@ function LeaveRow({ canManage, leave, onDelete, onEdit, staffId }: LeaveRowProps
           </View>
         </View>
         <Text style={styles.dateRange}>
-          {leave.startDate ?? "-"} — {leave.endDate ?? "-"}
+          {formatAppDate(leave.startDate, "-")} — {formatAppDate(leave.endDate, "-")}
         </Text>
         {leave.reason ? <Text style={styles.meta}>{leave.reason}</Text> : null}
       </View>

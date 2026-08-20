@@ -18,27 +18,24 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { SettlementModal } from "@/components/ui/SettlementModal";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
-import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
-import { StaffTextField } from "@/features/staff/components/StaffTextField";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import {
-  bulkConfigureCommissionsThunk,
   exportSalonCommissionsThunk,
   fetchSalonCommissionEarnedThunk,
   fetchSalonCommissionSummaryThunk,
   fetchSalonCommissionsThunk,
-  markCommissionPaidThunk,
+  settleCommissionThunk,
 } from "@/middleware/staff/salonCommissions.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
-  selectBulkConfigureError,
-  selectBulkConfiguring,
-  selectCommissionMarkingPaid,
+  selectCommissionSettling,
   selectSalonCommissionEarned,
   selectSalonCommissionEarnedError,
   selectSalonCommissionEarnedLoaded,
@@ -55,13 +52,13 @@ import {
   selectSalonCommissionSummaryError,
   selectSalonCommissionSummaryLoading,
 } from "@/store/staff/salonCommissions.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { selectCurrentStaff } from "@/store/staff/staff.slice";
+import { canSettleCommission } from "@/utils/userProfile";
 import type { SalonCommissionRecord } from "@/types/salonCommissions";
 
 const STATUS_FILTERS = ["All", "Pending", "Paid"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
-
-const COMMISSION_TYPES = ["percentage", "fixed"] as const;
 
 function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
@@ -89,53 +86,32 @@ function getStatusPalette(status: string, Colors: ThemeColors) {
   }
 }
 
-function CommissionRow({
-  onMarkPaid,
-  record,
-}: {
-  onMarkPaid: (record: SalonCommissionRecord) => void;
-  record: SalonCommissionRecord;
-}) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const marking = useAppSelector((state) => selectCommissionMarkingPaid(state, record.staffId));
-  const palette = getStatusPalette(record.status, Colors);
-
-  return (
-    <View style={styles.row}>
-      <View style={styles.rowInfo}>
-        <Text style={styles.staffName}>{record.staffName}</Text>
-        <Text style={styles.period}>{record.period ?? "-"}</Text>
-      </View>
-      <View style={styles.rowRight}>
-        <Text style={styles.amount}>{formatCurrency(record.amount)}</Text>
-        <View style={[styles.statusPill, { backgroundColor: palette.backgroundColor }]}>
-          <Text style={[styles.statusPillText, { color: palette.color }]}>{record.status}</Text>
-        </View>
-      </View>
-      {record.status.toLowerCase() === "pending" ? (
-        <TouchableOpacity
-          activeOpacity={0.84}
-          disabled={marking}
-          onPress={() => onMarkPaid(record)}
-          style={[styles.markPaidButton, marking && styles.buttonDisabled]}
-        >
-          {marking ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text style={styles.markPaidButtonText}>Mark Paid</Text>
-          )}
-        </TouchableOpacity>
-      ) : null}
-    </View>
-  );
-}
-
 export default function SalonCommissionsScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
+
+  const currentUser = useAppSelector(selectCurrentUser);
+  const currentStaff = useAppSelector(selectCurrentStaff);
+  const userRole = currentUser?.role ?? "";
+  const userPermissions = (currentUser?.custom_permissions as string[]) ?? [];
+  const hasSettlePermission = canSettleCommission(userRole, userPermissions);
+  const isStaffUser = currentStaff && !hasSettlePermission;
+
+  const records = useAppSelector(selectSalonCommissionRecords);
+  const listError = useAppSelector(selectSalonCommissionListError);
+  const listLoading = useAppSelector(selectSalonCommissionListLoading);
+  const listLoadingMore = useAppSelector(selectSalonCommissionListLoadingMore);
+  const listRefreshing = useAppSelector(selectSalonCommissionListRefreshing);
+  const pagination = useAppSelector(selectSalonCommissionPagination);
+
+  const filteredRecords = useMemo(() => {
+    if (isStaffUser && currentStaff) {
+      return records.filter((record) => record.staffId === currentStaff.id);
+    }
+    return records;
+  }, [records, isStaffUser, currentStaff]);
 
   const summary = useAppSelector(selectSalonCommissionSummary);
   const summaryLoading = useAppSelector(selectSalonCommissionSummaryLoading);
@@ -146,24 +122,16 @@ export default function SalonCommissionsScreen() {
   const earnedLoading = useAppSelector(selectSalonCommissionEarnedLoading);
   const earnedError = useAppSelector(selectSalonCommissionEarnedError);
 
-  const records = useAppSelector(selectSalonCommissionRecords);
-  const listError = useAppSelector(selectSalonCommissionListError);
-  const listLoading = useAppSelector(selectSalonCommissionListLoading);
-  const listLoadingMore = useAppSelector(selectSalonCommissionListLoadingMore);
-  const listRefreshing = useAppSelector(selectSalonCommissionListRefreshing);
-  const pagination = useAppSelector(selectSalonCommissionPagination);
-
   const exporting = useAppSelector(selectSalonCommissionExporting);
   const exportError = useAppSelector(selectSalonCommissionExportError);
 
-  const bulkConfiguring = useAppSelector(selectBulkConfiguring);
-  const bulkConfigureError = useAppSelector(selectBulkConfigureError);
-
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
-  const [isBulkSheetOpen, setIsBulkSheetOpen] = useState(false);
-  const [bulkRate, setBulkRate] = useState("");
-  const [bulkType, setBulkType] = useState<string>("percentage");
+  const [settlementRecord, setSettlementRecord] = useState<SalonCommissionRecord | null>(null);
+  const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
+  const settlementLoading = useAppSelector((state) =>
+    settlementRecord ? selectCommissionSettling(state, settlementRecord.staffId) : false,
+  );
   const deferredSearch = useDeferredValue(search);
 
   useEffect(() => {
@@ -213,29 +181,32 @@ export default function SalonCommissionsScreen() {
     );
   };
 
-  const handleMarkPaid = (record: SalonCommissionRecord) => {
-    Alert.alert(
-      "Mark Commission Paid",
-      `Mark ${record.staffName}'s commission of ${formatCurrency(record.amount)} as paid?`,
-      [
-        { style: "cancel", text: "Cancel" },
-        { onPress: () => void handleConfirmMarkPaid(record), text: "Mark Paid" },
-      ],
-    );
+  const handleSettle = (record: SalonCommissionRecord) => {
+    setSettlementRecord(record);
+    setIsSettlementModalOpen(true);
   };
 
-  const handleConfirmMarkPaid = async (record: SalonCommissionRecord) => {
-    const resultAction = await dispatch(markCommissionPaidThunk(record.staffId));
+  const handleConfirmSettle = async (amount: number) => {
+    if (!settlementRecord) {
+      return;
+    }
 
-    if (markCommissionPaidThunk.rejected.match(resultAction)) {
+    const resultAction = await dispatch(settleCommissionThunk({ staffId: settlementRecord.staffId, amount }));
+
+    if (settleCommissionThunk.rejected.match(resultAction)) {
       Alert.alert(
-        "Unable to mark as paid",
+        "Unable to settle commission",
         getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
       );
       return;
     }
 
-    Alert.alert("Commission marked as paid", resultAction.payload.message ?? "Payment recorded.");
+    Alert.alert("Commission settled", resultAction.payload.message ?? "Payment recorded successfully.");
+  };
+
+  const handleSettlementModalClose = () => {
+    setSettlementRecord(null);
+    setIsSettlementModalOpen(false);
   };
 
   const handleExport = async () => {
@@ -263,36 +234,61 @@ export default function SalonCommissionsScreen() {
     }
   };
 
-  const isBulkRateValid = bulkRate.trim().length > 0 && Number(bulkRate) >= 0;
+  function CommissionRow({
+    onSettle,
+    record,
+    canSettle,
+  }: {
+    onSettle: (record: SalonCommissionRecord) => void;
+    record: SalonCommissionRecord;
+    canSettle: boolean;
+  }) {
+    const styles = useMemo(() => createStyles(Colors), []);
+    const settling = useAppSelector((state) => selectCommissionSettling(state, record.staffId));
+    const palette = getStatusPalette(record.status, Colors);
+    const unpaidAmount = record.unpaidAmount ?? record.amount;
 
-  const handleBulkConfigure = async () => {
-    if (!isBulkRateValid) {
-      return;
-    }
+    const isSettlable = canSettle && record.status.toLowerCase() === "pending" && unpaidAmount > 0;
 
-    const resultAction = await dispatch(
-      bulkConfigureCommissionsThunk({ rate: Number(bulkRate), type: bulkType }),
+    return (
+      <View style={styles.row}>
+        <View style={styles.rowInfo}>
+          <Text style={styles.staffName}>{record.staffName}</Text>
+          <Text style={styles.period}>{record.period ?? "-"}</Text>
+        </View>
+        <View style={styles.rowRight}>
+          <View style={styles.amountColumn}>
+            <Text style={styles.amountLabel}>Commission</Text>
+            <Text style={styles.amount}>{formatCurrency(record.amount)}</Text>
+          </View>
+          <View style={styles.amountColumn}>
+            <Text style={styles.amountLabel}>Unpaid</Text>
+            <Text style={styles.unpaidAmount}>{formatCurrency(unpaidAmount)}</Text>
+          </View>
+          <View style={[styles.statusPill, { backgroundColor: palette.backgroundColor }]}>
+            <Text style={[styles.statusPillText, { color: palette.color }]}>{record.status}</Text>
+          </View>
+        </View>
+        {isSettlable ? (
+          <TouchableOpacity
+            activeOpacity={0.84}
+            disabled={settling}
+            onPress={() => onSettle(record)}
+            style={[styles.settleButton, settling && styles.buttonDisabled]}
+          >
+            {settling ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.settleButtonText}>Settle</Text>
+            )}
+          </TouchableOpacity>
+        ) : null}
+      </View>
     );
-
-    if (bulkConfigureCommissionsThunk.rejected.match(resultAction)) {
-      Alert.alert(
-        "Unable to bulk configure",
-        getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
-      );
-      return;
-    }
-
-    setIsBulkSheetOpen(false);
-    setBulkRate("");
-    Alert.alert(
-      "Commissions configured",
-      resultAction.payload.message ??
-        `Updated commission settings for ${resultAction.payload.affectedCount} staff members.`,
-    );
-  };
+  }
 
   const renderItem: ListRenderItem<SalonCommissionRecord> = ({ item }) => (
-    <CommissionRow onMarkPaid={handleMarkPaid} record={item} />
+    <CommissionRow onSettle={handleSettle} record={item} canSettle={hasSettlePermission} />
   );
 
   const listHeader = (
@@ -405,7 +401,7 @@ export default function SalonCommissionsScreen() {
       {listLoading && records.length === 0 ? (
         <ActivityIndicator color={Colors.primary} size="large" style={styles.listLoading} />
       ) : null}
-      {!listLoading && !listError && records.length === 0 ? (
+      {!listLoading && !listError && filteredRecords.length === 0 ? (
         <Text style={styles.emptyText}>No commission records found.</Text>
       ) : null}
     </View>
@@ -415,8 +411,8 @@ export default function SalonCommissionsScreen() {
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <FlatList
-        contentContainerStyle={[styles.content, { paddingBottom: 120 + insets.bottom }]}
-        data={records}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom }]}
+        data={filteredRecords}
         keyExtractor={(item) => item.id}
         ListFooterComponent={
           listLoadingMore ? (
@@ -438,67 +434,14 @@ export default function SalonCommissionsScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <TouchableOpacity
-          activeOpacity={0.86}
-          onPress={() => setIsBulkSheetOpen(true)}
-          style={styles.bulkButton}
-        >
-          <Ionicons name="options-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.bulkButtonText}>Bulk Configure</Text>
-        </TouchableOpacity>
-      </View>
-
-      <StaffBottomSheet
-        onClose={() => setIsBulkSheetOpen(false)}
-        subtitle="Applies a default commission rate across all staff."
-        title="Bulk Configure Commissions"
-        visible={isBulkSheetOpen}
-      >
-        <View style={styles.typeGrid}>
-          {COMMISSION_TYPES.map((commissionType) => {
-            const isActive = commissionType === bulkType;
-
-            return (
-              <TouchableOpacity
-                key={commissionType}
-                activeOpacity={0.84}
-                onPress={() => setBulkType(commissionType)}
-                style={[styles.typeChip, isActive && styles.typeChipActive]}
-              >
-                <Text style={[styles.typeChipText, isActive && styles.typeChipTextActive]}>
-                  {commissionType}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        <StaffTextField
-          keyboardType="numeric"
-          label={bulkType === "percentage" ? "Rate (%)" : "Rate (Rs.)"}
-          onChangeText={setBulkRate}
-          placeholder="e.g. 10"
-          value={bulkRate}
-        />
-
-        {bulkConfigureError ? <Text style={styles.errorText}>{bulkConfigureError}</Text> : null}
-
-        <TouchableOpacity
-          activeOpacity={0.84}
-          disabled={!isBulkRateValid || bulkConfiguring}
-          onPress={() => void handleBulkConfigure()}
-          style={[
-            styles.saveButton,
-            (!isBulkRateValid || bulkConfiguring) && styles.buttonDisabled,
-          ]}
-        >
-          {bulkConfiguring ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text style={styles.saveButtonText}>Apply to All Staff</Text>
-          )}
-        </TouchableOpacity>
-      </StaffBottomSheet>
+      <SettlementModal
+        visible={isSettlementModalOpen}
+        onClose={handleSettlementModalClose}
+        onSettle={handleConfirmSettle}
+        staffName={settlementRecord?.staffName ?? ""}
+        totalUnpaidCommission={settlementRecord?.unpaidAmount ?? settlementRecord?.amount ?? 0}
+        isLoading={settlementLoading}
+      />
     </SafeAreaView>
   );
 }
@@ -679,11 +622,26 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   rowRight: {
     alignItems: "center",
     flexDirection: "row",
+    gap: 12,
     justifyContent: "space-between",
+  },
+  amountColumn: {
+    alignItems: "flex-end",
+  },
+  amountLabel: {
+    color: Colors.text2,
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
   amount: {
     color: Colors.heading,
     fontSize: 15,
+    fontWeight: "800",
+  },
+  unpaidAmount: {
+    color: Colors.warning,
+    fontSize: 14,
     fontWeight: "800",
   },
   statusPill: {
@@ -696,7 +654,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     textTransform: "capitalize",
   },
-  markPaidButton: {
+  settleButton: {
     alignItems: "center",
     backgroundColor: Colors.primary,
     borderRadius: Radius.full,
@@ -707,75 +665,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   buttonDisabled: {
     opacity: 0.55,
   },
-  markPaidButtonText: {
+  settleButtonText: {
     color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: "800",
-  },
-  stickyFooter: {
-    bottom: 0,
-    left: 0,
-    paddingBottom: Spacing.lg,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
-    paddingTop: Spacing.sm,
-    position: "absolute",
-    right: 0,
-  },
-  bulkButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primaryDark,
-    borderRadius: Radius.full,
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    minHeight: 52,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-  bulkButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  typeGrid: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: Spacing.md,
-  },
-  typeChip: {
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  typeChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  typeChipText: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "capitalize",
-  },
-  typeChipTextActive: {
-    color: "#FFFFFF",
-  },
-  saveButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  saveButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
     fontWeight: "800",
   },
 });
