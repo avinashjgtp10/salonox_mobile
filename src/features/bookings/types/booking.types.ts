@@ -76,6 +76,22 @@ export interface ServiceItem {
     // the cached page showed no stock at all. Optional because the reopened-
     // appointment path doesn't carry it yet; the cache remains the fallback.
     stock?: number;
+    // The product's own measure_unit — always what `stock` above is
+    // denominated in, which is NOT necessarily `unit` above (staff can log
+    // usage in any of the product's configured display units, e.g. "Bottle"
+    // on an ml-based product). Total/Remaining Stock must always be labeled
+    // and computed against baseUnit, never unit — showing "6000 L" next to a
+    // stock figure that's actually 6000 ml was exactly this confusion.
+    // Falls back to `unit` when absent (every consumable added via
+    // ConsumablesTab's recipe editor has no separate unit picker, so its
+    // `unit` already IS the base unit — only this row's own "+ Add
+    // Consumable" flow can ever diverge the two).
+    baseUnit?: string;
+    // Multiply an amount expressed in `unit` by this to get the equivalent
+    // in `baseUnit` (e.g. 1000 for unit="L"/baseUnit="ml"). 1 when unit
+    // already equals baseUnit. Resolved once at add-time from the product's
+    // configured unit conversions — see ServiceRow's confirmAddConsumable.
+    unitRatio?: number;
   }[];
 }
 
