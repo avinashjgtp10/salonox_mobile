@@ -4,14 +4,14 @@ import { useSelector, useDispatch } from "react-redux";
 import {
   ChevronLeft, PencilSquare, Check2, XLg,
   Person, Envelope, Telephone, Building, GeoAlt,
-  Globe, ShieldLock, EyeSlash, Eye, Camera,
+  Globe, Camera,
   CheckCircleFill, ArrowClockwise,
   PersonBadge, Hash, MapFill, CreditCard, Tag, Clock, FileText,
 } from "react-bootstrap-icons";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
-  fetchMeThunk, updateUserThunk, uploadAvatarThunk, changePasswordThunk,
+  fetchMeThunk, updateUserThunk, uploadAvatarThunk,
 } from "../../../middleware/user/user.thunk";
 import { getMySalonThunk, updateSalonThunk } from "../../../middleware/salon/salon.thunk";
 import type { UpdateUserPayload } from "../../../types/user.types";
@@ -19,6 +19,11 @@ import type { UpdateSalonPayload } from "../../../types/salon.types";
 import { TAX_ID_MESSAGES } from "../../../constants/message";
 import { toTitleCase } from "../../../utils/titleCase";
 import "../styles/ProfilePage.scss";
+
+const MAX_AVATAR_SIZE_KB = 999;
+const MAX_AVATAR_SIZE_BYTES = MAX_AVATAR_SIZE_KB * 1024;
+const ALLOWED_AVATAR_TYPES = ["image/jpeg", "image/png", "image/webp"];
+const ALLOWED_AVATAR_EXTENSIONS = ".jpg,.jpeg,.png,.webp";
 
 const GSTIN_LENGTH = 15;
 const PAN_LENGTH = 10;
@@ -175,10 +180,8 @@ export default function ProfilePage() {
   const fetching      = useSelector((s: RootState) => s.user.loading.fetch);
   const saving        = useSelector((s: RootState) => s.user.loading.update);
   const uploading     = useSelector((s: RootState) => s.user.loading.avatar);
-  const changingPw    = useSelector((s: RootState) => s.user.loading.changePassword);
   const fetchErr      = useSelector((s: RootState) => s.user.error);
   const currentSalon  = useSelector((s: RootState) => s.salon.currentSalon);
-  const salonFetching = useSelector((s: RootState) => s.salon.loading.fetch);
   const salonSaving   = useSelector((s: RootState) => s.salon.loading.update);
   const authRole      = useSelector((s: RootState) => s.auth.role);
 
@@ -196,16 +199,6 @@ export default function ProfilePage() {
   const [salonError,       setSalonError]       = useState<string | null>(null);
   const [salonFieldErrors, setSalonFieldErrors] = useState<Errors>({});
 
-  // ── Password state ────────────────────────────────────────────────────────
-  const [pwSection,  setPwSection]  = useState(false);
-  const [pwCurrent,  setPwCurrent]  = useState("");
-  const [pwNew,      setPwNew]      = useState("");
-  const [pwConfirm,  setPwConfirm]  = useState("");
-  const [showPwCur,  setShowPwCur]  = useState(false);
-  const [showPwNew,  setShowPwNew]  = useState(false);
-  const [showPwConf, setShowPwConf] = useState(false);
-  const [pwError,    setPwError]    = useState<string | null>(null);
-  const [pwSuccess,  setPwSuccess]  = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const fileRef = useRef<HTMLInputElement>(null);
@@ -309,7 +302,7 @@ export default function ProfilePage() {
     setFormError(null);
     const result = await dispatch(updateUserThunk({
       ...form,
-      fullName: toTitleCase(form.fullName.trim()),
+      fullName: toTitleCase((form.fullName ?? "").trim()),
       businessName: form.businessName?.trim() ? toTitleCase(form.businessName.trim()) : form.businessName,
     }));
     if (updateUserThunk.fulfilled.match(result)) {
@@ -383,8 +376,16 @@ export default function ProfilePage() {
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) { showError("Please select an image file."); return; }
-    if (file.size > 5 * 1024 * 1024) { showError("Image must be under 5 MB."); return; }
+    if (!ALLOWED_AVATAR_TYPES.includes(file.type)) {
+      showError("Please upload a JPG, JPEG, PNG, or WEBP image.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
+      showError("Image size must be 999 KB or less. Please upload a smaller image.");
+      if (fileRef.current) fileRef.current.value = "";
+      return;
+    }
     const result = await dispatch(uploadAvatarThunk(file));
     if (uploadAvatarThunk.fulfilled.match(result)) {
       showSuccess("Profile photo updated!");
@@ -392,26 +393,6 @@ export default function ProfilePage() {
       showError(String(result.payload ?? "Failed to upload photo."));
     }
     if (fileRef.current) fileRef.current.value = "";
-  };
-
-  const handlePasswordChange = async () => {
-    if (!pwCurrent)          { setPwError("Current password is required."); return; }
-    if (pwNew.length < 8)    { setPwError("New password must be at least 8 characters."); return; }
-    if (!/[A-Z]/.test(pwNew)) { setPwError("Must contain at least one uppercase letter."); return; }
-    if (!/[0-9]/.test(pwNew)) { setPwError("Must contain at least one number."); return; }
-    if (pwNew === pwCurrent) { setPwError("New password must be different from your current password."); return; }
-    if (pwNew !== pwConfirm) { setPwError("Passwords do not match."); return; }
-    setPwError(null);
-    const result = await dispatch(changePasswordThunk({ currentPassword: pwCurrent, newPassword: pwNew }));
-    if (changePasswordThunk.fulfilled.match(result)) {
-      setPwSuccess(true);
-      setPwCurrent(""); setPwNew(""); setPwConfirm("");
-      showSuccess("Password updated successfully.");
-      setTimeout(() => { setPwSuccess(false); setPwSection(false); }, 2000);
-    } else {
-      const msg = String(result.payload ?? "Failed to change password.");
-      setPwError(msg); showError(msg);
-    }
   };
 
   const displayName = profile?.fullName ?? "Salon Owner";
@@ -500,13 +481,19 @@ export default function ProfilePage() {
               <input
                 ref={fileRef}
                 type="file"
-                accept="image/*"
+                accept={ALLOWED_AVATAR_EXTENSIONS}
                 className="pp-avatar-file"
                 aria-label="Upload profile photo"
                 title="Upload profile photo"
                 onChange={handleAvatarChange}
               />
             </div>
+
+            <p className="pp-avatar-upload-hint">
+              Maximum image size: {MAX_AVATAR_SIZE_KB} KB
+              <br />
+              Accepted formats: JPG, JPEG, PNG, WEBP
+            </p>
 
             <h2 className="pp-avatar-name">{displayName}</h2>
             {email && <p className="pp-avatar-email">{email}</p>}

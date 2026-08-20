@@ -41,6 +41,7 @@ interface StaffMember {
   status?: string;
   invitation_status?: string;
   job_title?: string;
+  avatar_url?: string;
   calendar_color?: string;
   allow_calendar_bookings?: boolean;
   permission_level?: string;
@@ -536,7 +537,11 @@ export default function StaffListPage() {
                     className="slp-avatar"
                     style={{ "--avatar-bg": member.calendar_color ? resolveColor(member.calendar_color) : getGradient(member.id) } as React.CSSProperties}
                   >
-                    <span className="slp-avatar-initials">{initials}</span>
+                    {member.avatar_url ? (
+                      <img src={member.avatar_url} alt={fullName || "Staff member"} className="slp-avatar-img" />
+                    ) : (
+                      <span className="slp-avatar-initials">{initials}</span>
+                    )}
                   </div>
                   <div className="slp-member-info">
                     <div className="slp-member-name">{fullName || "Unknown"}</div>
