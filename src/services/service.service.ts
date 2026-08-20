@@ -443,20 +443,19 @@ export const serviceService = {
     };
   },
 
-  async getCategories(type: CategoryType, salonId?: string | null): Promise<ServiceCategoryItem[]> {
+  async getCategories(type: CategoryType, _salonId?: string | null): Promise<ServiceCategoryItem[]> {
     const params = {
       type,
-      ...(salonId ? { salon_id: salonId } : {}),
     };
 
     try {
-      const response = await api.get<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
+      const response = await api.get<ApiResponse<unknown>>("/categories", {
         params,
       });
 
       return normalizeCategoryList(response.data?.data ?? response.data);
     } catch {
-      const response = await api.get<ApiResponse<unknown>>("/categories", {
+      const response = await api.get<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
         params,
       });
 
@@ -467,7 +466,7 @@ export const serviceService = {
   async createCategory(
     name: string,
     type: CategoryType,
-    salonId?: string | null,
+    _salonId?: string | null,
   ): Promise<ServiceCategoryItem> {
     const trimmedName = name.trim();
     if (!trimmedName) {
@@ -477,19 +476,17 @@ export const serviceService = {
     let rawCategory: unknown = null;
 
     try {
-      const response = await api.post<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
+      const response = await api.post<ApiResponse<unknown>>("/categories", {
         name: trimmedName,
         type,
-        ...(salonId ? { salon_id: salonId } : {}),
       });
 
       rawCategory = response.data?.data ?? response.data;
     } catch (primaryError) {
       try {
-        const response = await api.post<ApiResponse<unknown>>("/categories", {
+        const response = await api.post<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
           name: trimmedName,
           type,
-          ...(salonId ? { salon_id: salonId } : {}),
         });
 
         rawCategory = response.data?.data ?? response.data;
