@@ -11,6 +11,7 @@ import { StaffStateView } from "@/features/staff/components/StaffStateView";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
 import { fetchPayRunsThunk, upsertPayRunThunk } from "@/middleware/staff/staffPayRuns.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { formatAppDate } from "@/utils/dateTime";
 import {
   selectPayRunSaveError,
   selectPayRunSaving,
@@ -116,7 +117,7 @@ export function StaffPayRunSection({ staffId }: StaffPayRunSectionProps) {
             <View key={payRun.id} style={styles.row}>
               <View style={styles.rowHeader}>
                 <Text style={styles.period}>
-                  {payRun.periodStart ?? "-"} — {payRun.periodEnd ?? "-"}
+                  {formatAppDate(payRun.periodStart, "-")} — {formatAppDate(payRun.periodEnd, "-")}
                 </Text>
                 <View style={styles.statusPill}>
                   <Text style={styles.statusPillText}>{payRun.status}</Text>

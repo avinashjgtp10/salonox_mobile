@@ -44,7 +44,7 @@ export const formatAppDate = (value: DateTimeInput, fallback = "-") => {
     return fallback;
   }
 
-  return `${padTwo(date.getDate())}/${padTwo(date.getMonth() + 1)}/${date.getFullYear()}`;
+  return `${padTwo(date.getDate())}-${padTwo(date.getMonth() + 1)}-${date.getFullYear()}`;
 };
 
 export const formatAppTime = (value: DateTimeInput, fallback = "-") => {

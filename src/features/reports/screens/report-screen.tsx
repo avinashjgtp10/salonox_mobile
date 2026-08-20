@@ -41,6 +41,7 @@ import { fetchReportThunk } from "@/middleware/report/report.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { rememberReportFilters, selectReportEntry } from "@/store/report/report.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { formatAppDate } from "@/utils/dateTime";
 
 const getInvoiceDetailSaleId = (row: ReportRow, slug: ReportConfig["slug"]) => {
   const saleId = row.saleId ?? row.id;
@@ -76,6 +77,18 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
   const rows = useMemo(() => getReportRows(config.slug, entry?.data ?? null), [config.slug, entry?.data]);
   const summary = useMemo(() => getReportSummary(config.slug, entry?.data ?? null), [config.slug, entry?.data]);
   const pagination = useMemo(() => getReportPagination(entry?.data ?? null), [entry?.data]);
+  const dateRangeLabel = useMemo(() => {
+    const rangeStart = filters.date ?? filters.from ?? filters.start_date;
+    const rangeEnd = filters.to ?? filters.end_date;
+
+    if (!rangeStart) {
+      return "All time";
+    }
+
+    const formattedStart = formatAppDate(rangeStart, rangeStart);
+
+    return rangeEnd ? `${formattedStart}  –  ${formatAppDate(rangeEnd, rangeEnd)}` : formattedStart;
+  }, [filters.date, filters.from, filters.start_date, filters.to, filters.end_date]);
   const hasMore = Boolean(config.paginated && pagination && pagination.page < pagination.totalPages);
   const supportsSearch = config.filters.includes("search");
   const isUnavailable = config.status !== "available";
@@ -218,10 +231,7 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
         </View>
         <View style={styles.dateCopy}>
           <Text style={styles.dateLabel}>REPORT RANGE</Text>
-          <Text style={styles.dateValue}>
-            {filters.date ?? filters.from ?? filters.start_date ?? "All time"}
-            {(filters.to ?? filters.end_date) ? `  –  ${filters.to ?? filters.end_date}` : ""}
-          </Text>
+          <Text style={styles.dateValue}>{dateRangeLabel}</Text>
         </View>
         <Ionicons name="chevron-down" size={16} color={Colors.hint} />
       </TouchableOpacity>
