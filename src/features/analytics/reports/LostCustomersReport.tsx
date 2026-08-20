@@ -15,7 +15,7 @@ import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "./ClientRevenueReport.scss";
 
-const REPORT_NAME = "Lost Customers";
+const REPORT_NAME = "Lost Clients";
 const DEFAULT_LOST_DAYS = 90;
 
 interface LostCustomerRow {
@@ -235,7 +235,7 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
             {loading ? (
               <SkeletonTableRows columns={7} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="rp-detail-empty-cell">No lost customers found</td></tr>
+              <tr><td colSpan={7} className="rp-detail-empty-cell">No lost clients found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
