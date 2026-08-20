@@ -75,6 +75,28 @@ export const createSubscriptionThunk = createAsyncThunk<
   }
 });
 
+// Salon counts as active if ANY of its subscription records is currently
+// active/trialing — not just the single one /billing/subscription returns.
+// Missing current_period_end fails open (treated as not-yet-expired).
+export const fetchSubscriptionStatusThunk = createAsyncThunk<
+  boolean, string, { rejectValue: string }
+>("billing/fetchSubscriptionStatus", async (salonId, { rejectWithValue }) => {
+  try {
+    const res = await api.get<ApiResp<Array<{ status: string; current_period_end: string | null }>>>(
+      BILLING.STATUS(salonId)
+    );
+    const subs = res.data.data ?? [];
+    return subs.some((s) => {
+      if (!["active", "trialing"].includes(s.status)) return false;
+      if (!s.current_period_end) return true;
+      return new Date() < new Date(s.current_period_end);
+    });
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch subscription status");
+  }
+});
+
 export const verifySubscriptionThunk = createAsyncThunk<
   { status: string },
   { salonId: string; razorpay_payment_id: string | null; razorpay_subscription_id: string | null; razorpay_signature: string | null },
@@ -112,18 +134,6 @@ const initialState: BillingState = {
   subscriptionExpired: false,
 };
 
-// A subscription counts as active only if both its status AND its billing
-// period say so — status alone can lag the date (e.g. a cron hasn't flipped
-// it to past_due yet), and date alone can't tell cancelled from active.
-// Missing current_period_end fails open (treated as not-yet-expired) since
-// some plans (trial-only, lifetime) may never populate it.
-function isSubscriptionActive(sub: Subscription | null): boolean {
-  if (!sub) return false;
-  const statusOk = sub.status === "active" || sub.status === "trialing";
-  const dateOk = !sub.current_period_end || new Date() < new Date(sub.current_period_end);
-  return statusOk && dateOk;
-}
-
 const billingSlice = createSlice({
   name: "billing",
   initialState,
@@ -144,9 +154,17 @@ const billingSlice = createSlice({
       .addCase(fetchSubscriptionThunk.fulfilled, (s, { payload }) => {
         s.loading.subscription = false;
         s.subscription = payload;
-        s.subscriptionExpired = !isSubscriptionActive(payload);
+        // Only clears the expiry gate, never sets it — this endpoint returns
+        // a single subscription record which may not be the salon's current
+        // one (see fetchSubscriptionStatusThunk, the actual gate source).
+        if (payload?.status === "active" || payload?.status === "trialing") {
+          s.subscriptionExpired = false;
+        }
       })
       .addCase(fetchSubscriptionThunk.rejected,  (s, { payload }) => { s.loading.subscription = false; s.error = payload ?? null; });
+
+    builder
+      .addCase(fetchSubscriptionStatusThunk.fulfilled, (s, { payload }) => { s.subscriptionExpired = !payload; });
 
     builder
       .addCase(fetchInvoicesThunk.pending,  (s) => { s.loading.invoices = true; })

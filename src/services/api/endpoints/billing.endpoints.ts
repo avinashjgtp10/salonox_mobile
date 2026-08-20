@@ -9,4 +9,9 @@ export const BILLING = {
   PLANS:        "/api/v1/subscriptions/plans",
   CREATE_SUB:   "/api/v1/subscriptions",
   VERIFY_SUB:   (salonId: string) => `/api/v1/subscriptions/verify/${salonId}`,
+  // Array of every subscription record for the salon (renewals, retries,
+  // etc. can each leave their own row) — used for the expiry gate instead
+  // of SUBSCRIPTION, since a salon can be active via a row other than
+  // whichever single one /billing/subscription happens to return.
+  STATUS:       (salonId: string) => `/api/v1/subscriptions/salon/${salonId}`,
 } as const;
