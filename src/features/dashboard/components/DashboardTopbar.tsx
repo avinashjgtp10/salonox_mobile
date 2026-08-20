@@ -47,20 +47,20 @@ interface Toast extends Notification {
 
 const NOTIF_ICONS: Record<string, React.ReactNode> = {
   appointment: <CalendarCheck size={16} />,
-  payment:     <CurrencyRupee size={16} />,
-  client:      <PersonPlus   size={16} />,
-  review:      <StarFill     size={14} />,
-  whatsapp:    <ChatDots     size={16} />,
-  info:        <Bell         size={15} />,
+  payment: <CurrencyRupee size={16} />,
+  client: <PersonPlus size={16} />,
+  review: <StarFill size={14} />,
+  whatsapp: <ChatDots size={16} />,
+  info: <Bell size={15} />,
 };
 
 const NOTIF_COLORS: Record<string, string> = {
   appointment: "#3b82f6",
-  payment:     "#10b981",
-  client:      "#8b5cf6",
-  review:      "#f59e0b",
-  whatsapp:    "#25d366",
-  info:        "#6b7280",
+  payment: "#10b981",
+  client: "#8b5cf6",
+  review: "#f59e0b",
+  whatsapp: "#25d366",
+  info: "#6b7280",
 };
 
 const TOAST_DURATION = 5000; // ms before auto-dismiss
@@ -70,10 +70,10 @@ const TOAST_DURATION = 5000; // ms before auto-dismiss
 function timeAgo(isoDate: string): string {
   const diff = Date.now() - new Date(isoDate).getTime();
   const mins = Math.floor(diff / 60_000);
-  if (mins < 1)  return "just now";
+  if (mins < 1) return "just now";
   if (mins < 60) return `${mins} min ago`;
   const hrs = Math.floor(mins / 60);
-  if (hrs < 24)  return `${hrs} hr ago`;
+  if (hrs < 24) return `${hrs} hr ago`;
   return `${Math.floor(hrs / 24)} day ago`;
 }
 
@@ -93,16 +93,16 @@ interface Props {
 // ── Component ──────────────────────────────────────────────────────────────────
 
 export default function DashboardTopbar({ onLogout }: Props) {
-  const navigate    = useNavigate();
+  const navigate = useNavigate();
   const userProfile = useSelector((s: RootState) => s.user.profile);
-  const salonId     = useSelector((s: RootState) => s.auth.salonId);
+  const salonId = useSelector((s: RootState) => s.auth.salonId);
 
-  const [showSearch,  setShowSearch]  = useState(false);
-  const [showNotif,   setShowNotif]   = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
+  const [showNotif, setShowNotif] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [notifs,      setNotifs]      = useState<Notification[]>([]);
-  const [loading,     setLoading]     = useState(false);
-  const [toasts,      setToasts]      = useState<Toast[]>([]);
+  const [notifs, setNotifs] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   // ── Cash counter: "Close Counter" navbar shortcut ────────────────────────────
   const dispatch = useAppDispatch();
@@ -111,15 +111,15 @@ export default function DashboardTopbar({ onLogout }: Props) {
   const [showCloseCounterConfirm, setShowCloseCounterConfirm] = useState(false);
   const [closingCounter, setClosingCounter] = useState(false);
 
-  const notifRef   = useRef<HTMLDivElement>(null);
+  const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
   // tracks setTimeout IDs so we can clear them
   const toastTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   const unreadCount = notifs.filter(n => !n.is_read).length;
-  const initials    = getInitials(userProfile?.fullName);
+  const initials = getInitials(userProfile?.fullName);
   const displayName = userProfile?.fullName ?? "Salon Owner";
-  const email       = userProfile?.email    ?? "";
+  const email = userProfile?.email ?? "";
 
   // Live clock — ticks every minute so the topbar always shows the actual
   // current time, not just the time the component happened to mount.
@@ -214,7 +214,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
-      if (notifRef.current   && !notifRef.current.contains(e.target as Node))   setShowNotif(false);
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) setShowNotif(false);
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) setShowProfile(false);
     };
     document.addEventListener("mousedown", handleClick);
@@ -301,7 +301,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
       <div className="notif-toast-container" aria-live="polite" aria-atomic="false">
         {toasts.map(toast => {
           const color = NOTIF_COLORS[toast.type] ?? NOTIF_COLORS.info;
-          const icon  = NOTIF_ICONS[toast.type]  ?? NOTIF_ICONS.info;
+          const icon = NOTIF_ICONS[toast.type] ?? NOTIF_ICONS.info;
           return (
             <div
               key={toast.toastId}
@@ -382,7 +382,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
                   ) : (
                     notifs.map(n => {
                       const color = NOTIF_COLORS[n.type] ?? NOTIF_COLORS.info;
-                      const icon  = NOTIF_ICONS[n.type]  ?? NOTIF_ICONS.info;
+                      const icon = NOTIF_ICONS[n.type] ?? NOTIF_ICONS.info;
                       return (
                         <div
                           key={n.id}

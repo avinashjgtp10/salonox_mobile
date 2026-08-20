@@ -118,19 +118,50 @@ export const exportCashManagementExcel = ({
   XLSX.writeFile(wb, filename);
 };
 
+export interface DailySummaryData {
+  openedAt?: string | null;
+  closedAt?: string | null;
+  openingBalance?: number;
+  cashRevenue?: number;
+  cashExpense?: number;
+  closingBalance?: number;
+  inStoreCash?: number;
+  reconciliationAmount?: number;
+  remarks?: string | null;
+  totalRevenue?: number;
+  totalSales?: number;
+  totalPaymentsCollected?: number;
+  paymentBreakdown?: {
+    cash?: number;
+    card?: number;
+    upi?: number;
+    other?: number;
+  };
+  appointments?: {
+    total?: number;
+    completed?: number;
+    cancelledNoShow?: number;
+  };
+  salesBreakdown?: {
+    servicesSold?: number;
+    productsSold?: number;
+    packagesMembershipsSold?: number;
+  };
+  financialAdjustments?: {
+    discounts?: number;
+    gstTaxes?: number;
+    tips?: number;
+    refunds?: number;
+    pendingPartial?: number;
+  };
+}
+
 export const exportCounterSummaryPDF = (
-  dashboard: {
-    openedAt?: string | null;
-    openingBalance?: number;
-    cashRevenue?: number;
-    cashExpense?: number;
-    closingBalance?: number;
-    remarks?: string | null;
-  },
+  dashboard: DailySummaryData,
   salonName = "Salon",
-) => {
+  options: { download?: boolean } = { download: false }
+): Blob => {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pageWidth = doc.internal.pageSize.getWidth();
   const margin = 14;
 
   const openedAtStr = dashboard.openedAt
@@ -140,54 +171,136 @@ export const exportCounterSummaryPDF = (
         hour: "2-digit",
         minute: "2-digit",
       })
-    : "Previous Session";
+    : "Previous Business Day";
+
+  const businessDate = dashboard.openedAt
+    ? formatDateDDMMYYYY(new Date(dashboard.openedAt))
+    : formatDateDDMMYYYY(new Date());
 
   const generatedAt = formatGeneratedAt(new Date());
 
-  // Header
+  // ── Header ──
   doc.setFont("helvetica", "bold");
-  doc.setFontSize(16);
+  doc.setFontSize(18);
   doc.setTextColor(30, 27, 75);
-  doc.text("Cash Counter Daily Summary", margin, 20);
+  doc.text(salonName, margin, 18);
+
+  doc.setFontSize(14);
+  doc.setTextColor(79, 70, 229);
+  doc.text("Daily Salon Summary Report", margin, 25);
 
   doc.setFont("helvetica", "normal");
   doc.setFontSize(9);
   doc.setTextColor(100);
-  doc.text(`Salon: ${salonName}`, margin, 27);
-  doc.text(`Opened On: ${openedAtStr}`, margin, 32);
-  doc.text(`Exported On: ${generatedAt}`, margin, 37);
+  doc.text(`Business Date: ${businessDate}`, margin, 31);
+  doc.text(`Counter Session Opened: ${openedAtStr}`, margin, 36);
+  doc.text(`Report Generated On: ${generatedAt}`, margin, 41);
 
-  // Table summary
-  const rows = [
-    ["Opening Balance", `Rs. ${(dashboard.openingBalance ?? 0).toLocaleString("en-IN")}`],
-    ["Cash Revenue", `Rs. ${(dashboard.cashRevenue ?? 0).toLocaleString("en-IN")}`],
-    ["Cash Expense", `Rs. ${(dashboard.cashExpense ?? 0).toLocaleString("en-IN")}`],
-    ["Expected Closing Balance", `Rs. ${(dashboard.closingBalance ?? 0).toLocaleString("en-IN")}`],
+  // ── 1. Revenue & Sales Summary ──
+  const cashRev = dashboard.cashRevenue ?? 0;
+  const totalRev = dashboard.totalRevenue ?? cashRev;
+  const totalSales = dashboard.totalSales ?? totalRev;
+  const cardAmt = dashboard.paymentBreakdown?.card ?? 0;
+  const upiAmt = dashboard.paymentBreakdown?.upi ?? 0;
+  const otherAmt = dashboard.paymentBreakdown?.other ?? 0;
+  const totalPayments = dashboard.totalPaymentsCollected ?? (cashRev + cardAmt + upiAmt + otherAmt);
+
+  const revenueRows = [
+    ["Total Revenue", `Rs. ${totalRev.toLocaleString("en-IN")}`],
+    ["Total Sales Volume", `Rs. ${totalSales.toLocaleString("en-IN")}`],
+    ["Total Payments Collected", `Rs. ${totalPayments.toLocaleString("en-IN")}`],
   ];
 
   autoTable(doc, {
-    head: [["Metric", "Amount"]],
-    body: rows,
-    startY: 44,
-    styles: {
-      fontSize: 10,
-      cellPadding: 4,
-      textColor: [30, 30, 30],
-    },
-    headStyles: {
-      fillColor: [30, 27, 75],
-      textColor: [255, 255, 255],
-      fontStyle: "bold",
-      fontSize: 10.5,
-    },
+    head: [["Revenue & Sales Overview", "Amount"]],
+    body: revenueRows,
+    startY: 46,
+    styles: { fontSize: 9.5, cellPadding: 3.5, textColor: [30, 30, 30] },
+    headStyles: { fillColor: [30, 27, 75], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 10 },
     alternateRowStyles: { fillColor: [248, 250, 252] },
-    columnStyles: {
-      0: { cellWidth: 100, fontStyle: "bold" },
-      1: { cellWidth: 80, halign: "right", fontStyle: "bold" },
-    },
+    columnStyles: { 0: { cellWidth: 110, fontStyle: "bold" }, 1: { cellWidth: 70, halign: "right", fontStyle: "bold" } },
   });
 
-  doc.save(`Cash_Counter_Summary_${formatFileDate(new Date())}.pdf`);
+  let currentY = (doc as any).lastAutoTable.finalY + 6;
+
+  // ── 2. Payment Method Breakdown ──
+  const paymentRows = [
+    ["Cash Payments", `Rs. ${cashRev.toLocaleString("en-IN")}`],
+    ["Card Payments", `Rs. ${cardAmt.toLocaleString("en-IN")}`],
+    ["UPI / QR Payments", `Rs. ${upiAmt.toLocaleString("en-IN")}`],
+    ["Other Payment Methods", `Rs. ${otherAmt.toLocaleString("en-IN")}`],
+    ["Reconciled Total Collected", `Rs. ${totalPayments.toLocaleString("en-IN")}`],
+  ];
+
+  autoTable(doc, {
+    head: [["Payment Method Breakdown", "Amount Collected"]],
+    body: paymentRows,
+    startY: currentY,
+    styles: { fontSize: 9, cellPadding: 3, textColor: [30, 30, 30] },
+    headStyles: { fillColor: [79, 70, 229], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9.5 },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 0: { cellWidth: 110 }, 1: { cellWidth: 70, halign: "right", fontStyle: "bold" } },
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 6;
+
+  // ── 3. Appointments & Sales Breakdown ──
+  const totalAppts = dashboard.appointments?.total ?? 0;
+  const completedAppts = dashboard.appointments?.completed ?? 0;
+  const cancelledAppts = dashboard.appointments?.cancelledNoShow ?? 0;
+
+  const apptRows = [
+    ["Total Appointments Scheduled", `${totalAppts}`],
+    ["Completed Appointments", `${completedAppts}`],
+    ["Cancelled / No-Show Appointments", `${cancelledAppts}`],
+    ["Services Sold", `${dashboard.salesBreakdown?.servicesSold ?? 0}`],
+    ["Products Sold", `${dashboard.salesBreakdown?.productsSold ?? 0}`],
+    ["Packages & Memberships Sold", `${dashboard.salesBreakdown?.packagesMembershipsSold ?? 0}`],
+  ];
+
+  autoTable(doc, {
+    head: [["Appointments & Sales Activity", "Count / Status"]],
+    body: apptRows,
+    startY: currentY,
+    styles: { fontSize: 9, cellPadding: 3, textColor: [30, 30, 30] },
+    headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9.5 },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 0: { cellWidth: 110 }, 1: { cellWidth: 70, halign: "right" } },
+  });
+
+  currentY = (doc as any).lastAutoTable.finalY + 6;
+
+  // ── 4. Cash Counter Reconciliation Summary ──
+  const openBal = dashboard.openingBalance ?? 0;
+  const cashExp = dashboard.cashExpense ?? 0;
+  const expClosing = dashboard.closingBalance ?? (openBal + cashRev - cashExp);
+  const inStore = dashboard.inStoreCash ?? expClosing;
+  const variance = dashboard.reconciliationAmount ?? (inStore - expClosing);
+
+  const counterRows = [
+    ["Opening Cash Balance", `Rs. ${openBal.toLocaleString("en-IN")}`],
+    ["Cash Revenue (+)", `Rs. ${cashRev.toLocaleString("en-IN")}`],
+    ["Cash Expenses (-)", `Rs. ${cashExp.toLocaleString("en-IN")}`],
+    ["Expected Closing Balance", `Rs. ${expClosing.toLocaleString("en-IN")}`],
+    ["Actual In-Store Cash Count", `Rs. ${inStore.toLocaleString("en-IN")}`],
+    ["Cash Difference / Variance", `Rs. ${variance.toLocaleString("en-IN")}`],
+  ];
+
+  autoTable(doc, {
+    head: [["Cash Counter Session Summary", "Amount"]],
+    body: counterRows,
+    startY: currentY,
+    styles: { fontSize: 9, cellPadding: 3, textColor: [30, 30, 30] },
+    headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255], fontStyle: "bold", fontSize: 9.5 },
+    alternateRowStyles: { fillColor: [248, 250, 252] },
+    columnStyles: { 0: { cellWidth: 110, fontStyle: "bold" }, 1: { cellWidth: 70, halign: "right", fontStyle: "bold" } },
+  });
+
+  if (options.download) {
+    doc.save(`Daily_Salon_Summary_${formatFileDate(new Date())}.pdf`);
+  }
+
+  return doc.output("blob");
 };
 
 export const exportCashManagementCSV = ({
