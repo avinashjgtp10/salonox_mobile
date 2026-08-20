@@ -1,24 +1,17 @@
 import { useState, useCallback } from "react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import Button from "../../../components/ui/Button";
-import { useAppSelector } from "../../../hooks/useAppRedux";
-import api from "../../../services/api/axios";
+import { useAppSelector, useAppDispatch } from "../../../hooks/useAppRedux";
+import { createSubscriptionThunk } from "../../../store/billingSlice";
 import type { SubscriptionPlan } from "../types/billing.types";
 
 interface Props {
   plan: SubscriptionPlan;
 }
 
-interface CreateSubResp {
-  success: boolean;
-  data: {
-    short_url: string;
-    razorpay_subscription_id: string;
-  };
-}
-
 export default function UpgradeButton({ plan }: Props) {
   const [loading, setLoading] = useState(false);
+  const dispatch = useAppDispatch();
   const { currentSalon } = useAppSelector((s) => s.salon);
   const { showError, overlay } = useStatusOverlay();
 
@@ -31,14 +24,18 @@ export default function UpgradeButton({ plan }: Props) {
     setLoading(true);
     try {
       const totalCountMap: Record<string, number> = { monthly: 12, yearly: 1, weekly: 52, daily: 365 };
-      const res = await api.post<CreateSubResp>("/api/v1/subscriptions", {
+      const result = await dispatch(createSubscriptionThunk({
         plan_id: plan.id,
         salon_id: currentSalon.id,
         total_count: totalCountMap[plan.billing_cycle] ?? 12,
-      });
+      }));
 
-      const { short_url } = res.data.data;
+      if (!createSubscriptionThunk.fulfilled.match(result)) {
+        showError((result.payload as string) || "Failed to initiate payment");
+        return;
+      }
 
+      const { short_url } = result.payload;
       if (!short_url) {
         showError("Could not get payment link. Please try again.");
         return;
@@ -48,24 +45,26 @@ export default function UpgradeButton({ plan }: Props) {
       // Just redirect to the short_url directly.
       window.location.href = short_url;
 
-    } catch (err: any) {
-      showError(err?.message || "Failed to initiate payment");
-      throw err; // let Button's autoDisable reset the click-lock on failure
     } finally {
       setLoading(false);
     }
-  }, [plan, currentSalon]);
+  }, [plan, currentSalon, dispatch]);
 
   return (
     <>
       {overlay}
+      {/* No autoDisable here: reaching the end of handleUpgrade only means the
+          payment link was created and a redirect started — it does NOT mean
+          payment succeeded. autoDisable's "click resolved without throwing =
+          success" model would permanently lock this into a "✓ Done" state
+          (and browser back-forward-cache can restore that locked React state
+          verbatim) even when the user backs out of Razorpay without paying. */}
       <Button
         fullWidth
         size="sm"
         variant="primary"
         loading={loading}
         disabled={loading}
-        autoDisable
         onClick={handleUpgrade}
       >
         Upgrade
