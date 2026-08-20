@@ -102,7 +102,6 @@ export default function CashManagementPage() {
     refreshDashboard,
     refreshTransactions,
     refreshExpenses,
-    refreshTodayRevenue,
     openCounter,
     closeCounter,
     createExpense,
@@ -486,16 +485,6 @@ export default function CashManagementPage() {
             <div className="cash-mgmt__section-copy">
               <h2 className="cash-mgmt__surface-title">Summary Cards</h2>
             </div>
-            <Button
-              variant="outline-dark"
-              iconLeft={<ArrowClockwise size={14} />}
-              onClick={async () => {
-                await Promise.all([refreshDashboard(), refreshTodayRevenue()]);
-              }}
-              loading={loading.dashboard || loading.todayRevenue}
-            >
-              Refresh
-            </Button>
           </div>
 
           <div className="cash-mgmt__summary-grid">
