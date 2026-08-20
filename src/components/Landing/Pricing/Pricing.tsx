@@ -1,9 +1,6 @@
 import React from 'react';
 import {
-  DEMO_EMAIL,
   Icon,
-  PROFESSIONAL_PLAN_BENEFITS,
-  PROFESSIONAL_PLAN_FEATURES,
   Reveal,
   SectionArtwork,
   SectionTransition,
@@ -13,6 +10,73 @@ type PricingProps = {
   scrollToSection: (id: string) => (event: React.MouseEvent<HTMLElement>) => void;
 };
 
+const PURCHASE_PLANS = [
+  {
+    name: 'Basic',
+    price: '₹8,000',
+    description: 'For salons starting with essential salon management features.',
+    cta: 'Buy Basic',
+    badge: '',
+    featured: false,
+    premium: false,
+    features: [
+      'Mobile App',
+      'Dashboard',
+      'Quick Sale',
+      'Calendar',
+      'Services',
+      'Products',
+      'Limited Reports',
+    ],
+  },
+  {
+    name: 'Advance',
+    price: '₹12,000',
+    description: 'For salons that need complete salon management functionality.',
+    cta: 'Buy Advance',
+    badge: 'Recommended',
+    featured: true,
+    premium: false,
+    features: [
+      'Mobile App',
+      'All Basic Plan features',
+      'Full Dashboard access',
+      'Quick Sale',
+      'Calendar',
+      'Services',
+      'Products',
+      'Memberships',
+      'Packages',
+      'Full Reports',
+      'Staff Management',
+      'Client Management',
+      'Inventory Management',
+      'Payroll',
+      'Enquiry',
+      'Cash Management',
+      'Settings',
+    ],
+  },
+  {
+    name: 'Pro',
+    price: '₹15,000',
+    description: 'For growing salons and businesses that need advanced digital and multi-branch capabilities.',
+    cta: 'Buy Prime',
+    badge: 'Best Value',
+    featured: false,
+    premium: true,
+    features: [
+      'Mobile App',
+      'Everything in Advance Plan',
+      'Web Building',
+      'Google SEO',
+      'Meta Marketing',
+      'Multi-Branch Handling',
+      'Advanced Reports',
+    ],
+  },
+] as const;
+
 const Pricing: React.FC<PricingProps> = ({ scrollToSection }) => (
   <section id="pricing" className="pricing">
     <SectionTransition from="dark" />
@@ -21,65 +85,44 @@ const Pricing: React.FC<PricingProps> = ({ scrollToSection }) => (
       <Reveal>
         <div className="section-head">
           <span className="eyebrow"><span className="dot" /> Pricing</span>
-          <h2>One complete solution. Everything included.</h2>
-          <p>Premium salon management without confusing tiers, feature limits, or hidden add-ons.</p>
+          <h2>Purchase plans built for every salon stage.</h2>
+          <p>Choose the SalonOX plan that fits how your salon runs today and where it grows tomorrow.</p>
         </div>
       </Reveal>
 
       <div className="pricing-grid">
-        <Reveal>
-          <article className="professional-price-card">
-            <span className="professional-price-glow professional-price-glow--one" aria-hidden="true" />
-            <span className="professional-price-glow professional-price-glow--two" aria-hidden="true" />
-
-            <div className="professional-price-header">
-              <div className="professional-price-intro">
-                <span className="professional-price-badge"><span aria-hidden="true">⭐</span> Everything Included</span>
-                <div className="professional-price-name">SalonOX Professional</div>
-                <p>Everything you need to manage and grow your salon in one powerful platform.</p>
+        {PURCHASE_PLANS.map((plan, index) => (
+          <Reveal delay={index as 0 | 1 | 2} key={plan.name}>
+            <article
+              className={[
+                'purchase-plan-card',
+                plan.featured ? 'purchase-plan-card--recommended' : '',
+                plan.premium ? 'purchase-plan-card--premium' : '',
+              ].filter(Boolean).join(' ')}
+              aria-labelledby={`purchase-plan-${plan.name.toLowerCase()}`}
+            >
+              {plan.badge && <span className="purchase-plan-badge">{plan.badge}</span>}
+              <div className="purchase-plan-header">
+                <h3 id={`purchase-plan-${plan.name.toLowerCase()}`}>{plan.name}</h3>
+                <div className="purchase-plan-price">{plan.price}</div>
+                <p>{plan.description}</p>
               </div>
 
-              <div className="professional-price-value" aria-label="Twelve thousand rupees per salon per year">
-                <span className="professional-price-amount">₹12,000</span>
-                <span className="professional-price-period">Per Salon / Year</span>
-              </div>
-            </div>
-
-            <div className="professional-feature-panel">
-              <div className="professional-feature-heading">
-                <span>Complete feature access</span>
-                <strong>Built to run your entire salon</strong>
-              </div>
-              <ul className="professional-feature-list">
-                {PROFESSIONAL_PLAN_FEATURES.map((feature) => (
+              <ul className="purchase-plan-features">
+                {plan.features.map((feature) => (
                   <li key={feature}>
-                    <span className="professional-feature-check" aria-hidden="true"><Icon.Check /></span>
-                    {feature}
+                    <span className="purchase-plan-check" aria-hidden="true"><Icon.Check /></span>
+                    <span>{feature}</span>
                   </li>
                 ))}
               </ul>
-            </div>
 
-            <div className="professional-price-action">
-              <a href="#book-demo" className="btn btn-primary btn-block" onClick={scrollToSection('book-demo')}>
-                Book a Free Demo <Icon.Arrow />
+              <a href="#book-demo" className="btn btn-primary btn-block purchase-plan-cta" onClick={scrollToSection('book-demo')}>
+                {plan.cta} <Icon.Arrow />
               </a>
-              <div className="professional-plan-benefits" aria-label="Included onboarding benefits">
-                {PROFESSIONAL_PLAN_BENEFITS.map((benefit) => (
-                  <span key={benefit}><Icon.Check /> {benefit}</span>
-                ))}
-              </div>
-            </div>
-
-            <div className="professional-enterprise-note">
-              <span className="professional-enterprise-icon" aria-hidden="true"><Icon.Building /></span>
-              <p>
-                <strong>Need a custom enterprise solution for multiple branches?</strong>
-                <a href={`mailto:${DEMO_EMAIL}?subject=SalonOX%20Enterprise%20Pricing`}>Contact our sales team for custom pricing.</a>
-              </p>
-            </div>
-          </article>
-        </Reveal>
+            </article>
+          </Reveal>
+        ))}
       </div>
     </div>
   </section>
