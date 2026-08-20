@@ -27,8 +27,8 @@ export default function SuperAdminGuard() {
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
-  if (!accessToken) return <Navigate to="/super-admin/login" replace />;
-  if (role !== "super_admin") return <Navigate to="/super-admin/login" replace />;
+  if (!accessToken) return <Navigate to="/login" replace />;
+  if (role !== "super_admin") return <Navigate to="/login" replace />;
 
   return <Outlet />;
 }

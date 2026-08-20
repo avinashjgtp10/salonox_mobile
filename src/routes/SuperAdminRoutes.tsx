@@ -2,7 +2,6 @@ import { lazy } from "react";
 import { Route } from "react-router-dom";
 import SuperAdminGuard from "../components/guards/SuperAdminGuard";
 
-const SuperAdminLoginPage = lazy(() => import("../features/super-admin/pages/SuperAdminLoginPage"));
 const SuperAdminLayout    = lazy(() => import("../features/super-admin/components/SuperAdminLayout"));
 const OverviewPage        = lazy(() => import("../features/super-admin/pages/OverviewPage"));
 const SalonsPage          = lazy(() => import("../features/super-admin/pages/SalonsPage"));
@@ -18,8 +17,6 @@ const ChatbotQuestionHistoryPage  = lazy(() => import("../features/super-admin/p
 
 export const SuperAdminRoutes = (
   <>
-    <Route path="/super-admin/login" element={<SuperAdminLoginPage />} />
-
     <Route element={<SuperAdminGuard />}>
       <Route path="/super-admin" element={<SuperAdminLayout />}>
         <Route index               element={<OverviewPage />} />
