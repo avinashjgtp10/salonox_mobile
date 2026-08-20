@@ -19,7 +19,7 @@ interface ExportOptions {
   salonName?: string | null;
 }
 
-const formatFileDate = (value: Date) => value.toISOString().slice(0, 10);
+const formatFileDate = (value: Date) => formatDateDDMMYYYY(value);
 
 const formatGeneratedAt = (value: Date) =>
   `${formatDateDDMMYYYY(value)} ${value.toLocaleTimeString("en-IN", {

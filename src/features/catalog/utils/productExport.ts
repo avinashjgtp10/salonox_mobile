@@ -21,13 +21,6 @@ export interface PDFExportOptions {
 const sanitize = (v: string) => v.replace(/₹/g, "Rs.");
 const d = (v: unknown) => (v == null || v === "" ? "—" : sanitize(String(v)));
 
-const formatDateISO = (date: Date) => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
-
 const formatDisplayDate = (date: Date) => formatDateDDMMYYYY(date);
 
 const formatGeneratedDateTime = (date: Date) => {
@@ -252,5 +245,5 @@ export const exportProductsPDF = (
   const pageCount = (doc.internal as any).getNumberOfPages();
   for (let p = 1; p <= pageCount; p++) drawFooter(p, pageCount);
 
-  doc.save(`Products_Catalog_${formatDateISO(generatedAt)}.pdf`);
+  doc.save(`Products_Catalog_${formatDisplayDate(generatedAt)}.pdf`);
 };

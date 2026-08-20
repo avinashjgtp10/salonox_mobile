@@ -27,13 +27,6 @@ const sanitize = (v: string) => v.replace(/₹/g, "Rs.");
 const d = (v: unknown) => (v == null || v === "" ? "—" : sanitize(String(v)));
 const bool = (v: unknown) => (v ? "Yes" : "No");
 
-const formatDateISO = (date: Date) => {
-  const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, "0");
-  const day = String(date.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
-};
-
 const formatDisplayDate = (date: Date) => formatDateDDMMYYYY(date);
 
 const formatGeneratedDateTime = (date: Date) => {
@@ -272,7 +265,7 @@ export const exportServicesPDF = (services: Service[], options: PDFExportOptions
   const pageCount = (doc.internal as unknown as { getNumberOfPages: () => number }).getNumberOfPages();
   for (let p = 1; p <= pageCount; p++) drawFooter(p, pageCount);
 
-  doc.save(`Services_Catalog_${formatDateISO(generatedAt)}.pdf`);
+  doc.save(`Services_Catalog_${formatDisplayDate(generatedAt)}.pdf`);
 };
 
 // ── Excel export ───────────────────────────────────────────────────────────────
@@ -301,7 +294,7 @@ export const exportServicesExcel = (services: Service[]) => {
   };
   const wb = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(wb, ws, "Services");
-  XLSX.writeFile(wb, `Services_Catalog_${formatDateISO(generatedAt)}.xlsx`);
+  XLSX.writeFile(wb, `Services_Catalog_${formatDisplayDate(generatedAt)}.xlsx`);
 };
 
 // ── CSV export ─────────────────────────────────────────────────────────────────
@@ -314,7 +307,7 @@ export const exportServicesCSV = (services: Service[]) => {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement("a");
   a.href     = url;
-  a.download = `Services_Catalog_${formatDateISO(new Date())}.csv`;
+  a.download = `Services_Catalog_${formatDisplayDate(new Date())}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 };
