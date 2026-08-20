@@ -1,14 +1,11 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
 import {
   Icon,
   Reveal,
   SectionArtwork,
   SectionTransition,
 } from '../shared';
-
-type PricingProps = {
-  scrollToSection: (id: string) => (event: React.MouseEvent<HTMLElement>) => void;
-};
 
 const PURCHASE_PLANS = [
   {
@@ -34,7 +31,7 @@ const PURCHASE_PLANS = [
     price: '₹12,000',
     description: 'For salons that need complete salon management functionality.',
     cta: 'Buy Advance',
-    badge: 'Recommended',
+    badge: '',
     featured: true,
     premium: false,
     features: [
@@ -61,8 +58,8 @@ const PURCHASE_PLANS = [
     name: 'Pro',
     price: '₹15,000',
     description: 'For growing salons and businesses that need advanced digital and multi-branch capabilities.',
-    cta: 'Buy Prime',
-    badge: 'Best Value',
+    cta: 'Buy Pro',
+    badge: '',
     featured: false,
     premium: true,
     features: [
@@ -73,11 +70,12 @@ const PURCHASE_PLANS = [
       'Meta Marketing',
       'Multi-Branch Handling',
       'Advanced Reports',
+      'Consultation',
     ],
   },
 ] as const;
 
-const Pricing: React.FC<PricingProps> = ({ scrollToSection }) => (
+const Pricing: React.FC = () => (
   <section id="pricing" className="pricing">
     <SectionTransition from="dark" />
     <SectionArtwork variant="pricing" />
@@ -117,9 +115,9 @@ const Pricing: React.FC<PricingProps> = ({ scrollToSection }) => (
                 ))}
               </ul>
 
-              <a href="#book-demo" className="btn btn-primary btn-block purchase-plan-cta" onClick={scrollToSection('book-demo')}>
+              <Link to="/register" className="btn btn-primary btn-block purchase-plan-cta">
                 {plan.cta} <Icon.Arrow />
-              </a>
+              </Link>
             </article>
           </Reveal>
         ))}
