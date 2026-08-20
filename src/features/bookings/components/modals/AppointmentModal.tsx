@@ -47,6 +47,7 @@ import { ServicesPanel } from "./ServicesPanel";
 import { AvailableBenefitsPanel, type BenefitCardConfig } from "./AvailableBenefitsPanel";
 import EwalletTopupModal from "../../../clients/components/EwalletTopupModal";
 import StaffTipsModal, { type StaffTipEntry } from "./StaffTipsModal";
+import { ConfirmDialog } from "../../../../components/ui";
 import PackageCreateForm from "../../../../components/packages/PackageCreateForm";
 import type { ClientSearchResult } from "../../../clients/components/ClientSearchInput";
 import { customPackageLineItemToPackageRow } from "../../utils/customPackageItem";
@@ -307,6 +308,11 @@ export const AppointmentModal: React.FC<Props> = ({
   // currently assigned to a row on this bill, each with their own tip
   // amount, similar interaction to the two modals above.
   const [showStaffTipsModal, setShowStaffTipsModal] = useState(false);
+  // "Delete Appointment" is a true hard delete (see onDeleteBooking's
+  // callers) and only ever offered on a paid/partial bill — a stray
+  // misclick on the three-dot menu shouldn't be able to fire it straight
+  // away, so it goes through this confirm step first.
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   // Bumped after a successful top-up to force ClientPanel to refetch this
   // client's real balance from the backend — the eWallet figure on the card
   // is driven by ClientPanel's own useClientDetails() fetch, not clientStats.
@@ -2933,7 +2939,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     {(existingBooking.status === "paid" || existingBooking.status === "partial") && onDeleteBooking && (
                       <button
                         style={{ ...apptMenuItemStyle, color: "#ef4444" }}
-                        onClick={() => { setHeaderMenuOpen(false); onDeleteBooking(existingBooking); onClose(); }}
+                        onClick={() => { setHeaderMenuOpen(false); setShowDeleteConfirm(true); }}
                       >
                         🗑️ Delete Appointment
                       </button>
@@ -3498,6 +3504,16 @@ export const AppointmentModal: React.FC<Props> = ({
           currencySymbol={currencySymbol}
           onClose={() => setShowStaffTipsModal(false)}
           onSave={handleSaveStaffTips}
+        />
+      )}
+
+      {showDeleteConfirm && existingBooking && (
+        <ConfirmDialog
+          title="Delete this appointment?"
+          message="This permanently deletes the appointment and its billing record. This can't be undone."
+          confirmLabel="Delete"
+          onCancel={() => setShowDeleteConfirm(false)}
+          onConfirm={() => { setShowDeleteConfirm(false); onDeleteBooking?.(existingBooking); onClose(); }}
         />
       )}
     </div>

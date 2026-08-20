@@ -20,9 +20,19 @@ import { useFocusTrap } from "../../../../hooks/useFocusTrap";
 import { computeBillBreakdown } from "../../../../components/shared/billBreakdown";
 import { fetchReceiptPdfThunk } from "../../../../middleware/booking/booking.thunk";
 import { downloadBlob } from "../../../../utils/downloadBlob";
+import { ConfirmDialog } from "../../../../components/ui";
 import "../../styles/ViewBillModal.scss";
 
-interface Props { booking: Booking; onClose: () => void; onEdit?: (booking: Booking) => void; onCollectDue?: (booking: Booking) => void }
+interface Props {
+  booking: Booking;
+  onClose: () => void;
+  onEdit?: (booking: Booking) => void;
+  onCollectDue?: (booking: Booking) => void;
+  /** "Delete Appointment" in the ⋮ menu — omit to hide it (matches
+   *  AppointmentModal.tsx's own delete option, offered only for paid/partial
+   *  bills). Gated behind a confirm popup so a misclick can't fire it. */
+  onDeleteBooking?: (booking: Booking) => void;
+}
 
 // Mirrors the rp-status-* badge palette in analytics/styles/_reportDetailBase.scss
 // so this panel's status pill always matches the color/label shown for the same
@@ -44,7 +54,7 @@ const STATUS_PILL_STYLES: Record<string, { label: string; text: string; bg: stri
   deleted:   { label: "Deleted",     text: "Deleted",   bg: "#9ca3af", color: "#fff" },
 };
 
-const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue }) => {
+const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue, onDeleteBooking }) => {
   const { currencySymbol, formatAmount } = useCurrency();
   const { staffList, clientsList } = useSchedulerContext();
   const currentSalon = useAppSelector((s) => s.salon.currentSalon);
@@ -60,6 +70,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   const [tab, setTab] = useState<"Booking Details" | "Activity Log">("Booking Details");
   const [showDotMenu, setShowDotMenu] = useState(false);
   const [sendingReceipt, setSendingReceipt] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
   const dotMenuRef = useRef<HTMLDivElement>(null);
 
@@ -78,6 +89,10 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   // A receipt only makes sense once payment has actually been collected —
   // Booked/Cancelled/No Show/Deleted appointments have no completed transaction to print.
   const canPrintReceipt = booking.status === "paid" || booking.status === "partial";
+  // Same gating AppointmentModal.tsx's own three-dot menu uses — only ever
+  // offered once money has actually been collected, never for a Booked/
+  // Cancelled/No-show bill (those are Cancelled, not Deleted, from there).
+  const showDelete = canPrintReceipt && !!onDeleteBooking;
 
   // ── Client's overall standing (reward points / active memberships / packages) ──
   // Distinct from the items purchased on THIS booking — this reflects the client's
@@ -140,6 +155,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
   const isPackagePaid = String((booking as any).paymentMode || "").toLowerCase() === "package";
 
   return (
+    <>
     <div className="vbm-overlay" onClick={(e) => e.target === e.currentTarget && onClose()}>
       <div className="vbm-drawer" ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true" aria-label="View Appointment">
         <style>{`@keyframes vbmSlideIn{from{transform:translateX(100%)}to{transform:translateX(0)}}`}</style>
@@ -419,12 +435,23 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                         toast("Receipt downloaded. This client has no phone number on file to open WhatsApp automatically.", { duration: 5000 });
                       }
                     }}
-                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: sendingReceipt ? "default" : "pointer", opacity: sendingReceipt ? 0.6 : 1, fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: "0 0 10px 10px", textAlign: "left" }}
+                    style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: sendingReceipt ? "default" : "pointer", opacity: sendingReceipt ? 0.6 : 1, fontSize: 13, fontWeight: 600, color: "#111827", borderRadius: showDelete ? 0 : "0 0 10px 10px", textAlign: "left" }}
                     onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
                     onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
                   >
                     <span>📤</span> {sendingReceipt ? "Preparing…" : "Send to WhatsApp"}
                   </button>}
+                  {showDelete && <div style={{ height: 1, background: "#f3f4f6" }} />}
+                  {showDelete && (
+                    <button
+                      onClick={() => { setShowDotMenu(false); setShowDeleteConfirm(true); }}
+                      style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "12px 16px", background: "none", border: "none", cursor: "pointer", fontSize: 13, fontWeight: 600, color: "#ef4444", borderRadius: "0 0 10px 10px", textAlign: "left" }}
+                      onMouseEnter={(e) => (e.currentTarget.style.background = "#f9fafb")}
+                      onMouseLeave={(e) => (e.currentTarget.style.background = "none")}
+                    >
+                      <span>🗑️</span> Delete Appointment
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -617,6 +644,16 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
         </div>
       </div>
     </div>
+    {showDeleteConfirm && (
+      <ConfirmDialog
+        title="Delete this appointment?"
+        message="This permanently deletes the appointment and its billing record. This can't be undone."
+        confirmLabel="Delete"
+        onCancel={() => setShowDeleteConfirm(false)}
+        onConfirm={() => { setShowDeleteConfirm(false); onDeleteBooking?.(booking); onClose(); }}
+      />
+    )}
+    </>
   );
 };
 
