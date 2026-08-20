@@ -15,7 +15,7 @@ import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import "./ClientRevenueReport.scss";
 
-const REPORT_NAME = "Customer Frequency";
+const REPORT_NAME = "Client Frequency";
 
 // Single JiraFilterMenu field, single-select in practice (the UI only ever
 // applies one at a time — picking a second option replaces the first, same
@@ -164,7 +164,7 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "staff", label: "Staff", options: staffOptions, searchable: true },
-    { key: "customer_type", label: "Customer Type", options: CUSTOMER_TYPE_OPTIONS },
+    { key: "customer_type", label: "Client Type", options: CUSTOMER_TYPE_OPTIONS },
   ], [staffOptions]);
 
   const filterMenuSelected = useMemo(() => ({
@@ -182,7 +182,7 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
     setCustomerType((picked[picked.length - 1] as CustomerType) ?? null);
   };
 
-  const HEADERS = ["Client Name", "Contact", "Total Visits", `Total Spend (${currencySymbol})`, "First Visit", "Last Visit", "Visitor Type", "Customer Type"];
+  const HEADERS = ["Client Name", "Contact", "Total Visits", `Total Spend (${currencySymbol})`, "First Visit", "Last Visit", "Visitor Type", "Client Type"];
   const exportRows = () => rows.map(r => [
     r.clientName, r.contact, r.visits, r.totalSpend,
     formatDate(r.firstVisit), formatDate(r.lastVisit),
@@ -207,7 +207,7 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
               dateRangeLabel={`${formatDate(dateFrom)} - ${formatDate(dateTo)}`}
               filterLines={[
                 ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
-                ...(customerType ? [`Customer Type: ${CUSTOMER_TYPE_OPTIONS.find(o => o.id === customerType)?.label ?? customerType}`] : []),
+                ...(customerType ? [`Client Type: ${CUSTOMER_TYPE_OPTIONS.find(o => o.id === customerType)?.label ?? customerType}`] : []),
               ]}
               summaryLines={[
                 `Total Clients: ${stats.totalClients}`,
@@ -251,7 +251,7 @@ export default function CustomerFrequencyReport({ onBack, category, categoryKey 
               <th>Client Name</th><th>Contact</th><th>Total Visits</th>
               <th>Total Spend ({currencySymbol})</th>
               <th>First Visit</th><th>Last Visit</th>
-              <th>Visitor Type</th><th>Customer Type</th>
+              <th>Visitor Type</th><th>Client Type</th>
             </tr>
           </thead>
           <tbody>

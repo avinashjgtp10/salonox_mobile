@@ -614,7 +614,7 @@ const BottomStatCards = memo(function BottomStatCards({
     <div className="db-mini-stats-row">
       <div className="db-mini-stat-card db-mini-stat-card--danger">
         <div className="db-mini-stat-card__top">
-          <span className="db-mini-stat-card__label">Pending Payments</span>
+          <span className="db-mini-stat-card__label">Due amount</span>
           <span className="db-mini-stat-card__icon"><CreditCard2Front size={18} /></span>
         </div>
         {pendingLoading ? (
