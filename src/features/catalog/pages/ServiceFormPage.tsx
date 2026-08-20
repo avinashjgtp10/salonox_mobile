@@ -138,11 +138,18 @@ const ServiceFormPage: React.FC = () => {
 
   const onSubmit = async () => {
     const success = await handleSubmit();
-    if (success) navigate(listPath);
+    if (!success) {
+      setActiveSection("basic");
+    } else {
+      navigate(listPath);
+    }
   };
 
   const basicErrors = validationErrors.basic ?? [];
-  const errFor = (needle: string) => basicErrors.find((e) => e.toLowerCase().includes(needle));
+  const duplicateError = basicErrors.find((e) => e.toLowerCase().includes("already exists"));
+  const nameError = basicErrors.find((e) => e.toLowerCase().includes("service name is required"));
+  const categoryError = basicErrors.find((e) => e.toLowerCase().includes("category is required"));
+  const priceError = basicErrors.find((e) => e.toLowerCase().includes("price is required"));
   const commissionError = (validationErrors.commission ?? [])[0];
 
   // Only one section is on screen at a time, so a validation error on a hidden
@@ -199,13 +206,19 @@ const ServiceFormPage: React.FC = () => {
         {/* 1. Basic Details */}
         {activeSection === "basic" && (<section className="cf-card" id="basic">
           <h3>Basic Details</h3>
+          {duplicateError && (
+            <div className="cf-error-banner" style={{ marginBottom: "16px" }}>
+              {duplicateError}
+            </div>
+          )}
           <div className="cf-field">
             <label>Service Name *</label>
             <input
               value={formData.basic.name}
               onChange={(e) => updateField("basic", { ...formData.basic, name: e.target.value })}
             />
-            {errFor("name") && <span className="cf-field__error">{errFor("name")}</span>}
+            {nameError && <span className="cf-field__error">{nameError}</span>}
+            {duplicateError && <span className="cf-field__error">{duplicateError}</span>}
           </div>
 
           <div className="cf-field">
@@ -216,7 +229,7 @@ const ServiceFormPage: React.FC = () => {
               placeholder="Search category…"
               onChange={(categoryId) => updateField("basic", { ...formData.basic, categoryId })}
             />
-            {errFor("category") && <span className="cf-field__error">{errFor("category")}</span>}
+            {categoryError && <span className="cf-field__error">{categoryError}</span>}
             <QuickAdd label="Add a category" onAdd={handleAddCategory} />
           </div>
 
@@ -239,7 +252,7 @@ const ServiceFormPage: React.FC = () => {
                 value={formData.basic.price || ""}
                 onChange={(e) => updateField("basic", { ...formData.basic, price: parseFloat(e.target.value) || 0 })}
               />
-              {errFor("price") && <span className="cf-field__error">{errFor("price")}</span>}
+              {priceError && <span className="cf-field__error">{priceError}</span>}
             </div>
             {/* Hours + minutes rather than a single minutes box. Stored value
                 is still total minutes — see utils/duration.ts for why an

@@ -4,6 +4,9 @@ import {
   ChevronLeft,
   ChevronRight,
   ThreeDotsVertical,
+  PencilSquare,
+  Trash3,
+  X,
 } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -22,9 +25,26 @@ const SuppliersListPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);
 
+  // Delete modal state
+  const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
+
   useEffect(() => {
     dispatch(fetchSuppliersThunk());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!activeMenuId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (!target.closest(".dropdown-wrap")) {
+        setActiveMenuId(null);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [activeMenuId]);
 
   const filtered = useMemo(
     () =>
@@ -103,9 +123,9 @@ const SuppliersListPage: React.FC = () => {
               {paginated.map((s) => (
                 <tr
                   key={s.id}
-                  className="cursor-pointer"
+                  className={`cursor-pointer ${activeMenuId === s.id ? "row-active" : ""}`}
                   onClick={() =>
-                    navigate(`/dashboard/catalog/inventory/suppliers/${s.id}/edit`)
+                    navigate(`/dashboard/catalog/inventory/suppliers/edit/${s.id}`)
                   }
                 >
                   <td className="fw-semibold">{s.name}</td>
@@ -118,15 +138,42 @@ const SuppliersListPage: React.FC = () => {
                   >
                     <div className="dropdown-wrap">
                       <button 
-                        className="btn-icon"
-                        onClick={() => setActiveMenuId(activeMenuId === s.id ? null : s.id)}
+                        type="button"
+                        className={`btn-icon ${activeMenuId === s.id ? "is-active" : ""}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setActiveMenuId(activeMenuId === s.id ? null : s.id);
+                        }}
                       >
-                        <ThreeDotsVertical size={15} />
+                        <ThreeDotsVertical size={16} />
                       </button>
                       {activeMenuId === s.id && (
                         <div className="actions-dropdown">
-                          <button onClick={() => navigate(`/dashboard/catalog/inventory/suppliers/${s.id}/edit`)}>Edit</button>
-                          <button className="text-danger" onClick={() => handleDelete(s.id)}>Delete</button>
+                          <button
+                            type="button"
+                            className="actions-dropdown__item actions-dropdown__item--edit"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMenuId(null);
+                              navigate(`/dashboard/catalog/inventory/suppliers/edit/${s.id}`);
+                            }}
+                          >
+                            <PencilSquare size={15} />
+                            <span>Edit</span>
+                          </button>
+                          <button
+                            type="button"
+                            className="actions-dropdown__item actions-dropdown__item--delete"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setActiveMenuId(null);
+                              setDeletingSupplier(s);
+                              setDeleteInput("");
+                            }}
+                          >
+                            <Trash3 size={15} />
+                            <span>Delete</span>
+                          </button>
                         </div>
                       )}
                     </div>
@@ -173,6 +220,67 @@ const SuppliersListPage: React.FC = () => {
           >
             <ChevronRight size={15} />
           </button>
+        </div>
+      )}
+
+      {/* DELETE SUPPLIER MODAL */}
+      {deletingSupplier && (
+        <div
+          className="supplier-modal-overlay"
+          onClick={() => setDeletingSupplier(null)}
+        >
+          <div
+            className="supplier-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="supplier-modal__header">
+              <h3>Delete supplier</h3>
+              <button
+                type="button"
+                className="btn-close-modal"
+                onClick={() => setDeletingSupplier(null)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="supplier-modal__body">
+              <p className="modal-description">
+                Are you sure you want to delete <strong>{deletingSupplier.name}</strong>? This action cannot be undone.
+              </p>
+              <div className="modal-field">
+                <label>Type DELETE to confirm</label>
+                <input
+                  type="text"
+                  placeholder="DELETE"
+                  value={deleteInput}
+                  onChange={(e) => setDeleteInput(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
+            <div className="supplier-modal__footer">
+              <button
+                type="button"
+                className="btn-cancel"
+                onClick={() => setDeletingSupplier(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn-delete-confirm"
+                disabled={deleteInput !== "DELETE" || isDeleting}
+                onClick={async () => {
+                  setIsDeleting(true);
+                  await dispatch(deleteSupplierThunk(deletingSupplier.id));
+                  setIsDeleting(false);
+                  setDeletingSupplier(null);
+                }}
+              >
+                {isDeleting ? "Deleting…" : "Delete supplier"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
