@@ -71,7 +71,7 @@ const MENU_ITEMS = [
     title: "Sales History",
   },
   {
-    description: "Track, mark paid, and bulk-configure staff commissions across your salon.",
+    description: "Track staff commissions and settle payments across your salon.",
     icon: "cash-outline" as const,
     route: "/team/commissions" as Href,
     title: "Commissions",
