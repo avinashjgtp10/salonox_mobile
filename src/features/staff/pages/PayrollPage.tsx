@@ -93,6 +93,12 @@ const emptyCommissionSummary: CommissionSummary = {
   calculated_commission: 0,
 };
 
+const emptyTipSummary: TipSummary = {
+  total_tips: 0,
+  pending_payout: 0,
+  paid_out: 0,
+};
+
 // Types
 
 type PayrollStatus = "no_data" | "pending" | "in_progress" | "done";
@@ -116,6 +122,11 @@ interface StaffPayroll {
   commission_payroll_period: string;
   calculated_commission: number;
   tips: number;
+  tips_pending: number;
+  tips_paid: number;
+  /** "paid" only once every tip earned for the period has been settled; any
+   *  outstanding balance keeps it "pending" — tips stay visible either way. */
+  tip_status: "paid" | "pending" | "no_data";
   bonus: number;
   salary_advance: number;
   deductions: number;
@@ -186,6 +197,12 @@ interface CommissionSummary {
   calculated_commission: number;
 }
 
+interface TipSummary {
+  total_tips: number;
+  pending_payout: number;
+  paid_out: number;
+}
+
 interface CommissionRecord {
   commission_amount?: string | number;
   earned_commission?: string | number;
@@ -204,6 +221,12 @@ const STATUS_CONFIG: Record<PayrollStatus, { label: string; class: string }> = {
   pending:     { label: "Pending",     class: "pr-badge--pending" },
   in_progress: { label: "In Progress", class: "pr-badge--progress" },
   done:        { label: "Done",        class: "pr-badge--done" },
+};
+
+const TIP_STATUS_CONFIG: Record<StaffPayroll["tip_status"], { label: string; class: string }> = {
+  no_data: { label: "—",       class: "pr-badge--nodata" },
+  pending: { label: "Pending", class: "pr-badge--pending" },
+  paid:    { label: "Paid",    class: "pr-badge--done" },
 };
 
 const COMPLETED_PAYROLL_KEY = "salon_completed_payroll_entries";
@@ -485,6 +508,41 @@ async function fetchStaffCommissionSummary(
   };
 }
 
+// Live per-staff tip totals for the period, straight from the tip
+// settlement system (tip_earned/tip_settlements — see the Tip Settle tab on
+// Commissions) rather than payroll_entries' flat, manually-typed `tips`
+// column. One salon-wide call returns every staff member's total/paid/
+// pending tips, so this stays visible in Payroll even for staff who have no
+// payroll entry yet for the period — settling a tip only ever moves money
+// between paid_out/pending_payout, it never removes it from total_tips.
+async function fetchAllStaffEarnedTips(
+  salonId: string | undefined,
+  startDate: string,
+  endDate: string,
+): Promise<Record<string, TipSummary>> {
+  if (!salonId) return {};
+
+  const rows = await api
+    .get(`${STAFF.BASE}/tips/earned`, { params: { salon_id: salonId, start_date: startDate, end_date: endDate } })
+    .then((res) => res.data?.data ?? res.data ?? [])
+    .catch(() => []);
+
+  const result: Record<string, TipSummary> = {};
+  for (const row of rows as any[]) {
+    const staffId = String(row.staff_id);
+    result[staffId] = {
+      total_tips: Number(row.total_tips) || 0,
+      pending_payout: Number(row.pending_payout) || 0,
+      paid_out: Number(row.paid_out) || 0,
+    };
+  }
+  return result;
+}
+
+function tipStatusFor(summary: TipSummary | undefined): StaffPayroll["tip_status"] {
+  if (!summary || summary.total_tips <= 0) return "no_data";
+  return summary.pending_payout > 0 ? "pending" : "paid";
+}
 
 // Derived payroll math
 
@@ -639,6 +697,9 @@ function mapEntryToRow(r: any): StaffPayroll {
     commission_payroll_period: String(r.commission_payroll_period ?? r.payroll_period ?? ""),
     calculated_commission: Number(r.calculated_commission) || commission,
     tips: Number(r.tips) || 0,
+    tips_pending: 0,
+    tips_paid: 0,
+    tip_status: "no_data",
     bonus: Number(r.bonus) || 0,
     salary_advance: Number(r.salary_advance) || 0,
     deductions: Number(r.deductions) || 0,
@@ -684,6 +745,9 @@ function mapStaffToEmptyPayroll(s: any, fixedSalary = 0): StaffPayroll {
     commission_payroll_period: "",
     calculated_commission: 0,
     tips: 0,
+    tips_pending: 0,
+    tips_paid: 0,
+    tip_status: "no_data",
     bonus: 0,
     salary_advance: 0,
     deductions: 0,
@@ -927,6 +991,25 @@ function PayrollDetailsModal({
               </div>
             </div>
           )}
+
+          {staff.tips > 0 && (
+            <div className="pr-details-list">
+              <div className="pr-details-row">
+                <span>Tip Status</span>
+                <span className={`pr-badge ${TIP_STATUS_CONFIG[staff.tip_status].class}`}>
+                  {TIP_STATUS_CONFIG[staff.tip_status].label}
+                </span>
+              </div>
+              <div className="pr-details-row">
+                <span>Tips Paid</span>
+                <strong>{formatAmount(staff.tips_paid)}</strong>
+              </div>
+              <div className="pr-details-row">
+                <span>Tips Pending</span>
+                <strong>{formatAmount(staff.tips_pending)}</strong>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="pr-details-total">
@@ -1163,6 +1246,7 @@ export default function PayrollPage() {
   const [salaryAdvances, setSalaryAdvances] = useState<SalaryAdvanceTransaction[]>([]);
   const [staffFixedSalaries, setStaffFixedSalaries] = useState<Record<string, number>>({});
   const [staffCommissionSummaries, setStaffCommissionSummaries] = useState<Record<string, CommissionSummary>>({});
+  const [staffTipSummaries, setStaffTipSummaries] = useState<Record<string, TipSummary>>({});
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
   const [attendanceRule, setAttendanceRule] = useState<HalfDayRuleConfig>(DEFAULT_HALF_DAY_RULE_CONFIG);
   const [defaultShiftStart, setDefaultShiftStart] = useState<string | null>(null);
@@ -1278,6 +1362,24 @@ export default function PayrollPage() {
         setStaffCommissionSummaries({ ...earnedByStaff, ...Object.fromEntries(fallbackEntries) });
       }
     })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [staffItems, dateRange.start, dateRange.end, currentSalon?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const activeStaff = (staffItems ?? []).filter((s: any) => s.is_active !== false);
+
+    if (activeStaff.length === 0 || !dateRange.start || !dateRange.end) {
+      setStaffTipSummaries({});
+      return;
+    }
+
+    fetchAllStaffEarnedTips(currentSalon?.id, dateRange.start, dateRange.end).then((summaries) => {
+      if (!cancelled) setStaffTipSummaries(summaries);
+    });
 
     return () => {
       cancelled = true;
@@ -1501,6 +1603,22 @@ export default function PayrollPage() {
         salary_advance: total > 0 ? total : row.salary_advance,
       };
     };
+    // Tips always come from the live tip-settlement summary (staffTipSummaries,
+    // sourced from /staff/tips/earned — see fetchAllStaffEarnedTips above),
+    // never from payroll_entries' flat `tips` column — that keeps a staff
+    // member's real tip total visible in Payroll whether or not it's been
+    // settled yet, and whether or not a payroll entry even exists for them.
+    const withTipSummary = (row: StaffPayroll): StaffPayroll => {
+      const tipSummary = staffTipSummaries[String(row.staff_id)];
+      if (!tipSummary) return row;
+      return {
+        ...row,
+        tips: tipSummary.total_tips,
+        tips_pending: tipSummary.pending_payout,
+        tips_paid: tipSummary.paid_out,
+        tip_status: tipStatusFor(tipSummary),
+      };
+    };
 
     const rows = activeStaff.map((staff: any) => {
       const staffId = String(staff.id);
@@ -1537,14 +1655,14 @@ export default function PayrollPage() {
             calculated_commission: commissionSummary?.calculated_commission || commissionSummary?.total_pending || 0,
           };
 
-      return withSalaryAdvanceTotal(withHalfDayDeduction(row));
+      return withTipSummary(withSalaryAdvanceTotal(withHalfDayDeduction(row)));
     });
 
     const payrollWithoutStaff = payrollEntries
       .filter((entry) => !staffIds.has(String(entry.staff_id)))
-      .map((entry) => withSalaryAdvanceTotal(withHalfDayDeduction(entry)));
+      .map((entry) => withTipSummary(withSalaryAdvanceTotal(withHalfDayDeduction(entry))));
     return [...rows, ...payrollWithoutStaff];
-  }, [staffItems, payrollEntries, staffFixedSalaries, staffCommissionSummaries, halfDayDeductions, salaryAdvanceTotals]);
+  }, [staffItems, payrollEntries, staffFixedSalaries, staffCommissionSummaries, staffTipSummaries, halfDayDeductions, salaryAdvanceTotals]);
 
   const filterFields = useMemo<JiraFilterField[]>(() => [
     {
@@ -1980,6 +2098,7 @@ export default function PayrollPage() {
                 <th>Commission Paid</th>
                 <th>Commission Pending</th>
                 <th>Tips</th>
+                <th>Tip Status</th>
                 <th>Bonus / Incentive</th>
                 <th>Salary Advance</th>
                 <th>Deductions</th>
@@ -1994,7 +2113,7 @@ export default function PayrollPage() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={15}>
+                  <td colSpan={16}>
                     <div className="pr-empty">
                       <p>No staff found for the selected filters</p>
                     </div>
@@ -2034,7 +2153,12 @@ export default function PayrollPage() {
                       {amountCell(e.base_salary, undefined, true)}
                       {amountCell(e.commission_paid, undefined, false, false, true)}
                       {amountCell(e.commission, undefined, false, false, true)}
-                      {amountCell(e.tips)}
+                      <td>{e.tips > 0 ? fmt(e.tips) : "—"}</td>
+                      <td>
+                        <span className={`pr-badge ${TIP_STATUS_CONFIG[e.tip_status].class}`}>
+                          {TIP_STATUS_CONFIG[e.tip_status].label}
+                        </span>
+                      </td>
                       {amountCell(e.bonus)}
                       <td>
                         {e.salary_advance > 0 ? (
