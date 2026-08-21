@@ -89,6 +89,11 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
   // this report previously used, so every product shows until a range is set.
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
   const { startDate: dateFrom, endDate: dateTo } = dateRange;
+  // Separate range, filtering on the product's expiry_date rather than
+  // created_at — independent of dateRange above so both filters can be
+  // applied together.
+  const [expiryRange, setExpiryRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
+  const { startDate: expiryFrom, endDate: expiryTo } = expiryRange;
 
   const [rows,        setRows]        = useState<InventoryRow[]>([]);
   const [total,       setTotal]       = useState(0);
@@ -100,6 +105,9 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
     ? "To Date must be greater than or equal to From Date"
+    : "";
+  const expiryRangeError = expiryFrom && expiryTo && expiryTo < expiryFrom
+    ? "Expiry To Date must be greater than or equal to Expiry From Date"
     : "";
 
   useEffect(() => { fetchBrands(); fetchCategories(); }, [fetchBrands, fetchCategories]);
@@ -113,7 +121,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
   // only that page's rows come back, along with stats computed by the
   // backend over the WHOLE filtered set (not just the current page).
   const fetchData = useCallback(async () => {
-    if (dateRangeError) return;
+    if (dateRangeError || expiryRangeError) return;
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -128,6 +136,8 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
       if (stockStatusFilter.length === 1) body.stock_status = stockStatusFilter[0];
       if (dateFrom) body.date_from = dateFrom;
       if (dateTo) body.date_to = dateTo;
+      if (expiryFrom) body.expiry_from = expiryFrom;
+      if (expiryTo) body.expiry_to = expiryTo;
       const res = await api.post(PRODUCT_INVENTORY_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const raw: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -148,12 +158,12 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [debouncedSearch, categoryFilter, brandFilter, stockStatusFilter, dateFrom, dateTo, currentPage, pageSize, dateRangeError]);
+  }, [debouncedSearch, categoryFilter, brandFilter, stockStatusFilter, dateFrom, dateTo, expiryFrom, expiryTo, currentPage, pageSize, dateRangeError, expiryRangeError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
     setCurrentPage(1);
-  }, [debouncedSearch, categoryFilter, brandFilter, stockStatusFilter, dateFrom, dateTo]);
+  }, [debouncedSearch, categoryFilter, brandFilter, stockStatusFilter, dateFrom, dateTo, expiryFrom, expiryTo]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "category", label: "Category", options: categories.map((c: any) => ({ id: c.id, label: c.name })), searchable: true },
@@ -201,7 +211,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
               filename="product-inventory"
               variant="button"
               csv
-              disabled={!!dateRangeError}
+              disabled={!!dateRangeError || !!expiryRangeError}
               dateRangeLabel={dateFrom || dateTo ? `${dateFrom ? formatDate(dateFrom) : "…"} - ${dateTo ? formatDate(dateTo) : "…"}` : undefined}
               filterLines={[
                 ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
@@ -213,6 +223,9 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
                   : []),
                 ...(stockStatusFilter.length > 0
                   ? [`Stock Status: ${stockStatusFilter.map(v => STATUS_LABELS[v] ?? v).join(", ")}`]
+                  : []),
+                ...(expiryFrom || expiryTo
+                  ? [`Expiry Date: ${expiryFrom ? formatDate(expiryFrom) : "…"} - ${expiryTo ? formatDate(expiryTo) : "…"}`]
                   : []),
               ]}
               summaryLines={[
@@ -232,11 +245,16 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
           <label className="rp-detail-filter-label">Date Added</label>
           <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
+        <div className="rp-detail-filter-group">
+          <label className="rp-detail-filter-label">Expiry Date</label>
+          <DateRangeFilter value={expiryRange} onChange={setExpiryRange} />
+        </div>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
       {dateRangeError && <div className="rp-detail-date-error">{dateRangeError}</div>}
+      {expiryRangeError && <div className="rp-detail-date-error">{expiryRangeError}</div>}
 
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
@@ -267,7 +285,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
               <th className="rp-inv-col-product">Product</th>
               <th>Category</th>
               <th>Brand</th>
-              <th>Barcode</th>
+              <th className="rp-inv-col-barcode">Barcode</th>
               <th>Product Expiry</th>
               <th>Current Stock</th>
               <th>Low Stock Alert</th>
@@ -287,7 +305,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
                 <td className="fw-semibold rp-inv-product-cell" title={r.product}>{r.product}</td>
                 <td>{r.category}</td>
                 <td>{r.brand}</td>
-                <td><span className="rp-detail-link">{r.sku}</span></td>
+                <td className="rp-inv-barcode-cell" title={r.sku}><span className="rp-detail-link">{r.sku}</span></td>
                 <td>{r.expiryDate ? formatDate(r.expiryDate) : "—"}</td>
                 <td>{r.currentStock}</td>
                 <td>{r.reorderLevel}</td>
