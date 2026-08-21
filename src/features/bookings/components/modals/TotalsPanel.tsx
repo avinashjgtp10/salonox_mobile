@@ -34,9 +34,10 @@ interface TotalsPanelProps {
   totalDiscount?: number;
   gstAmount?: number;
   taxBreakdown?: TaxBreakdownEntry[];
-  /** Staff Tip — never part of Grand Total/Amount to Pay (see withCharges
-   *  below); always display/record-only, shown as its own row so the tip
-   *  given to staff is recorded and visible on the receipt/summary. */
+  /** Staff Tip — real cash the client pays at checkout, so it's part of
+   *  Grand Total/Amount to Pay (see withCharges below), just never counted
+   *  as salon revenue (that's enforced server-side, not here). Also shown
+   *  as its own row so the tip given to staff is visible on the receipt. */
   tip?: number;
   /** Optional per-staff split of `tip`, entered via StaffTipsModal — when
    *  present, rendered as indented sub-rows under the Staff Tip row instead
@@ -64,10 +65,10 @@ interface TotalsPanelProps {
   paidLabel?: string;
   dueAmount?: number;
   packageServiceCount?: number;
-  // Authoritative fully-reduced total (Bill Discount, Extra Charges,
-  // Referral Discount, Membership Wallet, eWallet, Reward Points, Referral
-  // Credit ALL already applied — Staff Tip is NEVER included) + the rounding
-  // adjustment that produced it,
+  // Authoritative fully-reduced total (Bill Discount, Extra Charges, Staff
+  // Tip, Referral Discount, Membership Wallet, eWallet, Reward Points,
+  // Referral Credit ALL already applied) + the rounding adjustment that
+  // produced it,
   // straight from computeTotals() — passed by callers that already ran it
   // (avoids this panel re-deriving its own total and risking drift from the
   // figure actually used for payment). Falls back to a local (unrounded) calc
@@ -107,10 +108,11 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
   const billTotalBeforeSvcDiscount = taxable + gstAmount;
   const svcDiscountAmount = hasGranularDiscount ? (manualDiscount ?? 0) : 0;
   const afterSvcDiscount = Math.max(0, billTotalBeforeSvcDiscount - svcDiscountAmount);
-  // Extra Charges are excluded from the Bill Discount base above — added
-  // here, after the discount, matching pricing.engine.ts. Staff Tip (`tip`)
-  // is NEVER added — always display/record-only, same as the engine.
-  const withCharges = afterSvcDiscount + exCharges;
+  // Extra Charges and Staff Tip are excluded from the Bill Discount base
+  // above — added here, after the discount, matching totalsUtils.ts. Tip is
+  // real cash the client pays, so it's part of Grand Total (just never
+  // salon revenue — that split is enforced server-side, not in this panel).
+  const withCharges = afterSvcDiscount + exCharges + tip;
   // Referral Discount is a POST-tax, POST-Svc-Discount deduction — subtracted
   // here (not folded into the pre-tax coupon discount), matching the engine.
   // Never itself rounded — only the fully-reduced total below is.
@@ -209,8 +211,9 @@ const TotalsPanel: React.FC<TotalsPanelProps> = ({
             <span className={`fw-semibold ${color}`} style={{ fontSize: bold ? 14 : 12 }}>{value}</span>
           </div>
         ))}
-        {/* Staff Tip stays its own footnote-style row, separate from the bill
-            total above — never included in it (see withCharges). */}
+        {/* Staff Tip shown again as its own footnote-style row below the totals
+            — it's already folded into Grand Total above (see withCharges);
+            this just breaks out how much of that total is tip vs. bill. */}
         {tip > 0 && (
           <div className="d-flex justify-content-between align-items-center py-1 border-top mt-1 pt-2">
             <span className="text-secondary" style={{ fontSize: 12 }}>

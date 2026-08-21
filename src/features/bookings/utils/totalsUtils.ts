@@ -172,7 +172,7 @@ export function computeTotals(input: TotalsInput): TotalsResult {
   const {
     serviceRows, packageRows, productRows, membershipRows,
     discountType, discountValue, discountAppliesTo, taxes,
-    exCharges, couponDiscount, referralDiscount = 0, eWalletUsed, membershipWalletUsed = 0,
+    exCharges, tip, couponDiscount, referralDiscount = 0, eWalletUsed, membershipWalletUsed = 0,
     membershipServiceWalletUsed = 0, membershipProductWalletUsed = 0,
     rewardPointsRedeemedValue = 0, referralCreditUsed = 0,
   } = input;
@@ -271,13 +271,14 @@ export function computeTotals(input: TotalsInput): TotalsResult {
 
   const afterSvcDiscount = Math.max(0, billTotal - manualDiscount);
   // Extra Charges are excluded from the Bill Discount base above — added
-  // here, after the discount, not before. `tip` (Staff Tip) is NEVER added
-  // to the bill total — it stays a display-only, record-only figure shown
-  // as its own Sale Summary row, passed straight to staff. There was
-  // previously an "Add Tip to Salon" toggle that let it opt into the total;
-  // that control has been removed and this exclusion is now unconditional —
-  // matches pricing.engine.ts's identical (now also unconditional) exclusion.
-  const withCharges = afterSvcDiscount + exCharges;
+  // here, after the discount, not before. Tip is added here too: it's real
+  // cash the client hands over at checkout, so it belongs in the Grand
+  // Total the client sees and pays (see the example: Service ₹1,500 + Tip
+  // ₹150 = Grand Total ₹1,650) — it's just never counted as salon revenue.
+  // The revenue figure (sales.total_amount, everything reports/dashboards
+  // read) is computed independently server-side and stays tip-exclusive;
+  // this grandTotal only drives what's shown/collected on the frontend.
+  const withCharges = afterSvcDiscount + exCharges + tip;
 
   // Referral Discount is a POST-tax, POST-Svc-Discount deduction — applied
   // here, not folded into the pre-tax coupon discount above.

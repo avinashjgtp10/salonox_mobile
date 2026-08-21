@@ -404,19 +404,17 @@ export function printReceipt(
   const membershipLoyaltyDiscountAmt = Math.max(0, membershipDiscountAmt - membershipPercentageDiscountAmt);
   const exCharges   = Number((booking as any).exCharges     || 0);
   const tipAmt      = Number((booking as any).tipAmount     || 0);
-  const tipAddedToSalon = !!(booking as any).tipAddedToSalon;
   const tipBreakdown = ((booking as any).tipBreakdown || []) as { staffId: string; staffName: string; amount: number }[];
   const gstPct      = Number((booking as any).gst           || 0);
   const gstAmt      = Number((booking as any).gstAmount     || 0);
   const taxBreakdown = ((booking as any).taxBreakdown || []) as { name: string; rate: number; amount: number; inclusive: boolean }[];
   const grandTotal  = Number(booking.grandTotal || 0);
   // grandTotal is the fully-reduced figure (Bill Discount, Extra Charges,
-  // Referral Discount, Membership Wallet, eWallet, Reward Points, Referral
-  // Credit ALL already applied — Staff Tip is NEVER included, it's
-  // display/record-only) — Grand Total and Amount to Pay are the same merged
-  // concept now (see pricing.engine.ts's computeBillTotals). The receipt
-  // shows the small rounding adjustment that produced it, same as the
-  // on-screen totals panel/summary the client saw moments earlier.
+  // Staff Tip, Referral Discount, Membership Wallet, eWallet, Reward Points,
+  // Referral Credit ALL already applied) — Grand Total and Amount to Pay are
+  // the same merged concept now (see totalsUtils.ts's computeTotals). The
+  // receipt shows the small rounding adjustment that produced it, same as
+  // the on-screen totals panel/summary the client saw moments earlier.
   const exclusiveTaxTotal = taxBreakdown.length > 0
     ? taxBreakdown.filter((t) => !t.inclusive && t.amount > 0).reduce((s, t) => s + t.amount, 0)
     : gstAmt;
@@ -443,14 +441,13 @@ export function printReceipt(
   const packageCoveredAmt = Number((booking as any).packageCoveredAmount ?? 0) || 0;
   const billTotalBeforeSvcDiscount = subtotalAmt - couponDisc - membershipDiscountAmt - packageCoveredAmt + exclusiveTaxTotal;
   const afterSvcDiscount = billTotalBeforeSvcDiscount - manualDisc;
-  // Extra Charges are excluded from the Bill Discount base above — added
-  // here, after the discount. tipAmt is only added when this bill was
-  // charged with "Add Tip to Salon" checked (matches pricing.engine.ts's
-  // computeBillTotals) — omitting it here even then would understate
+  // Extra Charges and Staff Tip are excluded from the Bill Discount base
+  // above — added here, after the discount (matches totalsUtils.ts's
+  // computeTotals). Tip is unconditional now — omitting it would understate
   // withCharges/preRedemptionTotal by the tip amount and print a bogus
   // inflated "Round Off" line reconciling against the real (tip-inclusive)
   // grandTotal below, same bug packageCoveredAmt's identical term fixed above.
-  const withCharges = afterSvcDiscount + exCharges + (tipAddedToSalon ? tipAmt : 0);
+  const withCharges = afterSvcDiscount + exCharges + tipAmt;
   // Referral Discount is a POST-tax, POST-Svc-Discount deduction now —
   // subtracted here, not folded into the pre-tax coupon discount above.
   const preRedemptionTotal = withCharges - referralDisc;
@@ -532,7 +529,7 @@ export function printReceipt(
     // Part of Grand Total/Amount to Pay above only when this bill was charged
     // with "Add Tip to Salon" checked; otherwise display/record-only.
     // Placed after every bill-total row so it reads as separate info either way.
-    tipAmt > 0 ? sumRow(`Staff Tip${tipAddedToSalon ? " (included above)" : ""}`, fmt(tipAmt), false, "#6b7280") : "",
+    tipAmt > 0 ? sumRow("Staff Tip (included above)", fmt(tipAmt), false, "#6b7280") : "",
     tipAmt > 0 ? tipBreakdown.map((t) => sumRow(`&nbsp;&nbsp;&nbsp;${t.staffName}`, fmt(t.amount), false, "#9ca3af")).join("") : "",
     showPaymentBreakdown
       ? splitEntries.map(([method, amt]) =>
@@ -868,7 +865,7 @@ export function printReceipt(
     } else {
       push(gstPct > 0 ? `GST (${gstPct}%)` : "GST", exclusiveTaxTotal);
     }
-    push(`Tip${tipAddedToSalon ? " (incl.)" : ""}`, tipAmt);
+    push("Tip (incl.)", tipAmt);
     if (tipAmt > 0.005) {
       tipBreakdown.forEach((t) => push(`  ${t.staffName}`, t.amount, { muted: true }));
     }
