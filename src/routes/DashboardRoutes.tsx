@@ -13,6 +13,7 @@ import { TeamRoutes } from "./TeamRoutes";
 import { SettingsRoutes } from "./SettingsRoutes";
 import { MarketingRoutes } from "./MarketingRoutes";
 import { OnlineBookingRoutes } from "./OnlineBookingRoutes";
+import { preloadCashManagementPage, preloadScheduler } from "./dashboardPreloaders";
 
 // Lazy-load the heavy dashboard-specific pages
 const DashboardPage = lazy(() =>
@@ -21,17 +22,13 @@ const DashboardPage = lazy(() =>
 
 const HelpPage = lazy(() => import("../features/help/pages/HelpPage"));
 
-const Scheduler = lazy(() =>
-  import("../features/bookings/components/calendar/Scheduler")
-);
+const Scheduler = lazy(preloadScheduler);
 
 const ReportsPage = lazy(() =>
   import("../features/analytics/pages/ReportsPage")
 );
 
-const CashManagementPage = lazy(() =>
-  import("../features/cash-management/pages/CashManagementPage")
-);
+const CashManagementPage = lazy(preloadCashManagementPage);
 
 const QuickSalePage = lazy(() =>
   import("../features/sales/pages/QuickSalePage")

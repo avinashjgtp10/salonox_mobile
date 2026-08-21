@@ -137,6 +137,11 @@ export interface DailySummaryData {
     upi?: number;
     other?: number;
   };
+  paymentCounts?: {
+    cash?: number;
+    card?: number;
+    upi?: number;
+  };
   appointments?: {
     total?: number;
     completed?: number;

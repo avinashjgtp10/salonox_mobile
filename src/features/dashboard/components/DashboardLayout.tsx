@@ -1,5 +1,6 @@
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { PageLoader } from "../../../components/ui";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { logout, setCustomPermissions } from "../../../store/authSlice";
 import { getMySalonThunk } from "../../../middleware/salon/salon.thunk";
@@ -17,6 +18,7 @@ import ClientsSubSidebar from "./ClientsSubSidebar";
 import MarketingSubSidebar from "./MarketingSubSidebar";
 import TeamSubSidebar from "./TeamSubSidebar";
 import UnclosedCounterGate from "../../cash-management/components/UnclosedCounterGate";
+import AutoOpenCounterForNewAccount from "../../cash-management/components/AutoOpenCounterForNewAccount";
 
 function detectOpenMenu(pathname: string): string | null {
   if (pathname.startsWith("/dashboard/clients")) return "clients";
@@ -91,6 +93,7 @@ export default function DashboardLayout() {
       <DeploymentBanner />
       <DashboardTopbar onLogout={handleLogout} />
       <UnclosedCounterGate />
+      <AutoOpenCounterForNewAccount />
 
       <div className="dashboard-body">
         <DashboardSidebar openMenu={openMenu} onMenuChange={setOpenMenu} />
@@ -112,7 +115,9 @@ export default function DashboardLayout() {
         )}
 
         <main className={`main ${openMenu === "team" ? "shifted--team" : openMenu === "marketing" ? "shifted--marketing" : openMenu === "clients" ? "shifted--clients" : openMenu === "catalog" ? "shifted--catalog" : openMenu ? "shifted" : ""} ${location.pathname === "/dashboard/calendar" ? "main--calendar" : ""} ${location.pathname.startsWith("/dashboard/marketing/inbox") ? "main--inbox" : ""} ${location.pathname === "/dashboard/clients/history" ? "main--history" : ""} ${isFlushPage ? "main--flush" : ""}`}>
-          <Outlet />
+          <Suspense fallback={<PageLoader />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

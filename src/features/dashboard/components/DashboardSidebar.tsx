@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MouseEvent } from "react";
 import {
   House,
   Lightning,
@@ -20,6 +20,7 @@ import {
 
 import { usePermissions } from "../../../hooks/usePermissions";
 import Modal from "../../../components/ui/Modal";
+import { preloadCashManagementPage, preloadScheduler } from "../../../routes/dashboardPreloaders";
 import "../styles/ComingSoonModal.scss";
 
 type MenuKey =
@@ -88,6 +89,13 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
     return isActive ? "nav-btn route-active" : "nav-btn";
   }
 
+  function handleRouteClick(event: MouseEvent<HTMLAnchorElement>, targetPath: string) {
+    onMenuChange(null);
+    if (location.pathname === targetPath) {
+      event.preventDefault();
+    }
+  }
+
   function menuClass(key: MenuKey) {
     return `nav-btn ${openMenu === key ? "menu-active" : ""}`;
   }
@@ -99,7 +107,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
           to="/dashboard"
           end
           className={({ isActive }) => navClass(isActive)}
-          onClick={() => onMenuChange(null)}
+          onClick={(event) => handleRouteClick(event, "/dashboard")}
         >
           <House size={22} />
           <span className="nav-label">Home</span>
@@ -110,7 +118,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <NavLink
           to="/dashboard/sales/quick"
           className={({ isActive }) => navClass(isActive)}
-          onClick={() => onMenuChange(null)}
+          onClick={(event) => handleRouteClick(event, "/dashboard/sales/quick")}
         >
           <Lightning size={22} />
           <span className="nav-label">Quick Sale</span>
@@ -121,7 +129,9 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <NavLink
           to="/dashboard/calendar"
           className={({ isActive }) => navClass(isActive)}
-          onClick={() => onMenuChange(null)}
+          onClick={(event) => handleRouteClick(event, "/dashboard/calendar")}
+          onMouseEnter={preloadScheduler}
+          onFocus={preloadScheduler}
         >
           <Calendar size={22} />
           <span className="nav-label">Calendar</span>
@@ -191,12 +201,11 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       <NavLink
-        to={{
-          pathname: "/dashboard/cash-management",
-        }}
-        state={{ autoloadCashManagement: Date.now() }}
+        to="/dashboard/cash-management"
         className={({ isActive }) => navClass(isActive)}
-        onClick={() => onMenuChange(null)}
+        onClick={(event) => handleRouteClick(event, "/dashboard/cash-management")}
+        onMouseEnter={preloadCashManagementPage}
+        onFocus={preloadCashManagementPage}
       >
         <Cash  size={22} />
         <span className="nav-label">Cash Management</span>
@@ -251,7 +260,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <NavLink
           to="/dashboard/enquiries"
           className={({ isActive }) => navClass(isActive)}
-          onClick={() => onMenuChange(null)}
+          onClick={(event) => handleRouteClick(event, "/dashboard/enquiries")}
         >
           <ChatSquareText size={22} />
           <span className="nav-label">Enquiries</span>
@@ -262,7 +271,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <NavLink
           to="/reports"
           className={({ isActive }) => navClass(isActive)}
-          onClick={() => onMenuChange(null)}
+          onClick={(event) => handleRouteClick(event, "/reports")}
         >
           <GraphUpArrow size={22} />
           <span className="nav-label">Reports</span>
@@ -285,7 +294,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         <NavLink
           to="/dashboard/settings"
           className={({ isActive }) => navClass(isActive)}
-          onClick={() => onMenuChange(null)}
+          onClick={(event) => handleRouteClick(event, "/dashboard/settings")}
         >
           <Gear size={22} />
           <span className="nav-label">Settings</span>
@@ -295,7 +304,7 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       <NavLink
         to="/dashboard/help"
         className={({ isActive }) => navClass(isActive)}
-        onClick={() => onMenuChange(null)}
+        onClick={(event) => handleRouteClick(event, "/dashboard/help")}
       >
         <QuestionCircle size={22} />
         <span className="nav-label">Help</span>

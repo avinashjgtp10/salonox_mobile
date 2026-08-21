@@ -71,6 +71,7 @@ interface CloseCounterModalProps {
    *  must be closed before a new one can be started — hides Cancel/close and
    *  blocks dismissal so the user can't skip straight past it. */
   mandatory?: boolean;
+  paymentMethodCounts?: { upi: number; card: number; cash: number };
   onClose: () => void;
   onNotify: Notify;
   onSubmit: (payload: CloseCounterPayload) => Promise<void>;
@@ -610,6 +611,7 @@ export function CloseCounterModal({
   dashboard,
   loading,
   mandatory = false,
+  paymentMethodCounts = { upi: 0, card: 0, cash: 0 },
   onClose,
   onNotify,
   onSubmit,
@@ -759,6 +761,14 @@ export function CloseCounterModal({
             <strong className={difference >= 0 ? "cash-mgmt__amount-positive" : "cash-mgmt__amount-negative"}>
               {formatAmount(difference)}
             </strong>
+          </div>
+          <div className="cash-mgmt__close-card">
+            <span>UPI Payments</span>
+            <strong>{paymentMethodCounts.upi}</strong>
+          </div>
+          <div className="cash-mgmt__close-card">
+            <span>Card Payments</span>
+            <strong>{paymentMethodCounts.card}</strong>
           </div>
         </div>
         <Input
