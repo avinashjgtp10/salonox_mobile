@@ -39,3 +39,27 @@
   color: #6b7280;
   font-size: 12px;
 }
+
+// "Expiry Date" field body inside the Filters dropdown (JiraFilterMenu's
+// render escape hatch) — reuses .jfm-option's own checkbox/radio row
+// styling, just adds the inline day-count input for the Custom option.
+.rp-inv-expiry-field {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+
+  &__custom {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  &__days-input {
+    width: 48px;
+    padding: 2px 6px;
+    border: 1px solid #d1d5db;
+    border-radius: 4px;
+    font-size: 13px;
+    text-align: center;
+  }
+}

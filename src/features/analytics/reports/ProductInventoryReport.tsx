@@ -43,6 +43,62 @@ const STATUS_LABELS: Record<string, string> = {
   out_of_stock: "Out of Stock",
 };
 
+const EXPIRY_PRESETS: { key: string; label: string }[] = [
+  { key: "15d", label: "Expiring in 15 days" },
+  { key: "1m", label: "Expiring in 1 month" },
+  { key: "2m", label: "Expiring in 2 months" },
+];
+
+const EXPIRY_PRESET_LABELS: Record<string, string> = {
+  ...Object.fromEntries(EXPIRY_PRESETS.map((p) => [p.key, p.label])),
+};
+
+// Custom field body for the "Expiry Date" entry in the Filters dropdown
+// (JiraFilterMenu's `render` escape hatch — see JiraFilterMenu.tsx) — fixed
+// presets (15 days/1 month/2 months) plus a free-entry day count, radio-like
+// (single-select: picking one clears any other selection, since "expires
+// within N days" from a single reference point (today) can't be combined
+// with a different N). `draft`/`setDraft` are the field's own single-element
+// string[] slot in the panel's shared draft state; nothing commits until the
+// panel's own Apply/Clear, same as every other field.
+function ExpiryFilterField({ draft, setDraft }: { draft: string[]; setDraft: (next: string[]) => void }) {
+  const selected = draft[0] ?? "";
+  const isCustom = selected.startsWith("custom:");
+  const customDays = isCustom ? selected.slice("custom:".length) : "";
+
+  const selectPreset = (key: string) => setDraft(selected === key ? [] : [key]);
+
+  const setCustomDays = (value: string) => {
+    const digitsOnly = value.replace(/\D/g, "").slice(0, 3);
+    setDraft(digitsOnly ? [`custom:${digitsOnly}`] : []);
+  };
+
+  return (
+    <div className="rp-inv-expiry-field">
+      {EXPIRY_PRESETS.map((p) => (
+        <label key={p.key} className="jfm-option">
+          <input type="radio" name="expiry-preset" checked={selected === p.key} onChange={() => selectPreset(p.key)} />
+          <span>{p.label}</span>
+        </label>
+      ))}
+      <label className="jfm-option rp-inv-expiry-field__custom">
+        <input type="radio" name="expiry-preset" checked={isCustom} onChange={() => setCustomDays(customDays || "30")} />
+        <span>Custom —</span>
+        <input
+          type="text"
+          inputMode="numeric"
+          className="rp-inv-expiry-field__days-input"
+          placeholder="days"
+          value={customDays}
+          onFocus={() => { if (!isCustom) setCustomDays(customDays || "30"); }}
+          onChange={(e) => setCustomDays(e.target.value)}
+        />
+        <span>days</span>
+      </label>
+    </div>
+  );
+}
+
 function mapRow(row: any): InventoryRow {
   return {
     productId: String(row.product_id ?? ""),
@@ -89,11 +145,15 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
   // this report previously used, so every product shows until a range is set.
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
   const { startDate: dateFrom, endDate: dateTo } = dateRange;
-  // Separate range, filtering on the product's expiry_date rather than
-  // created_at — independent of dateRange above so both filters can be
-  // applied together.
-  const [expiryRange, setExpiryRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
-  const { startDate: expiryFrom, endDate: expiryTo } = expiryRange;
+  // Expiry Date lives inside the Filters dropdown (JiraFilterMenu) rather
+  // than as its own DateRangeFilter — "expiring within N days/months from
+  // today" is forward-looking, unlike Date Added's calendar-based presets
+  // (This month/Last month/etc.), so it gets its own preset set here instead
+  // of reusing DateRangeFilter's. Draft value is a single-element string[]
+  // (JiraFilterMenu's render field convention) holding one of the preset
+  // keys below, or "custom:<days>" for a user-entered day count.
+  const [expiryFilter, setExpiryFilter] = useState<string[]>([]);
+  const expiryPreset = expiryFilter[0] ?? "";
 
   const [rows,        setRows]        = useState<InventoryRow[]>([]);
   const [total,       setTotal]       = useState(0);
@@ -106,9 +166,24 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
     ? "To Date must be greater than or equal to From Date"
     : "";
-  const expiryRangeError = expiryFrom && expiryTo && expiryTo < expiryFrom
-    ? "Expiry To Date must be greater than or equal to Expiry From Date"
-    : "";
+
+  // Expiry preset → [today, today + N days] as ISO dates. "custom:<n>" reads
+  // its day count from the trailing number; a malformed/empty custom value
+  // resolves to no range (filter simply doesn't apply yet).
+  const { expiryFrom, expiryTo } = useMemo(() => {
+    if (!expiryPreset) return { expiryFrom: "", expiryTo: "" };
+    const days = expiryPreset === "15d" ? 15
+      : expiryPreset === "1m" ? 30
+      : expiryPreset === "2m" ? 60
+      : expiryPreset.startsWith("custom:") ? Number(expiryPreset.slice("custom:".length))
+      : NaN;
+    if (!Number.isFinite(days) || days <= 0) return { expiryFrom: "", expiryTo: "" };
+    const toISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    const today = new Date();
+    const until = new Date();
+    until.setDate(until.getDate() + days);
+    return { expiryFrom: toISO(today), expiryTo: toISO(until) };
+  }, [expiryPreset]);
 
   useEffect(() => { fetchBrands(); fetchCategories(); }, [fetchBrands, fetchCategories]);
 
@@ -121,7 +196,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
   // only that page's rows come back, along with stats computed by the
   // backend over the WHOLE filtered set (not just the current page).
   const fetchData = useCallback(async () => {
-    if (dateRangeError || expiryRangeError) return;
+    if (dateRangeError) return;
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
@@ -158,7 +233,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [debouncedSearch, categoryFilter, brandFilter, stockStatusFilter, dateFrom, dateTo, expiryFrom, expiryTo, currentPage, pageSize, dateRangeError, expiryRangeError]);
+  }, [debouncedSearch, categoryFilter, brandFilter, stockStatusFilter, dateFrom, dateTo, expiryFrom, expiryTo, currentPage, pageSize, dateRangeError]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
@@ -169,18 +244,23 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
     { key: "category", label: "Category", options: categories.map((c: any) => ({ id: c.id, label: c.name })), searchable: true },
     { key: "brand", label: "Brand", options: brands.map((b: any) => ({ id: b.id, label: b.name })), searchable: true },
     { key: "stock_status", label: "Stock Status", options: STOCK_STATUS_OPTIONS },
+    { key: "expiry", label: "Expiry Date", options: [], render: (draft, setDraft) => (
+      <ExpiryFilterField draft={draft} setDraft={setDraft} />
+    ) },
   ], [categories, brands]);
 
   const filterMenuSelected = useMemo(() => ({
     category: categoryFilter,
     brand: brandFilter,
     stock_status: stockStatusFilter,
-  }), [categoryFilter, brandFilter, stockStatusFilter]);
+    expiry: expiryFilter,
+  }), [categoryFilter, brandFilter, stockStatusFilter, expiryFilter]);
 
   const handleFiltersApply = (next: Record<string, string[]>) => {
     setCategoryFilter(next.category ?? []);
     setBrandFilter(next.brand ?? []);
     setStockStatusFilter(next.stock_status ?? []);
+    setExpiryFilter(next.expiry ?? []);
   };
 
   // Column names match the Add/Edit Product form's own field labels so the
@@ -211,7 +291,7 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
               filename="product-inventory"
               variant="button"
               csv
-              disabled={!!dateRangeError || !!expiryRangeError}
+              disabled={!!dateRangeError}
               dateRangeLabel={dateFrom || dateTo ? `${dateFrom ? formatDate(dateFrom) : "…"} - ${dateTo ? formatDate(dateTo) : "…"}` : undefined}
               filterLines={[
                 ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
@@ -224,8 +304,8 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
                 ...(stockStatusFilter.length > 0
                   ? [`Stock Status: ${stockStatusFilter.map(v => STATUS_LABELS[v] ?? v).join(", ")}`]
                   : []),
-                ...(expiryFrom || expiryTo
-                  ? [`Expiry Date: ${expiryFrom ? formatDate(expiryFrom) : "…"} - ${expiryTo ? formatDate(expiryTo) : "…"}`]
+                ...(expiryPreset
+                  ? [`Expiry Date: ${EXPIRY_PRESET_LABELS[expiryPreset] ?? expiryPreset} (${formatDate(expiryFrom)} - ${formatDate(expiryTo)})`]
                   : []),
               ]}
               summaryLines={[
@@ -245,16 +325,11 @@ export default function ProductInventoryReport({ onBack, category: reportCategor
           <label className="rp-detail-filter-label">Date Added</label>
           <DateRangeFilter value={dateRange} onChange={setDateRange} />
         </div>
-        <div className="rp-detail-filter-group">
-          <label className="rp-detail-filter-label">Expiry Date</label>
-          <DateRangeFilter value={expiryRange} onChange={setExpiryRange} />
-        </div>
         <div className="rp-detail-filter-actions">
           <ReportRefreshButton onClick={fetchData} loading={loading} />
         </div>
       </div>
       {dateRangeError && <div className="rp-detail-date-error">{dateRangeError}</div>}
-      {expiryRangeError && <div className="rp-detail-date-error">{expiryRangeError}</div>}
 
       {loading ? <SkeletonStatCards count={4} /> : (
         <div className="rp-sra-summary-row">
