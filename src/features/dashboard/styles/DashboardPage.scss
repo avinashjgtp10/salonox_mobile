@@ -2006,6 +2006,13 @@ body {
 
     &:hover { background: #fef2f2; }
   }
+
+  &:disabled {
+    color: #9ca3af;
+    cursor: not-allowed;
+
+    &:hover { background: none; }
+  }
 }
 
 /* ── DROPDOWN ANIMATION ── */

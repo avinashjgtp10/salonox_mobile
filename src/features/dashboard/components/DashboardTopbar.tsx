@@ -495,14 +495,17 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
                 <div className="topbar-profile-divider" />
 
-                {isCashCounterOpen && (
-                  <button
-                    className="topbar-profile-item"
-                    onClick={() => { setShowProfile(false); setShowCloseCounterConfirm(true); }}
-                  >
-                    <LockFill size={15} /> Close Counter
-                  </button>
-                )}
+                <button
+                  className="topbar-profile-item"
+                  disabled={!isCashCounterOpen}
+                  onClick={() => {
+                    if (!isCashCounterOpen) return;
+                    setShowProfile(false);
+                    setShowCloseCounterConfirm(true);
+                  }}
+                >
+                  <LockFill size={15} /> Close Counter
+                </button>
 
                 <button className="topbar-profile-item topbar-profile-item--danger" onClick={handleLogoutClick}>
                   <BoxArrowRight size={15} /> Logout

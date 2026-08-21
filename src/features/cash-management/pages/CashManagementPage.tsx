@@ -85,6 +85,13 @@ function isInDateRange(date?: string | null, sharedDateFrom?: string, sharedDate
   return true;
 }
 
+const getErrorMessage = (err: unknown, fallback: string) => {
+  if (!err || typeof err !== "object") return fallback;
+
+  const message = (err as { message?: unknown }).message;
+  return typeof message === "string" && message.trim() ? message : fallback;
+};
+
 export default function CashManagementPage() {
   const { formatAmount } = useCurrency();
   const userProfile = useAppSelector(selectUserProfile);
@@ -211,7 +218,12 @@ export default function CashManagementPage() {
   }, [hasOpenCounter, dashboard.openedAt]);
 
   const transactionTabCount = useMemo(() => {
-    return transactions.filter((item) => isInDateRange(item.updatedAt ?? item.date, dateRange.startDate, dateRange.endDate)).length;
+    return transactions.reduce((count, item) => {
+      const openedAt = item.openedAt ?? item.date;
+      const openCount = isInDateRange(openedAt, dateRange.startDate, dateRange.endDate) ? 1 : 0;
+      const closeCount = isInDateRange(item.closedAt, dateRange.startDate, dateRange.endDate) ? 1 : 0;
+      return count + openCount + closeCount;
+    }, 0);
   }, [transactions, dateRange.startDate, dateRange.endDate]);
 
   const expenseTabCount = useMemo(() => {
@@ -407,8 +419,8 @@ export default function CashManagementPage() {
         exportCashManagementCSV(options);
       }
       setIsExportMenuOpen(false);
-    } catch (err: any) {
-      showNotification("error", err?.message ?? "Failed to export report.");
+    } catch (err: unknown) {
+      showNotification("error", getErrorMessage(err, "Failed to export report."));
     } finally {
       setExportingFormat(null);
     }
