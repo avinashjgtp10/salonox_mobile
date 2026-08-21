@@ -40,230 +40,69 @@ function buildStats(d: ClientDetails): ClientStats {
 }
 
 /**
- * Fetches a client's full profile + history stats whenever clientId changes.
- * Phase 1: fast profile fetch (profile API) → sets stat card immediately.
- * Phase 2: background history fetch → enriches total_visits, cancelled, total_revenue.
+ * Fetches a client's full profile — plus packages, memberships, visit
+ * history, and loyalty eligibility — in ONE request via the consolidated
+ * POST /clients/:id/details endpoint, instead of the 4-5 separate GETs
+ * (profile, history, client-packages, client-memberships, loyalty-eligibility)
+ * this used to fire independently.
  */
-export function useClientDetails(clientId: string | null | undefined, refreshKey?: number) {
+export function useClientDetails(
+  clientId: string | null | undefined,
+  refreshKey?: number,
+) {
   const [details, setDetails]   = useState<ClientDetails | null>(null);
   const [stats, setStats]       = useState<ClientStats | null>(null);
   const [loading, setLoading]   = useState(false);
-  // True from when Phase 2 (history/packages/memberships — total visits, last
-  // visit, total revenue) kicks off until it resolves. Separate from `loading`
-  // (Phase 1 only) so callers can show a skeleton for just those fields
-  // instead of quietly popping them in once the background fetch finishes.
+  // Kept for API compatibility with existing callers that show a separate
+  // skeleton for history-derived fields — always resolves together with
+  // `loading` now, since the consolidated endpoint returns everything in
+  // one response instead of a fast Phase 1 + background Phase 2.
   const [historyLoading, setHistoryLoading] = useState(false);
   const [error, setError]       = useState<string | null>(null);
 
   const fetch = useCallback(async (id: string) => {
     setLoading(true);
+    setHistoryLoading(true);
     setError(null);
     let cancelled = false;
 
     try {
-      // ── Phase 1: profile ─────────────────────────────────────────────────
-      const res = await api.get(`/api/v1/clients/${id}`);
-      const client: ClientDetails = res.data?.data ?? res.data;
+      const res = await api.post(`/api/v1/clients/${id}/details`, {
+        include: ["packages", "memberships", "history", "loyalty"],
+      });
+      const client: any = res.data?.data ?? res.data;
 
       if (cancelled) return;
 
-      const lastVisit = client.last_visit_date ?? client.last_visit_at ?? null;
+      const lastVisit = client.history?.last_visit_date ?? client.last_visit_date ?? client.last_visit_at ?? null;
       const resolvedPhone = (
         client.phone_number || client.phone ||
         client.mobile || client.mobile_number || client.phone_no || ""
       ).replace(/[^\d+]/g, "");
+
+      const pkgItems: any[] = Array.isArray(client.packages) ? client.packages : [];
+      const memItems: any[] = Array.isArray(client.memberships) ? client.memberships : [];
+      const activeMembership = memItems.find((m: any) => (m.status ?? "").toLowerCase() === "active") ?? null;
 
       const enriched: ClientDetails = {
         ...client,
         phone_number: resolvedPhone,
         last_visit_date: lastVisit,
         unpaid_amount: (client.unpaid_amount ?? 0) > 0 ? client.unpaid_amount : 0,
+        total_visits:    client.history?.total_visits ?? 0,
+        cancelled_count: client.history?.cancelled_count ?? 0,
+        total_revenue:   client.history?.total_revenue ?? 0,
+        active_package_count: pkgItems.filter((p: any) => (p.status ?? "").toLowerCase() === "active").length,
+        active_membership_name: activeMembership?.membershipName ?? activeMembership?.membership_name ?? null,
+        active_membership_expires_at: activeMembership?.expiresAt ?? activeMembership?.expires_at ?? null,
       };
 
       setDetails(enriched);
       setStats(buildStats(enriched));
-
-      // ── Phase 2: history stats (background, non-blocking) ────────────────
-      setHistoryLoading(true);
-      Promise.all([
-        api.get(`/api/v1/clients/${id}/history`),
-        api.get(`/api/v1/client-packages?clientId=${id}&limit=500`).catch(() => ({ data: null })),
-        api.get(`/api/v1/client-memberships?clientId=${id}&limit=200`).catch(() => ({ data: null })),
-      ]).then(([r, pkgRes, memRes]) => {
-          if (cancelled) return;
-          const histData = r.data?.data ?? r.data ?? null;
-          const s = histData?.stats ?? null;
-
-          const appts: any[] = histData?.appointments ?? [];
-
-          const statusOf    = (a: any) => (a.payment_status ?? a.status ?? "").toLowerCase();
-          const isPaid      = (a: any) => { const ps = statusOf(a); return ps === "paid" || ps === "completed"; };
-          const isPartial   = (a: any) => statusOf(a) === "partial";
-          const isCancelled = (a: any) => statusOf(a) === "cancelled";
-
-          // Sum all item types on an appointment (services + products + packages + memberships),
-          // plus extra charges. Discount is intentionally excluded (item totals are pre-discount)
-          // and tip is intentionally excluded (shown only on the booking tooltip hover).
-          const apptTotal = (a: any): number => {
-            const svcs  = Array.isArray(a.services)          ? a.services          : [];
-            const prods = Array.isArray(a.product_items    ?? a.productItems)    ? (a.product_items    ?? a.productItems    ?? []) : [];
-            const pkgs  = Array.isArray(a.package_items    ?? a.packageItems)    ? (a.package_items    ?? a.packageItems    ?? []) : [];
-            const mems  = Array.isArray(a.membership_items ?? a.membershipItems) ? (a.membership_items ?? a.membershipItems ?? []) : [];
-            const allItems = [...svcs, ...prods, ...pkgs, ...mems];
-            const exCharges = Number(a.ex_charges ?? a.exCharges ?? 0);
-            if (allItems.length > 0) {
-              return allItems.reduce((t: number, item: any) => t + Number(item.total ?? item.price ?? 0), 0) + exCharges;
-            }
-            return Number(a.grand_total ?? a.total_amount ?? a.total ?? a.amount ?? 0);
-          };
-
-          // Sort newest-first so first element = most recent appointment
-          const sortedAppts = [...appts].sort((a, b) =>
-            new Date(b.scheduled_at ?? 0).getTime() - new Date(a.scheduled_at ?? 0).getTime()
-          );
-
-          const paidAppts    = sortedAppts.filter(isPaid);
-          const partialAppts = sortedAppts.filter(isPartial);
-          // "Total Visits" = any appointment paid/partial, plus any quick sale with
-          // no appointment at all (a walk-in checkout) — matches ClientHistoryDetail.tsx's
-          // definition exactly (completed_appointments now counts paid+partial too,
-          // see clients.controller.ts) so the two screens never disagree again.
-          const quickSalesCount = ((histData?.sales ?? []) as any[]).filter((s: any) => !s.appointment_id).length;
-
-          // Most recent visit = newest paid or partial appointment
-          const lastPaidAt = sortedAppts.find((a) => isPaid(a) || isPartial(a))?.scheduled_at ?? null;
-
-          // Revenue: fully paid appointments + paid portion of partial appointments.
-          // For fully-paid appointments, prefer the payment's actual net_amount over
-          // the raw catalog apptTotal() — net_amount is already reduced by any
-          // membership-wallet/package coverage, whose value was already recognized
-          // as revenue when that membership/package was originally sold. Falling back
-          // to apptTotal() only when no payment record exists (net_amount is null).
-          const paidRevenue = paidAppts.reduce((sum: number, a: any) => {
-            const net = a.net_amount;
-            return sum + ((net !== null && net !== undefined) ? Number(net) : apptTotal(a));
-          }, 0);
-          // amount_paid intentionally includes eWallet/membership-wallet money (it
-          // represents "how much of this bill is settled", used elsewhere for
-          // Paid/Partial status) — subtract those back out here since neither is
-          // new money for the salon, same reasoning as paidRevenue above.
-          const partialRevenue = partialAppts.reduce((sum: number, a: any) => {
-            const collected = Number(a.amount_paid ?? a.paid_amount ?? 0);
-            const walletPortion = Number(a.ewallet_used ?? 0) + Number(a.membership_wallet_used ?? 0);
-            return sum + Math.max(0, collected - walletPortion);
-          }, 0);
-
-          // Package purchases: add paid amount (money actually collected for the package) —
-          // but ONLY for a genuinely standalone "Sell Package" purchase (no appointmentId).
-          // One sold as a line item on an appointment already has its price counted via
-          // paidRevenue/partialRevenue above (apptTotal() sums package_items too) — the
-          // backend only sets appointmentId on that auto-created byproduct row, never on
-          // a standalone sale, so this is exactly the distinction needed to avoid counting
-          // the same purchase twice.
-          const pkgItems: any[] = pkgRes.data?.data?.items ?? pkgRes.data?.items ?? pkgRes.data?.data ?? [];
-          const packageRevenue = Array.isArray(pkgItems)
-            ? pkgItems
-                .filter((p: any) => !(p.appointmentId ?? p.appointment_id))
-                .reduce((sum: number, p: any) => sum + Number(p.paidAmount ?? p.paid_amount ?? p.totalAmount ?? p.total_amount ?? 0), 0)
-            : 0;
-
-          // Membership purchases (e.g. "Sell to client") — these create a
-          // client_memberships row directly with no appointment/payment/sale
-          // record, so they'd otherwise never be counted anywhere as revenue.
-          // Same appointmentId exclusion as packages above — one sold within an
-          // appointment is already counted via paidRevenue/partialRevenue.
-          const memItems: any[] = memRes?.data?.data?.items ?? memRes?.data?.items ?? [];
-          const membershipRevenue = Array.isArray(memItems)
-            ? memItems
-                .filter((m: any) => !(m.appointmentId ?? m.appointment_id))
-                .reduce((sum: number, m: any) => sum + Number(m.pricePaid ?? m.price_paid ?? 0), 0)
-            : 0;
-
-          const totalBilled = paidRevenue + partialRevenue + packageRevenue + membershipRevenue;
-
-          // ── Revenue-by-category breakdown for the Overview tab's cards ──────
-          // Catalog-value sums (each item's own total/price, pre-discount and
-          // pre-wallet-adjustment) across paid+partial appointments — NOT a
-          // decomposition of paidRevenue/partialRevenue above, which use the
-          // payment's net_amount (already wallet/discount-adjusted) and can't
-          // be split back out by item type without knowing which portion of
-          // a wallet covered which item. These four won't sum to exactly
-          // totalBilled as a result; they're a directional "where did this
-          // client's spend go" breakdown, not a penny-reconciled one.
-          const sumApptItemsByType = (getItems: (a: any) => any[]): number =>
-            [...paidAppts, ...partialAppts].reduce((sum, a) => {
-              const items = getItems(a);
-              return sum + (Array.isArray(items)
-                ? items.reduce((s: number, i: any) => s + Number(i.total ?? i.price ?? 0), 0)
-                : 0);
-            }, 0);
-          const serviceRevenue = sumApptItemsByType(a => a.services ?? []);
-          // Products/packages/memberships sold as a Quick Sale (no appointment)
-          // aren't in histData.appointments at all, so those are undercounted
-          // here the same way they're already undercounted in totalBilled above.
-          const productRevenue = sumApptItemsByType(a => a.product_items ?? a.productItems ?? []);
-          const packageRevenueTotal = sumApptItemsByType(a => a.package_items ?? a.packageItems ?? []) + packageRevenue;
-          const membershipRevenueTotal = sumApptItemsByType(a => a.membership_items ?? a.membershipItems ?? []) + membershipRevenue;
-
-          const countApptItemsByType = (getItems: (a: any) => any[]): number =>
-            [...paidAppts, ...partialAppts].reduce((count, a) => {
-              const items = getItems(a);
-              return count + (Array.isArray(items) ? items.length : 0);
-            }, 0);
-          const serviceCount = countApptItemsByType(a => a.services ?? []);
-          const productCount = countApptItemsByType(a => a.product_items ?? a.productItems ?? []);
-
-          const activePackageCount = Array.isArray(pkgItems)
-            ? pkgItems.filter((p: any) => (p.status ?? "").toLowerCase() === "active").length
-            : 0;
-          const activeMembership = Array.isArray(memItems)
-            ? memItems.find((m: any) => (m.status ?? "").toLowerCase() === "active")
-            : null;
-
-          // Unpaid amount = due portion of PARTIALLY-paid appointments only. A booked/
-          // confirmed appointment that simply hasn't happened/been paid yet is not "unpaid
-          // debt" — it shouldn't count here until the client has actually made a partial
-          // payment against it.
-          // Uses the backend's authoritative due_amount (already net of discount/eWallet/
-          // membership-wallet deductions — see payments.service.ts) rather than recomputing
-          // from the appointment's raw catalog total, which doesn't know about those
-          // deductions and would overstate what's actually still owed.
-          const unpaidFromHistory = sortedAppts
-            .filter((a: any) => isPartial(a))
-            .reduce((sum: number, a: any) => sum + Math.max(0, Number(a.due_amount ?? 0)), 0);
-
-          setDetails((prev) => {
-            if (!prev) return prev;
-            const updated: ClientDetails = {
-              ...prev,
-              total_visits:    paidAppts.length + partialAppts.length + quickSalesCount,
-              cancelled_count: s
-                ? (s.cancellations ?? s.cancelled_count ?? 0)
-                : sortedAppts.filter(isCancelled).length,
-              total_revenue:   totalBilled,
-              last_visit_date: lastPaidAt ?? prev.last_visit_date ?? null,
-              unpaid_amount:   unpaidFromHistory > 0 ? unpaidFromHistory : (prev.unpaid_amount ?? 0),
-              service_revenue:    serviceRevenue,
-              product_revenue:    productRevenue,
-              package_revenue:    packageRevenueTotal,
-              membership_revenue: membershipRevenueTotal,
-              service_count: serviceCount,
-              product_count: productCount,
-              active_package_count: activePackageCount,
-              active_membership_name: activeMembership?.membershipName ?? activeMembership?.membership_name ?? null,
-              active_membership_expires_at: activeMembership?.expiresAt ?? activeMembership?.expires_at ?? null,
-            };
-            setStats(buildStats(updated));
-            return updated;
-          });
-        })
-        .catch(() => { /* history is best-effort */ })
-        .finally(() => { if (!cancelled) setHistoryLoading(false); });
-
     } catch (err: any) {
       if (!cancelled) setError(err?.message || "Failed to load client");
     } finally {
-      if (!cancelled) setLoading(false);
+      if (!cancelled) { setLoading(false); setHistoryLoading(false); }
     }
 
     return () => { cancelled = true; };

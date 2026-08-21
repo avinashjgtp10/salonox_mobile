@@ -11,9 +11,8 @@ import { useCoupon }         from "../../hooks/useCoupon";
 import { useReferral }       from "../../hooks/useReferral";
 import { useServices }       from "../../hooks/useServices";
 import { useServices as useCatalogServices } from "../../../catalog/hooks/useServices";
-import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery, useListClientPackagesQuery, useCompleteClientPackageSessionMutation } from "../../../../services/api/endpoints/packages.endpoints";
-import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
-import { useLoyaltyEligibility } from "../../hooks/useLoyaltyEligibility";
+import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery, useCompleteClientPackageSessionMutation } from "../../../../services/api/endpoints/packages.endpoints";
+import { useClientDetails } from "../../hooks/useClientDetails";
 import { fetchProductsThunk } from "../../../../middleware/catalog/products.thunk";
 import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
 import { setPackagesList, patchPaymentStatus } from "../../../../store/schedulerSlice";
@@ -611,18 +610,24 @@ export const AppointmentModal: React.FC<Props> = ({
   const referral = useReferral();
   const [completePackageSession] = useCompleteClientPackageSessionMutation();
 
-  // Fetch client's active packages to check which services are pre-paid (price = 0)
+  // Single consolidated fetch (POST /clients/:id/details) covering profile,
+  // packages, memberships, history, and loyalty eligibility for the selected
+  // client — replaces what used to be 4 independent hooks/queries here
+  // (useClientDetails-in-ClientPanel, useListClientPackagesQuery,
+  // useClientMembershipWallet, useLoyaltyEligibility) each firing their own
+  // request for the same client. The full result is handed to ClientPanel
+  // below as `clientDetailsResult` so it renders from this same call instead
+  // of running its own independent useClientDetails fetch.
   const clientIdForPkg = selectedClient?.id && selectedClient.id !== "walk-in" ? selectedClient.id : undefined;
-  const { data: clientPkgsData } = useListClientPackagesQuery(
-    { clientId: clientIdForPkg, status: "Active", limit: 50 },
-    // See ClientPanel.tsx's identical option for why this is needed — a
-    // package purchased outside this exact RTK Query cache entry (another
-    // tab, a backfill script, etc.) must not be masked by a stale cached hit.
-    { skip: !clientIdForPkg, refetchOnMountOrArgChange: true },
+  const clientDetailsResult = useClientDetails(clientIdForPkg, clientRefreshKey);
+  const { details: clientDetailsForModal } = clientDetailsResult;
+  const clientPkgsData = useMemo(
+    () => ({ items: (clientDetailsForModal as any)?.packages ?? [] }),
+    [clientDetailsForModal],
   );
-  // Backend "Active" filtering aside, also guard client-side against a
-  // package whose expiry date has passed but hasn't been flagged as such
-  // server-side yet — an expired package must never be selectable/applicable.
+  // Guard client-side against a package whose expiry date has passed but
+  // hasn't been flagged as such server-side yet — an expired package must
+  // never be selectable/applicable.
   // Sorted soonest-expiry-first (packages with no expiry sort last, since
   // there's no urgency to use them up) — when a client owns more than one
   // active package covering the same service, this makes the one closest to
@@ -631,8 +636,8 @@ export const AppointmentModal: React.FC<Props> = ({
   // whatever arbitrary order the API happened to return them in.
   const nonExpiredPackages = useMemo(
     () => (clientPkgsData?.items ?? [])
-      .filter((pkg) => !isPackageExpired(pkg.expiryDate))
-      .sort((a, b) => {
+      .filter((pkg: any) => pkg.status === "Active" && !isPackageExpired(pkg.expiryDate))
+      .sort((a: any, b: any) => {
         const aTime = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
         const bTime = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
         return aTime - bTime;
@@ -847,7 +852,26 @@ export const AppointmentModal: React.FC<Props> = ({
   // Display-only: the backend independently recomputes and applies the real
   // deduction at payment time (see payments.service.ts), gated on the same
   // flag sent with the payment — this is just a preview.
-  const { memberships: clientMemberships, primary: primaryMembership } = useClientMembershipWallet(clientIdForPkg, clientRefreshKey);
+  const allClientMemberships = useMemo(
+    () => ((clientDetailsForModal as any)?.memberships ?? []) as any[],
+    [clientDetailsForModal],
+  );
+  // Active + not-yet-expired — same filter useClientMembershipWallet used to
+  // apply itself (guards against a membership whose expiry date has passed
+  // but hasn't been flagged as such server-side yet; an expired membership
+  // must never contribute wallet balance to a booking).
+  const clientMemberships = useMemo(
+    () => allClientMemberships.filter((m: any) => m.status === "active" && !isPackageExpired(m.expiresAt)),
+    [allClientMemberships],
+  );
+  const primaryMembership = useMemo(
+    () => clientMemberships.reduce((best: any, m: any) => {
+      if (Number(m.membershipWalletBalance) <= 0) return best;
+      if (!best || Number(m.membershipWalletBalance) > Number(best.membershipWalletBalance)) return m;
+      return best;
+    }, null),
+    [clientMemberships],
+  );
   // Combined balance across ALL active memberships (not just the single
   // highest-balance one) — checkout now draws from multiple in sequence, see
   // deductWalletAcrossMemberships in client-memberships.repository.ts.
@@ -1031,7 +1055,7 @@ export const AppointmentModal: React.FC<Props> = ({
     () => clientMemberships.find((m) => m.pricingType === "percentage" && (m.discountBalanceRemaining ?? 0) > 0),
     [clientMemberships],
   );
-  const { eligibility: loyaltyEligibility } = useLoyaltyEligibility(clientIdForPkg, clientRefreshKey);
+  const loyaltyEligibility = ((clientDetailsForModal as any)?.loyalty_eligibility ?? null) as any;
   const percentageDiscountSource = percentageMembership
     ? {
         name: percentageMembership.membershipName,
@@ -1252,7 +1276,16 @@ export const AppointmentModal: React.FC<Props> = ({
   useEffect(() => {
     setTotalsConfirmed(false);
     setTotalsError(false);
-    const hasAnyRowsNow = serviceRows.length + packageRows.length + productRows.length + membershipRows.length > 0;
+    // A brand-new Quick Sale/booking starts with one phantom serviceRows entry
+    // (see emptyService() at the top of this component) that has no service
+    // actually picked yet — service:"" , price:0. Counting it as "a row" made
+    // calculate-totals fire the moment ANY other pricing-relevant dependency
+    // changed (e.g. picking a client) even though there's nothing billable on
+    // the bill yet. Only a real, catalog-selected service row (isRealServiceRow)
+    // — or any package/product/membership row, none of which ever start with a
+    // placeholder — should count toward "there's something to price".
+    const hasAnyRowsNow = serviceRows.some(isRealServiceRow)
+      || packageRows.length + productRows.length + membershipRows.length > 0;
     if (!hasAnyRowsNow) {
       // No rows left on the bill — the pricing request below never even fires
       // for an empty bill, so falling through here used to leave `totals`
@@ -2220,6 +2253,7 @@ export const AppointmentModal: React.FC<Props> = ({
         packages={nonExpiredPackages}
         memberships={clientMemberships}
         loyaltyEligibility={loyaltyEligibility}
+        clientDetailsResult={clientDetailsResult}
       />
     </div>
   );
@@ -2282,10 +2316,13 @@ export const AppointmentModal: React.FC<Props> = ({
           onUpdateProduct={(i, r) => setProductRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
           onRemoveProduct={(i) => setProductRows((rows) => rows.filter((_, idx) => idx !== i))}
           onAddProduct={() => {
-            if (!prodRequested.current && availableProducts.length === 0) {
-              prodRequested.current = true;
-              dispatch(fetchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
-            }
+            // No bulk fetchProductsThunk here — ServicesPanel's own debounced
+            // GET /products?search=... (350ms, per keystroke) already
+            // resolves matches live as the user types. availableProducts was
+            // only ever used as a "local matches while the API call is in
+            // flight" fallback in that search, not a hard requirement — a
+            // 200-row prefetch just to seed that fallback cost more than it
+            // saved (the API's own results land within one debounce cycle).
             setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: "", time: serviceRows[0]?.time || defaultTime || "" }]);
           }}
           membershipRows={membershipRows}

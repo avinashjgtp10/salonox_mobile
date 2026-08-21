@@ -50,6 +50,18 @@ const processQueue = (error: unknown, token: string | null = null) => {
 // ─── Subscription error code sent by the backend ─────────────────────────────
 const SUBSCRIPTION_REQUIRED_CODE = "SUBSCRIPTION_REQUIRED";
 
+// Endpoints whose controllers derive salon_id exclusively from the JWT
+// (getSalonId(req) → req.user.salonId) and never read a salon_id query
+// param — sending it there is pure dead weight on every request URL.
+// Matched as whole path segments (not a substring) so this doesn't
+// accidentally also skip injection for a similarly-named but unverified
+// endpoint like /client-notes or /client-communication.
+// NOT applied globally: salons.controller.ts's mySalon handler and the
+// staff commission endpoints genuinely fall back to this query param when
+// a freshly-registered user's JWT doesn't have salonId yet (e.g. a
+// salon_owner who just registered and hasn't created their salon).
+const SALON_ID_NOT_NEEDED = [/\/clients(\/|\?|$)/, /\/services(\/|\?|$)/, /\/products(\/|\?|$)/];
+
 // ─── Apply Interceptors ───────────────────────────────────────────────────────
 export const applyInterceptors = (instance: AxiosInstance) => {
   // ── REQUEST ─────────────────────────────────────────────────────────────────
@@ -71,7 +83,8 @@ export const applyInterceptors = (instance: AxiosInstance) => {
         const salonId = role !== "super_admin"
           ? (state?.auth?.salonId ?? state?.salon?.currentSalon?.id)
           : null;
-        if (salonId) {
+        const skipSalonId = SALON_ID_NOT_NEEDED.some((re) => re.test(config.url ?? ""));
+        if (salonId && !skipSalonId) {
           const url = new URL(config.url ?? "", "http://x");
           const inParams =
             config.params instanceof URLSearchParams

@@ -328,8 +328,12 @@ async function fetchProductSearchItems(searchValue: string, isNumericPriceSearch
   const collected: SearchableCatalogItem[] = [];
 
   if (!isNumericPriceSearch) {
+    // No limit sent — the backend already defaults to 20 when omitted
+    // (products.repository.ts), which is plenty for this scroll-capped
+    // (200px) live-search dropdown. limit=100 was overriding that sane
+    // default with 5x more rows than the dropdown ever needs to show.
     const response = await api.get("/api/v1/products", {
-      params: { search: searchValue, limit: 100 },
+      params: { search: searchValue },
     }).catch(() => null);
 
     filterSellableProducts(extractProductSearchResults(response))
