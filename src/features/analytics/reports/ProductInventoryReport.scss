@@ -17,15 +17,17 @@
   &--out { color: #ef4444; }
 }
 
-// Product Inventory table: fixed layout so the Product column truncates with
-// an ellipsis instead of pushing Status off-screen and forcing a horizontal
-// scrollbar for the whole table.
+// Product Inventory table: fixed layout so the Product and Barcode columns
+// truncate with an ellipsis instead of pushing Status off-screen and forcing
+// a horizontal scrollbar for the whole table.
 .rp-inv-table {
   table-layout: fixed;
 
   .rp-inv-col-product { width: 220px; }
+  .rp-inv-col-barcode { width: 140px; }
 
-  td.rp-inv-product-cell {
+  td.rp-inv-product-cell,
+  td.rp-inv-barcode-cell {
     max-width: 220px;
     overflow: hidden;
     text-overflow: ellipsis;
