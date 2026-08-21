@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CalendarEvent, CashStack, JournalText, Safe2, Wallet2 } from "react-bootstrap-icons";
 import toast from "react-hot-toast";
@@ -11,7 +11,7 @@ import {
 } from "../../../middleware/cashCounter/cashCounter.thunk";
 import { logout } from "../../../store/authSlice";
 import { disconnectSocket } from "../../../services/socket/socket";
-import { sendDailySummaryEmail } from "../cashManagement.api";
+import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
 import { OpenCounterModal } from "../pages/CashManagementModals";
 
 import { selectUserProfile } from "../../../store/selectors/slices.selectors";
@@ -46,6 +46,7 @@ export default function UnclosedCounterGate() {
   const [error, setError] = useState("");
   const [showOpenTodayModal, setShowOpenTodayModal] = useState(false);
   const [openingLoading, setOpeningLoading] = useState(false);
+  const [paymentMethodCounts, setPaymentMethodCounts] = useState({ upi: 0, card: 0, cash: 0 });
 
   const today = formatDateInput(new Date());
   const openedDateKey = dashboard?.openedAt ? formatDateInput(new Date(dashboard.openedAt)) : null;
@@ -58,6 +59,17 @@ export default function UnclosedCounterGate() {
   const isOnCashManagementPage = location.pathname.startsWith(CASH_MANAGEMENT_PATH);
   const show = isStaleOpenCounter && !isOnCashManagementPage;
   const showPendingModal = show && !showOpenTodayModal;
+
+  useEffect(() => {
+    if (!showPendingModal || !openedDateKey) return;
+    let cancelled = false;
+    fetchTodaysPaymentMethodCounts(openedDateKey).then((counts) => {
+      if (!cancelled) setPaymentMethodCounts(counts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showPendingModal, openedDateKey]);
 
   const handleClosePreviousCounter = useCallback(async () => {
     setClosing(true);
@@ -100,7 +112,11 @@ export default function UnclosedCounterGate() {
 
       // 3. Send summary via email to Salon Owner's registered email address (no PDF attachment)
       try {
-        await sendDailySummaryEmail(dashboard?.cashManagementId ?? "", summaryData, userEmail);
+        await sendDailySummaryEmail(
+          dashboard?.cashManagementId ?? "",
+          { ...summaryData, paymentCounts: paymentMethodCounts },
+          userEmail,
+        );
         toast.success(`Previous counter closed! Summary emailed to ${userEmail || "Salon Owner"}.`);
       } catch (emailErr: any) {
         console.error("[UnclosedCounterGate] Email delivery error:", emailErr);
@@ -119,7 +135,7 @@ export default function UnclosedCounterGate() {
     } finally {
       setClosing(false);
     }
-  }, [dashboard, dispatch, userEmail]);
+  }, [dashboard, dispatch, userEmail, paymentMethodCounts]);
 
   const handleLogout = useCallback(() => {
     disconnectSocket();
@@ -211,6 +227,28 @@ export default function UnclosedCounterGate() {
                     </div>
                     <div className="fw-bold text-dark fs-6 mt-1">
                       {formatAmount(dashboard.closingBalance ?? 0)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <CashStack size={13} className="text-primary" /> UPI Payments
+                    </div>
+                    <div className="fw-bold text-dark fs-6 mt-1">
+                      {paymentMethodCounts.upi}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <Wallet2 size={13} className="text-primary" /> Card Payments
+                    </div>
+                    <div className="fw-bold text-dark fs-6 mt-1">
+                      {paymentMethodCounts.card}
                     </div>
                   </div>
                 </div>

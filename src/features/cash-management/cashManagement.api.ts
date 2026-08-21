@@ -1,4 +1,5 @@
 import api from "../../services/api/axios";
+import { DAILY_SHEET_REPORT } from "../../services/api/endpoints";
 import type { DailySummaryData } from "./cashManagement.export";
 import type {
   CashDashboardSummary,
@@ -213,6 +214,36 @@ export async function fetchTodaysRevenue() {
   return asNumber(data?.todayRevenue ?? data?.today_revenue);
 }
 
+// Counts how many of a given date's invoices were paid via UPI vs Card, for
+// display in the Close Counter popup and the daily summary email. No backend
+// aggregate exists for this, so it reads the Daily Sheet report (the same
+// API DailySheetReport.tsx uses) filtered to that date with a generous page
+// size, and counts raw payment_method values client-side. Defaults to today,
+// but the "close a stale previous-day counter" flow must pass that counter's
+// opened date instead — otherwise it would show today's counts against
+// yesterday's revenue figures.
+export async function fetchTodaysPaymentMethodCounts(date = new Date().toISOString().slice(0, 10)) {
+  try {
+    const response = await api.post(DAILY_SHEET_REPORT.SUMMARY(), {
+      date,
+      page: 1,
+      limit: 1000,
+    });
+    const rows: any[] = response?.data?.data?.rows ?? [];
+    const counts = { upi: 0, card: 0, cash: 0 };
+    for (const row of rows) {
+      const method = String(row?.payment_method ?? "").trim().toLowerCase();
+      if (method === "upi") counts.upi += 1;
+      else if (method === "card") counts.card += 1;
+      else if (method === "cash") counts.cash += 1;
+    }
+    return counts;
+  } catch (err) {
+    console.error("[cash-management] Failed to load today's payment method counts:", err);
+    return { upi: 0, card: 0, cash: 0 };
+  }
+}
+
 export async function sendDailySummaryEmail(
   cashManagementId: string,
   summaryData?: Partial<DailySummaryData>,
@@ -234,6 +265,8 @@ export async function sendDailySummaryEmail(
     in_store_cash: summaryData?.inStoreCash ?? 0,
     reconciliation_amount: summaryData?.reconciliationAmount ?? 0,
     remarks: summaryData?.remarks ?? "",
+    upi_payment_count: summaryData?.paymentCounts?.upi ?? 0,
+    card_payment_count: summaryData?.paymentCounts?.card ?? 0,
   };
 
   try {

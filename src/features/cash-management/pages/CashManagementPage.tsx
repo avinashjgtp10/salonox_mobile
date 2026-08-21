@@ -27,7 +27,7 @@ import {
   exportCashManagementExcel,
   exportCashManagementPDF,
 } from "../cashManagement.export";
-import { sendDailySummaryEmail } from "../cashManagement.api";
+import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
 import { selectUserProfile } from "../../../store/selectors/slices.selectors";
 import { useAppSelector } from "../../../hooks/useAppRedux";
 import type { CashExpenseRecord } from "../cashManagement.types";
@@ -112,6 +112,18 @@ export default function CashManagementPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("transactions");
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [paymentMethodCounts, setPaymentMethodCounts] = useState({ upi: 0, card: 0, cash: 0 });
+
+  useEffect(() => {
+    if (!showCloseModal) return;
+    let cancelled = false;
+    fetchTodaysPaymentMethodCounts().then((counts) => {
+      if (!cancelled) setPaymentMethodCounts(counts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showCloseModal]);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<CashExpenseRecord | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<CashExpenseRecord | null>(null);
@@ -737,16 +749,27 @@ export default function CashManagementPage() {
         dashboard={dashboard}
         loading={loading.closeCounter}
         mandatory={isStaleOpenCounter}
+        paymentMethodCounts={paymentMethodCounts}
         onClose={() => setShowCloseModal(false)}
         onSubmit={async (payload) => {
           const closed = await closeCounter(payload);
           try {
-            await sendDailySummaryEmail(dashboard.cashManagementId, closed || dashboard, userEmail);
+            await sendDailySummaryEmail(
+              dashboard.cashManagementId,
+              { ...(closed || dashboard), paymentCounts: paymentMethodCounts },
+              userEmail,
+            );
           } catch (emailErr) {
             console.error("[CashManagementPage] Daily summary email error:", emailErr);
           }
           setShowCloseModal(false);
-          setShowOpenModal(true);
+          // Only chain straight into Open Counter when this close was clearing a
+          // stale counter left open from a previous day — that leaves today with
+          // no counter open yet, so immediately prompting to start today's is
+          // correct. A normal same-day close must NOT do this: the backend only
+          // allows one open per day, so re-showing Open Counter here would just
+          // dead-end the user on a form that fails every time they submit it.
+          if (isStaleOpenCounter) setShowOpenModal(true);
           showNotification("success", "Counter closed. Daily summary emailed to Salon Owner.");
         }}
         onNotify={showNotification}
