@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -27,26 +26,16 @@ import {
 } from "@/constants/theme";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import {
-  exportSalonCommissionsThunk,
   fetchSalonCommissionEarnedThunk,
   fetchSalonCommissionSummaryThunk,
-  fetchSalonCommissionsThunk,
   settleCommissionThunk,
 } from "@/middleware/staff/salonCommissions.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   selectCommissionSettling,
-  selectSalonCommissionEarned,
   selectSalonCommissionEarnedError,
   selectSalonCommissionEarnedLoaded,
   selectSalonCommissionEarnedLoading,
-  selectSalonCommissionExportError,
-  selectSalonCommissionExporting,
-  selectSalonCommissionListError,
-  selectSalonCommissionListLoading,
-  selectSalonCommissionListLoadingMore,
-  selectSalonCommissionListRefreshing,
-  selectSalonCommissionPagination,
   selectSalonCommissionRecords,
   selectSalonCommissionSummary,
   selectSalonCommissionSummaryError,
@@ -57,7 +46,7 @@ import { selectCurrentStaff } from "@/store/staff/staff.slice";
 import { canSettleCommission } from "@/utils/userProfile";
 import type { SalonCommissionRecord } from "@/types/salonCommissions";
 
-const STATUS_FILTERS = ["All", "Pending", "Paid"] as const;
+const STATUS_FILTERS = ["All", "Pending", "Partial", "Paid"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
 
 function formatCurrency(amount: number) {
@@ -80,6 +69,8 @@ function getStatusPalette(status: string, Colors: ThemeColors) {
   switch (status.toLowerCase()) {
     case "paid":
       return { backgroundColor: Colors.successBg, color: Colors.success };
+    case "partial":
+      return { backgroundColor: Colors.warningBg, color: Colors.warning };
     case "pending":
     default:
       return { backgroundColor: Colors.warningBg, color: Colors.warning };
@@ -100,30 +91,13 @@ export default function SalonCommissionsScreen() {
   const isStaffUser = currentStaff && !hasSettlePermission;
 
   const records = useAppSelector(selectSalonCommissionRecords);
-  const listError = useAppSelector(selectSalonCommissionListError);
-  const listLoading = useAppSelector(selectSalonCommissionListLoading);
-  const listLoadingMore = useAppSelector(selectSalonCommissionListLoadingMore);
-  const listRefreshing = useAppSelector(selectSalonCommissionListRefreshing);
-  const pagination = useAppSelector(selectSalonCommissionPagination);
-
-  const filteredRecords = useMemo(() => {
-    if (isStaffUser && currentStaff) {
-      return records.filter((record) => record.staffId === currentStaff.id);
-    }
-    return records;
-  }, [records, isStaffUser, currentStaff]);
+  const listError = useAppSelector(selectSalonCommissionEarnedError);
+  const listLoading = useAppSelector(selectSalonCommissionEarnedLoading);
+  const listLoaded = useAppSelector(selectSalonCommissionEarnedLoaded);
 
   const summary = useAppSelector(selectSalonCommissionSummary);
   const summaryLoading = useAppSelector(selectSalonCommissionSummaryLoading);
   const summaryError = useAppSelector(selectSalonCommissionSummaryError);
-
-  const earned = useAppSelector(selectSalonCommissionEarned);
-  const earnedLoaded = useAppSelector(selectSalonCommissionEarnedLoaded);
-  const earnedLoading = useAppSelector(selectSalonCommissionEarnedLoading);
-  const earnedError = useAppSelector(selectSalonCommissionEarnedError);
-
-  const exporting = useAppSelector(selectSalonCommissionExporting);
-  const exportError = useAppSelector(selectSalonCommissionExportError);
 
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
@@ -137,48 +111,42 @@ export default function SalonCommissionsScreen() {
   useEffect(() => {
     void dispatch(fetchSalonCommissionSummaryThunk());
     void dispatch(fetchSalonCommissionEarnedThunk());
-    void dispatch(fetchSalonCommissionsThunk({ reset: true }));
   }, [dispatch]);
 
-  useEffect(() => {
-    const statusParam = statusFilter === "All" ? undefined : statusFilter.toLowerCase();
+  // The commission-earned endpoint returns the full salon list in one shot
+  // (it does not support server-side search/status/pagination), so filtering
+  // for the Owner/Manager list view happens client-side over that result.
+  const filteredRecords = useMemo(() => {
+    const staffScoped =
+      isStaffUser && currentStaff
+        ? records.filter((record) => record.staffId === currentStaff.id)
+        : records;
 
-    void dispatch(
-      fetchSalonCommissionsThunk({
-        offset: 0,
-        reset: true,
-        search: deferredSearch,
-        status: statusParam,
-      }),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deferredSearch, statusFilter]);
+    const statusMatched =
+      statusFilter === "All"
+        ? staffScoped
+        : staffScoped.filter((record) => record.status.toLowerCase() === statusFilter.toLowerCase());
 
-  const handleRefresh = () => {
-    void dispatch(fetchSalonCommissionSummaryThunk());
-    void dispatch(fetchSalonCommissionEarnedThunk());
-    void dispatch(
-      fetchSalonCommissionsThunk({
-        refresh: true,
-        search: deferredSearch,
-        status: statusFilter === "All" ? undefined : statusFilter.toLowerCase(),
-      }),
-    );
-  };
+    const query = deferredSearch.trim().toLowerCase();
 
-  const handleLoadMore = () => {
-    if (listLoading || listLoadingMore || listRefreshing || !pagination.hasMore) {
-      return;
+    if (!query) {
+      return statusMatched;
     }
 
-    void dispatch(
-      fetchSalonCommissionsThunk({
-        limit: pagination.limit,
-        offset: pagination.nextOffset,
-        search: deferredSearch,
-        status: statusFilter === "All" ? undefined : statusFilter.toLowerCase(),
-      }),
-    );
+    return statusMatched.filter((record) => record.staffName.toLowerCase().includes(query));
+  }, [records, isStaffUser, currentStaff, statusFilter, deferredSearch]);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+
+    await Promise.all([
+      dispatch(fetchSalonCommissionSummaryThunk()),
+      dispatch(fetchSalonCommissionEarnedThunk()),
+    ]);
+
+    setRefreshing(false);
   };
 
   const handleSettle = (record: SalonCommissionRecord) => {
@@ -201,37 +169,14 @@ export default function SalonCommissionsScreen() {
       return;
     }
 
+    setSettlementRecord(null);
+    setIsSettlementModalOpen(false);
     Alert.alert("Commission settled", resultAction.payload.message ?? "Payment recorded successfully.");
   };
 
   const handleSettlementModalClose = () => {
     setSettlementRecord(null);
     setIsSettlementModalOpen(false);
-  };
-
-  const handleExport = async () => {
-    const resultAction = await dispatch(exportSalonCommissionsThunk());
-
-    if (exportSalonCommissionsThunk.rejected.match(resultAction)) {
-      Alert.alert(
-        "Export failed",
-        getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
-      );
-      return;
-    }
-
-    const { url } = resultAction.payload;
-
-    if (!url) {
-      Alert.alert("Export unavailable", "No export file was returned by the server.");
-      return;
-    }
-
-    try {
-      await Linking.openURL(url);
-    } catch {
-      Alert.alert("Unable to open export", "The export link could not be opened on this device.");
-    }
   };
 
   function CommissionRow({
@@ -246,9 +191,11 @@ export default function SalonCommissionsScreen() {
     const styles = useMemo(() => createStyles(Colors), []);
     const settling = useAppSelector((state) => selectCommissionSettling(state, record.staffId));
     const palette = getStatusPalette(record.status, Colors);
-    const unpaidAmount = record.unpaidAmount ?? record.amount;
+    // unpaidAmount comes straight from the backend's pending payout for this
+    // staff member — never assume the full commission amount is unpaid.
+    const unpaidAmount = record.unpaidAmount ?? 0;
 
-    const isSettlable = canSettle && record.status.toLowerCase() === "pending" && unpaidAmount > 0;
+    const isSettlable = canSettle && unpaidAmount > 0;
 
     return (
       <View style={styles.row}>
@@ -298,21 +245,8 @@ export default function SalonCommissionsScreen() {
           <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Commissions</Text>
-        <TouchableOpacity
-          activeOpacity={0.84}
-          disabled={exporting}
-          onPress={() => void handleExport()}
-          style={styles.headerButton}
-        >
-          {exporting ? (
-            <ActivityIndicator color={Colors.primaryDark} size="small" />
-          ) : (
-            <Ionicons name="download-outline" size={18} color={Colors.primaryDark} />
-          )}
-        </TouchableOpacity>
+        <View style={styles.headerButton} />
       </View>
-
-      {exportError ? <Text style={styles.errorText}>{exportError}</Text> : null}
 
       {summaryError ? (
         <Text style={styles.errorText}>{summaryError}</Text>
@@ -338,30 +272,10 @@ export default function SalonCommissionsScreen() {
           </View>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Staff</Text>
-            <Text style={styles.summaryValue}>{summaryLoading ? "-" : summary?.totalStaff ?? 0}</Text>
+            <Text style={styles.summaryValue}>{summaryLoading ? "-" : records.length}</Text>
           </View>
         </View>
       )}
-
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Earned This Period</Text>
-        {earnedError ? (
-          <Text style={styles.errorText}>{earnedError}</Text>
-        ) : earnedLoading && !earnedLoaded ? (
-          <ActivityIndicator color={Colors.primary} size="small" />
-        ) : earned.length === 0 ? (
-          <Text style={styles.emptyText}>No commissions earned this period yet.</Text>
-        ) : (
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.earnedList}>
-            {earned.map((entry) => (
-              <View key={entry.id} style={styles.earnedRow}>
-                <Text style={styles.earnedName}>{entry.staffName}</Text>
-                <Text style={styles.earnedAmount}>{formatCurrency(entry.earnedAmount)}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        )}
-      </View>
 
       <View style={styles.searchWrap}>
         <Ionicons name="search-outline" size={18} color={Colors.text2} />
@@ -398,7 +312,7 @@ export default function SalonCommissionsScreen() {
       </ScrollView>
 
       {listError ? <Text style={styles.errorText}>{listError}</Text> : null}
-      {listLoading && records.length === 0 ? (
+      {listLoading && !listLoaded ? (
         <ActivityIndicator color={Colors.primary} size="large" style={styles.listLoading} />
       ) : null}
       {!listLoading && !listError && filteredRecords.length === 0 ? (
@@ -414,19 +328,12 @@ export default function SalonCommissionsScreen() {
         contentContainerStyle={[styles.content, { paddingBottom: insets.bottom }]}
         data={filteredRecords}
         keyExtractor={(item) => item.id}
-        ListFooterComponent={
-          listLoadingMore ? (
-            <ActivityIndicator color={Colors.primary} size="small" style={styles.footerLoading} />
-          ) : null
-        }
         ListHeaderComponent={listHeader}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
             colors={[Colors.primary]}
-            onRefresh={handleRefresh}
-            refreshing={listRefreshing}
+            onRefresh={() => void handleRefresh()}
+            refreshing={refreshing}
             tintColor={Colors.primary}
           />
         }
@@ -439,7 +346,7 @@ export default function SalonCommissionsScreen() {
         onClose={handleSettlementModalClose}
         onSettle={handleConfirmSettle}
         staffName={settlementRecord?.staffName ?? ""}
-        totalUnpaidCommission={settlementRecord?.unpaidAmount ?? settlementRecord?.amount ?? 0}
+        totalUnpaidCommission={settlementRecord?.unpaidAmount ?? 0}
         isLoading={settlementLoading}
       />
     </SafeAreaView>
@@ -510,45 +417,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     marginTop: 6,
   },
-  sectionCard: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
-    marginBottom: AppLayout.sectionGap,
-    padding: AppLayout.cardPadding,
-  },
-  sectionTitle: {
-    color: Colors.heading,
-    fontSize: 15,
-    fontWeight: "800",
-    marginBottom: Spacing.sm,
-  },
   emptyText: {
     color: Colors.text2,
     fontSize: 12,
     lineHeight: 18,
-  },
-  earnedList: {
-    maxHeight: 180,
-  },
-  earnedRow: {
-    alignItems: "center",
-    borderTopColor: Colors.border,
-    borderTopWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-  },
-  earnedName: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  earnedAmount: {
-    color: Colors.primaryDark,
-    fontSize: 13,
-    fontWeight: "800",
   },
   searchWrap: {
     alignItems: "center",
@@ -594,9 +466,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   listLoading: {
     marginVertical: Spacing.xl,
-  },
-  footerLoading: {
-    marginVertical: Spacing.lg,
   },
   row: {
     backgroundColor: Colors.card,
