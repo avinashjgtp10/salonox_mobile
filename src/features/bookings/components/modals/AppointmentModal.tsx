@@ -3055,32 +3055,34 @@ export const AppointmentModal: React.FC<Props> = ({
                       <span>{currencySymbol}{liveDueAmount.toFixed(2)}</span>
                     </div>
                   )}
-                  {/* Never part of Grand Total/Amount to Pay above — always
-                      display/record-only, passed straight to staff (see
-                      totalsUtils.ts's withCharges). Placed after every
-                      bill-total row so it reads as separate info. */}
+                  {/* Already folded into Grand Total/Amount to Pay above (see
+                      totalsUtils.ts's withCharges) — placed again here, after
+                      every bill-total row, just to break out how much of that
+                      total is tip vs. bill. */}
                   {tip > 0 && (
                     <div className="qs-summary-row">
                       <span>Staff Tip</span>
                       <span>{currencySymbol}{tip.toFixed(2)}</span>
                     </div>
                   )}
-                  {tip > 0 && tipBreakdownWithItems.map((t) => {
-                    const itemsTotal = t.items.reduce((sum, it) => sum + it.amount, 0);
-                    return (
-                      <div key={t.staffId} className="qs-summary-row qs-summary-row--sub qs-summary-row--staff">
-                        <span>
-                          {t.staffName}
-                          {t.items.length > 0 && (
-                            <span className="qs-summary-row__items">
-                              {" "}({t.items.map((it) => it.label).join(", ")} — {currencySymbol}{itemsTotal.toFixed(2)})
-                            </span>
-                          )}
-                        </span>
+                  {/* Name + Tip on the aligned two-column row, flush-left with
+                      "Staff Tip" above it (no indent — see .qs-summary-row--sub).
+                      Which service(s) they're handling is its own plain
+                      left-aligned line underneath, not squeezed onto the
+                      name's line. */}
+                  {tip > 0 && tipBreakdownWithItems.map((t) => (
+                    <div key={t.staffId}>
+                      <div className="qs-summary-row qs-summary-row--sub qs-summary-row--staff">
+                        <span>{t.staffName}</span>
                         <span>Tip {currencySymbol}{t.amount.toFixed(2)}</span>
                       </div>
-                    );
-                  })}
+                      {t.items.length > 0 && (
+                        <div className="qs-summary-row__items">
+                          {t.items.map((it) => it.label).join(", ")} — {currencySymbol}{t.items.reduce((sum, it) => sum + it.amount, 0).toFixed(2)}
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
 
                 {showFullyCoveredBanner ? (
