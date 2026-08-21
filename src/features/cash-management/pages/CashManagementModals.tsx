@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown } from "react-bootstrap-icons";
+import {
+  CashStack,
+  ChevronDown,
+  CurrencyRupee,
+  JournalText,
+  Safe2,
+  Wallet2,
+} from "react-bootstrap-icons";
 import { Button, Input, Modal } from "../../../components/ui";
 import { useCurrency } from "../../../hooks/useCurrency";
 import {
@@ -71,7 +78,12 @@ interface CloseCounterModalProps {
    *  must be closed before a new one can be started — hides Cancel/close and
    *  blocks dismissal so the user can't skip straight past it. */
   mandatory?: boolean;
-  paymentMethodCounts?: { upi: number; card: number; cash: number };
+  paymentMethodCounts?: {
+    upi: number;
+    card: number;
+    cash: number;
+    amounts?: { upi: number; card: number; cash: number };
+  };
   onClose: () => void;
   onNotify: Notify;
   onSubmit: (payload: CloseCounterPayload) => Promise<void>;
@@ -611,11 +623,12 @@ export function CloseCounterModal({
   dashboard,
   loading,
   mandatory = false,
-  paymentMethodCounts = { upi: 0, card: 0, cash: 0 },
+  paymentMethodCounts = { upi: 0, card: 0, cash: 0, amounts: { upi: 0, card: 0, cash: 0 } },
   onClose,
   onNotify,
   onSubmit,
 }: CloseCounterModalProps) {
+  const paymentAmounts = paymentMethodCounts.amounts ?? { upi: 0, card: 0, cash: 0 };
   const { formatAmount } = useCurrency();
   const [inStoreCash, setInStoreCash] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -683,9 +696,10 @@ export function CloseCounterModal({
       show={show}
       onClose={handleClose}
       title="Close Cash Counter"
-      size="lg"
+      size="md"
       centered={false}
       hideCloseButton={mandatory}
+      disableBackdropClose
       footer={
         <div className="cash-mgmt__modal-footer">
           {!mandatory && (
@@ -694,7 +708,7 @@ export function CloseCounterModal({
             </Button>
           )}
           <Button
-            variant="dark"
+            variant="danger"
             loading={loading}
             disabled={loading}
             onClick={async () => {
@@ -719,73 +733,65 @@ export function CloseCounterModal({
         </div>
       }
     >
-      {mandatory ? (
-        <div className="cash-mgmt__modal-message cash-mgmt__modal-message--warning">
-          Previous day's cash counter is still open. Please close it first before opening today's
-          counter.
+      <div className="cash-mgmt__close-scroll">
+        {mandatory ? (
+          <p className="cash-mgmt__close-copy">
+            Previous day's cash counter is still open. Please close it first before opening today's
+            counter.
+          </p>
+        ) : (
+          <p className="cash-mgmt__close-copy">
+            Are you sure you want to close today's cash counter? You cannot reopen it again today.
+          </p>
+        )}
+        {submitError ? (
+          <div className="cash-mgmt__modal-message cash-mgmt__modal-message--error">
+            {submitError}
+          </div>
+        ) : null}
+        <div className="cash-mgmt__modal-form">
+          <div className="cash-mgmt__close-grid">
+            <div className="cash-mgmt__close-card">
+              <span><Wallet2 size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> Opening Balance</span>
+              <strong>{formatAmount(dashboard.openingBalance)}</strong>
+            </div>
+            <div className="cash-mgmt__close-card">
+              <span><CashStack size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--success" /> Cash Revenue</span>
+              <strong className="cash-mgmt__amount-positive">{formatAmount(dashboard.cashRevenue)}</strong>
+            </div>
+            <div className="cash-mgmt__close-card">
+              <span><JournalText size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--warning" /> Cash Expense</span>
+              <strong>{formatAmount(dashboard.cashExpense)}</strong>
+            </div>
+            <div className="cash-mgmt__close-card">
+              <span><Safe2 size={13} className="cash-mgmt__close-icon" /> Expected Closing</span>
+              <strong>{formatAmount(dashboard.closingBalance)}</strong>
+            </div>
+            <div className="cash-mgmt__close-card">
+              <span><CurrencyRupee size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> UPI Payments</span>
+              <strong>{formatAmount(paymentAmounts.upi)}</strong>
+            </div>
+            <div className="cash-mgmt__close-card">
+              <span><Wallet2 size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> Card Payments</span>
+              <strong>{formatAmount(paymentAmounts.card)}</strong>
+            </div>
+          </div>
+          <Input
+            label="In Store Cash"
+            type="number"
+            min={0}
+            value={inStoreCash}
+            error={errors.in_store_cash}
+            onChange={(event) => updateInStoreCash(event.target.value)}
+          />
+          <Input
+            label="Remarks"
+            multiline
+            rows={3}
+            value={remarks}
+            onChange={(event) => updateRemarks(event.target.value)}
+          />
         </div>
-      ) : (
-        <div className="cash-mgmt__modal-message cash-mgmt__modal-message--warning">
-          Are you sure you want to close today's cash counter? You cannot reopen it again today.
-        </div>
-      )}
-      {submitError ? (
-        <div className="cash-mgmt__modal-message cash-mgmt__modal-message--error">
-          {submitError}
-        </div>
-      ) : null}
-      <div className="cash-mgmt__modal-form">
-        <div className="cash-mgmt__close-grid">
-          <div className="cash-mgmt__close-card">
-            <span>Opening Balance</span>
-            <strong>{formatAmount(dashboard.openingBalance)}</strong>
-          </div>
-          <div className="cash-mgmt__close-card">
-            <span>Cash Revenue</span>
-            <strong>{formatAmount(dashboard.cashRevenue)}</strong>
-          </div>
-          <div className="cash-mgmt__close-card">
-            <span>Cash Expense</span>
-            <strong>{formatAmount(dashboard.cashExpense)}</strong>
-          </div>
-          <div className="cash-mgmt__close-card">
-            <span>Expected Closing Balance</span>
-            <strong>{formatAmount(dashboard.closingBalance)}</strong>
-          </div>
-          <div className="cash-mgmt__close-card">
-            <span>In Store Cash</span>
-            <strong>{formatAmount(Number(inStoreCash || 0))}</strong>
-          </div>
-          <div className="cash-mgmt__close-card">
-            <span>Difference</span>
-            <strong className={difference >= 0 ? "cash-mgmt__amount-positive" : "cash-mgmt__amount-negative"}>
-              {formatAmount(difference)}
-            </strong>
-          </div>
-          <div className="cash-mgmt__close-card">
-            <span>UPI Payments</span>
-            <strong>{paymentMethodCounts.upi}</strong>
-          </div>
-          <div className="cash-mgmt__close-card">
-            <span>Card Payments</span>
-            <strong>{paymentMethodCounts.card}</strong>
-          </div>
-        </div>
-        <Input
-          label="In Store Cash"
-          type="number"
-          min={0}
-          value={inStoreCash}
-          error={errors.in_store_cash}
-          onChange={(event) => updateInStoreCash(event.target.value)}
-        />
-        <Input
-          label="Remarks"
-          multiline
-          rows={3}
-          value={remarks}
-          onChange={(event) => updateRemarks(event.target.value)}
-        />
       </div>
     </Modal>
   );

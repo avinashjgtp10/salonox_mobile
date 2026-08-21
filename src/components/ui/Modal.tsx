@@ -12,6 +12,11 @@ interface ModalProps {
    *  the user must complete rather than dismiss (e.g. a mandatory cash
    *  counter open/close). */
   hideCloseButton?: boolean;
+  /** Disables dismissal by clicking the backdrop, while still allowing the
+   *  header "x" (unless hideCloseButton is also set) and any footer actions
+   *  to close it — for forms where an accidental outside click shouldn't
+   *  discard in-progress input. */
+  disableBackdropClose?: boolean;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -23,23 +28,26 @@ const Modal: React.FC<ModalProps> = ({
   size = "md",
   centered = true,
   hideCloseButton = false,
+  disableBackdropClose = false,
 }) => {
   if (!show) return null;
+
+  const closeOnBackdrop = !hideCloseButton && !disableBackdropClose;
 
   return (
     <>
       <div
         className="modal-backdrop fade show"
-        onClick={hideCloseButton ? undefined : onClose}
+        onClick={closeOnBackdrop ? onClose : undefined}
       ></div>
       <div
         className="modal fade show d-block"
         tabIndex={-1}
         role="dialog"
-        onClick={hideCloseButton ? undefined : onClose}
+        onClick={closeOnBackdrop ? onClose : undefined}
       >
         <div
-          className={`modal-dialog modal-${size} ${centered ? "modal-dialog-centered" : ""}`}
+          className={`modal-dialog modal-${size} modal-dialog-scrollable ${centered ? "modal-dialog-centered" : ""}`}
           role="document"
           onClick={(e) => e.stopPropagation()}
         >
