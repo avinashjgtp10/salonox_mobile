@@ -1,0 +1,10 @@
+// Tip Settle's own bits only — the stats bar, table, status pill and settle
+// button are all shared with Commission Settle/Rules via the .tc-* classes
+// in CommissionsPage.scss, so the three tabs can't visually drift apart.
+.ts-range-row {
+  display: flex; justify-content: flex-start; margin-bottom: 16px;
+}
+
+.ts-footnote {
+  font-size: 12px; color: #6b7280; margin: 16px 0 0;
+}
