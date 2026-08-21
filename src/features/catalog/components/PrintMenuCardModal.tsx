@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { useSelector as useReduxSelector } from "react-redux";
-import { X, Search, Printer, InfoCircle } from "react-bootstrap-icons";
+import { X, Search, Printer, InfoCircle, ChevronDown } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
 import type { Service } from "../types/catalog.types";
@@ -80,6 +80,71 @@ const TEXT_SIZE_OPTIONS: { id: string; label: string; scale: number }[] = [
   { id: "medium", label: "Medium", scale: 1 },
   { id: "large",  label: "Large",  scale: 1.15 },
 ];
+
+// "Choose a template" collapsed into a dropdown — closed state shows just the
+// currently selected template's swatch + name (was a permanently-open 15-tile
+// grid eating vertical space above the service picker); opening it reveals
+// the same swatch grid as before, now inside a floating panel.
+function TemplateDropdown({
+  templateId,
+  onSelect,
+}: {
+  templateId: MenuCardTemplateId;
+  onSelect: (id: MenuCardTemplateId) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const selected = MENU_CARD_TEMPLATES.find((t) => t.id === templateId) ?? MENU_CARD_TEMPLATES[0];
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false);
+    };
+    const onEscape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onEscape);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onEscape);
+    };
+  }, [open]);
+
+  return (
+    <div className="pmc-template-dd" ref={rootRef}>
+      <button type="button" className="pmc-template-dd__trigger" onClick={() => setOpen((v) => !v)}>
+        <span className="pmc-template-dd__swatch" style={{ background: selected.cardBg }}>
+          <span className="pmc-template-dd__swatch-bar" style={{ background: selected.accentColor }} />
+        </span>
+        <span className="pmc-template-dd__label">{selected.label}</span>
+        <ChevronDown size={13} className={`pmc-template-dd__chevron${open ? " pmc-template-dd__chevron--open" : ""}`} />
+      </button>
+
+      {open && (
+        <div className="pmc-template-dd__panel">
+          <div className="pmc-templates">
+            {MENU_CARD_TEMPLATES.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                title={`${t.label} — ${t.description}`}
+                className={`pmc-template${templateId === t.id ? " pmc-template--active" : ""}`}
+                onClick={() => { onSelect(t.id); setOpen(false); }}
+              >
+                <span className="pmc-template__swatch" style={{ background: t.cardBg }}>
+                  <span className="pmc-template__swatch-bar" style={{ background: t.accentColor }} />
+                  <span className="pmc-template__swatch-line" style={{ background: t.textColor, opacity: 0.55 }} />
+                  <span className="pmc-template__swatch-line" style={{ background: t.textColor, opacity: 0.3, width: "60%" }} />
+                </span>
+                <span className="pmc-template__label">{t.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 // A4 at 96dpi (the same pixel grid the preview iframe and print window both
 // render at — see .pmc-preview-scale's iframe width/height in the SCSS).
@@ -215,24 +280,7 @@ const PrintMenuCardModal: React.FC<Props> = ({ onClose }) => {
           <div className="pmc-left">
             <div className="pmc-block">
               <div className="pmc-block__title">Choose a template</div>
-              <div className="pmc-templates">
-                {MENU_CARD_TEMPLATES.map((t) => (
-                  <button
-                    key={t.id}
-                    type="button"
-                    title={`${t.label} — ${t.description}`}
-                    className={`pmc-template${templateId === t.id ? " pmc-template--active" : ""}`}
-                    onClick={() => setTemplateId(t.id)}
-                  >
-                    <span className="pmc-template__swatch" style={{ background: t.cardBg }}>
-                      <span className="pmc-template__swatch-bar" style={{ background: t.accentColor }} />
-                      <span className="pmc-template__swatch-line" style={{ background: t.textColor, opacity: 0.55 }} />
-                      <span className="pmc-template__swatch-line" style={{ background: t.textColor, opacity: 0.3, width: "60%" }} />
-                    </span>
-                    <span className="pmc-template__label">{t.label}</span>
-                  </button>
-                ))}
-              </div>
+              <TemplateDropdown templateId={templateId} onSelect={setTemplateId} />
             </div>
 
             <div className="pmc-block">
