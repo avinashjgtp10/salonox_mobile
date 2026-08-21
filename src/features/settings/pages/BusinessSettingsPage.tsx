@@ -86,11 +86,18 @@ export default function BusinessSettingsPage() {
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const [logoUploading, setLogoUploading] = useState(false);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
   const logoFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     dispatch(getMySalonThunk());
   }, [dispatch]);
+
+  useEffect(() => {
+    return () => {
+      if (logoPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(logoPreviewUrl);
+    };
+  }, [logoPreviewUrl]);
 
   // Only re-sync from the server while NOT editing — otherwise a background
   // refetch (e.g. another tab saving) would silently overwrite in-progress
@@ -225,6 +232,11 @@ export default function BusinessSettingsPage() {
     }
 
     setLogoUploading(true);
+    const localPreviewUrl = URL.createObjectURL(file);
+    setLogoPreviewUrl((current) => {
+      if (current.startsWith("blob:")) URL.revokeObjectURL(current);
+      return localPreviewUrl;
+    });
     const formData = new FormData();
     formData.append("image", file);
     try {
@@ -234,18 +246,56 @@ export default function BusinessSettingsPage() {
       // separate image from the owner's Personal Profile photo (uploaded via
       // uploadAvatarThunk to /users/me/avatar) and updating one never touches
       // the other.
-      await api.post("/api/v1/marketplace/logo", formData, {
+      const res = await api.post("/api/v1/marketplace/logo", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
-      await dispatch(getMySalonThunk());
+      const saved = res.data?.data ?? res.data ?? {};
+      const uploadedLogoUrl =
+        typeof saved.logo_url === "string" && saved.logo_url.trim()
+          ? saved.logo_url
+          : localPreviewUrl;
+      setLogoPreviewUrl(uploadedLogoUrl);
+      void dispatch(getMySalonThunk());
       showSuccess("Business logo updated!");
     } catch (err: unknown) {
-      const msg = (err as any)?.response?.data?.message ?? "Logo upload failed.";
+      setLogoPreviewUrl((current) => (current === localPreviewUrl ? "" : current));
+      URL.revokeObjectURL(localPreviewUrl);
+      const msg =
+        err && typeof err === "object"
+          ? ((err as { response?: { data?: { message?: unknown } } }).response?.data?.message ?? "Logo upload failed.")
+          : "Logo upload failed.";
       showError(msg);
     } finally {
       setLogoUploading(false);
       if (logoFileRef.current) logoFileRef.current.value = "";
     }
+  };
+
+  const handleLogoRemove = async () => {
+    if (!currentSalon?.id || logoUploading) return;
+
+    const previousPreviewUrl = logoPreviewUrl;
+    if (previousPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(previousPreviewUrl);
+    setLogoPreviewUrl("");
+    setLogoUploading(true);
+
+    const result = await dispatch(
+      updateSalonThunk({
+        id: currentSalon.id,
+        payload: { logo_url: "" },
+      }),
+    );
+
+    setLogoUploading(false);
+
+    if (updateSalonThunk.fulfilled.match(result)) {
+      showSuccess("Business logo removed.");
+      void dispatch(getMySalonThunk());
+      return;
+    }
+
+    setLogoPreviewUrl(previousPreviewUrl);
+    showError((result.payload as string) || "Failed to remove business logo.");
   };
 
   // Derive initials for the logo placeholder
@@ -255,6 +305,7 @@ export default function BusinessSettingsPage() {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+  const displayLogoUrl = logoPreviewUrl || currentSalon?.logo_url || "";
 
   return (
     <>
@@ -318,8 +369,8 @@ export default function BusinessSettingsPage() {
               onClick={() => !logoUploading && logoFileRef.current?.click()}
               style={{ cursor: logoUploading ? "default" : "pointer" }}
             >
-              {currentSalon?.logo_url ? (
-                <img src={currentSalon.logo_url} alt="Business logo" />
+              {displayLogoUrl ? (
+                <img src={displayLogoUrl} alt="Business logo" />
               ) : (
                 <span>{logoInitials}</span>
               )}
@@ -351,8 +402,14 @@ export default function BusinessSettingsPage() {
                 >
                   Upload logo
                 </Button>
-                {currentSalon?.logo_url && (
-                  <Button size="sm" variant="ghost">
+                {displayLogoUrl && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    loading={logoUploading}
+                    disabled={logoUploading}
+                    onClick={handleLogoRemove}
+                  >
                     Remove
                   </Button>
                 )}
