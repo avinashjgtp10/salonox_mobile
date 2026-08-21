@@ -134,7 +134,7 @@ export function StaffCommissionSection({ staffId }: StaffCommissionSectionProps)
     if (commissionRate !== undefined && (staffChanged || current.commissionRate !== commissionRate || current.commissionType !== commissionType)) {
       current.commissionRate = commissionRate;
       current.commissionType = commissionType;
-      setRate(commissionRate ? String(commissionRate) : "");
+      setRate(commissionRate !== undefined ? String(commissionRate) : "");
       setType(commissionType || "percentage");
     }
 
