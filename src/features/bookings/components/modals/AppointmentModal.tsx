@@ -424,10 +424,10 @@ export const AppointmentModal: React.FC<Props> = ({
   // control has been removed, so tip never affects a total (see
   // totalsUtils.ts's withCharges).
   const [tip, setTip]                     = useState(existingBooking?.tipAmount ?? 0);
-  // Optional per-staff split of `tip`, entered via StaffTipsModal — empty
-  // when the tip wasn't split (plain single Tip field). `tip` stays the one
-  // number the pricing engine/receipt/totals actually use; this is purely
-  // attribution ("who got what") kept in sync with it (see handleSaveStaffTips).
+  // Per-staff tip entries, entered via StaffTipsModal (the sole way to add a
+  // tip now — see onStaffTips below). `tip` stays the one number the pricing
+  // engine/receipt/totals actually use; this is purely attribution ("who got
+  // what") kept in sync with it (see handleSaveStaffTips).
   const [tipBreakdown, setTipBreakdown]   = useState<StaffTipEntry[]>((existingBooking as any)?.tipBreakdown ?? []);
 
   // Every distinct staff member currently assigned to a row on this bill —
@@ -484,7 +484,7 @@ export const AppointmentModal: React.FC<Props> = ({
     })),
     [tipBreakdown, involvedStaff],
   );
-  const [focusedField, setFocusedField]   = useState<"exCharges" | "tip" | "discountValue" | null>(null);
+  const [focusedField, setFocusedField]   = useState<"exCharges" | "discountValue" | null>(null);
   const [discountValueWarning, setDiscountValueWarning] = useState<string | null>(null);
   // Raw text for the Bill Discount / Ex Charges / Tip fields WHILE FOCUSED.
   // These can't render their numeric state directly: typing "2." parses to 2,
@@ -2678,21 +2678,6 @@ export const AppointmentModal: React.FC<Props> = ({
               const cleaned = sanitizeDecimalInput(e.target.value);
               setDecimalDraft(cleaned);
               setExCharges(cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0));
-            }} />
-        </div>
-        <div className="field-group">
-          <label>Tip</label>
-          <input className="fg-input" type="text" inputMode="decimal"
-            readOnly={tipBreakdown.length > 0}
-            title={tipBreakdown.length > 0 ? "Split by staff — use \"+ Split Tip by Staff\" above to change" : undefined}
-            value={focusedField === "tip" ? decimalDraft : String(tip)}
-            onFocus={() => { if (tipBreakdown.length === 0) { setFocusedField("tip"); setDecimalDraft(tip > 0 ? String(tip) : ""); } }}
-            onBlur={() => setFocusedField(null)}
-            onChange={(e) => {
-              if (tipBreakdown.length > 0) return;
-              const cleaned = sanitizeDecimalInput(e.target.value);
-              setDecimalDraft(cleaned);
-              setTip(cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0));
             }} />
         </div>
         <div className="field-group">

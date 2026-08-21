@@ -241,9 +241,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               (booking.rewardPointsValue || 0) > 0 ? ["🎁 Paid from Reward Points", `${currencySymbol}${(booking.rewardPointsValue || 0).toFixed(2)}`, "#7c3aed", false] : null,
               ["Paid",  `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}`, "#111827", false],
               (booking.dueAmount || 0) > 0 ? ["Due", `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}`, "#ef4444", false] : null,
-              // Part of Total/Paid/Due above only when this bill was charged
-              // with "Add Tip to Salon" checked; otherwise display/record-only.
-              booking.tipAmount      ? [`Staff Tip${booking.tipAddedToSalon ? " (included above)" : ""}`, `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
+              // Already folded into Total/Paid/Due above — shown again here just
+              // to break out how much of that figure is tip vs. bill.
+              booking.tipAmount      ? ["Staff Tip (included above)", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
               ...((booking.tipAmount && (booking as any).tipBreakdown?.length)
                 ? (booking as any).tipBreakdown.map((t: any) => [t.staffName, `${currencySymbol}${Number(t.amount || 0).toFixed(2)}`, "#98a2b3", false, true])
                 : []),
@@ -598,11 +598,11 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   {(booking.dueAmount || 0) > 0 && (
                     <div className="vbm-breakdown-row vbm-breakdown-row--due"><span>Balance Due</span><span>{currencySymbol}{(booking.dueAmount || 0).toFixed(2)}</span></div>
                   )}
-                  {/* Part of Grand Total/Paid/Due above only when this bill was
-                      charged with "Add Tip to Salon" checked. */}
+                  {/* Already folded into Grand Total/Paid/Due above — shown again
+                      here just to break out how much of that figure is tip. */}
                   {(booking.tipAmount || 0) > 0 && (
                     <div className="vbm-breakdown-row">
-                      <span>Staff Tip{booking.tipAddedToSalon ? " (included above)" : ""}</span>
+                      <span>Staff Tip (included above)</span>
                       <span>{currencySymbol}{(booking.tipAmount || 0).toFixed(2)}</span>
                     </div>
                   )}

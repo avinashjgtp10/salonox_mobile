@@ -565,8 +565,9 @@ $item-field-text-inset: 9px;
 // ── Charges & Discounts ───────────────────────────────────────────────────────
 .charges-grid {
   display: grid;
-  // Five fields now: Ex Charges, Tip, Bill Discount, Disc. Type, Apply To.
-  grid-template-columns: 1fr 1fr 1fr 1.4fr 1.2fr;
+  // Four fields now: Ex Charges, Bill Discount, Disc. Type, Apply To — Tip
+  // moved out to its own dedicated "Staff Tips" flow (StaffTipsModal).
+  grid-template-columns: 1fr 1fr 1.4fr 1.2fr;
   gap: 12px;
   padding: 14px;
   // The Bill Discount cell can grow a hint/error line under its input; without
