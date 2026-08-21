@@ -62,6 +62,16 @@ export interface ClientDetails {
   active_package_count?: number;
   active_membership_name?: string | null;
   active_membership_expires_at?: string | null;
+
+  // Already present on the raw GET /clients/:id response but previously
+  // undeclared here — added so QuickEditClientModal can read this client's
+  // edit-form fields straight off the profile ClientPanel already fetched,
+  // instead of firing its own redundant GET /clients/:id on every open.
+  email?: string | null;
+  phone_country_code?: string | null;
+  birthday_day_month?: string | null;
+  birthday_year?: number | null;
+  client_source?: string | null;
 }
 
 // ─── Derived stat card values (computed in useClientDetails) ──────────────────

@@ -98,10 +98,17 @@ interface Props {
   packages?: ClientPackage[];
   memberships?: ClientMembership[];
   // Loyalty plans are salon-wide and free — there's no per-client purchase
-  // row for them (see ClientStatCard.tsx), so this live eligibility (fetched
-  // once by AppointmentModal via useLoyaltyEligibility) is the only way the
+  // row for them (see ClientStatCard.tsx), so this live eligibility (part of
+  // AppointmentModal's own useClientDetails response) is the only way the
   // stat card's Membership cell can know a client has unlocked one.
   loyaltyEligibility?: LoyaltyEligibility | null;
+  // The parent (AppointmentModal) already calls useClientDetails for its own
+  // package-coverage/membership-wallet/loyalty-discount logic — pass that
+  // same result down so this panel's stat card reads it too, instead of
+  // both components independently calling POST /clients/:id/details for the
+  // exact same client. Falls back to its own fetch only if the caller
+  // doesn't supply this (e.g. any other place ClientPanel might be reused).
+  clientDetailsResult?: ReturnType<typeof useClientDetails>;
 }
 
 export const ClientPanel: React.FC<Props> = ({
@@ -110,6 +117,7 @@ export const ClientPanel: React.FC<Props> = ({
   onSelectClient, onClearClient, onStatsLoaded, error, defaultName, defaultPhone, openAddForm,
   refreshKey, rewardPointsConfig, onClientUpdated,
   packages, memberships, loyaltyEligibility,
+  clientDetailsResult,
 }) => {
   const [search, setSearch] = useState(selectedClientId === "walk-in" ? "Walk In" : "");
   const [suggestions, setSuggestions] = useState<Client[]>([]);
@@ -134,7 +142,11 @@ export const ClientPanel: React.FC<Props> = ({
 
   useEffect(() => { if (openAddForm) setShowAddForm(true); }, [openAddForm]);
 
-  const { details, stats, loading: statsLoading, historyLoading } = useClientDetails(selectedClientId, refreshKey);
+  // Skip this panel's own fetch when the parent already supplied a result
+  // (pass a null clientId so the hook's effect never fires a request) —
+  // otherwise fall back to fetching independently.
+  const ownFetch = useClientDetails(clientDetailsResult ? null : selectedClientId, refreshKey);
+  const { details, stats, loading: statsLoading, historyLoading } = clientDetailsResult ?? ownFetch;
   const allBookings = useAppSelector(selectBookings);
 
   // Calculate real unpaid amount from Redux — API always returns 0.
@@ -186,7 +198,9 @@ export const ClientPanel: React.FC<Props> = ({
     setShowDrop(true);
     const t = setTimeout(async () => {
       try {
-        const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(search)}&salon_id=${salonId || ""}`);
+        // salon_id omitted — the backend derives it from the JWT
+        // (getSalonId(req)) and never reads a salon_id query param here.
+        const res = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(search)}`);
         if (cancelled) return;
         const raw = res.data?.data ?? res.data ?? [];
         const items: any[] = Array.isArray(raw) ? raw : (raw.items ?? raw.data ?? []);
@@ -303,7 +317,8 @@ export const ClientPanel: React.FC<Props> = ({
     if (addPhone) {
       let duplicate: any = null;
       try {
-        const checkRes = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(addPhone)}&salon_id=${salonId || ""}`);
+        // salon_id omitted — same reasoning as the main search call above.
+        const checkRes = await api.get(`/api/v1/clients/search?q=${encodeURIComponent(addPhone)}`);
         const raw = checkRes.data?.data ?? checkRes.data ?? [];
         const items: any[] = Array.isArray(raw) ? raw : (raw.items ?? raw.data ?? []);
         duplicate = items.find((c: any) => {
@@ -319,8 +334,9 @@ export const ClientPanel: React.FC<Props> = ({
 
     setAddErrors({});
     try {
+      // salon_id omitted from the body — clients.controller.ts's create
+      // handler ignores it and always derives salonId from the JWT.
       const res = await api.post("/api/v1/clients", {
-        salon_id: salonId,
         first_name: addFirst,
         last_name: addLast,
         phone_number: addPhone,
@@ -648,6 +664,7 @@ export const ClientPanel: React.FC<Props> = ({
           clientId={selectedClientId}
           onClose={() => setShowQuickEditModal(false)}
           onSaved={handleClientUpdated}
+          client={details}
         />
       )}
     </div>

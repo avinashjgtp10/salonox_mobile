@@ -9,6 +9,7 @@ import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import ClientSelect from "./ClientSelect";
 import { DatePicker } from "../../../components/ui";
+import type { ClientDetails } from "../../bookings/types/client.types";
 import "../styles/ClientHistoryModal.scss";
 import "./QuickEditClientModal.scss";
 
@@ -16,6 +17,11 @@ interface Props {
   clientId: string;
   onClose: () => void;
   onSaved: (updated: { id: string; name: string; phone: string }) => void;
+  // The parent (ClientPanel) already fetched this client's full profile via
+  // useClientDetails for its own stat card — pass it through so this form
+  // seeds from that instead of firing its own redundant GET /clients/:id on
+  // every open. Falls back to fetching only if the caller doesn't have it.
+  client?: ClientDetails | null;
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -45,8 +51,8 @@ const CLIENT_SOURCE_OPTIONS = [
   { value: "google", label: "Google" },
 ];
 
-export default function QuickEditClientModal({ clientId, onClose, onSaved }: Props) {
-  const [loading, setLoading] = useState(true);
+export default function QuickEditClientModal({ clientId, onClose, onSaved, client }: Props) {
+  const [loading, setLoading] = useState(!client);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [phoneCountryCode, setPhoneCountryCode] = useState("+91");
@@ -64,21 +70,27 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved }: Pro
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const seedForm = (c: any) => {
+    setFirstName(c.first_name || "");
+    setLastName(c.last_name || "");
+    const countryCode = c.phone_country_code || "+91";
+    setPhone(stripCountryCode(c.phone_number || "", countryCode));
+    setPhoneCountryCode(countryCode);
+    setEmail(c.email || "");
+    setDob(c.birthday_day_month ? `${c.birthday_year || DOB_PLACEHOLDER_YEAR}-${c.birthday_day_month}` : "");
+    setClientSource(c.client_source || "walk_in");
+  };
+
   useEffect(() => {
+    if (client) { seedForm(client); setLoading(false); return; }
+
     let cancelled = false;
     (async () => {
       try {
         const res = await api.get(CLIENT.BY_ID(clientId));
         const c = res.data?.data ?? res.data;
         if (cancelled) return;
-        setFirstName(c.first_name || "");
-        setLastName(c.last_name || "");
-        const countryCode = c.phone_country_code || "+91";
-        setPhone(stripCountryCode(c.phone_number || "", countryCode));
-        setPhoneCountryCode(countryCode);
-        setEmail(c.email || "");
-        setDob(c.birthday_day_month ? `${c.birthday_year || DOB_PLACEHOLDER_YEAR}-${c.birthday_day_month}` : "");
-        setClientSource(c.client_source || "walk_in");
+        seedForm(c);
       } catch {
         if (!cancelled) setError("Failed to load client details.");
       } finally {
@@ -86,7 +98,8 @@ export default function QuickEditClientModal({ clientId, onClose, onSaved }: Pro
       }
     })();
     return () => { cancelled = true; };
-  }, [clientId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, client]);
 
   const phoneValid = /^\d{10}$/.test(phone.trim());
   const emailValid = email.trim() === "" || EMAIL_RE.test(email.trim());
