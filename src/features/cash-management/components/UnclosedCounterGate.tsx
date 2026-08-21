@@ -46,7 +46,12 @@ export default function UnclosedCounterGate() {
   const [error, setError] = useState("");
   const [showOpenTodayModal, setShowOpenTodayModal] = useState(false);
   const [openingLoading, setOpeningLoading] = useState(false);
-  const [paymentMethodCounts, setPaymentMethodCounts] = useState({ upi: 0, card: 0, cash: 0 });
+  const [paymentMethodCounts, setPaymentMethodCounts] = useState({
+    upi: 0,
+    card: 0,
+    cash: 0,
+    amounts: { upi: 0, card: 0, cash: 0 },
+  });
 
   const today = formatDateInput(new Date());
   const openedDateKey = dashboard?.openedAt ? formatDateInput(new Date(dashboard.openedAt)) : null;
@@ -164,7 +169,7 @@ export default function UnclosedCounterGate() {
               Logout
             </Button>
             <Button
-              variant="dark"
+              variant="danger"
               loading={closing}
               disabled={closing}
               onClick={() => void handleClosePreviousCounter()}
@@ -237,7 +242,7 @@ export default function UnclosedCounterGate() {
                       <CashStack size={13} className="text-primary" /> UPI Payments
                     </div>
                     <div className="fw-bold text-dark fs-6 mt-1">
-                      {paymentMethodCounts.upi}
+                      {formatAmount(paymentMethodCounts.amounts.upi)}
                     </div>
                   </div>
                 </div>
@@ -248,7 +253,7 @@ export default function UnclosedCounterGate() {
                       <Wallet2 size={13} className="text-primary" /> Card Payments
                     </div>
                     <div className="fw-bold text-dark fs-6 mt-1">
-                      {paymentMethodCounts.card}
+                      {formatAmount(paymentMethodCounts.amounts.card)}
                     </div>
                   </div>
                 </div>

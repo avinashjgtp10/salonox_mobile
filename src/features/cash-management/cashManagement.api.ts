@@ -231,16 +231,18 @@ export async function fetchTodaysPaymentMethodCounts(date = new Date().toISOStri
     });
     const rows: any[] = response?.data?.data?.rows ?? [];
     const counts = { upi: 0, card: 0, cash: 0 };
+    const amounts = { upi: 0, card: 0, cash: 0 };
     for (const row of rows) {
       const method = String(row?.payment_method ?? "").trim().toLowerCase();
-      if (method === "upi") counts.upi += 1;
-      else if (method === "card") counts.card += 1;
-      else if (method === "cash") counts.cash += 1;
+      const amount = asNumber(row?.paid_amount);
+      if (method === "upi") { counts.upi += 1; amounts.upi += amount; }
+      else if (method === "card") { counts.card += 1; amounts.card += amount; }
+      else if (method === "cash") { counts.cash += 1; amounts.cash += amount; }
     }
-    return counts;
+    return { ...counts, amounts };
   } catch (err) {
     console.error("[cash-management] Failed to load today's payment method counts:", err);
-    return { upi: 0, card: 0, cash: 0 };
+    return { upi: 0, card: 0, cash: 0, amounts: { upi: 0, card: 0, cash: 0 } };
   }
 }
 
@@ -265,8 +267,8 @@ export async function sendDailySummaryEmail(
     in_store_cash: summaryData?.inStoreCash ?? 0,
     reconciliation_amount: summaryData?.reconciliationAmount ?? 0,
     remarks: summaryData?.remarks ?? "",
-    upi_payment_count: summaryData?.paymentCounts?.upi ?? 0,
-    card_payment_count: summaryData?.paymentCounts?.card ?? 0,
+    upi_payment_amount: summaryData?.paymentCounts?.amounts?.upi ?? 0,
+    card_payment_amount: summaryData?.paymentCounts?.amounts?.card ?? 0,
   };
 
   try {

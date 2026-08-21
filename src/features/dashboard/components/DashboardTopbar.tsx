@@ -117,7 +117,12 @@ export default function DashboardTopbar({ onLogout }: Props) {
   const isCashCounterOpen = cashDashboard?.status === "open" && Boolean(cashDashboard.cashManagementId);
   const [showCloseCounterConfirm, setShowCloseCounterConfirm] = useState(false);
   const [closingCounter, setClosingCounter] = useState(false);
-  const [paymentMethodCounts, setPaymentMethodCounts] = useState({ upi: 0, card: 0, cash: 0 });
+  const [paymentMethodCounts, setPaymentMethodCounts] = useState({
+    upi: 0,
+    card: 0,
+    cash: 0,
+    amounts: { upi: 0, card: 0, cash: 0 },
+  });
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -603,7 +608,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
                       <CurrencyRupee size={13} className="text-primary" /> UPI Payments
                     </div>
                     <div className="fw-bold text-dark fs-6 mt-1">
-                      {paymentMethodCounts.upi}
+                      {formatAmount(paymentMethodCounts.amounts.upi)}
                     </div>
                   </div>
                 </div>
@@ -614,7 +619,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
                       <Wallet2 size={13} className="text-primary" /> Card Payments
                     </div>
                     <div className="fw-bold text-dark fs-6 mt-1">
-                      {paymentMethodCounts.card}
+                      {formatAmount(paymentMethodCounts.amounts.card)}
                     </div>
                   </div>
                 </div>

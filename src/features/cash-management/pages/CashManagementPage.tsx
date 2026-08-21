@@ -119,7 +119,12 @@ export default function CashManagementPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("transactions");
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
-  const [paymentMethodCounts, setPaymentMethodCounts] = useState({ upi: 0, card: 0, cash: 0 });
+  const [paymentMethodCounts, setPaymentMethodCounts] = useState({
+    upi: 0,
+    card: 0,
+    cash: 0,
+    amounts: { upi: 0, card: 0, cash: 0 },
+  });
 
   useEffect(() => {
     if (!showCloseModal) return;

@@ -141,6 +141,11 @@ export interface DailySummaryData {
     cash?: number;
     card?: number;
     upi?: number;
+    amounts?: {
+      cash?: number;
+      card?: number;
+      upi?: number;
+    };
   };
   appointments?: {
     total?: number;
