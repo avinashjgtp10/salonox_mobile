@@ -11,7 +11,7 @@ const PURCHASE_PLANS = [
   {
     name: 'Basic',
     price: '₹8,000',
-    description: 'For salons starting with essential salon management features.',
+    description: 'For businesses looking for essential management features to get started.',
     cta: 'Buy Basic',
     badge: '',
     featured: false,
