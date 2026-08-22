@@ -301,3 +301,57 @@
     }
   }
 }
+
+.add-supplier-page--panel {
+  height: 100vh;
+
+  .add-supplier-page__topbar {
+    padding: 12px 20px;
+  }
+
+  .add-supplier-page__body {
+    max-width: none;
+    width: 100%;
+    padding: 22px 20px 64px;
+    scrollbar-width: thin;
+    scrollbar-color: #98a2b3 #f2f4f7;
+
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: #f2f4f7;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: #98a2b3;
+      border: 2px solid #f2f4f7;
+      border-radius: 999px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+      background: #667085;
+    }
+  }
+
+  .form-section {
+    h3 {
+      font-size: 16px;
+      margin-bottom: 18px;
+    }
+  }
+
+  .field-row-2 {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+
+  .field-group {
+    margin-bottom: 16px;
+  }
+
+  .section-divider {
+    margin: 24px 0;
+  }
+}

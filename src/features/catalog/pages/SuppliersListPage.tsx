@@ -8,7 +8,6 @@ import {
   X,
 } from "react-bootstrap-icons";
 import { Dropdown } from "react-bootstrap";
-import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSuppliersThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Supplier } from "../../../types/inventory.types";
@@ -20,6 +19,7 @@ import Button from "../../../components/ui/Button";
 import Skeleton from "../../../components/ui/Skeleton";
 import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
+import AddSupplierPage from "./AddSupplierPage";
 import "../styles/SuppliersListPage.scss";
 
 interface FilterState {
@@ -30,7 +30,6 @@ interface FilterState {
 const DEFAULT_FILTERS: FilterState = { city: "", state: "" };
 
 const SuppliersListPage: React.FC = () => {
-  const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { suppliers, loading } = useAppSelector((state) => state.inventory);
 
@@ -38,6 +37,8 @@ const SuppliersListPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(DEFAULT_FILTERS);
+  const [panelMode, setPanelMode] = useState<"create" | "edit" | null>(null);
+  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
 
   // Delete modal state
   const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null);
@@ -96,13 +97,27 @@ const SuppliersListPage: React.FC = () => {
     [search, suppliers, appliedFilters],
   );
 
-  useEffect(() => setCurrentPage(1), [search]);
   const paginated = filtered.slice(
     (currentPage - 1) * pageSize,
     currentPage * pageSize,
   );
 
   const handleClearSearch = () => setSearch("");
+
+  const openCreatePanel = () => {
+    setSelectedSupplierId(null);
+    setPanelMode("create");
+  };
+
+  const openEditPanel = (id: string) => {
+    setSelectedSupplierId(id);
+    setPanelMode("edit");
+  };
+
+  const closePanel = () => {
+    setPanelMode(null);
+    setSelectedSupplierId(null);
+  };
 
   return (
     <div className="suppliers-list-page">
@@ -118,7 +133,7 @@ const SuppliersListPage: React.FC = () => {
         </div>
         <button
           className="btn-add"
-          onClick={() => navigate("/dashboard/catalog/inventory/suppliers/new")}
+          onClick={openCreatePanel}
         >
           Add
         </button>
@@ -131,7 +146,10 @@ const SuppliersListPage: React.FC = () => {
             type="text"
             placeholder="Search suppliers by name, contact or email"
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setCurrentPage(1);
+            }}
           />
           {search && (
             <button
@@ -197,7 +215,7 @@ const SuppliersListPage: React.FC = () => {
                 <tr
                   key={s.id}
                   style={{ cursor: "pointer" }}
-                  onClick={() => navigate(`/dashboard/catalog/inventory/suppliers/edit/${s.id}`)}
+                  onClick={() => openEditPanel(s.id)}
                 >
                   <td className="supplier-name-cell">
                     <div className="supplier-icon"><Shop size={18} /></div>
@@ -223,7 +241,7 @@ const SuppliersListPage: React.FC = () => {
                       </Dropdown.Toggle>
                       <Dropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "160px" }}>
                         <Dropdown.Item
-                          onClick={() => navigate(`/dashboard/catalog/inventory/suppliers/edit/${s.id}`)}
+                          onClick={() => openEditPanel(s.id)}
                           className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
                         >
                           <PencilSquare size={14} /> Edit
@@ -246,7 +264,7 @@ const SuppliersListPage: React.FC = () => {
             <div className="empty-icon"><Shop size={44} /></div>
             <h3>No suppliers yet</h3>
             <p>
-              <a onClick={() => navigate("/dashboard/catalog/inventory/suppliers/new")}>
+              <a onClick={openCreatePanel}>
                 Click here to add a supplier now.
               </a>
             </p>
@@ -308,6 +326,19 @@ const SuppliersListPage: React.FC = () => {
           onChange={(e) => setDeleteInput(e.target.value)}
         />
       </Modal>
+
+      {panelMode && (
+        <div className="supplier-panel-overlay" onClick={closePanel}>
+          <div className="supplier-panel" onClick={(e) => e.stopPropagation()}>
+            <AddSupplierPage
+              panelMode
+              supplierId={panelMode === "edit" ? selectedSupplierId ?? undefined : undefined}
+              onClose={closePanel}
+              onSaved={() => dispatch(fetchSuppliersThunk())}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 };
