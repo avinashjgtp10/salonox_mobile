@@ -301,10 +301,46 @@ function summarizeCommissionHistory(records: CommissionRecord[], startDate: stri
   }, { ...EMPTY_COMMISSION_SUMMARY });
 }
 
+// Salon-wide and rarely changes within a session — cached so re-opening this
+// modal (e.g. one row at a time for several staff) doesn't refire the exact
+// same request PayrollPage's own commission-rules cache just made seconds
+// earlier. Module-scope, not a per-instance cache, so it survives across
+// modal open/close cycles.
+let commissionRulesRequest: Promise<any[]> | null = null;
+
+function fetchCommissionRules(): Promise<any[]> {
+  if (!commissionRulesRequest) {
+    commissionRulesRequest = api
+      .get(COMMISSION_RULES.BASE)
+      .then((res) => res.data?.data?.items ?? res.data?.data ?? [])
+      .catch((err) => {
+        commissionRulesRequest = null;
+        throw err;
+      });
+  }
+  return commissionRulesRequest;
+}
+
+// Same reasoning as fetchCommissionRules above — salon-wide settings that
+// don't change per staff member, cached across modal open/close cycles.
+let attendanceSettingsRequest: Promise<any> | null = null;
+
+function fetchAttendanceSettings(): Promise<any> {
+  if (!attendanceSettingsRequest) {
+    attendanceSettingsRequest = api
+      .get(ATTENDANCE.SETTINGS)
+      .then((res) => res.data?.data ?? res.data)
+      .catch((err) => {
+        attendanceSettingsRequest = null;
+        throw err;
+      });
+  }
+  return attendanceSettingsRequest;
+}
+
 async function fetchRuleMeta(staffId: string) {
   try {
-    const res = await api.get(COMMISSION_RULES.BASE);
-    const rules = res.data?.data?.items ?? res.data?.data ?? [];
+    const rules = await fetchCommissionRules();
     const rule = Array.isArray(rules)
       ? rules.find((r: any) =>
           r.status !== "draft" &&
@@ -470,10 +506,9 @@ export default function AddPayrollEntryModal({
 
   useEffect(() => {
     let cancelled = false;
-    api.get(ATTENDANCE.SETTINGS)
-      .then((res) => {
+    fetchAttendanceSettings()
+      .then((settings) => {
         if (!cancelled) {
-          const settings = res.data?.data ?? res.data;
           setAttendanceRule(resolveAttendanceRuleConfig(settings));
           setDefaultShiftStart(settings?.shift_start ? String(settings.shift_start).slice(0, 5) : null);
           setSalaryDivisor(
