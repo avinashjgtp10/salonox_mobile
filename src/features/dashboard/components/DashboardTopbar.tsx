@@ -269,16 +269,20 @@ export default function DashboardTopbar({ onLogout }: Props) {
     onLogout();
   }, [onLogout]);
 
+  // Cash counter close/email outcomes land only in the notification bell —
+  // no floating toast popup, since they fire right after a user-initiated
+  // action (Close Counter) and the user is already looking at the topbar.
   const showCashCounterToast = useCallback((title: string, body: string) => {
-    showToast({
+    const notification: Notification = {
       id: `cash-counter_${Date.now()}`,
       type: "info",
       title,
       body,
-      is_read: true,
+      is_read: false,
       created_at: new Date().toISOString(),
-    });
-  }, [showToast]);
+    };
+    setNotifs(prev => [notification, ...prev]);
+  }, []);
 
   useEffect(() => {
     if (!showCloseCounterConfirm) return;
@@ -311,19 +315,16 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
       // Email the daily summary straight away, same as the stale-counter flow —
       // the salon owner shouldn't have to go into Cash Management to trigger it.
+      // Sent silently: no notification either way, since the user only asked
+      // to be told the counter closed, not about the email's delivery status.
       try {
         await sendDailySummaryEmail(
           cashDashboard.cashManagementId,
           { ...(closedDashboard ?? cashDashboard), paymentCounts: paymentMethodCounts },
           email,
         );
-        showCashCounterToast("Summary emailed", `Daily summary sent to ${email || "Salon Owner"}.`);
       } catch (emailErr: any) {
         console.error("[DashboardTopbar] Daily summary email failed:", emailErr);
-        showCashCounterToast(
-          "Summary email failed",
-          emailErr?.response?.data?.message || emailErr?.message || "Check SMTP connection.",
-        );
       }
     } catch (err: any) {
       const message =
