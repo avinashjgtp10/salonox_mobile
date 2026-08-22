@@ -190,22 +190,6 @@ export function useCashManagement() {
     void refreshAll();
   }, [refreshAll]);
 
-  // Cash payments taken from other modules (Quick Sale, Calendar checkout,
-  // another tab/device) don't push an update here — this page only ever
-  // refetches on mount or after its own actions. Without polling, Cash
-  // Revenue/In Store Cash/the transaction list can sit stale indefinitely
-  // while the page stays open, which reads as "the sync is broken" even
-  // though the backend already has the correct number. Paused while the tab
-  // isn't visible so it doesn't burn requests in a backgrounded tab.
-  useEffect(() => {
-    const POLL_INTERVAL_MS = 20000;
-    const id = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      void refreshAll();
-    }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [refreshAll]);
-
   const handleOpenCounter = useCallback(async (payload: OpenCounterPayload) => {
     const next = await runTask("openCounter", () => dispatch(openCashCounterThunk(payload)).unwrap());
     const results = await Promise.allSettled([refreshTransactions()]);

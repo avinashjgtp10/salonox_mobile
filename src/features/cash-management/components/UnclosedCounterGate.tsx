@@ -39,6 +39,7 @@ export default function UnclosedCounterGate() {
   const location = useLocation();
   const { formatAmount } = useCurrency();
   const dashboard = useAppSelector((state) => state.cashCounter.dashboard);
+  const cashCounterLoading = useAppSelector((state) => state.cashCounter.loading);
   const userProfile = useAppSelector(selectUserProfile);
   const userEmail = userProfile?.email;
 
@@ -64,6 +65,33 @@ export default function UnclosedCounterGate() {
   const isOnCashManagementPage = location.pathname.startsWith(CASH_MANAGEMENT_PATH);
   const show = isStaleOpenCounter && !isOnCashManagementPage;
   const showPendingModal = show && !showOpenTodayModal;
+
+  // Previous day's counter closed properly (or never opened) and today has
+  // no counter yet — distinct from the stale case above, which still has a
+  // counter left open from a prior day. CashManagementPage already prompts
+  // for this on its own page, so this only covers every other page, mirroring
+  // isOnCashManagementPage's exclusion above.
+  const dashboardLoaded = dashboard !== null;
+  const hasOpenCounterToday =
+    Boolean(dashboard?.cashManagementId) && dashboard?.status === "open" && !isStaleOpenCounter;
+  const closedToday =
+    Boolean(dashboard?.cashManagementId) &&
+    dashboard?.status === "closed" &&
+    openedDateKey !== null &&
+    openedDateKey === today;
+  const needsOpenCounterToday =
+    dashboardLoaded && !isStaleOpenCounter && !hasOpenCounterToday && !closedToday;
+
+  useEffect(() => {
+    if (cashCounterLoading || !dashboardLoaded || isOnCashManagementPage) return;
+    if (needsOpenCounterToday) {
+      setShowOpenTodayModal(true);
+    } else if (hasOpenCounterToday) {
+      // Counter is open for today (the normal case) — dismiss the forced
+      // modal so it doesn't stay stuck open once the real state arrives.
+      setShowOpenTodayModal(false);
+    }
+  }, [cashCounterLoading, dashboardLoaded, isOnCashManagementPage, needsOpenCounterToday, hasOpenCounterToday]);
 
   useEffect(() => {
     if (!showPendingModal || !openedDateKey) return;
@@ -115,18 +143,18 @@ export default function UnclosedCounterGate() {
         remarks: null,
       };
 
-      // 3. Send summary via email to Salon Owner's registered email address (no PDF attachment)
+      // 3. Send summary via email to Salon Owner's registered email address
+      // (no PDF attachment). Sent silently — no notification either way.
       try {
         await sendDailySummaryEmail(
           dashboard?.cashManagementId ?? "",
           { ...summaryData, paymentCounts: paymentMethodCounts },
           userEmail,
         );
-        toast.success(`Previous counter closed! Summary emailed to ${userEmail || "Salon Owner"}.`);
       } catch (emailErr: any) {
         console.error("[UnclosedCounterGate] Email delivery error:", emailErr);
-        toast.error(`Counter closed, but email status: ${emailErr?.response?.data?.message || emailErr?.message || "check SMTP connection"}`);
       }
+      toast.success("Previous counter closed.");
 
       // 4. Directly display Open Today's Counter modal
       setShowOpenTodayModal(true);
