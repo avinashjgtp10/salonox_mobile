@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { REWARD_POINTS_REPORT } from "../../../services/api/endpoints";
@@ -8,6 +9,7 @@ import type { JiraFilterField, DateRangeFilterValue } from "../../../components/
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
+import { maskMobile } from "../../../utils/maskMobile";
 import "./RewardReport.scss";
 
 const REPORT_NAME = "Reward";
@@ -54,6 +56,11 @@ function mapRow(row: any): RewardClientRow {
 }
 
 export default function RewardReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
   const { startDate: dateFrom, endDate: dateTo } = dateRange;
   const [search,      setSearchInput] = useState("");
@@ -143,7 +150,7 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
 
   const HEADERS = ["Client", "Mobile", "Points Available", "Points Earned", "Points Redeemed", "Last Activity"];
   const exportRows = () => rows.map(r => [
-    r.clientName, r.mobile, r.pointsAvailable, r.pointsEarned, r.pointsRedeemed,
+    r.clientName, canViewFullContact ? r.mobile : maskMobile(r.mobile), r.pointsAvailable, r.pointsEarned, r.pointsRedeemed,
     r.lastActivityAt ? formatDate(r.lastActivityAt) : "—",
   ]);
 
@@ -222,7 +229,7 @@ export default function RewardReport({ onBack, category, categoryKey }: { onBack
             ) : rows.map((r) => (
               <tr key={r.clientId}>
                 <td>{r.clientName}</td>
-                <td>{r.mobile}</td>
+                <td>{maskMobile(r.mobile)}</td>
                 <td className="fw-semibold">{r.pointsAvailable.toLocaleString()}</td>
                 <td>{r.pointsEarned.toLocaleString()}</td>
                 <td>{r.pointsRedeemed.toLocaleString()}</td>

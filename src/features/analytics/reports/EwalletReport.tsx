@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { EWALLET, EWALLET_REPORT } from "../../../services/api/endpoints";
@@ -9,6 +10,7 @@ import type { JiraFilterField, DateRangeFilterValue } from "../../../components/
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { maskMobile } from "../../../utils/maskMobile";
 import "./EwalletReport.scss";
 
 const REPORT_NAME = "Ewallet";
@@ -55,6 +57,11 @@ function formatDate(input: string): string {
 }
 
 export default function EwalletReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const { currencySymbol, formatAmount } = useCurrency();
   const today = new Date().toISOString().slice(0, 10);
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "today", ...getDateRangePresetValue("today") });
@@ -185,7 +192,7 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
   }, []);
 
   const HEADERS = ["Client", "Phone", "Email", `Wallet Balance (${currencySymbol})`];
-  const exportRows = () => rows.map(r => [r.name, r.phone, r.email, r.balance]);
+  const exportRows = () => rows.map(r => [r.name, canViewFullContact ? r.phone : maskMobile(r.phone), r.email, r.balance]);
 
   return (
     <div className="rp-detail-view">
@@ -269,7 +276,7 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
             ) : rows.map(r => (
               <tr key={r.id} className="rp-appt-row" onClick={() => openDrawer(r)}>
                 <td className="fw-semibold"><span className="rp-detail-link">{r.name}</span></td>
-                <td>{r.phone}</td>
+                <td>{maskMobile(r.phone)}</td>
                 <td>{r.email}</td>
                 <td className={r.balance > 0 ? "rp-ew-credit fw-semibold" : "fw-semibold"}>{formatAmount(r.balance)}</td>
               </tr>
@@ -290,7 +297,7 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
               <div className="rp-appt-drawer-avatar">{selected.name.charAt(0).toUpperCase()}</div>
               <div className="rp-appt-drawer-hero-info">
                 <div className="rp-appt-drawer-client">{selected.name}</div>
-                <span className="rp-ew-drawer-phone">{selected.phone}</span>
+                <span className="rp-ew-drawer-phone">{maskMobile(selected.phone)}</span>
               </div>
             </div>
 

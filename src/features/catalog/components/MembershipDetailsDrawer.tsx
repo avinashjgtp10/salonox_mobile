@@ -9,6 +9,7 @@ import type { Membership } from "../../../services/api/endpoints/memberships.end
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
 import { selectAllCategories } from "../../../store/selectors/slices.selectors";
 import { getMembershipMeta, TYPE_LABEL, APPLIES_TO_LABEL } from "../utils/membershipMeta";
+import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/MembershipDetailsDrawer.scss";
 
 interface MembershipDetailsDrawerProps {
@@ -133,7 +134,7 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
                 <h4>Assigned Client</h4>
                 <div className="mdd__field-row"><span>Name</span><span>{assignedClient.name}</span></div>
                 {assignedClient.phone && (
-                  <div className="mdd__field-row"><span>Phone</span><span>{assignedClient.phone}</span></div>
+                  <div className="mdd__field-row"><span>Phone</span><span>{maskMobile(assignedClient.phone)}</span></div>
                 )}
               </section>
             )}

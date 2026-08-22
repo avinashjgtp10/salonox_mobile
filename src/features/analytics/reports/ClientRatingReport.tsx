@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search, StarFill, Star } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT_RATING_REPORT } from "../../../services/api/endpoints";
@@ -13,6 +14,7 @@ import type { JiraFilterField, DateRangeFilterValue } from "../../../components/
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { maskMobile } from "../../../utils/maskMobile";
 import "./ClientRevenueReport.scss";
 
 const REPORT_NAME = "Client Rating";
@@ -83,6 +85,11 @@ function StarRating({ value }: { value: number }) {
 
 export default function ClientRatingReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const { currencySymbol, formatAmount } = useCurrency();
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
   const { startDate: dateFrom, endDate: dateTo } = dateRange;
@@ -179,7 +186,7 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
 
   const HEADERS = ["Client Name", "Contact", `Total Spend (${currencySymbol})`, "Staff", "Rating", "Staff Rating", "Service Rating", "Ambience Rating", "Review", "Date"];
   const exportRows = () => rows.map(r => [
-    r.clientName, r.contact, formatAmount(r.totalSpend), r.staffName, r.rating,
+    r.clientName, canViewFullContact ? r.contact : maskMobile(r.contact), formatAmount(r.totalSpend), r.staffName, r.rating,
     r.staffRating ?? "—", r.serviceRating ?? "—", r.ambienceRating ?? "—",
     r.reviewText, formatDate(r.reviewDate),
   ]);
@@ -259,7 +266,7 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
                 onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
                 <td className="fw-semibold">{r.clientName}</td>
-                <td>{r.contact}</td>
+                <td>{maskMobile(r.contact)}</td>
                 <td className="fw-semibold">{formatAmount(r.totalSpend)}</td>
                 <td>{r.staffName}</td>
                 <td><StarRating value={r.rating} /></td>

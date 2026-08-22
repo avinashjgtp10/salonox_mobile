@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { X, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { REPLY_RATE_REPORT } from "../../../services/api/endpoints";
@@ -9,6 +10,7 @@ import type { ReplyRateRow } from "./ReplyRateReport";
 import {
   MESSAGE_STATUS_LABELS, formatDate, formatDateTime, fmtPct,
 } from "./campaignReportShared";
+import { maskMobile } from "../../../utils/maskMobile";
 
 interface CustomerRow {
   id: string;
@@ -50,6 +52,11 @@ const statusClass = (s: string) =>
   s === "READ" ? "ok" : s === "DELIVERED" ? "run" : s === "FAILED" || s === "BLOCKED" ? "fail" : "neutral";
 
 export default function ReplyRateDetailModal({ campaign, onClose }: { campaign: ReplyRateRow; onClose: () => void }) {
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const [detail, setDetail] = useState<Detail | null>(null);
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -124,7 +131,7 @@ export default function ReplyRateDetailModal({ campaign, onClose }: { campaign: 
 
   const HEADERS = ["Client Name", "Mobile", "Sent Date", "Delivered Date", "Replied At", "Status"];
   const exportRows = () => customers.map((c) => [
-    c.name, c.phone, formatDateTime(c.sentAt), formatDateTime(c.deliveredAt),
+    c.name, canViewFullContact ? c.phone : maskMobile(c.phone), formatDateTime(c.sentAt), formatDateTime(c.deliveredAt),
     formatDateTime(c.firstReplyAt),
     MESSAGE_STATUS_LABELS[c.status] ?? c.status,
   ]);
@@ -215,7 +222,7 @@ export default function ReplyRateDetailModal({ campaign, onClose }: { campaign: 
                 ) : customers.map((c) => (
                   <tr key={c.id}>
                     <td className="fw-semibold">{c.name}</td>
-                    <td>{c.phone}</td>
+                    <td>{maskMobile(c.phone)}</td>
                     <td>{formatDateTime(c.sentAt)}</td>
                     <td>{formatDateTime(c.deliveredAt)}</td>
                     <td className={c.firstReplyAt ? "fw-semibold" : undefined}>{formatDateTime(c.firstReplyAt)}</td>

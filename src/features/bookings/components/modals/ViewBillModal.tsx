@@ -15,6 +15,7 @@ import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet
 import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import { printReceipt } from "../../utils/receipt";
 import { buildClientWhatsAppLink } from "../../../../utils/whatsapp";
+import { maskMobile } from "../../../../utils/maskMobile";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { useFocusTrap } from "../../../../hooks/useFocusTrap";
 import { computeBillBreakdown } from "../../../../components/shared/billBreakdown";
@@ -166,7 +167,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
             <div className="vbm-avatar">{booking.clientName?.charAt(0) || "?"}</div>
             <div className="vbm-client-name">{booking.clientName || "Walk-In"}</div>
             <div className="vbm-client-phone">
-              📞 {booking.clientPhone || client?.phone || "—"}
+              📞 {maskMobile(booking.clientPhone || client?.phone) || "—"}
             </div>
             <div className="vbm-client-phone" style={{ fontSize: 12 }}>
               ✉️ {(booking as any).clientEmail || client?.email || "—"}
@@ -619,7 +620,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                 <div className="vbm-activity-card__title">Activity Log</div>
                 {[
                   { icon: "📅", label: "Appointment Created", detail: `${formatDateDMY(booking.billDate || booking.date)} · ${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}` },
-                  { icon: "👤", label: "Client", detail: [booking.clientName, booking.clientPhone, (booking as any).clientEmail].filter(Boolean).join(" · ") },
+                  { icon: "👤", label: "Client", detail: [booking.clientName, maskMobile(booking.clientPhone), (booking as any).clientEmail].filter(Boolean).join(" · ") },
                   { icon: "💼", label: "Staff", detail: staffName },
                   { icon: "💳", label: "Payment Status", detail: normalizePaymentStatus(booking.status) },
                   { icon: "📋", label: "Booking Status", detail: STATUS_PILL_STYLES[booking.status]?.text ?? booking.status },

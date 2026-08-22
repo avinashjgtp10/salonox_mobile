@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { UPCOMING_APPOINTMENTS_REPORT } from "../../../services/api/endpoints";
@@ -11,6 +12,7 @@ import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { DateRangeFilter } from "../../../components/ui";
 import type { DateRangeFilterValue } from "../../../components/ui";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
+import { maskMobile } from "../../../utils/maskMobile";
 import "./AppointmentDetailReport.scss";
 
 const REPORT_NAME = "Upcoming Appointments Report";
@@ -77,6 +79,11 @@ function mapRow(row: any): UpcomingAppointmentRow {
 }
 
 export default function UpcomingAppointmentsReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const today     = new Date().toISOString().slice(0, 10);
   const weekAhead = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
   const abortRef = useRef<AbortController | null>(null);
@@ -179,7 +186,7 @@ export default function UpcomingAppointmentsReport({ onBack, category, categoryK
   const HEADERS = ["Appointment Date", "Appointment Time", "Client Name", "Mobile Number", "Service Name", "Package Name", "Staff Name", "Appointment Status", "Description"];
   const exportRows = () => rows.map(r => [
     r.appointmentDate !== "—" ? formatDate(r.appointmentDate) : "—",
-    r.time, r.clientName, r.mobileNumber, r.serviceName, r.packageName, r.staffName,
+    r.time, r.clientName, canViewFullContact ? r.mobileNumber : maskMobile(r.mobileNumber), r.serviceName, r.packageName, r.staffName,
     fmtLabel(r.appointmentStatus), r.description,
   ]);
 
@@ -273,7 +280,7 @@ export default function UpcomingAppointmentsReport({ onBack, category, categoryK
                   <td>{row.appointmentDate !== "—" ? formatDate(row.appointmentDate) : "—"}</td>
                   <td>{row.time}</td>
                   <td>{row.clientName || "—"}</td>
-                  <td>{row.mobileNumber || "—"}</td>
+                  <td>{maskMobile(row.mobileNumber) || "—"}</td>
                   <td>{row.serviceName}</td>
                   <td>{row.packageName}</td>
                   <td>{row.staffName || "—"}</td>

@@ -5,6 +5,7 @@ import { normalizePaymentStatus } from "./bookingMapper";
 import type { PaperProfile } from "../../settings/utils/printSettings";
 import { buildThermalDocument, buildPageCss, type ThermalReceiptData } from "./printTemplates";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { maskMobile } from "../../../utils/maskMobile";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Single reusable source for "print a bill/receipt" — every entry point in the
@@ -201,9 +202,11 @@ export function printReceipt(
   const gst          = s?.gst_number    || s?.gstin         || s?.gst           || "";
   const logoUrl      = s?.logo_url      || s?.logo          || "";
 
-  // Client contact — prefer looked-up client record over booking fields
-  const clientPhone    = client?.phone || client?.phone_number || client?.mobile
-    || (booking as any).clientPhone || "";
+  // Client contact — prefer looked-up client record over booking fields.
+  // Masked for print/PDF the same as every other on-screen display of a
+  // client's number (first 2 + last 2 digits visible, per maskMobile).
+  const clientPhone    = maskMobile(client?.phone || client?.phone_number || client?.mobile
+    || (booking as any).clientPhone || "");
   const clientEmail    = client?.email || (booking as any).clientEmail || "";
   const clientGst      = (booking as any).clientGst || (booking as any).client_gst || "";
   const membershipName = (booking as any).membershipName || (booking as any).membership_name || "";
