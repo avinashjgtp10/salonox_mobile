@@ -44,16 +44,6 @@
       }
     }
 
-    .btn-add {
-      background: #101828;
-      border: 1px solid #101828;
-      color: #fff;
-      font-weight: 600;
-      padding: 10px 20px;
-      border-radius: 8px;
-
-      &:hover { background: #1d2939; }
-    }
   }
 
   &__controls {
@@ -62,22 +52,14 @@
     margin-bottom: 32px;
     align-items: center;
 
+    // Now the shared Input component (form-control + its own iconLeft/
+    // iconRight wrapper positioning) — this just constrains its width and
+    // styles the clear button nested inside Input's iconRight slot.
     .search-box {
-      position: relative;
       flex: 1;
       max-width: 400px;
 
-      .search-icon-abs {
-        position: absolute;
-        left: 14px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #667085;
-      }
-
       input {
-        width: 100%;
-        padding: 10px 36px 10px 42px;
         border-radius: 8px;
         border: 1px solid #d0d5dd;
         font-size: 14px;
@@ -90,10 +72,6 @@
       }
 
       .search-clear-btn {
-        position: absolute;
-        right: 10px;
-        top: 50%;
-        transform: translateY(-50%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -103,6 +81,7 @@
         color: #667085;
         cursor: pointer;
         line-height: 0;
+        pointer-events: auto;
 
         &:hover { color: #344054; }
       }
@@ -209,40 +188,12 @@
     }
   }
 
-  .empty-state {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    padding: 100px 20px;
+  // Wraps the shared EmptyState component (see SuppliersListPage.tsx) — that
+  // component is unstyled/card-less by design, so the card chrome lives here.
+  .suppliers-empty-card {
     border: 1px solid #eaecf0;
     border-radius: 12px;
-    text-align: center;
     background: #fff;
-
-    .empty-icon {
-      color: #98a2b3;
-      margin-bottom: 16px;
-    }
-
-    h3 {
-      font-size: 18px;
-      font-weight: 700;
-      color: #111827;
-      margin-bottom: 6px;
-    }
-
-    p {
-      font-size: 14px;
-      color: #6b7280;
-
-      a {
-        color: #6366f1;
-        text-decoration: none;
-        cursor: pointer;
-        &:hover { text-decoration: underline; }
-      }
-    }
   }
 
   .supplier-panel-overlay {

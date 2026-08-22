@@ -4,7 +4,11 @@
 
 .pinv-page {
   padding: 32px;
-  max-width: 1200px;
+  // Widened from the original 1200px (sized for the old 6-column table) so
+  // the remaining 10 auto-width columns (Category, Supplier, quantities,
+  // prices, Expiry, Status) have room now that Product/Barcode are
+  // deliberately narrow/compact (see .pinv-col-product/.pinv-col-barcode).
+  max-width: 1300px;
   margin: 0 auto;
 
   &__header {
@@ -65,22 +69,14 @@
     margin-bottom: 32px;
     align-items: center;
 
+    // Now the shared Input component (form-control + its own iconLeft/
+    // iconRight wrapper positioning) — this just constrains its width and
+    // styles the clear button nested inside Input's iconRight slot.
     .search-box {
-      position: relative;
       flex: 1;
       max-width: 400px;
 
-      .search-icon-abs {
-        position: absolute;
-        left: 14px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #667085;
-      }
-
       input {
-        width: 100%;
-        padding: 10px 36px 10px 42px;
         border-radius: 8px;
         border: 1px solid #d0d5dd;
         font-size: 14px;
@@ -93,10 +89,6 @@
       }
 
       .search-clear-btn {
-        position: absolute;
-        right: 10px;
-        top: 50%;
-        transform: translateY(-50%);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -113,8 +105,18 @@
   }
 
   &__content {
+    overflow-x: auto;
+
     .product-table {
       width: 100%;
+      // auto (not fixed): Category/Supplier/Purchased/Sold/Consumed/
+      // Available/Purchase Price/Selling Price/Expiry/Status each size to
+      // their own content/header instead of being forced into equal slices.
+      // Product/Barcode still truncate correctly under auto layout — that
+      // truncation comes from max-width+overflow:hidden directly on the
+      // cell/span (see .pinv-name and td.pinv-barcode-cell below), which
+      // caps a cell's width regardless of the table's layout algorithm.
+      table-layout: auto;
       border-collapse: separate;
       border-spacing: 0;
       border: 1px solid #eaecf0;
@@ -126,13 +128,14 @@
         background: #f9fafb;
 
         th {
-          padding: 12px 24px;
+          padding: 12px 16px;
           text-align: left;
           font-size: 12px;
           font-weight: 500;
           color: #667085;
           text-transform: uppercase;
           border-bottom: 1px solid #eaecf0;
+          white-space: nowrap;
 
           &.pinv-num { text-align: right; }
         }
@@ -144,13 +147,38 @@
           &.pinv-row--low { background: #fffaf5; }
 
           td {
-            padding: 16px 24px;
+            padding: 14px 16px;
             border-bottom: 1px solid #eaecf0;
-            font-size: 14px;
+            font-size: 13.5px;
             color: #101828;
 
             &.pinv-num { text-align: right; }
             &.actions-cell { text-align: right; }
+          }
+
+          // Barcode is plain text filling the whole cell, so the td itself
+          // truncates. Product's cell also has an icon + stacked SKU sub-label
+          // (see .name-info below), so ITS truncation has to live on the name
+          // span instead — same "span-based" convention already used for
+          // stacked name+sub-label cells elsewhere (ConsumableInventoryPage,
+          // ServiceCard, MembershipsListPage).
+          td.pinv-barcode-cell {
+            max-width: 78px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          // .product-name-cell/.product-icon/.name-info come from the shared
+          // ProductsListPage.scss convention this page reuses (same markup
+          // shape), but that shared rule never gives .name-info min-width: 0 —
+          // without it, a flex item's default min-width is its content's
+          // natural width, so the name would push the row wider (or get
+          // clipped by the column) instead of actually respecting .pinv-name's
+          // own max-width/ellipsis below. Scoped to this page's table only.
+          td.product-name-cell .name-info {
+            min-width: 0;
+            overflow: hidden;
           }
 
           &:last-child td { border-bottom: none; }
@@ -181,7 +209,18 @@
   }
 }
 
-.pinv-name { font-weight: 600; color: #101828; }
+.pinv-name {
+  display: block;
+  // Column is 190px (.pinv-col-product) minus the cell's own padding (32px)
+  // and the shared .product-icon box + gap (40px + 12px) = ~106px left for
+  // the text itself — e.g. "Coconut Hair Oil" truncates to "Coconut Hair…".
+  max-width: 106px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+  color: #101828;
+}
 .pinv-sub { font-size: 12px; color: #667085; margin-top: 2px; }
 .pinv-unit { font-size: 12px; color: #667085; }
 .pinv-date { color: #667085; white-space: nowrap; }
@@ -203,11 +242,13 @@
   letter-spacing: .03em;
 }
 
-.pinv-empty {
-  text-align: center;
-  padding: 34px 14px;
-  color: #98a2b3;
-  font-size: 13px;
+// Status is now the shared Badge component (success/warning/danger variants)
+// instead of a bespoke pill — no page-specific badge CSS needed anymore.
+
+.pinv-empty-cell {
+  // Reset the default td padding so the shared EmptyState component (which
+  // brings its own generous inline padding) doesn't get double-padded.
+  padding: 0 !important;
 }
 
 .pinv-pagination {
