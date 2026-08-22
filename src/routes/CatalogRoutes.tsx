@@ -36,8 +36,8 @@ const StocktakesListPage = lazy(
 const AddStocktakePage = lazy(
   () => import("../features/catalog/pages/AddStocktakePage"),
 );
-const StockOrdersListPage = lazy(
-  () => import("../features/catalog/pages/StockOrdersListPage"),
+const PurchaseHistoryListPage = lazy(
+  () => import("../features/catalog/pages/PurchaseHistoryListPage"),
 );
 const SuppliersListPage = lazy(
   () => import("../features/catalog/pages/SuppliersListPage"),
@@ -106,11 +106,21 @@ export const CatalogRoutes = () => (
         <Route path="inventory/stocktakes" element={<StocktakesListPage />} />
         <Route path="inventory/stocktakes/new" element={<AddStocktakePage />} />
         <Route path="inventory/stocktakes/edit/:id" element={<AddStocktakePage />} />
-        <Route path="inventory/stock-orders" element={<StockOrdersListPage />} />
+        <Route path="inventory/purchases" element={<PurchaseHistoryListPage />} />
+        {/* Renamed from "Stock Orders" (a mock Draft/Ordered/Received list that
+            was never wired to real data) to "Purchase History", now backed by
+            the purchases recorded via Product Inventory's Purchase button —
+            old URLs kept working. */}
+        <Route
+          path="inventory/stock-orders"
+          element={
+            <Navigate to="/dashboard/catalog/inventory/purchases" replace />
+          }
+        />
         <Route
           path="inventory/orders"
           element={
-            <Navigate to="/dashboard/catalog/inventory/stock-orders" replace />
+            <Navigate to="/dashboard/catalog/inventory/purchases" replace />
           }
         />
         <Route path="inventory/suppliers" element={<SuppliersListPage />} />

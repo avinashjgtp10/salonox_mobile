@@ -5,6 +5,7 @@ import {
   ThreeDotsVertical,
   PencilSquare,
   Trash,
+  PlusLg,
   X,
 } from "react-bootstrap-icons";
 import { Dropdown } from "react-bootstrap";
@@ -19,6 +20,7 @@ import Button from "../../../components/ui/Button";
 import Skeleton from "../../../components/ui/Skeleton";
 import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
+import EmptyState from "../../../components/ui/EmptyState";
 import AddSupplierPage from "./AddSupplierPage";
 import "../styles/SuppliersListPage.scss";
 
@@ -131,27 +133,23 @@ const SuppliersListPage: React.FC = () => {
             Add and manage details of your suppliers. <LearnMoreLink topic="suppliers">Learn more</LearnMoreLink>
           </p>
         </div>
-        <button
-          className="btn-add"
-          onClick={openCreatePanel}
-        >
+        <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={openCreatePanel}>
           Add
-        </button>
+        </Button>
       </header>
 
       <div className="suppliers-list-page__controls">
-        <div className="search-box">
-          <Search className="search-icon-abs" size={18} />
-          <input
-            type="text"
-            placeholder="Search suppliers by name, contact or email"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setCurrentPage(1);
-            }}
-          />
-          {search && (
+        <Input
+          containerClass="search-box mb-0"
+          type="text"
+          placeholder="Search suppliers by name, contact or email"
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setCurrentPage(1);
+          }}
+          iconLeft={<Search size={16} />}
+          iconRight={search ? (
             <button
               type="button"
               className="search-clear-btn"
@@ -160,8 +158,8 @@ const SuppliersListPage: React.FC = () => {
             >
               <X size={16} />
             </button>
-          )}
-        </div>
+          ) : undefined}
+        />
         <JiraFilterMenu
           fields={filterFields}
           selected={filterMenuSelected}
@@ -260,15 +258,17 @@ const SuppliersListPage: React.FC = () => {
             </tbody>
           </table>
         ) : (
-          <div className="empty-state">
-            <div className="empty-icon"><Shop size={44} /></div>
-            <h3>No suppliers yet</h3>
-            <p>
-              <a onClick={openCreatePanel}>
-                Click here to add a supplier now.
-              </a>
-            </p>
-          </div>
+          <EmptyState
+            className="suppliers-empty-card"
+            icon={<Shop size={40} />}
+            title="No suppliers yet"
+            description="Click here to add a supplier now."
+            action={
+              <Button variant="dark" size="sm" iconLeft={<PlusLg size={13} />} onClick={openCreatePanel}>
+                Add Supplier
+              </Button>
+            }
+          />
         )}
       </main>
 

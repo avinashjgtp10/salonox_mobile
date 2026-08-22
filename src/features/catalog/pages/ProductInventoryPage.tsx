@@ -13,13 +13,17 @@ import Pagination from "../../../components/ui/Pagination";
 import { JiraFilterMenu } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
 import Button from "../../../components/ui/Button";
+import Input from "../../../components/ui/Input";
 import Skeleton from "../../../components/ui/Skeleton";
 import Modal from "../../../components/ui/Modal";
+import Badge from "../../../components/ui/Badge";
+import EmptyState from "../../../components/ui/EmptyState";
 import {
   exportInventoryPDF,
   exportInventoryExcel,
   exportInventoryCSV,
 } from "../utils/productInventoryExport";
+import PurchaseModal from "../components/PurchaseModal";
 import "../styles/ProductInventoryPage.scss";
 
 // Product Inventory — stock position and stock-in for RETAIL products.
@@ -27,13 +31,15 @@ import "../styles/ProductInventoryPage.scss";
 // counterpart, and the backend scopes to product_type retail/both so the two
 // never show or write the same rows.
 
+type InventoryStatus = "in_stock" | "low_stock" | "out_of_stock" | "expired" | "expiring_soon";
+
 interface InventoryRow {
   id: string;
   name: string;
   sku: string | null;
   barcode: string | null;
   category: string | null;
-  brand: string | null;
+  supplier: string | null;
   measure_unit: string | null;
   bottle_size: number | null;
   amount: number;
@@ -42,8 +48,34 @@ interface InventoryRow {
   low_stock: boolean;
   retail_price: number | null;
   supply_price: number | null;
+  purchased: number;
+  sold: number;
+  consumed: number;
+  expiry_date: string | null;
+  status: InventoryStatus;
   last_updated: string | null;
 }
+
+const STATUS_LABELS: Record<InventoryStatus, string> = {
+  in_stock: "In Stock",
+  low_stock: "Low Stock",
+  out_of_stock: "Out of Stock",
+  expired: "Expired",
+  expiring_soon: "Expiring Soon",
+};
+
+const statusVariant = (s: InventoryStatus): "success" | "warning" | "danger" =>
+  s === "in_stock" ? "success"
+    : s === "low_stock" || s === "expiring_soon" ? "warning"
+    : "danger";
+
+const fmtDateShort = (value?: string | null) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+};
 
 interface HistoryRow {
   id: string;
@@ -101,6 +133,7 @@ export default function ProductInventoryPage() {
 
   const [stockInFor, setStockInFor] = useState<InventoryRow | null>(null);
   const [historyFor, setHistoryFor] = useState<InventoryRow | "all" | null>(null);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
 
   // Debounced so typing a product name doesn't fire a request per keystroke
   // against a 5,000-row table.
@@ -228,6 +261,9 @@ export default function ProductInventoryPage() {
           <p>Track retail stock and record new deliveries. Consumables are managed on their own page.</p>
         </div>
         <div className="header-actions">
+          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={() => setPurchaseOpen(true)}>
+            Purchase
+          </Button>
           <Dropdown>
             <Dropdown.Toggle
               variant="outline-secondary"
@@ -259,20 +295,19 @@ export default function ProductInventoryPage() {
       </header>
 
       <div className="pinv-page__controls">
-        <div className="search-box">
-          <Search className="search-icon-abs" size={18} />
-          <input
-            type="text"
-            placeholder="Search by name, SKU or barcode"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {search && (
+        <Input
+          containerClass="search-box mb-0"
+          type="text"
+          placeholder="Search by name, SKU or barcode"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          iconLeft={<Search size={16} />}
+          iconRight={search ? (
             <button type="button" className="search-clear-btn" aria-label="Clear search" onClick={handleClearSearch}>
               <X size={16} />
             </button>
-          )}
-        </div>
+          ) : undefined}
+        />
         <JiraFilterMenu
           fields={filterFields}
           selected={filterMenuSelected}
@@ -286,12 +321,18 @@ export default function ProductInventoryPage() {
           <table className="product-table">
             <thead>
               <tr>
-                <th>Product</th>
+                <th className="pinv-col-product">Product</th>
+                <th className="pinv-col-barcode">Barcode</th>
                 <th>Category</th>
-                <th>Brand</th>
-                <th className="pinv-num">In Stock</th>
-                <th className="pinv-num">Reorder At</th>
-                <th>Last Updated</th>
+                <th>Supplier</th>
+                <th className="pinv-num">Purchased</th>
+                <th className="pinv-num">Sold</th>
+                <th className="pinv-num">Consumed</th>
+                <th className="pinv-num">Available</th>
+                <th className="pinv-num">Purchase Price</th>
+                <th className="pinv-num">Selling Price</th>
+                <th>Expiry</th>
+                <th>Status</th>
                 <th className="actions-cell" style={{ width: "56px" }} />
               </tr>
             </thead>
@@ -308,9 +349,15 @@ export default function ProductInventoryPage() {
                     </div>
                   </td>
                   <td><Skeleton width="60%" height={12} /></td>
+                  <td><Skeleton width="60%" height={12} /></td>
+                  <td><Skeleton width="60%" height={12} /></td>
+                  <td><Skeleton width="40%" height={12} /></td>
+                  <td><Skeleton width="40%" height={12} /></td>
+                  <td><Skeleton width="40%" height={12} /></td>
+                  <td><Skeleton width="40%" height={12} /></td>
                   <td><Skeleton width="50%" height={12} /></td>
-                  <td><Skeleton width="40%" height={12} /></td>
-                  <td><Skeleton width="40%" height={12} /></td>
+                  <td><Skeleton width="50%" height={12} /></td>
+                  <td><Skeleton width="50%" height={12} /></td>
                   <td><Skeleton width="50%" height={12} /></td>
                   <td className="actions-cell" />
                 </tr>
@@ -321,12 +368,18 @@ export default function ProductInventoryPage() {
           <table className="product-table">
             <thead>
               <tr>
-                <th>Product</th>
+                <th className="pinv-col-product">Product</th>
+                <th className="pinv-col-barcode">Barcode</th>
                 <th>Category</th>
-                <th>Brand</th>
-                <th className="pinv-num">In Stock</th>
-                <th className="pinv-num">Reorder At</th>
-                <th>Last Updated</th>
+                <th>Supplier</th>
+                <th className="pinv-num">Purchased</th>
+                <th className="pinv-num">Sold</th>
+                <th className="pinv-num">Consumed</th>
+                <th className="pinv-num">Available</th>
+                <th className="pinv-num">Purchase Price</th>
+                <th className="pinv-num">Selling Price</th>
+                <th>Expiry</th>
+                <th>Status</th>
                 <th className="actions-cell" style={{ width: "56px" }} />
               </tr>
             </thead>
@@ -334,24 +387,31 @@ export default function ProductInventoryPage() {
               {rows.length > 0 ? (
                 rows.map((r) => (
                   <tr key={r.id} className={r.low_stock ? "pinv-row--low" : ""}>
-                    <td className="product-name-cell">
+                    <td className="product-name-cell pinv-product-cell" title={r.name}>
                       <div className="product-icon"><BoxSeam size={20} /></div>
                       <div className="name-info">
                         <span className="name pinv-name">{r.name}</span>
                         {r.sku && <span className="sku pinv-sub">SKU: {r.sku}</span>}
                       </div>
                     </td>
+                    <td className="pinv-barcode-cell" title={r.barcode ?? undefined}>{r.barcode || "—"}</td>
                     <td>{r.category || "—"}</td>
-                    <td>{r.brand || "—"}</td>
+                    <td>{r.supplier || "—"}</td>
+                    <td className="pinv-num">{fmtQty(r.purchased)}</td>
+                    <td className="pinv-num">{fmtQty(r.sold)}</td>
+                    <td className="pinv-num">{fmtQty(r.consumed)}</td>
                     <td className="pinv-num">
                       <span className={`pinv-stock${r.low_stock ? " pinv-stock--low" : ""}`}>
                         {fmtQty(r.stock)}
                       </span>
                       {r.measure_unit && <span className="pinv-unit"> {r.measure_unit}</span>}
-                      {r.low_stock && <div className="pinv-low-tag">Low stock</div>}
                     </td>
-                    <td className="pinv-num">{r.qty_alert ? fmtQty(r.qty_alert) : "—"}</td>
-                    <td className="pinv-date">{fmtDateTime(r.last_updated)}</td>
+                    <td className="pinv-num">{r.supply_price != null ? fmtQty(r.supply_price) : "—"}</td>
+                    <td className="pinv-num">{r.retail_price != null ? fmtQty(r.retail_price) : "—"}</td>
+                    <td className="pinv-date">{fmtDateShort(r.expiry_date)}</td>
+                    <td>
+                      <Badge variant={statusVariant(r.status)}>{STATUS_LABELS[r.status]}</Badge>
+                    </td>
                     <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
                       <Dropdown align="end">
                         <Dropdown.Toggle
@@ -382,8 +442,11 @@ export default function ProductInventoryPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={7} className="pinv-empty">
-                    {(search || categoryId || brandId || lowOnly) ? "No products match these filters." : "No retail products yet."}
+                  <td colSpan={13} className="pinv-empty-cell">
+                    <EmptyState
+                      icon={<BoxSeam size={36} />}
+                      title={(search || categoryId || brandId || lowOnly) ? "No products match these filters." : "No retail products yet."}
+                    />
                   </td>
                 </tr>
               )}
@@ -422,6 +485,23 @@ export default function ProductInventoryPage() {
           product={historyFor === "all" ? null : historyFor}
           onClose={() => setHistoryFor(null)}
           onError={showError}
+        />
+      )}
+
+      {purchaseOpen && (
+        <PurchaseModal
+          onClose={() => setPurchaseOpen(false)}
+          onError={showError}
+          onSaved={({ purchaseNumber, updatedProducts }) => {
+            setPurchaseOpen(false);
+            showSuccess(`Purchase ${purchaseNumber ?? ""} recorded`.trim());
+            // Patch in place from the save response — no second GET, per the
+            // single-API-call design (see PurchaseModal/inventory.endpoints.ts).
+            // Anything not currently on this page/filter simply isn't patched;
+            // it'll show the new figures whenever the user navigates to it.
+            const byId = new Map((updatedProducts as InventoryRow[]).map((r) => [r.id, r]));
+            setRows((prev) => prev.map((r) => byId.get(r.id) ?? r));
+          }}
         />
       )}
     </div>

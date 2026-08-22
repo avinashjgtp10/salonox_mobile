@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { toTitleCase } from "../../../../utils/titleCase";
+import Button from "../../../../components/ui/Button";
 
 // Inline "+ Add X" affordance — types a name, saves via the given handler,
 // and lets the caller select the newly created record. Shared across
@@ -30,9 +31,9 @@ export const QuickAdd: React.FC<{
 
   if (!open) {
     return (
-      <button type="button" className="cf-quick-add-link" onClick={() => setOpen(true)}>
+      <Button variant="link" className="cf-quick-add-link" onClick={() => setOpen(true)}>
         + {label}
-      </button>
+      </Button>
     );
   }
 
@@ -45,12 +46,12 @@ export const QuickAdd: React.FC<{
         onChange={(e) => setValue(e.target.value)}
         onKeyDown={(e) => { if (e.key === "Enter") submit(); if (e.key === "Escape") { setOpen(false); setValue(""); } }}
       />
-      <button type="button" className="cf-quick-add-save" onClick={submit} disabled={!value.trim() || saving}>
-        {saving ? "Saving…" : "Save"}
-      </button>
-      <button type="button" className="cf-quick-add-cancel" onClick={() => { setOpen(false); setValue(""); }}>
+      <Button variant="dark" size="sm" className="cf-quick-add-save" onClick={submit} disabled={!value.trim()} loading={saving}>
+        Save
+      </Button>
+      <Button variant="outline-secondary" size="sm" className="cf-quick-add-cancel" onClick={() => { setOpen(false); setValue(""); }}>
         Cancel
-      </button>
+      </Button>
     </div>
   );
 };
