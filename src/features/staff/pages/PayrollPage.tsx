@@ -773,7 +773,11 @@ function SummaryCards({ data, periodLabel }: { data: StaffPayroll[]; periodLabel
   const fmt = (n: number) => fmtWhole(currencySymbol, n);
 
   const grossPayroll   = data.reduce((s, e) => s + e.base_salary + e.commission + e.tips + e.bonus, 0);
-  const totalDeductions = data.reduce((s, e) => s + e.deductions + e.half_day_deduction + e.late_deduction, 0);
+  // Must include salary_advance to match netPay()'s subtraction below —
+  // otherwise Gross minus this card's total silently disagrees with Net
+  // Payroll by however much salary advance was deducted, with no card
+  // showing where that amount went.
+  const totalDeductions = data.reduce((s, e) => s + e.deductions + e.half_day_deduction + e.late_deduction + e.salary_advance, 0);
   const netPayroll      = data.reduce((s, e) => s + netPay(e), 0);
   const totalPaid       = data.reduce((s, e) => s + e.paid_amount, 0);
   const totalPending    = data.reduce((s, e) => s + pendingAmount(e), 0);
@@ -1265,7 +1269,9 @@ export default function PayrollPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
-  useEffect(() => { dispatch(fetchStaffThunk()); }, [dispatch]);
+  useEffect(() => {
+    if (staffItems.length === 0) dispatch(fetchStaffThunk());
+  }, [dispatch, staffItems.length]);
 
   // Close 3-dots action menu when clicking anywhere outside
   useEffect(() => {
