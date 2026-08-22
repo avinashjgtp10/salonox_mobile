@@ -14,6 +14,7 @@ import Skeleton from "../../../../components/ui/Skeleton";
 import Dropdown from "../../../../components/ui/Dropdown";
 import ClientHistoryModal from "../../../clients/components/ClientHistoryModal";
 import QuickEditClientModal from "../../../clients/components/QuickEditClientModal";
+import { maskMobile } from "../../../../utils/maskMobile";
 import "../../styles/AppointmentModal.scss";
 
 const AVATAR_COLORS = [
@@ -46,21 +47,6 @@ function splitName(full: string): { first: string; last: string } {
   const spaceIdx = trimmed.indexOf(" ");
   if (spaceIdx === -1) return { first: trimmed, last: "" };
   return { first: trimmed.slice(0, spaceIdx), last: trimmed.slice(spaceIdx + 1).trim() };
-}
-
-function highlightPhone(phone: string, query: string): React.ReactNode {
-  if (!query || query.length < 3) return phone;
-  const cleanQuery = query.replace(/[^\d+]/g, "");
-  if (!cleanQuery) return phone;
-  const idx = phone.indexOf(cleanQuery);
-  if (idx === -1) return phone;
-  return (
-    <>
-      {phone.slice(0, idx)}
-      <span className="client-dropdown__highlight">{phone.slice(idx, idx + cleanQuery.length)}</span>
-      {phone.slice(idx + cleanQuery.length)}
-    </>
-  );
 }
 
 interface Props {
@@ -489,7 +475,7 @@ export const ClientPanel: React.FC<Props> = ({
                       <svg viewBox="0 0 16 16" fill="currentColor" width="11" height="11">
                         <path d="M3.654 1.328a.678.678 0 0 0-1.015-.063L1.605 2.3c-.483.484-.661 1.169-.45 1.77a17.568 17.568 0 0 0 4.168 6.608 17.569 17.569 0 0 0 6.608 4.168c.601.211 1.286.033 1.77-.45l1.034-1.034a.678.678 0 0 0-.063-1.015l-2.307-1.794a.678.678 0 0 0-.58-.122l-2.19.547a1.745 1.745 0 0 1-1.657-.459L5.482 8.062a1.745 1.745 0 0 1-.46-1.657l.548-2.19a.678.678 0 0 0-.122-.58L3.654 1.328z" />
                       </svg>
-                      {highlightPhone(c.phone, search)}
+                      {maskMobile(c.phone)}
                     </span>
                   </span>
                 </div>

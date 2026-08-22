@@ -10,6 +10,7 @@ import {
 import { Button, Badge, Input, DateRangeFilter, Pagination } from "../../../components/ui";
 import type { DateRangeFilterValue } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/CampaignHistoryPage.scss";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -68,10 +69,12 @@ interface ContactPageData {
 }
 // ── CSV Export ────────────────────────────────────────────────────────────────
 
-const exportCSV = (campaign: any, contacts: any[]) => {
+// Owner/admin exports carry the real number; staff/manager exports stay
+// masked, same as every other client-contact export in the app.
+const exportCSV = (campaign: any, contacts: any[], canViewFullContact: boolean) => {
   const header = "Phone,Name,Status,Sent At,Delivered At,Read At";
   const rows   = contacts.map(c => [
-    c.phone, c.name ?? "", c.status,
+    canViewFullContact ? c.phone : maskMobile(c.phone), c.name ?? "", c.status,
     c.sent_at ?? "", c.delivered_at ?? "", c.read_at ?? "",
   ].join(","));
   const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv" });
@@ -86,6 +89,8 @@ const exportCSV = (campaign: any, contacts: any[]) => {
 export default function CampaignHistoryPage() {
   const dispatch = useAppDispatch();
   const { campaigns, loading } = useAppSelector((s) => s.marketing);
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
 
   // ── Expanded contact state ────────────────────────────────────────────────
   const [expandedId,   setExpandedId]   = useState<string | null>(null);
@@ -206,7 +211,7 @@ export default function CampaignHistoryPage() {
       }) as any);
       const payload = res?.payload;
       if (payload?.contacts) {
-        exportCSV(campaign, payload.contacts);
+        exportCSV(campaign, payload.contacts, canViewFullContact);
       } else {
         showError("Failed to export contacts");
       }
@@ -498,7 +503,7 @@ export default function CampaignHistoryPage() {
                             </div>
                             {cd.contacts.map((ct: any) => (
                               <div key={ct.id} className="ch-contact-row" title={CONTACT_STATUS_HINT[ct.status] ?? ""}>
-                                <span className="ch-contact-phone">📱 {ct.phone}</span>
+                                <span className="ch-contact-phone">📱 {maskMobile(ct.phone)}</span>
                                 <span>{ct.name ?? "—"}</span>
                                 <span className="ch-contact-status" style={{ color: CONTACT_STATUS_COLOR[ct.status] ?? "#9ca3af" }}>
                                   ● {ct.status}

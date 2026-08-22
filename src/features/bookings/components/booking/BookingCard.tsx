@@ -3,6 +3,7 @@ import type { Booking } from "../../types/booking.types";
 import { formatTime12 } from "../../utils/timeUtils";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
+import { maskMobile } from "../../../../utils/maskMobile";
 
 interface BookingCardProps {
   booking: Booking;
@@ -66,7 +67,7 @@ const BookingCard: React.FC<BookingCardProps> = ({
 
       {/* Client */}
       <div style={{ fontSize: 12, color: "#6b7280" }}>
-        <strong>Client:</strong> {booking.clientName} {booking.clientPhone ? `(${booking.clientPhone})` : ""}
+        <strong>Client:</strong> {booking.clientName} {booking.clientPhone ? `(${maskMobile(booking.clientPhone)})` : ""}
       </div>
 
       {/* Payment + Bill */}

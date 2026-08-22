@@ -13,6 +13,7 @@ import { IconBox, IconTag } from "../../../../components/shared/QuickSaleIcons";
 import type { Booking, Staff } from "../../types/scheduler-types";
 import { formatTime12 } from "../../utils/timeUtils";
 import { computeChipStatusClass } from "../../utils/bookingStatusUtils";
+import { maskMobile } from "../../../../utils/maskMobile";
 import "../../styles/BookingTooltipCard.scss";
 
 interface BookingTooltipCardProps {
@@ -167,7 +168,7 @@ const BookingTooltipCard: React.FC<BookingTooltipCardProps> = ({
             <div className="btc__avatar" style={{ background: avatarColor }}>{clientInitials}</div>
             <div className="btc__client-info">
               <div className="btc__client-name">{booking.clientName || "Walk-In"}</div>
-              {booking.clientPhone && <div className="btc__phone">{booking.clientPhone}</div>}
+              {booking.clientPhone && <div className="btc__phone">{maskMobile(booking.clientPhone)}</div>}
               <div className="btc__time">{formatTime12(booking.startTime)} – {formatTime12(booking.endTime)}</div>
             </div>
             <span className="btc__pay-badge" style={{ background: payBg, color: payColor }}>{payLabel}</span>

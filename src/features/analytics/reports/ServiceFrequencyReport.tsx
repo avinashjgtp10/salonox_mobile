@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SERVICE_FREQUENCY_REPORT } from "../../../services/api/endpoints";
@@ -15,6 +16,7 @@ import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useServices } from "../../catalog/hooks/useServices";
 import { servicesInCategories } from "./serviceCategoryFilter";
+import { maskMobile } from "../../../utils/maskMobile";
 import "./ClientRevenueReport.scss";
 import "./ServiceFrequencyReport.scss";
 
@@ -62,6 +64,11 @@ function formatDate(input: string | null): string {
 
 export default function ServiceFrequencyReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const { currencySymbol, formatAmount } = useCurrency();
   // Service/category options come from the catalog hook, not the report API —
   // same convention as ServiceSaleReport, so Reports and Catalog > Services
@@ -179,7 +186,7 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
     "Days Since Last",
   ];
   const exportRows = () => rows.map(r => [
-    r.clientName, r.contact, r.serviceName, r.categoryName, r.visits,
+    r.clientName, canViewFullContact ? r.contact : maskMobile(r.contact), r.serviceName, r.categoryName, r.visits,
     r.totalSpend, formatDate(r.firstVisit), formatDate(r.lastVisit),
     r.daysSinceLastVisit,
   ]);
@@ -271,7 +278,7 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
                 onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
                 <td className="fw-semibold">{r.clientName}</td>
-                <td>{r.contact}</td>
+                <td>{maskMobile(r.contact)}</td>
                 <td className="rp-sf-service" title={r.serviceName}>{r.serviceName}</td>
                 <td>{r.categoryName}</td>
                 <td className="fw-semibold">{r.visits}</td>

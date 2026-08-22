@@ -13,6 +13,7 @@ import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { getTaxModuleConfig } from "../../settings/utils/taxModuleSettings";
 import { getPaperProfile } from "../../settings/utils/printSettings";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { maskMobile } from "../../../utils/maskMobile";
 import {
   Telephone,
   Whatsapp,
@@ -1246,7 +1247,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   // maintaining a second, simpler bill layout here — one invoice design across
   // the app instead of two diverging ones.
   const printStaffList = staffList.map((s) => ({ id: s.id, name: s.full_name }));
-  const clientPhoneForPrint = [client?.phone_country_code, client?.phone_number].filter(Boolean).join(" ");
+  const clientPhoneForPrint = [client?.phone_country_code, client?.phone_number ? maskMobile(client.phone_number) : null]
+    .filter(Boolean)
+    .join(" ");
 
   const printAppointmentBill = (appt: AppointmentRecord, linkedSale: SaleRecord | undefined) => {
     const booking = buildPrintableBooking({
@@ -1441,7 +1444,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               <div className="chp-contact-row">
                 <Telephone size={11} />
                 <span>
-                  {client.phone_country_code} {client.phone_number}
+                  {client.phone_country_code} {maskMobile(client.phone_number)}
                 </span>
                 <button
                   type="button"
@@ -1596,7 +1599,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               <div className="chp-overview-row">
                 <span className="chp-overview-row__label">Mobile Number</span>
                 <span className="chp-overview-row__value">
-                  {client.phone_number ? `${client.phone_country_code ?? ""} ${client.phone_number}` : "–"}
+                  {client.phone_number ? `${client.phone_country_code ?? ""} ${maskMobile(client.phone_number)}` : "–"}
                 </span>
               </div>
               <div className="chp-overview-row">

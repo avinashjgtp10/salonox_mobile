@@ -18,6 +18,7 @@ import { clearError } from "../../../store/clientMembershipSlice";
 import type { ClientMembership } from "../../../services/api/endpoints/clientMemberships.endpoints";
 import Dropdown from "../../../components/ui/Dropdown";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/SoldMembershipsPage.scss";
 
 const PAGE_SIZE = 20;
@@ -249,7 +250,7 @@ const SoldMembershipsPage: React.FC = () => {
                           </span>
                           <div>
                             <span className="smp__client-name">{item.clientName}</span>
-                            {item.mobile && <span className="smp__client-sub">{item.mobile}</span>}
+                            {item.mobile && <span className="smp__client-sub">{maskMobile(item.mobile)}</span>}
                           </div>
                         </div>
                       </td>

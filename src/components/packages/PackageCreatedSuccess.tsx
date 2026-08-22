@@ -5,6 +5,7 @@ import styles from "./packages.module.scss";
 import type { ClientPackage } from "../../services/api/endpoints/packages.endpoints";
 import { useCurrency } from "../../hooks/useCurrency";
 import { getPackageServiceDisplayStatus } from "../../features/bookings/utils/packageServiceStatus";
+import { maskMobile } from "../../utils/maskMobile";
 
 interface Props {
   pkg: ClientPackage;
@@ -51,7 +52,7 @@ const PackageCreatedSuccess: React.FC<Props> = ({ pkg, onViewPackages, onCreateA
             <div className={styles.clientDetailInfo}>
               <div className={styles.clientDetailName}>{pkg.clientName}</div>
               <div className={styles.clientDetailSub}>
-                {pkg.mobile ?? ""}
+                {maskMobile(pkg.mobile)}
                 {pkg.email ? ` · ${pkg.email}` : ""}
               </div>
             </div>

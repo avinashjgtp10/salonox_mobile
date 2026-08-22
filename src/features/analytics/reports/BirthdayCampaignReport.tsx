@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { BIRTHDAY_CAMPAIGN_REPORT } from "../../../services/api/endpoints";
@@ -9,6 +10,7 @@ import { Pagination, JiraFilterMenu, DateRangeFilter } from "../../../components
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { formatDate, formatDateTime, fmtPct } from "./campaignReportShared";
+import { maskMobile } from "../../../utils/maskMobile";
 import "./CampaignReports.scss";
 
 const REPORT_NAME = "Birthday Campaign Performance Report";
@@ -55,6 +57,11 @@ function mapRow(row: any): BirthdayCampaignRow {
 }
 
 export default function BirthdayCampaignReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const [search, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
@@ -144,7 +151,7 @@ export default function BirthdayCampaignReport({ onBack, category, categoryKey }
   const HEADERS = ["Client", "Phone", "Template", "Status", "Sent", "Delivered", "Read"];
   const exportRows = () => rows.map((r) => [
     r.clientName,
-    r.phoneNumber ?? "—",
+    canViewFullContact ? (r.phoneNumber ?? "—") : maskMobile(r.phoneNumber ?? "—"),
     r.templateName ?? "—",
     STATUS_LABELS[r.status] ?? r.status,
     r.sentAt ? formatDateTime(r.sentAt) : "—",
@@ -248,7 +255,7 @@ export default function BirthdayCampaignReport({ onBack, category, categoryKey }
             ) : rows.map((r) => (
               <tr key={r.id}>
                 <td className="fw-semibold">{r.clientName}</td>
-                <td>{r.phoneNumber ?? "—"}</td>
+                <td>{maskMobile(r.phoneNumber ?? "—")}</td>
                 <td>{r.templateName ?? "—"}</td>
                 <td>
                   <span className={`rp-wac-status rp-wac-status--${statusClass(r.status)}`}>{STATUS_LABELS[r.status] ?? r.status}</span>

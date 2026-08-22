@@ -9,6 +9,7 @@ import api from "../../../services/api/axios";
 import ClientHistoryDetail from "../components/ClientHistoryDetail";
 import Skeleton from "../../../components/ui/Skeleton";
 import Dropdown from "../../../components/ui/Dropdown";
+import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/ClientHistoryPage.scss";
 
 // ── Types (sidebar/list concerns only — the detail panel's own types live in
@@ -308,7 +309,7 @@ export default function ClientHistoryPage() {
                     <div className="chp-row-info">
                       <div className="chp-row-name">{c.full_name}</div>
                       <div className="chp-row-phone">
-                        {c.phone_country_code} {c.phone_number}
+                        {c.phone_country_code} {maskMobile(c.phone_number)}
                       </div>
                       {isGold && (
                         <div className="chp-row-meta">

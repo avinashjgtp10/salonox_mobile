@@ -8,6 +8,7 @@ import type { LoyaltyEligibility } from "../../../../services/api/endpoints/memb
 import Skeleton from "../../../../components/ui/Skeleton";
 import { getPackageExpiryStatus, getExpiryStatus } from "../../utils/packageStatus";
 import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
+import { maskMobile } from "../../../../utils/maskMobile";
 
 interface Props {
   name: string;
@@ -158,7 +159,7 @@ export const ClientStatCard: React.FC<Props> = ({
           <div className="avatar">{initial}</div>
           <div className="info">
             <div className="name">{name}</div>
-            <div className="sub">{phone}{address && address !== "N/A" ? ` · ${address}` : ""}</div>
+            <div className="sub">{maskMobile(phone)}{address && address !== "N/A" ? ` · ${address}` : ""}</div>
           </div>
           {onEdit && (
             <button

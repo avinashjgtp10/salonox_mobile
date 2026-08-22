@@ -32,6 +32,7 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useCurrency } from "../../../hooks/useCurrency";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { maskMobile } from "../../../utils/maskMobile";
 
 // UI Components
 import {
@@ -886,8 +887,8 @@ export default function ClientsListPage() {
                       )}
                     </div>
 
-                    <div className="col-mobile" title={client.phone_number || "-"}>
-                      {client.phone_number || "-"}
+                    <div className="col-mobile" title={maskMobile(client.phone_number) || "-"}>
+                      {maskMobile(client.phone_number) || "-"}
                     </div>
                     <div className="col-reviews">
                       {client.reviews_count > 0
@@ -1164,7 +1165,7 @@ export default function ClientsListPage() {
                             {client?.first_name} {client?.last_name}
                           </div>
                           <div style={{ fontSize: "12px", color: "#6b7280" }}>
-                            {client?.email || client?.phone_number}
+                            {client?.email || maskMobile(client?.phone_number)}
                           </div>
                         </div>
                       </div>

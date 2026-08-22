@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import { Input } from "../../../components/ui";
 import { Whatsapp, TelephoneFill } from "react-bootstrap-icons";
+import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/QuickWhatsAppPage.scss";
 
 function getInitials(name: string) {
@@ -101,7 +102,7 @@ export default function QuickWhatsAppPage() {
               <div className="qwa-avatar">{getInitials(c.name)}</div>
               <div className="qwa-info">
                 <span className="qwa-name">{c.name}</span>
-                <span className="qwa-phone">{c.phone}</span>
+                <span className="qwa-phone">{maskMobile(c.phone)}</span>
               </div>
               {c.email && <span className="qwa-email">{c.email}</span>}
               <div className="qwa-actions">

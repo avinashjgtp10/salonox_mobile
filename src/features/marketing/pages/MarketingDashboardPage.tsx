@@ -10,6 +10,7 @@ import {
 } from "../../../middleware/marketing/marketing.thunk";
 import { Button, Badge, DateRangeFilter } from "../../../components/ui";
 import type { DateRangeFilterValue } from "../../../components/ui";
+import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/MarketingDashboardPage.scss";
 
 type CampaignStatusFilter = "ALL" | "RUNNING" | "COMPLETED" | "PAUSED" | "FAILED" | "SCHEDULED";
@@ -565,8 +566,8 @@ export default function MarketingDashboardPage() {
                         {(c.name ?? c.phone).slice(-2).toUpperCase()}
                       </div>
                       <div className="mkt-engaged-info">
-                        <div className="mkt-engaged-name">{c.name ?? c.phone}</div>
-                        <div className="mkt-engaged-phone">{c.name ? c.phone : ""}</div>
+                        <div className="mkt-engaged-name">{c.name ?? maskMobile(c.phone)}</div>
+                        <div className="mkt-engaged-phone">{c.name ? maskMobile(c.phone) : ""}</div>
                       </div>
                       <div className="mkt-engaged-stats">
                         <div className="mkt-engaged-stat">

@@ -7,6 +7,7 @@ import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 import { Loader } from "../../../components/ui";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { maskMobile } from "../../../utils/maskMobile";
 import WalletBreakdownModal from "./WalletBreakdownModal";
 import "../styles/ClientDetailsDrawer.scss";
 
@@ -143,7 +144,7 @@ export default function ClientDetailsDrawer({
   const fullName = `${firstName} ${lastName}`.trim() || "–";
   const email = client?.email || "";
   const phone = client?.phone_number
-    ? `${client.phone_country_code || ""} ${client.phone_number}`.trim()
+    ? `${client.phone_country_code || ""} ${maskMobile(client.phone_number)}`.trim()
     : null;
   const createdAt = client?.created_at
     ? formatDateDDMMYYYY(new Date(client.created_at))
@@ -155,7 +156,9 @@ export default function ClientDetailsDrawer({
     : null;
   const gender = client?.gender || null;
   const clientSource = client?.client_source || null;
-  const additionalPhone = client?.additional_phone_number || null;
+  const additionalPhone = client?.additional_phone_number
+    ? maskMobile(client.additional_phone_number)
+    : null;
 
   const walletBalance = Number(client?.wallet_balance ?? client?.ewallet_balance ?? 0);
   const referralCode = client?.referral_code || null;
@@ -166,7 +169,7 @@ export default function ClientDetailsDrawer({
   // above, which is about referrals THIS client has made to others.
   const referredBy = client?.referred_by || null;
   const referredByPhone = referredBy?.phone_number
-    ? `${referredBy.phone_country_code || ""} ${referredBy.phone_number}`.trim()
+    ? `${referredBy.phone_country_code || ""} ${maskMobile(referredBy.phone_number)}`.trim()
     : null;
 
   return (

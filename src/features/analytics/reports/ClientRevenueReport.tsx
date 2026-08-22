@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search, X, StarFill, Star } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT_REVENUE_REPORT } from "../../../services/api/endpoints";
@@ -14,6 +15,7 @@ import Select from "../../../components/ui/Select";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { maskMobile } from "../../../utils/maskMobile";
 import "./ClientRevenueReport.scss";
 
 const REPORT_NAME = "Client Revenue";
@@ -106,6 +108,13 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
   const { startDate: dateFrom, endDate: dateTo } = dateRange;
   const dispatch = useDispatch<AppDispatch>();
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile. Note: the contact field already has any
+  // +91 country code stripped by stripCountryCode() inside mapRow(), so this
+  // masks the already-stripped local number, not the raw +91-prefixed value.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const [genderFilter, setGenderFilter] = useState<string[]>([]);
   const [membershipFilter, setMembershipFilter] = useState<string[]>([]);
   const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
@@ -234,7 +243,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
   };
 
   const HEADERS = ["Client Name", "Contact", "Total Visits", `Total Spend (${currencySymbol})`, `Average Ticket Size (${currencySymbol})`, "Last Visit", "Marketing Feedback"];
-  const exportRows = () => rows.map(r => [r.client, r.contact, r.visits, r.totalSpend, r.avgTicket, r.lastVisit ? formatDate(r.lastVisit) : "—", r.avgRating != null ? `${r.avgRating} ★ (${r.reviewCount})` : "—"]);
+  const exportRows = () => rows.map(r => [r.client, canViewFullContact ? r.contact : maskMobile(r.contact), r.visits, r.totalSpend, r.avgTicket, r.lastVisit ? formatDate(r.lastVisit) : "—", r.avgRating != null ? `${r.avgRating} ★ (${r.reviewCount})` : "—"]);
 
   return (
     <div className="rp-detail-view">
@@ -322,7 +331,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
                 onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
                 <td className="fw-semibold">{r.client}</td>
-                <td>{r.contact}</td>
+                <td>{maskMobile(r.contact)}</td>
                 <td>{r.visits}</td>
                 <td className="fw-semibold">{formatAmount(r.totalSpend)}</td>
                 <td>{formatAmount(r.avgTicket)}</td>

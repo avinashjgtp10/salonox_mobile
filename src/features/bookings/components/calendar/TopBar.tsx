@@ -8,6 +8,7 @@ import { DatePickerPanel } from "../../../../components/ui";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import api from "../../../../services/api/axios";
 import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
+import { maskMobile } from "../../../../utils/maskMobile";
 import ClientHistoryModal from "../../../clients/components/ClientHistoryModal";
 import "../../styles/TopBar.scss";
 
@@ -283,7 +284,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
                   </span>
                   <span className="topbar-client-drop__info">
                     <span className="topbar-client-drop__name">{c.name}</span>
-                    {c.phone && <span className="topbar-client-drop__phone">{c.phone}</span>}
+                    {c.phone && <span className="topbar-client-drop__phone">{maskMobile(c.phone)}</span>}
                   </span>
                   {/* Same "View History" action/popup as the client card on the
                       booking drawer — pops up in place instead of navigating
