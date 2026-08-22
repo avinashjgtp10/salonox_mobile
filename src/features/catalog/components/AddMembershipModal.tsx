@@ -297,7 +297,12 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
       enableOnlineRedemption: true,
       termsAndConditions: undefined,
       appliesTo: form.appliesTo,
-      categoryIds: form.categoryIds.length ? form.categoryIds : undefined,
+      // Always send the real array (even empty) — `undefined` gets dropped by
+      // JSON.stringify, and the backend's update only touches columns whose
+      // key is actually present in the body, so an omitted categoryIds left
+      // an old restriction stuck in place forever on edit. An empty array
+      // reaches the backend and is normalized to "no restriction" there.
+      categoryIds: form.categoryIds,
     };
 
     const result = editId
