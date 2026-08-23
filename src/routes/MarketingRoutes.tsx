@@ -12,8 +12,6 @@ const CreateTemplatePage     = lazy(() => import("../features/marketing/pages/Cr
 const CreateCampaignPage     = lazy(() => import("../features/marketing/pages/CreateCampaignPage"));
 const CampaignHistoryPage    = lazy(() => import("../features/marketing/pages/CampaignHistoryPage"));
 const InboxPage              = lazy(() => import("../features/marketing/pages/InboxPage"));
-const QuickWhatsAppPage      = lazy(() => import("../features/marketing/pages/QuickWhatsAppPage"));
-const WebhooksPage           = lazy(() => import("../features/marketing/pages/WebhooksPage"));
 const WaConfigPage           = lazy(() => import("../features/marketing/pages/WaConfigPage"));
 const WaAutomationPage       = lazy(() => import("../features/marketing/pages/WaAutomationPage"));
 
@@ -62,8 +60,6 @@ export const MarketingRoutes = () => {
         <Route path="campaigns/create"  element={<CreateCampaignPage />} />
         <Route path="campaigns/history" element={<CampaignHistoryPage />} />
         <Route path="inbox"             element={<InboxPage />} />
-        <Route path="quick-whatsapp"    element={<QuickWhatsAppPage />} />
-        <Route path="webhooks"          element={<WebhooksPage />} />
         <Route path="wa-automation"     element={<WaAutomationPage />} />
         <Route path="config"            element={<WaConfigPage />} />
         <Route path="*"                 element={<Navigate to="/dashboard/marketing" replace />} />

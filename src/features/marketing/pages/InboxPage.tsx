@@ -523,7 +523,7 @@ export default function InboxPage() {
             {windowExpired && (
               <div className="inbox-window-expired">
                 <span className="inbox-window-warn-icon">🔒</span>
-                <span>24hr window closed — only approved templates can be sent. Use Blast Campaign to re-engage. You Can Also Use Quick WhatsApp.</span>
+                <span>24hr window closed — only approved templates can be sent. Use Blast Campaign to re-engage.</span>
               </div>
             )}
 

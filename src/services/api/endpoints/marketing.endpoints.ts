@@ -12,8 +12,6 @@ export const MARKETING_ENDPOINTS = {
   CAMPAIGN_CONTACTS: (id: string | number) => `/api/v1/campaigns/${id}/contacts`,
   CAMPAIGN_REPORT:   (id: string | number, type: string) => `/api/v1/campaigns/${id}/report/${type}`,
 
-  WEBHOOK_EVENTS: '/api/v1/webhooks/events',
-
   WA_CONFIG:              '/api/v1/wa-config',
   WA_CONFIG_TEST:         '/api/v1/wa-config/test',
   WA_CONFIG_SYNC:         '/api/v1/wa-config/sync-limits',
