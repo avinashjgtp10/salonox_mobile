@@ -125,25 +125,6 @@ export interface CreateCampaignPayload {
   contacts:    { phone: string; name?: string; variables?: Record<string, any> }[];
 }
 
-// ── Webhook Event ─────────────────────────────────────────────────────────────
-export type WebhookStatus = "SENT" | "DELIVERED" | "READ" | "FAILED" | "BLOCKED";
-
-export interface WebhookEvent {
-  id:           EntityId;
-  phone:        string;
-  status:       WebhookStatus;
-  sent_at:      string | null;
-  delivered_at: string | null;
-  read_at:      string | null;
-  updated_at:   string;
-
-  // Convenience aliases
-  sentAt?:      string | null;
-  deliveredAt?: string | null;
-  readAt?:      string | null;
-  updatedAt?:   string;
-}
-
 // ── WhatsApp Config ───────────────────────────────────────────────────────────
 export type QualityRating = "GREEN" | "YELLOW" | "RED";
 
@@ -210,6 +191,5 @@ export interface TemplateResponse        { data: Template;        }
 export interface TemplatesListResponse   { data: Template[];      }
 export interface CampaignResponse        { data: Campaign;        }
 export interface CampaignsListResponse   { data: Campaign[];      }
-export interface WebhookEventsResponse   { data: WebhookEvent[];  }
 export interface WaConfigResponse        { data: WaConfig;        }
 export interface DashboardStatsResponse  { data: DashboardStats;  }

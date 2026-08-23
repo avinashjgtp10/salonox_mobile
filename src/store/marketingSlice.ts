@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import type { Template, Campaign, WebhookEvent, WaConfig, DashboardStats, PurchaseTemplate } from "../types/marketing.types";
+import type { Template, Campaign, WaConfig, DashboardStats, PurchaseTemplate } from "../types/marketing.types";
 import {
   fetchTemplatesThunk,
   createTemplateThunk,
@@ -11,7 +11,6 @@ import {
   resendCampaignThunk,
   pauseCampaignThunk,
   resumeCampaignThunk,
-  fetchWebhookEventsThunk,
   fetchWaConfigThunk,
   saveWaConfigThunk,
   deleteWaConfigThunk,
@@ -33,9 +32,6 @@ import type { WAAnalyticsStats } from "../middleware/marketing/analytics.thunk";
 interface MarketingState {
   templates:      Template[];
   campaigns:      Campaign[];
-  webhookEvents:  WebhookEvent[];
-  webhookEventsTotal:        number;
-  webhookEventsStatusCounts: Record<string, number>;
   waConfig:       WaConfig | null;
   dashboardStats: DashboardStats | null;
   analyticsData:  WAAnalyticsStats | null;
@@ -52,7 +48,6 @@ interface MarketingState {
     resendCampaign:        boolean;
     pauseCampaign:         boolean;
     resumeCampaign:        boolean;
-    fetchWebhookEvents:    boolean;
     fetchWaConfig:         boolean;
     saveWaConfig:          boolean;
     deleteWaConfig:        boolean;
@@ -72,9 +67,6 @@ interface MarketingState {
 const initialState: MarketingState = {
   templates:      [],
   campaigns:      [],
-  webhookEvents:  [],
-  webhookEventsTotal:        0,
-  webhookEventsStatusCounts: {},
   waConfig:       null,
   dashboardStats: null,
   analyticsData:  null,
@@ -91,7 +83,6 @@ const initialState: MarketingState = {
     resendCampaign:        false,
     pauseCampaign:         false,
     resumeCampaign:        false,
-    fetchWebhookEvents:    false,
     fetchWaConfig:         false,
     saveWaConfig:          false,
     deleteWaConfig:        false,
@@ -275,23 +266,6 @@ const marketingSlice = createSlice({
       .addCase(resumeCampaignThunk.rejected, (state, { payload }) => {
         state.loading.resumeCampaign = false;
         state.error = payload ?? "Failed to resume campaign";
-      });
-
-    // ── fetchWebhookEvents ────────────────────────────────────────────────────
-    builder
-      .addCase(fetchWebhookEventsThunk.pending, (state) => {
-        state.loading.fetchWebhookEvents = true;
-        state.error = null;
-      })
-      .addCase(fetchWebhookEventsThunk.fulfilled, (state, { payload }) => {
-        state.loading.fetchWebhookEvents = false;
-        state.webhookEvents = payload.events;
-        state.webhookEventsTotal = payload.total;
-        state.webhookEventsStatusCounts = payload.statusCounts;
-      })
-      .addCase(fetchWebhookEventsThunk.rejected, (state, { payload }) => {
-        state.loading.fetchWebhookEvents = false;
-        state.error = payload ?? "Failed to fetch webhook events";
       });
 
     // ── fetchWaConfig ─────────────────────────────────────────────────────────

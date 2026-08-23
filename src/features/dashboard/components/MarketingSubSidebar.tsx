@@ -37,12 +37,6 @@ export default function MarketingSubSidebar({ onClose }: Props) {
         <NavLink to="/dashboard/marketing/inbox" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
           <i className="ti ti-message-circle" aria-hidden="true" /> Inbox
         </NavLink>
-        <NavLink to="/dashboard/marketing/quick-whatsapp" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
-          <i className="ti ti-brand-whatsapp" aria-hidden="true" /> Quick WhatsApp
-        </NavLink>
-        <NavLink to="/dashboard/marketing/webhooks" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
-          <i className="ti ti-activity" aria-hidden="true" /> Message Logs
-        </NavLink>
 
         <hr className="sub-divider" />
         <div className="sub-category">Automation</div>

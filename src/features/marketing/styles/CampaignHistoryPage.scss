@@ -175,8 +175,7 @@
 // ── Contact table ─────────────────────────────────────────────────────────────
 // Fixed-pixel columns (620px total) don't reflow like a real responsive
 // grid — rather than let them squash unreadably on narrow viewports, scroll
-// the whole row set horizontally instead (same pattern as WebhooksPage's
-// .wh-table-wrap).
+// the whole row set horizontally instead.
 .ch-contact-table { display: flex; flex-direction: column; overflow-x: auto; }
 
 .ch-contact-row {
