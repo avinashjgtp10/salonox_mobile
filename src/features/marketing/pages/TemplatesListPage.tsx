@@ -165,7 +165,7 @@ export default function TemplatesListPage() {
       {/* Header */}
       <PageHeader
         title="Campaign Templates"
-        subtitle="Approved WhatsApp templates used by Blast Campaigns — Automated Messages has its own separate set."
+        subtitle="Manage your message templates for campaigns"
         actions={
           <Button variant="primary" onClick={() => navigate("/dashboard/marketing/templates/create")}>
             + New Template

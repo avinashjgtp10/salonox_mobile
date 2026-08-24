@@ -3,12 +3,7 @@ import { ChevronLeft } from "react-bootstrap-icons";
 
 interface Props { onClose: () => void; }
 
-// Grouped by what a new user is trying to DO, not by internal architecture —
-// "Templates" (used by campaigns) and "Automated Messages" (its own separate
-// template system) previously both lived under unrelated categories with no
-// hint they're both template-based, which was a real point of confusion.
-// They now sit next to each other under "Campaigns" so that relationship is
-// visible at a glance.
+// Grouped by what a new user is trying to DO, not by internal architecture.
 export default function MarketingSubSidebar({ onClose }: Props) {
   return (
     <div className="sub-sidebar sub-sidebar--marketing">
@@ -47,13 +42,6 @@ export default function MarketingSubSidebar({ onClose }: Props) {
 
         <NavLink to="/dashboard/marketing/inbox" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
           <i className="ti ti-message-circle" aria-hidden="true" /> Inbox
-        </NavLink>
-
-        <hr className="sub-divider" />
-        <div className="sub-category">Automation</div>
-
-        <NavLink to="/dashboard/marketing/wa-automation" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
-          <i className="ti ti-robot" aria-hidden="true" /> Automated Messages
         </NavLink>
 
         <hr className="sub-divider" />
