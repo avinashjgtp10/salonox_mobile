@@ -171,18 +171,6 @@ const ProductsListPage: React.FC = () => {
     return () => { if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current); };
   }, [searchQuery]);
 
-  // Re-fetch products whenever the page becomes visible (e.g. returning from Quick Sale)
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === "visible") {
-        setSelectedProducts([]);
-        fetchProducts(buildParams(currentPage, searchQuery, appliedFilters));
-      }
-    };
-    document.addEventListener("visibilitychange", handleVisibilityChange);
-    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
-  }, [fetchProducts, currentPage, searchQuery, appliedFilters, pageSize]);
-
   const handlePageChange = (newPage: number) => {
     setSelectedProducts([]);
     fetchProducts(buildParams(newPage, searchQuery, appliedFilters));
@@ -597,15 +585,19 @@ const ProductsListPage: React.FC = () => {
                         onChange={() => handleSelectProduct(p.id)}
                       />
                     </td>
-                    <td className="product-name-cell">
+                    <td className="product-name-cell" title={p.name}>
                       <div className="product-icon"><BoxSeam size={20} /></div>
                       <div className="name-info">
                         <span className="name">{p.name}</span>
-                        <span className="sku">{p.barcode ?? "—"}</span>
+                        <span className="sku" title={p.barcode ?? undefined}>{p.barcode ?? "—"}</span>
                       </div>
                     </td>
-                    <td>{p.category_id ? (categoryMap[p.category_id] ?? p.category_id) : "—"}</td>
-                    <td>{p.supplier_id ? (supplierMap[p.supplier_id] ?? p.supplier_id) : "—"}</td>
+                    <td title={p.category_id ? (categoryMap[p.category_id] ?? p.category_id) : undefined}>
+                      {p.category_id ? (categoryMap[p.category_id] ?? p.category_id) : "—"}
+                    </td>
+                    <td title={p.supplier_id ? (supplierMap[p.supplier_id] ?? p.supplier_id) : undefined}>
+                      {p.supplier_id ? (supplierMap[p.supplier_id] ?? p.supplier_id) : "—"}
+                    </td>
                     <td>
                       {(() => {
                         const type = p.product_type || "retail";

@@ -300,6 +300,24 @@
 
 .cf-field__error { display: block; font-size: 11.5px; color: #ef4444; margin-top: 4px; }
 
+.cf-field__footer {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+
+  .cf-field__error { margin-top: 0; margin-right: auto; }
+}
+
+.cf-char-count {
+  font-size: 11px;
+  color: #9ca3af;
+  white-space: nowrap;
+
+  &--max { color: #ef4444; font-weight: 600; }
+}
+
 // Checkbox row. Added for the Service form (Add Product has no checkboxes, so
 // the system had no pattern for one). Overrides .cf-field's full-width input
 // sizing — that rule targets bare `input`, which would otherwise stretch a
