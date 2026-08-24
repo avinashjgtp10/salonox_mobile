@@ -34,6 +34,21 @@ const PAN_FORMAT_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 const MAX_LOGO_SIZE = 2 * 1024 * 1024;
 const ALLOWED_LOGO_TYPES = ["image/jpeg", "image/png"];
 
+// Strip an absolute localhost origin (as returned by the API) down to a
+// relative path, so the Vite dev proxy serves it instead of the browser
+// trying to hit the backend's own port directly. Same fix as the logo
+// upload in MarketplaceProfilePage.
+function toRelativeUrl(u?: string | null) {
+  if (!u) return "";
+  try {
+    const p = new URL(u);
+    if (p.hostname === "localhost") return p.pathname + p.search;
+  } catch {
+    // already relative
+  }
+  return u;
+}
+
 type BusinessForm = Omit<UpdateSalonPayload, "phone" | "address">;
 type FormErrors = Partial<Record<"gst_number" | "pan_number", string>>;
 
@@ -252,7 +267,7 @@ export default function BusinessSettingsPage() {
       const saved = res.data?.data ?? res.data ?? {};
       const uploadedLogoUrl =
         typeof saved.logo_url === "string" && saved.logo_url.trim()
-          ? saved.logo_url
+          ? toRelativeUrl(saved.logo_url)
           : localPreviewUrl;
       setLogoPreviewUrl(uploadedLogoUrl);
       void dispatch(getMySalonThunk());
@@ -305,7 +320,7 @@ export default function BusinessSettingsPage() {
     .join("")
     .toUpperCase()
     .slice(0, 2);
-  const displayLogoUrl = logoPreviewUrl || currentSalon?.logo_url || "";
+  const displayLogoUrl = logoPreviewUrl || toRelativeUrl(currentSalon?.logo_url) || "";
 
   return (
     <>
