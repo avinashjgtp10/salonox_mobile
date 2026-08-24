@@ -2,12 +2,7 @@
 
 .ct-page { padding: 24px 28px; background: #f9fafb; min-height: 100%; }
 
-.ct-topbar {
-  display: flex; align-items: flex-start; justify-content: space-between;
-  margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb;
-}
-.ct-title { font-size: 15px; font-weight: 600; color: #111827; margin: 0 0 3px; }
-.ct-sub   { font-size: 12px; color: #6b7280; margin: 0; }
+// Header now uses the shared <PageHeader> component (components/ui).
 .ct-meta-note {
   font-size: 11px; color: #6b7280; background: #f9fafb;
   border: 1px solid #e5e7eb; border-radius: 8px; padding: 8px 12px;
