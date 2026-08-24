@@ -609,7 +609,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
                       <CurrencyRupee size={13} className="text-primary" /> UPI Payments
                     </div>
                     <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(paymentMethodCounts.amounts.upi)}
+                      {formatAmount(cashDashboard.upiAmount ?? 0)}
                     </div>
                   </div>
                 </div>
@@ -620,7 +620,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
                       <Wallet2 size={13} className="text-primary" /> Card Payments
                     </div>
                     <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(paymentMethodCounts.amounts.card)}
+                      {formatAmount(cashDashboard.cardAmount ?? 0)}
                     </div>
                   </div>
                 </div>

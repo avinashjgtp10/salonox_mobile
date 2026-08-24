@@ -141,6 +141,9 @@ export default function UnclosedCounterGate() {
         openedAt: new Date().toISOString(),
         closedAt: new Date().toISOString(),
         remarks: null,
+        upiAmount: 0,
+        cardAmount: 0,
+        cashAmount: 0,
       };
 
       // 3. Send summary via email to Salon Owner's registered email address

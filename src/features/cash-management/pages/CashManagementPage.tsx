@@ -766,7 +766,6 @@ export default function CashManagementPage() {
         dashboard={dashboard}
         loading={loading.closeCounter}
         mandatory={isStaleOpenCounter}
-        paymentMethodCounts={paymentMethodCounts}
         onClose={() => setShowCloseModal(false)}
         onSubmit={async (payload) => {
           const closed = await closeCounter(payload);

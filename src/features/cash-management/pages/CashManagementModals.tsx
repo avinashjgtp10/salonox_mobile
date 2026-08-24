@@ -78,12 +78,6 @@ interface CloseCounterModalProps {
    *  must be closed before a new one can be started — hides Cancel/close and
    *  blocks dismissal so the user can't skip straight past it. */
   mandatory?: boolean;
-  paymentMethodCounts?: {
-    upi: number;
-    card: number;
-    cash: number;
-    amounts?: { upi: number; card: number; cash: number };
-  };
   onClose: () => void;
   onNotify: Notify;
   onSubmit: (payload: CloseCounterPayload) => Promise<void>;
@@ -210,8 +204,8 @@ export function OpenCounterModal({
 
     if (!trimText(form.opening_balance)) {
       nextErrors.opening_balance = "Opening Balance is required.";
-    } else if (Number(form.opening_balance) <= 0) {
-      nextErrors.opening_balance = "Opening Balance must be greater than 0.";
+    } else if (Number(form.opening_balance) < 0) {
+      nextErrors.opening_balance = "Opening Balance cannot be negative.";
     }
 
     setErrors(nextErrors);
@@ -623,12 +617,10 @@ export function CloseCounterModal({
   dashboard,
   loading,
   mandatory = false,
-  paymentMethodCounts = { upi: 0, card: 0, cash: 0, amounts: { upi: 0, card: 0, cash: 0 } },
   onClose,
   onNotify,
   onSubmit,
 }: CloseCounterModalProps) {
-  const paymentAmounts = paymentMethodCounts.amounts ?? { upi: 0, card: 0, cash: 0 };
   const { formatAmount } = useCurrency();
   const [inStoreCash, setInStoreCash] = useState("");
   const [remarks, setRemarks] = useState("");
@@ -653,8 +645,6 @@ export function CloseCounterModal({
     setErrors({});
     setSubmitError("");
   }, [dashboard, show]);
-
-  const difference = Number(inStoreCash || 0) - dashboard.closingBalance;
 
   const validateForm = () => {
     const nextErrors: FieldErrors = {};
@@ -769,11 +759,11 @@ export function CloseCounterModal({
             </div>
             <div className="cash-mgmt__close-card">
               <span><CurrencyRupee size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> UPI Payments</span>
-              <strong>{formatAmount(paymentAmounts.upi)}</strong>
+              <strong>{formatAmount(dashboard.upiAmount)}</strong>
             </div>
             <div className="cash-mgmt__close-card">
               <span><Wallet2 size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> Card Payments</span>
-              <strong>{formatAmount(paymentAmounts.card)}</strong>
+              <strong>{formatAmount(dashboard.cardAmount)}</strong>
             </div>
           </div>
           <Input
