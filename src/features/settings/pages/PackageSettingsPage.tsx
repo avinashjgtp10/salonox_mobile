@@ -23,19 +23,14 @@ import {
   type PackageNoShowPolicy,
 } from "../utils/packageSettings";
 
-// The two automation events this page toggles. These are the WhatsApp
-// reminders for appointments booked out of a package sale — a package-linked
-// appointment is deliberately excluded from the generic 24h/1h appointment
-// reminders server-side, so these are the ONLY reminders it gets and turning
-// both off means the client is never reminded.
+// The automation event this page toggles. This is the WhatsApp reminder for
+// appointments booked out of a package sale — a package-linked appointment is
+// deliberately excluded from the generic appointment reminder server-side, so
+// this is the ONLY reminder it gets and turning it off means the client is
+// never reminded.
 const REMINDER_EVENTS = [
   {
-    eventType: "package_appointment_reminder_2d",
-    title: "2 days before",
-    desc: "Sent on the morning two days ahead of the appointment.",
-  },
-  {
-    eventType: "package_appointment_reminder_1d",
+    eventType: "package_appointment_reminder_24h",
     title: "1 day before",
     desc: "Sent on the morning before the appointment.",
   },
@@ -229,8 +224,8 @@ export default function PackageSettingsPage() {
           </p>
         )}
         <p className="settings-toggle-desc" style={{ padding: "0 4px" }}>
-          Wording for these messages is edited under Marketing → WhatsApp Automation, and must be
-          approved by Meta before it can send.
+          Wording for these messages is edited under Marketing → Templates → Trigger Templates, and
+          must be approved by Meta before it can send.
         </p>
       </SettingsSection>
 
