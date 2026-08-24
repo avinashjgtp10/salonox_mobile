@@ -138,10 +138,6 @@ export default function StaffListPage() {
 
   useEffect(() => {
     fetchStaff();
-
-    // Poll every 30 s to detect invitation acceptance without hammering the server
-    const pollInterval = setInterval(fetchStaff, 30000);
-    return () => clearInterval(pollInterval);
   }, [fetchStaff]);
 
   // Close dropdowns on outside click
