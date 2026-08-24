@@ -56,6 +56,9 @@ const normalizeDashboard = (raw: any): CashDashboardSummary => ({
   openedAt: raw?.opened_at ?? raw?.openedAt ?? null,
   closedAt: raw?.closed_at ?? raw?.closedAt ?? null,
   remarks: raw?.remarks ?? null,
+  upiAmount: asNumber(raw?.upi_amount ?? raw?.upiAmount),
+  cardAmount: asNumber(raw?.card_amount ?? raw?.cardAmount),
+  cashAmount: asNumber(raw?.cash_amount ?? raw?.cashAmount),
 });
 
 const normalizeTransaction = (raw: any): CashTransactionRecord => ({
@@ -267,8 +270,8 @@ export async function sendDailySummaryEmail(
     in_store_cash: summaryData?.inStoreCash ?? 0,
     reconciliation_amount: summaryData?.reconciliationAmount ?? 0,
     remarks: summaryData?.remarks ?? "",
-    upi_payment_amount: summaryData?.paymentCounts?.amounts?.upi ?? 0,
-    card_payment_amount: summaryData?.paymentCounts?.amounts?.card ?? 0,
+    upi_payment_amount: summaryData?.upiAmount ?? summaryData?.paymentCounts?.amounts?.upi ?? 0,
+    card_payment_amount: summaryData?.cardAmount ?? summaryData?.paymentCounts?.amounts?.card ?? 0,
   };
 
   try {

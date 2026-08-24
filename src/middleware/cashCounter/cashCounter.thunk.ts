@@ -29,6 +29,9 @@ const confirmedNoCounterDashboard: CashDashboardSummary = {
   openedAt: null,
   closedAt: null,
   remarks: null,
+  upiAmount: 0,
+  cardAmount: 0,
+  cashAmount: 0,
 };
 
 export const fetchCashCounterDashboardThunk = createAsyncThunk<
