@@ -29,6 +29,18 @@ let authActionsRef: any = null;
 export const injectStore = (store: any, authActions: any) => {
   storeRef = store;
   authActionsRef = authActions;
+  // Proactive refresh: (re)schedule every time the access token actually
+  // changes, so a freshly logged-in/refreshed token gets its own timer
+  // instead of relying solely on the reactive 401 path below.
+  let lastToken: string | null = store.getState()?.auth?.accessToken ?? null;
+  scheduleProactiveRefresh();
+  store.subscribe(() => {
+    const token = store.getState()?.auth?.accessToken ?? null;
+    if (token !== lastToken) {
+      lastToken = token;
+      scheduleProactiveRefresh();
+    }
+  });
 };
 
 // ─── Token Refresh Queue ──────────────────────────────────────────────────────
@@ -46,6 +58,80 @@ const processQueue = (error: unknown, token: string | null = null) => {
   );
   failedQueue = [];
 };
+
+// How long before the access token's real expiry to refresh it proactively.
+// Comfortably inside a 15-minute token's lifetime, so ordinary clock skew or
+// a slow network round-trip can't let the token expire before this fires.
+const PROACTIVE_REFRESH_LEAD_MS = 60_000;
+
+let proactiveRefreshTimer: ReturnType<typeof setTimeout> | null = null;
+
+// Runs the same refresh + queue-processing path the 401 handler below uses,
+// so a proactive refresh and a reactive one can never both hit the network:
+// whichever starts first sets isRefreshing, and the other just queues.
+// Callers that don't have an in-flight request to retry (the proactive
+// scheduler) pass no originalRequest and simply let the queue flush.
+async function refreshAccessToken(): Promise<string> {
+  if (isRefreshing) {
+    return new Promise<string>((resolve, reject) => {
+      failedQueue.push({ resolve, reject });
+    });
+  }
+
+  isRefreshing = true;
+  const refreshToken = storeRef?.getState()?.auth?.refreshToken;
+
+  if (!refreshToken) {
+    isRefreshing = false;
+    const err = new Error("No refresh token");
+    processQueue(err, null);
+    throw err;
+  }
+
+  try {
+    const { data: refreshData } = await axios.post<{
+      data?: { accessToken: string };
+      accessToken?: string;
+    }>(`${API_ORIGIN}${AUTH.REFRESH_TOKEN}`, { refreshToken });
+
+    const newToken = refreshData?.data?.accessToken || refreshData.accessToken;
+    if (!newToken) throw new Error("No token returned");
+
+    if (storeRef && authActionsRef) {
+      storeRef.dispatch(authActionsRef.updateToken(newToken));
+    }
+    processQueue(null, newToken);
+    return newToken;
+  } catch (refreshError) {
+    processQueue(refreshError, null);
+    throw refreshError;
+  } finally {
+    isRefreshing = false;
+  }
+}
+
+function scheduleProactiveRefresh() {
+  if (proactiveRefreshTimer) {
+    clearTimeout(proactiveRefreshTimer);
+    proactiveRefreshTimer = null;
+  }
+
+  const state = storeRef?.getState()?.auth;
+  const expiresAt: number | null = state?.accessTokenExpiresAt ?? null;
+  if (!state?.accessToken || !state?.refreshToken || !expiresAt) return;
+
+  const fireIn = expiresAt - PROACTIVE_REFRESH_LEAD_MS - Date.now();
+  // Token is already inside its lead window (or expired) — refresh now
+  // rather than scheduling a negative/zero-delay timeout.
+  const delay = Math.max(fireIn, 0);
+
+  proactiveRefreshTimer = setTimeout(() => {
+    refreshAccessToken().catch(() => {
+      // Reactive 401 handling (or the user's next action) takes over from
+      // here; nothing else to do — this timer's only job was to try early.
+    });
+  }, delay);
+}
 
 // ─── Subscription error code sent by the backend ─────────────────────────────
 const SUBSCRIPTION_REQUIRED_CODE = "SUBSCRIPTION_REQUIRED";
@@ -160,56 +246,17 @@ export const applyInterceptors = (instance: AxiosInstance) => {
       );
 
       if (status === 401 && !originalRequest._retry && !isPublicRoute) {
-        if (isRefreshing) {
-          return new Promise<string>((resolve, reject) => {
-            failedQueue.push({ resolve, reject });
-          })
-            .then((newToken) => {
-              originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
-              return instance(originalRequest);
-            })
-            .catch((err) =>
-              Promise.reject(new ApiError(401, "Session expired", err)),
-            );
-        }
-
         originalRequest._retry = true;
-        isRefreshing = true;
-
-        const refreshToken = storeRef?.getState()?.auth?.refreshToken;
-
-        // No refresh token stored — skip the network call and logout immediately
-        if (!refreshToken) {
-          isRefreshing = false;
-          processQueue(new Error("No refresh token"), null);
-          if (storeRef && authActionsRef) storeRef.dispatch(authActionsRef.logout());
-          window.location.replace("/login");
-          return Promise.reject(new ApiError(401, "Session expired. Please log in again."));
-        }
 
         try {
-          const { data: refreshData } = await axios.post<{
-            data?: { accessToken: string };
-            accessToken?: string;
-          }>(`${API_ORIGIN}${AUTH.REFRESH_TOKEN}`, {
-            refreshToken,
-          });
-
-          const newToken = refreshData?.data?.accessToken || refreshData.accessToken;
-
-          if (!newToken) throw new Error("No token returned");
-
-          // Dynamic imports here break the circular dependency at module root
-          if (storeRef && authActionsRef) {
-            storeRef.dispatch(authActionsRef.updateToken(newToken));
-          }
-          processQueue(null, newToken);
-
+          // Shares isRefreshing/failedQueue with the proactive scheduler
+          // above: if a proactive refresh is already in flight when this
+          // 401 lands, this just queues behind it instead of firing a
+          // second concurrent request to the refresh endpoint.
+          const newToken = await refreshAccessToken();
           originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
           return instance(originalRequest);
         } catch (refreshError) {
-          processQueue(refreshError, null);
-
           if (storeRef && authActionsRef) {
             storeRef.dispatch(authActionsRef.logout());
           }
@@ -217,8 +264,6 @@ export const applyInterceptors = (instance: AxiosInstance) => {
           return Promise.reject(
             new ApiError(401, "Session expired. Please log in again."),
           );
-        } finally {
-          isRefreshing = false;
         }
       }
 
