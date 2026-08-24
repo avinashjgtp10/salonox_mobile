@@ -42,6 +42,7 @@ import StaffPerformanceReport from "../reports/StaffPerformanceReport";
 import StaffItemSalesReport from "../reports/StaffItemSalesReport";
 import RebookingRateReport from "../reports/RebookingRateReport";
 import CommissionReport from "../reports/CommissionReport";
+import TipReport from "../reports/TipReport";
 import AttendanceReport from "../reports/AttendanceReport";
 import PayrollHistoryReport from "../reports/PayrollHistoryReport";
 import PackageHistoryReport from "../reports/PackageHistoryReport";
@@ -109,6 +110,7 @@ const REPORTS: ReportDef[] = [
   { id: "staff_performance",      slug: "staff-performance",      name: "Staff Performance",                           description: "One row per staff member — invoices, items sold, revenue, commission, collected and due.",         category: "staff",        icon: GraphUpArrow,   Component: StaffPerformanceReport },
   { id: "staff_item_sales",       slug: "staff-item-sales",       name: "Service, Product, Membership & Package Sold by Staff", description: "What each staff member sold, broken down by item type.",                                 category: "staff",        icon: PeopleFill,     Component: StaffItemSalesReport },
   { id: "commission_report",      slug: "commission-report",      name: "Commission Report",                           description: "Commission earned by each staff member for a month — revenue, pending and paid payouts.",          category: "staff",        icon: CashCoin,       Component: CommissionReport },
+  { id: "tip_report",             slug: "tip-report",             name: "Tip Report",                                  description: "Tips earned by each staff member — transactions, pending and paid payouts.",                      category: "staff",        icon: Gift,           Component: TipReport },
   { id: "attendance_report",      slug: "attendance-report",      name: "Attendance Report",                           description: "Daily attendance for every staff member — status, check-in/out and hours worked.",                   category: "staff",        icon: PersonCheckFill, Component: AttendanceReport },
   { id: "payroll_history",        slug: "payroll-history",        name: "Payroll History Report",                      description: "Every payroll run per staff member — pay, deductions, net pay and payment status.",              category: "staff",        icon: CashCoin,       Component: PayrollHistoryReport },
   { id: "rebooking_rate",         slug: "rebooking-rate",         name: "Rebooking Rate Report",                       description: "How effectively each staff member retains clients — share of served visits where the client came back within your chosen window.", category: "staff", icon: ArrowRepeat, Component: RebookingRateReport },
