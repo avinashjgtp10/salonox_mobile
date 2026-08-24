@@ -185,7 +185,7 @@ const AddClientPage: React.FC = () => {
     !!duplicatePhoneMessage ||
     (attemptedSubmit && (form.phone.trim() === "" || !/^\d{10}$/.test(form.phone.trim())));
   const phoneErrorMessage =
-    duplicatePhoneMessage || (form.phone.trim() === "" ? "Phone is required" : "Enter a valid 10-digit phone number");
+    duplicatePhoneMessage || (form.phone.trim() === "" ? "Phone number is required" : "Enter a valid 10-digit phone number");
 
   const isGenderInvalid = attemptedSubmit && form.gender.trim() === "";
 
