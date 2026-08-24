@@ -1,5 +1,5 @@
 import { createSlice } from "@reduxjs/toolkit";
-import type { Template, Campaign, WaConfig, DashboardStats } from "../types/marketing.types";
+import type { Template, Campaign, WaConfig, DashboardStats, PurchaseTemplate } from "../types/marketing.types";
 import {
   fetchTemplatesThunk,
   createTemplateThunk,
@@ -19,6 +19,13 @@ import {
   syncWaLimitsThunk,
   fetchDashboardStatsThunk,
 } from "../middleware/marketing/marketing.thunk";
+import {
+  fetchPurchaseTemplatesThunk,
+  updatePurchaseTemplateThunk,
+  submitPurchaseTemplateThunk,
+  resetPurchaseTemplateThunk,
+  syncPurchaseTemplateThunk,
+} from "../middleware/marketing/wa-automation.thunk";
 import { fetchAnalytics } from "../middleware/marketing/analytics.thunk";
 import type { WAAnalyticsStats } from "../middleware/marketing/analytics.thunk";
 
@@ -29,6 +36,7 @@ interface MarketingState {
   dashboardStats: DashboardStats | null;
   analyticsData:  WAAnalyticsStats | null;
   waConfigFetched: boolean;
+  purchaseTemplates: PurchaseTemplate[];
   loading: {
     fetchTemplates:        boolean;
     createTemplate:        boolean;
@@ -48,6 +56,10 @@ interface MarketingState {
     syncWaLimits:          boolean;
     fetchDashboardStats:   boolean;
     fetchAnalytics:        boolean;
+    fetchPurchaseTemplates:  boolean;
+    updatePurchaseTemplate:  boolean;
+    submitPurchaseTemplate:  boolean;
+    syncPurchaseTemplate:    boolean;
   };
   error: string | null;
 }
@@ -59,6 +71,7 @@ const initialState: MarketingState = {
   dashboardStats: null,
   analyticsData:  null,
   waConfigFetched: false,
+  purchaseTemplates: [],
   loading: {
     fetchTemplates:        false,
     createTemplate:        false,
@@ -78,6 +91,10 @@ const initialState: MarketingState = {
     syncWaLimits:          false,
     fetchDashboardStats:   false,
     fetchAnalytics:        false,
+    fetchPurchaseTemplates:  false,
+    updatePurchaseTemplate:  false,
+    submitPurchaseTemplate:  false,
+    syncPurchaseTemplate:    false,
   },
   error: null,
 };
@@ -359,6 +376,78 @@ const marketingSlice = createSlice({
       .addCase(fetchDashboardStatsThunk.rejected, (state, { payload }) => {
         state.loading.fetchDashboardStats = false;
         state.error = payload ?? "Failed to fetch dashboard stats";
+      });
+
+    // ── fetchPurchaseTemplates ────────────────────────────────────────────────
+    builder
+      .addCase(fetchPurchaseTemplatesThunk.pending, (state) => {
+        state.loading.fetchPurchaseTemplates = true;
+        state.error = null;
+      })
+      .addCase(fetchPurchaseTemplatesThunk.fulfilled, (state, { payload }) => {
+        state.loading.fetchPurchaseTemplates = false;
+        state.purchaseTemplates = payload;
+      })
+      .addCase(fetchPurchaseTemplatesThunk.rejected, (state, { payload }) => {
+        state.loading.fetchPurchaseTemplates = false;
+        state.error = payload ?? "Failed to fetch trigger templates";
+      });
+
+    // ── updatePurchaseTemplate ────────────────────────────────────────────────
+    builder
+      .addCase(updatePurchaseTemplateThunk.pending, (state) => {
+        state.loading.updatePurchaseTemplate = true;
+        state.error = null;
+      })
+      .addCase(updatePurchaseTemplateThunk.fulfilled, (state, { payload }) => {
+        state.loading.updatePurchaseTemplate = false;
+        const idx = state.purchaseTemplates.findIndex((t) => t.event_type === payload.event_type);
+        if (idx !== -1) state.purchaseTemplates[idx] = payload;
+      })
+      .addCase(updatePurchaseTemplateThunk.rejected, (state, { payload }) => {
+        state.loading.updatePurchaseTemplate = false;
+        state.error = payload ?? "Failed to save template wording";
+      });
+
+    // ── submitPurchaseTemplate ────────────────────────────────────────────────
+    builder
+      .addCase(submitPurchaseTemplateThunk.pending, (state) => {
+        state.loading.submitPurchaseTemplate = true;
+        state.error = null;
+      })
+      .addCase(submitPurchaseTemplateThunk.fulfilled, (state, { payload }) => {
+        state.loading.submitPurchaseTemplate = false;
+        const idx = state.purchaseTemplates.findIndex((t) => t.event_type === payload.event_type);
+        if (idx !== -1) state.purchaseTemplates[idx] = payload;
+      })
+      .addCase(submitPurchaseTemplateThunk.rejected, (state, { payload }) => {
+        state.loading.submitPurchaseTemplate = false;
+        state.error = payload ?? "Failed to submit template for approval";
+      });
+
+    // ── resetPurchaseTemplate ─────────────────────────────────────────────────
+    builder
+      .addCase(resetPurchaseTemplateThunk.fulfilled, (state, { payload }) => {
+        const idx = state.purchaseTemplates.findIndex((t) => t.event_type === payload.event_type);
+        if (idx !== -1) state.purchaseTemplates[idx] = payload;
+      })
+      .addCase(resetPurchaseTemplateThunk.rejected, (state, { payload }) => {
+        state.error = payload ?? "Failed to reset template";
+      });
+
+    // ── syncPurchaseTemplate ──────────────────────────────────────────────────
+    builder
+      .addCase(syncPurchaseTemplateThunk.pending, (state) => {
+        state.loading.syncPurchaseTemplate = true;
+      })
+      .addCase(syncPurchaseTemplateThunk.fulfilled, (state, { payload }) => {
+        state.loading.syncPurchaseTemplate = false;
+        const idx = state.purchaseTemplates.findIndex((t) => t.event_type === payload.event_type);
+        if (idx !== -1) state.purchaseTemplates[idx] = payload;
+      })
+      .addCase(syncPurchaseTemplateThunk.rejected, (state, { payload }) => {
+        state.loading.syncPurchaseTemplate = false;
+        state.error = payload ?? "Failed to sync template status";
       });
 
     // ── fetchAnalytics ────────────────────────────────────────────────────────

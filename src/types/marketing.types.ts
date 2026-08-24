@@ -37,6 +37,69 @@ export interface Template {
   createdAt?:       string;
 }
 
+// ── Trigger (Automated) Templates ──────────────────────────────────────────────
+// Fires automatically off a real event (a sale, a booking, a lifecycle date) —
+// as opposed to Campaign Templates, which a salon manually blasts to a list.
+export type PurchaseEventType =
+  // Quick Sale + Calendar (shared)
+  | "client_welcome"
+  | "bill_receipt"
+  // Quick Sale
+  | "service_purchased"
+  | "product_purchased"
+  | "package_purchased"
+  | "membership_purchased"
+  // Calendar
+  | "appointment_confirmation"
+  | "appointment_rescheduled"
+  | "appointment_cancelled"
+  | "payment_received"
+  // Other
+  | "package_expiring_7d"
+  | "package_expiring_24h"
+  | "membership_expiring_7d"
+  | "membership_expiring_24h"
+  | "package_session_used"
+  | "membership_session_used"
+  | "package_appointment_reminder_24h"
+  | "service_reminder_24h"
+  | "reward_points_earned"
+  | "referral_reward";
+
+export type TemplateSubmissionStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
+
+// Matches backend AutomationTemplate rows scoped to a salon (wa_automation_templates)
+export interface PurchaseTemplate {
+  id:               EntityId;
+  salon_id:         string;
+  event_type:       PurchaseEventType;
+  template_name:    string;
+  language:         string;
+  is_active:        boolean;
+  status:           TemplateSubmissionStatus;
+  category:         "UTILITY" | "MARKETING";
+  body_text:        string | null;
+  meta_template_id: string | null;
+  rejection_reason: string | null;
+  approved_at:      string | null;
+  created_at:       string;
+  updated_at:       string;
+  has_button?:        boolean;
+  button_text?:        string | null;
+  button_url_base?:    string | null;
+  // ── In-flight resubmission candidate ────────────────────────────────────
+  // Set only while status = "APPROVED" and the salon has edited + resubmitted
+  // new wording — the live fields above stay untouched and keep sending the
+  // whole time. See TriggerTemplatesPanel for how the two are shown together.
+  pending_body_text?:        string | null;
+  pending_status?:            "PENDING" | "REJECTED" | null;
+  pending_meta_template_id?:  string | null;
+  pending_rejection_reason?:  string | null;
+}
+
+export interface PurchaseTemplatesListResponse { data: PurchaseTemplate[]; }
+export interface PurchaseTemplateResponse       { data: PurchaseTemplate;  }
+
 // ── Campaign ──────────────────────────────────────────────────────────────────
 // FIX: Added DRAFT and SENDING which backend actually uses
 export type CampaignStatus = "DRAFT" | "SCHEDULED" | "SENDING" | "RUNNING" | "PAUSED" | "COMPLETED" | "FAILED" | "PENDING";
