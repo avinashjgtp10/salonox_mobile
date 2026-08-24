@@ -31,7 +31,7 @@ export const useCategories = () => {
   };
 
   const deleteCategory = async (id: string) => {
-    await dispatch(deleteCategoryThunk(id));
+    return dispatch(deleteCategoryThunk(id));
   };
 
   return { loading, error, createCategory, updateCategory, deleteCategory };

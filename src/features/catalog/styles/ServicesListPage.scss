@@ -180,6 +180,14 @@
     }
   }
 
+  &__dd-item-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+
+    .slp__kebab { margin-right: 4px; }
+  }
+
   &__dd-divider {
     margin: 4px 0;
     border: none;
