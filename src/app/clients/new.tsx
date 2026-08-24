@@ -3,7 +3,11 @@ import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  Modal,
+  Pressable,
+  ScrollView,
   StyleSheet,
+  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -44,6 +48,42 @@ import { EMAIL_INVALID_MESSAGE, isValidEmail, isValidPhoneDigits, PHONE_INVALID_
 import { splitFullName } from "@/utils/name";
 
 const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
+const DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, "0"));
+const MONTH_OPTIONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const YEAR_OPTIONS = Array.from({ length: 100 }, (_, index) => String(new Date().getFullYear() - index));
+const STATE_OPTIONS = ["Andhra Pradesh", "Delhi", "Gujarat", "Karnataka", "Maharashtra", "Rajasthan", "Tamil Nadu", "Telangana", "Uttar Pradesh", "West Bengal"];
+const LEAD_SOURCE_OPTIONS = ["Walk-in", "Google", "Instagram", "Facebook", "Referral", "Website", "Other"];
+
+function DinggSelect({ label, onSelect, options, placeholder = "Select", value }: { label?: string; onSelect: (value: string) => void; options: readonly string[]; placeholder?: string; value: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const [visible, setVisible] = useState(false);
+
+  return (
+    <View style={styles.selectGroup}>
+      {label ? <Text style={styles.inputLabel}>{label}</Text> : null}
+      <TouchableOpacity activeOpacity={0.84} onPress={() => setVisible(true)} style={styles.inputContainer}>
+        <Text style={[styles.selectText, !value && styles.placeholderText]}>{value || placeholder}</Text>
+        <Ionicons name="chevron-down" size={17} color={Colors.appointmentTextSecondary} />
+      </TouchableOpacity>
+      <Modal animationType="fade" onRequestClose={() => setVisible(false)} transparent visible={visible}>
+        <Pressable onPress={() => setVisible(false)} style={styles.selectBackdrop}>
+          <Pressable style={styles.selectModal}>
+            <TextInput placeholder="Search" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.selectSearch} />
+            <ScrollView keyboardShouldPersistTaps="handled">
+              {options.map((option) => (
+                <TouchableOpacity key={option} onPress={() => { onSelect(option); setVisible(false); }} style={styles.selectOption}>
+                  <Text style={styles.selectOptionText}>{option}</Text>
+                  {option === value ? <Ionicons name="checkmark" size={18} color={Colors.appointmentAccent} /> : null}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </View>
+  );
+}
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -74,12 +114,38 @@ export default function NewClientScreen() {
   const hasPrefilledRef = useRef(false);
 
   const [email, setEmail] = useState("");
+  const [firstName, setFirstName] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
-  const [fullName, setFullName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [gender, setGender] = useState<(typeof GENDER_OPTIONS)[number] | "">("");
   const [isFinishing, setIsFinishing] = useState(false);
   const [phone, setPhone] = useState("");
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [whatsappMatchesPhone, setWhatsappMatchesPhone] = useState(true);
+  const [promotionChannels, setPromotionChannels] = useState(["SMS", "Email", "Whatsapp"]);
+  const [transactionChannels, setTransactionChannels] = useState(["SMS", "Email", "Whatsapp"]);
+  const [birthDay, setBirthDay] = useState("");
+  const [birthMonth, setBirthMonth] = useState("");
+  const [birthYear, setBirthYear] = useState("");
+  const [anniversaryDay, setAnniversaryDay] = useState("");
+  const [anniversaryMonth, setAnniversaryMonth] = useState("");
+  const [anniversaryYear, setAnniversaryYear] = useState("");
+  const [address, setAddress] = useState("");
+  const [clientCode, setClientCode] = useState("");
+  const [clientState, setClientState] = useState("");
+  const [postalCode, setPostalCode] = useState("");
+  const [leadSource, setLeadSource] = useState("");
+  const [customerReferral, setCustomerReferral] = useState(false);
+  const [sourceDescription, setSourceDescription] = useState("");
+  const [gstNumber, setGstNumber] = useState("");
+  const [identificationNumber, setIdentificationNumber] = useState("");
+  const [creditLimit, setCreditLimit] = useState("");
+  const [creditDuration, setCreditDuration] = useState("");
+
+  const toggleChannel = (channel: string, transaction = false) => {
+    const setter = transaction ? setTransactionChannels : setPromotionChannels;
+    setter((current) => current.includes(channel) ? current.filter((item) => item !== channel) : [...current, channel]);
+  };
 
   const isEditMode = Boolean(id);
   const isSubmitting = clientCreating || clientUpdating || isFinishing;
@@ -93,7 +159,9 @@ export default function NewClientScreen() {
 
   useEffect(() => {
     if (!hasPrefilledRef.current && client) {
-      setFullName(client.fullName);
+      const existingName = splitFullName(client.fullName);
+      setFirstName(existingName.first_name);
+      setLastName(existingName.last_name);
       setPhone(client.phone === "-" ? "" : client.phone);
       setEmail(client.email === "-" ? "" : client.email);
       setGender(
@@ -115,15 +183,16 @@ export default function NewClientScreen() {
   };
 
   const handleSubmit = async () => {
-    const trimmedFullName = fullName.trim();
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
     const trimmedPhone = phone.trim();
     const trimmedEmail = email.trim();
 
     setFormError(null);
     setSuccessMessage(null);
 
-    if (!trimmedFullName) {
-      setFormError("Client name is required.");
+    if (!trimmedFirstName) {
+      setFormError("First name is required.");
       return;
     }
 
@@ -142,12 +211,11 @@ export default function NewClientScreen() {
       return;
     }
 
-    const namePayload = splitFullName(trimmedFullName);
     const clientPayload = {
       ...(trimmedEmail ? { email: trimmedEmail } : {}),
-      first_name: namePayload.first_name,
+      first_name: trimmedFirstName,
       ...(gender ? { gender } : {}),
-      last_name: namePayload.last_name,
+      last_name: trimmedLastName,
       phone: trimmedPhone,
     };
 
@@ -257,61 +325,56 @@ export default function NewClientScreen() {
               onPress={handleBack}
               style={styles.backButton}
             >
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={26} color={Colors.appointmentText} />
             </TouchableOpacity>
-            <Text style={styles.headerTitle}>{isEditMode ? "Edit Client" : "New Client"}</Text>
-            <View style={styles.backButtonPlaceholder} />
+            <Text style={styles.headerTitle}>{isEditMode ? "Edit client" : "Add client"}</Text>
           </View>
 
           <View style={styles.formCard}>
-            <View style={styles.iconWrap}>
-              <Ionicons
-                name={isEditMode ? "create-outline" : "person-add-outline"}
-                size={24}
-                color={Colors.primary}
-              />
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Personal Information</Text>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Full Name</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="person-outline" size={18} color={Colors.text2} />
-                <TextInput
-                  autoCapitalize="words"
-                  editable={!isSubmitting}
-                  onChangeText={setFullName}
-                  placeholder="Enter client name"
-                  placeholderTextColor={Colors.placeholder}
-                  returnKeyType="next"
-                  style={styles.textInput}
-                  textContentType="name"
-                  value={fullName}
-                />
+            <View style={styles.nameRow}>
+              <View style={styles.nameField}>
+                <Text style={styles.inputLabel}>First Name<Text style={styles.requiredMark}>*</Text></Text>
+                <View style={styles.inputContainer}>
+                  <TextInput autoCapitalize="words" editable={!isSubmitting} onChangeText={setFirstName} placeholder="First name" placeholderTextColor={Colors.appointmentPlaceholder} returnKeyType="next" style={styles.textInput} textContentType="givenName" value={firstName} />
+                </View>
+              </View>
+              <View style={styles.nameField}>
+                <Text style={styles.inputLabel}>Last Name</Text>
+                <View style={styles.inputContainer}>
+                  <TextInput autoCapitalize="words" editable={!isSubmitting} onChangeText={setLastName} placeholder="Last name" placeholderTextColor={Colors.appointmentPlaceholder} returnKeyType="next" style={styles.textInput} textContentType="familyName" value={lastName} />
+                </View>
               </View>
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Phone Number</Text>
+              <Text style={styles.inputLabel}>Mobile No.<Text style={styles.requiredMark}>*</Text></Text>
               <View style={styles.inputContainer}>
-                <Ionicons name="call-outline" size={18} color={Colors.text2} />
+                <Text style={styles.countryCode}>+91</Text>
                 <TextInput
                   editable={!isSubmitting}
                   keyboardType="phone-pad"
                   onChangeText={setPhone}
                   placeholder="Enter phone number"
-                  placeholderTextColor={Colors.placeholder}
+                  placeholderTextColor={Colors.appointmentPlaceholder}
                   returnKeyType="next"
                   style={styles.textInput}
                   textContentType="telephoneNumber"
                   value={phone}
                 />
               </View>
+              <View style={styles.whatsappRow}>
+                <Text style={styles.whatsappText}>This is Client&apos;s <Text style={styles.whatsappAccent}>WhatsApp</Text> Number</Text>
+                <Switch onValueChange={setWhatsappMatchesPhone} thumbColor="#FFFFFF" trackColor={{ false: Colors.appointmentBorder, true: Colors.appointmentAccent }} value={whatsappMatchesPhone} />
+              </View>
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Email</Text>
               <View style={styles.inputContainer}>
-                <Ionicons name="mail-outline" size={18} color={Colors.text2} />
                 <TextInput
                   autoCapitalize="none"
                   autoCorrect={false}
@@ -319,7 +382,7 @@ export default function NewClientScreen() {
                   keyboardType="email-address"
                   onChangeText={setEmail}
                   placeholder="Enter email address"
-                  placeholderTextColor={Colors.placeholder}
+                  placeholderTextColor={Colors.appointmentPlaceholder}
                   returnKeyType="next"
                   style={styles.textInput}
                   textContentType="emailAddress"
@@ -328,35 +391,65 @@ export default function NewClientScreen() {
               </View>
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Gender</Text>
-              <View style={styles.genderRow}>
-                {GENDER_OPTIONS.map((option) => {
-                  const isSelected = gender === option;
-
-                  return (
-                    <TouchableOpacity
-                      key={option}
-                      activeOpacity={0.82}
-                      disabled={isSubmitting}
-                      onPress={() => setGender(option)}
-                      style={[styles.genderChip, isSelected && styles.genderChipSelected]}
-                    >
-                      <Text
-                        style={[
-                          styles.genderChipText,
-                          isSelected && styles.genderChipTextSelected,
-                        ]}
-                      >
-                        {option}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
+            <View style={styles.communicationBlock}>
+              <Text style={styles.subsectionTitle}>Communication Preference</Text>
+              {(["Promotion", "Transaction"] as const).map((group) => {
+                const selected = group === "Promotion" ? promotionChannels : transactionChannels;
+                return (
+                  <View key={group} style={styles.preferenceGroup}>
+                    <Text style={styles.inputLabel}>{group}</Text>
+                    <View style={styles.preferenceRow}>
+                      {["SMS", "Email", "Whatsapp"].map((channel) => (
+                        <TouchableOpacity key={`${group}-${channel}`} onPress={() => toggleChannel(channel, group === "Transaction")} style={styles.preferenceOption}>
+                          <Ionicons name={selected.includes(channel) ? "checkbox" : "square-outline"} size={20} color={selected.includes(channel) ? Colors.appointmentAccent : Colors.appointmentMuted} />
+                          <Text style={styles.preferenceText}>{channel}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+                );
+              })}
             </View>
 
-            {displayedError ? (
+          </View>
+
+          <View style={styles.formCard}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Additional Information</Text>
+            </View>
+            <DinggSelect label="Gender*" onSelect={(value) => setGender(value as (typeof GENDER_OPTIONS)[number])} options={GENDER_OPTIONS} value={gender} />
+            <Text style={styles.inputLabel}>Date of birth</Text>
+            <View style={styles.dateSelectRow}>
+              <View style={styles.dateSelect}><DinggSelect onSelect={setBirthDay} options={DAY_OPTIONS} placeholder="Date" value={birthDay} /></View>
+              <View style={styles.dateSelect}><DinggSelect onSelect={setBirthMonth} options={MONTH_OPTIONS} placeholder="Month" value={birthMonth} /></View>
+              <View style={styles.dateSelect}><DinggSelect onSelect={setBirthYear} options={YEAR_OPTIONS} placeholder="Year" value={birthYear} /></View>
+            </View>
+            <Text style={styles.inputLabel}>Anniversary</Text>
+            <View style={styles.dateSelectRow}>
+              <View style={styles.dateSelect}><DinggSelect onSelect={setAnniversaryDay} options={DAY_OPTIONS} placeholder="Date" value={anniversaryDay} /></View>
+              <View style={styles.dateSelect}><DinggSelect onSelect={setAnniversaryMonth} options={MONTH_OPTIONS} placeholder="Month" value={anniversaryMonth} /></View>
+              <View style={styles.dateSelect}><DinggSelect onSelect={setAnniversaryYear} options={YEAR_OPTIONS} placeholder="Year" value={anniversaryYear} /></View>
+            </View>
+            <View style={styles.inputGroup}><Text style={styles.inputLabel}>Address</Text><View style={[styles.inputContainer, styles.multilineInput]}><TextInput multiline onChangeText={setAddress} placeholder="Address" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.textInput} value={address} /></View></View>
+            <View style={styles.inputGroup}><Text style={styles.inputLabel}>Client Code</Text><View style={styles.inputContainer}><TextInput onChangeText={setClientCode} placeholder="Enter client code" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.textInput} value={clientCode} /></View></View>
+            <DinggSelect label="State" onSelect={setClientState} options={STATE_OPTIONS} placeholder="Select State" value={clientState} />
+            <View style={styles.inputGroup}><Text style={styles.inputLabel}>ZIP / PIN Code</Text><View style={styles.inputContainer}><TextInput keyboardType="number-pad" onChangeText={setPostalCode} placeholder="ZIP / PIN Code" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.textInput} value={postalCode} /></View></View>
+            <DinggSelect label="Lead Source" onSelect={setLeadSource} options={LEAD_SOURCE_OPTIONS} value={leadSource} />
+            <View style={styles.switchField}><Text style={styles.inputLabel}>Customer Referral</Text><Switch onValueChange={setCustomerReferral} thumbColor="#FFFFFF" trackColor={{ false: Colors.appointmentBorder, true: Colors.appointmentAccent }} value={customerReferral} /></View>
+            <View style={styles.inputGroup}><Text style={styles.inputLabel}>Source Description</Text><View style={[styles.inputContainer, styles.multilineInput]}><TextInput multiline onChangeText={setSourceDescription} placeholder="Source Description" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.textInput} value={sourceDescription} /></View></View>
+            <Text style={styles.subsectionTitle}>Tax Details</Text>
+            <View style={styles.inputGroup}><Text style={styles.inputLabel}>GST Number</Text><View style={styles.inputContainer}><TextInput autoCapitalize="characters" onChangeText={setGstNumber} placeholder="GST Number" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.textInput} value={gstNumber} /></View></View>
+            <View style={styles.inputGroup}><Text style={styles.inputLabel}>Identification No.</Text><View style={styles.inputContainer}><TextInput onChangeText={setIdentificationNumber} placeholder="Identification No." placeholderTextColor={Colors.appointmentPlaceholder} style={styles.textInput} value={identificationNumber} /></View></View>
+
+          </View>
+
+          <View style={styles.formCard}>
+            <View style={styles.sectionHeader}><Text style={styles.sectionTitle}>Financial Information</Text></View>
+            <View style={styles.inputGroup}><Text style={styles.inputLabel}>Credit Limit</Text><View style={styles.inputContainer}><TextInput keyboardType="decimal-pad" onChangeText={setCreditLimit} placeholder="Credit Limit" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.textInput} value={creditLimit} /></View></View>
+            <View style={styles.inputGroup}><Text style={styles.inputLabel}>Credit Duration</Text><View style={styles.inputContainer}><TextInput keyboardType="number-pad" onChangeText={setCreditDuration} placeholder="Credit Duration (days)" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.textInput} value={creditDuration} /></View></View>
+          </View>
+
+          {displayedError ? (
               <View style={styles.errorContainer} accessibilityRole="alert">
                 <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
                 <Text style={styles.errorText}>{displayedError}</Text>
@@ -370,23 +463,16 @@ export default function NewClientScreen() {
               </View>
             ) : null}
 
-            <TouchableOpacity
-              activeOpacity={0.88}
-              disabled={isSubmitting}
-              onPress={handleSubmit}
-              style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}
-            >
-              {isSubmitting ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <Ionicons name="checkmark-circle-outline" size={18} color="#FFFFFF" />
-              )}
-              <Text style={styles.submitButtonText}>
-                {isSubmitting ? "Saving..." : isEditMode ? "Update Client" : "Save Client"}
-              </Text>
-            </TouchableOpacity>
-          </View>
       </KeyboardAwareScrollView>
+      <View style={styles.bottomActions}>
+        <TouchableOpacity activeOpacity={0.82} disabled={isSubmitting} onPress={handleBack} style={styles.cancelButton}>
+          <Text style={styles.cancelButtonText}>Cancel</Text>
+        </TouchableOpacity>
+        <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={handleSubmit} style={[styles.submitButton, isSubmitting && styles.submitButtonDisabled]}>
+          {isSubmitting ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
+          <Text style={styles.submitButtonText}>{isSubmitting ? "Saving..." : "Save"}</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 }
@@ -396,12 +482,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flex: 1,
   },
   safeArea: {
-    backgroundColor: Colors.bg,
+    backgroundColor: Colors.appointmentBackground,
     flex: 1,
   },
   content: {
-    paddingBottom: AppLayout.contentBottomPadding,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
+    paddingBottom: 120,
+    paddingHorizontal: 16,
     paddingTop: Spacing.sm,
   },
   loadingState: {
@@ -414,42 +500,34 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   headerRow: {
     alignItems: "center",
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: AppLayout.sectionGap,
+    gap: 10,
+    marginBottom: 22,
+    minHeight: 58,
   },
   backButton: {
     alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
+    backgroundColor: "transparent",
+    borderWidth: 0,
     height: AppLayout.headerActionSize,
     justifyContent: "center",
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.05,
-    shadowRadius: 14,
     width: AppLayout.headerActionSize,
   },
   backButtonPlaceholder: {
     width: AppLayout.headerActionSize,
   },
   headerTitle: {
-    color: Colors.heading,
-    fontSize: AppLayout.headerTitleFontSize,
-    fontWeight: AppLayout.screenTitleFontWeight,
+    color: Colors.appointmentText,
+    fontFamily: "serif",
+    fontSize: 28,
+    fontWeight: "700",
   },
   formCard: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
+    backgroundColor: Colors.appointmentSurfaceMuted,
+    borderColor: Colors.appointmentDivider,
+    borderRadius: 8,
     borderWidth: 1,
-    padding: AppLayout.cardPadding,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.05,
-    shadowRadius: 18,
-    elevation: 2,
+    marginBottom: 18,
+    padding: 12,
   },
   iconWrap: {
     alignItems: "center",
@@ -462,30 +540,137 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: 56,
   },
   inputGroup: {
-    marginBottom: Spacing.lg,
+    marginBottom: 16,
   },
   inputLabel: {
-    color: Colors.text2,
+    color: Colors.appointmentTextSecondary,
     fontSize: 13,
-    fontWeight: "700",
-    marginBottom: Spacing.sm,
+    fontWeight: "600",
+    marginBottom: 7,
   },
   inputContainer: {
     alignItems: "center",
-    backgroundColor: Colors.bg,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
+    backgroundColor: Colors.appointmentSurface,
+    borderColor: Colors.appointmentBorder,
+    borderRadius: 9,
     borderWidth: 1,
     flexDirection: "row",
     minHeight: 52,
     paddingHorizontal: AppLayout.searchBarPaddingX,
   },
   textInput: {
-    color: Colors.heading,
+    color: Colors.appointmentText,
     flex: 1,
     fontSize: 15,
-    marginLeft: Spacing.sm,
     minHeight: 50,
+  },
+  placeholderText: {
+    color: Colors.appointmentPlaceholder,
+  },
+  selectGroup: {
+    flex: 1,
+    marginBottom: 16,
+  },
+  selectText: {
+    color: Colors.appointmentText,
+    flex: 1,
+    fontSize: 15,
+  },
+  selectBackdrop: {
+    alignItems: "center",
+    backgroundColor: "rgba(0,0,0,0.46)",
+    flex: 1,
+    justifyContent: "center",
+    padding: 24,
+  },
+  selectModal: {
+    backgroundColor: Colors.appointmentSurface,
+    borderRadius: 8,
+    maxHeight: "82%",
+    padding: 16,
+    width: "100%",
+  },
+  selectSearch: {
+    borderColor: Colors.appointmentBorder,
+    borderRadius: 7,
+    borderWidth: 1,
+    color: Colors.appointmentText,
+    fontSize: 15,
+    minHeight: 50,
+    paddingHorizontal: 14,
+  },
+  selectOption: {
+    alignItems: "center",
+    borderBottomColor: Colors.appointmentDivider,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 52,
+  },
+  selectOptionText: {
+    color: Colors.appointmentText,
+    flex: 1,
+    fontSize: 15,
+  },
+  whatsappRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  whatsappText: {
+    color: Colors.appointmentTextSecondary,
+    fontSize: 13,
+  },
+  whatsappAccent: {
+    color: Colors.success,
+    fontWeight: "700",
+  },
+  communicationBlock: {
+    borderTopColor: Colors.appointmentBorder,
+    borderTopWidth: 1,
+    paddingTop: 16,
+  },
+  subsectionTitle: {
+    color: Colors.appointmentText,
+    fontSize: 15,
+    fontWeight: "800",
+    marginBottom: 14,
+  },
+  preferenceGroup: {
+    marginBottom: 12,
+  },
+  preferenceRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  preferenceOption: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    minHeight: 32,
+  },
+  preferenceText: {
+    color: Colors.appointmentText,
+    fontSize: 13,
+  },
+  dateSelectRow: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  dateSelect: {
+    flex: 1,
+    minWidth: 0,
+  },
+  multilineInput: {
+    alignItems: "flex-start",
+    minHeight: 88,
+  },
+  switchField: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 16,
   },
   genderRow: {
     flexDirection: "row",
@@ -493,9 +678,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   genderChip: {
     alignItems: "center",
-    backgroundColor: Colors.bg,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.pill,
+    backgroundColor: Colors.appointmentSurface,
+    borderColor: Colors.appointmentBorder,
+    borderRadius: 8,
     borderWidth: 1,
     flex: 1,
     minHeight: 42,
@@ -503,8 +688,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingHorizontal: Spacing.md,
   },
   genderChipSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
+    backgroundColor: Colors.appointmentAccent,
+    borderColor: Colors.appointmentAccent,
   },
   genderChipText: {
     color: Colors.text2,
@@ -554,11 +739,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   submitButton: {
     alignItems: "center",
-    backgroundColor: Colors.primaryDark,
+    backgroundColor: Colors.appointmentAccent,
     borderRadius: AppRadius.pill,
+    flex: 1.3,
     flexDirection: "row",
     justifyContent: "center",
-    minHeight: 52,
+    minHeight: 58,
     paddingHorizontal: AppLayout.cardPadding,
   },
   submitButtonDisabled: {
@@ -568,6 +754,56 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: "#FFFFFF",
     fontSize: 14,
     fontWeight: "800",
-    marginLeft: Spacing.sm,
+    marginLeft: 0,
+  },
+  sectionHeader: {
+    borderBottomColor: Colors.appointmentBorder,
+    borderBottomWidth: 1,
+    marginBottom: 20,
+    paddingBottom: 14,
+  },
+  sectionTitle: {
+    color: Colors.appointmentText,
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  nameRow: {
+    flexDirection: "row",
+    gap: 14,
+    marginBottom: 16,
+  },
+  nameField: {
+    flex: 1,
+    minWidth: 0,
+  },
+  requiredMark: {
+    color: Colors.appointmentAccent,
+  },
+  countryCode: {
+    color: Colors.appointmentText,
+    fontSize: 14,
+    fontWeight: "800",
+    marginRight: 10,
+  },
+  bottomActions: {
+    alignItems: "center",
+    backgroundColor: Colors.appointmentSurface,
+    borderTopColor: Colors.appointmentDivider,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 28,
+    paddingVertical: 12,
+  },
+  cancelButton: {
+    alignItems: "center",
+    flex: 0.9,
+    justifyContent: "center",
+    minHeight: 58,
+  },
+  cancelButtonText: {
+    color: Colors.appointmentText,
+    fontSize: 16,
+    fontWeight: "900",
   },
 });
