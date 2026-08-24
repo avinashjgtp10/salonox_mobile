@@ -4,7 +4,7 @@ import {
   Search, StarFill, Star, ChevronRight, ChevronDown, ClockHistory,
   GraphUpArrow, People, PersonBadge, CalendarCheck, BoxSeam, Tag, Tags, Megaphone,
   PieChartFill, Bag, Scissors, BarChartLine, Receipt, Award, Wallet2,
-  PersonCircle, PersonCheck, PeopleFill, Droplet, Whatsapp, FileEarmarkBarGraph,
+  PersonCircle, PersonCheck, PeopleFill, PersonLinesFill, Droplet, Whatsapp, FileEarmarkBarGraph,
   CashCoin, PersonCheckFill, Truck, ChatDots, PersonDash, ArrowRepeat, ArrowLeftRight,
   Gift, HourglassSplit, LightningChargeFill,
 } from "react-bootstrap-icons";
@@ -27,6 +27,7 @@ import ServiceSaleReport from "../reports/ServiceSaleReport";
 import RewardReport from "../reports/RewardReport";
 import EwalletReport from "../reports/EwalletReport";
 import ClientRevenueReport from "../reports/ClientRevenueReport";
+import AllClientsReport from "../reports/AllClientsReport";
 import CustomerFrequencyReport from "../reports/CustomerFrequencyReport";
 import LostCustomersReport from "../reports/LostCustomersReport";
 import ServiceFrequencyReport from "../reports/ServiceFrequencyReport";
@@ -96,6 +97,7 @@ const REPORTS: ReportDef[] = [
   { id: "payment_collection",     slug: "payment-collection",     name: "Payment Collection Report",                   description: "Outstanding balances per bill — amount billed, collected and still due, with pending totals and the oldest unpaid date.", category: "payments",     icon: CashCoin,       Component: PaymentCollectionReport },
   { id: "pending_payment",        slug: "pending-payment",        name: "Pending Payment Report",                      description: "Every bill still carrying a due balance — amount due, days pending and the client, staff and method behind it.", category: "payments",     icon: HourglassSplit, Component: PendingPaymentReport },
   { id: "cash_management",        slug: "cash-management",        name: "Cash Management Report",                      description: "Cash counter sessions — opening/closing balances, cash revenue, expenses and reconciliation.", category: "payments",     icon: Wallet2,        Component: CashManagementReport },
+  { id: "all_clients",            slug: "all-clients",            name: "All Clients",                                 description: "Every client's profile details — contact, gender, birthday, address, source and status — with advanced filters. No revenue figures.", category: "customers",    icon: PersonLinesFill, Component: AllClientsReport },
   { id: "client_revenue",         slug: "client-revenue",         name: "Client Revenue",                              description: "Total spend, visit count, average ticket per client, and marketing feedback rating.",              category: "customers",    icon: PersonCircle,   Component: ClientRevenueReport },
   { id: "customer_frequency",     slug: "customer-frequency",     name: "Client Frequency",                            description: "New vs returning clients, with Most/Least Frequent, New, Old and Lost client filters.",           category: "customers",    icon: PeopleFill,     Component: CustomerFrequencyReport },
   { id: "lost_customers",         slug: "lost-customers",         name: "Lost Clients",                                description: "Clients who stopped visiting — set your own inactivity window and filter by last-visit date range.", category: "customers",    icon: PersonDash,     Component: LostCustomersReport },

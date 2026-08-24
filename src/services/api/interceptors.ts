@@ -146,7 +146,10 @@ const SUBSCRIPTION_REQUIRED_CODE = "SUBSCRIPTION_REQUIRED";
 // staff commission endpoints genuinely fall back to this query param when
 // a freshly-registered user's JWT doesn't have salonId yet (e.g. a
 // salon_owner who just registered and hasn't created their salon).
-const SALON_ID_NOT_NEEDED = [/\/clients(\/|\?|$)/, /\/services(\/|\?|$)/, /\/products(\/|\?|$)/];
+// /report/ covers the whole independent reports module (reports.controller.ts)
+// — every one of its ~40 endpoints calls getSalonId(req) exclusively and none
+// ever reads req.query.salon_id, confirmed by grep.
+const SALON_ID_NOT_NEEDED = [/\/clients(\/|\?|$)/, /\/services(\/|\?|$)/, /\/products(\/|\?|$)/, /\/report\//];
 
 // ─── Apply Interceptors ───────────────────────────────────────────────────────
 export const applyInterceptors = (instance: AxiosInstance) => {

@@ -1,0 +1,19 @@
+@use "../styles/reportDetailBase" as *;
+
+.clients-filter-range {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+
+  .form-control {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .clients-filter-range__sep {
+    font-size: 13px;
+    color: #6b7280;
+    flex-shrink: 0;
+  }
+}
