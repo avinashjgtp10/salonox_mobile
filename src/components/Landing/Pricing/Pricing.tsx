@@ -60,7 +60,7 @@ const PURCHASE_PLANS = [
     description: 'For growing business that need advanced digital and multi-branch capabilities.',
     cta: 'Buy Pro',
     badge: '',
-    featured: false,
+    featured: false, 
     premium: true,
     features: [
       'Mobile App',
