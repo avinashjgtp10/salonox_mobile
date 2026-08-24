@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Calendar3, Check2, ChevronDown, ChevronRight } from "react-bootstrap-icons";
 import "./styles/DateRangeFilter.scss";
 
@@ -154,6 +154,19 @@ export default function DateRangeFilter({ value, onChange, className = "" }: Dat
   const [viewYear, setViewYear] = useState(() => new Date().getFullYear());
   const [viewMonth0, setViewMonth0] = useState(() => new Date().getMonth());
   const containerRef = useRef<HTMLDivElement>(null);
+  // The panel jumps from 230px (list) to 570px (custom range) wide and is
+  // anchored left:0 by default — fine for a trigger with room to its right,
+  // but on a trigger sitting near the right edge (e.g. the WhatsApp Marketing
+  // dashboard header) that pushes the calendar off-screen. Flip to
+  // right-aligned whenever the panel would overflow the viewport.
+  //
+  // This is computed from the trigger's position + the panel's intended
+  // width, NOT by measuring the rendered panel itself — measuring the live
+  // panel is self-referential (an already right-aligned panel measures as
+  // "fits", flips back to left:0, and nothing re-checks it afterward since
+  // alignEnd isn't a effect dependency), which is exactly what let the
+  // custom-range calendar overflow after switching out of list mode.
+  const [alignEnd, setAlignEnd] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -168,6 +181,20 @@ export default function DateRangeFilter({ value, onChange, className = "" }: Dat
       document.removeEventListener("keydown", onEscape);
     };
   }, [open]);
+
+  useLayoutEffect(() => {
+    if (!open) { setAlignEnd(false); return; }
+    const PANEL_WIDTH = { list: 230, custom: 570 } as const;
+    const measure = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      const containerLeft = container.getBoundingClientRect().left;
+      setAlignEnd(containerLeft + PANEL_WIDTH[panelMode] > window.innerWidth - 8);
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    return () => window.removeEventListener("resize", measure);
+  }, [open, panelMode]);
 
   const selectPreset = (preset: Exclude<DateRangePreset, "custom">) => {
     onChange({ preset, ...getDateRangePresetValue(preset) });
@@ -249,7 +276,10 @@ export default function DateRangeFilter({ value, onChange, className = "" }: Dat
       </button>
 
       {open && (
-        <div className={`drf-panel${panelMode === "custom" ? " drf-panel--custom" : ""}`} onMouseDown={e => e.stopPropagation()}>
+        <div
+          className={`drf-panel${panelMode === "custom" ? " drf-panel--custom" : ""}${alignEnd ? " drf-panel--align-end" : ""}`}
+          onMouseDown={e => e.stopPropagation()}
+        >
           <div className="drf-list">
             <div className="drf-list__group-label">Quick ranges</div>
             {QUICK_RANGES.map(p => (

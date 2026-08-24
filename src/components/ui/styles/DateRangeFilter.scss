@@ -54,6 +54,8 @@
   overflow: hidden;
 
   &--custom { width: 570px; }
+
+  &--align-end { left: auto; right: 0; }
 }
 
 .drf-list {
