@@ -1477,11 +1477,12 @@ export default function DashboardPage() {
   const goToSales     = useCallback(() => navigate("/dashboard/sales/quick"),      [navigate]);
   const goToMarketing = useCallback(() => navigate("/dashboard/marketing"),        [navigate]);
   const goToStaff     = useCallback(() => navigate("/dashboard/team/members"),     [navigate]);
-  // "Collect Now" on the Pending Payments card — goes to the Detailed
-  // Appointment Report pre-filtered to unpaid/partially-paid appointments,
-  // not the Sales Summary report (which has no pending/unpaid status).
+  // "Collect Now" on the Pending Payments card — goes to the Pending Payment
+  // Report, which lists every bill still carrying a due balance (amount due,
+  // days pending, client/staff/method), instead of the Detailed Appointment
+  // Report or Sales Summary (neither has a due/pending balance view).
   const goToPendingAppointments = useCallback(
-    () => navigate("/reports/appointments/appointment-detail?status=booked,partial"),
+    () => navigate("/reports/payments/pending-payment"),
     [navigate]
   );
 

@@ -33,6 +33,7 @@ import ServiceFrequencyReport from "../reports/ServiceFrequencyReport";
 import CustomerSpendReport from "../reports/CustomerSpendReport";
 import ReferralReport from "../reports/ReferralReport";
 import PaymentCollectionReport from "../reports/PaymentCollectionReport";
+import PendingPaymentReport from "../reports/PendingPaymentReport";
 import CashManagementReport from "../reports/CashManagementReport";
 import ClientRatingReport from "../reports/ClientRatingReport";
 import StaffSalesReport from "../reports/StaffSalesReport";
@@ -93,6 +94,7 @@ const REPORTS: ReportDef[] = [
   { id: "reward",                 slug: "reward",                 name: "Reward",                                      description: "Reward points available and redeemed to date, per client.",                                        category: "sales",        icon: Award,          Component: RewardReport },
   { id: "ewallet",                slug: "ewallet",                name: "Ewallet",                                     description: "Client e-wallet top-ups, deductions and running balance.",                                         category: "sales",        icon: Wallet2,        Component: EwalletReport },
   { id: "payment_collection",     slug: "payment-collection",     name: "Payment Collection Report",                   description: "Outstanding balances per bill — amount billed, collected and still due, with pending totals and the oldest unpaid date.", category: "payments",     icon: CashCoin,       Component: PaymentCollectionReport },
+  { id: "pending_payment",        slug: "pending-payment",        name: "Pending Payment Report",                      description: "Every bill still carrying a due balance — amount due, days pending and the client, staff and method behind it.", category: "payments",     icon: HourglassSplit, Component: PendingPaymentReport },
   { id: "cash_management",        slug: "cash-management",        name: "Cash Management Report",                      description: "Cash counter sessions — opening/closing balances, cash revenue, expenses and reconciliation.", category: "payments",     icon: Wallet2,        Component: CashManagementReport },
   { id: "client_revenue",         slug: "client-revenue",         name: "Client Revenue",                              description: "Total spend, visit count, average ticket per client, and marketing feedback rating.",              category: "customers",    icon: PersonCircle,   Component: ClientRevenueReport },
   { id: "customer_frequency",     slug: "customer-frequency",     name: "Client Frequency",                            description: "New vs returning clients, with Most/Least Frequent, New, Old and Lost client filters.",           category: "customers",    icon: PeopleFill,     Component: CustomerFrequencyReport },
