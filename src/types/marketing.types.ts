@@ -37,55 +37,6 @@ export interface Template {
   createdAt?:       string;
 }
 
-// ── Trigger (Automated) Templates ──────────────────────────────────────────────
-// Fires automatically off a real event (a sale, a booking, a lifecycle date) —
-// as opposed to Campaign Templates, which a salon manually blasts to a list.
-export type PurchaseEventType =
-  | "service_purchased"
-  | "product_purchased"
-  | "membership_purchased"
-  | "package_purchased"
-  | "appointment_reminder_1h"
-  | "thank_you"
-  | "review_request"
-  | "package_expiring_soon"
-  | "sessions_remaining"
-  | "appointment_confirmation"
-  | "appointment_reminder_24h"
-  | "appointment_rescheduled"
-  // Reminders for an appointment booked out of a package sale. Separate from
-  // the generic appointment_reminder_* events so the copy can name the
-  // package and say the visit is already paid for; package-linked
-  // appointments are excluded from the generic sweeps server-side so a
-  // client never gets both for one visit.
-  | "package_appointment_reminder_2d"
-  | "package_appointment_reminder_1d";
-export type TemplateSubmissionStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
-
-// Matches backend AutomationTemplate rows scoped to a salon (wa_automation_templates)
-export interface PurchaseTemplate {
-  id:               EntityId;
-  salon_id:         string;
-  event_type:       PurchaseEventType;
-  template_name:    string;
-  language:         string;
-  is_active:        boolean;
-  status:           TemplateSubmissionStatus;
-  category:         "UTILITY" | "MARKETING";
-  body_text:        string | null;
-  meta_template_id: string | null;
-  rejection_reason: string | null;
-  approved_at:      string | null;
-  created_at:       string;
-  updated_at:       string;
-  has_button?:        boolean;
-  button_text?:        string | null;
-  button_url_base?:    string | null;
-}
-
-export interface PurchaseTemplatesListResponse { data: PurchaseTemplate[]; }
-export interface PurchaseTemplateResponse       { data: PurchaseTemplate;  }
-
 // ── Campaign ──────────────────────────────────────────────────────────────────
 // FIX: Added DRAFT and SENDING which backend actually uses
 export type CampaignStatus = "DRAFT" | "SCHEDULED" | "SENDING" | "RUNNING" | "PAUSED" | "COMPLETED" | "FAILED" | "PENDING";
