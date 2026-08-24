@@ -6,7 +6,7 @@ import {
   XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend,
 } from 'recharts'
-import { Button } from '../../../components/ui'
+import { Button, PageHeader } from '../../../components/ui'
 import '../styles/AnalyticsPage.scss'
 
 type Preset      = '7' | '15' | '30' | '60' | '90' | 'custom'
@@ -116,35 +116,35 @@ export default function AnalyticsPage() {
     <div className="an-page">
 
       {/* Header */}
-      <div className="an-header">
-  <div>
-    <h1 className="an-title">WhatsApp Analytics</h1>
-    <p className="an-sub">Message counts and estimated spend — billed by Meta in ₹ (INR)</p>
-  </div>
-  <div className="an-header-right">
-    <div className="an-pricing-info">
-      <span className={`an-model-badge an-model-badge--${pricingModel.toLowerCase()}`}>
-        {pricingModel === 'PMP' ? '⚡ Per-message pricing' : '💬 Conversation pricing'}
-      </span>
-      <div className="an-pricing-tooltip">
-        <div className="an-pricing-tooltip-row">
-          <span>📢 Marketing</span><span>₹0.88 / msg</span>
-        </div>
-        <div className="an-pricing-tooltip-row">
-          <span>🔧 Utility</span><span>₹0.125 / msg</span>
-        </div>
-        <div className="an-pricing-tooltip-row">
-          <span>🔐 Authentication</span><span>₹0.125 / msg</span>
-        </div>
-        <div className="an-pricing-tooltip-row">
-          <span>💬 Service</span><span>Free</span>
-        </div>
-        <div className="an-pricing-tooltip-note">India rates · billed by Meta</div>
-      </div>
-    </div>
-    <span className="an-delay">Data may have 24-48hr delay</span>
-  </div>
-</div>
+      <PageHeader
+        title="WhatsApp Analytics"
+        subtitle="Message counts and estimated spend — billed by Meta in ₹ (INR)"
+        actions={
+          <>
+            <div className="an-pricing-info">
+              <span className={`an-model-badge an-model-badge--${pricingModel.toLowerCase()}`}>
+                {pricingModel === 'PMP' ? '⚡ Per-message pricing' : '💬 Conversation pricing'}
+              </span>
+              <div className="an-pricing-tooltip">
+                <div className="an-pricing-tooltip-row">
+                  <span>📢 Marketing</span><span>₹0.88 / msg</span>
+                </div>
+                <div className="an-pricing-tooltip-row">
+                  <span>🔧 Utility</span><span>₹0.125 / msg</span>
+                </div>
+                <div className="an-pricing-tooltip-row">
+                  <span>🔐 Authentication</span><span>₹0.125 / msg</span>
+                </div>
+                <div className="an-pricing-tooltip-row">
+                  <span>💬 Service</span><span>Free</span>
+                </div>
+                <div className="an-pricing-tooltip-note">India rates · billed by Meta</div>
+              </div>
+            </div>
+            <span className="an-delay">Data may have 24-48hr delay</span>
+          </>
+        }
+      />
 
       {/* Preset Pills */}
       <div className="an-presets">

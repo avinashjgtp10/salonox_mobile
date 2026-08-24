@@ -18,6 +18,7 @@ export { default as Modal } from "./Modal";
 export { default as ProgressBar } from "./ProgressBar";
 export { default as SplitLayout } from "./SplitLayout";
 export { PageLoader } from "./PageLoader";
+export { default as PageHeader } from "./PageHeader";
 export { default as Select } from "./Select";
 export { default as Skeleton, SkeletonText, SkeletonCard } from "./Skeleton";
 export { default as StatCard } from "./StatCard";

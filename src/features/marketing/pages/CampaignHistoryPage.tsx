@@ -7,7 +7,7 @@ import {
   resumeCampaignThunk,
   resendCampaignThunk,
 } from "../../../middleware/marketing/marketing.thunk";
-import { Button, Badge, Input, DateRangeFilter, Pagination } from "../../../components/ui";
+import { Button, Badge, Input, DateRangeFilter, Pagination, PageHeader } from "../../../components/ui";
 import type { DateRangeFilterValue } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { maskMobile } from "../../../utils/maskMobile";
@@ -256,12 +256,10 @@ export default function CampaignHistoryPage() {
       {overlay}
 
       {/* Header */}
-      <div className="ch-header">
-        <div>
-          <h1 className="ch-title">Campaign History</h1>
-          <p className="ch-sub">Click on a campaign to see contact-level delivery details</p>
-        </div>
-      </div>
+      <PageHeader
+        title="Campaign History"
+        subtitle="Click on a campaign to see contact-level delivery details"
+      />
 
       {/* Summary */}
       <div className="ch-summary">

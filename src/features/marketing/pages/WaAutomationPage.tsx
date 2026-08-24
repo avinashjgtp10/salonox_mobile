@@ -9,7 +9,7 @@ import {
   resetPurchaseTemplateThunk,
   syncPurchaseTemplateThunk,
 } from "../../../middleware/marketing/wa-automation.thunk";
-import { Button, Input, Badge } from "../../../components/ui";
+import { Button, Input, Badge, PageHeader } from "../../../components/ui";
 import type { PurchaseEventType, PurchaseTemplate } from "../../../types/marketing.types";
 import "../styles/WaAutomationPage.scss";
 
@@ -234,16 +234,10 @@ export default function WaAutomationPage() {
   return (
     <div className="wa-auto-page">
       {overlay}
-      <div className="wa-auto-header">
-        <div>
-          <h1 className="wa-auto-title">WA Automation</h1>
-          <p className="wa-auto-sub">
-            Automatic WhatsApp messages sent across your customer journey — purchases, appointment reminders,
-            post-visit follow-ups, and expiry alerts — submitted to Meta under your own WhatsApp Business Account,
-            so it's billed to you, not us.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Automated Messages"
+        subtitle="Automatic WhatsApp messages sent across your customer journey — purchases, appointment reminders, post-visit follow-ups, and expiry alerts. These have their own templates, separate from Campaign Templates, submitted to Meta under your own WhatsApp Business Account, so it's billed to you, not us."
+      />
 
       {allDraft && (
         <div className="wa-auto-banner wa-auto-banner--info">

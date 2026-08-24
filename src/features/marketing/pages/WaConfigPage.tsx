@@ -8,7 +8,7 @@ import {
   deleteWaConfigThunk,
   setAiReceptionistEnabledThunk,
 } from "../../../middleware/marketing/marketing.thunk";
-import { Button, Input, Modal } from "../../../components/ui";
+import { Button, Input, Modal, PageHeader } from "../../../components/ui";
 import { API_ORIGIN } from "../../../services/api/baseUrl";
 import type { SaveWaConfigPayload } from "../../../types/marketing.types";
 import "../styles/WaConfigPage.scss";
@@ -162,10 +162,10 @@ export default function WaConfigPage() {
   return (
     <div className="wac-page">
       {overlay}
-      <div className="wac-page-header">
-        <h1 className="wac-page-title">WhatsApp Configuration</h1>
-        <p className="wac-page-sub">Connect your Meta Cloud API credentials to enable WhatsApp messaging</p>
-      </div>
+      <PageHeader
+        title="WhatsApp Configuration"
+        subtitle="Connect your Meta Cloud API credentials to enable WhatsApp messaging"
+      />
 
       {/* ── Status banner ── */}
       <div className={`wac-banner ${config?.isVerified ? "verified" : "unverified"}`}>
