@@ -13,7 +13,6 @@ const CreateCampaignPage     = lazy(() => import("../features/marketing/pages/Cr
 const CampaignHistoryPage    = lazy(() => import("../features/marketing/pages/CampaignHistoryPage"));
 const InboxPage              = lazy(() => import("../features/marketing/pages/InboxPage"));
 const WaConfigPage           = lazy(() => import("../features/marketing/pages/WaConfigPage"));
-const WaAutomationPage       = lazy(() => import("../features/marketing/pages/WaAutomationPage"));
 
 export const MarketingRoutes = () => {
   const dispatch = useAppDispatch();
@@ -60,7 +59,6 @@ export const MarketingRoutes = () => {
         <Route path="campaigns/create"  element={<CreateCampaignPage />} />
         <Route path="campaigns/history" element={<CampaignHistoryPage />} />
         <Route path="inbox"             element={<InboxPage />} />
-        <Route path="wa-automation"     element={<WaAutomationPage />} />
         <Route path="config"            element={<WaConfigPage />} />
         <Route path="*"                 element={<Navigate to="/dashboard/marketing" replace />} />
       </Routes>
