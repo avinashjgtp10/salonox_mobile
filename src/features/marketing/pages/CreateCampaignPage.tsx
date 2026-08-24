@@ -5,7 +5,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchTemplatesThunk, createCampaignThunk } from "../../../middleware/marketing/marketing.thunk";
 import { fetchClientsThunk } from "../../../middleware/client/client.thunk";
 import { ExcelUpload } from "../components";
-import { Button, Input } from "../../../components/ui";
+import { Button, Input, PageHeader } from "../../../components/ui";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useOnce } from "../../../hooks/useOnce";
 import { toTitleCase } from "../../../utils/titleCase";
@@ -345,12 +345,10 @@ const hasAnyFilter =
   return (
     <div className="cc-page cc-page--split">
       {overlay}
-      <div className="cc-header">
-        <div>
-          <h1 className="cc-title">New Campaign</h1>
-          <p className="cc-sub">Send a bulk WhatsApp campaign to your contacts</p>
-        </div>
-      </div>
+      <PageHeader
+        title="New Campaign"
+        subtitle="Send a bulk WhatsApp campaign to your contacts"
+      />
 
       <div className="cc-steps">
         {STEPS.map((s, i) => (
@@ -628,8 +626,13 @@ const hasAnyFilter =
 
                     <div className="cc-sf-header">
                       <div>
-                        <div className="cc-sf-title">Smart Filter</div>
-                        <div className="cc-sf-sub">Filter your salon clients and load them as campaign contacts</div>
+                        <div className="cc-sf-title">
+                          Smart Filter <span className="cc-sf-beta-badge">Beta</span>
+                        </div>
+                        <div className="cc-sf-sub">
+                          Filter your salon clients and load them as campaign contacts. Results can be
+                          inconsistent for some filter combinations — double-check the loaded count before sending.
+                        </div>
                       </div>
                       {hasAnyFilter && (
                         <button className="cc-sf-reset" onClick={() => {

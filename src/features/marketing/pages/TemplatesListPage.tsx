@@ -8,7 +8,7 @@ import {
   syncTemplateThunk,
 } from "../../../middleware/marketing/marketing.thunk";
 import { TemplateCard } from "../components";
-import { Button, Input, Modal } from "../../../components/ui";
+import { Button, Input, Modal, PageHeader } from "../../../components/ui";
 import "../styles/TemplatesListPage.scss";
 
 type StatusFilter = "ALL" | "APPROVED" | "PENDING" | "REJECTED" | "FAVORITE";
@@ -163,15 +163,15 @@ export default function TemplatesListPage() {
       {overlay}
 
       {/* Header */}
-      <div className="tl-header">
-        <div>
-          <h1 className="tl-title">WhatsApp Templates</h1>
-          <p className="tl-sub">Manage your message templates for campaigns</p>
-        </div>
-        <Button variant="primary" onClick={() => navigate("/dashboard/marketing/templates/create")}>
-          + New Template
-        </Button>
-      </div>
+      <PageHeader
+        title="Campaign Templates"
+        subtitle="Approved WhatsApp templates used by Blast Campaigns — Automated Messages has its own separate set."
+        actions={
+          <Button variant="primary" onClick={() => navigate("/dashboard/marketing/templates/create")}>
+            + New Template
+          </Button>
+        }
+      />
 
       {/* Auto-sync banner */}
       {hasPending && (
