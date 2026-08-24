@@ -35,6 +35,7 @@ interface UnitConversionDraft {
 }
 
 const MIN_SEARCH_LENGTH = 2;
+const MAX_NAME_LENGTH = 100;
 
 const PRODUCT_TYPE_OPTIONS: { value: ProductType; label: string }[] = [
   { value: "retail", label: "Retail" },
@@ -284,7 +285,11 @@ const ProductFormPage: React.FC = () => {
   const avgUsage = usageStats?.average_per_service ?? 0;
   const estimatedServices = avgUsage > 0 ? Math.floor(totalAvailable / avgUsage) : null;
 
-  const nameError = submitAttempted && !name.trim() ? "Product name is required" : "";
+  const nameError = submitAttempted && !name.trim()
+    ? "Product name is required"
+    : name.length > MAX_NAME_LENGTH
+      ? `Product name must be ${MAX_NAME_LENGTH} characters or fewer`
+      : "";
   const categoryError = submitAttempted && !categoryId ? "Category is required" : "";
   const qtyError = submitAttempted && (!productQty || qtyNum < 0) ? "Product quantity is required" : "";
   const unitSizeError = submitAttempted && isConsumable && !unitSize ? "Unit size is required" : "";
@@ -304,7 +309,7 @@ const ProductFormPage: React.FC = () => {
   const isExpiryInPast = !!expiryDate && expiryDate < todayIso;
   const expiryDateError = submitAttempted && !isEdit && isExpiryInPast
     ? "Expiry date cannot be in the past" : "";
-  const isValid = !!name.trim() && !!categoryId && !!productQty && qtyNum >= 0
+  const isValid = !!name.trim() && name.length <= MAX_NAME_LENGTH && !!categoryId && !!productQty && qtyNum >= 0
     && (!isConsumable || !!unitSize) && (!sellsRetail || (!!retailPrice && parseFloat(retailPrice) > 0))
     && !(qtyAlert.trim() !== "" && qtyNum > 0 && alertNum >= qtyNum)
     && !(!isEdit && isExpiryInPast);
@@ -413,8 +418,17 @@ const ProductFormPage: React.FC = () => {
           <h3>Basic Information</h3>
           <div className="cf-field">
             <label>Product Name *</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} />
-            {nameError && <span className="cf-field__error">{nameError}</span>}
+            <input
+              value={name}
+              maxLength={MAX_NAME_LENGTH}
+              onChange={(e) => setName(e.target.value)}
+            />
+            <div className="cf-field__footer">
+              {nameError && <span className="cf-field__error">{nameError}</span>}
+              <span className={`cf-char-count${name.length >= MAX_NAME_LENGTH ? " cf-char-count--max" : ""}`}>
+                {name.length}/{MAX_NAME_LENGTH}
+              </span>
+            </div>
           </div>
           <div className="cf-field">
             <label>Barcode (Optional)</label>

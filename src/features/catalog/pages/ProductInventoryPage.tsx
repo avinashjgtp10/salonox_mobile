@@ -1,14 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
 import {
   Search, PlusLg, X, BoxSeam, ClockHistory, ThreeDotsVertical,
-  FileEarmarkExcel, FileEarmarkPdf, FiletypeCsv,
+  FileEarmarkExcel, FileEarmarkPdf, FiletypeCsv, PencilSquare, Trash,
 } from "react-bootstrap-icons";
 import { Dropdown } from "react-bootstrap";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { selectCurrentSalon, selectUserProfile } from "../../../store/selectors/slices.selectors";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import type { AppDispatch } from "../../../store/store";
+import { deleteProductThunk } from "../../../middleware/catalog/products.thunk";
 import Pagination from "../../../components/ui/Pagination";
 import { JiraFilterMenu } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
@@ -112,6 +115,8 @@ const fmtDateTime = (value?: string | null) => {
 };
 
 export default function ProductInventoryPage() {
+  const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const currentSalon = useSelector(selectCurrentSalon);
   const userProfile = useSelector(selectUserProfile);
   const { showSuccess, showError, overlay } = useStatusOverlay();
@@ -134,6 +139,9 @@ export default function ProductInventoryPage() {
   const [stockInFor, setStockInFor] = useState<InventoryRow | null>(null);
   const [historyFor, setHistoryFor] = useState<InventoryRow | "all" | null>(null);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<InventoryRow | null>(null);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Debounced so typing a product name doesn't fire a request per keystroke
   // against a 5,000-row table.
@@ -224,6 +232,22 @@ export default function ProductInventoryPage() {
   }, [fetchAllForExport, currentSalon, userProfile, filterSummary, showSuccess, showError]);
 
   const handleClearSearch = () => setSearch("");
+
+  const handleDeleteProduct = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await dispatch(deleteProductThunk(deleteTarget.id)).unwrap();
+      showSuccess(`${deleteTarget.name} deleted`);
+      setDeleteTarget(null);
+      setDeleteInput("");
+      load();
+    } catch (err: any) {
+      showError(typeof err === "string" ? err : "Couldn't delete product");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "category", label: "Category", searchable: true, options: categories.map((c) => ({ id: String(c.id), label: String(c.name) })) },
@@ -435,6 +459,19 @@ export default function ProductInventoryPage() {
                           >
                             <ClockHistory size={14} /> History
                           </Dropdown.Item>
+                          <Dropdown.Divider className="my-2" />
+                          <Dropdown.Item
+                            onClick={() => navigate(`/dashboard/catalog/products/edit/${r.id}`)}
+                            className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+                          >
+                            <PencilSquare size={14} /> Edit
+                          </Dropdown.Item>
+                          <Dropdown.Item
+                            onClick={() => { setDeleteTarget(r); setDeleteInput(""); }}
+                            className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger"
+                          >
+                            <Trash size={14} /> Delete
+                          </Dropdown.Item>
                         </Dropdown.Menu>
                       </Dropdown>
                     </td>
@@ -503,6 +540,40 @@ export default function ProductInventoryPage() {
             setRows((prev) => prev.map((r) => byId.get(r.id) ?? r));
           }}
         />
+      )}
+
+      {deleteTarget && (
+        <Modal
+          show
+          onClose={() => setDeleteTarget(null)}
+          title="Delete product?"
+          footer={
+            <div className="d-flex flex-column gap-2 w-100">
+              <Button
+                variant="danger"
+                fullWidth
+                disabled={deleteInput !== "DELETE" || isDeleting}
+                loading={isDeleting}
+                onClick={handleDeleteProduct}
+              >
+                Delete
+              </Button>
+              <Button variant="outline-dark" fullWidth onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
+                Cancel
+              </Button>
+            </div>
+          }
+        >
+          <p className="text-muted small mb-4">
+            Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This operation can't be undone.
+          </p>
+          <Input
+            label="Type DELETE to confirm"
+            placeholder="DELETE"
+            value={deleteInput}
+            onChange={(e) => setDeleteInput(e.target.value)}
+          />
+        </Modal>
       )}
     </div>
   );
