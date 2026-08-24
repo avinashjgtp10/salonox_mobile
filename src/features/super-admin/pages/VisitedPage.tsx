@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchSuperAdminSalonsThunk, fetchSuperAdminUsersThunk, forceOnboardingThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
+import { fetchSuperAdminSalonsThunk, fetchSuperAdminUsersThunk, forceOnboardingThunk, deleteUserThunk } from "../../../middleware/superAdmin/superAdmin.thunk";
 import Pagination from "../components/Pagination";
 
 const fmtDateShort = (iso?: string | null) =>
@@ -28,6 +28,39 @@ function Toast({ msg, ok }: { msg: string; ok: boolean }) {
   );
 }
 
+function ConfirmDeleteAccountModal({ ownerName, ownerEmail, onConfirm, onCancel, loading }: { ownerName: string; ownerEmail: string; onConfirm: () => void; onCancel: () => void; loading: boolean }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "#fff", borderRadius: 14, padding: "28px 32px", maxWidth: 420, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.18)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 16 }}>
+          <div style={{ width: 40, height: 40, borderRadius: "50%", background: "#fef2f2", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#dc2626" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a" }}>Delete Account</div>
+            <div style={{ color: "#64748b", fontSize: 12.5, marginTop: 2 }}>This action cannot be undone</div>
+          </div>
+        </div>
+        <p style={{ margin: "0 0 24px", color: "#374151", fontSize: 13.5, lineHeight: 1.6 }}>
+          Are you sure you want to delete the account for <strong style={{ color: "#0f172a" }}>{ownerName || ownerEmail}</strong>? This only deletes the login — if this person owns a salon, delete the salon first.
+        </p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <button onClick={onCancel} disabled={loading}
+            style={{ padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, border: "1.5px solid #e2e8f0", background: "#fff", color: "#374151", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}>
+            Cancel
+          </button>
+          <button onClick={onConfirm} disabled={loading}
+            style={{ padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, border: "none", background: "#dc2626", color: "#fff", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}>
+            {loading ? "Deleting…" : "Delete Account"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function VisitedPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -37,6 +70,8 @@ export default function VisitedPage() {
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
   const [page, setPage] = useState(1);
   const [perPage, setPerPage] = useState(20);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string; email: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   const load = useCallback((q?: string) => { dispatch(fetchSuperAdminSalonsThunk(q)); }, [dispatch]);
   useEffect(() => { load(); dispatch(fetchSuperAdminUsersThunk({})); }, [load, dispatch]);
@@ -67,9 +102,34 @@ export default function VisitedPage() {
     setActionId(null);
   }
 
+  async function handleDeleteAccount() {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    const r = await dispatch(deleteUserThunk({ id: deleteTarget.id }));
+    if (deleteUserThunk.fulfilled.match(r)) {
+      showToast(`Account for "${deleteTarget.name || deleteTarget.email}" deleted.`);
+      dispatch(fetchSuperAdminUsersThunk({}));
+    } else {
+      // Backend blocks with 409 USER_OWNS_SALON when this login still owns a
+      // salon — surface that reason instead of a generic failure message.
+      showToast(r.payload?.message || "Failed to delete account.", false);
+    }
+    setDeleteLoading(false);
+    setDeleteTarget(null);
+  }
+
   return (
     <div style={{ padding: "28px 28px 40px", fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
       {toast && <Toast {...toast} />}
+      {deleteTarget && (
+        <ConfirmDeleteAccountModal
+          ownerName={deleteTarget.name}
+          ownerEmail={deleteTarget.email}
+          onConfirm={handleDeleteAccount}
+          onCancel={() => setDeleteTarget(null)}
+          loading={deleteLoading}
+        />
+      )}
 
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
         <div>
@@ -139,12 +199,20 @@ export default function VisitedPage() {
                         : <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11.5, fontWeight: 600, background: "#fffbeb", color: "#d97706" }}>⚠ Pending</span>}
                     </td>
                     <td style={{ padding: "13px 16px" }} onClick={(e) => e.stopPropagation()}>
-                      {!s.is_onboarding_complete && (
-                        <button onClick={() => handleForceComplete(s.id)} disabled={actionId === s.id}
-                          style={{ padding: "5px 11px", borderRadius: 7, fontSize: 11.5, fontWeight: 600, border: "1.5px solid #d97706", cursor: actionId === s.id ? "not-allowed" : "pointer", background: "#fffbeb", color: "#d97706", opacity: actionId === s.id ? 0.5 : 1, whiteSpace: "nowrap" }}>
-                          Force Complete
-                        </button>
-                      )}
+                      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                        {!s.is_onboarding_complete && (
+                          <button onClick={() => handleForceComplete(s.id)} disabled={actionId === s.id}
+                            style={{ padding: "5px 11px", borderRadius: 7, fontSize: 11.5, fontWeight: 600, border: "1.5px solid #d97706", cursor: actionId === s.id ? "not-allowed" : "pointer", background: "#fffbeb", color: "#d97706", opacity: actionId === s.id ? 0.5 : 1, whiteSpace: "nowrap" }}>
+                            Force Complete
+                          </button>
+                        )}
+                        {owner && (
+                          <button onClick={() => setDeleteTarget({ id: owner.id, name: owner.name ?? "", email: owner.email ?? s.owner_email ?? "" })}
+                            style={{ padding: "5px 11px", borderRadius: 7, fontSize: 11.5, fontWeight: 600, border: "1.5px solid #dc2626", cursor: "pointer", background: "#fef2f2", color: "#dc2626", whiteSpace: "nowrap" }}>
+                            Delete Account
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

@@ -1,6 +1,6 @@
 import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
 
-function decodeJwt(token: string): { role: string | null; salonId: string | null } {
+function decodeJwt(token: string): { role: string | null; salonId: string | null; expiresAt: number | null } {
   try {
     const payload = token.split(".")[1];
     const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
@@ -9,9 +9,12 @@ function decodeJwt(token: string): { role: string | null; salonId: string | null
     return {
       role:    decoded?.role     ?? null,
       salonId: decoded?.salonId  ?? decoded?.salon_id ?? null,
+      // JWT `exp` is seconds since epoch; convert to ms so it lines up with
+      // Date.now() for the proactive-refresh scheduler in interceptors.ts.
+      expiresAt: typeof decoded?.exp === "number" ? decoded.exp * 1000 : null,
     };
   } catch {
-    return { role: null, salonId: null };
+    return { role: null, salonId: null, expiresAt: null };
   }
 }
 import {
@@ -42,6 +45,9 @@ export interface AuthLoadingState {
 export interface AuthState {
   accessToken: string | null;
   refreshToken: string | null;
+  // ms epoch the current accessToken's JWT `exp` claim resolves to — read by
+  // interceptors.ts to schedule a refresh before expiry, not just after a 401.
+  accessTokenExpiresAt: number | null;
   isOnboardingComplete: boolean;
   role: string | null;
   salonId: string | null;
@@ -53,6 +59,7 @@ export interface AuthState {
 const initialState: AuthState = {
   accessToken: null,
   refreshToken: null,
+  accessTokenExpiresAt: null,
   isOnboardingComplete: false,
   role: null,
   salonId: null,
@@ -90,6 +97,7 @@ const authSlice = createSlice({
       const jwt = decodeJwt(accessToken);
       state.role    = jwt.role;
       state.salonId = jwt.salonId;
+      state.accessTokenExpiresAt = jwt.expiresAt;
     },
 
     updateToken(state, action: PayloadAction<string>) {
@@ -97,6 +105,7 @@ const authSlice = createSlice({
       const jwt = decodeJwt(action.payload);
       state.role    = jwt.role;
       state.salonId = jwt.salonId;
+      state.accessTokenExpiresAt = jwt.expiresAt;
     },
 
     updateOnboardingStatus(state, action: PayloadAction<boolean>) {
@@ -110,6 +119,7 @@ const authSlice = createSlice({
     logout(state) {
       state.accessToken = null;
       state.refreshToken = null;
+      state.accessTokenExpiresAt = null;
       state.isOnboardingComplete = false;
       state.role = null;
       state.salonId = null;
@@ -138,6 +148,7 @@ const authSlice = createSlice({
         state.role    = payload.user?.role    ?? jwt.role;
         state.salonId = payload.user?.salonId ?? jwt.salonId;
         state.custom_permissions = payload.user?.custom_permissions ?? null;
+        state.accessTokenExpiresAt = jwt.expiresAt;
       })
       .addCase(loginThunk.rejected, (state, { payload }) => {
         state.loading.login = false;
@@ -154,10 +165,12 @@ const authSlice = createSlice({
         const jwt = decodeJwt(payload);
         state.role    = jwt.role;
         state.salonId = jwt.salonId;
+        state.accessTokenExpiresAt = jwt.expiresAt;
       })
       .addCase(refreshSessionThunk.rejected, (state) => {
         state.accessToken = null;
         state.refreshToken = null;
+        state.accessTokenExpiresAt = null;
         state.isOnboardingComplete = false;
         state.error = null;
       });
@@ -173,6 +186,7 @@ const authSlice = createSlice({
         state.accessToken = payload.accessToken;
         state.refreshToken = payload.refreshToken;
         state.isOnboardingComplete = payload.isOnboardingComplete;
+        state.accessTokenExpiresAt = decodeJwt(payload.accessToken).expiresAt;
       })
       .addCase(registerThunk.rejected, (state, { payload }) => {
         state.loading.register = false;
