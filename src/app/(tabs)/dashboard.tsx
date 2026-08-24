@@ -14,6 +14,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppLayout } from "@/constants/layout";
 import AppointmentsList from "@/components/dashboard/AppointmentsList";
 import DashboardHero from "@/components/dashboard/DashboardHero";
+import { DashboardNotificationsModal } from "@/components/dashboard/DashboardNotificationsModal";
 import { DashboardSideDrawer } from "@/components/dashboard/DashboardSideDrawer";
 import DashboardStatTiles from "@/components/dashboard/DashboardStatTiles";
 import QuickActions from "@/components/dashboard/QuickActions";
@@ -67,6 +68,7 @@ export default function DashboardScreen() {
   const didRunStartupFetchRef = useRef(false);
   const didHandleInitialFocusRef = useRef(false);
   const [isQuickActionsDrawerOpen, setIsQuickActionsDrawerOpen] = useState(false);
+  const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
   const dashboardError = useAppSelector(selectDashboardError);
   const isDashboardLoading = useAppSelector(selectDashboardIsLoading);
   const isDashboardRefreshing = useAppSelector(selectDashboardRefreshing);
@@ -298,7 +300,7 @@ export default function DashboardScreen() {
           </View>
         ) : (
           <>
-            <DashboardHero onOpenQuickActions={() => setIsQuickActionsDrawerOpen(true)} />
+            <DashboardHero onOpenNotifications={() => setIsNotificationsModalOpen(true)} onOpenQuickActions={() => setIsQuickActionsDrawerOpen(true)} />
             <View style={styles.summaryBlock}>
               <DashboardStatTiles />
             </View>
@@ -318,6 +320,7 @@ export default function DashboardScreen() {
         onClose={() => setIsQuickActionsDrawerOpen(false)}
         visible={isQuickActionsDrawerOpen}
       />
+      <DashboardNotificationsModal onClose={() => setIsNotificationsModalOpen(false)} visible={isNotificationsModalOpen} />
       <AttendanceToast />
     </SafeAreaView>
   );
@@ -325,21 +328,21 @@ export default function DashboardScreen() {
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
-    backgroundColor: Colors.bg,
+    backgroundColor: Colors.dashboardSurface,
     flex: 1,
   },
   content: {
-    backgroundColor: Colors.bg,
+    backgroundColor: Colors.dashboardSurface,
     paddingBottom: AppLayout.contentBottomPadding,
   },
   sectionBlock: {
-    marginTop: 22,
+    marginTop: 16,
   },
   summaryBlock: {
-    marginTop: 8,
+    marginTop: 0,
   },
   stickyActions: {
-    backgroundColor: Colors.bg,
+    backgroundColor: Colors.dashboardSurface,
     zIndex: 10,
   },
   errorWrap: {

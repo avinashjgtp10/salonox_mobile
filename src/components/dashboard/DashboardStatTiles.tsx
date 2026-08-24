@@ -63,6 +63,8 @@ export default function DashboardStatTiles() {
     () => [
       {
         accent: "blue" as const,
+        bg: Colors.dashboardRevenueBg,
+        color: Colors.dashboardRevenueAccent,
         icon: "cash-outline" as const,
         label: "This Month Revenue",
         route: "/sales" as Href,
@@ -71,6 +73,8 @@ export default function DashboardStatTiles() {
       },
       {
         accent: "sky" as const,
+        bg: Colors.dashboardAppointmentBg,
+        color: Colors.dashboardAppointmentAccent,
         icon: "trending-up-outline" as const,
         label: "Today's Revenue",
         route: "/sales" as Href,
@@ -78,6 +82,8 @@ export default function DashboardStatTiles() {
       },
       {
         accent: "indigo" as const,
+        bg: Colors.dashboardClientBg,
+        color: Colors.dashboardClientAccent,
         icon: "people-outline" as const,
         label: "Total Clients",
         route: "/clients" as Href,
@@ -85,6 +91,8 @@ export default function DashboardStatTiles() {
       },
       {
         accent: "green" as const,
+        bg: Colors.dashboardWarningBg,
+        color: Colors.dashboardWarningAccent,
         icon: "calendar-outline" as const,
         label: "Bookings",
         route: "/bookings" as Href,
@@ -92,6 +100,8 @@ export default function DashboardStatTiles() {
       },
       {
         accent: "blue" as const,
+        bg: Colors.dashboardCard,
+        color: Colors.dashboardRevenueAccent,
         currentMonthRevenue: dashboardMetrics.monthlyRevenue,
         icon: "analytics-outline" as const,
         kind: "revenueComparison" as const,
@@ -101,6 +111,7 @@ export default function DashboardStatTiles() {
       },
     ],
     [
+      Colors,
       dashboardMetrics.bookings,
       dashboardMetrics.lastMonthRevenue,
       dashboardMetrics.monthlyRevenue,
@@ -115,7 +126,8 @@ export default function DashboardStatTiles() {
       {ownerKpis.map((stat) => {
         const tileStyle = [
           styles.tile,
-          stat.kind === "revenueComparison" && styles.comparisonTile,
+          { backgroundColor: stat.bg, borderColor: stat.color },
+          "kind" in stat && stat.kind === "revenueComparison" && styles.comparisonTile,
         ];
 
         const tileContent = (
@@ -130,9 +142,12 @@ export default function DashboardStatTiles() {
             </>
           ) : (
             <>
-              <IconBadge accent={stat.accent} icon={stat.icon} size={isCompact ? "sm" : "md"} />
+              <View style={styles.tileTopRow}>
+                <IconBadge accent={stat.accent} icon={stat.icon} size={isCompact ? "sm" : "md"} />
+                <View style={[styles.accentBar, { backgroundColor: stat.color }]} />
+              </View>
               <View style={styles.copy}>
-                {stat.kind === "revenueComparison" ? (
+                {"kind" in stat && stat.kind === "revenueComparison" ? (
                   <>
                     <Text numberOfLines={1} style={styles.stockTitle}>
                       {stat.label}
@@ -185,8 +200,7 @@ export default function DashboardStatTiles() {
                   </>
                 ) : (
                   <>
-                    <Text style={styles.label}>{stat.label}</Text>
-                    <View style={styles.titleDivider} />
+                    <Text style={[styles.label, { color: stat.color }]}>{stat.label}</Text>
                     <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={styles.value}>
                       {stat.value}
                     </Text>
@@ -231,29 +245,41 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
   row: {
     flexWrap: "wrap",
     flexDirection: "row",
-    gap: 14,
-    paddingHorizontal: 20,
+    gap: 10,
+    paddingHorizontal: 14,
   },
   tile: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
+    alignItems: "flex-start",
+    backgroundColor: Colors.dashboardCard,
     borderColor: Colors.border,
-    borderRadius: 22,
+    borderRadius: 14,
     borderWidth: 1,
     flexBasis: "47%",
     flexGrow: 1,
     flexDirection: "column",
-    gap: isCompact ? 9 : 10,
-    justifyContent: "center",
-    minHeight: isCompact ? 156 : 170,
+    gap: isCompact ? 8 : 10,
+    justifyContent: "space-between",
+    minHeight: isCompact ? 118 : 128,
     minWidth: 0,
-    paddingHorizontal: isCompact ? 12 : 16,
-    paddingVertical: isCompact ? 16 : 20,
+    paddingHorizontal: isCompact ? 12 : 14,
+    paddingVertical: isCompact ? 13 : 15,
     shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 18,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  tileTopRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  accentBar: {
+    borderRadius: 999,
+    height: 26,
+    opacity: 0.28,
+    width: 4,
   },
   stockTile: {
     alignItems: "center",
@@ -261,37 +287,38 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     justifyContent: "center",
   },
   comparisonTile: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexBasis: "100%",
     flexDirection: "column",
     justifyContent: "center",
-    minHeight: isCompact ? 148 : 164,
+    minHeight: isCompact ? 154 : 168,
   },
   copy: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flex: 0,
     minWidth: 0,
     width: "100%",
   },
   value: {
     color: Colors.heading,
-    fontSize: isCompact ? 25 : 30,
-    fontWeight: "800",
+    fontSize: isCompact ? 23 : 27,
+    fontWeight: "900",
     includeFontPadding: false,
     lineHeight: isCompact ? 32 : 38,
-    marginTop: isCompact ? 4 : 6,
-    textAlign: "center",
+    marginTop: isCompact ? 8 : 10,
+    textAlign: "left",
   },
   label: {
-    color: Colors.heading,
-    fontSize: isCompact ? 14 : 16,
-    fontWeight: "800",
+    color: Colors.text2,
+    fontSize: isCompact ? 11 : 12,
+    fontWeight: "900",
     letterSpacing: 0,
     lineHeight: isCompact ? 18 : 20,
-    marginTop: isCompact ? 4 : 6,
-    minHeight: isCompact ? 36 : 40,
-    textAlign: "center",
+    marginTop: isCompact ? 8 : 10,
+    minHeight: 0,
+    textAlign: "left",
     textAlignVertical: "center",
+    textTransform: "uppercase",
   },
   subtitle: {
     color: Colors.text2,
@@ -299,7 +326,7 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     fontWeight: Typography.fontWeights.semibold,
     lineHeight: isCompact ? 14 : 16,
     marginTop: isCompact ? 5 : 6,
-    textAlign: "center",
+    textAlign: "left",
   },
   subtitlePlaceholder: {
     opacity: 0,
@@ -309,7 +336,7 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     height: 1,
     marginTop: isCompact ? 8 : 10,
     opacity: 0.85,
-    width: "86%",
+    width: "100%",
   },
   stockTitle: {
     color: Colors.heading,
