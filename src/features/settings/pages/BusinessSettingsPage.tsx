@@ -24,6 +24,7 @@ import api from "../../../services/api/axios";
 import type { Salon, UpdateSalonPayload } from "../../../types/salon.types";
 import { TAX_ID_MESSAGES } from "../../../constants/message";
 import { toTitleCase } from "../../../utils/titleCase";
+import { resolveMediaUrl } from "../../../utils/mediaUrl";
 
 const GSTIN_LENGTH = 15;
 const PAN_LENGTH = 10;
@@ -33,21 +34,6 @@ const PAN_FORMAT_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
 
 const MAX_LOGO_SIZE = 2 * 1024 * 1024;
 const ALLOWED_LOGO_TYPES = ["image/jpeg", "image/png"];
-
-// Strip an absolute localhost origin (as returned by the API) down to a
-// relative path, so the Vite dev proxy serves it instead of the browser
-// trying to hit the backend's own port directly. Same fix as the logo
-// upload in MarketplaceProfilePage.
-function toRelativeUrl(u?: string | null) {
-  if (!u) return "";
-  try {
-    const p = new URL(u);
-    if (p.hostname === "localhost") return p.pathname + p.search;
-  } catch {
-    // already relative
-  }
-  return u;
-}
 
 type BusinessForm = Omit<UpdateSalonPayload, "phone" | "address">;
 type FormErrors = Partial<Record<"gst_number" | "pan_number", string>>;
@@ -102,6 +88,7 @@ export default function BusinessSettingsPage() {
 
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false);
   const logoFileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -218,7 +205,7 @@ export default function BusinessSettingsPage() {
     const result = await dispatch(
       updateSalonThunk({
         id: currentSalon.id,
-        payload: { ...form, business_name: toTitleCase(form.business_name.trim()) },
+        payload: { ...form, business_name: toTitleCase((form.business_name ?? "").trim()) },
       })
     );
     setSaving(false);
@@ -267,9 +254,10 @@ export default function BusinessSettingsPage() {
       const saved = res.data?.data ?? res.data ?? {};
       const uploadedLogoUrl =
         typeof saved.logo_url === "string" && saved.logo_url.trim()
-          ? toRelativeUrl(saved.logo_url)
+          ? resolveMediaUrl(saved.logo_url)
           : localPreviewUrl;
       setLogoPreviewUrl(uploadedLogoUrl);
+      setLogoLoadFailed(false);
       void dispatch(getMySalonThunk());
       showSuccess("Business logo updated!");
     } catch (err: unknown) {
@@ -277,7 +265,7 @@ export default function BusinessSettingsPage() {
       URL.revokeObjectURL(localPreviewUrl);
       const msg =
         err && typeof err === "object"
-          ? ((err as { response?: { data?: { message?: unknown } } }).response?.data?.message ?? "Logo upload failed.")
+          ? String((err as { response?: { data?: { message?: unknown } } }).response?.data?.message ?? "Logo upload failed.")
           : "Logo upload failed.";
       showError(msg);
     } finally {
@@ -292,6 +280,7 @@ export default function BusinessSettingsPage() {
     const previousPreviewUrl = logoPreviewUrl;
     if (previousPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(previousPreviewUrl);
     setLogoPreviewUrl("");
+    setLogoLoadFailed(false);
     setLogoUploading(true);
 
     const result = await dispatch(
@@ -320,7 +309,9 @@ export default function BusinessSettingsPage() {
     .join("")
     .toUpperCase()
     .slice(0, 2);
-  const displayLogoUrl = logoPreviewUrl || toRelativeUrl(currentSalon?.logo_url) || "";
+  const displayLogoUrl = logoLoadFailed
+    ? ""
+    : logoPreviewUrl || resolveMediaUrl(currentSalon?.logo_url) || "";
 
   return (
     <>
@@ -385,7 +376,12 @@ export default function BusinessSettingsPage() {
               style={{ cursor: logoUploading ? "default" : "pointer" }}
             >
               {displayLogoUrl ? (
-                <img src={displayLogoUrl} alt="Business logo" />
+                <img
+                  src={displayLogoUrl}
+                  alt="Business logo"
+                  onLoad={() => setLogoLoadFailed(false)}
+                  onError={() => setLogoLoadFailed(true)}
+                />
               ) : (
                 <span>{logoInitials}</span>
               )}
