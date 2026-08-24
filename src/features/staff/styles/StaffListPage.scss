@@ -340,7 +340,7 @@ $radius: 12px;
 
 .slp-table-header {
   display: grid;
-  grid-template-columns: 44px 2fr 1.6fr 1.2fr 110px 100px;
+  grid-template-columns: 44px 2fr 110px 1.6fr 1.2fr 110px 100px;
   padding: 13px 20px;
   background: #fafbfc;
   border-bottom: 1px solid $border;
@@ -355,7 +355,7 @@ $radius: 12px;
 
 .slp-table-row {
   display: grid;
-  grid-template-columns: 44px 2fr 1.6fr 1.2fr 110px 100px;
+  grid-template-columns: 44px 2fr 110px 1.6fr 1.2fr 110px 100px;
   padding: 14px 20px;
   border-bottom: 1px solid #f3f4f6;
   align-items: center;
@@ -377,6 +377,8 @@ $radius: 12px;
 // Columns
 .slp-col-check { display: flex; align-items: center; }
 .slp-col-member { display: flex; align-items: center; gap: 12px; }
+.slp-col-code { display: flex; align-items: center; }
+.slp-staff-code { font-size: 13px; color: $muted; }
 .slp-col-contact { display: flex; align-items: center; }
 .slp-col-role { display: flex; align-items: center; }
 // The role pill (.slp-role-tag) has its own 11px left padding for its rounded

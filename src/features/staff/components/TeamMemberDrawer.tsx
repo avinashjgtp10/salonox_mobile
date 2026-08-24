@@ -91,7 +91,7 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
           joinedDate: formatJoined(data.joined_date),
           employmentType: data.employment_type || null,
           designation: data.designation || data.job_title || null,
-          staffMemberId: data.employee_code || data.id,
+          staffMemberId: data.staff_code || data.employee_code || data.id,
           workingHoursPerDay: data.working_hours_per_day != null ? `${data.working_hours_per_day} hrs/day` : null,
           weeklyHolidays: data.holidays != null ? String(data.holidays) : null,
           calendarColor: data.calendar_color || null,

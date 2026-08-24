@@ -33,6 +33,7 @@ import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 
 interface StaffMember {
   id: string;
+  staff_code?: string;
   first_name: string;
   last_name: string;
   email: string;
@@ -495,6 +496,7 @@ export default function StaffListPage() {
               />
             </div>
             <div className="slp-col-member">Staff member</div>
+            <div className="slp-col-code">Staff code</div>
             <div className="slp-col-contact">Contact</div>
             <div className="slp-col-role">Role</div>
             <div className="slp-col-status">Status</div>
@@ -547,6 +549,8 @@ export default function StaffListPage() {
                     </div>
                   </div>
                 </div>
+
+                <div className="slp-col-code"><span className="slp-staff-code">{member.staff_code || "—"}</span></div>
 
                 <div className="slp-col-contact">
                   {(member.phone_number || member.phone) ? (
