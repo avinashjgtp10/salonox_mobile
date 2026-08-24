@@ -11,7 +11,7 @@ const PURCHASE_PLANS = [
   {
     name: 'Basic',
     price: '₹8,000',
-    description: 'For businesses looking for essential management features to get started.',
+    description: 'For business looking for essential management features to get started.',
     cta: 'Buy Basic',
     badge: '',
     featured: false,
@@ -29,7 +29,7 @@ const PURCHASE_PLANS = [
   {
     name: 'Advance',
     price: '₹12,000',
-    description: 'For businesses that need complete salon management functionality.',
+    description: 'For business that need complete salon management functionality.',
     cta: 'Buy Advance',
     badge: '',
     featured: true,
@@ -57,10 +57,10 @@ const PURCHASE_PLANS = [
   {
     name: 'Pro',
     price: '₹15,000',
-    description: 'For growing businesses that need advanced digital and multi-branch capabilities.',
+    description: 'For growing business that need advanced digital and multi-branch capabilities.',
     cta: 'Buy Pro',
     badge: '',
-    featured: false,
+    featured: false, 
     premium: true,
     features: [
       'Mobile App',
