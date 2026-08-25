@@ -975,6 +975,11 @@ $item-field-text-inset: 9px;
       flex-shrink: 0;
       &:hover { background: #f3f4f6; border-color: #9ca3af; color: #374151; }
     }
+
+    // Staff Alert / Notes — same .pkg-info-btn ℹ button used for Reward/
+    // Package/Membership, just anchored in the header instead of inline
+    // next to a stat value.
+    .client-alert-wrap { position: relative; flex-shrink: 0; }
   }
 
   &__grid {
@@ -1087,6 +1092,24 @@ $item-field-text-inset: 9px;
     color: #7c3aed;
     background: #f5f3ff;
   }
+
+  // Staff Alert present (not just plain notes) — glows red so it's
+  // impossible to miss, instead of blending in as just another plain ℹ
+  // affordance sitting next to the edit button. Plain gray (the base
+  // .pkg-info-btn look above) when there's no alert, just notes.
+  &--warn {
+    border-color: #ef4444;
+    color: #dc2626;
+    background: #fef2f2;
+    animation: client-alert-glow 1.8s ease-in-out infinite;
+
+    &:hover { background: #fee2e2; border-color: #dc2626; }
+  }
+}
+
+@keyframes client-alert-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45); }
+  50%      { box-shadow: 0 0 7px 3px rgba(239, 68, 68, 0.45); }
 }
 
 // ── Package per-service scheduling panel ──────────────────────────────────────
@@ -1336,6 +1359,42 @@ $item-field-text-inset: 9px;
 
     &::before { border-bottom-color: #fff; }
   }
+}
+
+.client-alert-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.client-alert-popover__row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  &:not(:last-child) { padding-bottom: 10px; border-bottom: 1px solid #f1f1f2; }
+}
+
+.client-alert-popover__label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #9ca3af;
+
+  &--warn { color: #dc2626; }
+}
+
+.client-alert-popover__text {
+  font-size: 13px;
+  font-weight: 500;
+  color: $primary;
+  white-space: pre-wrap;
+}
+
+.client-alert-popover__date {
+  font-size: 11px;
+  color: #9ca3af;
 }
 
 .pkg-modal__cards {

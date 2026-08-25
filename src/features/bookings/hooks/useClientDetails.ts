@@ -36,6 +36,9 @@ function buildStats(d: ClientDetails): ClientStats {
     activePackageCount: Number(d.active_package_count ?? 0),
     activeMembershipName: d.active_membership_name ?? null,
     activeMembershipExpiresAt: d.active_membership_expires_at ?? null,
+
+    latestStaffAlert: d.latest_staff_alert ?? null,
+    latestNotes: d.latest_notes ?? null,
   };
 }
 
@@ -68,7 +71,7 @@ export function useClientDetails(
 
     try {
       const res = await api.post(`/api/v1/clients/${id}/details`, {
-        include: ["packages", "memberships", "history", "loyalty"],
+        include: ["packages", "memberships", "history", "loyalty", "staffAlert"],
       });
       const client: any = res.data?.data ?? res.data;
 

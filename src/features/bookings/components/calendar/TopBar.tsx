@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
+import { ChevronLeft, ChevronRight } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import type { ViewMode, IntervalOption } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
@@ -208,7 +209,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
         </button>
 
         {/* Prev */}
-        <button className="topbar__nav-btn" onClick={() => navigate(-1)}>‹</button>
+        <button className="topbar__nav-btn" onClick={() => navigate(-1)}><ChevronLeft size={13} /></button>
 
         {/* Date picker trigger */}
         <button
@@ -221,7 +222,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
         </button>
 
         {/* Next */}
-        <button className="topbar__nav-btn" onClick={() => navigate(1)}>›</button>
+        <button className="topbar__nav-btn" onClick={() => navigate(1)}><ChevronRight size={13} /></button>
 
         {/* Today */}
         <button

@@ -77,6 +77,9 @@ import "../../styles/AppointmentModal.scss";
 // list the retail picker reads, and filtering it here would empty that picker.
 const PRODUCT_FETCH_PAGE_SIZE = 200;
 
+const STAFF_ALERT_MAX_LENGTH = 100;
+const NOTES_MAX_LENGTH = 200;
+
 import type {
   Booking, Client, ClientStats,
   ServiceItem, PackageItem, ProductItem, MembershipItem,
@@ -604,7 +607,18 @@ export const AppointmentModal: React.FC<Props> = ({
   }, []);
 
   // ── Hooks ────────────────────────────────────────────────────────────────
-  const { save, isSaving, error: saveError, apiAppointmentId } = useAppointment();
+  const { save: saveAppointment, isSaving, error: saveError, apiAppointmentId } = useAppointment();
+  // clientRefreshKey exists specifically to make useClientDetails() below
+  // refetch (its ONE dependency for that), but nothing ever bumped it — so a
+  // saved Notes/Staff Alert edit never showed up in the client stat card
+  // popup unless the modal was closed and reopened. Wrapping every save call
+  // site here (there are several — handleSaveAndPay, handleUpdate, etc., all
+  // of which already call `save`) means none of them need to change.
+  const save = useCallback(async (payload: Parameters<typeof saveAppointment>[0]) => {
+    const id = await saveAppointment(payload);
+    if (id) setClientRefreshKey((k) => k + 1);
+    return id;
+  }, [saveAppointment]);
   const { completePayment, isProcessing, payError, paymentOverlay } = usePayment();
   const coupon = useCoupon(salonId);
   const referral = useReferral();
@@ -2810,12 +2824,20 @@ export const AppointmentModal: React.FC<Props> = ({
       <div className="field-group">
         <label><BellFill size={13} /> Staff Alert</label>
         <textarea className="fg-textarea" rows={2} placeholder="e.g. Client has allergy to chemicals"
+          maxLength={STAFF_ALERT_MAX_LENGTH}
           value={staffAlert} onChange={(e) => setStaffAlert(e.target.value)} />
+        <span className={`fg-field__${staffAlert.length >= STAFF_ALERT_MAX_LENGTH ? "err" : "hint"}`}>
+          {staffAlert.length}/{STAFF_ALERT_MAX_LENGTH}
+        </span>
       </div>
       <div className="field-group" style={{ marginTop: 10 }}>
         <label>Notes</label>
         <textarea className="fg-textarea" rows={3} placeholder="Enter appointment notes"
+          maxLength={NOTES_MAX_LENGTH}
           value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <span className={`fg-field__${notes.length >= NOTES_MAX_LENGTH ? "err" : "hint"}`}>
+          {notes.length}/{NOTES_MAX_LENGTH}
+        </span>
       </div>
     </>
   );
@@ -3003,7 +3025,7 @@ export const AppointmentModal: React.FC<Props> = ({
                 {availableBenefitsSectionEl}
                 {chargesSectionEl}
                 <div className="appt-section">
-                  <div className="appt-section__title"><FileText size={15} /> Payment &amp; Notes</div>
+                  <div className="appt-section__title"><FileText size={15} /> Staff Alert &amp; Notes</div>
                   <div className="pn-layout pn-layout--single">
                     {notesFieldsEl}
                   </div>
@@ -3223,7 +3245,7 @@ export const AppointmentModal: React.FC<Props> = ({
               {/* 4. Payment & Notes */}
               {!showPaymentSection && (
                 <div className="appt-section">
-                  <div className="appt-section__title"><FileText size={15} /> Payment &amp; Notes</div>
+                  <div className="appt-section__title"><FileText size={15} /> Staff Alert &amp; Notes</div>
                   <div className="pn-layout">
                     <div className="pn-layout__left">
                       {notesFieldsEl}
