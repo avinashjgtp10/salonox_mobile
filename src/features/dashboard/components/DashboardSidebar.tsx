@@ -1,5 +1,5 @@
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { useEffect, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent } from "react";
 import {
   House,
   Lightning,
@@ -100,8 +100,27 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
     return `nav-btn ${openMenu === key ? "menu-active" : ""}`;
   }
 
+  // Rendered items vary with permissions, so the item list is read from the
+  // DOM at keypress time rather than tracked separately in state/refs.
+  function handleSidebarKeyDown(event: KeyboardEvent<HTMLElement>) {
+    if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+    const el = sidebarRef.current;
+    if (!el) return;
+
+    const items = Array.from(el.querySelectorAll<HTMLElement>(".nav-btn"));
+    const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+    if (currentIndex === -1) return;
+
+    event.preventDefault();
+    const nextIndex =
+      event.key === "ArrowDown"
+        ? (currentIndex + 1) % items.length
+        : (currentIndex - 1 + items.length) % items.length;
+    items[nextIndex]?.focus();
+  }
+
   return (
-    <aside className="sidebar" ref={sidebarRef}>
+    <aside className="sidebar" ref={sidebarRef} onKeyDown={handleSidebarKeyDown}>
       {can("view_dashboard") && (
         <NavLink
           to="/dashboard"

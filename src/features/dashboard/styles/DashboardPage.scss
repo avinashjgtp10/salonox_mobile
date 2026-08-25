@@ -278,6 +278,11 @@ body {
   box-sizing: border-box;
   flex-shrink: 0;
   &:hover { background: $sidebar-hover; color: $sidebar-active; }
+  &:focus-visible {
+    outline: 2px solid $sidebar-active;
+    outline-offset: 2px;
+    z-index: 1;
+  }
   &.route-active { background: $btn-primary; color: $white; }
   &.menu-active {
     background: rgba(255, 255, 255, 0.14);
