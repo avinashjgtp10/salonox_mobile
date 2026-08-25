@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { useSelector, useDispatch } from "react-redux";
+import { isValidPhoneNumber } from "libphonenumber-js";
 import {
   ChevronLeft, PencilSquare, Check2, XLg,
   Person, Envelope, Telephone, Building, GeoAlt,
@@ -9,6 +10,7 @@ import {
   PersonBadge, Hash, MapFill, CreditCard, Tag, Clock, FileText,
 } from "react-bootstrap-icons";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import PhoneInput from "../../../components/ui/PhoneInput";
 import type { AppDispatch, RootState } from "../../../store/store";
 import {
   fetchMeThunk, updateUserThunk, uploadAvatarThunk,
@@ -66,8 +68,16 @@ function validateUserForm(form: UpdateUserPayload): Errors {
   else if (name.length > 100) e.fullName = "Full name must be under 100 characters.";
 
   const phone = form.phone?.trim() ?? "";
-  if (phone && !/^\+?[\d\s\-()\[\]]{7,20}$/.test(phone))
-    e.phone = "Enter a valid phone number.";
+  if (phone) {
+    // New edits always come from PhoneInput as E.164 ("+<country><number>").
+    // Older saved values that predate this validation may still be a bare
+    // national number with no "+" — those are checked against India (the
+    // app's primary market and the ticket's own example) rather than
+    // rejected outright, so untouched legacy profiles don't suddenly block
+    // saving unrelated field changes.
+    const valid = phone.startsWith("+") ? isValidPhoneNumber(phone) : isValidPhoneNumber(phone, "IN");
+    if (!valid) e.phone = "Please enter a valid mobile number.";
+  }
 
   if ((form.country?.trim() ?? "").length > 100)
     e.country = "Country name is too long.";
@@ -597,12 +607,24 @@ export default function ProfilePage() {
                 icon={<Envelope size={14} />} editing={editing}
                 readOnly onChange={handleFieldChange}
               />
-              <ProfileField
-                label="Phone Number" value={form.phone ?? ""} name="phone"
-                icon={<Telephone size={14} />} editing={editing}
-                type="tel" placeholder="+91 98765 43210" error={fieldErrors.phone}
-                onChange={handleFieldChange}
-              />
+              {editing ? (
+                <div className="pp-field">
+                  <label className="pp-field-label">Phone Number</label>
+                  <PhoneInput
+                    value={form.phone ?? ""}
+                    onChange={(val) => handleFieldChange("phone", val)}
+                    error={fieldErrors.phone}
+                    placeholder="Mobile number"
+                    containerClass=""
+                  />
+                </div>
+              ) : (
+                <ProfileField
+                  label="Phone Number" value={form.phone ?? ""} name="phone"
+                  icon={<Telephone size={14} />} editing={false}
+                  onChange={handleFieldChange}
+                />
+              )}
               <ProfileField
                 label="Country" value={form.country ?? ""} name="country"
                 icon={<Globe size={14} />} editing={editing}
