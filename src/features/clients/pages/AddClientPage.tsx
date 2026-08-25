@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
-import { Camera } from "react-bootstrap-icons";
+import { Camera, InfoCircle } from "react-bootstrap-icons";
+import { State } from "country-state-city";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddClientPage.scss";
 import api from "../../../services/api/axios";
@@ -9,6 +10,8 @@ import { CLIENT } from "../../../services/api/endpoints";
 import CountryCodeSelect from "../components/CountryCodeSelect";
 import Dropdown from "../../../components/ui/Dropdown";
 import { DatePicker } from "../../../components/ui";
+import Tabs from "../../../components/ui/Tabs";
+import ClientSearchInput, { type ClientSearchResult } from "../components/ClientSearchInput";
 import { toTitleCase } from "../../../utils/titleCase";
 
 const DOB_PLACEHOLDER_YEAR = 2000;
@@ -38,6 +41,22 @@ const CLIENT_SOURCE_OPTIONS = [
   { id: "google", name: "Google" },
 ];
 
+// Distinct from Client Source above — Lead Source tracks how a prospective
+// client first reached out (for lead-conversion tracking), separate from the
+// walk-in/instagram/google channel Client Source already records.
+const LEAD_SOURCE_OPTIONS = [
+  { id: "referral", name: "Referral" },
+  { id: "walk_in", name: "Walk-in" },
+  { id: "instagram", name: "Instagram" },
+  { id: "facebook", name: "Facebook" },
+  { id: "google", name: "Google" },
+  { id: "website", name: "Website" },
+  { id: "phone_enquiry", name: "Phone Enquiry" },
+  { id: "other", name: "Other" },
+];
+
+const INDIA_STATE_OPTIONS = State.getStatesOfCountry("IN").map((s) => ({ id: s.isoCode, name: s.name }));
+
 const AddClientPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -53,10 +72,20 @@ const AddClientPage: React.FC = () => {
     firstName: prefill.prefillName?.split(" ")[0] ?? "",
     lastName: prefill.prefillName?.split(" ").slice(1).join(" ") ?? "",
     email: "",
-    phone: prefill.prefillPhone ?? "", phoneCountryCode: "+91",
+    phone: prefill.prefillPhone ?? "", phoneCountryCode: "+91", hasWhatsapp: true,
     birthday: "", anniversary: "", address: "", gender: "", clientSource: "walk_in",
     additionalPhone: "", additionalPhoneCountryCode: "+91",
     referredByCode: "",
+    // Business / identification
+    gstNumber: "", state: "", zipCode: "", clientCode: "", identificationNumber: "",
+    // Communication preferences — Promotion defaults all-on (matches the
+    // DINGG reference); Transaction mirrors the DB columns' own defaults.
+    smsMarketing: true, emailMarketing: true, whatsappMarketing: true,
+    smsNotifications: true, emailNotifications: true, whatsappNotifications: false,
+    // Lead / referral
+    leadSource: "", sourceDescription: "",
+    // Credit
+    creditLimit: "", creditDuration: "",
   };
   const [form, setForm] = useState(initialForm);
 
@@ -72,6 +101,42 @@ const AddClientPage: React.FC = () => {
     status: "idle" | "loading" | "found" | "notfound";
     name?: string;
   }>({ status: "idle" });
+
+  // ── Customer Referral toggle + Referral Code / Search-by-Name-Mobile tabs ──
+  // Both tabs converge on the same form.referredByCode field the existing
+  // debounced lookup effect above already watches — search just resolves a
+  // picked client's own referral_code and writes it there, so handleSave()'s
+  // payload logic needs no changes at all for the new tab.
+  const [referralEnabled, setReferralEnabled] = useState(false);
+  const [referralTab, setReferralTab] = useState<"code" | "search">("code");
+  const [referralSearchQuery, setReferralSearchQuery] = useState("");
+  const [referralSearchSelected, setReferralSearchSelected] = useState<{ id: string; name: string } | null>(null);
+  const [referralSearchLoading, setReferralSearchLoading] = useState(false);
+
+  const handleReferralSearchPick = async (picked: ClientSearchResult) => {
+    setReferralSearchLoading(true);
+    try {
+      const res = await api.get(CLIENT.BY_ID(String(picked.id)));
+      const full = res.data?.data ?? res.data;
+      const name = `${picked.first_name} ${picked.last_name ?? ""}`.trim();
+      if (full?.referral_code) {
+        setField("referredByCode")(String(full.referral_code).toUpperCase());
+        setReferralSearchSelected({ id: String(picked.id), name });
+      } else {
+        showError(`${name} doesn't have a referral code yet.`);
+      }
+    } catch {
+      showError("Couldn't load that client's referral details.");
+    } finally {
+      setReferralSearchLoading(false);
+    }
+  };
+
+  const clearReferralSearchSelection = () => {
+    setReferralSearchSelected(null);
+    setReferralSearchQuery("");
+    setField("referredByCode")("");
+  };
 
   const [avatarUrl, setAvatarUrl] = useState("");
   const [avatarPreview, setAvatarPreview] = useState("");
@@ -117,6 +182,7 @@ const AddClientPage: React.FC = () => {
           email: c.email || "",
           phone: stripCountryCode(c.phone_number || "", phoneCountryCode),
           phoneCountryCode,
+          hasWhatsapp: c.has_whatsapp ?? true,
           birthday: c.birthday_day_month
             ? `${c.birthday_year || DOB_PLACEHOLDER_YEAR}-${c.birthday_day_month}`
             : "",
@@ -127,10 +193,26 @@ const AddClientPage: React.FC = () => {
           additionalPhone: stripCountryCode(c.additional_phone_number || "", additionalPhoneCountryCode),
           additionalPhoneCountryCode,
           referredByCode: "",
+          gstNumber: c.gst_number || "",
+          state: c.state || "",
+          zipCode: c.pincode || "",
+          clientCode: c.client_code || "",
+          identificationNumber: c.identification_number || "",
+          smsMarketing: c.sms_marketing ?? true,
+          emailMarketing: c.email_marketing ?? true,
+          whatsappMarketing: c.whatsapp_marketing ?? true,
+          smsNotifications: c.sms_notifications ?? true,
+          emailNotifications: c.email_notifications ?? true,
+          whatsappNotifications: c.whatsapp_notifications ?? false,
+          leadSource: c.lead_source || "",
+          sourceDescription: c.source_description || "",
+          creditLimit: c.credit_limit != null ? String(c.credit_limit) : "",
+          creditDuration: c.credit_duration_days != null ? String(c.credit_duration_days) : "",
         };
         setForm(loaded);
         setAvatarUrl(c.avatar_url || "");
         setReferredBy(c.referred_by || null);
+        setReferralEnabled(!!c.referred_by);
         // Reset the "unsaved changes" baseline to what was actually loaded —
         // otherwise every edit page would immediately look dirty (compared
         // against the empty add-mode defaults it started with).
@@ -189,6 +271,12 @@ const AddClientPage: React.FC = () => {
 
   const isGenderInvalid = attemptedSubmit && form.gender.trim() === "";
 
+  // Optional — same GSTIN format the backend enforces, validated inline only
+  // once something's been typed (empty is always valid/unrestricted).
+  const GSTIN_FORMAT_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+  const gstFormatValid = form.gstNumber.trim() === "" || GSTIN_FORMAT_RE.test(form.gstNumber.trim().toUpperCase());
+  const isGstInvalid = attemptedSubmit && form.gstNumber.trim() !== "" && !gstFormatValid;
+
   // The additional mobile can't duplicate the primary one (SCRUM-1087) —
   // compared with country code so the same digits under different codes aren't
   // wrongly flagged. Shown inline as soon as they match, not only on submit.
@@ -203,7 +291,7 @@ const AddClientPage: React.FC = () => {
     ? "Additional mobile must be different from the primary mobile"
     : "Enter a valid 10-digit phone number";
 
-  const setField = (key: keyof typeof form) => (val: string) => {
+  const setField = <K extends keyof typeof initialForm>(key: K) => (val: (typeof initialForm)[K]) => {
     setForm((prev) => ({ ...prev, [key]: val }));
     if (key === "phone" && duplicatePhoneMessage) setDuplicatePhoneMessage(null);
     if (key === "email" && duplicateEmailMessage) setDuplicateEmailMessage(null);
@@ -250,7 +338,8 @@ const AddClientPage: React.FC = () => {
       (!!form.birthday && form.birthday > today) ||
       form.gender.trim() === "" ||
       (form.additionalPhone.trim() !== "" && !/^\d{10}$/.test(form.additionalPhone.trim())) ||
-      isAdditionalPhoneDuplicate
+      isAdditionalPhoneDuplicate ||
+      !gstFormatValid
     ) {
       // No error overlay/modal — attemptedSubmit is set above, so the invalid
       // fields highlight inline with their own messages (SCRUM-1083).
@@ -289,13 +378,31 @@ const AddClientPage: React.FC = () => {
         additional_phone_number: form.additionalPhone.trim() || null,
         additional_phone_country_code: form.additionalPhone.trim() ? form.additionalPhoneCountryCode : null,
         avatar_url: avatarUrl || null,
+        has_whatsapp: form.hasWhatsapp,
+        gst_number: form.gstNumber.trim() ? form.gstNumber.trim().toUpperCase() : null,
+        state: form.state || null,
+        pincode: form.zipCode.trim() || null,
+        client_code: form.clientCode.trim() || null,
+        identification_number: form.identificationNumber.trim() || null,
+        sms_marketing: form.smsMarketing,
+        email_marketing: form.emailMarketing,
+        whatsapp_marketing: form.whatsappMarketing,
+        sms_notifications: form.smsNotifications,
+        email_notifications: form.emailNotifications,
+        whatsapp_notifications: form.whatsappNotifications,
+        lead_source: form.leadSource || null,
+        source_description: form.sourceDescription.trim() || null,
+        credit_limit: form.creditLimit.trim() ? Number(form.creditLimit) : 0,
+        credit_duration_days: form.creditDuration.trim() ? Number(form.creditDuration) : 0,
       };
 
       // A referral code can only be applied once — once a client already has
       // a referrer (referredBy set), the field becomes read-only and this is
       // skipped. Otherwise it can be set on create OR on a later edit (the
       // backend still allows it up until the client's first completed payment).
-      if (!referredBy && form.referredByCode.trim()) {
+      // Only sent while the toggle is actually on — switching Customer
+      // Referral off (with nothing picked) must never submit a stale code.
+      if (!referredBy && referralEnabled && form.referredByCode.trim()) {
         payload.referred_by_code = form.referredByCode.trim().toUpperCase();
       }
 
@@ -436,6 +543,19 @@ const AddClientPage: React.FC = () => {
                   />
                 </div>
                 {isPhoneInvalid && <span className="cli-field__error">{phoneErrorMessage}</span>}
+                <label className="cli-toggle-row cli-toggle-row--compact">
+                  <div className="cli-toggle-content">
+                    <span className="cli-toggle-label">Available on WhatsApp</span>
+                  </div>
+                  <div className="cli-toggle-switch">
+                    <input
+                      type="checkbox"
+                      checked={form.hasWhatsapp}
+                      onChange={(e) => setField("hasWhatsapp")(e.target.checked)}
+                    />
+                    <span className="cli-slider" />
+                  </div>
+                </label>
               </div>
 
               <div className="cli-field">
@@ -452,14 +572,17 @@ const AddClientPage: React.FC = () => {
                 {isGenderInvalid && <span className="cli-field__error">Gender is required</span>}
               </div>
               <div className="cli-field">
-                <label className="cli-field__label">Address</label>
-                <input
+                <label className="cli-field__label">Client source</label>
+                <Dropdown
+                  value={form.clientSource}
+                  onChange={(val) => setField("clientSource")(val)}
+                  options={CLIENT_SOURCE_OPTIONS}
+                  placeholder="Select source"
                   className="cli-input"
-                  placeholder="Address"
-                  value={form.address}
-                  onChange={(e) => setField("address")(e.target.value)}
                 />
               </div>
+
+              <div className="cli-section-divider cli-field--full">Personal Dates</div>
 
               <div className="cli-field">
                 <label className="cli-field__label">Birthday</label>
@@ -479,39 +602,249 @@ const AddClientPage: React.FC = () => {
                 />
               </div>
 
+              <div className="cli-section-divider cli-field--full">Business / Identification Details</div>
+
               <div className="cli-field">
-                <label className="cli-field__label">Client source</label>
+                <label className="cli-field__label">GST Number</label>
+                <input
+                  className={`cli-input ${isGstInvalid ? "cli-input--invalid" : ""}`}
+                  placeholder="GST Number"
+                  value={form.gstNumber}
+                  onChange={(e) => setField("gstNumber")(e.target.value.toUpperCase())}
+                  maxLength={15}
+                />
+                {isGstInvalid && <span className="cli-field__error">Enter a valid 15-character GSTIN</span>}
+              </div>
+              <div className="cli-field">
+                <label className="cli-field__label">State</label>
                 <Dropdown
-                  value={form.clientSource}
-                  onChange={(val) => setField("clientSource")(val)}
-                  options={CLIENT_SOURCE_OPTIONS}
-                  placeholder="Select source"
+                  value={form.state}
+                  onChange={(val) => setField("state")(val)}
+                  options={INDIA_STATE_OPTIONS}
+                  placeholder="Select state"
+                  className="cli-input"
+                />
+              </div>
+
+              <div className="cli-field">
+                <label className="cli-field__label">Address</label>
+                <input
+                  className="cli-input"
+                  placeholder="Address"
+                  value={form.address}
+                  onChange={(e) => setField("address")(e.target.value)}
+                />
+              </div>
+              <div className="cli-field">
+                <label className="cli-field__label">Zip Code</label>
+                <input
+                  className="cli-input"
+                  placeholder="Enter Zip Code"
+                  value={form.zipCode}
+                  onChange={(e) => setField("zipCode")(e.target.value.replace(/\D/g, ""))}
+                  maxLength={10}
+                />
+              </div>
+
+              <div className="cli-field">
+                <label className="cli-field__label">Client Code</label>
+                <input
+                  className="cli-input"
+                  placeholder="Client Code"
+                  value={form.clientCode}
+                  onChange={(e) => setField("clientCode")(e.target.value)}
+                />
+              </div>
+              <div className="cli-field">
+                <label className="cli-field__label">Identification No.</label>
+                <input
+                  className="cli-input"
+                  placeholder="Resident No. or Any ID"
+                  value={form.identificationNumber}
+                  onChange={(e) => setField("identificationNumber")(e.target.value)}
+                />
+              </div>
+
+              <div className="cli-section-divider cli-field--full">Communication Preferences</div>
+
+              <div className="cli-field--full cli-checkbox-groups">
+                {(
+                  [
+                    { title: "Promotion", keys: { sms: "smsMarketing", email: "emailMarketing", whatsapp: "whatsappMarketing" } as const },
+                    { title: "Transaction", keys: { sms: "smsNotifications", email: "emailNotifications", whatsapp: "whatsappNotifications" } as const },
+                  ] as const
+                ).map((group) => (
+                  <div className="cli-checkbox-group" key={group.title}>
+                    <span className="cli-checkbox-group__title">{group.title}</span>
+                    {(
+                      [
+                        { channel: "sms" as const, label: "SMS" },
+                        { channel: "email" as const, label: "Email" },
+                        { channel: "whatsapp" as const, label: "Whatsapp" },
+                      ]
+                    ).map(({ channel, label }) => {
+                      const key = group.keys[channel];
+                      return (
+                        <label className="cli-checkbox" key={channel}>
+                          <input
+                            type="checkbox"
+                            checked={form[key]}
+                            onChange={(e) => setField(key)(e.target.checked)}
+                          />
+                          {label}
+                        </label>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+
+              <div className="cli-section-divider cli-field--full">Lead / Referral</div>
+
+              <div className="cli-field">
+                <label className="cli-field__label">Lead Source</label>
+                <Dropdown
+                  value={form.leadSource}
+                  onChange={(val) => setField("leadSource")(val)}
+                  options={LEAD_SOURCE_OPTIONS}
+                  placeholder="Select"
                   className="cli-input"
                 />
               </div>
               <div className="cli-field">
-                <label className="cli-field__label">Referred by</label>
-                {referredBy ? (
-                  <input className="cli-input" value={referredBy.full_name} disabled readOnly />
-                ) : (
-                  <>
+                <label className="cli-field__label">Source Desc</label>
+                <textarea
+                  className="cli-input cli-textarea"
+                  placeholder="Source Description"
+                  value={form.sourceDescription}
+                  onChange={(e) => setField("sourceDescription")(e.target.value)}
+                  rows={2}
+                />
+              </div>
+
+              <div className="cli-field--full">
+                <label className="cli-toggle-row">
+                  <div className="cli-toggle-content">
+                    <span className="cli-toggle-label">Customer Referral</span>
+                    <span className="cli-toggle-hint">This client was referred by an existing customer</span>
+                  </div>
+                  <div className="cli-toggle-switch">
                     <input
-                      className="cli-input text-uppercase"
-                      placeholder="e.g. NIS1126"
-                      value={form.referredByCode}
-                      onChange={(e) => setField("referredByCode")(e.target.value.toUpperCase())}
-                      maxLength={20}
+                      type="checkbox"
+                      checked={referralEnabled}
+                      disabled={!!referredBy}
+                      onChange={(e) => {
+                        setReferralEnabled(e.target.checked);
+                        if (!e.target.checked) {
+                          setReferralTab("code");
+                          setField("referredByCode")("");
+                          clearReferralSearchSelection();
+                        }
+                      }}
                     />
-                    {referralLookup.status === "found" && (
-                      <span className="cli-field__hint" style={{ color: "#16a34a", fontWeight: 600 }}>
-                        Referred by {referralLookup.name}
-                      </span>
-                    )}
-                    {referralLookup.status === "notfound" && form.referredByCode.trim() !== "" && (
-                      <span className="cli-field__error">No client found for this referral code</span>
-                    )}
-                  </>
+                    <span className="cli-slider" />
+                  </div>
+                </label>
+
+                {referralEnabled && (
+                  referredBy ? (
+                    <input className="cli-input" value={referredBy.full_name} disabled readOnly />
+                  ) : (
+                    <div className="cli-referral-panel">
+                      <Tabs
+                        tabs={[
+                          { key: "code", label: "Referral Code" },
+                          { key: "search", label: "Search by Name/Mobile" },
+                        ]}
+                        activeKey={referralTab}
+                        onChange={(k) => setReferralTab(k as "code" | "search")}
+                        variant="pill"
+                      />
+
+                      {referralTab === "code" ? (
+                        <div className="cli-referral-panel__body">
+                          <input
+                            className="cli-input text-uppercase"
+                            placeholder="e.g. REF-A7XM3X9P"
+                            value={form.referredByCode}
+                            onChange={(e) => {
+                              // Typing a code directly overrides whatever the
+                              // Search tab may have resolved earlier — clear
+                              // its stale "selected" chip so switching back
+                              // to that tab doesn't show a mismatched name.
+                              if (referralSearchSelected) setReferralSearchSelected(null);
+                              setField("referredByCode")(e.target.value.toUpperCase());
+                            }}
+                            maxLength={20}
+                          />
+                          {referralLookup.status === "found" && (
+                            <span className="cli-field__hint" style={{ color: "#16a34a", fontWeight: 600 }}>
+                              Referred by {referralLookup.name}
+                            </span>
+                          )}
+                          {referralLookup.status === "notfound" && form.referredByCode.trim() !== "" && (
+                            <span className="cli-field__error">No client found for this referral code</span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="cli-referral-panel__body">
+                          {referralSearchSelected ? (
+                            <div className="cli-referral-selected">
+                              <span className="cli-referral-selected__avatar">
+                                {referralSearchSelected.name[0]?.toUpperCase() ?? "?"}
+                              </span>
+                              <span className="cli-referral-selected__name">{referralSearchSelected.name}</span>
+                              <button type="button" onClick={clearReferralSearchSelection} aria-label="Clear selection">
+                                &times;
+                              </button>
+                            </div>
+                          ) : (
+                            <ClientSearchInput
+                              value={referralSearchQuery}
+                              onChange={setReferralSearchQuery}
+                              placeholder="Search by name or mobile number"
+                              onSelect={handleReferralSearchPick}
+                            />
+                          )}
+                          {referralSearchLoading && <span className="cli-field__hint">Loading referrer…</span>}
+                        </div>
+                      )}
+                    </div>
+                  )
                 )}
+              </div>
+
+              <div className="cli-section-divider cli-field--full">Credit</div>
+
+              <div className="cli-field">
+                <label className="cli-field__label">
+                  Credit Limit
+                  <span title="Maximum unpaid balance this client can carry"><InfoCircle size={12} /></span>
+                </label>
+                <input
+                  className="cli-input"
+                  placeholder="Credit Limit"
+                  type="number"
+                  min="0"
+                  value={form.creditLimit}
+                  onChange={(e) => setField("creditLimit")(e.target.value)}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                />
+              </div>
+              <div className="cli-field">
+                <label className="cli-field__label">
+                  Credit Duration
+                  <span title="Number of days this client has to clear a due balance"><InfoCircle size={12} /></span>
+                </label>
+                <input
+                  className="cli-input"
+                  placeholder="Credit Duration"
+                  type="number"
+                  min="0"
+                  value={form.creditDuration}
+                  onChange={(e) => setField("creditDuration")(e.target.value)}
+                  onWheel={(e) => (e.target as HTMLInputElement).blur()}
+                />
               </div>
 
               <div className="cli-field">
