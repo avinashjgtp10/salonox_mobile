@@ -122,6 +122,7 @@ export const ClientStatCard: React.FC<Props> = ({
   const rewardPopover = usePopover();
   const pkgPopover = usePopover();
   const memPopover = usePopover();
+  const alertPopover = usePopover();
   // Which package or membership card (by id) currently has its description
   // expanded — at most one at a time, shared across both popovers since only
   // one of them is ever open at once. Reset whenever the popover it belongs
@@ -171,6 +172,39 @@ export const ClientStatCard: React.FC<Props> = ({
             >
               <Pencil size={12} />
             </button>
+          )}
+          {(stats.latestStaffAlert || stats.latestNotes) && (
+            <div className="client-alert-wrap" ref={alertPopover.ref}>
+              <button
+                type="button"
+                className={`pkg-info-btn${stats.latestStaffAlert ? " pkg-info-btn--warn" : ""}`}
+                title="Staff alert / notes"
+                aria-label="View staff alert and notes"
+                onMouseEnter={alertPopover.onMouseEnter}
+                onMouseLeave={alertPopover.onMouseLeave}
+                onClick={alertPopover.toggle}
+              >
+                ℹ
+              </button>
+              {alertPopover.visible && (
+                <div className="info-popover info-popover--wide client-alert-popover">
+                  {stats.latestStaffAlert && (
+                    <div className="client-alert-popover__row">
+                      <span className="client-alert-popover__label client-alert-popover__label--warn">Staff Alert</span>
+                      <span className="client-alert-popover__text">{stats.latestStaffAlert.text}</span>
+                      <span className="client-alert-popover__date">{fmtDate(stats.latestStaffAlert.date)}</span>
+                    </div>
+                  )}
+                  {stats.latestNotes && (
+                    <div className="client-alert-popover__row">
+                      <span className="client-alert-popover__label">Notes</span>
+                      <span className="client-alert-popover__text">{stats.latestNotes.text}</span>
+                      <span className="client-alert-popover__date">{fmtDate(stats.latestNotes.date)}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
           {stats.membership !== "NA" && (
             <span className="badge badge-warning ms-auto" style={{ fontSize: 11 }}>

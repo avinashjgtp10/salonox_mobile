@@ -72,6 +72,12 @@ export interface ClientDetails {
   birthday_day_month?: string | null;
   birthday_year?: number | null;
   client_source?: string | null;
+
+  // Most recent non-empty staff_alert/notes across this client's appointments
+  // (?include=staffAlert) — picked independently, so an alert set two visits
+  // ago still surfaces even if the latest visit's own notes field is empty.
+  latest_staff_alert?: { text: string; date: string } | null;
+  latest_notes?: { text: string; date: string } | null;
 }
 
 // ─── Derived stat card values (computed in useClientDetails) ──────────────────
@@ -101,6 +107,9 @@ export interface ClientStats {
   activePackageCount: number;
   activeMembershipName: string | null;
   activeMembershipExpiresAt: string | null;
+
+  latestStaffAlert: { text: string; date: string } | null;
+  latestNotes: { text: string; date: string } | null;
 }
 
 // ─── History stats shape (from GET /api/v1/clients/:id/history) ──────────────
