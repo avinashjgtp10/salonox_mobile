@@ -45,6 +45,52 @@ $radius:  12px;
 }
 .tc-shell-tabs {
   display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap;
+
+  // Commission's Settle/Rule sub-tabs — same pill styling as before,
+  // just smaller and pulled up closer to the main tab row above so the
+  // parent/child relationship reads visually.
+  &--sub {
+    margin-top: -8px;
+    margin-bottom: 16px;
+    padding-left: 4px;
+
+    button { font-size: 12.5px; }
+  }
+}
+
+// Commission / Tip main tabs — flat text with an underline on the active
+// tab, sitting on one shared baseline rule rather than each tab carrying
+// its own pill background.
+.tc-main-tabs {
+  display: flex; gap: 28px;
+  border-bottom: 1px solid $border;
+  margin-bottom: 20px;
+}
+.tc-main-tab {
+  display: flex; align-items: center; gap: 8px;
+  background: none; border: none;
+  padding: 10px 2px 12px;
+  font-family: $font;
+  font-size: 14px; font-weight: 600;
+  color: $muted;
+  cursor: pointer;
+  position: relative;
+  transition: color 0.15s ease;
+
+  &:hover { color: $primary; }
+
+  &--active {
+    color: $primary;
+
+    &::after {
+      content: "";
+      position: absolute;
+      left: 0; right: 0; bottom: -1px;
+      height: 2px;
+      background: $primary;
+      border-radius: 1px;
+    }
+  }
 }
 
 // ── Shared Membership-style stats bar / table ───────────────────────────────
