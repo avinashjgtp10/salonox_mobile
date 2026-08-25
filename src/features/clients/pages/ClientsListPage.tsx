@@ -14,8 +14,6 @@ import {
   ArrowRight,
   ArrowLeftRight,
   FileEarmarkExcel,
-  FiletypeCsv,
-  FiletypePdf,
   DashCircleFill,
   PersonPlus,
   ThreeDotsVertical,
@@ -582,40 +580,6 @@ export default function ClientsListPage() {
                   className="option-item w-100 text-start p-2 small"
                 >
                   Excel
-                </DownloadButton>
-                <DownloadButton
-                  filename="clients.csv"
-                  fetcher={async () => {
-                    const res = await api.get(CLIENT.EXPORT("csv"), {
-                      params: getExportParams(),
-                      responseType: "blob",
-                    });
-                    setOptionsOpen(false);
-                    return res.data;
-                  }}
-                  variant="ghost"
-                  size="sm"
-                  iconLeft={<FiletypeCsv size={14} className="me-2" />}
-                  className="option-item w-100 text-start p-2 small"
-                >
-                  CSV
-                </DownloadButton>
-                <DownloadButton
-                  filename="clients.pdf"
-                  fetcher={async () => {
-                    const res = await api.get(CLIENT.EXPORT("pdf"), {
-                      params: getExportParams(),
-                      responseType: "blob",
-                    });
-                    setOptionsOpen(false);
-                    return res.data;
-                  }}
-                  variant="ghost"
-                  size="sm"
-                  iconLeft={<FiletypePdf size={14} className="me-2" />}
-                  className="option-item w-100 text-start p-2 small"
-                >
-                  PDF
                 </DownloadButton>
               </div>
             )}
