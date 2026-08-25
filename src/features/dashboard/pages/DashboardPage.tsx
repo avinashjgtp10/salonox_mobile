@@ -50,7 +50,7 @@ import {
   Whatsapp,
 } from "react-bootstrap-icons";
 import { getInitialsFromFullName } from "../../../utils/initials";
-import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { formatDateDDMMYYYY, formatTimeAgo } from "../../../utils/dateFormat";
 import { buildClientWhatsAppLink } from "../../../utils/whatsapp";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Skeleton from "../../../components/ui/Skeleton";
@@ -540,17 +540,6 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
 
 // ─── Section: Recent Activity ──────────────────────────────────────────────────
 
-function timeAgo(iso: string): string {
-  const diffMs = Date.now() - new Date(iso).getTime();
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} hour${hrs !== 1 ? "s" : ""} ago`;
-  const days = Math.floor(hrs / 24);
-  return `${days} day${days !== 1 ? "s" : ""} ago`;
-}
-
 const ACTIVITY_ICON: Record<string, React.ReactNode> = {
   appointment: <CalendarCheck size={14} color="#4f46e5" />,
   payment:     <CashStack size={14} color="#16a34a" />,
@@ -585,7 +574,7 @@ const RecentActivityCard = memo(function RecentActivityCard({
                 <div className="db-activity-row__title">{a.title}</div>
                 {a.body && <div className="db-activity-row__sub">{a.body}</div>}
               </div>
-              <span className="db-activity-row__time">{timeAgo(a.createdAt)}</span>
+              <span className="db-activity-row__time">{formatTimeAgo(a.createdAt)}</span>
             </div>
           ))}
         </div>

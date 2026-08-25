@@ -15,7 +15,7 @@ import {
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { NOTIFICATIONS } from "../../../services/api/endpoints";
-import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { formatDateDDMMYYYY, formatTimeAgo } from "../../../utils/dateFormat";
 import "../styles/NotificationsPage.scss";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
@@ -65,20 +65,6 @@ const HOW_IT_WORKS = [
   { icon: <PersonPlus   size={14} />, color: "#8b5cf6", text: "New client is added" },
   { icon: <ChatDots     size={14} />, color: "#25d366", text: "WhatsApp message received" },
 ];
-
-// ── Helpers ────────────────────────────────────────────────────────────────────
-
-function timeAgo(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1)  return "just now";
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24)  return `${hrs} hr${hrs > 1 ? "s" : ""} ago`;
-  const days = Math.floor(hrs / 24);
-  if (days < 7)  return `${days} day${days > 1 ? "s" : ""} ago`;
-  return formatDateDDMMYYYY(isoDate);
-}
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
@@ -280,7 +266,7 @@ export default function NotificationsPage() {
                           <span className="notif-page-item-tag" style={{ background: color + "15", color }}>
                             {NOTIF_LABELS[n.type] ?? n.type}
                           </span>
-                          <span className="notif-page-item-time">{timeAgo(n.created_at)}</span>
+                          <span className="notif-page-item-time">{formatTimeAgo(n.created_at)}</span>
                         </div>
                         <p className="notif-page-item-title">{n.title}</p>
                         {n.body && <p className="notif-page-item-body">{n.body}</p>}
