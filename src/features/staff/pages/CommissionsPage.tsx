@@ -974,51 +974,65 @@ function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
 }
 
 // ─── Tip & Commission — outer shell ────────────────────────────────────────
-// Three peer sections sharing one page/nav entry: Commission Settle and
-// Commission Rules are CommissionSettleTab mounted with a different `view`
-// (unchanged functionality either way — rules engine, settle-by-category,
-// CSV/Excel export, all real, just no longer nested as an internal sub-tab
-// of "Commission Settle"); Tip Settle is new (see TipSettleTab.tsx) and
-// deliberately simpler — a tip has nothing like a rule or a category to
-// configure, just an amount to settle.
-type OuterTab = "commission-settle" | "tip-settle" | "commission-rules";
+// Two main tabs — Commission and Tip. Commission holds two sub-tabs
+// (Commission Settle / Commission Rule, both CommissionSettleTab mounted
+// with a different `view` — unchanged functionality, just regrouped under
+// one parent tab instead of sitting as peers of Tip). Tip has no sub-tabs
+// of its own — a tip has nothing like a rule or a category to configure,
+// just an amount to settle (see TipSettleTab.tsx) — so it renders directly.
+type MainTab = "commission" | "tip";
+type CommissionSubTab = "settle" | "rules";
 
-const OUTER_TABS: { key: OuterTab; label: string; icon: React.ReactNode }[] = [
-  { key: "commission-settle", label: "Commission Settle", icon: <Calculator size={14} /> },
-  { key: "tip-settle",        label: "Tip Settle",         icon: <HeartFill  size={14} /> },
-  { key: "commission-rules",  label: "Commission Rules",   icon: <ListCheck  size={14} /> },
+const MAIN_TABS: { key: MainTab; label: string; icon: React.ReactNode }[] = [
+  { key: "commission", label: "Commission", icon: <Calculator size={14} /> },
+  { key: "tip",         label: "Tip",        icon: <HeartFill  size={14} /> },
+];
+
+const COMMISSION_SUB_TABS: { key: CommissionSubTab; label: string; icon: React.ReactNode }[] = [
+  { key: "settle", label: "Commission Settle", icon: <Calculator size={13} /> },
+  { key: "rules",  label: "Commission Rule",   icon: <ListCheck  size={13} /> },
 ];
 
 export default function CommissionsPage() {
-  const [outerTab, setOuterTab] = useState<OuterTab>("commission-settle");
+  const [mainTab, setMainTab] = useState<MainTab>("commission");
+  const [commissionSubTab, setCommissionSubTab] = useState<CommissionSubTab>("settle");
+
   return (
     <div className="tc-shell">
-      <div className="tc-shell-tabs">
-        {/* Shared Button component (already used elsewhere on this page —
-            SettleCommissionModal/SettleTipModal) instead of a hand-rolled
-            button/CSS pair: its variant hover states are already correct
-            everywhere else in the app, so the pill switcher inherits that
-            instead of re-deriving its own. "dark" for the active tab (solid
-            black, matching the mockup), "light" for inactive ones — not
-            "outline-dark", which fills solid black on hover by Bootstrap's
-            own outline-button convention and would reproduce the same
-            all-black-on-hover look for tabs that aren't even selected. */}
-        {OUTER_TABS.map(({ key, label, icon }) => (
-          <Button
+      <div className="tc-main-tabs">
+        {MAIN_TABS.map(({ key, label, icon }) => (
+          <button
             key={key}
-            variant={outerTab === key ? "dark" : "light"}
-            size="sm"
-            pill
-            iconLeft={icon}
-            onClick={() => setOuterTab(key)}
+            type="button"
+            className={`tc-main-tab ${mainTab === key ? "tc-main-tab--active" : ""}`}
+            onClick={() => setMainTab(key)}
           >
+            {icon}
             {label}
-          </Button>
+          </button>
         ))}
       </div>
-      {outerTab === "commission-settle" ? <CommissionSettleTab view="settle" />
-        : outerTab === "tip-settle" ? <TipSettleTab />
-        : <CommissionSettleTab view="rules" />}
+
+      {mainTab === "commission" && (
+        <div className="tc-shell-tabs tc-shell-tabs--sub">
+          {COMMISSION_SUB_TABS.map(({ key, label, icon }) => (
+            <Button
+              key={key}
+              variant={commissionSubTab === key ? "dark" : "light"}
+              size="sm"
+              pill
+              iconLeft={icon}
+              onClick={() => setCommissionSubTab(key)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {mainTab === "commission"
+        ? <CommissionSettleTab view={commissionSubTab === "settle" ? "settle" : "rules"} />
+        : <TipSettleTab />}
     </div>
   );
 }
