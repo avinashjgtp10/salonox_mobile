@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import { Image } from "expo-image";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
@@ -638,6 +637,16 @@ const formatTimeLabel = (value: string | null) => {
   return formatAppTime(parsedDate, "--:--");
 };
 
+const maskPhone = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+
+  if (digits.length < 4) {
+    return value || "-";
+  }
+
+  return `${digits.slice(0, 2)}******${digits.slice(-2)}`;
+};
+
 const getDateKey = (value: string | null) => {
   const parsedDate = parseAppointmentDateTime(value);
 
@@ -949,7 +958,7 @@ function ScreenShell({
       >
         {!hideHeader ? <View style={styles.headerRow}>
           <TouchableOpacity activeOpacity={0.8} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            <Ionicons name="arrow-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={[styles.headerTitle, headerTitleStyle]}>{title}</Text>
           {showCreateAction ? (
@@ -1448,6 +1457,7 @@ function useFetchAppointments() {
   const fetchAppointments = useCallback(
     async ({
       date,
+      fromDate,
       limit,
       page = 1,
       refresh = false,
@@ -1455,8 +1465,10 @@ function useFetchAppointments() {
       search = "",
       staffId,
       status = "All",
+      toDate,
     }: {
       date?: string;
+      fromDate?: string;
       limit?: number;
       page?: number;
       refresh?: boolean;
@@ -1464,10 +1476,12 @@ function useFetchAppointments() {
       search?: string;
       staffId?: string;
       status?: "All" | AppointmentStatus;
+      toDate?: string;
     } = {}) => {
       await dispatch(
         fetchAppointmentsThunk({
           date: date || undefined,
+          from_date: fromDate,
           limit: limit ?? query.limit,
           page,
           refresh,
@@ -1477,6 +1491,7 @@ function useFetchAppointments() {
           sort_order: query.sort_order,
           staff_id: staffId,
           status: status && status !== "All" ? appointmentStatusToListApiValue(status) : undefined,
+          to_date: toDate,
         }),
       );
     },
@@ -1576,16 +1591,10 @@ export function AppointmentDashboardScreen() {
     <View style={styles.listHeader}>
       <View style={styles.headerRow}>
         <TouchableOpacity activeOpacity={0.8} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-          <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={18} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Appointments</Text>
-        <TouchableOpacity
-          activeOpacity={0.8}
-          onPress={() => router.push("/bookings/new" as Href)}
-          style={styles.iconButton}
-        >
-          <Ionicons name="add" size={20} color={Colors.primary} />
-        </TouchableOpacity>
+        <View style={styles.iconButton} />
       </View>
 
       <FilterBar
@@ -1720,7 +1729,7 @@ export function AppointmentListScreen() {
                 onPress={() => router.replace("/bookings" as Href)}
                 style={styles.iconButton}
               >
-                <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+                <Ionicons name="arrow-back" size={18} color={Colors.primary} />
               </TouchableOpacity>
               <Text style={styles.headerTitle}>Appointment List</Text>
               <TouchableOpacity
@@ -2099,13 +2108,13 @@ function CalendarPreview({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [previewAppointment, setPreviewAppointment] = useState<AppointmentListItem | null>(null);
   const startHour = 8;
-  const hourHeight = 72;
+  const hourHeight = 160;
   const hours = useMemo(() => Array.from({ length: 12 }, (_, index) => startHour + index), []);
   const timeSlots = useMemo(() => Array.from({ length: hours.length * 4 }, (_, index) => {
     const totalMinutes = startHour * 60 + index * 15;
     return { hour: Math.floor(totalMinutes / 60), minute: totalMinutes % 60 };
   }), [hours.length]);
-  const days = useMemo(() => Array.from({ length: 3 }, (_, index) => {
+  const days = useMemo(() => Array.from({ length: 7 }, (_, index) => {
     const value = new Date(`${date}T00:00:00`);
     value.setDate(value.getDate() + index);
     return {
@@ -2114,19 +2123,29 @@ function CalendarPreview({
     };
   }), [date]);
   const columns = useMemo(() => viewMode === "day"
-    ? (staffNames.length ? staffNames.slice(0, 3).map((name) => ({ key: date, label: name, staffName: name })) : [{ key: date, label: "All Staff", staffName: "" }])
+    ? (staffNames.length ? staffNames.map((name) => ({ key: date, label: name, staffName: name })) : [{ key: date, label: "All Staff", staffName: "" }])
     : days.map((day) => ({ ...day, staffName: "" })), [date, days, staffNames, viewMode]);
+  const columnWidth = viewMode === "day" ? 132 : 118;
+  const calendarContentWidth = 54 + columns.length * columnWidth;
+  const now = new Date();
+  const currentMinuteOffset = now.getHours() * 60 + now.getMinutes() - startHour * 60;
+  const showCurrentTime = viewMode === "day" && date === todayIsoDate() && currentMinuteOffset >= 0 && currentMinuteOffset < hours.length * 60;
 
   if (viewMode === "list") {
     return (
       <>
         <View style={styles.dinggListView}>
           {appointments.length ? [...appointments].sort(sortBySchedule).map((appointment) => (
-            <Pressable key={appointment.id} onPress={() => setPreviewAppointment(appointment)} style={styles.dinggListAppointment}>
-              <View style={styles.dinggListTime}><Text style={styles.dinggListTimeText}>{formatTimeLabel(appointment.scheduledAt)}</Text></View>
+            <View key={appointment.id} style={styles.dinggListTimelineRow}>
+              <View style={styles.dinggListTimeRail}><Text style={styles.dinggListHour}>{formatTimeLabel(appointment.scheduledAt)}</Text><View style={styles.dinggListRailLine} /></View>
+              <Pressable onPress={() => setPreviewAppointment(appointment)} style={[styles.dinggListAppointment, appointment.status === "Completed" && styles.dinggListCompleted, appointment.status === "Confirmed" && styles.dinggListConfirmed]}>
+                <View style={styles.dinggListClientRow}><View style={styles.dinggListAvatar}><Ionicons name="person-outline" size={24} color={Colors.appointmentTextSecondary} /></View><View style={styles.dinggListClientCopy}><Text numberOfLines={1} style={styles.dinggListClientName}>{appointment.clientName}</Text><Text style={styles.dinggListPhone}>{maskPhone(appointment.phone)}</Text></View><Ionicons name="male-outline" size={22} color={Colors.appointmentText} /><Ionicons name="gift-outline" size={22} color={Colors.appointmentText} /></View>
               <View style={styles.dinggListCopy}><Text numberOfLines={1} style={styles.dinggAppointmentName}>{appointment.serviceName}</Text><Text numberOfLines={1} style={styles.dinggAppointmentClient}>{appointment.clientName} · {appointment.staffName}</Text></View>
-              <Ionicons name="chevron-forward" size={17} color={Colors.appointmentMuted} />
-            </Pressable>
+                <View style={styles.dinggListDetailRow}><Ionicons name="cut-outline" size={19} color={Colors.appointmentAccent} /><Text numberOfLines={2} style={styles.dinggListService}>{appointment.serviceName}</Text></View>
+                <View style={styles.dinggListDetailRow}><Ionicons name="time-outline" size={19} color={Colors.appointmentAccent} /><Text style={styles.dinggListTimeRange}>{formatTimeLabel(appointment.scheduledAt)} - {formatTimeLabel(appointment.endTime)}</Text><View style={styles.dinggListStaffWrap}><Text style={styles.dinggListWith}>with</Text><Text numberOfLines={1} style={styles.dinggListStaff}>{appointment.staffName || "-"}</Text></View></View>
+                <View style={styles.dinggListStatusRow}><View style={[styles.dinggListStatusDot, appointment.status === "Completed" && styles.dinggStatusCompleted, appointment.status === "Confirmed" && styles.dinggStatusConfirmed]} /><Text style={styles.dinggListStatus}>{appointment.status}</Text><Ionicons name="chevron-down" size={18} color={Colors.appointmentTextSecondary} /></View>
+              </Pressable>
+            </View>
           )) : <Text style={styles.calendarEmpty}>No appointments found.</Text>}
         </View>
         <AppointmentPreviewSheet appointment={previewAppointment} onClose={() => setPreviewAppointment(null)} onViewDetails={(appointment) => { setPreviewAppointment(null); requestAnimationFrame(() => router.push(detailRoute?.(appointment.id) ?? (`/appointments/${appointment.id}` as Href))); }} />
@@ -2136,51 +2155,58 @@ function CalendarPreview({
 
   return (
     <View style={styles.dinggCalendar}>
-      <View style={styles.dinggCalendarHeader}>
-        <View style={styles.dinggTimeHeader}>{viewMode === "day" ? <Text style={styles.dinggStaffHeader}>Stylist</Text> : null}</View>
-        {columns.map((column, index) => <View key={`${column.key}-${column.label}-${index}`} style={styles.dinggDayHeader}>{viewMode === "day" ? <Ionicons name="person-outline" size={12} color={Colors.appointmentAccent} /> : null}<Text numberOfLines={1} style={styles.dinggDayHeaderText}>{column.label}</Text></View>)}
-      </View>
-      <View style={[styles.dinggGridBody, { height: hours.length * hourHeight }]}>
-        <View style={styles.dinggTimeColumn}>
-          {timeSlots.map(({ hour, minute }) => (
-            <View key={`${hour}-${minute}`} style={[styles.dinggTimeCell, { height: hourHeight / 4 }]}>
-              <Text style={[styles.dinggTimeText, minute === 0 && styles.dinggHourText]}>{minute === 0 ? new Intl.DateTimeFormat("en-IN", { hour: "numeric", hour12: true }).format(new Date(2020, 0, 1, hour)) : `${String(hour % 12 || 12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`}</Text>
-            </View>
-          ))}
-        </View>
-        {columns.map((column, columnIndex) => (
-          <View key={`${column.key}-${column.label}-${columnIndex}`} style={styles.dinggDayColumn}>
-            {hours.map((hour) => (
-              <View key={`${column.key}-${hour}`} style={[styles.dinggHourCell, { height: hourHeight }]}> 
-                <View style={[styles.dinggQuarterLine, { top: "25%" }]} />
-                <View style={[styles.dinggQuarterLine, { top: "50%" }]} />
-                <View style={[styles.dinggQuarterLine, { top: "75%" }]} />
-              </View>
-            ))}
-            {appointments.filter((appointment) => getDateKey(appointment.scheduledAt) === column.key && (!column.staffName || appointment.staffName === column.staffName)).map((appointment) => {
-              const scheduled = parseAppointmentDateTime(appointment.scheduledAt);
-              if (!scheduled) return null;
-              const offsetMinutes = scheduled.getHours() * 60 + scheduled.getMinutes() - startHour * 60;
-              if (offsetMinutes < 0 || offsetMinutes >= hours.length * 60) return null;
-              const height = Math.max(((appointment.durationMinutes ?? 30) / 60) * hourHeight, 36);
-              const top = (offsetMinutes / 60) * hourHeight;
-              const isPaid = appointment.paymentStatus.toLowerCase() === "paid" || (appointment.total > 0 && appointment.paidAmount >= appointment.total);
-              return (
-                <Pressable
-                  key={appointment.id}
-                  onPress={() => setPreviewAppointment(appointment)}
-                  style={[styles.dinggAppointmentCard, appointment.status === "Confirmed" && styles.dinggAppointmentConfirmed, { height, top }]}
-                >
-                  <Text numberOfLines={1} style={styles.dinggAppointmentName}>{appointment.serviceName}</Text>
-                  <Text numberOfLines={1} style={styles.dinggAppointmentClient}>{appointment.clientName}</Text>
-                  {height >= 48 ? <Text numberOfLines={1} style={styles.dinggAppointmentMeta}>{formatTimeLabel(appointment.scheduledAt)}</Text> : null}
-                  {isPaid && height >= 64 ? <Text numberOfLines={1} style={styles.dinggPaidText}>Paid successfully</Text> : null}
-                </Pressable>
-              );
-            })}
+      <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator style={styles.dinggHorizontalScroller}>
+        <View style={{ width: calendarContentWidth }}>
+          <View style={styles.dinggCalendarHeader}>
+            <View style={styles.dinggTimeHeader}>{viewMode === "day" ? <Text style={styles.dinggStaffHeader}>Stylist</Text> : null}</View>
+            {columns.map((column, index) => <View key={`${column.key}-${column.label}-${index}`} style={[styles.dinggDayHeader, { width: columnWidth }]}>{viewMode === "day" ? <Ionicons name="person-outline" size={12} color={Colors.appointmentAccent} /> : null}<Text numberOfLines={1} style={styles.dinggDayHeaderText}>{column.label}</Text></View>)}
           </View>
-        ))}
-      </View>
+          <ScrollView nestedScrollEnabled showsVerticalScrollIndicator style={styles.dinggVerticalScroller}>
+            <View style={[styles.dinggGridBody, { height: hours.length * hourHeight }]}>
+              <View style={styles.dinggTimeColumn}>
+                {timeSlots.map(({ hour, minute }) => (
+                  <View key={`${hour}-${minute}`} style={[styles.dinggTimeCell, { height: hourHeight / 4 }]}>
+                    <Text style={[styles.dinggTimeText, minute === 0 && styles.dinggHourText]}>{minute === 0 ? new Intl.DateTimeFormat("en-IN", { hour: "numeric", hour12: true }).format(new Date(2020, 0, 1, hour)) : `${String(hour % 12 || 12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`}</Text>
+                  </View>
+                ))}
+              </View>
+              {columns.map((column, columnIndex) => (
+                <View key={`${column.key}-${column.label}-${columnIndex}`} style={[styles.dinggDayColumn, viewMode === "day" && (columnIndex % 2 === 0 ? styles.dinggColumnAvailable : styles.dinggColumnUnavailable), { width: columnWidth }]}>
+                  {hours.map((hour) => (
+                    <View key={`${column.key}-${hour}`} style={[styles.dinggHourCell, { height: hourHeight }]}>
+                      <View style={[styles.dinggQuarterLine, { top: "25%" }]} />
+                      <View style={[styles.dinggQuarterLine, { top: "50%" }]} />
+                      <View style={[styles.dinggQuarterLine, { top: "75%" }]} />
+                    </View>
+                  ))}
+                  {appointments.filter((appointment) => getDateKey(appointment.scheduledAt) === column.key && (!column.staffName || appointment.staffName === column.staffName)).map((appointment) => {
+                    const scheduled = parseAppointmentDateTime(appointment.scheduledAt);
+                    if (!scheduled) return null;
+                    const offsetMinutes = scheduled.getHours() * 60 + scheduled.getMinutes() - startHour * 60;
+                    if (offsetMinutes < 0 || offsetMinutes >= hours.length * 60) return null;
+                    const height = Math.max(((appointment.durationMinutes ?? 30) / 60) * hourHeight, 36);
+                    const top = (offsetMinutes / 60) * hourHeight;
+                    const isPaid = appointment.paymentStatus.toLowerCase() === "paid" || (appointment.total > 0 && appointment.paidAmount >= appointment.total);
+                    return (
+                      <Pressable
+                        key={appointment.id}
+                        onPress={() => setPreviewAppointment(appointment)}
+                        style={[styles.dinggAppointmentCard, appointment.status === "Completed" && styles.dinggAppointmentCompleted, appointment.status === "Confirmed" && styles.dinggAppointmentConfirmed, { height, top }]}
+                      >
+                        {height >= 54 ? <View style={styles.dinggAppointmentIcons}><Ionicons name="male-outline" size={13} color={Colors.appointmentText} /><Ionicons name="gift-outline" size={13} color={Colors.appointmentText} /></View> : null}
+                        <Text numberOfLines={2} style={styles.dinggAppointmentClient}>{appointment.clientName}, {formatTimeLabel(appointment.scheduledAt)}-{formatTimeLabel(appointment.endTime)}</Text>
+                        {height >= 72 ? <Text numberOfLines={3} style={styles.dinggAppointmentName}>{appointment.serviceName}</Text> : null}
+                        {isPaid && height >= 64 ? <Text numberOfLines={1} style={styles.dinggPaidText}>Paid successfully</Text> : null}
+                      </Pressable>
+                    );
+                  })}
+                </View>
+              ))}
+              {showCurrentTime ? <View pointerEvents="none" style={[styles.dinggCurrentTime, { top: (currentMinuteOffset / 60) * hourHeight }]}><Text style={styles.dinggCurrentTimeLabel}>{formatAppTime(now)}</Text><View style={styles.dinggCurrentTimeDot} /><View style={styles.dinggCurrentTimeLine} /></View> : null}
+            </View>
+          </ScrollView>
+        </View>
+      </ScrollView>
       <AppointmentPreviewSheet
         appointment={previewAppointment}
         onClose={() => setPreviewAppointment(null)}
@@ -5118,11 +5144,15 @@ export function AppointmentCalendarScreen() {
   const staffNames = useMemo(() => ["All Staff", ...Array.from(new Set([...staffMembers.map((staff) => staff.name), ...appointments.map((item) => item.staffName)].filter(Boolean)))], [appointments, staffMembers]);
   const visibleAppointments = useMemo(() => selectedStaff === "All Staff" ? appointments : appointments.filter((item) => item.staffName === selectedStaff), [appointments, selectedStaff]);
   const rangeEnd = useMemo(() => { const value = new Date(`${date}T00:00:00`); value.setDate(value.getDate() + (viewMode === "week" ? 6 : 0)); return value; }, [date, viewMode]);
+  const rangeEndKey = `${rangeEnd.getFullYear()}-${String(rangeEnd.getMonth() + 1).padStart(2, "0")}-${String(rangeEnd.getDate()).padStart(2, "0")}`;
+  const selectedStaffId = selectedStaff === "All Staff" ? undefined : staffMembers.find((staff) => staff.name === selectedStaff)?.id;
   const changeDate = (amount: number) => { const value = new Date(`${date}T00:00:00`); value.setDate(value.getDate() + amount); setDate(`${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`); };
 
   useEffect(() => {
-    void fetchAppointments({ date, reset: true, search, status });
-  }, [date, fetchAppointments, search, status]);
+    void fetchAppointments(viewMode === "week"
+      ? { fromDate: date, limit: 200, reset: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey }
+      : { date, limit: 200, reset: true, search, staffId: selectedStaffId, status });
+  }, [date, fetchAppointments, rangeEndKey, search, selectedStaffId, status, viewMode]);
 
   useEffect(() => {
     void dispatch(fetchStaffThunk({ limit: 50, page: 1, reset: true }));
@@ -5131,17 +5161,11 @@ export function AppointmentCalendarScreen() {
   return (
     <ScreenShell
       footer={<View style={styles.dinggLegend}><TouchableOpacity onPress={() => setStatus("All")} style={[styles.dinggLegendPill, status === "All" && styles.dinggLegendActive]}><Text style={styles.dinggLegendText}>All</Text></TouchableOpacity><TouchableOpacity onPress={() => setStatus("Upcoming")} style={styles.dinggLegendPill}><View style={[styles.dinggLegendDot, { backgroundColor: "#38AAA9" }]} /><Text style={styles.dinggLegendText}>Tentative</Text></TouchableOpacity><TouchableOpacity onPress={() => setStatus("Confirmed")} style={styles.dinggLegendPill}><View style={[styles.dinggLegendDot, { backgroundColor: "#F08A24" }]} /><Text style={styles.dinggLegendText}>Confirmed</Text></TouchableOpacity></View>}
-      onRefresh={() => void fetchAppointments({ date, refresh: true, search, status })}
+      onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}
       refreshing={refreshing}
       hideHeader
       title="Calendar"
     >
-      <View style={styles.dinggBusinessHeader}>
-        <View style={styles.dinggBrandMark}><Image contentFit="contain" source={require("../../../assets/images/logo.png")} style={styles.dinggBrandLogo} /></View>
-        <View style={styles.dinggBusinessCopy}><Text style={styles.dinggBusinessName}>SALONOX</Text><Text numberOfLines={1} style={styles.dinggBusinessBranch}>Calendar & Appointments</Text></View>
-        <Ionicons name="people-outline" size={21} color="#FFFFFF" />
-        <Ionicons name="notifications-outline" size={22} color="#FFFFFF" />
-      </View>
       <View style={styles.dinggToolbar}>
         <View style={styles.dinggToolbarActions}>
           <TouchableOpacity onPress={() => setDate(todayIsoDate())} style={styles.dinggTodayButton}><Text style={styles.dinggTodayText}>Today</Text></TouchableOpacity>
@@ -5153,7 +5177,6 @@ export function AppointmentCalendarScreen() {
           <View style={styles.dinggToolbarIcons}>
             <TouchableOpacity accessibilityLabel="Search appointments" onPress={() => setCalendarSearchOpen((open) => !open)} style={styles.dinggToolbarIcon}><Ionicons name="search-outline" size={19} color={Colors.appointmentText} /></TouchableOpacity>
             <TouchableOpacity accessibilityLabel="Select date" onPress={() => setDatePickerVisible(true)} style={styles.dinggToolbarIcon}><Ionicons name="calendar-outline" size={21} color={Colors.appointmentText} /></TouchableOpacity>
-            <TouchableOpacity accessibilityLabel="Filter by stylist" onPress={() => setStaffFilterVisible(true)} style={styles.dinggToolbarIcon}><Ionicons name="filter-outline" size={21} color={Colors.appointmentText} /></TouchableOpacity>
           </View>
         </View>
         {calendarSearchOpen ? (
@@ -5164,7 +5187,7 @@ export function AppointmentCalendarScreen() {
           </View>
         ) : null}
         {datePickerVisible ? <DateTimePicker mode="date" onChange={(event, selected) => { setDatePickerVisible(false); if (event.type !== "dismissed" && selected) setDate(`${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`); }} value={new Date(`${date}T00:00:00`)} /> : null}
-        {viewMode !== "day" ? <TouchableOpacity onPress={() => setStaffFilterVisible(true)} style={styles.dinggStylistSummary}><Text style={styles.dinggStylistLabel}>Stylist:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{selectedStaff}</Text><Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /></TouchableOpacity> : null}
+        <TouchableOpacity onPress={() => setStaffFilterVisible(true)} style={styles.dinggStylistSummary}><Text style={styles.dinggStylistLabel}>Stylist:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{selectedStaff}</Text><Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /></TouchableOpacity>
       </View>
       <CalendarPreview appointments={visibleAppointments} date={date} staffNames={staffNames.filter((name) => name !== "All Staff")} viewMode={viewMode} />
       <Modal animationType="fade" onRequestClose={() => setViewMenuVisible(false)} transparent visible={viewMenuVisible}><Pressable onPress={() => setViewMenuVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.calendarMenuCard}>{([['week','calendar-outline','Week view'],['day','today-outline','Day view'],['list','list-outline','List view']] as const).map(([value, icon, label]) => <TouchableOpacity key={value} onPress={() => { setViewMode(value); setViewMenuVisible(false); }} style={[styles.calendarMenuOption, viewMode === value && styles.calendarMenuOptionActive]}><Ionicons name={icon} size={18} color={Colors.appointmentText} /><Text style={styles.calendarMenuText}>{label}</Text>{viewMode === value ? <Ionicons name="radio-button-on" size={16} color={Colors.appointmentAccent} /> : null}</TouchableOpacity>)}</Pressable></Pressable></Modal>
@@ -5404,41 +5427,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingBottom: 8,
     paddingHorizontal: 12,
   },
-  dinggBusinessHeader: {
-    alignItems: "center",
-    backgroundColor: "#211C22",
-    flexDirection: "row",
-    gap: 12,
-    marginHorizontal: -AppLayout.contentHorizontalPadding,
-    minHeight: 64,
-    paddingHorizontal: 16,
-  },
-  dinggBrandMark: {
-    alignItems: "center",
-    backgroundColor: "#FFFFFF",
-    borderRadius: 20,
-    height: 40,
-    justifyContent: "center",
-    width: 40,
-  },
-  dinggBrandLogo: {
-    height: 38,
-    width: 38,
-  },
-  dinggBusinessCopy: {
-    flex: 1,
-    minWidth: 0,
-  },
-  dinggBusinessName: {
-    color: "#FFFFFF",
-    fontSize: 15,
-    fontWeight: "900",
-  },
-  dinggBusinessBranch: {
-    color: "#D7B96D",
-    fontSize: 11,
-    marginTop: 2,
-  },
   dinggToolbarActions: {
     alignItems: "center",
     flexDirection: "row",
@@ -5604,38 +5592,145 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   dinggListView: {
     backgroundColor: Colors.appointmentSurface,
-    gap: 10,
     marginHorizontal: -AppLayout.contentHorizontalPadding,
-    padding: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
-  dinggListAppointment: {
-    alignItems: "center",
-    backgroundColor: Colors.appointmentSurface,
-    borderBottomColor: Colors.appointmentDivider,
-    borderBottomWidth: 1,
+  dinggListTimelineRow: {
+    alignItems: "stretch",
     flexDirection: "row",
     gap: 10,
-    minHeight: 62,
-    paddingHorizontal: 4,
+    minHeight: 250,
   },
-  dinggListTime: {
+  dinggListTimeRail: {
     alignItems: "center",
-    width: 62,
+    width: 54,
   },
-  dinggListTimeText: {
-    color: Colors.appointmentAccent,
-    fontSize: 11,
-    fontWeight: "800",
+  dinggListHour: {
+    color: Colors.appointmentTextSecondary,
+    fontSize: 13,
+    marginBottom: 7,
+  },
+  dinggListRailLine: {
+    backgroundColor: Colors.appointmentDivider,
+    flex: 1,
+    width: 1,
+  },
+  dinggListAppointment: {
+    backgroundColor: "#E8F8FA",
+    borderLeftColor: "#2AA7B2",
+    borderLeftWidth: 6,
+    borderRadius: 8,
+    flex: 1,
+    marginBottom: 18,
+    padding: 18,
+  },
+  dinggListCompleted: {
+    backgroundColor: "#E9FAE8",
+    borderLeftColor: "#35B64A",
+  },
+  dinggListConfirmed: {
+    backgroundColor: "#FFF4E8",
+    borderLeftColor: "#F08A24",
   },
   dinggListCopy: {
+    display: "none",
+  },
+  dinggListClientRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  dinggListAvatar: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 28,
+    height: 56,
+    justifyContent: "center",
+    width: 56,
+  },
+  dinggListClientCopy: {
     flex: 1,
     minWidth: 0,
+  },
+  dinggListClientName: {
+    color: Colors.appointmentAccent,
+    fontSize: 20,
+    fontWeight: "900",
+  },
+  dinggListPhone: {
+    color: Colors.appointmentText,
+    fontSize: 14,
+    marginTop: 3,
+  },
+  dinggListDetailRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 10,
+    marginTop: 18,
+  },
+  dinggListService: {
+    color: Colors.appointmentAccent,
+    flex: 1,
+    fontSize: 17,
+    lineHeight: 22,
+  },
+  dinggListTimeRange: {
+    color: Colors.appointmentAccent,
+    flexShrink: 1,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  dinggListStaffWrap: {
+    marginLeft: "auto",
+    maxWidth: "34%",
+  },
+  dinggListWith: {
+    color: Colors.appointmentTextSecondary,
+    fontSize: 12,
+  },
+  dinggListStaff: {
+    color: Colors.appointmentText,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  dinggListStatusRow: {
+    alignItems: "center",
+    borderTopColor: Colors.appointmentDivider,
+    borderTopWidth: 1,
+    flexDirection: "row",
+    gap: 10,
+    justifyContent: "center",
+    marginTop: 16,
+    paddingTop: 12,
+  },
+  dinggListStatusDot: {
+    backgroundColor: Colors.appointmentAccent,
+    borderRadius: 6,
+    height: 12,
+    width: 12,
+  },
+  dinggStatusCompleted: {
+    backgroundColor: "#35B64A",
+  },
+  dinggStatusConfirmed: {
+    backgroundColor: "#F08A24",
+  },
+  dinggListStatus: {
+    color: Colors.appointmentText,
+    fontSize: 17,
   },
   dinggCalendarHeader: {
     borderBottomColor: Colors.appointmentBorder,
     borderBottomWidth: 1,
     flexDirection: "row",
     minHeight: 38,
+  },
+  dinggHorizontalScroller: {
+    flexGrow: 0,
+  },
+  dinggVerticalScroller: {
+    maxHeight: 520,
   },
   dinggTimeHeader: {
     alignItems: "center",
@@ -5650,7 +5745,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   dinggDayHeader: {
     alignItems: "center",
     color: Colors.appointmentTextSecondary,
-    flex: 1,
     flexDirection: "row",
     gap: 5,
     justifyContent: "center",
@@ -5678,19 +5772,24 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   dinggTimeText: {
     color: Colors.appointmentMuted,
-    fontSize: 8,
+    fontSize: 10,
     textAlign: "right",
   },
   dinggHourText: {
     color: Colors.appointmentText,
-    fontSize: 9,
+    fontSize: 13,
     fontWeight: "800",
   },
   dinggDayColumn: {
     borderLeftColor: Colors.appointmentDivider,
     borderLeftWidth: 1,
-    flex: 1,
     position: "relative",
+  },
+  dinggColumnAvailable: {
+    backgroundColor: "#FFFBE4",
+  },
+  dinggColumnUnavailable: {
+    backgroundColor: "#FCF7FA",
   },
   dinggHourCell: {
     borderBottomColor: Colors.appointmentDivider,
@@ -5706,30 +5805,42 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     right: 0,
   },
   dinggAppointmentCard: {
-    backgroundColor: "#FCE5F2",
-    borderLeftColor: Colors.appointmentAccent,
-    borderLeftWidth: 3,
+    backgroundColor: "#E8F8FA",
+    borderColor: "#2AA7B2",
+    borderLeftWidth: 5,
+    borderWidth: 1,
     borderRadius: 5,
     left: 3,
     overflow: "hidden",
-    padding: 5,
+    padding: 7,
     position: "absolute",
     right: 3,
     zIndex: 3,
   },
+  dinggAppointmentCompleted: {
+    backgroundColor: "#E9FAE8",
+    borderColor: "#35B64A",
+  },
   dinggAppointmentConfirmed: {
-    backgroundColor: "#E4F6E1",
-    borderLeftColor: "#28A745",
+    backgroundColor: "#FFF4E8",
+    borderColor: "#F08A24",
+  },
+  dinggAppointmentIcons: {
+    flexDirection: "row",
+    gap: 4,
   },
   dinggAppointmentName: {
-    color: Colors.appointmentText,
-    fontSize: 10,
+    color: Colors.appointmentAccent,
+    fontSize: 12,
     fontWeight: "800",
+    lineHeight: 15,
   },
   dinggAppointmentClient: {
-    color: Colors.appointmentTextSecondary,
-    fontSize: 8,
-    marginTop: 2,
+    color: Colors.appointmentText,
+    fontSize: 11,
+    fontWeight: "700",
+    lineHeight: 14,
+    marginTop: 3,
   },
   dinggAppointmentMeta: {
     color: Colors.appointmentMuted,
@@ -5746,6 +5857,34 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: 2,
     paddingHorizontal: 4,
     paddingVertical: 2,
+  },
+  dinggCurrentTime: {
+    alignItems: "center",
+    flexDirection: "row",
+    left: 4,
+    position: "absolute",
+    right: 0,
+    zIndex: 20,
+  },
+  dinggCurrentTimeLabel: {
+    backgroundColor: "#E31B23",
+    borderRadius: 4,
+    color: "#FFFFFF",
+    fontSize: 10,
+    fontWeight: "800",
+    paddingHorizontal: 5,
+    paddingVertical: 4,
+  },
+  dinggCurrentTimeDot: {
+    backgroundColor: "#E31B23",
+    borderRadius: 5,
+    height: 10,
+    width: 10,
+  },
+  dinggCurrentTimeLine: {
+    backgroundColor: "#E31B23",
+    flex: 1,
+    height: 2,
   },
   previewBackdrop: {
     backgroundColor: "rgba(0,0,0,0.34)",

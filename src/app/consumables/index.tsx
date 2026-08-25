@@ -114,7 +114,7 @@ export default function ConsumablesScreen() {
             onPress={() => (router.canGoBack() ? router.back() : router.replace("/more" as Href))}
             style={styles.iconButton}
           >
-            <Ionicons name="chevron-back" size={19} color={Colors.primary} />
+            <Ionicons name="arrow-back" size={19} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={styles.title}>Consumables</Text>
           <View style={styles.iconButton} />
@@ -137,7 +137,7 @@ export default function ConsumablesScreen() {
           onPress={() => (router.canGoBack() ? router.back() : router.replace("/more" as Href))}
           style={styles.iconButton}
         >
-          <Ionicons name="chevron-back" size={19} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={19} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.title}>Consumables</Text>
         <TouchableOpacity

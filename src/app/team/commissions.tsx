@@ -242,7 +242,7 @@ export default function SalonCommissionsScreen() {
     <View>
       <View style={styles.header}>
         <TouchableOpacity activeOpacity={0.84} onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
+          <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Commissions</Text>
         <View style={styles.headerButton} />

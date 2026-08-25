@@ -181,7 +181,7 @@ export default function EditServiceScreen() {
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
@@ -201,7 +201,7 @@ export default function EditServiceScreen() {
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
@@ -232,7 +232,7 @@ export default function EditServiceScreen() {
               onPress={handleBack}
               style={styles.backButton}
             >
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />

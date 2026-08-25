@@ -92,6 +92,40 @@ function DetailRow({ label, value }: { label: string; value: string }) {
   );
 }
 
+type ClientTab = "summary" | "activity" | "profile" | "notes";
+
+const CLIENT_TABS: { key: ClientTab; label: string }[] = [
+  { key: "summary", label: "Summary" },
+  { key: "activity", label: "Activity" },
+  { key: "profile", label: "Profile" },
+  { key: "notes", label: "Notes" },
+];
+
+function EmptySummarySection({
+  icon = "gift-outline",
+  label,
+  title,
+}: {
+  icon?: keyof typeof Ionicons.glyphMap;
+  label: string;
+  title: string;
+}) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  return (
+    <View style={styles.summarySection}>
+      <Text style={styles.summarySectionTitle}>{title}</Text>
+      <View style={styles.emptySummaryBox}>
+        <View style={styles.emptySummaryIcon}>
+          <Ionicons color={Colors.text2} name={icon} size={28} />
+        </View>
+        <Text style={styles.emptySummaryText}>{label}</Text>
+      </View>
+    </View>
+  );
+}
+
 function Section({ children, title }: { children: React.ReactNode; title: string }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -190,6 +224,7 @@ export default function ClientDetailsScreen() {
   const clientStats = historyStats[id ?? ""];
   const isBlocking = id ? blockingIds.includes(id) : false;
   const [pickerVisible, setPickerVisible] = useState(false);
+  const [activeTab, setActiveTab] = useState<ClientTab>("summary");
 
   useEffect(() => {
     if (id) {
@@ -343,7 +378,7 @@ export default function ClientDetailsScreen() {
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Client Profile</Text>
             <View style={[styles.backButton, { opacity: 0 }]} />
@@ -363,7 +398,7 @@ export default function ClientDetailsScreen() {
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Client Profile</Text>
             <View style={[styles.backButton, { opacity: 0 }]} />
@@ -383,7 +418,7 @@ export default function ClientDetailsScreen() {
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            <Ionicons name="arrow-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <View style={styles.notFoundCard}>
             <Text style={styles.notFoundTitle}>Client not found</Text>
@@ -396,302 +431,178 @@ export default function ClientDetailsScreen() {
     );
   }
 
+  const serviceCount = history.reduce((total, item) => total + item.items.filter((entry) => entry.type === "service").length, 0);
+  const productCount = history.reduce((total, item) => total + item.items.filter((entry) => entry.type === "product").length, 0);
+  const appointmentCount = history.filter((item) => item.type === "appointment").length;
+  const latestService = history.flatMap((item) => item.items).find((entry) => entry.type === "service")?.name ?? "-";
+
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+          <TouchableOpacity activeOpacity={0.75} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.headerIconButton}>
+            <Ionicons color={Colors.heading} name="arrow-back" size={27} />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Client Profile</Text>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            hitSlop={AppLayout.headerActionHitSlop}
-            onPress={() => router.push("/bookings/new")}
-            style={styles.headerAction}
-          >
-            <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
+          <View style={styles.headerTitleGroup}>
+            <View style={styles.headerAvatar}><Ionicons color="#FFFFFF" name="person" size={18} /></View>
+            <Text style={styles.headerTitle}>Client</Text>
+          </View>
+          <TouchableOpacity activeOpacity={0.75} hitSlop={AppLayout.headerActionHitSlop} onPress={() => router.push(`/clients/${client.id}/edit` as Href)} style={styles.headerIconButton}>
+            <Ionicons color={Colors.heading} name="create" size={25} />
           </TouchableOpacity>
         </View>
 
-        <View style={styles.heroCard}>
-          <View style={[styles.avatar, { backgroundColor: client.avatarBg }]}>
-            <Text style={[styles.avatarText, { color: client.avatarColor }]}>
-              {client.initials}
-            </Text>
+        <View style={styles.clientHero}>
+          <View style={styles.clientIdentityRow}>
+            <View style={styles.profileAvatar}><Ionicons color="#FFFFFF" name="person" size={37} /></View>
+            <Text numberOfLines={2} style={styles.clientName}>{client.fullName}</Text>
           </View>
-          <Text style={styles.clientName}>{client.fullName}</Text>
-          <Text style={styles.clientPhone}>{client.phone}</Text>
-          {client.membership ? (
-            <View style={styles.membershipBadge}>
-              <Ionicons name="diamond-outline" size={12} color={Colors.goldDark} />
-              <Text style={styles.membershipText}>{client.membership}</Text>
-            </View>
-          ) : null}
-
-          <View style={styles.statsGrid}>
-            <View style={styles.statsRow}>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {formatCurrency(clientStats?.lifetimeSpend ?? 0)}
-                </Text>
-                <Text style={styles.statLabel}>Lifetime Spend</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {clientStats?.totalVisits ?? client.totalVisits}
-                </Text>
-                <Text style={styles.statLabel}>Total Visits</Text>
-              </View>
-            </View>
-            <View style={styles.statsRow}>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {formatCurrency(clientStats?.averageSpend ?? 0)}
-                </Text>
-                <Text style={styles.statLabel}>Avg Spend</Text>
-              </View>
-              <View style={styles.statCard}>
-                <Text style={styles.statValue}>
-                  {clientStats?.lastVisit ? formatCreatedDate(clientStats.lastVisit) : "-"}
-                </Text>
-                <Text style={styles.statLabel}>Last Visit</Text>
-              </View>
-            </View>
+          <View style={styles.contactRow}><Ionicons color={Colors.primary} name="call-outline" size={19} /><Text selectable style={styles.contactText}>{client.phone}</Text></View>
+          <View style={styles.contactRow}><Ionicons color={Colors.primary} name="mail-outline" size={20} /><Text numberOfLines={1} selectable style={styles.contactText}>{client.email || "-"}</Text></View>
+          <View style={styles.walletRow}>
+            <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/quick-sale")} style={styles.walletPill}><Ionicons color="#FFFFFF" name="wallet-outline" size={23} /><Text style={styles.walletValue}>₹ 0</Text></TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.75} onPress={() => router.push("/quick-sale")} style={styles.addMoneyButton}><Ionicons color={Colors.heading} name="add-circle-outline" size={20} /><Text style={styles.addMoneyText}>Add money</Text></TouchableOpacity>
           </View>
         </View>
 
-        <View style={styles.quickActionsRow}>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => router.push("/bookings/new")}
-            style={styles.quickAction}
-          >
-            <Ionicons name="calendar-outline" size={18} color={Colors.primary} />
-            <Text style={styles.quickActionText}>Book</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => router.push("/quick-sale")}
-            style={styles.quickAction}
-          >
-            <Ionicons name="flash-outline" size={18} color={Colors.primary} />
-            <Text style={styles.quickActionText}>Quick Sale</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            onPress={() => router.push(`/clients/${client.id}/edit` as Href)}
-            style={styles.quickAction}
-          >
-            <Ionicons name="create-outline" size={18} color={Colors.primary} />
-            <Text style={styles.quickActionText}>Edit</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            activeOpacity={0.85}
-            disabled={isBlocking}
-            onPress={handleBlockToggle}
-            style={[styles.quickAction, client.isBlocked && styles.quickActionBlocked]}
-          >
-            {isBlocking ? (
-              <ActivityIndicator size="small" color={Colors.primary} />
-            ) : (
-              <Ionicons
-                name={client.isBlocked ? "lock-open-outline" : "ban-outline"}
-                size={18}
-                color={client.isBlocked ? Colors.success : Colors.error}
-              />
-            )}
-            <Text style={[styles.quickActionText, client.isBlocked && { color: Colors.success }]}>
-              {client.isBlocked ? "Unblock" : "Block"}
-            </Text>
+        <View style={styles.tabsRow}>
+          {CLIENT_TABS.map((tab) => (
+            <TouchableOpacity activeOpacity={0.75} key={tab.key} onPress={() => setActiveTab(tab.key)} style={[styles.tabButton, activeTab === tab.key && styles.tabButtonActive]}>
+              <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>{tab.label}</Text>
+            </TouchableOpacity>
+          ))}
+          <TouchableOpacity accessibilityLabel="Client actions" activeOpacity={0.75} disabled={isBlocking} onPress={handleBlockToggle} style={styles.settingsButton}>
+            {isBlocking ? <ActivityIndicator color={Colors.primary} size="small" /> : <Ionicons color={Colors.primary} name="settings-outline" size={24} />}
           </TouchableOpacity>
         </View>
 
-        <Section title="Membership">
-          {membershipLoading ? (
-            <ActivityIndicator color={Colors.primary} style={{ marginVertical: 12 }} />
-          ) : membershipError ? (
-            <Text style={styles.errorText}>{membershipError}</Text>
-          ) : activeMembership ? (
-            <>
-              <View style={styles.membershipSummaryTop}>
-                <View style={styles.membershipSummaryIcon}>
-                  <Ionicons name="diamond-outline" size={22} color={Colors.primary} />
+        {activeTab === "summary" ? (
+          <View style={styles.tabContent}>
+            <View style={styles.metricsGrid}>
+              {[
+                { icon: "checkmark-circle-outline", label: "Total Visits", value: String(clientStats?.totalVisits ?? client.totalVisits) },
+                { icon: "wallet-outline", label: "Total Spend", value: formatCurrency(clientStats?.lifetimeSpend ?? 0) },
+                { icon: "receipt-outline", label: "Amount Due", value: "₹ 0" },
+                { icon: "briefcase-outline", label: "Total Services", value: serviceCount ? String(serviceCount) : "-" },
+                { icon: "cube-outline", label: "Total Products", value: productCount ? String(productCount) : "-" },
+                { icon: "server-outline", label: "Total Points", value: "0" },
+                { icon: "pie-chart-outline", label: "Average Spent", value: formatCurrency(clientStats?.averageSpend ?? 0) },
+                { icon: "time-outline", label: "Last Visited On", value: clientStats?.lastVisit ? formatCreatedDate(clientStats.lastVisit) : "-" },
+              ].map((metric) => (
+                <View key={metric.label} style={styles.metricCell}>
+                  <Ionicons color={Colors.primary} name={metric.icon as keyof typeof Ionicons.glyphMap} size={21} />
+                  <Text style={styles.metricLabel}>{metric.label}</Text>
+                  <Text adjustsFontSizeToFit minimumFontScale={0.8} numberOfLines={1} style={styles.metricValue}>{metric.value}</Text>
                 </View>
-                <View style={styles.membershipSummaryCopy}>
-                  <Text numberOfLines={1} style={styles.membershipSummaryTitle}>
-                    {activeMembership.membershipName}
-                  </Text>
-                  <Text style={styles.membershipSummaryMeta}>
-                    Expires {formatCreatedDate(activeMembership.expiresAt)}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.assignmentStatusBadge,
-                    { backgroundColor: getMembershipStatusTone(activeMembership.status, Colors).bg },
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.assignmentStatusText,
-                      { color: getMembershipStatusTone(activeMembership.status, Colors).color },
-                    ]}
-                  >
-                    {formatStatusLabel(activeMembership.status)}
-                  </Text>
-                </View>
-              </View>
-
-              <View style={styles.membershipStatsRow}>
-                <View style={styles.membershipStatBox}>
-                  <Text style={styles.membershipStatValue}>
-                    {activeMembership.remainingBenefits ?? "-"}
-                  </Text>
-                  <Text style={styles.membershipStatLabel}>Remaining Benefits</Text>
-                </View>
-                <View style={styles.membershipStatBox}>
-                  <Text style={styles.membershipStatValue}>{formatCreatedDate(activeMembership.startsAt)}</Text>
-                  <Text style={styles.membershipStatLabel}>Start Date</Text>
-                </View>
-              </View>
-
-              {activeMembership.benefits.length > 0 ? (
-                <View style={styles.benefitList}>
-                  {activeMembership.benefits.map((benefit) => (
-                    <View key={`${benefit.serviceId}-${benefit.serviceName}`} style={styles.benefitRow}>
-                      <Text numberOfLines={1} style={styles.benefitName}>{benefit.serviceName}</Text>
-                      <Text style={styles.benefitRemaining}>
-                        {benefit.remaining ?? "-"} left
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-
-              <View style={styles.membershipActionRow}>
-                <TouchableOpacity disabled={membershipMutating} onPress={() => setPickerVisible(true)} style={styles.membershipAction}>
-                  <Text style={styles.membershipActionText}>Change</Text>
-                </TouchableOpacity>
-                <TouchableOpacity disabled={membershipMutating} onPress={() => void handleRenewMembership()} style={styles.membershipAction}>
-                  <Text style={styles.membershipActionText}>Renew</Text>
-                </TouchableOpacity>
-                <TouchableOpacity disabled={membershipMutating} onPress={handleCancelMembership} style={styles.membershipDangerAction}>
-                  <Text style={styles.membershipDangerActionText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            </>
-          ) : (
-            <View style={styles.emptyMembershipCard}>
-              <Text style={styles.notesText}>No active membership assigned.</Text>
-              <TouchableOpacity disabled={membershipMutating} onPress={() => setPickerVisible(true)} style={styles.assignMembershipButton}>
-                <Ionicons name="person-add-outline" size={16} color="#FFFFFF" />
-                <Text style={styles.assignMembershipText}>Assign Membership</Text>
-              </TouchableOpacity>
+              ))}
             </View>
-          )}
+            <EmptySummarySection label={appointmentCount ? `${appointmentCount} appointment${appointmentCount === 1 ? "" : "s"}` : "No Appointment"} title="Appointment" />
+            <EmptySummarySection icon="diamond-outline" label={activeMembership?.membershipName ?? "No membership"} title="Membership" />
+            <EmptySummarySection label="No vouchers" title="Vouchers" />
+            <EmptySummarySection label="No Gift Card" title="Gift Cards" />
+            <EmptySummarySection icon="cut-outline" label={serviceCount ? `${serviceCount} service${serviceCount === 1 ? "" : "s"}` : "No Services"} title="Services" />
+            <EmptySummarySection icon="cube-outline" label={productCount ? `${productCount} product${productCount === 1 ? "" : "s"}` : "No Products"} title="Products" />
+            <View style={styles.clientMetaRow}><Text style={styles.clientMetaLabel}>Joined on</Text><Text style={styles.clientMetaValue}>{client.createdLabel}</Text><Text style={styles.clientMetaLabel}>Referred by</Text><Text style={styles.clientMetaValue}>-</Text></View>
+            <View style={styles.latestServiceRow}><Text style={styles.clientMetaLabel}>Latest Service Taken</Text><Text numberOfLines={1} style={styles.latestServiceValue}>{latestService}</Text></View>
+          </View>
+        ) : null}
 
-          {membershipMutating ? <ActivityIndicator color={Colors.primary} style={{ marginTop: 12 }} /> : null}
-          {membershipMutationError ? <Text style={styles.errorText}>{membershipMutationError}</Text> : null}
-        </Section>
-
-        <Section title="Membership History">
-          {clientMemberships.length === 0 ? (
-            <Text style={styles.notesText}>No membership history found.</Text>
-          ) : (
-            clientMemberships.map((assignment) => (
-              <View key={assignment.id} style={styles.membershipHistoryRow}>
-                <View style={styles.membershipHistoryDot} />
-                <View style={styles.membershipHistoryCopy}>
-                  <Text style={styles.membershipHistoryTitle}>{assignment.membershipName}</Text>
-                  <Text style={styles.membershipHistoryMeta}>
-                    {formatStatusLabel(assignment.status)} - Expires {formatCreatedDate(assignment.expiresAt)}
-                  </Text>
-                </View>
+        {activeTab === "activity" ? (
+          <View style={styles.tabContent}>
+            <Text style={styles.contentHeading}>Activity</Text>
+            {historyLoading ? <ActivityIndicator color={Colors.primary} style={styles.loader} /> : null}
+            {historyError ? <Text style={styles.errorText}>{historyError}</Text> : null}
+            {!historyLoading && !historyError && history.length === 0 ? <EmptySummarySection icon="time-outline" label="No activity" title="" /> : null}
+            {history.map((item) => (
+              <View key={item.id} style={styles.activityRow}>
+                <View style={styles.activityIcon}><Ionicons color={Colors.primary} name={item.type === "appointment" ? "calendar-outline" : item.type === "sale" ? "wallet-outline" : "time-outline"} size={19} /></View>
+                <View style={styles.activityCopy}><Text style={styles.activityTitle}>{item.title}</Text><Text style={styles.activityMeta}>{item.dateLabel}{item.staffName ? ` · ${item.staffName}` : ""}</Text></View>
+                {item.amount > 0 ? <Text style={styles.activityAmount}>{formatCurrency(item.amount)}</Text> : null}
               </View>
-            ))
-          )}
-        </Section>
+            ))}
+          </View>
+        ) : null}
 
-        <Section title="Client Information">
-          <DetailRow label="Email" value={client.email} />
-          <DetailRow label="Gender" value={client.gender} />
-          <DetailRow label="Membership" value={client.membership ?? "-"} />
-          <DetailRow label="Status" value={client.status} />
-          <DetailRow label="Favorite Service" value={client.favoriteService} />
-          <DetailRow label="Preferred Staff" value={client.preferredStaff} />
-          <DetailRow label="City" value={client.city} />
-          <DetailRow label="Created" value={client.createdLabel} />
-        </Section>
+        {activeTab === "profile" ? (
+          <View style={styles.tabContent}>
+            <Text style={styles.contentHeading}>Client Information</Text>
+            <View style={styles.profileDetails}>
+              <DetailRow label="Email" value={client.email || "-"} /><DetailRow label="Gender" value={client.gender} /><DetailRow label="Membership" value={client.membership ?? "-"} /><DetailRow label="Status" value={client.status} /><DetailRow label="Created" value={client.createdLabel} />
+            </View>
+            <Text style={styles.contentHeading}>Membership</Text>
+            <View style={styles.profileDetails}>
+              {membershipLoading ? <ActivityIndicator color={Colors.primary} style={styles.loader} /> : null}
+              {membershipError ? <Text style={styles.errorText}>{membershipError}</Text> : null}
+              {!membershipLoading ? <Text style={styles.membershipProfileTitle}>{activeMembership?.membershipName ?? "No active membership"}</Text> : null}
+              {activeMembership ? <Text style={styles.membershipProfileMeta}>Expires {formatCreatedDate(activeMembership.expiresAt)}</Text> : null}
+              <TouchableOpacity disabled={membershipMutating} onPress={() => setPickerVisible(true)} style={styles.primaryOutlineButton}><Text style={styles.primaryOutlineButtonText}>{activeMembership ? "Change Membership" : "Assign Membership"}</Text></TouchableOpacity>
+            </View>
+            <View style={styles.profileActions}>
+              <TouchableOpacity onPress={() => router.push("/bookings/new")} style={styles.primaryActionButton}><Ionicons color="#FFFFFF" name="calendar-outline" size={18} /><Text style={styles.primaryActionText}>Book Appointment</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push("/quick-sale")} style={styles.primaryOutlineButton}><Text style={styles.primaryOutlineButtonText}>Quick Sale</Text></TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
 
-        <Section title="Timeline & History">
-          {historyLoading ? (
-            <ActivityIndicator size="small" color={Colors.primary} style={{ marginVertical: 12 }} />
-          ) : historyError ? (
-            <Text style={styles.errorText}>{historyError}</Text>
-          ) : !history || history.length === 0 ? (
-            <Text style={styles.notesText}>No history records found.</Text>
-          ) : (
-            history.map((item) => (
-              <View key={item.id} style={styles.historyCard}>
-                <View style={styles.historyHeader}>
-                  <View style={styles.historyTypeTag}>
-                    <Ionicons
-                      name={
-                        item.type === "appointment"
-                          ? "calendar"
-                          : item.type === "sale"
-                          ? "cash"
-                          : "time"
-                      }
-                      size={12}
-                      color={Colors.primary}
-                    />
-                    <Text style={styles.historyTypeText}>{item.type.toUpperCase()}</Text>
-                  </View>
-                  <Text style={styles.historyDate}>{item.dateLabel}</Text>
-                </View>
-                <Text style={styles.historyTitle}>{item.title}</Text>
-                {item.description ? <Text style={styles.historyDesc}>{item.description}</Text> : null}
-                {item.items && item.items.length > 0 ? (
-                  <View style={styles.historyItemsList}>
-                    {item.items.map((sub, idx) => (
-                      <Text key={idx} style={styles.historySubItem}>
-                        • {sub.name} ({sub.type}) - {formatCurrency(sub.price)}
-                      </Text>
-                    ))}
-                  </View>
-                ) : null}
-                <View style={styles.historyFooter}>
-                  {item.staffName ? (
-                    <Text style={styles.historyStaff}>Staff: {item.staffName}</Text>
-                  ) : null}
-                  {item.amount > 0 ? (
-                    <Text style={styles.historyAmount}>{formatCurrency(item.amount)}</Text>
-                  ) : null}
-                </View>
-              </View>
-            ))
-          )}
-        </Section>
-
-        <Section title="Notes">
-          <Text style={styles.notesText}>{client.notes}</Text>
-        </Section>
+        {activeTab === "notes" ? <View style={styles.tabContent}><Text style={styles.contentHeading}>Notes</Text><View style={styles.notesPanel}><Ionicons color={Colors.primary} name="document-text-outline" size={22} /><Text style={styles.notesText}>{client.notes}</Text></View></View> : null}
       </ScrollView>
-      <MembershipPickerModal
-        memberships={memberships}
-        onClose={() => setPickerVisible(false)}
-        onSelect={(membership) => void handleSelectMembership(membership)}
-        saving={membershipMutating}
-        visible={pickerVisible}
-      />
+      <MembershipPickerModal memberships={memberships} onClose={() => setPickerVisible(false)} onSelect={(membership) => void handleSelectMembership(membership)} saving={membershipMutating} visible={pickerVisible} />
     </SafeAreaView>
   );
 }
-
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
+  headerIconButton: { alignItems: "center", height: 44, justifyContent: "center", width: 44 },
+  headerTitleGroup: { alignItems: "center", flexDirection: "row", gap: 9 },
+  headerAvatar: { alignItems: "center", backgroundColor: "#6B6B6B", borderRadius: 20, height: 40, justifyContent: "center", width: 40 },
+  clientHero: { backgroundColor: "#FCF7FB", marginHorizontal: -AppLayout.contentHorizontalPadding, paddingHorizontal: 22, paddingBottom: 25, paddingTop: 20 },
+  clientIdentityRow: { alignItems: "center", flexDirection: "row", gap: 14, marginBottom: 22 },
+  profileAvatar: { alignItems: "center", backgroundColor: "#050505", borderRadius: 38, height: 76, justifyContent: "center", width: 76 },
+  contactRow: { alignItems: "center", flexDirection: "row", gap: 10, marginBottom: 15 },
+  contactText: { color: Colors.heading, flexShrink: 1, fontSize: 17 },
+  walletRow: { alignItems: "center", flexDirection: "row", gap: 16, marginTop: 4 },
+  walletPill: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: 30, flexDirection: "row", gap: 8, minWidth: 130, paddingHorizontal: 24, paddingVertical: 14 },
+  walletValue: { color: "#FFFFFF", fontSize: 20, fontWeight: "700" },
+  addMoneyButton: { alignItems: "center", flexDirection: "row", gap: 5, paddingVertical: 12 },
+  addMoneyText: { color: Colors.heading, fontSize: 16, fontWeight: "700" },
+  tabsRow: { alignItems: "stretch", flexDirection: "row", marginHorizontal: -AppLayout.contentHorizontalPadding, paddingLeft: 6 },
+  tabButton: { alignItems: "center", borderBottomColor: "transparent", borderBottomWidth: 3, flex: 1, justifyContent: "center", minHeight: 54, paddingHorizontal: 3 },
+  tabButtonActive: { borderBottomColor: Colors.primary },
+  tabText: { color: Colors.heading, fontSize: 14 },
+  tabTextActive: { color: Colors.primary, fontWeight: "800" },
+  settingsButton: { alignItems: "center", justifyContent: "center", width: 46 },
+  tabContent: { paddingTop: 22 },
+  metricsGrid: { borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flexDirection: "row", flexWrap: "wrap", marginBottom: 28, overflow: "hidden" },
+  metricCell: { borderBottomColor: Colors.border, borderBottomWidth: 1, borderRightColor: Colors.border, borderRightWidth: 1, minHeight: 112, padding: 12, width: "50%" },
+  metricLabel: { color: Colors.text2, fontSize: 14, marginTop: 7 },
+  metricValue: { color: Colors.heading, fontSize: 19, fontWeight: "700", marginTop: 7 },
+  summarySection: { marginBottom: 28 },
+  summarySectionTitle: { color: Colors.heading, fontSize: 19, fontWeight: "800", marginBottom: 14 },
+  emptySummaryBox: { alignItems: "center", backgroundColor: "#FAFAFA", borderRadius: 8, height: 168, justifyContent: "center" },
+  emptySummaryIcon: { alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 38, height: 76, justifyContent: "center", width: 76 },
+  emptySummaryText: { color: Colors.text2, fontSize: 17, marginTop: 13 },
+  clientMetaRow: { alignItems: "center", backgroundColor: "#FCF7FB", flexDirection: "row", gap: 8, paddingHorizontal: 14, paddingVertical: 14 },
+  clientMetaLabel: { color: Colors.text2, fontSize: 14 },
+  clientMetaValue: { color: Colors.heading, flex: 1, fontSize: 15, fontWeight: "700" },
+  latestServiceRow: { alignItems: "center", backgroundColor: "#FCF7FB", flexDirection: "row", gap: 8, marginTop: 12, paddingHorizontal: 14, paddingVertical: 14 },
+  latestServiceValue: { color: Colors.heading, flex: 1, fontSize: 15, fontWeight: "700" },
+  contentHeading: { color: Colors.heading, fontSize: 19, fontWeight: "800", marginBottom: 14 },
+  loader: { marginVertical: 18 },
+  activityRow: { alignItems: "center", borderBottomColor: Colors.border, borderBottomWidth: 1, flexDirection: "row", gap: 12, paddingVertical: 14 },
+  activityIcon: { alignItems: "center", backgroundColor: "#FCF7FB", borderRadius: 22, height: 44, justifyContent: "center", width: 44 },
+  activityCopy: { flex: 1 },
+  activityTitle: { color: Colors.heading, fontSize: 15, fontWeight: "700" },
+  activityMeta: { color: Colors.text2, fontSize: 12, marginTop: 4 },
+  activityAmount: { color: Colors.heading, fontSize: 14, fontWeight: "700" },
+  profileDetails: { borderColor: Colors.border, borderRadius: 8, borderWidth: 1, marginBottom: 24, padding: 16 },
+  membershipProfileTitle: { color: Colors.heading, fontSize: 16, fontWeight: "700" },
+  membershipProfileMeta: { color: Colors.text2, fontSize: 13, marginTop: 5 },
+  profileActions: { gap: 12 },
+  primaryActionButton: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: 8, flexDirection: "row", gap: 8, justifyContent: "center", minHeight: 50, paddingHorizontal: 18 },
+  primaryActionText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
+  primaryOutlineButton: { alignItems: "center", borderColor: Colors.primary, borderRadius: 8, borderWidth: 1, justifyContent: "center", marginTop: 14, minHeight: 48, paddingHorizontal: 16 },
+  primaryOutlineButtonText: { color: Colors.primary, fontSize: 14, fontWeight: "700" },
+  notesPanel: { alignItems: "flex-start", backgroundColor: "#FCF7FB", borderRadius: 8, flexDirection: "row", gap: 12, minHeight: 120, padding: 18 },
   safeArea: {
     backgroundColor: Colors.bg,
     flex: 1,

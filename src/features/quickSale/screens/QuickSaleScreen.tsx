@@ -2081,7 +2081,7 @@ export default function QuickSaleScreen() {
           <AppStatusBar />
           <View style={styles.header}>
             <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Draft</Text>
             <View style={styles.headerSpacer} />
@@ -2103,7 +2103,7 @@ export default function QuickSaleScreen() {
           <AppStatusBar />
           <View style={styles.header}>
             <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Draft</Text>
             <View style={styles.headerSpacer} />
@@ -2123,7 +2123,7 @@ export default function QuickSaleScreen() {
 
         <View style={styles.header}>
           <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            <Ionicons name="arrow-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Quick Sale</Text>
           <TouchableOpacity
@@ -2286,7 +2286,7 @@ export default function QuickSaleScreen() {
           <AppStatusBar />
           <View style={styles.header}>
             <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Quick Sale</Text>
             <View style={styles.headerSpacer} />
@@ -2305,7 +2305,7 @@ export default function QuickSaleScreen() {
 
       <View style={styles.header}>
         <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
-          <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={18} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{params.draftId ? "Edit Draft" : "Select Services"}</Text>
         {params.draftId ? (

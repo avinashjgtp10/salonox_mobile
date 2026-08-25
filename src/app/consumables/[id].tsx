@@ -109,7 +109,7 @@ export default function ConsumableDetailScreen() {
         onPress={() => (router.canGoBack() ? router.back() : router.replace("/consumables" as Href))}
         style={styles.iconButton}
       >
-        <Ionicons name="chevron-back" size={19} color={Colors.primary} />
+        <Ionicons name="arrow-back" size={19} color={Colors.primary} />
       </TouchableOpacity>
       <Text numberOfLines={1} style={styles.title}>
         {consumable?.name ?? "Consumable"}

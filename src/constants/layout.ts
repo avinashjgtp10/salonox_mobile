@@ -23,8 +23,8 @@ export const AppLayout = {
 };
 
 export const AppRadius = {
-  card: Radius.xl,
-  control: Radius.md,
+  card: 8,
+  control: 6,
   pill: Radius.full,
-  search: Radius.xl,
+  search: 8,
 };
