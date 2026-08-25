@@ -1,10 +1,12 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Pagination from "../components/Pagination";
+import Modal from "../../../components/ui/Modal";
 import {
   fetchSuperAdminDemoRequestsThunk,
   setDemoRequestStatusThunk,
 } from "../../../middleware/superAdmin/superAdmin.thunk";
+import type { SuperAdminDemoRequest } from "../../../store/superAdminSlice";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
   new:       { bg: "#eff6ff", text: "#3b82f6" },
@@ -24,6 +26,56 @@ function StatusBadge({ status }: { status: string }) {
   );
 }
 
+function DetailRow({ label, value }: { label: string; value: React.ReactNode }) {
+  return (
+    <div style={{ display: "flex", justifyContent: "space-between", gap: 16, padding: "10px 0", borderBottom: "1px solid #f1f5f9" }}>
+      <span style={{ color: "#64748b", fontSize: 12.5, fontWeight: 600 }}>{label}</span>
+      <span style={{ color: "#0f172a", fontSize: 13.5, fontWeight: 600, textAlign: "right" }}>{value}</span>
+    </div>
+  );
+}
+
+function DemoRequestDetailModal({
+  request, onClose, onStatusChange, changingStatus,
+}: {
+  request: SuperAdminDemoRequest;
+  onClose: () => void;
+  onStatusChange: (id: string, status: string) => void;
+  changingStatus: boolean;
+}) {
+  const dash = <span style={{ color: "#cbd5e1" }}>—</span>;
+  return (
+    <Modal show onClose={onClose} title="Demo Request Details" size="md">
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+        <span style={{ fontSize: 17, fontWeight: 800, color: "#0f172a" }}>{request.name}</span>
+        <StatusBadge status={request.status} />
+      </div>
+      <div>
+        <DetailRow label="Email" value={request.email} />
+        <DetailRow label="Phone" value={request.phone || dash} />
+        <DetailRow label="Salon Name" value={request.salon_name || dash} />
+        <DetailRow label="City" value={request.city || dash} />
+        <DetailRow label="Locations" value={request.locations_count || dash} />
+        <DetailRow label="Received" value={request.created_at ? new Date(request.created_at).toLocaleString("en-IN") : dash} />
+        <DetailRow label="Last Updated" value={request.updated_at ? new Date(request.updated_at).toLocaleString("en-IN") : dash} />
+      </div>
+      <div style={{ marginTop: 18, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+        <span style={{ fontSize: 12.5, fontWeight: 600, color: "#64748b" }}>Status</span>
+        <select
+          value={request.status}
+          disabled={changingStatus}
+          onChange={(e) => onStatusChange(request.id, e.target.value)}
+          style={{ padding: "6px 10px", borderRadius: 7, fontSize: 12.5, fontWeight: 600, border: "1.5px solid #e2e8f0", background: "#fff", color: "#374151", cursor: changingStatus ? "not-allowed" : "pointer", appearance: "none" }}
+        >
+          {STATUSES.map((s) => (
+            <option key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</option>
+          ))}
+        </select>
+      </div>
+    </Modal>
+  );
+}
+
 export default function DemoInquiriesPage() {
   const dispatch = useAppDispatch();
   const { demoRequests, loading } = useAppSelector((s) => s.superAdmin);
@@ -32,6 +84,11 @@ export default function DemoInquiriesPage() {
   const [page, setPage]       = useState(1);
   const [perPage, setPerPage] = useState(20);
   const [actionId, setActionId] = useState<string | null>(null);
+  // Row-click detail modal — stores the selected request's id (not the
+  // object itself) so the modal always reflects the latest data for that
+  // row from the store, even after a status change updates it in place.
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const selectedRequest = selectedId ? demoRequests.find((r) => r.id === selectedId) ?? null : null;
 
   const load = useCallback(() => {
     dispatch(fetchSuperAdminDemoRequestsThunk({ search: search || undefined }));
@@ -106,7 +163,8 @@ export default function DemoInquiriesPage() {
               <tr><td colSpan={8} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No demo requests found</td></tr>
             ) : (
               filtered.slice((page - 1) * perPage, page * perPage).map((r) => (
-                <tr key={r.id} style={{ borderTop: "1px solid #f1f5f9", transition: "background 0.1s" }}
+                <tr key={r.id} style={{ borderTop: "1px solid #f1f5f9", transition: "background 0.1s", cursor: "pointer" }}
+                  onClick={() => setSelectedId(r.id)}
                   onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
                   onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}>
                   <td style={{ padding: "13px 16px", color: "#0f172a", fontWeight: 700, fontSize: 13.5 }}>{r.name}</td>
@@ -121,7 +179,7 @@ export default function DemoInquiriesPage() {
                   <td style={{ padding: "13px 16px", color: "#94a3b8", fontSize: 12 }}>
                     {r.created_at ? new Date(r.created_at).toLocaleDateString("en-IN") : "—"}
                   </td>
-                  <td style={{ padding: "13px 16px" }}>
+                  <td style={{ padding: "13px 16px" }} onClick={(e) => e.stopPropagation()}>
                     <select
                       value={r.status}
                       disabled={actionId === r.id}
@@ -145,6 +203,15 @@ export default function DemoInquiriesPage() {
         />
       </div>
       <style>{`@keyframes sa-demo-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
+
+      {selectedRequest && (
+        <DemoRequestDetailModal
+          request={selectedRequest}
+          onClose={() => setSelectedId(null)}
+          onStatusChange={handleStatusChange}
+          changingStatus={actionId === selectedRequest.id}
+        />
+      )}
     </div>
   );
 }
