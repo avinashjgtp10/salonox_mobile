@@ -215,7 +215,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
       <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={styles.flex}>
           <View style={styles.headerRow}>
             <TouchableOpacity activeOpacity={0.84} disabled={isSubmitting} hitSlop={12} onPress={goBack} style={styles.iconButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{mode === "create" ? "New Membership" : "Edit Membership"}</Text>
             <View style={styles.iconButtonGhost} />

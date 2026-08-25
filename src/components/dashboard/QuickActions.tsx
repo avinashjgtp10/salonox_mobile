@@ -14,7 +14,7 @@ const getActions = (
   label: string;
   route: Href;
 }[] => [
-  { label: "Book", icon: "calendar-outline", iconBg: Colors.dashboardAppointmentBg, route: "/bookings" as Href },
+  { label: "Appointment", icon: "calendar-outline", iconBg: Colors.dashboardAppointmentBg, route: "/bookings/new" as Href },
   { label: "Client", icon: "person-add-outline", iconBg: Colors.dashboardClientBg, route: "/clients/new" as Href },
   {
     label: "Quick Sale",
@@ -22,8 +22,7 @@ const getActions = (
     iconBg: Colors.dashboardWarningBg,
     route: "/quick-sale" as Href,
   },
-  { label: "Products", icon: "cube-outline", iconBg: Colors.dashboardRevenueBg, route: "/stock" as Href },
-  { label: "Attendance", icon: "calendar-outline", iconBg: Colors.dashboardAppointmentBg, route: "/team/attendance" as Href },
+  { label: "Attendance", icon: "checkmark-circle-outline", iconBg: Colors.dashboardAppointmentBg, route: "/team/attendance" as Href },
 ];
 
 export default function QuickActions() {

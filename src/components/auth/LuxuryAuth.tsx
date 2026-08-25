@@ -36,7 +36,7 @@ export function LuxuryBackButton({ onPress }: { onPress: () => void }) {
       onPress={onPress}
       style={({ pressed }) => [styles.backButton, pressed && styles.pressed]}
     >
-      <Ionicons color={Colors.accent} name="chevron-back" size={24} />
+      <Ionicons color={Colors.accent} name="arrow-back" size={24} />
     </Pressable>
   );
 }

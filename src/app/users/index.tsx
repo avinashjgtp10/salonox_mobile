@@ -393,7 +393,7 @@ export default function UsersScreen() {
             <View style={styles.header}>
               <View style={styles.headerRow}>
                 <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-                  <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+                  <Ionicons name="arrow-back" size={18} color={Colors.primary} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>User Management</Text>
                 <View style={styles.backButtonPlaceholder} />

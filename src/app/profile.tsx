@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router, type Href } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -14,6 +14,7 @@ import {
   View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
+import { DateField } from "@/components/ui/DateField";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -68,6 +69,12 @@ const formatGender = (value: string | null) => {
   return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
 };
 
+const formatProfileDate = (value: string | null | undefined) => {
+  if (!value) return "-";
+  const [year, month, day] = value.split("-");
+  return year && month && day ? `${day}-${month}-${year}` : value;
+};
+
 type EditState = {
   address: string;
   businessName: string;
@@ -115,14 +122,22 @@ function FormField({
   keyboardType,
   label,
   onChangeText,
+  onFocus,
+  onSubmitEditing,
   placeholder,
+  returnKeyType = "next",
+  inputRef,
   value,
 }: {
   editable?: boolean;
+  inputRef?: RefObject<TextInput | null>;
   keyboardType?: "default" | "phone-pad";
   label: string;
   onChangeText: (value: string) => void;
+  onFocus?: () => void;
+  onSubmitEditing?: () => void;
   placeholder: string;
+  returnKeyType?: "done" | "next";
   value: string;
 }) {
   const Colors = useThemeColors();
@@ -135,8 +150,13 @@ function FormField({
         editable={editable}
         keyboardType={keyboardType}
         onChangeText={onChangeText}
+        onFocus={onFocus}
+        onSubmitEditing={onSubmitEditing}
         placeholder={placeholder}
         placeholderTextColor={Colors.placeholder}
+        ref={inputRef}
+        returnKeyType={returnKeyType}
+        blurOnSubmit={returnKeyType === "done"}
         style={styles.textInput}
         value={value}
       />
@@ -149,6 +169,16 @@ export default function ProfileScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const currentUser = useAppSelector(selectCurrentUser);
+  const fullNameInputRef = useRef<TextInput>(null);
+  const phoneInputRef = useRef<TextInput>(null);
+  const businessNameInputRef = useRef<TextInput>(null);
+  const addressInputRef = useRef<TextInput>(null);
+  const profileNavigationFields = useMemo(() => [
+    { ref: fullNameInputRef },
+    { ref: phoneInputRef },
+    { ref: businessNameInputRef },
+    { ref: addressInputRef },
+  ], []);
   const userId = currentUser?.id ?? "";
   const profile = useAppSelector(selectProfile);
   const isLoading = useAppSelector(selectProfileLoading);
@@ -332,7 +362,7 @@ export default function ProfileScreen() {
   const renderHeader = (rightAction?: React.ReactNode) => (
     <View style={styles.headerRow}>
       <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.headerButton}>
-        <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+        <Ionicons name="arrow-back" size={18} color={Colors.primary} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Profile</Text>
       {rightAction ?? <View style={styles.headerButton} />}
@@ -413,6 +443,7 @@ export default function ProfileScreen() {
       <AppStatusBar />
       <KeyboardAwareScrollView
         contentContainerStyle={styles.content}
+        keyboardNavigation={isEditing ? { fields: profileNavigationFields, hideOnLast: true, onDone: handleSave, showAccessory: false } : undefined}
         keyboardShouldPersistTaps="handled"
           refreshControl={
             isEditing ? undefined : (
@@ -490,15 +521,19 @@ export default function ProfileScreen() {
             <>
               <Section title="Personal Information">
                 <FormField
+                  inputRef={fullNameInputRef}
                   label="Full Name"
                   onChangeText={(value) => updateField("fullName", value)}
+                  onSubmitEditing={() => phoneInputRef.current?.focus()}
                   placeholder="Enter full name"
                   value={editState.fullName}
                 />
                 <FormField
+                  inputRef={phoneInputRef}
                   keyboardType="phone-pad"
                   label="Phone Number"
                   onChangeText={(value) => updateField("phone", value)}
+                  onSubmitEditing={() => businessNameInputRef.current?.focus()}
                   placeholder="Enter phone number"
                   value={editState.phone}
                 />
@@ -522,25 +557,32 @@ export default function ProfileScreen() {
                     })}
                   </View>
                 </View>
-                <FormField
+                <DateField
+                  displayFormat="DD-MM-YYYY"
                   label="Date of Birth"
-                  onChangeText={(value) => updateField("dateOfBirth", value)}
-                  placeholder="YYYY-MM-DD"
+                  maximumDate={new Date()}
+                  onChange={(value) => updateField("dateOfBirth", value)}
+                  placeholder="DD-MM-YYYY"
                   value={editState.dateOfBirth}
                 />
               </Section>
 
               <Section title="Business">
                 <FormField
+                  inputRef={businessNameInputRef}
                   label="Business Name"
                   onChangeText={(value) => updateField("businessName", value)}
+                  onSubmitEditing={() => addressInputRef.current?.focus()}
                   placeholder="Enter business name"
                   value={editState.businessName}
                 />
                 <FormField
+                  inputRef={addressInputRef}
                   label="Address"
                   onChangeText={(value) => updateField("address", value)}
+                  onSubmitEditing={handleSave}
                   placeholder="Enter address"
+                  returnKeyType="done"
                   value={editState.address}
                 />
               </Section>
@@ -566,7 +608,7 @@ export default function ProfileScreen() {
                 <DetailRow label="Email" value={formatValue(profile.email)} />
                 <DetailRow label="Phone" value={formatValue(profile.phone)} />
                 <DetailRow label="Gender" value={formatGender(profile.gender)} />
-                <DetailRow label="Date of Birth" value={formatValue(profile.dateOfBirth)} />
+                <DetailRow label="Date of Birth" value={formatProfileDate(profile.dateOfBirth)} />
                 <DetailRow label="Role" value={formatValue(profile.role)} />
               </Section>
 

@@ -57,8 +57,9 @@ export const fetchAppointmentsThunk = createAsyncThunk<
 >("appointment/fetchAppointments", async (args, { getState, rejectWithValue }) => {
   const state = getState();
   const appointmentState = state.appointment;
+  const usesDateRange = Boolean(args && ("from_date" in args || "to_date" in args));
   const query: AppointmentListQuery = {
-    date: args?.date ?? appointmentState.query.date,
+    date: usesDateRange ? undefined : args?.date ?? appointmentState.query.date,
     from_date: args?.from_date ?? appointmentState.query.from_date,
     limit: args?.limit ?? appointmentState.query.limit,
     page: args?.page ?? appointmentState.query.page,

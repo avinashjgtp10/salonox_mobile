@@ -34,7 +34,6 @@ function TabIcon({ compact, focused, name }: TabIconProps) {
   return (
     <View style={[styles.iconWrap, focused && styles.iconWrapActive]}>
       <Ionicons name={name} size={20} color={focused ? Colors.onPrimary : Colors.hint} style={focused ? undefined : styles.iconDimmed} />
-      <View style={[styles.dot, focused && styles.dotActive]} />
     </View>
   );
 }
@@ -101,24 +100,14 @@ const createStyles = (Colors: ThemeColors, bottomInset = 0, compactTabs = false)
     alignItems: "center",
     backgroundColor: "transparent",
     borderRadius: 18,
-    gap: 4,
-    height: compactTabs ? 30 : 34,
+    height: 36,
     justifyContent: "center",
-    width: compactTabs ? 32 : 38,
+    width: 36,
   },
   iconWrapActive: {
     backgroundColor: Colors.primary,
   },
   iconDimmed: {
     opacity: 0.55,
-  },
-  dot: {
-    backgroundColor: "transparent",
-    borderRadius: 999,
-    height: 4,
-    width: 4,
-  },
-  dotActive: {
-    backgroundColor: Colors.onPrimary,
   },
 });

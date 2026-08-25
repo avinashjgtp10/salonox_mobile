@@ -148,7 +148,7 @@ export default function SaleDetailsScreen() {
   const renderHeader = (showActions = false) => (
     <View style={styles.headerRow}>
       <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-        <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+        <Ionicons name="arrow-back" size={18} color={Colors.primary} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Sale Invoice</Text>
       {showActions ? (

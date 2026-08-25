@@ -144,7 +144,7 @@ export default function AttendanceScreen() {
     <View>
       <View style={styles.header}>
         <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
+          <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Staff Attendance</Text>
       </View>
