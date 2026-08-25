@@ -312,7 +312,7 @@ $item-field-text-inset: 9px;
   }
 }
 
-// ── Item section headers (package / product / membership) ──────────────────────
+// ── Item section headers (service / product / package / membership) ────────────
 // All section headers share the same grid as .svc-row so columns align
 .item-section-header {
   display: grid;
@@ -328,8 +328,12 @@ $item-field-text-inset: 9px;
   // in the row beneath it, not with the input's border box.
   > span { padding-left: $item-field-text-inset; }
 
-  &--package    { background: #fef9c3; color: #92400e; }
+  // Same purple already used for the "SERVICE" badge on the bill/receipt
+  // (ViewBillModal.tsx, receipt.ts) — one consistent color for this type
+  // everywhere it's shown, not just here.
+  &--service    { background: #ede9fe; color: #5b21b6; }
   &--product    { background: #dbeafe; color: #1e3a8a; }
+  &--package    { background: #fef9c3; color: #92400e; }
   &--membership { background: #dcfce7; color: #14532d; }
 }
 

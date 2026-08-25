@@ -626,15 +626,15 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     setComplimentaryError("");
   }
 
+  // A plain note attached to the service — saving it must never touch
+  // price/discount/total or anything else billing-related (SCRUM: Remark
+  // save should update only the remark data).
   function handleComplimentaryConfirm() {
     if (!complimentaryReason.trim()) {
       setComplimentaryError("Please enter remark");
       return;
     }
     setSavedComplimentaryRemark(complimentaryReason.trim());
-    onChange(row.tempId, "price", 0);
-    onChange(row.tempId, "discount", 0);
-    onChange(row.tempId, "total", 0);
     setCompApplied(true);
     setShowComplimentaryModal(false);
     setComplimentaryError("");
@@ -999,7 +999,6 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     <>
       <div className="svc-row">
         <div className="svc-field" ref={dropRef}>
-          <span className="svc-field__label">Service</span>
           <div className="svc-field__input-wrap">
             <input
               ref={inputRef}
@@ -1073,7 +1072,6 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
 
         <div className="svc-field">
-          <span className="svc-field__label">Staff</span>
           <div className={`svc-staff-pill${errorFields.staff ? " svc-staff-pill--error" : ""}`}>
             <button
               type="button"
@@ -1100,7 +1098,6 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
 
         <div className="svc-field">
-          <span className="svc-field__label">Time</span>
           <TimeSelect
             disabled={disabled}
             value={row.time}
@@ -1112,7 +1109,6 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
 
         <div className="svc-field">
-          <span className="svc-field__label">Price</span>
           <div className="svc-field__input-wrap">
             <span className="svc-field__prefix">{currencySymbol}</span>
             <input
@@ -1134,7 +1130,6 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
 
         <div className="svc-field">
-          <span className="svc-field__label">Qty</span>
           <input
             type="text"
             disabled={disabled}
@@ -1150,7 +1145,6 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
 
         <div className="svc-field">
-          <span className="svc-field__label">Disc %</span>
           <input
             type="text"
             disabled={disabled}
@@ -1165,7 +1159,6 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
 
         <div className="svc-field">
-          <span className="svc-field__label">Total</span>
           <input
             readOnly
             // Membership coverage/discount is a bill-level deduction (see
@@ -1187,7 +1180,6 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
 
         <div className="svc-quick-actions">
-          <span className="svc-field__label">&nbsp;</span>
           <div className="svc-quick-actions__btns">
             {!disabled && (
               <>
@@ -1209,13 +1201,13 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
                 <button
                   type="button"
                   className={`svc-quick-btn svc-quick-btn--comp${compApplied ? " svc-quick-btn--comp-applied" : ""}`}
-                  title={compApplied ? savedComplimentaryRemark : "Complimentary"}
+                  title={compApplied ? savedComplimentaryRemark : "Remark"}
                   onClick={openComplimentaryModal}
                 >
                   {compApplied ? (
                     <>
                       <span className="svc-quick-btn__day-val">{savedComplimentaryRemark.slice(0, 5)}</span>
-                      <span className="svc-quick-btn__day-lbl">0</span>
+                      <span className="svc-quick-btn__day-lbl">Note</span>
                     </>
                   ) : (
                     <IconBox />
@@ -1242,7 +1234,6 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
 
         <div className="svc-field svc-field--del">
-          <span className="svc-field__label">&nbsp;</span>
           {!disabled && (
             <button className="svc-del-btn" onClick={() => onRemove(row.tempId)} title="Remove">
               <Trash size={14} />
@@ -1484,7 +1475,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         </div>
       )}
 
-      {/* ── Complimentary Modal ─────────────────────────────────────────────── */}
+      {/* ── Remark Modal ─────────────────────────────────────────────────────── */}
       {showComplimentaryModal && (
         <div className="svc-reminder-overlay" onClick={closeComplimentaryModal}>
           <div className="svc-reminder-modal" onClick={(e) => e.stopPropagation()}>
@@ -1497,11 +1488,10 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
               ×
             </button>
 
-            <h3 className="svc-reminder-modal__title">Complimentary Remark</h3>
+            <h3 className="svc-reminder-modal__title">Remark</h3>
 
             <p className="svc-reminder-modal__subtitle">
-              Enter remark for <strong>{row.service || "this service"}</strong> as
-              complimentary (Mandatory)
+              Enter a remark for <strong>{row.service || "this service"}</strong> (Mandatory)
             </p>
 
             <input
