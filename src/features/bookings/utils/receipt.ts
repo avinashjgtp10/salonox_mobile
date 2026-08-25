@@ -376,12 +376,17 @@ export function printReceipt(
     </tr>`;
   };
 
+  // Computed (not just concatenated) in Service → Product → Package →
+  // Membership order — each row's zebra-stripe alternation shares this one
+  // rowIdx counter across all four .map() calls, so the order these actually
+  // RUN in must match the order they're displayed in below, or the stripe
+  // pattern breaks at whichever boundary the two orders disagree.
   let rowIdx = 0;
   const svcRows  = services.map((s: any) => makeRow(s.service || s.name || "", "Service", findStaffName(s.staffId) || allStaffDisplay, s.time ? formatTime12(s.time) : "—", Number(s.qty||1), Number(s.price||0), Number(s.discount||0), isPackagePaid ? 0 : Number(s.total||s.price||0), (rowIdx++ % 2 === 0), s.tax)).join("");
+  const prodRows = productItems.map((p: any) => makeRow(p.productName||p.name||"", "Product", findStaffName(p.staffId)||"—", p.time ? formatTime12(p.time) : "—", Number(p.qty||1), Number(p.price||0), Number(p.discount||0), Number(p.total||p.price||0), (rowIdx++ % 2 === 0), p.tax)).join("");
   const pkgRows  = packageItems.map((p: any) => makeRow(p.packageName||p.name||"", "Package", findStaffName(p.staffId)||"—", p.time ? formatTime12(p.time) : "—", Number(p.qty||1), Number(p.price||0), Number(p.discount||0), Number(p.total||p.price||0), (rowIdx++ % 2 === 0), p.tax)).join("");
   const memRows  = membershipItems.map((m: any) => makeRow(m.membershipName||m.name||"", "Membership", findStaffName(m.staffId)||"—", "—", Number(m.qty||1), Number(m.price||0), Number(m.discount||0), Number(m.total||m.price||0), (rowIdx++ % 2 === 0), m.tax)).join("");
-  const prodRows = productItems.map((p: any) => makeRow(p.productName||p.name||"", "Product", findStaffName(p.staffId)||"—", p.time ? formatTime12(p.time) : "—", Number(p.qty||1), Number(p.price||0), Number(p.discount||0), Number(p.total||p.price||0), (rowIdx++ % 2 === 0), p.tax)).join("");
-  const allItemRows = svcRows + pkgRows + memRows + prodRows;
+  const allItemRows = svcRows + prodRows + pkgRows + memRows;
 
   // ── Payment summary ───────────────────────────────────────────────────────
   // Item-level "Disc %" and the bill-level discount below can both be active
@@ -827,6 +832,12 @@ export function printReceipt(
         amount: fmt(isPackagePaid ? 0 : Number(s.total ?? s.price ?? 0)),
         meta: findStaffName(s.staffId) || undefined,
       })),
+      ...productItems.map((p: any) => ({
+        name: p.productName || p.name || "Product",
+        qty: Number(p.qty || 1),
+        amount: fmt(Number(p.total ?? p.price ?? 0)),
+        meta: "Product",
+      })),
       ...packageItems.map((p: any) => ({
         name: p.packageName || p.name || "Package",
         qty: Number(p.qty || 1),
@@ -838,12 +849,6 @@ export function printReceipt(
         qty: Number(m.qty || 1),
         amount: fmt(Number(m.total ?? m.price ?? 0)),
         meta: "Membership",
-      })),
-      ...productItems.map((p: any) => ({
-        name: p.productName || p.name || "Product",
-        qty: Number(p.qty || 1),
-        amount: fmt(Number(p.total ?? p.price ?? 0)),
-        meta: "Product",
       })),
     ];
 
