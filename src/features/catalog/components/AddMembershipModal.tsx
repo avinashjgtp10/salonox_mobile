@@ -11,14 +11,14 @@
 //   (percentage)           GIVEN depletes an independently-configurable pool.
 //   Loyalty              — free/automatic; unlocks N% off once a client
 //                          crosses a visit-count threshold.
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   ChevronDown, X,
   AwardFill, Percent, Award,
   PlusLg, Trash3,
 } from "react-bootstrap-icons";
-import type { AppDispatch } from "../../../store/store";
+import type { AppDispatch, RootState } from "../../../store/store";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import { toTitleCase } from "../../../utils/titleCase";
@@ -27,10 +27,13 @@ import { createMembershipThunk, updateMembershipThunk } from "../../../middlewar
 import { selectMembershipsSubmitting, selectMembershipsError } from "../../../store/selectors/membership.selectors";
 import { clearMembershipError } from "../../../store/membershipSlice";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
-import { selectAllCategories, selectServiceCategories, selectProductCategories } from "../../../store/selectors/slices.selectors";
+import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
+import { fetchProductsThunk } from "../../../middleware/catalog/products.thunk";
+import { selectServiceCategories, selectProductCategories, selectAllServices } from "../../../store/selectors/slices.selectors";
 import type { MembershipPricingType, MembershipAppliesTo, LoyaltyTier } from "../../../services/api/endpoints/memberships.endpoints";
 import api from "../../../services/api/axios";
 import Dropdown from "../../../components/ui/Dropdown";
+import ItemRestrictionPicker from "./ItemRestrictionPicker";
 import "../styles/AddMembershipModal.scss";
 
 const DEFAULT_COLOUR = "#1a1a2e";
@@ -110,6 +113,10 @@ interface FormState {
   /** Optional narrowing of appliesTo to specific service_categories ids —
    *  empty means unrestricted (every category within appliesTo's scope). */
   categoryIds: string[];
+  /** Further, additive narrowing to specific services/products within (or
+   *  independent of) categoryIds — empty means no individual-item narrowing. */
+  serviceIds: string[];
+  productIds: string[];
 }
 
 const emptyForm = (): FormState => ({
@@ -118,6 +125,8 @@ const emptyForm = (): FormState => ({
   expiryDate: toIsoDate(addDays(todayMidnight(), 365)),
   appliesTo: "services",
   categoryIds: [],
+  serviceIds: [],
+  productIds: [],
 });
 
 interface Props {
@@ -137,24 +146,30 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
   // offer depends on what it's redeemable against (form.appliesTo below), so
   // all three views are read here and the right one is picked once appliesTo
   // exists rather than always showing the full unscoped list.
-  const allCategories     = useSelector(selectAllCategories) as { id: string | number; name: string }[];
   const serviceCategories = useSelector(selectServiceCategories) as { id: string | number; name: string }[];
   const productCategories = useSelector(selectProductCategories) as { id: string | number; name: string }[];
+  // For the item-restriction picker below — not otherwise needed by this
+  // modal, so fetched only here rather than assumed already loaded.
+  const allServices = useSelector(selectAllServices) as { id: string | number; name: string; category_id: string | number | null }[];
+  const allProducts = useSelector((s: RootState) => s.products.items) as { id: string; name: string; category_id: string | null }[];
 
   useEffect(() => () => { dispatch(clearMembershipError()); }, [dispatch]);
   useEffect(() => { dispatch(fetchCategoriesThunk()); }, [dispatch]);
+  useEffect(() => {
+    dispatch(fetchServicesThunk());
+    dispatch(fetchProductsThunk({ pageSize: 200 }));
+  }, [dispatch]);
 
   const [pricingType, setPricingType] = useState<MembershipPricingType>("value");
   const [form, setForm] = useState<FormState>(emptyForm());
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // "Applies To" scopes what the membership can be spent on — the category
-  // picker below follows the same scope, so a Products-only membership isn't
-  // offering "Hair Coloring" as a narrowing option.
-  const categories =
-    form.appliesTo === "products" ? productCategories
-    : form.appliesTo === "services" ? serviceCategories
-    : allCategories;
+  // categoryIds is one shared array across both the service and product
+  // pickers below (a category can legitimately appear in both when appliesTo
+  // is "both") — these sets let each picker only touch the ids belonging to
+  // categories IT displays, so the two instances don't stomp on each other.
+  const serviceCategoryIdSet = useMemo(() => new Set(serviceCategories.map((c) => String(c.id))), [serviceCategories]);
+  const productCategoryIdSet = useMemo(() => new Set(productCategories.map((c) => String(c.id))), [productCategories]);
 
   const patch = (p: Partial<FormState>) => {
     setForm((prev) => ({ ...prev, ...p }));
@@ -199,6 +214,8 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
         expiryDate: parseValidForToDate(d.validFor),
         appliesTo: d.appliesTo ?? "services",
         categoryIds: Array.isArray(d.categoryIds) ? d.categoryIds : [],
+        serviceIds: Array.isArray(d.serviceIds) ? d.serviceIds : [],
+        productIds: Array.isArray(d.productIds) ? d.productIds : [],
       });
     }).catch(() => {});
   }, [editId]);
@@ -223,12 +240,6 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
       return changed ? next : prev;
     });
   };
-
-  const toggleCategory = (id: string) => patch({
-    categoryIds: form.categoryIds.includes(id)
-      ? form.categoryIds.filter((c) => c !== id)
-      : [...form.categoryIds, id],
-  });
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -302,7 +313,10 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
       // key is actually present in the body, so an omitted categoryIds left
       // an old restriction stuck in place forever on edit. An empty array
       // reaches the backend and is normalized to "no restriction" there.
+      // Same reasoning for serviceIds/productIds below.
       categoryIds: form.categoryIds,
+      serviceIds: form.serviceIds,
+      productIds: form.productIds,
     };
 
     const result = editId
@@ -434,12 +448,13 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                         searchable={false}
                         value={form.appliesTo}
                         options={APPLIES_TO_OPTIONS.map((o) => ({ id: o.value, name: o.label }))}
-                        // Categories picked under the old scope may not exist
-                        // in the new one (e.g. a service category selected
-                        // while "Both" was active, now that appliesTo has
-                        // narrowed to Products) — clear rather than carry
-                        // over a selection the picker below can no longer show.
-                        onChange={(id) => patch({ appliesTo: id as MembershipAppliesTo, categoryIds: [] })}
+                        // Categories/services/products picked under the old
+                        // scope may not exist in the new one (e.g. a service
+                        // category selected while "Both" was active, now that
+                        // appliesTo has narrowed to Products) — clear rather
+                        // than carry over a selection the picker below can no
+                        // longer show.
+                        onChange={(id) => patch({ appliesTo: id as MembershipAppliesTo, categoryIds: [], serviceIds: [], productIds: [] })}
                       />
                       <ChevronDown size={13} className="amm__sel-icon" />
                     </div>
@@ -451,26 +466,41 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                   </div>
                 </div>
 
-                {categories.length > 0 && (
+                {form.appliesTo !== "products" && serviceCategories.length > 0 && (
                   <div className="amm__field">
-                    <label className="amm__label">Categories</label>
-                    <div className="amm__sel-wrap">
-                      <Dropdown
-                        className="amm__select"
-                        searchable={false}
-                        multiple
-                        value={form.categoryIds}
-                        options={categories.map((c) => ({ id: String(c.id), name: c.name }))}
-                        onChange={toggleCategory}
-                        placeholder="All categories"
-                      />
-                      <ChevronDown size={13} className="amm__sel-icon" />
-                    </div>
-                    <p className="amm__hint">
-                      {form.categoryIds.length > 0
-                        ? "Only these categories get the benefit — leave none selected to cover every category."
-                        : "None selected — the benefit applies to every category within Applies To."}
-                    </p>
+                    <label className="amm__label">Services</label>
+                    <ItemRestrictionPicker
+                      label="Services"
+                      categories={serviceCategories.map((c) => ({ id: String(c.id), name: c.name }))}
+                      items={allServices
+                        .filter((s) => s.category_id != null && serviceCategoryIdSet.has(String(s.category_id)))
+                        .map((s) => ({ id: String(s.id), name: s.name, categoryId: String(s.category_id) }))}
+                      categoryIds={form.categoryIds.filter((id) => serviceCategoryIdSet.has(id))}
+                      itemIds={form.serviceIds}
+                      onChangeCategoryIds={(ids) => patch({
+                        categoryIds: [...form.categoryIds.filter((id) => !serviceCategoryIdSet.has(id)), ...ids],
+                      })}
+                      onChangeItemIds={(ids) => patch({ serviceIds: ids })}
+                    />
+                  </div>
+                )}
+
+                {form.appliesTo !== "services" && productCategories.length > 0 && (
+                  <div className="amm__field">
+                    <label className="amm__label">Products</label>
+                    <ItemRestrictionPicker
+                      label="Products"
+                      categories={productCategories.map((c) => ({ id: String(c.id), name: c.name }))}
+                      items={allProducts
+                        .filter((p) => p.category_id != null && productCategoryIdSet.has(String(p.category_id)))
+                        .map((p) => ({ id: String(p.id), name: p.name, categoryId: String(p.category_id) }))}
+                      categoryIds={form.categoryIds.filter((id) => productCategoryIdSet.has(id))}
+                      itemIds={form.productIds}
+                      onChangeCategoryIds={(ids) => patch({
+                        categoryIds: [...form.categoryIds.filter((id) => !productCategoryIdSet.has(id)), ...ids],
+                      })}
+                      onChangeItemIds={(ids) => patch({ productIds: ids })}
+                    />
                   </div>
                 )}
               </div>
