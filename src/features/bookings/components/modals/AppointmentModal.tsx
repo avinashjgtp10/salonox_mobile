@@ -2922,8 +2922,12 @@ export const AppointmentModal: React.FC<Props> = ({
                             return;
                           }
 
-                          const blob: Blob = result.payload;
-                          const filename = `Receipt-${(existingBooking as any).invoiceNumber || existingBooking.id}.pdf`;
+                          const { blob, filename: serverFilename } = result.payload as { blob: Blob; filename: string | null };
+                          // Server's own filename (from the same lookup that
+                          // generated the PDF) is authoritative — see
+                          // fetchReceiptPdfThunk / ViewBillModal.tsx's
+                          // identical handling for why.
+                          const filename = serverFilename || `Receipt-${(existingBooking as any).invoiceNumber || existingBooking.id}.pdf`;
 
                           // Best-effort first: the native share sheet actually attaches the
                           // PDF, ready to send — the user only has to pick WhatsApp and the

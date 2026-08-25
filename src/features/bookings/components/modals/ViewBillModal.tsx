@@ -392,8 +392,12 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                         return;
                       }
 
-                      const blob: Blob = result.payload;
-                      const filename = `Receipt-${(booking as any).invoiceNumber || booking.id}.pdf`;
+                      const { blob, filename: serverFilename } = result.payload as { blob: Blob; filename: string | null };
+                      // Server's own filename (from the same lookup that
+                      // generated the PDF) is authoritative — only fall back
+                      // to the locally-known invoice number if that header
+                      // was somehow stripped in transit.
+                      const filename = serverFilename || `Receipt-${(booking as any).invoiceNumber || booking.id}.pdf`;
 
                       // Best-effort first: native share sheet attaches the PDF directly —
                       // see AppointmentModal.tsx's identical button for the full reasoning
