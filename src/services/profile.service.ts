@@ -178,23 +178,23 @@ const buildUpdatePayload = (payload: UpdateProfileRequest) => {
   }
 
   if (payload.phone !== undefined) {
-    requestBody.phone = payload.phone;
+    requestBody.phone = payload.phone.trim() || null;
   }
 
   if (payload.gender !== undefined) {
-    requestBody.gender = payload.gender || null;
+    requestBody.gender = payload.gender.trim() || null;
   }
 
   if (payload.dateOfBirth !== undefined) {
-    requestBody.dateOfBirth = payload.dateOfBirth || null;
+    requestBody.dateOfBirth = payload.dateOfBirth.trim() || null;
   }
 
   if (payload.businessName !== undefined) {
-    requestBody.businessName = payload.businessName;
+    requestBody.businessName = payload.businessName.trim() || null;
   }
 
   if (payload.address !== undefined) {
-    requestBody.address = payload.address;
+    requestBody.address = payload.address.trim() || null;
   }
 
   return requestBody;

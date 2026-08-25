@@ -53,8 +53,8 @@ export const updateProfileThunk = createAsyncThunk<
   try {
     const response = await profileService.updateProfile(userId, updates);
 
-    // Refresh the shared auth user (Dashboard/More hero) from the source of truth.
-    void dispatch(fetchCurrentUserThunk());
+    // Refresh shared profile surfaces from the API after the mutation succeeds.
+    await dispatch(fetchCurrentUserThunk());
 
     return response;
   } catch (error) {

@@ -47,9 +47,9 @@ export const STAFF_MODULE_SECTIONS: StaffModuleSection[] = [
     status: "connected",
   },
   {
-    description: "Service commission rules and earned commission history.",
+    description: "Earned commission history for this staff member.",
     key: "commissions",
-    label: "Commissions",
+    label: "Commission History",
     route: "/team/[id]/commissions",
     status: "connected",
   },

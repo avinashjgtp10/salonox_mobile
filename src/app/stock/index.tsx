@@ -88,7 +88,7 @@ export default function ProductsScreen() {
     <View>
       <View style={styles.header}>
         <TouchableOpacity hitSlop={12} onPress={() => router.canGoBack() ? router.back() : router.replace("/more" as Href)} style={styles.iconButton}>
-          <Ionicons name="chevron-back" size={19} color={Colors.primary} />
+          <Ionicons name="arrow-back" size={19} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.title}>Products</Text>
         <TouchableOpacity accessibilityLabel="Manage brands" onPress={() => router.push("/stock/brands" as Href)} style={styles.iconButton}>

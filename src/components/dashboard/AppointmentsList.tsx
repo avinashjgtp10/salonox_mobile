@@ -434,9 +434,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   emptyState: {
     alignItems: "center",
-    backgroundColor: Colors.card,
+    backgroundColor: Colors.dashboardCard,
     borderColor: Colors.border,
-    borderRadius: Radius.lg,
+    borderRadius: 14,
     borderWidth: 1,
     justifyContent: "center",
     minHeight: 92,
@@ -451,9 +451,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   card: {
     alignItems: "center",
-    backgroundColor: Colors.card,
+    backgroundColor: Colors.dashboardCard,
     borderColor: Colors.border,
-    borderRadius: Radius.lg,
+    borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
     gap: Spacing.sm,
@@ -465,14 +465,14 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   timePill: {
     alignItems: "center",
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.dashboardAppointmentAccent,
     borderRadius: Radius.sm,
     minWidth: 46,
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
   timePillMuted: {
-    backgroundColor: Colors.bg2,
+    backgroundColor: Colors.dashboardCardMuted,
   },
   timeText: {
     color: "#FFFFFF",
@@ -518,8 +518,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   chip: {
     alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.card,
+    backgroundColor: Colors.dashboardClientBg,
+    borderColor: Colors.dashboardCard,
     borderRadius: 10,
     borderWidth: 1.5,
     height: 20,

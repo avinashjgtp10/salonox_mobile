@@ -211,7 +211,7 @@ export default function StaffProfileScreen() {
         <View style={styles.missingWrap}>
           <View style={styles.header}>
             <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Staff Profile</Text>
             <View style={[styles.headerAction, { opacity: 0 }]} />
@@ -231,7 +231,7 @@ export default function StaffProfileScreen() {
         <View style={styles.missingWrap}>
           <View style={styles.header}>
             <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Staff Profile</Text>
             <View style={[styles.headerAction, { opacity: 0 }]} />
@@ -252,7 +252,7 @@ export default function StaffProfileScreen() {
         <View style={styles.missingWrap}>
           <View style={styles.header}>
             <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Staff Profile</Text>
             <View style={[styles.headerAction, { opacity: 0 }]} />
@@ -282,7 +282,7 @@ export default function StaffProfileScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
+            <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Staff Profile</Text>
           <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={() => router.push(`/team/${id}/edit` as Href)} style={styles.headerAction}>

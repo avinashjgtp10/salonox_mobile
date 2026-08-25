@@ -26,6 +26,13 @@ function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
 }
 
+// Plain float subtraction on currency values can produce artifacts like
+// 324.99999999999994 — round through integer paise/cents to keep comparisons
+// (settlementAmount <= unpaidAmount) and the displayed remaining balance exact.
+function roundToCents(value: number) {
+  return Math.round(value * 100) / 100;
+}
+
 type SettlementModalProps = {
   onClose: () => void;
   onSettle: (amount: number) => void;
@@ -48,9 +55,9 @@ export function SettlementModal({
   const [amountText, setAmountText] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const unpaidAmount = totalUnpaidCommission ?? 0;
-  const settlementAmount = Number(amountText) || 0;
-  const remainingBalance = Math.max(0, unpaidAmount - settlementAmount);
+  const unpaidAmount = roundToCents(totalUnpaidCommission ?? 0);
+  const settlementAmount = roundToCents(Number(amountText) || 0);
+  const remainingBalance = Math.max(0, roundToCents(unpaidAmount - settlementAmount));
 
   const isAmountValid =
     amountText.trim().length > 0 &&

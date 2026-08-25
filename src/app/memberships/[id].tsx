@@ -486,7 +486,7 @@ function Header({ onBack, title }: { onBack: () => void; title: string }) {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.headerRow}>
-      <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={onBack} style={styles.headerButton}><Ionicons name="chevron-back" size={18} color={Colors.primary} /></TouchableOpacity>
+      <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={onBack} style={styles.headerButton}><Ionicons name="arrow-back" size={18} color={Colors.primary} /></TouchableOpacity>
       <Text style={styles.headerTitle}>{title}</Text>
       <View style={styles.headerButtonGhost} />
     </View>

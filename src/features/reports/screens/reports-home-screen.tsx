@@ -81,7 +81,7 @@ export default function ReportsHomeScreen() {
             onPress={() => router.back()}
             style={styles.backButton}
           >
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            <Ionicons name="arrow-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <View style={styles.headerCopy}>
             <Text allowFontScaling style={styles.eyebrow}>INSIGHTS</Text>

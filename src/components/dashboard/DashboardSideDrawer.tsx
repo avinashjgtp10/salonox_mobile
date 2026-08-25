@@ -40,7 +40,7 @@ type DashboardSideDrawerProps = {
 };
 
 const ACTIONS: DashboardDrawerAction[] = [
-  { icon: "calendar-outline", label: "New Appointment", route: "/bookings/new" as Href, tone: "sky" },
+  { icon: "grid-outline", label: "Catalog", route: "/catalog" as Href, tone: "primary" },
   { icon: "flash-outline", label: "Quick Sale", route: "/quick-sale" as Href, tone: "purple" },
   { icon: "person-add-outline", label: "Add Client", route: "/clients/new" as Href, tone: "green" },
   { icon: "people-outline", label: "Add Staff", route: "/team/new" as Href, tone: "indigo" },

@@ -51,6 +51,7 @@ export type KeyboardNavigationOptions = {
   hideOnLast?: boolean;
   keyboardVisible?: boolean;
   onDone?: () => void;
+  showAccessory?: boolean;
 };
 
 export type KeyboardAwareOptions = {
@@ -464,6 +465,7 @@ export function useKeyboardAwareScrollView<
     !hasNextField &&
     !keyboardNavigation?.hideOnLast;
   const shouldShowKeyboardNavigation =
+    keyboardNavigation?.showAccessory !== false &&
     (keyboardHeightState > 0 || Boolean(keyboardNavigation?.keyboardVisible)) &&
     Boolean(activeInputNode) &&
     (hasNextField || showDoneAction);

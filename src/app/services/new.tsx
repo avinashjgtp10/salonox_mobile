@@ -188,7 +188,7 @@ export default function NewServiceScreen() {
               onPress={handleBack}
               style={styles.backButton}
             >
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>New Service</Text>
             <View style={styles.backButtonPlaceholder} />

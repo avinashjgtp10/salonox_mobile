@@ -1468,7 +1468,7 @@ export default function OnboardingScreen() {
               disabled={isSubmitting}
               style={styles.backButton}
             >
-              <Ionicons name="chevron-back-outline" size={18} color={Colors.secondary} style={{ marginRight: 6 }} />
+              <Ionicons name="arrow-back" size={18} color={Colors.secondary} style={{ marginRight: 6 }} />
               <Text style={styles.backButtonText}>{currentStep > 1 ? "Back" : "Cancel"}</Text>
             </Pressable>
           </View>

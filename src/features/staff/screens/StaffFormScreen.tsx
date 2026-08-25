@@ -259,7 +259,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
       >
         <View style={styles.header}>
           <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
+            <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
           </TouchableOpacity>
           <View style={styles.headerCopy}>
             <Text style={styles.title}>{mode === "edit" ? "Edit Staff" : "Add Staff"}</Text>

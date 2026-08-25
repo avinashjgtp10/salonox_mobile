@@ -7,6 +7,7 @@ import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColor
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 export type DateFieldProps = {
+  displayFormat?: "localized" | "DD-MM-YYYY";
   error?: string;
   label: string;
   maximumDate?: Date;
@@ -35,12 +36,16 @@ const toDateValue = (isoDate: string) => {
   return new Date(year, month - 1, day);
 };
 
-const formatDisplayDate = (isoDate: string) => {
+const formatDisplayDate = (isoDate: string, displayFormat: DateFieldProps["displayFormat"]) => {
   if (!isoDate) {
     return "";
   }
 
   const date = toDateValue(isoDate);
+
+  if (displayFormat === "DD-MM-YYYY") {
+    return [String(date.getDate()).padStart(2, "0"), String(date.getMonth() + 1).padStart(2, "0"), date.getFullYear()].join("-");
+  }
 
   return date.toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "numeric" });
 };
@@ -48,7 +53,7 @@ const formatDisplayDate = (isoDate: string) => {
 // General-purpose date picker field — wraps @react-native-community/datetimepicker
 // with the platform-appropriate presentation (inline on Android, a modal
 // spinner on iOS) so screens don't have to hand-roll this each time.
-export function DateField({ error, label, maximumDate, minimumDate, onChange, placeholder, value }: DateFieldProps) {
+export function DateField({ displayFormat = "localized", error, label, maximumDate, minimumDate, onChange, placeholder, value }: DateFieldProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [isPickerVisible, setIsPickerVisible] = useState(false);
@@ -80,7 +85,7 @@ export function DateField({ error, label, maximumDate, minimumDate, onChange, pl
       >
         <Ionicons name="calendar-outline" size={16} color={Colors.text2} style={styles.icon} />
         <Text style={[styles.value, !value ? styles.placeholder : null]}>
-          {value ? formatDisplayDate(value) : (placeholder ?? "Select date")}
+          {value ? formatDisplayDate(value, displayFormat) : (placeholder ?? "Select date")}
         </Text>
         {value ? (
           <Pressable accessibilityLabel={`Clear ${label}`} hitSlop={10} onPress={handleClear}>

@@ -50,22 +50,17 @@ export const canManageStaffLifecycle = (role?: string | null) => {
   return !NON_PRIVILEGED_STAFF_ROLES.includes(normalizedRole);
 };
 
+// Owner detection reuses the same non-privileged-staff-role blocklist as
+// canManageStaffLifecycle (the backend's owner role is "salon_owner", not
+// "owner" — matching on the literal string here previously left real owners
+// without settle permission). Staff/managers need the explicit
+// "commission.settle" permission instead.
 export const canSettleCommission = (role?: string | null, customPermissions?: string[]) => {
-  const normalizedRole = (role ?? "").trim().toLowerCase();
-
-  if (!normalizedRole) {
+  if (canManageStaffLifecycle(role)) {
     return true;
   }
 
-  if (normalizedRole === "owner") {
-    return true;
-  }
-
-  if (customPermissions?.includes("commission.settle")) {
-    return true;
-  }
-
-  return false;
+  return Boolean(customPermissions?.includes("commission.settle"));
 };
 
 export const getUserInitials = (user: AuthUser | null) => {
