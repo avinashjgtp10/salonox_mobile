@@ -41,6 +41,10 @@ export interface Membership {
   /** Optional narrowing of appliesTo to specific service_categories ids —
    *  empty/omitted means unrestricted (every category within appliesTo's scope). */
   categoryIds?: string[];
+  /** Further, additive narrowing to specific services/products within (or
+   *  independent of) categoryIds — empty/omitted means no individual-item narrowing. */
+  serviceIds?: string[];
+  productIds?: string[];
   pricingType?: MembershipPricingType;
   discountPercent?: number;
   /** 'percentage' only — the depleting pool of discount this plan may hand out. */
@@ -74,6 +78,10 @@ export interface CreateMembershipDTO {
   /** Optional narrowing of appliesTo to specific service_categories ids —
    *  empty/omitted means unrestricted (every category within appliesTo's scope). */
   categoryIds?: string[];
+  /** Further, additive narrowing to specific services/products within (or
+   *  independent of) categoryIds — empty/omitted means no individual-item narrowing. */
+  serviceIds?: string[];
+  productIds?: string[];
   pricingType?: MembershipPricingType;
   discountPercent?: number;
   /** 'percentage' only — the depleting pool of discount this plan may hand out. */
@@ -126,4 +134,7 @@ export interface LoyaltyEligibility {
   appliesTo: MembershipAppliesTo;
   /** Optional narrowing of appliesTo to specific service_categories ids — empty means unrestricted. */
   categoryIds: string[];
+  /** Further, additive narrowing to specific services/products — empty means no individual-item narrowing. */
+  serviceIds: string[];
+  productIds: string[];
 }
