@@ -12,6 +12,7 @@ import "../styles/ReportsPage.scss";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { getTaxModuleConfig } from "../../settings/utils/taxModuleSettings";
+import { formatTimeAgo } from "../../../utils/dateFormat";
 
 import SalesSummaryReport from "../reports/SalesSummaryReport";
 import ProductSaleReport from "../reports/ProductSaleReport";
@@ -155,16 +156,6 @@ function loadRecents(): { id: string; ts: number }[] {
   return [];
 }
 
-function timeAgo(ts: number): string {
-  const diffMin = Math.floor((Date.now() - ts) / 60000);
-  if (diffMin < 1) return "Just now";
-  if (diffMin < 60) return `${diffMin} min ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} hour${diffHr > 1 ? "s" : ""} ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 30) return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
-  return new Date(ts).toLocaleDateString();
-}
 
 export default function ReportsPage() {
   const dispatch = useAppDispatch();
@@ -377,7 +368,7 @@ export default function ReportsPage() {
                         {(showAllRecents ? recentReports : recentReports.slice(0, 5)).map(r => (
                           <div key={r.id} className="rp-recent-item" onClick={() => openReport(r.id)}>
                             <div className="rp-recent-name">{r.report!.name}</div>
-                            <div className="rp-recent-time">{timeAgo(r.ts)}</div>
+                            <div className="rp-recent-time">{formatTimeAgo(r.ts)}</div>
                           </div>
                         ))}
                       </div>

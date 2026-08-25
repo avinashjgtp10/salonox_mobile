@@ -23,7 +23,7 @@ import {
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
 import salonoxLogo from "../../../assets/salonox_full_logo.png";
-import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { formatDateDDMMYYYY, formatTimeAgo } from "../../../utils/dateFormat";
 import SearchOverlay from "./SearchOverlay";
 import api from "../../../services/api/axios";
 import { NOTIFICATIONS } from "../../../services/api/endpoints";
@@ -71,18 +71,6 @@ const NOTIF_COLORS: Record<string, string> = {
 };
 
 const TOAST_DURATION = 5000; // ms before auto-dismiss
-
-// ── Time helper ────────────────────────────────────────────────────────────────
-
-function timeAgo(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} hr ago`;
-  return `${Math.floor(hrs / 24)} day ago`;
-}
 
 const getInitials = (name?: string) => {
   if (!name) return "U";
@@ -444,7 +432,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
                           <div className="topbar-notif-content">
                             <p className="topbar-notif-item-title">{n.title}</p>
                             {n.body && <p className="topbar-notif-item-body">{n.body}</p>}
-                            <span className="topbar-notif-time">{timeAgo(n.created_at)}</span>
+                            <span className="topbar-notif-time">{formatTimeAgo(n.created_at)}</span>
                           </div>
                           {!n.is_read && <span className="topbar-notif-dot" />}
                         </div>
