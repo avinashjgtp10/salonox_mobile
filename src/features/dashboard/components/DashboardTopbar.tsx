@@ -14,6 +14,7 @@ import {
   ChevronRight,
   ChatDots,
   LockFill,
+  TelephoneFill,
   X,
   Wallet2,
   CashStack,
@@ -378,8 +379,13 @@ export default function DashboardTopbar({ onLogout }: Props) {
       <div className="topbar">
         <div className="topbar-left">
           <h2 className="brand">
-            <img src={salonoxLogo} alt="SalonOX" className="brand-logo" width="190" height="61" />
+            <img src={salonoxLogo} alt="SalonOX" className="brand-logo" width="122" height="61" />
           </h2>
+          <a href="tel:+919503302647" className="need-help-pill" title="Call for help">
+            <TelephoneFill size={12} className="need-help-icon" />
+            <span className="need-help-label">Need help?</span>
+            <span className="need-help-number">+91 95033 02647</span>
+          </a>
         </div>
 
         <div className="topbar-right">
