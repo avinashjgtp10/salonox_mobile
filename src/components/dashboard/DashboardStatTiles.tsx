@@ -1,10 +1,14 @@
 import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, type DimensionValue } from "react-native";
 
 import { IconBadge } from "@/components/ui/IconBadge";
-import { MiniBarChart } from "@/components/ui/MiniBarChart";
-import { DashboardTypography as Typography, type ThemeColors } from "@/constants/theme";
+import {
+  DashboardRadius as Radius,
+  DashboardSpacing as Spacing,
+  DashboardTypography as Typography,
+  type ThemeColors,
+} from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
 import {
   selectDashboardIsLoading,
@@ -33,6 +37,65 @@ const getRevenueComparison = (currentMonth: number, lastMonth: number, revenueCh
 
   return { detail: "No Change", indicator: "\u2014", status: "", tone: "neutral" as const };
 };
+
+const REVENUE_BAR_COLORS = {
+  current: "#2563EB",
+  last: "#16A34A",
+} as const;
+
+function RevenueComparisonBars({
+  currentMonthRevenue,
+  lastMonthRevenue,
+}: {
+  currentMonthRevenue: number;
+  lastMonthRevenue: number;
+}) {
+  const Colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isCompact = width < 390;
+  const styles = useMemo(() => createStyles(Colors, isCompact), [Colors, isCompact]);
+  const maxRevenue = Math.max(currentMonthRevenue, lastMonthRevenue, 1);
+  const rows = [
+    {
+      barColor: REVENUE_BAR_COLORS.current,
+      label: "This Month",
+      value: currentMonthRevenue,
+    },
+    {
+      barColor: REVENUE_BAR_COLORS.last,
+      label: "Last Month",
+      value: lastMonthRevenue,
+    },
+  ];
+
+  return (
+    <View style={styles.horizontalChart}>
+      {rows.map((row) => {
+        const widthPercent = `${Math.max(row.value === 0 ? 0 : 8, (row.value / maxRevenue) * 100)}%` as DimensionValue;
+
+        return (
+          <View key={row.label} style={styles.horizontalBarRow}>
+            <View style={styles.horizontalBarTop}>
+              <Text style={styles.horizontalBarLabel}>{row.label}</Text>
+              <Text style={styles.horizontalBarValue}>{formatDashboardRevenue(row.value)}</Text>
+            </View>
+            <View style={styles.horizontalBarTrack}>
+              <View
+                style={[
+                  styles.horizontalBarFill,
+                  {
+                    backgroundColor: row.barColor,
+                    width: widthPercent,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
 
 // Split out of DashboardHero ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â same selectors/derived values, moved
 // verbatim, now rendered as separate premium tiles below the hero instead of
@@ -154,12 +217,9 @@ export default function DashboardStatTiles() {
                     </Text>
                     <View style={styles.titleDivider} />
                     <View style={styles.comparisonChart}>
-                      <MiniBarChart
-                        accent={stat.accent}
-                        data={[
-                          { label: "Last Month", value: stat.lastMonthRevenue },
-                          { label: "This Month", value: stat.currentMonthRevenue },
-                        ]}
+                      <RevenueComparisonBars
+                        currentMonthRevenue={stat.currentMonthRevenue}
+                        lastMonthRevenue={stat.lastMonthRevenue}
                       />
                     </View>
                     <View style={styles.comparisonRows}>
@@ -358,6 +418,45 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
   comparisonChart: {
     marginTop: isCompact ? 14 : 16,
     width: "100%",
+  },
+  horizontalChart: {
+    gap: isCompact ? 12 : 14,
+    width: "100%",
+  },
+  horizontalBarRow: {
+    width: "100%",
+  },
+  horizontalBarTop: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 7,
+  },
+  horizontalBarLabel: {
+    color: Colors.heading,
+    flexShrink: 0,
+    fontSize: isCompact ? 12 : 13,
+    fontWeight: "800",
+    marginRight: Spacing.md,
+  },
+  horizontalBarValue: {
+    color: Colors.heading,
+    flexShrink: 1,
+    fontSize: isCompact ? 12 : 13,
+    fontWeight: "900",
+    textAlign: "right",
+  },
+  horizontalBarTrack: {
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.full,
+    height: isCompact ? 18 : 22,
+    overflow: "hidden",
+    width: "100%",
+  },
+  horizontalBarFill: {
+    borderRadius: Radius.full,
+    height: "100%",
+    minWidth: 0,
   },
   comparisonRows: {
     flexDirection: "row",
