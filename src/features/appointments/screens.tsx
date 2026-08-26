@@ -28,6 +28,7 @@ import QuickSaleScreen, { type QuickSaleSlot } from "@/features/quickSale/screen
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { StateIllustration } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
@@ -1525,6 +1526,7 @@ export function AppointmentDashboardScreen() {
   const error = useAppSelector(selectAppointmentsError);
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const loadingMore = useAppSelector(selectAppointmentsLoadingMore);
+  const pagination = useAppSelector(selectAppointmentsPagination);
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
   const { fetchAppointments, fetchNext } = useFetchAppointments();
@@ -1674,6 +1676,18 @@ export function AppointmentDashboardScreen() {
                 <ActivityIndicator color={Colors.primary} />
               </View>
             ) : null}
+            {filtered.length > 0 ? (
+              <PaginationControls
+                currentPage={pagination.page}
+                hasNextPage={pagination.hasMore}
+                hasPreviousPage={false}
+                loading={loadingMore}
+                onNext={pagination.hasMore ? () => void fetchNext({ date }) : undefined}
+                totalItems={pagination.totalCount}
+                totalPages={Math.max(1, pagination.totalPages ?? 1)}
+                visibleItems={filtered.length}
+              />
+            ) : null}
             {!loading && !error ? <CalendarPreview appointments={filtered} date={date} /> : null}
           </View>
         }
@@ -1703,6 +1717,7 @@ export function AppointmentListScreen() {
   const error = useAppSelector(selectAppointmentsError);
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const loadingMore = useAppSelector(selectAppointmentsLoadingMore);
+  const pagination = useAppSelector(selectAppointmentsPagination);
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
   const { fetchAppointments, fetchNext } = useFetchAppointments();
@@ -1774,10 +1789,17 @@ export function AppointmentListScreen() {
           )
         }
         ListFooterComponent={
-          loadingMore ? (
-            <View style={styles.footerLoader}>
-              <ActivityIndicator color={Colors.primary} />
-            </View>
+          filtered.length > 0 ? (
+            <PaginationControls
+              currentPage={pagination.page}
+              hasNextPage={pagination.hasMore}
+              hasPreviousPage={false}
+              loading={loadingMore}
+              onNext={pagination.hasMore ? () => void fetchNext({ date, search, status }) : undefined}
+              totalItems={pagination.totalCount}
+              totalPages={Math.max(1, pagination.totalPages ?? 1)}
+              visibleItems={filtered.length}
+            />
           ) : null
         }
         contentContainerStyle={styles.flatListContent}
@@ -1887,6 +1909,7 @@ export function StaffMyAppointmentsScreen() {
   const error = useAppSelector(selectAppointmentsError);
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const loadingMore = useAppSelector(selectAppointmentsLoadingMore);
+  const pagination = useAppSelector(selectAppointmentsPagination);
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const { fetchAppointments, fetchNext } = useFetchAppointments();
   const today = todayIsoDate();
@@ -1968,10 +1991,17 @@ export function StaffMyAppointmentsScreen() {
           )
         }
         ListFooterComponent={
-          loadingMore ? (
-            <View style={styles.footerLoader}>
-              <ActivityIndicator color={Colors.primary} />
-            </View>
+          rows.length > 0 ? (
+            <PaginationControls
+              currentPage={pagination.page}
+              hasNextPage={pagination.hasMore}
+              hasPreviousPage={false}
+              loading={loadingMore}
+              onNext={pagination.hasMore ? () => currentStaffId && void fetchNext({ staffId: currentStaffId }) : undefined}
+              totalItems={pagination.totalCount}
+              totalPages={Math.max(1, pagination.totalPages ?? 1)}
+              visibleItems={staffAppointments.length}
+            />
           ) : null
         }
         contentContainerStyle={flatListContentStyle}

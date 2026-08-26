@@ -15,6 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
@@ -380,11 +381,17 @@ export default function UsersScreen() {
         }
         ListFooterComponent={
           <View style={styles.footerWrap}>
-            {staffLoadingMore ? (
-              <View style={styles.loadingMoreWrap}>
-                <ActivityIndicator color={Colors.primary} size="small" />
-                <Text style={styles.loadingMoreText}>Loading more users...</Text>
-              </View>
+            {staffMembers.length > 0 ? (
+              <PaginationControls
+                currentPage={Math.max(1, Math.ceil(staffMembers.length / staffPagination.limit))}
+                hasNextPage={staffPagination.hasMore}
+                hasPreviousPage={false}
+                loading={staffLoadingMore}
+                onNext={staffPagination.hasMore ? handleLoadMore : undefined}
+                totalItems={staffPagination.totalCount}
+                totalPages={Math.max(1, Math.ceil(staffPagination.totalCount / staffPagination.limit))}
+                visibleItems={staffMembers.length}
+              />
             ) : null}
             <View style={{ height: 24 + insets.bottom }} />
           </View>

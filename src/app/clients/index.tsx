@@ -20,6 +20,7 @@ import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated"
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
@@ -667,11 +668,17 @@ export default function ClientsScreen() {
           }
           ListFooterComponent={
             <View style={styles.footerWrap}>
-              {clientsLoadingMore ? (
-                <View style={styles.loadingMoreWrap}>
-                  <ActivityIndicator color={Colors.primary} size="small" />
-                  <Text style={styles.loadingMoreText}>Loading more clients...</Text>
-                </View>
+              {clients.length > 0 ? (
+                <PaginationControls
+                  currentPage={Math.max(1, Math.ceil(clients.length / clientsPagination.limit))}
+                  hasNextPage={clientsPagination.hasMore}
+                  hasPreviousPage={false}
+                  loading={clientsLoadingMore}
+                  onNext={clientsPagination.hasMore ? handleLoadMore : undefined}
+                  totalItems={totalCount}
+                  totalPages={Math.max(1, Math.ceil(totalCount / clientsPagination.limit))}
+                  visibleItems={clients.length}
+                />
               ) : null}
               <View style={{ height: 112 + insets.bottom }} />
             </View>

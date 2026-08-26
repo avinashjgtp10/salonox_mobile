@@ -18,6 +18,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
@@ -410,11 +411,17 @@ export default function SalesHistoryScreen() {
         }
         ListFooterComponent={
           <View style={styles.footerWrap}>
-            {salesLoadingMore ? (
-              <View style={styles.loadingMoreWrap}>
-                <ActivityIndicator color={Colors.primary} size="small" />
-                <Text style={styles.loadingMoreText}>Loading more sales...</Text>
-              </View>
+            {sales.length > 0 ? (
+              <PaginationControls
+                currentPage={Math.max(1, Math.ceil(sales.length / salesPagination.limit))}
+                hasNextPage={salesPagination.hasMore}
+                hasPreviousPage={false}
+                loading={salesLoadingMore}
+                onNext={salesPagination.hasMore ? handleLoadMore : undefined}
+                totalItems={totalCount}
+                totalPages={Math.max(1, Math.ceil(totalCount / salesPagination.limit))}
+                visibleItems={sales.length}
+              />
             ) : null}
             <View style={{ height: 112 + insets.bottom }} />
           </View>

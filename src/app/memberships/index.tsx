@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { deleteMembershipThunk, fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
 import {
   selectDeletingMembershipIds,
@@ -327,11 +328,17 @@ export default function MembershipsScreen() {
         }
         ListFooterComponent={
           <View style={{ paddingBottom: insets.bottom + 96 }}>
-            {loadingMore ? (
-              <View style={styles.loadingMore}>
-                <ActivityIndicator color={Colors.primary} />
-                <Text style={styles.loadingMoreText}>Loading more memberships...</Text>
-              </View>
+            {visibleItems.length > 0 ? (
+              <PaginationControls
+                currentPage={pagination.page}
+                hasNextPage={hasMore}
+                hasPreviousPage={false}
+                loading={loadingMore}
+                onNext={hasMore ? loadMore : undefined}
+                totalItems={total}
+                totalPages={Math.max(1, pagination.totalPages)}
+                visibleItems={visibleItems.length}
+              />
             ) : null}
           </View>
         }
