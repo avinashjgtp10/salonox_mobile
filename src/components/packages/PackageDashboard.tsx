@@ -207,7 +207,7 @@ const PackageDashboard: React.FC<Props> = ({
             </div>
           </div>
         ) : (
-          <div className={styles.card} style={{ overflow: "hidden" }}>
+          <div className={styles.card} style={{ overflow: "hidden", marginBottom: 0, borderRadius: "12px 12px 0 0" }}>
             <div style={{ overflowX: "auto" }}>
             <table className={styles.table}>
               <thead>
