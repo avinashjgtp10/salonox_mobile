@@ -24,6 +24,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { useAppToast } from "@/hooks/useAppToast";
 import { deleteSaleThunk, exportSalesThunk, fetchSalesSummaryThunk, fetchSalesThunk } from "@/middleware/sales/sales.thunk";
 import {
   selectSaleDeletingIds,
@@ -223,6 +224,7 @@ export default function SalesHistoryScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const insets = useSafeAreaInsets();
   const sales = useAppSelector(selectSales);
   const salesError = useAppSelector(selectSalesListError);
@@ -306,7 +308,7 @@ export default function SalesHistoryScreen() {
       return;
     }
 
-    Alert.alert("Sale deleted", resultAction.payload.message ?? "Sale deleted successfully.");
+    toast.showSuccess("Sale deleted successfully.");
 
     void dispatch(
       fetchSalesThunk({

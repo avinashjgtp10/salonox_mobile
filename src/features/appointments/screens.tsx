@@ -37,6 +37,7 @@ import {
 } from "@/constants/theme";
 import type { StaffMember } from "@/data/teamData";
 import { useAppForeground } from "@/hooks/useAppForeground";
+import { useAppToast } from "@/hooks/useAppToast";
 import {
   cancelAppointmentThunk,
   completeAppointmentThunk,
@@ -3282,6 +3283,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const params = useLocalSearchParams<{ clientId?: string; id?: string }>();
   const appointmentId = params.id;
   const returnedClientId = typeof params.clientId === "string" ? params.clientId : "";
@@ -3998,6 +4000,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     }
 
     const savedId = result.payload.appointment.id;
+    toast.showSuccess(mode === "create" ? "Appointment created successfully." : "Appointment updated successfully.");
     if (mode === "create") {
       void dispatch(fetchAppointmentsThunk({ refresh: true }));
       void dispatch(fetchDashboardThunk());
@@ -4633,6 +4636,7 @@ function ActionButton({
 export function CancelAppointmentScreen() {
   const { styles } = useAppointmentStyles();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const params = useLocalSearchParams<{ id?: string }>();
   const appointmentId = params.id;
   const mutating = useAppSelector(selectAppointmentMutating);
@@ -4655,6 +4659,7 @@ export function CancelAppointmentScreen() {
       return;
     }
 
+    toast.showSuccess("Appointment cancelled successfully.");
     router.replace(`/appointments/${result.payload.appointment.id}` as Href);
   };
 
@@ -4718,6 +4723,7 @@ export function CancelAppointmentScreen() {
 export function RescheduleAppointmentScreen() {
   const { styles } = useAppointmentStyles();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const params = useLocalSearchParams<{ id?: string }>();
   const appointmentId = params.id;
   const appointment = useAppSelector((state) => selectAppointmentById(state, appointmentId));
@@ -4775,6 +4781,7 @@ export function RescheduleAppointmentScreen() {
       return;
     }
 
+    toast.showSuccess("Appointment rescheduled successfully.");
     router.replace(`/appointments/${result.payload.appointment.id}` as Href);
   };
 

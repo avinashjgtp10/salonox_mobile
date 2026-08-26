@@ -21,8 +21,6 @@ export interface ToastState {
   toasts: ToastMessage[];
 }
 
-const DEFAULT_DURATION_MS = 3200;
-
 const TOAST_DURATIONS: Record<ToastTone, number> = {
   success: 3200,
   error: 4000,
@@ -63,6 +61,9 @@ export function createToastContainer({ selector, clearAction }: ToastContainerPr
       <View style={styles.container} pointerEvents="box-none">
         {toasts.map((toast) => (
           <Animated.View
+            accessibilityLiveRegion="polite"
+            accessibilityRole="alert"
+            accessible
             key={toast.id}
             entering={FadeIn.duration(180)}
             exiting={FadeOut.duration(160)}
@@ -84,7 +85,12 @@ export function createToastContainer({ selector, clearAction }: ToastContainerPr
             <Text style={styles.snackbarText} numberOfLines={2}>
               {toast.message}
             </Text>
-            <TouchableOpacity onPress={() => dispatch(clearAction(toast.id))} style={styles.closeButton}>
+            <TouchableOpacity
+              accessibilityLabel="Dismiss notification"
+              accessibilityRole="button"
+              onPress={() => dispatch(clearAction(toast.id))}
+              style={styles.closeButton}
+            >
               <Ionicons name="close" size={16} color="#FFFFFF" />
             </TouchableOpacity>
           </Animated.View>
@@ -106,7 +112,7 @@ export function createToastContainer({ selector, clearAction }: ToastContainerPr
     },
     snackbar: {
       alignItems: "center",
-      backgroundColor: Colors.primaryDark,
+      backgroundColor: Colors.success,
       borderRadius: Radius.full,
       flexDirection: "row",
       gap: Spacing.sm,

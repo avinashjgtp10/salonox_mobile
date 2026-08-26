@@ -9,6 +9,7 @@ import {
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
+import { useAppToast } from "@/hooks/useAppToast";
 import {
   deleteStaffScheduleThunk,
   fetchStaffScheduleThunk,
@@ -47,6 +48,7 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const schedule = useAppSelector((state) => selectStaffSchedule(state, staffId));
   const loaded = useAppSelector((state) => selectStaffScheduleLoaded(state, staffId));
   const loading = useAppSelector((state) => selectStaffScheduleLoading(state, staffId));
@@ -114,7 +116,7 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
       return;
     }
 
-    Alert.alert("Schedule updated", resultAction.payload.message ?? "The working schedule has been saved.");
+    toast.showSuccess("Schedule updated successfully.");
   };
 
   const handleClear = () => {
@@ -148,7 +150,7 @@ export function StaffScheduleSection({ staffId }: StaffScheduleSectionProps) {
     }
 
     setDays(DEFAULT_DAYS);
-    Alert.alert("Schedule cleared", resultAction.payload.message ?? "The working schedule has been cleared.");
+    toast.showSuccess("Schedule cleared successfully.");
   };
 
   if (listError) {

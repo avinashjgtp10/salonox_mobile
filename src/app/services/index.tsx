@@ -29,6 +29,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { useAppToast } from "@/hooks/useAppToast";
 import { deleteServiceThunk, fetchServicesThunk } from "@/middleware/service/service.thunk";
 import {
   selectServiceDeletingIds,
@@ -214,6 +215,7 @@ export default function ServicesScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const insets = useSafeAreaInsets();
   const services = useAppSelector(selectServices);
   const servicesError = useAppSelector(selectServicesError);
@@ -297,7 +299,7 @@ export default function ServicesScreen() {
       return;
     }
 
-    Alert.alert("Service deleted", resultAction.payload.message ?? "Service deleted successfully.");
+    toast.showSuccess("Service deleted successfully.");
 
     void dispatch(
       fetchServicesThunk({

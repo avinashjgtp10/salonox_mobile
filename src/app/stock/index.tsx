@@ -18,6 +18,7 @@ import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { EmptyState, ErrorState } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { useAppToast } from "@/hooks/useAppToast";
 import { deleteProductThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -37,6 +38,7 @@ export default function ProductsScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const insets = useSafeAreaInsets();
   const state = useAppSelector((root) => root.product);
   const [filter, setFilter] = useState<Filter>("All");
@@ -79,7 +81,11 @@ export default function ProductsScreen() {
       { style: "cancel", text: "Cancel" },
       { style: "destructive", text: "Delete", onPress: async () => {
         const action = await dispatch(deleteProductThunk(product.id));
-        if (deleteProductThunk.rejected.match(action)) Alert.alert("Unable to delete product", rejectedMessage(action.payload));
+        if (deleteProductThunk.rejected.match(action)) {
+          Alert.alert("Unable to delete product", rejectedMessage(action.payload));
+          return;
+        }
+        toast.showSuccess("Product deleted successfully.");
       } },
     ],
   );

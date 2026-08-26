@@ -9,6 +9,7 @@ import {
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
+import { useAppToast } from "@/hooks/useAppToast";
 import { fetchStaffWageThunk, updateStaffWageThunk } from "@/middleware/staff/staffWages.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
@@ -32,6 +33,7 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const wage = useAppSelector((state) => selectStaffWage(state, staffId));
   const loaded = useAppSelector((state) => selectStaffWageLoaded(state, staffId));
   const loading = useAppSelector((state) => selectStaffWageLoading(state, staffId));
@@ -89,7 +91,7 @@ export function StaffWageSection({ staffId }: StaffWageSectionProps) {
       return;
     }
 
-    Alert.alert("Wage updated", resultAction.payload.message ?? "The wage record has been saved.");
+    toast.showSuccess("Wage updated successfully.");
   };
 
   if (listError) {

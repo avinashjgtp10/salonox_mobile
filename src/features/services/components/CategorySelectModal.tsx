@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { useAppToast } from "@/hooks/useAppToast";
 import { createCategoryThunk, fetchCategoriesThunk } from "@/middleware/service/service.thunk";
 import {
   selectCategoriesByType,
@@ -52,6 +53,7 @@ export function CategorySelectModal({
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
 
@@ -111,6 +113,7 @@ export function CategorySelectModal({
     if (createCategoryThunk.fulfilled.match(resultAction)) {
       const createdCategory = resultAction.payload;
       handleCloseCreateModal();
+      toast.showSuccess("Category created successfully.");
       handleSelect(createdCategory);
     }
   };

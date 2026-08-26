@@ -39,6 +39,7 @@ import {
   mergeAllDuplicatesThunk,
   type FetchClientsArgs,
 } from "@/middleware/client/client.thunk";
+import { useAppToast } from "@/hooks/useAppToast";
 import { clientService } from "@/services/client.service";
 import {
   selectClients,
@@ -397,6 +398,7 @@ export default function ClientsScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const insets = useSafeAreaInsets();
   const clients = useAppSelector(selectClients);
   const deletingClientIds = useAppSelector(selectClientDeletingIds);
@@ -541,7 +543,7 @@ export default function ClientsScreen() {
           onPress: async () => {
             const res = await dispatch(mergeClientsThunk({ primaryId, secondaryId }));
             if (mergeClientsThunk.fulfilled.match(res)) {
-              Alert.alert("Success", "Clients merged successfully.");
+              toast.showSuccess("Clients merged successfully.");
               void dispatch(fetchDuplicatesThunk(duplicatePhoneQuery));
               handleRefresh();
             } else {
@@ -564,7 +566,7 @@ export default function ClientsScreen() {
           onPress: async () => {
             const res = await dispatch(mergeAllDuplicatesThunk());
             if (mergeAllDuplicatesThunk.fulfilled.match(res)) {
-              Alert.alert("Success", "All duplicates merged successfully.");
+              toast.showSuccess("All duplicates merged successfully.");
               setIsDuplicatesVisible(false);
               handleRefresh();
             } else {
@@ -628,10 +630,7 @@ export default function ClientsScreen() {
               return;
             }
 
-            Alert.alert(
-              "Client deleted",
-              resultAction.payload.message ?? "Client deleted successfully.",
-            );
+            toast.showSuccess("Client deleted successfully.");
           },
           style: "destructive",
           text: "Delete",

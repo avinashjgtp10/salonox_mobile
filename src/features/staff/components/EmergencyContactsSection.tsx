@@ -12,6 +12,7 @@ import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
 import { useStaffEmergencyContacts } from "@/features/staff/hooks/useStaffEmergencyContacts";
+import { useAppToast } from "@/hooks/useAppToast";
 import { selectEmergencyContactDeleting } from "@/store/staff/staff.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
@@ -87,6 +88,7 @@ export function EmergencyContactsSection({ readOnly = false, staffId }: Emergenc
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const controller = useStaffEmergencyContacts(staffId);
+  const toast = useAppToast();
   const currentUser = useAppSelector(selectCurrentUser);
   const canManageContacts = canManageStaffLifecycle(currentUser?.role);
 
@@ -121,7 +123,7 @@ export function EmergencyContactsSection({ readOnly = false, staffId }: Emergenc
       return;
     }
 
-    Alert.alert("Contact deleted", result.message ?? "The emergency contact has been removed.");
+    toast.showSuccess("Emergency contact deleted successfully.");
   };
 
   return (

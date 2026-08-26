@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Provider } from 'react-redux';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import SimpleSplash from '../components/simple-splash';
+import { AppToast } from '@/components/ui/AppToast';
 import { NetworkErrorModal } from '@/components/ui/NetworkErrorModal';
 import { PortalProvider } from '@/components/ui/PortalProvider';
 import { UpdateAnnouncementModal } from '@/components/ui/UpdateAnnouncementModal';
@@ -360,6 +361,7 @@ function AppShell() {
             </Stack>
             <SimpleSplash backgroundColor={colors.bg} isReady={isThemeHydrated && isNavigationReady} />
             <NetworkErrorModal />
+            <AppToast />
           </PortalProvider>
         </AuthProvider>
       </Provider>

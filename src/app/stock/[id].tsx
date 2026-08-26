@@ -7,6 +7,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { useAppToast } from "@/hooks/useAppToast";
 import { deleteProductThunk, fetchProductByIdThunk } from "@/middleware/product/product.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectProductById } from "@/store/product/product.slice";
@@ -19,6 +20,7 @@ export default function ProductDetailsScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const storedProduct = useAppSelector(selectProductById(id ?? ""));
   const state = useAppSelector((root) => root.product);
   const product = storedProduct ?? (state.currentProduct?.id === id ? state.currentProduct : null);
@@ -29,8 +31,12 @@ export default function ProductDetailsScreen() {
     { style: "cancel", text: "Cancel" },
     { style: "destructive", text: "Delete", onPress: async () => {
       const action = await dispatch(deleteProductThunk(product.id));
-      if (deleteProductThunk.fulfilled.match(action)) router.replace("/stock" as Href);
-      else Alert.alert("Unable to delete product", action.payload?.message ?? "Please try again.");
+      if (deleteProductThunk.fulfilled.match(action)) {
+        toast.showSuccess("Product deleted successfully.");
+        router.replace("/stock" as Href);
+      } else {
+        Alert.alert("Unable to delete product", action.payload?.message ?? "Please try again.");
+      }
     } },
   ]);
 
