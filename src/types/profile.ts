@@ -9,15 +9,11 @@ export type UserProfileApiItem = {
   country?: string | null;
   country_code?: string | null;
   countryCode?: string | null;
-  date_of_birth?: string | null;
-  dateOfBirth?: string | null;
-  dob?: string | null;
   email?: string | null;
   first_name?: string | null;
   firstName?: string | null;
   full_name?: string | null;
   fullName?: string | null;
-  gender?: string | null;
   id?: string | number | null;
   is_active?: boolean | null;
   is_verified?: boolean | null;
@@ -32,7 +28,6 @@ export type UserProfileApiItem = {
   phoneNumber?: string | null;
   role?: string | null;
   salon_name?: string | null;
-  sex?: string | null;
   _id?: string | null;
   [key: string]: unknown;
 };
@@ -51,11 +46,9 @@ export type UserProfile = {
   businessName: string | null;
   country: string | null;
   countryCode: string | null;
-  dateOfBirth: string | null;
   email: string | null;
   firstName: string | null;
   fullName: string;
-  gender: string | null;
   id: string;
   isActive: boolean | null;
   isVerified: boolean | null;
@@ -67,9 +60,7 @@ export type UserProfile = {
 export type UpdateProfileRequest = {
   address?: string;
   businessName?: string;
-  dateOfBirth?: string;
   fullName?: string;
-  gender?: string;
   phone?: string;
 };
 

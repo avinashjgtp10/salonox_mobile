@@ -1,8 +1,7 @@
 import { useThemeColors } from "@/theme/ThemeProvider";
 
-// Derived from the real theme tokens (constants/theme.ts) so the onboarding
-// welcome screen shares the app's active palette instead of a separate
-// static gold/cream design system.
+// Derived from the real theme tokens so authentication and onboarding use
+// the app's active palette instead of a separate static design system.
 export const useLuxuryColors = () => {
   const Colors = useThemeColors();
 

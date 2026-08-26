@@ -27,9 +27,11 @@ import {
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 type BottomSheetProps = {
+  centered?: boolean;
   children: ReactNode;
   footer?: ReactNode;
   onClose: () => void;
+  renderInline?: boolean;
   scrollable?: boolean;
   subtitle?: string;
   title: string;
@@ -44,9 +46,11 @@ const OPEN_EASING = Easing.bezier(0.16, 1, 0.3, 1);
 const CLOSE_EASING = Easing.bezier(0.4, 0, 1, 1);
 
 export function BottomSheet({
+  centered = false,
   children,
   footer,
   onClose,
+  renderInline = false,
   scrollable = true,
   subtitle,
   title,
@@ -115,20 +119,19 @@ export function BottomSheet({
     return null;
   }
 
-  return (
-    <Portal>
-      <Animated.View pointerEvents="auto" style={[styles.overlay, backdropStyle]}>
+  const overlay = (
+      <Animated.View pointerEvents="auto" style={[styles.overlay, renderInline && styles.overlayInline, backdropStyle]}>
         <Pressable onPress={onClose} style={StyleSheet.absoluteFill} />
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : undefined}
             pointerEvents="box-none"
-            style={styles.keyboardAvoiding}
+            style={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered]}
           >
             <Animated.View
               // No onPress of its own — Pressable still claims the touch
               // responder for taps that land on it, which is what stops them
               // bubbling up to the backdrop's onPress={onClose} above.
-              style={[styles.sheet, { maxHeight: sheetMaxHeight }, sheetStyle]}
+              style={[styles.sheet, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
             >
               <View style={styles.handle} />
               <View style={styles.header}>
@@ -159,8 +162,9 @@ export function BottomSheet({
             </Animated.View>
           </KeyboardAvoidingView>
       </Animated.View>
-    </Portal>
   );
+
+  return renderInline ? overlay : <Portal>{overlay}</Portal>;
 }
 
 const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.create({
@@ -168,9 +172,19 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
     backgroundColor: "rgba(20, 18, 16, 0.42)",
     flex: 1,
   },
+  overlayInline: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
+  },
   keyboardAvoiding: {
     flex: 1,
     justifyContent: "flex-end",
+  },
+  keyboardAvoidingCentered: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 24,
   },
   sheet: {
     backgroundColor: Colors.card,
@@ -184,6 +198,11 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
     shadowOpacity: 0.12,
     shadowRadius: 28,
     elevation: 16,
+  },
+  sheetCentered: {
+    borderRadius: 12,
+    maxWidth: 520,
+    width: "100%",
   },
   handle: {
     alignSelf: "center",

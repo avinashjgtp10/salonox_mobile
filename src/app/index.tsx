@@ -12,7 +12,7 @@ export default function Index() {
 
   return (
     <Redirect
-      href={(isAuthenticated ? resolveAuthenticatedRoute(user) : "/welcome") as Href}
+      href={(isAuthenticated ? resolveAuthenticatedRoute(user) : "/login") as Href}
     />
   );
 }

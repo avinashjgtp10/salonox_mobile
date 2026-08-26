@@ -198,6 +198,7 @@ export type AppointmentListItem = {
   paymentStatus: string;
   phone: string;
   raw: AppointmentApiItem;
+  saleId: string;
   scheduledAt: string | null;
   serviceId: string;
   serviceName: string;

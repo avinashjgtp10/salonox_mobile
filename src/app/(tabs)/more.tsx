@@ -59,12 +59,6 @@ const MENU_ITEMS = [
     title: "Memberships",
   },
   {
-    description: "View and search every user across your organisation.",
-    icon: "person-circle-outline" as const,
-    route: "/users" as Href,
-    title: "User Management",
-  },
-  {
     description: "Search, filter, and export completed and draft sales.",
     icon: "receipt-outline" as const,
     route: "/sales" as Href,

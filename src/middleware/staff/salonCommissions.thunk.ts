@@ -30,7 +30,9 @@ export const fetchSalonCommissionSummaryThunk = createAsyncThunk<
   try {
     return await salonCommissionsService.getSummary();
   } catch (error) {
-    console.error("[SalonCommissions] Fetch summary failed", toRejectValue(error));
+    if (__DEV__) {
+      console.error("[SalonCommissions] Fetch summary failed", toRejectValue(error));
+    }
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -44,7 +46,9 @@ export const fetchSalonCommissionEarnedThunk = createAsyncThunk<
   try {
     return await salonCommissionsService.getEarned();
   } catch (error) {
-    console.error("[SalonCommissions] Fetch earned failed", toRejectValue(error));
+    if (__DEV__) {
+      console.error("[SalonCommissions] Fetch earned failed", toRejectValue(error));
+    }
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -58,12 +62,19 @@ export const settleCommissionThunk = createAsyncThunk<
   try {
     const response = await salonCommissionsService.settleCommission(staffId, amount);
 
-    void dispatch(fetchSalonCommissionSummaryThunk());
-    void dispatch(fetchSalonCommissionEarnedThunk());
+    // Keep the settlement loading state active until both authoritative
+    // backend views have finished refreshing. Their reducers preserve the
+    // previous data if either refresh fails.
+    await Promise.all([
+      dispatch(fetchSalonCommissionSummaryThunk()),
+      dispatch(fetchSalonCommissionEarnedThunk()),
+    ]);
 
     return response;
   } catch (error) {
-    console.error("[SalonCommissions] Settle commission failed", { staffId, amount, ...toRejectValue(error) });
+    if (__DEV__) {
+      console.error("[SalonCommissions] Settle commission failed", { staffId, amount, ...toRejectValue(error) });
+    }
 
     return rejectWithValue(toRejectValue(error));
   }

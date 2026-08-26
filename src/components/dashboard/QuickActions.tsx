@@ -16,12 +16,6 @@ const getActions = (
 }[] => [
   { label: "Appointment", icon: "calendar-outline", iconBg: Colors.dashboardAppointmentBg, route: "/bookings/new" as Href },
   { label: "Client", icon: "person-add-outline", iconBg: Colors.dashboardClientBg, route: "/clients/new" as Href },
-  {
-    label: "Quick Sale",
-    icon: "flash-outline",
-    iconBg: Colors.dashboardWarningBg,
-    route: "/quick-sale" as Href,
-  },
   { label: "Attendance", icon: "checkmark-circle-outline", iconBg: Colors.dashboardAppointmentBg, route: "/team/attendance" as Href },
 ];
 
