@@ -71,9 +71,28 @@ const normalizeEarnedEntry = (entry: UnknownRecord, index: number): SalonEarnedE
   staffName: getStaffName(entry),
 });
 
+// Web's commission Settle tab defaults its date filter to "This month"
+// (calendar month, local time — see DateRangeFilter.tsx's this_month case)
+// and always scopes /commissions/summary and /commissions/earned to that
+// range. The backend applies no date filter at all when start_date/end_date
+// are omitted (it sums every commission_earned row ever created), so without
+// this Mobile would show all-time totals instead of Web's current-month
+// totals for the same staff/salon. Matching the same local-date math here
+// keeps the two apps' default numbers identical.
+export function getCurrentCalendarMonthRange(now = new Date()): { start_date: string; end_date: string } {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const toISO = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  return { start_date: toISO(new Date(y, m, 1)), end_date: toISO(new Date(y, m + 1, 0)) };
+}
+
 export const salonCommissionsService = {
   async getSummary(): Promise<SalonCommissionSummary> {
-    const response = await api.get<SummaryApiResponse>(STAFF.COMMISSIONS_SUMMARY);
+    const response = await api.get<SummaryApiResponse>(STAFF.COMMISSIONS_SUMMARY, {
+      params: getCurrentCalendarMonthRange(),
+    });
     const record = asRecord(response.data.data);
     const nested = firstValue(record, ["data"]);
 
@@ -85,7 +104,9 @@ export const salonCommissionsService = {
   // commission rules) — Mobile does not fetch or expose the rule-configuration
   // endpoint (/staff/commissions/all), since commission rule setup is Web-only.
   async getEarned(): Promise<SalonEarnedEntry[]> {
-    const response = await api.get<EarnedApiResponse>(STAFF.COMMISSIONS_EARNED);
+    const response = await api.get<EarnedApiResponse>(STAFF.COMMISSIONS_EARNED, {
+      params: getCurrentCalendarMonthRange(),
+    });
 
     return getEarnedArray(response.data.data).map(normalizeEarnedEntry);
   },

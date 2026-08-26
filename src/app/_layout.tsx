@@ -58,7 +58,6 @@ function buildNavigationTheme(scheme: 'light' | 'dark', colors: ThemeColors): Th
 
 const PUBLIC_ROUTES = new Set([
   "index",
-  "welcome",
   "login",
   "forgot-password",
   "verify-otp",
@@ -178,7 +177,7 @@ function AuthNavigationHandler({ onReady }: { onReady: () => void }) {
         }
         router.replace("/login" as Href);
       } else {
-        // The public route (login/welcome) is active in the navigator.
+        // The public login or recovery route is active in the navigator.
         onReady();
       }
     }
@@ -342,7 +341,6 @@ function AppShell() {
               }}
             >
               <Stack.Screen name="login" />
-              <Stack.Screen name="welcome" />
               <Stack.Screen name="forgot-password" />
               <Stack.Screen name="verify-otp" />
               <Stack.Screen name="reset-password" />

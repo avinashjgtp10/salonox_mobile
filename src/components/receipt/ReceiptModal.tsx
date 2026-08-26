@@ -35,7 +35,7 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
     paperSize,
   };
 
-  const handlePrint = async () => {
+  const handleDownload = async () => {
     try {
       setIsActionLoading(true);
       await printerService.printReceipt(activeData);
@@ -305,8 +305,8 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
               <ActivityIndicator color={Colors.text} size="small" />
             ) : (
             <>
-              <Ionicons name="share-social-outline" size={18} color="#000" />
-              <Text style={styles.actionBtnText}>Share PDF</Text>
+              <Ionicons name="send-outline" size={18} color="#000" />
+              <Text style={styles.actionBtnText}>Send Receipt</Text>
             </>
             )}
           </TouchableOpacity>
@@ -314,16 +314,16 @@ export const ReceiptModal: React.FC<ReceiptModalProps> = ({
           <TouchableOpacity
             activeOpacity={0.8}
             disabled={isActionLoading}
-            onPress={handlePrint}
+            onPress={handleDownload}
             style={[styles.actionBtn, { backgroundColor: Colors.primary }]}
           >
             {isActionLoading ? (
               <ActivityIndicator color={Colors.onPrimary} size="small" />
             ) : (
               <>
-                <Ionicons name="print-outline" size={18} color={Colors.onPrimary} />
+                <Ionicons name="download-outline" size={18} color={Colors.onPrimary} />
                 <Text style={[styles.actionBtnText, { color: Colors.onPrimary }]}>
-                  Print Receipt
+                  Download PDF
                 </Text>
               </>
             )}

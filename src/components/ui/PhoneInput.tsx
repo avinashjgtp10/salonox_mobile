@@ -170,7 +170,7 @@ export interface PhoneInputProps {
 
 // ─── Country Data ─────────────────────────────────────────────────────────────
 
-const COUNTRIES: Country[] = [
+export const COUNTRIES: Country[] = [
   { code: "AF", name: "Afghanistan", dialCode: "+93", flag: "🇦🇫" },
   { code: "AX", name: "Åland Islands", dialCode: "+358", flag: "🇦🇽" },
   { code: "AL", name: "Albania", dialCode: "+355", flag: "🇦🇱" },
@@ -682,7 +682,9 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
 
   const windowHeight = Dimensions.get("window").height;
   const keyboardGap = keyboardHeight > 0 ? 8 : 0;
-  const sheetBottom = keyboardHeight > 0 ? keyboardHeight + keyboardGap : 0;
+  const sheetBottom = keyboardHeight > 0
+    ? keyboardHeight + keyboardGap
+    : Math.max(insets.bottom, 12);
   const availableHeight =
     windowHeight - sheetBottom - Math.max(insets.top, Platform.OS === "ios" ? 18 : 8);
   const sheetMaxHeight = Math.max(
@@ -721,7 +723,7 @@ export const CountryCodePickerModal = memo(function CountryCodePickerModal({
           {
             bottom: sheetBottom,
             maxHeight: sheetMaxHeight,
-            paddingBottom: Math.max(insets.bottom, Platform.OS === "ios" ? 24 : 14),
+            paddingBottom: Platform.OS === "ios" ? 20 : 14,
           },
           { transform: [{ translateY: slideAnim }] },
         ]}
@@ -1173,11 +1175,10 @@ const createPickerStyles = (C: PhoneColors) => StyleSheet.create({
   },
   sheet: {
     position: "absolute",
-    left: 0,
-    right: 0,
+    left: 12,
+    right: 12,
     backgroundColor: C.cardBg,
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    borderRadius: 20,
     maxHeight: "80%",
     paddingBottom: Platform.OS === "ios" ? 32 : 16,
     shadowColor: "#000",

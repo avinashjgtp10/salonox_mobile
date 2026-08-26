@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams } from "expo-router";
+import { isValidPhoneNumber } from "libphonenumber-js";
 import { useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   ActivityIndicator,
@@ -17,6 +18,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { KeyboardAwareScrollView, type KeyboardAwareScrollViewHandle } from "@/components/ui/KeyboardAwareScrollView";
+import { COUNTRIES, CountryCodePickerModal, type Country } from "@/components/ui/PhoneInput";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { EMAIL_INVALID_MESSAGE, isValidEmail } from "@/utils/validation";
@@ -45,6 +47,8 @@ export default function LoginScreen() {
   const { clearError, error, isLoading, signIn } = useAuth();
   const [mode, setMode] = useState<LoginMode>("mobile");
   const [identifier, setIdentifier] = useState("");
+  const [selectedCountry, setSelectedCountry] = useState<Country>(() => COUNTRIES.find((country) => country.code === "IN")!);
+  const [isCountryPickerOpen, setIsCountryPickerOpen] = useState(false);
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -57,7 +61,8 @@ export default function LoginScreen() {
   const [cardOpacity] = useState(() => new Animated.Value(0));
   const [cardTranslate] = useState(() => new Animated.Value(16));
   const keyboardNavigationFields = useMemo(() => [{ ref: identifierInputRef }, { ref: passwordInputRef }], []);
-  const normalizedMobile = identifier.replace(/\D/g, "").slice(-10);
+  const normalizedMobile = identifier.replace(/\D/g, "");
+  const internationalMobile = `${selectedCountry.dialCode}${normalizedMobile}`;
   const canSubmit = Boolean(identifier.trim() && password);
 
   useEffect(() => {
@@ -87,7 +92,7 @@ export default function LoginScreen() {
   };
 
   const handleIdentifierChange = (value: string) => {
-    setIdentifier(mode === "mobile" ? value.replace(/\D/g, "").slice(0, 10) : value);
+    setIdentifier(mode === "mobile" ? value.replace(/\D/g, "").slice(0, 15) : value);
     setFailedLoginAttempts(0);
     clearFeedback();
   };
@@ -102,14 +107,14 @@ export default function LoginScreen() {
       setFormError(EMAIL_INVALID_MESSAGE);
       return;
     }
-    if (mode === "mobile" && normalizedMobile.length !== 10) {
-      setFormError("Please enter a valid 10-digit mobile number.");
+    if (mode === "mobile" && !isValidPhoneNumber(internationalMobile)) {
+      setFormError(`Please enter a valid ${selectedCountry.name} mobile number.`);
       return;
     }
 
     clearFeedback();
     try {
-      const loginIdentifier = mode === "mobile" ? `+91${normalizedMobile}` : trimmedIdentifier.toLowerCase();
+      const loginIdentifier = mode === "mobile" ? internationalMobile : trimmedIdentifier.toLowerCase();
       const authData = await signIn({ email: loginIdentifier, password });
       setFailedLoginAttempts(0);
       router.replace(resolveLoginRoute(authData));
@@ -170,7 +175,7 @@ export default function LoginScreen() {
             <View style={styles.fieldGroup}>
               <Text style={styles.label}>{mode === "email" ? "Email" : "Mobile"}</Text>
               <View style={styles.inputShell}>
-                {mode === "mobile" ? <View style={styles.countryCode}><Text style={styles.countryCodeText}>+91</Text><Ionicons color="#111111" name="chevron-down" size={18} /></View> : null}
+                {mode === "mobile" ? <Pressable accessibilityLabel={`Country: ${selectedCountry.name}, ${selectedCountry.dialCode}`} accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setIsCountryPickerOpen(true); }} style={styles.countryCode}><Text style={styles.countryFlag}>{selectedCountry.flag}</Text><Text style={styles.countryCodeText}>{selectedCountry.dialCode}</Text><Ionicons color="#111111" name="chevron-down" size={18} /></Pressable> : null}
                 <TextInput
                   autoCapitalize="none"
                   autoComplete={mode === "email" ? "email" : "tel"}
@@ -226,6 +231,16 @@ export default function LoginScreen() {
             </Pressable>
           </Animated.View>
         </KeyboardAwareScrollView>
+        <CountryCodePickerModal
+          onClose={() => setIsCountryPickerOpen(false)}
+          onSelect={(country) => {
+            setSelectedCountry(country);
+            setIsCountryPickerOpen(false);
+            requestAnimationFrame(() => identifierInputRef.current?.focus());
+          }}
+          selected={selectedCountry}
+          visible={isCountryPickerOpen}
+        />
       </SafeAreaView>
     </View>
   );
@@ -257,6 +272,7 @@ const styles = StyleSheet.create({
   label: { color: "#707070", fontSize: 13, marginBottom: 7 },
   inputShell: { alignItems: "center", borderColor: "#D3D3D3", borderRadius: 7, borderWidth: 1, flexDirection: "row", minHeight: 54, overflow: "hidden" },
   countryCode: { alignItems: "center", flexDirection: "row", gap: 7, paddingLeft: 12, paddingRight: 9 },
+  countryFlag: { fontSize: 18 },
   countryCodeText: { color: "#111111", fontSize: 15, fontWeight: "700" },
   input: { color: "#161616", flex: 1, fontSize: 14, minHeight: 52, paddingHorizontal: 12 },
   eyeButton: { alignItems: "center", height: 52, justifyContent: "center", width: 48 },

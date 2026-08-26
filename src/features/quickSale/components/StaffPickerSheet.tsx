@@ -10,12 +10,13 @@ import type { PosStaffMember } from "@/types/sales";
 type StaffPickerSheetProps = {
   onClose: () => void;
   onSelect: (staffId: string, staffName: string) => void;
+  renderInline?: boolean;
   selectedStaffId: string | null;
   staff: PosStaffMember[];
   visible: boolean;
 };
 
-export function StaffPickerSheet({ onClose, onSelect, selectedStaffId, staff, visible }: StaffPickerSheetProps) {
+export function StaffPickerSheet({ onClose, onSelect, renderInline = false, selectedStaffId, staff, visible }: StaffPickerSheetProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { height } = useWindowDimensions();
@@ -24,6 +25,7 @@ export function StaffPickerSheet({ onClose, onSelect, selectedStaffId, staff, vi
   return (
     <BottomSheet
       onClose={onClose}
+      renderInline={renderInline}
       scrollable={false}
       subtitle="Who performed this item?"
       title="Assign Staff"

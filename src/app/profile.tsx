@@ -14,7 +14,6 @@ import {
   View,
 } from "react-native";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
-import { DateField } from "@/components/ui/DateField";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -45,10 +44,6 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import type { UpdateProfileRequest, UserProfile } from "@/types/profile";
 
-const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
-
-const isValidDateOfBirth = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
-
 const getInitials = (fullName: string) =>
   fullName
     .split(/\s+/)
@@ -62,34 +57,17 @@ const formatValue = (value: string | null | undefined) => {
   return trimmed ? trimmed : "-";
 };
 
-const formatGender = (value: string | null) => {
-  if (!value) {
-    return "-";
-  }
-  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
-};
-
-const formatProfileDate = (value: string | null | undefined) => {
-  if (!value) return "-";
-  const [year, month, day] = value.split("-");
-  return year && month && day ? `${day}-${month}-${year}` : value;
-};
-
 type EditState = {
   address: string;
   businessName: string;
-  dateOfBirth: string;
   fullName: string;
-  gender: string;
   phone: string;
 };
 
 const toEditState = (profile: UserProfile): EditState => ({
   address: profile.address ?? "",
   businessName: profile.businessName ?? "",
-  dateOfBirth: profile.dateOfBirth ?? "",
   fullName: profile.fullName ?? "",
-  gender: profile.gender ?? "",
   phone: profile.phone ?? "",
 });
 
@@ -241,8 +219,6 @@ export default function ProfileScreen() {
     }
 
     const trimmedName = editState.fullName.trim();
-    const trimmedDob = editState.dateOfBirth.trim();
-
     setFormError(null);
     setSuccessMessage(null);
 
@@ -251,17 +227,10 @@ export default function ProfileScreen() {
       return;
     }
 
-    if (trimmedDob && !isValidDateOfBirth(trimmedDob)) {
-      setFormError("Enter date of birth as YYYY-MM-DD.");
-      return;
-    }
-
     const updates: UpdateProfileRequest = {
       address: editState.address.trim(),
       businessName: editState.businessName.trim(),
-      dateOfBirth: trimmedDob,
       fullName: trimmedName,
-      gender: editState.gender.trim(),
       phone: editState.phone.trim(),
     };
 
@@ -537,34 +506,6 @@ export default function ProfileScreen() {
                   placeholder="Enter phone number"
                   value={editState.phone}
                 />
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Gender</Text>
-                  <View style={styles.genderRow}>
-                    {GENDER_OPTIONS.map((option) => {
-                      const isSelected = editState.gender.toLowerCase() === option.toLowerCase();
-                      return (
-                        <TouchableOpacity
-                          key={option}
-                          activeOpacity={0.82}
-                          onPress={() => updateField("gender", option)}
-                          style={[styles.genderChip, isSelected && styles.genderChipSelected]}
-                        >
-                          <Text style={[styles.genderChipText, isSelected && styles.genderChipTextSelected]}>
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-                <DateField
-                  displayFormat="DD-MM-YYYY"
-                  label="Date of Birth"
-                  maximumDate={new Date()}
-                  onChange={(value) => updateField("dateOfBirth", value)}
-                  placeholder="DD-MM-YYYY"
-                  value={editState.dateOfBirth}
-                />
               </Section>
 
               <Section title="Business">
@@ -607,8 +548,6 @@ export default function ProfileScreen() {
                 <DetailRow label="Full Name" value={formatValue(profile.fullName)} />
                 <DetailRow label="Email" value={formatValue(profile.email)} />
                 <DetailRow label="Phone" value={formatValue(profile.phone)} />
-                <DetailRow label="Gender" value={formatGender(profile.gender)} />
-                <DetailRow label="Date of Birth" value={formatProfileDate(profile.dateOfBirth)} />
                 <DetailRow label="Role" value={formatValue(profile.role)} />
               </Section>
 
@@ -867,33 +806,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 15,
     minHeight: 52,
     paddingHorizontal: AppLayout.searchBarPaddingX,
-  },
-  genderRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  genderChip: {
-    alignItems: "center",
-    backgroundColor: Colors.bg,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.pill,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 42,
-    paddingHorizontal: Spacing.md,
-  },
-  genderChipSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  genderChipText: {
-    color: Colors.text2,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  genderChipTextSelected: {
-    color: "#FFFFFF",
   },
   submitButton: {
     alignItems: "center",

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { router, useFocusEffect } from "expo-router";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -86,8 +86,7 @@ export default function SalonCommissionsScreen() {
   const currentUser = useAppSelector(selectCurrentUser);
   const currentStaff = useAppSelector(selectCurrentStaff);
   const userRole = currentUser?.role ?? "";
-  const userPermissions = (currentUser?.custom_permissions as string[]) ?? [];
-  const hasSettlePermission = canSettleCommission(userRole, userPermissions);
+  const hasSettlePermission = canSettleCommission(userRole);
   const isStaffUser = currentStaff && !hasSettlePermission;
 
   const records = useAppSelector(selectSalonCommissionRecords);
@@ -108,10 +107,16 @@ export default function SalonCommissionsScreen() {
   );
   const deferredSearch = useDeferredValue(search);
 
-  useEffect(() => {
-    void dispatch(fetchSalonCommissionSummaryThunk());
-    void dispatch(fetchSalonCommissionEarnedThunk());
-  }, [dispatch]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasSettlePermission) {
+        return;
+      }
+
+      void dispatch(fetchSalonCommissionSummaryThunk());
+      void dispatch(fetchSalonCommissionEarnedThunk());
+    }, [dispatch, hasSettlePermission]),
+  );
 
   // The commission-earned endpoint returns the full salon list in one shot
   // (it does not support server-side search/status/pagination), so filtering
@@ -139,14 +144,19 @@ export default function SalonCommissionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = async () => {
+    if (refreshing || !hasSettlePermission) {
+      return;
+    }
+
     setRefreshing(true);
-
-    await Promise.all([
-      dispatch(fetchSalonCommissionSummaryThunk()),
-      dispatch(fetchSalonCommissionEarnedThunk()),
-    ]);
-
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        dispatch(fetchSalonCommissionSummaryThunk()),
+        dispatch(fetchSalonCommissionEarnedThunk()),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleSettle = (record: SalonCommissionRecord) => {
@@ -245,7 +255,7 @@ export default function SalonCommissionsScreen() {
           <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Commissions</Text>
-        <View style={styles.headerButton} />
+        <View style={styles.headerSpacer} />
       </View>
 
       {summaryError ? (
@@ -272,7 +282,9 @@ export default function SalonCommissionsScreen() {
           </View>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Staff</Text>
-            <Text style={styles.summaryValue}>{summaryLoading ? "-" : records.length}</Text>
+            <Text style={styles.summaryValue}>
+              {summaryLoading ? "-" : summary?.totalStaff ?? 0}
+            </Text>
           </View>
         </View>
       )}
@@ -377,6 +389,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     height: AppLayout.headerActionSize,
     justifyContent: "center",
+    width: AppLayout.headerActionSize,
+  },
+  headerSpacer: {
+    height: AppLayout.headerActionSize,
     width: AppLayout.headerActionSize,
   },
   headerTitle: {
