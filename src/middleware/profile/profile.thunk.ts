@@ -4,6 +4,7 @@ import { fetchCurrentUserThunk } from "@/middleware/user/user.thunk";
 import { ApiError, getApiErrorMessage } from "@/services/api";
 import { profileService } from "@/services/profile.service";
 import type { RootState } from "@/store";
+import { setCurrentUser } from "@/store/user/user.slice";
 import type {
   AvatarUploadAsset,
   UpdateProfileRequest,
@@ -70,9 +71,14 @@ export const uploadAvatarThunk = createAsyncThunk<
   UploadAvatarResponse,
   { asset: AvatarUploadAsset },
   { rejectValue: ProfileRejectValue; state: RootState }
->("profile/uploadAvatar", async ({ asset }, { dispatch, rejectWithValue }) => {
+>("profile/uploadAvatar", async ({ asset }, { dispatch, getState, rejectWithValue }) => {
   try {
     const response = await profileService.uploadAvatar(asset);
+    const currentUser = getState().user.user;
+
+    if (currentUser && response.avatarUrl) {
+      dispatch(setCurrentUser({ ...currentUser, avatarUrl: response.avatarUrl }));
+    }
 
     // Keep the shared auth user (Dashboard/More hero) in sync with the new avatar.
     void dispatch(fetchCurrentUserThunk());
