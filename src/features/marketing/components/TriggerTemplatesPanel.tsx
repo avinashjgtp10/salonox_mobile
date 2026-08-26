@@ -37,8 +37,8 @@ const CATEGORY_META: Record<TriggerCategory, { label: string; icon: string; desc
 };
 
 const EVENT_CATEGORIES: Record<PurchaseEventType, TriggerCategory[]> = {
-  client_welcome:    ["quick_sale", "calendar"],
-  bill_receipt:      ["quick_sale", "calendar"],
+  client_welcome:      ["quick_sale", "calendar"],
+  bill_receipt:        ["quick_sale", "calendar"],
 
   service_purchased:    ["quick_sale"],
   product_purchased:    ["quick_sale"],
@@ -64,14 +64,14 @@ const EVENT_CATEGORIES: Record<PurchaseEventType, TriggerCategory[]> = {
 
 const CATEGORY_ORDER: TriggerCategory[] = ["quick_sale", "calendar", "other"];
 
-// This one PURCHASE_EVENTS member never goes through Meta template
-// submission/approval — it's a caption on the bill's PDF, not a standalone
-// template message. Its card shows Save only, no Submit/Reset/Sync.
-const CAPTION_ONLY_EVENTS: PurchaseEventType[] = ["bill_receipt"];
+// Every PURCHASE_EVENTS member now goes through Meta template submission —
+// bill_receipt included (its PDF is the template's document HEADER). Kept as
+// an extensibility point in case a future event opts out again.
+const CAPTION_ONLY_EVENTS: PurchaseEventType[] = [];
 
 const EVENT_LABELS: Record<PurchaseEventType, { label: string; hint: string }> = {
   client_welcome:       { label: "New Client Welcome", hint: "Sent right after a new client is added, from Quick Sale or Calendar" },
-  bill_receipt:          { label: "Bill Receipt (Thank You + Feedback)", hint: "Sent as the caption on the bill PDF, right after checkout completes" },
+  bill_receipt:          { label: "Bill Receipt (Thank You + Feedback)", hint: "Sent as a document-header template alongside the bill PDF, right after checkout completes" },
   service_purchased:    { label: "Service Purchased", hint: "Sent when a walk-in Quick Sale includes a service" },
   product_purchased:    { label: "Product Purchased", hint: "Sent when a walk-in Quick Sale includes a retail product" },
   package_purchased:    { label: "Package Purchased", hint: "Sent when a client buys a package (Quick Sale or standalone)" },
@@ -93,103 +93,104 @@ const EVENT_LABELS: Record<PurchaseEventType, { label: string; hint: string }> =
 };
 
 // What each placeholder turns into in the message the customer receives.
-// bill_receipt uses named placeholders (it's a caption, not a Meta template,
-// so there's no {{n}} numbering rule) — everything else uses Meta's
-// sequential {{1}}/{{2}}/{{3}}... syntax.
+// Every event uses the same named-placeholder format ({{customer_name}},
+// {{salon_name}}, ...) — for the 19 that go to Meta, the backend converts
+// these to Meta's required {{1}}/{{2}}/{{3}}... only at submission time; the
+// wording shown/edited here always stays in this named form.
 const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; meaning: string }>> = {
   client_welcome: [
-    { token: "{{1}}", meaning: "Customer's name" },
-    { token: "{{2}}", meaning: "Your salon's name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" },
+    { token: "{{salon_name}}", meaning: "Your salon's name" },
   ],
   bill_receipt: [
     { token: "{{customer_name}}", meaning: "Customer's name" },
     { token: "{{salon_name}}", meaning: "Your salon's name" },
     { token: "{{items}}", meaning: "Itemized bill breakdown, built automatically" },
-    { token: "{{feedback_link}}", meaning: "Link to rate the visit (omitted for a walk-in with no appointment)" },
+    { token: "{{feedback_line}}", meaning: "Feedback ask + link (or a fallback line for a walk-in with no appointment), built automatically" },
   ],
   service_purchased: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Amount paid" },
-    { token: "{{3}}", meaning: "The service purchased" }, { token: "{{4}}", meaning: "Your salon's name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount}}", meaning: "Amount paid" },
+    { token: "{{service_name}}", meaning: "The service purchased" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
   ],
   product_purchased: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Amount paid" },
-    { token: "{{3}}", meaning: "The product purchased" }, { token: "{{4}}", meaning: "Your salon's name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount}}", meaning: "Amount paid" },
+    { token: "{{product_name}}", meaning: "The product purchased" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
   ],
   package_purchased: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Package name" },
-    { token: "{{3}}", meaning: "Package value" }, { token: "{{4}}", meaning: "Total sessions" },
-    { token: "{{5}}", meaning: "Expiry date" }, { token: "{{6}}", meaning: "Your salon's name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{package_name}}", meaning: "Package name" },
+    { token: "{{package_value}}", meaning: "Package value" }, { token: "{{total_sessions}}", meaning: "Total sessions" },
+    { token: "{{expiry_date}}", meaning: "Expiry date" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
   ],
   membership_purchased: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Membership name" },
-    { token: "{{3}}", meaning: "Your salon's name" }, { token: "{{4}}", meaning: "Membership price" },
-    { token: "{{5}}", meaning: "Available balance" }, { token: "{{6}}", meaning: "Expiry date" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{membership_name}}", meaning: "Membership name" },
+    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{membership_price}}", meaning: "Membership price" },
+    { token: "{{membership_balance}}", meaning: "Available balance" }, { token: "{{expiry_date}}", meaning: "Expiry date" },
   ],
   appointment_confirmation: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Your salon's name" },
-    { token: "{{3}}", meaning: "Appointment date" }, { token: "{{4}}", meaning: "Appointment time" },
-    { token: "{{5}}", meaning: "Service name" }, { token: "{{6}}", meaning: "Staff name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
+    { token: "{{appointment_date}}", meaning: "Appointment date" }, { token: "{{appointment_time}}", meaning: "Appointment time" },
+    { token: "{{service_name}}", meaning: "Service name" }, { token: "{{staff_name}}", meaning: "Staff name" },
   ],
   appointment_rescheduled: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Your salon's name" },
-    { token: "{{3}}", meaning: "Old date" }, { token: "{{4}}", meaning: "Old time" },
-    { token: "{{5}}", meaning: "New date" }, { token: "{{6}}", meaning: "New time" },
-    { token: "{{7}}", meaning: "Service name" }, { token: "{{8}}", meaning: "Staff name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
+    { token: "{{old_date}}", meaning: "Old date" }, { token: "{{old_time}}", meaning: "Old time" },
+    { token: "{{new_date}}", meaning: "New date" }, { token: "{{new_time}}", meaning: "New time" },
+    { token: "{{service_name}}", meaning: "Service name" }, { token: "{{staff_name}}", meaning: "Staff name" },
   ],
   appointment_cancelled: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Your salon's name" },
-    { token: "{{3}}", meaning: "Appointment date" }, { token: "{{4}}", meaning: "Appointment time" },
-    { token: "{{5}}", meaning: "Service name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
+    { token: "{{appointment_date}}", meaning: "Appointment date" }, { token: "{{appointment_time}}", meaning: "Appointment time" },
+    { token: "{{service_name}}", meaning: "Service name" },
   ],
   payment_received: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Amount paid" },
-    { token: "{{3}}", meaning: "Service name" }, { token: "{{4}}", meaning: "Appointment date" },
-    { token: "{{5}}", meaning: "Appointment time" }, { token: "{{6}}", meaning: "Your salon's name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount}}", meaning: "Amount paid" },
+    { token: "{{service_name}}", meaning: "Service name" }, { token: "{{appointment_date}}", meaning: "Appointment date" },
+    { token: "{{appointment_time}}", meaning: "Appointment time" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
   ],
   package_expiring_7d: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Package name" },
-    { token: "{{3}}", meaning: "Expiry date" }, { token: "{{4}}", meaning: "Sessions remaining" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{package_name}}", meaning: "Package name" },
+    { token: "{{expiry_date}}", meaning: "Expiry date" }, { token: "{{remaining_sessions}}", meaning: "Sessions remaining" },
   ],
   package_expiring_24h: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Package name" },
-    { token: "{{3}}", meaning: "Sessions remaining" }, { token: "{{4}}", meaning: "Expiry date" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{package_name}}", meaning: "Package name" },
+    { token: "{{remaining_sessions}}", meaning: "Sessions remaining" }, { token: "{{expiry_date}}", meaning: "Expiry date" },
   ],
   membership_expiring_7d: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Membership name" },
-    { token: "{{3}}", meaning: "Expiry date" }, { token: "{{4}}", meaning: "Balance remaining" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{membership_name}}", meaning: "Membership name" },
+    { token: "{{expiry_date}}", meaning: "Expiry date" }, { token: "{{remaining_balance}}", meaning: "Balance remaining" },
   ],
   membership_expiring_24h: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Membership name" },
-    { token: "{{3}}", meaning: "Balance remaining" }, { token: "{{4}}", meaning: "Expiry date" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{membership_name}}", meaning: "Membership name" },
+    { token: "{{remaining_balance}}", meaning: "Balance remaining" }, { token: "{{expiry_date}}", meaning: "Expiry date" },
   ],
   package_session_used: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Service redeemed" },
-    { token: "{{3}}", meaning: "Package name" }, { token: "{{4}}", meaning: "Sessions remaining" },
-    { token: "{{5}}", meaning: "Your salon's name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{service_name}}", meaning: "Service redeemed" },
+    { token: "{{package_name}}", meaning: "Package name" }, { token: "{{remaining_sessions}}", meaning: "Sessions remaining" },
+    { token: "{{salon_name}}", meaning: "Your salon's name" },
   ],
   membership_session_used: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Service redeemed" },
-    { token: "{{3}}", meaning: "Amount used" }, { token: "{{4}}", meaning: "Remaining balance" },
-    { token: "{{5}}", meaning: "Your salon's name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{service_name}}", meaning: "Service redeemed" },
+    { token: "{{amount_used}}", meaning: "Amount used" }, { token: "{{remaining_balance}}", meaning: "Remaining balance" },
+    { token: "{{salon_name}}", meaning: "Your salon's name" },
   ],
   package_appointment_reminder_24h: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Your salon's name" },
-    { token: "{{3}}", meaning: "Appointment date" }, { token: "{{4}}", meaning: "Appointment time" },
-    { token: "{{5}}", meaning: "Service name" }, { token: "{{6}}", meaning: "Package name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
+    { token: "{{appointment_date}}", meaning: "Appointment date" }, { token: "{{appointment_time}}", meaning: "Appointment time" },
+    { token: "{{service_name}}", meaning: "Service name" }, { token: "{{package_name}}", meaning: "Package name" },
   ],
   service_reminder_24h: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Your salon's name" },
-    { token: "{{3}}", meaning: "Appointment date" }, { token: "{{4}}", meaning: "Appointment time" },
-    { token: "{{5}}", meaning: "Service name" }, { token: "{{6}}", meaning: "Staff name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
+    { token: "{{appointment_date}}", meaning: "Appointment date" }, { token: "{{appointment_time}}", meaning: "Appointment time" },
+    { token: "{{service_name}}", meaning: "Service name" }, { token: "{{staff_name}}", meaning: "Staff name" },
   ],
   reward_points_earned: [
-    { token: "{{1}}", meaning: "Customer's name" }, { token: "{{2}}", meaning: "Points earned" },
-    { token: "{{3}}", meaning: "Your salon's name" }, { token: "{{4}}", meaning: "Total points balance" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{points_earned}}", meaning: "Points earned" },
+    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{total_points}}", meaning: "Total points balance" },
   ],
   referral_reward: [
-    { token: "{{1}}", meaning: "Referrer's name" }, { token: "{{2}}", meaning: "Referred client's name" },
-    { token: "{{3}}", meaning: "Your salon's name" }, { token: "{{4}}", meaning: "Reward amount" },
-    { token: "{{5}}", meaning: "Total referral balance" },
+    { token: "{{customer_name}}", meaning: "Referrer's name" }, { token: "{{referred_customer_name}}", meaning: "Referred client's name" },
+    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{reward}}", meaning: "Reward amount" },
+    { token: "{{total_points}}", meaning: "Total referral balance" },
   ],
 };
 
