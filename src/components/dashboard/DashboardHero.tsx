@@ -21,6 +21,8 @@ import {
   getUserInitials,
 } from "@/utils/userProfile";
 
+const LOGO_SOURCE = require("../../../assets/images/logo.png");
+
 const getTimeGreeting = () => {
   const hour = new Date().getHours();
 
@@ -68,15 +70,20 @@ export default function DashboardHero({ onOpenNotifications, onOpenQuickActions 
   return (
     <View style={styles.wrapper}>
       <View style={styles.topBar}>
-        <TouchableOpacity
-          accessibilityLabel="Open quick actions"
-          accessibilityRole="button"
-          activeOpacity={0.7}
-          onPress={onOpenQuickActions}
-          style={styles.headerIconButton}
-        >
-          <Ionicons name="menu-outline" size={24} color={Colors.onPrimary} />
-        </TouchableOpacity>
+        <View style={styles.leadingBrand}>
+          <TouchableOpacity
+            accessibilityLabel="Open quick actions"
+            accessibilityRole="button"
+            activeOpacity={0.7}
+            onPress={onOpenQuickActions}
+            style={styles.headerIconButton}
+          >
+            <Ionicons name="menu-outline" size={24} color={Colors.onPrimary} />
+          </TouchableOpacity>
+          <View style={styles.brandLogoFrame}>
+            <Image contentFit="contain" source={LOGO_SOURCE} style={styles.brandLogo} />
+          </View>
+        </View>
 
         <TouchableOpacity
           accessibilityLabel={shouldShowBranchSelector ? "Switch branch" : "Current branch"}
@@ -163,11 +170,31 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.dashboardTopBar,
     flexDirection: "row",
-    gap: 12,
+    gap: 10,
     justifyContent: "space-between",
     paddingBottom: 12,
     paddingHorizontal: 18,
     paddingTop: 12,
+  },
+  leadingBrand: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 8,
+  },
+  brandLogoFrame: {
+    alignItems: "center",
+    backgroundColor: "#FFFFFF",
+    borderColor: Colors.dashboardTopBarSubtle,
+    borderRadius: 22,
+    borderWidth: 1,
+    height: 44,
+    justifyContent: "center",
+    overflow: "hidden",
+    width: 44,
+  },
+  brandLogo: {
+    height: 34,
+    width: 34,
   },
   headerIconButton: {
     alignItems: "center",
