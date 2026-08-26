@@ -957,12 +957,16 @@
 }
 
 /* ── Pagination (shared ui component) ──────────────────────────── */
-// Mirrors .products-pagination so both catalog lists end with the same footer.
+// Mirrors .products-pagination: attached directly to the bottom of the table
+// card (no gap, no top border) so the table and pagination read as one
+// continuous card, rather than a separate box floating below it.
 .services-pagination {
-  margin-top: 24px;
+  margin-top: 0;
   border: 1px solid #eaecf0;
-  border-radius: 12px;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
   background: #fff;
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.04);
 
   .ui-pagination__info {
     color: #475467;

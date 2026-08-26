@@ -385,14 +385,24 @@
     }
   }
 
+  // Attached directly to the bottom of the table card (no gap, no top
+  // border) — mirrors .products-pagination / .services-pagination so the
+  // table and its pagination footer read as one continuous card instead of
+  // a separate box floating below it.
   &__pagination {
-    margin-top: 24px;
+    margin-top: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;
     gap: 8px;
     font-size: 14px;
     color: #667085;
+    padding: 14px 24px;
+    background: #fff;
+    border: 1px solid #eaecf0;
+    border-top: 0;
+    border-radius: 0 0 12px 12px;
+    box-shadow: 0 8px 20px rgba(16, 24, 40, 0.04);
 
     .page-info { font-weight: 500; }
     .pagination-controls { display: flex; align-items: center; gap: 8px; }
