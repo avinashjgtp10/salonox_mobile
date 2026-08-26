@@ -6,6 +6,7 @@ import Pagination from "../components/Pagination";
 interface BotQuestion {
   id: string;
   salon_id: string | null;
+  salon_name: string | null;
   user_id: string | null;
   question: string;
   answer: string | null;
@@ -294,7 +295,7 @@ export default function ChatbotQuestionHistoryPage() {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 1100 }}>
               <thead>
                 <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-                  {["Question", "Answer", "Matched ID", "Category", "Source", "Status", "Asked", ""].map((h) => (
+                  {["Salon", "Question", "Answer", "Matched ID", "Category", "Source", "Status", "Asked", ""].map((h) => (
                     <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
                   ))}
                 </tr>
@@ -303,7 +304,7 @@ export default function ChatbotQuestionHistoryPage() {
                 {loading ? (
                   [...Array(6)].map((_, i) => (
                     <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
-                      {[...Array(8)].map((_, j) => (
+                      {[...Array(9)].map((_, j) => (
                         <td key={j} style={{ padding: "14px 16px" }}>
                           <div style={{ height: 13, borderRadius: 4, background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "200% 100%", animation: "bqh-shimmer 1.4s infinite" }} />
                         </td>
@@ -311,7 +312,7 @@ export default function ChatbotQuestionHistoryPage() {
                     </tr>
                   ))
                 ) : items.length === 0 ? (
-                  <tr><td colSpan={8} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No questions found</td></tr>
+                  <tr><td colSpan={9} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No questions found</td></tr>
                 ) : (
                   items.map((q) => {
                     const answered = isAnswered(q);
@@ -322,6 +323,7 @@ export default function ChatbotQuestionHistoryPage() {
                         onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
                         onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
                       >
+                        <td style={{ padding: "13px 16px", color: "#0f172a", fontWeight: 600, fontSize: 12.5, whiteSpace: "nowrap" }}>{q.salon_name || <span style={{ color: "#cbd5e1" }}>—</span>}</td>
                         <td style={{ padding: "13px 16px", color: "#0f172a", fontWeight: 600, fontSize: 13, maxWidth: 260 }}>{q.question}</td>
                         <td style={{ padding: "13px 16px", color: answered ? "#374151" : "#dc2626", fontSize: 12.5, maxWidth: 320 }}>{q.answer || "No answer was returned."}</td>
                         <td style={{ padding: "13px 16px", color: "#64748b", fontSize: 12.5 }}>{q.matched_id || <span style={{ color: "#cbd5e1" }}>—</span>}</td>
