@@ -45,8 +45,6 @@ export type PurchaseEventType =
   | "client_welcome"
   | "bill_receipt"
   // Quick Sale
-  | "service_purchased"
-  | "product_purchased"
   | "package_purchased"
   | "membership_purchased"
   // Calendar
