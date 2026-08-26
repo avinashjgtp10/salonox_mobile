@@ -72,12 +72,14 @@ const ProductFormPage: React.FC = () => {
   const [brandId, setBrandId] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [description, setDescription] = useState("");
+  const [remark, setRemark] = useState("");
 
   // ── Inventory setup ─────────────────────────────────────────────────────
   const [productQty, setProductQty] = useState("");
   const [unitSize, setUnitSize] = useState("");
   const [unit, setUnit] = useState<ProductUnit>(fromConsumables ? "ml" : "pcs");
   const [qtyAlert, setQtyAlert] = useState("");
+  const [lotNumber, setLotNumber] = useState("");
 
   const [productType, setProductType] = useState<ProductType>(fromConsumables ? "consumable" : "retail");
   const isConsumable = productType === "consumable" || productType === "both";
@@ -102,8 +104,10 @@ const ProductFormPage: React.FC = () => {
   const [supplyPrice, setSupplyPrice] = useState("");
   const [taxType, setTaxType] = useState<TaxType>("no_tax");
   const [customTaxRate, setCustomTaxRate] = useState("");
+  const [taxGroup, setTaxGroup] = useState("");
   const [hsnSac, setHsnSac] = useState("");
   const [retailPrice, setRetailPrice] = useState("");
+  const [isPublic, setIsPublic] = useState(true);
   // "YYYY-MM-DD", or "" when not set — same internal format DatePicker uses
   // everywhere else; only its displayed label is dd-mm-yyyy (see below).
   const [expiryDate, setExpiryDate] = useState("");
@@ -114,6 +118,16 @@ const ProductFormPage: React.FC = () => {
   const [loading, setLoading] = useState(isEdit);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+
+  // Refs for scroll-to-first-error-on-submit — one per field that has inline
+  // validation, in the same top-to-bottom order they appear on the page.
+  const nameRef = useRef<HTMLInputElement>(null);
+  const categoryRef = useRef<HTMLDivElement>(null);
+  const qtyRef = useRef<HTMLInputElement>(null);
+  const unitSizeRef = useRef<HTMLInputElement>(null);
+  const alertRef = useRef<HTMLInputElement>(null);
+  const expiryDateRef = useRef<HTMLDivElement>(null);
+  const retailPriceRef = useRef<HTMLInputElement>(null);
   // Submit-only validation: no error shows just from focusing/blurring a
   // field (blur-triggered validation fires when focus moves to ANOTHER
   // field, e.g. an autofocused Product Name, surfacing its error before the
@@ -143,19 +157,23 @@ const ProductFormPage: React.FC = () => {
         setBrandId(p.brand_id || "");
         setSupplierId(p.supplier_id || "");
         setDescription(p.description || "");
+        setRemark(p.remark || "");
         setUnit((p.measure_unit || "ml") as ProductUnit);
         setUnitSize(p.bottle_size != null ? String(p.bottle_size) : "");
         setProductQty(
           detail ? (p.bottle_size ? String(detail.product_qty) : String(p.amount ?? "")) : String(p.amount ?? "")
         );
         setQtyAlert(p.qty_alert != null ? String(p.qty_alert) : "");
+        setLotNumber(p.lot_number || "");
         setProductType((p.product_type as ProductType) || "retail");
         setSupplyPrice(p.supply_price != null ? String(p.supply_price) : "");
         setTaxType((p.tax_type || "no_tax") as TaxType);
         setCustomTaxRate(p.custom_tax_rate != null ? String(p.custom_tax_rate) : "");
+        setTaxGroup(p.tax_group || "");
         setHsnSac(p.hsn_sac || "");
         setRetailPrice(p.retail_price != null ? String(p.retail_price) : "");
         setExpiryDate(p.expiry_date ? String(p.expiry_date).slice(0, 10) : "");
+        setIsPublic(p.is_public !== undefined ? !!p.is_public : true);
         if (detail) {
           setUsageStats(detail.usage_stats);
           const drafts = detail.assigned_services.map((s) => ({ service_id: s.service_id, name: s.name, qty: String(s.qty), unit: s.unit || "" }));
@@ -339,9 +357,36 @@ const ProductFormPage: React.FC = () => {
     }
   }
 
+  // On a failed submit, jump the user straight to the first invalid field
+  // instead of leaving them to hunt through the page for the inline error —
+  // same top-to-bottom order the fields appear in and errors are computed in.
+  function focusFirstError() {
+    const firstInvalid =
+      (nameError && nameRef.current) ||
+      (categoryError && categoryRef.current) ||
+      (qtyError && qtyRef.current) ||
+      (unitSizeError && unitSizeRef.current) ||
+      (alertError && alertRef.current) ||
+      (expiryDateError && expiryDateRef.current) ||
+      (retailPriceError && retailPriceRef.current) ||
+      null;
+    if (!firstInvalid) return;
+    firstInvalid.scrollIntoView({ behavior: "smooth", block: "center" });
+    if ("focus" in firstInvalid && typeof firstInvalid.focus === "function") {
+      firstInvalid.focus({ preventScroll: true });
+    }
+  }
+
   async function handleSubmit() {
     setSubmitAttempted(true);
-    if (!isValid) return;
+    if (!isValid) {
+      // Errors above are computed from the current `submitAttempted`, which
+      // is still stale in this render (setState hasn't flushed yet) — wait a
+      // tick so nameError/categoryError/etc. reflect submitAttempted=true
+      // before deciding which field to jump to.
+      setTimeout(focusFirstError, 0);
+      return;
+    }
     setSaving(true);
     setError("");
     try {
@@ -352,18 +397,22 @@ const ProductFormPage: React.FC = () => {
         brand_id: brandId || undefined,
         supplier_id: supplierId || undefined,
         description: description.trim() || undefined,
+        remark: remark.trim() || undefined,
         measure_unit: unit,
         product_type: productType,
         amount: totalAvailable,
         bottle_size: isConsumable && sizeNum > 0 ? sizeNum : null,
         qty_alert: isConsumable ? (alertNum > 0 ? alertNum : undefined) : Math.round(alertNum),
+        lot_number: lotNumber.trim() || undefined,
         supply_price: parseFloat(supplyPrice) || 0,
         tax_type: taxType,
         custom_tax_rate: taxType === "custom" ? parseFloat(customTaxRate) || 0 : undefined,
+        tax_group: taxGroup.trim() || undefined,
         hsn_sac: hsnSac.trim() || undefined,
         retail_sales_enabled: sellsRetail,
         retail_price: sellsRetail ? (parseFloat(retailPrice) || 0) : undefined,
         expiry_date: expiryDate || null,
+        is_public: isPublic,
       };
 
       let productId = id;
@@ -419,6 +468,7 @@ const ProductFormPage: React.FC = () => {
           <div className="cf-field">
             <label>Product Name *</label>
             <input
+              ref={nameRef}
               value={name}
               maxLength={MAX_NAME_LENGTH}
               onChange={(e) => setName(e.target.value)}
@@ -435,7 +485,7 @@ const ProductFormPage: React.FC = () => {
             <input value={barcode} onChange={(e) => setBarcode(e.target.value)} />
           </div>
           <div className="cf-row">
-            <div className="cf-field">
+            <div className="cf-field" ref={categoryRef}>
               <label>Category *</label>
               <SearchSelect
                 value={categoryId}
@@ -474,6 +524,10 @@ const ProductFormPage: React.FC = () => {
             <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={3} />
           </div>
           <div className="cf-field">
+            <label>Remark</label>
+            <textarea value={remark} onChange={(e) => setRemark(e.target.value)} rows={2} />
+          </div>
+          <div className="cf-field">
             <label>Product Type</label>
             <div className="cf-pill-toggle">
               {PRODUCT_TYPE_OPTIONS.map((opt) => (
@@ -505,12 +559,12 @@ const ProductFormPage: React.FC = () => {
               <div className="cf-row">
                 <div className="cf-field">
                   <label>Product Quantity *</label>
-                  <input type="number" min={0} value={productQty} onChange={(e) => setProductQty(e.target.value)} />
+                  <input ref={qtyRef} type="number" min={0} value={productQty} onChange={(e) => setProductQty(e.target.value)} />
                   {qtyError && <span className="cf-field__error">{qtyError}</span>}
                 </div>
                 <div className="cf-field">
                   <label>Unit Size *</label>
-                  <input type="number" min={0} value={unitSize} onChange={(e) => setUnitSize(e.target.value)} placeholder="e.g. 1000" />
+                  <input ref={unitSizeRef} type="number" min={0} value={unitSize} onChange={(e) => setUnitSize(e.target.value)} placeholder="e.g. 1000" />
                   {unitSizeError && <span className="cf-field__error">{unitSizeError}</span>}
                 </div>
                 <div className="cf-field">
@@ -528,21 +582,29 @@ const ProductFormPage: React.FC = () => {
               </div>
               <div className="cf-field">
                 <label>Low Stock Alert (in bottles/units)</label>
-                <input type="number" min={0} value={qtyAlert} onChange={(e) => setQtyAlert(e.target.value)} />
+                <input ref={alertRef} type="number" min={0} value={qtyAlert} onChange={(e) => setQtyAlert(e.target.value)} />
                 {alertError && <span className="cf-field__error">{alertError}</span>}
+              </div>
+              <div className="cf-field">
+                <label>Lot Number</label>
+                <input value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} />
               </div>
             </>
           ) : (
             <>
               <div className="cf-field">
                 <label>Stock Quantity *</label>
-                <input type="number" min={0} step={1} value={productQty} onChange={(e) => setProductQty(e.target.value)} />
+                <input ref={qtyRef} type="number" min={0} step={1} value={productQty} onChange={(e) => setProductQty(e.target.value)} />
                 {qtyError && <span className="cf-field__error">{qtyError}</span>}
               </div>
               <div className="cf-field">
                 <label>Low Stock Alert</label>
-                <input type="number" min={0} step={1} value={qtyAlert} onChange={(e) => setQtyAlert(e.target.value)} />
+                <input ref={alertRef} type="number" min={0} step={1} value={qtyAlert} onChange={(e) => setQtyAlert(e.target.value)} />
                 {alertError && <span className="cf-field__error">{alertError}</span>}
+              </div>
+              <div className="cf-field">
+                <label>Lot Number</label>
+                <input value={lotNumber} onChange={(e) => setLotNumber(e.target.value)} />
               </div>
             </>
           )}
@@ -664,10 +726,14 @@ const ProductFormPage: React.FC = () => {
             </div>
           )}
           <div className="cf-field">
+            <label>Tax Group</label>
+            <input value={taxGroup} onChange={(e) => setTaxGroup(e.target.value)} />
+          </div>
+          <div className="cf-field">
             <label>HSN/SAC</label>
             <input value={hsnSac} onChange={(e) => setHsnSac(e.target.value)} />
           </div>
-          <div className="cf-field">
+          <div className="cf-field" ref={expiryDateRef}>
             <label>Expiry Date</label>
             <DatePicker
               value={expiryDate}
@@ -681,10 +747,21 @@ const ProductFormPage: React.FC = () => {
           {sellsRetail && (
             <div className="cf-field">
               <label>Retail Price *</label>
-              <input type="number" min={0} value={retailPrice} onChange={(e) => setRetailPrice(e.target.value)} />
+              <input ref={retailPriceRef} type="number" min={0} value={retailPrice} onChange={(e) => setRetailPrice(e.target.value)} />
               {retailPriceError && <span className="cf-field__error">{retailPriceError}</span>}
             </div>
           )}
+        </section>
+
+        {/* Visibility */}
+        <section className="cf-card">
+          <h3>Visibility</h3>
+          <div className="cf-field">
+            <label className="cf-check">
+              <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
+              <span>Is Public</span>
+            </label>
+          </div>
         </section>
 
         {/* 5. Inventory Preview */}
