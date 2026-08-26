@@ -30,6 +30,7 @@ import {
 import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
 import { selectUserProfile } from "../../../store/selectors/slices.selectors";
 import { useAppSelector } from "../../../hooks/useAppRedux";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import type { CashExpenseRecord } from "../cashManagement.types";
 import { useCashManagement } from "../useCashManagement";
 import CashManagementExpensesTab from "./CashManagementExpensesTab";
@@ -96,6 +97,11 @@ export default function CashManagementPage() {
   const { formatAmount } = useCurrency();
   const userProfile = useAppSelector(selectUserProfile);
   const userEmail = userProfile?.email;
+  // Open/Close Counter use the shared success/error overlay (same as the
+  // rest of the app, e.g. Tax Settings) instead of the inline notification
+  // banner used by the other actions on this page.
+  const { showSuccess: showCounterSuccess, showError: showCounterError, overlay: counterStatusOverlay } =
+    useStatusOverlay();
   const {
     dashboard,
     dashboardLoaded,
@@ -456,6 +462,7 @@ export default function CashManagementPage() {
 
   return (
     <div className="cash-mgmt">
+      {counterStatusOverlay}
       <div className="cash-mgmt__content">
         <section className="cash-mgmt__header">
           <div className="cash-mgmt__header-copy">
@@ -686,9 +693,12 @@ export default function CashManagementPage() {
         onSubmit={async (payload) => {
           await openCounter(payload);
           setShowOpenModal(false);
-          showNotification("success", "Counter opened successfully.");
+          showCounterSuccess("Counter opened successfully.");
         }}
-        onNotify={showNotification}
+        onNotify={(tone, message) => {
+          if (tone === "error") showCounterError(message);
+          else showCounterSuccess(message);
+        }}
       />
 
       <ExpenseModal
@@ -786,9 +796,12 @@ export default function CashManagementPage() {
           // allows one open per day, so re-showing Open Counter here would just
           // dead-end the user on a form that fails every time they submit it.
           if (isStaleOpenCounter) setShowOpenModal(true);
-          showNotification("success", "Counter closed. Daily summary emailed to Salon Owner.");
+          showCounterSuccess("Counter closed. Daily summary emailed to Salon Owner.");
         }}
-        onNotify={showNotification}
+        onNotify={(tone, message) => {
+          if (tone === "error") showCounterError(message);
+          else showCounterSuccess(message);
+        }}
       />
     </div>
   );
