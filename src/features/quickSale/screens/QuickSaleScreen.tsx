@@ -908,13 +908,6 @@ export default function QuickSaleScreen({
     }
   }, [cart.items.length, isCheckoutVisible]);
 
-  useEffect(() => {
-    if (isCheckoutVisible && !isClientPackageDataReliable) {
-      setIsCheckoutVisible(false);
-      setSubmitError("Package eligibility must be verified before checkout.");
-    }
-  }, [isCheckoutVisible, isClientPackageDataReliable]);
-
   // Resolve consumable product names lazily as recipes appear in the cart —
   // never blocks adding a service, and never refetches a name already seen.
   useEffect(() => {
@@ -1294,15 +1287,6 @@ export default function QuickSaleScreen({
   );
 
   const openCheckout = useCallback((step: CheckoutInitialStep) => {
-    if (!isClientPackageDataReliable) {
-      setSubmitError(
-        currentClientPackageLoadStatus === "error"
-          ? "Package eligibility could not be verified. Retry package loading before checkout."
-          : "Package eligibility is still being verified. Please wait.",
-      );
-      return;
-    }
-
     resetCheckoutSubmission();
     setSubmitError(null);
     setProductStockErrors({});
@@ -1321,7 +1305,7 @@ export default function QuickSaleScreen({
     setShouldShowCheckoutStaffValidation(hasServicesMissingStaff);
     setCheckoutInitialStep(hasServicesMissingStaff ? "review" : step);
     setIsCheckoutVisible(true);
-  }, [cart, currentClientPackageLoadStatus, isClientPackageDataReliable, resetCheckoutSubmission, selectedQuickSaleStaff]);
+  }, [cart, resetCheckoutSubmission, selectedQuickSaleStaff]);
 
   const closeCheckout = useCallback(() => {
     setIsCheckoutVisible(false);
@@ -1400,15 +1384,6 @@ export default function QuickSaleScreen({
   const buildSaleDraftPayload = useCallback((): CreateSaleRequest | null => {
     const staffId = getQuickSaleStaff();
 
-    if (!isClientPackageDataReliable) {
-      setSubmitError(
-        currentClientPackageLoadStatus === "error"
-          ? "Package eligibility could not be verified. Retry package loading before saving."
-          : "Updating client package coverage. Please wait.",
-      );
-      return null;
-    }
-
     return {
       clientId: selectedClient.id || (params.draftId ? null : undefined),
       couponCode: appliedCoupon?.valid
@@ -1433,8 +1408,6 @@ export default function QuickSaleScreen({
     draftDiscountPercent,
     effectiveDiscountType,
     getQuickSaleStaff,
-    currentClientPackageLoadStatus,
-    isClientPackageDataReliable,
     params.draftId,
     saleNotes,
     selectedClient.id,
@@ -1447,15 +1420,6 @@ export default function QuickSaleScreen({
 
   const buildAppointmentPayload = useCallback((): CreateAppointmentRequest | null => {
     const staffId = getQuickSaleStaff();
-
-    if (!isClientPackageDataReliable) {
-      setSubmitError(
-        currentClientPackageLoadStatus === "error"
-          ? "Package eligibility could not be verified. Retry package loading before checkout."
-          : "Updating client package coverage. Please wait.",
-      );
-      return null;
-    }
 
     const durationMinutes = getQuickSaleDurationMinutes();
     const slotDate = initialSlot
@@ -1532,8 +1496,6 @@ export default function QuickSaleScreen({
     cart.items,
     getQuickSaleDurationMinutes,
     getQuickSaleStaff,
-    currentClientPackageLoadStatus,
-    isClientPackageDataReliable,
     saleNotes,
     salonId,
     selectedClient.id,
@@ -2440,11 +2402,11 @@ export default function QuickSaleScreen({
         ) : (
           <TouchableOpacity
             activeOpacity={cart.items.length === 0 ? 1 : 0.84}
-            disabled={cart.items.length === 0 || !isClientPackageDataReliable}
+            disabled={cart.items.length === 0}
             onPress={() => openCheckout("review")}
             style={[
               styles.iconButton,
-              (cart.items.length === 0 || !isClientPackageDataReliable) && styles.iconButtonDisabled,
+              cart.items.length === 0 && styles.iconButtonDisabled,
             ]}
           >
             <Ionicons name="receipt-outline" size={17} color={Colors.primary} />
@@ -2542,7 +2504,7 @@ export default function QuickSaleScreen({
           <View style={styles.packageStatusCopy}>
             <Text style={styles.packageStatusTitle}>Package eligibility unavailable</Text>
             <Text style={styles.packageStatusMessage}>
-              Package pricing could not be verified. Checkout is blocked until you retry.
+              Package pricing could not be verified. You can continue checkout or retry package loading.
             </Text>
             {clientPackageLoadState.error ? (
               <Text numberOfLines={2} style={styles.packageStatusDetail}>
@@ -2707,7 +2669,7 @@ export default function QuickSaleScreen({
 
       {!isOverlayActive ? (
         <MiniBillBar
-          disabled={cart.items.length === 0 || !isClientPackageDataReliable}
+          disabled={cart.items.length === 0}
           grandTotal={totals.grandTotal}
           itemCount={cart.itemCount}
           onCheckout={() => openCheckout("review")}
