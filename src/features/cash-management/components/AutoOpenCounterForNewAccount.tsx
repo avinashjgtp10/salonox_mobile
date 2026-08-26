@@ -1,6 +1,6 @@
 import { useCallback, useState } from "react";
-import toast from "react-hot-toast";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { openCashCounterThunk } from "../../../middleware/cashCounter/cashCounter.thunk";
 import { OpenCounterModal } from "../pages/CashManagementModals";
 
@@ -17,6 +17,7 @@ import { OpenCounterModal } from "../pages/CashManagementModals";
 export default function AutoOpenCounterForNewAccount() {
   const dispatch = useAppDispatch();
   const dashboard = useAppSelector((state) => state.cashCounter.dashboard);
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const [dismissed, setDismissed] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -28,29 +29,32 @@ export default function AutoOpenCounterForNewAccount() {
   const dismiss = useCallback(() => setDismissed(true), []);
 
   return (
-    <OpenCounterModal
-      show={show}
-      loading={loading}
-      mandatory
-      onClose={dismiss}
-      onNotify={(tone, message) => {
-        if (tone === "error") toast.error(message);
-        else toast.success(message);
-      }}
-      onSubmit={async (payload) => {
-        setLoading(true);
-        try {
-          await dispatch(openCashCounterThunk(payload)).unwrap();
-          toast.success("Today's cash counter opened successfully!");
-          dismiss();
-        } catch (err: any) {
-          const msg = err?.response?.data?.message ?? err?.message ?? "Failed to open today's counter.";
-          toast.error(msg);
-          throw err;
-        } finally {
-          setLoading(false);
-        }
-      }}
-    />
+    <>
+      {overlay}
+      <OpenCounterModal
+        show={show}
+        loading={loading}
+        mandatory
+        onClose={dismiss}
+        onNotify={(tone, message) => {
+          if (tone === "error") showError(message);
+          else showSuccess(message);
+        }}
+        onSubmit={async (payload) => {
+          setLoading(true);
+          try {
+            await dispatch(openCashCounterThunk(payload)).unwrap();
+            showSuccess("Today's cash counter opened successfully!");
+            dismiss();
+          } catch (err: any) {
+            const msg = err?.response?.data?.message ?? err?.message ?? "Failed to open today's counter.";
+            showError(msg);
+            throw err;
+          } finally {
+            setLoading(false);
+          }
+        }}
+      />
+    </>
   );
 }

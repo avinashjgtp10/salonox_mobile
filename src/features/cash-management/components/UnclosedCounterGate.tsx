@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CalendarEvent, CashStack, JournalText, Safe2, Wallet2 } from "react-bootstrap-icons";
-import toast from "react-hot-toast";
 import { Button, Modal } from "../../../components/ui";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
   closeCashCounterThunk,
   openCashCounterThunk,
@@ -42,6 +42,7 @@ export default function UnclosedCounterGate() {
   const cashCounterLoading = useAppSelector((state) => state.cashCounter.loading);
   const userProfile = useAppSelector(selectUserProfile);
   const userEmail = userProfile?.email;
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const [closing, setClosing] = useState(false);
   const [error, setError] = useState("");
@@ -157,7 +158,7 @@ export default function UnclosedCounterGate() {
       } catch (emailErr: any) {
         console.error("[UnclosedCounterGate] Email delivery error:", emailErr);
       }
-      toast.success("Previous counter closed.");
+      showSuccess("Previous counter closed.");
 
       // 4. Directly display Open Today's Counter modal
       setShowOpenTodayModal(true);
@@ -188,6 +189,7 @@ export default function UnclosedCounterGate() {
 
   return (
     <>
+      {overlay}
       <Modal
         show={showPendingModal}
         onClose={() => { }}
@@ -304,18 +306,18 @@ export default function UnclosedCounterGate() {
         mandatory={true}
         onClose={() => setShowOpenTodayModal(false)}
         onNotify={(tone, message) => {
-          if (tone === "error") toast.error(message);
-          else toast.success(message);
+          if (tone === "error") showError(message);
+          else showSuccess(message);
         }}
         onSubmit={async (payload) => {
           setOpeningLoading(true);
           try {
             await dispatch(openCashCounterThunk(payload)).unwrap();
             setShowOpenTodayModal(false);
-            toast.success("Today's cash counter opened successfully!");
+            showSuccess("Today's cash counter opened successfully!");
           } catch (err: any) {
             const msg = err?.response?.data?.message ?? err?.message ?? "Failed to open today's counter.";
-            toast.error(msg);
+            showError(msg);
             throw err;
           } finally {
             setOpeningLoading(false);
