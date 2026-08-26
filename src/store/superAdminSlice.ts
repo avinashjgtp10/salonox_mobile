@@ -72,7 +72,7 @@ export interface SuperAdminDemoRequest {
   salon_name: string | null;
   city: string | null;
   locations_count: string | null;
-  status: "new" | "contacted" | "converted" | "closed";
+  status: "new" | "contacted" | "converted" | "closed" | "lost" | "unqualified";
   created_at: string;
   updated_at: string;
 }
