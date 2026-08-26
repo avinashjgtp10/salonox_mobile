@@ -280,8 +280,11 @@ const normalizeConsumablesUsed = (
         return null;
       }
 
+      const productName = toSafeString(item?.product_name) || undefined;
+
       return {
         productId,
+        ...(productName ? { productName } : {}),
         qty: toSafeNumber(item?.qty),
         unit: toSafeString(item?.unit),
       };

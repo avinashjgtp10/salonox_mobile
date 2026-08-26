@@ -16,11 +16,13 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout } from "@/constants/layout";
 import { type ThemeColors } from "@/constants/theme";
+import { fetchConsumablesThunk } from "@/middleware/consumable/consumable.thunk";
 import { fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
 import { fetchProductsThunk } from "@/middleware/product/product.thunk";
 import { fetchServicesThunk } from "@/middleware/service/service.thunk";
 import { packageService } from "@/services/package.service";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectConsumableState } from "@/store/consumable/consumable.slice";
 import {
   selectMemberships,
   selectMembershipsError,
@@ -34,11 +36,12 @@ import {
 } from "@/store/service/service.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Membership } from "@/types/membership";
+import type { ConsumableListItem } from "@/types/consumable";
 import type { PackageListItem } from "@/types/package";
 import type { Product } from "@/types/product";
 import type { ServiceListItem } from "@/types/service";
 
-type CatalogTab = "services" | "products" | "packages" | "memberships";
+type CatalogTab = "services" | "products" | "packages" | "memberships" | "consumables";
 type CatalogView = "table" | "card";
 
 type CatalogItem = {
@@ -54,6 +57,7 @@ type CatalogItem = {
 const TABS: { icon: keyof typeof Ionicons.glyphMap; key: CatalogTab; label: string }[] = [
   { icon: "cut-outline", key: "services", label: "Services" },
   { icon: "cube-outline", key: "products", label: "Products" },
+  { icon: "flask-outline", key: "consumables", label: "Consumable Inventory" },
   { icon: "albums-outline", key: "packages", label: "Packages" },
   { icon: "diamond-outline", key: "memberships", label: "Memberships" },
 ];
@@ -80,6 +84,16 @@ const productToItem = (item: Product): CatalogItem => ({
   name: item.name,
   price: item.retailPrice ?? item.price,
   route: `/stock/${item.id}` as Href,
+});
+
+const consumableToItem = (item: ConsumableListItem): CatalogItem => ({
+  category: item.categoryName ?? item.brandName ?? "Consumable Inventory",
+  id: item.id,
+  isActive: item.isActive,
+  meta: `${item.amount} ${item.measureUnit ?? ""}${item.status ? ` · ${item.status.replace(/_/g, " ")}` : ""}`.trim(),
+  name: item.name,
+  price: item.supplyPrice ?? item.retailPrice ?? 0,
+  route: `/consumables/${item.id}` as Href,
 });
 
 const packageToItem = (item: PackageListItem): CatalogItem => ({
@@ -128,9 +142,6 @@ function CatalogCard({ item }: { item: CatalogItem }) {
           <Text numberOfLines={2} style={styles.cardTitle}>{item.name}</Text>
           <Text numberOfLines={1} style={styles.cardCategory}>{item.category}</Text>
         </View>
-        <View style={[styles.statusBadge, !item.isActive && styles.statusBadgeInactive]}>
-          <Text style={[styles.statusText, !item.isActive && styles.statusTextInactive]}>{item.isActive ? "Active" : "Inactive"}</Text>
-        </View>
       </View>
       <View style={styles.cardDivider} />
       <View style={styles.cardDetails}>
@@ -150,7 +161,7 @@ function CatalogTable({ items }: { items: CatalogItem[] }) {
       <View style={styles.tableHeader}><Text style={[styles.tableHeaderText, styles.nameColumn]}>Name</Text><Text style={[styles.tableHeaderText, styles.categoryColumn]}>Category</Text><Text style={[styles.tableHeaderText, styles.priceColumn]}>Price</Text></View>
       {items.map((item) => (
         <TouchableOpacity activeOpacity={item.route ? 0.8 : 1} disabled={!item.route} key={item.id} onPress={() => item.route && router.push(item.route)} style={styles.tableRow}>
-          <View style={styles.nameColumn}><Text numberOfLines={2} style={styles.tableName}>{item.name}</Text><Text style={[styles.tableStatus, !item.isActive && styles.tableStatusInactive]}>{item.isActive ? "Active" : "Inactive"}</Text></View>
+          <View style={styles.nameColumn}><Text numberOfLines={2} style={styles.tableName}>{item.name}</Text></View>
           <Text numberOfLines={2} style={[styles.tableCell, styles.categoryColumn]}>{item.category}</Text>
           <Text numberOfLines={1} style={[styles.tablePrice, styles.priceColumn]}>{formatMoney(item.price)}</Text>
         </TouchableOpacity>
@@ -167,6 +178,7 @@ export default function CatalogScreen() {
   const servicesLoading = useAppSelector(selectServicesLoading);
   const servicesError = useAppSelector(selectServicesError);
   const productState = useAppSelector(selectProductState);
+  const consumableState = useAppSelector(selectConsumableState);
   const memberships = useAppSelector(selectMemberships);
   const membershipsLoading = useAppSelector(selectMembershipsLoading);
   const membershipsError = useAppSelector(selectMembershipsError);
@@ -195,6 +207,7 @@ export default function CatalogScreen() {
     await Promise.allSettled([
       dispatch(fetchServicesThunk({ limit: 100, offset: 0, refresh, reset: true, search: "" })),
       dispatch(fetchProductsThunk({ limit: 100, offset: 0, refresh, reset: true, search: "" })),
+      dispatch(fetchConsumablesThunk({ limit: 100, page: 1, refresh, reset: true, search: "" })),
       dispatch(fetchMembershipsThunk({ limit: 100, page: 1, refresh, reset: true })),
       loadPackages(),
     ]);
@@ -208,11 +221,12 @@ export default function CatalogScreen() {
   };
 
   const itemsByTab = useMemo<Record<CatalogTab, CatalogItem[]>>(() => ({
+    consumables: consumableState.consumables.map(consumableToItem),
     memberships: memberships.map(membershipToItem),
     packages: packages.map(packageToItem),
     products: productState.products.map(productToItem),
     services: services.map(serviceToItem),
-  }), [memberships, packages, productState.products, services]);
+  }), [consumableState.consumables, memberships, packages, productState.products, services]);
 
   const visibleItems = useMemo(() => {
     const normalized = query.trim().toLowerCase();
@@ -220,10 +234,11 @@ export default function CatalogScreen() {
     return itemsByTab[activeTab].filter((item) => [item.name, item.category, item.meta].some((value) => value.toLowerCase().includes(normalized)));
   }, [activeTab, itemsByTab, query]);
 
-  const loading = activeTab === "services" ? servicesLoading : activeTab === "products" ? productState.loading : activeTab === "memberships" ? membershipsLoading : packagesLoading;
-  const error = activeTab === "services" ? servicesError : activeTab === "products" ? productState.error : activeTab === "memberships" ? membershipsError : packagesError;
+  const loading = activeTab === "services" ? servicesLoading : activeTab === "products" ? productState.loading : activeTab === "consumables" ? consumableState.loading : activeTab === "memberships" ? membershipsLoading : packagesLoading;
+  const error = activeTab === "services" ? servicesError : activeTab === "products" ? productState.error : activeTab === "consumables" ? consumableState.error : activeTab === "memberships" ? membershipsError : packagesError;
   const activeCount = itemsByTab[activeTab].filter((item) => item.isActive).length;
   const totalValue = itemsByTab[activeTab].reduce((total, item) => total + item.price, 0);
+  const addRoute = activeTab === "consumables" ? "/consumables/new" : null;
 
   const refresh = async () => {
     setRefreshing(true);
@@ -262,6 +277,13 @@ export default function CatalogScreen() {
           <View style={styles.activeCount}><View style={styles.activeDot} /><Text style={styles.activeCountText}>{activeCount} active</Text></View>
         </View>
 
+        {addRoute ? (
+          <TouchableOpacity activeOpacity={0.86} onPress={() => router.push(addRoute as Href)} style={styles.addButton}>
+            <Ionicons color="#FFFFFF" name="add" size={19} />
+            <Text style={styles.addButtonText}>Add Consumable</Text>
+          </TouchableOpacity>
+        ) : null}
+
         {loading && itemsByTab[activeTab].length === 0 ? <View style={styles.state}><ActivityIndicator color={Colors.primary} size="large" /><Text style={styles.stateText}>Loading catalog...</Text></View> : null}
         {error && !loading ? <View style={styles.state}><Ionicons color={Colors.error} name="alert-circle-outline" size={32} /><Text style={styles.stateTitle}>Unable to load {activeTab}</Text><Text style={styles.stateText}>{error}</Text><TouchableOpacity onPress={() => void loadCatalog(true)} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></TouchableOpacity></View> : null}
         {!loading && !error && visibleItems.length === 0 ? <View style={styles.state}><Ionicons color={Colors.text2} name="file-tray-outline" size={34} /><Text style={styles.stateTitle}>No {activeTab} found</Text><Text style={styles.stateText}>Try another search or add an item from its management screen.</Text></View> : null}
@@ -296,6 +318,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   activeCount: { alignItems: "center", borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flexDirection: "row", gap: 6, minHeight: 48, paddingHorizontal: 11 },
   activeDot: { backgroundColor: Colors.success, borderRadius: 4, height: 8, width: 8 },
   activeCountText: { color: Colors.text2, fontSize: 12, fontWeight: "700" },
+  addButton: { alignItems: "center", alignSelf: "flex-start", backgroundColor: Colors.primaryDark, borderRadius: 8, flexDirection: "row", gap: 8, justifyContent: "center", marginBottom: 16, marginHorizontal: 16, minHeight: 48, paddingHorizontal: 18 },
+  addButtonText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
   table: { backgroundColor: Colors.card, borderBottomColor: Colors.border, borderTopColor: Colors.border, borderWidth: 0, borderBottomWidth: 1, borderTopWidth: 1 },
   tableHeader: { backgroundColor: Colors.primary, flexDirection: "row", paddingHorizontal: 16, paddingVertical: 15 },
   tableHeaderText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
@@ -306,18 +330,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   tableName: { color: Colors.heading, fontSize: 14, fontWeight: "700" },
   tableCell: { color: Colors.text2, fontSize: 13 },
   tablePrice: { color: Colors.heading, fontSize: 13, fontWeight: "800" },
-  tableStatus: { color: Colors.success, fontSize: 11, fontWeight: "700", marginTop: 5 },
-  tableStatusInactive: { color: Colors.text2 },
   cardList: { gap: 14, paddingHorizontal: 16 },
   card: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 8, borderWidth: 1, elevation: 2, overflow: "hidden", shadowColor: Colors.shadow, shadowOffset: { height: 3, width: 0 }, shadowOpacity: 0.08, shadowRadius: 7 },
   cardHeader: { alignItems: "flex-start", flexDirection: "row", gap: 10, padding: 16 },
   cardTitleWrap: { flex: 1 },
   cardTitle: { color: Colors.heading, fontSize: 17, fontWeight: "800" },
   cardCategory: { color: Colors.text2, fontSize: 13, marginTop: 5 },
-  statusBadge: { backgroundColor: Colors.successBg, borderRadius: 18, paddingHorizontal: 12, paddingVertical: 7 },
-  statusBadgeInactive: { backgroundColor: Colors.bg2 },
-  statusText: { color: Colors.success, fontSize: 12, fontWeight: "700" },
-  statusTextInactive: { color: Colors.text2 },
   cardDivider: { backgroundColor: Colors.border, height: 1 },
   cardDetails: { flexDirection: "row", gap: 12, padding: 16 },
   detailBlock: { flex: 1 },

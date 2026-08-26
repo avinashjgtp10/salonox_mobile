@@ -6,12 +6,20 @@
 
 export type ConsumableRecipeApiItem = {
   product_id?: string | number | null;
+  product_name?: string | null;
   qty?: number | string | null;
   unit?: string | null;
 };
 
 export type ConsumableRecipeItem = {
   productId: string;
+  // Only ever populated at the two points a name is actually known: the
+  // backend's consumables_used subquery (services.repository.ts JOINs
+  // products for this) on read, or the product just picked in the Add
+  // Service/Edit Service consumables picker. Never re-derived from the
+  // product list cache, which may not contain a product outside the
+  // current search/page.
+  productName?: string;
   qty: number;
   unit: string;
 };
@@ -26,6 +34,24 @@ export type ConsumableRecipeRequestItem = {
 // override, used once appointments/cart lines start carrying consumables.
 export type ConsumableUsageItem = ConsumableRecipeItem & {
   actualQty?: number;
+};
+
+// Wire shape for services[].consumables[] on Create/UpdateAppointmentRequest
+// — the backend's flattenServiceConsumables() (appointments.service.ts)
+// reads exactly these snake_case keys (c.product_id, c.qty, c.unit,
+// c.actual_qty) and silently `continue`s past any row missing product_id,
+// so this must never be confused with the camelCase ConsumableUsageItem
+// used for in-app cart/form state.
+export type ConsumableUsageRequestItem = ConsumableRecipeRequestItem & {
+  actual_qty?: number;
+};
+
+// Raw read-side shape of one services[].consumables[] entry as returned by
+// GET /appointments/:id — backend's attachConsumables() (appointments.service.ts)
+// joins appointment_service_consumables back onto each service row with
+// exactly these keys (standard_qty aliased to qty).
+export type ConsumableUsageApiItem = ConsumableRecipeApiItem & {
+  actual_qty?: number | string | null;
 };
 
 // ============================================================================

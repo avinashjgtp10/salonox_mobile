@@ -106,6 +106,7 @@ import type {
   UpdateAppointmentRequest,
 } from "@/types/appointment";
 import type { ClientListItem } from "@/types/client";
+import type { ConsumableUsageItem } from "@/types/consumable";
 import type { ServiceListItem } from "@/types/service";
 import type { StaffAvailabilitySlot } from "@/types/staffAvailability";
 import type { BlockedTimeEntry } from "@/types/staffBlockedTimes";
@@ -316,6 +317,14 @@ type FormErrors = Partial<Record<keyof AppointmentFormState, string>>;
 
 type AppointmentSelectedService = ServiceListItem & {
   catalogServiceId?: string;
+  // The exact consumables to resend for this line — either copied from the
+  // catalog service's recipe the moment it's added (handleSelectService,
+  // mirroring Web's ServiceRow.tsx selectService()), or restored from what
+  // this appointment already had persisted (appointmentServicesToSelectedServices,
+  // on edit-load). Always the fully-resolved snapshot to send, never
+  // re-derived from consumablesUsed at submit time, so an edit that doesn't
+  // touch a given service resends its consumables unchanged.
+  consumables?: ConsumableUsageItem[];
   discount?: number;
   isPackageService?: boolean;
   quantity?: number;
@@ -405,6 +414,37 @@ const toOptionalStringValue = (value: unknown) => {
   return undefined;
 };
 
+const parseConsumablesFromApi = (
+  items: AppointmentApiService["consumables"],
+): ConsumableUsageItem[] | undefined => {
+  if (!Array.isArray(items) || items.length === 0) {
+    return undefined;
+  }
+
+  const parsed = items
+    .map((item): ConsumableUsageItem | null => {
+      const productId = toOptionalStringValue(item?.product_id);
+      if (!productId) {
+        return null;
+      }
+
+      const qty = toOptionalNumber(item?.qty) ?? 0;
+      const productName = toOptionalStringValue(item?.product_name);
+      const actualQty = toOptionalNumber(item?.actual_qty);
+
+      return {
+        productId,
+        ...(productName ? { productName } : {}),
+        qty,
+        unit: toOptionalStringValue(item?.unit) ?? "",
+        ...(actualQty !== undefined ? { actualQty } : {}),
+      };
+    })
+    .filter((item): item is ConsumableUsageItem => item !== null);
+
+  return parsed.length > 0 ? parsed : undefined;
+};
+
 const appointmentServicesToSelectedServices = (
   appointment?: AppointmentListItem,
 ): AppointmentSelectedService[] => {
@@ -424,6 +464,7 @@ const appointmentServicesToSelectedServices = (
         catalogServiceId,
         category: null,
         categoryId: null,
+        consumables: parseConsumablesFromApi(service.consumables),
         createdAt: null,
         discount: toOptionalNumber(service.discount),
         durationMinutes:
@@ -3819,7 +3860,17 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         return current.filter((selectedService) => getSelectedServiceCatalogId(selectedService) !== service.id);
       }
 
-      return [...current, service];
+      // Copy the catalog service's configured recipe onto this appointment
+      // line the instant it's picked — mirrors Web's ServiceRow.tsx
+      // selectService(), which does this unconditionally (no staff action
+      // needed). actualQty defaults to qty until a future "adjust actual
+      // usage" UI (not built here — no equivalent exists in this screen
+      // today) would let staff override it.
+      const consumables: AppointmentSelectedService["consumables"] = service.consumablesUsed?.length
+        ? service.consumablesUsed.map((item) => ({ ...item, actualQty: item.qty }))
+        : undefined;
+
+      return [...current, { ...service, ...(consumables ? { consumables } : {}) }];
     });
     setServiceDropdownOpen(false);
     setErrors((current) => ({
@@ -3934,6 +3985,21 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         const quantity = Math.max(1, Math.trunc(service.quantity ?? 1));
 
         return {
+          // Resend this line's exact consumables snapshot unchanged — the
+          // backend does a full replace of appointment_service_consumables
+          // whenever `services` is present in the patch (flattenServiceConsumables),
+          // so omitting this on an edit that didn't touch this service would
+          // silently wipe its already-persisted consumables.
+          ...(service.consumables?.length
+            ? {
+                consumables: service.consumables.map((c) => ({
+                  actual_qty: c.actualQty ?? c.qty,
+                  product_id: c.productId,
+                  qty: c.qty,
+                  unit: c.unit,
+                })),
+              }
+            : {}),
           ...(service.discount !== undefined ? { discount: service.discount } : {}),
           ...(service.durationMinutes ? { duration: service.durationMinutes } : {}),
           ...(service.isPackageService ? { is_package_service: true } : {}),
