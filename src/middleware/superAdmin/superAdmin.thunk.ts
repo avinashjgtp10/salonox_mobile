@@ -106,6 +106,17 @@ export const deleteSalonThunk = createAsyncThunk<void, string, { rejectValue: st
   }
 );
 
+export const clearSalonDataThunk = createAsyncThunk<void, string, { rejectValue: string }>(
+  "superAdmin/clearSalonData",
+  async (id, { rejectWithValue }) => {
+    try {
+      await api.post(SUPER_ADMIN.SALON_CLEAR_DATA(id));
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to clear salon data");
+    }
+  }
+);
+
 export const fetchSalonStaffThunk = createAsyncThunk<SuperAdminSalonStaff[], string, { rejectValue: string }>(
   "superAdmin/fetchSalonStaff",
   async (salonId, { rejectWithValue }) => {
