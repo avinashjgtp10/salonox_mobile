@@ -19,6 +19,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { ConsumablesSection } from "@/features/services/components/ConsumablesSection";
 import { fetchServiceByIdThunk, fetchServicesThunk, updateServiceThunk } from "@/middleware/service/service.thunk";
 import {
   selectServiceById,
@@ -30,6 +31,7 @@ import {
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import type { ConsumableRecipeItem } from "@/types/consumable";
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -57,6 +59,7 @@ export default function EditServiceScreen() {
   const servicesQuery = useAppSelector(selectServicesQuery);
 
   const [category, setCategory] = useState("");
+  const [consumables, setConsumables] = useState<ConsumableRecipeItem[]>([]);
   const [durationMinutes, setDurationMinutes] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isFinishing, setIsFinishing] = useState(false);
@@ -80,6 +83,7 @@ export default function EditServiceScreen() {
       setPrice(String(liveService.price));
       setDurationMinutes(liveService.durationMinutes ? String(liveService.durationMinutes) : "");
       setCategory(liveService.category ?? "");
+      setConsumables(liveService.consumablesUsed ?? []);
       hasPrefilledRef.current = true;
     }
   }, [liveService]);
@@ -139,6 +143,11 @@ export default function EditServiceScreen() {
         serviceId: id,
         updates: {
           ...(trimmedCategory ? { category: trimmedCategory } : {}),
+          consumables_used: consumables.map((item) => ({
+            product_id: item.productId,
+            qty: item.qty,
+            unit: item.unit,
+          })),
           ...(typeof parsedDuration === "number" ? { duration_minutes: parsedDuration } : {}),
           name: trimmedName,
           price: parsedPrice,
@@ -309,6 +318,11 @@ export default function EditServiceScreen() {
                   value={category}
                 />
               </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Consumables</Text>
+              <ConsumablesSection disabled={isSubmitting} onChange={setConsumables} value={consumables} />
             </View>
 
             {displayedError ? (

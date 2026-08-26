@@ -20,6 +20,7 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import { CategorySelectModal } from "@/features/services/components/CategorySelectModal";
+import { ConsumablesSection } from "@/features/services/components/ConsumablesSection";
 import {
   validateServiceField,
   validateServiceForm,
@@ -33,6 +34,7 @@ import {
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import type { ConsumableRecipeItem } from "@/types/consumable";
 import type { ServiceCategoryItem } from "@/types/service";
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
@@ -57,6 +59,7 @@ export default function NewServiceScreen() {
 
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ServiceCategoryItem | null>(null);
+  const [consumables, setConsumables] = useState<ConsumableRecipeItem[]>([]);
   const [durationMinutes, setDurationMinutes] = useState("");
   const [fieldErrors, setFieldErrors] = useState<ServiceFormErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -137,6 +140,11 @@ export default function NewServiceScreen() {
       createServiceThunk({
         category: selectedCategory?.name,
         category_id: selectedCategory?.id,
+        consumables_used: consumables.map((item) => ({
+          product_id: item.productId,
+          qty: item.qty,
+          unit: item.unit,
+        })),
         duration_minutes: parsedDuration,
         name: trimmedName,
         price: parsedPrice,
@@ -299,6 +307,11 @@ export default function NewServiceScreen() {
               {fieldErrors.categoryId ? (
                 <Text style={styles.fieldErrorText}>{fieldErrors.categoryId}</Text>
               ) : null}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Consumables</Text>
+              <ConsumablesSection disabled={isSubmitting} onChange={setConsumables} value={consumables} />
             </View>
 
             {displayedError ? (

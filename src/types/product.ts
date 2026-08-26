@@ -162,17 +162,29 @@ export type Brand = {
 };
 
 export type CreateProductRequest = {
+  barcode?: string;
+  bottle_size?: number;
   brand_id?: string | null;
   category?: string;
   category_id?: string;
   description?: string;
+  expiry_date?: string;
+  hsn_sac?: string;
   is_active?: boolean;
   low_stock_threshold?: number;
+  measure_unit?: string;
   name: string;
   price: number;
+  product_type?: "retail" | "consumable" | "both" | string;
+  qty_alert?: number;
+  retail_price?: number;
   salon_id?: string;
   sku?: string;
   stock_quantity?: number;
+  supply_price?: number;
+  supplier_id?: string | null;
+  supplier_name?: string;
+  unit_conversions?: { conversion_to_base: number; unit_name: string }[];
 };
 
 export type UpdateProductRequest = Partial<CreateProductRequest>;
