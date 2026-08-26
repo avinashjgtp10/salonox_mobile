@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout } from "@/constants/layout";
 import { type ThemeColors } from "@/constants/theme";
 import { fetchConsumablesThunk } from "@/middleware/consumable/consumable.thunk";
@@ -63,6 +64,7 @@ const TABS: { icon: keyof typeof Ionicons.glyphMap; key: CatalogTab; label: stri
 ];
 
 let rememberedCatalogView: CatalogView = "table";
+const CATALOG_PAGE_SIZE = 10;
 
 const formatMoney = (value: number) => `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
 
@@ -189,6 +191,7 @@ export default function CatalogScreen() {
   const [packagesLoading, setPackagesLoading] = useState(false);
   const [packagesError, setPackagesError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [page, setPage] = useState(1);
 
   const loadPackages = useCallback(async () => {
     setPackagesLoading(true);
@@ -233,6 +236,17 @@ export default function CatalogScreen() {
     if (!normalized) return itemsByTab[activeTab];
     return itemsByTab[activeTab].filter((item) => [item.name, item.category, item.meta].some((value) => value.toLowerCase().includes(normalized)));
   }, [activeTab, itemsByTab, query]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [activeTab, query, view]);
+
+  const totalPages = Math.max(1, Math.ceil(visibleItems.length / CATALOG_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const paginatedItems = useMemo(() => {
+    const start = (safePage - 1) * CATALOG_PAGE_SIZE;
+    return visibleItems.slice(start, start + CATALOG_PAGE_SIZE);
+  }, [safePage, visibleItems]);
 
   const loading = activeTab === "services" ? servicesLoading : activeTab === "products" ? productState.loading : activeTab === "consumables" ? consumableState.loading : activeTab === "memberships" ? membershipsLoading : packagesLoading;
   const error = activeTab === "services" ? servicesError : activeTab === "products" ? productState.error : activeTab === "consumables" ? consumableState.error : activeTab === "memberships" ? membershipsError : packagesError;
@@ -287,7 +301,25 @@ export default function CatalogScreen() {
         {loading && itemsByTab[activeTab].length === 0 ? <View style={styles.state}><ActivityIndicator color={Colors.primary} size="large" /><Text style={styles.stateText}>Loading catalog...</Text></View> : null}
         {error && !loading ? <View style={styles.state}><Ionicons color={Colors.error} name="alert-circle-outline" size={32} /><Text style={styles.stateTitle}>Unable to load {activeTab}</Text><Text style={styles.stateText}>{error}</Text><TouchableOpacity onPress={() => void loadCatalog(true)} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></TouchableOpacity></View> : null}
         {!loading && !error && visibleItems.length === 0 ? <View style={styles.state}><Ionicons color={Colors.text2} name="file-tray-outline" size={34} /><Text style={styles.stateTitle}>No {activeTab} found</Text><Text style={styles.stateText}>Try another search or add an item from its management screen.</Text></View> : null}
-        {!error && visibleItems.length > 0 ? view === "table" ? <CatalogTable items={visibleItems} /> : <View style={styles.cardList}>{visibleItems.map((item) => <CatalogCard item={item} key={item.id} />)}</View> : null}
+        {!error && visibleItems.length > 0 ? (
+          <>
+            {view === "table" ? (
+              <CatalogTable items={paginatedItems} />
+            ) : (
+              <View style={styles.cardList}>{paginatedItems.map((item) => <CatalogCard item={item} key={item.id} />)}</View>
+            )}
+            <PaginationControls
+              currentPage={safePage}
+              hasNextPage={safePage < totalPages}
+              hasPreviousPage={safePage > 1}
+              onNext={() => setPage((current) => Math.min(totalPages, current + 1))}
+              onPrevious={() => setPage((current) => Math.max(1, current - 1))}
+              totalItems={visibleItems.length}
+              totalPages={totalPages}
+              visibleItems={paginatedItems.length}
+            />
+          </>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

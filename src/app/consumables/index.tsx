@@ -2,7 +2,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 import {
-  ActivityIndicator,
   FlatList,
   RefreshControl,
   StyleSheet,
@@ -14,6 +13,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { EmptyState, ErrorState, SkeletonBlock } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -218,8 +218,19 @@ export default function ConsumablesScreen() {
           )
         }
         ListFooterComponent={
-          <View style={{ height: 40 + insets.bottom }}>
-            {state.loadingMore ? <ActivityIndicator color={Colors.primary} /> : null}
+          <View style={{ paddingBottom: 40 + insets.bottom }}>
+            {state.consumables.length > 0 ? (
+              <PaginationControls
+                currentPage={state.pagination.page}
+                hasNextPage={state.pagination.hasMore}
+                hasPreviousPage={false}
+                loading={state.loadingMore}
+                onNext={state.pagination.hasMore ? loadMore : undefined}
+                totalItems={state.pagination.totalRecords || state.consumables.length}
+                totalPages={Math.max(1, Math.ceil((state.pagination.totalRecords || state.consumables.length) / state.pagination.limit))}
+                visibleItems={state.consumables.length}
+              />
+            ) : null}
           </View>
         }
         ListHeaderComponent={header}

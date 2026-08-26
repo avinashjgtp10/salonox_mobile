@@ -17,6 +17,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   SERVICE_FILTERS,
@@ -375,11 +376,17 @@ export default function ServicesScreen() {
         }
         ListFooterComponent={
           <View style={styles.footerWrap}>
-            {servicesLoadingMore ? (
-              <View style={styles.loadingMoreWrap}>
-                <ActivityIndicator color={Colors.primary} size="small" />
-                <Text style={styles.loadingMoreText}>Loading more services...</Text>
-              </View>
+            {services.length > 0 ? (
+              <PaginationControls
+                currentPage={Math.max(1, Math.ceil(services.length / servicesPagination.limit))}
+                hasNextPage={servicesPagination.hasMore}
+                hasPreviousPage={false}
+                loading={servicesLoadingMore}
+                onNext={servicesPagination.hasMore ? handleLoadMore : undefined}
+                totalItems={totalCount}
+                totalPages={Math.max(1, Math.ceil(totalCount / servicesPagination.limit))}
+                visibleItems={services.length}
+              />
             ) : null}
             <View style={{ height: 112 + insets.bottom }} />
           </View>

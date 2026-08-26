@@ -22,6 +22,7 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { StaffCard } from "@/components/team/StaffCard";
 import { SummaryCard } from "@/components/team/SummaryCard";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -585,7 +586,18 @@ export default function TeamScreen() {
             }
             ListHeaderComponent={headerContent}
             ListFooterComponent={
-              staffLoadingMore ? <StaffSkeletonCard index={0} /> : null
+              filteredStaffMembers.length > 0 ? (
+                <PaginationControls
+                  currentPage={Math.max(1, Math.ceil(staffMembers.length / staffPagination.limit))}
+                  hasNextPage={staffPagination.hasMore}
+                  hasPreviousPage={false}
+                  loading={staffLoadingMore}
+                  onNext={staffPagination.hasMore ? handleLoadMore : undefined}
+                  totalItems={staffPagination.totalCount}
+                  totalPages={Math.max(1, Math.ceil(staffPagination.totalCount / staffPagination.limit))}
+                  visibleItems={filteredStaffMembers.length}
+                />
+              ) : null
             }
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.35}

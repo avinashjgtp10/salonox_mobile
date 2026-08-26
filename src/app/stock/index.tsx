@@ -15,6 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { EmptyState, ErrorState } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -127,7 +128,22 @@ export default function ProductsScreen() {
         keyExtractor={(item) => item.id}
         ListHeaderComponent={header}
         ListEmptyComponent={state.loading ? <LoadingCards /> : <Empty error={state.error} onRetry={refresh} searching={Boolean(query || filter !== "All")} />}
-        ListFooterComponent={<View style={{ height: 105 + insets.bottom }}>{state.loadingMore ? <ActivityIndicator color={Colors.primary} /> : null}</View>}
+        ListFooterComponent={
+          <View style={{ paddingBottom: 105 + insets.bottom }}>
+            {products.length > 0 ? (
+              <PaginationControls
+                currentPage={Math.max(1, Math.ceil(state.products.length / state.pagination.limit))}
+                hasNextPage={state.pagination.hasMore}
+                hasPreviousPage={false}
+                loading={state.loadingMore}
+                onNext={state.pagination.hasMore ? loadMore : undefined}
+                totalItems={state.totalCount}
+                totalPages={Math.max(1, Math.ceil(state.totalCount / state.pagination.limit))}
+                visibleItems={products.length}
+              />
+            ) : null}
+          </View>
+        }
         onEndReached={loadMore}
         onEndReachedThreshold={0.35}
         refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={refresh} colors={[Colors.primary]} tintColor={Colors.primary} />}

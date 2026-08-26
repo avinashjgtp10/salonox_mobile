@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { DateField } from "@/components/ui/DateField";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { EmptyState, ErrorState } from "@/components/ui/StateViews";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { fetchUsageHistoryThunk } from "@/middleware/consumable/consumable.thunk";
@@ -135,8 +136,19 @@ export default function ConsumableUsageHistoryScreen() {
           )
         }
         ListFooterComponent={
-          <View style={{ height: 40 + insets.bottom }}>
-            {state.usageHistoryLoadingMore ? <ActivityIndicator color={Colors.primary} /> : null}
+          <View style={{ paddingBottom: 40 + insets.bottom }}>
+            {state.usageHistory.length > 0 ? (
+              <PaginationControls
+                currentPage={state.usageHistoryPagination.page}
+                hasNextPage={state.usageHistoryPagination.hasMore}
+                hasPreviousPage={false}
+                loading={state.usageHistoryLoadingMore}
+                onNext={state.usageHistoryPagination.hasMore ? loadMore : undefined}
+                totalItems={state.usageHistoryPagination.totalRecords || state.usageHistory.length}
+                totalPages={Math.max(1, Math.ceil((state.usageHistoryPagination.totalRecords || state.usageHistory.length) / state.usageHistoryPagination.limit))}
+                visibleItems={state.usageHistory.length}
+              />
+            ) : null}
           </View>
         }
         ListHeaderComponent={header}
