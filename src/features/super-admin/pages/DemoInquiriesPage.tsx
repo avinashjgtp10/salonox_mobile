@@ -9,13 +9,15 @@ import {
 import type { SuperAdminDemoRequest } from "../../../store/superAdminSlice";
 
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-  new:       { bg: "#eff6ff", text: "#3b82f6" },
-  contacted: { bg: "#fef3c7", text: "#d97706" },
-  converted: { bg: "#f0fdf4", text: "#16a34a" },
-  closed:    { bg: "#f8fafc", text: "#64748b" },
+  new:         { bg: "#eff6ff", text: "#3b82f6" },
+  contacted:   { bg: "#fef3c7", text: "#d97706" },
+  converted:   { bg: "#f0fdf4", text: "#16a34a" },
+  closed:      { bg: "#f8fafc", text: "#64748b" },
+  lost:        { bg: "#fef2f2", text: "#dc2626" },
+  unqualified: { bg: "#f1f5f9", text: "#475569" },
 };
 
-const STATUSES = ["new", "contacted", "converted", "closed"];
+const STATUSES = ["new", "contacted", "converted", "closed", "lost", "unqualified"];
 
 function StatusBadge({ status }: { status: string }) {
   const c = STATUS_COLORS[status] ?? STATUS_COLORS.new;
