@@ -13,7 +13,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { StaffToast } from "@/features/staff/components/StaffToast";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
@@ -27,6 +26,7 @@ import {
   StaffFutureSections,
   useStaffDetails,
 } from "@/features/staff";
+import { useAppToast } from "@/hooks/useAppToast";
 import { deleteStaffThunk, setStaffActiveStatusThunk } from "@/middleware/staff/staff.thunk";
 import {
   selectStaffActiveStatusToggling,
@@ -101,6 +101,7 @@ export default function StaffProfileScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { detailsError, detailsLoading, staffMember } = useStaffDetails(id);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const currentUser = useAppSelector(selectCurrentUser);
   const deletingStaffIds = useAppSelector(selectStaffDeletingIds);
   const isTogglingActive = useAppSelector((state) => selectStaffActiveStatusToggling(state, id));
@@ -135,6 +136,10 @@ export default function StaffProfileScreen() {
       );
       return;
     }
+
+    toast.showSuccess(
+      nextStatus === "inactive" ? "Staff deactivated successfully." : "Staff activated successfully.",
+    );
   };
 
   const handleToggleActive = () => {
@@ -180,7 +185,7 @@ export default function StaffProfileScreen() {
       return;
     }
 
-    Alert.alert("Staff deleted", resultAction.payload.message ?? `${staffMember.name} has been removed.`);
+    toast.showSuccess("Staff deleted successfully.");
     handleBack();
   };
 
@@ -439,9 +444,6 @@ export default function StaffProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-
-      <StaffToast />
-
     </SafeAreaView>
   );
 }

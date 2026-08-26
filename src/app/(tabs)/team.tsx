@@ -22,11 +22,11 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { StaffToast } from "@/features/staff/components/StaffToast";
 import { StaffCard } from "@/components/team/StaffCard";
 import { SummaryCard } from "@/components/team/SummaryCard";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { BottomTabInset, DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { useAppToast } from "@/hooks/useAppToast";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import {
   getTeamSummary,
@@ -183,6 +183,7 @@ export default function TeamScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const searchInputRef = useRef<TextInput | null>(null);
   const currentUser = useAppSelector(selectCurrentUser);
   const canManageLifecycle = canManageStaffLifecycle(currentUser?.role);
@@ -304,7 +305,7 @@ export default function TeamScreen() {
       return;
     }
 
-    Alert.alert("Staff deleted", resultAction.payload.message ?? `${staffMember.name} has been removed.`);
+    toast.showSuccess("Staff deleted successfully.");
   };
 
   const handleConfirmToggleActive = async (
@@ -330,6 +331,10 @@ export default function TeamScreen() {
       );
       return;
     }
+
+    toast.showSuccess(
+      nextStatus === "inactive" ? "Staff deactivated successfully." : "Staff activated successfully.",
+    );
   };
 
   const handleMenuOptionPress = (option: string) => {
@@ -648,9 +653,6 @@ export default function TeamScreen() {
           </Pressable>
         </Pressable>
       </Modal>
-
-      <StaffToast />
-
     </SafeAreaView>
   );
 }

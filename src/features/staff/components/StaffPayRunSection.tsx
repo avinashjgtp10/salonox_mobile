@@ -9,6 +9,7 @@ import {
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
+import { useAppToast } from "@/hooks/useAppToast";
 import { fetchPayRunsThunk, upsertPayRunThunk } from "@/middleware/staff/staffPayRuns.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { formatAppDate } from "@/utils/dateTime";
@@ -35,6 +36,7 @@ export function StaffPayRunSection({ staffId }: StaffPayRunSectionProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const payRuns = useAppSelector((state) => selectPayRuns(state, staffId));
   const loaded = useAppSelector((state) => selectPayRunsLoaded(state, staffId));
   const loading = useAppSelector((state) => selectPayRunsLoading(state, staffId));
@@ -85,7 +87,7 @@ export function StaffPayRunSection({ staffId }: StaffPayRunSectionProps) {
       return;
     }
 
-    Alert.alert("Pay run saved", resultAction.payload.message ?? "The pay run has been recorded.");
+    toast.showSuccess("Pay run saved successfully.");
     setAmount("");
     setPeriodStart("");
     setPeriodEnd("");

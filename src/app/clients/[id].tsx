@@ -42,6 +42,7 @@ import {
   selectClientHistoryStats,
   selectClientBlockingIds,
 } from "@/store/client/client.slice";
+import { useAppToast } from "@/hooks/useAppToast";
 import { fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
 import {
   selectActiveClientMembership,
@@ -202,6 +203,7 @@ export default function ClientDetailsScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
 
   const liveClient = useAppSelector((state) => selectClientById(state, id));
   const detailsLoading = useAppSelector(selectClientDetailsLoading);
@@ -304,7 +306,7 @@ export default function ClientDetailsScreen() {
               const res = await dispatch(unblockClientThunk(client.id));
               if (unblockClientThunk.fulfilled.match(res)) {
                 void dispatch(fetchClientByIdThunk(client.id));
-                Alert.alert("Success", "Client unblocked successfully.");
+                toast.showSuccess("Client unblocked successfully.");
               } else {
                 Alert.alert("Error", "Unable to unblock client.");
               }
@@ -326,7 +328,7 @@ export default function ClientDetailsScreen() {
               );
               if (blockClientThunk.fulfilled.match(res)) {
                 void dispatch(fetchClientByIdThunk(client.id));
-                Alert.alert("Success", "Client blocked successfully.");
+                toast.showSuccess("Client blocked successfully.");
               } else {
                 Alert.alert("Error", "Unable to block client.");
               }

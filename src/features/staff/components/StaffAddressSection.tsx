@@ -12,6 +12,7 @@ import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
 import { useStaffAddresses } from "@/features/staff/hooks/useStaffAddresses";
+import { useAppToast } from "@/hooks/useAppToast";
 import { selectStaffAddressDeleting } from "@/store/staff/staff.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentUser } from "@/store/user/user.slice";
@@ -86,6 +87,7 @@ export function StaffAddressSection({ readOnly = false, staffId }: StaffAddressS
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const controller = useStaffAddresses(staffId);
+  const toast = useAppToast();
   const currentUser = useAppSelector(selectCurrentUser);
   const canManageAddresses = canManageStaffLifecycle(currentUser?.role);
 
@@ -117,7 +119,7 @@ export function StaffAddressSection({ readOnly = false, staffId }: StaffAddressS
       return;
     }
 
-    Alert.alert("Address deleted", result.message ?? "The address has been removed.");
+    toast.showSuccess("Address deleted successfully.");
   };
 
   return (

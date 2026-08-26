@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { SettlementModal } from "@/components/ui/SettlementModal";
 import { AppLayout, AppRadius } from "@/constants/layout";
+import { useAppToast } from "@/hooks/useAppToast";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
@@ -82,6 +83,7 @@ export default function SalonCommissionsScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
 
   const currentUser = useAppSelector(selectCurrentUser);
   const currentStaff = useAppSelector(selectCurrentStaff);
@@ -181,7 +183,7 @@ export default function SalonCommissionsScreen() {
 
     setSettlementRecord(null);
     setIsSettlementModalOpen(false);
-    Alert.alert("Commission settled", resultAction.payload.message ?? "Payment recorded successfully.");
+    toast.showSuccess("Commission settled successfully.");
   };
 
   const handleSettlementModalClose = () => {
