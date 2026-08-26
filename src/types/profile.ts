@@ -71,6 +71,7 @@ export type UpdateProfileResponse = {
 
 export type AvatarUploadAsset = {
   fileName?: string | null;
+  fileSize?: number | null;
   mimeType?: string | null;
   uri: string;
 };

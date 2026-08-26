@@ -1,4 +1,4 @@
-import { api } from "@/services/api";
+import { ApiError, api } from "@/services/api";
 import { PROFILE, USER } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type {
@@ -22,7 +22,6 @@ const guessMimeType = (fileName: string) => {
   const extension = fileName.split(".").pop()?.toLowerCase();
 
   if (extension === "png") return "image/png";
-  if (extension === "heic") return "image/heic";
   if (extension === "webp") return "image/webp";
   return "image/jpeg";
 };
@@ -180,7 +179,6 @@ export const profileService = {
     } as unknown as Blob);
 
     const response = await api.post<ProfileApiResponse>(`${USER.ME}/avatar`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
       transformRequest: (data) => data,
     });
 
@@ -188,6 +186,10 @@ export const profileService = {
     const normalizedProfile = normalizeProfile(apiProfile);
     // Prefer an avatar url found directly on the payload; fall back to the normalized profile.
     const avatarUrl = extractAvatarUrl(apiProfile) ?? normalizedProfile.avatarUrl;
+
+    if (!avatarUrl) {
+      throw new ApiError("The server did not return an uploaded image URL.", response.status);
+    }
 
     return {
       avatarUrl,
