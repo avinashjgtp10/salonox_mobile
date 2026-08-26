@@ -49,6 +49,8 @@ export interface Product {
   amount: number;
   qty_alert: number;
   description: string | null;
+  remark: string | null;
+  lot_number: string | null;
   supply_price: number;
   retail_sales_enabled: boolean;
   retail_price: number | null;
@@ -58,8 +60,10 @@ export interface Product {
   size: string | null;
   bottle_size: number | null;
   is_active: boolean;
+  is_public: boolean;
   tax_type: TaxType;
   custom_tax_rate: number | null;
+  tax_group: string | null;
   hsn_sac: string | null;
   created_at?: string;
   updated_at?: string;
