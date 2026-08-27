@@ -7,6 +7,7 @@ import { getMySalonThunk } from "../../../middleware/salon/salon.thunk";
 import { fetchMeThunk } from "../../../middleware/user/user.thunk";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { fetchCashCounterDashboardThunk } from "../../../middleware/cashCounter/cashCounter.thunk";
+import { fetchSpotlightFeaturesThunk } from "../../../middleware/spotlight/spotlight.thunk";
 import "../styles/DashboardPage.scss";
 
 import DashboardTopbar from "./DashboardTopbar";
@@ -37,6 +38,7 @@ export default function DashboardLayout() {
 
   useEffect(() => {
     dispatch(getMySalonThunk());
+    dispatch(fetchSpotlightFeaturesThunk());
     dispatch(fetchSettingsThunk());
     dispatch(fetchCashCounterDashboardThunk());
 
