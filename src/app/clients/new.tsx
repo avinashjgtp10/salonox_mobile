@@ -18,6 +18,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { DateField } from "@/components/ui/DateField";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
@@ -49,9 +50,6 @@ import { EMAIL_INVALID_MESSAGE, isValidEmail, isValidPhoneDigits, PHONE_INVALID_
 import { splitFullName } from "@/utils/name";
 
 const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
-const DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, "0"));
-const MONTH_OPTIONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const YEAR_OPTIONS = Array.from({ length: 100 }, (_, index) => String(new Date().getFullYear() - index));
 const STATE_OPTIONS = ["Andhra Pradesh", "Delhi", "Gujarat", "Karnataka", "Maharashtra", "Rajasthan", "Tamil Nadu", "Telangana", "Uttar Pradesh", "West Bengal"];
 const LEAD_SOURCE_OPTIONS = ["Walk-in", "Google", "Instagram", "Facebook", "Referral", "Website", "Other"];
 
@@ -125,12 +123,8 @@ export default function NewClientScreen() {
   const [whatsappMatchesPhone, setWhatsappMatchesPhone] = useState(true);
   const [promotionChannels, setPromotionChannels] = useState(["SMS", "Email", "Whatsapp"]);
   const [transactionChannels, setTransactionChannels] = useState(["SMS", "Email", "Whatsapp"]);
-  const [birthDay, setBirthDay] = useState("");
-  const [birthMonth, setBirthMonth] = useState("");
-  const [birthYear, setBirthYear] = useState("");
-  const [anniversaryDay, setAnniversaryDay] = useState("");
-  const [anniversaryMonth, setAnniversaryMonth] = useState("");
-  const [anniversaryYear, setAnniversaryYear] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [anniversaryDate, setAnniversaryDate] = useState("");
   const [address, setAddress] = useState("");
   const [clientCode, setClientCode] = useState("");
   const [clientState, setClientState] = useState("");
@@ -411,18 +405,20 @@ export default function NewClientScreen() {
               <Text style={styles.sectionTitle}>Additional Information</Text>
             </View>
             <DinggSelect label="Gender*" onSelect={(value) => setGender(value as (typeof GENDER_OPTIONS)[number])} options={GENDER_OPTIONS} value={gender} />
-            <Text style={styles.inputLabel}>Date of birth</Text>
-            <View style={styles.dateSelectRow}>
-              <View style={styles.dateSelect}><DinggSelect onSelect={setBirthDay} options={DAY_OPTIONS} placeholder="Date" value={birthDay} /></View>
-              <View style={styles.dateSelect}><DinggSelect onSelect={setBirthMonth} options={MONTH_OPTIONS} placeholder="Month" value={birthMonth} /></View>
-              <View style={styles.dateSelect}><DinggSelect onSelect={setBirthYear} options={YEAR_OPTIONS} placeholder="Year" value={birthYear} /></View>
-            </View>
-            <Text style={styles.inputLabel}>Anniversary</Text>
-            <View style={styles.dateSelectRow}>
-              <View style={styles.dateSelect}><DinggSelect onSelect={setAnniversaryDay} options={DAY_OPTIONS} placeholder="Date" value={anniversaryDay} /></View>
-              <View style={styles.dateSelect}><DinggSelect onSelect={setAnniversaryMonth} options={MONTH_OPTIONS} placeholder="Month" value={anniversaryMonth} /></View>
-              <View style={styles.dateSelect}><DinggSelect onSelect={setAnniversaryYear} options={YEAR_OPTIONS} placeholder="Year" value={anniversaryYear} /></View>
-            </View>
+            <DateField
+              label="Date of birth"
+              maximumDate={new Date()}
+              onChange={setBirthDate}
+              placeholder="Select date of birth"
+              value={birthDate}
+            />
+            <DateField
+              label="Anniversary"
+              maximumDate={new Date()}
+              onChange={setAnniversaryDate}
+              placeholder="Select anniversary date"
+              value={anniversaryDate}
+            />
             <View style={styles.inputGroup}><Text style={styles.inputLabel}>Address</Text><View style={[styles.inputContainer, styles.multilineInput]}><TextInput multiline onChangeText={setAddress} placeholder="Address" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.textInput} value={address} /></View></View>
             <View style={styles.inputGroup}><Text style={styles.inputLabel}>Client Code</Text><View style={styles.inputContainer}><TextInput onChangeText={setClientCode} placeholder="Enter client code" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.textInput} value={clientCode} /></View></View>
             <DinggSelect label="State" onSelect={setClientState} options={STATE_OPTIONS} placeholder="Select State" value={clientState} />
@@ -638,14 +634,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   preferenceText: {
     color: Colors.appointmentText,
     fontSize: 13,
-  },
-  dateSelectRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  dateSelect: {
-    flex: 1,
-    minWidth: 0,
   },
   multilineInput: {
     alignItems: "flex-start",

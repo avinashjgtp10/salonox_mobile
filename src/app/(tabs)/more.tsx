@@ -35,12 +35,6 @@ const SUPPORT_EMAIL = "support@salonox.com";
 
 const MENU_ITEMS = [
   {
-    description: "Explore sales, staff, inventory, membership, and marketing performance.",
-    icon: "stats-chart-outline" as const,
-    route: "/reports" as Href,
-    title: "Reports",
-  },
-  {
     description: "Search, segment, and manage salon clients with visit history and memberships.",
     icon: "people-outline" as const,
     route: "/clients" as Href,
