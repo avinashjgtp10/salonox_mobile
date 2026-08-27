@@ -41,6 +41,12 @@ const MENU_ITEMS = [
     title: "Clients",
   },
   {
+    description: "Sync your phone contacts and import them as clients.",
+    icon: "person-add-outline" as const,
+    route: "/clients/import-contacts" as Href,
+    title: "Import Contacts",
+  },
+  {
     description: "Browse, search, and filter your salon's service menu.",
     icon: "pricetags-outline" as const,
     route: "/services" as Href,

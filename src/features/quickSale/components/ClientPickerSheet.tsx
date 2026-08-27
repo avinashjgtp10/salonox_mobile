@@ -173,7 +173,8 @@ export function ClientPickerSheet({
         first_name: trimmedFirstName,
         gender: newGender,
         last_name: trimmedLastName,
-        phone: trimmedPhone,
+        phone_country_code: "+91",
+        phone_number: trimmedPhone,
       }),
     );
 
