@@ -325,7 +325,15 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`sales-summary-${dateFrom}-${dateTo}`} variant="button" csv />
+            <ReportExportButton
+              title={REPORT_NAME}
+              headers={HEADERS}
+              rows={exportRows}
+              filename={`sales-summary-${dateFrom}-${dateTo}`}
+              variant="button"
+              csv
+              dateRangeLabel={dateFrom && dateTo ? `${formatDate(dateFrom)} to ${formatDate(dateTo)}` : undefined}
+            />
           </div>
         </div>
       </div>

@@ -58,6 +58,7 @@ const EVENT_CATEGORIES: Record<PurchaseEventType, TriggerCategory[]> = {
   service_reminder_24h:             ["other"],
   reward_points_earned:             ["other"],
   referral_reward:                  ["other"],
+  ewallet_used:                     ["other"],
 };
 
 const CATEGORY_ORDER: TriggerCategory[] = ["quick_sale", "calendar", "other"];
@@ -86,6 +87,7 @@ const EVENT_LABELS: Record<PurchaseEventType, { label: string; hint: string }> =
   service_reminder_24h:             { label: "Appointment Reminder (Tomorrow)", hint: "Sent 1 day before any other appointment" },
   reward_points_earned: { label: "Reward Points Earned", hint: "Sent when a client earns reward points on a payment" },
   referral_reward:      { label: "Referral Reward Credited", hint: "Sent to the referrer once their referred client's first bill is paid" },
+  ewallet_used:         { label: "eWallet Used", hint: "Sent whenever a payment is settled (fully or partly) using eWallet balance" },
 };
 
 // What each placeholder turns into in the message the customer receives.
@@ -179,6 +181,10 @@ const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; me
     { token: "{{customer_name}}", meaning: "Referrer's name" }, { token: "{{referred_customer_name}}", meaning: "Referred client's name" },
     { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{reward}}", meaning: "Reward amount" },
     { token: "{{total_points}}", meaning: "Total referral balance" },
+  ],
+  ewallet_used: [
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount_used}}", meaning: "Amount used from eWallet" },
+    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{remaining_balance}}", meaning: "Remaining eWallet balance" },
   ],
 };
 
