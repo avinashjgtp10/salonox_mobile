@@ -14,17 +14,66 @@ import { Modal } from "../../../components/ui";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
 
-// ── Types ───────────────────────────────────────────────────────────────────
+// ── Field definitions ──────────────────────────────────────────────────────
+// Every field the Client Add/Edit form (AddClientPage.tsx) can save — this is
+// the single source of truth for the template, column matching, validation,
+// and the failed-rows re-import table below, so the import file always tracks
+// whatever that form supports instead of drifting to its own subset.
 
-interface ImportRow {
-  firstName: string;
-  lastName: string;
-  email: string;
-  mobile: string;
-  gender: string;
-  birthday: string;
-  clientNotes: string;
+type FieldKey =
+  | "firstName" | "lastName" | "email" | "mobile" | "hasWhatsapp" | "gender" | "clientSource"
+  | "birthday" | "anniversary"
+  | "gstNumber" | "state" | "address" | "zipCode" | "clientCode" | "identificationNumber"
+  | "smsMarketing" | "emailMarketing" | "whatsappMarketing"
+  | "smsNotifications" | "emailNotifications" | "whatsappNotifications"
+  | "leadSource" | "sourceDescription" | "referredByCode"
+  | "creditLimit" | "creditDuration"
+  | "additionalMobile";
+
+interface FieldDef {
+  key: FieldKey;
+  label: string;
+  required?: boolean;
+  type: "text" | "boolean";
+  hint: string;
 }
+
+// Same grouping AddClientPage.tsx uses (Details → Personal Dates →
+// Business/Identification → Communication Preferences → Lead/Referral →
+// Credit → Additional mobile).
+const FIELDS: FieldDef[] = [
+  { key: "firstName", label: "First name", required: true, type: "text", hint: "Required." },
+  { key: "lastName", label: "Last name", type: "text", hint: "" },
+  { key: "email", label: "Email", type: "text", hint: "" },
+  { key: "mobile", label: "Mobile number", required: true, type: "text", hint: "Required. 10 digits." },
+  { key: "hasWhatsapp", label: "Available on WhatsApp", type: "boolean", hint: "Yes/No — default Yes." },
+  { key: "gender", label: "Gender", required: true, type: "text", hint: "Required. Male / Female / Other." },
+  { key: "clientSource", label: "Client source", type: "text", hint: "e.g. Walk-in, Instagram, Google." },
+  { key: "birthday", label: "Birthday", type: "text", hint: "YYYY-MM-DD or DD-MM-YYYY." },
+  { key: "anniversary", label: "Anniversary", type: "text", hint: "YYYY-MM-DD or DD-MM-YYYY." },
+  { key: "gstNumber", label: "GST number", type: "text", hint: "15-character GSTIN, if applicable." },
+  { key: "state", label: "State", type: "text", hint: "" },
+  { key: "address", label: "Address", type: "text", hint: "" },
+  { key: "zipCode", label: "Zip code", type: "text", hint: "" },
+  { key: "clientCode", label: "Client code", type: "text", hint: "" },
+  { key: "identificationNumber", label: "Identification No.", type: "text", hint: "Resident No. or any ID." },
+  { key: "smsMarketing", label: "SMS marketing", type: "boolean", hint: "Yes/No — default Yes." },
+  { key: "emailMarketing", label: "Email marketing", type: "boolean", hint: "Yes/No — default Yes." },
+  { key: "whatsappMarketing", label: "WhatsApp marketing", type: "boolean", hint: "Yes/No — default Yes." },
+  { key: "smsNotifications", label: "SMS notifications", type: "boolean", hint: "Yes/No — default Yes." },
+  { key: "emailNotifications", label: "Email notifications", type: "boolean", hint: "Yes/No — default Yes." },
+  { key: "whatsappNotifications", label: "WhatsApp notifications", type: "boolean", hint: "Yes/No — default No." },
+  { key: "leadSource", label: "Lead source", type: "text", hint: "e.g. Referral, Website, Phone Enquiry." },
+  { key: "sourceDescription", label: "Source description", type: "text", hint: "" },
+  { key: "referredByCode", label: "Referred by code", type: "text", hint: "Existing client's referral code." },
+  { key: "creditLimit", label: "Credit limit", type: "text", hint: "Number ≥ 0." },
+  { key: "creditDuration", label: "Credit duration (days)", type: "text", hint: "Whole number of days ≥ 0." },
+  { key: "additionalMobile", label: "Additional mobile", type: "text", hint: "10 digits, different from Mobile number." },
+];
+
+type ImportRow = Record<FieldKey, string>;
+
+const EMPTY_ROW: ImportRow = FIELDS.reduce((acc, f) => ({ ...acc, [f.key]: "" }), {} as ImportRow);
 
 interface RawImportError {
   row?: number;
@@ -53,33 +102,76 @@ interface Props {
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-// Columns the backend expects in the CSV/Excel file
-const SAMPLE_COLUMNS: (keyof ImportRow)[] = ["firstName", "lastName", "email", "mobile", "gender", "birthday", "clientNotes"];
-const SAMPLE_ROWS = [
-  ["John", "Doe", "john@example.com", "9876543210", "Male", "15-06-1990", "Regular customer"],
-  ["Jane", "Smith", "jane@example.com", "8765432109", "Female", "22-03-1995", ""],
+const SAMPLE_COLUMNS: FieldKey[] = FIELDS.map((f) => f.key);
+
+// Two example rows — the second leaves every optional field blank to make
+// clear only First name/Mobile/Gender are actually required.
+const SAMPLE_ROWS: Record<FieldKey, string>[] = [
+  {
+    firstName: "John", lastName: "Doe", email: "john@example.com", mobile: "9876543210",
+    hasWhatsapp: "Yes", gender: "Male", clientSource: "Walk-in",
+    birthday: "1990-06-15", anniversary: "",
+    gstNumber: "", state: "Maharashtra", address: "12 MG Road", zipCode: "400001",
+    clientCode: "", identificationNumber: "",
+    smsMarketing: "Yes", emailMarketing: "Yes", whatsappMarketing: "Yes",
+    smsNotifications: "Yes", emailNotifications: "Yes", whatsappNotifications: "No",
+    leadSource: "Referral", sourceDescription: "", referredByCode: "",
+    creditLimit: "0", creditDuration: "0", additionalMobile: "",
+  },
+  {
+    firstName: "Jane", lastName: "Smith", email: "jane@example.com", mobile: "8765432109",
+    hasWhatsapp: "", gender: "Female", clientSource: "",
+    birthday: "", anniversary: "",
+    gstNumber: "", state: "", address: "", zipCode: "",
+    clientCode: "", identificationNumber: "",
+    smsMarketing: "", emailMarketing: "", whatsappMarketing: "",
+    smsNotifications: "", emailNotifications: "", whatsappNotifications: "",
+    leadSource: "", sourceDescription: "", referredByCode: "",
+    creditLimit: "", creditDuration: "", additionalMobile: "",
+  },
 ];
 
-const EMPTY_ROW: ImportRow = { firstName: "", lastName: "", email: "", mobile: "", gender: "", birthday: "", clientNotes: "" };
-
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const GSTIN_FORMAT_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 
-// Recognized header spellings mapped to canonical ImportRow keys, so files
-// that use "Mobile Number" / "mobile_number" / "Phone" etc. still parse.
-const HEADER_MAP: Record<string, keyof ImportRow> = {
+// Recognized header spellings mapped to canonical FieldKeys, so files that use
+// "Mobile Number" / "mobile_number" / "Phone" etc. still parse.
+const HEADER_MAP: Record<string, FieldKey> = {
   firstname: "firstName", "first name": "firstName", "first_name": "firstName",
   lastname: "lastName", "last name": "lastName", "last_name": "lastName",
   email: "email",
   mobile: "mobile", "mobile number": "mobile", "mobile_number": "mobile", phone: "mobile", "phone number": "mobile",
+  haswhatsapp: "hasWhatsapp", "has whatsapp": "hasWhatsapp", "available on whatsapp": "hasWhatsapp",
   gender: "gender",
+  clientsource: "clientSource", "client source": "clientSource",
   birthday: "birthday", dob: "birthday", "date of birth": "birthday",
-  clientnotes: "clientNotes", "client notes": "clientNotes", "client_notes": "clientNotes", notes: "clientNotes",
+  anniversary: "anniversary",
+  gstnumber: "gstNumber", "gst number": "gstNumber", gst: "gstNumber",
+  state: "state",
+  address: "address",
+  zipcode: "zipCode", "zip code": "zipCode", pincode: "zipCode",
+  clientcode: "clientCode", "client code": "clientCode",
+  identificationnumber: "identificationNumber", "identification no": "identificationNumber", "identification number": "identificationNumber",
+  smsmarketing: "smsMarketing", "sms marketing": "smsMarketing",
+  emailmarketing: "emailMarketing", "email marketing": "emailMarketing",
+  whatsappmarketing: "whatsappMarketing", "whatsapp marketing": "whatsappMarketing",
+  smsnotifications: "smsNotifications", "sms notifications": "smsNotifications",
+  emailnotifications: "emailNotifications", "email notifications": "emailNotifications",
+  whatsappnotifications: "whatsappNotifications", "whatsapp notifications": "whatsappNotifications",
+  leadsource: "leadSource", "lead source": "leadSource",
+  sourcedescription: "sourceDescription", "source description": "sourceDescription", "source desc": "sourceDescription",
+  referredbycode: "referredByCode", "referred by code": "referredByCode", "referral code": "referredByCode",
+  creditlimit: "creditLimit", "credit limit": "creditLimit",
+  creditduration: "creditDuration", "credit duration": "creditDuration", "credit duration days": "creditDuration",
+  additionalmobile: "additionalMobile", "additional mobile": "additionalMobile", "additional phone": "additionalMobile",
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
 function downloadTemplate() {
-  const csv = [SAMPLE_COLUMNS, ...SAMPLE_ROWS].map((r) => r.join(",")).join("\n");
+  const csv = [SAMPLE_COLUMNS, ...SAMPLE_ROWS.map((r) => SAMPLE_COLUMNS.map((c) => r[c]))]
+    .map((r) => r.join(","))
+    .join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -131,25 +223,73 @@ function parseFile(file: File): Promise<ImportRow[]> {
   });
 }
 
-// Validates the required-field/format rules that can be checked without a
-// server round trip. Returns a human-readable failure reason, or null if the
-// row is clean. `seenEmails` catches duplicate emails within the same file —
-// duplicates against existing clients in the database are still caught by
-// the backend and surfaced as "Failed" rows from its response.
+// Accepts the same date shapes the backend does — the native date input's
+// "YYYY-MM-DD", or the more common spreadsheet format "DD-MM-YYYY" (also
+// "DD/MM/YYYY") — and normalizes to ISO for comparison. Returns null when the
+// cell is blank or doesn't match either shape.
+function parseDateToISO(raw: string): string | null {
+  const s = raw.trim();
+  if (!s) return null;
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+  const dmy = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(s) || /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  let y: number, m: number, d: number;
+  if (iso) { y = Number(iso[1]); m = Number(iso[2]); d = Number(iso[3]); }
+  else if (dmy) { d = Number(dmy[1]); m = Number(dmy[2]); y = Number(dmy[3]); }
+  else return null;
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+// Validates the required-field/format rules the Client Add/Edit form itself
+// enforces (AddClientPage.tsx's handleSave) — first name, a 10-digit mobile,
+// gender, and (only when present) a valid email/GSTIN/birthday-not-in-future/
+// additional-mobile. Duplicates against existing clients in the database are
+// still caught by the backend and surfaced as "Failed" rows from its response.
 function validateRow(row: ImportRow, seenEmails?: Set<string>): string | null {
-  if (!row.firstName.trim()) return "First Name is required.";
-  if (!row.gender.trim()) return "Gender is required.";
-  if (!row.mobile.trim()) return "Mobile Number is required.";
+  if (!row.firstName.trim()) return "First name is required.";
+  if (!row.mobile.trim()) return "Mobile number is required.";
   const digits = row.mobile.replace(/\D/g, "");
-  if (digits.length < 10) return "Mobile Number is invalid.";
+  if (!/^\d{10}$/.test(digits)) return "Enter a valid 10-digit mobile number.";
+  if (!row.gender.trim()) return "Gender is required.";
+
   if (row.email.trim()) {
-    if (!EMAIL_REGEX.test(row.email.trim())) return "Email format is invalid.";
+    if (!EMAIL_REGEX.test(row.email.trim())) return "Enter a valid email address.";
     if (seenEmails) {
       const key = row.email.trim().toLowerCase();
       if (seenEmails.has(key)) return "Duplicate email within this file.";
       seenEmails.add(key);
     }
   }
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (row.birthday.trim()) {
+    const iso = parseDateToISO(row.birthday.trim());
+    if (!iso) return "Birthday must be YYYY-MM-DD or DD-MM-YYYY.";
+    if (iso > today) return "Birthday cannot be in the future.";
+  }
+  if (row.anniversary.trim() && !parseDateToISO(row.anniversary.trim())) {
+    return "Anniversary must be YYYY-MM-DD or DD-MM-YYYY.";
+  }
+
+  if (row.gstNumber.trim() && !GSTIN_FORMAT_RE.test(row.gstNumber.trim().toUpperCase())) {
+    return "Enter a valid 15-character GSTIN.";
+  }
+
+  if (row.additionalMobile.trim()) {
+    const addlDigits = row.additionalMobile.replace(/\D/g, "");
+    if (!/^\d{10}$/.test(addlDigits)) return "Enter a valid 10-digit additional mobile number.";
+    if (addlDigits === digits) return "Additional mobile must be different from the primary mobile.";
+  }
+
+  if (row.creditLimit.trim()) {
+    const n = Number(row.creditLimit.trim());
+    if (!Number.isFinite(n) || n < 0) return "Credit limit must be a number >= 0.";
+  }
+  if (row.creditDuration.trim()) {
+    const n = Number(row.creditDuration.trim());
+    if (!Number.isInteger(n) || n < 0) return "Credit duration must be a whole number of days >= 0.";
+  }
+
   return null;
 }
 
@@ -279,15 +419,9 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
 
   function startEdit(row: FailedRow) {
     setEditingKey(row.key);
-    setEditDraft({
-      firstName: row.firstName,
-      lastName: row.lastName,
-      email: row.email,
-      mobile: row.mobile,
-      gender: row.gender,
-      birthday: row.birthday,
-      clientNotes: row.clientNotes,
-    });
+    const draft = { ...EMPTY_ROW };
+    FIELDS.forEach((f) => { draft[f.key] = row[f.key]; });
+    setEditDraft(draft);
   }
 
   function cancelEdit() {
@@ -335,7 +469,7 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
     const cols = [...SAMPLE_COLUMNS, "status", "reason"];
     const lines = [
       cols,
-      ...failedRows.map((r) => [r.firstName, r.lastName, r.email, r.mobile, r.gender, r.birthday, r.clientNotes, r.status, r.reason]),
+      ...failedRows.map((r) => [...SAMPLE_COLUMNS.map((c) => r[c]), r.status, r.reason]),
     ];
     const csv = lines.map((line) => line.map(escapeCsvCell).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv" });
@@ -381,13 +515,15 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
         <div className="cim-columns-wrap">
           <p className="cim-columns-title">Expected columns:</p>
           <div className="cim-columns-list">
-            <span className="cim-col-chip cim-col-chip--required">firstName *</span>
-            <span className="cim-col-chip cim-col-chip--required">gender *</span>
-            <span className="cim-col-chip cim-col-chip--required">mobile *</span>
-            <span className="cim-col-chip">lastName</span>
-            <span className="cim-col-chip">email</span>
-            <span className="cim-col-chip">birthday</span>
-            <span className="cim-col-chip">clientNotes</span>
+            {FIELDS.map((f) => (
+              <span
+                key={f.key}
+                className={`cim-col-chip${f.required ? " cim-col-chip--required" : ""}`}
+                title={f.hint || undefined}
+              >
+                {f.label}{f.required ? " *" : ""}
+              </span>
+            ))}
           </div>
         </div>
 
@@ -482,13 +618,7 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
                   <table className="cim-failed-table">
                     <thead>
                       <tr>
-                        <th>First Name</th>
-                        <th>Last Name</th>
-                        <th>Email</th>
-                        <th>Mobile</th>
-                        <th>Gender</th>
-                        <th>Birthday</th>
-                        <th>Client Notes</th>
+                        {FIELDS.map((f) => <th key={f.key}>{f.label}</th>)}
                         <th>Status</th>
                         <th>Reason</th>
                         <th>Action</th>
@@ -502,20 +632,38 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
                           <tr key={row.key} className={isEditing ? "cim-row--editing" : ""}>
                             {isEditing ? (
                               <>
-                                <td><input className="cim-cell-input" value={editDraft.firstName} onChange={(e) => setEditDraft((d) => ({ ...d, firstName: e.target.value }))} /></td>
-                                <td><input className="cim-cell-input" value={editDraft.lastName} onChange={(e) => setEditDraft((d) => ({ ...d, lastName: e.target.value }))} /></td>
-                                <td><input className="cim-cell-input" value={editDraft.email} onChange={(e) => setEditDraft((d) => ({ ...d, email: e.target.value }))} /></td>
-                                <td><input className="cim-cell-input" value={editDraft.mobile} onChange={(e) => setEditDraft((d) => ({ ...d, mobile: e.target.value }))} /></td>
-                                <td>
-                                  <select className="cim-cell-input" value={editDraft.gender} onChange={(e) => setEditDraft((d) => ({ ...d, gender: e.target.value }))}>
-                                    <option value="">—</option>
-                                    <option value="Male">Male</option>
-                                    <option value="Female">Female</option>
-                                    <option value="Other">Other</option>
-                                  </select>
-                                </td>
-                                <td><input className="cim-cell-input" value={editDraft.birthday} onChange={(e) => setEditDraft((d) => ({ ...d, birthday: e.target.value }))} /></td>
-                                <td><input className="cim-cell-input" value={editDraft.clientNotes} onChange={(e) => setEditDraft((d) => ({ ...d, clientNotes: e.target.value }))} /></td>
+                                {FIELDS.map((f) => (
+                                  <td key={f.key}>
+                                    {f.key === "gender" ? (
+                                      <select
+                                        className="cim-cell-input"
+                                        value={editDraft.gender}
+                                        onChange={(e) => setEditDraft((d) => ({ ...d, gender: e.target.value }))}
+                                      >
+                                        <option value="">—</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                      </select>
+                                    ) : f.type === "boolean" ? (
+                                      <select
+                                        className="cim-cell-input"
+                                        value={editDraft[f.key]}
+                                        onChange={(e) => setEditDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+                                      >
+                                        <option value="">Default</option>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No">No</option>
+                                      </select>
+                                    ) : (
+                                      <input
+                                        className="cim-cell-input"
+                                        value={editDraft[f.key]}
+                                        onChange={(e) => setEditDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+                                      />
+                                    )}
+                                  </td>
+                                ))}
                                 <td><span className={`cim-status-pill cim-status-pill--${row.status.toLowerCase()}`}>{row.status}</span></td>
                                 <td className="cim-reason-cell">{row.reason}</td>
                                 <td className="cim-action-cell">
@@ -527,13 +675,11 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
                               </>
                             ) : (
                               <>
-                                <td>{row.firstName || "—"}</td>
-                                <td>{row.lastName || "—"}</td>
-                                <td>{row.email || "—"}</td>
-                                <td>{row.mobile || "—"}</td>
-                                <td>{row.gender || "—"}</td>
-                                <td>{row.birthday || "—"}</td>
-                                <td className="cim-notes-cell">{row.clientNotes || "—"}</td>
+                                {FIELDS.map((f) => (
+                                  <td key={f.key} className={f.key === "address" || f.key === "sourceDescription" ? "cim-notes-cell" : undefined}>
+                                    {row[f.key] || "—"}
+                                  </td>
+                                ))}
                                 <td><span className={`cim-status-pill cim-status-pill--${row.status.toLowerCase()}`}>{row.status}</span></td>
                                 <td className="cim-reason-cell">{row.reason}</td>
                                 <td className="cim-action-cell">
@@ -565,8 +711,8 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
 
         .cim-columns-wrap { background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:12px; }
         .cim-columns-title { font-size:12px; font-weight:600; color:#374151; margin:0 0 8px; }
-        .cim-columns-list { display:flex; flex-wrap:wrap; gap:6px; }
-        .cim-col-chip { background:#e0e7ff; color:#4338ca; font-size:11px; font-weight:500; padding:2px 8px; border-radius:999px; }
+        .cim-columns-list { display:flex; flex-wrap:wrap; gap:6px; max-height:110px; overflow-y:auto; }
+        .cim-col-chip { background:#e0e7ff; color:#4338ca; font-size:11px; font-weight:500; padding:2px 8px; border-radius:999px; cursor:default; }
         .cim-col-chip--required { background:#fee2e2; color:#b91c1c; }
 
         .cim-dropzone { border:2px dashed #d1d5db; border-radius:12px; padding:32px; display:flex; flex-direction:column; align-items:center; gap:10px; cursor:pointer; transition:border-color .2s,background .2s; }
