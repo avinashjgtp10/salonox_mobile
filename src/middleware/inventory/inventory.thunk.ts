@@ -18,6 +18,11 @@ import type {
   AdjustStockPayload,
   UsageHistoryFilters,
   UsageHistoryRow,
+  ProductAuditWithDetail,
+  ProductAuditListRow,
+  ListProductAuditsFilters,
+  CreateProductAuditPayload,
+  UpdateAuditItemPayload,
 } from "../../types/inventory.types";
 
 // ── Fetch all stocktakes ──────────────────────────────────────────────────────
@@ -298,5 +303,166 @@ export const fetchUsageHistoryThunk = createAsyncThunk<
   } catch (err: any) {
     console.error("fetchUsageHistoryThunk error:", err?.response?.data || err?.message);
     return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch usage history");
+  }
+});
+
+// ─── Product Audit ────────────────────────────────────────────────────────────
+
+export interface ProductAuditListResult {
+  data: ProductAuditListRow[];
+  total: number;
+}
+
+const auditErrorMessage = (err: any, fallback: string) =>
+  err?.response?.data?.error?.message || err?.response?.data?.message || fallback;
+
+export const fetchProductAuditsThunk = createAsyncThunk<
+  ProductAuditListResult,
+  ListProductAuditsFilters,
+  { rejectValue: string }
+>("inventory/fetchProductAudits", async (filters, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<ProductAuditListResult>>(INVENTORY.PRODUCT_AUDITS, { params: filters });
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to fetch product audits"));
+  }
+});
+
+export const fetchProductAuditByIdThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  string,
+  { rejectValue: string }
+>("inventory/fetchProductAuditById", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<ProductAuditWithDetail>>(INVENTORY.PRODUCT_AUDIT_BY_ID(id));
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to fetch product audit"));
+  }
+});
+
+export const createProductAuditThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  CreateProductAuditPayload,
+  { rejectValue: string }
+>("inventory/createProductAudit", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(INVENTORY.PRODUCT_AUDITS, payload);
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to create product audit"));
+  }
+});
+
+export const deleteProductAuditThunk = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("inventory/deleteProductAudit", async (id, { rejectWithValue }) => {
+  try {
+    await api.delete(INVENTORY.PRODUCT_AUDIT_BY_ID(id));
+    return id;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to delete product audit"));
+  }
+});
+
+export const addProductAuditItemsThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  { auditId: string; productIds: string[] },
+  { rejectValue: string }
+>("inventory/addProductAuditItems", async ({ auditId, productIds }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(
+      INVENTORY.PRODUCT_AUDIT_ITEMS(auditId), { product_ids: productIds },
+    );
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to add products to audit"));
+  }
+});
+
+export const removeProductAuditItemThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  { auditId: string; itemId: string },
+  { rejectValue: string }
+>("inventory/removeProductAuditItem", async ({ auditId, itemId }, { rejectWithValue }) => {
+  try {
+    const res = await api.delete<InventoryResponse<ProductAuditWithDetail>>(INVENTORY.PRODUCT_AUDIT_ITEM_BY_ID(auditId, itemId));
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to remove product from audit"));
+  }
+});
+
+export const updateProductAuditItemThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  { auditId: string; itemId: string; payload: UpdateAuditItemPayload },
+  { rejectValue: string }
+>("inventory/updateProductAuditItem", async ({ auditId, itemId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.patch<InventoryResponse<ProductAuditWithDetail>>(
+      INVENTORY.PRODUCT_AUDIT_ITEM_BY_ID(auditId, itemId), payload,
+    );
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to update audit item"));
+  }
+});
+
+export const submitProductAuditThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  string,
+  { rejectValue: string }
+>("inventory/submitProductAudit", async (auditId, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(INVENTORY.PRODUCT_AUDIT_SUBMIT(auditId));
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to submit audit for review"));
+  }
+});
+
+export const approveProductAuditThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  { auditId: string; reviewerId?: string },
+  { rejectValue: string }
+>("inventory/approveProductAudit", async ({ auditId, reviewerId }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(
+      INVENTORY.PRODUCT_AUDIT_APPROVE(auditId), reviewerId ? { reviewer_id: reviewerId } : undefined,
+    );
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to approve audit"));
+  }
+});
+
+export const rejectProductAuditThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  { auditId: string; reason: string; reviewerId?: string },
+  { rejectValue: string }
+>("inventory/rejectProductAudit", async ({ auditId, reason, reviewerId }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(
+      INVENTORY.PRODUCT_AUDIT_REJECT(auditId), { reason, ...(reviewerId ? { reviewer_id: reviewerId } : {}) },
+    );
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to reject audit"));
+  }
+});
+
+export const reopenProductAuditThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  string,
+  { rejectValue: string }
+>("inventory/reopenProductAudit", async (auditId, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(INVENTORY.PRODUCT_AUDIT_REOPEN(auditId));
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to reopen audit"));
   }
 });

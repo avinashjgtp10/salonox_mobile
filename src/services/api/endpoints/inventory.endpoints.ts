@@ -40,4 +40,15 @@ export const INVENTORY = {
   // touched, so the table can patch itself without a follow-up GET.
   PRODUCT_INVENTORY_PURCHASES: "/api/v1/inventory/product-inventory/purchases",
   PRODUCT_INVENTORY_PURCHASE_BY_ID: (id: string) => `/api/v1/inventory/product-inventory/purchases/${id}`,
+
+  // Product Audit — count physical stock against system quantities. Never
+  // adjusts real stock; see product-audit.repository.ts on the backend.
+  PRODUCT_AUDITS: "/api/v1/inventory/product-audits",
+  PRODUCT_AUDIT_BY_ID: (id: string) => `/api/v1/inventory/product-audits/${id}`,
+  PRODUCT_AUDIT_ITEMS: (id: string) => `/api/v1/inventory/product-audits/${id}/items`,
+  PRODUCT_AUDIT_ITEM_BY_ID: (id: string, itemId: string) => `/api/v1/inventory/product-audits/${id}/items/${itemId}`,
+  PRODUCT_AUDIT_SUBMIT: (id: string) => `/api/v1/inventory/product-audits/${id}/submit`,
+  PRODUCT_AUDIT_APPROVE: (id: string) => `/api/v1/inventory/product-audits/${id}/approve`,
+  PRODUCT_AUDIT_REJECT: (id: string) => `/api/v1/inventory/product-audits/${id}/reject`,
+  PRODUCT_AUDIT_REOPEN: (id: string) => `/api/v1/inventory/product-audits/${id}/reopen`,
 } as const;
