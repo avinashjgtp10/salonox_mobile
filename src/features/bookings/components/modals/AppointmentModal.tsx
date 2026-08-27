@@ -2262,6 +2262,7 @@ export const AppointmentModal: React.FC<Props> = ({
         defaultName={!existingBooking && !selectedClient ? defaultClientName : undefined}
         defaultPhone={!existingBooking && !selectedClient ? defaultClientPhone : undefined}
         openAddForm={triggerAddForm}
+        onAddFormCancelled={() => { setWalkInPayError(""); setTriggerAddForm(false); }}
         refreshKey={clientRefreshKey}
         rewardPointsConfig={rewardPointsConfig}
         onClientUpdated={() => setClientRefreshKey((k) => k + 1)}
