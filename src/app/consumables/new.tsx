@@ -16,6 +16,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -211,11 +212,9 @@ export default function NewConsumableScreen() {
       <AppStatusBar />
       <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         <View style={styles.header}>
-          <TouchableOpacity hitSlop={12} onPress={goBack} style={styles.iconButton}>
-            <Ionicons color={Colors.primary} name="arrow-back" size={20} />
-          </TouchableOpacity>
+          <AppBackButton onPress={goBack} />
           <Text style={styles.headerTitle}>Add Consumable</Text>
-          <View style={styles.headerSpacer} />
+          <AppBackButtonPlaceholder />
         </View>
 
         <Section title="Basic Information">
@@ -504,7 +503,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   header: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", marginBottom: Spacing.lg },
   iconButton: { alignItems: "center", backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: AppRadius.control, borderWidth: 1, height: AppLayout.headerActionSize, justifyContent: "center", width: AppLayout.headerActionSize },
   headerTitle: { color: Colors.heading, fontSize: 24, fontWeight: "800" },
-  headerSpacer: { width: AppLayout.headerActionSize },
   section: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 8, borderWidth: 1, marginBottom: Spacing.lg, padding: Spacing.lg },
   sectionEmphasized: { borderColor: Colors.heading },
   sectionTitle: { color: Colors.heading, fontSize: 17, fontWeight: "800", marginBottom: Spacing.md },

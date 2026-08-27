@@ -16,6 +16,7 @@ import {
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
@@ -318,15 +319,7 @@ export default function NewClientScreen() {
         style={styles.flex}
       >
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              disabled={isSubmitting}
-              hitSlop={AppLayout.headerActionHitSlop}
-              onPress={handleBack}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={26} color={Colors.appointmentText} />
-            </TouchableOpacity>
+            <AppBackButton onPress={handleBack} />
             <Text style={styles.headerTitle}>{isEditMode ? "Edit client" : "Add client"}</Text>
           </View>
 
@@ -503,14 +496,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     gap: 10,
     marginBottom: 22,
     minHeight: 58,
-  },
-  backButton: {
-    alignItems: "center",
-    backgroundColor: "transparent",
-    borderWidth: 0,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
-    width: AppLayout.headerActionSize,
   },
   backButtonPlaceholder: {
     width: AppLayout.headerActionSize,

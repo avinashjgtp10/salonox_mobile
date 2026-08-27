@@ -1,11 +1,11 @@
-import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useMemo } from "react";
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { AppLayout, AppRadius } from "@/constants/layout";
+import { AppLayout } from "@/constants/layout";
 import {
   DashboardSpacing as Spacing,
   type ThemeColors,
@@ -51,9 +51,7 @@ export function StaffSectionScreen({ sectionKey }: StaffSectionScreenProps) {
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
-          </TouchableOpacity>
+          <AppBackButton onPress={handleBack} />
           <View style={styles.headerCopy}>
             <Text style={styles.title}>{section?.label ?? "Staff Section"}</Text>
             <Text style={styles.subtitle}>{section?.description ?? "Manage staff records."}</Text>
@@ -93,16 +91,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     flexDirection: "row",
     marginBottom: AppLayout.headerMarginBottom,
-  },
-  backButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
-    width: AppLayout.headerActionSize,
   },
   headerCopy: {
     flex: 1,

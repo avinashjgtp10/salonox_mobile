@@ -12,6 +12,7 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import { EmptyState, ErrorState, SkeletonBlock } from "@/components/ui/StateViews";
@@ -109,15 +110,9 @@ export default function ConsumablesScreen() {
       <SafeAreaView edges={["top"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.header}>
-          <TouchableOpacity
-            hitSlop={12}
-            onPress={() => (router.canGoBack() ? router.back() : router.replace("/more" as Href))}
-            style={styles.iconButton}
-          >
-            <Ionicons name="arrow-back" size={19} color={Colors.primary} />
-          </TouchableOpacity>
+          <AppBackButton fallbackHref="/more" />
           <Text style={styles.title}>Consumables</Text>
-          <View style={styles.iconButton} />
+          <AppBackButtonPlaceholder />
         </View>
         <EmptyState
           accent="indigo"
@@ -132,13 +127,7 @@ export default function ConsumablesScreen() {
   const header = (
     <View>
       <View style={styles.header}>
-        <TouchableOpacity
-          hitSlop={12}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/more" as Href))}
-          style={styles.iconButton}
-        >
-          <Ionicons name="arrow-back" size={19} color={Colors.primary} />
-        </TouchableOpacity>
+        <AppBackButton fallbackHref="/more" />
         <Text style={styles.title}>Consumables</Text>
         <TouchableOpacity
           accessibilityLabel="Usage history"

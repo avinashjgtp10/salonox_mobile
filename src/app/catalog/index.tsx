@@ -3,6 +3,7 @@ import { router, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
+  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -13,14 +14,17 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout } from "@/constants/layout";
 import { type ThemeColors } from "@/constants/theme";
 import { fetchConsumablesThunk } from "@/middleware/consumable/consumable.thunk";
 import { fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
-import { fetchProductsThunk } from "@/middleware/product/product.thunk";
-import { fetchServicesThunk } from "@/middleware/service/service.thunk";
+import { deleteProductThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
+import { deleteServiceThunk, fetchServicesThunk } from "@/middleware/service/service.thunk";
+import { getApiErrorMessage } from "@/services/api";
+import { consumableService } from "@/services/consumable.service";
 import { packageService } from "@/services/package.service";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { selectConsumableState } from "@/store/consumable/consumable.slice";
@@ -35,6 +39,7 @@ import {
   selectServicesError,
   selectServicesLoading,
 } from "@/store/service/service.slice";
+import { useAppToast } from "@/hooks/useAppToast";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Membership } from "@/types/membership";
 import type { ConsumableListItem } from "@/types/consumable";
@@ -43,8 +48,6 @@ import type { Product } from "@/types/product";
 import type { ServiceListItem } from "@/types/service";
 
 type CatalogTab = "services" | "products" | "packages" | "memberships" | "consumables";
-type CatalogView = "table" | "card";
-
 type CatalogItem = {
   category: string;
   id: string;
@@ -63,7 +66,6 @@ const TABS: { icon: keyof typeof Ionicons.glyphMap; key: CatalogTab; label: stri
   { icon: "diamond-outline", key: "memberships", label: "Memberships" },
 ];
 
-let rememberedCatalogView: CatalogView = "table";
 const CATALOG_PAGE_SIZE = 10;
 
 const formatMoney = (value: number) => `₹${value.toLocaleString("en-IN", { maximumFractionDigits: 2, minimumFractionDigits: 2 })}`;
@@ -117,55 +119,23 @@ const membershipToItem = (item: Membership): CatalogItem => ({
   route: `/memberships/${item.id}` as Href,
 });
 
-function ViewToggle({ onChange, value }: { onChange: (view: CatalogView) => void; value: CatalogView }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <View accessibilityLabel="Catalog view" style={styles.viewToggle}>
-      <TouchableOpacity accessibilityLabel="Table view" onPress={() => onChange("table")} style={[styles.viewToggleButton, value === "table" && styles.viewToggleButtonActive]}>
-        <Ionicons color={value === "table" ? Colors.primary : Colors.text2} name="list-outline" size={21} />
-      </TouchableOpacity>
-      <TouchableOpacity accessibilityLabel="Card view" onPress={() => onChange("card")} style={[styles.viewToggleButton, value === "card" && styles.viewToggleButtonActive]}>
-        <Ionicons color={value === "card" ? Colors.primary : Colors.text2} name="grid-outline" size={19} />
-      </TouchableOpacity>
-    </View>
-  );
-}
-
-function CatalogCard({ item }: { item: CatalogItem }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <TouchableOpacity activeOpacity={item.route ? 0.82 : 1} disabled={!item.route} onPress={() => item.route && router.push(item.route)} style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.cardTitleWrap}>
-          <Text numberOfLines={2} style={styles.cardTitle}>{item.name}</Text>
-          <Text numberOfLines={1} style={styles.cardCategory}>{item.category}</Text>
-        </View>
-      </View>
-      <View style={styles.cardDivider} />
-      <View style={styles.cardDetails}>
-        <View style={styles.detailBlock}><Text style={styles.detailLabel}>PRICE</Text><Text style={styles.detailValue}>{formatMoney(item.price)}</Text></View>
-        <View style={styles.detailBlock}><Text style={styles.detailLabel}>DETAILS</Text><Text numberOfLines={2} style={styles.detailValue}>{item.meta}</Text></View>
-      </View>
-    </TouchableOpacity>
-  );
-}
-
-function CatalogTable({ items }: { items: CatalogItem[] }) {
+function CatalogTable({ deletingId, items, onDelete }: { deletingId?: string | null; items: CatalogItem[]; onDelete?: (item: CatalogItem) => void }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
     <View style={styles.table}>
-      <View style={styles.tableHeader}><Text style={[styles.tableHeaderText, styles.nameColumn]}>Name</Text><Text style={[styles.tableHeaderText, styles.categoryColumn]}>Category</Text><Text style={[styles.tableHeaderText, styles.priceColumn]}>Price</Text></View>
+      <View style={styles.tableHeader}><Text style={[styles.tableHeaderText, styles.nameColumn]}>Name</Text><Text style={[styles.tableHeaderText, styles.categoryColumn]}>Category</Text><Text style={[styles.tableHeaderText, styles.priceColumn]}>Price</Text>{onDelete ? <Text style={[styles.tableHeaderText, styles.actionColumn]}>Action</Text> : null}</View>
       {items.map((item) => (
         <TouchableOpacity activeOpacity={item.route ? 0.8 : 1} disabled={!item.route} key={item.id} onPress={() => item.route && router.push(item.route)} style={styles.tableRow}>
           <View style={styles.nameColumn}><Text numberOfLines={2} style={styles.tableName}>{item.name}</Text></View>
           <Text numberOfLines={2} style={[styles.tableCell, styles.categoryColumn]}>{item.category}</Text>
           <Text numberOfLines={1} style={[styles.tablePrice, styles.priceColumn]}>{formatMoney(item.price)}</Text>
+          {onDelete ? (
+            <TouchableOpacity accessibilityLabel={`Delete ${item.name}`} disabled={deletingId === item.id} hitSlop={10} onPress={() => onDelete(item)} style={styles.tableDeleteButton}>
+              {deletingId === item.id ? <ActivityIndicator color={Colors.error} size="small" /> : <Ionicons color={Colors.error} name="trash-outline" size={18} />}
+            </TouchableOpacity>
+          ) : null}
         </TouchableOpacity>
       ))}
     </View>
@@ -176,6 +146,7 @@ export default function CatalogScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const services = useAppSelector(selectServices);
   const servicesLoading = useAppSelector(selectServicesLoading);
   const servicesError = useAppSelector(selectServicesError);
@@ -185,13 +156,13 @@ export default function CatalogScreen() {
   const membershipsLoading = useAppSelector(selectMembershipsLoading);
   const membershipsError = useAppSelector(selectMembershipsError);
   const [activeTab, setActiveTab] = useState<CatalogTab>("services");
-  const [view, setView] = useState<CatalogView>(rememberedCatalogView);
   const [query, setQuery] = useState("");
   const [packages, setPackages] = useState<PackageListItem[]>([]);
   const [packagesLoading, setPackagesLoading] = useState(false);
   const [packagesError, setPackagesError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [page, setPage] = useState(1);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadPackages = useCallback(async () => {
     setPackagesLoading(true);
@@ -218,11 +189,6 @@ export default function CatalogScreen() {
 
   useEffect(() => { void loadCatalog(); }, [loadCatalog]);
 
-  const changeView = (next: CatalogView) => {
-    rememberedCatalogView = next;
-    setView(next);
-  };
-
   const itemsByTab = useMemo<Record<CatalogTab, CatalogItem[]>>(() => ({
     consumables: consumableState.consumables.map(consumableToItem),
     memberships: memberships.map(membershipToItem),
@@ -239,7 +205,7 @@ export default function CatalogScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [activeTab, query, view]);
+  }, [activeTab, query]);
 
   const totalPages = Math.max(1, Math.ceil(visibleItems.length / CATALOG_PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -250,9 +216,11 @@ export default function CatalogScreen() {
 
   const loading = activeTab === "services" ? servicesLoading : activeTab === "products" ? productState.loading : activeTab === "consumables" ? consumableState.loading : activeTab === "memberships" ? membershipsLoading : packagesLoading;
   const error = activeTab === "services" ? servicesError : activeTab === "products" ? productState.error : activeTab === "consumables" ? consumableState.error : activeTab === "memberships" ? membershipsError : packagesError;
+  const showPagination = !error && visibleItems.length > 0;
   const activeCount = itemsByTab[activeTab].filter((item) => item.isActive).length;
   const totalValue = itemsByTab[activeTab].reduce((total, item) => total + item.price, 0);
   const addRoute = activeTab === "consumables" ? "/consumables/new" : null;
+  const canDeleteActiveTab = activeTab === "services" || activeTab === "products" || activeTab === "packages" || activeTab === "consumables";
 
   const refresh = async () => {
     setRefreshing(true);
@@ -262,14 +230,55 @@ export default function CatalogScreen() {
 
   const goBack = () => router.canGoBack() ? router.back() : router.replace("/dashboard" as Href);
 
+  const deleteItem = async (item: CatalogItem) => {
+    setDeletingId(item.id);
+
+    try {
+      if (activeTab === "services") {
+        const action = await dispatch(deleteServiceThunk(item.id));
+        if (deleteServiceThunk.rejected.match(action)) throw new Error(action.payload?.message ?? "Unable to delete service.");
+        toast.showSuccess("Service deleted successfully.");
+      } else if (activeTab === "products") {
+        const action = await dispatch(deleteProductThunk(item.id));
+        if (deleteProductThunk.rejected.match(action)) throw new Error(action.payload?.message ?? "Unable to delete product.");
+        toast.showSuccess("Product deleted successfully.");
+      } else if (activeTab === "consumables") {
+        await consumableService.deleteConsumable(item.id);
+        toast.showSuccess("Consumable deleted successfully.");
+      } else if (activeTab === "packages") {
+        await packageService.deletePackage(item.id);
+        toast.showSuccess("Package deleted successfully.");
+      }
+
+      await loadCatalog(true);
+      setPage((current) => Math.min(current, Math.max(1, Math.ceil(Math.max(0, visibleItems.length - 1) / CATALOG_PAGE_SIZE))));
+    } catch (error) {
+      Alert.alert("Unable to delete", getApiErrorMessage(error));
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
+  const confirmDelete = (item: CatalogItem) => {
+    const label = TABS.find((tab) => tab.key === activeTab)?.label ?? "item";
+
+    Alert.alert(
+      `Delete ${label}`,
+      `Are you sure you want to delete "${item.name}"? This action cannot be undone.`,
+      [
+        { style: "cancel", text: "Cancel" },
+        { onPress: () => void deleteItem(item), style: "destructive", text: "Delete" },
+      ],
+    );
+  };
+
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void refresh()} refreshing={refreshing} tintColor={Colors.primary} />} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity hitSlop={12} onPress={goBack} style={styles.headerButton}><Ionicons color={Colors.heading} name="arrow-back" size={26} /></TouchableOpacity>
+          <AppBackButton onPress={goBack} />
           <Text style={styles.title}>Catalog</Text>
-          <ViewToggle onChange={changeView} value={view} />
         </View>
 
         <ScrollView contentContainerStyle={styles.tabsContent} horizontal showsHorizontalScrollIndicator={false} style={styles.tabsScroller}>
@@ -301,39 +310,35 @@ export default function CatalogScreen() {
         {loading && itemsByTab[activeTab].length === 0 ? <View style={styles.state}><ActivityIndicator color={Colors.primary} size="large" /><Text style={styles.stateText}>Loading catalog...</Text></View> : null}
         {error && !loading ? <View style={styles.state}><Ionicons color={Colors.error} name="alert-circle-outline" size={32} /><Text style={styles.stateTitle}>Unable to load {activeTab}</Text><Text style={styles.stateText}>{error}</Text><TouchableOpacity onPress={() => void loadCatalog(true)} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></TouchableOpacity></View> : null}
         {!loading && !error && visibleItems.length === 0 ? <View style={styles.state}><Ionicons color={Colors.text2} name="file-tray-outline" size={34} /><Text style={styles.stateTitle}>No {activeTab} found</Text><Text style={styles.stateText}>Try another search or add an item from its management screen.</Text></View> : null}
-        {!error && visibleItems.length > 0 ? (
+        {showPagination ? (
           <>
-            {view === "table" ? (
-              <CatalogTable items={paginatedItems} />
-            ) : (
-              <View style={styles.cardList}>{paginatedItems.map((item) => <CatalogCard item={item} key={item.id} />)}</View>
-            )}
-            <PaginationControls
-              currentPage={safePage}
-              hasNextPage={safePage < totalPages}
-              hasPreviousPage={safePage > 1}
-              onNext={() => setPage((current) => Math.min(totalPages, current + 1))}
-              onPrevious={() => setPage((current) => Math.max(1, current - 1))}
-              totalItems={visibleItems.length}
-              totalPages={totalPages}
-              visibleItems={paginatedItems.length}
-            />
+            <CatalogTable deletingId={deletingId} items={paginatedItems} onDelete={canDeleteActiveTab ? confirmDelete : undefined} />
           </>
         ) : null}
       </ScrollView>
+      {showPagination ? (
+        <View style={styles.paginationDock}>
+          <PaginationControls
+            currentPage={safePage}
+            hasNextPage={safePage < totalPages}
+            hasPreviousPage={safePage > 1}
+            onNext={() => setPage((current) => Math.min(totalPages, current + 1))}
+            onPrevious={() => setPage((current) => Math.max(1, current - 1))}
+            totalItems={visibleItems.length}
+            totalPages={totalPages}
+            visibleItems={paginatedItems.length}
+          />
+        </View>
+      ) : null}
     </SafeAreaView>
   );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: { backgroundColor: Colors.bg, flex: 1 },
-  content: { paddingBottom: AppLayout.contentBottomPadding },
+  content: { paddingBottom: AppLayout.contentBottomPadding + 108 },
   header: { alignItems: "center", flexDirection: "row", minHeight: 66, paddingHorizontal: 16 },
-  headerButton: { alignItems: "center", height: 44, justifyContent: "center", width: 44 },
-  title: { color: Colors.heading, flex: 1, fontFamily: "serif", fontSize: 29, fontWeight: "800", marginLeft: 4 },
-  viewToggle: { borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flexDirection: "row", overflow: "hidden" },
-  viewToggleButton: { alignItems: "center", height: 40, justifyContent: "center", width: 42 },
-  viewToggleButtonActive: { backgroundColor: Colors.backgroundSelected },
+  title: { color: Colors.heading, flex: 1, fontFamily: "serif", fontSize: 29, fontWeight: "800", marginLeft: 12 },
   tabsScroller: { borderBottomColor: Colors.border, borderBottomWidth: 1 },
   tabsContent: { paddingHorizontal: 12 },
   tab: { alignItems: "center", borderBottomColor: "transparent", borderBottomWidth: 3, flexDirection: "row", gap: 6, minHeight: 58, paddingHorizontal: 15 },
@@ -356,26 +361,31 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   tableHeader: { backgroundColor: Colors.primary, flexDirection: "row", paddingHorizontal: 16, paddingVertical: 15 },
   tableHeaderText: { color: "#FFFFFF", fontSize: 13, fontWeight: "800" },
   tableRow: { alignItems: "center", borderBottomColor: Colors.border, borderBottomWidth: 1, flexDirection: "row", minHeight: 84, paddingHorizontal: 16, paddingVertical: 12 },
-  nameColumn: { paddingRight: 8, width: "40%" },
-  categoryColumn: { paddingRight: 8, width: "34%" },
-  priceColumn: { textAlign: "right", width: "26%" },
+  nameColumn: { paddingRight: 8, width: "34%" },
+  categoryColumn: { paddingRight: 8, width: "30%" },
+  priceColumn: { textAlign: "right", width: "24%" },
+  actionColumn: { textAlign: "right", width: "12%" },
   tableName: { color: Colors.heading, fontSize: 14, fontWeight: "700" },
   tableCell: { color: Colors.text2, fontSize: 13 },
   tablePrice: { color: Colors.heading, fontSize: 13, fontWeight: "800" },
-  cardList: { gap: 14, paddingHorizontal: 16 },
-  card: { backgroundColor: Colors.card, borderColor: Colors.border, borderRadius: 8, borderWidth: 1, elevation: 2, overflow: "hidden", shadowColor: Colors.shadow, shadowOffset: { height: 3, width: 0 }, shadowOpacity: 0.08, shadowRadius: 7 },
-  cardHeader: { alignItems: "flex-start", flexDirection: "row", gap: 10, padding: 16 },
-  cardTitleWrap: { flex: 1 },
-  cardTitle: { color: Colors.heading, fontSize: 17, fontWeight: "800" },
-  cardCategory: { color: Colors.text2, fontSize: 13, marginTop: 5 },
-  cardDivider: { backgroundColor: Colors.border, height: 1 },
-  cardDetails: { flexDirection: "row", gap: 12, padding: 16 },
-  detailBlock: { flex: 1 },
-  detailLabel: { color: Colors.text2, fontSize: 10, fontWeight: "700" },
-  detailValue: { color: Colors.heading, fontSize: 14, fontWeight: "700", marginTop: 6 },
+  tableDeleteButton: { alignItems: "flex-end", justifyContent: "center", minHeight: 44, width: "12%" },
   state: { alignItems: "center", minHeight: 260, paddingHorizontal: 30, paddingTop: 55 },
   stateTitle: { color: Colors.heading, fontSize: 18, fontWeight: "800", marginTop: 14, textAlign: "center" },
   stateText: { color: Colors.text2, fontSize: 13, lineHeight: 20, marginTop: 8, textAlign: "center" },
   retryButton: { borderColor: Colors.primary, borderRadius: 8, borderWidth: 1, marginTop: 18, paddingHorizontal: 24, paddingVertical: 11 },
   retryText: { color: Colors.primary, fontSize: 14, fontWeight: "700" },
+  paginationDock: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderTopWidth: 1,
+    bottom: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    shadowColor: Colors.shadow,
+    shadowOffset: { height: -3, width: 0 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 8,
+  },
 });

@@ -25,6 +25,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import QuickSaleScreen, { type QuickSaleSlot } from "@/features/quickSale/screens/QuickSaleScreen";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
@@ -3169,9 +3170,7 @@ function ServiceCatalogPicker({
       <SafeAreaView edges={["top", "bottom"]} style={styles.servicePickerSafeArea}>
         <AppStatusBar />
         <View style={styles.servicePickerHeader}>
-          <TouchableOpacity activeOpacity={0.8} onPress={onClose} style={styles.servicePickerBack}>
-            <Ionicons name="arrow-back" size={26} color={Colors.appointmentText} />
-          </TouchableOpacity>
+          <AppBackButton onPress={onClose} />
           <Text style={styles.servicePickerTitle}>Add services</Text>
         </View>
 
@@ -4128,14 +4127,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         style={styles.flex}
       >
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              hitSlop={AppLayout.headerActionHitSlop}
-              onPress={() => (router.canGoBack() ? router.back() : router.replace("/bookings" as Href))}
-              style={styles.iconButton}
-            >
-              <Ionicons name="arrow-back" size={26} color={Colors.appointmentText} />
-            </TouchableOpacity>
+            <AppBackButton fallbackHref="/bookings" />
             <View style={styles.appointmentHeaderCopy}>
               <Text style={styles.headerTitle}>{mode === "create" ? "New Appointment" : "Edit Appointment"}</Text>
               <Text style={styles.appointmentHeaderSubtitle}>

@@ -294,6 +294,12 @@ export const consumableService = {
     };
   },
 
+  async deleteConsumable(id: string): Promise<{ message?: string; productId: string }> {
+    const response = await api.delete<ApiResponse<unknown>>(CONSUMABLE.DELETE(id));
+
+    return { message: response.data.message, productId: id };
+  },
+
   // Verified live: a successful adjustment returns `{ data: null, message:
   // "Stock adjusted" }` — the endpoint does not echo the updated
   // consumable, so callers must re-fetch detail/list themselves (already
