@@ -15,6 +15,9 @@ import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { maskMobile } from "../../../utils/maskMobile";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./ClientRevenueReport.scss";
 
 const REPORT_NAME = "Lost Clients";
@@ -79,6 +82,8 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
   const [currentPage,  setCurrentPage]  = useState(1);
   const [pageSize,     setPageSize]     = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
@@ -221,6 +226,8 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
         </div>
       )}
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -232,6 +239,14 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every((_r, i) => selection.selectedIds.has(String(i)))}
+                  onChange={() => selection.toggleAll(rows.map((_r, i) => String(i)))}
+                />
+              </th>
               <th>Client Name</th><th>Contact</th><th>Total Visits</th>
               <th>Total Spend ({currencySymbol})</th>
               <th>First Visit</th><th>Last Visit</th>
@@ -240,22 +255,29 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={7} />
+              <SkeletonTableRows columns={8} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="rp-detail-empty-cell">No lost clients found</td></tr>
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No lost clients found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.clientId ? "rp-appt-row" : undefined}
-                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
-                <td className="fw-semibold">{r.clientName}</td>
-                <td>{maskMobile(r.contact)}</td>
-                <td>{r.visits}</td>
-                <td className="fw-semibold">{formatAmount(r.totalSpend)}</td>
-                <td>{formatDate(r.firstVisit)}</td>
-                <td>{formatDate(r.lastVisit)}</td>
-                <td>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(String(i))}
+                    onChange={() => selection.toggleOne(String(i))}
+                  />
+                </td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.clientName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{maskMobile(r.contact)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.visits}</td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.totalSpend)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatDate(r.firstVisit)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatDate(r.lastVisit)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>
                   <span className="rp-status-badge rp-status-cancelled">{r.daysSinceLastVisit}d</span>
                 </td>
               </tr>
@@ -270,6 +292,16 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />
       )}
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter((r, i) => selection.selectedIds.has(String(i)) && r.contact && r.contact !== "—")
+          .map(r => ({ phone: r.contact, name: r.clientName }))}
+        defaultCampaignName="Lost Clients"
+        onSent={selection.clearSelection}
+      />
     </div>
   );
 }

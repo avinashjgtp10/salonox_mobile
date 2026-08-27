@@ -13,6 +13,9 @@ import { DateRangeFilter } from "../../../components/ui";
 import type { DateRangeFilterValue } from "../../../components/ui";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { maskMobile } from "../../../utils/maskMobile";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./AppointmentDetailReport.scss";
 
 const REPORT_NAME = "Upcoming Appointments Report";
@@ -113,6 +116,8 @@ export default function UpcomingAppointmentsReport({ onBack, category, categoryK
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const [selectedId,  setSelectedId]  = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
 
   // Real server-side pagination — page/limit are sent on every request, and
   // only that page's rows come back.
@@ -254,10 +259,20 @@ export default function UpcomingAppointmentsReport({ onBack, category, categoryK
         </div>
       </div>
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every((_r, i) => selection.selectedIds.has(String(i)))}
+                  onChange={() => selection.toggleAll(rows.map((_r, i) => String(i)))}
+                />
+              </th>
               <th>Appointment Date</th>
               <th>Appointment Time</th>
               <th>Client Name</th>
@@ -271,21 +286,29 @@ export default function UpcomingAppointmentsReport({ onBack, category, categoryK
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={9} />
+              <SkeletonTableRows columns={10} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={9} className="rp-detail-empty-cell">No upcoming appointments found</td></tr>
+              <tr><td colSpan={10} className="rp-detail-empty-cell">No upcoming appointments found</td></tr>
             ) : (
               rows.map((row, i) => (
-                <tr key={i} className="rp-appt-row" onClick={() => setSelectedId(row.id)}>
-                  <td>{row.appointmentDate !== "—" ? formatDate(row.appointmentDate) : "—"}</td>
-                  <td>{row.time}</td>
-                  <td>{row.clientName || "—"}</td>
-                  <td>{maskMobile(row.mobileNumber) || "—"}</td>
-                  <td>{row.serviceName}</td>
-                  <td>{row.packageName}</td>
-                  <td>{row.staffName || "—"}</td>
-                  <td><span className={`rp-status-badge rp-status-${row.appointmentStatus}`}>{fmtLabel(row.appointmentStatus)}</span></td>
-                  <td>{row.description}</td>
+                <tr key={i} className="rp-appt-row">
+                  <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="checkbox"
+                      className="rp-row-checkbox"
+                      checked={selection.selectedIds.has(String(i))}
+                      onChange={() => selection.toggleOne(String(i))}
+                    />
+                  </td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.appointmentDate !== "—" ? formatDate(row.appointmentDate) : "—"}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.time}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.clientName || "—"}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{maskMobile(row.mobileNumber) || "—"}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.serviceName}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.packageName}</td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.staffName || "—"}</td>
+                  <td onClick={() => setSelectedId(row.id)}><span className={`rp-status-badge rp-status-${row.appointmentStatus}`}>{fmtLabel(row.appointmentStatus)}</span></td>
+                  <td onClick={() => setSelectedId(row.id)}>{row.description}</td>
                 </tr>
               ))
             )}
@@ -306,6 +329,16 @@ export default function UpcomingAppointmentsReport({ onBack, category, categoryK
           onChanged={fetchData}
         />
       )}
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter((r, i) => selection.selectedIds.has(String(i)) && r.mobileNumber)
+          .map(r => ({ phone: r.mobileNumber, name: r.clientName }))}
+        defaultCampaignName="Upcoming Appointments"
+        onSent={selection.clearSelection}
+      />
     </div>
   );
 }

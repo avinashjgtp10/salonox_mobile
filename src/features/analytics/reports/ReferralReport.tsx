@@ -13,6 +13,9 @@ import type { JiraFilterField, DateRangeFilterValue } from "../../../components/
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./ClientRevenueReport.scss";
 
 const REPORT_NAME = "Referral Report";
@@ -27,6 +30,8 @@ interface ReferralRow {
   referrerClientId: string;
   referrerName: string;
   referredName: string;
+  referrerPhone: string;
+  referredPhone: string;
   referralDate: string | null;
   firstVisit: string | null;
   totalVisits: number;
@@ -42,6 +47,8 @@ function mapRow(row: any): ReferralRow {
     referrerClientId: row.referrer_client_id ? String(row.referrer_client_id) : "",
     referrerName: row.referrer_name || "Walk-in",
     referredName: row.referred_name || "Walk-in",
+    referrerPhone: row.referrer_phone || "",
+    referredPhone: row.referred_phone || "",
     referralDate: row.referral_date || null,
     firstVisit: row.first_visit || null,
     totalVisits: Number(row.total_visits) || 0,
@@ -79,6 +86,8 @@ export default function ReferralReport({ onBack, category, categoryKey }: { onBa
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
@@ -222,6 +231,8 @@ export default function ReferralReport({ onBack, category, categoryKey }: { onBa
         </div>
       )}
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -233,6 +244,14 @@ export default function ReferralReport({ onBack, category, categoryKey }: { onBa
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every((_r, i) => selection.selectedIds.has(String(i)))}
+                  onChange={() => selection.toggleAll(rows.map((_r, i) => String(i)))}
+                />
+              </th>
               <th>Referrer</th><th>Referred Client</th><th>Referral Date</th>
               <th>First Visit</th><th>Total Visits</th>
               <th>Revenue Generated ({currencySymbol})</th>
@@ -242,28 +261,35 @@ export default function ReferralReport({ onBack, category, categoryKey }: { onBa
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={9} />
+              <SkeletonTableRows columns={10} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={9} className="rp-detail-empty-cell">No referrals found</td></tr>
+              <tr><td colSpan={10} className="rp-detail-empty-cell">No referrals found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.referredClientId ? "rp-appt-row" : undefined}
-                onClick={() => r.referredClientId && setSelectedClientId(r.referredClientId)}
               >
-                <td className="fw-semibold">{r.referrerName}</td>
-                <td>{r.referredName}</td>
-                <td>{formatDate(r.referralDate)}</td>
-                <td>{formatDate(r.firstVisit)}</td>
-                <td>{r.totalVisits}</td>
-                <td className="fw-semibold">{formatAmount(r.revenueGenerated)}</td>
-                <td>{formatAmount(r.rewardEarned)}</td>
-                <td>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(String(i))}
+                    onChange={() => selection.toggleOne(String(i))}
+                  />
+                </td>
+                <td className="fw-semibold" onClick={() => r.referredClientId && setSelectedClientId(r.referredClientId)}>{r.referrerName}</td>
+                <td onClick={() => r.referredClientId && setSelectedClientId(r.referredClientId)}>{r.referredName}</td>
+                <td onClick={() => r.referredClientId && setSelectedClientId(r.referredClientId)}>{formatDate(r.referralDate)}</td>
+                <td onClick={() => r.referredClientId && setSelectedClientId(r.referredClientId)}>{formatDate(r.firstVisit)}</td>
+                <td onClick={() => r.referredClientId && setSelectedClientId(r.referredClientId)}>{r.totalVisits}</td>
+                <td className="fw-semibold" onClick={() => r.referredClientId && setSelectedClientId(r.referredClientId)}>{formatAmount(r.revenueGenerated)}</td>
+                <td onClick={() => r.referredClientId && setSelectedClientId(r.referredClientId)}>{formatAmount(r.rewardEarned)}</td>
+                <td onClick={() => r.referredClientId && setSelectedClientId(r.referredClientId)}>
                   <span className={`rp-status-badge ${r.rewardStatus === "rewarded" ? "rp-status-completed" : "rp-status-pending"}`}>
                     {r.rewardStatus === "rewarded" ? "Rewarded" : "Pending"}
                   </span>
                 </td>
-                <td>{r.staffName}</td>
+                <td onClick={() => r.referredClientId && setSelectedClientId(r.referredClientId)}>{r.staffName}</td>
               </tr>
             ))}
           </tbody>
@@ -276,6 +302,18 @@ export default function ReferralReport({ onBack, category, categoryKey }: { onBa
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />
       )}
+
+      {/* Sends to the REFERRER (this report's own subject — reward status is
+          tracked per referrer), not the referred client. */}
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter((r, i) => selection.selectedIds.has(String(i)) && r.referrerPhone)
+          .map(r => ({ phone: r.referrerPhone, name: r.referrerName }))}
+        defaultCampaignName="Referral Report"
+        onSent={selection.clearSelection}
+      />
     </div>
   );
 }

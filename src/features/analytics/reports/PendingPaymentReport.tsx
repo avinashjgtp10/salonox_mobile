@@ -12,6 +12,9 @@ import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { maskMobile } from "../../../utils/maskMobile";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./PendingPaymentReport.scss";
 
 const REPORT_NAME = "Pending Payment Report";
@@ -89,6 +92,8 @@ export default function PendingPaymentReport({ onBack, category, categoryKey }: 
   // Clicking a row opens the real bill drawer, where the balance can be
   // collected via its "Collect Due" action — the whole point of this report.
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
@@ -248,10 +253,20 @@ export default function PendingPaymentReport({ onBack, category, categoryKey }: 
         </div>
       </div>
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every((_r, i) => selection.selectedIds.has(String(i)))}
+                  onChange={() => selection.toggleAll(rows.map((_r, i) => String(i)))}
+                />
+              </th>
               <th>Bill Date</th><th>Invoice No.</th><th>Client Name</th><th>Contact</th>
               <th>Total Amount ({currencySymbol})</th>
               <th>Paid Amount ({currencySymbol})</th>
@@ -261,28 +276,35 @@ export default function PendingPaymentReport({ onBack, category, categoryKey }: 
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={11} />
+              <SkeletonTableRows columns={12} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={11} className="rp-detail-empty-cell">No pending payments found</td></tr>
+              <tr><td colSpan={12} className="rp-detail-empty-cell">No pending payments found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.appointmentId ? "rp-appt-row" : undefined}
-                onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}
               >
-                <td>{formatDate(r.billDate)}</td>
-                <td><span className="rp-detail-link">{r.invoiceNumber}</span></td>
-                <td className="fw-semibold">{r.customerName}</td>
-                <td>{maskMobile(r.contact)}</td>
-                <td>{formatAmount(r.totalAmount)}</td>
-                <td>{formatAmount(r.paidAmount)}</td>
-                <td className="fw-semibold">{formatAmount(r.dueAmount)}</td>
-                <td>{r.paymentMethod}</td>
-                <td>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(String(i))}
+                    onChange={() => selection.toggleOne(String(i))}
+                  />
+                </td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{formatDate(r.billDate)}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}><span className="rp-detail-link">{r.invoiceNumber}</span></td>
+                <td className="fw-semibold" onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.customerName}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{maskMobile(r.contact)}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{formatAmount(r.totalAmount)}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{formatAmount(r.paidAmount)}</td>
+                <td className="fw-semibold" onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{formatAmount(r.dueAmount)}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.paymentMethod}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>
                   <span className="rp-status-badge rp-status-partial">Partial</span>
                 </td>
-                <td>{r.daysPending}</td>
-                <td>{r.staffName}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.daysPending}</td>
+                <td onClick={() => r.appointmentId && setSelectedAppointmentId(r.appointmentId)}>{r.staffName}</td>
               </tr>
             ))}
           </tbody>
@@ -301,6 +323,16 @@ export default function PendingPaymentReport({ onBack, category, categoryKey }: 
           onChanged={fetchData}
         />
       )}
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter((r, i) => selection.selectedIds.has(String(i)) && r.contact && r.contact !== "—")
+          .map(r => ({ phone: r.contact, name: r.customerName }))}
+        defaultCampaignName="Pending Payment Reminder"
+        onSent={selection.clearSelection}
+      />
     </div>
   );
 }
