@@ -7,8 +7,8 @@ import {
   resumeCampaignThunk,
   resendCampaignThunk,
 } from "../../../middleware/marketing/marketing.thunk";
-import { Button, Badge, Input, DateRangeFilter, Pagination, PageHeader } from "../../../components/ui";
-import type { DateRangeFilterValue } from "../../../components/ui";
+import { Button, Badge, Input, DateRangeFilter, Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { DateRangeFilterValue, JiraFilterField } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/CampaignHistoryPage.scss";
@@ -55,6 +55,14 @@ const CONTACT_STATUS_HINT: Record<string, string> = {
 
 type ContactFilter = "ALL" | "SENT" | "DELIVERED" | "READ" | "FAILED" | "BLOCKED" | "PENDING";
 type StatusFilter  = "ALL" | "RUNNING" | "COMPLETED" | "PAUSED" | "FAILED" | "SCHEDULED";
+
+const STATUS_OPTIONS = [
+  { id: "RUNNING",   label: "Running" },
+  { id: "COMPLETED", label: "Completed" },
+  { id: "PAUSED",    label: "Paused" },
+  { id: "FAILED",    label: "Failed" },
+  { id: "SCHEDULED", label: "Scheduled" },
+];
 
 const DEFAULT_PAGE_SIZE = 10;
 const DEFAULT_CONTACT_PAGE_SIZE = 50;
@@ -103,7 +111,6 @@ export default function CampaignHistoryPage() {
   const [search,       setSearch]       = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [dateRange,    setDateRange]    = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
-  const [filtersOpen,  setFiltersOpen]  = useState(false);
   const [page,         setPage]         = useState(1);
   const [pageSize,     setPageSize]     = useState(DEFAULT_PAGE_SIZE);
 
@@ -238,10 +245,23 @@ export default function CampaignHistoryPage() {
   [filteredCampaigns, page, pageSize]);
 
   const hasActiveFilters = !!(search || statusFilter !== "ALL" || dateRange.preset !== "all_time");
-  // Just the fields still inside the collapsible Filters panel — date range
-  // is now a standalone always-visible control whose own trigger shows its
-  // state, so it isn't counted toward the Filters button's own badge.
-  const panelFilterCount = statusFilter !== "ALL" ? 1 : 0;
+
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "status", label: "Status", options: STATUS_OPTIONS },
+  ], []);
+
+  const filterMenuSelected = useMemo(
+    () => ({ status: statusFilter !== "ALL" ? [statusFilter] : [] }),
+    [statusFilter],
+  );
+
+  // Behaves as single-select even though the checkbox list is multi-capable —
+  // picking a second status replaces the first, same convention as Client
+  // Rating's minimum-rating filter.
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    const picked = next.status ?? [];
+    setStatusFilter((picked.length ? picked[picked.length - 1] : "ALL") as StatusFilter);
+  };
 
   const counts = {
     total:     campaigns.length,
@@ -254,12 +274,6 @@ export default function CampaignHistoryPage() {
   return (
     <div className="ch-page">
       {overlay}
-
-      {/* Header */}
-      <PageHeader
-        title="Campaign History"
-        subtitle="Click on a campaign to see contact-level delivery details"
-      />
 
       {/* Summary */}
       <div className="ch-summary">
@@ -279,19 +293,7 @@ export default function CampaignHistoryPage() {
 
       {/* Toolbar */}
       <div className="ch-toolbar">
-        <Input
-          placeholder="Search campaigns..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          containerClass="mb-0 ch-search"
-        />
-        <button
-          className={`ch-filter-btn${filtersOpen ? " ch-filter-btn--active" : ""}${panelFilterCount > 0 ? " ch-filter-btn--has" : ""}`}
-          onClick={() => setFiltersOpen(o => !o)}
-        >
-          ⚙ Filters
-          {panelFilterCount > 0 && <span className="ch-filter-dot" />}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
 
         <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
@@ -302,29 +304,14 @@ export default function CampaignHistoryPage() {
             Clear
           </button>
         )}
-      </div>
 
-      {/* Filter panel */}
-      {filtersOpen && (
-        <div className="ch-filter-panel">
-          <div className="ch-filter-row">
-            <div className="ch-filter-group">
-              <label className="ch-filter-label">Status</label>
-              <div className="ch-pill-group">
-                {(["ALL","RUNNING","COMPLETED","PAUSED","FAILED","SCHEDULED"] as StatusFilter[]).map(s => (
-                  <button
-                    key={s}
-                    className={`ch-pill${statusFilter === s ? " ch-pill--active" : ""}`}
-                    onClick={() => setStatusFilter(s)}
-                  >
-                    {s === "ALL" ? "All" : s.charAt(0) + s.slice(1).toLowerCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        <Input
+          placeholder="Search campaigns..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          containerClass="mb-0 ch-search"
+        />
+      </div>
 
       {/* Content */}
       {loading.fetchCampaigns ? (

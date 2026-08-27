@@ -4,7 +4,7 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchTemplatesThunk, createCampaignThunk } from "../../../middleware/marketing/marketing.thunk";
 import { ExcelUpload } from "../components";
-import { Button, Input, PageHeader } from "../../../components/ui";
+import { Button, Input } from "../../../components/ui";
 import Dropdown from "../../../components/ui/Dropdown";
 import { useOnce } from "../../../hooks/useOnce";
 import { toTitleCase } from "../../../utils/titleCase";
@@ -148,10 +148,6 @@ export default function CreateCampaignPage() {
   return (
     <div className="cc-page cc-page--simple">
       {overlay}
-      <PageHeader
-        title="New Campaign"
-        subtitle="Send a bulk WhatsApp campaign to your contacts"
-      />
 
       <div className="cc-simple-form">
 
