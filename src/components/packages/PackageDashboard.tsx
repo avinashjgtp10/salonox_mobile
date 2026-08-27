@@ -49,10 +49,10 @@ const PackageDashboard: React.FC<Props> = ({
   const { formatAmount } = useCurrency();
   const [activeTab,       setActiveTab]       = useState("");
 
-  // List is salon-wide now (like Sold Memberships) — no client selection
-  // gates it. `search` stays controlled for instant typing; the query only
-  // refetches off the debounced copy so it doesn't flash loading on every
-  // keystroke (same fix as SoldMembershipsPage.tsx / MembershipsListPage.tsx).
+  // List is salon-wide now — no client selection gates it. `search` stays
+  // controlled for instant typing; the query only refetches off the
+  // debounced copy so it doesn't flash loading on every keystroke (same fix
+  // as MembershipsListPage.tsx).
   const [search,          setSearch]          = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {

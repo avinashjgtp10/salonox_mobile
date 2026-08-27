@@ -54,9 +54,6 @@ const EditPackagePage = lazy(
 const PackageModule = lazy(
   () => import("../components/packages/PackageModule"),
 );
-const SoldMembershipsPage = lazy(
-  () => import("../features/catalog/pages/SoldMembershipsPage"),
-);
 const ConsumableInventoryPage = lazy(
   () => import("../features/catalog/pages/ConsumableInventoryPage"),
 );
@@ -82,7 +79,6 @@ export const CatalogRoutes = () => (
       <Route path="services" element={<ServicesListPage />} />
       <Route path="memberships" element={<MembershipsListPage />} />
       <Route path="memberships/list" element={<MembershipsListPage />} />
-      <Route path="memberships/sold" element={<SoldMembershipsPage />} />
       <Route path="packages" element={<PackageModule />} />
       <Route path="packages/legacy" element={<PackagesPage />} />
       <Route path="products" element={<ProductsListPage />} />
