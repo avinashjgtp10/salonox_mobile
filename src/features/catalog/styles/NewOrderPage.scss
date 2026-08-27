@@ -1,7 +1,8 @@
 // Base topbar/body/form-section/field-group/input styling all comes from
 // .add-supplier-page (AddSupplierPage.scss, imported by NewOrderPage.tsx) —
-// this file only covers what's unique to the order form: tabs, the wider
-// body needed for the line-items table, and the table itself.
+// this file only covers what's unique to the order form: the wider body
+// needed for the line-items table, the supplier-details readout, the locked
+// PO field, order summary, and the line-items table itself.
 .new-order-page {
   // AddSupplierPage's body is capped at 640px (a short single-column form) —
   // the line-items table needs real width, so widen just this page's body.
@@ -9,66 +10,77 @@
     max-width: 1100px;
   }
 
-  &__tabs {
-    display: flex;
-    gap: 4px;
-    border-bottom: 1px solid #eaecf0;
-    padding: 0 40px;
-    flex-shrink: 0;
-
-    button {
-      background: none;
-      border: none;
-      padding: 10px 16px;
-      font-size: 14px;
-      font-weight: 500;
-      color: #667085;
-      cursor: pointer;
-      border-bottom: 2px solid transparent;
-
-      &.active { color: #101828; border-bottom-color: #101828; }
-      &.disabled { color: #d0d5dd; cursor: not-allowed; }
-      &:hover:not(.active):not(.disabled) { color: #344054; }
-    }
-  }
-
-  &__items-head {
+  &__actions {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
-
-    h3 { margin: 0; }
-  }
-
-  &__totals {
-    display: flex;
-    gap: 32px;
-    font-size: 13.5px;
-    color: #475467;
-    margin-top: 16px;
-
-    strong { color: #101828; margin-left: 6px; }
   }
 }
 
-.new-order-suffix-input {
+// ── 1. Supplier details readout (auto-filled from the selected supplier) ──
+.new-order-supplier-details {
+  background: #f9fafb;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  padding: 16px 20px;
+  margin-top: 4px;
+  margin-bottom: 20px;
+
+  h4 {
+    font-size: 13px;
+    font-weight: 600;
+    color: #344054;
+    margin: 0 0 12px;
+  }
+
+  &__grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 24px;
+
+    > div {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 13.5px;
+    }
+
+    .label { color: #667085; }
+    .value { color: #101828; font-weight: 500; text-align: right; }
+  }
+}
+
+// ── 2. PO Number (locked, auto-generated) ──────────────────────────────────
+.new-order-locked-field {
   display: flex;
   align-items: center;
   gap: 8px;
 
-  input { flex: 1; }
-
-  span {
-    font-size: 13px;
-    color: #667085;
-    padding: 10px 12px;
-    border: 1px solid #d0d5dd;
-    border-radius: 8px;
+  input {
     background: #f9fafb;
+    color: #667085;
+    cursor: not-allowed;
   }
 }
 
+.new-order-locked-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  color: #98a2b3;
+  white-space: nowrap;
+}
+
+.new-order-date-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #98a2b3;
+}
+
+// ── 3. Delivery details ─────────────────────────────────────────────────────
 .new-order-field-with-add {
   display: flex;
   align-items: center;
@@ -77,44 +89,50 @@
   > *:first-child { flex: 1; min-width: 0; }
 }
 
-.new-order-add-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+// Rendered via the shared Button component (variant="outline-dark") — this
+// just pins it to a fixed square instead of Button's default padded shape,
+// since it's an icon-only "+" next to a Dropdown, not a labeled action.
+.new-order-add-btn.btn {
   width: 38px;
   height: 38px;
+  padding: 0;
   flex-shrink: 0;
-  border: 1px solid #d0d5dd;
-  border-radius: 8px;
-  background: #fff;
-  color: #344054;
-  cursor: pointer;
-
-  &:hover { background: #f9fafb; border-color: #98a2b3; }
 }
 
-.new-order-signature {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  input { flex: 1; }
-}
-
+// ── 4. Order items table ────────────────────────────────────────────────────
+// No horizontal scroll wrapper here (unlike PurchaseHistoryListPage's
+// read-only table) — ProductSearchSelect's suggestion dropdown is
+// position:absolute and gets clipped by any scrolling/overflow ancestor, so
+// the table has to fit its own container instead of scrolling within one.
 .new-order-table-wrap {
-  overflow-x: auto;
+  margin-top: 16px;
 }
 
-// .phist-table (PurchaseHistoryListPage.scss) supplies the base table look;
-// this just sizes the editable line-item cells.
+// .phist-table (PurchaseHistoryListPage.scss) supplies the base table look,
+// but its overflow:hidden (there to clip the table's own rounded corners)
+// also clips ProductSearchSelect's absolutely-positioned suggestion dropdown
+// — override back to visible here since this table has editable, interactive
+// cells that need to escape the table's bounds.
 .new-order-table {
-  min-width: 1100px;
+  width: 100%;
+  table-layout: fixed;
+  overflow: visible;
 
   th { white-space: nowrap; }
-  td { vertical-align: middle; }
+  td { vertical-align: middle; position: relative; }
 
-  &__product { min-width: 220px; }
-  &__readonly { color: #475467; white-space: nowrap; }
+  // Product / SKU / Qty / Unit Cost / Discount / Tax / Total / (remove)
+  th:nth-child(1), td:nth-child(1) { width: 26%; }
+  th:nth-child(2), td:nth-child(2) { width: 12%; }
+  th:nth-child(3), td:nth-child(3) { width: 9%; }
+  th:nth-child(4), td:nth-child(4) { width: 13%; }
+  th:nth-child(5), td:nth-child(5) { width: 12%; }
+  th:nth-child(6), td:nth-child(6) { width: 9%; }
+  th:nth-child(7), td:nth-child(7) { width: 13%; }
+  th:nth-child(8), td:nth-child(8) { width: 6%; }
+
+  &__product { min-width: 0; }
+  &__readonly { color: #475467; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
   input.new-order-input--sm {
     width: 100%;
@@ -130,6 +148,12 @@
       box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
     }
   }
+}
+
+.new-order-input-suffix {
+  font-size: 12px;
+  color: #98a2b3;
+  margin-left: 4px;
 }
 
 .new-order-selected-product {
@@ -163,6 +187,45 @@
 
   &:hover:not(:disabled) { background: #fef3f2; color: #d92d20; }
   &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.new-order-add-product-btn.btn {
+  margin-top: 14px;
+}
+
+// ── 5. Order summary ────────────────────────────────────────────────────────
+.new-order-summary {
+  max-width: 360px;
+  margin-left: auto;
+  margin-top: 16px;
+
+  &__row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 13.5px;
+    color: #475467;
+    border-bottom: 1px solid #f3f4f6;
+
+    &--total {
+      border-bottom: none;
+      border-top: 2px solid #101828;
+      margin-top: 4px;
+      padding-top: 12px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #101828;
+    }
+  }
+}
+
+// ── 6. Signature ─────────────────────────────────────────────────────────
+.new-order-signature {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  input { flex: 1; }
 }
 
 .new-order-gallery-grid {

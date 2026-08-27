@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Trash, PlusLg, Upload, Images } from "react-bootstrap-icons";
+import { Trash, PlusLg, Upload, Images, Lock } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchBranchesThunk, createBranchThunk } from "../../../middleware/salon/salon.thunk";
 import {
@@ -18,6 +18,7 @@ import Button from "../../../components/ui/Button";
 import Modal from "../../../components/ui/Modal";
 import UIInput from "../../../components/ui/Input";
 import { Dropdown } from "../../../components/ui/Dropdown";
+import { DatePicker } from "../../../components/ui";
 import ProductSearchSelect, { type ProductSearchResult } from "../components/ProductSearchSelect";
 import "../styles/PurchaseHistoryListPage.scss";
 import "../styles/AddSupplierPage.scss";
@@ -26,22 +27,29 @@ import "../styles/NewOrderPage.scss";
 interface OrderLine {
   key: string;
   product: ProductSearchResult | null;
-  productCode: string;
+  sku: string;
   qty: string;
-  sellingPrice: string;
+  unitCost: string;
   discountPercent: string;
-  costPrice: string;
 }
+
+const PAYMENT_TERMS_OPTIONS = [
+  { id: "0", name: "Due on receipt" },
+  { id: "7", name: "Net 7" },
+  { id: "15", name: "Net 15" },
+  { id: "30", name: "Net 30" },
+  { id: "45", name: "Net 45" },
+  { id: "60", name: "Net 60" },
+];
 
 function emptyLine(): OrderLine {
   return {
     key: Math.random().toString(36).slice(2),
     product: null,
-    productCode: "",
+    sku: "",
     qty: "",
-    sellingPrice: "",
+    unitCost: "",
     discountPercent: "",
-    costPrice: "",
   };
 }
 
@@ -50,24 +58,30 @@ function todayISO(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
+function fmtDateLabel(iso: string): string {
+  const d = new Date(`${iso}T12:00:00`);
+  if (isNaN(d.getTime())) return iso;
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  return `${String(d.getDate()).padStart(2, "0")}-${months[d.getMonth()]}-${d.getFullYear()}`;
+}
+
 function generateRefNumber(): string {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
 
-const TAX_TYPE_OPTIONS: { id: OrderTaxType; name: string }[] = [
-  { id: "exclusive", name: "Exclusive" },
-  { id: "inclusive", name: "Inclusive" },
-];
-
-// New Order — built as a single form following AddSupplierPage.tsx's exact
-// pattern (topbar with Close/Save, form-sections separated by dividers,
-// plain field-group/label/input markup) so this reads as the same kind of
-// screen as Add Supplier rather than a one-off layout. The line-items table
-// is its own section below the form fields since it doesn't fit a narrow
-// single-column form. Order tab only — Purchase tab is a separate,
-// out-of-scope flow (PurchaseModal.tsx already covers "record a delivery").
+// New Purchase Order — redesigned into 7 numbered sections (Supplier, Order
+// Details, Delivery Details, Order Items, Order Summary, Additional
+// Information, Actions), built entirely from the app's existing shared
+// components (Dropdown, DatePicker, Button, Input, Modal, ProductSearchSelect)
+// rather than one-off inputs, and following AddSupplierPage's topbar/
+// form-section/field-group visual pattern.
+//
+// "Save Draft" has no backend distinction yet (orders have no draft/confirmed
+// status column) — both buttons call the same create-order flow for now;
+// see orders.repository.ts / Migration/create_orders_tables.sql for what
+// would need to change to make Draft genuinely different from Create.
 const NewOrderPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -78,29 +92,51 @@ const NewOrderPage: React.FC = () => {
   const { suppliers } = useAppSelector((s) => s.inventory);
   const { items: settingItems } = useAppSelector((s) => s.setting);
 
-  const [activeTab, setActiveTab] = useState<"order" | "purchase">("order");
+  // ── 1. Supplier ──────────────────────────────────────────────────────────
+  const [supplierId, setSupplierId] = useState("");
+  const selectedSupplier = useMemo(() => suppliers.find((s) => s.id === supplierId), [suppliers, supplierId]);
 
+  // ── 2. Order details ─────────────────────────────────────────────────────
+  // PO number is a client-side placeholder until save — the real
+  // order_number (ORD-00001 etc) is generated server-side and only known
+  // once createOrderThunk resolves (see ordersRepository.create).
+  const [poNumberPreview] = useState(() => `PO-${Math.floor(100000 + Math.random() * 900000)}`);
+  const [orderDate, setOrderDate] = useState(todayISO());
+  const [deliveryDate, setDeliveryDate] = useState("");
+  const [paymentTermsDays, setPaymentTermsDays] = useState("");
+  const [refNumber, setRefNumber] = useState(() => generateRefNumber());
+
+  // ── 3. Delivery details ──────────────────────────────────────────────────
   const [billToBranchId, setBillToBranchId] = useState("");
   const [shipToBranchId, setShipToBranchId] = useState("");
-  const [supplierId, setSupplierId] = useState("");
-  const [orderDate, setOrderDate] = useState(todayISO());
-  const [remark, setRemark] = useState("");
-  const [refNumber, setRefNumber] = useState(generateRefNumber());
-  const [paymentTermsDays, setPaymentTermsDays] = useState("10");
-  const [shipmentDate, setShipmentDate] = useState("");
-  const [deliveryDate, setDeliveryDate] = useState("");
+  const [sameAsBillTo, setSameAsBillTo] = useState(false);
+
+  useEffect(() => {
+    if (sameAsBillTo) setShipToBranchId(billToBranchId);
+  }, [sameAsBillTo, billToBranchId]);
+
+  // ── 4. Order items ───────────────────────────────────────────────────────
+  const [lines, setLines] = useState<OrderLine[]>([emptyLine()]);
+
+  // Tax — kept as one flat order-level rate (not per-line), sourced from the
+  // salon's existing tax settings, per product decision.
   const [taxType, setTaxType] = useState<OrderTaxType>("exclusive");
   const [taxGroup, setTaxGroup] = useState("");
-  const [termsConditions, setTermsConditions] = useState("");
-  const [signatureUrl, setSignatureUrl] = useState("");
 
-  const [lines, setLines] = useState<OrderLine[]>([emptyLine()]);
+  // ── 5. Order summary ─────────────────────────────────────────────────────
+  const [shippingCost, setShippingCost] = useState("0");
+
+  // ── 6. Additional information ────────────────────────────────────────────
+  const [notes, setNotes] = useState("");
+  const [termsConditions, setTermsConditions] = useState("");
+
   const [saving, setSaving] = useState(false);
   const [touched, setTouched] = useState(false);
 
   const [galleryOpen, setGalleryOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
+  const [signatureUrl, setSignatureUrl] = useState("");
   const [signatures, setSignatures] = useState<{ id: string; url: string }[]>([]);
 
   // Quick-add-branch modal — Bill To/Ship To's "+" button. A lightweight
@@ -143,31 +179,32 @@ const NewOrderPage: React.FC = () => {
 
   function lineMath(line: OrderLine) {
     const qty = parseFloat(line.qty) || 0;
-    const sellingPrice = parseFloat(line.sellingPrice) || 0;
+    const unitCost = parseFloat(line.unitCost) || 0;
     const discountPercent = parseFloat(line.discountPercent) || 0;
-    const costPrice = parseFloat(line.costPrice) || 0;
-    // Cost price is entered tax-exclusive, so cost_wo_tax === cost_price.
-    // Tax is computed on the cost side (what's owed to the supplier), not
-    // the resale/selling side — confirmed convention for this form.
-    const totalCostWoTax = costPrice * qty;
-    const totalTax = totalCostWoTax * (selectedTaxRate / 100);
-    const lineTotal = sellingPrice * qty * (1 - discountPercent / 100);
-    return { qty, sellingPrice, discountPercent, costPrice, totalCostWoTax, totalTax, lineTotal };
+    const subtotal = qty * unitCost;
+    const discountAmount = subtotal * (discountPercent / 100);
+    const afterDiscount = subtotal - discountAmount;
+    const taxAmount = afterDiscount * (selectedTaxRate / 100);
+    const lineTotal = afterDiscount + taxAmount;
+    return { qty, unitCost, discountPercent, subtotal, discountAmount, taxAmount, lineTotal };
   }
 
   const validLines = lines.filter((l) => {
     const m = lineMath(l);
-    return l.product && m.qty > 0 && m.sellingPrice >= 0 && m.costPrice >= 0;
+    return l.product && m.qty > 0 && m.unitCost >= 0;
   });
 
   const hasIncompleteLine = lines.some((l) => {
     if (!l.product) return false;
     const m = lineMath(l);
-    return !(m.qty > 0) || !(m.sellingPrice >= 0) || !(m.costPrice >= 0);
+    return !(m.qty > 0) || !(m.unitCost >= 0);
   });
 
-  const totalQuantity = validLines.reduce((sum, l) => sum + lineMath(l).qty, 0);
-  const totalPrice = validLines.reduce((sum, l) => sum + lineMath(l).lineTotal, 0);
+  const subtotal = validLines.reduce((sum, l) => sum + lineMath(l).subtotal, 0);
+  const totalDiscount = validLines.reduce((sum, l) => sum + lineMath(l).discountAmount, 0);
+  const totalTax = validLines.reduce((sum, l) => sum + lineMath(l).taxAmount, 0);
+  const shippingCostNumber = parseFloat(shippingCost) || 0;
+  const grandTotal = subtotal - totalDiscount + totalTax + shippingCostNumber;
 
   const canSave = !!supplierId && validLines.length > 0 && !hasIncompleteLine;
 
@@ -250,11 +287,11 @@ const NewOrderPage: React.FC = () => {
         const m = lineMath(l);
         return {
           product_id: l.product!.id,
-          product_code: l.productCode || undefined,
+          product_code: l.sku || undefined,
           qty: m.qty,
-          selling_price: m.sellingPrice,
+          selling_price: m.unitCost,
           discount_percent: m.discountPercent || undefined,
-          cost_price: m.costPrice,
+          cost_price: m.unitCost,
         };
       });
 
@@ -264,14 +301,14 @@ const NewOrderPage: React.FC = () => {
           bill_to_branch_id: billToBranchId || undefined,
           ship_to_branch_id: shipToBranchId || undefined,
           order_date: orderDate,
-          remark: remark.trim() || undefined,
           ref_number: refNumber.trim() || undefined,
           payment_terms_days: paymentTermsDays ? Number(paymentTermsDays) : undefined,
-          shipment_date: shipmentDate || undefined,
           delivery_date: deliveryDate || undefined,
           tax_type: taxType,
           tax_group: taxGroup || undefined,
           tax_rate: selectedTaxRate || undefined,
+          shipping_cost: shippingCostNumber || undefined,
+          remark: notes.trim() || undefined,
           terms_conditions: termsConditions.trim() || undefined,
           signature_url: signatureUrl.trim() || undefined,
           items,
@@ -293,311 +330,406 @@ const NewOrderPage: React.FC = () => {
     <div className="add-supplier-page new-order-page">
       {overlay}
       <div className="add-supplier-page__topbar">
-        <h2>New Order</h2>
+        <h2>New Purchase Order</h2>
         <div className="topbar-actions">
           <button className="btn-close-top" onClick={handleClose}>Close</button>
-          <button className="btn-save" onClick={handleSave} disabled={saving || !canSave}>
-            {saving ? "Saving..." : "Save"}
-          </button>
         </div>
       </div>
 
-      <div className="new-order-page__tabs">
-        <button className={activeTab === "order" ? "active" : ""} onClick={() => setActiveTab("order")}>
-          Order
-        </button>
-        <button className="disabled" disabled title="Coming soon">
-          Purchase
-        </button>
-      </div>
+      <div className="add-supplier-page__body new-order-page__body">
+        {/* ============== 1. SUPPLIER ============== */}
+        <section className="form-section">
+          <h3>Supplier</h3>
 
-      {activeTab === "order" && (
-        <div className="add-supplier-page__body new-order-page__body">
-          <section className="form-section">
-            <h3>Order details</h3>
+          <div className={`field-group${touched && !supplierId ? " field-group--error" : ""}`}>
+            <label>Supplier <span style={{ color: "red" }}>*</span></label>
+            <Dropdown
+              placeholder="Search / Select Supplier"
+              value={supplierId}
+              options={supplierOptions}
+              onChange={setSupplierId}
+            />
+            {touched && !supplierId && <span className="field-error">Select a supplier</span>}
+          </div>
 
-            <div className="field-row-2">
-              <div className="field-group">
-                <label>Bill To (From)</label>
-                <div className="new-order-field-with-add">
-                  <Dropdown
-                    placeholder="Select address"
-                    value={billToBranchId}
-                    options={branchOptions}
-                    onChange={setBillToBranchId}
-                    allowNone
-                  />
-                  <button type="button" className="new-order-add-btn" title="Add new location" onClick={() => setAddBranchTarget("billTo")}>
-                    <PlusLg size={13} />
-                  </button>
+          {selectedSupplier && (
+            <div className="new-order-supplier-details">
+              <h4>Supplier Details</h4>
+              <div className="new-order-supplier-details__grid">
+                <div>
+                  <span className="label">Name</span>
+                  <span className="value">{selectedSupplier.name}</span>
+                </div>
+                <div>
+                  <span className="label">Phone</span>
+                  <span className="value">{selectedSupplier.mobile_number || selectedSupplier.telephone_number || "—"}</span>
+                </div>
+                <div>
+                  <span className="label">Email</span>
+                  <span className="value">{selectedSupplier.email || "—"}</span>
+                </div>
+                <div>
+                  <span className="label">Address</span>
+                  <span className="value">
+                    {[selectedSupplier.street, selectedSupplier.city, selectedSupplier.state]
+                      .filter(Boolean).join(", ") || "—"}
+                  </span>
+                </div>
+                <div>
+                  {/* No GST/Tax ID field exists on Supplier yet (backend or
+                      frontend) — shown as unavailable rather than fabricated. */}
+                  <span className="label">GST / Tax ID</span>
+                  <span className="value">—</span>
                 </div>
               </div>
-              <div className="field-group">
-                <label>Ship To (Delivered To)</label>
-                <div className="new-order-field-with-add">
-                  <Dropdown
-                    placeholder="Select address"
-                    value={shipToBranchId}
-                    options={branchOptions}
-                    onChange={setShipToBranchId}
-                    allowNone
-                  />
-                  <button type="button" className="new-order-add-btn" title="Add new location" onClick={() => setAddBranchTarget("shipTo")}>
-                    <PlusLg size={13} />
-                  </button>
-                </div>
+            </div>
+          )}
+        </section>
+
+        <div className="section-divider" />
+
+        {/* ============== 2. ORDER DETAILS ============== */}
+        <section className="form-section">
+          <h3>Order Details</h3>
+
+          <div className="field-row-2">
+            <div className="field-group">
+              <label>PO Number</label>
+              <div className="new-order-locked-field">
+                <input type="text" value={poNumberPreview} readOnly />
+                <span className="new-order-locked-badge"><Lock size={11} /> Auto Generated</span>
               </div>
             </div>
-
-            <div className={`field-group${touched && !supplierId ? " field-group--error" : ""}`}>
-              <label>Supplier (To) <span style={{ color: "red" }}>*</span></label>
-              <Dropdown
-                placeholder="Select supplier"
-                value={supplierId}
-                options={supplierOptions}
-                onChange={setSupplierId}
-              />
-              {touched && !supplierId && <span className="field-error">Select a supplier</span>}
+            <div className="field-group">
+              <label>Order Date <span style={{ color: "red" }}>*</span></label>
+              <DatePicker value={orderDate} onChange={setOrderDate} />
+              <span className="new-order-date-label">{fmtDateLabel(orderDate)}</span>
             </div>
+          </div>
 
-            <div className="field-row-2">
-              <div className="field-group">
-                <label>Order Date</label>
-                <input type="date" value={orderDate} onChange={(e) => setOrderDate(e.target.value)} />
-              </div>
-              <div className="field-group">
-                <label>Ref. Number</label>
-                <input type="text" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} />
-              </div>
+          <div className="field-row-2">
+            <div className="field-group">
+              <label>Expected Delivery Date</label>
+              <DatePicker value={deliveryDate} onChange={setDeliveryDate} min={orderDate || undefined} />
             </div>
-
-            <div className="field-row-2">
-              <div className="field-group">
-                <label>Shipment Date</label>
-                <input type="date" value={shipmentDate} onChange={(e) => setShipmentDate(e.target.value)} />
-              </div>
-              <div className="field-group">
-                <label>Delivery Date</label>
-                <input type="date" value={deliveryDate} onChange={(e) => setDeliveryDate(e.target.value)} />
-              </div>
-            </div>
-
             <div className="field-group">
               <label>Payment Terms</label>
-              <div className="new-order-suffix-input">
-                <input
-                  type="number"
-                  min={0}
-                  value={paymentTermsDays}
-                  onChange={(e) => setPaymentTermsDays(e.target.value)}
-                />
-                <span>days</span>
-              </div>
-            </div>
-
-            <div className="field-group">
-              <label>Remark</label>
-              <input type="text" placeholder="Remark" value={remark} onChange={(e) => setRemark(e.target.value)} />
-            </div>
-          </section>
-
-          <div className="section-divider" />
-
-          <section className="form-section">
-            <h3>Tax</h3>
-
-            <div className="field-row-2">
-              <div className="field-group">
-                <label>Tax Type</label>
-                <Dropdown
-                  searchable={false}
-                  value={taxType}
-                  options={TAX_TYPE_OPTIONS}
-                  onChange={(id) => setTaxType(id as OrderTaxType)}
-                />
-              </div>
-              <div className="field-group">
-                <label>Tax Group</label>
-                <Dropdown
-                  placeholder="Select tax group"
-                  value={taxGroup}
-                  options={taxGroupOptions}
-                  onChange={setTaxGroup}
-                  allowNone
-                />
-              </div>
-            </div>
-          </section>
-
-          <div className="section-divider" />
-
-          <section className="form-section">
-            <h3>Signature</h3>
-
-            <div className="field-group">
-              <div className="new-order-signature">
-                <input
-                  type="text"
-                  placeholder="ex. https://img.dingg.app/invoice.jpg or uploaded image name"
-                  value={signatureUrl}
-                  onChange={(e) => setSignatureUrl(e.target.value)}
-                />
-                <Button variant="dark" size="sm" iconLeft={<Upload size={13} />} onClick={handleUploadClick} loading={uploading}>
-                  Upload
-                </Button>
-                <Button variant="outline-dark" size="sm" iconLeft={<Images size={13} />} onClick={openGallery}>
-                  Gallery
-                </Button>
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*"
-                  style={{ display: "none" }}
-                  onChange={handleFileSelected}
-                />
-              </div>
-            </div>
-
-            <div className="field-group">
-              <label>Terms and Conditions</label>
-              <textarea
-                rows={3}
-                value={termsConditions}
-                onChange={(e) => setTermsConditions(e.target.value)}
+              <Dropdown
+                placeholder="Select"
+                searchable={false}
+                value={paymentTermsDays}
+                options={PAYMENT_TERMS_OPTIONS}
+                onChange={setPaymentTermsDays}
+                allowNone
               />
             </div>
-          </section>
+          </div>
 
-          <div className="section-divider" />
+          <div className="field-group">
+            <label>Reference Number</label>
+            <input type="text" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} />
+          </div>
+        </section>
 
-          <section className="form-section">
-            <div className="new-order-page__items-head">
-              <h3>Line Items</h3>
-              <Button variant="outline-dark" size="sm" iconLeft={<PlusLg size={13} />} onClick={() => setLines((prev) => [...prev, emptyLine()])}>
-                Add Item
+        <div className="section-divider" />
+
+        {/* ============== 3. DELIVERY DETAILS ============== */}
+        <section className="form-section">
+          <h3>Delivery Details</h3>
+
+          <div className="field-group">
+            <label>Bill To</label>
+            <div className="new-order-field-with-add">
+              <Dropdown
+                placeholder="Select Location"
+                value={billToBranchId}
+                options={branchOptions}
+                onChange={setBillToBranchId}
+                allowNone
+              />
+              <Button
+                variant="outline-dark"
+                className="new-order-add-btn"
+                title="Add new location"
+                onClick={() => setAddBranchTarget("billTo")}
+                iconLeft={<PlusLg size={13} />}
+              />
+            </div>
+          </div>
+
+          <label className="checkbox-label">
+            <input
+              type="checkbox"
+              checked={sameAsBillTo}
+              onChange={(e) => setSameAsBillTo(e.target.checked)}
+            />
+            Same as Bill To
+          </label>
+
+          {!sameAsBillTo && (
+            <div className="field-group" style={{ marginTop: 16 }}>
+              <label>Ship To</label>
+              <div className="new-order-field-with-add">
+                <Dropdown
+                  placeholder="Select Location"
+                  value={shipToBranchId}
+                  options={branchOptions}
+                  onChange={setShipToBranchId}
+                  allowNone
+                />
+                <Button
+                  variant="outline-dark"
+                  className="new-order-add-btn"
+                  title="Add new location"
+                  onClick={() => setAddBranchTarget("shipTo")}
+                  iconLeft={<PlusLg size={13} />}
+                />
+              </div>
+            </div>
+          )}
+        </section>
+
+        <div className="section-divider" />
+
+        {/* ============== 4. ORDER ITEMS ============== */}
+        <section className="form-section">
+          <h3>Order Items</h3>
+
+          <div className="field-row-2">
+            <div className="field-group">
+              <label>Tax Type</label>
+              <Dropdown
+                searchable={false}
+                value={taxType}
+                options={[
+                  { id: "exclusive", name: "Exclusive" },
+                  { id: "inclusive", name: "Inclusive" },
+                ]}
+                onChange={(id) => setTaxType(id as OrderTaxType)}
+              />
+            </div>
+            <div className="field-group">
+              <label>Tax Group</label>
+              <Dropdown
+                placeholder="Select tax group"
+                value={taxGroup}
+                options={taxGroupOptions}
+                onChange={setTaxGroup}
+                allowNone
+              />
+            </div>
+          </div>
+
+          <div className="new-order-table-wrap">
+            <table className="phist-table new-order-table">
+              <thead>
+                <tr>
+                  <th>Product</th>
+                  <th>SKU</th>
+                  <th>Qty</th>
+                  <th>Unit Cost</th>
+                  <th>Discount</th>
+                  <th>Tax</th>
+                  <th>Total</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {lines.map((line) => {
+                  const m = lineMath(line);
+                  return (
+                    <tr key={line.key}>
+                      <td className="new-order-table__product">
+                        {line.product ? (
+                          <div className="new-order-selected-product">
+                            <span>{line.product.name}</span>
+                            <button type="button" onClick={() => patchLine(line.key, { product: null })}>Change</button>
+                          </div>
+                        ) : (
+                          <ProductSearchSelect
+                            onSelect={(p) => patchLine(line.key, {
+                              product: p,
+                              sku: p.barcode || p.sku || "",
+                              unitCost: p.supply_price != null ? String(p.supply_price) : line.unitCost,
+                            })}
+                          />
+                        )}
+                      </td>
+                      <td>{line.sku || "—"}</td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          className="new-order-input--sm"
+                          value={line.qty}
+                          onChange={(e) => patchLine(line.key, { qty: e.target.value })}
+                          onWheel={(e) => e.currentTarget.blur()}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          step="any"
+                          className="new-order-input--sm"
+                          value={line.unitCost}
+                          onChange={(e) => patchLine(line.key, { unitCost: e.target.value })}
+                          onWheel={(e) => e.currentTarget.blur()}
+                        />
+                      </td>
+                      <td>
+                        <input
+                          type="number"
+                          min="0"
+                          max="100"
+                          step="any"
+                          className="new-order-input--sm"
+                          value={line.discountPercent}
+                          onChange={(e) => patchLine(line.key, { discountPercent: e.target.value })}
+                          onWheel={(e) => e.currentTarget.blur()}
+                        />
+                        <span className="new-order-input-suffix">%</span>
+                      </td>
+                      <td className="new-order-table__readonly">{selectedTaxRate}%</td>
+                      <td className="new-order-table__readonly">{formatAmount(m.lineTotal)}</td>
+                      <td>
+                        <button
+                          type="button"
+                          className="new-order-remove-line"
+                          onClick={() => removeLine(line.key)}
+                          disabled={lines.length === 1}
+                          title="Remove product"
+                        >
+                          <Trash size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          {touched && validLines.length === 0 && <span className="field-error">Add at least one product</span>}
+          {touched && hasIncompleteLine && <span className="field-error">Every product needs a quantity and unit cost</span>}
+
+          <Button
+            variant="outline-dark"
+            size="sm"
+            iconLeft={<PlusLg size={13} />}
+            className="new-order-add-product-btn"
+            onClick={() => setLines((prev) => [...prev, emptyLine()])}
+          >
+            Add Product
+          </Button>
+        </section>
+
+        <div className="section-divider" />
+
+        {/* ============== 5. ORDER SUMMARY ============== */}
+        <section className="form-section">
+          <h3>Order Summary</h3>
+
+          <div className="field-group" style={{ maxWidth: 260 }}>
+            <label>Shipping</label>
+            <input
+              type="number"
+              min="0"
+              step="any"
+              value={shippingCost}
+              onChange={(e) => setShippingCost(e.target.value)}
+              onWheel={(e) => e.currentTarget.blur()}
+            />
+          </div>
+
+          <div className="new-order-summary">
+            <div className="new-order-summary__row">
+              <span>Subtotal</span>
+              <span>{formatAmount(subtotal)}</span>
+            </div>
+            <div className="new-order-summary__row">
+              <span>Discount</span>
+              <span>{formatAmount(totalDiscount)}</span>
+            </div>
+            <div className="new-order-summary__row">
+              <span>Tax</span>
+              <span>{formatAmount(totalTax)}</span>
+            </div>
+            <div className="new-order-summary__row">
+              <span>Shipping</span>
+              <span>{formatAmount(shippingCostNumber)}</span>
+            </div>
+            <div className="new-order-summary__row new-order-summary__row--total">
+              <span>TOTAL</span>
+              <span>{formatAmount(grandTotal)}</span>
+            </div>
+          </div>
+        </section>
+
+        <div className="section-divider" />
+
+        {/* ============== 6. ADDITIONAL INFORMATION ============== */}
+        <section className="form-section">
+          <h3>Additional Information</h3>
+
+          <div className="field-group">
+            <label>Notes</label>
+            <textarea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} />
+          </div>
+
+          <div className="field-group">
+            <label>Terms &amp; Conditions</label>
+            <textarea
+              rows={3}
+              placeholder="Optional"
+              value={termsConditions}
+              onChange={(e) => setTermsConditions(e.target.value)}
+            />
+          </div>
+
+          <div className="field-group">
+            <label>Signature</label>
+            <div className="new-order-signature">
+              <input
+                type="text"
+                placeholder="ex. https://img.dingg.app/invoice.jpg or uploaded image name"
+                value={signatureUrl}
+                onChange={(e) => setSignatureUrl(e.target.value)}
+              />
+              <Button variant="dark" size="sm" iconLeft={<Upload size={13} />} onClick={handleUploadClick} loading={uploading}>
+                Upload
               </Button>
+              <Button variant="outline-dark" size="sm" iconLeft={<Images size={13} />} onClick={openGallery}>
+                Gallery
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                style={{ display: "none" }}
+                onChange={handleFileSelected}
+              />
             </div>
+          </div>
+        </section>
 
-            <div className="new-order-table-wrap">
-              <table className="phist-table new-order-table">
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th>Product Code</th>
-                    <th>Qty</th>
-                    <th>Selling Price</th>
-                    <th>Discount (%)</th>
-                    <th>Cost Price (Per Qty)</th>
-                    <th>Cost W/O Tax (Per Qty)</th>
-                    <th>Total Cost W/O Tax</th>
-                    <th>Total Tax</th>
-                    <th />
-                  </tr>
-                </thead>
-                <tbody>
-                  {lines.map((line) => {
-                    const m = lineMath(line);
-                    return (
-                      <tr key={line.key}>
-                        <td className="new-order-table__product">
-                          {line.product ? (
-                            <div className="new-order-selected-product">
-                              <span>{line.product.name}</span>
-                              <button type="button" onClick={() => patchLine(line.key, { product: null })}>Change</button>
-                            </div>
-                          ) : (
-                            <ProductSearchSelect
-                              onSelect={(p) => patchLine(line.key, {
-                                product: p,
-                                productCode: p.barcode || p.sku || "",
-                                sellingPrice: p.retail_price != null ? String(p.retail_price) : line.sellingPrice,
-                                costPrice: p.supply_price != null ? String(p.supply_price) : line.costPrice,
-                              })}
-                            />
-                          )}
-                        </td>
-                        <td>
-                          <input
-                            className="new-order-input--sm"
-                            value={line.productCode}
-                            onChange={(e) => patchLine(line.key, { productCode: e.target.value })}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            className="new-order-input--sm"
-                            value={line.qty}
-                            onChange={(e) => patchLine(line.key, { qty: e.target.value })}
-                            onWheel={(e) => e.currentTarget.blur()}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            className="new-order-input--sm"
-                            value={line.sellingPrice}
-                            onChange={(e) => patchLine(line.key, { sellingPrice: e.target.value })}
-                            onWheel={(e) => e.currentTarget.blur()}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            min="0"
-                            max="100"
-                            step="any"
-                            className="new-order-input--sm"
-                            value={line.discountPercent}
-                            onChange={(e) => patchLine(line.key, { discountPercent: e.target.value })}
-                            onWheel={(e) => e.currentTarget.blur()}
-                          />
-                        </td>
-                        <td>
-                          <input
-                            type="number"
-                            min="0"
-                            step="any"
-                            className="new-order-input--sm"
-                            value={line.costPrice}
-                            onChange={(e) => patchLine(line.key, { costPrice: e.target.value })}
-                            onWheel={(e) => e.currentTarget.blur()}
-                          />
-                        </td>
-                        <td className="new-order-table__readonly">{formatAmount(m.costPrice)}</td>
-                        <td className="new-order-table__readonly">{formatAmount(m.totalCostWoTax)}</td>
-                        <td className="new-order-table__readonly">{formatAmount(m.totalTax)}</td>
-                        <td>
-                          <button
-                            type="button"
-                            className="new-order-remove-line"
-                            onClick={() => removeLine(line.key)}
-                            disabled={lines.length === 1}
-                            title="Remove product"
-                          >
-                            <Trash size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-            {touched && validLines.length === 0 && <span className="field-error">Add at least one product</span>}
-            {touched && hasIncompleteLine && <span className="field-error">Every product needs a quantity, selling price, and cost price</span>}
+        <div className="section-divider" />
 
-            <div className="new-order-page__totals">
-              <span>Total Quantity <strong>{totalQuantity}</strong></span>
-              <span>Total Price <strong>{formatAmount(totalPrice)}</strong></span>
-            </div>
-          </section>
-        </div>
-      )}
+        {/* ============== 7. ACTIONS ============== */}
+        <section className="form-section new-order-page__actions">
+          <Button variant="outline-dark" onClick={handleClose} disabled={saving}>
+            Cancel
+          </Button>
+          <div className="d-flex gap-2">
+            <Button variant="outline-dark" onClick={handleSave} disabled={saving || !canSave} loading={saving}>
+              Save Draft
+            </Button>
+            <Button variant="dark" onClick={handleSave} disabled={saving || !canSave} loading={saving}>
+              Create Order
+            </Button>
+          </div>
+        </section>
+      </div>
 
       <Modal
         show={!!addBranchTarget}
