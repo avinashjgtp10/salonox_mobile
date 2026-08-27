@@ -15,6 +15,7 @@ import Dropdown from "../../../../components/ui/Dropdown";
 import ClientHistoryModal from "../../../clients/components/ClientHistoryModal";
 import QuickEditClientModal from "../../../clients/components/QuickEditClientModal";
 import { maskMobile } from "../../../../utils/maskMobile";
+import { toTitleCase } from "../../../../utils/titleCase";
 import "../../styles/AppointmentModal.scss";
 
 const AVATAR_COLORS = [
@@ -71,6 +72,11 @@ interface Props {
   // refreshKey so every other consumer of this client's data (membership
   // wallet, packages) picks up the change too, not just this panel.
   onClientUpdated?: () => void;
+  // Fired when the user cancels the Add Client form without picking/creating
+  // a client — lets the parent clear any "add client details" prompt it put
+  // up (e.g. AppointmentModal's walk-in-before-payment error), which would
+  // otherwise keep showing even though the form that triggered it is gone.
+  onAddFormCancelled?: () => void;
   // Ratio for showing reward points' ₹ equivalent on the stat card — omit to
   // hide that info button entirely.
   rewardPointsConfig?: { redeem_points: number; redeem_value: number };
@@ -101,7 +107,7 @@ export const ClientPanel: React.FC<Props> = ({
   salonId, calDate, onDateChange, selectedClientId,
   fallbackUnpaidAmt,
   onSelectClient, onClearClient, onStatsLoaded, error, defaultName, defaultPhone, openAddForm,
-  refreshKey, rewardPointsConfig, onClientUpdated,
+  refreshKey, rewardPointsConfig, onClientUpdated, onAddFormCancelled,
   packages, memberships, loyaltyEligibility,
   clientDetailsResult,
 }) => {
@@ -598,7 +604,7 @@ export const ClientPanel: React.FC<Props> = ({
           >
             Save
           </Button>
-          <button className="acf-btn" onClick={() => { setShowAddForm(false); setAddErrors({}); }}>Cancel</button>
+          <button className="acf-btn" onClick={() => { setShowAddForm(false); setAddErrors({}); onAddFormCancelled?.(); }}>Cancel</button>
         </div>
       )}
 
@@ -624,7 +630,7 @@ export const ClientPanel: React.FC<Props> = ({
           </div>
         ) : (
           <ClientStatCard
-            name={details.full_name || `${details.first_name || ""} ${details.last_name || ""}`.trim() || search}
+            name={toTitleCase(details.full_name || `${details.first_name || ""} ${details.last_name || ""}`.trim() || search)}
             phone={details.phone_number || details.phone || ""}
             stats={{ ...stats, unpaidAmt }}
             packages={packages ?? []}
