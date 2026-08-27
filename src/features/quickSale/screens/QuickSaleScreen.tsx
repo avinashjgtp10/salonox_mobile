@@ -47,7 +47,7 @@ import { useCheckoutSubmissionController } from "@/features/quickSale/hooks/useC
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { useRedemptions } from "@/features/quickSale/hooks/useRedemptions";
 import { WALK_IN_CLIENT, type CartItem, type QuickSaleClient } from "@/features/quickSale/types";
-import { adaptPricingResponseToBillTotals } from "@/features/quickSale/utils/calculations";
+import { adaptPricingResponseToBillTotals, getCartItemBillableQuantity } from "@/features/quickSale/utils/calculations";
 import { toConsumableUsagePayload } from "@/features/quickSale/utils/consumables";
 import { pricingService } from "@/services/pricing.service";
 import type { CalculateTotalsResponse, LineItem as ApiLineItem } from "@/types/pricing";
@@ -55,7 +55,7 @@ import {
   EMPTY_QUICK_SALE_DIRTY_SIGNATURE,
   getQuickSaleDirtySignature,
 } from "@/features/quickSale/utils/dirtyState";
-import { formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
+import { amountsReconcile, formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
 import {
   type ProductStockErrors,
   validateProductStock,
@@ -1452,6 +1452,7 @@ export default function QuickSaleScreen({
         staff_id: item.staffId ?? undefined,
         staff_name: item.staffName,
         start_time: startDate.toISOString(),
+        total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
       })),
       product_items: productItems.map((item) => ({
         name: item.name,
@@ -1461,6 +1462,7 @@ export default function QuickSaleScreen({
         staff_id: item.staffId ?? undefined,
         staff_name: item.staffName,
         start_time: startDate.toISOString(),
+        total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
       })),
       salon_id: salonId ?? undefined,
       scheduled_at: startDate.toISOString(),
@@ -1476,7 +1478,10 @@ export default function QuickSaleScreen({
         staff_id: item.staffId ?? undefined,
         staff_name: item.staffName,
         time: startDate.toISOString(),
-        total: item.unitPrice * Math.max(0, item.quantity - getPackageCoveredQuantity(item)),
+        // Billable qty already excludes package-covered sessions; the line's
+        // own discountAmount (Disc % / Disc ₹) still applies on top of that,
+        // same as discountEligibleSubtotal in CheckoutSheet.tsx.
+        total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
       })),
       membership_items: membershipItems.map((item) => ({
         membership_id: item.itemId,
@@ -1486,6 +1491,7 @@ export default function QuickSaleScreen({
         staff_id: item.staffId ?? undefined,
         staff_name: item.staffName,
         start_time: startDate.toISOString(),
+        total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
       })),
       ...(staffId ? { staff_id: staffId } : {}),
       start_time: startDate.toISOString(),
@@ -1643,6 +1649,7 @@ export default function QuickSaleScreen({
         salon_id: salonId ?? undefined,
         split_details: splitDetails,
         status: dueAmount > 0 ? "partial" : "completed",
+        tax_breakdown: totals.taxBreakdown.length > 0 ? totals.taxBreakdown : undefined,
       };
     },
     [
@@ -1661,6 +1668,7 @@ export default function QuickSaleScreen({
       totals.grandTotal,
       totals.lineSubtotal,
       totals.overallDiscount,
+      totals.taxBreakdown,
     ],
   );
 
@@ -1814,9 +1822,29 @@ export default function QuickSaleScreen({
           return;
         }
 
+        const completedSale = checkoutAction.payload.sale;
+
+        // The backend independently recomputes and persists the sale total —
+        // /pricing/calculate-totals stays the single source of truth for what
+        // this bill SHOULD be, but if what actually got saved diverges from
+        // that (a sign the two disagree on line totals/discounts), the sale
+        // must not be presented as a normal success. Cent-based comparison
+        // absorbs ordinary independent-rounding drift without masking a real
+        // mismatch, which is always far larger than a single cent.
+        if (!amountsReconcile(completedSale.total, totals.grandTotal)) {
+          console.error("[Quick Sale] Backend/local total mismatch after draft checkout", {
+            backendTotal: completedSale.total,
+            localTotal: totals.grandTotal,
+            saleId: completedSale.id,
+          });
+          setSubmitError(
+            "This sale's saved total doesn't match what was shown here, so it wasn't marked complete. Check Sales History before retrying.",
+          );
+          return;
+        }
+
         await markPackageSessionsAfterCheckout();
 
-        const completedSale = checkoutAction.payload.sale;
         if (!checkoutSubmission.commitSuccess()) {
           return;
         }
@@ -1900,6 +1928,31 @@ export default function QuickSaleScreen({
         });
         finishAsIncomplete(
           "The payment was saved, but the sale could not be finalized automatically. Check Sales History for this client to finish it.",
+        );
+        return;
+      }
+
+      // The backend independently recomputes and persists the appointment
+      // total — /pricing/calculate-totals stays the single source of truth
+      // for what this bill SHOULD be, but if what actually got saved
+      // diverges from that, the sale must not be presented as a normal
+      // success. Cent-based comparison absorbs ordinary independent-rounding
+      // drift without masking a real mismatch, which is always far larger
+      // than a single cent.
+      if (!amountsReconcile(checkout.appointment.total, paymentBody.net_amount)) {
+        console.error("[Quick Sale] Backend/local total mismatch after checkout", {
+          appointmentId,
+          backendTotal: checkout.appointment.total,
+          localTotal: paymentBody.net_amount,
+          saleId: checkout.saleId,
+        });
+        // Unlike finishAsIncomplete above, this must NOT commit success —
+        // the payment/checkout already happened server-side, but the amount
+        // it recorded doesn't match what this screen showed, so the sale is
+        // deliberately left un-finalized (cart intact, checkout sheet open)
+        // until someone verifies it in Sales History.
+        setSubmitError(
+          "The payment was saved, but the finalized total didn't match what was shown here. Check Sales History before retrying — this sale was not marked complete.",
         );
         return;
       }
