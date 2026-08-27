@@ -179,13 +179,31 @@ export const membershipService = {
       validateStatus: (status) => (status >= 200 && status < 300) || status === 404,
     });
 
+    const empty: LoyaltyEligibility = { discountPercent: 0, eligible: false, name: null, nextTier: null };
+
     if (response.status === 404) {
-      return { eligible: false };
+      return empty;
     }
 
     const data = response.data.data;
 
-    return { eligible: toSafeBoolean(data?.eligible) };
+    if (!isRecord(data)) {
+      return empty;
+    }
+
+    const nextTierRaw = data.nextTier ?? (data as Record<string, unknown>).next_tier;
+
+    return {
+      discountPercent: toSafeNumber(data.discountPercent ?? data.discount_percent),
+      eligible: toSafeBoolean(data.eligible),
+      name: toOptionalString(data.name) ?? null,
+      nextTier: isRecord(nextTierRaw)
+        ? {
+            discountPercent: toSafeNumber(nextTierRaw.discountPercent ?? nextTierRaw.discount_percent),
+            thresholdValue: toSafeNumber(nextTierRaw.thresholdValue ?? nextTierRaw.threshold_value),
+          }
+        : null,
+    };
   },
 
   async getMemberships(query: MembershipListQuery = {}, salonId?: string | null): Promise<MembershipListResponse> {
