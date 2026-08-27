@@ -46,6 +46,8 @@ export const INVENTORY = {
   // from the Purchase flow above which records a delivery immediately.
   ORDERS: "/api/v1/inventory/orders",
   ORDER_BY_ID: (id: string) => `/api/v1/inventory/orders/${id}`,
+  ORDER_DELETE: (id: string) => `/api/v1/inventory/orders/${id}/delete`,
+  ORDER_UPDATE: (id: string) => `/api/v1/inventory/orders/${id}/update`,
   ORDER_UPLOAD_SIGNATURE: "/api/v1/inventory/orders/upload-signature",
   ORDER_SIGNATURES: "/api/v1/inventory/orders/signatures",
 
