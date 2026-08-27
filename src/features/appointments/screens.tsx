@@ -2206,7 +2206,7 @@ function CalendarPreview({
       <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator style={styles.dinggHorizontalScroller}>
         <View style={{ width: calendarContentWidth }}>
           <View style={styles.dinggCalendarHeader}>
-            <View style={styles.dinggTimeHeader}>{viewMode === "day" ? <Text style={styles.dinggStaffHeader}>Stylist</Text> : null}</View>
+            <View style={styles.dinggTimeHeader}>{viewMode === "day" ? <Text style={styles.dinggStaffHeader}>Staff</Text> : null}</View>
             {columns.map((column, index) => <View key={`${column.key}-${column.label}-${index}`} style={[styles.dinggDayHeader, { width: columnWidth }]}>{viewMode === "day" ? <Ionicons name="person-outline" size={12} color={Colors.appointmentAccent} /> : null}<Text numberOfLines={1} style={styles.dinggDayHeaderText}>{column.label}</Text></View>)}
           </View>
           <ScrollView nestedScrollEnabled ref={verticalScrollRef} showsVerticalScrollIndicator style={styles.dinggVerticalScroller}>
@@ -4972,18 +4972,39 @@ export function AppointmentCalendarScreen() {
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
   const { fetchAppointments } = useFetchAppointments();
-  const [selectedStaff, setSelectedStaff] = useState("All Staff");
+  const [selectedStaffNames, setSelectedStaffNames] = useState<string[]>([]);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [calendarSearchOpen, setCalendarSearchOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"week" | "day" | "list">("day");
   const [viewMenuVisible, setViewMenuVisible] = useState(false);
   const [staffFilterVisible, setStaffFilterVisible] = useState(false);
   const staffNames = useMemo(() => ["All Staff", ...Array.from(new Set([...staffMembers.map((staff) => staff.name), ...appointments.map((item) => item.staffName)].filter(Boolean)))], [appointments, staffMembers]);
-  const visibleAppointments = useMemo(() => selectedStaff === "All Staff" ? appointments : appointments.filter((item) => item.staffName === selectedStaff), [appointments, selectedStaff]);
+  const filteredStaffNames = useMemo(() => staffNames.filter((name) => name !== "All Staff"), [staffNames]);
+  const visibleAppointments = useMemo(
+    () => selectedStaffNames.length === 0
+      ? appointments
+      : appointments.filter((item) => selectedStaffNames.includes(item.staffName)),
+    [appointments, selectedStaffNames],
+  );
+  const selectedStaffLabel = selectedStaffNames.length === 0
+    ? "All Staff"
+    : selectedStaffNames.length === 1
+      ? selectedStaffNames[0]
+      : `${selectedStaffNames.length} Staff`;
   const rangeEnd = useMemo(() => { const value = new Date(`${date}T00:00:00`); value.setDate(value.getDate() + (viewMode === "week" ? 6 : 0)); return value; }, [date, viewMode]);
   const rangeEndKey = `${rangeEnd.getFullYear()}-${String(rangeEnd.getMonth() + 1).padStart(2, "0")}-${String(rangeEnd.getDate()).padStart(2, "0")}`;
-  const selectedStaffId = selectedStaff === "All Staff" ? undefined : staffMembers.find((staff) => staff.name === selectedStaff)?.id;
+  const selectedStaffId = selectedStaffNames.length === 1 ? staffMembers.find((staff) => staff.name === selectedStaffNames[0])?.id : undefined;
   const changeDate = (amount: number) => { const value = new Date(`${date}T00:00:00`); value.setDate(value.getDate() + amount); setDate(`${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`); };
+  const toggleStaffFilter = (name: string) => {
+    if (name === "All Staff") {
+      setSelectedStaffNames([]);
+      return;
+    }
+
+    setSelectedStaffNames((current) =>
+      current.includes(name) ? current.filter((staffName) => staffName !== name) : [...current, name],
+    );
+  };
 
   useEffect(() => {
     void fetchAppointments(viewMode === "week"
@@ -5024,11 +5045,11 @@ export function AppointmentCalendarScreen() {
           </View>
         ) : null}
         {datePickerVisible ? <DateTimePicker mode="date" onChange={(event, selected) => { setDatePickerVisible(false); if (event.type !== "dismissed" && selected) setDate(`${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`); }} value={new Date(`${date}T00:00:00`)} /> : null}
-        <TouchableOpacity onPress={() => setStaffFilterVisible(true)} style={styles.dinggStylistSummary}><Text style={styles.dinggStylistLabel}>Stylist:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{selectedStaff}</Text><Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => setStaffFilterVisible(true)} style={styles.dinggStylistSummary}><Text style={styles.dinggStylistLabel}>Staff:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{selectedStaffLabel}</Text><Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /></TouchableOpacity>
       </View>
-      <CalendarPreview appointments={visibleAppointments} date={date} staffNames={staffNames.filter((name) => name !== "All Staff")} viewMode={viewMode} />
+      <CalendarPreview appointments={visibleAppointments} date={date} staffNames={selectedStaffNames.length ? selectedStaffNames : filteredStaffNames} viewMode={viewMode} />
       <Modal animationType="fade" onRequestClose={() => setViewMenuVisible(false)} transparent visible={viewMenuVisible}><Pressable onPress={() => setViewMenuVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.calendarMenuCard}>{([['week','calendar-outline','Week view'],['day','today-outline','Day view'],['list','list-outline','List view']] as const).map(([value, icon, label]) => <TouchableOpacity key={value} onPress={() => { setViewMode(value); setViewMenuVisible(false); }} style={[styles.calendarMenuOption, viewMode === value && styles.calendarMenuOptionActive]}><Ionicons name={icon} size={18} color={Colors.appointmentText} /><Text style={styles.calendarMenuText}>{label}</Text>{viewMode === value ? <Ionicons name="radio-button-on" size={16} color={Colors.appointmentAccent} /> : null}</TouchableOpacity>)}</Pressable></Pressable></Modal>
-      <Modal animationType="fade" onRequestClose={() => setStaffFilterVisible(false)} transparent visible={staffFilterVisible}><Pressable onPress={() => setStaffFilterVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.staffFilterCard}><Text style={styles.staffFilterTitle}>By Stylist</Text><ScrollView>{staffNames.map((name) => <TouchableOpacity key={name} onPress={() => setSelectedStaff(name)} style={styles.staffFilterOption}><Ionicons name={selectedStaff === name ? "checkbox" : "square-outline"} size={20} color={selectedStaff === name ? Colors.appointmentAccent : Colors.appointmentMuted} /><Text style={styles.staffFilterText}>{name}</Text></TouchableOpacity>)}</ScrollView><View style={styles.staffFilterActions}><TouchableOpacity onPress={() => setSelectedStaff("All Staff")}><Text style={styles.staffFilterClear}>Clear</Text></TouchableOpacity><TouchableOpacity onPress={() => setStaffFilterVisible(false)} style={styles.staffFilterApply}><Text style={styles.staffFilterApplyText}>Apply</Text></TouchableOpacity></View></Pressable></Pressable></Modal>
+      <Modal animationType="fade" onRequestClose={() => setStaffFilterVisible(false)} transparent visible={staffFilterVisible}><Pressable onPress={() => setStaffFilterVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.staffFilterCard}><Text style={styles.staffFilterTitle}>By Staff</Text><ScrollView>{staffNames.map((name) => { const selected = name === "All Staff" ? selectedStaffNames.length === 0 : selectedStaffNames.includes(name); return <TouchableOpacity key={name} onPress={() => toggleStaffFilter(name)} style={styles.staffFilterOption}><Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? Colors.appointmentAccent : Colors.appointmentMuted} /><Text style={styles.staffFilterText}>{name}</Text></TouchableOpacity>; })}</ScrollView><View style={styles.staffFilterActions}><TouchableOpacity onPress={() => setSelectedStaffNames([])}><Text style={styles.staffFilterClear}>Clear</Text></TouchableOpacity><TouchableOpacity onPress={() => setStaffFilterVisible(false)} style={styles.staffFilterApply}><Text style={styles.staffFilterApplyText}>Apply</Text></TouchableOpacity></View></Pressable></Pressable></Modal>
     </ScreenShell>
   );
 }
