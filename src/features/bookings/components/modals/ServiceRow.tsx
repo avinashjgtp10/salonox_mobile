@@ -46,6 +46,9 @@ interface SearchServiceResult {
   duration: number;
   consumables_used: RawConsumableUsage[];
   categoryId?: string;
+  // Days after which this service should be redone, as configured in the
+  // Service catalog — null/undefined means no reminder is set for it.
+  reminder_after_days?: number | null;
 }
 
 interface RawServiceItem {
@@ -56,6 +59,7 @@ interface RawServiceItem {
   duration_minutes?: string | number;
   consumables_used?: RawConsumableUsage[];
   category_id?: string;
+  reminder_after_days?: number | null;
 }
 
 interface ServiceRowProps {
@@ -132,6 +136,7 @@ function mapServiceSearchResult(service: RawServiceItem): SearchServiceResult {
     duration: Number(service.duration ?? service.duration_minutes) || 30,
     consumables_used: service.consumables_used ?? [],
     categoryId: service.category_id ?? undefined,
+    reminder_after_days: service.reminder_after_days ?? null,
   };
 }
 
@@ -258,6 +263,20 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   const [reminderDays, setReminderDays] = useState("");
   const [reminderError, setReminderError] = useState("");
   const [savedReminderDays, setSavedReminderDays] = useState<number | null>(null);
+
+  // Rows that already have a service on mount (editing a saved appointment,
+  // or a row pre-filled by the package-sale flow) never go through
+  // selectService() below, so its reminder pre-fill never runs for them —
+  // backfill from the same cached catalog list once it's loaded, same
+  // service_id-over-id preference as handleReminderSubmit uses below.
+  useEffect(() => {
+    if (savedReminderDays !== null || !row.service) return;
+    const serviceId = (row as any).service_id || row.id;
+    if (!serviceId) return;
+    const cached = (servicesList || []).find((s) => String(s.id) === String(serviceId));
+    if (cached?.reminder_after_days != null) setSavedReminderDays(cached.reminder_after_days);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [row.id, (row as any).service_id, row.service, servicesList]);
 
   // ── Complimentary modal state ─────────────────────────────────────────────────
   const [showComplimentaryModal, setShowComplimentaryModal] = useState(false);
@@ -468,7 +487,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     }
   }
 
-  function selectService(service: { id?: string; name: string; price: number; duration?: number; consumables_used?: RawConsumableUsage[]; categoryId?: string }) {
+  function selectService(service: { id?: string; name: string; price: number; duration?: number; consumables_used?: RawConsumableUsage[]; categoryId?: string; reminder_after_days?: number | null }) {
     // Every pick creates/fills its own row, even if the same service is
     // already on the bill elsewhere — a client can want the same service from
     // two different staff at once, which a merge-into-existing-row would make
@@ -514,6 +533,11 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
         stock: c.stock,
       })),
     );
+
+    // Pre-fill this row's reminder display from the catalog's configured
+    // value (Service setup → reminder_after_days) so staff see it immediately
+    // instead of the field starting blank every time the service is picked.
+    setSavedReminderDays(service.reminder_after_days ?? null);
 
     setShowDrop(false);
     onClearError?.(row.tempId, "service");
