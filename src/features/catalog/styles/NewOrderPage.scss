@@ -1,0 +1,184 @@
+// Base topbar/body/form-section/field-group/input styling all comes from
+// .add-supplier-page (AddSupplierPage.scss, imported by NewOrderPage.tsx) —
+// this file only covers what's unique to the order form: tabs, the wider
+// body needed for the line-items table, and the table itself.
+.new-order-page {
+  // AddSupplierPage's body is capped at 640px (a short single-column form) —
+  // the line-items table needs real width, so widen just this page's body.
+  &__body {
+    max-width: 1100px;
+  }
+
+  &__tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid #eaecf0;
+    padding: 0 40px;
+    flex-shrink: 0;
+
+    button {
+      background: none;
+      border: none;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #667085;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+
+      &.active { color: #101828; border-bottom-color: #101828; }
+      &.disabled { color: #d0d5dd; cursor: not-allowed; }
+      &:hover:not(.active):not(.disabled) { color: #344054; }
+    }
+  }
+
+  &__items-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 16px;
+
+    h3 { margin: 0; }
+  }
+
+  &__totals {
+    display: flex;
+    gap: 32px;
+    font-size: 13.5px;
+    color: #475467;
+    margin-top: 16px;
+
+    strong { color: #101828; margin-left: 6px; }
+  }
+}
+
+.new-order-suffix-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  input { flex: 1; }
+
+  span {
+    font-size: 13px;
+    color: #667085;
+    padding: 10px 12px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #f9fafb;
+  }
+}
+
+.new-order-field-with-add {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  > *:first-child { flex: 1; min-width: 0; }
+}
+
+.new-order-add-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  border: 1px solid #d0d5dd;
+  border-radius: 8px;
+  background: #fff;
+  color: #344054;
+  cursor: pointer;
+
+  &:hover { background: #f9fafb; border-color: #98a2b3; }
+}
+
+.new-order-signature {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  input { flex: 1; }
+}
+
+.new-order-table-wrap {
+  overflow-x: auto;
+}
+
+// .phist-table (PurchaseHistoryListPage.scss) supplies the base table look;
+// this just sizes the editable line-item cells.
+.new-order-table {
+  min-width: 1100px;
+
+  th { white-space: nowrap; }
+  td { vertical-align: middle; }
+
+  &__product { min-width: 220px; }
+  &__readonly { color: #475467; white-space: nowrap; }
+
+  input.new-order-input--sm {
+    width: 100%;
+    padding: 6px 8px;
+    border: 1px solid #d0d5dd;
+    border-radius: 6px;
+    font-size: 13px;
+    box-sizing: border-box;
+
+    &:focus {
+      outline: none;
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
+    }
+  }
+}
+
+.new-order-selected-product {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+
+  button {
+    background: none;
+    border: none;
+    color: #6366f1;
+    font-size: 12px;
+    cursor: pointer;
+    padding: 0;
+    white-space: nowrap;
+  }
+}
+
+.new-order-remove-line {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  color: #98a2b3;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { background: #fef3f2; color: #d92d20; }
+  &:disabled { opacity: 0.4; cursor: not-allowed; }
+}
+
+.new-order-gallery-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.new-order-gallery-item {
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  padding: 4px;
+  background: #fff;
+  cursor: pointer;
+
+  &:hover { border-color: #6366f1; }
+
+  img { width: 100%; height: 80px; object-fit: contain; display: block; }
+}

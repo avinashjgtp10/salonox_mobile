@@ -9,8 +9,14 @@ import type {
   StockTakeResult,
   InventoryResponse,
   Supplier,
+  SupplierWithBalance,
   CreateSupplierPayload,
   UpdateSupplierPayload,
+  CreateSupplierPaymentPayload,
+  SupplierPayment,
+  Order,
+  CreateOrderPayload,
+  OrderSignature,
   ConsumableListFilters,
   ConsumableListRow,
   ConsumableKpis,
@@ -148,12 +154,12 @@ export const deleteStocktakeThunk = createAsyncThunk<
 
 // ─── Fetch all suppliers ──────────────────────────────────────────────────────
 export const fetchSuppliersThunk = createAsyncThunk<
-  Supplier[],
+  SupplierWithBalance[],
   void,
   { rejectValue: string }
 >("inventory/fetchSuppliers", async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get<InventoryResponse<Supplier[]>>(INVENTORY.SUPPLIERS);
+    const res = await api.get<InventoryResponse<SupplierWithBalance[]>>(INVENTORY.SUPPLIERS);
     return res.data.data;
   } catch (err: any) {
     console.error("fetchSuppliersThunk error:", err);
@@ -203,6 +209,104 @@ export const deleteSupplierThunk = createAsyncThunk<
   } catch (err: any) {
     console.error("deleteSupplierThunk error:", err);
     return rejectWithValue(err?.response?.data?.error?.message || "Failed to delete supplier");
+  }
+});
+
+// ─── Create a supplier payout/payment ─────────────────────────────────────────
+export const createSupplierPaymentThunk = createAsyncThunk<
+  SupplierPayment,
+  { supplierId: string; data: CreateSupplierPaymentPayload },
+  { rejectValue: string }
+>("inventory/createSupplierPayment", async ({ supplierId, data }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<SupplierPayment>>(
+      INVENTORY.SUPPLIER_PAYMENTS(supplierId),
+      data,
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("createSupplierPaymentThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to record payment");
+  }
+});
+
+// ─── Orders (purchase-order documents — no stock movement) ────────────────────
+
+export const createOrderThunk = createAsyncThunk<
+  Order,
+  CreateOrderPayload,
+  { rejectValue: string }
+>("inventory/createOrder", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDERS, payload);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("createOrderThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to create order");
+  }
+});
+
+export const fetchOrdersThunk = createAsyncThunk<
+  { data: Order[]; total: number },
+  { search?: string; page?: number; limit?: number } | void,
+  { rejectValue: string }
+>("inventory/fetchOrders", async (filters, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<{ data: Order[]; total: number }>>(INVENTORY.ORDERS, {
+      params: filters ?? undefined,
+    });
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchOrdersThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch orders");
+  }
+});
+
+export const fetchOrderByIdThunk = createAsyncThunk<
+  Order,
+  string,
+  { rejectValue: string }
+>("inventory/fetchOrderById", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<Order>>(INVENTORY.ORDER_BY_ID(id));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchOrderByIdThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch order");
+  }
+});
+
+export const uploadOrderSignatureThunk = createAsyncThunk<
+  OrderSignature,
+  File,
+  { rejectValue: string }
+>("inventory/uploadOrderSignature", async (file, { rejectWithValue }) => {
+  try {
+    const formData = new FormData();
+    formData.append("signature", file);
+    const res = await api.post<InventoryResponse<OrderSignature>>(
+      INVENTORY.ORDER_UPLOAD_SIGNATURE,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("uploadOrderSignatureThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to upload signature");
+  }
+});
+
+export const fetchOrderSignaturesThunk = createAsyncThunk<
+  OrderSignature[],
+  void,
+  { rejectValue: string }
+>("inventory/fetchOrderSignatures", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<OrderSignature[]>>(INVENTORY.ORDER_SIGNATURES);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchOrderSignaturesThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch signatures");
   }
 });
 
