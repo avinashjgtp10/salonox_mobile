@@ -30,7 +30,7 @@ import {
   fetchClientByIdThunk,
   fetchClientHistoryThunk,
   fetchClientsWithHistoryStatsThunk,
-  blockClientThunk,
+  updateBlockThunk,
   unblockClientThunk,
 } from "@/middleware/client/client.thunk";
 import {
@@ -309,7 +309,7 @@ export default function ClientDetailsScreen() {
                 void dispatch(fetchClientByIdThunk(client.id));
                 toast.showSuccess("Client unblocked successfully.");
               } else {
-                Alert.alert("Error", "Unable to unblock client.");
+                Alert.alert("Error", res.payload?.message ?? "Unable to unblock client.");
               }
             },
             text: "Unblock",
@@ -325,13 +325,13 @@ export default function ClientDetailsScreen() {
           {
             onPress: async () => {
               const res = await dispatch(
-                blockClientThunk({ clientId: client.id, reason: "Blocked by staff action" })
+                updateBlockThunk({ clientId: client.id, reason: "Blocked by staff action" })
               );
-              if (blockClientThunk.fulfilled.match(res)) {
+              if (updateBlockThunk.fulfilled.match(res)) {
                 void dispatch(fetchClientByIdThunk(client.id));
                 toast.showSuccess("Client blocked successfully.");
               } else {
-                Alert.alert("Error", "Unable to block client.");
+                Alert.alert("Error", res.payload?.message ?? "Unable to block client.");
               }
             },
             text: "Block",
