@@ -33,6 +33,7 @@ export type ClientApiItem = {
   membership_name?: string | null;
   name?: string | null;
   phone?: string | null;
+  phone_country_code?: string | null;
   phone_number?: string | null;
   status?: string | null;
   total_visits?: number | string | null;
@@ -69,6 +70,7 @@ export type ClientListItem = {
   email: string;
   fullName: string;
   gender: string;
+  hasValidId: boolean;
   id: string;
   inactive: boolean;
   initials: string;
@@ -76,6 +78,7 @@ export type ClientListItem = {
   joinedDaysAgo: number | null;
   membership: string | null;
   phone: string;
+  phoneCountryCode: string | null;
   status: string;
   totalVisits: number;
 };
@@ -84,8 +87,9 @@ export type CreateClientRequest = {
   email?: string;
   first_name: string;
   gender?: string;
-  last_name: string;
-  phone: string;
+  last_name?: string;
+  phone_country_code?: string;
+  phone_number?: string;
   salon_id?: string;
 };
 
