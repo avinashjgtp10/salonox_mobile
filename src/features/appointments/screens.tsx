@@ -4486,7 +4486,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
               <>
                 <ActionButton icon="create-outline" label="Edit" route={`/appointments/${appointment.id}/edit`} />
                 <ActionButton icon="calendar-outline" label="Reschedule" route={`/appointments/${appointment.id}/reschedule`} />
-                <ActionButton icon="close-circle-outline" label="Cancel Appointment" route={`/appointments/${appointment.id}/cancel`} danger />
+                <ActionButton icon="close-circle-outline" label="Cancel" route={`/appointments/${appointment.id}/cancel`} danger />
               </>
             ) : null}
           </View>
@@ -4716,7 +4716,14 @@ function ActionButton({
       style={[styles.actionButton, danger && styles.actionButtonDanger]}
     >
       <Ionicons name={icon} size={18} color={danger ? Colors.error : Colors.primary} />
-      <Text style={[styles.actionButtonText, danger && styles.actionButtonTextDanger]}>{label}</Text>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+        numberOfLines={1}
+        style={[styles.actionButtonText, danger && styles.actionButtonTextDanger]}
+      >
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
