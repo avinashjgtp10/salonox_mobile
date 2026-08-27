@@ -64,6 +64,9 @@ const ProductInventoryPage = lazy(
 const ConsumableUsageHistoryPage = lazy(
   () => import("../features/catalog/pages/ConsumableUsageHistoryPage"),
 );
+const ProductAuditPage = lazy(
+  () => import("../features/catalog/pages/ProductAuditPage"),
+);
 
 import { PageLoader } from "../components/ui";
 
@@ -124,6 +127,7 @@ export const CatalogRoutes = () => (
         <Route path="inventory/suppliers/edit/:id" element={<AddSupplierPage />} />
         <Route path="inventory/suppliers/:id/edit" element={<AddSupplierPage />} />
         <Route path="inventory/products" element={<ProductInventoryPage />} />
+        <Route path="inventory/audit" element={<ProductAuditPage />} />
         <Route path="inventory/consumables" element={<ConsumableInventoryPage />} />
         <Route path="inventory/consumables/add" element={<ProductFormPage />} />
         <Route path="inventory/consumables/edit/:id" element={<ProductFormPage />} />
