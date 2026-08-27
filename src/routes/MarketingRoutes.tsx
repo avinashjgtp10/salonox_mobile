@@ -9,8 +9,7 @@ const MarketingDashboardPage = lazy(() => import("../features/marketing/pages/Ma
 const AnalyticsPage          = lazy(() => import("../features/marketing/pages/AnalyticsPage"));
 const TemplatesListPage      = lazy(() => import("../features/marketing/pages/TemplatesListPage"));
 const CreateTemplatePage     = lazy(() => import("../features/marketing/pages/CreateTemplatePage"));
-const CreateCampaignPage     = lazy(() => import("../features/marketing/pages/CreateCampaignPage"));
-const CampaignHistoryPage    = lazy(() => import("../features/marketing/pages/CampaignHistoryPage"));
+const CampaignsPage          = lazy(() => import("../features/marketing/pages/CampaignsPage"));
 const InboxPage              = lazy(() => import("../features/marketing/pages/InboxPage"));
 const WaConfigPage           = lazy(() => import("../features/marketing/pages/WaConfigPage"));
 
@@ -56,8 +55,8 @@ export const MarketingRoutes = () => {
         <Route path="analytics"         element={<AnalyticsPage />} />
         <Route path="templates"         element={<TemplatesListPage />} />
         <Route path="templates/create"  element={<CreateTemplatePage />} />
-        <Route path="campaigns/create"  element={<CreateCampaignPage />} />
-        <Route path="campaigns/history" element={<CampaignHistoryPage />} />
+        <Route path="campaigns/create"  element={<CampaignsPage />} />
+        <Route path="campaigns/history" element={<CampaignsPage />} />
         <Route path="inbox"             element={<InboxPage />} />
         <Route path="config"            element={<WaConfigPage />} />
         <Route path="*"                 element={<Navigate to="/dashboard/marketing" replace />} />
