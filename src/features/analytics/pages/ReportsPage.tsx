@@ -173,6 +173,20 @@ export default function ReportsPage() {
   const [showAllRecents, setShowAllRecents] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchParams] = useSearchParams();
+  // Id of the report last opened, so returning to the list can scroll that
+  // specific card back into view instead of resetting to the top — the
+  // .main element (DashboardLayout) is what actually scrolls, not this
+  // component's own root.
+  const lastOpenedIdRef = useRef<string | null>(null);
+  // Briefly highlights the report row scrolled back into view, so it's
+  // obvious which card you just returned from rather than just visible
+  // somewhere in an expanded category.
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  // Tracks which auto-expand target (see forcedExpandKey below) has already
+  // been applied to `expanded`, so a later manual collapse-click on that same
+  // category isn't immediately re-forced open again on the next render — the
+  // force should only fire once per navigation, not on every render.
+  const appliedForceKeyRef = useRef<CategoryKey | null>(null);
 
   useEffect(() => {
     dispatch(fetchSettingsThunk());
@@ -209,12 +223,20 @@ export default function ReportsPage() {
     });
   };
 
-  const toggleCategory = (key: CategoryKey) => {
+  const toggleCategory = (key: CategoryKey, e?: React.MouseEvent) => {
+    const wasOpen = effectiveExpanded.has(key);
     setExpanded(prev => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
+    // Scrolls the row that was just expanded to the top of the viewport so
+    // its now-visible reports are actually on screen, instead of expanding
+    // in place and leaving the new rows below the fold.
+    if (!wasOpen) {
+      const row = (e?.currentTarget as HTMLElement | undefined)?.closest(".rp-cat-block");
+      requestAnimationFrame(() => row?.scrollIntoView({ block: "start", behavior: "smooth" }));
+    }
   };
 
   const markRecent = (id: string) => {
@@ -228,7 +250,12 @@ export default function ReportsPage() {
   const openReport = (id: string) => {
     const report = byId.get(id);
     if (!report) return;
+    lastOpenedIdRef.current = id;
     navigate(`/reports/${report.category}/${report.slug}`);
+  };
+
+  const goBackToList = () => {
+    navigate("/reports");
   };
 
   // Legacy deep-link support: /dashboard/analytics?report=<id> redirects to the
@@ -258,10 +285,81 @@ export default function ReportsPage() {
     if (active) markRecent(active.id);
   }, [active?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The category that must be expanded when we're back on the list — either
+  // the last-opened report's category, or the breadcrumb's ?expand=<key>
+  // (its link navigates to /reports?expand=<categoryKey> while ReportsPage
+  // stays mounted, so this can't be read via useState's lazy initializer,
+  // which only runs once on first mount). Computed at render time (not in an
+  // effect) so the very first paint after `active` becomes null already
+  // shows it expanded — an effect-driven update lands a commit late and
+  // flashes the collapsed list first.
+  const forcedExpandKey = useMemo<CategoryKey | null>(() => {
+    if (active) return null;
+    const expandParam = searchParams.get("expand");
+    const isValidCategory = (v: string | null): v is CategoryKey => CATEGORIES.some(c => c.key === v);
+    if (isValidCategory(expandParam)) return expandParam;
+    const id = lastOpenedIdRef.current;
+    const report = id ? byId.get(id) : undefined;
+    return report?.category ?? null;
+  }, [active, searchParams, byId]);
+
+  // Only force-expand a given key once per navigation — otherwise a manual
+  // collapse-click right after landing here (toggleCategory removes it from
+  // `expanded`) would be immediately overridden back open on the very next
+  // render, since `forcedExpandKey` itself hasn't changed.
+  const alreadyApplied = appliedForceKeyRef.current === forcedExpandKey;
+  if (forcedExpandKey && !alreadyApplied) {
+    appliedForceKeyRef.current = forcedExpandKey;
+  }
+
+  const effectiveExpanded = useMemo(() => {
+    if (!forcedExpandKey || alreadyApplied || expanded.has(forcedExpandKey)) return expanded;
+    return new Set(expanded).add(forcedExpandKey);
+  }, [expanded, forcedExpandKey, alreadyApplied]);
+
+  // Scroll the last-opened report's card back into view once we're back on
+  // the list, instead of resetting to the top of the page. `effectiveExpanded`
+  // above already renders the right category open on the very first paint,
+  // so this should find the card on its first attempt — the rAF poll is just
+  // a safety margin for slow/expensive renders (e.g. a huge visible list).
+  useEffect(() => {
+    if (active) return;
+    const id = lastOpenedIdRef.current;
+    if (!id) return;
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const tryScroll = () => {
+      if (cancelled) return;
+      const el = document.querySelector(`[data-cat-report-id="${id}"]`);
+      const scrollEl = document.querySelector(".main");
+      if (el && scrollEl) {
+        const elRect = el.getBoundingClientRect();
+        const scrollRect = scrollEl.getBoundingClientRect();
+        const offset = elRect.top - scrollRect.top - (scrollRect.height / 2) + (elRect.height / 2);
+        scrollEl.scrollBy({ top: offset, behavior: "auto" });
+        setHighlightedId(id);
+        return;
+      }
+      attempts += 1;
+      if (attempts < 10) requestAnimationFrame(tryScroll);
+    };
+
+    requestAnimationFrame(tryScroll);
+    return () => { cancelled = true; };
+  }, [active]);
+
+  useEffect(() => {
+    if (!highlightedId) return;
+    const timer = setTimeout(() => setHighlightedId(null), 1800);
+    return () => clearTimeout(timer);
+  }, [highlightedId]);
+
   return (
     <div className="rp-page">
       {active ? (
-        <active.Component onBack={() => navigate("/reports")} category={activeCategoryLabel} categoryKey={active.category} />
+        <active.Component onBack={goBackToList} category={activeCategoryLabel} categoryKey={active.category} />
       ) : (
         <>
           <div className="rp-header">
@@ -298,7 +396,7 @@ export default function ReportsPage() {
                   ) : (
                     <div className="rp-search-results">
                       {searchResults.map(r => (
-                        <div key={r.id} className="rp-cat-report-row" onClick={() => openReport(r.id)}>
+                        <div key={r.id} data-report-id={r.id} className="rp-cat-report-row" onClick={() => openReport(r.id)}>
                           <div className={`rp-cat-report-icon rp-cat-report-icon--${r.category}`}><r.icon size={15} /></div>
                           <div className="rp-cat-report-info">
                             <div className="rp-cat-report-name">{r.name}</div>
@@ -332,7 +430,7 @@ export default function ReportsPage() {
                         {favoriteReports.map(r => {
                           const cat = CATEGORIES.find(c => c.key === r.category)!;
                           return (
-                            <div key={r.id} className="rp-fav-card" onClick={() => openReport(r.id)}>
+                            <div key={r.id} data-report-id={r.id} className="rp-fav-card" onClick={() => openReport(r.id)}>
                               <div className="rp-fav-card-top">
                                 <div className={`rp-fav-card-icon rp-cat-icon--${r.category}`}><r.icon size={15} /></div>
                                 <button
@@ -366,7 +464,7 @@ export default function ReportsPage() {
                     ) : (
                       <div className="rp-recent-row">
                         {(showAllRecents ? recentReports : recentReports.slice(0, 5)).map(r => (
-                          <div key={r.id} className="rp-recent-item" onClick={() => openReport(r.id)}>
+                          <div key={r.id} data-report-id={r.id} className="rp-recent-item" onClick={() => openReport(r.id)}>
                             <div className="rp-recent-name">{r.report!.name}</div>
                             <div className="rp-recent-time">{formatTimeAgo(r.ts)}</div>
                           </div>
@@ -380,10 +478,10 @@ export default function ReportsPage() {
                     <div className="rp-cat-list">
                       {CATEGORIES.map(cat => {
                         const reports = visibleReports.filter(r => r.category === cat.key);
-                        const isOpen = expanded.has(cat.key);
+                        const isOpen = effectiveExpanded.has(cat.key);
                         return (
                           <div key={cat.key} className={`rp-cat-block ${isOpen ? "open" : ""}`}>
-                            <div className="rp-cat-row" onClick={() => toggleCategory(cat.key)}>
+                            <div className="rp-cat-row" onClick={(e) => toggleCategory(cat.key, e)}>
                               <div className={`rp-cat-icon rp-cat-icon--${cat.key}`}><cat.icon size={18} /></div>
                               <div className="rp-cat-info">
                                 <div className="rp-cat-name">{cat.label}</div>
@@ -395,7 +493,7 @@ export default function ReportsPage() {
                             {isOpen && (
                               <div className="rp-cat-report-list">
                                 {reports.map(r => (
-                                  <div key={r.id} className="rp-cat-report-row" onClick={() => openReport(r.id)}>
+                                  <div key={r.id} data-cat-report-id={r.id} className={`rp-cat-report-row ${highlightedId === r.id ? "rp-cat-report-row--highlight" : ""}`} onClick={() => openReport(r.id)}>
                                     <div className={`rp-cat-report-icon rp-cat-report-icon--${r.category}`}><r.icon size={15} /></div>
                                     <div className="rp-cat-report-info">
                                       <div className="rp-cat-report-name">{r.name}</div>
