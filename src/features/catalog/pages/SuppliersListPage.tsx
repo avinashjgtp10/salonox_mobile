@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Search,
   Shop,
@@ -6,12 +7,14 @@ import {
   PencilSquare,
   Trash,
   PlusLg,
+  CashCoin,
   X,
 } from "react-bootstrap-icons";
 import { Dropdown } from "react-bootstrap";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSuppliersThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
-import type { Supplier } from "../../../types/inventory.types";
+import type { Supplier, SupplierWithBalance, SupplierPaymentStatus } from "../../../types/inventory.types";
+import { useCurrency } from "../../../hooks/useCurrency";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import Pagination from "../../../components/ui/Pagination";
 import { JiraFilterMenu } from "../../../components/ui";
@@ -22,7 +25,22 @@ import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
 import EmptyState from "../../../components/ui/EmptyState";
 import AddSupplierPage from "./AddSupplierPage";
+import CreatePayoutModal from "../components/CreatePayoutModal";
 import "../styles/SuppliersListPage.scss";
+
+const fmtDate = (value?: string | null) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+};
+
+const STATUS_LABEL: Record<SupplierPaymentStatus, string> = {
+  paid: "Paid",
+  due: "Due",
+  overdue: "Overdue",
+};
 
 interface FilterState {
   city: string;
@@ -33,6 +51,8 @@ const DEFAULT_FILTERS: FilterState = { city: "", state: "" };
 
 const SuppliersListPage: React.FC = () => {
   const dispatch = useAppDispatch();
+  const navigate = useNavigate();
+  const { formatAmount } = useCurrency();
   const { suppliers, loading } = useAppSelector((state) => state.inventory);
 
   const [search, setSearch] = useState("");
@@ -41,6 +61,11 @@ const SuppliersListPage: React.FC = () => {
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(DEFAULT_FILTERS);
   const [panelMode, setPanelMode] = useState<"create" | "edit" | null>(null);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
+
+  // Payout modal state — undefined supplierId means the modal shows its own
+  // supplier picker (top-level "Create Payout" entry point).
+  const [payoutSupplierId, setPayoutSupplierId] = useState<string | undefined>(undefined);
+  const [payoutOpen, setPayoutOpen] = useState(false);
 
   // Delete modal state
   const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null);
@@ -121,6 +146,16 @@ const SuppliersListPage: React.FC = () => {
     setSelectedSupplierId(null);
   };
 
+  const openPayout = (supplierId?: string) => {
+    setPayoutSupplierId(supplierId);
+    setPayoutOpen(true);
+  };
+
+  const closePayout = () => {
+    setPayoutOpen(false);
+    setPayoutSupplierId(undefined);
+  };
+
   return (
     <div className="suppliers-list-page">
       <header className="suppliers-list-page__header">
@@ -133,9 +168,14 @@ const SuppliersListPage: React.FC = () => {
             Add and manage details of your suppliers. <LearnMoreLink topic="suppliers">Learn more</LearnMoreLink>
           </p>
         </div>
-        <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={openCreatePanel}>
-          Add
-        </Button>
+        <div className="d-flex gap-2">
+          <Button variant="outline-dark" iconLeft={<CashCoin size={14} />} onClick={() => openPayout()}>
+            Create Payout
+          </Button>
+          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={openCreatePanel}>
+            Add
+          </Button>
+        </div>
       </header>
 
       <div className="suppliers-list-page__controls">
@@ -177,6 +217,11 @@ const SuppliersListPage: React.FC = () => {
                 <th>Contact person</th>
                 <th>Email</th>
                 <th>Phone</th>
+                <th>Total Amount</th>
+                <th>Pending Orders</th>
+                <th>Due Amount</th>
+                <th>Due Date</th>
+                <th>Status</th>
                 <th className="actions-cell" style={{ width: "56px" }} />
               </tr>
             </thead>
@@ -192,6 +237,11 @@ const SuppliersListPage: React.FC = () => {
                   <td><Skeleton width="50%" height={12} /></td>
                   <td><Skeleton width="60%" height={12} /></td>
                   <td><Skeleton width="40%" height={12} /></td>
+                  <td><Skeleton width="50%" height={12} /></td>
+                  <td><Skeleton width="30%" height={12} /></td>
+                  <td><Skeleton width="50%" height={12} /></td>
+                  <td><Skeleton width="50%" height={12} /></td>
+                  <td><Skeleton width="40%" height={12} /></td>
                   <td className="actions-cell" />
                 </tr>
               ))}
@@ -205,15 +255,23 @@ const SuppliersListPage: React.FC = () => {
                 <th>Contact person</th>
                 <th>Email</th>
                 <th>Phone</th>
+                <th>Total Amount</th>
+                <th>Pending Orders</th>
+                <th>Due Amount</th>
+                <th>Due Date</th>
+                <th>Status</th>
                 <th className="actions-cell" style={{ width: "56px" }} />
               </tr>
             </thead>
             <tbody>
-              {paginated.map((s) => (
+              {paginated.map((s) => {
+                const sb = s as SupplierWithBalance;
+                const status: SupplierPaymentStatus = sb.status ?? "paid";
+                return (
                 <tr
                   key={s.id}
                   style={{ cursor: "pointer" }}
-                  onClick={() => openEditPanel(s.id)}
+                  onClick={() => navigate(`/dashboard/catalog/inventory/suppliers/${s.id}`)}
                 >
                   <td className="supplier-name-cell">
                     <div className="supplier-icon"><Shop size={18} /></div>
@@ -227,6 +285,15 @@ const SuppliersListPage: React.FC = () => {
                   <td>{[s.first_name, s.last_name].filter(Boolean).join(" ") || "—"}</td>
                   <td>{s.email || "—"}</td>
                   <td>{s.mobile_number || s.telephone_number || "—"}</td>
+                  <td>{formatAmount(sb.total_purchase_amount ?? 0)}</td>
+                  <td>{sb.pending_order_count ?? 0}</td>
+                  <td>{formatAmount(sb.due_amount ?? 0)}</td>
+                  <td>{fmtDate(sb.due_date)}</td>
+                  <td>
+                    <span className={`supplier-status-badge supplier-status-badge--${status}`}>
+                      {STATUS_LABEL[status]}
+                    </span>
+                  </td>
                   <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
                     <Dropdown align="end">
                       <Dropdown.Toggle
@@ -245,6 +312,12 @@ const SuppliersListPage: React.FC = () => {
                           <PencilSquare size={14} /> Edit
                         </Dropdown.Item>
                         <Dropdown.Item
+                          onClick={() => openPayout(s.id)}
+                          className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+                        >
+                          <CashCoin size={14} /> Payout
+                        </Dropdown.Item>
+                        <Dropdown.Item
                           onClick={() => { setDeletingSupplier(s); setDeleteInput(""); }}
                           className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger"
                         >
@@ -254,7 +327,7 @@ const SuppliersListPage: React.FC = () => {
                     </Dropdown>
                   </td>
                 </tr>
-              ))}
+              );})}
             </tbody>
           </table>
         ) : (
@@ -339,6 +412,13 @@ const SuppliersListPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <CreatePayoutModal
+        show={payoutOpen}
+        onClose={closePayout}
+        supplierId={payoutSupplierId}
+        onSuccess={() => dispatch(fetchSuppliersThunk())}
+      />
     </div>
   );
 };

@@ -10,6 +10,7 @@ export interface ProductSearchResult {
   barcode?: string | null;
   sku?: string | null;
   supply_price?: number | null;
+  retail_price?: number | null;
 }
 
 interface Props {

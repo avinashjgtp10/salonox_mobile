@@ -45,6 +45,18 @@ const SuppliersListPage = lazy(
 const AddSupplierPage = lazy(
   () => import("../features/catalog/pages/AddSupplierPage"),
 );
+const SupplierDetailPage = lazy(
+  () => import("../features/catalog/pages/SupplierDetailPage"),
+);
+const NewOrderPage = lazy(
+  () => import("../features/catalog/pages/NewOrderPage"),
+);
+const OrdersListPage = lazy(
+  () => import("../features/catalog/pages/OrdersListPage"),
+);
+const OrderDetailPage = lazy(
+  () => import("../features/catalog/pages/OrderDetailPage"),
+);
 const PackagesPage = lazy(
   () => import("../features/catalog/pages/Packages"),
 );
@@ -116,16 +128,16 @@ export const CatalogRoutes = () => (
             <Navigate to="/dashboard/catalog/inventory/purchases" replace />
           }
         />
-        <Route
-          path="inventory/orders"
-          element={
-            <Navigate to="/dashboard/catalog/inventory/purchases" replace />
-          }
-        />
+        {/* Orders is now its own concept (a PO document, no stock movement) —
+            sibling to Purchase History rather than an alias for it. */}
+        <Route path="inventory/orders" element={<OrdersListPage />} />
+        <Route path="inventory/orders/new-order" element={<NewOrderPage />} />
+        <Route path="inventory/orders/:id" element={<OrderDetailPage />} />
         <Route path="inventory/suppliers" element={<SuppliersListPage />} />
         <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
         <Route path="inventory/suppliers/edit/:id" element={<AddSupplierPage />} />
         <Route path="inventory/suppliers/:id/edit" element={<AddSupplierPage />} />
+        <Route path="inventory/suppliers/:id" element={<SupplierDetailPage />} />
         <Route path="inventory/products" element={<ProductInventoryPage />} />
         <Route path="inventory/audit" element={<ProductAuditPage />} />
         <Route path="inventory/consumables" element={<ConsumableInventoryPage />} />

@@ -2,6 +2,7 @@ export const INVENTORY = {
   BASE: "/api/v1/inventory",
   SUPPLIERS: "/api/v1/inventory/suppliers",
   SUPPLIER_BY_ID: (id: string) => `/api/v1/inventory/suppliers/${id}`,
+  SUPPLIER_PAYMENTS: (id: string) => `/api/v1/inventory/suppliers/${id}/payments`,
 
   STOCK_MOVEMENTS: "/api/v1/inventory/stock-movements",
   MOVEMENT_BY_ID: (id: string) => `/api/v1/inventory/stock-movements/${id}`,
@@ -40,6 +41,13 @@ export const INVENTORY = {
   // touched, so the table can patch itself without a follow-up GET.
   PRODUCT_INVENTORY_PURCHASES: "/api/v1/inventory/product-inventory/purchases",
   PRODUCT_INVENTORY_PURCHASE_BY_ID: (id: string) => `/api/v1/inventory/product-inventory/purchases/${id}`,
+
+  // Orders — a purchase-order DOCUMENT only (no stock movement), separate
+  // from the Purchase flow above which records a delivery immediately.
+  ORDERS: "/api/v1/inventory/orders",
+  ORDER_BY_ID: (id: string) => `/api/v1/inventory/orders/${id}`,
+  ORDER_UPLOAD_SIGNATURE: "/api/v1/inventory/orders/upload-signature",
+  ORDER_SIGNATURES: "/api/v1/inventory/orders/signatures",
 
   // Product Audit — count physical stock against system quantities. Never
   // adjusts real stock; see product-audit.repository.ts on the backend.

@@ -12,13 +12,13 @@ import {
   fetchConsumableByIdThunk,
 } from "../middleware/inventory/inventory.thunk";
 import type {
-  Stocktake, Supplier,
+  Stocktake, SupplierWithBalance,
   ConsumableListRow, ConsumableKpis, ConsumableDetail,
 } from "../types/inventory.types";
 
 interface InventoryState {
   stocktakes: Stocktake[];
-  suppliers: Supplier[];
+  suppliers: SupplierWithBalance[];
   currentStocktake: Stocktake | null;
   loading: boolean;
   error: string | null;
@@ -121,16 +121,26 @@ const inventorySlice = createSlice({
       state.error = action.payload as string;
     });
 
-    // Create Supplier
+    // Create Supplier — the create/update endpoints only echo back contact
+    // fields, so a freshly created supplier has no balance data yet
+    // (defaulted here) until the next fetchSuppliersThunk refresh.
     builder.addCase(createSupplierThunk.fulfilled, (state, action) => {
-      state.suppliers.push(action.payload);
+      state.suppliers.push({
+        ...action.payload,
+        total_purchase_amount: 0,
+        pending_order_count: 0,
+        due_amount: 0,
+        due_date: null,
+        status: "paid",
+      });
     });
 
-    // Update Supplier
+    // Update Supplier — preserve existing balance fields, only overwrite
+    // the contact/address fields the update response actually carries.
     builder.addCase(updateSupplierThunk.fulfilled, (state, action) => {
       const index = state.suppliers.findIndex((s) => s.id === action.payload.id);
       if (index !== -1) {
-        state.suppliers[index] = action.payload;
+        state.suppliers[index] = { ...state.suppliers[index], ...action.payload };
       }
     });
 
