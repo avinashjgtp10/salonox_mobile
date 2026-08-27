@@ -14,6 +14,7 @@ import {
   getCustomExpenseTypes,
   saveCustomExpenseType,
 } from "../cashManagement.expenseTypes";
+import { fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
 import type {
   CashDashboardSummary,
   CashExpenseRecord,
@@ -626,6 +627,11 @@ export function CloseCounterModal({
   const [remarks, setRemarks] = useState("");
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState("");
+  // dashboard.upiAmount/cardAmount come from the cash-management dashboard
+  // endpoint, which never actually populates those fields (always 0) — the
+  // real per-payment-method totals only exist in today's daily-sheet rows,
+  // so they're fetched and aggregated separately here.
+  const [paymentMethodAmounts, setPaymentMethodAmounts] = useState({ upi: 0, card: 0, cash: 0 });
 
   const handleClose = () => {
     if (loading || mandatory) return;
@@ -645,6 +651,17 @@ export function CloseCounterModal({
     setErrors({});
     setSubmitError("");
   }, [dashboard, show]);
+
+  useEffect(() => {
+    if (!show) return;
+    let cancelled = false;
+    fetchTodaysPaymentMethodCounts().then((counts) => {
+      if (!cancelled) setPaymentMethodAmounts(counts.amounts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [show]);
 
   const validateForm = () => {
     const nextErrors: FieldErrors = {};
@@ -759,11 +776,11 @@ export function CloseCounterModal({
             </div>
             <div className="cash-mgmt__close-card">
               <span><CurrencyRupee size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> UPI Payments</span>
-              <strong>{formatAmount(dashboard.upiAmount)}</strong>
+              <strong>{formatAmount(paymentMethodAmounts.upi)}</strong>
             </div>
             <div className="cash-mgmt__close-card">
               <span><Wallet2 size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> Card Payments</span>
-              <strong>{formatAmount(dashboard.cardAmount)}</strong>
+              <strong>{formatAmount(paymentMethodAmounts.card)}</strong>
             </div>
           </div>
           <Input
