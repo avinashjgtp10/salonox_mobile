@@ -30,6 +30,13 @@ const RATING_OPTIONS = [
   { id: "1", label: "1 Star" },
 ];
 
+interface ServiceRatingEntry {
+  service_name: string;
+  staff_name: string | null;
+  rating: number;
+  comment: string | null;
+}
+
 interface RatingRow {
   clientId: string;
   clientName: string;
@@ -37,9 +44,8 @@ interface RatingRow {
   staffId: string;
   staffName: string;
   rating: number;
-  staffRating: number | null;
-  serviceRating: number | null;
-  ambienceRating: number | null;
+  improvementTags: string[];
+  serviceRatings: ServiceRatingEntry[];
   reviewText: string;
   reviewDate: string | null;
   source: string;
@@ -54,9 +60,8 @@ function mapRow(row: any): RatingRow {
     staffId: row.staff_id ? String(row.staff_id) : "",
     staffName: row.staff_name || "—",
     rating: Number(row.rating) || 0,
-    staffRating: row.staff_rating != null ? Number(row.staff_rating) : null,
-    serviceRating: row.service_rating != null ? Number(row.service_rating) : null,
-    ambienceRating: row.ambience_rating != null ? Number(row.ambience_rating) : null,
+    improvementTags: Array.isArray(row.improvement_tags) ? row.improvement_tags : [],
+    serviceRatings: Array.isArray(row.service_ratings) ? row.service_ratings : [],
     reviewText: row.review_text || "—",
     reviewDate: row.review_date || null,
     source: row.source || "—",
@@ -189,11 +194,14 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
     setMinRating(picked.length ? picked[picked.length - 1] : null);
   };
 
-  const HEADERS = ["Client Name", "Contact", `Total Spend (${currencySymbol})`, "Staff", "Rating", "Staff Rating", "Service Rating", "Ambience Rating", "Review", "Date"];
+  const servicesLabel = (r: RatingRow) =>
+    r.serviceRatings.map(sr => `${sr.service_name} (${sr.staff_name || "—"}) ${sr.rating}★`).join(", ") || "—";
+  const tagsLabel = (r: RatingRow) => r.improvementTags.join(", ") || "—";
+
+  const HEADERS = ["Client Name", "Contact", `Total Spend (${currencySymbol})`, "Staff", "Overall Rating", "Services Rated", "What Can We Improve", "Additional Comments", "Date"];
   const exportRows = () => rows.map(r => [
     r.clientName, canViewFullContact ? r.contact : maskMobile(r.contact), formatAmount(r.totalSpend), r.staffName, r.rating,
-    r.staffRating ?? "—", r.serviceRating ?? "—", r.ambienceRating ?? "—",
-    r.reviewText, formatDate(r.reviewDate),
+    servicesLabel(r), tagsLabel(r), r.reviewText, formatDate(r.reviewDate),
   ]);
 
   return (
@@ -265,15 +273,15 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
                 />
               </th>
               <th>Client Name</th><th>Contact</th><th>Total Spend ({currencySymbol})</th><th>Staff</th>
-              <th>Rating</th><th>Staff</th><th>Service</th><th>Ambience</th>
-              <th>Review</th><th>Date</th>
+              <th>Overall Rating</th><th>Services Rated</th><th>What Can We Improve</th>
+              <th>Additional Comments</th><th>Date</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={11} />
+              <SkeletonTableRows columns={10} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={11} className="rp-detail-empty-cell">No rating data found</td></tr>
+              <tr><td colSpan={10} className="rp-detail-empty-cell">No rating data found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
@@ -292,9 +300,25 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
                 <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.totalSpend)}</td>
                 <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.staffName}</td>
                 <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><StarRating value={r.rating} /></td>
-                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.staffRating != null ? <StarRating value={r.staffRating} /> : "—"}</td>
-                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.serviceRating != null ? <StarRating value={r.serviceRating} /> : "—"}</td>
-                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.ambienceRating != null ? <StarRating value={r.ambienceRating} /> : "—"}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>
+                  {r.serviceRatings.length === 0 ? "—" : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {r.serviceRatings.map((sr, si) => (
+                        <div key={si} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span>{sr.service_name}{sr.staff_name ? ` (${sr.staff_name})` : ""}</span>
+                          <StarRating value={sr.rating} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </td>
+                <td
+                  onClick={() => r.clientId && setSelectedClientId(r.clientId)}
+                  title={tagsLabel(r)}
+                  style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {tagsLabel(r)}
+                </td>
                 <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.reviewText}</td>
                 <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatDate(r.reviewDate)}</td>
               </tr>
@@ -307,7 +331,7 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
 
       {selectedClientId && (
-        <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />
+        <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="feedback" />
       )}
 
       <SendCampaignModal
