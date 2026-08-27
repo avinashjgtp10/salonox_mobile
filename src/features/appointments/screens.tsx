@@ -861,7 +861,7 @@ const validateForm = (form: AppointmentFormState, options?: { requireClient?: bo
   }
 
   if (!form.staffId) {
-    errors.staffId = "Select a staff member.";
+    errors.staffId = "Select the staff.";
   }
 
   if (!validateDate(form.date)) {
@@ -3128,6 +3128,7 @@ function ServiceCatalogPicker({
   onSelectStaff,
   selectedStaffId,
   selectedServiceIds,
+  staffError,
   staffMembers,
   services,
   visible,
@@ -3140,6 +3141,7 @@ function ServiceCatalogPicker({
   onSelectStaff: (staffId: string) => void;
   selectedStaffId: string;
   selectedServiceIds: string[];
+  staffError?: string;
   staffMembers: StaffMember[];
   services: ServiceListItem[];
   visible: boolean;
@@ -3175,11 +3177,16 @@ function ServiceCatalogPicker({
         </View>
 
         <View style={styles.servicePickerBody}>
-          <Text style={styles.servicePickerLabel}>Assigned Stylist*</Text>
-          <TouchableOpacity activeOpacity={0.84} onPress={() => setStaffPickerOpen(true)} style={styles.servicePickerSelect}>
+          <Text style={styles.servicePickerLabel}>Assigned Staff*</Text>
+          <TouchableOpacity
+            activeOpacity={0.84}
+            onPress={() => setStaffPickerOpen(true)}
+            style={[styles.servicePickerSelect, staffError && styles.inputError]}
+          >
             <Text style={[styles.servicePickerSelectText, !selectedStaff && styles.servicePickerSelectPlaceholder]}>{selectedStaff?.name ?? "-"}</Text>
             <Ionicons name="chevron-down" size={18} color={Colors.appointmentTextSecondary} />
           </TouchableOpacity>
+          {staffError ? <Text style={styles.fieldError}>{staffError}</Text> : null}
           <View style={styles.requestedStylistRow}>
             <Text style={styles.requestedStylistLabel}>Requested Stylist</Text>
             <Text style={styles.requestedStylistValue}>{selectedStaff?.name ?? "No Preferences"}</Text>
@@ -3257,7 +3264,7 @@ function ServiceCatalogPicker({
           <Pressable onPress={() => setStaffPickerOpen(false)} style={styles.stylistModalBackdrop}>
             <Pressable style={styles.stylistModalCard}>
               <View style={styles.stylistModalHeader}>
-                <Text style={styles.stylistModalTitle}>Assigned Stylist</Text>
+                <Text style={styles.stylistModalTitle}>Assigned Staff</Text>
                 <TouchableOpacity onPress={() => setStaffPickerOpen(false)}><Ionicons name="close" size={26} color={Colors.appointmentMuted} /></TouchableOpacity>
               </View>
               <TouchableOpacity onPress={() => { onSelectStaff(""); setStaffPickerOpen(false); }} style={styles.stylistOptionRow}>
@@ -3924,6 +3931,15 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     setErrors((current) => ({ ...current, staffId: undefined, startTime: undefined }));
   };
 
+  const handleServicePickerContinue = () => {
+    if (!form.staffId) {
+      setErrors((current) => ({ ...current, staffId: "Select the staff." }));
+      return;
+    }
+
+    setServicePickerVisible(false);
+  };
+
   const handleSelectSlot = (startTime: string) => {
     const selectedSlot = availableSlots.find((slot) => slot.value === startTime);
 
@@ -4111,11 +4127,12 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         error={serviceCatalogError}
         loading={serviceCatalogLoading}
         onClose={() => setServicePickerVisible(false)}
-        onContinue={() => setServicePickerVisible(false)}
+        onContinue={handleServicePickerContinue}
         onSelect={handleSelectService}
         onSelectStaff={handleSelectStaff}
         selectedStaffId={form.staffId}
         selectedServiceIds={selectedServices.map(getSelectedServiceCatalogId)}
+        staffError={errors.staffId}
         staffMembers={staffMembers}
         services={serviceCatalog}
         visible={servicePickerVisible}
