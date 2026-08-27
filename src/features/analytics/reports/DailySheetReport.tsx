@@ -16,6 +16,7 @@ import { useBulkAppointmentDelete } from "./useBulkAppointmentDelete";
 import { BulkDeleteBar } from "./BulkDeleteBar";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { formatPaymentMode } from "../../../utils/paymentMode";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "./DailySheetReport.scss";
 
 const REPORT_NAME = "Daily Sheet";
@@ -203,7 +204,15 @@ export default function DailySheetReport({ onBack, category, categoryKey }: { on
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`${REPORT_NAME}-${date}`} variant="button" csv />
+            <ReportExportButton
+              title={REPORT_NAME}
+              headers={HEADERS}
+              rows={exportRows}
+              filename={`${REPORT_NAME}-${date}`}
+              variant="button"
+              csv
+              dateRangeLabel={date ? formatDateDDMMYYYY(date) : undefined}
+            />
           </div>
         </div>
       </div>
