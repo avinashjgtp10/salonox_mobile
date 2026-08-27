@@ -66,9 +66,6 @@ const EditPackagePage = lazy(
 const PackageModule = lazy(
   () => import("../components/packages/PackageModule"),
 );
-const SoldMembershipsPage = lazy(
-  () => import("../features/catalog/pages/SoldMembershipsPage"),
-);
 const ConsumableInventoryPage = lazy(
   () => import("../features/catalog/pages/ConsumableInventoryPage"),
 );
@@ -78,6 +75,9 @@ const ProductInventoryPage = lazy(
 );
 const ConsumableUsageHistoryPage = lazy(
   () => import("../features/catalog/pages/ConsumableUsageHistoryPage"),
+);
+const ProductAuditPage = lazy(
+  () => import("../features/catalog/pages/ProductAuditPage"),
 );
 
 import { PageLoader } from "../components/ui";
@@ -94,7 +94,6 @@ export const CatalogRoutes = () => (
       <Route path="services" element={<ServicesListPage />} />
       <Route path="memberships" element={<MembershipsListPage />} />
       <Route path="memberships/list" element={<MembershipsListPage />} />
-      <Route path="memberships/sold" element={<SoldMembershipsPage />} />
       <Route path="packages" element={<PackageModule />} />
       <Route path="packages/legacy" element={<PackagesPage />} />
       <Route path="products" element={<ProductsListPage />} />
@@ -140,6 +139,7 @@ export const CatalogRoutes = () => (
         <Route path="inventory/suppliers/:id/edit" element={<AddSupplierPage />} />
         <Route path="inventory/suppliers/:id" element={<SupplierDetailPage />} />
         <Route path="inventory/products" element={<ProductInventoryPage />} />
+        <Route path="inventory/audit" element={<ProductAuditPage />} />
         <Route path="inventory/consumables" element={<ConsumableInventoryPage />} />
         <Route path="inventory/consumables/add" element={<ProductFormPage />} />
         <Route path="inventory/consumables/edit/:id" element={<ProductFormPage />} />

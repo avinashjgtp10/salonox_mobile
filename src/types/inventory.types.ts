@@ -271,6 +271,85 @@ export interface UsageHistoryFilters {
   limit?: number;
 }
 
+// ─── Product Audit ────────────────────────────────────────────────────────────
+// Count physical stock against system quantities and reconcile differences.
+// Read-only against real stock — this module never adjusts products.amount
+// or writes stock_movements (that's what Stock Take's /stock-take endpoint
+// is for); see product-audit.repository.ts on the backend.
+
+export type ProductAuditStatus = "in_progress" | "pending_review" | "complete" | "rejected";
+
+export interface ProductAuditItem {
+  id: string;
+  audit_id: string;
+  product_id: string;
+  product_name: string;
+  sku: string | null;
+  category: string | null;
+  system_qty: number;
+  physical_qty: number | null;
+  reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductAuditHistoryEntry {
+  id: string;
+  audit_id: string;
+  actor_id: string | null;
+  actor_name: string | null;
+  action: string;
+  note: string | null;
+  created_at: string;
+}
+
+export interface ProductAudit {
+  id: string;
+  salon_id: string;
+  branch_id: string;
+  name: string;
+  notes: string | null;
+  status: ProductAuditStatus;
+  auditor_id: string;
+  auditor_name: string | null;
+  reviewer_id: string | null;
+  reviewer_name: string | null;
+  rejection_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProductAuditWithDetail extends ProductAudit {
+  items: ProductAuditItem[];
+  history: ProductAuditHistoryEntry[];
+}
+
+export interface ProductAuditListRow extends ProductAudit {
+  item_count: number;
+  diff_count: number;
+}
+
+export interface ListProductAuditsFilters {
+  branch_id?: string;
+  status?: ProductAuditStatus;
+  search?: string;
+  page?: number;
+  limit?: number;
+}
+
+export interface CreateProductAuditPayload {
+  branch_id: string;
+  name: string;
+  notes?: string;
+  /** Defaults server-side to the creating user when omitted. */
+  auditor_id?: string;
+}
+
+export interface UpdateAuditItemPayload {
+  physical_qty: number | null;
+  reason?: string | null;
+}
+
 export interface UsageHistoryRow {
   id: string;
   date: string;

@@ -33,6 +33,10 @@ interface SavePayload {
   // additively with applyMembershipDiscount above when both are checked.
   applyLoyaltyDiscount?: boolean;
   includeGst?: boolean;
+  // Quick Sale (book + pay in one step) vs a real advance Calendar booking —
+  // only meaningful on create; an existing booking keeps whatever it was
+  // created with.
+  source?: 'calendar' | 'quick_sale';
 }
 
 function addMinutes(time: string, mins: number): string {
@@ -132,6 +136,7 @@ export function useAppointment() {
       applyMembershipDiscount,
       applyLoyaltyDiscount,
       includeGst,
+      source,
     } = payload;
 
     setIsSaving(true);
@@ -174,6 +179,7 @@ export function useAppointment() {
 
       const baseData = {
         salon_id:         salonId || undefined,
+        ...(source ? { source } : {}),
         client_id:   (clientId && isRealId(clientId) && clientId !== 'walk-in') ? clientId : undefined,
         staff_id:         toApiStaffId(firstRow?.staffId ?? (booking as any).staffId),
         scheduled_at:     new Date(bookingStartMs).toISOString(),

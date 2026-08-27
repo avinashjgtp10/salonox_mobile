@@ -1,10 +1,16 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 import { ChevronLeft } from "react-bootstrap-icons";
 
 interface Props { onClose: () => void; }
 
 // Grouped by what a new user is trying to DO, not by internal architecture.
 export default function MarketingSubSidebar({ onClose }: Props) {
+  // Campaigns now covers two routes (create/history) merged into one page
+  // with tabs — NavLink's own prefix match only covers "create", so this
+  // link's active state is derived manually to also stay lit on "history".
+  const { pathname } = useLocation();
+  const campaignsActive = pathname.startsWith("/dashboard/marketing/campaigns");
+
   return (
     <div className="sub-sidebar sub-sidebar--marketing">
       <div className="sub-header">
@@ -27,11 +33,8 @@ export default function MarketingSubSidebar({ onClose }: Props) {
         <hr className="sub-divider" />
         <div className="sub-category">Campaigns</div>
 
-        <NavLink to="/dashboard/marketing/campaigns/create" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
-          <i className="ti ti-send" aria-hidden="true" /> New Campaign
-        </NavLink>
-        <NavLink to="/dashboard/marketing/campaigns/history" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
-          <i className="ti ti-history" aria-hidden="true" /> Campaign History
+        <NavLink to="/dashboard/marketing/campaigns/create" className={`sub-link${campaignsActive ? " active" : ""}`}>
+          <i className="ti ti-send" aria-hidden="true" /> Campaigns
         </NavLink>
         <NavLink to="/dashboard/marketing/templates" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
           <i className="ti ti-template" aria-hidden="true" /> Templates

@@ -21,6 +21,8 @@ import SaleDetailModal from "./SaleDetailModal";
 import { useServices } from "../../catalog/hooks/useServices";
 import { servicesInCategories } from "./serviceCategoryFilter";
 import { maskMobile } from "../../../utils/maskMobile";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
@@ -196,6 +198,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const [currentPage,   setCurrentPage]   = useState(1);
   const [pageSize,      setPageSize]      = useState(10);
   const [selectedRow,   setSelectedRow]   = useState<{ saleId: string; appointmentId: string | null } | null>(null);
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -322,7 +325,15 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`sales-summary-${dateFrom}-${dateTo}`} variant="button" csv />
+            <ReportExportButton
+              title={REPORT_NAME}
+              headers={HEADERS}
+              rows={exportRows}
+              filename={`sales-summary-${dateFrom}-${dateTo}`}
+              variant="button"
+              csv
+              dateRangeLabel={dateFrom && dateTo ? `${formatDate(dateFrom)} to ${formatDate(dateTo)}` : undefined}
+            />
           </div>
         </div>
       </div>
@@ -369,6 +380,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       </div>
 
       <BulkDeleteBar count={bulkDelete.selectedIds.size} onDeleteClick={() => bulkDelete.setShowConfirm(true)} />
+      <SendCampaignBar count={bulkDelete.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -484,6 +496,16 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         error={bulkDelete.error}
         onCancel={() => { bulkDelete.setShowConfirm(false); bulkDelete.setError(null); }}
         onConfirm={bulkDelete.confirmDelete}
+      />
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter(r => r.appointmentId && bulkDelete.selectedIds.has(r.appointmentId) && r.contact && r.contact !== "—")
+          .map(r => ({ phone: r.contact, name: r.name }))}
+        defaultCampaignName="Sales Summary"
+        onSent={bulkDelete.clearSelection}
       />
 
     </div>

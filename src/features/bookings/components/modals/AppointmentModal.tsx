@@ -1869,6 +1869,7 @@ export const AppointmentModal: React.FC<Props> = ({
       } as Partial<Booking>,
       serviceRows: serviceRowsForSave, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId,
+      source:               (quickSale ? "quick_sale" : "calendar") as "quick_sale" | "calendar",
       clientId:             selectedClient?.id ?? null,
       existingBooking:      existingBooking ?? null,
       isPackageAppointment: isPackageZero,
@@ -2261,6 +2262,7 @@ export const AppointmentModal: React.FC<Props> = ({
         defaultName={!existingBooking && !selectedClient ? defaultClientName : undefined}
         defaultPhone={!existingBooking && !selectedClient ? defaultClientPhone : undefined}
         openAddForm={triggerAddForm}
+        onAddFormCancelled={() => { setWalkInPayError(""); setTriggerAddForm(false); }}
         refreshKey={clientRefreshKey}
         rewardPointsConfig={rewardPointsConfig}
         onClientUpdated={() => setClientRefreshKey((k) => k + 1)}

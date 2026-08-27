@@ -10,6 +10,7 @@ import type { JiraFilterField, DateRangeFilterValue } from "../../../components/
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useProducts } from "../../catalog/hooks/useProducts";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "./ProductMarginReport.scss";
 
 const REPORT_NAME = "Product Margin";
@@ -134,7 +135,15 @@ export default function ProductMarginReport({ onBack, category, categoryKey }: {
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`product-margin-${dateFrom}-${dateTo}`} variant="button" csv />
+            <ReportExportButton
+              title={REPORT_NAME}
+              headers={HEADERS}
+              rows={exportRows}
+              filename={`product-margin-${dateFrom}-${dateTo}`}
+              variant="button"
+              csv
+              dateRangeLabel={dateFrom && dateTo ? `${formatDateDDMMYYYY(dateFrom)} to ${formatDateDDMMYYYY(dateTo)}` : undefined}
+            />
           </div>
         </div>
       </div>

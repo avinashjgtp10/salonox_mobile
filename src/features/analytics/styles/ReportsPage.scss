@@ -341,6 +341,20 @@
 
   &:last-child { border-bottom: none; }
   &:hover { background: #f0f4ff; }
+
+  // Marks the specific report just returned to after navigating back from
+  // it, so it's not just "somewhere in this expanded section" but visibly
+  // the one you came from. Fades out on its own via the JS timer that
+  // clears `highlightedId`.
+  &--highlight {
+    background: #eef2ff;
+    animation: rp-report-highlight 1.8s ease-out;
+  }
+}
+
+@keyframes rp-report-highlight {
+  0%   { background: #dbe4ff; }
+  100% { background: transparent; }
 }
 
 .rp-search-results {

@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
-import { Camera, InfoCircle } from "react-bootstrap-icons";
+import { InfoCircle } from "react-bootstrap-icons";
 import { State } from "country-state-city";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/AddClientPage.scss";
@@ -139,9 +139,6 @@ const AddClientPage: React.FC = () => {
   };
 
   const [avatarUrl, setAvatarUrl] = useState("");
-  const [avatarPreview, setAvatarPreview] = useState("");
-  const [avatarUploading, setAvatarUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Snapshot of "nothing entered yet" — for add mode it's the prefilled
   // defaults above; for edit mode it's reset to the fetched record once
@@ -297,35 +294,6 @@ const AddClientPage: React.FC = () => {
     if (key === "email" && duplicateEmailMessage) setDuplicateEmailMessage(null);
   };
 
-  // ── Avatar upload ────────────────────────────────────────────────────────────
-  const handleAvatarPick = () => fileInputRef.current?.click();
-
-  const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const localUrl = URL.createObjectURL(file);
-    setAvatarPreview(localUrl);
-    setAvatarUploading(true);
-
-    try {
-      const formData = new FormData();
-      formData.append("avatar", file);
-      const res = await api.post(CLIENT.UPLOAD_AVATAR, formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-      const url = res.data?.data?.url || res.data?.url;
-      if (url) setAvatarUrl(url);
-    } catch (error) {
-      console.error("Error uploading avatar:", error);
-      showError("Failed to upload profile image");
-      setAvatarPreview("");
-    } finally {
-      setAvatarUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-  };
-
   // ── Submit ───────────────────────────────────────────────────────────────────
   const handleSave = async () => {
     setAttemptedSubmit(true);
@@ -449,8 +417,6 @@ const AddClientPage: React.FC = () => {
       isSubmittingRef.current = false;
     }
   };
-
-  const displayInitials = form.firstName.trim() ? form.firstName.trim()[0].toUpperCase() : "?";
 
   return (
     <div className="add-client">
@@ -865,29 +831,6 @@ const AddClientPage: React.FC = () => {
                 {isAdditionalPhoneInvalid && <span className="cli-field__error">{additionalPhoneErrorMessage}</span>}
               </div>
             </div>
-          </div>
-
-          <div className="cli-card cli-photo-card">
-            <h6 className="cli-card__title">Profile Photo</h6>
-            <div className="cli-photo-box" onClick={handleAvatarPick}>
-              {avatarPreview || avatarUrl ? (
-                <img src={avatarPreview || avatarUrl} alt="Profile" className="cli-photo-preview" />
-              ) : (
-                <span className="cli-photo-placeholder">{displayInitials}</span>
-              )}
-              <div className="cli-photo-camera">
-                <Camera size={16} />
-              </div>
-              {avatarUploading && <div className="cli-photo-uploading">Uploading...</div>}
-            </div>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/gif"
-              className="cli-hidden-input"
-              onChange={handleAvatarChange}
-            />
-            <p className="cli-photo-hint">Accepted formats: PNG, GIF or JPG. Maximum file size is 2.0MB.</p>
           </div>
         </div>
       </div>

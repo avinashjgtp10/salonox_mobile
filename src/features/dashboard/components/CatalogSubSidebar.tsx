@@ -95,6 +95,14 @@ export default function CatalogSubSidebar({ onClose }: Props) {
         >
           Consumable Inventory
         </NavLink>
+        <NavLink
+          to="/dashboard/catalog/inventory/audit"
+          className={({ isActive }) =>
+            isActive ? "sub-link active" : "sub-link"
+          }
+        >
+          Product Audit
+        </NavLink>
       </div>
     </div>
   );

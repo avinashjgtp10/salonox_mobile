@@ -48,4 +48,15 @@ export const INVENTORY = {
   ORDER_BY_ID: (id: string) => `/api/v1/inventory/orders/${id}`,
   ORDER_UPLOAD_SIGNATURE: "/api/v1/inventory/orders/upload-signature",
   ORDER_SIGNATURES: "/api/v1/inventory/orders/signatures",
+
+  // Product Audit — count physical stock against system quantities. Never
+  // adjusts real stock; see product-audit.repository.ts on the backend.
+  PRODUCT_AUDITS: "/api/v1/inventory/product-audits",
+  PRODUCT_AUDIT_BY_ID: (id: string) => `/api/v1/inventory/product-audits/${id}`,
+  PRODUCT_AUDIT_ITEMS: (id: string) => `/api/v1/inventory/product-audits/${id}/items`,
+  PRODUCT_AUDIT_ITEM_BY_ID: (id: string, itemId: string) => `/api/v1/inventory/product-audits/${id}/items/${itemId}`,
+  PRODUCT_AUDIT_SUBMIT: (id: string) => `/api/v1/inventory/product-audits/${id}/submit`,
+  PRODUCT_AUDIT_APPROVE: (id: string) => `/api/v1/inventory/product-audits/${id}/approve`,
+  PRODUCT_AUDIT_REJECT: (id: string) => `/api/v1/inventory/product-audits/${id}/reject`,
+  PRODUCT_AUDIT_REOPEN: (id: string) => `/api/v1/inventory/product-audits/${id}/reopen`,
 } as const;

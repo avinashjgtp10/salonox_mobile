@@ -55,6 +55,7 @@ export function useServices(_salonId?: string | null) {
         // configuring a service's consumables would silently never show up
         // in the appointment flow until the whole modal was closed/reopened.
         consumables_used: s.consumables_used ?? [],
+        reminder_after_days: s.reminder_after_days ?? null,
       }))
     ));
   }, [apiServices, dispatch]);

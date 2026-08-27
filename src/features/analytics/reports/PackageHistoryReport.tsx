@@ -12,6 +12,9 @@ import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./PackageHistoryReport.scss";
 
 const REPORT_NAME = "Package History";
@@ -29,6 +32,7 @@ interface HistoryRow {
   date: string;
   client: string;
   clientId: string;
+  clientPhone: string;
   packageName: string;
   serviceName: string;
   sessionNo: number;
@@ -57,6 +61,7 @@ function mapRow(row: any): HistoryRow {
     date: row.date ? formatDate(row.date) : "—",
     client: row.client_name || "—",
     clientId: row.client_id ? String(row.client_id) : "",
+    clientPhone: row.client_phone || "",
     packageName: row.package_name || "—",
     serviceName: row.service_name || "—",
     sessionNo: Number(row.session_no) || 0,
@@ -95,6 +100,8 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -219,6 +226,8 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
         </div>
       )}
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -230,30 +239,45 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every((_r, i) => selection.selectedIds.has(String(i)))}
+                  onChange={() => selection.toggleAll(rows.map((_r, i) => String(i)))}
+                />
+              </th>
               <th>Date</th><th>Client</th><th>Package</th><th>Service</th>
               <th>Session No.</th><th>Remaining Sessions</th><th>Staff</th><th>Expiry Date</th><th>Status</th>
             </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={9} />
+              <SkeletonTableRows columns={10} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={9} className="rp-detail-empty-cell">No package session history found</td></tr>
+              <tr><td colSpan={10} className="rp-detail-empty-cell">No package session history found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.clientId ? "rp-appt-row" : undefined}
-                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
-                <td>{r.date}</td>
-                <td className="fw-semibold">{r.client}</td>
-                <td>{r.packageName}</td>
-                <td>{r.serviceName}</td>
-                <td>{r.sessionNo}</td>
-                <td>{r.remainingSessions}</td>
-                <td>{r.staff}</td>
-                <td>{r.expiryDate}</td>
-                <td><span className={`rp-status-badge rp-ph-status-${r.status}`}>{statusLabel(r.status)}</span></td>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(String(i))}
+                    onChange={() => selection.toggleOne(String(i))}
+                  />
+                </td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.date}</td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.client}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.packageName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.serviceName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.sessionNo}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.remainingSessions}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.staff}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.expiryDate}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><span className={`rp-status-badge rp-ph-status-${r.status}`}>{statusLabel(r.status)}</span></td>
               </tr>
             ))}
           </tbody>
@@ -262,6 +286,16 @@ export default function PackageHistoryReport({ onBack, category, categoryKey }: 
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter((r, i) => selection.selectedIds.has(String(i)) && r.clientPhone)
+          .map(r => ({ phone: r.clientPhone, name: r.client }))}
+        defaultCampaignName="Package History"
+        onSent={selection.clearSelection}
+      />
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="packages" />
