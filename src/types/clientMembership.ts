@@ -31,6 +31,7 @@ export type ClientMembershipAssignment = {
   clientId: string;
   clientName: string;
   discountBalanceRemaining: number | null;
+  discountPercent: number | null;
   expiresAt: string | null;
   history: ClientMembershipHistoryItem[];
   id: string;

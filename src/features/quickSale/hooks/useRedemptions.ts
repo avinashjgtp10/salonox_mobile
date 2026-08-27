@@ -10,6 +10,7 @@ import { referralService } from "@/services/referral.service";
 import { rewardPointsService } from "@/services/rewardPoints.service";
 import type { ClientMembershipAssignment } from "@/types/clientMembership";
 import type { CalculateTotalsBody } from "@/types/pricing";
+import type { LoyaltyEligibility } from "@/types/wallet";
 
 export type RedemptionPricingFlags = Pick<
   CalculateTotalsBody,
@@ -31,7 +32,7 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
   const [eWalletBalance, setEWalletBalance] = useState(0);
   const [rewardPointsBalance, setRewardPointsBalance] = useState(0);
   const [referralBalance, setReferralBalance] = useState(0);
-  const [isLoyaltyEligible, setIsLoyaltyEligible] = useState(false);
+  const [loyaltyEligibility, setLoyaltyEligibility] = useState<LoyaltyEligibility | null>(null);
   const [membershipAssignments, setMembershipAssignments] = useState<ClientMembershipAssignment[]>([]);
   const [isLoadingBalances, setIsLoadingBalances] = useState(false);
   const [balancesError, setBalancesError] = useState<string | null>(null);
@@ -53,7 +54,7 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
     setEWalletBalance(0);
     setRewardPointsBalance(0);
     setReferralBalance(0);
-    setIsLoyaltyEligible(false);
+    setLoyaltyEligibility(null);
     setMembershipAssignments([]);
     setBalancesError(null);
     setApplyEwallet(false);
@@ -104,7 +105,7 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
       }
 
       if (loyaltyResult.status === "fulfilled") {
-        setIsLoyaltyEligible(loyaltyResult.value.eligible);
+        setLoyaltyEligibility(loyaltyResult.value);
       }
 
       if (assignmentsResult.status === "fulfilled") {
@@ -142,6 +143,10 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
     membershipAssignments.find(
       (assignment) => assignment.pricingType === "percentage" && (assignment.discountBalanceRemaining ?? 0) > 0,
     ) ?? null;
+  const isLoyaltyEligible = loyaltyEligibility?.eligible ?? false;
+  const loyaltyNextTierHint = loyaltyEligibility?.nextTier
+    ? `next: ${loyaltyEligibility.nextTier.discountPercent}% at ${loyaltyEligibility.nextTier.thresholdValue} visits`
+    : null;
 
   const buildPricingFlags = useCallback((): RedemptionPricingFlags => {
     if (!clientId) {
@@ -194,7 +199,14 @@ export const useRedemptions = (clientId: string, salonId?: string | null) => {
     isLoyaltyEligible,
     isMembershipDiscountEligible: Boolean(membershipDiscountAssignment),
     isMembershipWalletEligible: Boolean(membershipWalletAssignment),
+    loyaltyDiscountPercent: loyaltyEligibility?.discountPercent ?? 0,
+    loyaltyName: loyaltyEligibility?.name ?? null,
+    loyaltyNextTierHint,
+    membershipDiscountBalanceRemaining: membershipDiscountAssignment?.discountBalanceRemaining ?? 0,
+    membershipDiscountName: membershipDiscountAssignment?.membershipName ?? null,
+    membershipDiscountPercent: membershipDiscountAssignment?.discountPercent ?? 0,
     membershipWalletBalance: membershipWalletAssignment?.walletBalance ?? null,
+    membershipWalletName: membershipWalletAssignment?.membershipName ?? null,
     membershipWalletRequestedInput,
     referralBalance,
     referralCreditRequestedInput,

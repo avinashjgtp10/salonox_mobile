@@ -47,6 +47,27 @@ const PAYMENT_METHODS: { icon: keyof typeof Ionicons.glyphMap; label: string; va
 
 const SPLIT_METHODS = PAYMENT_METHODS.filter((method) => method.value !== "split");
 type CheckoutStep = "review" | "charges" | "payment";
+
+type BenefitCardInput = {
+  keyboardType: "decimal-pad" | "number-pad";
+  onChangeText: (value: string) => void;
+  placeholder?: string;
+  suffix?: string;
+  value: string;
+};
+
+type BenefitCardConfig = {
+  accent: string;
+  checked: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
+  input?: BenefitCardInput;
+  key: string;
+  note?: string;
+  onToggle: (value: boolean) => void;
+  subtitle: string;
+  title: string;
+  value: string;
+};
 type DiscountMode = "amount" | "percent";
 export type DiscountApplyTarget = "service" | "product" | "package" | "membership" | "entireBill";
 
@@ -176,9 +197,9 @@ function CheckoutSheetComponent({
   const translateY = useRef(new Animated.Value(height)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const [isMounted, setIsMounted] = useState(visible);
-  const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod>("cash");
+  const [paymentMethod, setPaymentMethod] = useState<SalePaymentMethod | null>(null);
+  const [lastSingleMethod, setLastSingleMethod] = useState<Exclude<SalePaymentMethod, "split"> | null>(null);
   const [splitAmounts, setSplitAmounts] = useState<Record<string, string>>({});
-  const [amountReceivedInput, setAmountReceivedInput] = useState("");
   const [paymentType, setPaymentType] = useState<PaymentType>("full");
   const [partialAmountInput, setPartialAmountInput] = useState("");
   const [discountMode, setDiscountMode] = useState<DiscountMode>(
@@ -219,9 +240,9 @@ function CheckoutSheetComponent({
   );
 
   const resetCheckoutState = useCallback(() => {
-    setPaymentMethod("cash");
+    setPaymentMethod(null);
+    setLastSingleMethod(null);
     setSplitAmounts({});
-    setAmountReceivedInput("");
     setPaymentType("full");
     setPartialAmountInput("");
     setDiscountMode(overallDiscountType === "percentage" ? "percent" : "amount");
@@ -389,9 +410,6 @@ function CheckoutSheetComponent({
   const partialAmountExceedsTotal = paymentType === "partial" && parseAmount(partialAmountInput) > totals.grandTotal;
   const splitTotal = splitEntries.reduce((total, entry) => total + entry.amount, 0);
   const splitMismatch = paymentMethod === "split" && Math.round(splitTotal * 100) !== Math.round(amountToCollect * 100);
-  const amountReceived = parseAmount(amountReceivedInput);
-  const changeDue = paymentMethod === "cash" ? Math.max(0, amountReceived - amountToCollect) : 0;
-  const cashInsufficient = paymentMethod === "cash" && amountReceived < amountToCollect;
   const discountValue = parseAmount(discountDraft);
   const discountEligibleSubtotal = useMemo(() => {
     if (discountApplyTo.includes("entireBill")) {
@@ -432,11 +450,8 @@ function CheckoutSheetComponent({
     !partialAmountExceedsTotal &&
     !isPricingLoading &&
     !pricingError &&
-    (paymentMethod === "split"
-      ? splitEntries.length > 0 && !splitMismatch
-      : paymentMethod === "cash"
-        ? !cashInsufficient
-        : totals.grandTotal >= 0);
+    paymentMethod !== null &&
+    (paymentMethod === "split" ? splitEntries.length > 0 && !splitMismatch : true);
 
   const groupedItems = useMemo(
     () => [
@@ -448,6 +463,115 @@ function CheckoutSheetComponent({
     ].filter((group) => group.data.length > 0),
     [items],
   );
+
+  const benefitCards = useMemo<BenefitCardConfig[]>(() => {
+    const cards: BenefitCardConfig[] = [];
+
+    if (redemptions.isMembershipWalletEligible) {
+      cards.push({
+        accent: Colors.primary,
+        checked: redemptions.applyMembershipWallet,
+        icon: "wallet-outline",
+        input: {
+          keyboardType: "decimal-pad",
+          onChangeText: redemptions.setMembershipWalletRequestedInput,
+          value: redemptions.membershipWalletRequestedInput,
+        },
+        key: "membership-wallet",
+        onToggle: redemptions.setApplyMembershipWallet,
+        subtitle: redemptions.membershipWalletName ?? selectedClient.membership ?? "Membership",
+        title: "Membership Wallet",
+        value: `${formatCurrency(redemptions.membershipWalletBalance ?? 0)} Remaining`,
+      });
+    }
+
+    if (redemptions.isMembershipDiscountEligible) {
+      cards.push({
+        accent: Colors.primary,
+        checked: redemptions.applyMembershipDiscount,
+        icon: "pricetag-outline",
+        key: "membership-discount",
+        onToggle: redemptions.setApplyMembershipDiscount,
+        subtitle: `${redemptions.membershipDiscountName ?? "Membership"} · ${formatCurrency(redemptions.membershipDiscountBalanceRemaining)} left`,
+        title: "Membership Discount",
+        value: `${redemptions.membershipDiscountPercent}% Off`,
+      });
+    }
+
+    if (redemptions.isLoyaltyEligible) {
+      cards.push({
+        accent: Colors.gold,
+        checked: redemptions.applyLoyaltyDiscount,
+        icon: "ribbon-outline",
+        key: "loyalty-discount",
+        onToggle: redemptions.setApplyLoyaltyDiscount,
+        subtitle: redemptions.loyaltyNextTierHint
+          ? `${redemptions.loyaltyName ?? "Loyalty"} · ${redemptions.loyaltyNextTierHint}`
+          : (redemptions.loyaltyName ?? "Loyalty tier benefit"),
+        title: "Loyalty Discount",
+        value: `${redemptions.loyaltyDiscountPercent}% Off`,
+      });
+    }
+
+    if (selectedClient.id && redemptions.eWalletBalance >= 100) {
+      cards.push({
+        accent: Colors.success,
+        checked: redemptions.applyEwallet,
+        icon: "wallet-outline",
+        input: {
+          keyboardType: "decimal-pad",
+          onChangeText: redemptions.setEWalletRequestedInput,
+          value: redemptions.eWalletRequestedInput,
+        },
+        key: "ewallet",
+        onToggle: redemptions.setApplyEwallet,
+        subtitle: "Available Balance",
+        title: "eWallet",
+        value: formatCurrency(redemptions.eWalletBalance),
+      });
+    }
+
+    if (selectedClient.id && redemptions.rewardPointsBalance > 0) {
+      cards.push({
+        accent: Colors.gold,
+        checked: redemptions.applyRewardPoints,
+        icon: "star-outline",
+        input: {
+          keyboardType: "number-pad",
+          onChangeText: redemptions.setRewardPointsToRedeemInput,
+          placeholder: "0 pts",
+          suffix: "pts",
+          value: redemptions.rewardPointsToRedeemInput,
+        },
+        key: "reward-points",
+        onToggle: redemptions.setApplyRewardPoints,
+        subtitle: "Available Points",
+        title: "Reward Points",
+        value: `${redemptions.rewardPointsBalance.toLocaleString("en-IN")} pts`,
+      });
+    }
+
+    if (selectedClient.id && redemptions.referralBalance > 0) {
+      cards.push({
+        accent: Colors.info,
+        checked: redemptions.applyReferralCredit,
+        icon: "people-outline",
+        input: {
+          keyboardType: "decimal-pad",
+          onChangeText: redemptions.setReferralCreditRequestedInput,
+          value: redemptions.referralCreditRequestedInput,
+        },
+        key: "referral-credit",
+        note: redemptions.applyReferralCredit ? totals.referralCreditRejectedReason : undefined,
+        onToggle: redemptions.setApplyReferralCredit,
+        subtitle: "Available Credit",
+        title: "Referral Credit",
+        value: formatCurrency(redemptions.referralBalance),
+      });
+    }
+
+    return cards;
+  }, [Colors, redemptions, selectedClient.id, selectedClient.membership, totals.referralCreditRejectedReason]);
 
   const handleDiscountChange = (value: string) => {
     setDiscountDraft(value);
@@ -517,7 +641,7 @@ function CheckoutSheetComponent({
   };
 
   const handleComplete = () => {
-    if (isBusy || !canCompleteSale) {
+    if (isBusy || !canCompleteSale || !paymentMethod) {
       return;
     }
 
@@ -533,6 +657,23 @@ function CheckoutSheetComponent({
     }
 
     onCompleteSale({ method: paymentMethod, paidAmount: amountToCollect });
+  };
+
+  const handleSelectSinglePaymentMethod = (method: Exclude<SalePaymentMethod, "split">) => {
+    setPaymentMethod(method);
+    setLastSingleMethod(method);
+
+    if (isBusy || !canCompleteSale) {
+      return;
+    }
+
+    if (hasMissingStaff) {
+      setStaffValidationAttempted(true);
+      setCheckoutStep("review");
+      return;
+    }
+
+    onCompleteSale({ method, paidAmount: amountToCollect });
   };
 
   const handleContinueToPayment = () => {
@@ -741,6 +882,17 @@ function CheckoutSheetComponent({
                     <SummaryTile label="Subtotal" value={formatCurrency(totals.subtotal)} />
                   </View>
 
+                  {benefitCards.length > 0 ? (
+                    <View style={styles.formCard}>
+                      <Text style={styles.sectionTitle}>Available Benefits</Text>
+                      <View style={styles.benefitsGrid}>
+                        {benefitCards.map((card) => (
+                          <BenefitCard card={card} key={card.key} />
+                        ))}
+                      </View>
+                    </View>
+                  ) : null}
+
                   <View style={styles.formCard}>
                     <Text style={styles.sectionTitle}>Discount</Text>
                     <Text style={styles.inputLabel}>Discount Type</Text>
@@ -818,256 +970,6 @@ function CheckoutSheetComponent({
                       <Text style={styles.errorText}>Discount cannot exceed subtotal ({formatCurrency(totals.subtotal)}).</Text>
                     ) : null}
                   </View>
-
-                  {redemptions.isMembershipDiscountEligible ? (
-                    <View style={styles.formCard}>
-                      <Text style={styles.sectionTitle}>Membership Discount</Text>
-                      <View style={styles.membershipRow}>
-                        <View>
-                          <Text style={styles.membershipStatus}>
-                            {redemptions.applyMembershipDiscount ? "Applied" : "Available"}
-                          </Text>
-                          <Text style={styles.membershipName}>{selectedClient.membership || "Membership"}</Text>
-                        </View>
-                        <TouchableOpacity
-                          activeOpacity={0.84}
-                          onPress={() => redemptions.setApplyMembershipDiscount(!redemptions.applyMembershipDiscount)}
-                          style={[styles.quickChip, redemptions.applyMembershipDiscount && styles.quickChipActive]}
-                        >
-                          <Text
-                            style={[
-                              styles.quickChipText,
-                              redemptions.applyMembershipDiscount && styles.quickChipTextActive,
-                            ]}
-                          >
-                            {redemptions.applyMembershipDiscount ? "ON" : "OFF"}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      {redemptions.applyMembershipDiscount && totals.appliedMembershipDiscount > 0 ? (
-                        <Text style={styles.gstPreviewText}>
-                          Savings: {formatCurrency(totals.appliedMembershipDiscount)}
-                        </Text>
-                      ) : null}
-                    </View>
-                  ) : null}
-
-                  {redemptions.isLoyaltyEligible ? (
-                    <View style={styles.formCard}>
-                      <Text style={styles.sectionTitle}>Loyalty Discount</Text>
-                      <View style={styles.membershipRow}>
-                        <View>
-                          <Text style={styles.membershipStatus}>
-                            {redemptions.applyLoyaltyDiscount ? "Applied" : "Available"}
-                          </Text>
-                          <Text style={styles.membershipName}>Loyalty tier benefit</Text>
-                        </View>
-                        <TouchableOpacity
-                          activeOpacity={0.84}
-                          onPress={() => redemptions.setApplyLoyaltyDiscount(!redemptions.applyLoyaltyDiscount)}
-                          style={[styles.quickChip, redemptions.applyLoyaltyDiscount && styles.quickChipActive]}
-                        >
-                          <Text
-                            style={[
-                              styles.quickChipText,
-                              redemptions.applyLoyaltyDiscount && styles.quickChipTextActive,
-                            ]}
-                          >
-                            {redemptions.applyLoyaltyDiscount ? "ON" : "OFF"}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                    </View>
-                  ) : null}
-
-                  {redemptions.isMembershipWalletEligible ? (
-                    <View style={styles.formCard}>
-                      <Text style={styles.sectionTitle}>Membership Wallet</Text>
-                      <View style={styles.membershipRow}>
-                        <View>
-                          <Text style={styles.membershipStatus}>
-                            Balance: {formatCurrency(redemptions.membershipWalletBalance ?? 0)}
-                          </Text>
-                          <Text style={styles.membershipName}>{selectedClient.membership || "Membership"}</Text>
-                        </View>
-                        <TouchableOpacity
-                          activeOpacity={0.84}
-                          onPress={() => redemptions.setApplyMembershipWallet(!redemptions.applyMembershipWallet)}
-                          style={[styles.quickChip, redemptions.applyMembershipWallet && styles.quickChipActive]}
-                        >
-                          <Text
-                            style={[
-                              styles.quickChipText,
-                              redemptions.applyMembershipWallet && styles.quickChipTextActive,
-                            ]}
-                          >
-                            {redemptions.applyMembershipWallet ? "ON" : "OFF"}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      {redemptions.applyMembershipWallet ? (
-                        <>
-                          <Text style={styles.inputLabel}>Amount to Use</Text>
-                          <TextInput
-                            keyboardType="decimal-pad"
-                            onChangeText={redemptions.setMembershipWalletRequestedInput}
-                            placeholder="0"
-                            placeholderTextColor={Colors.placeholder}
-                            style={styles.input}
-                            value={redemptions.membershipWalletRequestedInput}
-                          />
-                          {totals.appliedMembershipWallet > 0 ? (
-                            <Text style={styles.gstPreviewText}>
-                              Applied: {formatCurrency(totals.appliedMembershipWallet)}
-                            </Text>
-                          ) : null}
-                        </>
-                      ) : null}
-                    </View>
-                  ) : null}
-
-                  {selectedClient.id ? (
-                    <View style={styles.formCard}>
-                      <Text style={styles.sectionTitle}>E-Wallet</Text>
-                      <View style={styles.membershipRow}>
-                        <View>
-                          <Text style={styles.membershipStatus}>
-                            Balance: {formatCurrency(redemptions.eWalletBalance)}
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          activeOpacity={0.84}
-                          disabled={redemptions.eWalletBalance <= 0}
-                          onPress={() => redemptions.setApplyEwallet(!redemptions.applyEwallet)}
-                          style={[
-                            styles.quickChip,
-                            redemptions.applyEwallet && styles.quickChipActive,
-                            redemptions.eWalletBalance <= 0 && styles.buttonDisabled,
-                          ]}
-                        >
-                          <Text style={[styles.quickChipText, redemptions.applyEwallet && styles.quickChipTextActive]}>
-                            {redemptions.applyEwallet ? "ON" : "OFF"}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      {redemptions.applyEwallet ? (
-                        <>
-                          <Text style={styles.inputLabel}>Amount to Use</Text>
-                          <TextInput
-                            keyboardType="decimal-pad"
-                            onChangeText={redemptions.setEWalletRequestedInput}
-                            placeholder="0"
-                            placeholderTextColor={Colors.placeholder}
-                            style={styles.input}
-                            value={redemptions.eWalletRequestedInput}
-                          />
-                          {totals.appliedEWallet > 0 ? (
-                            <Text style={styles.gstPreviewText}>Applied: {formatCurrency(totals.appliedEWallet)}</Text>
-                          ) : null}
-                        </>
-                      ) : null}
-                    </View>
-                  ) : null}
-
-                  {selectedClient.id ? (
-                    <View style={styles.formCard}>
-                      <Text style={styles.sectionTitle}>Reward Points</Text>
-                      <View style={styles.membershipRow}>
-                        <View>
-                          <Text style={styles.membershipStatus}>
-                            Balance: {redemptions.rewardPointsBalance.toLocaleString("en-IN")} pts
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          activeOpacity={0.84}
-                          disabled={redemptions.rewardPointsBalance <= 0}
-                          onPress={() => redemptions.setApplyRewardPoints(!redemptions.applyRewardPoints)}
-                          style={[
-                            styles.quickChip,
-                            redemptions.applyRewardPoints && styles.quickChipActive,
-                            redemptions.rewardPointsBalance <= 0 && styles.buttonDisabled,
-                          ]}
-                        >
-                          <Text
-                            style={[styles.quickChipText, redemptions.applyRewardPoints && styles.quickChipTextActive]}
-                          >
-                            {redemptions.applyRewardPoints ? "ON" : "OFF"}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      {redemptions.applyRewardPoints ? (
-                        <>
-                          <Text style={styles.inputLabel}>Points to Redeem</Text>
-                          <TextInput
-                            keyboardType="number-pad"
-                            onChangeText={redemptions.setRewardPointsToRedeemInput}
-                            placeholder="0"
-                            placeholderTextColor={Colors.placeholder}
-                            style={styles.input}
-                            value={redemptions.rewardPointsToRedeemInput}
-                          />
-                          {totals.appliedRewardPointsValue > 0 ? (
-                            <Text style={styles.gstPreviewText}>
-                              Applied: {formatCurrency(totals.appliedRewardPointsValue)}
-                            </Text>
-                          ) : null}
-                        </>
-                      ) : null}
-                    </View>
-                  ) : null}
-
-                  {selectedClient.id ? (
-                    <View style={styles.formCard}>
-                      <Text style={styles.sectionTitle}>Referral Credit</Text>
-                      <View style={styles.membershipRow}>
-                        <View>
-                          <Text style={styles.membershipStatus}>
-                            Balance: {formatCurrency(redemptions.referralBalance)}
-                          </Text>
-                        </View>
-                        <TouchableOpacity
-                          activeOpacity={0.84}
-                          disabled={redemptions.referralBalance <= 0}
-                          onPress={() => redemptions.setApplyReferralCredit(!redemptions.applyReferralCredit)}
-                          style={[
-                            styles.quickChip,
-                            redemptions.applyReferralCredit && styles.quickChipActive,
-                            redemptions.referralBalance <= 0 && styles.buttonDisabled,
-                          ]}
-                        >
-                          <Text
-                            style={[
-                              styles.quickChipText,
-                              redemptions.applyReferralCredit && styles.quickChipTextActive,
-                            ]}
-                          >
-                            {redemptions.applyReferralCredit ? "ON" : "OFF"}
-                          </Text>
-                        </TouchableOpacity>
-                      </View>
-                      {redemptions.applyReferralCredit ? (
-                        <>
-                          <Text style={styles.inputLabel}>Amount to Use</Text>
-                          <TextInput
-                            keyboardType="decimal-pad"
-                            onChangeText={redemptions.setReferralCreditRequestedInput}
-                            placeholder="0"
-                            placeholderTextColor={Colors.placeholder}
-                            style={styles.input}
-                            value={redemptions.referralCreditRequestedInput}
-                          />
-                          {totals.appliedReferralCredit > 0 ? (
-                            <Text style={styles.gstPreviewText}>
-                              Applied: {formatCurrency(totals.appliedReferralCredit)}
-                            </Text>
-                          ) : null}
-                          {totals.referralCreditRejectedReason ? (
-                            <Text style={styles.errorText}>{totals.referralCreditRejectedReason}</Text>
-                          ) : null}
-                        </>
-                      ) : null}
-                    </View>
-                  ) : null}
 
                   <View style={styles.formCard}>
                     <Text style={styles.sectionTitle}>Coupon</Text>
@@ -1219,22 +1121,44 @@ function CheckoutSheetComponent({
                 <View style={styles.formCard}>
                   <Text style={styles.sectionTitle}>Payment Method</Text>
                   <View style={styles.methodGrid}>
-                    {PAYMENT_METHODS.map((method) => {
-                      const isActive = method.value === paymentMethod;
-
-                      return (
-                        <TouchableOpacity
-                          key={`payment-${method.value}`}
-                          activeOpacity={0.84}
-                          onPress={() => setPaymentMethod(method.value)}
-                          style={[styles.methodCard, isActive && styles.methodCardActive]}
-                        >
-                          <Ionicons name={method.icon} size={16} color={isActive ? Colors.onPrimary : Colors.primaryDark} />
-                          <Text style={[styles.methodText, isActive && styles.methodTextActive]}>{method.label}</Text>
-                        </TouchableOpacity>
-                      );
-                    })}
+                    <TouchableOpacity
+                      key="payment-mode-single"
+                      activeOpacity={0.84}
+                      onPress={() => setPaymentMethod(lastSingleMethod)}
+                      style={[styles.methodCard, styles.methodModeCard, paymentMethod !== "split" && styles.methodCardActive]}
+                    >
+                      <Text style={[styles.methodText, paymentMethod !== "split" && styles.methodTextActive]}>Single</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      key="payment-mode-split"
+                      activeOpacity={0.84}
+                      onPress={() => setPaymentMethod("split")}
+                      style={[styles.methodCard, styles.methodModeCard, paymentMethod === "split" && styles.methodCardActive]}
+                    >
+                      <Text style={[styles.methodText, paymentMethod === "split" && styles.methodTextActive]}>Split</Text>
+                    </TouchableOpacity>
                   </View>
+                  {paymentMethod !== "split" ? (
+                    <View style={[styles.methodGrid, styles.methodGridSecondary]}>
+                      {SPLIT_METHODS.map((method) => {
+                        const isActive = method.value === paymentMethod;
+
+                        return (
+                          <TouchableOpacity
+                            key={`payment-${method.value}`}
+                            activeOpacity={0.84}
+                            onPress={() =>
+                              handleSelectSinglePaymentMethod(method.value as Exclude<SalePaymentMethod, "split">)
+                            }
+                            style={[styles.methodCard, isActive && styles.methodCardActive]}
+                          >
+                            <Ionicons name={method.icon} size={16} color={isActive ? Colors.onPrimary : Colors.primaryDark} />
+                            <Text style={[styles.methodText, isActive && styles.methodTextActive]}>{method.label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  ) : null}
                 </View>
               ) : null}
 
@@ -1247,29 +1171,6 @@ function CheckoutSheetComponent({
                     </Text>
                     <Text style={styles.paymentAmountValue}>{formatCurrency(amountToCollect)}</Text>
                   </View>
-                  <View style={styles.inputGroup}>
-                    <Text style={styles.inputLabel}>Amount Received</Text>
-                    <TextInput
-                      keyboardType="decimal-pad"
-                      onChangeText={setAmountReceivedInput}
-                      placeholder="0"
-                      placeholderTextColor={Colors.placeholder}
-                      style={[styles.input, cashInsufficient && amountReceivedInput.trim() && styles.inputError]}
-                      value={amountReceivedInput}
-                    />
-                  </View>
-                  {amountReceivedInput.trim() ? (
-                    cashInsufficient ? (
-                      <Text style={styles.errorText}>
-                        Amount received must be at least {formatCurrency(amountToCollect)}.
-                      </Text>
-                    ) : (
-                      <View style={styles.changeCard}>
-                        <Text style={styles.changeLabel}>Change Return</Text>
-                        <Text style={styles.changeValue}>{formatCurrency(changeDue)}</Text>
-                      </View>
-                    )
-                  ) : null}
                 </View>
               ) : null}
 
@@ -1623,6 +1524,50 @@ function ModeButton({ active, label, onPress }: { active: boolean; label: string
       >
         {label}
       </Text>
+    </TouchableOpacity>
+  );
+}
+
+function BenefitCard({ card }: { card: BenefitCardConfig }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.84}
+      onPress={() => card.onToggle(!card.checked)}
+      style={[
+        styles.benefitCard,
+        card.checked && { backgroundColor: `${card.accent}14`, borderColor: card.accent },
+      ]}
+    >
+      <View style={styles.benefitCardHeader}>
+        <Ionicons
+          color={card.checked ? card.accent : Colors.text2}
+          name={card.checked ? "checkbox" : "square-outline"}
+          size={17}
+        />
+        <View style={[styles.benefitCardIconWrap, { backgroundColor: `${card.accent}22` }]}>
+          <Ionicons color={card.accent} name={card.icon} size={12} />
+        </View>
+        <Text numberOfLines={1} style={styles.benefitCardTitle}>{card.title}</Text>
+      </View>
+      <Text style={styles.benefitCardValue}>{card.value}</Text>
+      <Text numberOfLines={1} style={styles.benefitCardSubtitle}>{card.subtitle}</Text>
+      {card.checked && card.input ? (
+        <View style={styles.benefitCardInputRow}>
+          <TextInput
+            keyboardType={card.input.keyboardType}
+            onChangeText={card.input.onChangeText}
+            placeholder={card.input.placeholder ?? "0"}
+            placeholderTextColor={Colors.placeholder}
+            style={styles.benefitCardInput}
+            value={card.input.value}
+          />
+          {card.input.suffix ? <Text style={styles.benefitCardInputSuffix}>{card.input.suffix}</Text> : null}
+        </View>
+      ) : null}
+      {card.note ? <Text style={styles.errorText}>{card.note}</Text> : null}
     </TouchableOpacity>
   );
 }
@@ -2688,6 +2633,72 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   quickChipTextActive: {
     color: Colors.onPrimary,
   },
+  benefitsGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.sm,
+  },
+  benefitCard: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    flexBasis: "47%",
+    flexGrow: 1,
+    padding: Spacing.sm,
+  },
+  benefitCardHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+  },
+  benefitCardIconWrap: {
+    alignItems: "center",
+    borderRadius: Radius.sm,
+    height: 20,
+    justifyContent: "center",
+    width: 20,
+  },
+  benefitCardTitle: {
+    color: Colors.heading,
+    flex: 1,
+    fontSize: 11.5,
+    fontWeight: "800",
+  },
+  benefitCardValue: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "900",
+    marginTop: 6,
+  },
+  benefitCardSubtitle: {
+    color: Colors.text2,
+    fontSize: 10.5,
+    fontWeight: "600",
+    marginTop: 2,
+  },
+  benefitCardInputRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 8,
+  },
+  benefitCardInput: {
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.border,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    color: Colors.heading,
+    flex: 1,
+    fontSize: 12,
+    minHeight: 34,
+    paddingHorizontal: 8,
+  },
+  benefitCardInputSuffix: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "700",
+  },
   methodGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -2703,6 +2714,13 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     gap: 6,
     minHeight: 42,
     paddingHorizontal: 13,
+  },
+  methodModeCard: {
+    flex: 1,
+    justifyContent: "center",
+  },
+  methodGridSecondary: {
+    marginTop: Spacing.sm,
   },
   methodCardActive: {
     backgroundColor: Colors.primaryDark,
