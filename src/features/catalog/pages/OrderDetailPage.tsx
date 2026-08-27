@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft } from "react-bootstrap-icons";
+import { ArrowLeft, Trash } from "react-bootstrap-icons";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
-import { fetchOrderByIdThunk } from "../../../middleware/inventory/inventory.thunk";
+import { fetchOrderByIdThunk, deleteOrderThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Order } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import Skeleton from "../../../components/ui/Skeleton";
+import Button from "../../../components/ui/Button";
+import Modal from "../../../components/ui/Modal";
 import "../styles/SuppliersListPage.scss";
 import "../styles/PurchaseHistoryListPage.scss";
 import "../styles/SupplierDetailPage.scss";
@@ -26,10 +28,25 @@ const OrderDetailPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
   const { formatAmount } = useCurrency();
-  const { showError } = useStatusOverlay();
+  const { showError, showSuccess, overlay } = useStatusOverlay();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!id) return;
+    setDeleting(true);
+    try {
+      await dispatch(deleteOrderThunk(id)).unwrap();
+      showSuccess("Order deleted successfully");
+      navigate("/dashboard/catalog/inventory/orders");
+    } catch (err: any) {
+      showError(typeof err === "string" ? err : "Couldn't delete order");
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     if (!id) return;
@@ -67,6 +84,7 @@ const OrderDetailPage: React.FC = () => {
 
   return (
     <div className="supplier-detail-page">
+      {overlay}
       <button className="supplier-detail-page__back" onClick={() => navigate(-1)}>
         <ArrowLeft size={14} /> Back to Orders
       </button>
@@ -76,6 +94,9 @@ const OrderDetailPage: React.FC = () => {
           <h1>{order.order_number}</h1>
           <p>{order.supplier_name || "—"}</p>
         </div>
+        <Button variant="outline-danger" size="sm" iconLeft={<Trash size={14} />} onClick={() => setDeleteOpen(true)}>
+          Delete
+        </Button>
       </header>
 
       <div className="supplier-detail-page__stats">
@@ -138,6 +159,26 @@ const OrderDetailPage: React.FC = () => {
       {order.terms_conditions && (
         <p className="text-muted"><strong>Terms and Conditions:</strong> {order.terms_conditions}</p>
       )}
+
+      <Modal
+        show={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Delete order?"
+        footer={
+          <div className="d-flex gap-2 w-100">
+            <Button variant="outline-dark" fullWidth onClick={() => setDeleteOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="danger" fullWidth loading={deleting} onClick={handleDelete}>
+              Delete
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-muted small mb-0">
+          Are you sure you want to delete <strong>{order.order_number}</strong>? This action cannot be undone.
+        </p>
+      </Modal>
     </div>
   );
 };
