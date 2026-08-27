@@ -171,12 +171,14 @@ export type CreateProductRequest = {
   expiry_date?: string;
   hsn_sac?: string;
   is_active?: boolean;
+  lot_number?: string;
   low_stock_threshold?: number;
   measure_unit?: string;
   name: string;
   price: number;
   product_type?: "retail" | "consumable" | "both" | string;
   qty_alert?: number;
+  remark?: string;
   retail_price?: number;
   salon_id?: string;
   sku?: string;
@@ -184,6 +186,9 @@ export type CreateProductRequest = {
   supply_price?: number;
   supplier_id?: string | null;
   supplier_name?: string;
+  tax_group?: string;
+  tax_rate?: number;
+  tax_type?: string;
   unit_conversions?: { conversion_to_base: number; unit_name: string }[];
 };
 

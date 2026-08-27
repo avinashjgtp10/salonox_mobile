@@ -138,10 +138,14 @@ export type CreateServiceRequest = {
   category?: string;
   category_id?: string;
   consumables_used?: ConsumableRecipeRequestItem[];
+  description?: string;
   duration_minutes?: number;
+  is_active?: boolean;
+  is_online_booking?: boolean;
   name: string;
   price: number;
   salon_id?: string;
+  service_reminder_days?: number;
 };
 
 export type CreateServiceResponse = {

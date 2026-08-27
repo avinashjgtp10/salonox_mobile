@@ -1,4 +1,4 @@
-import { api } from "@/services/api";
+import { ApiError, api } from "@/services/api";
 import { PACKAGE } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type {
@@ -315,6 +315,22 @@ export const packageService = {
       items,
       total: extractTotal(response.data.data, items.length),
     };
+  },
+
+  async deletePackage(id: string): Promise<{ id: string; message?: string }> {
+    try {
+      const response = await api.delete<ApiResponse<unknown>>(PACKAGE.DELETE(id));
+
+      return { id, message: response.data.message };
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 404) {
+        throw error;
+      }
+    }
+
+    const response = await api.delete<ApiResponse<unknown>>(PACKAGE.TEMPLATE_DELETE(id));
+
+    return { id, message: response.data.message };
   },
 
   async getAllActiveCatalogPackages(query: PackageListQuery = {}, salonId?: string | null): Promise<PackageListItem[]> {

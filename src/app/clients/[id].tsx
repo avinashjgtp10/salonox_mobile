@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
@@ -443,9 +444,7 @@ export default function ClientDetailsScreen() {
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <TouchableOpacity activeOpacity={0.75} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.headerIconButton}>
-            <Ionicons color={Colors.heading} name="arrow-back" size={27} />
-          </TouchableOpacity>
+          <AppBackButton onPress={handleBack} />
           <View style={styles.headerTitleGroup}>
             <View style={styles.headerAvatar}><Ionicons color="#FFFFFF" name="person" size={18} /></View>
             <Text style={styles.headerTitle}>Client</Text>
