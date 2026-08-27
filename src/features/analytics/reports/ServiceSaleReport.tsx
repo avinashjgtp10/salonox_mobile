@@ -12,6 +12,9 @@ import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useServices } from "../../catalog/hooks/useServices";
 import { servicesInCategories } from "./serviceCategoryFilter";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./ServiceSaleReport.scss";
 
 const REPORT_NAME = "Service Sale";
@@ -21,6 +24,7 @@ interface ServiceSaleRow {
   invoiceNo: string;
   client: string;
   clientId: string;
+  clientPhone: string;
   staff: string;
   serviceName: string;
   category: string;
@@ -63,6 +67,7 @@ function mapRow(row: any): ServiceSaleRow {
     invoiceNo: row.invoice_no ?? "—",
     client: row.client_name || "Walk-in",
     clientId: row.client_id ? String(row.client_id) : "",
+    clientPhone: row.client_phone || "",
     staff: row.staff_name || "—",
     serviceName: row.service_name || "Service",
     category: row.category_name || "—",
@@ -106,6 +111,8 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -247,6 +254,8 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
         </div>
       )}
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -258,6 +267,14 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every((_r, i) => selection.selectedIds.has(String(i)))}
+                  onChange={() => selection.toggleAll(rows.map((_r, i) => String(i)))}
+                />
+              </th>
               <th className="rp-ss-sortable" onClick={() => handleSortClick("date")}>Date {sortIcon("date")}</th>
               <th className="rp-ss-sortable" onClick={() => handleSortClick("invoice_no")}>Invoice No {sortIcon("invoice_no")}</th>
               <th>Client</th>
@@ -272,25 +289,32 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={10} />
+              <SkeletonTableRows columns={11} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={10} className="rp-detail-empty-cell">No service sales found</td></tr>
+              <tr><td colSpan={11} className="rp-detail-empty-cell">No service sales found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.clientId ? "rp-appt-row" : undefined}
-                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
-                <td>{r.date}</td>
-                <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
-                <td>{r.client}</td>
-                <td>{r.staff}</td>
-                <td className="fw-semibold rp-ss-service" title={r.serviceName}>{r.serviceName}</td>
-                <td>{r.category}</td>
-                <td className="fw-semibold">{formatAmount(r.price + r.taxAmount)}</td>
-                <td>{formatAmount(r.paidAmount)}</td>
-                <td className="rp-ss-payment">{r.paymentMethod}</td>
-                <td><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(String(i))}
+                    onChange={() => selection.toggleOne(String(i))}
+                  />
+                </td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.date}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><span className="rp-detail-link">{r.invoiceNo}</span></td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.client}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.staff}</td>
+                <td className="fw-semibold rp-ss-service" title={r.serviceName} onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.serviceName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.category}</td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.price + r.taxAmount)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.paidAmount)}</td>
+                <td className="rp-ss-payment" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.paymentMethod}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
               </tr>
             ))}
           </tbody>
@@ -303,6 +327,16 @@ export default function ServiceSaleReport({ onBack, category, categoryKey }: { o
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="services" />
       )}
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter((r, i) => selection.selectedIds.has(String(i)) && r.clientPhone)
+          .map(r => ({ phone: r.clientPhone, name: r.client }))}
+        defaultCampaignName="Service Sale"
+        onSent={selection.clearSelection}
+      />
 
     </div>
   );

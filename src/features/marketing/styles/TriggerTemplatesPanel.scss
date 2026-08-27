@@ -2,6 +2,24 @@
 
 .tp-panel { display: flex; flex-direction: column; }
 
+// ── Auto-sync banner ──────────────────────────────────────────────────────────
+.tp-autopoll-banner {
+  display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+  background: $amber-dim; border: 1px solid rgba(245,158,11,0.3);
+  border-radius: $radius-md; margin-bottom: 14px; font-size: 12px;
+}
+.tp-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: $amber;
+  flex-shrink: 0; animation: tp-pulse 1.5s ease-in-out infinite;
+}
+.tp-autopoll-text { color: #92400e; flex: 1; }
+.tp-autopoll-countdown { color: $gray-500; font-size: 11px; strong { color: #b45309; } }
+
+@keyframes tp-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.85); }
+}
+
 // ── Category switcher ────────────────────────────────────────────────────────
 .tp-category-row { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
 .tp-category-btn {

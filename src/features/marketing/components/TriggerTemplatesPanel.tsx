@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 import { Info, X } from "lucide-react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
@@ -40,8 +40,6 @@ const EVENT_CATEGORIES: Record<PurchaseEventType, TriggerCategory[]> = {
   client_welcome:      ["quick_sale", "calendar"],
   bill_receipt:        ["quick_sale", "calendar"],
 
-  service_purchased:    ["quick_sale"],
-  product_purchased:    ["quick_sale"],
   package_purchased:    ["quick_sale"],
   membership_purchased: ["quick_sale"],
 
@@ -71,11 +69,9 @@ const CAPTION_ONLY_EVENTS: PurchaseEventType[] = [];
 
 const EVENT_LABELS: Record<PurchaseEventType, { label: string; hint: string }> = {
   client_welcome:       { label: "New Client Welcome", hint: "Sent right after a new client is added, from Quick Sale or Calendar" },
-  bill_receipt:          { label: "Bill Receipt (Thank You + Feedback)", hint: "Sent as a document-header template alongside the bill PDF, right after checkout completes" },
-  service_purchased:    { label: "Service Purchased", hint: "Sent when a walk-in Quick Sale includes a service" },
-  product_purchased:    { label: "Product Purchased", hint: "Sent when a walk-in Quick Sale includes a retail product" },
-  package_purchased:    { label: "Package Purchased", hint: "Sent when a client buys a package (Quick Sale or standalone)" },
-  membership_purchased: { label: "Membership Purchased", hint: "Sent when a client buys a membership (Quick Sale or standalone)" },
+  bill_receipt:          { label: "Bill Receipt (Thank You + Feedback)", hint: "Sent as a document-header template alongside the bill PDF, right after checkout completes — itemizes everything purchased, so it's the only confirmation for a Quick Sale" },
+  package_purchased:    { label: "Package Purchased", hint: "Sent only when a package is sold standalone (not as part of a bigger checkout, which already sends Bill Receipt)" },
+  membership_purchased: { label: "Membership Purchased", hint: "Sent only when a membership is sold standalone (not as part of a bigger checkout, which already sends Bill Receipt)" },
   appointment_confirmation: { label: "Appointment Confirmation", hint: "Sent right after a new appointment is booked" },
   appointment_rescheduled:  { label: "Appointment Rescheduled", hint: "Sent when an appointment's date or time changes" },
   appointment_cancelled:    { label: "Appointment Cancelled", hint: "Sent when an appointment is cancelled" },
@@ -108,14 +104,6 @@ const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; me
     { token: "{{items}}", meaning: "Itemized bill breakdown, built automatically" },
     { token: "{{feedback_line}}", meaning: "Feedback ask + link (or a fallback line for a walk-in with no appointment), built automatically" },
   ],
-  service_purchased: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount}}", meaning: "Amount paid" },
-    { token: "{{service_name}}", meaning: "The service purchased" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
-  ],
-  product_purchased: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount}}", meaning: "Amount paid" },
-    { token: "{{product_name}}", meaning: "The product purchased" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
-  ],
   package_purchased: [
     { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{package_name}}", meaning: "Package name" },
     { token: "{{package_value}}", meaning: "Package value" }, { token: "{{total_sessions}}", meaning: "Total sessions" },
@@ -143,9 +131,9 @@ const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; me
     { token: "{{service_name}}", meaning: "Service name" },
   ],
   payment_received: [
-    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount}}", meaning: "Amount paid" },
-    { token: "{{service_name}}", meaning: "Service name" }, { token: "{{appointment_date}}", meaning: "Appointment date" },
-    { token: "{{appointment_time}}", meaning: "Appointment time" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount}}", meaning: "Total bill amount paid" },
+    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{appointment_date}}", meaning: "Appointment date" },
+    { token: "{{appointment_time}}", meaning: "Appointment time" },
   ],
   package_expiring_7d: [
     { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{package_name}}", meaning: "Package name" },
@@ -198,6 +186,16 @@ const STATUS_VARIANT: Record<string, "success" | "warning" | "danger" | "seconda
   APPROVED: "success", PENDING: "warning", REJECTED: "danger", DRAFT: "secondary",
 };
 
+const POLL_INTERVAL = 120_000; // 2 minutes
+
+// "Effective" status for a card — whichever of the two tracks (live status,
+// or an in-flight resubmission's pending_status) is actually the one a
+// pending check applies to. Used both to decide what to poll and to detect a
+// status change worth toasting about.
+function effectiveStatus(t: PurchaseTemplate): string {
+  return t.status === "APPROVED" && t.pending_status ? t.pending_status : t.status;
+}
+
 export default function TriggerTemplatesPanel() {
   const dispatch = useAppDispatch();
   const salonId = useAppSelector((s: any) => s.auth.salonId);
@@ -208,10 +206,60 @@ export default function TriggerTemplatesPanel() {
   const [drafts, setDrafts] = useState<Record<string, string>>({});
   const [savingKey, setSavingKey] = useState<string | null>(null);
   const [infoKey, setInfoKey] = useState<string | null>(null);
+  const [isSyncingAll, setIsSyncingAll] = useState(false);
+  const [countdown, setCountdown] = useState(POLL_INTERVAL / 1000);
+  const prevStatuses = useRef<Record<string, string>>({});
 
   useEffect(() => {
     if (salonId) dispatch(fetchPurchaseTemplatesThunk(salonId));
   }, [dispatch, salonId]);
+
+  useEffect(() => {
+    for (const t of purchaseTemplates as PurchaseTemplate[]) {
+      if (!prevStatuses.current[t.event_type]) {
+        prevStatuses.current[t.event_type] = effectiveStatus(t);
+      }
+    }
+  }, [purchaseTemplates]);
+
+  const syncPending = useCallback(async () => {
+    if (!salonId) return;
+    const pending = (purchaseTemplates as PurchaseTemplate[]).filter((t) => effectiveStatus(t) === "PENDING");
+    if (pending.length === 0) return;
+    for (const t of pending) {
+      const res = await dispatch(syncPurchaseTemplateThunk({ salonId, eventType: t.event_type }));
+      if (syncPurchaseTemplateThunk.fulfilled.match(res)) {
+        const updated = res.payload;
+        const next = effectiveStatus(updated);
+        const prev = prevStatuses.current[t.event_type];
+        if (prev && prev !== next) {
+          const label = EVENT_LABELS[t.event_type]?.label ?? t.event_type;
+          if (next === "APPROVED") showSuccess(`"${label}" approved by Meta!`);
+          else if (next === "REJECTED") showError(`"${label}" was rejected by Meta.`);
+        }
+        prevStatuses.current[t.event_type] = next;
+      }
+    }
+  }, [salonId, purchaseTemplates, dispatch, showSuccess, showError]);
+
+  const hasPending = (purchaseTemplates as PurchaseTemplate[]).some((t) => effectiveStatus(t) === "PENDING");
+
+  useEffect(() => {
+    if (!hasPending) { setCountdown(POLL_INTERVAL / 1000); return; }
+    setCountdown(POLL_INTERVAL / 1000);
+    const ticker = setInterval(() => setCountdown((prev) => (prev <= 1 ? POLL_INTERVAL / 1000 : prev - 1)), 1000);
+    const poller = setInterval(() => { syncPending(); setCountdown(POLL_INTERVAL / 1000); }, POLL_INTERVAL);
+    return () => { clearInterval(ticker); clearInterval(poller); };
+  }, [hasPending, syncPending]);
+
+  const handleSyncAll = async () => {
+    setIsSyncingAll(true);
+    try {
+      await syncPending();
+    } finally {
+      setIsSyncingAll(false);
+    }
+  };
 
   useEffect(() => {
     const next: Record<string, string> = {};
@@ -248,6 +296,14 @@ export default function TriggerTemplatesPanel() {
     if (!salonId) return;
     setSavingKey(eventType);
     try {
+      // Submit always saves whatever's currently in the textarea first — a
+      // salon shouldn't need a separate Save click before Submit for it to
+      // pick up their latest edit.
+      const saveRes = await dispatch(updatePurchaseTemplateThunk({ salonId, eventType, bodyText: drafts[eventType] ?? "" }));
+      if (!updatePurchaseTemplateThunk.fulfilled.match(saveRes)) {
+        showError((saveRes.payload as string) ?? "Failed to save wording");
+        return;
+      }
       const res = await dispatch(submitPurchaseTemplateThunk({ salonId, eventType }));
       if (submitPurchaseTemplateThunk.fulfilled.match(res)) showSuccess("Submitted to Meta for approval");
       else showError((res.payload as string) ?? "Failed to submit");
@@ -293,6 +349,17 @@ export default function TriggerTemplatesPanel() {
   return (
     <div className="tp-panel">
       {overlay}
+
+      {hasPending && (
+        <div className="tp-autopoll-banner">
+          <span className="tp-dot" />
+          <span className="tp-autopoll-text">Auto-checking Meta approval every 2 min</span>
+          <span className="tp-autopoll-countdown">Next check in <strong>{countdown}s</strong></span>
+          <Button variant="outline-warning" size="sm" loading={isSyncingAll} disabled={isSyncingAll} onClick={handleSyncAll}>
+            ↻ Check Now
+          </Button>
+        </div>
+      )}
 
       <div className="tp-category-row">
         {CATEGORY_ORDER.map((cat) => (

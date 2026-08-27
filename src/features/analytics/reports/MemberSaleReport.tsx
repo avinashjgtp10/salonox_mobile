@@ -10,6 +10,9 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./MemberSaleReport.scss";
 
 const REPORT_NAME = "Membership Sale";
@@ -36,6 +39,7 @@ interface MemberSaleRow {
   expiryDate: string;
   invoiceNo: string;
   clientName: string;
+  clientPhone: string;
   staffName: string;
   membershipName: string;
   pricingType: string | null;
@@ -68,6 +72,7 @@ function mapRow(row: any): MemberSaleRow {
     expiryDate: row.expiry_date ? formatDate(row.expiry_date) : "—",
     invoiceNo: row.invoice_number ?? "—",
     clientName: row.client_name || "—",
+    clientPhone: row.client_phone || "",
     staffName: row.staff_name || "—",
     membershipName: row.membership_name || "—",
     pricingType: row.pricing_type ?? null,
@@ -107,6 +112,8 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -239,6 +246,8 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
         </div>
       )}
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -250,6 +259,14 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every(r => selection.selectedIds.has(r.id))}
+                  onChange={() => selection.toggleAll(rows.map(r => r.id))}
+                />
+              </th>
               <th>Date</th><th>Expiry Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Membership</th>
               <th>Value</th><th>Description</th><th>Price Paid ({currencySymbol})</th>
               <th>Payment Method</th><th>Status</th>
@@ -257,26 +274,33 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={11} />
+              <SkeletonTableRows columns={12} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={11} className="rp-detail-empty-cell">No membership sales found</td></tr>
+              <tr><td colSpan={12} className="rp-detail-empty-cell">No membership sales found</td></tr>
             ) : rows.map((r) => (
               <tr
                 key={r.id}
                 className={r.clientId ? "rp-appt-row" : undefined}
-                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
-                <td>{r.purchasedAt}</td>
-                <td>{r.expiryDate}</td>
-                <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
-                <td className="fw-semibold">{r.clientName}</td>
-                <td>{r.staffName}</td>
-                <td className="fw-semibold rp-ms-name" title={r.membershipName}>{r.membershipName}</td>
-                <td>{formatValue(r)}</td>
-                <td className="rp-ms-benefits" title={r.extraBenefits}>{r.extraBenefits}</td>
-                <td>{formatAmount(r.pricePaid)}</td>
-                <td className="rp-ms-payment">{r.paymentMethod}</td>
-                <td><span className={`rp-status-badge rp-status-${r.status}`}>{STATUS_OPTIONS.find(o => o.id === r.status)?.label ?? r.status}</span></td>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(r.id)}
+                    onChange={() => selection.toggleOne(r.id)}
+                  />
+                </td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.purchasedAt}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.expiryDate}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><span className="rp-detail-link">{r.invoiceNo}</span></td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.clientName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.staffName}</td>
+                <td className="fw-semibold rp-ms-name" title={r.membershipName} onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.membershipName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatValue(r)}</td>
+                <td className="rp-ms-benefits" title={r.extraBenefits} onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.extraBenefits}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.pricePaid)}</td>
+                <td className="rp-ms-payment" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.paymentMethod}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><span className={`rp-status-badge rp-status-${r.status}`}>{STATUS_OPTIONS.find(o => o.id === r.status)?.label ?? r.status}</span></td>
               </tr>
             ))}
           </tbody>
@@ -285,6 +309,16 @@ export default function MemberSaleReport({ onBack, category, categoryKey }: { on
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter(r => selection.selectedIds.has(r.id) && r.clientPhone)
+          .map(r => ({ phone: r.clientPhone, name: r.clientName }))}
+        defaultCampaignName="Membership Sale"
+        onSent={selection.clearSelection}
+      />
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="memberships" />
