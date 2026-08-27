@@ -4501,7 +4501,6 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
             {appointment.status === "In Progress" ? <CompleteAppointmentAction appointment={appointment} /> : null}
             {!isStaffMode ? (
               <>
-                <ActionButton icon="create-outline" label="Edit" route={`/appointments/${appointment.id}/edit`} />
                 <ActionButton icon="calendar-outline" label="Reschedule" route={`/appointments/${appointment.id}/reschedule`} />
                 <ActionButton icon="close-circle-outline" label="Cancel" route={`/appointments/${appointment.id}/cancel`} danger />
               </>
