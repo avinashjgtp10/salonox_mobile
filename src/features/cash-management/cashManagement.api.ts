@@ -237,6 +237,29 @@ export async function fetchTodaysPaymentMethodCounts(date = new Date().toISOStri
     const amounts = { upi: 0, card: 0, cash: 0 };
     for (const row of rows) {
       const method = String(row?.payment_method ?? "").trim().toLowerCase();
+      if (method === "split") {
+        // Split sales have no single payment_method — the per-method legs
+        // live inside payment_reference instead (e.g. {"Cash":200,"UPI":150}).
+        // Without this, split sales were silently excluded, undercounting
+        // UPI/Card totals for any salon that mixes payment methods.
+        let legs: Record<string, unknown> = {};
+        try {
+          legs = typeof row?.payment_reference === "string"
+            ? JSON.parse(row.payment_reference)
+            : (row?.payment_reference ?? {});
+        } catch {
+          legs = {};
+        }
+        for (const [legMethod, legAmount] of Object.entries(legs)) {
+          const key = String(legMethod).trim().toLowerCase();
+          const amount = asNumber(legAmount);
+          if (key === "upi") { counts.upi += 1; amounts.upi += amount; }
+          else if (key === "card") { counts.card += 1; amounts.card += amount; }
+          else if (key === "cash") { counts.cash += 1; amounts.cash += amount; }
+        }
+        continue;
+      }
+
       const amount = asNumber(row?.paid_amount);
       if (method === "upi") { counts.upi += 1; amounts.upi += amount; }
       else if (method === "card") { counts.card += 1; amounts.card += amount; }
