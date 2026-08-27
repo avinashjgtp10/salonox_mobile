@@ -11,6 +11,9 @@ import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useProducts } from "../../catalog/hooks/useProducts";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./ProductSaleReport.scss";
 
 const REPORT_NAME = "Product Retail";
@@ -20,6 +23,7 @@ interface ProductSaleRow {
   invoiceNo: string;
   client: string;
   clientId: string;
+  clientPhone: string;
   staff: string;
   productName: string;
   category: string;
@@ -53,6 +57,7 @@ function mapRow(row: any): ProductSaleRow {
     invoiceNo: row.invoice_no ?? "—",
     client: row.client_name || "Walk-in",
     clientId: row.client_id ? String(row.client_id) : "",
+    clientPhone: row.client_phone || "",
     staff: row.staff_name || "—",
     productName: row.product_name || "Product",
     category: row.category_name || "—",
@@ -94,6 +99,8 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -201,6 +208,8 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
         </div>
       )}
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -212,6 +221,14 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every((_r, i) => selection.selectedIds.has(String(i)))}
+                  onChange={() => selection.toggleAll(rows.map((_r, i) => String(i)))}
+                />
+              </th>
               <th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Product Name</th>
               <th>Category</th><th>Brand</th><th>Quantity</th><th>Total ({currencySymbol})</th>
               <th>Paid Amount ({currencySymbol})</th><th>Payment Method</th><th>Status</th>
@@ -219,27 +236,34 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={12} />
+              <SkeletonTableRows columns={13} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={12} className="rp-detail-empty-cell">No product sales found</td></tr>
+              <tr><td colSpan={13} className="rp-detail-empty-cell">No product sales found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.clientId ? "rp-appt-row" : undefined}
-                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
-                <td>{r.date}</td>
-                <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
-                <td>{r.client}</td>
-                <td>{r.staff}</td>
-                <td className="fw-semibold rp-ps-product" title={r.productName}>{r.productName}</td>
-                <td>{r.category}</td>
-                <td>{r.brand}</td>
-                <td>{r.quantity}</td>
-                <td className="fw-semibold">{formatAmount(r.total + r.taxAmount)}</td>
-                <td>{formatAmount(r.paidAmount)}</td>
-                <td className="rp-ps-payment">{r.paymentMethod}</td>
-                <td><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(String(i))}
+                    onChange={() => selection.toggleOne(String(i))}
+                  />
+                </td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.date}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><span className="rp-detail-link">{r.invoiceNo}</span></td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.client}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.staff}</td>
+                <td className="fw-semibold rp-ps-product" title={r.productName} onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.productName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.category}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.brand}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.quantity}</td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.total + r.taxAmount)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.paidAmount)}</td>
+                <td className="rp-ps-payment" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.paymentMethod}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><span className={`rp-status-badge rp-status-${r.status}`}>{r.status}</span></td>
               </tr>
             ))}
           </tbody>
@@ -252,6 +276,16 @@ export default function ProductSaleReport({ onBack, category, categoryKey }: { o
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="products" />
       )}
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter((r, i) => selection.selectedIds.has(String(i)) && r.clientPhone)
+          .map(r => ({ phone: r.clientPhone, name: r.client }))}
+        defaultCampaignName="Product Purchase"
+        onSent={selection.clearSelection}
+      />
 
     </div>
   );
