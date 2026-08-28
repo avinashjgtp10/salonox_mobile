@@ -905,7 +905,10 @@ const validateDate = (value: string) => isValidIsoDate(value);
 
 const isPastDate = (value: string) => validateDate(value) && value < todayIsoDate();
 
-const validateForm = (form: AppointmentFormState, options?: { requireClient?: boolean }): FormErrors => {
+const validateForm = (
+  form: AppointmentFormState,
+  options?: { allowedPastDate?: string; requireClient?: boolean },
+): FormErrors => {
   const errors: FormErrors = {};
   const trimmedDiscount = form.discount.trim();
   const discount = trimmedDiscount === "" ? 0 : Number(trimmedDiscount);
@@ -925,7 +928,7 @@ const validateForm = (form: AppointmentFormState, options?: { requireClient?: bo
 
   if (!validateDate(form.date)) {
     errors.date = "Use YYYY-MM-DD.";
-  } else if (isPastDate(form.date)) {
+  } else if (isPastDate(form.date) && form.date !== options?.allowedPastDate) {
     errors.date = "Past dates cannot be booked.";
   }
 
@@ -3539,7 +3542,6 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   const staffAvailabilityError = useAppSelector((state) =>
     selectStaffAvailabilityError(state, form.staffId, form.date),
   );
-  const allowsWalkInClient = mode === "create" && clientBookingMode === "walkIn";
   const totalServiceDuration = useMemo(
     () => selectedServices.reduce((total, service) => total + Math.max(service.durationMinutes ?? 0, 0), 0),
     [selectedServices],
@@ -3550,19 +3552,41 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   );
   const totalServicePrice = servicePricingTotals.grandTotal;
   const defaultTimeSlots = useMemo(() => getDefaultTimeSlots(form.date), [form.date]);
+  const allowedPastEditDate = mode === "edit" && existingAppointment
+    ? toInputDate(existingAppointment.scheduledAt)
+    : undefined;
+  const originalEditSlot = useMemo<StaffAvailabilitySlot | null>(() => {
+    if (!existingAppointment || mode !== "edit") return null;
+
+    const originalDate = toInputDate(existingAppointment.scheduledAt);
+    const originalStart = toInputTime(existingAppointment.startTime ?? existingAppointment.scheduledAt);
+    const originalEnd = toInputTime(existingAppointment.endTime);
+    const sameStaff = form.staffId === existingAppointment.staffId ||
+      Boolean(selectedStaff && staffIdMatches(selectedStaff, existingAppointment.staffId));
+
+    if (form.date !== originalDate || !sameStaff || !validateTime(originalStart)) return null;
+
+    return {
+      display: minutesToDisplayTime(parseClockToMinutes(originalStart) ?? 0),
+      endTime: validateTime(originalEnd) ? originalEnd : addMinutesToTime(originalDate, originalStart, existingAppointment.durationMinutes ?? 30),
+      value: originalStart,
+    };
+  }, [existingAppointment, form.date, form.staffId, mode, selectedStaff]);
   const availableSlots = useMemo<StaffAvailabilitySlot[]>(
     () => {
       if (!validateDate(form.date)) {
         return [];
       }
 
-      if (form.staffId) {
-        return staffAvailability?.availableSlots ?? [];
-      }
+      const slots = form.staffId
+        ? staffAvailability?.availableSlots ?? []
+        : defaultTimeSlots;
 
-      return defaultTimeSlots;
+      if (!originalEditSlot || slots.some((slot) => slot.value === originalEditSlot.value)) return slots;
+
+      return [...slots, originalEditSlot].sort((left, right) => left.value.localeCompare(right.value));
     },
-    [defaultTimeSlots, form.date, form.staffId, staffAvailability?.availableSlots],
+    [defaultTimeSlots, form.date, form.staffId, originalEditSlot, staffAvailability?.availableSlots],
   );
   const staffInactiveReason = !selectedStaff
     ? null
@@ -3660,12 +3684,6 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     staffAvailabilityStatus,
     workingHoursLabel,
   ]);
-  const formIsValid = useMemo(
-    () => Object.keys(validateForm(form, { requireClient: !allowsWalkInClient })).length === 0,
-    [allowsWalkInClient, form],
-  );
-  const selectedSlotIsAvailable = availableSlots.some((slot) => slot.value === form.startTime);
-  const bookingReady = formIsValid && selectedSlotIsAvailable && !schedulerLoading;
   const refreshStaffAvailability = useCallback(() => {
     setAvailabilityRefreshKey((current) => current + 1);
   }, []);
@@ -3723,21 +3741,6 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
 
     void dispatch(fetchStaffAvailabilityThunk({ date: form.date, staffId: form.staffId }));
   }, [activeBranchId, availabilityRefreshKey, dispatch, form.date, form.staffId]);
-
-  useEffect(() => {
-    setForm((current) => {
-      if (!current.startTime && !current.endTime) {
-        return current;
-      }
-
-      return {
-        ...current,
-        endTime: "",
-        startTime: "",
-      };
-    });
-    setErrors((current) => ({ ...current, startTime: undefined }));
-  }, [form.date]);
 
   useEffect(() => {
     if (!form.startTime) {
@@ -3938,9 +3941,18 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
 
   const updateForm = (key: keyof AppointmentFormState, value: string) => {
     setForm((current) => {
+      if (key === "date" && current.date !== value) {
+        return { ...current, date: value, endTime: "", startTime: "" };
+      }
+
       return { ...current, [key]: value };
     });
-    setErrors((current) => ({ ...current, [key]: undefined }));
+    setErrors((current) => ({
+      ...current,
+      [key]: undefined,
+      ...(key === "date" ? { startTime: undefined } : {}),
+    }));
+    setFormSubmitError(null);
   };
 
   const dismissServiceDropdown = () => {
@@ -4080,12 +4092,16 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
 
     const clientId = form.clientId;
     const isWalkInClient = mode === "create" && clientBookingMode === "walkIn";
-    const nextErrors = validateForm(form, { requireClient: !isWalkInClient });
+    const nextErrors = validateForm(form, {
+      allowedPastDate: allowedPastEditDate,
+      requireClient: !isWalkInClient,
+    });
 
     setErrors(nextErrors);
     setFormSubmitError(null);
 
     if (Object.keys(nextErrors).length > 0) {
+      setFormSubmitError("Please correct the highlighted appointment details and try again.");
       return;
     }
 
@@ -4453,9 +4469,9 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         </View>
         <TouchableOpacity
           activeOpacity={0.88}
-          disabled={mutating || !bookingReady}
+          disabled={mutating}
           onPress={handleSubmit}
-          style={[styles.bookingPrimaryButton, (mutating || !bookingReady) && styles.disabledButton]}
+          style={[styles.bookingPrimaryButton, mutating && styles.disabledButton]}
         >
           {mutating ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="calendar-outline" size={20} color="#FFFFFF" />}
           <Text style={styles.bookingPrimaryButtonText}>
