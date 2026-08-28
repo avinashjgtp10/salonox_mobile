@@ -129,6 +129,20 @@ const STATUS_FILTERS: ("All" | AppointmentStatus)[] = [
   "Missed",
 ];
 
+const CALENDAR_STATUS_FILTERS: {
+  color: string;
+  label: string;
+  status: "All" | AppointmentStatus;
+}[] = [
+  { color: "#B9689B", label: "All", status: "All" },
+  { color: "#D97706", label: "Booked", status: "Upcoming" },
+  { color: "#16A34A", label: "Paid", status: "Completed" },
+  { color: "#6D28D9", label: "Partial", status: "Partial" },
+  { color: "#DC2626", label: "Cancelled", status: "Cancelled" },
+  { color: "#0891B2", label: "No Show", status: "Missed" },
+  { color: "#6B7280", label: "Deleted", status: "Deleted" },
+];
+
 const STAFF_AVAILABILITY_REALTIME_ENTITIES = new Set([
   "appointments",
   "staff",
@@ -273,6 +287,51 @@ const getWebCalendarGradient = (appointment: AppointmentListItem) => {
   }
 
   return WEB_CALENDAR_STATUS_GRADIENTS.booked;
+};
+
+const getCalendarItemNames = (value: unknown, keys: string[]) => {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (typeof item === "string" && item.trim()) return [item.trim()];
+    if (!item || typeof item !== "object") return [];
+
+    const record = item as Record<string, unknown>;
+    const name = keys
+      .map((key) => record[key])
+      .find((candidate) => typeof candidate === "string" && candidate.trim());
+
+    return typeof name === "string" ? [name.trim()] : [];
+  });
+};
+
+const getCalendarAppointmentTitle = (appointment: AppointmentListItem) => {
+  const rawTitle = typeof appointment.raw.title === "string" ? appointment.raw.title.trim() : "";
+
+  if (rawTitle && rawTitle.toLowerCase() !== "appointment") return rawTitle;
+
+  const itemNames = [
+    ...getCalendarItemNames(appointment.raw.services, ["name", "service"]),
+    ...getCalendarItemNames(appointment.raw.productItems ?? appointment.raw.product_items, ["productName", "product_name", "name"]),
+    ...getCalendarItemNames(appointment.raw.packageItems ?? appointment.raw.package_items, ["packageName", "package_name", "name"]),
+    ...getCalendarItemNames(appointment.raw.membershipItems ?? appointment.raw.membership_items, ["membershipName", "membership_name", "name"]),
+  ];
+
+  return itemNames.join(", ") || appointment.serviceName || "Appointment";
+};
+
+const getCalendarTokenLabel = (appointment: AppointmentListItem) => {
+  const rawToken = appointment.raw.token_id ??
+    appointment.raw.tokenId ??
+    appointment.raw.token_number ??
+    appointment.raw.tokenNumber ??
+    appointment.raw.token;
+  const token = typeof rawToken === "string" || typeof rawToken === "number"
+    ? String(rawToken).trim()
+    : "";
+
+  if (!token) return "";
+  return /^\d+$/.test(token) ? `TK${token}` : token;
 };
 
 const isReadonlyCalendarAppointment = (appointment: AppointmentListItem) =>
@@ -907,6 +966,7 @@ function ScreenShell({
   onRefresh,
   refreshing,
   safeAreaEdges = ["top", "bottom"],
+  scrollable = true,
   showCreateAction = true,
   title,
 }: {
@@ -917,6 +977,7 @@ function ScreenShell({
   onRefresh?: () => void;
   refreshing?: boolean;
   safeAreaEdges?: React.ComponentProps<typeof SafeAreaView>["edges"];
+  scrollable?: boolean;
   showCreateAction?: boolean;
   title: string;
 }) {
@@ -943,24 +1004,8 @@ function ScreenShell({
     router.replace(backFallback);
   };
 
-  return (
-    <SafeAreaView edges={safeAreaEdges} style={styles.safeArea}>
-      <AppStatusBar />
-      <ScrollView
-        contentContainerStyle={[styles.content, contentStyle]}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={
-          onRefresh ? (
-            <RefreshControl
-              colors={[Colors.primary]}
-              onRefresh={onRefresh}
-              refreshing={Boolean(refreshing)}
-              tintColor={Colors.primary}
-            />
-          ) : undefined
-        }
-        showsVerticalScrollIndicator={false}
-      >
+  const content = (
+    <>
         {!hideHeader ? <View style={styles.headerRow}>
           <TouchableOpacity activeOpacity={0.8} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
             <Ionicons name="arrow-back" size={18} color={Colors.primary} />
@@ -979,7 +1024,33 @@ function ScreenShell({
           )}
         </View> : null}
         {children}
-      </ScrollView>
+    </>
+  );
+
+  return (
+    <SafeAreaView edges={safeAreaEdges} style={styles.safeArea}>
+      <AppStatusBar />
+      {scrollable ? (
+        <ScrollView
+          contentContainerStyle={[styles.content, contentStyle]}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                colors={[Colors.primary]}
+                onRefresh={onRefresh}
+                refreshing={Boolean(refreshing)}
+                tintColor={Colors.primary}
+              />
+            ) : undefined
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {content}
+        </ScrollView>
+      ) : (
+        <View style={[styles.content, styles.fixedContent, contentStyle]}>{content}</View>
+      )}
       {footer}
       <AppointmentSnackbar />
     </SafeAreaView>
@@ -2128,12 +2199,16 @@ function CalendarPreview({
   appointments,
   date,
   detailRoute,
+  onRefresh,
+  refreshing = false,
   staffNames = [],
   viewMode = "week",
 }: {
   appointments: AppointmentListItem[];
   date: string;
   detailRoute?: (appointmentId: string) => Href;
+  onRefresh?: () => void;
+  refreshing?: boolean;
   staffNames?: string[];
   title?: string;
   viewMode?: "week" | "day" | "list";
@@ -2142,9 +2217,9 @@ function CalendarPreview({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [previewAppointment, setPreviewAppointment] = useState<AppointmentListItem | null>(null);
   const [quickSaleSlot, setQuickSaleSlot] = useState<QuickSaleSlot | null>(null);
-  const startHour = 8;
+  const startHour = 0;
   const hourHeight = 160;
-  const hours = useMemo(() => Array.from({ length: 12 }, (_, index) => startHour + index), []);
+  const hours = useMemo(() => Array.from({ length: 24 }, (_, index) => startHour + index), []);
   const timeSlots = useMemo(() => Array.from({ length: hours.length * 4 }, (_, index) => {
     const totalMinutes = startHour * 60 + index * 15;
     return { hour: Math.floor(totalMinutes / 60), minute: totalMinutes % 60 };
@@ -2204,12 +2279,18 @@ function CalendarPreview({
   return (
     <View style={styles.dinggCalendar}>
       <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator style={styles.dinggHorizontalScroller}>
-        <View style={{ width: calendarContentWidth }}>
+        <View style={{ height: "100%", width: calendarContentWidth }}>
           <View style={styles.dinggCalendarHeader}>
             <View style={styles.dinggTimeHeader}>{viewMode === "day" ? <Text style={styles.dinggStaffHeader}>Staff</Text> : null}</View>
             {columns.map((column, index) => <View key={`${column.key}-${column.label}-${index}`} style={[styles.dinggDayHeader, { width: columnWidth }]}>{viewMode === "day" ? <Ionicons name="person-outline" size={12} color={Colors.appointmentAccent} /> : null}<Text numberOfLines={1} style={styles.dinggDayHeaderText}>{column.label}</Text></View>)}
           </View>
-          <ScrollView nestedScrollEnabled ref={verticalScrollRef} showsVerticalScrollIndicator style={styles.dinggVerticalScroller}>
+          <ScrollView
+            nestedScrollEnabled
+            ref={verticalScrollRef}
+            refreshControl={onRefresh ? <RefreshControl colors={[Colors.primary]} onRefresh={onRefresh} refreshing={refreshing} tintColor={Colors.primary} /> : undefined}
+            showsVerticalScrollIndicator
+            style={styles.dinggVerticalScroller}
+          >
             <View style={[styles.dinggGridBody, { height: hours.length * hourHeight }]}>
               <View style={styles.dinggTimeColumn}>
                 {timeSlots.map(({ hour, minute }) => (
@@ -2248,9 +2329,26 @@ function CalendarPreview({
                     if (!scheduled) return null;
                     const offsetMinutes = scheduled.getHours() * 60 + scheduled.getMinutes() - startHour * 60;
                     if (offsetMinutes < 0 || offsetMinutes >= hours.length * 60) return null;
-                    const height = Math.max(((appointment.durationMinutes ?? 30) / 60) * hourHeight, 36);
+                    const appointmentRange = getAppointmentRange(appointment);
+                    const calendarDurationMinutes = appointmentRange
+                      ? Math.max((appointmentRange.end - appointmentRange.start) / 60_000, 1)
+                      : appointment.durationMinutes ?? 30;
+                    const height = Math.max((calendarDurationMinutes / 60) * hourHeight, 36);
                     const top = (offsetMinutes / 60) * hourHeight;
-                    const isPaid = appointment.paymentStatus.toLowerCase() === "paid" || (appointment.total > 0 && appointment.paidAmount >= appointment.total);
+                    const appointmentTitle = getCalendarAppointmentTitle(appointment);
+                    const tokenLabel = getCalendarTokenLabel(appointment);
+                    const endTimeLabel = appointment.endTime
+                      ? formatTimeLabel(appointment.endTime)
+                      : appointmentRange
+                        ? formatAppTime(new Date(appointmentRange.end), "--:--")
+                        : "--:--";
+                    const appointmentSummary = [
+                      appointment.clientName || "Walk-In",
+                      tokenLabel,
+                      `${formatTimeLabel(appointment.scheduledAt)}-${endTimeLabel}`,
+                      appointmentTitle,
+                    ].filter(Boolean).join(", ");
+                    const summaryLineCount = Math.max(1, Math.floor((height - (height >= 54 ? 28 : 10)) / 14));
                     const isReadonly = isReadonlyCalendarAppointment(appointment);
                     const isOverlapping = columnAppointments.some((candidate) => candidate.id !== appointment.id && appointmentsOverlap(appointment, candidate));
                     const isHighlighted = previewAppointment?.id === appointment.id || hasCalendarInteractionFlag(appointment, "isHighlighted", "is_highlighted");
@@ -2265,9 +2363,7 @@ function CalendarPreview({
                       >
                         <LinearGradient colors={getWebCalendarGradient(appointment)} end={{ x: 0, y: 1 }} start={{ x: 1, y: 0 }} style={styles.dinggAppointmentGradient}>
                           {height >= 54 ? <View style={styles.dinggAppointmentIcons}><Ionicons name="male-outline" size={13} color="#ffffff" /><Ionicons name="gift-outline" size={13} color="#ffffff" /></View> : null}
-                          <Text numberOfLines={2} style={styles.dinggAppointmentClient}>{appointment.clientName}, {formatTimeLabel(appointment.scheduledAt)}-{formatTimeLabel(appointment.endTime)}</Text>
-                          {height >= 72 ? <Text numberOfLines={3} style={styles.dinggAppointmentName}>{appointment.serviceName}</Text> : null}
-                          {isPaid && height >= 64 ? <Text numberOfLines={1} style={styles.dinggPaidText}>Paid successfully</Text> : null}
+                          <Text numberOfLines={summaryLineCount} style={styles.dinggAppointmentSummary}>{appointmentSummary}</Text>
                         </LinearGradient>
                       </Pressable>
                     );
@@ -2322,16 +2418,22 @@ function AppointmentPreviewSheet({
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [stage, setStage] = useState<"actions" | "details">("actions");
+  const [detailsTab, setDetailsTab] = useState<"appointment" | "notes">("appointment");
 
   useEffect(() => {
     setStage("actions");
+    setDetailsTab("appointment");
   }, [appointment?.id]);
 
   if (!appointment) return null;
   const isPaid = appointment.paymentStatus.toLowerCase() === "paid" || (appointment.total > 0 && appointment.paidAmount >= appointment.total);
   const start = formatBusinessTime(appointment.startTime || appointment.scheduledAt);
   const end = formatBusinessTime(appointment.endTime);
-  const tokenId = String(appointment.raw.token_id ?? appointment.raw.tokenId ?? appointment.raw.token ?? "-");
+
+  const openNoteEditor = () => {
+    onClose();
+    requestAnimationFrame(() => router.push(`/appointments/${appointment.id}/edit` as Href));
+  };
 
   const handleViewInvoice = () => {
     if (!appointment.saleId) {
@@ -2362,10 +2464,7 @@ function AppointmentPreviewSheet({
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.82}
-              onPress={() => {
-                onClose();
-                requestAnimationFrame(() => router.push(`/appointments/${appointment.id}/edit` as Href));
-              }}
+              onPress={openNoteEditor}
               style={styles.calendarActionRow}
             >
               <Text style={styles.calendarActionText}>Add Client Note</Text>
@@ -2376,7 +2475,6 @@ function AppointmentPreviewSheet({
             <View style={styles.appointmentModalHeader}>
               <View style={styles.appointmentModalHeading}>
                 <Text numberOfLines={1} style={styles.appointmentModalTitle}>Appointment - {formatBusinessDate(appointment.scheduledAt)}</Text>
-                <Text style={styles.appointmentToken}>Token ID - <Text style={styles.appointmentTokenValue}>{tokenId}</Text></Text>
               </View>
               <TouchableOpacity accessibilityLabel="Close appointment details" onPress={onClose}>
                 <Ionicons name="close" size={28} color={Colors.appointmentTextSecondary} />
@@ -2385,20 +2483,40 @@ function AppointmentPreviewSheet({
             <View style={styles.appointmentClientBand}>
               <View style={styles.appointmentClientAvatar}><Ionicons name="person-outline" size={26} color={Colors.appointmentAccent} /></View>
               <View style={styles.appointmentClientCopy}>
-                <Text numberOfLines={1} style={styles.appointmentClientName}>{appointment.clientName}</Text>
+                <Text style={styles.appointmentClientName}>{appointment.clientName}</Text>
                 <Text style={styles.appointmentClientPhone}>{maskPhone(appointment.phone)}</Text>
               </View>
-              <View style={styles.appointmentStatusControl}><View style={[styles.appointmentStatusDot, { backgroundColor: isPaid ? "#22C55E" : "#F59E0B" }]} /><Text numberOfLines={1} style={styles.appointmentStatusLabel}>{appointment.status}</Text><Ionicons name="chevron-down" size={18} color={Colors.appointmentTextSecondary} /></View>
+              {appointment.status !== "Completed" ? <View style={styles.appointmentStatusControl}><View style={[styles.appointmentStatusDot, { backgroundColor: isPaid ? "#22C55E" : "#F59E0B" }]} /><Text numberOfLines={1} style={styles.appointmentStatusLabel}>{appointment.status}</Text><Ionicons name="chevron-down" size={18} color={Colors.appointmentTextSecondary} /></View> : null}
             </View>
-            <View style={styles.appointmentTabs}><Text style={styles.appointmentTabActive}>Appointment</Text><Text style={styles.appointmentTab}>Notes</Text></View>
-            <ScrollView contentContainerStyle={styles.appointmentModalContent}>
-              <Text style={styles.appointmentServiceHeading}>Service (1)</Text>
-              <View style={styles.appointmentServiceCard}>
-                <View style={styles.appointmentServiceTop}><Text numberOfLines={2} style={styles.appointmentServiceName}>{appointment.serviceName}</Text><Text style={styles.appointmentServiceTime}>at {start}-{end}</Text></View>
-                <View style={styles.appointmentServiceMeta}><Text style={styles.appointmentBookedBy}>Booked by - {appointment.staffName || "-"}</Text><Text style={styles.appointmentWith}>With {appointment.staffName || "-"}</Text></View>
-                <View style={styles.appointmentServiceStatus}><View style={[styles.appointmentStatusDot, { backgroundColor: isPaid ? "#22C55E" : "#F59E0B" }]} /><Text style={styles.appointmentServiceStatusText}>{appointment.status}</Text></View>
-              </View>
-            </ScrollView>
+            <View style={styles.appointmentTabs}>
+              <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: detailsTab === "appointment" }} onPress={() => setDetailsTab("appointment")}>
+                <Text style={detailsTab === "appointment" ? styles.appointmentTabActive : styles.appointmentTab}>Appointment</Text>
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: detailsTab === "notes" }} onPress={() => setDetailsTab("notes")}>
+                <Text style={detailsTab === "notes" ? styles.appointmentTabActive : styles.appointmentTab}>Notes</Text>
+              </TouchableOpacity>
+            </View>
+            {detailsTab === "appointment" ? (
+              <ScrollView contentContainerStyle={styles.appointmentModalContent}>
+                <Text style={styles.appointmentServiceHeading}>Service (1)</Text>
+                <View style={styles.appointmentServiceCard}>
+                  <View style={styles.appointmentServiceTop}><Text numberOfLines={2} style={styles.appointmentServiceName}>{appointment.serviceName}</Text><Text style={styles.appointmentServiceTime}>at {start}-{end}</Text></View>
+                  <View style={styles.appointmentServiceMeta}><Text style={styles.appointmentBookedBy}>Booked by - {appointment.staffName || "-"}</Text><Text style={styles.appointmentWith}>With {appointment.staffName || "-"}</Text></View>
+                  <View style={styles.appointmentServiceStatus}><View style={[styles.appointmentStatusDot, { backgroundColor: isPaid ? "#22C55E" : "#F59E0B" }]} /><Text style={styles.appointmentServiceStatusText}>{appointment.status}</Text></View>
+                </View>
+              </ScrollView>
+            ) : (
+              <ScrollView contentContainerStyle={styles.appointmentModalContent}>
+                <Text style={styles.appointmentNotesHeading}>Client Notes</Text>
+                <Text style={[styles.appointmentNotesText, !appointment.notes.trim() && styles.appointmentNotesEmpty]}>
+                  {appointment.notes.trim() || "No client notes added."}
+                </Text>
+                <TouchableOpacity activeOpacity={0.84} onPress={openNoteEditor} style={styles.appointmentNotesButton}>
+                  <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+                  <Text style={styles.appointmentNotesButtonText}>{appointment.notes.trim() ? "Edit Client Note" : "Add Client Note"}</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
             <TouchableOpacity activeOpacity={0.88} disabled={!isPaid} onPress={handleViewInvoice} style={[styles.appointmentInvoiceButton, !isPaid && styles.appointmentInvoiceDisabled]}>
               <Ionicons name="receipt-outline" size={20} color="#FFFFFF" />
               <Text style={styles.appointmentInvoiceText}>{isPaid ? "View Invoice" : "Invoice available after payment"}</Text>
@@ -4980,10 +5098,17 @@ export function AppointmentCalendarScreen() {
   const staffNames = useMemo(() => ["All Staff", ...Array.from(new Set([...staffMembers.map((staff) => staff.name), ...appointments.map((item) => item.staffName)].filter(Boolean)))], [appointments, staffMembers]);
   const filteredStaffNames = useMemo(() => staffNames.filter((name) => name !== "All Staff"), [staffNames]);
   const visibleAppointments = useMemo(
-    () => selectedStaffNames.length === 0
-      ? appointments
-      : appointments.filter((item) => selectedStaffNames.includes(item.staffName)),
-    [appointments, selectedStaffNames],
+    () => appointments.filter((item) => {
+      const matchesStaff = selectedStaffNames.length === 0 || selectedStaffNames.includes(item.staffName);
+      const matchesStatus = status === "All"
+        ? item.status !== "Unknown"
+        : status === "Deleted"
+          ? item.status === "Deleted"
+          : appointmentStatusMatchesFilter(item.status, status);
+
+      return matchesStaff && matchesStatus;
+    }),
+    [appointments, selectedStaffNames, status],
   );
   const selectedStaffLabel = selectedStaffNames.length === 0
     ? "All Staff"
@@ -5017,10 +5142,37 @@ export function AppointmentCalendarScreen() {
 
   return (
     <ScreenShell
-      footer={<View style={styles.dinggLegend}><TouchableOpacity onPress={() => setStatus("All")} style={[styles.dinggLegendPill, status === "All" && styles.dinggLegendActive]}><Text style={styles.dinggLegendText}>All</Text></TouchableOpacity><TouchableOpacity onPress={() => setStatus("Upcoming")} style={styles.dinggLegendPill}><View style={[styles.dinggLegendDot, { backgroundColor: "#38AAA9" }]} /><Text style={styles.dinggLegendText}>Tentative</Text></TouchableOpacity><TouchableOpacity onPress={() => setStatus("Confirmed")} style={styles.dinggLegendPill}><View style={[styles.dinggLegendDot, { backgroundColor: "#F08A24" }]} /><Text style={styles.dinggLegendText}>Confirmed</Text></TouchableOpacity></View>}
+      footer={
+        <ScrollView
+          contentContainerStyle={styles.dinggLegendContent}
+          horizontal
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          style={styles.dinggLegend}
+        >
+          {CALENDAR_STATUS_FILTERS.map((filter) => {
+            const selected = status === filter.status;
+
+            return (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                activeOpacity={0.8}
+                key={filter.label}
+                onPress={() => setStatus(filter.status)}
+                style={[styles.dinggLegendPill, selected && styles.dinggLegendActive]}
+              >
+                {filter.status !== "All" ? <View style={[styles.dinggLegendDot, { backgroundColor: selected ? "#FFFFFF" : filter.color }]} /> : null}
+                <Text style={[styles.dinggLegendText, selected && styles.dinggLegendTextActive]}>{filter.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      }
       onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}
       refreshing={refreshing}
       hideHeader
+      scrollable={viewMode === "list"}
       title="Calendar"
     >
       <View style={styles.dinggToolbar}>
@@ -5046,7 +5198,14 @@ export function AppointmentCalendarScreen() {
         {datePickerVisible ? <DateTimePicker mode="date" onChange={(event, selected) => { setDatePickerVisible(false); if (event.type !== "dismissed" && selected) setDate(`${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`); }} value={new Date(`${date}T00:00:00`)} /> : null}
         <TouchableOpacity onPress={() => setStaffFilterVisible(true)} style={styles.dinggStylistSummary}><Text style={styles.dinggStylistLabel}>Staff:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{selectedStaffLabel}</Text><Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /></TouchableOpacity>
       </View>
-      <CalendarPreview appointments={visibleAppointments} date={date} staffNames={selectedStaffNames.length ? selectedStaffNames : filteredStaffNames} viewMode={viewMode} />
+      <CalendarPreview
+        appointments={visibleAppointments}
+        date={date}
+        onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}
+        refreshing={refreshing}
+        staffNames={selectedStaffNames.length ? selectedStaffNames : filteredStaffNames}
+        viewMode={viewMode}
+      />
       <Modal animationType="fade" onRequestClose={() => setViewMenuVisible(false)} transparent visible={viewMenuVisible}><Pressable onPress={() => setViewMenuVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.calendarMenuCard}>{([['week','calendar-outline','Week view'],['day','today-outline','Day view'],['list','list-outline','List view']] as const).map(([value, icon, label]) => <TouchableOpacity key={value} onPress={() => { setViewMode(value); setViewMenuVisible(false); }} style={[styles.calendarMenuOption, viewMode === value && styles.calendarMenuOptionActive]}><Ionicons name={icon} size={18} color={Colors.appointmentText} /><Text style={styles.calendarMenuText}>{label}</Text>{viewMode === value ? <Ionicons name="radio-button-on" size={16} color={Colors.appointmentAccent} /> : null}</TouchableOpacity>)}</Pressable></Pressable></Modal>
       <Modal animationType="fade" onRequestClose={() => setStaffFilterVisible(false)} transparent visible={staffFilterVisible}><Pressable onPress={() => setStaffFilterVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.staffFilterCard}><Text style={styles.staffFilterTitle}>By Staff</Text><ScrollView>{staffNames.map((name) => { const selected = name === "All Staff" ? selectedStaffNames.length === 0 : selectedStaffNames.includes(name); return <TouchableOpacity key={name} onPress={() => toggleStaffFilter(name)} style={styles.staffFilterOption}><Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? Colors.appointmentAccent : Colors.appointmentMuted} /><Text style={styles.staffFilterText}>{name}</Text></TouchableOpacity>; })}</ScrollView><View style={styles.staffFilterActions}><TouchableOpacity onPress={() => setSelectedStaffNames([])}><Text style={styles.staffFilterClear}>Clear</Text></TouchableOpacity><TouchableOpacity onPress={() => setStaffFilterVisible(false)} style={styles.staffFilterApply}><Text style={styles.staffFilterApplyText}>Apply</Text></TouchableOpacity></View></Pressable></Pressable></Modal>
     </ScreenShell>
@@ -5445,6 +5604,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   dinggCalendar: {
     backgroundColor: Colors.appointmentSurface,
+    flex: 1,
     marginHorizontal: -AppLayout.contentHorizontalPadding,
   },
   dinggListView: {
@@ -5584,10 +5744,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 38,
   },
   dinggHorizontalScroller: {
-    flexGrow: 0,
+    flex: 1,
   },
   dinggVerticalScroller: {
-    maxHeight: 520,
+    flex: 1,
   },
   dinggTimeHeader: {
     alignItems: "center",
@@ -5735,6 +5895,13 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: "row",
     gap: 4,
   },
+  dinggAppointmentSummary: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 14,
+    marginTop: 3,
+  },
   dinggAppointmentName: {
     color: "#ffffff",
     fontSize: 12,
@@ -5869,8 +6036,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   appointmentModalHeading: { flex: 1, minWidth: 0 },
   appointmentModalTitle: { color: Colors.appointmentText, fontSize: 18, fontWeight: "900" },
-  appointmentToken: { color: Colors.appointmentTextSecondary, fontSize: 14, marginTop: 12 },
-  appointmentTokenValue: { color: Colors.appointmentText, fontWeight: "700" },
   appointmentClientBand: {
     alignItems: "center",
     backgroundColor: Colors.appointmentAccentSoft,
@@ -5888,7 +6053,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     width: 56,
   },
   appointmentClientCopy: { flex: 1, minWidth: 0 },
-  appointmentClientName: { color: Colors.appointmentText, fontSize: 20, fontWeight: "900" },
+  appointmentClientName: { color: Colors.appointmentText, fontSize: 20, fontWeight: "900", lineHeight: 25 },
   appointmentClientPhone: { color: Colors.appointmentTextSecondary, fontSize: 14, marginTop: 5 },
   appointmentStatusControl: {
     alignItems: "center",
@@ -5937,6 +6102,36 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   appointmentWith: { color: Colors.appointmentTextSecondary, fontSize: 13 },
   appointmentServiceStatus: { alignItems: "center", flexDirection: "row", gap: 8, marginTop: 22 },
   appointmentServiceStatusText: { color: Colors.appointmentText, fontSize: 16, fontWeight: "700" },
+  appointmentNotesHeading: {
+    color: Colors.appointmentText,
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 14,
+  },
+  appointmentNotesText: {
+    color: Colors.appointmentText,
+    fontSize: 15,
+    lineHeight: 23,
+  },
+  appointmentNotesEmpty: {
+    color: Colors.appointmentTextSecondary,
+  },
+  appointmentNotesButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: Colors.appointmentAccent,
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 22,
+    minHeight: 44,
+    paddingHorizontal: 16,
+  },
+  appointmentNotesButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
   appointmentInvoiceButton: {
     alignItems: "center",
     backgroundColor: Colors.appointmentAccent,
@@ -6053,11 +6248,13 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   dinggLegend: {
-    alignItems: "center",
     backgroundColor: Colors.appointmentSurface,
+    flexGrow: 0,
+  },
+  dinggLegendContent: {
+    alignItems: "center",
     flexDirection: "row",
     gap: 8,
-    justifyContent: "space-between",
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -6065,11 +6262,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.appointmentSurface,
     borderRadius: 22,
-    flex: 1,
     flexDirection: "row",
     gap: 7,
     justifyContent: "center",
     minHeight: 42,
+    minWidth: 88,
+    paddingHorizontal: 16,
   },
   dinggLegendActive: {
     backgroundColor: Colors.appointmentAccent,
@@ -6083,6 +6281,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.appointmentText,
     fontSize: 11,
     fontWeight: "600",
+  },
+  dinggLegendTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "800",
   },
   calendarMenuBackdrop: {
     alignItems: "center",
@@ -6527,6 +6729,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingBottom: AppLayout.contentBottomPadding,
     paddingHorizontal: 24,
     paddingTop: Spacing.sm,
+  },
+  fixedContent: {
+    flex: 1,
   },
   dangerButton: {
     alignItems: "center",
