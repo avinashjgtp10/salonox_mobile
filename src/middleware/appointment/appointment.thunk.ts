@@ -35,19 +35,6 @@ const toRejectValue = (error: unknown): AppointmentRejectValue => ({
   status: error instanceof ApiError ? error.status : undefined,
 });
 
-const logAppointmentError = (label: string, error: unknown, extra?: Record<string, unknown>) => {
-  const rejectValue = toRejectValue(error);
-
-  console.error(`[Appointments] ${label}`, {
-    ...extra,
-    message: rejectValue.message,
-    responseBody: rejectValue.responseBody,
-    status: rejectValue.status,
-  });
-
-  return rejectValue;
-};
-
 const getSalonId = (state: RootState) => selectActiveBranchId(state);
 
 export const fetchAppointmentsThunk = createAsyncThunk<
@@ -74,7 +61,7 @@ export const fetchAppointmentsThunk = createAsyncThunk<
   try {
     return await appointmentService.getAppointments(query, getSalonId(state));
   } catch (error) {
-    return rejectWithValue(logAppointmentError("Fetch list failed", error, { query }));
+    return rejectWithValue(toRejectValue(error));
   }
 });
 
@@ -86,7 +73,7 @@ export const fetchAppointmentByIdThunk = createAsyncThunk<
   try {
     return await appointmentService.getAppointment(appointmentId);
   } catch (error) {
-    return rejectWithValue(logAppointmentError("Fetch detail failed", error, { appointmentId }));
+    return rejectWithValue(toRejectValue(error));
   }
 });
 
@@ -112,7 +99,7 @@ export const createAppointmentThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    return rejectWithValue(logAppointmentError("Create failed", error));
+    return rejectWithValue(toRejectValue(error));
   }
 });
 
@@ -136,7 +123,7 @@ export const updateAppointmentThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    return rejectWithValue(logAppointmentError("Update failed", error, { appointmentId }));
+    return rejectWithValue(toRejectValue(error));
   }
 });
 
@@ -166,7 +153,7 @@ export const cancelAppointmentThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    return rejectWithValue(logAppointmentError("Cancel failed", error, { appointmentId }));
+    return rejectWithValue(toRejectValue(error));
   }
 });
 
@@ -184,7 +171,7 @@ export const rescheduleAppointmentThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    return rejectWithValue(logAppointmentError("Reschedule failed", error, { appointmentId }));
+    return rejectWithValue(toRejectValue(error));
   }
 });
 
@@ -208,7 +195,7 @@ export const confirmAppointmentThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    return rejectWithValue(logAppointmentError("Confirm failed", error, { appointmentId }));
+    return rejectWithValue(toRejectValue(error));
   }
 });
 
@@ -232,7 +219,7 @@ export const startAppointmentThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    return rejectWithValue(logAppointmentError("Start failed", error, { appointmentId }));
+    return rejectWithValue(toRejectValue(error));
   }
 });
 
@@ -256,7 +243,7 @@ export const completeAppointmentThunk = createAsyncThunk<
 
     return response;
   } catch (error) {
-    return rejectWithValue(logAppointmentError("Complete failed", error, { appointmentId }));
+    return rejectWithValue(toRejectValue(error));
   }
 });
 
@@ -268,6 +255,6 @@ export const fetchAppointmentHistoryThunk = createAsyncThunk<
   try {
     return await appointmentService.getAppointmentHistory(clientId);
   } catch (error) {
-    return rejectWithValue(logAppointmentError("Fetch history failed", error, { clientId }));
+    return rejectWithValue(toRejectValue(error));
   }
 });

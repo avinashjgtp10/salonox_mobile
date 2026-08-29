@@ -99,7 +99,6 @@ import {
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type {
   AppointmentApiService,
-  AppointmentCalendarView,
   AppointmentListItem,
   AppointmentPaymentMethod,
   AppointmentStatus,
@@ -2112,96 +2111,9 @@ export function StaffMyAppointmentsScreen() {
   );
 }
 
-// Retained temporarily for non-calendar consumers while the grid rollout is verified.
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function CalendarPreviewLegacy({
-  appointments,
-  date,
-  detailRoute,
-  title = "Calendar View",
-}: {
-  appointments: AppointmentListItem[];
-  date: string;
-  detailRoute?: (appointmentId: string) => Href;
-  title?: string;
-}) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const [view, setView] = useState<AppointmentCalendarView>("day");
-  const grouped = useMemo(() => {
-    const map = new Map<string, AppointmentListItem[]>();
-
-    appointments.forEach((appointment) => {
-      const key = getDateKey(appointment.scheduledAt) || date;
-      map.set(key, [...(map.get(key) ?? []), appointment]);
-    });
-
-    return Array.from(map.entries()).sort(([left], [right]) => left.localeCompare(right));
-  }, [appointments, date]);
-
-  return (
-    <View style={styles.calendarCard}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>{title}</Text>
-        <View style={styles.segmented}>
-          {(["day", "week", "month"] as AppointmentCalendarView[]).map((option) => (
-            <TouchableOpacity
-              key={option}
-              activeOpacity={0.84}
-              onPress={() => setView(option)}
-              style={[styles.segment, view === option && styles.segmentActive]}
-            >
-              <Text style={[styles.segmentText, view === option && styles.segmentTextActive]}>
-                {option[0].toUpperCase() + option.slice(1)}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-      {date === todayIsoDate() && view === "day" ? (
-        <Text style={styles.fieldHint}>Current time indicator • {formatAppTime(new Date())}</Text>
-      ) : null}
-
-      {grouped.length === 0 ? (
-        <Text style={styles.calendarEmpty}>No appointments to plot.</Text>
-      ) : (
-        grouped.slice(0, view === "day" ? 1 : view === "week" ? 7 : 31).map(([day, items]) => (
-          <View key={day} style={styles.calendarRow}>
-            <View style={styles.calendarDate}>
-              <Text style={styles.calendarDay}>{new Date(`${day}T00:00:00`).getDate()}</Text>
-              <Text style={styles.calendarMonth}>
-                {new Intl.DateTimeFormat("en-IN", { month: "short" }).format(
-                  new Date(`${day}T00:00:00`),
-                )}
-              </Text>
-            </View>
-            <View style={styles.calendarEvents}>
-              {items.sort(sortBySchedule).map((appointment) => (
-                <Pressable
-                  key={appointment.id}
-                  onPress={() => router.push(detailRoute?.(appointment.id) ?? (`/appointments/${appointment.id}` as Href))}
-                  style={styles.calendarEvent}
-                >
-                  <Text numberOfLines={1} style={styles.calendarEventTitle}>
-                    {formatTimeLabel(appointment.scheduledAt)}  {appointment.clientName}
-                  </Text>
-                  <Text numberOfLines={1} style={styles.calendarEventMeta}>
-                    {appointment.serviceName} with {appointment.staffName}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-        ))
-      )}
-    </View>
-  );
-}
-
 function CalendarPreview({
   appointments,
   date,
-  detailRoute,
   onRefresh,
   refreshing = false,
   staffNames = [],
@@ -2209,7 +2121,6 @@ function CalendarPreview({
 }: {
   appointments: AppointmentListItem[];
   date: string;
-  detailRoute?: (appointmentId: string) => Href;
   onRefresh?: () => void;
   refreshing?: boolean;
   staffNames?: string[];
@@ -2274,7 +2185,7 @@ function CalendarPreview({
             </View>
           )) : <Text style={styles.calendarEmpty}>No appointments found.</Text>}
         </View>
-        <AppointmentPreviewSheet appointment={previewAppointment} onClose={() => setPreviewAppointment(null)} onViewDetails={(appointment) => { setPreviewAppointment(null); requestAnimationFrame(() => router.push(detailRoute?.(appointment.id) ?? (`/appointments/${appointment.id}` as Href))); }} />
+        <AppointmentPreviewSheet appointment={previewAppointment} onClose={() => setPreviewAppointment(null)} />
       </>
     );
   }
@@ -2381,10 +2292,6 @@ function CalendarPreview({
       <AppointmentPreviewSheet
         appointment={previewAppointment}
         onClose={() => setPreviewAppointment(null)}
-        onViewDetails={(appointment) => {
-          setPreviewAppointment(null);
-          requestAnimationFrame(() => router.push(detailRoute?.(appointment.id) ?? (`/appointments/${appointment.id}` as Href)));
-        }}
       />
       <Modal
         animationType="fade"
@@ -2412,11 +2319,9 @@ function CalendarPreview({
 function AppointmentPreviewSheet({
   appointment,
   onClose,
-  onViewDetails,
 }: {
   appointment: AppointmentListItem | null;
   onClose: () => void;
-  onViewDetails: (appointment: AppointmentListItem) => void;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -2464,13 +2369,6 @@ function AppointmentPreviewSheet({
             </View>
             <TouchableOpacity activeOpacity={0.82} onPress={() => setStage("details")} style={styles.calendarActionPrimary}>
               <Text style={styles.calendarActionText}>View Appointment Details</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              activeOpacity={0.82}
-              onPress={openNoteEditor}
-              style={styles.calendarActionRow}
-            >
-              <Text style={styles.calendarActionText}>Add Client Note</Text>
             </TouchableOpacity>
           </Pressable>
         ) : (
@@ -5395,8 +5293,6 @@ export function StaffCalendarScreen() {
           <CalendarPreview
             appointments={staffAppointments}
             date={date}
-            detailRoute={(appointmentId) => `/(staff)/appointment-details/${appointmentId}` as Href}
-            title="My Timeline"
           />
         </>
       ) : null}
@@ -5442,14 +5338,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.heading,
     fontSize: 14,
     fontWeight: "900",
-  },
-  calendarCard: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
-    marginTop: AppLayout.sectionGap,
-    padding: AppLayout.cardPadding,
   },
   dinggToolbar: {
     backgroundColor: Colors.appointmentSurface,
@@ -6381,52 +6269,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 13,
     fontWeight: "800",
   },
-  calendarDate: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.md,
-    justifyContent: "center",
-    minHeight: 58,
-    width: 58,
-  },
-  calendarDay: {
-    color: Colors.heading,
-    fontSize: 20,
-    fontWeight: "900",
-  },
   calendarEmpty: {
     color: Colors.text2,
     fontSize: 13,
     fontWeight: "600",
     paddingVertical: Spacing.lg,
     textAlign: "center",
-  },
-  calendarEvent: {
-    backgroundColor: Colors.bg,
-    borderColor: Colors.border,
-    borderRadius: Radius.md,
-    borderWidth: 1,
-    padding: Spacing.md,
-  },
-  calendarEventMeta: {
-    color: Colors.text2,
-    fontSize: 12,
-    marginTop: 4,
-  },
-  calendarEvents: {
-    flex: 1,
-    gap: Spacing.sm,
-  },
-  calendarEventTitle: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  calendarMonth: {
-    color: Colors.text2,
-    fontSize: 11,
-    fontWeight: "800",
-    textTransform: "uppercase",
   },
   availabilityCard: {
     backgroundColor: Colors.bg,
@@ -6663,11 +6511,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   bookingTwoColumnSection: {
     gap: Spacing.md,
-  },
-  calendarRow: {
-    flexDirection: "row",
-    gap: Spacing.md,
-    marginTop: Spacing.md,
   },
   card: {
     backgroundColor: Colors.card,
