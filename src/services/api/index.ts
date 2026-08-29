@@ -10,7 +10,7 @@ import {
   type InternalAxiosRequestConfig,
 } from "axios";
 
-import { appEnv, environmentConfig } from "@/config/environment";
+import { environmentConfig } from "@/config/environment";
 import {
   getAuthErrorMessage,
   getAuthErrorStatus,
@@ -59,32 +59,6 @@ export class ApiError extends Error {
     this.responseData = responseData;
     this.code = code;
   }
-}
-
-const redactDebugValue = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    return value.map(redactDebugValue);
-  }
-
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
-      key,
-      /authorization|password|refresh.?token|access.?token/i.test(key)
-        ? "[REDACTED]"
-        : redactDebugValue(entry),
-    ]),
-  );
-};
-
-if (__DEV__) {
-  console.log("[API Debug] Runtime configuration", {
-    appEnv,
-    apiBaseUrl: API_BASE_URL,
-  });
 }
 
 const refreshClient = create({
@@ -198,47 +172,6 @@ const getPayloadMessage = (payload?: ApiErrorPayload) => {
     formatValue(payload.error) ??
     formatValue(payload.errors)
   );
-};
-
-const getPayloadErrorCode = (payload?: ApiErrorPayload) => {
-  if (!payload) {
-    return null;
-  }
-
-  if (typeof payload.code === "string") {
-    return payload.code;
-  }
-
-  if (payload.error && typeof payload.error === "object") {
-    const errorRecord = payload.error as Record<string, unknown>;
-
-    if (typeof errorRecord.code === "string") {
-      return errorRecord.code;
-    }
-  }
-
-  return null;
-};
-
-const EXPECTED_OTP_VALIDATION_ERROR_CODES = new Set(["OTP_INVALID", "OTP_EXPIRED", "EMAIL_EXISTS"]);
-
-const EXPECTED_NON_FATAL_ERROR_CODES = new Set(["NO_SALON_CONTEXT", "NOT_FOUND"]);
-
-const isExpectedOtpValidationError = (error: AxiosError<ApiErrorPayload>) =>
-  error.response?.status === 400 &&
-  Boolean(error.response.data) &&
-  EXPECTED_OTP_VALIDATION_ERROR_CODES.has(getPayloadErrorCode(error.response.data) ?? "");
-
-const isExpectedNonFatalError = (error: AxiosError<ApiErrorPayload>) => {
-  const requestUrl = error.config?.url ?? "";
-  const status = error.response?.status;
-
-  if (requestUrl.includes("/salons/me") && status === 404) {
-    return true;
-  }
-
-  const responseData = error.response?.data;
-  return Boolean(responseData) && EXPECTED_NON_FATAL_ERROR_CODES.has(getPayloadErrorCode(responseData) ?? "");
 };
 
 const formatErrorMessage = (message: string): string => {
@@ -429,18 +362,6 @@ api.interceptors.request.use(async (config) => {
 
   await waitForOnlineIfNeeded(config);
 
-  if (__DEV__) {
-    console.log("[API Debug] Request", {
-      baseURL: config.baseURL,
-      fullUrl: api.getUri(config),
-      headers: redactDebugValue(config.headers),
-      method: config.method?.toUpperCase(),
-      params: redactDebugValue(config.params),
-      payload: redactDebugValue(config.data),
-      timeout: config.timeout,
-    });
-  }
-
   if (shouldSkipRefreshForRequest(requestUrl)) {
     return config;
   }
@@ -503,14 +424,6 @@ api.interceptors.response.use(
   (response) => {
     releaseProtectedRequest(response.config as RetryableRequestConfig);
 
-    if (__DEV__) {
-      console.log("[API Debug] Response", {
-        data: redactDebugValue(response.data),
-        status: response.status,
-        url: api.getUri(response.config),
-      });
-    }
-
     return response;
   },
   async (error: AxiosError<ApiErrorPayload>) => {
@@ -522,23 +435,6 @@ api.interceptors.response.use(
 
     if (isIntentionalLogoutCancellation(error)) {
       return Promise.reject(error);
-    }
-
-    if (__DEV__ && !isExpectedOtpValidationError(error) && !isExpectedNonFatalError(error)) {
-      console.error("[API Debug] Axios error", {
-        code: error.code,
-        error,
-        message: error.message,
-        request: error.request,
-        response: error.response
-          ? {
-              data: redactDebugValue(error.response.data),
-              headers: redactDebugValue(error.response.headers),
-              status: error.response.status,
-            }
-          : undefined,
-        url: originalRequest ? api.getUri(originalRequest) : requestUrl,
-      });
     }
 
     if (status === 401 && originalRequest && !originalRequest._retry && !shouldSkipRefresh) {

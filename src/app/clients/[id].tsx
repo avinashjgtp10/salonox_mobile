@@ -21,10 +21,8 @@ import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
 import { clientService } from "@/services/client.service";
 import {
   assignClientMembershipThunk,
-  cancelClientMembershipThunk,
   changeClientMembershipThunk,
   fetchClientMembershipsThunk,
-  renewClientMembershipThunk,
 } from "@/middleware/clientMembership/clientMembership.thunk";
 import {
   fetchClientByIdThunk,
@@ -47,9 +45,7 @@ import { useAppToast } from "@/hooks/useAppToast";
 import { fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
 import {
   selectActiveClientMembership,
-  selectClientMembershipMutationError,
   selectClientMembershipMutating,
-  selectClientMembershipsByClient,
   selectClientMembershipsError,
   selectClientMembershipsLoading,
 } from "@/store/clientMembership/clientMembership.slice";
@@ -70,16 +66,6 @@ function formatCurrency(amount: number) {
 
 function formatCreatedDate(createdAt: string | null) {
   return formatAppDate(createdAt, "-");
-}
-
-function formatStatusLabel(value: string) {
-  return value.replace(/[_-]+/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
-}
-
-function getMembershipStatusTone(status: string, Colors: ThemeColors) {
-  if (status === "active") return { bg: Colors.successBg, color: Colors.success };
-  if (status === "expired") return { bg: Colors.warningBg, color: Colors.goldDark };
-  return { bg: Colors.errorBg, color: Colors.error };
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -124,18 +110,6 @@ function EmptySummarySection({
         </View>
         <Text style={styles.emptySummaryText}>{label}</Text>
       </View>
-    </View>
-  );
-}
-
-function Section({ children, title }: { children: React.ReactNode; title: string }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <View style={styles.sectionCard}>
-      <Text style={styles.sectionTitle}>{title}</Text>
-      {children}
     </View>
   );
 }
@@ -218,12 +192,10 @@ export default function ClientDetailsScreen() {
   const historyStats = useAppSelector(selectClientHistoryStats);
   const blockingIds = useAppSelector(selectClientBlockingIds);
   const memberships = useAppSelector(selectMemberships);
-  const clientMemberships = useAppSelector(selectClientMembershipsByClient(id));
   const activeMembership = useAppSelector(selectActiveClientMembership(id));
   const membershipLoading = useAppSelector(selectClientMembershipsLoading(id));
   const membershipError = useAppSelector(selectClientMembershipsError(id));
   const membershipMutating = useAppSelector(selectClientMembershipMutating);
-  const membershipMutationError = useAppSelector(selectClientMembershipMutationError);
   const clientStats = historyStats[id ?? ""];
   const isBlocking = id ? blockingIds.includes(id) : false;
   const [pickerVisible, setPickerVisible] = useState(false);
@@ -355,23 +327,6 @@ export default function ClientDetailsScreen() {
     if (assignClientMembershipThunk.fulfilled.match(result) || changeClientMembershipThunk.fulfilled.match(result)) {
       setPickerVisible(false);
     }
-  };
-
-  const handleRenewMembership = async () => {
-    if (!activeMembership) return;
-    await dispatch(renewClientMembershipThunk({ assignmentId: activeMembership.id }));
-  };
-
-  const handleCancelMembership = () => {
-    if (!activeMembership) return;
-    Alert.alert("Cancel Membership", `Cancel ${activeMembership.membershipName} for this client?`, [
-      { style: "cancel", text: "Keep" },
-      {
-        onPress: () => void dispatch(cancelClientMembershipThunk({ assignmentId: activeMembership.id })),
-        style: "destructive",
-        text: "Cancel Membership",
-      },
-    ]);
   };
 
   if (detailsLoading) {
@@ -744,20 +699,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.text,
     fontSize: 11,
     fontWeight: "700",
-  },
-  sectionCard: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: Radius.xl,
-    borderWidth: 1,
-    marginBottom: Spacing.md,
-    padding: Spacing.lg,
-  },
-  sectionTitle: {
-    color: Colors.heading,
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: Spacing.md,
   },
   detailRow: {
     alignItems: "center",
