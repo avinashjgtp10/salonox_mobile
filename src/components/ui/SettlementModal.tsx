@@ -1,8 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -12,7 +13,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
@@ -42,6 +42,12 @@ type SettlementModalProps = {
   isLoading?: boolean;
 };
 
+type PaymentMethod = "Cash" | "Card" | "UPI";
+type UpiProvider = "PhonePe" | "Google Pay";
+
+const PAYMENT_METHODS: PaymentMethod[] = ["Cash", "Card", "UPI"];
+const UPI_PROVIDERS: UpiProvider[] = ["PhonePe", "Google Pay"];
+
 export function SettlementModal({
   isLoading = false,
   onClose,
@@ -54,6 +60,21 @@ export function SettlementModal({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [amountText, setAmountText] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("Cash");
+  const [paymentMenuOpen, setPaymentMenuOpen] = useState(false);
+  const [upiProvider, setUpiProvider] = useState<UpiProvider>("PhonePe");
+  const [upiMenuOpen, setUpiMenuOpen] = useState(false);
+
+  useEffect(() => {
+    if (!visible) {
+      setAmountText("");
+      setError(null);
+      setPaymentMethod("Cash");
+      setPaymentMenuOpen(false);
+      setUpiProvider("PhonePe");
+      setUpiMenuOpen(false);
+    }
+  }, [visible]);
 
   const unpaidAmount = roundToCents(totalUnpaidCommission ?? 0);
   const settlementAmount = roundToCents(Number(amountText) || 0);
@@ -83,6 +104,8 @@ export function SettlementModal({
   const handleCancel = () => {
     setAmountText("");
     setError(null);
+    setPaymentMenuOpen(false);
+    setUpiMenuOpen(false);
     onClose();
   };
 
@@ -91,14 +114,21 @@ export function SettlementModal({
   }
 
   return (
-    <SafeAreaView style={styles.overlay}>
-      <Pressable onPress={handleCancel} style={styles.backdrop} />
+    <Modal
+      animationType="fade"
+      hardwareAccelerated
+      onRequestClose={handleCancel}
+      statusBarTranslucent
+      transparent
+      visible={visible}
+    >
+      <View style={styles.overlay}>
+        <Pressable onPress={handleCancel} style={styles.backdrop} />
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
         style={styles.keyboardAvoiding}
       >
-        <Pressable onPress={() => {}} style={[styles.sheet, { paddingBottom: Spacing.lg }]}>
-          <View style={styles.handle} />
+        <Pressable onPress={() => {}} style={[styles.dialog, { paddingBottom: Spacing.lg }]}>
           <View style={styles.header}>
             <View style={styles.headerCopy}>
               <Text style={styles.title}>Settle Commission</Text>
@@ -132,6 +162,78 @@ export function SettlementModal({
               />
               {error && <Text style={styles.errorText}>{error}</Text>}
             </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Payment Method *</Text>
+              <TouchableOpacity
+                activeOpacity={0.84}
+                disabled={isLoading}
+                onPress={() => setPaymentMenuOpen((open) => !open)}
+                style={styles.selectButton}
+              >
+                <View style={styles.selectValue}>
+                  <Ionicons
+                    name={paymentMethod === "Cash" ? "cash-outline" : paymentMethod === "Card" ? "card-outline" : "phone-portrait-outline"}
+                    size={18}
+                    color={Colors.primaryDark}
+                  />
+                  <Text style={styles.selectText}>{paymentMethod}</Text>
+                </View>
+                <Ionicons name={paymentMenuOpen ? "chevron-up" : "chevron-down"} size={18} color={Colors.text2} />
+              </TouchableOpacity>
+              {paymentMenuOpen ? (
+                <View style={styles.selectMenu}>
+                  {PAYMENT_METHODS.map((method) => (
+                    <TouchableOpacity
+                      key={method}
+                      activeOpacity={0.82}
+                      onPress={() => {
+                        setPaymentMethod(method);
+                        setPaymentMenuOpen(false);
+                        if (method !== "UPI") setUpiMenuOpen(false);
+                      }}
+                      style={styles.selectOption}
+                    >
+                      <Text style={[styles.selectOptionText, paymentMethod === method && styles.selectOptionTextActive]}>{method}</Text>
+                      {paymentMethod === method ? <Ionicons name="checkmark" size={18} color={Colors.primary} /> : null}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              ) : null}
+            </View>
+
+            {paymentMethod === "UPI" ? (
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>UPI App *</Text>
+                <TouchableOpacity
+                  activeOpacity={0.84}
+                  disabled={isLoading}
+                  onPress={() => setUpiMenuOpen((open) => !open)}
+                  style={styles.selectButton}
+                >
+                  <Text style={styles.selectText}>{upiProvider}</Text>
+                  <Ionicons name={upiMenuOpen ? "chevron-up" : "chevron-down"} size={18} color={Colors.text2} />
+                </TouchableOpacity>
+                {upiMenuOpen ? (
+                  <View style={styles.selectMenu}>
+                    {UPI_PROVIDERS.map((provider) => (
+                      <TouchableOpacity
+                        key={provider}
+                        activeOpacity={0.82}
+                        onPress={() => {
+                          setUpiProvider(provider);
+                          setUpiMenuOpen(false);
+                        }}
+                        style={styles.selectOption}
+                      >
+                        <Text style={[styles.selectOptionText, upiProvider === provider && styles.selectOptionTextActive]}>{provider}</Text>
+                        {upiProvider === provider ? <Ionicons name="checkmark" size={18} color={Colors.primary} /> : null}
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                ) : null}
+              </View>
+            ) : null}
 
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Remaining Balance</Text>
@@ -172,41 +274,39 @@ export function SettlementModal({
           </ScrollView>
         </Pressable>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </View>
+    </Modal>
   );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   overlay: {
+    alignItems: "center",
     backgroundColor: "rgba(20, 18, 16, 0.42)",
     flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: AppLayout.contentHorizontalPadding,
+    paddingVertical: Spacing.xl,
   },
   backdrop: {
-    flex: 1,
+    ...StyleSheet.absoluteFillObject,
   },
   keyboardAvoiding: {
-    flex: 1,
-    justifyContent: "flex-end",
+    justifyContent: "center",
+    maxHeight: "100%",
+    width: "100%",
   },
-  sheet: {
+  dialog: {
     backgroundColor: Colors.card,
-    borderTopLeftRadius: Radius.xl,
-    borderTopRightRadius: Radius.xl,
+    borderRadius: AppRadius.card,
+    maxHeight: "100%",
     paddingHorizontal: AppLayout.contentHorizontalPadding,
-    paddingTop: 10,
+    paddingTop: Spacing.lg,
     shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: -12 },
-    shadowOpacity: 0.12,
-    shadowRadius: 28,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
     elevation: 16,
-  },
-  handle: {
-    alignSelf: "center",
-    backgroundColor: Colors.border,
-    borderRadius: Radius.full,
-    height: 4,
-    marginBottom: Spacing.md,
-    width: 42,
   },
   header: {
     alignItems: "flex-start",
@@ -279,6 +379,53 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   inputError: {
     borderColor: Colors.error,
+  },
+  selectButton: {
+    alignItems: "center",
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 48,
+    paddingHorizontal: Spacing.md,
+  },
+  selectValue: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.sm,
+  },
+  selectText: {
+    color: Colors.heading,
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  selectMenu: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    marginTop: Spacing.xs,
+    overflow: "hidden",
+  },
+  selectOption: {
+    alignItems: "center",
+    borderBottomColor: Colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 44,
+    paddingHorizontal: Spacing.md,
+  },
+  selectOptionText: {
+    color: Colors.text2,
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  selectOptionTextActive: {
+    color: Colors.primaryDark,
+    fontWeight: "800",
   },
   errorText: {
     color: Colors.error,

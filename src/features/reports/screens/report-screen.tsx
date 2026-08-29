@@ -311,7 +311,16 @@ export default function ReportScreen({ config }: { config: ReportConfig }) {
           />
         )}
         ListFooterComponent={
-          <ReportPaginationFooter loading={Boolean(entry?.loadingMore)} noMore={rows.length > 0 && config.paginated && !hasMore} />
+          <ReportPaginationFooter
+            currentPage={pagination?.page ?? 1}
+            hasMore={hasMore}
+            loading={Boolean(entry?.loadingMore)}
+            noMore={rows.length > 0 && config.paginated && !hasMore}
+            onLoadMore={hasMore ? loadMore : undefined}
+            totalItems={pagination?.total}
+            totalPages={pagination?.totalPages}
+            visibleItems={rows.length}
+          />
         }
         ListHeaderComponent={listHeader}
         maxToRenderPerBatch={10}

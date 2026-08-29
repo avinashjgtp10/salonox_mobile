@@ -65,6 +65,8 @@ type ClientHistoryApiData =
 // (400 "q must be at least 2 characters") — checked client-side too so we
 // never fire a request that's guaranteed to fail.
 const MIN_SEARCH_TERM_LENGTH = 2;
+const CLIENT_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // Trims and collapses incidental extra whitespace (e.g. "John   Doe") without
 // stripping spaces entirely — a real space-containing name like "John Doe"
@@ -89,6 +91,23 @@ const toSafeString = (value: unknown, fallback = "") => {
   }
 
   return fallback;
+};
+
+const getValidClientId = (client: ClientApiItem, fullName: string) => {
+  const id = toSafeString(client.id);
+
+  if (CLIENT_UUID_PATTERN.test(id)) {
+    return id;
+  }
+
+  if (__DEV__) {
+    console.warn("[Clients] Ignoring invalid client id from API response", {
+      fullName,
+      id,
+    });
+  }
+
+  return "";
 };
 
 const toSafeNumber = (value: unknown) => {
@@ -291,6 +310,7 @@ const getStatusLabel = (client: ClientApiItem) => {
 const normalizeClient = (client: ClientApiItem): ClientListItem => {
   const createdAt = toSafeString(client.created_at) || null;
   const fullName = getFullName(client);
+  const id = getValidClientId(client, fullName);
 
   return {
     createdAt,
@@ -298,13 +318,15 @@ const normalizeClient = (client: ClientApiItem): ClientListItem => {
     email: toSafeString(client.email, "-"),
     fullName,
     gender: toSafeString(client.gender, "-"),
-    id: toSafeString(client.id, fullName.toLowerCase().replace(/\s+/g, "-")),
+    hasValidId: Boolean(id),
+    id,
     inactive: toOptionalBoolean(client.inactive) || toOptionalBoolean(client.is_inactive),
     initials: getInitials(fullName),
     isVip: toOptionalBoolean(client.is_vip),
     joinedDaysAgo: getJoinedDaysAgo(createdAt),
     membership: getMembershipName(client),
     phone: toSafeString(client.phone) || toSafeString(client.phone_number) || "-",
+    phoneCountryCode: toSafeString(client.phone_country_code) || null,
     status: getStatusLabel(client),
     totalVisits: toSafeNumber(client.total_visits) || toSafeNumber(client.visits),
   };

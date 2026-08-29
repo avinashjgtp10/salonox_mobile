@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
@@ -29,7 +30,7 @@ import {
   fetchClientByIdThunk,
   fetchClientHistoryThunk,
   fetchClientsWithHistoryStatsThunk,
-  blockClientThunk,
+  updateBlockThunk,
   unblockClientThunk,
 } from "@/middleware/client/client.thunk";
 import {
@@ -42,6 +43,7 @@ import {
   selectClientHistoryStats,
   selectClientBlockingIds,
 } from "@/store/client/client.slice";
+import { useAppToast } from "@/hooks/useAppToast";
 import { fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
 import {
   selectActiveClientMembership,
@@ -202,6 +204,7 @@ export default function ClientDetailsScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
 
   const liveClient = useAppSelector((state) => selectClientById(state, id));
   const detailsLoading = useAppSelector(selectClientDetailsLoading);
@@ -304,9 +307,9 @@ export default function ClientDetailsScreen() {
               const res = await dispatch(unblockClientThunk(client.id));
               if (unblockClientThunk.fulfilled.match(res)) {
                 void dispatch(fetchClientByIdThunk(client.id));
-                Alert.alert("Success", "Client unblocked successfully.");
+                toast.showSuccess("Client unblocked successfully.");
               } else {
-                Alert.alert("Error", "Unable to unblock client.");
+                Alert.alert("Error", res.payload?.message ?? "Unable to unblock client.");
               }
             },
             text: "Unblock",
@@ -322,13 +325,13 @@ export default function ClientDetailsScreen() {
           {
             onPress: async () => {
               const res = await dispatch(
-                blockClientThunk({ clientId: client.id, reason: "Blocked by staff action" })
+                updateBlockThunk({ clientId: client.id, reason: "Blocked by staff action" })
               );
-              if (blockClientThunk.fulfilled.match(res)) {
+              if (updateBlockThunk.fulfilled.match(res)) {
                 void dispatch(fetchClientByIdThunk(client.id));
-                Alert.alert("Success", "Client blocked successfully.");
+                toast.showSuccess("Client blocked successfully.");
               } else {
-                Alert.alert("Error", "Unable to block client.");
+                Alert.alert("Error", res.payload?.message ?? "Unable to block client.");
               }
             },
             text: "Block",
@@ -441,9 +444,7 @@ export default function ClientDetailsScreen() {
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <TouchableOpacity activeOpacity={0.75} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.headerIconButton}>
-            <Ionicons color={Colors.heading} name="arrow-back" size={27} />
-          </TouchableOpacity>
+          <AppBackButton onPress={handleBack} />
           <View style={styles.headerTitleGroup}>
             <View style={styles.headerAvatar}><Ionicons color="#FFFFFF" name="person" size={18} /></View>
             <Text style={styles.headerTitle}>Client</Text>

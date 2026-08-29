@@ -14,10 +14,13 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { EmptyState, ErrorState } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { useAppToast } from "@/hooks/useAppToast";
 import { deleteProductThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -37,6 +40,7 @@ export default function ProductsScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const insets = useSafeAreaInsets();
   const state = useAppSelector((root) => root.product);
   const [filter, setFilter] = useState<Filter>("All");
@@ -79,7 +83,11 @@ export default function ProductsScreen() {
       { style: "cancel", text: "Cancel" },
       { style: "destructive", text: "Delete", onPress: async () => {
         const action = await dispatch(deleteProductThunk(product.id));
-        if (deleteProductThunk.rejected.match(action)) Alert.alert("Unable to delete product", rejectedMessage(action.payload));
+        if (deleteProductThunk.rejected.match(action)) {
+          Alert.alert("Unable to delete product", rejectedMessage(action.payload));
+          return;
+        }
+        toast.showSuccess("Product deleted successfully.");
       } },
     ],
   );
@@ -87,9 +95,7 @@ export default function ProductsScreen() {
   const header = (
     <View>
       <View style={styles.header}>
-        <TouchableOpacity hitSlop={12} onPress={() => router.canGoBack() ? router.back() : router.replace("/more" as Href)} style={styles.iconButton}>
-          <Ionicons name="arrow-back" size={19} color={Colors.primary} />
-        </TouchableOpacity>
+        <AppBackButton fallbackHref="/more" />
         <Text style={styles.title}>Products</Text>
         <TouchableOpacity accessibilityLabel="Manage brands" onPress={() => router.push("/stock/brands" as Href)} style={styles.iconButton}>
           <Ionicons name="ribbon-outline" size={19} color={Colors.primary} />
@@ -121,7 +127,22 @@ export default function ProductsScreen() {
         keyExtractor={(item) => item.id}
         ListHeaderComponent={header}
         ListEmptyComponent={state.loading ? <LoadingCards /> : <Empty error={state.error} onRetry={refresh} searching={Boolean(query || filter !== "All")} />}
-        ListFooterComponent={<View style={{ height: 105 + insets.bottom }}>{state.loadingMore ? <ActivityIndicator color={Colors.primary} /> : null}</View>}
+        ListFooterComponent={
+          <View style={{ paddingBottom: 105 + insets.bottom }}>
+            {products.length > 0 ? (
+              <PaginationControls
+                currentPage={Math.max(1, Math.ceil(state.products.length / state.pagination.limit))}
+                hasNextPage={state.pagination.hasMore}
+                hasPreviousPage={false}
+                loading={state.loadingMore}
+                onNext={state.pagination.hasMore ? loadMore : undefined}
+                totalItems={state.totalCount}
+                totalPages={Math.max(1, Math.ceil(state.totalCount / state.pagination.limit))}
+                visibleItems={products.length}
+              />
+            ) : null}
+          </View>
+        }
         onEndReached={loadMore}
         onEndReachedThreshold={0.35}
         refreshControl={<RefreshControl refreshing={state.refreshing} onRefresh={refresh} colors={[Colors.primary]} tintColor={Colors.primary} />}

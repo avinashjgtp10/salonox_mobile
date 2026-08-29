@@ -1,9 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
+import { LinearGradient } from "expo-linear-gradient";
 import { router, useFocusEffect, useLocalSearchParams, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   Keyboard,
   Modal,
@@ -21,10 +23,13 @@ import {
 import Animated, { FadeIn, FadeOut, Layout } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
+import QuickSaleScreen, { type QuickSaleSlot } from "@/features/quickSale/screens/QuickSaleScreen";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { StateIllustration } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
@@ -34,6 +39,7 @@ import {
 } from "@/constants/theme";
 import type { StaffMember } from "@/data/teamData";
 import { useAppForeground } from "@/hooks/useAppForeground";
+import { useAppToast } from "@/hooks/useAppToast";
 import {
   cancelAppointmentThunk,
   completeAppointmentThunk,
@@ -102,6 +108,7 @@ import type {
   UpdateAppointmentRequest,
 } from "@/types/appointment";
 import type { ClientListItem } from "@/types/client";
+import type { ConsumableUsageItem } from "@/types/consumable";
 import type { ServiceListItem } from "@/types/service";
 import type { StaffAvailabilitySlot } from "@/types/staffAvailability";
 import type { BlockedTimeEntry } from "@/types/staffBlockedTimes";
@@ -120,6 +127,20 @@ const STATUS_FILTERS: ("All" | AppointmentStatus)[] = [
   "Completed",
   "Cancelled",
   "Missed",
+];
+
+const CALENDAR_STATUS_FILTERS: {
+  color: string;
+  label: string;
+  status: "All" | AppointmentStatus;
+}[] = [
+  { color: "#B9689B", label: "All", status: "All" },
+  { color: "#D97706", label: "Booked", status: "Upcoming" },
+  { color: "#16A34A", label: "Paid", status: "Completed" },
+  { color: "#6D28D9", label: "Partial", status: "Partial" },
+  { color: "#DC2626", label: "Cancelled", status: "Cancelled" },
+  { color: "#0891B2", label: "No Show", status: "Missed" },
+  { color: "#6B7280", label: "Deleted", status: "Deleted" },
 ];
 
 const STAFF_AVAILABILITY_REALTIME_ENTITIES = new Set([
@@ -219,15 +240,10 @@ const PAYMENT_METHODS: AppointmentPaymentMethod[] = [
   "Other",
 ];
 
-const SERVICE_SEARCH_PLACEHOLDER =
-  "Type at least 3 letters or enter a price to search services.";
-const SERVICE_SEARCH_MIN_LETTERS = 3;
 const CLIENT_SEARCH_MIN_LETTERS = 3;
 const CLIENT_SEARCH_RESULT_LIMIT = 8;
 const AUTOCOMPLETE_DROPDOWN_GAP = 14;
-const SERVICE_SEARCH_DEBOUNCE_MS = 240;
 const CLIENT_SEARCH_DEBOUNCE_MS = 240;
-const SERVICE_SEARCH_NAME_RESULT_LIMIT = 25;
 const SERVICE_CATALOG_MAX_PAGES = 50;
 const SERVICE_CATALOG_PAGE_SIZE = 100;
 const DEFAULT_TIME_SLOT_START_MINUTES = 0;
@@ -248,6 +264,97 @@ const getStatusStyles = (Colors: ThemeColors): Record<AppointmentStatus, { bg: s
   Upcoming: { bg: Colors.warningBg, color: Colors.goldDark },
   Waiting: { bg: Colors.warningBg, color: Colors.goldDark },
 });
+
+const WEB_CALENDAR_STATUS_GRADIENTS = {
+  booked: ["#f59e0b", "#d97706"],
+  cancelled: ["#ef4444", "#dc2626"],
+  deleted: ["#9ca3af", "#6b7280"],
+  noShow: ["#22d3ee", "#0891b2"],
+  paid: ["#22c55e", "#16a34a"],
+  partial: ["#7c3aed", "#6d28d9"],
+} as const;
+
+const getWebCalendarGradient = (appointment: AppointmentListItem) => {
+  if (appointment.status === "Deleted") return WEB_CALENDAR_STATUS_GRADIENTS.deleted;
+  if (appointment.status === "Cancelled") return WEB_CALENDAR_STATUS_GRADIENTS.cancelled;
+  if (appointment.status === "Missed") return WEB_CALENDAR_STATUS_GRADIENTS.noShow;
+  if (appointment.status === "Partial") return WEB_CALENDAR_STATUS_GRADIENTS.partial;
+
+  const isPaid = appointment.paymentStatus.toLowerCase() === "paid" ||
+    (appointment.total > 0 && appointment.paidAmount >= appointment.total);
+  if (isPaid || appointment.status === "Completed" || appointment.status === "Confirmed") {
+    return WEB_CALENDAR_STATUS_GRADIENTS.paid;
+  }
+
+  return WEB_CALENDAR_STATUS_GRADIENTS.booked;
+};
+
+const getCalendarItemNames = (value: unknown, keys: string[]) => {
+  if (!Array.isArray(value)) return [];
+
+  return value.flatMap((item) => {
+    if (typeof item === "string" && item.trim()) return [item.trim()];
+    if (!item || typeof item !== "object") return [];
+
+    const record = item as Record<string, unknown>;
+    const name = keys
+      .map((key) => record[key])
+      .find((candidate) => typeof candidate === "string" && candidate.trim());
+
+    return typeof name === "string" ? [name.trim()] : [];
+  });
+};
+
+const getCalendarAppointmentTitle = (appointment: AppointmentListItem) => {
+  const rawTitle = typeof appointment.raw.title === "string" ? appointment.raw.title.trim() : "";
+
+  if (rawTitle && rawTitle.toLowerCase() !== "appointment") return rawTitle;
+
+  const itemNames = [
+    ...getCalendarItemNames(appointment.raw.services, ["name", "service"]),
+    ...getCalendarItemNames(appointment.raw.productItems ?? appointment.raw.product_items, ["productName", "product_name", "name"]),
+    ...getCalendarItemNames(appointment.raw.packageItems ?? appointment.raw.package_items, ["packageName", "package_name", "name"]),
+    ...getCalendarItemNames(appointment.raw.membershipItems ?? appointment.raw.membership_items, ["membershipName", "membership_name", "name"]),
+  ];
+
+  return itemNames.join(", ") || appointment.serviceName || "Appointment";
+};
+
+const getCalendarTokenLabel = (appointment: AppointmentListItem) => {
+  const rawToken = appointment.raw.token_id ??
+    appointment.raw.tokenId ??
+    appointment.raw.token_number ??
+    appointment.raw.tokenNumber ??
+    appointment.raw.token;
+  const token = typeof rawToken === "string" || typeof rawToken === "number"
+    ? String(rawToken).trim()
+    : "";
+
+  if (!token) return "";
+  return /^\d+$/.test(token) ? `TK${token}` : token;
+};
+
+const isReadonlyCalendarAppointment = (appointment: AppointmentListItem) =>
+  appointment.status === "Cancelled" || appointment.status === "Deleted";
+
+const hasCalendarInteractionFlag = (appointment: AppointmentListItem, camelCase: string, snakeCase: string) =>
+  appointment.raw[camelCase] === true || appointment.raw[snakeCase] === true;
+
+const getAppointmentRange = (appointment: AppointmentListItem) => {
+  const start = parseAppointmentDateTime(appointment.scheduledAt)?.getTime();
+  if (start === undefined) return null;
+  const explicitEnd = parseAppointmentDateTime(appointment.endTime)?.getTime();
+  const end = explicitEnd && explicitEnd > start
+    ? explicitEnd
+    : start + (appointment.durationMinutes ?? 30) * 60_000;
+  return { end, start };
+};
+
+const appointmentsOverlap = (left: AppointmentListItem, right: AppointmentListItem) => {
+  const leftRange = getAppointmentRange(left);
+  const rightRange = getAppointmentRange(right);
+  return Boolean(leftRange && rightRange && leftRange.start < rightRange.end && rightRange.start < leftRange.end);
+};
 
 type AppointmentFormState = {
   clientId: string;
@@ -271,6 +378,14 @@ type FormErrors = Partial<Record<keyof AppointmentFormState, string>>;
 
 type AppointmentSelectedService = ServiceListItem & {
   catalogServiceId?: string;
+  // The exact consumables to resend for this line — either copied from the
+  // catalog service's recipe the moment it's added (handleSelectService,
+  // mirroring Web's ServiceRow.tsx selectService()), or restored from what
+  // this appointment already had persisted (appointmentServicesToSelectedServices,
+  // on edit-load). Always the fully-resolved snapshot to send, never
+  // re-derived from consumablesUsed at submit time, so an edit that doesn't
+  // touch a given service resends its consumables unchanged.
+  consumables?: ConsumableUsageItem[];
   discount?: number;
   isPackageService?: boolean;
   quantity?: number;
@@ -279,11 +394,6 @@ type AppointmentSelectedService = ServiceListItem & {
   startTime?: string | null;
   total?: number;
 };
-
-type ServiceSearchQuery =
-  | { kind: "invalid"; raw: string }
-  | { kind: "name"; raw: string; text: string }
-  | { digits: string; kind: "price"; price: number; raw: string };
 
 const todayIsoDate = () => new Date().toISOString().slice(0, 10);
 
@@ -365,6 +475,37 @@ const toOptionalStringValue = (value: unknown) => {
   return undefined;
 };
 
+const parseConsumablesFromApi = (
+  items: AppointmentApiService["consumables"],
+): ConsumableUsageItem[] | undefined => {
+  if (!Array.isArray(items) || items.length === 0) {
+    return undefined;
+  }
+
+  const parsed = items
+    .map((item): ConsumableUsageItem | null => {
+      const productId = toOptionalStringValue(item?.product_id);
+      if (!productId) {
+        return null;
+      }
+
+      const qty = toOptionalNumber(item?.qty) ?? 0;
+      const productName = toOptionalStringValue(item?.product_name);
+      const actualQty = toOptionalNumber(item?.actual_qty);
+
+      return {
+        productId,
+        ...(productName ? { productName } : {}),
+        qty,
+        unit: toOptionalStringValue(item?.unit) ?? "",
+        ...(actualQty !== undefined ? { actualQty } : {}),
+      };
+    })
+    .filter((item): item is ConsumableUsageItem => item !== null);
+
+  return parsed.length > 0 ? parsed : undefined;
+};
+
 const appointmentServicesToSelectedServices = (
   appointment?: AppointmentListItem,
 ): AppointmentSelectedService[] => {
@@ -384,6 +525,7 @@ const appointmentServicesToSelectedServices = (
         catalogServiceId,
         category: null,
         categoryId: null,
+        consumables: parseConsumablesFromApi(service.consumables),
         createdAt: null,
         discount: toOptionalNumber(service.discount),
         durationMinutes:
@@ -439,52 +581,6 @@ const appointmentServicesToSelectedServices = (
 
 const formatDurationLabel = (durationMinutes: number | null) =>
   durationMinutes && durationMinutes > 0 ? `${durationMinutes} min` : "Duration pending";
-
-const getServiceSearchQuery = (value: string): ServiceSearchQuery => {
-  const raw = value.trim();
-
-  if (!raw) {
-    return { kind: "invalid", raw };
-  }
-
-  if (/^\d+(?:\.\d{1,2})?$/.test(raw)) {
-    const price = Number(raw);
-
-    if (Number.isFinite(price) && price >= 0) {
-      const normalizedPrice = Number.isInteger(price)
-        ? String(price)
-        : String(price).replace(/0+$/, "").replace(/\.$/, "");
-      const digits = normalizedPrice.replace(/\D/g, "");
-
-      return { digits, kind: "price", price, raw };
-    }
-  }
-
-  const alphabeticCount = (raw.match(/[A-Za-z]/g) ?? []).length;
-
-  if (alphabeticCount >= SERVICE_SEARCH_MIN_LETTERS) {
-    return { kind: "name", raw, text: raw.toLowerCase() };
-  }
-
-  return { kind: "invalid", raw };
-};
-
-const getServiceSearchKey = (query: ServiceSearchQuery, salonId?: string | null) => {
-  if (query.kind === "invalid") {
-    return "";
-  }
-
-  return `${salonId ?? "default"}:${query.kind}:${query.kind === "price" ? query.digits : query.text}`;
-};
-
-const getPriceDigits = (price: number) => {
-  const normalizedPrice = Number.isInteger(price) ? String(price) : String(price).replace(/0+$/, "");
-
-  return normalizedPrice.replace(/\D/g, "");
-};
-
-const servicePriceMatches = (servicePrice: number, query: Extract<ServiceSearchQuery, { kind: "price" }>) =>
-  getPriceDigits(servicePrice).includes(query.digits);
 
 const serviceCatalogCache = new Map<string, Promise<ServiceListItem[]> | ServiceListItem[]>();
 
@@ -554,38 +650,6 @@ const fetchServiceCatalog = async (salonId?: string | null) => {
     serviceCatalogCache.delete(cacheKey);
     throw error;
   }
-};
-
-const filterServicesByQuery = (services: ServiceListItem[], query: ServiceSearchQuery) => {
-  if (query.kind === "name") {
-    return services.filter((service) => service.name.toLowerCase().includes(query.text));
-  }
-
-  if (query.kind === "price") {
-    return services.filter((service) => servicePriceMatches(service.price, query));
-  }
-
-  return [];
-};
-
-const searchServicesByName = async (
-  query: Extract<ServiceSearchQuery, { kind: "name" }>,
-  salonId?: string | null,
-) => {
-  const response = await serviceService.getServices(
-    {
-      limit: SERVICE_SEARCH_NAME_RESULT_LIMIT,
-      offset: 0,
-      search: query.text,
-      sort_by: "name",
-      sort_order: "asc",
-    },
-    salonId,
-  );
-
-  // The API's `search` semantics aren't documented, so re-apply the exact
-  // case-insensitive contains rule client-side as a correctness backstop.
-  return response.services.filter((service) => service.name.toLowerCase().includes(query.text));
 };
 
 // The backend sends appointment timestamps in a variety of shapes
@@ -841,7 +905,10 @@ const validateDate = (value: string) => isValidIsoDate(value);
 
 const isPastDate = (value: string) => validateDate(value) && value < todayIsoDate();
 
-const validateForm = (form: AppointmentFormState, options?: { requireClient?: boolean }): FormErrors => {
+const validateForm = (
+  form: AppointmentFormState,
+  options?: { allowedPastDate?: string; requireClient?: boolean },
+): FormErrors => {
   const errors: FormErrors = {};
   const trimmedDiscount = form.discount.trim();
   const discount = trimmedDiscount === "" ? 0 : Number(trimmedDiscount);
@@ -856,12 +923,12 @@ const validateForm = (form: AppointmentFormState, options?: { requireClient?: bo
   }
 
   if (!form.staffId) {
-    errors.staffId = "Select a staff member.";
+    errors.staffId = "Select the staff.";
   }
 
   if (!validateDate(form.date)) {
     errors.date = "Use YYYY-MM-DD.";
-  } else if (isPastDate(form.date)) {
+  } else if (isPastDate(form.date) && form.date !== options?.allowedPastDate) {
     errors.date = "Past dates cannot be booked.";
   }
 
@@ -902,6 +969,7 @@ function ScreenShell({
   onRefresh,
   refreshing,
   safeAreaEdges = ["top", "bottom"],
+  scrollable = true,
   showCreateAction = true,
   title,
 }: {
@@ -912,6 +980,7 @@ function ScreenShell({
   onRefresh?: () => void;
   refreshing?: boolean;
   safeAreaEdges?: React.ComponentProps<typeof SafeAreaView>["edges"];
+  scrollable?: boolean;
   showCreateAction?: boolean;
   title: string;
 }) {
@@ -938,24 +1007,8 @@ function ScreenShell({
     router.replace(backFallback);
   };
 
-  return (
-    <SafeAreaView edges={safeAreaEdges} style={styles.safeArea}>
-      <AppStatusBar />
-      <ScrollView
-        contentContainerStyle={[styles.content, contentStyle]}
-        keyboardShouldPersistTaps="handled"
-        refreshControl={
-          onRefresh ? (
-            <RefreshControl
-              colors={[Colors.primary]}
-              onRefresh={onRefresh}
-              refreshing={Boolean(refreshing)}
-              tintColor={Colors.primary}
-            />
-          ) : undefined
-        }
-        showsVerticalScrollIndicator={false}
-      >
+  const content = (
+    <>
         {!hideHeader ? <View style={styles.headerRow}>
           <TouchableOpacity activeOpacity={0.8} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
             <Ionicons name="arrow-back" size={18} color={Colors.primary} />
@@ -974,7 +1027,33 @@ function ScreenShell({
           )}
         </View> : null}
         {children}
-      </ScrollView>
+    </>
+  );
+
+  return (
+    <SafeAreaView edges={safeAreaEdges} style={styles.safeArea}>
+      <AppStatusBar />
+      {scrollable ? (
+        <ScrollView
+          contentContainerStyle={[styles.content, contentStyle]}
+          keyboardShouldPersistTaps="handled"
+          refreshControl={
+            onRefresh ? (
+              <RefreshControl
+                colors={[Colors.primary]}
+                onRefresh={onRefresh}
+                refreshing={Boolean(refreshing)}
+                tintColor={Colors.primary}
+              />
+            ) : undefined
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          {content}
+        </ScrollView>
+      ) : (
+        <View style={[styles.content, styles.fixedContent, contentStyle]}>{content}</View>
+      )}
       {footer}
       <AppointmentSnackbar />
     </SafeAreaView>
@@ -1522,6 +1601,7 @@ export function AppointmentDashboardScreen() {
   const error = useAppSelector(selectAppointmentsError);
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const loadingMore = useAppSelector(selectAppointmentsLoadingMore);
+  const pagination = useAppSelector(selectAppointmentsPagination);
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
   const { fetchAppointments, fetchNext } = useFetchAppointments();
@@ -1671,6 +1751,18 @@ export function AppointmentDashboardScreen() {
                 <ActivityIndicator color={Colors.primary} />
               </View>
             ) : null}
+            {filtered.length > 0 ? (
+              <PaginationControls
+                currentPage={pagination.page}
+                hasNextPage={pagination.hasMore}
+                hasPreviousPage={false}
+                loading={loadingMore}
+                onNext={pagination.hasMore ? () => void fetchNext({ date }) : undefined}
+                totalItems={pagination.totalCount}
+                totalPages={Math.max(1, pagination.totalPages ?? 1)}
+                visibleItems={filtered.length}
+              />
+            ) : null}
             {!loading && !error ? <CalendarPreview appointments={filtered} date={date} /> : null}
           </View>
         }
@@ -1700,6 +1792,7 @@ export function AppointmentListScreen() {
   const error = useAppSelector(selectAppointmentsError);
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const loadingMore = useAppSelector(selectAppointmentsLoadingMore);
+  const pagination = useAppSelector(selectAppointmentsPagination);
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
   const { fetchAppointments, fetchNext } = useFetchAppointments();
@@ -1771,10 +1864,17 @@ export function AppointmentListScreen() {
           )
         }
         ListFooterComponent={
-          loadingMore ? (
-            <View style={styles.footerLoader}>
-              <ActivityIndicator color={Colors.primary} />
-            </View>
+          filtered.length > 0 ? (
+            <PaginationControls
+              currentPage={pagination.page}
+              hasNextPage={pagination.hasMore}
+              hasPreviousPage={false}
+              loading={loadingMore}
+              onNext={pagination.hasMore ? () => void fetchNext({ date, search, status }) : undefined}
+              totalItems={pagination.totalCount}
+              totalPages={Math.max(1, pagination.totalPages ?? 1)}
+              visibleItems={filtered.length}
+            />
           ) : null
         }
         contentContainerStyle={styles.flatListContent}
@@ -1884,6 +1984,7 @@ export function StaffMyAppointmentsScreen() {
   const error = useAppSelector(selectAppointmentsError);
   const loading = useAppSelector(selectAppointmentsIsLoading);
   const loadingMore = useAppSelector(selectAppointmentsLoadingMore);
+  const pagination = useAppSelector(selectAppointmentsPagination);
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const { fetchAppointments, fetchNext } = useFetchAppointments();
   const today = todayIsoDate();
@@ -1965,10 +2066,17 @@ export function StaffMyAppointmentsScreen() {
           )
         }
         ListFooterComponent={
-          loadingMore ? (
-            <View style={styles.footerLoader}>
-              <ActivityIndicator color={Colors.primary} />
-            </View>
+          rows.length > 0 ? (
+            <PaginationControls
+              currentPage={pagination.page}
+              hasNextPage={pagination.hasMore}
+              hasPreviousPage={false}
+              loading={loadingMore}
+              onNext={pagination.hasMore ? () => currentStaffId && void fetchNext({ staffId: currentStaffId }) : undefined}
+              totalItems={pagination.totalCount}
+              totalPages={Math.max(1, pagination.totalPages ?? 1)}
+              visibleItems={staffAppointments.length}
+            />
           ) : null
         }
         contentContainerStyle={flatListContentStyle}
@@ -2094,12 +2202,16 @@ function CalendarPreview({
   appointments,
   date,
   detailRoute,
+  onRefresh,
+  refreshing = false,
   staffNames = [],
   viewMode = "week",
 }: {
   appointments: AppointmentListItem[];
   date: string;
   detailRoute?: (appointmentId: string) => Href;
+  onRefresh?: () => void;
+  refreshing?: boolean;
   staffNames?: string[];
   title?: string;
   viewMode?: "week" | "day" | "list";
@@ -2107,9 +2219,10 @@ function CalendarPreview({
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [previewAppointment, setPreviewAppointment] = useState<AppointmentListItem | null>(null);
-  const startHour = 8;
+  const [quickSaleSlot, setQuickSaleSlot] = useState<QuickSaleSlot | null>(null);
+  const startHour = 0;
   const hourHeight = 160;
-  const hours = useMemo(() => Array.from({ length: 12 }, (_, index) => startHour + index), []);
+  const hours = useMemo(() => Array.from({ length: 24 }, (_, index) => startHour + index), []);
   const timeSlots = useMemo(() => Array.from({ length: hours.length * 4 }, (_, index) => {
     const totalMinutes = startHour * 60 + index * 15;
     return { hour: Math.floor(totalMinutes / 60), minute: totalMinutes % 60 };
@@ -2130,6 +2243,19 @@ function CalendarPreview({
   const now = new Date();
   const currentMinuteOffset = now.getHours() * 60 + now.getMinutes() - startHour * 60;
   const showCurrentTime = viewMode === "day" && date === todayIsoDate() && currentMinuteOffset >= 0 && currentMinuteOffset < hours.length * 60;
+  const verticalScrollRef = useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (viewMode === "list") return;
+    const clampedOffset = Math.min(Math.max(currentMinuteOffset, 0), hours.length * 60);
+    const targetY = Math.max(0, (clampedOffset / 60) * hourHeight - hourHeight);
+    const frame = requestAnimationFrame(() => {
+      verticalScrollRef.current?.scrollTo({ y: targetY, animated: false });
+    });
+    return () => cancelAnimationFrame(frame);
+    // currentMinuteOffset intentionally excluded: it changes every render via `new Date()`,
+    // and this should only re-scroll when the viewed day/mode changes, not every tick.
+  }, [date, viewMode, hours.length, hourHeight]);
 
   if (viewMode === "list") {
     return (
@@ -2156,12 +2282,18 @@ function CalendarPreview({
   return (
     <View style={styles.dinggCalendar}>
       <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator style={styles.dinggHorizontalScroller}>
-        <View style={{ width: calendarContentWidth }}>
+        <View style={{ height: "100%", width: calendarContentWidth }}>
           <View style={styles.dinggCalendarHeader}>
-            <View style={styles.dinggTimeHeader}>{viewMode === "day" ? <Text style={styles.dinggStaffHeader}>Stylist</Text> : null}</View>
+            <View style={styles.dinggTimeHeader}>{viewMode === "day" ? <Text style={styles.dinggStaffHeader}>Staff</Text> : null}</View>
             {columns.map((column, index) => <View key={`${column.key}-${column.label}-${index}`} style={[styles.dinggDayHeader, { width: columnWidth }]}>{viewMode === "day" ? <Ionicons name="person-outline" size={12} color={Colors.appointmentAccent} /> : null}<Text numberOfLines={1} style={styles.dinggDayHeaderText}>{column.label}</Text></View>)}
           </View>
-          <ScrollView nestedScrollEnabled showsVerticalScrollIndicator style={styles.dinggVerticalScroller}>
+          <ScrollView
+            nestedScrollEnabled
+            ref={verticalScrollRef}
+            refreshControl={onRefresh ? <RefreshControl colors={[Colors.primary]} onRefresh={onRefresh} refreshing={refreshing} tintColor={Colors.primary} /> : undefined}
+            showsVerticalScrollIndicator
+            style={styles.dinggVerticalScroller}
+          >
             <View style={[styles.dinggGridBody, { height: hours.length * hourHeight }]}>
               <View style={styles.dinggTimeColumn}>
                 {timeSlots.map(({ hour, minute }) => (
@@ -2170,8 +2302,24 @@ function CalendarPreview({
                   </View>
                 ))}
               </View>
-              {columns.map((column, columnIndex) => (
+              {columns.map((column, columnIndex) => {
+                const columnAppointments = appointments.filter((appointment) => getDateKey(appointment.scheduledAt) === column.key && (!column.staffName || appointment.staffName === column.staffName));
+                return (
                 <View key={`${column.key}-${column.label}-${columnIndex}`} style={[styles.dinggDayColumn, viewMode === "day" && (columnIndex % 2 === 0 ? styles.dinggColumnAvailable : styles.dinggColumnUnavailable), { width: columnWidth }]}>
+                  {timeSlots.map(({ hour, minute }, slotIndex) => (
+                    <Pressable
+                      accessibilityHint="Opens Quick Sale for this calendar slot"
+                      accessibilityLabel={`Quick Sale, ${column.label}, ${String(hour % 12 || 12)}:${String(minute).padStart(2, "0")}`}
+                      accessibilityRole="button"
+                      key={`quick-sale-slot-${column.key}-${columnIndex}-${hour}-${minute}`}
+                      onPress={() => setQuickSaleSlot({
+                        date: column.key,
+                        staffName: column.staffName || undefined,
+                        time: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
+                      })}
+                      style={[styles.dinggQuickSaleSlot, { height: hourHeight / 4, top: slotIndex * (hourHeight / 4) }]}
+                    />
+                  ))}
                   {hours.map((hour) => (
                     <View key={`${column.key}-${hour}`} style={[styles.dinggHourCell, { height: hourHeight }]}>
                       <View style={[styles.dinggQuarterLine, { top: "25%" }]} />
@@ -2179,29 +2327,52 @@ function CalendarPreview({
                       <View style={[styles.dinggQuarterLine, { top: "75%" }]} />
                     </View>
                   ))}
-                  {appointments.filter((appointment) => getDateKey(appointment.scheduledAt) === column.key && (!column.staffName || appointment.staffName === column.staffName)).map((appointment) => {
+                  {columnAppointments.map((appointment) => {
                     const scheduled = parseAppointmentDateTime(appointment.scheduledAt);
                     if (!scheduled) return null;
                     const offsetMinutes = scheduled.getHours() * 60 + scheduled.getMinutes() - startHour * 60;
                     if (offsetMinutes < 0 || offsetMinutes >= hours.length * 60) return null;
-                    const height = Math.max(((appointment.durationMinutes ?? 30) / 60) * hourHeight, 36);
+                    const appointmentRange = getAppointmentRange(appointment);
+                    const calendarDurationMinutes = appointmentRange
+                      ? Math.max((appointmentRange.end - appointmentRange.start) / 60_000, 1)
+                      : appointment.durationMinutes ?? 30;
+                    const height = Math.max((calendarDurationMinutes / 60) * hourHeight, 36);
                     const top = (offsetMinutes / 60) * hourHeight;
-                    const isPaid = appointment.paymentStatus.toLowerCase() === "paid" || (appointment.total > 0 && appointment.paidAmount >= appointment.total);
+                    const appointmentTitle = getCalendarAppointmentTitle(appointment);
+                    const tokenLabel = getCalendarTokenLabel(appointment);
+                    const endTimeLabel = appointment.endTime
+                      ? formatTimeLabel(appointment.endTime)
+                      : appointmentRange
+                        ? formatAppTime(new Date(appointmentRange.end), "--:--")
+                        : "--:--";
+                    const appointmentSummary = [
+                      appointment.clientName || "Walk-In",
+                      tokenLabel,
+                      `${formatTimeLabel(appointment.scheduledAt)}-${endTimeLabel}`,
+                      appointmentTitle,
+                    ].filter(Boolean).join(", ");
+                    const summaryLineCount = Math.max(1, Math.floor((height - (height >= 54 ? 28 : 10)) / 14));
+                    const isReadonly = isReadonlyCalendarAppointment(appointment);
+                    const isOverlapping = columnAppointments.some((candidate) => candidate.id !== appointment.id && appointmentsOverlap(appointment, candidate));
+                    const isHighlighted = previewAppointment?.id === appointment.id || hasCalendarInteractionFlag(appointment, "isHighlighted", "is_highlighted");
+                    const isDragging = hasCalendarInteractionFlag(appointment, "isDragging", "is_dragging");
+                    const isResizing = hasCalendarInteractionFlag(appointment, "isResizing", "is_resizing");
                     return (
                       <Pressable
+                        disabled={isReadonly}
                         key={appointment.id}
-                        onPress={() => setPreviewAppointment(appointment)}
-                        style={[styles.dinggAppointmentCard, appointment.status === "Completed" && styles.dinggAppointmentCompleted, appointment.status === "Confirmed" && styles.dinggAppointmentConfirmed, { height, top }]}
+                        onPress={() => !isReadonly && setPreviewAppointment(appointment)}
+                        style={[styles.dinggAppointmentCard, isOverlapping && styles.dinggAppointmentOverlapping, isHighlighted && styles.dinggAppointmentHighlighted, isDragging && styles.dinggAppointmentDragging, isResizing && styles.dinggAppointmentResizing, appointment.status === "Deleted" && styles.dinggAppointmentDeleted, { height, top }]}
                       >
-                        {height >= 54 ? <View style={styles.dinggAppointmentIcons}><Ionicons name="male-outline" size={13} color={Colors.appointmentText} /><Ionicons name="gift-outline" size={13} color={Colors.appointmentText} /></View> : null}
-                        <Text numberOfLines={2} style={styles.dinggAppointmentClient}>{appointment.clientName}, {formatTimeLabel(appointment.scheduledAt)}-{formatTimeLabel(appointment.endTime)}</Text>
-                        {height >= 72 ? <Text numberOfLines={3} style={styles.dinggAppointmentName}>{appointment.serviceName}</Text> : null}
-                        {isPaid && height >= 64 ? <Text numberOfLines={1} style={styles.dinggPaidText}>Paid successfully</Text> : null}
+                        <LinearGradient colors={getWebCalendarGradient(appointment)} end={{ x: 0, y: 1 }} start={{ x: 1, y: 0 }} style={styles.dinggAppointmentGradient}>
+                          {height >= 54 ? <View style={styles.dinggAppointmentIcons}><Ionicons name="male-outline" size={13} color="#ffffff" /><Ionicons name="gift-outline" size={13} color="#ffffff" /></View> : null}
+                          <Text numberOfLines={summaryLineCount} style={styles.dinggAppointmentSummary}>{appointmentSummary}</Text>
+                        </LinearGradient>
                       </Pressable>
                     );
                   })}
                 </View>
-              ))}
+              );})}
               {showCurrentTime ? <View pointerEvents="none" style={[styles.dinggCurrentTime, { top: (currentMinuteOffset / 60) * hourHeight }]}><Text style={styles.dinggCurrentTimeLabel}>{formatAppTime(now)}</Text><View style={styles.dinggCurrentTimeDot} /><View style={styles.dinggCurrentTimeLine} /></View> : null}
             </View>
           </ScrollView>
@@ -2215,6 +2386,25 @@ function CalendarPreview({
           requestAnimationFrame(() => router.push(detailRoute?.(appointment.id) ?? (`/appointments/${appointment.id}` as Href)));
         }}
       />
+      <Modal
+        animationType="fade"
+        onRequestClose={() => setQuickSaleSlot(null)}
+        statusBarTranslucent
+        transparent
+        visible={Boolean(quickSaleSlot)}
+      >
+        <View style={styles.quickSaleModalBackdrop}>
+          <View style={styles.quickSaleModalSurface}>
+            {quickSaleSlot ? (
+              <QuickSaleScreen
+                embedded
+                initialSlot={quickSaleSlot}
+                onRequestClose={() => setQuickSaleSlot(null)}
+              />
+            ) : null}
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -2230,52 +2420,114 @@ function AppointmentPreviewSheet({
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const [stage, setStage] = useState<"actions" | "details">("actions");
+  const [detailsTab, setDetailsTab] = useState<"appointment" | "notes">("appointment");
+
+  useEffect(() => {
+    setStage("actions");
+    setDetailsTab("appointment");
+  }, [appointment?.id]);
+
   if (!appointment) return null;
   const isPaid = appointment.paymentStatus.toLowerCase() === "paid" || (appointment.total > 0 && appointment.paidAmount >= appointment.total);
   const start = formatBusinessTime(appointment.startTime || appointment.scheduledAt);
   const end = formatBusinessTime(appointment.endTime);
-  const duration = appointment.durationLabel || (appointment.durationMinutes ? `${appointment.durationMinutes} min` : "-");
+
+  const openNoteEditor = () => {
+    onClose();
+    requestAnimationFrame(() => router.push(`/appointments/${appointment.id}/edit` as Href));
+  };
+
+  const handleViewInvoice = () => {
+    if (!appointment.saleId) {
+      Alert.alert("Invoice unavailable", "A receipt has not been created for this appointment yet.");
+      return;
+    }
+
+    onClose();
+    requestAnimationFrame(() => router.push({
+      pathname: "/quick-sale/checkout",
+      params: { openReceipt: "1", saleId: appointment.saleId },
+    } as Href));
+  };
 
   return (
-    <Modal animationType="slide" onRequestClose={onClose} transparent visible>
+    <Modal animationType="fade" onRequestClose={onClose} transparent visible>
       <Pressable onPress={onClose} style={styles.previewBackdrop}>
-        <Pressable style={styles.previewSheet}>
-          <View style={styles.previewHandle} />
-          <View style={styles.previewHeader}>
-            <TouchableOpacity accessibilityLabel="Close appointment preview" hitSlop={10} onPress={onClose} style={styles.previewClose}>
-              <Ionicons name="close" size={21} color={Colors.appointmentText} />
-            </TouchableOpacity>
-            <Text numberOfLines={1} style={styles.previewTitle}>{appointment.serviceName || "Appointment"}</Text>
-            <View style={[styles.previewStatusBadge, isPaid ? styles.previewPaidBadge : styles.previewUnpaidBadge]}>
-              <Text style={[styles.previewStatusText, !isPaid && styles.previewUnpaidText]}>{isPaid ? "PAID" : appointment.paymentStatus || "UNPAID"}</Text>
+        {stage === "actions" ? (
+          <Pressable style={styles.calendarActionsModal}>
+            <View style={styles.calendarActionsHeader}>
+              <Text style={styles.calendarActionsTitle}>Actions</Text>
+              <TouchableOpacity accessibilityLabel="Close actions" onPress={onClose} style={styles.calendarActionsClose}>
+                <Ionicons name="close-circle-outline" size={28} color={Colors.appointmentText} />
+              </TouchableOpacity>
             </View>
-          </View>
-          <PreviewDetailRow icon="person-outline" primary={appointment.clientName} secondary={appointment.phone} />
-          <PreviewDetailRow icon="calendar-outline" primary={formatBusinessDate(appointment.scheduledAt)} />
-          <PreviewDetailRow icon="time-outline" primary={[start, end].filter((value) => value && value !== "-").join(" - ")} secondary={duration} />
-          <PreviewDetailRow icon="person-circle-outline" primary={appointment.staffName || "No staff assigned"} />
-          <PreviewDetailRow icon="wallet-outline" primary="Total Amount" trailing={formatCurrency(appointment.total || appointment.amount)} />
-          <TouchableOpacity activeOpacity={0.88} onPress={() => onViewDetails(appointment)} style={styles.previewDetailsButton}>
-            <Text style={styles.previewDetailsButtonText}>View Details</Text>
-          </TouchableOpacity>
-        </Pressable>
+            <TouchableOpacity activeOpacity={0.82} onPress={() => setStage("details")} style={styles.calendarActionPrimary}>
+              <Text style={styles.calendarActionText}>View Appointment Details</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              activeOpacity={0.82}
+              onPress={openNoteEditor}
+              style={styles.calendarActionRow}
+            >
+              <Text style={styles.calendarActionText}>Add Client Note</Text>
+            </TouchableOpacity>
+          </Pressable>
+        ) : (
+          <Pressable style={styles.appointmentDetailsModal}>
+            <View style={styles.appointmentModalHeader}>
+              <View style={styles.appointmentModalHeading}>
+                <Text numberOfLines={1} style={styles.appointmentModalTitle}>Appointment - {formatBusinessDate(appointment.scheduledAt)}</Text>
+              </View>
+              <TouchableOpacity accessibilityLabel="Close appointment details" onPress={onClose}>
+                <Ionicons name="close" size={28} color={Colors.appointmentTextSecondary} />
+              </TouchableOpacity>
+            </View>
+            <View style={styles.appointmentClientBand}>
+              <View style={styles.appointmentClientAvatar}><Ionicons name="person-outline" size={26} color={Colors.appointmentAccent} /></View>
+              <View style={styles.appointmentClientCopy}>
+                <Text style={styles.appointmentClientName}>{appointment.clientName}</Text>
+                <Text style={styles.appointmentClientPhone}>{maskPhone(appointment.phone)}</Text>
+              </View>
+              {appointment.status !== "Completed" ? <View style={styles.appointmentStatusControl}><View style={[styles.appointmentStatusDot, { backgroundColor: isPaid ? "#22C55E" : "#F59E0B" }]} /><Text numberOfLines={1} style={styles.appointmentStatusLabel}>{appointment.status}</Text><Ionicons name="chevron-down" size={18} color={Colors.appointmentTextSecondary} /></View> : null}
+            </View>
+            <View style={styles.appointmentTabs}>
+              <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: detailsTab === "appointment" }} onPress={() => setDetailsTab("appointment")}>
+                <Text style={detailsTab === "appointment" ? styles.appointmentTabActive : styles.appointmentTab}>Appointment</Text>
+              </TouchableOpacity>
+              <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: detailsTab === "notes" }} onPress={() => setDetailsTab("notes")}>
+                <Text style={detailsTab === "notes" ? styles.appointmentTabActive : styles.appointmentTab}>Notes</Text>
+              </TouchableOpacity>
+            </View>
+            {detailsTab === "appointment" ? (
+              <ScrollView contentContainerStyle={styles.appointmentModalContent}>
+                <Text style={styles.appointmentServiceHeading}>Service (1)</Text>
+                <View style={styles.appointmentServiceCard}>
+                  <View style={styles.appointmentServiceTop}><Text numberOfLines={2} style={styles.appointmentServiceName}>{appointment.serviceName}</Text><Text style={styles.appointmentServiceTime}>at {start}-{end}</Text></View>
+                  <View style={styles.appointmentServiceMeta}><Text style={styles.appointmentBookedBy}>Booked by - {appointment.staffName || "-"}</Text><Text style={styles.appointmentWith}>With {appointment.staffName || "-"}</Text></View>
+                  <View style={styles.appointmentServiceStatus}><View style={[styles.appointmentStatusDot, { backgroundColor: isPaid ? "#22C55E" : "#F59E0B" }]} /><Text style={styles.appointmentServiceStatusText}>{appointment.status}</Text></View>
+                </View>
+              </ScrollView>
+            ) : (
+              <ScrollView contentContainerStyle={styles.appointmentModalContent}>
+                <Text style={styles.appointmentNotesHeading}>Client Notes</Text>
+                <Text style={[styles.appointmentNotesText, !appointment.notes.trim() && styles.appointmentNotesEmpty]}>
+                  {appointment.notes.trim() || "No client notes added."}
+                </Text>
+                <TouchableOpacity activeOpacity={0.84} onPress={openNoteEditor} style={styles.appointmentNotesButton}>
+                  <Ionicons name="create-outline" size={18} color="#FFFFFF" />
+                  <Text style={styles.appointmentNotesButtonText}>{appointment.notes.trim() ? "Edit Client Note" : "Add Client Note"}</Text>
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+            <TouchableOpacity activeOpacity={0.88} disabled={!isPaid} onPress={handleViewInvoice} style={[styles.appointmentInvoiceButton, !isPaid && styles.appointmentInvoiceDisabled]}>
+              <Ionicons name="receipt-outline" size={20} color="#FFFFFF" />
+              <Text style={styles.appointmentInvoiceText}>{isPaid ? "View Invoice" : "Invoice available after payment"}</Text>
+            </TouchableOpacity>
+          </Pressable>
+        )}
       </Pressable>
     </Modal>
-  );
-}
-
-function PreviewDetailRow({ icon, primary, secondary, trailing }: { icon: keyof typeof Ionicons.glyphMap; primary: string; secondary?: string; trailing?: string }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return (
-    <View style={styles.previewDetailRow}>
-      <Ionicons name={icon} size={17} color={Colors.appointmentTextSecondary} />
-      <View style={styles.previewDetailCopy}>
-        <Text numberOfLines={1} style={styles.previewDetailPrimary}>{primary || "-"}</Text>
-        {secondary ? <Text numberOfLines={1} style={styles.previewDetailSecondary}>{secondary}</Text> : null}
-      </View>
-      {trailing ? <Text style={styles.previewDetailTrailing}>{trailing}</Text> : null}
-    </View>
   );
 }
 
@@ -2988,237 +3240,6 @@ function BookingSection({
   );
 }
 
-/*
-function SearchableServiceField({
-  dropdownOpen,
-  error,
-  loading,
-  onDismiss,
-  onFocus,
-  onSearchChange,
-  onSelect,
-  search,
-  searchInputRef,
-  selectedServiceIds,
-  services,
-  serviceError,
-}: {
-  dropdownOpen: boolean;
-  error?: string;
-  loading: boolean;
-  onDismiss: () => void;
-  onFocus: () => void;
-  onSearchChange: (value: string) => void;
-  onSelect: (service: ServiceListItem) => void;
-  search: string;
-  searchInputRef?: RefObject<TextInput | null>;
-  selectedServiceIds: string[];
-  services: ServiceListItem[];
-  serviceError: string | null;
-}) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const serviceQuery = getServiceSearchQuery(search);
-  const hasValidQuery = serviceQuery.kind !== "invalid";
-  const showDropdown = dropdownOpen && hasValidQuery;
-  const showMinimumHint = dropdownOpen && serviceQuery.raw.length > 0 && !hasValidQuery;
-
-  return (
-    <View style={[styles.inputGroup, styles.serviceSearchGroup]}>
-      <Text style={styles.inputLabel}>Service</Text>
-      <View style={styles.autocompleteAnchor}>
-        <View style={[styles.searchWrap, error && styles.inputError]}>
-          <Ionicons name="search-outline" size={18} color={Colors.text2} />
-          <TextInput
-            ref={searchInputRef}
-            onFocus={onFocus}
-            onChangeText={onSearchChange}
-            placeholder={SERVICE_SEARCH_PLACEHOLDER}
-            placeholderTextColor={Colors.placeholder}
-            style={styles.searchInput}
-            value={search}
-          />
-          {loading ? (
-            <ActivityIndicator color={Colors.primary} size="small" />
-          ) : search ? (
-            <TouchableOpacity
-              accessibilityLabel="Clear service search"
-              activeOpacity={0.8}
-              onPress={() => {
-                onSearchChange("");
-                onDismiss();
-              }}
-            >
-              <Ionicons name="close-circle" size={18} color={Colors.text2} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
-
-        {showDropdown ? (
-          <Animated.View
-            entering={FadeIn.duration(120)}
-            exiting={FadeOut.duration(90)}
-            style={styles.stickySearchDropdown}
-          >
-            {serviceError ? (
-              <View style={styles.serviceDropdownState}>
-                <Ionicons name="alert-circle-outline" size={16} color={Colors.error} />
-                <Text style={styles.fieldHintError}>{serviceError}</Text>
-              </View>
-            ) : loading ? (
-              <View style={styles.serviceDropdownState}>
-                <ActivityIndicator color={Colors.primary} size="small" />
-                <Text style={styles.fieldHint}>Searching services...</Text>
-              </View>
-            ) : services.length === 0 ? (
-              <View style={styles.serviceDropdownState}>
-                <Ionicons name="search-outline" size={16} color={Colors.text2} />
-                <Text style={styles.fieldHint}>No services found.</Text>
-              </View>
-            ) : (
-              <ScrollView
-                keyboardShouldPersistTaps="handled"
-                nestedScrollEnabled
-                showsVerticalScrollIndicator={services.length > 4}
-                style={styles.serviceDropdownScroll}
-              >
-                {services.map((service) => {
-                  const selected = selectedServiceIds.includes(service.id);
-
-                  return (
-                    <TouchableOpacity
-                      key={`service-${service.id}`}
-                      activeOpacity={0.84}
-                      onPress={() => onSelect(service)}
-                      style={[styles.serviceOptionRow, selected && styles.serviceOptionRowActive]}
-                    >
-                      <View style={styles.serviceOptionCopy}>
-                        <HighlightedServiceName query={serviceQuery} selected={selected} value={service.name} />
-                        <Text style={[styles.serviceOptionMeta, selected && styles.serviceOptionMetaActive]}>
-                          {formatDurationLabel(service.durationMinutes)}
-                        </Text>
-                      </View>
-                      <Text
-                        style={[
-                          styles.serviceOptionPrice,
-                          selected && styles.serviceOptionPriceActive,
-                          serviceQuery.kind === "price" &&
-                          servicePriceMatches(service.price, serviceQuery) &&
-                          styles.serviceOptionPriceMatch,
-                        ]}
-                      >
-                        {formatCurrency(service.price)}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </ScrollView>
-            )}
-          </Animated.View>
-        ) : null}
-      </View>
-      {showMinimumHint ? (
-        <Text style={styles.fieldHint}>Type at least 3 letters to search services.</Text>
-      ) : null}
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
-    </View>
-  );
-}
-
-function AppointmentStatusDropdown({
-  error,
-  onSelect,
-  value,
-}: {
-  error?: string;
-  onSelect: (value: AppointmentStatus) => void;
-  value: AppointmentStatus;
-}) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const [visible, setVisible] = useState(false);
-
-  return (
-    <View style={styles.inputGroup}>
-      <Text style={styles.inputLabel}>Status</Text>
-      <TouchableOpacity
-        activeOpacity={0.86}
-        onPress={() => setVisible(true)}
-        style={[styles.compactSelectButton, error && styles.inputError]}
-      >
-        <Text numberOfLines={1} style={styles.compactSelectText}>{value}</Text>
-        <Ionicons name="chevron-down" size={15} color={Colors.text2} />
-      </TouchableOpacity>
-      {error ? <Text style={styles.fieldError}>{error}</Text> : null}
-      <Modal animationType="fade" onRequestClose={() => setVisible(false)} transparent visible={visible}>
-        <Pressable onPress={() => setVisible(false)} style={styles.modalBackdrop}>
-          <Pressable style={styles.statusModalCard}>
-            <Text style={styles.modalTitle}>Status</Text>
-            {FORM_STATUS_OPTIONS.map((option) => (
-              <TouchableOpacity
-                key={`appointment-status-${option}`}
-                activeOpacity={0.82}
-                onPress={() => {
-                  onSelect(option);
-                  setVisible(false);
-                }}
-                style={styles.statusOptionRow}
-              >
-                <Text style={[styles.statusOptionText, option === value && styles.statusOptionTextActive]}>{option}</Text>
-                {option === value ? <Ionicons name="checkmark" size={18} color={Colors.appointmentAccent} /> : null}
-              </TouchableOpacity>
-            ))}
-          </Pressable>
-        </Pressable>
-      </Modal>
-    </View>
-  );
-}
-*/
-
-function HighlightedServiceName({
-  query,
-  selected,
-  value,
-}: {
-  query: ServiceSearchQuery;
-  selected: boolean;
-  value: string;
-}) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  if (query.kind !== "name") {
-    return (
-      <Text style={[styles.serviceOptionName, selected && styles.serviceOptionNameActive]}>
-        {value}
-      </Text>
-    );
-  }
-
-  const matchIndex = value.toLowerCase().indexOf(query.text);
-
-  if (matchIndex < 0) {
-    return (
-      <Text style={[styles.serviceOptionName, selected && styles.serviceOptionNameActive]}>
-        {value}
-      </Text>
-    );
-  }
-
-  const before = value.slice(0, matchIndex);
-  const match = value.slice(matchIndex, matchIndex + query.text.length);
-  const after = value.slice(matchIndex + query.text.length);
-
-  return (
-    <Text style={[styles.serviceOptionName, selected && styles.serviceOptionNameActive]}>
-      {before}
-      <Text style={styles.serviceOptionNameMatch}>{match}</Text>
-      {after}
-    </Text>
-  );
-}
-
 function ServiceCatalogPicker({
   error,
   loading,
@@ -3228,6 +3249,7 @@ function ServiceCatalogPicker({
   onSelectStaff,
   selectedStaffId,
   selectedServiceIds,
+  staffError,
   staffMembers,
   services,
   visible,
@@ -3240,6 +3262,7 @@ function ServiceCatalogPicker({
   onSelectStaff: (staffId: string) => void;
   selectedStaffId: string;
   selectedServiceIds: string[];
+  staffError?: string;
   staffMembers: StaffMember[];
   services: ServiceListItem[];
   visible: boolean;
@@ -3270,18 +3293,21 @@ function ServiceCatalogPicker({
       <SafeAreaView edges={["top", "bottom"]} style={styles.servicePickerSafeArea}>
         <AppStatusBar />
         <View style={styles.servicePickerHeader}>
-          <TouchableOpacity activeOpacity={0.8} onPress={onClose} style={styles.servicePickerBack}>
-            <Ionicons name="arrow-back" size={26} color={Colors.appointmentText} />
-          </TouchableOpacity>
+          <AppBackButton onPress={onClose} />
           <Text style={styles.servicePickerTitle}>Add services</Text>
         </View>
 
         <View style={styles.servicePickerBody}>
-          <Text style={styles.servicePickerLabel}>Assigned Stylist*</Text>
-          <TouchableOpacity activeOpacity={0.84} onPress={() => setStaffPickerOpen(true)} style={styles.servicePickerSelect}>
+          <Text style={styles.servicePickerLabel}>Assigned Staff*</Text>
+          <TouchableOpacity
+            activeOpacity={0.84}
+            onPress={() => setStaffPickerOpen(true)}
+            style={[styles.servicePickerSelect, staffError && styles.inputError]}
+          >
             <Text style={[styles.servicePickerSelectText, !selectedStaff && styles.servicePickerSelectPlaceholder]}>{selectedStaff?.name ?? "-"}</Text>
             <Ionicons name="chevron-down" size={18} color={Colors.appointmentTextSecondary} />
           </TouchableOpacity>
+          {staffError ? <Text style={styles.fieldError}>{staffError}</Text> : null}
           <View style={styles.requestedStylistRow}>
             <Text style={styles.requestedStylistLabel}>Requested Stylist</Text>
             <Text style={styles.requestedStylistValue}>{selectedStaff?.name ?? "No Preferences"}</Text>
@@ -3359,7 +3385,7 @@ function ServiceCatalogPicker({
           <Pressable onPress={() => setStaffPickerOpen(false)} style={styles.stylistModalBackdrop}>
             <Pressable style={styles.stylistModalCard}>
               <View style={styles.stylistModalHeader}>
-                <Text style={styles.stylistModalTitle}>Assigned Stylist</Text>
+                <Text style={styles.stylistModalTitle}>Assigned Staff</Text>
                 <TouchableOpacity onPress={() => setStaffPickerOpen(false)}><Ionicons name="close" size={26} color={Colors.appointmentMuted} /></TouchableOpacity>
               </View>
               <TouchableOpacity onPress={() => { onSelectStaff(""); setStaffPickerOpen(false); }} style={styles.stylistOptionRow}>
@@ -3455,6 +3481,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const params = useLocalSearchParams<{ clientId?: string; id?: string }>();
   const appointmentId = params.id;
   const returnedClientId = typeof params.clientId === "string" ? params.clientId : "";
@@ -3481,11 +3508,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   const clientSearchInputRef = useRef<TextInput | null>(null);
   const serviceSearchInputRef = useRef<TextInput | null>(null);
   const clientRequestIdRef = useRef(0);
-  const [serviceError, setServiceError] = useState<string | null>(null);
-  const [serviceLoading, setServiceLoading] = useState(false);
-  const [serviceSearch, setServiceSearch] = useState(form.serviceName);
   const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
-  const [services, setServices] = useState<ServiceListItem[]>([]);
   const [serviceCatalog, setServiceCatalog] = useState<ServiceListItem[]>([]);
   const [serviceCatalogError, setServiceCatalogError] = useState<string | null>(null);
   const [serviceCatalogLoading, setServiceCatalogLoading] = useState(false);
@@ -3494,8 +3517,6 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   const [sendAppointmentSms, setSendAppointmentSms] = useState(true);
   const [sendAppointmentEmail, setSendAppointmentEmail] = useState(true);
   const [availabilityRefreshKey, setAvailabilityRefreshKey] = useState(0);
-  const serviceCacheRef = useRef(new Map<string, ServiceListItem[] | Promise<ServiceListItem[]>>());
-  const serviceRequestIdRef = useRef(0);
   const submittingRef = useRef(false);
   // The client picked from the live search dropdown may not be one of the
   // first 50 clients loaded into Redux on mount, so it can't always be
@@ -3521,7 +3542,6 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   const staffAvailabilityError = useAppSelector((state) =>
     selectStaffAvailabilityError(state, form.staffId, form.date),
   );
-  const allowsWalkInClient = mode === "create" && clientBookingMode === "walkIn";
   const totalServiceDuration = useMemo(
     () => selectedServices.reduce((total, service) => total + Math.max(service.durationMinutes ?? 0, 0), 0),
     [selectedServices],
@@ -3532,19 +3552,41 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   );
   const totalServicePrice = servicePricingTotals.grandTotal;
   const defaultTimeSlots = useMemo(() => getDefaultTimeSlots(form.date), [form.date]);
+  const allowedPastEditDate = mode === "edit" && existingAppointment
+    ? toInputDate(existingAppointment.scheduledAt)
+    : undefined;
+  const originalEditSlot = useMemo<StaffAvailabilitySlot | null>(() => {
+    if (!existingAppointment || mode !== "edit") return null;
+
+    const originalDate = toInputDate(existingAppointment.scheduledAt);
+    const originalStart = toInputTime(existingAppointment.startTime ?? existingAppointment.scheduledAt);
+    const originalEnd = toInputTime(existingAppointment.endTime);
+    const sameStaff = form.staffId === existingAppointment.staffId ||
+      Boolean(selectedStaff && staffIdMatches(selectedStaff, existingAppointment.staffId));
+
+    if (form.date !== originalDate || !sameStaff || !validateTime(originalStart)) return null;
+
+    return {
+      display: minutesToDisplayTime(parseClockToMinutes(originalStart) ?? 0),
+      endTime: validateTime(originalEnd) ? originalEnd : addMinutesToTime(originalDate, originalStart, existingAppointment.durationMinutes ?? 30),
+      value: originalStart,
+    };
+  }, [existingAppointment, form.date, form.staffId, mode, selectedStaff]);
   const availableSlots = useMemo<StaffAvailabilitySlot[]>(
     () => {
       if (!validateDate(form.date)) {
         return [];
       }
 
-      if (form.staffId) {
-        return staffAvailability?.availableSlots ?? [];
-      }
+      const slots = form.staffId
+        ? staffAvailability?.availableSlots ?? []
+        : defaultTimeSlots;
 
-      return defaultTimeSlots;
+      if (!originalEditSlot || slots.some((slot) => slot.value === originalEditSlot.value)) return slots;
+
+      return [...slots, originalEditSlot].sort((left, right) => left.value.localeCompare(right.value));
     },
-    [defaultTimeSlots, form.date, form.staffId, staffAvailability?.availableSlots],
+    [defaultTimeSlots, form.date, form.staffId, originalEditSlot, staffAvailability?.availableSlots],
   );
   const staffInactiveReason = !selectedStaff
     ? null
@@ -3642,12 +3684,6 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     staffAvailabilityStatus,
     workingHoursLabel,
   ]);
-  const formIsValid = useMemo(
-    () => Object.keys(validateForm(form, { requireClient: !allowsWalkInClient })).length === 0,
-    [allowsWalkInClient, form],
-  );
-  const selectedSlotIsAvailable = availableSlots.some((slot) => slot.value === form.startTime);
-  const bookingReady = formIsValid && selectedSlotIsAvailable && !schedulerLoading;
   const refreshStaffAvailability = useCallback(() => {
     setAvailabilityRefreshKey((current) => current + 1);
   }, []);
@@ -3707,21 +3743,6 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   }, [activeBranchId, availabilityRefreshKey, dispatch, form.date, form.staffId]);
 
   useEffect(() => {
-    setForm((current) => {
-      if (!current.startTime && !current.endTime) {
-        return current;
-      }
-
-      return {
-        ...current,
-        endTime: "",
-        startTime: "",
-      };
-    });
-    setErrors((current) => ({ ...current, startTime: undefined }));
-  }, [form.date]);
-
-  useEffect(() => {
     if (!form.startTime) {
       return;
     }
@@ -3741,97 +3762,9 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     }
   }, [availableSlots, form.staffId, form.startTime, schedulerLoading, staffAvailability]);
 
-  useEffect(() => {
-    const query = getServiceSearchQuery(serviceSearch);
-
-    if (!serviceDropdownOpen || query.kind === "invalid") {
-      serviceRequestIdRef.current += 1;
-      setServiceLoading(false);
-      setServiceError(null);
-      setServices([]);
-      return;
-    }
-
-    const queryKey = getServiceSearchKey(query, activeBranchId);
-    const cached = serviceCacheRef.current.get(queryKey);
-
-    const applyServices = (requestId: number, matchingServices: ServiceListItem[]) => {
-      if (serviceRequestIdRef.current !== requestId) {
-        return;
-      }
-
-      setServices(matchingServices);
-      setServiceError(null);
-      setServiceLoading(false);
-    };
-
-    const applyFailure = (requestId: number, error: unknown) => {
-      if (serviceRequestIdRef.current !== requestId) {
-        return;
-      }
-
-      setServiceError(getApiErrorMessage(error));
-      setServices([]);
-      setServiceLoading(false);
-    };
-
-    if (cached) {
-      // Already resolved, or already in flight from a previous focus/blur cycle for
-      // the same query — reuse it instead of firing a duplicate network request.
-      const requestId = serviceRequestIdRef.current + 1;
-      serviceRequestIdRef.current = requestId;
-      setServiceError(null);
-
-      if (Array.isArray(cached)) {
-        setServiceLoading(false);
-        setServices(cached);
-      } else {
-        setServiceLoading(true);
-        cached.then(
-          (matchingServices) => applyServices(requestId, matchingServices),
-          (error) => applyFailure(requestId, error),
-        );
-      }
-
-      return;
-    }
-
-    const requestId = serviceRequestIdRef.current + 1;
-    serviceRequestIdRef.current = requestId;
-    setServiceLoading(true);
-    setServiceError(null);
-
-    const timeout = setTimeout(() => {
-      const searchPromise =
-        query.kind === "name"
-          ? searchServicesByName(query, activeBranchId)
-          : fetchServiceCatalog(activeBranchId).then((catalog) =>
-            filterServicesByQuery(catalog, query),
-          );
-
-      serviceCacheRef.current.set(queryKey, searchPromise);
-
-      searchPromise.then(
-        (matchingServices) => {
-          serviceCacheRef.current.set(queryKey, matchingServices);
-          applyServices(requestId, matchingServices);
-        },
-        (error) => {
-          serviceCacheRef.current.delete(queryKey);
-          applyFailure(requestId, error);
-        },
-      );
-    }, SERVICE_SEARCH_DEBOUNCE_MS);
-
-    return () => {
-      clearTimeout(timeout);
-    };
-  }, [activeBranchId, serviceDropdownOpen, serviceSearch]);
-
   // Client search must hit the backend rather than filtering only the first
   // page of clients loaded into Redux (`fetchClientsThunk({ limit: 50 })` on
   // mount) — otherwise any client beyond that first batch is unfindable here.
-  // Mirrors the service-search caching/debounce pattern above.
   useEffect(() => {
     const trimmedSearch = clientSearch.trim();
 
@@ -3941,7 +3874,6 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
       setClientBookingMode("existing");
       setClientSearch(existingAppointment.clientName);
       setClientDropdownOpen(false);
-      setServiceSearch(existingAppointment.serviceName);
       setServiceDropdownOpen(false);
     }
   }, [existingAppointment]);
@@ -4009,22 +3941,18 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
 
   const updateForm = (key: keyof AppointmentFormState, value: string) => {
     setForm((current) => {
+      if (key === "date" && current.date !== value) {
+        return { ...current, date: value, endTime: "", startTime: "" };
+      }
+
       return { ...current, [key]: value };
     });
-    setErrors((current) => ({ ...current, [key]: undefined }));
-  };
-
-  const handleServiceSearchChange = (value: string) => {
-    setServiceSearch(value);
-    setServiceDropdownOpen(Boolean(value.trim()));
-    if (selectedServices.length === 0) {
-      setForm((current) => ({
-        ...current,
-        serviceId: "",
-        serviceName: value,
-      }));
-    }
-    setErrors((current) => ({ ...current, serviceName: undefined }));
+    setErrors((current) => ({
+      ...current,
+      [key]: undefined,
+      ...(key === "date" ? { startTime: undefined } : {}),
+    }));
+    setFormSubmitError(null);
   };
 
   const dismissServiceDropdown = () => {
@@ -4098,9 +4026,18 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         return current.filter((selectedService) => getSelectedServiceCatalogId(selectedService) !== service.id);
       }
 
-      return [...current, service];
+      // Copy the catalog service's configured recipe onto this appointment
+      // line the instant it's picked — mirrors Web's ServiceRow.tsx
+      // selectService(), which does this unconditionally (no staff action
+      // needed). actualQty defaults to qty until a future "adjust actual
+      // usage" UI (not built here — no equivalent exists in this screen
+      // today) would let staff override it.
+      const consumables: AppointmentSelectedService["consumables"] = service.consumablesUsed?.length
+        ? service.consumablesUsed.map((item) => ({ ...item, actualQty: item.qty }))
+        : undefined;
+
+      return [...current, { ...service, ...(consumables ? { consumables } : {}) }];
     });
-    setServiceSearch("");
     setServiceDropdownOpen(false);
     setErrors((current) => ({
       ...current,
@@ -4122,6 +4059,15 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
       startTime: "",
     }));
     setErrors((current) => ({ ...current, staffId: undefined, startTime: undefined }));
+  };
+
+  const handleServicePickerContinue = () => {
+    if (!form.staffId) {
+      setErrors((current) => ({ ...current, staffId: "Select the staff." }));
+      return;
+    }
+
+    setServicePickerVisible(false);
   };
 
   const handleSelectSlot = (startTime: string) => {
@@ -4146,12 +4092,16 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
 
     const clientId = form.clientId;
     const isWalkInClient = mode === "create" && clientBookingMode === "walkIn";
-    const nextErrors = validateForm(form, { requireClient: !isWalkInClient });
+    const nextErrors = validateForm(form, {
+      allowedPastDate: allowedPastEditDate,
+      requireClient: !isWalkInClient,
+    });
 
     setErrors(nextErrors);
     setFormSubmitError(null);
 
     if (Object.keys(nextErrors).length > 0) {
+      setFormSubmitError("Please correct the highlighted appointment details and try again.");
       return;
     }
 
@@ -4214,6 +4164,21 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         const quantity = Math.max(1, Math.trunc(service.quantity ?? 1));
 
         return {
+          // Resend this line's exact consumables snapshot unchanged — the
+          // backend does a full replace of appointment_service_consumables
+          // whenever `services` is present in the patch (flattenServiceConsumables),
+          // so omitting this on an edit that didn't touch this service would
+          // silently wipe its already-persisted consumables.
+          ...(service.consumables?.length
+            ? {
+                consumables: service.consumables.map((c) => ({
+                  actual_qty: c.actualQty ?? c.qty,
+                  product_id: c.productId,
+                  qty: c.qty,
+                  unit: c.unit,
+                })),
+              }
+            : {}),
           ...(service.discount !== undefined ? { discount: service.discount } : {}),
           ...(service.durationMinutes ? { duration: service.durationMinutes } : {}),
           ...(service.isPackageService ? { is_package_service: true } : {}),
@@ -4280,6 +4245,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     }
 
     const savedId = result.payload.appointment.id;
+    toast.showSuccess(mode === "create" ? "Appointment created successfully." : "Appointment updated successfully.");
     if (mode === "create") {
       void dispatch(fetchAppointmentsThunk({ refresh: true }));
       void dispatch(fetchDashboardThunk());
@@ -4295,11 +4261,12 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         error={serviceCatalogError}
         loading={serviceCatalogLoading}
         onClose={() => setServicePickerVisible(false)}
-        onContinue={() => setServicePickerVisible(false)}
+        onContinue={handleServicePickerContinue}
         onSelect={handleSelectService}
         onSelectStaff={handleSelectStaff}
         selectedStaffId={form.staffId}
         selectedServiceIds={selectedServices.map(getSelectedServiceCatalogId)}
+        staffError={errors.staffId}
         staffMembers={staffMembers}
         services={serviceCatalog}
         visible={servicePickerVisible}
@@ -4311,14 +4278,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         style={styles.flex}
       >
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              hitSlop={AppLayout.headerActionHitSlop}
-              onPress={() => (router.canGoBack() ? router.back() : router.replace("/bookings" as Href))}
-              style={styles.iconButton}
-            >
-              <Ionicons name="arrow-back" size={26} color={Colors.appointmentText} />
-            </TouchableOpacity>
+            <AppBackButton fallbackHref="/bookings" />
             <View style={styles.appointmentHeaderCopy}>
               <Text style={styles.headerTitle}>{mode === "create" ? "New Appointment" : "Edit Appointment"}</Text>
               <Text style={styles.appointmentHeaderSubtitle}>
@@ -4509,9 +4469,9 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         </View>
         <TouchableOpacity
           activeOpacity={0.88}
-          disabled={mutating || !bookingReady}
+          disabled={mutating}
           onPress={handleSubmit}
-          style={[styles.bookingPrimaryButton, (mutating || !bookingReady) && styles.disabledButton]}
+          style={[styles.bookingPrimaryButton, mutating && styles.disabledButton]}
         >
           {mutating ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="calendar-outline" size={20} color="#FFFFFF" />}
           <Text style={styles.bookingPrimaryButtonText}>
@@ -4675,9 +4635,8 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
             {appointment.status === "In Progress" ? <CompleteAppointmentAction appointment={appointment} /> : null}
             {!isStaffMode ? (
               <>
-                <ActionButton icon="create-outline" label="Edit" route={`/appointments/${appointment.id}/edit`} />
                 <ActionButton icon="calendar-outline" label="Reschedule" route={`/appointments/${appointment.id}/reschedule`} />
-                <ActionButton icon="close-circle-outline" label="Cancel Appointment" route={`/appointments/${appointment.id}/cancel`} danger />
+                <ActionButton icon="close-circle-outline" label="Cancel" route={`/appointments/${appointment.id}/cancel`} danger />
               </>
             ) : null}
           </View>
@@ -4907,7 +4866,14 @@ function ActionButton({
       style={[styles.actionButton, danger && styles.actionButtonDanger]}
     >
       <Ionicons name={icon} size={18} color={danger ? Colors.error : Colors.primary} />
-      <Text style={[styles.actionButtonText, danger && styles.actionButtonTextDanger]}>{label}</Text>
+      <Text
+        adjustsFontSizeToFit
+        minimumFontScale={0.85}
+        numberOfLines={1}
+        style={[styles.actionButtonText, danger && styles.actionButtonTextDanger]}
+      >
+        {label}
+      </Text>
     </TouchableOpacity>
   );
 }
@@ -4915,6 +4881,7 @@ function ActionButton({
 export function CancelAppointmentScreen() {
   const { styles } = useAppointmentStyles();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const params = useLocalSearchParams<{ id?: string }>();
   const appointmentId = params.id;
   const mutating = useAppSelector(selectAppointmentMutating);
@@ -4937,6 +4904,7 @@ export function CancelAppointmentScreen() {
       return;
     }
 
+    toast.showSuccess("Appointment cancelled successfully.");
     router.replace(`/appointments/${result.payload.appointment.id}` as Href);
   };
 
@@ -5000,6 +4968,7 @@ export function CancelAppointmentScreen() {
 export function RescheduleAppointmentScreen() {
   const { styles } = useAppointmentStyles();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const params = useLocalSearchParams<{ id?: string }>();
   const appointmentId = params.id;
   const appointment = useAppSelector((state) => selectAppointmentById(state, appointmentId));
@@ -5057,6 +5026,7 @@ export function RescheduleAppointmentScreen() {
       return;
     }
 
+    toast.showSuccess("Appointment rescheduled successfully.");
     router.replace(`/appointments/${result.payload.appointment.id}` as Href);
   };
 
@@ -5135,18 +5105,46 @@ export function AppointmentCalendarScreen() {
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
   const { fetchAppointments } = useFetchAppointments();
-  const [selectedStaff, setSelectedStaff] = useState("All Staff");
+  const [selectedStaffNames, setSelectedStaffNames] = useState<string[]>([]);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [calendarSearchOpen, setCalendarSearchOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"week" | "day" | "list">("day");
   const [viewMenuVisible, setViewMenuVisible] = useState(false);
   const [staffFilterVisible, setStaffFilterVisible] = useState(false);
   const staffNames = useMemo(() => ["All Staff", ...Array.from(new Set([...staffMembers.map((staff) => staff.name), ...appointments.map((item) => item.staffName)].filter(Boolean)))], [appointments, staffMembers]);
-  const visibleAppointments = useMemo(() => selectedStaff === "All Staff" ? appointments : appointments.filter((item) => item.staffName === selectedStaff), [appointments, selectedStaff]);
+  const filteredStaffNames = useMemo(() => staffNames.filter((name) => name !== "All Staff"), [staffNames]);
+  const visibleAppointments = useMemo(
+    () => appointments.filter((item) => {
+      const matchesStaff = selectedStaffNames.length === 0 || selectedStaffNames.includes(item.staffName);
+      const matchesStatus = status === "All"
+        ? item.status !== "Unknown"
+        : status === "Deleted"
+          ? item.status === "Deleted"
+          : appointmentStatusMatchesFilter(item.status, status);
+
+      return matchesStaff && matchesStatus;
+    }),
+    [appointments, selectedStaffNames, status],
+  );
+  const selectedStaffLabel = selectedStaffNames.length === 0
+    ? "All Staff"
+    : selectedStaffNames.length === 1
+      ? selectedStaffNames[0]
+      : `${selectedStaffNames.length} Staff`;
   const rangeEnd = useMemo(() => { const value = new Date(`${date}T00:00:00`); value.setDate(value.getDate() + (viewMode === "week" ? 6 : 0)); return value; }, [date, viewMode]);
   const rangeEndKey = `${rangeEnd.getFullYear()}-${String(rangeEnd.getMonth() + 1).padStart(2, "0")}-${String(rangeEnd.getDate()).padStart(2, "0")}`;
-  const selectedStaffId = selectedStaff === "All Staff" ? undefined : staffMembers.find((staff) => staff.name === selectedStaff)?.id;
+  const selectedStaffId = selectedStaffNames.length === 1 ? staffMembers.find((staff) => staff.name === selectedStaffNames[0])?.id : undefined;
   const changeDate = (amount: number) => { const value = new Date(`${date}T00:00:00`); value.setDate(value.getDate() + amount); setDate(`${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`); };
+  const toggleStaffFilter = (name: string) => {
+    if (name === "All Staff") {
+      setSelectedStaffNames([]);
+      return;
+    }
+
+    setSelectedStaffNames((current) =>
+      current.includes(name) ? current.filter((staffName) => staffName !== name) : [...current, name],
+    );
+  };
 
   useEffect(() => {
     void fetchAppointments(viewMode === "week"
@@ -5160,10 +5158,37 @@ export function AppointmentCalendarScreen() {
 
   return (
     <ScreenShell
-      footer={<View style={styles.dinggLegend}><TouchableOpacity onPress={() => setStatus("All")} style={[styles.dinggLegendPill, status === "All" && styles.dinggLegendActive]}><Text style={styles.dinggLegendText}>All</Text></TouchableOpacity><TouchableOpacity onPress={() => setStatus("Upcoming")} style={styles.dinggLegendPill}><View style={[styles.dinggLegendDot, { backgroundColor: "#38AAA9" }]} /><Text style={styles.dinggLegendText}>Tentative</Text></TouchableOpacity><TouchableOpacity onPress={() => setStatus("Confirmed")} style={styles.dinggLegendPill}><View style={[styles.dinggLegendDot, { backgroundColor: "#F08A24" }]} /><Text style={styles.dinggLegendText}>Confirmed</Text></TouchableOpacity></View>}
+      footer={
+        <ScrollView
+          contentContainerStyle={styles.dinggLegendContent}
+          horizontal
+          nestedScrollEnabled
+          showsHorizontalScrollIndicator={false}
+          style={styles.dinggLegend}
+        >
+          {CALENDAR_STATUS_FILTERS.map((filter) => {
+            const selected = status === filter.status;
+
+            return (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityState={{ selected }}
+                activeOpacity={0.8}
+                key={filter.label}
+                onPress={() => setStatus(filter.status)}
+                style={[styles.dinggLegendPill, selected && styles.dinggLegendActive]}
+              >
+                {filter.status !== "All" ? <View style={[styles.dinggLegendDot, { backgroundColor: selected ? "#FFFFFF" : filter.color }]} /> : null}
+                <Text style={[styles.dinggLegendText, selected && styles.dinggLegendTextActive]}>{filter.label}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      }
       onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}
       refreshing={refreshing}
       hideHeader
+      scrollable={viewMode === "list"}
       title="Calendar"
     >
       <View style={styles.dinggToolbar}>
@@ -5187,11 +5212,18 @@ export function AppointmentCalendarScreen() {
           </View>
         ) : null}
         {datePickerVisible ? <DateTimePicker mode="date" onChange={(event, selected) => { setDatePickerVisible(false); if (event.type !== "dismissed" && selected) setDate(`${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`); }} value={new Date(`${date}T00:00:00`)} /> : null}
-        <TouchableOpacity onPress={() => setStaffFilterVisible(true)} style={styles.dinggStylistSummary}><Text style={styles.dinggStylistLabel}>Stylist:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{selectedStaff}</Text><Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => setStaffFilterVisible(true)} style={styles.dinggStylistSummary}><Text style={styles.dinggStylistLabel}>Staff:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{selectedStaffLabel}</Text><Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /></TouchableOpacity>
       </View>
-      <CalendarPreview appointments={visibleAppointments} date={date} staffNames={staffNames.filter((name) => name !== "All Staff")} viewMode={viewMode} />
+      <CalendarPreview
+        appointments={visibleAppointments}
+        date={date}
+        onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}
+        refreshing={refreshing}
+        staffNames={selectedStaffNames.length ? selectedStaffNames : filteredStaffNames}
+        viewMode={viewMode}
+      />
       <Modal animationType="fade" onRequestClose={() => setViewMenuVisible(false)} transparent visible={viewMenuVisible}><Pressable onPress={() => setViewMenuVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.calendarMenuCard}>{([['week','calendar-outline','Week view'],['day','today-outline','Day view'],['list','list-outline','List view']] as const).map(([value, icon, label]) => <TouchableOpacity key={value} onPress={() => { setViewMode(value); setViewMenuVisible(false); }} style={[styles.calendarMenuOption, viewMode === value && styles.calendarMenuOptionActive]}><Ionicons name={icon} size={18} color={Colors.appointmentText} /><Text style={styles.calendarMenuText}>{label}</Text>{viewMode === value ? <Ionicons name="radio-button-on" size={16} color={Colors.appointmentAccent} /> : null}</TouchableOpacity>)}</Pressable></Pressable></Modal>
-      <Modal animationType="fade" onRequestClose={() => setStaffFilterVisible(false)} transparent visible={staffFilterVisible}><Pressable onPress={() => setStaffFilterVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.staffFilterCard}><Text style={styles.staffFilterTitle}>By Stylist</Text><ScrollView>{staffNames.map((name) => <TouchableOpacity key={name} onPress={() => setSelectedStaff(name)} style={styles.staffFilterOption}><Ionicons name={selectedStaff === name ? "checkbox" : "square-outline"} size={20} color={selectedStaff === name ? Colors.appointmentAccent : Colors.appointmentMuted} /><Text style={styles.staffFilterText}>{name}</Text></TouchableOpacity>)}</ScrollView><View style={styles.staffFilterActions}><TouchableOpacity onPress={() => setSelectedStaff("All Staff")}><Text style={styles.staffFilterClear}>Clear</Text></TouchableOpacity><TouchableOpacity onPress={() => setStaffFilterVisible(false)} style={styles.staffFilterApply}><Text style={styles.staffFilterApplyText}>Apply</Text></TouchableOpacity></View></Pressable></Pressable></Modal>
+      <Modal animationType="fade" onRequestClose={() => setStaffFilterVisible(false)} transparent visible={staffFilterVisible}><Pressable onPress={() => setStaffFilterVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.staffFilterCard}><Text style={styles.staffFilterTitle}>By Staff</Text><ScrollView>{staffNames.map((name) => { const selected = name === "All Staff" ? selectedStaffNames.length === 0 : selectedStaffNames.includes(name); return <TouchableOpacity key={name} onPress={() => toggleStaffFilter(name)} style={styles.staffFilterOption}><Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? Colors.appointmentAccent : Colors.appointmentMuted} /><Text style={styles.staffFilterText}>{name}</Text></TouchableOpacity>; })}</ScrollView><View style={styles.staffFilterActions}><TouchableOpacity onPress={() => setSelectedStaffNames([])}><Text style={styles.staffFilterClear}>Clear</Text></TouchableOpacity><TouchableOpacity onPress={() => setStaffFilterVisible(false)} style={styles.staffFilterApply}><Text style={styles.staffFilterApplyText}>Apply</Text></TouchableOpacity></View></Pressable></Pressable></Modal>
     </ScreenShell>
   );
 }
@@ -5588,6 +5620,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   dinggCalendar: {
     backgroundColor: Colors.appointmentSurface,
+    flex: 1,
     marginHorizontal: -AppLayout.contentHorizontalPadding,
   },
   dinggListView: {
@@ -5727,13 +5760,15 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 38,
   },
   dinggHorizontalScroller: {
-    flexGrow: 0,
+    flex: 1,
   },
   dinggVerticalScroller: {
-    maxHeight: 520,
+    flex: 1,
   },
   dinggTimeHeader: {
     alignItems: "center",
+    borderRightColor: "#8A838A",
+    borderRightWidth: 1.5,
     justifyContent: "center",
     width: 54,
   },
@@ -5744,6 +5779,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   dinggDayHeader: {
     alignItems: "center",
+    borderRightColor: "#8A838A",
+    borderRightWidth: 1.5,
     color: Colors.appointmentTextSecondary,
     flexDirection: "row",
     gap: 5,
@@ -5761,11 +5798,13 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: "row",
   },
   dinggTimeColumn: {
+    borderRightColor: "#8A838A",
+    borderRightWidth: 1.5,
     width: 54,
   },
   dinggTimeCell: {
-    borderBottomColor: Colors.appointmentDivider,
-    borderBottomWidth: 1,
+    borderBottomColor: "#8A838A",
+    borderBottomWidth: 1.5,
     paddingRight: 5,
     justifyContent: "flex-start",
     paddingTop: 2,
@@ -5781,9 +5820,15 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   dinggDayColumn: {
-    borderLeftColor: Colors.appointmentDivider,
-    borderLeftWidth: 1,
+    borderRightColor: "#8A838A",
+    borderRightWidth: 1.5,
     position: "relative",
+  },
+  dinggQuickSaleSlot: {
+    left: 0,
+    position: "absolute",
+    right: 0,
+    zIndex: 1,
   },
   dinggColumnAvailable: {
     backgroundColor: "#FFFBE4",
@@ -5792,51 +5837,95 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     backgroundColor: "#FCF7FA",
   },
   dinggHourCell: {
-    borderBottomColor: Colors.appointmentDivider,
-    borderBottomWidth: 1,
+    borderBottomColor: "#8A838A",
+    borderBottomWidth: 1.5,
     position: "relative",
   },
   dinggQuarterLine: {
-    backgroundColor: Colors.appointmentDivider,
+    backgroundColor: "#8A838A",
     height: StyleSheet.hairlineWidth,
     left: 0,
-    opacity: 0.48,
+    opacity: 0.75,
     position: "absolute",
     right: 0,
   },
   dinggAppointmentCard: {
-    backgroundColor: "#E8F8FA",
-    borderColor: "#2AA7B2",
-    borderLeftWidth: 5,
-    borderWidth: 1,
+    borderColor: "transparent",
+    borderWidth: 2,
     borderRadius: 5,
     left: 3,
-    overflow: "hidden",
-    padding: 7,
+    padding: 0,
     position: "absolute",
     right: 3,
     zIndex: 3,
   },
-  dinggAppointmentCompleted: {
-    backgroundColor: "#E9FAE8",
-    borderColor: "#35B64A",
+  dinggAppointmentGradient: {
+    borderRadius: 3,
+    flex: 1,
+    overflow: "hidden",
+    padding: 7,
   },
-  dinggAppointmentConfirmed: {
-    backgroundColor: "#FFF4E8",
-    borderColor: "#F08A24",
+  dinggAppointmentOverlapping: {
+    borderColor: "#ffffff",
+  },
+  dinggAppointmentHighlighted: {
+    borderColor: "#7c3aed",
+    borderWidth: 3,
+  },
+  dinggAppointmentDragging: {
+    opacity: 0.92,
+  },
+  dinggAppointmentResizing: {
+    elevation: 12,
+    shadowColor: "#000000",
+    shadowOffset: { height: 6, width: 0 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    zIndex: 8,
+  },
+  dinggAppointmentDeleted: {
+    opacity: 0.7,
+  },
+  quickSaleModalBackdrop: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 42, 0.58)",
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 12,
+    paddingVertical: 28,
+  },
+  quickSaleModalSurface: {
+    backgroundColor: Colors.bg,
+    borderRadius: 8,
+    elevation: 24,
+    height: "94%",
+    maxWidth: 620,
+    overflow: "hidden",
+    shadowColor: "#000000",
+    shadowOffset: { height: 12, width: 0 },
+    shadowOpacity: 0.28,
+    shadowRadius: 24,
+    width: "100%",
   },
   dinggAppointmentIcons: {
     flexDirection: "row",
     gap: 4,
   },
+  dinggAppointmentSummary: {
+    color: "#ffffff",
+    fontSize: 11,
+    fontWeight: "800",
+    lineHeight: 14,
+    marginTop: 3,
+  },
   dinggAppointmentName: {
-    color: Colors.appointmentAccent,
+    color: "#ffffff",
     fontSize: 12,
     fontWeight: "800",
     lineHeight: 15,
   },
   dinggAppointmentClient: {
-    color: Colors.appointmentText,
+    color: "#ffffff",
     fontSize: 11,
     fontWeight: "700",
     lineHeight: 14,
@@ -5887,10 +5976,190 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     height: 2,
   },
   previewBackdrop: {
+    alignItems: "center",
     backgroundColor: "rgba(0,0,0,0.34)",
     flex: 1,
-    justifyContent: "flex-end",
+    justifyContent: "center",
+    paddingHorizontal: 28,
   },
+  calendarActionsModal: {
+    backgroundColor: Colors.appointmentSurface,
+    borderRadius: 16,
+    elevation: 20,
+    overflow: "hidden",
+    shadowColor: Colors.shadow,
+    shadowOffset: { height: 8, width: 0 },
+    shadowOpacity: 0.24,
+    shadowRadius: 18,
+    width: "100%",
+  },
+  calendarActionsHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 66,
+    paddingHorizontal: 20,
+  },
+  calendarActionsTitle: {
+    color: Colors.appointmentText,
+    fontSize: 25,
+    fontWeight: "900",
+  },
+  calendarActionsClose: {
+    alignItems: "center",
+    height: 38,
+    justifyContent: "center",
+    width: 38,
+  },
+  calendarActionPrimary: {
+    backgroundColor: Colors.appointmentAccentSoft,
+    borderTopColor: Colors.appointmentDivider,
+    borderTopWidth: 1,
+    justifyContent: "center",
+    minHeight: 68,
+    paddingHorizontal: 20,
+  },
+  calendarActionRow: {
+    borderTopColor: Colors.appointmentDivider,
+    borderTopWidth: 1,
+    justifyContent: "center",
+    minHeight: 68,
+    paddingHorizontal: 20,
+  },
+  calendarActionText: {
+    color: Colors.appointmentText,
+    fontSize: 20,
+    fontWeight: "500",
+  },
+  appointmentDetailsModal: {
+    backgroundColor: Colors.appointmentSurface,
+    elevation: 24,
+    maxHeight: "82%",
+    minHeight: "68%",
+    shadowColor: Colors.shadow,
+    shadowOffset: { height: 8, width: 0 },
+    shadowOpacity: 0.26,
+    shadowRadius: 20,
+    width: "100%",
+  },
+  appointmentModalHeader: {
+    alignItems: "flex-start",
+    borderBottomColor: Colors.appointmentDivider,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    paddingHorizontal: 18,
+    paddingVertical: 16,
+  },
+  appointmentModalHeading: { flex: 1, minWidth: 0 },
+  appointmentModalTitle: { color: Colors.appointmentText, fontSize: 18, fontWeight: "900" },
+  appointmentClientBand: {
+    alignItems: "center",
+    backgroundColor: Colors.appointmentAccentSoft,
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 18,
+    paddingVertical: 18,
+  },
+  appointmentClientAvatar: {
+    alignItems: "center",
+    backgroundColor: Colors.appointmentSurface,
+    borderRadius: 28,
+    height: 56,
+    justifyContent: "center",
+    width: 56,
+  },
+  appointmentClientCopy: { flex: 1, minWidth: 0 },
+  appointmentClientName: { color: Colors.appointmentText, fontSize: 20, fontWeight: "900", lineHeight: 25 },
+  appointmentClientPhone: { color: Colors.appointmentTextSecondary, fontSize: 14, marginTop: 5 },
+  appointmentStatusControl: {
+    alignItems: "center",
+    backgroundColor: Colors.appointmentSurface,
+    borderColor: Colors.appointmentBorder,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 7,
+    maxWidth: 132,
+    minHeight: 48,
+    paddingHorizontal: 10,
+  },
+  appointmentStatusDot: { borderRadius: 5, height: 10, width: 10 },
+  appointmentStatusLabel: { color: Colors.appointmentTextSecondary, flexShrink: 1, fontSize: 13, fontWeight: "700" },
+  appointmentTabs: {
+    borderBottomColor: Colors.appointmentDivider,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: 36,
+    paddingHorizontal: 18,
+    paddingTop: 18,
+  },
+  appointmentTabActive: {
+    borderBottomColor: Colors.appointmentAccent,
+    borderBottomWidth: 3,
+    color: Colors.appointmentAccent,
+    fontSize: 18,
+    fontWeight: "900",
+    paddingBottom: 12,
+  },
+  appointmentTab: { color: Colors.appointmentText, fontSize: 18, fontWeight: "600", paddingBottom: 12 },
+  appointmentModalContent: { flexGrow: 1, padding: 18 },
+  appointmentServiceHeading: { color: Colors.appointmentText, fontSize: 18, fontWeight: "900", marginBottom: 16 },
+  appointmentServiceCard: {
+    borderColor: Colors.appointmentBorder,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+  },
+  appointmentServiceTop: { alignItems: "flex-start", flexDirection: "row", justifyContent: "space-between" },
+  appointmentServiceName: { color: Colors.appointmentText, flex: 1, fontSize: 17, fontWeight: "900", paddingRight: 10 },
+  appointmentServiceTime: { color: Colors.appointmentText, fontSize: 13 },
+  appointmentServiceMeta: { flexDirection: "row", justifyContent: "space-between", marginTop: 8 },
+  appointmentBookedBy: { color: Colors.appointmentTextSecondary, flex: 1, fontSize: 13 },
+  appointmentWith: { color: Colors.appointmentTextSecondary, fontSize: 13 },
+  appointmentServiceStatus: { alignItems: "center", flexDirection: "row", gap: 8, marginTop: 22 },
+  appointmentServiceStatusText: { color: Colors.appointmentText, fontSize: 16, fontWeight: "700" },
+  appointmentNotesHeading: {
+    color: Colors.appointmentText,
+    fontSize: 18,
+    fontWeight: "900",
+    marginBottom: 14,
+  },
+  appointmentNotesText: {
+    color: Colors.appointmentText,
+    fontSize: 15,
+    lineHeight: 23,
+  },
+  appointmentNotesEmpty: {
+    color: Colors.appointmentTextSecondary,
+  },
+  appointmentNotesButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    backgroundColor: Colors.appointmentAccent,
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 22,
+    minHeight: 44,
+    paddingHorizontal: 16,
+  },
+  appointmentNotesButtonText: {
+    color: "#FFFFFF",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  appointmentInvoiceButton: {
+    alignItems: "center",
+    backgroundColor: Colors.appointmentAccent,
+    borderRadius: 28,
+    flexDirection: "row",
+    gap: 9,
+    justifyContent: "center",
+    margin: 18,
+    minHeight: 54,
+  },
+  appointmentInvoiceDisabled: { opacity: 0.45 },
+  appointmentInvoiceText: { color: "#FFFFFF", fontSize: 17, fontWeight: "900" },
   previewSheet: {
     backgroundColor: Colors.appointmentSurface,
     borderTopLeftRadius: 18,
@@ -5995,11 +6264,13 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   dinggLegend: {
-    alignItems: "center",
     backgroundColor: Colors.appointmentSurface,
+    flexGrow: 0,
+  },
+  dinggLegendContent: {
+    alignItems: "center",
     flexDirection: "row",
     gap: 8,
-    justifyContent: "space-between",
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
@@ -6007,11 +6278,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     alignItems: "center",
     backgroundColor: Colors.appointmentSurface,
     borderRadius: 22,
-    flex: 1,
     flexDirection: "row",
     gap: 7,
     justifyContent: "center",
     minHeight: 42,
+    minWidth: 88,
+    paddingHorizontal: 16,
   },
   dinggLegendActive: {
     backgroundColor: Colors.appointmentAccent,
@@ -6025,6 +6297,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.appointmentText,
     fontSize: 11,
     fontWeight: "600",
+  },
+  dinggLegendTextActive: {
+    color: "#FFFFFF",
+    fontWeight: "800",
   },
   calendarMenuBackdrop: {
     alignItems: "center",
@@ -6469,6 +6745,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingBottom: AppLayout.contentBottomPadding,
     paddingHorizontal: 24,
     paddingTop: Spacing.sm,
+  },
+  fixedContent: {
+    flex: 1,
   },
   dangerButton: {
     alignItems: "center",

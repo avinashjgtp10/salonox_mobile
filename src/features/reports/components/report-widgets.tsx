@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { memo, useMemo } from "react";
 import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { SkeletonBlock, StateIllustration } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
@@ -145,14 +146,41 @@ export const ReportState = memo(function ReportState({
 });
 
 export const ReportPaginationFooter = memo(function ReportPaginationFooter({
+  currentPage = 1,
+  hasMore,
   loading,
   noMore,
+  onLoadMore,
+  totalItems,
+  totalPages,
+  visibleItems,
 }: {
+  currentPage?: number;
+  hasMore?: boolean;
   loading: boolean;
   noMore: boolean;
+  onLoadMore?: () => void;
+  totalItems?: number;
+  totalPages?: number;
+  visibleItems?: number;
 }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
+  if (onLoadMore || totalPages || totalItems) {
+    if (!loading && !noMore && !hasMore) return null;
+    return (
+      <PaginationControls
+        currentPage={currentPage}
+        hasNextPage={Boolean(hasMore)}
+        hasPreviousPage={false}
+        loading={loading}
+        onNext={onLoadMore}
+        totalItems={totalItems}
+        totalPages={totalPages}
+        visibleItems={visibleItems}
+      />
+    );
+  }
   if (!loading && !noMore) return null;
   return (
     <View accessibilityLiveRegion="polite" style={styles.footer}>

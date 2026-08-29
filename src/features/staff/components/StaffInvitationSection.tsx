@@ -8,6 +8,7 @@ import {
 } from "@/constants/theme";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
+import { useAppToast } from "@/hooks/useAppToast";
 import {
   cancelInviteThunk,
   fetchInvitationStatusThunk,
@@ -51,6 +52,7 @@ export function StaffInvitationSection({ staffId }: StaffInvitationSectionProps)
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const currentUser = useAppSelector(selectCurrentUser);
   const canManage = canManageStaffLifecycle(currentUser?.role);
 
@@ -90,7 +92,7 @@ export function StaffInvitationSection({ staffId }: StaffInvitationSectionProps)
       return;
     }
 
-    Alert.alert("Invite resent", resultAction.payload.message ?? "The invitation has been resent.");
+    toast.showSuccess("Invitation resent successfully.");
     handleRetry();
   };
 
@@ -125,7 +127,7 @@ export function StaffInvitationSection({ staffId }: StaffInvitationSectionProps)
       return;
     }
 
-    Alert.alert("Invitation cancelled", resultAction.payload.message ?? "The invitation has been cancelled.");
+    toast.showSuccess("Invitation cancelled successfully.");
   };
 
   if (listError) {

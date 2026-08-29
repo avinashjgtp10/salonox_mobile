@@ -57,6 +57,7 @@ export default function QuickSaleCheckoutScreen() {
   const params = useLocalSearchParams<{
     draftId?: string;
     mode?: string;
+    openReceipt?: string;
     saleId?: string;
   }>();
   const normalizedSaleId = useMemo(
@@ -176,6 +177,7 @@ export default function QuickSaleCheckoutScreen() {
   const outstandingAmount = authoritativeSale?.outstandingAmount ?? 0;
 
   const [isReceiptModalVisible, setIsReceiptModalVisible] = useState(false);
+  const hasAutoOpenedReceiptRef = useRef(false);
 
   const receiptData = useMemo<ReceiptData | null>(() => {
     if (!authoritativeSale) return null;
@@ -254,6 +256,13 @@ export default function QuickSaleCheckoutScreen() {
       upiQrUrl: undefined, // No UPI QR source stored on the salon profile yet
     };
   }, [authoritativeSale, salon]);
+
+  useEffect(() => {
+    if (params.openReceipt === "1" && receiptData && !hasAutoOpenedReceiptRef.current) {
+      hasAutoOpenedReceiptRef.current = true;
+      setIsReceiptModalVisible(true);
+    }
+  }, [params.openReceipt, receiptData]);
 
   const [isQuickActionLoading, setIsQuickActionLoading] = useState(false);
 

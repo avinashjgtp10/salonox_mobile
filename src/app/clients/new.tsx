@@ -1,5 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, useLocalSearchParams, type Href } from "expo-router";
+import { isValidPhoneNumber, parsePhoneNumber, type CountryCode } from "libphonenumber-js";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
@@ -16,7 +17,10 @@ import {
 import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { DateField } from "@/components/ui/DateField";
+import { PhoneInput } from "@/components/ui/PhoneInput";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
@@ -44,15 +48,48 @@ import {
 } from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import { EMAIL_INVALID_MESSAGE, isValidEmail, isValidPhoneDigits, PHONE_INVALID_MESSAGE } from "@/utils/validation";
+import { EMAIL_INVALID_MESSAGE, isValidEmail, PHONE_INVALID_MESSAGE } from "@/utils/validation";
 import { splitFullName } from "@/utils/name";
 
 const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
-const DAY_OPTIONS = Array.from({ length: 31 }, (_, index) => String(index + 1).padStart(2, "0"));
-const MONTH_OPTIONS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-const YEAR_OPTIONS = Array.from({ length: 100 }, (_, index) => String(new Date().getFullYear() - index));
 const STATE_OPTIONS = ["Andhra Pradesh", "Delhi", "Gujarat", "Karnataka", "Maharashtra", "Rajasthan", "Tamil Nadu", "Telangana", "Uttar Pradesh", "West Bengal"];
 const LEAD_SOURCE_OPTIONS = ["Walk-in", "Google", "Instagram", "Facebook", "Referral", "Website", "Other"];
+
+const getPhoneForEdit = (clientPhone: string, phoneCountryCode?: string | null) => {
+  const trimmedPhone = clientPhone === "-" ? "" : clientPhone.trim();
+
+  if (!trimmedPhone) {
+    return "";
+  }
+
+  if (trimmedPhone.startsWith("+")) {
+    return trimmedPhone;
+  }
+
+  return `${phoneCountryCode || "+91"}${trimmedPhone.replace(/\D/g, "")}`;
+};
+
+const splitPhoneForRequest = (e164Phone: string) => {
+  const trimmedPhone = e164Phone.trim();
+
+  if (!trimmedPhone) {
+    return { phoneCountryCode: undefined as string | undefined, phoneNumber: "" };
+  }
+
+  try {
+    const parsed = parsePhoneNumber(trimmedPhone);
+
+    return {
+      phoneCountryCode: `+${parsed.countryCallingCode}`,
+      phoneNumber: parsed.nationalNumber,
+    };
+  } catch {
+    return {
+      phoneCountryCode: undefined as string | undefined,
+      phoneNumber: trimmedPhone.replace(/^\+/, ""),
+    };
+  }
+};
 
 function DinggSelect({ label, onSelect, options, placeholder = "Select", value }: { label?: string; onSelect: (value: string) => void; options: readonly string[]; placeholder?: string; value: string }) {
   const Colors = useThemeColors();
@@ -120,16 +157,14 @@ export default function NewClientScreen() {
   const [gender, setGender] = useState<(typeof GENDER_OPTIONS)[number] | "">("");
   const [isFinishing, setIsFinishing] = useState(false);
   const [phone, setPhone] = useState("");
+  const [phoneCountry, setPhoneCountry] = useState<CountryCode>("IN");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [whatsappMatchesPhone, setWhatsappMatchesPhone] = useState(true);
   const [promotionChannels, setPromotionChannels] = useState(["SMS", "Email", "Whatsapp"]);
   const [transactionChannels, setTransactionChannels] = useState(["SMS", "Email", "Whatsapp"]);
-  const [birthDay, setBirthDay] = useState("");
-  const [birthMonth, setBirthMonth] = useState("");
-  const [birthYear, setBirthYear] = useState("");
-  const [anniversaryDay, setAnniversaryDay] = useState("");
-  const [anniversaryMonth, setAnniversaryMonth] = useState("");
-  const [anniversaryYear, setAnniversaryYear] = useState("");
+  const [birthDate, setBirthDate] = useState("");
+  const [anniversaryDate, setAnniversaryDate] = useState("");
   const [address, setAddress] = useState("");
   const [clientCode, setClientCode] = useState("");
   const [clientState, setClientState] = useState("");
@@ -160,9 +195,20 @@ export default function NewClientScreen() {
   useEffect(() => {
     if (!hasPrefilledRef.current && client) {
       const existingName = splitFullName(client.fullName);
+      const nextPhone = getPhoneForEdit(client.phone, client.phoneCountryCode);
       setFirstName(existingName.first_name);
       setLastName(existingName.last_name);
-      setPhone(client.phone === "-" ? "" : client.phone);
+      setPhone(nextPhone);
+      if (nextPhone) {
+        try {
+          const parsed = parsePhoneNumber(nextPhone);
+          if (parsed.country) {
+            setPhoneCountry(parsed.country);
+          }
+        } catch {
+          setPhoneCountry("IN");
+        }
+      }
       setEmail(client.email === "-" ? "" : client.email);
       setGender(
         GENDER_OPTIONS.includes(client.gender as (typeof GENDER_OPTIONS)[number])
@@ -189,6 +235,7 @@ export default function NewClientScreen() {
     const trimmedEmail = email.trim();
 
     setFormError(null);
+    setPhoneError(null);
     setSuccessMessage(null);
 
     if (!trimmedFirstName) {
@@ -197,12 +244,12 @@ export default function NewClientScreen() {
     }
 
     if (!trimmedPhone) {
-      setFormError("Phone number is required.");
+      setPhoneError("Phone number is required.");
       return;
     }
 
-    if (!isValidPhoneDigits(trimmedPhone)) {
-      setFormError(PHONE_INVALID_MESSAGE);
+    if (!isValidPhoneNumber(trimmedPhone)) {
+      setPhoneError(PHONE_INVALID_MESSAGE);
       return;
     }
 
@@ -211,12 +258,14 @@ export default function NewClientScreen() {
       return;
     }
 
+    const phoneParts = splitPhoneForRequest(trimmedPhone);
     const clientPayload = {
       ...(trimmedEmail ? { email: trimmedEmail } : {}),
       first_name: trimmedFirstName,
       ...(gender ? { gender } : {}),
       last_name: trimmedLastName,
-      phone: trimmedPhone,
+      phone_country_code: phoneParts.phoneCountryCode,
+      phone_number: phoneParts.phoneNumber,
     };
 
     if (id) {
@@ -318,15 +367,7 @@ export default function NewClientScreen() {
         style={styles.flex}
       >
           <View style={styles.headerRow}>
-            <TouchableOpacity
-              activeOpacity={0.8}
-              disabled={isSubmitting}
-              hitSlop={AppLayout.headerActionHitSlop}
-              onPress={handleBack}
-              style={styles.backButton}
-            >
-              <Ionicons name="arrow-back" size={26} color={Colors.appointmentText} />
-            </TouchableOpacity>
+            <AppBackButton onPress={handleBack} />
             <Text style={styles.headerTitle}>{isEditMode ? "Edit client" : "Add client"}</Text>
           </View>
 
@@ -352,20 +393,19 @@ export default function NewClientScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Mobile No.<Text style={styles.requiredMark}>*</Text></Text>
-              <View style={styles.inputContainer}>
-                <Text style={styles.countryCode}>+91</Text>
-                <TextInput
-                  editable={!isSubmitting}
-                  keyboardType="phone-pad"
-                  onChangeText={setPhone}
-                  placeholder="Enter phone number"
-                  placeholderTextColor={Colors.appointmentPlaceholder}
-                  returnKeyType="next"
-                  style={styles.textInput}
-                  textContentType="telephoneNumber"
-                  value={phone}
-                />
-              </View>
+              <PhoneInput
+                country={phoneCountry}
+                disabled={isSubmitting}
+                error={phoneError ?? undefined}
+                onChange={(value) => {
+                  setPhone(value);
+                  setPhoneError(null);
+                }}
+                onCountryChange={setPhoneCountry}
+                placeholder="Enter phone number"
+                required
+                value={phone}
+              />
               <View style={styles.whatsappRow}>
                 <Text style={styles.whatsappText}>This is Client&apos;s <Text style={styles.whatsappAccent}>WhatsApp</Text> Number</Text>
                 <Switch onValueChange={setWhatsappMatchesPhone} thumbColor="#FFFFFF" trackColor={{ false: Colors.appointmentBorder, true: Colors.appointmentAccent }} value={whatsappMatchesPhone} />
@@ -418,18 +458,20 @@ export default function NewClientScreen() {
               <Text style={styles.sectionTitle}>Additional Information</Text>
             </View>
             <DinggSelect label="Gender*" onSelect={(value) => setGender(value as (typeof GENDER_OPTIONS)[number])} options={GENDER_OPTIONS} value={gender} />
-            <Text style={styles.inputLabel}>Date of birth</Text>
-            <View style={styles.dateSelectRow}>
-              <View style={styles.dateSelect}><DinggSelect onSelect={setBirthDay} options={DAY_OPTIONS} placeholder="Date" value={birthDay} /></View>
-              <View style={styles.dateSelect}><DinggSelect onSelect={setBirthMonth} options={MONTH_OPTIONS} placeholder="Month" value={birthMonth} /></View>
-              <View style={styles.dateSelect}><DinggSelect onSelect={setBirthYear} options={YEAR_OPTIONS} placeholder="Year" value={birthYear} /></View>
-            </View>
-            <Text style={styles.inputLabel}>Anniversary</Text>
-            <View style={styles.dateSelectRow}>
-              <View style={styles.dateSelect}><DinggSelect onSelect={setAnniversaryDay} options={DAY_OPTIONS} placeholder="Date" value={anniversaryDay} /></View>
-              <View style={styles.dateSelect}><DinggSelect onSelect={setAnniversaryMonth} options={MONTH_OPTIONS} placeholder="Month" value={anniversaryMonth} /></View>
-              <View style={styles.dateSelect}><DinggSelect onSelect={setAnniversaryYear} options={YEAR_OPTIONS} placeholder="Year" value={anniversaryYear} /></View>
-            </View>
+            <DateField
+              label="Date of birth"
+              maximumDate={new Date()}
+              onChange={setBirthDate}
+              placeholder="Select date of birth"
+              value={birthDate}
+            />
+            <DateField
+              label="Anniversary"
+              maximumDate={new Date()}
+              onChange={setAnniversaryDate}
+              placeholder="Select anniversary date"
+              value={anniversaryDate}
+            />
             <View style={styles.inputGroup}><Text style={styles.inputLabel}>Address</Text><View style={[styles.inputContainer, styles.multilineInput]}><TextInput multiline onChangeText={setAddress} placeholder="Address" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.textInput} value={address} /></View></View>
             <View style={styles.inputGroup}><Text style={styles.inputLabel}>Client Code</Text><View style={styles.inputContainer}><TextInput onChangeText={setClientCode} placeholder="Enter client code" placeholderTextColor={Colors.appointmentPlaceholder} style={styles.textInput} value={clientCode} /></View></View>
             <DinggSelect label="State" onSelect={setClientState} options={STATE_OPTIONS} placeholder="Select State" value={clientState} />
@@ -503,14 +545,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     gap: 10,
     marginBottom: 22,
     minHeight: 58,
-  },
-  backButton: {
-    alignItems: "center",
-    backgroundColor: "transparent",
-    borderWidth: 0,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
-    width: AppLayout.headerActionSize,
   },
   backButtonPlaceholder: {
     width: AppLayout.headerActionSize,
@@ -653,14 +687,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   preferenceText: {
     color: Colors.appointmentText,
     fontSize: 13,
-  },
-  dateSelectRow: {
-    flexDirection: "row",
-    gap: 8,
-  },
-  dateSelect: {
-    flex: 1,
-    minWidth: 0,
   },
   multilineInput: {
     alignItems: "flex-start",

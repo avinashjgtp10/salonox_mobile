@@ -97,6 +97,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         cameraPermission: "Allow SalonOX to use your camera so you can take a profile picture.",
       },
     ],
+    [
+      "expo-contacts",
+      {
+        contactsPermission: "Allow SalonOX to access your contacts so you can import them as clients.",
+      },
+    ],
     "@react-native-community/datetimepicker",
     [
       "expo-notifications",

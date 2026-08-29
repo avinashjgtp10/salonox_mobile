@@ -5,6 +5,7 @@ export const CONSUMABLE = {
   ADJUST: (id: string) => `/inventory/consumables/${id}/adjust`,
   ASSIGNED_SERVICES: (id: string) => `/inventory/consumables/${id}/assigned-services`,
   DASHBOARD: "/inventory/consumables/dashboard",
+  DELETE: (id: string) => `/inventory/consumables/${id}`,
   DETAIL: (id: string) => `/inventory/consumables/${id}`,
   UNIT_CONVERSIONS: (id: string) => `/inventory/consumables/${id}/unit-conversions`,
   USAGE_HISTORY: "/inventory/consumables/usage-history",

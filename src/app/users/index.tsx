@@ -15,6 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
@@ -23,6 +24,7 @@ import {
 } from "@/constants/theme";
 import { matchesTeamSearch, type StaffMember } from "@/data/teamData";
 import { getStaffDetailsPath } from "@/features/staff/utils/staffNavigation";
+import { useAppToast } from "@/hooks/useAppToast";
 import { deleteStaffThunk, fetchStaffThunk, setStaffActiveStatusThunk } from "@/middleware/staff/staff.thunk";
 import {
   selectStaffActiveStatusTogglingIds,
@@ -229,6 +231,7 @@ export default function UsersScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const insets = useSafeAreaInsets();
   const currentUser = useAppSelector(selectCurrentUser);
   const canManageLifecycle = canManageStaffLifecycle(currentUser?.role);
@@ -279,7 +282,7 @@ export default function UsersScreen() {
       return;
     }
 
-    Alert.alert("User deleted", resultAction.payload.message ?? `${staffMember.name} has been removed.`);
+    toast.showSuccess("User deleted successfully.");
   };
 
   const handleDeleteUser = (staffMember: StaffMember) => {
@@ -318,9 +321,8 @@ export default function UsersScreen() {
       return;
     }
 
-    Alert.alert(
-      nextStatus === "inactive" ? "User deactivated" : "User activated",
-      `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "activated"}.`,
+    toast.showSuccess(
+      nextStatus === "inactive" ? "User deactivated successfully." : "User activated successfully.",
     );
   };
 
@@ -379,11 +381,17 @@ export default function UsersScreen() {
         }
         ListFooterComponent={
           <View style={styles.footerWrap}>
-            {staffLoadingMore ? (
-              <View style={styles.loadingMoreWrap}>
-                <ActivityIndicator color={Colors.primary} size="small" />
-                <Text style={styles.loadingMoreText}>Loading more users...</Text>
-              </View>
+            {staffMembers.length > 0 ? (
+              <PaginationControls
+                currentPage={Math.max(1, Math.ceil(staffMembers.length / staffPagination.limit))}
+                hasNextPage={staffPagination.hasMore}
+                hasPreviousPage={false}
+                loading={staffLoadingMore}
+                onNext={staffPagination.hasMore ? handleLoadMore : undefined}
+                totalItems={staffPagination.totalCount}
+                totalPages={Math.max(1, Math.ceil(staffPagination.totalCount / staffPagination.limit))}
+                visibleItems={staffMembers.length}
+              />
             ) : null}
             <View style={{ height: 24 + insets.bottom }} />
           </View>

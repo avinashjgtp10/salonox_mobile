@@ -11,6 +11,7 @@ import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
+import { useAppToast } from "@/hooks/useAppToast";
 import {
   createLeaveThunk,
   deleteLeaveThunk,
@@ -120,6 +121,7 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const currentUser = useAppSelector(selectCurrentUser);
   const canManage = canManageStaffLifecycle(currentUser?.role);
   const leaves = useAppSelector((state) => selectLeaves(state, staffId));
@@ -222,6 +224,7 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
     const succeeded = createLeaveThunk.fulfilled.match(action) || updateLeaveThunk.fulfilled.match(action);
 
     if (succeeded) {
+      toast.showSuccess(editingLeave ? "Leave request updated successfully." : "Leave request created successfully.");
       closeForm();
     }
   };
@@ -257,7 +260,7 @@ export function StaffLeaveSection({ staffId }: StaffLeaveSectionProps) {
       return;
     }
 
-    Alert.alert("Leave deleted", resultAction.payload.message ?? "The leave request has been removed.");
+    toast.showSuccess("Leave request deleted successfully.");
   };
 
   const sortedLeaves = useMemo(

@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -16,9 +16,11 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { SettlementModal } from "@/components/ui/SettlementModal";
 import { AppLayout, AppRadius } from "@/constants/layout";
+import { useAppToast } from "@/hooks/useAppToast";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
@@ -82,12 +84,12 @@ export default function SalonCommissionsScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
 
   const currentUser = useAppSelector(selectCurrentUser);
   const currentStaff = useAppSelector(selectCurrentStaff);
   const userRole = currentUser?.role ?? "";
-  const userPermissions = (currentUser?.custom_permissions as string[]) ?? [];
-  const hasSettlePermission = canSettleCommission(userRole, userPermissions);
+  const hasSettlePermission = canSettleCommission(userRole);
   const isStaffUser = currentStaff && !hasSettlePermission;
 
   const records = useAppSelector(selectSalonCommissionRecords);
@@ -108,10 +110,16 @@ export default function SalonCommissionsScreen() {
   );
   const deferredSearch = useDeferredValue(search);
 
-  useEffect(() => {
-    void dispatch(fetchSalonCommissionSummaryThunk());
-    void dispatch(fetchSalonCommissionEarnedThunk());
-  }, [dispatch]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasSettlePermission) {
+        return;
+      }
+
+      void dispatch(fetchSalonCommissionSummaryThunk());
+      void dispatch(fetchSalonCommissionEarnedThunk());
+    }, [dispatch, hasSettlePermission]),
+  );
 
   // The commission-earned endpoint returns the full salon list in one shot
   // (it does not support server-side search/status/pagination), so filtering
@@ -139,14 +147,19 @@ export default function SalonCommissionsScreen() {
   const [refreshing, setRefreshing] = useState(false);
 
   const handleRefresh = async () => {
+    if (refreshing || !hasSettlePermission) {
+      return;
+    }
+
     setRefreshing(true);
-
-    await Promise.all([
-      dispatch(fetchSalonCommissionSummaryThunk()),
-      dispatch(fetchSalonCommissionEarnedThunk()),
-    ]);
-
-    setRefreshing(false);
+    try {
+      await Promise.all([
+        dispatch(fetchSalonCommissionSummaryThunk()),
+        dispatch(fetchSalonCommissionEarnedThunk()),
+      ]);
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const handleSettle = (record: SalonCommissionRecord) => {
@@ -171,7 +184,7 @@ export default function SalonCommissionsScreen() {
 
     setSettlementRecord(null);
     setIsSettlementModalOpen(false);
-    Alert.alert("Commission settled", resultAction.payload.message ?? "Payment recorded successfully.");
+    toast.showSuccess("Commission settled successfully.");
   };
 
   const handleSettlementModalClose = () => {
@@ -241,11 +254,9 @@ export default function SalonCommissionsScreen() {
   const listHeader = (
     <View>
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.84} onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
-        </TouchableOpacity>
+        <AppBackButton fallbackHref="/team" />
         <Text style={styles.headerTitle}>Commissions</Text>
-        <View style={styles.headerButton} />
+        <AppBackButtonPlaceholder />
       </View>
 
       {summaryError ? (
@@ -272,7 +283,9 @@ export default function SalonCommissionsScreen() {
           </View>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Staff</Text>
-            <Text style={styles.summaryValue}>{summaryLoading ? "-" : records.length}</Text>
+            <Text style={styles.summaryValue}>
+              {summaryLoading ? "-" : summary?.totalStaff ?? 0}
+            </Text>
           </View>
         </View>
       )}
@@ -368,16 +381,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: AppLayout.headerMarginBottom,
     marginTop: Spacing.md,
-  },
-  headerButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
-    width: AppLayout.headerActionSize,
   },
   headerTitle: {
     color: Colors.heading,

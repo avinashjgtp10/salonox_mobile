@@ -173,6 +173,10 @@ const normalizeAssignment = (raw: AnyRecord): ClientMembershipAssignment => {
     discountBalanceRemaining: toNullableNumber(
       firstValue(raw, ["discountBalanceRemaining", "discount_balance_remaining"]),
     ),
+    discountPercent: toNullableNumber(
+      firstValue(raw, ["discountPercent", "discount_percent"]) ??
+        firstValue(membership, ["discountPercent", "discount_percent"]),
+    ),
     expiresAt,
     history: (Array.isArray(firstValue(raw, ["history", "membershipHistory", "membership_history"]))
       ? (firstValue(raw, ["history", "membershipHistory", "membership_history"]) as unknown[])

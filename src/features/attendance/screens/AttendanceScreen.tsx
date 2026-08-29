@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -143,9 +143,7 @@ export default function AttendanceScreen() {
   const listHeader = (
     <View>
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
-        </TouchableOpacity>
+        <AppBackButton style={styles.headerButtonPosition} />
         <Text style={styles.headerTitle}>Staff Attendance</Text>
       </View>
 
@@ -295,17 +293,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: Spacing.md,
     position: "relative",
   },
-  headerButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
+  headerButtonPosition: {
     left: 0,
     position: "absolute",
-    width: AppLayout.headerActionSize,
   },
   headerTitle: {
     color: Colors.heading,

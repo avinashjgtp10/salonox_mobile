@@ -105,6 +105,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
   const serviceQuery = useAppSelector((state) => state.service.query);
   const staffQuery = useAppSelector((state) => state.staff.query);
   const refreshTimersRef = useRef<Partial<Record<RealtimeEntity, ReturnType<typeof setTimeout>>>>({});
+  const hasConnectedRef = useRef(false);
 
   const refreshEntity = useMemo(
     () => ({
@@ -237,6 +238,31 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
           scheduleRefresh(entity, payload);
         }
       });
+
+      // These are the actual appointment events emitted by the shared backend
+      // and consumed by the Web Calendar.
+      bindHandler(socket, "notification", (payload) => {
+        const notification = payload as { type?: string } | undefined;
+        scheduleRefresh("notifications", payload);
+        if (notification?.type === "appointment") {
+          scheduleRefresh("appointments", payload);
+        }
+      });
+
+      bindHandler(socket, "payment_updated", (payload) => {
+        scheduleRefresh("appointments", payload);
+        scheduleRefresh("sales", payload);
+      });
+
+      // A reconnect means events may have been missed while offline. Replace
+      // the active appointment query from the API instead of trusting cache.
+      hasConnectedRef.current = socket.connected;
+      bindHandler(socket, "connect", () => {
+        if (hasConnectedRef.current) {
+          scheduleRefresh("appointments", { reason: "socket_reconnected" });
+        }
+        hasConnectedRef.current = true;
+      });
     });
 
     return () => {
@@ -253,6 +279,7 @@ export const useRealtimeSync = (isAuthenticated: boolean) => {
 
   useEffect(() => {
     if (!isAuthenticated) {
+      hasConnectedRef.current = false;
       realtimeSocket.disconnect();
     }
   }, [isAuthenticated]);

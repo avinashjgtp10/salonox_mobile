@@ -1,6 +1,7 @@
 import { router } from "expo-router";
 import { useEffect, useMemo, useState } from "react";
 
+import { useAppToast } from "@/hooks/useAppToast";
 import { createStaffThunk, updateStaffThunk, fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import { getApiErrorMessage } from "@/services/api";
 import { staffService } from "@/services/staff.service";
@@ -58,6 +59,7 @@ const toPlaceholderDob = (day?: number | null, month?: number | null) => {
 
 export const useStaffForm = (staffId?: string | null) => {
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const staffMember = useAppSelector((state) => selectStaffById(state, staffId));
   const staffMembers = useAppSelector(selectStaffMembers);
   const creating = useAppSelector(selectStaffCreating);
@@ -194,6 +196,8 @@ export const useStaffForm = (staffId?: string | null) => {
     }
 
     if (succeeded) {
+      toast.showSuccess(isEditMode ? "Staff updated successfully." : "Staff created successfully.");
+
       void dispatch(
         fetchStaffThunk({
           page: 1,

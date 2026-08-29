@@ -1,4 +1,4 @@
-import type { ConsumableUsageItem } from "@/types/consumable";
+import type { ConsumableUsageApiItem, ConsumableUsageRequestItem } from "@/types/consumable";
 
 export type AppointmentStatus =
   | "Upcoming"
@@ -48,6 +48,7 @@ export type AppointmentApiClient = {
 };
 
 export type AppointmentApiService = {
+  consumables?: ConsumableUsageApiItem[] | null;
   discount?: number | string | null;
   duration?: number | string | null;
   duration_minutes?: number | string | null;
@@ -198,6 +199,7 @@ export type AppointmentListItem = {
   paymentStatus: string;
   phone: string;
   raw: AppointmentApiItem;
+  saleId: string;
   scheduledAt: string | null;
   serviceId: string;
   serviceName: string;
@@ -273,9 +275,12 @@ export type CreateAppointmentRequest = {
   service_id?: string;
   service_name?: string;
   services?: {
-    // Not yet sent to the backend — Phase 1 type foundation only, populated
-    // starting Phase 2 once `buildAppointmentPayload()` is updated.
-    consumables?: ConsumableUsageItem[];
+    // Wire shape only — the backend's flattenServiceConsumables() reads
+    // c.product_id/c.qty/c.unit/c.actual_qty and silently skips any row
+    // missing product_id, so this must stay ConsumableUsageRequestItem
+    // (snake_case), never the camelCase ConsumableUsageItem used for
+    // in-app cart/form state.
+    consumables?: ConsumableUsageRequestItem[];
     discount?: number;
     duration?: number;
     is_package_service?: boolean;

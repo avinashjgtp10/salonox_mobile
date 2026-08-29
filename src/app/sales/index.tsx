@@ -18,12 +18,14 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { useAppToast } from "@/hooks/useAppToast";
 import { deleteSaleThunk, exportSalesThunk, fetchSalesSummaryThunk, fetchSalesThunk } from "@/middleware/sales/sales.thunk";
 import {
   selectSaleDeletingIds,
@@ -46,18 +48,16 @@ import { formatInvoiceNumber } from "@/utils/receipt";
 const SALE_FILTERS = ["All", "Draft", "Pending", "Completed", "Cancelled"] as const;
 type SaleFilter = (typeof SALE_FILTERS)[number];
 
-const SALE_SORT_OPTIONS = ["Newest", "Amount (High-Low)", "Amount (Low-High)"] as const;
+const SALE_SORT_OPTIONS = ["Amount (High-Low)", "Amount (Low-High)"] as const;
 type SaleSortOption = (typeof SALE_SORT_OPTIONS)[number];
 
 function getSortQuery(sortOption: SaleSortOption) {
   switch (sortOption) {
-    case "Amount (High-Low)":
-      return { sort_by: "total", sort_order: "desc" as const };
     case "Amount (Low-High)":
       return { sort_by: "total", sort_order: "asc" as const };
-    case "Newest":
+    case "Amount (High-Low)":
     default:
-      return { sort_by: "created_at", sort_order: "desc" as const };
+      return { sort_by: "total", sort_order: "desc" as const };
   }
 }
 
@@ -223,6 +223,7 @@ export default function SalesHistoryScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const insets = useSafeAreaInsets();
   const sales = useAppSelector(selectSales);
   const salesError = useAppSelector(selectSalesListError);
@@ -239,7 +240,7 @@ export default function SalesHistoryScreen() {
   const [activeFilter, setActiveFilter] = useState<SaleFilter>("All");
   const [isSortVisible, setIsSortVisible] = useState(false);
   const [query, setQuery] = useState("");
-  const [sortOption, setSortOption] = useState<SaleSortOption>("Newest");
+  const [sortOption, setSortOption] = useState<SaleSortOption>("Amount (High-Low)");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [isExportModalVisible, setIsExportModalVisible] = useState(false);
   const [exportFormat, setExportFormat] = useState<"csv" | "excel" | "pdf">("csv");
@@ -306,7 +307,7 @@ export default function SalesHistoryScreen() {
       return;
     }
 
-    Alert.alert("Sale deleted", resultAction.payload.message ?? "Sale deleted successfully.");
+    toast.showSuccess("Sale deleted successfully.");
 
     void dispatch(
       fetchSalesThunk({
@@ -408,11 +409,17 @@ export default function SalesHistoryScreen() {
         }
         ListFooterComponent={
           <View style={styles.footerWrap}>
-            {salesLoadingMore ? (
-              <View style={styles.loadingMoreWrap}>
-                <ActivityIndicator color={Colors.primary} size="small" />
-                <Text style={styles.loadingMoreText}>Loading more sales...</Text>
-              </View>
+            {sales.length > 0 ? (
+              <PaginationControls
+                currentPage={Math.max(1, Math.ceil(sales.length / salesPagination.limit))}
+                hasNextPage={salesPagination.hasMore}
+                hasPreviousPage={false}
+                loading={salesLoadingMore}
+                onNext={salesPagination.hasMore ? handleLoadMore : undefined}
+                totalItems={totalCount}
+                totalPages={Math.max(1, Math.ceil(totalCount / salesPagination.limit))}
+                visibleItems={sales.length}
+              />
             ) : null}
             <View style={{ height: 112 + insets.bottom }} />
           </View>
@@ -529,16 +536,6 @@ export default function SalesHistoryScreen() {
         windowSize={8}
       />
 
-      <View style={[styles.stickyButtonWrap, { bottom: insets.bottom + 12 }]}>
-        <TouchableOpacity
-          activeOpacity={0.88}
-          onPress={() => router.push("/quick-sale" as Href)}
-          style={styles.stickyButton}
-        >
-          <Ionicons name="add-circle-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.stickyButtonText}>New Sale</Text>
-        </TouchableOpacity>
-      </View>
 
       <Modal
         animationType="fade"
@@ -960,29 +957,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.text2,
     fontSize: 12,
     fontWeight: "600",
-  },
-  stickyButtonWrap: {
-    left: AppLayout.floatingButtonRight,
-    position: "absolute",
-    right: AppLayout.floatingButtonRight,
-  },
-  stickyButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: AppRadius.pill,
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    minHeight: 54,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-  },
-  stickyButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "800",
   },
   modalOverlay: {
     backgroundColor: "rgba(15, 23, 32, 0.12)",

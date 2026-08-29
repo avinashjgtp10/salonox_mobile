@@ -35,16 +35,16 @@ const SUPPORT_EMAIL = "support@salonox.com";
 
 const MENU_ITEMS = [
   {
-    description: "Explore sales, staff, inventory, membership, and marketing performance.",
-    icon: "stats-chart-outline" as const,
-    route: "/reports" as Href,
-    title: "Reports",
-  },
-  {
     description: "Search, segment, and manage salon clients with visit history and memberships.",
     icon: "people-outline" as const,
     route: "/clients" as Href,
     title: "Clients",
+  },
+  {
+    description: "Sync your phone contacts and import them as clients.",
+    icon: "person-add-outline" as const,
+    route: "/clients/import-contacts" as Href,
+    title: "Import Contacts",
   },
   {
     description: "Browse, search, and filter your salon's service menu.",
@@ -57,12 +57,6 @@ const MENU_ITEMS = [
     icon: "diamond-outline" as const,
     route: "/memberships" as Href,
     title: "Memberships",
-  },
-  {
-    description: "View and search every user across your organisation.",
-    icon: "person-circle-outline" as const,
-    route: "/users" as Href,
-    title: "User Management",
   },
   {
     description: "Search, filter, and export completed and draft sales.",

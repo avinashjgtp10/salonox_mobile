@@ -17,15 +17,13 @@ type SalonCommissionsState = {
   earnedError: string | null;
   earnedLoaded: boolean;
   earnedLoading: boolean;
+  earnedRequestId: string | null;
   settlingStaffIds: string[];
   settleErrorByStaffId: Record<string, string | null>;
-  // Authoritative status returned by the settle endpoint for a staff member
-  // this session, taking precedence over the derived pending/paid heuristic
-  // used before any settlement action has happened.
-  statusOverrideByStaffId: Record<string, string>;
   summary: SalonCommissionSummary | null;
   summaryError: string | null;
   summaryLoading: boolean;
+  summaryRequestId: string | null;
 };
 
 const initialState: SalonCommissionsState = {
@@ -33,12 +31,13 @@ const initialState: SalonCommissionsState = {
   earnedError: null,
   earnedLoaded: false,
   earnedLoading: false,
+  earnedRequestId: null,
   settlingStaffIds: [],
   settleErrorByStaffId: {},
-  statusOverrideByStaffId: {},
   summary: null,
   summaryError: null,
   summaryLoading: false,
+  summaryRequestId: null,
 };
 
 // Backend statuses observed from the settlement endpoint ("pending",
@@ -63,34 +62,44 @@ const salonCommissionsSlice = createSlice({
   reducers: {},
   extraReducers: (builder) => {
     builder
-      .addCase(fetchSalonCommissionSummaryThunk.pending, (state) => {
+      .addCase(fetchSalonCommissionSummaryThunk.pending, (state, action) => {
         state.summaryError = null;
         state.summaryLoading = true;
+        state.summaryRequestId = action.meta.requestId;
       })
       .addCase(fetchSalonCommissionSummaryThunk.fulfilled, (state, action) => {
+        if (state.summaryRequestId !== action.meta.requestId) return;
         state.summary = action.payload;
         state.summaryError = null;
         state.summaryLoading = false;
+        state.summaryRequestId = null;
       })
       .addCase(fetchSalonCommissionSummaryThunk.rejected, (state, action) => {
+        if (state.summaryRequestId !== action.meta.requestId) return;
         state.summaryError =
           action.payload?.message ?? action.error.message ?? "Unable to load commission summary.";
         state.summaryLoading = false;
+        state.summaryRequestId = null;
       })
-      .addCase(fetchSalonCommissionEarnedThunk.pending, (state) => {
+      .addCase(fetchSalonCommissionEarnedThunk.pending, (state, action) => {
         state.earnedError = null;
         state.earnedLoading = true;
+        state.earnedRequestId = action.meta.requestId;
       })
       .addCase(fetchSalonCommissionEarnedThunk.fulfilled, (state, action) => {
+        if (state.earnedRequestId !== action.meta.requestId) return;
         state.earned = action.payload;
         state.earnedError = null;
         state.earnedLoaded = true;
         state.earnedLoading = false;
+        state.earnedRequestId = null;
       })
       .addCase(fetchSalonCommissionEarnedThunk.rejected, (state, action) => {
+        if (state.earnedRequestId !== action.meta.requestId) return;
         state.earnedError =
           action.payload?.message ?? action.error.message ?? "Unable to load earned commissions.";
         state.earnedLoading = false;
+        state.earnedRequestId = null;
       })
       .addCase(settleCommissionThunk.pending, (state, action) => {
         const staffId = action.meta.arg.staffId;
@@ -99,22 +108,9 @@ const salonCommissionsSlice = createSlice({
         state.settlingStaffIds = [...state.settlingStaffIds, staffId];
       })
       .addCase(settleCommissionThunk.fulfilled, (state, action) => {
-        const { staffId, remainingBalance, settledAmount, status } = action.payload;
+        const { staffId } = action.payload;
 
         state.settlingStaffIds = state.settlingStaffIds.filter((id) => id !== staffId);
-        state.earned = state.earned.map((entry) =>
-          entry.staffId === staffId
-            ? {
-                ...entry,
-                paidAmount: entry.paidAmount + (settledAmount ?? 0),
-                pendingAmount: remainingBalance ?? entry.pendingAmount,
-              }
-            : entry,
-        );
-
-        if (status) {
-          state.statusOverrideByStaffId[staffId] = status;
-        }
       })
       .addCase(settleCommissionThunk.rejected, (state, action) => {
         const staffId = action.meta.arg.staffId;
@@ -151,9 +147,7 @@ export const selectSalonCommissionRecords = (state: RootState): SalonCommissionR
     period: entry.period,
     staffId: entry.staffId,
     staffName: entry.staffName,
-    status:
-      state.salonCommissions.statusOverrideByStaffId[entry.staffId] ??
-      deriveStatus(entry.pendingAmount, entry.paidAmount),
+    status: deriveStatus(entry.pendingAmount, entry.paidAmount),
     unpaidAmount: entry.pendingAmount,
   }));
 

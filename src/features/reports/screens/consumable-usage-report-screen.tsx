@@ -86,6 +86,8 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
 
   const visibleRows = useMemo(() => filteredRows.slice(0, visibleCount), [filteredRows, visibleCount]);
   const hasMore = visibleCount < filteredRows.length;
+  const currentPage = Math.max(1, Math.ceil(visibleRows.length / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
 
   const loadMore = useCallback(() => {
     if (hasMore) {
@@ -208,7 +210,18 @@ export default function ConsumableUsageReportScreen({ config }: { config: Report
             />
           )
         }
-        ListFooterComponent={<ReportPaginationFooter loading={false} noMore={visibleRows.length > 0 && !hasMore} />}
+        ListFooterComponent={
+          <ReportPaginationFooter
+            currentPage={currentPage}
+            hasMore={hasMore}
+            loading={false}
+            noMore={visibleRows.length > 0 && !hasMore}
+            onLoadMore={hasMore ? loadMore : undefined}
+            totalItems={filteredRows.length}
+            totalPages={totalPages}
+            visibleItems={visibleRows.length}
+          />
+        }
         ListHeaderComponent={listHeader}
         maxToRenderPerBatch={10}
         onEndReached={loadMore}

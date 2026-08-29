@@ -20,6 +20,7 @@ import Animated, { FadeInDown, LinearTransition } from "react-native-reanimated"
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
@@ -39,6 +40,7 @@ import {
   mergeAllDuplicatesThunk,
   type FetchClientsArgs,
 } from "@/middleware/client/client.thunk";
+import { useAppToast } from "@/hooks/useAppToast";
 import { clientService } from "@/services/client.service";
 import {
   selectClients,
@@ -70,6 +72,9 @@ type ClientSortOption = (typeof CLIENT_SORT_OPTIONS)[number];
 const DEFAULT_STATUS_FILTER: ClientStatusFilter = "All";
 const DEFAULT_MEMBERSHIP_FILTER: ClientMembershipFilter = "All";
 const DEFAULT_SORT_OPTION: ClientSortOption = "Recent";
+
+const getClientListKey = (client: ClientListItem, index: number) =>
+  client.hasValidId ? client.id : `invalid-client-row-${index}`;
 
 function getStatusQueryValue(status: ClientStatusFilter): "active" | "all" | "blocked" | "inactive" {
   switch (status) {
@@ -206,6 +211,7 @@ function ClientCard({
   onBook,
   onDelete,
   onEdit,
+  onOpen,
   onQuickSale,
 }: {
   client: ClientListItem;
@@ -214,6 +220,7 @@ function ClientCard({
   onBook: () => void;
   onDelete: () => void;
   onEdit: () => void;
+  onOpen: () => void;
   onQuickSale: () => void;
 }) {
   const Colors = useThemeColors();
@@ -273,7 +280,7 @@ function ClientCard({
       >
         <TouchableOpacity
           activeOpacity={0.84}
-          onPress={() => router.push(`/clients/${client.id}` as Href)}
+          onPress={onOpen}
           style={styles.clientCard}
         >
           <InitialsAvatar bg={avatarTone.background} color={avatarTone.color} initials={client.initials} size={44} />
@@ -397,6 +404,7 @@ export default function ClientsScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const insets = useSafeAreaInsets();
   const clients = useAppSelector(selectClients);
   const deletingClientIds = useAppSelector(selectClientDeletingIds);
@@ -541,7 +549,7 @@ export default function ClientsScreen() {
           onPress: async () => {
             const res = await dispatch(mergeClientsThunk({ primaryId, secondaryId }));
             if (mergeClientsThunk.fulfilled.match(res)) {
-              Alert.alert("Success", "Clients merged successfully.");
+              toast.showSuccess("Clients merged successfully.");
               void dispatch(fetchDuplicatesThunk(duplicatePhoneQuery));
               handleRefresh();
             } else {
@@ -564,7 +572,7 @@ export default function ClientsScreen() {
           onPress: async () => {
             const res = await dispatch(mergeAllDuplicatesThunk());
             if (mergeAllDuplicatesThunk.fulfilled.match(res)) {
-              Alert.alert("Success", "All duplicates merged successfully.");
+              toast.showSuccess("All duplicates merged successfully.");
               setIsDuplicatesVisible(false);
               handleRefresh();
             } else {
@@ -597,6 +605,39 @@ export default function ClientsScreen() {
     fetchClientList({ refresh: true });
   };
 
+  const warnInvalidClientId = (client: ClientListItem, action: string) => {
+    if (__DEV__) {
+      console.warn("[Clients] Prevented client action because API row has no valid UUID", {
+        action,
+        clientId: client.id,
+        fullName: client.fullName,
+      });
+    }
+
+    Alert.alert(
+      "Unable to open client",
+      "This client record is missing a valid backend ID. Refresh the list and try again.",
+    );
+  };
+
+  const handleOpenClient = (client: ClientListItem) => {
+    if (!client.hasValidId) {
+      warnInvalidClientId(client, "open");
+      return;
+    }
+
+    router.push(`/clients/${client.id}` as Href);
+  };
+
+  const handleEditClient = (client: ClientListItem) => {
+    if (!client.hasValidId) {
+      warnInvalidClientId(client, "edit");
+      return;
+    }
+
+    router.push(`/clients/${client.id}/edit` as Href);
+  };
+
   const handleLoadMore = () => {
     if (
       clientsLoading ||
@@ -611,6 +652,11 @@ export default function ClientsScreen() {
   };
 
   const handleDeleteClient = (client: ClientListItem) => {
+    if (!client.hasValidId) {
+      warnInvalidClientId(client, "delete");
+      return;
+    }
+
     Alert.alert(
       "Delete Client",
       `Are you sure you want to delete "${client.fullName}"? This action cannot be undone.`,
@@ -628,10 +674,7 @@ export default function ClientsScreen() {
               return;
             }
 
-            Alert.alert(
-              "Client deleted",
-              resultAction.payload.message ?? "Client deleted successfully.",
-            );
+            toast.showSuccess("Client deleted successfully.");
           },
           style: "destructive",
           text: "Delete",
@@ -668,11 +711,17 @@ export default function ClientsScreen() {
           }
           ListFooterComponent={
             <View style={styles.footerWrap}>
-              {clientsLoadingMore ? (
-                <View style={styles.loadingMoreWrap}>
-                  <ActivityIndicator color={Colors.primary} size="small" />
-                  <Text style={styles.loadingMoreText}>Loading more clients...</Text>
-                </View>
+              {clients.length > 0 ? (
+                <PaginationControls
+                  currentPage={Math.max(1, Math.ceil(clients.length / clientsPagination.limit))}
+                  hasNextPage={clientsPagination.hasMore}
+                  hasPreviousPage={false}
+                  loading={clientsLoadingMore}
+                  onNext={clientsPagination.hasMore ? handleLoadMore : undefined}
+                  totalItems={totalCount}
+                  totalPages={Math.max(1, Math.ceil(totalCount / clientsPagination.limit))}
+                  visibleItems={clients.length}
+                />
               ) : null}
               <View style={{ height: 112 + insets.bottom }} />
             </View>
@@ -765,7 +814,7 @@ export default function ClientsScreen() {
           contentContainerStyle={styles.listContent}
           data={clients}
           initialNumToRender={8}
-          keyExtractor={(item) => item.id}
+          keyExtractor={getClientListKey}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.35}
           refreshControl={
@@ -783,7 +832,8 @@ export default function ClientsScreen() {
               isDeleting={deletingClientIds.includes(item.id)}
               onBook={() => router.push("/bookings/new")}
               onDelete={() => handleDeleteClient(item)}
-              onEdit={() => router.push(`/clients/${item.id}/edit` as Href)}
+              onEdit={() => handleEditClient(item)}
+              onOpen={() => handleOpenClient(item)}
               onQuickSale={() => router.push("/quick-sale")}
             />
           )}

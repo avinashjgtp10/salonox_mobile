@@ -103,6 +103,7 @@ type StaffApiItem = {
   services_completed?: number | string | null;
   staff_role?: string | null;
   staff_id?: string | number | null;
+  staffId?: string | number | null;
   staff_uuid?: string | null;
   status?: string | null;
   today_appointments?: number | string | null;
@@ -667,6 +668,7 @@ const normalizeStaffMember = (staffMember: StaffApiItem, index: number): StaffMe
         normalizeStaffId(staffMember.uuid),
         normalizeStaffId(staffMember.staff_uuid),
         normalizeStaffId(staffMember.staff_id),
+        normalizeStaffId(staffMember.staffId),
         normalizeStaffId(staffMember._id),
       ].filter(Boolean),
     ),

@@ -407,6 +407,7 @@ export const normalizeAppointment = (
       toSafeString(appointment.phone) ||
       toSafeString(appointment.mobile),
     raw: appointment,
+    saleId: toSafeString(appointment.sale_id ?? appointment.saleId ?? appointment.saleID),
     scheduledAt: toSafeString(appointment.scheduled_at) || toSafeString(appointment.start_time) || null,
     serviceId: service.id,
     serviceName: service.name,
@@ -562,8 +563,9 @@ export const appointmentService = {
   async confirmAppointment(
     appointmentId: string,
   ): Promise<AppointmentMutationResponse> {
-    const response = await api.post<AppointmentDetailApiResponse>(
-      APPOINTMENT.CONFIRM(appointmentId),
+    const response = await api.patch<AppointmentDetailApiResponse>(
+      APPOINTMENT.UPDATE(appointmentId),
+      { status: "booked" },
     );
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
@@ -574,8 +576,9 @@ export const appointmentService = {
   async startAppointment(
     appointmentId: string,
   ): Promise<AppointmentMutationResponse> {
-    const response = await api.post<AppointmentDetailApiResponse>(
-      APPOINTMENT.START(appointmentId),
+    const response = await api.patch<AppointmentDetailApiResponse>(
+      APPOINTMENT.UPDATE(appointmentId),
+      { status: "booked" },
     );
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
@@ -586,8 +589,9 @@ export const appointmentService = {
   async completeAppointment(
     appointmentId: string,
   ): Promise<AppointmentMutationResponse> {
-    const response = await api.post<AppointmentDetailApiResponse>(
-      APPOINTMENT.COMPLETE(appointmentId),
+    const response = await api.patch<AppointmentDetailApiResponse>(
+      APPOINTMENT.UPDATE(appointmentId),
+      { status: "paid" },
     );
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
@@ -617,7 +621,7 @@ export const appointmentService = {
     payload: RescheduleAppointmentRequest,
   ): Promise<AppointmentMutationResponse> {
     const response = await api.patch<AppointmentDetailApiResponse>(
-      APPOINTMENT.RESCHEDULE(appointmentId),
+      APPOINTMENT.UPDATE(appointmentId),
       payload,
     );
     return {

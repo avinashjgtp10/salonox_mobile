@@ -22,11 +22,12 @@ import Animated, { FadeInDown } from "react-native-reanimated";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { StaffToast } from "@/features/staff/components/StaffToast";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { StaffCard } from "@/components/team/StaffCard";
 import { SummaryCard } from "@/components/team/SummaryCard";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { BottomTabInset, DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { useAppToast } from "@/hooks/useAppToast";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import {
   getTeamSummary,
@@ -42,7 +43,6 @@ import {
 import { deleteStaffThunk, fetchStaffThunk, setStaffActiveStatusThunk } from "@/middleware/staff/staff.thunk";
 import {
   selectStaffActiveStatusTogglingIds,
-  selectStaffById,
   selectStaffError,
   selectStaffLoading,
   selectStaffLoadingMore,
@@ -80,6 +80,29 @@ const getMenuOptions = (staffMember: StaffMember | undefined) => {
     toggleAction,
     "Delete",
   ] as const;
+};
+
+type StaffMenuOption = ReturnType<typeof getMenuOptions>[number];
+
+const getMenuOptionIcon = (option: StaffMenuOption): keyof typeof Ionicons.glyphMap => {
+  switch (option) {
+    case "Edit Staff":
+      return "create-outline";
+    case "View Schedule":
+      return "calendar-outline";
+    case "Assign Services":
+      return "sparkles-outline";
+    case "Manage Leave":
+      return "airplane-outline";
+    case "Performance":
+      return "stats-chart-outline";
+    case "Reactivate":
+      return "refresh-circle-outline";
+    case "Deactivate":
+      return "pause-circle-outline";
+    case "Delete":
+      return "trash-outline";
+  }
 };
 
 function SummarySkeletonCard({ index }: { index: number }) {
@@ -183,6 +206,7 @@ export default function TeamScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const searchInputRef = useRef<TextInput | null>(null);
   const currentUser = useAppSelector(selectCurrentUser);
   const canManageLifecycle = canManageStaffLifecycle(currentUser?.role);
@@ -197,7 +221,7 @@ export default function TeamScreen() {
   const [activeFilter, setActiveFilter] = useState<TeamFilter>("All");
   const [isFilterVisible, setIsFilterVisible] = useState(false);
   const [query, setQuery] = useState("");
-  const [selectedMenuStaffId, setSelectedMenuStaffId] = useState<string | null>(null);
+  const [selectedMenuStaffMember, setSelectedMenuStaffMember] = useState<StaffMember | null>(null);
   const [sortOption, setSortOption] = useState<TeamSortOption>("Highest Revenue");
   const deferredQuery = useDeferredValue(query);
 
@@ -222,9 +246,6 @@ export default function TeamScreen() {
   }, [activeFilter, deferredQuery, sortOption, staffMembers]);
 
   const summaryItems = useMemo(() => getTeamSummary(staffMembers), [staffMembers]);
-  const selectedMenuStaffMember = useAppSelector((state) =>
-    selectStaffById(state, selectedMenuStaffId),
-  );
 
   const handleAddStaff = () => router.push("/team/new");
   const handleRefresh = () => {
@@ -304,7 +325,7 @@ export default function TeamScreen() {
       return;
     }
 
-    Alert.alert("Staff deleted", resultAction.payload.message ?? `${staffMember.name} has been removed.`);
+    toast.showSuccess("Staff deleted successfully.");
   };
 
   const handleConfirmToggleActive = async (
@@ -330,12 +351,16 @@ export default function TeamScreen() {
       );
       return;
     }
+
+    toast.showSuccess(
+      nextStatus === "inactive" ? "Staff deactivated successfully." : "Staff activated successfully.",
+    );
   };
 
   const handleMenuOptionPress = (option: string) => {
     const staffMember = selectedMenuStaffMember;
 
-    setSelectedMenuStaffId(null);
+    setSelectedMenuStaffMember(null);
 
     if (!staffMember) {
       return;
@@ -417,7 +442,7 @@ export default function TeamScreen() {
       index={index}
       onCall={handleCall}
       onMessage={handleMessage}
-      onMore={(staffMember) => setSelectedMenuStaffId(staffMember.id)}
+      onMore={(staffMember) => setSelectedMenuStaffMember(staffMember)}
       staffMember={item}
     />
   );
@@ -561,7 +586,18 @@ export default function TeamScreen() {
             }
             ListHeaderComponent={headerContent}
             ListFooterComponent={
-              staffLoadingMore ? <StaffSkeletonCard index={0} /> : null
+              filteredStaffMembers.length > 0 ? (
+                <PaginationControls
+                  currentPage={Math.max(1, Math.ceil(staffMembers.length / staffPagination.limit))}
+                  hasNextPage={staffPagination.hasMore}
+                  hasPreviousPage={false}
+                  loading={staffLoadingMore}
+                  onNext={staffPagination.hasMore ? handleLoadMore : undefined}
+                  totalItems={staffPagination.totalCount}
+                  totalPages={Math.max(1, Math.ceil(staffPagination.totalCount / staffPagination.limit))}
+                  visibleItems={filteredStaffMembers.length}
+                />
+              ) : null
             }
             onEndReached={handleLoadMore}
             onEndReachedThreshold={0.35}
@@ -619,38 +655,60 @@ export default function TeamScreen() {
         </Pressable>
       </Modal>
 
-<Modal
+      <Modal
         animationType="fade"
-        onRequestClose={() => setSelectedMenuStaffId(null)}
+        onRequestClose={() => setSelectedMenuStaffMember(null)}
         transparent
-        visible={Boolean(selectedMenuStaffMember)}
+        visible={selectedMenuStaffMember !== null}
       >
-        <Pressable onPress={() => setSelectedMenuStaffId(null)} style={styles.modalOverlay}>
-          <Pressable style={styles.sheetCard}>
-            <Text style={styles.sheetTitle}>{selectedMenuStaffMember?.name ?? "Staff Actions"}</Text>
-            {getMenuOptions(selectedMenuStaffMember).map((option) => (
+        <Pressable onPress={() => setSelectedMenuStaffMember(null)} style={styles.actionMenuOverlay}>
+          <Pressable style={styles.actionMenuCard}>
+            <View style={styles.actionMenuHeader}>
+              <View style={styles.actionMenuTitleWrap}>
+                <Text numberOfLines={1} style={styles.actionMenuTitle}>
+                  {selectedMenuStaffMember?.name ?? "Staff Actions"}
+                </Text>
+                <Text style={styles.actionMenuSubtitle}>Choose an action</Text>
+              </View>
+              <TouchableOpacity
+                accessibilityLabel="Close staff actions"
+                activeOpacity={0.84}
+                onPress={() => setSelectedMenuStaffMember(null)}
+                style={styles.actionMenuClose}
+              >
+                <Ionicons name="close" size={18} color={Colors.text2} />
+              </TouchableOpacity>
+            </View>
+            {getMenuOptions(selectedMenuStaffMember ?? undefined).map((option) => {
+              const isDangerAction = option === "Delete" || option === "Deactivate";
+              const iconColor = isDangerAction ? Colors.error : Colors.primaryDark;
+
+              return (
               <TouchableOpacity
                 key={option}
                 activeOpacity={0.84}
                 onPress={() => handleMenuOptionPress(option)}
-                style={styles.sheetAction}
+                style={[styles.actionMenuItem, isDangerAction && styles.actionMenuItemDanger]}
               >
+                <View style={[styles.actionMenuIcon, isDangerAction && styles.actionMenuIconDanger]}>
+                  <Ionicons name={getMenuOptionIcon(option)} size={18} color={iconColor} />
+                </View>
                 <Text
                   style={[
-                    styles.sheetActionText,
-                    (option === "Delete" || option === "Deactivate" || option === "Reactivate") && styles.sheetActionDanger,
+                    styles.actionMenuItemText,
+                    (isDangerAction || option === "Reactivate") && styles.actionMenuItemTextAccent,
+                    isDangerAction && styles.actionMenuItemTextDanger,
                   ]}
                 >
                   {option}
                 </Text>
+                <Ionicons name="chevron-forward" size={16} color={isDangerAction ? Colors.error : Colors.text2} />
               </TouchableOpacity>
-            ))}
+              );
+            })}
           </Pressable>
         </Pressable>
       </Modal>
-
-      <StaffToast />
-
     </SafeAreaView>
   );
 }
@@ -997,6 +1055,94 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   sheetActionDanger: {
+    color: Colors.error,
+  },
+  actionMenuOverlay: {
+    alignItems: "center",
+    backgroundColor: "rgba(15, 23, 32, 0.28)",
+    flex: 1,
+    justifyContent: "center",
+    padding: Spacing.lg,
+  },
+  actionMenuCard: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.card,
+    borderWidth: 1,
+    elevation: 24,
+    maxWidth: 420,
+    overflow: "hidden",
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 18 },
+    shadowOpacity: 0.2,
+    shadowRadius: 28,
+    width: "100%",
+  },
+  actionMenuHeader: {
+    alignItems: "center",
+    borderBottomColor: Colors.border,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: Spacing.md,
+  },
+  actionMenuTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  actionMenuTitle: {
+    color: Colors.heading,
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  actionMenuSubtitle: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 2,
+  },
+  actionMenuClose: {
+    alignItems: "center",
+    backgroundColor: Colors.bg2,
+    borderRadius: AppRadius.control,
+    height: 38,
+    justifyContent: "center",
+    marginLeft: Spacing.md,
+    width: 38,
+  },
+  actionMenuItem: {
+    alignItems: "center",
+    borderBottomColor: Colors.divider,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    flexDirection: "row",
+    minHeight: 58,
+    paddingHorizontal: Spacing.lg,
+  },
+  actionMenuItemDanger: {
+    backgroundColor: Colors.errorBg,
+  },
+  actionMenuIcon: {
+    alignItems: "center",
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.full,
+    height: 34,
+    justifyContent: "center",
+    marginRight: Spacing.md,
+    width: 34,
+  },
+  actionMenuIconDanger: {
+    backgroundColor: Colors.card,
+  },
+  actionMenuItemText: {
+    color: Colors.heading,
+    flex: 1,
+    fontSize: 15,
+    fontWeight: "800",
+  },
+  actionMenuItemTextAccent: {
+    color: Colors.primaryDark,
+  },
+  actionMenuItemTextDanger: {
     color: Colors.error,
   },
 });
