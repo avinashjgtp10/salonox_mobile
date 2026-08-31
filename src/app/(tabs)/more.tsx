@@ -281,13 +281,6 @@ export default function MoreScreen() {
       onPress: () => openWebAppPage("/terms"),
       title: "Terms & Conditions",
     },
-    {
-      description: "Coming Soon",
-      icon: "code-slash-outline" as const,
-      key: "licenses",
-      onPress: () => showUnavailable("Coming Soon", "Open source licenses will be available soon."),
-      title: "Open Source Licenses",
-    },
   ];
   const supportActions = [
     {

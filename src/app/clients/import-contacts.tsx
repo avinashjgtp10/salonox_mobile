@@ -198,8 +198,7 @@ export default function ImportContactsScreen() {
   }, [contacts, trimmedQuery]);
 
   const selectedCount = selectedIds.size;
-  const allVisibleSelected =
-    visibleContacts.length > 0 && visibleContacts.every((contact) => selectedIds.has(contact.deviceContactId));
+  const allContactsSelected = contacts.length > 0 && selectedCount === contacts.length;
 
   const toggleContact = useCallback((deviceContactId: string) => {
     setSelectedIds((current) => {
@@ -215,18 +214,12 @@ export default function ImportContactsScreen() {
     });
   }, []);
 
-  const toggleSelectAllVisible = () => {
-    setSelectedIds((current) => {
-      const next = new Set(current);
+  const selectAllContacts = () => {
+    setSelectedIds(new Set(contacts.map((contact) => contact.deviceContactId)));
+  };
 
-      if (allVisibleSelected) {
-        visibleContacts.forEach((contact) => next.delete(contact.deviceContactId));
-      } else {
-        visibleContacts.forEach((contact) => next.add(contact.deviceContactId));
-      }
-
-      return next;
-    });
+  const deselectAllContacts = () => {
+    setSelectedIds(new Set());
   };
 
   const runImport = async (targets: NormalizedImportContact[]) => {
@@ -411,16 +404,26 @@ export default function ImportContactsScreen() {
                 </TouchableOpacity>
               ) : null}
             </View>
-            <TouchableOpacity activeOpacity={0.84} onPress={toggleSelectAllVisible} style={styles.selectAllRow}>
-              <Ionicons
-                color={allVisibleSelected ? Colors.primary : Colors.text2}
-                name={allVisibleSelected ? "checkbox" : "square-outline"}
-                size={18}
-              />
-              <Text style={styles.selectAllText}>
-                {allVisibleSelected ? "Deselect All" : "Select All"}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.selectionActions}>
+              <TouchableOpacity
+                activeOpacity={0.84}
+                disabled={allContactsSelected}
+                onPress={selectAllContacts}
+                style={[styles.selectionAction, allContactsSelected && styles.selectionActionDisabled]}
+              >
+                <Ionicons color={Colors.primary} name="checkbox-outline" size={18} />
+                <Text style={styles.selectAllText}>Select All</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.84}
+                disabled={selectedCount === 0}
+                onPress={deselectAllContacts}
+                style={[styles.selectionAction, selectedCount === 0 && styles.selectionActionDisabled]}
+              >
+                <Ionicons color={Colors.text2} name="square-outline" size={18} />
+                <Text style={styles.selectAllText}>Deselect All</Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
           <FlatList
@@ -691,11 +694,19 @@ const createStyles = (Colors: ThemeColors) =>
       flex: 1,
       fontSize: 14,
     },
-    selectAllRow: {
+    selectionActions: {
+      alignItems: "center",
+      flexDirection: "row",
+      gap: Spacing.lg,
+      paddingVertical: Spacing.xs,
+    },
+    selectionAction: {
       alignItems: "center",
       flexDirection: "row",
       gap: 8,
-      paddingVertical: Spacing.xs,
+    },
+    selectionActionDisabled: {
+      opacity: 0.4,
     },
     selectAllText: {
       color: Colors.heading,
