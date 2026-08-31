@@ -1762,7 +1762,6 @@ export function AppointmentDashboardScreen() {
                 visibleItems={filtered.length}
               />
             ) : null}
-            {!loading && !error ? <CalendarPreview appointments={filtered} date={date} /> : null}
           </View>
         }
         ListHeaderComponent={listHeader}
