@@ -363,11 +363,13 @@ export interface UsageHistoryRow {
   source: string | null;
 }
 
-// ─── Orders (Purchase Orders — a document only, no stock movement) ──────────
-// Deliberately separate from Purchase (PRODUCT_INVENTORY_PURCHASES), which
-// records a delivery and adds stock immediately. An Order precedes that.
+// ─── Orders (Purchase Orders) ────────────────────────────────────────────────
+// Creating an order never touches stock by itself — it's a document. Stock
+// only moves once it's Received (receiveOrderThunk), which records a linked
+// Purchase the same way the standalone Product Inventory "Purchase" flow does.
 
 export type OrderTaxType = "inclusive" | "exclusive";
+export type OrderStatus = "draft" | "sent" | "partially_received" | "received" | "cancelled";
 
 export interface OrderItem {
   id: string;
@@ -382,6 +384,7 @@ export interface OrderItem {
   cost_wo_tax: number;
   total_cost_wo_tax: number;
   total_tax: number;
+  received_qty: number;
   created_at: string;
 }
 
@@ -389,6 +392,7 @@ export interface Order {
   id: string;
   salon_id: string;
   order_number: string;
+  status: OrderStatus;
   supplier_id: string;
   supplier_name?: string;
   bill_to_branch_id: string | null;
@@ -422,6 +426,7 @@ export interface CreateOrderItemPayload {
 }
 
 export interface CreateOrderPayload {
+  status?: "draft" | "sent";
   supplier_id: string;
   bill_to_branch_id?: string;
   ship_to_branch_id?: string;
@@ -438,6 +443,16 @@ export interface CreateOrderPayload {
   signature_url?: string;
   shipping_cost?: number;
   items: CreateOrderItemPayload[];
+}
+
+export interface ReceiveOrderItemPayload {
+  order_item_id: string;
+  received_qty: number;
+}
+
+export interface ReceiveOrderPayload {
+  items: ReceiveOrderItemPayload[];
+  purchase_date?: string;
 }
 
 export interface OrderSignature {

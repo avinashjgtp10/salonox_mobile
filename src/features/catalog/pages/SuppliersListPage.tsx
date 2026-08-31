@@ -304,7 +304,15 @@ const SuppliersListPage: React.FC = () => {
                       >
                         <ThreeDotsVertical size={16} />
                       </Dropdown.Toggle>
-                      <Dropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "160px" }}>
+                      {/* strategy "fixed" — the table now scrolls horizontally
+                          (see SuppliersListPage.scss), and the default
+                          "absolute" popper strategy would get clipped by that
+                          scroll container instead of floating above it. */}
+                      <Dropdown.Menu
+                        className="shadow-sm border-0 rounded-3 py-2"
+                        style={{ minWidth: "160px" }}
+                        popperConfig={{ strategy: "fixed" }}
+                      >
                         <Dropdown.Item
                           onClick={() => openEditPanel(s.id)}
                           className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
