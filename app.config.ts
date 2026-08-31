@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
+import { AndroidConfig, withAndroidManifest, withDangerousMod } from "@expo/config-plugins";
+import type { ConfigPlugin } from "@expo/config-plugins";
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import { ENVIRONMENTS, resolveAppEnv } from "./config/environments";
@@ -16,6 +18,7 @@ const resolveWithFallback = (candidatePath: string, fallbackPath: string) =>
   existsInProject(candidatePath) ? candidatePath : fallbackPath;
 
 const icon = resolveWithFallback(env.iconPath, ENVIRONMENTS.production.iconPath);
+const notificationLargeIcon = "./assets/images/logo.png";
 const adaptiveIconForeground = resolveWithFallback(
   env.adaptiveIconForegroundPath,
   ENVIRONMENTS.production.adaptiveIconForegroundPath,
@@ -31,99 +34,143 @@ if (!googleServicesFile) {
   );
 }
 
-export default ({ config }: ConfigContext): ExpoConfig => ({
-  ...config,
-  owner: "salonox-tech",
-  name: env.appName,
-  slug: "SalonOX",
-  version: "1.0.0",
-  orientation: "portrait",
-  icon,
-  scheme: env.scheme,
-  userInterfaceStyle: "automatic",
-  ios: {
-    ...config.ios,
-    icon: "./assets/expo.icon",
-    bundleIdentifier: env.iosBundleIdentifier,
-  },
-  android: {
-    ...config.android,
-    package: env.androidPackage,
-    adaptiveIcon: {
-      backgroundColor: "#FAFBFA",
-      foregroundImage: adaptiveIconForeground,
-      backgroundImage: "./assets/images/android-launcher-background.png",
-      monochromeImage: "./assets/images/android-launcher-monochrome.png",
+const withSalonOxLargeNotificationIcon: ConfigPlugin = (config) => {
+  const resourceName = "notification_large_icon";
+  const metaDataName = "expo.modules.notifications.large_notification_icon";
+
+  config = withAndroidManifest(config, (config) => {
+    const mainApplication = AndroidConfig.Manifest.getMainApplicationOrThrow(config.modResults);
+    AndroidConfig.Manifest.addMetaDataItemToMainApplication(
+      mainApplication,
+      metaDataName,
+      `@drawable/${resourceName}`,
+      "resource",
+    );
+
+    return config;
+  });
+
+  config = withDangerousMod(config, [
+    "android",
+    async (config) => {
+      const sourcePath = path.resolve(config.modRequest.projectRoot, notificationLargeIcon);
+      const destinationDirectory = path.join(
+        config.modRequest.platformProjectRoot,
+        "app",
+        "src",
+        "main",
+        "res",
+        "drawable-nodpi",
+      );
+      const destinationPath = path.join(destinationDirectory, `${resourceName}.png`);
+
+      await fs.promises.mkdir(destinationDirectory, { recursive: true });
+      await fs.promises.copyFile(sourcePath, destinationPath);
+
+      return config;
     },
-    predictiveBackGestureEnabled: false,
-    softwareKeyboardLayoutMode: "resize",
-    permissions: [
-      "android.permission.ACCESS_COARSE_LOCATION",
-      "android.permission.ACCESS_FINE_LOCATION",
-      "android.permission.POST_NOTIFICATIONS",
-    ],
-    ...(googleServicesFile ? { googleServicesFile } : {}),
-  },
-  web: {
-    output: "static",
-    favicon: "./assets/images/favicon.png",
-  },
-  plugins: [
-    "expo-router",
-    [
-      "expo-location",
-      {
-        locationWhenInUsePermission: "Allow SalonOX to detect your salon address during onboarding.",
-      },
-    ],
-    [
-      "expo-splash-screen",
-      {
+  ]);
+
+  return config;
+};
+
+export default ({ config }: ConfigContext): ExpoConfig => {
+  const expoConfig: ExpoConfig = {
+    ...config,
+    owner: "salonox-tech",
+    name: env.appName,
+    slug: "SalonOX",
+    version: "1.0.0",
+    orientation: "portrait",
+    icon,
+    scheme: env.scheme,
+    userInterfaceStyle: "automatic",
+    ios: {
+      ...config.ios,
+      icon,
+      bundleIdentifier: env.iosBundleIdentifier,
+    },
+    android: {
+      ...config.android,
+      package: env.androidPackage,
+      adaptiveIcon: {
         backgroundColor: "#FAFBFA",
-        dark: {
-          backgroundColor: "#08111F",
-          image: "./assets/images/splash-icon.png",
-        },
-        android: {
-          image: "./assets/images/splash-icon.png",
-          imageWidth: 76,
-        },
+        foregroundImage: adaptiveIconForeground,
+        backgroundImage: "./assets/images/android-launcher-background.png",
+        monochromeImage: "./assets/images/android-launcher-monochrome.png",
       },
-    ],
-    [
-      "expo-image-picker",
-      {
-        photosPermission: "Allow SalonOX to access your photos so you can set a profile picture.",
-        cameraPermission: "Allow SalonOX to use your camera so you can take a profile picture.",
-      },
-    ],
-    [
-      "expo-contacts",
-      {
-        contactsPermission: "Allow SalonOX to access your contacts so you can import them as clients.",
-      },
-    ],
-    "@react-native-community/datetimepicker",
-    [
-      "expo-notifications",
-      {
-        icon: "./assets/images/notification-icon.png",
-        color: "#2f80ed",
-        defaultChannel: "salonox",
-        enableBackgroundRemoteNotifications: true,
-      },
-    ],
-  ],
-  experiments: {
-    typedRoutes: true,
-    reactCompiler: true,
-  },
-  extra: {
-    ...config.extra,
-    router: {},
-    appEnv,
-    eas: {
-      projectId: "f049c562-d124-4c6d-a1be-a4405a64d9ec",
+      predictiveBackGestureEnabled: false,
+      softwareKeyboardLayoutMode: "resize",
+      permissions: [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+      ],
+      ...(googleServicesFile ? { googleServicesFile } : {}),
     },
-  },
-});
+    web: {
+      output: "static",
+      favicon: "./assets/images/favicon.png",
+    },
+    plugins: [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          locationWhenInUsePermission: "Allow SalonOX to detect your salon address during onboarding.",
+        },
+      ],
+      [
+        "expo-splash-screen",
+        {
+          backgroundColor: "#FAFBFA",
+          dark: {
+            backgroundColor: "#08111F",
+            image: "./assets/images/splash-icon.png",
+          },
+          android: {
+            image: "./assets/images/splash-icon.png",
+            imageWidth: 76,
+          },
+        },
+      ],
+      [
+        "expo-image-picker",
+        {
+          photosPermission: "Allow SalonOX to access your photos so you can set a profile picture.",
+          cameraPermission: "Allow SalonOX to use your camera so you can take a profile picture.",
+        },
+      ],
+      [
+        "expo-contacts",
+        {
+          contactsPermission: "Allow SalonOX to access your contacts so you can import them as clients.",
+        },
+      ],
+      "@react-native-community/datetimepicker",
+      [
+        "expo-notifications",
+        {
+          icon: "./assets/images/notification-icon.png",
+          color: "#2f80ed",
+          defaultChannel: "salonox",
+          enableBackgroundRemoteNotifications: true,
+        },
+      ],
+    ],
+    experiments: {
+      typedRoutes: true,
+      reactCompiler: true,
+    },
+    extra: {
+      ...config.extra,
+      router: {},
+      appEnv,
+      eas: {
+        projectId: "f049c562-d124-4c6d-a1be-a4405a64d9ec",
+      },
+    },
+  };
+
+  return withSalonOxLargeNotificationIcon(expoConfig) as ExpoConfig;
+};
