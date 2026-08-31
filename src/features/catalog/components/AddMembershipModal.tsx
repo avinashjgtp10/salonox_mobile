@@ -111,10 +111,15 @@ interface FormState {
   expiryDate: string;
   appliesTo: MembershipAppliesTo;
   /** Optional narrowing of appliesTo to specific service_categories ids —
-   *  empty means unrestricted (every category within appliesTo's scope). */
-  categoryIds: string[];
+   *  tracked independently per side: service_categories is one shared table
+   *  for both service and product categories (distinguished only by a
+   *  `type` column), so a category tagged 'both' is a valid pick on EITHER
+   *  side — picking it here for services must never silently also restrict/
+   *  allow products, or vice versa. Empty means unrestricted on that side. */
+  serviceCategoryIds: string[];
+  productCategoryIds: string[];
   /** Further, additive narrowing to specific services/products within (or
-   *  independent of) categoryIds — empty means no individual-item narrowing. */
+   *  independent of) the category ids above — empty means no individual-item narrowing. */
   serviceIds: string[];
   productIds: string[];
 }
@@ -124,7 +129,8 @@ const emptyForm = (): FormState => ({
   loyaltyTiers: [emptyTier()],
   expiryDate: toIsoDate(addDays(todayMidnight(), 365)),
   appliesTo: "services",
-  categoryIds: [],
+  serviceCategoryIds: [],
+  productCategoryIds: [],
   serviceIds: [],
   productIds: [],
 });
@@ -164,12 +170,41 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
   const [form, setForm] = useState<FormState>(emptyForm());
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // categoryIds is one shared array across both the service and product
-  // pickers below (a category can legitimately appear in both when appliesTo
-  // is "both") — these sets let each picker only touch the ids belonging to
-  // categories IT displays, so the two instances don't stomp on each other.
+  // Scopes each picker's own `items` list to services/products actually
+  // belonging to a category of that type — unrelated to which array a
+  // selected category id is stored in (serviceCategoryIds/productCategoryIds
+  // below are now tracked independently, so this is purely "what's pickable
+  // under this picker", not a cross-filter of shared selection state).
   const serviceCategoryIdSet = useMemo(() => new Set(serviceCategories.map((c) => String(c.id))), [serviceCategories]);
   const productCategoryIdSet = useMemo(() => new Set(productCategories.map((c) => String(c.id))), [productCategories]);
+
+  // Scoped item lists for the two pickers below — memoized because
+  // allServices/allProducts can run into the thousands for a salon with a
+  // large catalog. Building these inline in JSX re-ran the filter+map over
+  // the FULL list on every render of this modal (every keystroke, every
+  // checkbox toggle triggers a patch() → re-render), which is what made
+  // selecting services feel slow — each click recomputed a multi-thousand-
+  // row array just to redraw a checkbox.
+  const serviceItemOptions = useMemo(
+    () => allServices
+      .filter((s) => s.category_id != null && serviceCategoryIdSet.has(String(s.category_id)))
+      .map((s) => ({ id: String(s.id), name: s.name, categoryId: String(s.category_id) })),
+    [allServices, serviceCategoryIdSet],
+  );
+  const productItemOptions = useMemo(
+    () => allProducts
+      .filter((p) => p.category_id != null && productCategoryIdSet.has(String(p.category_id)))
+      .map((p) => ({ id: String(p.id), name: p.name, categoryId: String(p.category_id) })),
+    [allProducts, productCategoryIdSet],
+  );
+  const serviceCategoryOptions = useMemo(
+    () => serviceCategories.map((c) => ({ id: String(c.id), name: c.name })),
+    [serviceCategories],
+  );
+  const productCategoryOptions = useMemo(
+    () => productCategories.map((c) => ({ id: String(c.id), name: c.name })),
+    [productCategories],
+  );
 
   const patch = (p: Partial<FormState>) => {
     setForm((prev) => ({ ...prev, ...p }));
@@ -213,7 +248,8 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
         loyaltyTiers,
         expiryDate: parseValidForToDate(d.validFor),
         appliesTo: d.appliesTo ?? "services",
-        categoryIds: Array.isArray(d.categoryIds) ? d.categoryIds : [],
+        serviceCategoryIds: Array.isArray(d.serviceCategoryIds) ? d.serviceCategoryIds : [],
+        productCategoryIds: Array.isArray(d.productCategoryIds) ? d.productCategoryIds : [],
         serviceIds: Array.isArray(d.serviceIds) ? d.serviceIds : [],
         productIds: Array.isArray(d.productIds) ? d.productIds : [],
       });
@@ -310,11 +346,11 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
       appliesTo: form.appliesTo,
       // Always send the real array (even empty) — `undefined` gets dropped by
       // JSON.stringify, and the backend's update only touches columns whose
-      // key is actually present in the body, so an omitted categoryIds left
-      // an old restriction stuck in place forever on edit. An empty array
+      // key is actually present in the body, so an omitted restriction array
+      // left an old one stuck in place forever on edit. An empty array
       // reaches the backend and is normalized to "no restriction" there.
-      // Same reasoning for serviceIds/productIds below.
-      categoryIds: form.categoryIds,
+      serviceCategoryIds: form.serviceCategoryIds,
+      productCategoryIds: form.productCategoryIds,
       serviceIds: form.serviceIds,
       productIds: form.productIds,
     };
@@ -454,7 +490,7 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                         // appliesTo has narrowed to Products) — clear rather
                         // than carry over a selection the picker below can no
                         // longer show.
-                        onChange={(id) => patch({ appliesTo: id as MembershipAppliesTo, categoryIds: [], serviceIds: [], productIds: [] })}
+                        onChange={(id) => patch({ appliesTo: id as MembershipAppliesTo, serviceCategoryIds: [], productCategoryIds: [], serviceIds: [], productIds: [] })}
                       />
                       <ChevronDown size={13} className="amm__sel-icon" />
                     </div>
@@ -471,15 +507,11 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                     <label className="amm__label">Services</label>
                     <ItemRestrictionPicker
                       label="Services"
-                      categories={serviceCategories.map((c) => ({ id: String(c.id), name: c.name }))}
-                      items={allServices
-                        .filter((s) => s.category_id != null && serviceCategoryIdSet.has(String(s.category_id)))
-                        .map((s) => ({ id: String(s.id), name: s.name, categoryId: String(s.category_id) }))}
-                      categoryIds={form.categoryIds.filter((id) => serviceCategoryIdSet.has(id))}
+                      categories={serviceCategoryOptions}
+                      items={serviceItemOptions}
+                      categoryIds={form.serviceCategoryIds}
                       itemIds={form.serviceIds}
-                      onChangeCategoryIds={(ids) => patch({
-                        categoryIds: [...form.categoryIds.filter((id) => !serviceCategoryIdSet.has(id)), ...ids],
-                      })}
+                      onChangeCategoryIds={(ids) => patch({ serviceCategoryIds: ids })}
                       onChangeItemIds={(ids) => patch({ serviceIds: ids })}
                     />
                   </div>
@@ -490,15 +522,11 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                     <label className="amm__label">Products</label>
                     <ItemRestrictionPicker
                       label="Products"
-                      categories={productCategories.map((c) => ({ id: String(c.id), name: c.name }))}
-                      items={allProducts
-                        .filter((p) => p.category_id != null && productCategoryIdSet.has(String(p.category_id)))
-                        .map((p) => ({ id: String(p.id), name: p.name, categoryId: String(p.category_id) }))}
-                      categoryIds={form.categoryIds.filter((id) => productCategoryIdSet.has(id))}
+                      categories={productCategoryOptions}
+                      items={productItemOptions}
+                      categoryIds={form.productCategoryIds}
                       itemIds={form.productIds}
-                      onChangeCategoryIds={(ids) => patch({
-                        categoryIds: [...form.categoryIds.filter((id) => !productCategoryIdSet.has(id)), ...ids],
-                      })}
+                      onChangeCategoryIds={(ids) => patch({ productCategoryIds: ids })}
                       onChangeItemIds={(ids) => patch({ productIds: ids })}
                     />
                   </div>

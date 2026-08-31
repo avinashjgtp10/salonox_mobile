@@ -90,8 +90,14 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
   const walletValue  = (Number(membership?.price) || 0) + bonusCredit;
   const type: "value" | "percentage" | "loyalty" = membership?.pricingType ?? "value";
   const appliesToLabel = APPLIES_TO_LABEL[membership?.appliesTo ?? "services"] ?? "Services";
-  const categoriesLabel = membership?.categoryIds?.length
-    ? membership.categoryIds.map((id) => categoryNameById.get(id) ?? id).join(", ")
+  // Merge both sides for display — deduped, since a plan can restrict
+  // services and products to different (or overlapping) category sets.
+  const restrictedCategoryIds = Array.from(new Set([
+    ...(membership?.serviceCategoryIds ?? []),
+    ...(membership?.productCategoryIds ?? []),
+  ]));
+  const categoriesLabel = restrictedCategoryIds.length
+    ? restrictedCategoryIds.map((id) => categoryNameById.get(id) ?? id).join(", ")
     : "All categories";
   if (!isOpen) return null;
 
