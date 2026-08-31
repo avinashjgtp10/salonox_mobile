@@ -1,3 +1,3 @@
-import { AppointmentHistoryScreen } from "@/features/appointments/screens";
+import { AppointmentHistoryScreen } from "@/features/appointments/screens/AppointmentHistoryScreen";
 
 export default AppointmentHistoryScreen;

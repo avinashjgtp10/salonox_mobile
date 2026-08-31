@@ -25,14 +25,21 @@ import { Portal } from "@/components/ui/Portal";
 import { AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
-import type { useRedemptions } from "@/features/quickSale/hooks/useRedemptions";
-import type { CartConsumableItem, QuickSaleClient, CartItem } from "@/features/quickSale/types";
-import { getCartItemBillableQuantity, type BillTotals } from "@/features/quickSale/utils/calculations";
+import { SummaryRow, SummaryTile } from "@/features/quickSale/components/checkout/CheckoutSummary";
+import { ModeButton } from "@/features/quickSale/components/checkout/ModeButton";
+import type { CartConsumableItem, CartItem } from "@/features/quickSale/types";
+import { getCartItemBillableQuantity } from "@/features/quickSale/utils/calculations";
 import { getPackageCoveredQuantity } from "@/features/quickSale/utils/packageCoverage";
 import { formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import type { ValidateCouponResult } from "@/types/coupon";
-import type { CheckoutSaleSplitEntry, PosStaffMember, SalePaymentMethod } from "@/types/sales";
+import type { CheckoutSaleSplitEntry, SalePaymentMethod } from "@/types/sales";
+import type {
+  CheckoutSheetProps,
+  CheckoutStep,
+  DiscountApplyTarget,
+} from "@/features/quickSale/components/checkout/types";
+
+export type { DiscountApplyTarget } from "@/features/quickSale/components/checkout/types";
 
 type PaymentType = "full" | "partial";
 
@@ -46,7 +53,6 @@ const PAYMENT_METHODS: { icon: keyof typeof Ionicons.glyphMap; label: string; va
 ];
 
 const SPLIT_METHODS = PAYMENT_METHODS.filter((method) => method.value !== "split");
-type CheckoutStep = "review" | "charges" | "payment";
 
 type BenefitCardInput = {
   keyboardType: "decimal-pad" | "number-pad";
@@ -69,9 +75,6 @@ type BenefitCardConfig = {
   value: string;
 };
 type DiscountMode = "amount" | "percent";
-export type DiscountApplyTarget = "service" | "product" | "package" | "membership" | "entireBill";
-
-type ExtraChargeKey = "convenienceFee" | "otherCharges" | "serviceCharge";
 
 const DISCOUNT_APPLY_OPTIONS: { label: string; value: DiscountApplyTarget }[] = [
   { label: "Service", value: "service" },
@@ -80,65 +83,6 @@ const DISCOUNT_APPLY_OPTIONS: { label: string; value: DiscountApplyTarget }[] = 
   { label: "Membership", value: "membership" },
   { label: "Entire Bill", value: "entireBill" },
 ];
-
-type CheckoutSheetProps = {
-  appliedCoupon: ValidateCouponResult | null;
-  consumableProductNames: Record<string, string>;
-  couponCode: string;
-  couponError: string | null;
-  discountApplyTo: DiscountApplyTarget[];
-  extraCharges: Record<ExtraChargeKey, string>;
-  gstPreviewAmount: number;
-  hasItems: boolean;
-  includeGst: boolean;
-  initialStep: CheckoutStep;
-  initialStaffValidationAttempted?: boolean;
-  isApplyingCoupon: boolean;
-  isCheckingOut: boolean;
-  isPricingLoading: boolean;
-  isSaving: boolean;
-  isSuccess: boolean;
-  pricingError: string | null;
-  items: CartItem[];
-  onAddMore: () => void;
-  onApplyCoupon: () => void;
-  onAssignStaff: (lineId: string, staffId: string | null, staffName: string | null) => void;
-  onChangeCouponCode: (value: string) => void;
-  onChangeDiscountApplyTo: (targets: DiscountApplyTarget[]) => void;
-  onChangeCustomer: () => void;
-  onChangeExtraCharge: (key: ExtraChargeKey, value: string) => void;
-  onChangeOverallDiscount: (
-    value: string,
-    type: "flat" | "percentage",
-    percentage: number,
-  ) => void;
-  onChangeTip: (value: string) => void;
-  onClose: () => void;
-  onCompleteSale: (payment: {
-    method: SalePaymentMethod;
-    paidAmount: number;
-    splitEntries?: CheckoutSaleSplitEntry[];
-  }) => void;
-  onRemoveCoupon: () => void;
-  onRemoveItem: (lineId: string) => void;
-  onRequireClientDetails?: () => void;
-  onSavePending: () => void;
-  onSetConsumableActualQty: (lineId: string, productId: string, actualQty: number) => void;
-  onSetQuantity: (lineId: string, quantity: number) => void;
-  onToggleIncludeGst: () => void;
-  overallDiscountInput: string;
-  overallDiscountPercent: number;
-  overallDiscountType: "flat" | "percentage";
-  productStockErrors: Record<string, string>;
-  redemptions: ReturnType<typeof useRedemptions>;
-  renderInline?: boolean;
-  selectedClient: QuickSaleClient;
-  staffOptions: PosStaffMember[];
-  submitError: string | null;
-  tipInput: string;
-  totals: BillTotals;
-  visible: boolean;
-};
 
 function CheckoutSheetComponent({
   appliedCoupon,
@@ -1510,24 +1454,6 @@ function CheckoutSheetComponent({
   );
 }
 
-function ModeButton({ active, label, onPress }: { active: boolean; label: string; onPress: () => void }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={[styles.modeButton, active && styles.modeButtonActive]}>
-      <Text
-        adjustsFontSizeToFit
-        minimumFontScale={0.82}
-        numberOfLines={1}
-        style={[styles.modeButtonText, active && styles.modeButtonTextActive]}
-      >
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
-}
-
 function BenefitCard({ card }: { card: BenefitCardConfig }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -1800,32 +1726,6 @@ function ConsumableActualQtyRow({
         />
         <Text style={styles.consumableUnit}>{consumable.unit}</Text>
       </View>
-    </View>
-  );
-}
-
-function SummaryRow({ label, tone, value }: { label: string; tone?: "discount"; value: string }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <View style={styles.summaryRow}>
-      <Text style={styles.summaryLabel}>{label}</Text>
-      <Text style={[styles.summaryValue, tone === "discount" && styles.summaryValueDiscount]}>{value}</Text>
-    </View>
-  );
-}
-
-function SummaryTile({ label, value }: { label: string; value: string }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-
-  return (
-    <View style={styles.summaryTile}>
-      <Text adjustsFontSizeToFit minimumFontScale={0.82} numberOfLines={1} style={styles.summaryTileLabel}>
-        {label}
-      </Text>
-      <Text numberOfLines={1} style={styles.summaryTileValue}>{value}</Text>
     </View>
   );
 }
@@ -2446,27 +2346,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     overflow: "hidden",
     padding: 3,
   },
-  modeButton: {
-    alignItems: "center",
-    borderRadius: Radius.full,
-    justifyContent: "center",
-    minHeight: 36,
-    paddingHorizontal: 6,
-    width: "50%",
-  },
-  modeButtonActive: {
-    backgroundColor: Colors.primaryDark,
-  },
-  modeButtonText: {
-    color: Colors.text2,
-    flexShrink: 1,
-    fontSize: 12,
-    fontWeight: "900",
-    textAlign: "center",
-  },
-  modeButtonTextActive: {
-    color: Colors.onPrimary,
-  },
   input: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
@@ -2815,40 +2694,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderWidth: 1,
     padding: Spacing.md,
   },
-  summaryRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 6,
-  },
   summaryLabel: {
     color: Colors.text2,
     fontSize: 12,
     fontWeight: "700",
-  },
-  summaryValue: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "900",
-  },
-  summaryValueDiscount: {
-    color: Colors.error,
-  },
-  summaryTile: {
-    flex: 1,
-  },
-  summaryTileLabel: {
-    color: Colors.text2,
-    fontSize: 10,
-    fontWeight: "900",
-    lineHeight: 13,
-    marginBottom: 4,
-    textTransform: "uppercase",
-  },
-  summaryTileValue: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "900",
   },
   splitTotalText: {
     color: Colors.text2,

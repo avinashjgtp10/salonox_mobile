@@ -1,5 +1,34 @@
 import type { ConsumableUsageItem } from "@/types/consumable";
-import type { SaleItemType } from "@/types/sales";
+import type { CheckoutSaleSplitEntry, SaleItemType, SalePaymentMethod } from "@/types/sales";
+
+export type CheckoutInitialStep = "review" | "charges" | "payment";
+
+export type PendingCheckoutPayment = {
+  method: SalePaymentMethod;
+  paidAmount?: number;
+  splitEntries?: CheckoutSaleSplitEntry[];
+};
+
+export type ClientPackageLoadStatus = "idle" | "loading" | "loaded" | "error";
+
+export type ClientPackageLoadState = {
+  clientId: string;
+  error: string | null;
+  isRetrying: boolean;
+  status: ClientPackageLoadStatus;
+};
+
+export type QuickSaleSlot = {
+  date: string;
+  staffName?: string;
+  time: string;
+};
+
+export type QuickSaleScreenProps = {
+  embedded?: boolean;
+  initialSlot?: QuickSaleSlot | null;
+  onRequestClose?: () => void;
+};
 
 // A cart line is always one of these three sources. "quick" is a free-typed
 // custom charge with no catalog id behind it (matches the backend's own

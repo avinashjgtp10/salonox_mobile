@@ -33,7 +33,7 @@ import {
 } from "@/features/quickSale/components/CheckoutSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
 import { ClientOptionRow } from "@/features/quickSale/components/ClientOptionRow";
-import { CategoryChips, type CategoryChipOption } from "@/features/quickSale/components/CategoryChips";
+import { CategoryChips } from "@/features/quickSale/components/CategoryChips";
 import { ErrorState } from "@/features/quickSale/components/StateViews";
 import { GlobalSearchBar } from "@/features/quickSale/components/GlobalSearchBar";
 import { MembershipCatalogTab } from "@/features/quickSale/components/MembershipCatalogTab";
@@ -46,7 +46,19 @@ import { useCart } from "@/features/quickSale/hooks/useCart";
 import { useCheckoutSubmissionController } from "@/features/quickSale/hooks/useCheckoutSubmissionController";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
 import { useRedemptions } from "@/features/quickSale/hooks/useRedemptions";
-import { WALK_IN_CLIENT, type CartItem, type QuickSaleClient } from "@/features/quickSale/types";
+import {
+  WALK_IN_CLIENT,
+  type CartItem,
+  type ClientPackageLoadState,
+  type ClientPackageLoadStatus,
+  type CheckoutInitialStep,
+  type PendingCheckoutPayment,
+  type QuickSaleClient,
+  type QuickSaleScreenProps,
+} from "@/features/quickSale/types";
+import { ITEM_TYPE_CHIPS, type CatalogTab } from "@/features/quickSale/constants";
+import { clientFromListItem, getClientInitials } from "@/features/quickSale/utils/client";
+import { getActionError } from "@/features/quickSale/utils/errors";
 import { adaptPricingResponseToBillTotals, getCartItemBillableQuantity } from "@/features/quickSale/utils/calculations";
 import { toConsumableUsagePayload } from "@/features/quickSale/utils/consumables";
 import { pricingService } from "@/services/pricing.service";
@@ -106,69 +118,7 @@ import type { CreateAppointmentRequest } from "@/types/appointment";
 import type { Membership } from "@/types/membership";
 import type { CreatePaymentRequest } from "@/types/payment";
 
-type CatalogTab = "services" | "products" | "packages" | "membership";
-type CheckoutInitialStep = "review" | "charges" | "payment";
-type PendingCheckoutPayment = {
-  method: SalePaymentMethod;
-  paidAmount?: number;
-  splitEntries?: CheckoutSaleSplitEntry[];
-};
-type ClientPackageLoadStatus = "idle" | "loading" | "loaded" | "error";
-
-type ClientPackageLoadState = {
-  clientId: string;
-  error: string | null;
-  isRetrying: boolean;
-  status: ClientPackageLoadStatus;
-};
-
-export type QuickSaleSlot = {
-  date: string;
-  staffName?: string;
-  time: string;
-};
-
-type QuickSaleScreenProps = {
-  embedded?: boolean;
-  initialSlot?: QuickSaleSlot | null;
-  onRequestClose?: () => void;
-};
-
-const ITEM_TYPE_CHIPS: CategoryChipOption[] = [
-  { id: "services", label: "Services" },
-  { id: "products", label: "Products" },
-  { id: "packages", label: "Packages" },
-  { id: "membership", label: "Memberships" },
-];
-
-const clientFromListItem = (client: ClientListItem): QuickSaleClient => ({
-  avatarBg: "#e4edf9",
-  avatarColor: "#7488a0",
-  id: client.id,
-  initials: client.initials,
-  membership: client.membership,
-  name: client.fullName,
-  phone: client.phone,
-});
-
-const getClientInitials = (name: string) =>
-  name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "WI";
-
-const getActionError = (payload: unknown, fallback: string) => {
-  if (payload && typeof payload === "object" && "message" in payload) {
-    const message = (payload as { message?: unknown }).message;
-    if (typeof message === "string" && message.trim()) {
-      return message;
-    }
-  }
-
-  return fallback;
-};
+export type { QuickSaleSlot } from "@/features/quickSale/types";
 
 export default function QuickSaleScreen({
   embedded = false,

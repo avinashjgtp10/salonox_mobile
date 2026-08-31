@@ -17,7 +17,8 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
-import { api, getApiErrorMessage } from "@/services/api";
+import { getApiErrorMessage } from "@/services/api";
+import { supportService } from "@/services/support.service";
 import { selectActiveBranch } from "@/store/branch/branch.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
@@ -163,7 +164,7 @@ export function StaffSettingsScreen() {
     setIsSubmittingReport(true);
 
     try {
-      await api.post("/support", {
+      await supportService.submitRequest({
         category: "technical",
         message,
         priority: "medium",
