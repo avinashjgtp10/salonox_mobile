@@ -17,6 +17,7 @@ import { fetchProductsThunk } from "../../../../middleware/catalog/products.thun
 import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
 import { setPackagesList, patchPaymentStatus } from "../../../../store/schedulerSlice";
 import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
+import { checkoutBookingThunk } from "../../../../middleware/booking/booking.thunk";
 import { fetchReceiptPdfThunk } from "../../../../middleware/booking/booking.thunk";
 import { downloadBlob } from "../../../../utils/downloadBlob";
 import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
@@ -2141,6 +2142,11 @@ export const AppointmentModal: React.FC<Props> = ({
         grandTotal: 0,
         paymentMode: "Package",
       }));
+      // See the identical comment in handleQuickSaleCheckout's isPackageZero
+      // branch — without this, a fully package-covered Calendar checkout
+      // never reaches appointments.service.ts's checkout(), silently
+      // skipping both staff commission and the PDF bill_receipt safety-net send.
+      dispatch(checkoutBookingThunk({ id: String(apptId), data: {} }));
       await markPackageSessions(String(apptId));
       setClientRefreshKey((k) => k + 1);
       finishWithPaidPopup();
@@ -2207,6 +2213,16 @@ export const AppointmentModal: React.FC<Props> = ({
           grandTotal: 0,
           paymentMode: "Package",
         }));
+        // Same "checkout the appointment so commission fires" step every other
+        // fully-paid path takes (see usePayment.ts's identical dispatch right
+        // after a payment with finalDue === 0) — this branch bypasses
+        // completePayment() entirely, so without this call a 100%
+        // package-covered visit never reached appointments.service.ts's
+        // checkout(), which is where staff commission gets calculated AND
+        // where the PDF bill_receipt safety-net send lives (payments.service.ts's
+        // own package-payment branch never sends it directly). Both were
+        // silently skipped for a fully package-covered checkout.
+        dispatch(checkoutBookingThunk({ id: String(id), data: {} }));
         await markPackageSessions(String(id));
         setClientRefreshKey((k) => k + 1);
         finishWithPaidPopup();

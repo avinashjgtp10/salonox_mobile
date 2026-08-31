@@ -63,7 +63,9 @@ export type PurchaseEventType =
   | "service_reminder_24h"
   | "reward_points_earned"
   | "referral_reward"
-  | "ewallet_used";
+  | "ewallet_used"
+  | "referral_credit_used"
+  | "reward_points_used";
 
 export type TemplateSubmissionStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
 

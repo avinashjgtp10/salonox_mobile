@@ -59,6 +59,8 @@ const EVENT_CATEGORIES: Record<PurchaseEventType, TriggerCategory[]> = {
   reward_points_earned:             ["other"],
   referral_reward:                  ["other"],
   ewallet_used:                     ["other"],
+  referral_credit_used:             ["other"],
+  reward_points_used:               ["other"],
 };
 
 const CATEGORY_ORDER: TriggerCategory[] = ["quick_sale", "calendar", "other"];
@@ -88,6 +90,8 @@ const EVENT_LABELS: Record<PurchaseEventType, { label: string; hint: string }> =
   reward_points_earned: { label: "Reward Points Earned", hint: "Sent when a client earns reward points on a payment" },
   referral_reward:      { label: "Referral Reward Credited", hint: "Sent to the referrer once their referred client's first bill is paid" },
   ewallet_used:         { label: "eWallet Used", hint: "Sent whenever a payment is settled (fully or partly) using eWallet balance" },
+  referral_credit_used: { label: "Referral Credit Used", hint: "Sent whenever a payment is settled (fully or partly) using Referral Balance" },
+  reward_points_used:   { label: "Reward Points Used", hint: "Sent whenever a payment is settled (fully or partly) using Reward Points" },
 };
 
 // What each placeholder turns into in the message the customer receives.
@@ -108,13 +112,15 @@ const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; me
   ],
   package_purchased: [
     { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{package_name}}", meaning: "Package name" },
-    { token: "{{package_value}}", meaning: "Package value" }, { token: "{{total_sessions}}", meaning: "Total sessions" },
-    { token: "{{expiry_date}}", meaning: "Expiry date" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
+    { token: "{{services}}", meaning: "Services included in the package, comma-separated" }, { token: "{{total_sessions}}", meaning: "Total sessions" },
+    { token: "{{expiry_date}}", meaning: "Expiry date" }, { token: "{{package_value}}", meaning: "Package value" },
+    { token: "{{invoice_number}}", meaning: "Invoice number" },
   ],
   membership_purchased: [
     { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{membership_name}}", meaning: "Membership name" },
-    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{membership_price}}", meaning: "Membership price" },
-    { token: "{{membership_balance}}", meaning: "Available balance" }, { token: "{{expiry_date}}", meaning: "Expiry date" },
+    { token: "{{benefit}}", meaning: "Plain-text description of the membership's benefit" }, { token: "{{start_date}}", meaning: "Purchase/start date" },
+    { token: "{{expiry_date}}", meaning: "Expiry date" }, { token: "{{membership_price}}", meaning: "Membership price" },
+    { token: "{{invoice_number}}", meaning: "Invoice number" },
   ],
   appointment_confirmation: [
     { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{salon_name}}", meaning: "Your salon's name" },
@@ -185,6 +191,14 @@ const VARIABLE_EXPLANATIONS: Record<PurchaseEventType, Array<{ token: string; me
   ewallet_used: [
     { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount_used}}", meaning: "Amount used from eWallet" },
     { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{remaining_balance}}", meaning: "Remaining eWallet balance" },
+  ],
+  referral_credit_used: [
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{amount_used}}", meaning: "Amount used from Referral Balance" },
+    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{remaining_balance}}", meaning: "Remaining Referral Balance" },
+  ],
+  reward_points_used: [
+    { token: "{{customer_name}}", meaning: "Customer's name" }, { token: "{{points_used}}", meaning: "Points used" },
+    { token: "{{salon_name}}", meaning: "Your salon's name" }, { token: "{{remaining_points}}", meaning: "Remaining reward points" },
   ],
 };
 
