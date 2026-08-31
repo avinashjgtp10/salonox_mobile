@@ -628,9 +628,10 @@ export function CloseCounterModal({
   const [errors, setErrors] = useState<FieldErrors>({});
   const [submitError, setSubmitError] = useState("");
   // dashboard.upiAmount/cardAmount come from the cash-management dashboard
-  // endpoint, which never actually populates those fields (always 0) — the
-  // real per-payment-method totals only exist in today's daily-sheet rows,
-  // so they're fetched and aggregated separately here.
+  // endpoint, which never actually populates those fields (always 0), and
+  // dashboard.cashRevenue excludes the cash leg of split payments — the
+  // real per-payment-method totals (split-aware) only exist in today's
+  // daily-sheet rows, so they're fetched and aggregated separately here.
   const [paymentMethodAmounts, setPaymentMethodAmounts] = useState({ upi: 0, card: 0, cash: 0 });
 
   const handleClose = () => {
@@ -764,7 +765,7 @@ export function CloseCounterModal({
             </div>
             <div className="cash-mgmt__close-card">
               <span><CashStack size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--success" /> Cash Revenue</span>
-              <strong className="cash-mgmt__amount-positive">{formatAmount(dashboard.cashRevenue)}</strong>
+              <strong className="cash-mgmt__amount-positive">{formatAmount(paymentMethodAmounts.cash)}</strong>
             </div>
             <div className="cash-mgmt__close-card">
               <span><JournalText size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--warning" /> Cash Expense</span>
@@ -772,7 +773,7 @@ export function CloseCounterModal({
             </div>
             <div className="cash-mgmt__close-card">
               <span><Safe2 size={13} className="cash-mgmt__close-icon" /> Expected Closing</span>
-              <strong>{formatAmount(dashboard.closingBalance)}</strong>
+              <strong>{formatAmount(dashboard.openingBalance + paymentMethodAmounts.cash - dashboard.cashExpense)}</strong>
             </div>
             <div className="cash-mgmt__close-card">
               <span><CurrencyRupee size={13} className="cash-mgmt__close-icon cash-mgmt__close-icon--primary" /> UPI Payments</span>
