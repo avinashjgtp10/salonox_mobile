@@ -39,6 +39,9 @@ export default function MarketingSubSidebar({ onClose }: Props) {
         <NavLink to="/dashboard/marketing/templates" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
           <i className="ti ti-template" aria-hidden="true" /> Templates
         </NavLink>
+        <NavLink to="/dashboard/marketing/scheduled-templates" className={({ isActive }) => `sub-link${isActive ? " active" : ""}`}>
+          <i className="ti ti-calendar-time" aria-hidden="true" /> Scheduled Templates
+        </NavLink>
 
         <hr className="sub-divider" />
         <div className="sub-category">Conversations</div>

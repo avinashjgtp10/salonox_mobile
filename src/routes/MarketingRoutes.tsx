@@ -8,6 +8,7 @@ import MarketingOnboardingPage from "../features/marketing/pages/MarketingOnboar
 const MarketingDashboardPage = lazy(() => import("../features/marketing/pages/MarketingDashboardPage"));
 const AnalyticsPage          = lazy(() => import("../features/marketing/pages/AnalyticsPage"));
 const TemplatesListPage      = lazy(() => import("../features/marketing/pages/TemplatesListPage"));
+const ScheduledTemplatesPage = lazy(() => import("../features/marketing/pages/ScheduledTemplatesPage"));
 const CreateTemplatePage     = lazy(() => import("../features/marketing/pages/CreateTemplatePage"));
 const CampaignsPage          = lazy(() => import("../features/marketing/pages/CampaignsPage"));
 const InboxPage              = lazy(() => import("../features/marketing/pages/InboxPage"));
@@ -55,6 +56,7 @@ export const MarketingRoutes = () => {
         <Route path="analytics"         element={<AnalyticsPage />} />
         <Route path="templates"         element={<TemplatesListPage />} />
         <Route path="templates/create"  element={<CreateTemplatePage />} />
+        <Route path="scheduled-templates" element={<ScheduledTemplatesPage />} />
         <Route path="campaigns/create"  element={<CampaignsPage />} />
         <Route path="campaigns/history" element={<CampaignsPage />} />
         <Route path="inbox"             element={<InboxPage />} />

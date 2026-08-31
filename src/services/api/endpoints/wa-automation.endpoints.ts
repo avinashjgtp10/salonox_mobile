@@ -9,4 +9,13 @@ export const WA_AUTOMATION_ENDPOINTS = {
   // at some point — an event absent from the response is ON, not OFF.
   // PUT body: { event_type, is_active }.
   SALON_SETTINGS:           (salonId: string) => `/api/v1/wa-automation/settings/${salonId}`,
+
+  // ── Scheduled Templates ──────────────────────────────────────────────────
+  SCHEDULED_LIST:       (salonId: string) => `/api/v1/wa-automation/scheduled/${salonId}`,
+  SCHEDULED_SEND_NOW:   (salonId: string, id: string) => `/api/v1/wa-automation/scheduled/${salonId}/${id}/send-now`,
+  SCHEDULED_RETRY_NOW:  (salonId: string, id: string) => `/api/v1/wa-automation/scheduled/${salonId}/${id}/retry-now`,
+  SCHEDULED_RESCHEDULE: (salonId: string, id: string) => `/api/v1/wa-automation/scheduled/${salonId}/${id}/reschedule`,
+  SCHEDULED_SKIP:       (salonId: string, id: string) => `/api/v1/wa-automation/scheduled/${salonId}/${id}/skip`,
+  SCHEDULED_CANCEL:     (salonId: string, id: string) => `/api/v1/wa-automation/scheduled/${salonId}/${id}/cancel`,
+  SCHEDULED_RESEND:     (salonId: string, id: string) => `/api/v1/wa-automation/scheduled/${salonId}/${id}/resend`,
 };
