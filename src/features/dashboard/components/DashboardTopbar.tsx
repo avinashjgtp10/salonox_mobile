@@ -599,7 +599,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
                       <CashStack size={13} className="text-success" /> Cash Revenue
                     </div>
                     <div className="fw-bold text-success fs-6 mt-1">
-                      {formatAmount(cashDashboard.cashRevenue ?? 0)}
+                      {formatAmount(paymentMethodCounts.amounts.cash)}
                     </div>
                   </div>
                 </div>
@@ -621,7 +621,11 @@ export default function DashboardTopbar({ onLogout }: Props) {
                       <Safe2 size={13} className="text-dark" /> Expected Closing
                     </div>
                     <div className="fw-bold text-dark fs-6 mt-1">
-                      {formatAmount(cashDashboard.closingBalance ?? 0)}
+                      {formatAmount(
+                        (cashDashboard.openingBalance ?? 0) +
+                          paymentMethodCounts.amounts.cash -
+                          (cashDashboard.cashExpense ?? 0)
+                      )}
                     </div>
                   </div>
                 </div>
