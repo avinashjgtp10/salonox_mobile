@@ -206,6 +206,42 @@ export interface DashboardStats {
   dailyVolume:     DailyVolume[];
 }
 
+// ── Scheduled Templates ─────────────────────────────────────────────────────
+// Only the 12 events with a genuine schedule concept live here — the rest of
+// PurchaseEventType (bill_receipt, confirmations, purchases, session-used,
+// rewards, ewallet/referral/points-used) fire synchronously and never appear.
+export type ScheduledMessageStatus = "SCHEDULED" | "SENDING" | "SENT" | "FAILED" | "SKIPPED" | "CANCELLED";
+
+export interface ScheduledMessage {
+  id:                 string;
+  salon_id:           string;
+  client_id:          string | null;
+  phone_number:       string;
+  phone_country_code: string | null;
+  event_type:         string;
+  is_preview:         boolean;
+  reference_id:       string | null;
+  reference_type:     string | null;
+  scheduled_at:       string;
+  status:             ScheduledMessageStatus;
+  variables:          Record<string, string>;
+  message_preview:    string | null;
+  failure_reason:     string | null;
+  attempt_count:      number;
+  sent_at:            string | null;
+  cancelled_at:       string | null;
+  automation_log_id:  string | null;
+  created_at:         string;
+  updated_at:         string;
+}
+
+export interface ScheduledMessagesListResponse {
+  data: {
+    data:  ScheduledMessage[];
+    total: number;
+  };
+}
+
 // ── API Responses ─────────────────────────────────────────────────────────────
 export interface TemplateResponse        { data: Template;        }
 export interface TemplatesListResponse   { data: Template[];      }
