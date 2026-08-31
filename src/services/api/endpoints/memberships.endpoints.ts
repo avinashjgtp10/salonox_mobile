@@ -39,10 +39,14 @@ export interface Membership {
   /** Defaults to 'services' server-side when omitted. */
   appliesTo?: MembershipAppliesTo;
   /** Optional narrowing of appliesTo to specific service_categories ids —
-   *  empty/omitted means unrestricted (every category within appliesTo's scope). */
-  categoryIds?: string[];
+   *  independent per side (a category valid for both services and products
+   *  can be picked for one without implicitly restricting the other) —
+   *  empty/omitted means unrestricted on that side. */
+  serviceCategoryIds?: string[];
+  productCategoryIds?: string[];
   /** Further, additive narrowing to specific services/products within (or
-   *  independent of) categoryIds — empty/omitted means no individual-item narrowing. */
+   *  independent of) the category ids above — empty/omitted means no
+   *  individual-item narrowing. */
   serviceIds?: string[];
   productIds?: string[];
   pricingType?: MembershipPricingType;
@@ -76,10 +80,13 @@ export interface CreateMembershipDTO {
   /** Defaults to 'services' server-side when omitted. */
   appliesTo?: MembershipAppliesTo;
   /** Optional narrowing of appliesTo to specific service_categories ids —
-   *  empty/omitted means unrestricted (every category within appliesTo's scope). */
-  categoryIds?: string[];
+   *  independent per side (see Membership's matching fields) — empty/omitted
+   *  means unrestricted on that side. */
+  serviceCategoryIds?: string[];
+  productCategoryIds?: string[];
   /** Further, additive narrowing to specific services/products within (or
-   *  independent of) categoryIds — empty/omitted means no individual-item narrowing. */
+   *  independent of) the category ids above — empty/omitted means no
+   *  individual-item narrowing. */
   serviceIds?: string[];
   productIds?: string[];
   pricingType?: MembershipPricingType;
@@ -132,8 +139,10 @@ export interface LoyaltyEligibility {
   /** Pass-through of currentTier.discountPercent (0 when ineligible). */
   discountPercent: number;
   appliesTo: MembershipAppliesTo;
-  /** Optional narrowing of appliesTo to specific service_categories ids — empty means unrestricted. */
-  categoryIds: string[];
+  /** Optional narrowing of appliesTo to specific service_categories ids —
+   *  independent per side — empty means unrestricted on that side. */
+  serviceCategoryIds: string[];
+  productCategoryIds: string[];
   /** Further, additive narrowing to specific services/products — empty means no individual-item narrowing. */
   serviceIds: string[];
   productIds: string[];

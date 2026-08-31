@@ -983,7 +983,26 @@ $item-field-text-inset: 9px;
     // Staff Alert / Notes — same .pkg-info-btn ℹ button used for Reward/
     // Package/Membership, just anchored in the header instead of inline
     // next to a stat value.
-    .client-alert-wrap { position: relative; flex-shrink: 0; }
+    .client-alert-wrap {
+      position: relative;
+      flex-shrink: 0;
+
+      // This button sits at the far right edge of the header row (unlike the
+      // Reward/Package/Membership ℹ buttons, which sit further left inside
+      // the grid) — the shared .info-popover's default `left: 0` grows the
+      // popover rightward from the button and pushes it off the edge of the
+      // panel/viewport. Anchor from the right instead so it grows leftward,
+      // staying inside the panel, and flip the pointer arrow to match.
+      .info-popover {
+        left: auto;
+        right: 0;
+
+        &::before {
+          left: auto;
+          right: 14px;
+        }
+      }
+    }
   }
 
   &__grid {

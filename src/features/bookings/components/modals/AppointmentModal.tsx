@@ -139,6 +139,49 @@ function isRealServiceRow(r: any): boolean {
   return !!r.service?.trim() && !!(r.id || r.service_id);
 }
 
+// Client-side mirror of resolveCategoryRestriction/resolveItemRestriction
+// (client-memberships.repository.ts) — pools every active, spendable
+// membership's category/item restriction for one bucket into a single
+// "what's eligible" set, the same "unrestricted only when a covering
+// membership has BOTH lists empty" rule the backend uses. Used ONLY to seed
+// membershipEligibleTotal's default/max estimate below — the actual
+// per-row split staff and the bill total see once applied still comes
+// straight from the server (rowMembershipWalletPreview), never re-derived
+// locally. Without this, a wallet restricted to one specific service (e.g.
+// "Hair Cut" only) offered its FULL eligible amount against every service
+// row on the bill regardless of restriction, defaulting the input higher
+// than the wallet could actually cover.
+function poolMembershipRestriction(
+  memberships: { appliesTo: string; serviceCategoryIds?: string[]; productCategoryIds?: string[]; serviceIds?: string[]; productIds?: string[] }[],
+  bucket: "service" | "product",
+): { categoryIds: string[] | null; itemIds: string[] | null } {
+  const excludeSide = bucket === "service" ? "products" : "services";
+  const covering = memberships.filter((m) => m.appliesTo !== excludeSide);
+  const catsOf = (m: typeof covering[number]) => (bucket === "service" ? m.serviceCategoryIds : m.productCategoryIds) ?? [];
+  const itemsOf = (m: typeof covering[number]) => (bucket === "service" ? m.serviceIds : m.productIds) ?? [];
+  if (covering.some((m) => !catsOf(m).length && !itemsOf(m).length)) return { categoryIds: null, itemIds: null };
+  return {
+    categoryIds: Array.from(new Set(covering.flatMap(catsOf))),
+    itemIds: Array.from(new Set(covering.flatMap(itemsOf))),
+  };
+}
+
+// Mirrors matchesCategoryRestriction (pricing.service.ts/payments.service.ts)
+// — null/empty categoryIds+itemIds means unrestricted. rowItemId falls back
+// the same way the backend's row-id normalization now does (see
+// pricing.service.ts's serviceRows/productRows itemId fallback) — a freshly
+// picked, unsaved row's catalog id lives under `id`, not service_id/productId.
+function rowMatchesMembershipRestriction(
+  categoryId: string | undefined,
+  rowItemId: string | undefined,
+  categoryIds: string[] | null,
+  itemIds: string[] | null,
+): boolean {
+  if (!categoryIds?.length && !itemIds?.length) return true;
+  return (!!categoryIds?.length && !!categoryId && categoryIds.includes(categoryId))
+      || (!!itemIds?.length && !!rowItemId && itemIds.includes(rowItemId));
+}
+
 export const AppointmentModal: React.FC<Props> = ({
   isOpen, onClose, salonId,
   existingBooking, defaultDate, defaultTime, defaultStaffId,
@@ -980,6 +1023,23 @@ export const AppointmentModal: React.FC<Props> = ({
     return map;
   }, [rowMembershipWalletPreview, productRows]);
 
+  // Restriction pool (category ids ∪ item ids, across every active
+  // membership with a spendable balance) — see poolMembershipRestriction's
+  // doc comment above for why membershipEligibleTotal needs this instead of
+  // just membershipCoversServices/membershipCoversProducts.
+  const membershipsWithBalance = useMemo(
+    () => clientMemberships.filter((m) => Number(m.membershipWalletBalance) > 0),
+    [clientMemberships],
+  );
+  const membershipServiceRestriction = useMemo(
+    () => poolMembershipRestriction(membershipsWithBalance, "service"),
+    [membershipsWithBalance],
+  );
+  const membershipProductRestriction = useMemo(
+    () => poolMembershipRestriction(membershipsWithBalance, "product"),
+    [membershipsWithBalance],
+  );
+
   // Most the membership wallet could ever usefully cover — capped by both the
   // wallet's own balance and by how much eligible service (+ product, when
   // enabled) value there is to apply it against, NET of any Discount
@@ -989,6 +1049,8 @@ export const AppointmentModal: React.FC<Props> = ({
     const serviceTotal = membershipCoversServices
       ? serviceRows.reduce((s, row, i) => {
           if (!row.service.trim() || (row as any).isPackageService) return s;
+          const rowItemId = (row as any).service_id || (row as any).id;
+          if (!rowMatchesMembershipRestriction((row as any).categoryId, rowItemId, membershipServiceRestriction.categoryIds, membershipServiceRestriction.itemIds)) return s;
           const tempId = (row as any).tempId || String(i);
           const alreadyDiscounted = serviceMembershipDiscountByRow.get(tempId) ?? 0;
           return s + Math.max(0, (Number(row.total) || 0) - alreadyDiscounted);
@@ -996,13 +1058,15 @@ export const AppointmentModal: React.FC<Props> = ({
       : 0;
     const productTotal = membershipCoversProducts
       ? productRows.reduce((s, row, i) => {
+          const rowItemId = (row as any).productId || (row as any).id;
+          if (!rowMatchesMembershipRestriction((row as any).categoryId, rowItemId, membershipProductRestriction.categoryIds, membershipProductRestriction.itemIds)) return s;
           const tempId = (row as any).tempId || String(i);
           const alreadyDiscounted = productMembershipDiscountByRow.get(tempId) ?? 0;
           return s + Math.max(0, (Number(row.total) || 0) - alreadyDiscounted);
         }, 0)
       : 0;
     return serviceTotal + productTotal;
-  }, [serviceRows, productRows, membershipCoversServices, membershipCoversProducts, serviceMembershipDiscountByRow, productMembershipDiscountByRow]);
+  }, [serviceRows, productRows, membershipCoversServices, membershipCoversProducts, serviceMembershipDiscountByRow, productMembershipDiscountByRow, membershipServiceRestriction, membershipProductRestriction]);
   const membershipMaxUsable = Math.min(membershipTotalBalance, membershipEligibleTotal);
 
   // How much of the membership wallet staff has chosen to apply — defaults to
