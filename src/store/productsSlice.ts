@@ -1,6 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import {
   fetchProductsThunk,
+  searchProductsThunk,
   createProductThunk,
   updateProductThunk,
   deleteProductThunk,
@@ -69,6 +70,29 @@ const productsSlice = createSlice({
         state.totalPages = action.payload.totalPages;
       })
       .addCase(fetchProductsThunk.rejected, (state, action) => {
+        if (action.meta.requestId !== state._activeFetchId) return;
+        state.loading.fetchAll = false;
+        state._activeFetchId = null;
+        state.error = action.payload ?? "Error fetching products";
+      });
+
+    builder
+      .addCase(searchProductsThunk.pending, (state, action) => {
+        state.loading.fetchAll = true;
+        state.error = null;
+        state._activeFetchId = action.meta.requestId;
+      })
+      .addCase(searchProductsThunk.fulfilled, (state, action) => {
+        if (action.meta.requestId !== state._activeFetchId) return;
+        state.loading.fetchAll = false;
+        state._activeFetchId = null;
+        state.items = action.payload.data;
+        state.page = action.payload.page;
+        state.pageSize = action.payload.pageSize;
+        state.totalRecords = action.payload.totalRecords;
+        state.totalPages = action.payload.totalPages;
+      })
+      .addCase(searchProductsThunk.rejected, (state, action) => {
         if (action.meta.requestId !== state._activeFetchId) return;
         state.loading.fetchAll = false;
         state._activeFetchId = null;

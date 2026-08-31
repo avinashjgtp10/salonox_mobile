@@ -28,6 +28,12 @@
     }
   }
 
+  // No leading icon (showIcon={false}) — the field no longer reserves that
+  // left padding.
+  &__input--no-icon {
+    padding-left: 12px;
+  }
+
   &__clear {
     position: absolute;
     right: 8px;

@@ -79,6 +79,12 @@ const ConsumableUsageHistoryPage = lazy(
 const ProductAuditPage = lazy(
   () => import("../features/catalog/pages/ProductAuditPage"),
 );
+const StockLedgerPage = lazy(
+  () => import("../features/catalog/pages/StockLedgerPage"),
+);
+const AddStockPage = lazy(
+  () => import("../features/catalog/pages/AddStockPage"),
+);
 
 import { PageLoader } from "../components/ui";
 
@@ -145,6 +151,9 @@ export const CatalogRoutes = () => (
         <Route path="inventory/consumables/add" element={<ProductFormPage />} />
         <Route path="inventory/consumables/edit/:id" element={<ProductFormPage />} />
         <Route path="inventory/consumables/usage-history" element={<ConsumableUsageHistoryPage />} />
+        <Route path="inventory/ledger" element={<StockLedgerPage />} />
+        <Route path="inventory/ledger/add-stock" element={<AddStockPage />} />
+        <Route path="inventory/ledger/edit/:id" element={<AddStockPage />} />
         {/* Redesigned as Consumable Inventory — old URL kept working */}
         <Route path="inventory/stock-reconciliation" element={<Navigate to="/dashboard/catalog/inventory/consumables" replace />} />
       </Route>

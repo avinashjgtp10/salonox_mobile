@@ -64,4 +64,13 @@ export const INVENTORY = {
   PRODUCT_AUDIT_APPROVE: (id: string) => `/api/v1/inventory/product-audits/${id}/approve`,
   PRODUCT_AUDIT_REJECT: (id: string) => `/api/v1/inventory/product-audits/${id}/reject`,
   PRODUCT_AUDIT_REOPEN: (id: string) => `/api/v1/inventory/product-audits/${id}/reopen`,
+
+  // Stock Ledger — full movement history per product, one row per
+  // transaction with the running balance already applied.
+  STOCK_LEDGER: "/api/v1/inventory/stock-ledger",
+  // POST variant of STOCK_LEDGER's GET list — same filters, sent as a JSON
+  // body instead of query params (report-style: one call, no query-string cap).
+  STOCK_LEDGER_LIST: "/api/v1/inventory/stock-ledger/list",
+  STOCK_LEDGER_BY_ID: (id: string) => `/api/v1/inventory/stock-ledger/${id}`,
+  STOCK_LEDGER_PRODUCT_TIMELINE: (productId: string) => `/api/v1/inventory/stock-ledger/product/${productId}/timeline`,
 } as const;

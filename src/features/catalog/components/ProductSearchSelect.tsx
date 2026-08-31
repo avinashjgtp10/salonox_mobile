@@ -17,6 +17,7 @@ interface Props {
   onSelect: (product: ProductSearchResult) => void;
   placeholder?: string;
   disabled?: boolean;
+  showIcon?: boolean;
 }
 
 const DEBOUNCE_MS = 300;
@@ -28,7 +29,7 @@ const DEBOUNCE_MS = 300;
 // four aggregate joins for the 12-column table — too heavy to hit on every
 // keystroke of a typeahead). PRODUCTS.LIST has no aggregates and is the
 // right weight for "find a product by name/barcode".
-export default function ProductSearchSelect({ onSelect, placeholder = "Search product by name or barcode…", disabled }: Props) {
+export default function ProductSearchSelect({ onSelect, placeholder = "Search product by name or barcode…", disabled, showIcon = true }: Props) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ProductSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
@@ -78,9 +79,9 @@ export default function ProductSearchSelect({ onSelect, placeholder = "Search pr
   return (
     <div className="pss" ref={containerRef}>
       <div className="pss__input-wrap">
-        <Search className="pss__icon" size={14} />
+        {showIcon && <Search className="pss__icon" size={14} />}
         <input
-          className="pss__input"
+          className={`pss__input${showIcon ? "" : " pss__input--no-icon"}`}
           placeholder={placeholder}
           value={query}
           disabled={disabled}
