@@ -385,6 +385,7 @@ export interface OrderItem {
   total_cost_wo_tax: number;
   total_tax: number;
   received_qty: number;
+  batch_number?: string | null;
   created_at: string;
 }
 
@@ -448,6 +449,7 @@ export interface CreateOrderPayload {
 export interface ReceiveOrderItemPayload {
   order_item_id: string;
   received_qty: number;
+  batch_number?: string;
 }
 
 export interface ReceiveOrderPayload {
