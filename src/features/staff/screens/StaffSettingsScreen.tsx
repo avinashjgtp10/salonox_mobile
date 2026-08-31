@@ -240,13 +240,6 @@ export function StaffSettingsScreen() {
       onPress: () => openWebAppPage("/terms"),
       title: "Terms & Conditions",
     },
-    {
-      description: "Coming Soon",
-      icon: "code-slash-outline",
-      key: "licenses",
-      onPress: () => showUnavailable("Coming Soon", "Open source licenses will be available soon."),
-      title: "Open Source Licenses",
-    },
   ];
   const supportItems: SettingsItem[] = [
     {
