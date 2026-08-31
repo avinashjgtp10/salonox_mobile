@@ -270,13 +270,6 @@ export function StaffSettingsScreen() {
       onPress: () => setIsReportModalVisible(true),
       title: "Report a Problem",
     },
-    {
-      description: "Coming Soon",
-      icon: "help-circle-outline",
-      key: "faq",
-      onPress: () => showUnavailable("Coming Soon", "FAQ will be available soon."),
-      title: "FAQ",
-    },
   ];
 
   return (

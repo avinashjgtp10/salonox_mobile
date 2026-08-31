@@ -297,13 +297,6 @@ export default function MoreScreen() {
       onPress: () => setIsReportModalVisible(true),
       title: "Report a Problem",
     },
-    {
-      description: "Coming Soon",
-      icon: "help-circle-outline" as const,
-      key: "faq",
-      onPress: () => showUnavailable("Coming Soon", "FAQ will be available soon."),
-      title: "FAQ",
-    },
   ];
 
   return (
