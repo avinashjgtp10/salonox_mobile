@@ -16,6 +16,7 @@ import type {
   SupplierPayment,
   Order,
   CreateOrderPayload,
+  ReceiveOrderPayload,
   OrderSignature,
   ConsumableListFilters,
   ConsumableListRow,
@@ -278,6 +279,37 @@ export const fetchOrderByIdThunk = createAsyncThunk<
   } catch (err: any) {
     console.error("fetchOrderByIdThunk error:", err);
     return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch order");
+  }
+});
+
+// Records a delivery against this order — creates a linked Purchase (moves
+// products.amount + supplier balance the same way the standalone Purchase
+// flow does) and advances the order's status toward "received".
+export const receiveOrderThunk = createAsyncThunk<
+  Order,
+  { orderId: string; payload: ReceiveOrderPayload },
+  { rejectValue: string }
+>("inventory/receiveOrder", async ({ orderId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_RECEIVE(orderId), payload);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("receiveOrderThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to receive order");
+  }
+});
+
+export const cancelOrderThunk = createAsyncThunk<
+  Order,
+  string,
+  { rejectValue: string }
+>("inventory/cancelOrder", async (orderId, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_CANCEL(orderId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("cancelOrderThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to cancel order");
   }
 });
 

@@ -11,14 +11,22 @@ import Button from "../../../components/ui/Button";
 import Skeleton from "../../../components/ui/Skeleton";
 import Input from "../../../components/ui/Input";
 import EmptyState from "../../../components/ui/EmptyState";
+import { formatDateDDMMYYYY as fmtDate } from "../../../utils/dateFormat";
 import "../styles/SuppliersListPage.scss";
 
-const fmtDate = (value?: string | null) => {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (isNaN(d.getTime())) return "—";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+const STATUS_LABEL: Record<Order["status"], string> = {
+  draft: "Draft",
+  sent: "Sent",
+  partially_received: "Partially Received",
+  received: "Received",
+  cancelled: "Cancelled",
+};
+const STATUS_BADGE: Record<Order["status"], "paid" | "due" | "overdue"> = {
+  draft: "due",
+  sent: "due",
+  partially_received: "due",
+  received: "paid",
+  cancelled: "overdue",
 };
 
 // Orders list — same list-page pattern as SuppliersListPage.tsx (header,
@@ -29,7 +37,7 @@ const OrdersListPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { formatAmount } = useCurrency();
-  const { showError } = useStatusOverlay();
+  const { showError, overlay } = useStatusOverlay();
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
@@ -71,6 +79,7 @@ const OrdersListPage: React.FC = () => {
 
   return (
     <div className="suppliers-list-page">
+      {overlay}
       <header className="suppliers-list-page__header">
         <div>
           <h1>
@@ -113,6 +122,7 @@ const OrdersListPage: React.FC = () => {
                 <th>Order Number</th>
                 <th>Supplier</th>
                 <th>Order Date</th>
+                <th>Status</th>
                 <th>Total Quantity</th>
                 <th>Total Price</th>
                 <th>Payment Terms</th>
@@ -124,6 +134,7 @@ const OrdersListPage: React.FC = () => {
                   <td><Skeleton width="60%" height={13} /></td>
                   <td><Skeleton width="70%" height={12} /></td>
                   <td><Skeleton width="50%" height={12} /></td>
+                  <td><Skeleton width="40%" height={12} /></td>
                   <td><Skeleton width="30%" height={12} /></td>
                   <td><Skeleton width="50%" height={12} /></td>
                   <td><Skeleton width="40%" height={12} /></td>
@@ -138,6 +149,7 @@ const OrdersListPage: React.FC = () => {
                 <th>Order Number</th>
                 <th>Supplier</th>
                 <th>Order Date</th>
+                <th>Status</th>
                 <th>Total Quantity</th>
                 <th>Total Price</th>
                 <th>Payment Terms</th>
@@ -153,6 +165,11 @@ const OrdersListPage: React.FC = () => {
                   <td className="fw-semibold">{o.order_number}</td>
                   <td>{o.supplier_name || "—"}</td>
                   <td>{fmtDate(o.order_date)}</td>
+                  <td>
+                    <span className={`supplier-status-badge supplier-status-badge--${STATUS_BADGE[o.status]}`}>
+                      {STATUS_LABEL[o.status]}
+                    </span>
+                  </td>
                   <td>{o.total_quantity ?? 0}</td>
                   <td>{formatAmount(o.total_price ?? 0)}</td>
                   <td>{o.payment_terms_days != null ? `${o.payment_terms_days} days` : "—"}</td>

@@ -78,10 +78,6 @@ function generateRefNumber(): string {
 // rather than one-off inputs, and following AddSupplierPage's topbar/
 // form-section/field-group visual pattern.
 //
-// "Save Draft" has no backend distinction yet (orders have no draft/confirmed
-// status column) — both buttons call the same create-order flow for now;
-// see orders.repository.ts / Migration/create_orders_tables.sql for what
-// would need to change to make Draft genuinely different from Create.
 const NewOrderPage: React.FC = () => {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
@@ -184,21 +180,26 @@ const NewOrderPage: React.FC = () => {
     const subtotal = qty * unitCost;
     const discountAmount = subtotal * (discountPercent / 100);
     const afterDiscount = subtotal - discountAmount;
-    const taxAmount = afterDiscount * (selectedTaxRate / 100);
+    // Tax is charged on the pre-discount cost, matching the backend
+    // (orders.repository.ts: total_tax = total_cost_wo_tax * tax_rate) — the
+    // discount reduces what's owed, not what GST is computed against, so the
+    // preview shown here must agree with what actually gets persisted.
+    const taxAmount = subtotal * (selectedTaxRate / 100);
     const lineTotal = afterDiscount + taxAmount;
     return { qty, unitCost, discountPercent, subtotal, discountAmount, taxAmount, lineTotal };
   }
 
-  const validLines = lines.filter((l) => {
+  // A blank Unit Cost field must not silently pass as "0" — line.unitCost
+  // trimmed empty is the only reliable signal, since parseFloat('') || 0
+  // already coerces to a valid-looking 0 in lineMath above.
+  const isLineComplete = (l: OrderLine) => {
     const m = lineMath(l);
-    return l.product && m.qty > 0 && m.unitCost >= 0;
-  });
+    return m.qty > 0 && l.unitCost.trim() !== "" && m.unitCost >= 0;
+  };
 
-  const hasIncompleteLine = lines.some((l) => {
-    if (!l.product) return false;
-    const m = lineMath(l);
-    return !(m.qty > 0) || !(m.unitCost >= 0);
-  });
+  const validLines = lines.filter((l) => l.product && isLineComplete(l));
+
+  const hasIncompleteLine = lines.some((l) => l.product && !isLineComplete(l));
 
   const subtotal = validLines.reduce((sum, l) => sum + lineMath(l).subtotal, 0);
   const totalDiscount = validLines.reduce((sum, l) => sum + lineMath(l).discountAmount, 0);
@@ -278,7 +279,7 @@ const NewOrderPage: React.FC = () => {
     }
   }
 
-  async function handleSave() {
+  async function handleSave(status: "draft" | "sent") {
     setTouched(true);
     if (!canSave || saving) return;
     setSaving(true);
@@ -289,7 +290,11 @@ const NewOrderPage: React.FC = () => {
           product_id: l.product!.id,
           product_code: l.sku || undefined,
           qty: m.qty,
-          selling_price: m.unitCost,
+          // The form only collects what we're paying the supplier (Unit
+          // Cost) — selling_price is the product's own catalog retail price
+          // when known, not a duplicate of the cost, so margin reporting
+          // built on these two columns isn't comparing a number to itself.
+          selling_price: l.product!.retail_price ?? m.unitCost,
           discount_percent: m.discountPercent || undefined,
           cost_price: m.unitCost,
         };
@@ -297,6 +302,7 @@ const NewOrderPage: React.FC = () => {
 
       const order = await dispatch(
         createOrderThunk({
+          status,
           supplier_id: supplierId,
           bill_to_branch_id: billToBranchId || undefined,
           ship_to_branch_id: shipToBranchId || undefined,
@@ -315,7 +321,7 @@ const NewOrderPage: React.FC = () => {
         }),
       ).unwrap();
 
-      showSuccess(`Order ${order.order_number} created successfully`);
+      showSuccess(status === "draft" ? `Order ${order.order_number} saved as draft` : `Order ${order.order_number} created successfully`);
       navigate("/dashboard/catalog/inventory/orders");
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't create order");
@@ -586,7 +592,12 @@ const NewOrderPage: React.FC = () => {
                           step="any"
                           className="new-order-input--sm"
                           value={line.discountPercent}
-                          onChange={(e) => patchLine(line.key, { discountPercent: e.target.value })}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const n = parseFloat(raw);
+                            const clamped = raw === "" || Number.isNaN(n) ? raw : String(Math.min(100, Math.max(0, n)));
+                            patchLine(line.key, { discountPercent: clamped });
+                          }}
                           onWheel={(e) => e.currentTarget.blur()}
                         />
                         <span className="new-order-input-suffix">%</span>
@@ -721,10 +732,10 @@ const NewOrderPage: React.FC = () => {
             Cancel
           </Button>
           <div className="d-flex gap-2">
-            <Button variant="outline-dark" onClick={handleSave} disabled={saving || !canSave} loading={saving}>
+            <Button variant="outline-dark" onClick={() => handleSave("draft")} disabled={saving || !canSave} loading={saving}>
               Save Draft
             </Button>
-            <Button variant="dark" onClick={handleSave} disabled={saving || !canSave} loading={saving}>
+            <Button variant="dark" onClick={() => handleSave("sent")} disabled={saving || !canSave} loading={saving}>
               Create Order
             </Button>
           </div>

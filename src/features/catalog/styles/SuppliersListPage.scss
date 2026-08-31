@@ -89,6 +89,14 @@
   }
 
   &__content {
+    // The table has 10 columns (name, contact, email, phone, 4 balance
+    // figures, status, actions) — on anything narrower than ~1200px its
+    // natural width exceeds the page container. Without this, the table
+    // (overflow: visible below) just bled past the page/sidebar instead of
+    // scrolling. Only the x-axis scrolls; the row-actions dropdown below
+    // uses popperConfig strategy "fixed" so it isn't clipped by this.
+    overflow-x: auto;
+
     .supplier-table {
       width: 100%;
       border-collapse: separate;

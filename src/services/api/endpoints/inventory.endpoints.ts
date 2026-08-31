@@ -42,10 +42,13 @@ export const INVENTORY = {
   PRODUCT_INVENTORY_PURCHASES: "/api/v1/inventory/product-inventory/purchases",
   PRODUCT_INVENTORY_PURCHASE_BY_ID: (id: string) => `/api/v1/inventory/product-inventory/purchases/${id}`,
 
-  // Orders — a purchase-order DOCUMENT only (no stock movement), separate
-  // from the Purchase flow above which records a delivery immediately.
+  // Orders — a purchase-order document. Receiving against one creates a
+  // linked Purchase (see PRODUCT_INVENTORY_PURCHASES above) which is what
+  // actually moves stock.
   ORDERS: "/api/v1/inventory/orders",
   ORDER_BY_ID: (id: string) => `/api/v1/inventory/orders/${id}`,
+  ORDER_RECEIVE: (id: string) => `/api/v1/inventory/orders/${id}/receive`,
+  ORDER_CANCEL: (id: string) => `/api/v1/inventory/orders/${id}/cancel`,
   ORDER_UPLOAD_SIGNATURE: "/api/v1/inventory/orders/upload-signature",
   ORDER_SIGNATURES: "/api/v1/inventory/orders/signatures",
 
