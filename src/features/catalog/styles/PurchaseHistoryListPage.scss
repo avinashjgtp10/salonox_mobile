@@ -119,7 +119,7 @@
   border-radius: 0 0 12px 12px;
 }
 
-// ── Purchase detail modal ─────────────────────────────────────────────────────
+// ── Purchase detail drawer ────────────────────────────────────────────────────
 .phist-detail-loading {
   padding: 24px 0;
   text-align: center;
@@ -127,29 +127,28 @@
   font-size: 13px;
 }
 
-.phist-detail-head {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  margin-bottom: 20px;
+// Line items shown as stacked cards (one product per card, fields shown
+// label-above-value via the shared sl-detail-grid) rather than a table —
+// a 5-column table doesn't fit the 480px drawer width.
+.phist-detail-items {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
 
-  > div {
-    display: flex;
-    flex-direction: column;
+.phist-detail-item {
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  padding: 14px;
+
+  &__name {
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #101828;
+    margin-bottom: 10px;
   }
-}
 
-.phist-detail-label {
-  font-size: 11px;
-  font-weight: 600;
-  color: #9ca3af;
-  text-transform: uppercase;
-  letter-spacing: .02em;
-  margin-bottom: 3px;
-}
-
-.phist-detail-value {
-  font-size: 14px;
-  font-weight: 600;
-  color: #111827;
+  .sl-detail-grid {
+    gap: 10px 16px;
+  }
 }

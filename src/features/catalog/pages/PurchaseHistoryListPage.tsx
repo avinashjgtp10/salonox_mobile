@@ -1,15 +1,15 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
-import { Search, BoxSeam } from "react-bootstrap-icons";
+import { Search, BoxSeam, X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
-import Modal from "../../../components/ui/Modal";
 import Pagination from "../../../components/ui/Pagination";
 import Skeleton from "../../../components/ui/Skeleton";
 import Input from "../../../components/ui/Input";
 import EmptyState from "../../../components/ui/EmptyState";
 import "../styles/PurchaseHistoryListPage.scss";
+import "../styles/StockLedgerPage.scss";
 
 interface PurchaseRow {
   id: string;
@@ -188,59 +188,76 @@ const PurchaseHistoryListPage: React.FC = () => {
         />
       )}
 
-      {detailFor && (
-        <Modal show onClose={() => setDetailFor(null)} title="Purchase Details" size="lg">
-          {detailLoading || !detail ? (
-            <div className="phist-detail-loading">Loading…</div>
-          ) : (
-            <>
-              <div className="phist-detail-head">
-                <div>
-                  <span className="phist-detail-label">Supplier Number</span>
-                  <span className="phist-detail-value">{detail.purchase_number}</span>
-                </div>
-                <div>
-                  <span className="phist-detail-label">Supplier</span>
-                  <span className="phist-detail-value">{detail.supplier_name || "—"}</span>
-                </div>
-                <div>
-                  <span className="phist-detail-label">Purchase Date</span>
-                  <span className="phist-detail-value">{fmtDate(detail.purchase_date)}</span>
-                </div>
-                <div>
-                  <span className="phist-detail-label">Total Amount</span>
-                  <span className="phist-detail-value">{formatAmount(Number(detail.total_amount) || 0)}</span>
-                </div>
-              </div>
-
-              <table className="phist-table--compact">
-                <thead>
-                  <tr>
-                    <th>Product</th>
-                    <th className="phist-num">Quantity</th>
-                    <th className="phist-num">Purchase Price</th>
-                    <th>Expiry Date</th>
-                    <th className="phist-num">Line Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {detail.items.map((item) => (
-                    <tr key={item.id}>
-                      <td>{item.product_name}</td>
-                      <td className="phist-num">{item.quantity}</td>
-                      <td className="phist-num">{formatAmount(Number(item.purchase_price) || 0)}</td>
-                      <td>{fmtDate(item.expiry_date)}</td>
-                      <td className="phist-num fw-semibold">{formatAmount(Number(item.total_price) || 0)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </>
-          )}
-        </Modal>
-      )}
+      <PurchaseDetailDrawer
+        detail={detail}
+        loading={detailLoading}
+        isOpen={!!detailFor}
+        onClose={() => setDetailFor(null)}
+        formatAmount={formatAmount}
+      />
     </div>
   );
 };
+
+// Right-side slide-in panel — reuses StockLedgerPage's sl-detail-overlay/
+// sl-detail-drawer structure so row-click details are consistent across the
+// catalog module, instead of a centered Modal.
+function PurchaseDetailDrawer({
+  detail, loading, isOpen, onClose, formatAmount,
+}: {
+  detail: PurchaseDetail | null;
+  loading: boolean;
+  isOpen: boolean;
+  onClose: () => void;
+  formatAmount: (n: number) => string;
+}) {
+  return (
+    <div className={`sl-detail-overlay ${isOpen ? "open" : ""}`} onClick={onClose}>
+      <div className="sl-detail-drawer" onClick={(e) => e.stopPropagation()}>
+        <header className="sl-detail-drawer__header">
+          <div className="title-section">
+            <h3>Purchase Details</h3>
+            <span>{detail?.purchase_number}</span>
+          </div>
+          <button className="close-btn" onClick={onClose} aria-label="Close">
+            <X size={20} />
+          </button>
+        </header>
+
+        <div className="sl-detail-drawer__body">
+          {loading || !detail ? (
+            <div className="phist-detail-loading">Loading…</div>
+          ) : (
+            <>
+              <div className="sl-detail-grid">
+                <div><span>Supplier Number</span><strong>{detail.purchase_number}</strong></div>
+                <div><span>Supplier</span><strong>{detail.supplier_name || "—"}</strong></div>
+                <div><span>Purchase Date</span><strong>{fmtDate(detail.purchase_date)}</strong></div>
+                <div><span>Total Amount</span><strong>{formatAmount(Number(detail.total_amount) || 0)}</strong></div>
+              </div>
+
+              <hr className="sl-detail-divider" />
+
+              <h6 className="sl-detail-heading">Products</h6>
+              <div className="phist-detail-items">
+                {detail.items.map((item) => (
+                  <div className="phist-detail-item" key={item.id}>
+                    <div className="phist-detail-item__name">{item.product_name}</div>
+                    <div className="sl-detail-grid">
+                      <div><span>Quantity</span><strong>{item.quantity}</strong></div>
+                      <div><span>Purchase Price</span><strong>{formatAmount(Number(item.purchase_price) || 0)}</strong></div>
+                      <div><span>Expiry Date</span><strong>{fmtDate(item.expiry_date)}</strong></div>
+                      <div><span>Line Total</span><strong>{formatAmount(Number(item.total_price) || 0)}</strong></div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default PurchaseHistoryListPage;

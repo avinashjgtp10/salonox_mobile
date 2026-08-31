@@ -37,6 +37,7 @@ const OrderDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receiveQtys, setReceiveQtys] = useState<Record<string, string>>({});
+  const [receiveBatchNumbers, setReceiveBatchNumbers] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -86,13 +87,18 @@ const OrderDetailPage: React.FC = () => {
       defaults[it.id] = remaining > 0 ? String(remaining) : "";
     });
     setReceiveQtys(defaults);
+    setReceiveBatchNumbers({});
     setReceiveOpen(true);
   }
 
   async function submitReceive() {
     if (!order) return;
     const items = Object.entries(receiveQtys)
-      .map(([order_item_id, v]) => ({ order_item_id, received_qty: parseFloat(v) || 0 }))
+      .map(([order_item_id, v]) => ({
+        order_item_id,
+        received_qty: parseFloat(v) || 0,
+        batch_number: receiveBatchNumbers[order_item_id]?.trim() || undefined,
+      }))
       .filter((i) => i.received_qty > 0);
 
     if (!items.length) {
@@ -262,6 +268,7 @@ const OrderDetailPage: React.FC = () => {
                 <th className="phist-num">Ordered</th>
                 <th className="phist-num">Already Received</th>
                 <th className="phist-num">Receiving Now</th>
+                <th>Batch / Lot No.</th>
               </tr>
             </thead>
             <tbody>
@@ -283,6 +290,16 @@ const OrderDetailPage: React.FC = () => {
                         disabled={remaining <= 0}
                         onChange={(e) => setReceiveQtys((prev) => ({ ...prev, [item.id]: e.target.value }))}
                         onWheel={(e) => e.currentTarget.blur()}
+                      />
+                    </td>
+                    <td>
+                      <input
+                        type="text"
+                        className="new-order-input--sm"
+                        placeholder="Optional"
+                        value={receiveBatchNumbers[item.id] ?? ""}
+                        disabled={remaining <= 0}
+                        onChange={(e) => setReceiveBatchNumbers((prev) => ({ ...prev, [item.id]: e.target.value }))}
                       />
                     </td>
                   </tr>
