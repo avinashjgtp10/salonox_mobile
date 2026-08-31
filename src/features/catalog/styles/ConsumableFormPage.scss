@@ -616,3 +616,27 @@
   span:first-child { color: #6b7280; }
   span:last-child { color: #111827; font-weight: 600; }
 }
+
+// Selected-then-collapsed state for a ProductSearchSelect field — same
+// "chip + Change link" pattern as PurchaseModal's .pm-selected-product.
+.cf-selected-product {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  height: 38px;
+  padding: 0 10px;
+  background: #f5f3ff;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 13px;
+  box-sizing: border-box;
+
+  span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #111827;
+    font-weight: 500;
+  }
+}

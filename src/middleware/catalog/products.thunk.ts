@@ -40,6 +40,23 @@ export const fetchProductsThunk = createAsyncThunk<
   }
 });
 
+// POST-body variant of fetchProductsThunk, backed by PRODUCTS.SEARCH — for
+// callers that need to preload the full catalog (e.g. filter/picker dropdowns)
+// with a pageSize above PRODUCTS.LIST's 100-row cap.
+export const searchProductsThunk = createAsyncThunk<
+  { data: any[]; page: number; pageSize: number; totalRecords: number; totalPages: number },
+  FetchProductsParams | void,
+  { rejectValue: string }
+>("products/search", async (params, { rejectWithValue }) => {
+  try {
+    const res = await api.post(PRODUCTS.SEARCH, params ?? {});
+    return res.data.data;
+  } catch (err: any) {
+    if (err instanceof ApiError) return rejectWithValue(err.message);
+    return rejectWithValue("Failed to fetch products.");
+  }
+});
+
 export const createProductThunk = createAsyncThunk<
   any,
   Record<string, any>,
