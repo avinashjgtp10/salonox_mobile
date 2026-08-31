@@ -20,6 +20,9 @@ import {
   CashStack,
   JournalText,
   Safe2,
+  CheckCircleFill,
+  XCircleFill,
+  ExclamationTriangleFill,
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
 import salonoxLogo from "../../../assets/salonox_full_logo.png";
@@ -33,12 +36,13 @@ import { closeCashCounterThunk } from "../../../middleware/cashCounter/cashCount
 import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../../cash-management/cashManagement.api";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { Button, Modal } from "../../../components/ui";
+import { onGlobalToast } from "../../../utils/globalToast";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Notification {
   id: string;
-  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info";
+  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info" | "success" | "error" | "warning";
   title: string;
   body: string | null;
   is_read: boolean;
@@ -59,6 +63,9 @@ const NOTIF_ICONS: Record<string, React.ReactNode> = {
   review: <StarFill size={14} />,
   whatsapp: <ChatDots size={16} />,
   info: <Bell size={15} />,
+  success: <CheckCircleFill size={15} />,
+  error: <XCircleFill size={15} />,
+  warning: <ExclamationTriangleFill size={14} />,
 };
 
 const NOTIF_COLORS: Record<string, string> = {
@@ -68,6 +75,9 @@ const NOTIF_COLORS: Record<string, string> = {
   review: "#f59e0b",
   whatsapp: "#25d366",
   info: "#6b7280",
+  success: "#10b981",
+  error: "#ef4444",
+  warning: "#f59e0b",
 };
 
 const TOAST_DURATION = 5000; // ms before auto-dismiss
@@ -258,9 +268,10 @@ export default function DashboardTopbar({ onLogout }: Props) {
     onLogout();
   }, [onLogout]);
 
-  // Cash counter close/email outcomes land only in the notification bell —
-  // no floating toast popup, since they fire right after a user-initiated
-  // action (Close Counter) and the user is already looking at the topbar.
+  // Cash counter close/email outcomes get the same floating toast card as
+  // any other live notification (e.g. "New Appointment Booked"), not just a
+  // silent add to the bell dropdown — a user-initiated action like Close
+  // Counter deserves the same visible confirmation as everything else.
   const showCashCounterToast = useCallback((title: string, body: string) => {
     const notification: Notification = {
       id: `cash-counter_${Date.now()}`,
@@ -271,7 +282,25 @@ export default function DashboardTopbar({ onLogout }: Props) {
       created_at: new Date().toISOString(),
     };
     setNotifs(prev => [notification, ...prev]);
-  }, []);
+    showToast(notification);
+  }, [showToast]);
+
+  // Lets components mounted outside this one (the cash-counter open/close
+  // flows in UnclosedCounterGate.tsx, AutoOpenCounterForNewAccount.tsx, and
+  // CashManagementPage.tsx) trigger this exact same toast via
+  // showGlobalToast(...) instead of each rolling its own notification UI.
+  useEffect(() => {
+    return onGlobalToast(({ type, title, body }) => {
+      showToast({
+        id: `global-toast_${Date.now()}`,
+        type,
+        title,
+        body: body ?? null,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      });
+    });
+  }, [showToast]);
 
   useEffect(() => {
     if (!showCloseCounterConfirm) return;

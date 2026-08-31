@@ -31,6 +31,7 @@ import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../cashMa
 import { selectUserProfile } from "../../../store/selectors/slices.selectors";
 import { useAppSelector } from "../../../hooks/useAppRedux";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { showGlobalToast } from "../../../utils/globalToast";
 import type { CashExpenseRecord } from "../cashManagement.types";
 import { useCashManagement } from "../useCashManagement";
 import CashManagementExpensesTab from "./CashManagementExpensesTab";
@@ -686,14 +687,19 @@ export default function CashManagementPage() {
       </div>
 
       <OpenCounterModal
-        show={showOpenModal}
+        // Chained open-after-close (see the close-counter onSubmit below)
+        // calls setShowOpenModal(true) in the same tick as the "Counter
+        // closed" success confirmation — without this guard the Open Counter
+        // form would render directly on top of that message. It simply
+        // appears once the overlay clears instead.
+        show={showOpenModal && !counterStatusOverlay}
         loading={loading.openCounter}
         mandatory={needsOpenCounter}
         onClose={() => setShowOpenModal(false)}
         onSubmit={async (payload) => {
           await openCounter(payload);
           setShowOpenModal(false);
-          showCounterSuccess("Counter opened successfully.");
+          showGlobalToast("success", "Counter opened", "Counter opened successfully.");
         }}
         onNotify={(tone, message) => {
           if (tone === "error") showCounterError(message);
@@ -796,7 +802,7 @@ export default function CashManagementPage() {
           // allows one open per day, so re-showing Open Counter here would just
           // dead-end the user on a form that fails every time they submit it.
           if (isStaleOpenCounter) setShowOpenModal(true);
-          showCounterSuccess("Counter closed. Daily summary emailed to Salon Owner.");
+          showGlobalToast("success", "Counter closed", "Counter closed. Daily summary emailed to Salon Owner.");
         }}
         onNotify={(tone, message) => {
           if (tone === "error") showCounterError(message);
