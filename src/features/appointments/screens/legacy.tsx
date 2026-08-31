@@ -59,11 +59,9 @@ import { getApiErrorMessage } from "@/services/api";
 import {
   appointmentStatusMatchesFilter,
   appointmentStatusToApiValue,
-  appointmentStatusToListApiValue,
 } from "@/services/appointment.service";
 import { clientService } from "@/services/client.service";
 import { addRealtimeEntityChangedListener } from "@/services/realtimeEvents";
-import { serviceService } from "@/services/service.service";
 import {
   clearAppointmentToast,
   selectAppointmentById,
@@ -78,7 +76,6 @@ import {
   selectAppointmentsIsLoading,
   selectAppointmentsLoadingMore,
   selectAppointmentsPagination,
-  selectAppointmentsQuery,
   selectAppointmentsRefreshing,
   selectAppointmentToast,
 } from "@/store/appointment/appointment.slice";
@@ -97,56 +94,88 @@ import {
   selectStaffAvailabilityLoading,
 } from "@/store/staff/staffAvailability.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import {
+  useAppointmentListFilters,
+  useFetchAppointments,
+} from "@/features/appointments/hooks/useAppointmentList";
+import {
+  AUTOCOMPLETE_DROPDOWN_GAP,
+  CALENDAR_STATUS_FILTERS,
+  CLIENT_SEARCH_DEBOUNCE_MS,
+  CLIENT_SEARCH_MIN_LETTERS,
+  CLIENT_SEARCH_RESULT_LIMIT,
+  FORM_STATUS_OPTIONS,
+  PAYMENT_METHODS,
+  STAFF_AVAILABILITY_REALTIME_ENTITIES,
+  STATUS_FILTERS,
+} from "@/features/appointments/constants/appointmentConstants";
 import type {
-  AppointmentApiService,
+  AppointmentFormState,
+  AppointmentSelectedService,
+  ClientBookingMode,
+  FormErrors,
+} from "@/features/appointments/types/appointmentForm";
+import {
+  appointmentsOverlap,
+  getAppointmentRange,
+  getCalendarAppointmentTitle,
+  getCalendarTokenLabel,
+  getWebCalendarGradient,
+  hasCalendarInteractionFlag,
+  isReadonlyCalendarAppointment,
+} from "@/features/appointments/utils/appointmentCalendar";
+import {
+  addMinutesToTime,
+  combineDateTime,
+  formatTimeLabel,
+  getDateKey,
+  getDefaultTimeSlots,
+  minutesToDisplayTime,
+  parseAppointmentDateTime,
+  parseClockToMinutes,
+  todayIsoDate,
+  toInputDate,
+  toInputTime,
+  validateDate,
+  validateTime,
+} from "@/features/appointments/utils/appointmentDateTime";
+import {
+  appointmentServicesToSelectedServices,
+  appointmentToForm,
+  formatCurrency,
+  formatDurationLabel,
+  getSelectedServiceCatalogId,
+  getServicePricingTotals,
+  validateForm,
+} from "@/features/appointments/utils/appointmentForm";
+import {
+  ACTIVE_APPOINTMENT_STATUSES,
+  matchesAppointment,
+  sortBySchedule,
+  sortWithActiveFirst,
+} from "@/features/appointments/utils/appointmentList";
+import {
+  isAssignedToStaff,
+  realtimePayloadMatchesStaff,
+  staffIdMatches,
+} from "@/features/appointments/utils/staffAssignment";
+import { fetchServiceCatalog } from "@/features/appointments/utils/serviceCatalog";
+import {
+  buildStaffAppointmentRows,
+  isSameDay,
+} from "@/features/appointments/utils/staffAppointmentRows";
+import type {
   AppointmentListItem,
-  AppointmentPaymentMethod,
   AppointmentStatus,
   CreateAppointmentRequest,
   RescheduleAppointmentRequest,
   UpdateAppointmentRequest,
 } from "@/types/appointment";
 import type { ClientListItem } from "@/types/client";
-import type { ConsumableUsageItem } from "@/types/consumable";
 import type { ServiceListItem } from "@/types/service";
 import type { StaffAvailabilitySlot } from "@/types/staffAvailability";
 import type { BlockedTimeEntry } from "@/types/staffBlockedTimes";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
-import { isValidIsoDate } from "@/utils/validation";
-
-const STATUS_FILTERS: ("All" | AppointmentStatus)[] = [
-  "All",
-  "Upcoming",
-  "Confirmed",
-  "Waiting",
-  "Checked In",
-  "In Service",
-  "In Progress",
-  "Partial",
-  "Completed",
-  "Cancelled",
-  "Missed",
-];
-
-const CALENDAR_STATUS_FILTERS: {
-  color: string;
-  label: string;
-  status: "All" | AppointmentStatus;
-}[] = [
-  { color: "#B9689B", label: "All", status: "All" },
-  { color: "#D97706", label: "Booked", status: "Upcoming" },
-  { color: "#16A34A", label: "Paid", status: "Completed" },
-  { color: "#6D28D9", label: "Partial", status: "Partial" },
-  { color: "#DC2626", label: "Cancelled", status: "Cancelled" },
-  { color: "#0891B2", label: "No Show", status: "Missed" },
-  { color: "#6B7280", label: "Deleted", status: "Deleted" },
-];
-
-const STAFF_AVAILABILITY_REALTIME_ENTITIES = new Set([
-  "appointments",
-  "staff",
-  "staffAvailability",
-]);
 
 const getResponsiveHorizontalPadding = (width = 393) => {
   if (width < 360) {
@@ -169,86 +198,6 @@ const getResponsiveTopPadding = (width = 393) => (width < 360 ? Spacing.sm : Spa
 const getResponsiveHeaderTitleSize = (width = 393) =>
   width < 360 ? AppLayout.headerTitleFontSize - 2 : AppLayout.headerTitleFontSize;
 
-const toComparableId = (value: unknown) => {
-  if (typeof value === "string" || typeof value === "number") {
-    const id = String(value).trim();
-    return id.length > 0 ? id : null;
-  }
-
-  return null;
-};
-
-const collectPayloadStaffIds = (payload: unknown): string[] => {
-  if (!payload || typeof payload !== "object") {
-    return [];
-  }
-
-  const record = payload as Record<string, unknown>;
-  const nestedRecords = [record.data, record.record, record.staff, record.employee].filter(
-    (value): value is Record<string, unknown> => Boolean(value) && typeof value === "object",
-  );
-  const candidates = [
-    record.staffId,
-    record.staff_id,
-    record.employeeId,
-    record.employee_id,
-    record.staffRefId,
-    record.staff_ref_id,
-    record.userId,
-    record.user_id,
-    ...nestedRecords.flatMap((nested) => [
-      nested.id,
-      nested._id,
-      nested.staffId,
-      nested.staff_id,
-      nested.employeeId,
-      nested.employee_id,
-      nested.userId,
-      nested.user_id,
-    ]),
-  ];
-
-  return candidates.map(toComparableId).filter((id): id is string => Boolean(id));
-};
-
-const realtimePayloadMatchesStaff = (payload: unknown, staffId: string) => {
-  const payloadStaffIds = collectPayloadStaffIds(payload);
-
-  return payloadStaffIds.length === 0 || payloadStaffIds.includes(staffId);
-};
-
-const FORM_STATUS_OPTIONS: AppointmentStatus[] = [
-  "Upcoming",
-  "Confirmed",
-  "Waiting",
-  "Checked In",
-  "In Service",
-  "In Progress",
-  "Partial",
-  "Completed",
-  "Cancelled",
-  "Missed",
-];
-
-const PAYMENT_METHODS: AppointmentPaymentMethod[] = [
-  "Cash",
-  "Card",
-  "UPI",
-  "Wallet",
-  "Bank Transfer",
-  "Other",
-];
-
-const CLIENT_SEARCH_MIN_LETTERS = 3;
-const CLIENT_SEARCH_RESULT_LIMIT = 8;
-const AUTOCOMPLETE_DROPDOWN_GAP = 14;
-const CLIENT_SEARCH_DEBOUNCE_MS = 240;
-const SERVICE_CATALOG_MAX_PAGES = 50;
-const SERVICE_CATALOG_PAGE_SIZE = 100;
-const DEFAULT_TIME_SLOT_START_MINUTES = 0;
-const DEFAULT_TIME_SLOT_END_MINUTES = 24 * 60;
-const DEFAULT_TIME_SLOT_INTERVAL_MINUTES = 30;
-
 const getStatusStyles = (Colors: ThemeColors): Record<AppointmentStatus, { bg: string; color: string }> => ({
   Cancelled: { bg: Colors.errorBg, color: Colors.error },
   "Checked In": { bg: Colors.successBg, color: Colors.primaryDark },
@@ -263,138 +212,6 @@ const getStatusStyles = (Colors: ThemeColors): Record<AppointmentStatus, { bg: s
   Upcoming: { bg: Colors.warningBg, color: Colors.goldDark },
   Waiting: { bg: Colors.warningBg, color: Colors.goldDark },
 });
-
-const WEB_CALENDAR_STATUS_GRADIENTS = {
-  booked: ["#f59e0b", "#d97706"],
-  cancelled: ["#ef4444", "#dc2626"],
-  deleted: ["#9ca3af", "#6b7280"],
-  noShow: ["#22d3ee", "#0891b2"],
-  paid: ["#22c55e", "#16a34a"],
-  partial: ["#7c3aed", "#6d28d9"],
-} as const;
-
-const getWebCalendarGradient = (appointment: AppointmentListItem) => {
-  if (appointment.status === "Deleted") return WEB_CALENDAR_STATUS_GRADIENTS.deleted;
-  if (appointment.status === "Cancelled") return WEB_CALENDAR_STATUS_GRADIENTS.cancelled;
-  if (appointment.status === "Missed") return WEB_CALENDAR_STATUS_GRADIENTS.noShow;
-  if (appointment.status === "Partial") return WEB_CALENDAR_STATUS_GRADIENTS.partial;
-
-  const isPaid = appointment.paymentStatus.toLowerCase() === "paid" ||
-    (appointment.total > 0 && appointment.paidAmount >= appointment.total);
-  if (isPaid || appointment.status === "Completed" || appointment.status === "Confirmed") {
-    return WEB_CALENDAR_STATUS_GRADIENTS.paid;
-  }
-
-  return WEB_CALENDAR_STATUS_GRADIENTS.booked;
-};
-
-const getCalendarItemNames = (value: unknown, keys: string[]) => {
-  if (!Array.isArray(value)) return [];
-
-  return value.flatMap((item) => {
-    if (typeof item === "string" && item.trim()) return [item.trim()];
-    if (!item || typeof item !== "object") return [];
-
-    const record = item as Record<string, unknown>;
-    const name = keys
-      .map((key) => record[key])
-      .find((candidate) => typeof candidate === "string" && candidate.trim());
-
-    return typeof name === "string" ? [name.trim()] : [];
-  });
-};
-
-const getCalendarAppointmentTitle = (appointment: AppointmentListItem) => {
-  const rawTitle = typeof appointment.raw.title === "string" ? appointment.raw.title.trim() : "";
-
-  if (rawTitle && rawTitle.toLowerCase() !== "appointment") return rawTitle;
-
-  const itemNames = [
-    ...getCalendarItemNames(appointment.raw.services, ["name", "service"]),
-    ...getCalendarItemNames(appointment.raw.productItems ?? appointment.raw.product_items, ["productName", "product_name", "name"]),
-    ...getCalendarItemNames(appointment.raw.packageItems ?? appointment.raw.package_items, ["packageName", "package_name", "name"]),
-    ...getCalendarItemNames(appointment.raw.membershipItems ?? appointment.raw.membership_items, ["membershipName", "membership_name", "name"]),
-  ];
-
-  return itemNames.join(", ") || appointment.serviceName || "Appointment";
-};
-
-const getCalendarTokenLabel = (appointment: AppointmentListItem) => {
-  const rawToken = appointment.raw.token_id ??
-    appointment.raw.tokenId ??
-    appointment.raw.token_number ??
-    appointment.raw.tokenNumber ??
-    appointment.raw.token;
-  const token = typeof rawToken === "string" || typeof rawToken === "number"
-    ? String(rawToken).trim()
-    : "";
-
-  if (!token) return "";
-  return /^\d+$/.test(token) ? `TK${token}` : token;
-};
-
-const isReadonlyCalendarAppointment = (appointment: AppointmentListItem) =>
-  appointment.status === "Cancelled" || appointment.status === "Deleted";
-
-const hasCalendarInteractionFlag = (appointment: AppointmentListItem, camelCase: string, snakeCase: string) =>
-  appointment.raw[camelCase] === true || appointment.raw[snakeCase] === true;
-
-const getAppointmentRange = (appointment: AppointmentListItem) => {
-  const start = parseAppointmentDateTime(appointment.scheduledAt)?.getTime();
-  if (start === undefined) return null;
-  const explicitEnd = parseAppointmentDateTime(appointment.endTime)?.getTime();
-  const end = explicitEnd && explicitEnd > start
-    ? explicitEnd
-    : start + (appointment.durationMinutes ?? 30) * 60_000;
-  return { end, start };
-};
-
-const appointmentsOverlap = (left: AppointmentListItem, right: AppointmentListItem) => {
-  const leftRange = getAppointmentRange(left);
-  const rightRange = getAppointmentRange(right);
-  return Boolean(leftRange && rightRange && leftRange.start < rightRange.end && rightRange.start < leftRange.end);
-};
-
-type AppointmentFormState = {
-  clientId: string;
-  date: string;
-  discount: string;
-  duration: string;
-  endTime: string;
-  notes: string;
-  paymentMethod: string;
-  price: string;
-  serviceId: string;
-  serviceName: string;
-  staffId: string;
-  startTime: string;
-  status: AppointmentStatus;
-};
-
-type ClientBookingMode = "existing" | "walkIn";
-
-type FormErrors = Partial<Record<keyof AppointmentFormState, string>>;
-
-type AppointmentSelectedService = ServiceListItem & {
-  catalogServiceId?: string;
-  // The exact consumables to resend for this line — either copied from the
-  // catalog service's recipe the moment it's added (handleSelectService,
-  // mirroring Web's ServiceRow.tsx selectService()), or restored from what
-  // this appointment already had persisted (appointmentServicesToSelectedServices,
-  // on edit-load). Always the fully-resolved snapshot to send, never
-  // re-derived from consumablesUsed at submit time, so an edit that doesn't
-  // touch a given service resends its consumables unchanged.
-  consumables?: ConsumableUsageItem[];
-  discount?: number;
-  isPackageService?: boolean;
-  quantity?: number;
-  staffId?: string | null;
-  staffName?: string | null;
-  startTime?: string | null;
-  total?: number;
-};
-
-const todayIsoDate = () => new Date().toISOString().slice(0, 10);
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -415,291 +232,6 @@ const useAppointmentStyles = () => {
   return { Colors, styles };
 };
 
-const formatCurrency = (amount: number) =>
-  `Rs. ${Math.max(0, amount).toLocaleString("en-IN")}`;
-
-const getServiceDiscount = (service: ServiceListItem) => {
-  const baseDiscount = Math.max(service.discountAmount ?? 0, 0);
-  const percentDiscount = Math.max(service.discountPercent ?? 0, 0);
-
-  if (percentDiscount > 0) {
-    return Math.min(service.price, (service.price * percentDiscount) / 100);
-  }
-
-  return Math.min(service.price, baseDiscount);
-};
-
-const getServiceTax = (service: ServiceListItem, taxableAmount: number) => {
-  const fixedTax = Math.max(service.taxAmount ?? 0, 0);
-  const taxRate = Math.max(service.taxRate ?? 0, 0);
-
-  if (taxRate > 0) {
-    return (taxableAmount * taxRate) / 100;
-  }
-
-  return fixedTax;
-};
-
-const getServicePricingTotals = (services: ServiceListItem[]) => {
-  const subtotal = services.reduce((total, service) => total + Math.max(service.price, 0), 0);
-  const discount = services.reduce((total, service) => total + getServiceDiscount(service), 0);
-  const tax = services.reduce((total, service) => {
-    const taxableAmount = Math.max(0, service.price - getServiceDiscount(service));
-    return total + getServiceTax(service, taxableAmount);
-  }, 0);
-
-  return {
-    discount,
-    grandTotal: Math.max(0, subtotal - discount + tax),
-    subtotal,
-    tax,
-  };
-};
-
-const getSelectedServiceCatalogId = (service: AppointmentSelectedService) =>
-  service.catalogServiceId ?? service.id;
-
-const toOptionalNumber = (value: unknown) => {
-  const numberValue = Number(value);
-
-  return Number.isFinite(numberValue) ? numberValue : undefined;
-};
-
-const toOptionalStringValue = (value: unknown) => {
-  if (typeof value === "string" || typeof value === "number") {
-    const stringValue = String(value).trim();
-    return stringValue || undefined;
-  }
-
-  return undefined;
-};
-
-const parseConsumablesFromApi = (
-  items: AppointmentApiService["consumables"],
-): ConsumableUsageItem[] | undefined => {
-  if (!Array.isArray(items) || items.length === 0) {
-    return undefined;
-  }
-
-  const parsed = items
-    .map((item): ConsumableUsageItem | null => {
-      const productId = toOptionalStringValue(item?.product_id);
-      if (!productId) {
-        return null;
-      }
-
-      const qty = toOptionalNumber(item?.qty) ?? 0;
-      const productName = toOptionalStringValue(item?.product_name);
-      const actualQty = toOptionalNumber(item?.actual_qty);
-
-      return {
-        productId,
-        ...(productName ? { productName } : {}),
-        qty,
-        unit: toOptionalStringValue(item?.unit) ?? "",
-        ...(actualQty !== undefined ? { actualQty } : {}),
-      };
-    })
-    .filter((item): item is ConsumableUsageItem => item !== null);
-
-  return parsed.length > 0 ? parsed : undefined;
-};
-
-const appointmentServicesToSelectedServices = (
-  appointment?: AppointmentListItem,
-): AppointmentSelectedService[] => {
-  const rawServices = Array.isArray(appointment?.raw.services)
-    ? appointment.raw.services
-    : [];
-
-  if (rawServices.length > 0) {
-    return rawServices.map((service: AppointmentApiService, index) => {
-      const catalogServiceId =
-        toOptionalStringValue(service.service_id) ??
-        toOptionalStringValue(service.id) ??
-        `existing-service-${index + 1}`;
-      const price = toOptionalNumber(service.price) ?? 0;
-
-      return {
-        catalogServiceId,
-        category: null,
-        categoryId: null,
-        consumables: parseConsumablesFromApi(service.consumables),
-        createdAt: null,
-        discount: toOptionalNumber(service.discount),
-        durationMinutes:
-          toOptionalNumber(service.duration_minutes) ??
-          toOptionalNumber(service.duration) ??
-          null,
-        id: `${catalogServiceId}:${index}`,
-        isActive: true,
-        isPackageService: Boolean(service.is_package_service),
-        name:
-          toOptionalStringValue(service.name) ??
-          toOptionalStringValue(service.title) ??
-          appointment?.serviceName ??
-          "Service",
-        price,
-        quantity:
-          toOptionalNumber(service.quantity) ??
-          toOptionalNumber(service.qty) ??
-          1,
-        staffId: toOptionalStringValue(service.staff_id) ?? appointment?.staffId ?? null,
-        staffName: toOptionalStringValue(service.staff_name) ?? appointment?.staffName ?? null,
-        startTime:
-          toOptionalStringValue(service.time) ??
-          toOptionalStringValue(service.start_time) ??
-          null,
-        total: toOptionalNumber(service.total),
-      };
-    });
-  }
-
-  if (!appointment?.serviceName) {
-    return [];
-  }
-
-  return [
-    {
-      catalogServiceId: appointment.serviceId || "existing-service",
-      category: null,
-      categoryId: null,
-      createdAt: null,
-      durationMinutes: appointment.durationMinutes,
-      id: appointment.serviceId || "existing-service",
-      isActive: true,
-      name: appointment.serviceName,
-      price: appointment.amount,
-      quantity: 1,
-      staffId: appointment.staffId || null,
-      staffName: appointment.staffName || null,
-      total: appointment.amount,
-    },
-  ];
-};
-
-const formatDurationLabel = (durationMinutes: number | null) =>
-  durationMinutes && durationMinutes > 0 ? `${durationMinutes} min` : "Duration pending";
-
-const serviceCatalogCache = new Map<string, Promise<ServiceListItem[]> | ServiceListItem[]>();
-
-const getServiceCatalogCacheKey = (salonId?: string | null) => salonId ?? "default";
-
-const addUniqueServices = (
-  target: ServiceListItem[],
-  services: ServiceListItem[],
-  seenServiceIds: Set<string>,
-) => {
-  let addedCount = 0;
-
-  services.forEach((service) => {
-    if (seenServiceIds.has(service.id)) {
-      return;
-    }
-
-    seenServiceIds.add(service.id);
-    target.push(service);
-    addedCount += 1;
-  });
-
-  return addedCount;
-};
-
-const fetchServiceCatalog = async (salonId?: string | null) => {
-  const cacheKey = getServiceCatalogCacheKey(salonId);
-  const cachedServices = serviceCatalogCache.get(cacheKey);
-
-  if (cachedServices) {
-    return cachedServices instanceof Promise ? await cachedServices : cachedServices;
-  }
-
-  const catalogRequest = (async () => {
-    const services: ServiceListItem[] = [];
-    const seenServiceIds = new Set<string>();
-
-    for (let page = 1; page <= SERVICE_CATALOG_MAX_PAGES; page += 1) {
-      const response = await serviceService.getServices(
-        {
-          limit: SERVICE_CATALOG_PAGE_SIZE,
-          offset: (page - 1) * SERVICE_CATALOG_PAGE_SIZE,
-          search: "",
-          sort_by: "created_at",
-          sort_order: "desc",
-        },
-        salonId,
-      );
-      const addedCount = addUniqueServices(services, response.services, seenServiceIds);
-
-      if (response.services.length < SERVICE_CATALOG_PAGE_SIZE || addedCount === 0) {
-        break;
-      }
-    }
-
-    return services;
-  })();
-
-  serviceCatalogCache.set(cacheKey, catalogRequest);
-
-  try {
-    const services = await catalogRequest;
-
-    serviceCatalogCache.set(cacheKey, services);
-    return services;
-  } catch (error) {
-    serviceCatalogCache.delete(cacheKey);
-    throw error;
-  }
-};
-
-// The backend sends appointment timestamps in a variety of shapes
-// (Postgres-style "YYYY-MM-DD HH:MM:SS+00" with a space instead of "T", a
-// bare 2-digit UTC offset instead of "+00:00", or no offset at all). Some of
-// these are not spec-compliant ISO 8601, and React Native's JS engine
-// (Hermes) fails to parse them where a browser's V8 engine might leniently
-// succeed — which is why raw strings like "2026-07-09 14:30:00+00" could
-// leak straight to the UI. This normalizes to a strict ISO 8601 string
-// before parsing so every appointment timestamp parses reliably on-device.
-const toStrictIsoDateTime = (value: string) => {
-  let normalized = value.trim();
-
-  if (normalized.includes(" ") && !normalized.includes("T")) {
-    normalized = normalized.replace(" ", "T");
-  }
-
-  // A bare 2-digit offset ("+00", "-05") right after the time component
-  // isn't valid ISO 8601 — pad it to "+00:00" form.
-  normalized = normalized.replace(/(T\d{2}:\d{2}:\d{2}(?:\.\d+)?)([+-]\d{2})$/, "$1$2:00");
-
-  // No "Z" and no explicit offset at all: this backend's naive timestamps
-  // represent UTC, so make that explicit rather than letting the engine
-  // assume local time.
-  if (normalized.includes("T") && !/[zZ]$|[+-]\d{2}:\d{2}$/.test(normalized)) {
-    normalized += "Z";
-  }
-
-  return normalized;
-};
-
-const parseAppointmentDateTime = (value: string | null): Date | null => {
-  if (!value) {
-    return null;
-  }
-
-  const parsedDate = new Date(toStrictIsoDateTime(value));
-
-  return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
-};
-
-const formatTimeLabel = (value: string | null) => {
-  const parsedDate = parseAppointmentDateTime(value);
-
-  if (!parsedDate) {
-    return "--:--";
-  }
-
-  return formatAppTime(parsedDate, "--:--");
-};
-
 const maskPhone = (value: string) => {
   const digits = value.replace(/\D/g, "");
 
@@ -709,256 +241,6 @@ const maskPhone = (value: string) => {
 
   return `${digits.slice(0, 2)}******${digits.slice(-2)}`;
 };
-
-const getDateKey = (value: string | null) => {
-  const parsedDate = parseAppointmentDateTime(value);
-
-  if (!parsedDate) {
-    return value ? value.slice(0, 10) : "";
-  }
-
-  const year = parsedDate.getFullYear();
-  const month = String(parsedDate.getMonth() + 1).padStart(2, "0");
-  const day = String(parsedDate.getDate()).padStart(2, "0");
-
-  return `${year}-${month}-${day}`;
-};
-
-const toInputDate = (value: string | null) => getDateKey(value) || todayIsoDate();
-
-const toInputTime = (value: string | null) => {
-  if (!value) {
-    return "";
-  }
-
-  const parsedDate = new Date(value);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return value.slice(0, 5);
-  }
-
-  return `${String(parsedDate.getHours()).padStart(2, "0")}:${String(
-    parsedDate.getMinutes(),
-  ).padStart(2, "0")}`;
-};
-
-const combineDateTime = (date: string, time: string) => {
-  if (!date || !time) {
-    return "";
-  }
-
-  return new Date(`${date}T${time}:00`).toISOString();
-};
-
-const addMinutesToTime = (date: string, startTime: string, minutes: number) => {
-  if (!date || !startTime || !Number.isFinite(minutes)) {
-    return "";
-  }
-
-  const parsedDate = new Date(`${date}T${startTime}:00`);
-  parsedDate.setMinutes(parsedDate.getMinutes() + minutes);
-
-  return `${String(parsedDate.getHours()).padStart(2, "0")}:${String(
-    parsedDate.getMinutes(),
-  ).padStart(2, "0")}`;
-};
-
-const parseClockToMinutes = (value?: string | null) => {
-  const raw = value?.trim();
-
-  if (!raw) {
-    return null;
-  }
-
-  const twelveHour = raw.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
-
-  if (twelveHour) {
-    let hours = Number(twelveHour[1]);
-    const minutes = Number(twelveHour[2]);
-    const ampm = twelveHour[3].toUpperCase();
-
-    if (!Number.isFinite(hours) || !Number.isFinite(minutes) || hours < 1 || hours > 12 || minutes > 59) {
-      return null;
-    }
-
-    if (ampm === "PM" && hours !== 12) hours += 12;
-    if (ampm === "AM" && hours === 12) hours = 0;
-
-    return hours * 60 + minutes;
-  }
-
-  const twentyFourHour = raw.match(/^([01]?\d|2[0-3]):([0-5]\d)$/);
-
-  if (twentyFourHour) {
-    return Number(twentyFourHour[1]) * 60 + Number(twentyFourHour[2]);
-  }
-
-  return null;
-};
-
-const minutesToDisplayTime = (minutes: number) => {
-  const hours24 = Math.floor(minutes / 60);
-  const minuteLabel = String(minutes % 60).padStart(2, "0");
-  const suffix = hours24 >= 12 ? "PM" : "AM";
-  const hours12 = hours24 % 12 || 12;
-
-  return `${hours12}:${minuteLabel} ${suffix}`;
-};
-
-const minutesToClockTime = (minutes: number) =>
-  `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
-
-const getDefaultTimeSlots = (date: string): StaffAvailabilitySlot[] => {
-  if (!validateDate(date)) {
-    return [];
-  }
-
-  const now = new Date();
-  const isToday = date === todayIsoDate();
-  const currentMinutes = now.getHours() * 60 + now.getMinutes();
-  const minimumMinutes = isToday
-    ? Math.ceil(currentMinutes / DEFAULT_TIME_SLOT_INTERVAL_MINUTES) * DEFAULT_TIME_SLOT_INTERVAL_MINUTES
-    : DEFAULT_TIME_SLOT_START_MINUTES;
-  const startMinutes = Math.max(DEFAULT_TIME_SLOT_START_MINUTES, minimumMinutes);
-  const slots: StaffAvailabilitySlot[] = [];
-
-  for (
-    let minutes = startMinutes;
-    minutes < DEFAULT_TIME_SLOT_END_MINUTES;
-    minutes += DEFAULT_TIME_SLOT_INTERVAL_MINUTES
-  ) {
-    const value = minutesToClockTime(minutes);
-
-    slots.push({
-      display: minutesToDisplayTime(minutes),
-      endTime: minutesToClockTime(Math.min(minutes + DEFAULT_TIME_SLOT_INTERVAL_MINUTES, DEFAULT_TIME_SLOT_END_MINUTES)),
-      value,
-    });
-  }
-
-  return slots;
-};
-
-const staffIdMatches = (staffMember: StaffMember, staffId?: string | null) =>
-  Boolean(staffId && (staffMember.id === staffId || staffMember.staffIdAliases?.includes(staffId)));
-
-const matchesAppointment = (
-  appointment: AppointmentListItem,
-  search: string,
-  status: "All" | AppointmentStatus,
-) => {
-  const query = search.trim().toLowerCase();
-  const digits = query.replace(/\D/g, "");
-  const statusMatches = appointmentStatusMatchesFilter(appointment.status, status);
-
-  if (!statusMatches) {
-    return false;
-  }
-
-  if (!query) {
-    return true;
-  }
-
-  return (
-    appointment.clientName.toLowerCase().includes(query) ||
-    appointment.serviceName.toLowerCase().includes(query) ||
-    appointment.staffName.toLowerCase().includes(query) ||
-    appointment.title.toLowerCase().includes(query) ||
-    (digits.length > 0 && appointment.phone.includes(digits))
-  );
-};
-
-const sortBySchedule = (left: AppointmentListItem, right: AppointmentListItem) => {
-  const leftTime = parseAppointmentDateTime(left.scheduledAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-  const rightTime = parseAppointmentDateTime(right.scheduledAt)?.getTime() ?? Number.MAX_SAFE_INTEGER;
-
-  return leftTime - rightTime;
-};
-
-// Statuses that represent an active/confirmed booking still to come.
-// Completed, Partial, Cancelled, Missed, Deleted, and Unknown appointments are
-// not "upcoming" and must sort after all of these, regardless of schedule time.
-const ACTIVE_APPOINTMENT_STATUSES: ReadonlySet<AppointmentStatus> = new Set([
-  "Upcoming",
-  "Confirmed",
-  "Waiting",
-  "Checked In",
-  "In Service",
-  "In Progress",
-]);
-
-const sortWithActiveFirst = (left: AppointmentListItem, right: AppointmentListItem) => {
-  const leftIsActive = ACTIVE_APPOINTMENT_STATUSES.has(left.status);
-  const rightIsActive = ACTIVE_APPOINTMENT_STATUSES.has(right.status);
-
-  if (leftIsActive !== rightIsActive) {
-    return leftIsActive ? -1 : 1;
-  }
-
-  return sortBySchedule(left, right);
-};
-
-const validateTime = (value: string) => /^([01]\d|2[0-3]):[0-5]\d$/.test(value);
-
-const validateDate = (value: string) => isValidIsoDate(value);
-
-const isPastDate = (value: string) => validateDate(value) && value < todayIsoDate();
-
-const validateForm = (
-  form: AppointmentFormState,
-  options?: { allowedPastDate?: string; requireClient?: boolean },
-): FormErrors => {
-  const errors: FormErrors = {};
-  const trimmedDiscount = form.discount.trim();
-  const discount = trimmedDiscount === "" ? 0 : Number(trimmedDiscount);
-  const price = Number(form.price.trim() || 0);
-
-  if (options?.requireClient !== false && !form.clientId) {
-    errors.clientId = "Select a client.";
-  }
-
-  if (!form.serviceId.trim()) {
-    errors.serviceName = "Select a service.";
-  }
-
-  if (!form.staffId) {
-    errors.staffId = "Select the staff.";
-  }
-
-  if (!validateDate(form.date)) {
-    errors.date = "Use YYYY-MM-DD.";
-  } else if (isPastDate(form.date) && form.date !== options?.allowedPastDate) {
-    errors.date = "Past dates cannot be booked.";
-  }
-
-  if (!validateTime(form.startTime)) {
-    errors.startTime = "Use HH:mm.";
-  }
-
-  if (trimmedDiscount && (!Number.isFinite(discount) || discount < 0)) {
-    errors.discount = "Discount cannot be negative.";
-  } else if (price > 0 && discount > price) {
-    errors.discount = "Discount cannot be greater than the price.";
-  }
-
-  return errors;
-};
-
-const appointmentToForm = (appointment?: AppointmentListItem): AppointmentFormState => ({
-  clientId: appointment?.clientId ?? "",
-  date: toInputDate(appointment?.scheduledAt ?? null),
-  discount: appointment?.discount ? String(appointment.discount) : "0",
-  duration: appointment?.durationMinutes ? String(appointment.durationMinutes) : "",
-  endTime: toInputTime(appointment?.endTime ?? null),
-  notes: appointment?.notes ?? "",
-  paymentMethod: appointment?.paymentMethod && appointment.paymentMethod !== "-" ? appointment.paymentMethod : "Cash",
-  price: appointment?.amount ? String(appointment.amount) : "",
-  serviceId: appointment?.serviceId ?? "",
-  serviceName: appointment?.serviceName ?? "",
-  staffId: appointment?.staffId ?? "",
-  startTime: toInputTime(appointment?.startTime ?? appointment?.scheduledAt ?? null),
-  status: appointment?.status ?? "Confirmed",
-});
 
 function ScreenShell({
   backFallback = "/dashboard" as Href,
@@ -1511,88 +793,6 @@ function SummaryTile({
   );
 }
 
-function useAppointmentListFilters() {
-  const queryState = useAppSelector(selectAppointmentsQuery);
-  const [date, setDate] = useState(queryState.date ?? todayIsoDate());
-  const [search, setSearch] = useState(queryState.search);
-  const [status, setStatus] = useState<"All" | AppointmentStatus>("All");
-
-  return {
-    date,
-    search,
-    setDate,
-    setSearch,
-    setStatus,
-    status,
-  };
-}
-
-function useFetchAppointments() {
-  const dispatch = useAppDispatch();
-  const pagination = useAppSelector(selectAppointmentsPagination);
-  const query = useAppSelector(selectAppointmentsQuery);
-
-  const fetchAppointments = useCallback(
-    async ({
-      date,
-      fromDate,
-      limit,
-      page = 1,
-      refresh = false,
-      reset = false,
-      search = "",
-      staffId,
-      status = "All",
-      toDate,
-    }: {
-      date?: string;
-      fromDate?: string;
-      limit?: number;
-      page?: number;
-      refresh?: boolean;
-      reset?: boolean;
-      search?: string;
-      staffId?: string;
-      status?: "All" | AppointmentStatus;
-      toDate?: string;
-    } = {}) => {
-      await dispatch(
-        fetchAppointmentsThunk({
-          date: date || undefined,
-          from_date: fromDate,
-          limit: limit ?? query.limit,
-          page,
-          refresh,
-          reset,
-          search,
-          sort_by: query.sort_by,
-          sort_order: query.sort_order,
-          staff_id: staffId,
-          status: status && status !== "All" ? appointmentStatusToListApiValue(status) : undefined,
-          to_date: toDate,
-        }),
-      );
-    },
-    [dispatch, query.limit, query.sort_by, query.sort_order],
-  );
-
-  const fetchNext = useCallback(
-    async (params: { date?: string; search?: string; staffId?: string; status?: "All" | AppointmentStatus }) => {
-      if (!pagination.hasMore) {
-        return;
-      }
-
-      await fetchAppointments({
-        ...params,
-        page: pagination.nextPage,
-      });
-    },
-    [fetchAppointments, pagination.hasMore, pagination.nextPage],
-  );
-
-  return { fetchAppointments, fetchNext };
-}
-
 export function AppointmentDashboardScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -1896,67 +1096,6 @@ export function AppointmentListScreen() {
   );
 }
 
-type StaffAppointmentRow =
-  | { id: string; title: string; type: "section" }
-  | { appointment: AppointmentListItem; id: string; type: "appointment" };
-
-const isSameDay = (appointment: AppointmentListItem, date: string) =>
-  getDateKey(appointment.scheduledAt) === date;
-
-const isAssignedToStaff = (appointment: AppointmentListItem, staff: StaffMember) => {
-  const staffIds = [staff.id, staff.userId, staff.employeeCode, ...(staff.staffIdAliases ?? [])]
-    .map(toComparableId)
-    .filter(Boolean);
-  const appointmentStaffIds = [
-    appointment.staffId,
-    appointment.raw.staff_id,
-    appointment.raw.staff?.id,
-    ...((appointment.raw.services ?? []).map((service) => service.staff_id)),
-  ]
-    .map(toComparableId)
-    .filter(Boolean);
-
-  return appointmentStaffIds.some((staffId) => staffIds.includes(staffId));
-};
-
-const buildStaffAppointmentRows = (
-  appointments: AppointmentListItem[],
-  today: string,
-): StaffAppointmentRow[] => {
-  const todayAppointments = appointments.filter((appointment) => isSameDay(appointment, today));
-  const upcomingAppointments = appointments.filter(
-    (appointment) => !isSameDay(appointment, today) && ACTIVE_APPOINTMENT_STATUSES.has(appointment.status),
-  );
-  const completedAppointments = appointments.filter(
-    (appointment) => !isSameDay(appointment, today) && appointment.status === "Completed",
-  );
-  const cancelledAppointments = appointments.filter(
-    (appointment) => !isSameDay(appointment, today) && appointment.status === "Cancelled",
-  );
-  const rows: StaffAppointmentRow[] = [];
-  const addSection = (title: string, sectionAppointments: AppointmentListItem[]) => {
-    if (sectionAppointments.length === 0) {
-      return;
-    }
-
-    rows.push({ id: `section-${title}`, title, type: "section" });
-    rows.push(
-      ...sectionAppointments.sort(sortWithActiveFirst).map((appointment) => ({
-        appointment,
-        id: appointment.id,
-        type: "appointment" as const,
-      })),
-    );
-  };
-
-  addSection("Today's Appointments", todayAppointments);
-  addSection("Upcoming Appointments", upcomingAppointments);
-  addSection("Completed Appointments", completedAppointments);
-  addSection("Cancelled Appointments", cancelledAppointments);
-
-  return rows;
-};
-
 export function StaffMyAppointmentsScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
@@ -2165,6 +1304,7 @@ function CalendarPreview({
     return () => cancelAnimationFrame(frame);
     // currentMinuteOffset intentionally excluded: it changes every render via `new Date()`,
     // and this should only re-scroll when the viewed day/mode changes, not every tick.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [date, viewMode, hours.length, hourHeight]);
 
   if (viewMode === "list") {
@@ -2876,7 +2016,7 @@ function AppointmentReviewSummary({
     totalDisc?: number;
     tax?: number;
     gstAmount?: number;
-    taxBreakdown?: Array<{ name: string; rate: number; amount: number; inclusive: boolean }>;
+    taxBreakdown?: { name: string; rate: number; amount: number; inclusive: boolean }[];
   };
   selectedStaff: StaffMember | undefined;
   services: ServiceListItem[];
@@ -4543,10 +3683,6 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
   );
 }
 
-export function StaffAppointmentDetailsScreen() {
-  return <AppointmentDetailsScreen mode="staff" />;
-}
-
 function StartAppointmentAction({ appointment }: { appointment: AppointmentListItem }) {
   const { Colors, styles } = useAppointmentStyles();
   const dispatch = useAppDispatch();
@@ -5297,10 +4433,6 @@ export function StaffCalendarScreen() {
       ) : null}
     </ScreenShell>
   );
-}
-
-export function SearchFilterScreen() {
-  return <AppointmentListScreen />;
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
