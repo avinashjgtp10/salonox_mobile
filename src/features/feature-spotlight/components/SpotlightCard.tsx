@@ -1,7 +1,6 @@
 import React, { useRef, useState } from "react";
 import { PlayFill, Link45deg, Check2, ImageFill, CameraFill } from "react-bootstrap-icons";
 import type { SpotlightFeature } from "../types";
-import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import { compressImage } from "../utils/compressImage";
 
 interface SpotlightCardProps {
@@ -82,11 +81,7 @@ const SpotlightCard: React.FC<SpotlightCardProps> = ({ feature, index, isUnread,
       <div className="spotlight-card__thumb">
         <span className="spotlight-card__index">#{index}</span>
         {isUnread && <span className="spotlight-card__new-dot" title="New" />}
-        {feature.imageDataUrl ? (
-          <img src={resolveMediaUrl(feature.imageDataUrl)} alt={feature.featureName} />
-        ) : (
-          <ImageFill size={26} />
-        )}
+        <ImageFill size={26} />
         <span className="spotlight-card__play">
           <PlayFill size={20} />
         </span>

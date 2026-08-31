@@ -4,7 +4,7 @@ import Button from "../../../components/ui/Button";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import { compressImage } from "../utils/compressImage";
 import { TARGET_AUDIENCE_OPTIONS } from "../types";
-import type { SpotlightFeature, SpotlightStatus, TargetAudience, SpotlightCreatePayload } from "../types";
+import type { SpotlightFeature, SpotlightStatus, TargetAudience, SpotlightCreatePayload, SpotlightImage } from "../types";
 
 interface SpotlightFormDrawerProps {
   feature: SpotlightFeature | null;
@@ -22,6 +22,7 @@ const EMPTY_FORM: SpotlightCreatePayload = {
   howItWorks: "",
   benefits: "",
   imageDataUrl: "",
+  images: [],
   videoDataUrl: "",
   releaseDate: new Date().toISOString().slice(0, 10),
   targetAudience: ["all"],
@@ -47,7 +48,15 @@ const SpotlightFormDrawer: React.FC<SpotlightFormDrawerProps> = ({ feature, onCl
   useEffect(() => {
     if (feature) {
       const { id: _id, createdAt: _createdAt, updatedAt: _updatedAt, ...rest } = feature;
-      setForm(rest);
+      // Migrate older records that only had a single `imageDataUrl` into the
+      // multi-image gallery shape so editing one doesn't silently drop it.
+      const images =
+        rest.images && rest.images.length > 0
+          ? rest.images
+          : rest.imageDataUrl
+          ? [{ imageDataUrl: rest.imageDataUrl, description: "" }]
+          : [];
+      setForm({ ...rest, images });
     } else {
       setForm(EMPTY_FORM);
     }
@@ -67,14 +76,38 @@ const SpotlightFormDrawer: React.FC<SpotlightFormDrawerProps> = ({ feature, onCl
     });
   };
 
-  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []);
+    if (!files.length) return;
     // Downscaled/re-encoded before storing — a full-resolution screenshot as
     // a raw base64 data URL can easily blow the localStorage quota this is
     // saved into (see spotlightStorage.ts / compressImage.ts).
-    const dataUrl = await compressImage(file);
-    update("imageDataUrl", dataUrl);
+    // These images are shown large (full document width) in "Why it works",
+    // not just as small thumbnails — use a higher resolution/quality than
+    // the single hero image so UI screenshot text stays readable there.
+    const newImages: SpotlightImage[] = await Promise.all(
+      files.map(async (file) => ({ imageDataUrl: await compressImage(file, 1600, 0.9), description: "" }))
+    );
+    setForm((prev) => {
+      const images = [...(prev.images ?? []), ...newImages];
+      return { ...prev, images, imageDataUrl: prev.imageDataUrl || images[0]?.imageDataUrl };
+    });
+    e.target.value = "";
+  };
+
+  const updateImageDescription = (index: number, description: string) => {
+    setForm((prev) => {
+      const images = [...(prev.images ?? [])];
+      images[index] = { ...images[index], description };
+      return { ...prev, images };
+    });
+  };
+
+  const removeImage = (index: number) => {
+    setForm((prev) => {
+      const images = (prev.images ?? []).filter((_, i) => i !== index);
+      return { ...prev, images, imageDataUrl: images[0]?.imageDataUrl ?? "" };
+    });
   };
 
   const handleVideoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -184,11 +217,27 @@ const SpotlightFormDrawer: React.FC<SpotlightFormDrawerProps> = ({ feature, onCl
           </div>
 
           <div className="sf-field">
-            <label>Feature Image / Screenshot</label>
-            <input type="file" accept="image/*" onChange={handleImageUpload} />
-            {form.imageDataUrl && (
-              <div className="sf-preview">
-                <img src={resolveMediaUrl(form.imageDataUrl)} alt="Preview" />
+            <label>Feature Images / Screenshots</label>
+            <input type="file" accept="image/*" multiple onChange={handleImagesUpload} />
+            <div className="sf-field__hint">Add one or more images — each can have its own description.</div>
+            {(form.images ?? []).length > 0 && (
+              <div className="sf-image-list">
+                {(form.images ?? []).map((img, i) => (
+                  <div className="sf-image-list__item" key={i}>
+                    <div className="sf-preview">
+                      <img src={resolveMediaUrl(img.imageDataUrl)} alt={`Screenshot ${i + 1}`} />
+                    </div>
+                    <textarea
+                      rows={2}
+                      value={img.description ?? ""}
+                      onChange={(e) => updateImageDescription(i, e.target.value)}
+                      placeholder={`Description for image ${i + 1}`}
+                    />
+                    <button type="button" className="sf-image-list__remove" onClick={() => removeImage(i)}>
+                      <X size={14} /> Remove
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>

@@ -843,6 +843,41 @@
   padding: 16px;
 }
 
+// ── "Why it works": full-width image + flowing document-style text ────────────
+.spotlight-why-doc {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.spotlight-why-doc__block {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.spotlight-why-doc__img {
+  width: 100%;
+  max-height: 420px;
+  object-fit: contain;
+  background: #f9fafb;
+  border: 1px solid #eaecf0;
+  border-radius: 12px;
+  display: block;
+}
+
+.spotlight-why-doc__text {
+  font-size: 14px;
+  line-height: 1.7;
+  color: #344054;
+
+  p {
+    margin: 0 0 12px;
+
+    &:last-child { margin-bottom: 0; }
+  }
+}
+
 .spotlight-highlight-card__icon {
   width: 32px;
   height: 32px;
@@ -865,6 +900,12 @@
   color: #344054;
   line-height: 1.55;
   padding-top: 4px;
+
+  p {
+    margin: 0;
+
+    & + p { margin-top: 8px; }
+  }
 }
 
 .spotlight-detail__text {
@@ -1125,6 +1166,48 @@
   max-width: 220px;
 
   img, video { width: 100%; display: block; }
+}
+
+.sf-image-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-top: 12px;
+}
+
+.sf-image-list__item {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px;
+  border: 1px solid #eaecf0;
+  border-radius: 10px;
+  background: #f9fafb;
+
+  .sf-preview { margin-top: 0; max-width: 100%; }
+
+  textarea {
+    width: 100%;
+    padding: 8px 10px;
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    font-size: 13px;
+    resize: vertical;
+  }
+}
+
+.sf-image-list__remove {
+  align-self: flex-start;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: none;
+  border: none;
+  color: #dc2626;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 2px 0;
 }
 
 .sf-error {

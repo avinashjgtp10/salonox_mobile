@@ -21,6 +21,27 @@ function sentencesFromText(text: string): string[] {
     .filter(Boolean);
 }
 
+// Image descriptions are sometimes pasted as one long numbered blob
+// ("1. ... 2. ... 3. ...") instead of one line per point — split on
+// newlines first, and if that yields a single wall of text, break it
+// before each numbered marker instead so it still renders as separate
+// points rather than one unreadable paragraph.
+function pointsFromText(text: string): string[] {
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (lines.length > 1) return lines;
+
+  const numbered = text
+    .split(/(?=\d+\.\s)/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (numbered.length > 1) return numbered;
+
+  return lines.length ? lines : [text.trim()].filter(Boolean);
+}
+
 function formatDate(iso: string) {
   const d = new Date(iso);
   if (isNaN(d.getTime())) return "—";
@@ -40,6 +61,14 @@ interface SpotlightFeaturePreviewProps {
   spotlightNumber: number;
 }
 
+// Falls back to the legacy single `imageDataUrl` for older records saved
+// before the multi-image gallery existed.
+function galleryImages(feature: SpotlightFeature) {
+  if (feature.images && feature.images.length > 0) return feature.images;
+  if (feature.imageDataUrl) return [{ imageDataUrl: feature.imageDataUrl, description: "" }];
+  return [];
+}
+
 // Shared hero + step-tabs + content block — used by both the dedicated
 // detail page (/dashboard/spotlight/:id) and the list page's "active card"
 // preview panel, so the two stay visually identical without duplicating markup.
@@ -57,6 +86,12 @@ export default function SpotlightFeaturePreview({ feature, spotlightNumber }: Sp
   const handleTryFeature = () => {
     if (feature.moduleRoute) navigate(feature.moduleRoute);
   };
+
+  const images = galleryImages(feature);
+  // Every image the owner attached a description to becomes its own visual
+  // explanation card in "Why it works" — pairing the screenshot with the
+  // point it's illustrating, instead of a plain text-only bullet list.
+  const describedImages = images.filter((img) => img.description && img.description.trim());
 
   return (
     <>
@@ -86,8 +121,8 @@ export default function SpotlightFeaturePreview({ feature, spotlightNumber }: Sp
         <div className="spotlight-detail-hero__preview">
           {feature.videoDataUrl ? (
             <video src={resolveMediaUrl(feature.videoDataUrl)} controls />
-          ) : feature.imageDataUrl ? (
-            <img src={resolveMediaUrl(feature.imageDataUrl)} alt={feature.featureName} />
+          ) : images[0] ? (
+            <img src={resolveMediaUrl(images[0].imageDataUrl)} alt={feature.featureName} />
           ) : (
             <div className="spotlight-detail-hero__preview-empty">
               <ImageFill size={28} />
@@ -125,16 +160,35 @@ export default function SpotlightFeaturePreview({ feature, spotlightNumber }: Sp
         )}
 
         {activeStep === "why" && (
-          <div className="spotlight-highlight-grid">
-            {bulletsFromText(feature.benefits).map((line, i) => (
-              <div className="spotlight-highlight-card" key={i}>
-                <span className="spotlight-highlight-card__icon">
-                  <CheckCircleFill size={16} />
-                </span>
-                <p className="spotlight-highlight-card__text">{line}</p>
-              </div>
-            ))}
-          </div>
+          describedImages.length > 0 ? (
+            <div className="spotlight-why-doc">
+              {describedImages.map((img, i) => (
+                <div className="spotlight-why-doc__block" key={i}>
+                  <img
+                    className="spotlight-why-doc__img"
+                    src={resolveMediaUrl(img.imageDataUrl)}
+                    alt={feature.featureName}
+                  />
+                  <div className="spotlight-why-doc__text">
+                    {pointsFromText(img.description ?? "").map((point, pi) => (
+                      <p key={pi}>{point}</p>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="spotlight-highlight-grid">
+              {bulletsFromText(feature.benefits).map((line, i) => (
+                <div className="spotlight-highlight-card" key={i}>
+                  <span className="spotlight-highlight-card__icon">
+                    <CheckCircleFill size={16} />
+                  </span>
+                  <p className="spotlight-highlight-card__text">{line}</p>
+                </div>
+              ))}
+            </div>
+          )
         )}
 
         {activeStep === "setup" && (
