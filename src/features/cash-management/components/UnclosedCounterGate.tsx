@@ -13,6 +13,7 @@ import { logout } from "../../../store/authSlice";
 import { disconnectSocket } from "../../../services/socket/socket";
 import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
 import { OpenCounterModal } from "../pages/CashManagementModals";
+import { showGlobalToast } from "../../../utils/globalToast";
 
 import { selectUserProfile } from "../../../store/selectors/slices.selectors";
 
@@ -65,7 +66,13 @@ export default function UnclosedCounterGate() {
 
   const isOnCashManagementPage = location.pathname.startsWith(CASH_MANAGEMENT_PATH);
   const show = isStaleOpenCounter && !isOnCashManagementPage;
-  const showPendingModal = show && !showOpenTodayModal;
+  // `!overlay` matters right after opening today's counter: `dashboard` can
+  // briefly still reflect the old stale-counter state for one render before
+  // the just-opened counter's data lands, which would otherwise flash this
+  // modal back up directly on top of the "opened successfully" confirmation.
+  // It simply reappears once the overlay clears, if the stale counter is
+  // somehow still genuinely open.
+  const showPendingModal = show && !showOpenTodayModal && !overlay;
 
   // Previous day's counter closed properly (or never opened) and today has
   // no counter yet — distinct from the stale case above, which still has a
@@ -158,7 +165,7 @@ export default function UnclosedCounterGate() {
       } catch (emailErr: any) {
         console.error("[UnclosedCounterGate] Email delivery error:", emailErr);
       }
-      showSuccess("Previous counter closed.");
+      showGlobalToast("success", "Previous counter closed", "The stale counter was closed successfully.");
 
       // 4. Directly display Open Today's Counter modal
       setShowOpenTodayModal(true);
@@ -314,7 +321,7 @@ export default function UnclosedCounterGate() {
           try {
             await dispatch(openCashCounterThunk(payload)).unwrap();
             setShowOpenTodayModal(false);
-            showSuccess("Today's cash counter opened successfully!");
+            showGlobalToast("success", "Counter opened", "Today's cash counter opened successfully!");
           } catch (err: any) {
             const msg = err?.response?.data?.message ?? err?.message ?? "Failed to open today's counter.";
             showError(msg);

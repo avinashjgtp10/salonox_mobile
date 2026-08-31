@@ -3,6 +3,7 @@ import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { openCashCounterThunk } from "../../../middleware/cashCounter/cashCounter.thunk";
 import { OpenCounterModal } from "../pages/CashManagementModals";
+import { showGlobalToast } from "../../../utils/globalToast";
 
 // Mounted once at the dashboard layout level, same pattern as UnclosedCounterGate.
 //
@@ -44,7 +45,7 @@ export default function AutoOpenCounterForNewAccount() {
           setLoading(true);
           try {
             await dispatch(openCashCounterThunk(payload)).unwrap();
-            showSuccess("Today's cash counter opened successfully!");
+            showGlobalToast("success", "Counter opened", "Today's cash counter opened successfully!");
             dismiss();
           } catch (err: any) {
             const msg = err?.response?.data?.message ?? err?.message ?? "Failed to open today's counter.";
