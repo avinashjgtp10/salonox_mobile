@@ -132,6 +132,7 @@ export const CatalogRoutes = () => (
             sibling to Purchase History rather than an alias for it. */}
         <Route path="inventory/orders" element={<OrdersListPage />} />
         <Route path="inventory/orders/new-order" element={<NewOrderPage />} />
+        <Route path="inventory/orders/:id/edit" element={<NewOrderPage />} />
         <Route path="inventory/orders/:id" element={<OrderDetailPage />} />
         <Route path="inventory/suppliers" element={<SuppliersListPage />} />
         <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />

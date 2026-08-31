@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Trash, PlusLg, Upload, Images, Lock } from "react-bootstrap-icons";
+import { useNavigate, useParams } from "react-router-dom";
+import { Trash, PlusLg, Upload, Images, Lock, ClipboardData } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchBranchesThunk, createBranchThunk } from "../../../middleware/salon/salon.thunk";
 import {
   fetchSuppliersThunk,
   createOrderThunk,
+  updateOrderThunk,
+  fetchOrderByIdThunk,
   uploadOrderSignatureThunk,
   fetchOrderSignaturesThunk,
 } from "../../../middleware/inventory/inventory.thunk";
@@ -80,9 +82,13 @@ function generateRefNumber(): string {
 //
 const NewOrderPage: React.FC = () => {
   const navigate = useNavigate();
+  const { id: editOrderId } = useParams<{ id?: string }>();
+  const isEditMode = !!editOrderId;
   const dispatch = useAppDispatch();
   const { formatAmount } = useCurrency();
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const [loadingOrder, setLoadingOrder] = useState(isEditMode);
+  const [orderNumber, setOrderNumber] = useState("");
 
   const { currentSalon, branches } = useAppSelector((s) => s.salon);
   const { suppliers } = useAppSelector((s) => s.inventory);
@@ -151,6 +157,50 @@ const NewOrderPage: React.FC = () => {
     dispatch(fetchSettingsThunk());
     if (currentSalon?.id) dispatch(fetchBranchesThunk(currentSalon.id));
   }, [dispatch, currentSalon?.id]);
+
+  // Edit mode: load the existing order and prefill every field with it.
+  useEffect(() => {
+    if (!editOrderId) return;
+    let cancelled = false;
+    setLoadingOrder(true);
+    dispatch(fetchOrderByIdThunk(editOrderId))
+      .unwrap()
+      .then((order) => {
+        if (cancelled) return;
+        setOrderNumber(order.order_number);
+        setSupplierId(order.supplier_id);
+        setOrderDate(order.order_date ? order.order_date.slice(0, 10) : todayISO());
+        setDeliveryDate(order.delivery_date ? order.delivery_date.slice(0, 10) : "");
+        setPaymentTermsDays(order.payment_terms_days != null ? String(order.payment_terms_days) : "");
+        setRefNumber(order.ref_number || "");
+        setBillToBranchId(order.bill_to_branch_id || "");
+        setShipToBranchId(order.ship_to_branch_id || "");
+        setSameAsBillTo(!!order.bill_to_branch_id && order.bill_to_branch_id === order.ship_to_branch_id);
+        setTaxType(order.tax_type);
+        setTaxGroup(order.tax_group || "");
+        setShippingCost(String(order.shipping_cost ?? 0));
+        setNotes(order.remark || "");
+        setTermsConditions(order.terms_conditions || "");
+        setSignatureUrl(order.signature_url || "");
+        setLines(
+          (order.items ?? []).map((item) => ({
+            key: item.id,
+            product: { id: item.product_id, name: item.product_name || "Product" },
+            sku: item.product_code || "",
+            qty: String(item.qty),
+            unitCost: String(item.selling_price),
+            discountPercent: item.discount_percent ? String(item.discount_percent) : "",
+          })),
+        );
+      })
+      .catch((err: any) => {
+        if (cancelled) return;
+        showError(typeof err === "string" ? err : "Couldn't load order");
+      })
+      .finally(() => { if (!cancelled) setLoadingOrder(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editOrderId]);
 
   const taxRows = useMemo(() => getActiveTaxes(settingItems), [settingItems]);
   const taxGroupOptions = useMemo(
@@ -300,28 +350,36 @@ const NewOrderPage: React.FC = () => {
         };
       });
 
-      const order = await dispatch(
-        createOrderThunk({
-          status,
-          supplier_id: supplierId,
-          bill_to_branch_id: billToBranchId || undefined,
-          ship_to_branch_id: shipToBranchId || undefined,
-          order_date: orderDate,
-          ref_number: refNumber.trim() || undefined,
-          payment_terms_days: paymentTermsDays ? Number(paymentTermsDays) : undefined,
-          delivery_date: deliveryDate || undefined,
-          tax_type: taxType,
-          tax_group: taxGroup || undefined,
-          tax_rate: selectedTaxRate || undefined,
-          shipping_cost: shippingCostNumber || undefined,
-          remark: notes.trim() || undefined,
-          terms_conditions: termsConditions.trim() || undefined,
-          signature_url: signatureUrl.trim() || undefined,
-          items,
-        }),
-      ).unwrap();
+      const payload = {
+        status,
+        supplier_id: supplierId,
+        bill_to_branch_id: billToBranchId || undefined,
+        ship_to_branch_id: shipToBranchId || undefined,
+        order_date: orderDate,
+        ref_number: refNumber.trim() || undefined,
+        payment_terms_days: paymentTermsDays ? Number(paymentTermsDays) : undefined,
+        delivery_date: deliveryDate || undefined,
+        tax_type: taxType,
+        tax_group: taxGroup || undefined,
+        tax_rate: selectedTaxRate || undefined,
+        shipping_cost: shippingCostNumber || undefined,
+        remark: notes.trim() || undefined,
+        terms_conditions: termsConditions.trim() || undefined,
+        signature_url: signatureUrl.trim() || undefined,
+        items,
+      };
 
-      showSuccess(status === "draft" ? `Order ${order.order_number} saved as draft` : `Order ${order.order_number} created successfully`);
+      const order = isEditMode && editOrderId
+        ? await dispatch(updateOrderThunk({ id: editOrderId, payload })).unwrap()
+        : await dispatch(createOrderThunk(payload)).unwrap();
+
+      showSuccess(
+        isEditMode
+          ? `Order ${order.order_number} updated successfully`
+          : status === "draft"
+            ? `Order ${order.order_number} saved as draft`
+            : `Order ${order.order_number} created successfully`
+      );
       navigate("/dashboard/catalog/inventory/orders");
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't create order");
@@ -332,17 +390,40 @@ const NewOrderPage: React.FC = () => {
 
   const handleClose = () => navigate("/dashboard/catalog/inventory/orders");
 
+  if (loadingOrder) {
+    return (
+      <div className="add-supplier-page new-order-page">
+        <div className="add-supplier-page__topbar">
+          <h2>Edit Purchase Order</h2>
+          <div className="topbar-actions">
+            <button className="btn-close-top" onClick={handleClose}>Close</button>
+          </div>
+        </div>
+        <div className="new-order-page__loading">Loading order…</div>
+      </div>
+    );
+  }
+
   return (
     <div className="add-supplier-page new-order-page">
       {overlay}
       <div className="add-supplier-page__topbar">
-        <h2>New Purchase Order</h2>
+        <h2>{isEditMode ? `Edit Purchase Order ${orderNumber}` : "New Purchase Order"}</h2>
         <div className="topbar-actions">
           <button className="btn-close-top" onClick={handleClose}>Close</button>
+          {!isEditMode && (
+            <Button variant="outline-dark" onClick={() => handleSave("draft")} disabled={saving || !canSave} loading={saving}>
+              Save Draft
+            </Button>
+          )}
+          <Button variant="dark" onClick={() => handleSave("sent")} disabled={saving || !canSave} loading={saving}>
+            {isEditMode ? "Save Changes" : "Create Order"}
+          </Button>
         </div>
       </div>
 
       <div className="add-supplier-page__body new-order-page__body">
+      <div className="new-order-page__main">
         {/* ============== 1. SUPPLIER ============== */}
         <section className="form-section">
           <h3>Supplier</h3>
@@ -402,7 +483,7 @@ const NewOrderPage: React.FC = () => {
             <div className="field-group">
               <label>PO Number</label>
               <div className="new-order-locked-field">
-                <input type="text" value={poNumberPreview} readOnly />
+                <input type="text" value={isEditMode ? orderNumber : poNumberPreview} readOnly />
                 <span className="new-order-locked-badge"><Lock size={11} /> Auto Generated</span>
               </div>
             </div>
@@ -724,22 +805,48 @@ const NewOrderPage: React.FC = () => {
           </div>
         </section>
 
-        <div className="section-divider" />
+      </div>
 
-        {/* ============== 7. ACTIONS ============== */}
-        <section className="form-section new-order-page__actions">
-          <Button variant="outline-dark" onClick={handleClose} disabled={saving}>
-            Cancel
-          </Button>
-          <div className="d-flex gap-2">
-            <Button variant="outline-dark" onClick={() => handleSave("draft")} disabled={saving || !canSave} loading={saving}>
-              Save Draft
-            </Button>
-            <Button variant="dark" onClick={() => handleSave("sent")} disabled={saving || !canSave} loading={saving}>
-              Create Order
-            </Button>
+      <aside className="new-order-sidebar">
+        <h3>Order Summary</h3>
+
+        <div className="new-order-sidebar-card new-order-sidebar-card--empty">
+          <div className="new-order-sidebar-illustration">
+            <ClipboardData size={26} />
           </div>
-        </section>
+          {validLines.length === 0 ? (
+            <>
+              <p>No items added yet</p>
+              <span>Add products to see order summary</span>
+            </>
+          ) : (
+            <>
+              <p>{formatAmount(grandTotal)}</p>
+              <span>{validLines.length} product{validLines.length === 1 ? "" : "s"} added</span>
+            </>
+          )}
+        </div>
+
+        <div className="new-order-quickinfo">
+          <h4>Quick Info</h4>
+          <div className="new-order-quickinfo__row">
+            <span>Total Items</span>
+            <span>{validLines.length}</span>
+          </div>
+          <div className="new-order-quickinfo__row">
+            <span>Total Quantity</span>
+            <span>{validLines.reduce((sum, l) => sum + lineMath(l).qty, 0)}</span>
+          </div>
+          <div className="new-order-quickinfo__row">
+            <span>Estimated Delivery</span>
+            <span>{deliveryDate ? fmtDateLabel(deliveryDate) : "—"}</span>
+          </div>
+          <div className="new-order-quickinfo__row">
+            <span>Warehouse</span>
+            <span>{branchOptions.find((b) => b.id === (sameAsBillTo ? billToBranchId : shipToBranchId))?.name || "—"}</span>
+          </div>
+        </div>
+      </aside>
       </div>
 
       <Modal

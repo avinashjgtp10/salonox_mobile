@@ -252,6 +252,21 @@ export const createOrderThunk = createAsyncThunk<
   }
 });
 
+// POST, not PUT/PATCH — matches the backend route (see orders.controller.ts).
+export const updateOrderThunk = createAsyncThunk<
+  Order,
+  { id: string; payload: CreateOrderPayload },
+  { rejectValue: string }
+>("inventory/updateOrder", async ({ id, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_UPDATE(id), payload);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("updateOrderThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to update order");
+  }
+});
+
 export const fetchOrdersThunk = createAsyncThunk<
   { data: Order[]; total: number },
   { search?: string; page?: number; limit?: number } | void,
@@ -310,6 +325,21 @@ export const cancelOrderThunk = createAsyncThunk<
   } catch (err: any) {
     console.error("cancelOrderThunk error:", err);
     return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to cancel order");
+  }
+});
+
+// POST, not DELETE — matches the backend route (see orders.controller.ts).
+export const deleteOrderThunk = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("inventory/deleteOrder", async (id, { rejectWithValue }) => {
+  try {
+    await api.post(INVENTORY.ORDER_DELETE(id));
+    return id;
+  } catch (err: any) {
+    console.error("deleteOrderThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to delete order");
   }
 });
 

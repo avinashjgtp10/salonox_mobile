@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BoxSeam, XCircle } from "react-bootstrap-icons";
+import { ArrowLeft, BoxSeam, XCircle, Trash } from "react-bootstrap-icons";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
-import { fetchOrderByIdThunk, receiveOrderThunk, cancelOrderThunk } from "../../../middleware/inventory/inventory.thunk";
+import { fetchOrderByIdThunk, receiveOrderThunk, cancelOrderThunk, deleteOrderThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Order, OrderStatus } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
@@ -38,6 +38,21 @@ const OrderDetailPage: React.FC = () => {
   const [receiveOpen, setReceiveOpen] = useState(false);
   const [receiveQtys, setReceiveQtys] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (!id) return;
+    setDeleting(true);
+    try {
+      await dispatch(deleteOrderThunk(id)).unwrap();
+      showSuccess("Order deleted successfully");
+      navigate("/dashboard/catalog/inventory/orders");
+    } catch (err: any) {
+      showError(typeof err === "string" ? err : "Couldn't delete order");
+      setDeleting(false);
+    }
+  };
 
   const load = () => {
     if (!id) return;
@@ -165,6 +180,9 @@ const OrderDetailPage: React.FC = () => {
               Receive
             </Button>
           )}
+          <Button variant="outline-danger" size="sm" iconLeft={<Trash size={14} />} onClick={() => setDeleteOpen(true)}>
+            Delete
+          </Button>
         </div>
       </header>
 
@@ -280,6 +298,26 @@ const OrderDetailPage: React.FC = () => {
           </div>
         </Modal>
       )}
+
+      <Modal
+        show={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+        title="Delete order?"
+        footer={
+          <div className="d-flex gap-2 w-100">
+            <Button variant="outline-dark" fullWidth onClick={() => setDeleteOpen(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="danger" fullWidth loading={deleting} onClick={handleDelete}>
+              Delete
+            </Button>
+          </div>
+        }
+      >
+        <p className="text-muted small mb-0">
+          Are you sure you want to delete <strong>{order.order_number}</strong>? This action cannot be undone.
+        </p>
+      </Modal>
     </div>
   );
 };
