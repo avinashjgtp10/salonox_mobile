@@ -24,7 +24,6 @@ import Skeleton from "../../../components/ui/Skeleton";
 import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
 import EmptyState from "../../../components/ui/EmptyState";
-import AddSupplierPage from "./AddSupplierPage";
 import CreatePayoutModal from "../components/CreatePayoutModal";
 import "../styles/SuppliersListPage.scss";
 
@@ -59,8 +58,6 @@ const SuppliersListPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(DEFAULT_FILTERS);
-  const [panelMode, setPanelMode] = useState<"create" | "edit" | null>(null);
-  const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
 
   // Payout modal state — undefined supplierId means the modal shows its own
   // supplier picker (top-level "Create Payout" entry point).
@@ -131,20 +128,8 @@ const SuppliersListPage: React.FC = () => {
 
   const handleClearSearch = () => setSearch("");
 
-  const openCreatePanel = () => {
-    setSelectedSupplierId(null);
-    setPanelMode("create");
-  };
-
-  const openEditPanel = (id: string) => {
-    setSelectedSupplierId(id);
-    setPanelMode("edit");
-  };
-
-  const closePanel = () => {
-    setPanelMode(null);
-    setSelectedSupplierId(null);
-  };
+  const goToAddSupplier = () => navigate("/dashboard/catalog/inventory/suppliers/new");
+  const goToEditSupplier = (id: string) => navigate(`/dashboard/catalog/inventory/suppliers/${id}/edit`);
 
   const openPayout = (supplierId?: string) => {
     setPayoutSupplierId(supplierId);
@@ -172,7 +157,7 @@ const SuppliersListPage: React.FC = () => {
           <Button variant="outline-dark" iconLeft={<CashCoin size={14} />} onClick={() => openPayout()}>
             Create Payout
           </Button>
-          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={openCreatePanel}>
+          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={goToAddSupplier}>
             Add
           </Button>
         </div>
@@ -314,7 +299,7 @@ const SuppliersListPage: React.FC = () => {
                         popperConfig={{ strategy: "fixed" }}
                       >
                         <Dropdown.Item
-                          onClick={() => openEditPanel(s.id)}
+                          onClick={() => goToEditSupplier(s.id)}
                           className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
                         >
                           <PencilSquare size={14} /> Edit
@@ -345,7 +330,7 @@ const SuppliersListPage: React.FC = () => {
             title="No suppliers yet"
             description="Click here to add a supplier now."
             action={
-              <Button variant="dark" size="sm" iconLeft={<PlusLg size={13} />} onClick={openCreatePanel}>
+              <Button variant="dark" size="sm" iconLeft={<PlusLg size={13} />} onClick={goToAddSupplier}>
                 Add Supplier
               </Button>
             }
@@ -407,19 +392,6 @@ const SuppliersListPage: React.FC = () => {
           onChange={(e) => setDeleteInput(e.target.value)}
         />
       </Modal>
-
-      {panelMode && (
-        <div className="supplier-panel-overlay" onClick={closePanel}>
-          <div className="supplier-panel" onClick={(e) => e.stopPropagation()}>
-            <AddSupplierPage
-              panelMode
-              supplierId={panelMode === "edit" ? selectedSupplierId ?? undefined : undefined}
-              onClose={closePanel}
-              onSaved={() => dispatch(fetchSuppliersThunk())}
-            />
-          </div>
-        </div>
-      )}
 
       <CreatePayoutModal
         show={payoutOpen}
