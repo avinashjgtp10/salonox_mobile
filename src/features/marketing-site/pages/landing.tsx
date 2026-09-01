@@ -9,7 +9,8 @@ import {
   validatePhoneNumberLength,
 } from 'libphonenumber-js';
 import api from '../../../services/api/axios';
-import { DEMO_REQUESTS } from '../../../services/api/endpoints';
+import { AUTH, DEMO_REQUESTS } from '../../../services/api/endpoints';
+import { ApiError } from '../../../services/api/interceptors';
 import 'react-phone-number-input/style.css';
 import '../../../components/Landing/styles/main.scss';
 import {
@@ -41,6 +42,9 @@ import BookDemo from '../../../components/Landing/BookDemo/BookDemo';
 import Footer from '../../../components/Landing/Footer/Footer';
 
 const DEMO_NOTIFICATION_TIME_ZONE = 'Asia/Kolkata';
+const DEMO_OTP_COOLDOWN_SECONDS = 60;
+const DEMO_OTP_EXPIRY_SECONDS = 10 * 60;
+const DEMO_OTP_MAX_ATTEMPTS = 5;
 const EMAIL_LOCAL_HAS_LETTER_REGEX = /\p{L}/u;
 const EMAIL_DOMAIN_LABEL_REGEX = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
 const DEMO_NAME_REGEX = /^[\p{L}\s]+$/u;
@@ -693,6 +697,33 @@ const LandingPage: React.FC = () => {
   const [salonTouched, setSalonTouched] = useState(false);
   const [locationsError, setLocationsError] = useState('');
   const [locationsTouched, setLocationsTouched] = useState(false);
+  const [emailOtp, setEmailOtp] = useState('');
+  const [otpRequestedEmail, setOtpRequestedEmail] = useState('');
+  const [otpVerifiedEmail, setOtpVerifiedEmail] = useState('');
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpVerifying, setOtpVerifying] = useState(false);
+  const [otpMessage, setOtpMessage] = useState('');
+  const [otpError, setOtpError] = useState('');
+  const [otpCooldown, setOtpCooldown] = useState(0);
+  const [otpSecondsRemaining, setOtpSecondsRemaining] = useState(0);
+  const [otpAttempts, setOtpAttempts] = useState(0);
+
+  const normalizedDemoEmail = demoForm.email.trim().toLowerCase();
+  const emailOtpSent = !!otpRequestedEmail && otpRequestedEmail === normalizedDemoEmail;
+  const emailOtpVerified = !!otpVerifiedEmail && otpVerifiedEmail === normalizedDemoEmail;
+
+  const resetDemoEmailVerification = useCallback(() => {
+    setEmailOtp('');
+    setOtpRequestedEmail('');
+    setOtpVerifiedEmail('');
+    setOtpSending(false);
+    setOtpVerifying(false);
+    setOtpMessage('');
+    setOtpError('');
+    setOtpCooldown(0);
+    setOtpSecondsRemaining(0);
+    setOtpAttempts(0);
+  }, []);
 
   const handleDemoChange = useCallback(
     (field: keyof Omit<DemoForm, 'phone'>) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -704,10 +735,13 @@ const LandingPage: React.FC = () => {
           ? e.target.value.replace(/[^\d]/g, '')
           : e.target.value;
 
+      if (field === 'email' && String(value).trim().toLowerCase() !== demoForm.email.trim().toLowerCase()) {
+        resetDemoEmailVerification();
+      }
       setDemoForm((prev) => ({ ...prev, [field]: value }));
       setDemoError('');
     },
-    []
+    [demoForm.email, resetDemoEmailVerification]
   );
 
   const handleCityBlur = useCallback(() => {
@@ -775,6 +809,84 @@ const LandingPage: React.FC = () => {
     if (!isRealLookingDemoEmail(trimmed)) return 'Please enter a valid email address.';
     return '';
   }, []);
+
+  const handleSendDemoEmailOtp = useCallback(async () => {
+    const email = demoForm.email.trim().toLowerCase();
+    const validationError = validateEmail(email);
+    setEmailTouched(true);
+    setEmailError(validationError);
+    setDemoError('');
+
+    if (validationError || otpSending || otpCooldown > 0) return;
+
+    setOtpSending(true);
+    setOtpError('');
+    setOtpMessage('');
+    setOtpVerifiedEmail('');
+
+    try {
+      await api.post(AUTH.SEND_EMAIL_OTP, { email });
+      setOtpRequestedEmail(email);
+      setEmailOtp('');
+      setOtpAttempts(0);
+      setOtpCooldown(DEMO_OTP_COOLDOWN_SECONDS);
+      setOtpSecondsRemaining(DEMO_OTP_EXPIRY_SECONDS);
+      setOtpMessage(`OTP sent to ${email}. It expires in 10 minutes.`);
+    } catch (error) {
+      setOtpError(error instanceof ApiError ? error.message : 'Failed to send OTP. Please try again.');
+    } finally {
+      setOtpSending(false);
+    }
+  }, [demoForm.email, otpCooldown, otpSending, validateEmail]);
+
+  const handleDemoEmailOtpChange = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
+    setEmailOtp(event.target.value.replace(/\D/g, '').slice(0, 6));
+    setOtpError('');
+  }, []);
+
+  const handleVerifyDemoEmailOtp = useCallback(async () => {
+    const email = demoForm.email.trim().toLowerCase();
+    if (!emailOtpSent || otpSecondsRemaining <= 0) {
+      setOtpError('This OTP has expired. Please request a new OTP.');
+      return;
+    }
+    if (otpAttempts >= DEMO_OTP_MAX_ATTEMPTS) {
+      setOtpError('Maximum verification attempts reached. Please resend the OTP.');
+      return;
+    }
+    if (!/^\d{6}$/.test(emailOtp)) {
+      setOtpError('Enter the 6-digit OTP sent to your email.');
+      return;
+    }
+
+    setOtpVerifying(true);
+    setOtpError('');
+    setOtpMessage('');
+
+    try {
+      await api.post(AUTH.VERIFY_EMAIL_OTP, { email, otp: emailOtp });
+      setOtpVerifiedEmail(email);
+      setOtpMessage('Email Verified');
+      setEmailOtp('');
+      setOtpCooldown(0);
+      setOtpSecondsRemaining(0);
+    } catch (error) {
+      const code = error instanceof ApiError ? error.code : undefined;
+      const nextAttempts = code === 'OTP_INVALID' ? otpAttempts + 1 : otpAttempts;
+      if (code === 'OTP_INVALID') setOtpAttempts(nextAttempts);
+
+      if (code === 'OTP_EXPIRED' || code === 'OTP_NOT_FOUND' || code === 'OTP_USED') {
+        setOtpSecondsRemaining(0);
+        setOtpError('This OTP is expired or no longer valid. Please request a new OTP.');
+      } else if (nextAttempts >= DEMO_OTP_MAX_ATTEMPTS) {
+        setOtpError('Maximum verification attempts reached. Please resend the OTP.');
+      } else {
+        setOtpError(error instanceof ApiError ? error.message : 'Could not verify OTP. Please try again.');
+      }
+    } finally {
+      setOtpVerifying(false);
+    }
+  }, [demoForm.email, emailOtp, emailOtpSent, otpAttempts, otpSecondsRemaining]);
 
   const validateSalon = useCallback((value: string) => {
     const trimmed = value.trim();
@@ -862,6 +974,23 @@ const LandingPage: React.FC = () => {
     setLocationsError(validateLocations(demoForm.locations));
   }, [demoForm.locations, locationsTouched, validateLocations]);
 
+  useEffect(() => {
+    if (otpCooldown <= 0 && otpSecondsRemaining <= 0) return;
+
+    const timer = window.setInterval(() => {
+      setOtpCooldown((seconds) => Math.max(0, seconds - 1));
+      setOtpSecondsRemaining((seconds) => {
+        if (seconds === 1 && otpRequestedEmail) {
+          setOtpMessage('');
+          setOtpError('This OTP has expired. Please request a new OTP.');
+        }
+        return Math.max(0, seconds - 1);
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [otpCooldown, otpRequestedEmail, otpSecondsRemaining]);
+
   const handlePhoneChange = useCallback((value?: string) => {
     let nextPhone = value || '';
     if (phoneCountry === 'IN' && nextPhone) {
@@ -940,6 +1069,11 @@ const LandingPage: React.FC = () => {
         return;
       }
 
+      if (!emailOtpVerified) {
+        setDemoError('Verify your work email with the OTP before scheduling the demo.');
+        return;
+      }
+
       setDemoSubmitting(true);
       setDemoError('');
 
@@ -957,6 +1091,38 @@ const LandingPage: React.FC = () => {
         ];
 
         const notificationEmail = buildDemoNotificationEmail(notificationRows);
+
+        // The backend checks its email-bound Redis verification marker; the
+        // local UI state above is only a convenience and is not trusted.
+        await api.post(DEMO_REQUESTS.CREATE, {
+          name: demoForm.name,
+          email: demoForm.email.trim().toLowerCase(),
+          phone: demoForm.phone,
+          salonName: demoForm.salon,
+          city: demoForm.city,
+          locationsCount: demoForm.locations,
+          submittedAt: submittedAt.toISOString(),
+          submittedOn: submittedOn.display,
+          submittedOnDate: submittedOn.date,
+          submittedOnTime: submittedOn.time,
+          submittedTimeZone: submittedOn.timeZone,
+          source: 'SalonOX website',
+          notification: {
+            to: 'support@salonox.com',
+            replyTo: demoForm.email,
+            subject: notificationEmail.subject,
+            heading: notificationEmail.heading,
+            subtitle: notificationEmail.subtitle,
+            footer: notificationEmail.footer,
+            tableHeaders: {
+              field: 'Field',
+              information: 'Information',
+            },
+            rows: notificationRows,
+            html: notificationEmail.html,
+            text: notificationEmail.text,
+          },
+        });
 
         const formSubmitData = new FormData();
         appendFormSubmitField(formSubmitData, '_subject', notificationEmail.subject);
@@ -990,42 +1156,17 @@ const LandingPage: React.FC = () => {
             endpoint: DEMO_SUBMIT_URL,
             recipient: DEMO_EMAIL,
           });
-          throw new Error(`Email notification failed with status ${formSubmitResponse.status}`);
         }
-
-        await api.post(DEMO_REQUESTS.CREATE, {
-          name: demoForm.name,
-          email: demoForm.email,
-          phone: demoForm.phone,
-          salonName: demoForm.salon,
-          city: demoForm.city,
-          locationsCount: demoForm.locations,
-          submittedAt: submittedAt.toISOString(),
-          submittedOn: submittedOn.display,
-          submittedOnDate: submittedOn.date,
-          submittedOnTime: submittedOn.time,
-          submittedTimeZone: submittedOn.timeZone,
-          source: 'SalonOX website',
-          notification: {
-            to: 'support@salonox.com',
-            replyTo: demoForm.email,
-            subject: notificationEmail.subject,
-            heading: notificationEmail.heading,
-            subtitle: notificationEmail.subtitle,
-            footer: notificationEmail.footer,
-            tableHeaders: {
-              field: 'Field',
-              information: 'Information',
-            },
-            rows: notificationRows,
-            html: notificationEmail.html,
-            text: notificationEmail.text,
-          },
-        });
 
         setDemoSubmitted(true);
       } catch (error) {
         console.error('SalonOX demo booking submission failed', error);
+        if (error instanceof ApiError && error.code === 'EMAIL_VERIFICATION_REQUIRED') {
+          resetDemoEmailVerification();
+          setOtpError('Your email verification expired. Please request and verify a new OTP.');
+          setDemoError('Email verification is required before scheduling the demo.');
+          return;
+        }
         const fieldError = mapDemoBackendErrorToField(error);
         if (fieldError) {
           if (fieldError.field === 'name') {
@@ -1054,7 +1195,7 @@ const LandingPage: React.FC = () => {
         setDemoSubmitting(false);
       }
     },
-    [demoForm, phoneCountry, validateName, validateEmail, validatePhone, validateSalon, validateCity, validateLocations, mapDemoBackendErrorToField]
+    [demoForm, emailOtpVerified, phoneCountry, validateName, validateEmail, validatePhone, validateSalon, validateCity, validateLocations, mapDemoBackendErrorToField, resetDemoEmailVerification]
   );
 
   return (
@@ -1155,6 +1296,16 @@ const LandingPage: React.FC = () => {
         nameError={nameError}
         emailTouched={emailTouched}
         emailError={emailError}
+        emailOtp={emailOtp}
+        emailOtpSent={emailOtpSent}
+        emailOtpVerified={emailOtpVerified}
+        otpSending={otpSending}
+        otpVerifying={otpVerifying}
+        otpMessage={otpMessage}
+        otpError={otpError}
+        otpCooldown={otpCooldown}
+        otpSecondsRemaining={otpSecondsRemaining}
+        otpAttemptsRemaining={Math.max(0, DEMO_OTP_MAX_ATTEMPTS - otpAttempts)}
         phoneCountry={phoneCountry}
         phoneTouched={phoneTouched}
         phoneError={phoneError}
@@ -1167,6 +1318,9 @@ const LandingPage: React.FC = () => {
         handleDemoChange={handleDemoChange}
         handleNameBlur={handleNameBlur}
         handleEmailBlur={handleEmailBlur}
+        handleSendEmailOtp={handleSendDemoEmailOtp}
+        handleEmailOtpChange={handleDemoEmailOtpChange}
+        handleVerifyEmailOtp={handleVerifyDemoEmailOtp}
         handleSalonBlur={handleSalonBlur}
         handleCityBlur={handleCityBlur}
         handleLocationsBlur={handleLocationsBlur}
