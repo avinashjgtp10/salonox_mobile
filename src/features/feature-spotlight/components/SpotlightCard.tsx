@@ -1,7 +1,52 @@
 import React, { useRef, useState } from "react";
-import { PlayFill, Link45deg, Check2, ImageFill, CameraFill } from "react-bootstrap-icons";
+import {
+  PlayFill,
+  Link45deg,
+  Check2,
+  ImageFill,
+  CameraFill,
+  House,
+  Lightning,
+  Calendar,
+  EmojiSmile,
+  Book,
+  People,
+  Cash,
+  Megaphone,
+  Globe2,
+  ChatSquareText,
+  GraphUpArrow,
+  Grid3x3Gap,
+  Gear,
+  QuestionCircle,
+} from "react-bootstrap-icons";
 import type { SpotlightFeature } from "../types";
-import { compressImage } from "../utils/compressImage";
+import { uploadSpotlightImage } from "../utils/uploadImage";
+
+// Same icon set as the dashboard sidebar (DashboardSidebar.tsx) — matched by
+// module/route keyword so a card's module tag visually ties back to the
+// sidebar item it lives under, instead of being plain text on its own.
+const MODULE_ICONS: { test: RegExp; icon: React.ReactNode }[] = [
+  { test: /quick sale/i, icon: <Lightning size={11} /> },
+  { test: /calendar|appointment/i, icon: <Calendar size={11} /> },
+  { test: /client/i, icon: <EmojiSmile size={11} /> },
+  { test: /catalog|service|product|package|membership/i, icon: <Book size={11} /> },
+  { test: /staff/i, icon: <People size={11} /> },
+  { test: /cash/i, icon: <Cash size={11} /> },
+  { test: /marketing|campaign/i, icon: <Megaphone size={11} /> },
+  { test: /online booking/i, icon: <Globe2 size={11} /> },
+  { test: /enquir/i, icon: <ChatSquareText size={11} /> },
+  { test: /report/i, icon: <GraphUpArrow size={11} /> },
+  { test: /apps?\b/i, icon: <Grid3x3Gap size={11} /> },
+  { test: /setting/i, icon: <Gear size={11} /> },
+  { test: /help/i, icon: <QuestionCircle size={11} /> },
+  { test: /home|dashboard overview/i, icon: <House size={11} /> },
+];
+
+function moduleIcon(feature: SpotlightFeature): React.ReactNode {
+  const haystack = `${feature.module} ${feature.moduleRoute ?? ""}`;
+  return MODULE_ICONS.find((m) => m.test.test(haystack))?.icon ?? null;
+}
 
 interface SpotlightCardProps {
   feature: SpotlightFeature;
@@ -60,8 +105,8 @@ const SpotlightCard: React.FC<SpotlightCardProps> = ({ feature, index, isUnread,
     setUploading(true);
     setUploadError("");
     try {
-      const dataUrl = await compressImage(file);
-      await onImageUpload(dataUrl);
+      const url = await uploadSpotlightImage(file);
+      await onImageUpload(url);
     } catch (err: any) {
       setUploadError(err?.message || "Couldn't save this image — try a smaller file.");
       setTimeout(() => setUploadError(""), 4000);
@@ -119,7 +164,10 @@ const SpotlightCard: React.FC<SpotlightCardProps> = ({ feature, index, isUnread,
         <p className="spotlight-card__desc">{feature.shortDescription}</p>
 
         <div className="spotlight-card__footer">
-          <span className="spotlight-tag">{feature.module}</span>
+          <span className="spotlight-tag spotlight-tag--module">
+            {moduleIcon(feature)}
+            {feature.module}
+          </span>
           <span className={`spotlight-tag spotlight-tag--${feature.status}`}>{STATUS_LABEL[feature.status]}</span>
           <button type="button" className="spotlight-card__copy" onClick={handleCopyLink}>
             {copied ? <Check2 size={12} /> : <Link45deg size={13} />}

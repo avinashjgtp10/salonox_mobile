@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import { ArrowLeft, Link45deg, Check2 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Button from "../../../components/ui/Button";
@@ -15,7 +15,19 @@ export default function SpotlightDetailPage() {
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Whichever tab (New/Recently Updated/All) the person clicked in from has
+  // its own route — going back to a hardcoded "/dashboard/spotlight" would
+  // always land on the default tab instead. Use browser history so it
+  // returns to the exact tab they came from; only fall back to the list
+  // page when there's no in-app history to go back to (e.g. a shared link
+  // opened directly, or a hard refresh on this page).
+  const handleBack = () => {
+    if (location.key !== "default") navigate(-1);
+    else navigate("/dashboard/spotlight");
+  };
 
   const features = useAppSelector(selectSpotlightFeatures);
   const published = useAppSelector(selectPublishedFeatures);
@@ -39,7 +51,7 @@ export default function SpotlightDetailPage() {
   if (!feature) {
     return (
       <div className="spotlight-page">
-        <Button variant="outline-dark" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate("/dashboard/spotlight")}>
+        <Button variant="outline-dark" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={handleBack}>
           Back to Spotlight
         </Button>
         <div className="spotlight-empty" style={{ marginTop: 20 }}>
@@ -69,7 +81,12 @@ export default function SpotlightDetailPage() {
 
   return (
     <div className="spotlight-page">
-      <Button variant="outline-dark" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate("/dashboard/spotlight")}>
+      <Button
+        variant="outline-dark"
+        size="sm"
+        iconLeft={<ArrowLeft size={14} />}
+        onClick={handleBack}
+      >
         Back to Spotlight
       </Button>
 

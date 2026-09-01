@@ -74,7 +74,8 @@
 }
 
 .spotlight-banner {
-  background: #0f1e3d;
+  position: relative;
+  background: linear-gradient(90deg, #0b1730, #0f1e3d 55%, #0c2a3e);
   color: #fff;
   display: flex;
   align-items: center;
@@ -82,6 +83,22 @@
   padding: 11px 24px;
   font-size: 12.5px;
   flex-wrap: wrap;
+  overflow: hidden;
+
+  // A soft glow behind the badge gives the banner some visual depth instead
+  // of a flat block of navy.
+  &::before {
+    content: "";
+    position: absolute;
+    top: -60%;
+    left: -4%;
+    width: 220px;
+    height: 220px;
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.35), transparent 70%);
+    pointer-events: none;
+  }
+
+  > * { position: relative; }
 
   @media (max-width: 768px) { padding: 10px 16px; }
 }
@@ -197,12 +214,42 @@
 
 // ── Hero ──────────────────────────────────────────────────────────────────────
 .spotlight-hero {
+  position: relative;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
   justify-content: space-between;
   gap: 24px;
   margin-bottom: 28px;
+  padding: 28px 32px;
+  border-radius: 20px;
   flex-wrap: wrap;
+  background: linear-gradient(135deg, #f0fdf9 0%, #f7f9fc 55%, #ffffff 100%);
+  border: 1px solid #e6f7f0;
+  overflow: hidden;
+
+  // Two soft decorative blurs so the hero has some visual depth instead of
+  // sitting flat against the page background.
+  &::before,
+  &::after {
+    content: "";
+    position: absolute;
+    border-radius: 999px;
+    pointer-events: none;
+  }
+  &::before {
+    width: 260px;
+    height: 260px;
+    top: -120px;
+    right: -60px;
+    background: radial-gradient(circle, rgba(18, 184, 134, 0.14), transparent 70%);
+  }
+  &::after {
+    width: 180px;
+    height: 180px;
+    bottom: -100px;
+    left: 10%;
+    background: radial-gradient(circle, rgba(52, 211, 153, 0.1), transparent 70%);
+  }
 }
 
 .spotlight-hero__title {
@@ -234,12 +281,20 @@
   flex-direction: column;
   align-items: flex-end;
   flex-shrink: 0;
+  background: #fff;
+  border: 1px solid #e6f7f0;
+  border-radius: 16px;
+  padding: 18px 26px;
+  box-shadow: 0 10px 30px rgba(18, 184, 134, 0.1);
 }
 
 .spotlight-hero__stat-num {
   font-size: 40px;
   font-weight: 800;
-  color: #12b886;
+  background: linear-gradient(135deg, #12b886, #0d9488);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   line-height: 1;
 }
 
@@ -285,20 +340,48 @@
 }
 
 // ── Timeline (step dots above the carousel) ─────────────────────────────────
-.spotlight-timeline {
-  position: relative;
+// Scrolls horizontally instead of squeezing every dot into one fixed-width
+// row — with a large feature count that used to render as a crammed, barely
+// visible strip of circles. A soft fade on both edges hints there's more to
+// scroll to, and the current position is called out in text next to it.
+.spotlight-timeline-row {
   display: flex;
   align-items: center;
-  gap: 18px;
-  padding: 0 20px;
-  margin-bottom: 10px;
-  overflow: hidden;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.spotlight-timeline-count {
+  flex-shrink: 0;
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #98a2b3;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+
+  strong { color: #12b886; }
+}
+
+.spotlight-timeline {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 4px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 16px, #000 calc(100% - 16px), transparent);
+
+  &::-webkit-scrollbar { display: none; }
 }
 
 .spotlight-timeline__line {
   position: absolute;
-  left: 20px;
-  right: 20px;
+  left: 8px;
+  right: 8px;
   top: 50%;
   height: 1px;
   background: #e4e7ec;
@@ -330,10 +413,16 @@
   transition: all 0.15s;
 }
 
+.spotlight-timeline__dot:hover .spotlight-timeline__ring {
+  border-color: #6ee7b7;
+}
+
 .spotlight-timeline__dot--active .spotlight-timeline__ring {
+  width: 20px;
+  height: 20px;
   border-color: #12b886;
-  background: #fff;
-  box-shadow: 0 0 0 3px rgba(18, 184, 134, 0.15);
+  background: linear-gradient(135deg, #12b886, #0d9488);
+  box-shadow: 0 0 0 4px rgba(18, 184, 134, 0.15);
 }
 
 // ── Carousel nav (below cards) ───────────────────────────────────────────────
@@ -456,13 +545,26 @@
   position: relative;
   width: 100%;
   height: 140px;
-  background: #ece7dd;
+  background:
+    radial-gradient(circle at 30% 20%, rgba(18, 184, 134, 0.14), transparent 55%),
+    linear-gradient(135deg, #eef2f6, #e4e9f0);
   display: flex;
   align-items: center;
   justify-content: center;
   color: #98a2b3;
   flex-shrink: 0;
   overflow: hidden;
+
+  // The placeholder icon itself gets a soft circular badge behind it so an
+  // image-less card doesn't read as an empty/broken box. Direct-child only —
+  // the play/upload buttons nested inside also contain svgs with their own
+  // styling that this must not override.
+  > svg {
+    padding: 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.7);
+    color: #12b886;
+  }
 
   img {
     width: 100%;
@@ -591,6 +693,9 @@
 }
 
 .spotlight-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
   font-size: 10.5px;
   font-weight: 600;
   padding: 3px 9px;
@@ -599,6 +704,7 @@
   background: #f2f4f7;
   color: #475467;
 
+  &--module { color: #344054; }
   &--published { background: #ecfdf3; color: #027a48; }
   &--draft { background: #fffaeb; color: #b54708; }
   &--archived { background: #f2f4f7; color: #98a2b3; }

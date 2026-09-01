@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 import { X } from "react-bootstrap-icons";
 import Button from "../../../components/ui/Button";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
-import { compressImage } from "../utils/compressImage";
+import { uploadSpotlightImage } from "../utils/uploadImage";
 import { TARGET_AUDIENCE_OPTIONS } from "../types";
 import type { SpotlightFeature, SpotlightStatus, TargetAudience, SpotlightCreatePayload, SpotlightImage } from "../types";
 
@@ -79,14 +79,16 @@ const SpotlightFormDrawer: React.FC<SpotlightFormDrawerProps> = ({ feature, onCl
   const handleImagesUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
     if (!files.length) return;
-    // Downscaled/re-encoded before storing — a full-resolution screenshot as
-    // a raw base64 data URL can easily blow the localStorage quota this is
-    // saved into (see spotlightStorage.ts / compressImage.ts).
+    // Uploads to the backend when the Spotlight upload endpoint is available
+    // (see uploadImage.ts / spotlight.endpoints.ts); until then it falls
+    // back to a downscaled/re-encoded base64 data URL — a full-resolution
+    // screenshot stored raw can easily blow the localStorage quota this
+    // currently persists into (see spotlightStorage.ts / compressImage.ts).
     // These images are shown large (full document width) in "Why it works",
     // not just as small thumbnails — use a higher resolution/quality than
     // the single hero image so UI screenshot text stays readable there.
     const newImages: SpotlightImage[] = await Promise.all(
-      files.map(async (file) => ({ imageDataUrl: await compressImage(file, 1600, 0.9), description: "" }))
+      files.map(async (file) => ({ imageDataUrl: await uploadSpotlightImage(file, 1280, 0.8), description: "" }))
     );
     setForm((prev) => {
       const images = [...(prev.images ?? []), ...newImages];

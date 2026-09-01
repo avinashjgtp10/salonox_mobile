@@ -40,3 +40,36 @@ export function compressImage(file: File, maxWidth = 900, quality = 0.75): Promi
     reader.readAsDataURL(file);
   });
 }
+
+// Same downscale/re-encode as compressImage, but for an image already
+// stored as a data URL — used to shrink existing Spotlight images in place
+// when localStorage is full (see spotlightStorage.ts's saveFeaturesResilient),
+// since there's no File to re-read from at that point.
+export function recompressDataUrl(dataUrl: string, maxWidth = 700, quality = 0.55): Promise<string> {
+  return new Promise((resolve) => {
+    if (!dataUrl.startsWith("data:image") || dataUrl.startsWith("data:image/gif")) {
+      resolve(dataUrl);
+      return;
+    }
+    const img = new Image();
+    // Best-effort: if it can't be decoded/redrawn for any reason, keep the
+    // original rather than losing the image entirely.
+    img.onerror = () => resolve(dataUrl);
+    img.onload = () => {
+      const scale = Math.min(1, maxWidth / img.width);
+      const width = Math.round(img.width * scale);
+      const height = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        resolve(dataUrl);
+        return;
+      }
+      ctx.drawImage(img, 0, 0, width, height);
+      resolve(canvas.toDataURL("image/jpeg", quality));
+    };
+    img.src = dataUrl;
+  });
+}

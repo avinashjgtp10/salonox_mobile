@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { CalendarEvent, ImageFill, CheckCircleFill, InfoCircleFill } from "react-bootstrap-icons";
+import { CalendarEvent, ImageFill, CheckCircleFill } from "react-bootstrap-icons";
 import type { SpotlightFeature } from "../types";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
 
@@ -147,14 +147,9 @@ export default function SpotlightFeaturePreview({ feature, spotlightNumber }: Sp
 
       <div className="spotlight-step-content">
         {activeStep === "what" && (
-          <div className="spotlight-highlight-grid">
+          <div className="spotlight-why-doc__text">
             {sentencesFromText(feature.whatIsThis).map((line, i) => (
-              <div className="spotlight-highlight-card" key={i}>
-                <span className="spotlight-highlight-card__icon">
-                  <InfoCircleFill size={16} />
-                </span>
-                <p className="spotlight-highlight-card__text">{line}</p>
-              </div>
+              <p key={i}>{line}</p>
             ))}
           </div>
         )}

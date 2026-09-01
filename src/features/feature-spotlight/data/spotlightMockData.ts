@@ -2,6 +2,177 @@ import type { SpotlightFeature } from "../types";
 
 export const SPOTLIGHT_SEED_DATA: SpotlightFeature[] = [
   {
+    id: "spotlight-consumable-inventory",
+    featureName: "Consumable Inventory",
+    module: "Catalog → Inventory → Consumable Inventory",
+    moduleRoute: "/dashboard/catalog/inventory/consumables",
+    shortDescription:
+      "Manage all consumable products used during salon services — stock, unit conversion, service assignment, and usage status.",
+    whatIsThis:
+      "Consumable Inventory tracks products used up during services (not sold to clients) — stock and available stock in their own units, which services each one is assigned to, monthly usage, and a Healthy/Low/Out of Stock status per product.",
+    howItWorks:
+      "Go to Catalog → Inventory → Consumable Inventory.\nCheck the summary cards — Total Consumable Products, Low Stock, Out of Stock, and Assigned Services.\nClick + Add to add a new consumable product, or Usage to review consumption history.\nUse Search or Filter to find a specific product, and Newest to sort the list.\nCheck Assigned Services to see how many services use a product, and Status for Healthy, Low, or Out of Stock.\nUse the ⋮ actions menu on a row to edit or adjust a product.",
+    benefits:
+      "See which consumables are running low or out before a service gets interrupted.\nKnow exactly how many services each consumable is assigned to.\nTrack monthly usage per product instead of guessing consumption rates.\nSee stock and available stock in the actual unit you use (ml, pcs, etc.).\nGet a business-wide view — total products, low stock, out of stock, assigned services — from the summary cards.",
+    releaseDate: new Date().toISOString().slice(0, 10),
+    targetAudience: ["all"],
+    status: "published",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "spotlight-purchase-history",
+    featureName: "Purchase History",
+    module: "Catalog → Inventory → Purchase History",
+    moduleRoute: "/dashboard/catalog/inventory/purchases",
+    shortDescription:
+      "Every purchase recorded from Product Inventory, with its Supplier Number and line items, in one searchable list.",
+    whatIsThis:
+      "Purchase History is a running record of every purchase you've recorded from Product Inventory — supplier, purchase date, number of products, and total amount — so you can look back on what was bought and from whom at any time.",
+    howItWorks:
+      "Go to Catalog → Inventory → Purchase History.\nUse Search to find a purchase by Supplier Number or supplier name.\nCheck Purchase Date, Products, and Total Amount for each entry at a glance.\nClick a row to open the full purchase details and line items.",
+    benefits:
+      "Look back on any past purchase without digging through supplier paperwork.\nSee total amount and product count per purchase at a glance.\nSearch by Supplier Number or supplier name to find any purchase instantly.\nKeep a complete, chronological record of everything bought into inventory.",
+    releaseDate: new Date().toISOString().slice(0, 10),
+    targetAudience: ["all"],
+    status: "published",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "spotlight-product-inventory",
+    featureName: "Product Inventory",
+    module: "Catalog → Inventory → Product Inventory",
+    moduleRoute: "/dashboard/catalog/inventory/products",
+    shortDescription:
+      "Track retail stock and record new deliveries — purchased, sold, consumed, and available quantities in one view.",
+    whatIsThis:
+      "Product Inventory tracks retail stock levels for every product — how much was purchased, sold, and consumed, what's still Available, and its Status (In Stock, Expired, Out of Stock) — separate from consumables, which have their own page.",
+    howItWorks:
+      "Go to Catalog → Inventory → Product Inventory.\nClick + Purchase to record a new delivery of stock.\nUse Search to find a product by name, SKU, or barcode, or Filters to narrow the list.\nCheck Purchased, Sold, Consumed, and Available columns to see stock movement per product.\nWatch the Status column for In Stock, Expired, or Out of Stock items that need attention.\nUse Options for bulk actions across products.",
+    benefits:
+      "See exactly how much of each product is available without manual counting.\nCatch expired or out-of-stock items immediately via the Status column.\nTrack purchased, sold, and consumed quantities together per product.\nRecord new deliveries in seconds with + Purchase.\nSearch by name, SKU, or barcode to find any product instantly.",
+    releaseDate: new Date().toISOString().slice(0, 10),
+    targetAudience: ["all"],
+    status: "published",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "spotlight-memberships",
+    featureName: "Memberships",
+    module: "Catalog → Memberships",
+    moduleRoute: "/dashboard/catalog/memberships",
+    shortDescription:
+      "Create and manage membership plans for your clients — wallet balance, discounts, and bonuses in one place.",
+    whatIsThis:
+      "Memberships lets you sell prepaid or discount-based membership plans — Wallet balance (with optional bonus) or Discount Balance — that apply to Services, Products, or both, each with its own fee, expiry, and benefit.",
+    howItWorks:
+      "Go to Catalog → Memberships.\nCheck the summary bar — Total plans, Loaded, Plan revenue, and Avg. price — for a quick overview.\nClick + Add membership to create a new plan.\nChoose the Membership Type — Wallet (with an optional bonus amount) or Discount Balance (a % discount).\nSet what it Applies To — Services, Products, or both — the Membership Fee, and the Expiry in days.\nUse Search or Filter to find an existing plan, and the ⋮ actions menu to edit or remove one.",
+    benefits:
+      "Turn one-time clients into repeat clients with prepaid wallet or discount plans.\nOffer bonus value on wallet top-ups to make bigger purchases more attractive.\nControl exactly what each plan applies to — Services, Products, or both.\nSee Total plans, Plan revenue, and Avg. price at a glance from the summary bar.\nSet a clear expiry on every plan so benefits don't run indefinitely.",
+    releaseDate: new Date().toISOString().slice(0, 10),
+    targetAudience: ["all"],
+    status: "published",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "spotlight-suppliers",
+    featureName: "Suppliers",
+    module: "Catalog → Inventory → Suppliers",
+    moduleRoute: "/dashboard/catalog/inventory/suppliers",
+    shortDescription:
+      "Add and manage supplier details — contact info, orders, and dues — all in one list.",
+    whatIsThis:
+      "Suppliers keeps every vendor you buy inventory from in one place, tracking their contact details alongside pending orders, total and due amounts, and overdue status so nothing slips through.",
+    howItWorks:
+      "Go to Catalog → Inventory → Suppliers.\nClick + Add to create a new supplier with their contact person, email, and phone.\nUse Search to find a supplier by name, contact, or email, or Filters to narrow the list.\nCheck Pending Orders, Due Amount, and Status (Overdue / Due) for each supplier at a glance.\nClick Create Payout to settle a due amount.\nClick a supplier to view their full order history and details.",
+    benefits:
+      "See every supplier's dues and overdue status without opening each one.\nTrack pending orders per supplier alongside their contact details.\nSettle payments directly with Create Payout instead of tracking it separately.\nSearch by name, contact, or email to find any supplier instantly.\nKeep purchasing relationships organized instead of scattered across notes or spreadsheets.",
+    releaseDate: new Date().toISOString().slice(0, 10),
+    targetAudience: ["all"],
+    status: "published",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "spotlight-purchase-orders",
+    featureName: "Orders",
+    module: "Catalog → Inventory → Orders",
+    moduleRoute: "/dashboard/catalog/inventory/orders",
+    shortDescription:
+      "Create and manage purchase orders sent to your suppliers, with status and quantity tracked in one list.",
+    whatIsThis:
+      "Orders tracks every purchase order you've sent to a supplier — quantity, total price, payment terms, and whether it's Sent, Partially Received, or fully received — so you always know what stock is on the way.",
+    howItWorks:
+      "Go to Catalog → Inventory → Orders.\nClick + New Order to create a purchase order for a supplier, adding products and quantities.\nUse Search to find an order by order number or supplier.\nCheck Status — Sent or Partially Received — to see what's still incoming.\nUse the ⋮ actions menu on a row to view, edit, or update an order's received quantity.\nUse Rows per page and Prev/Next to page through your full order history.",
+    benefits:
+      "Know exactly what stock is on order and from which supplier at any time.\nCatch partially received orders before assuming stock has fully arrived.\nSearch by order number or supplier to find any purchase order in seconds.\nTrack total quantity, total price, and payment terms together per order.\nKeep a complete, paged history of every purchase order instead of loose paperwork.",
+    releaseDate: new Date().toISOString().slice(0, 10),
+    targetAudience: ["all"],
+    status: "published",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "spotlight-client-packages",
+    featureName: "Client Packages",
+    module: "Catalog → Packages → Client Packages",
+    moduleRoute: "/dashboard/catalog/packages",
+    shortDescription:
+      "Track and manage session-based service packages — sessions used, sessions remaining, and expiry, all in one list.",
+    whatIsThis:
+      "Client Packages tracks every session-based package a client has purchased — how many sessions they've used, how many remain, when it expires, and whether it's Active, Completed, or Expired — so you always know where each client stands.",
+    howItWorks:
+      "Go to Catalog → Packages → Client Packages.\nCheck the summary cards — Total Packages, Active Packages, Expired Packages, and Sessions Remaining — for an at-a-glance overview.\nUse Search to find a package by client or package name.\nUse All Status or Newest First to filter and sort the list.\nClick + Create Package to sell a new session-based package to a client.\nUse the ⋮ actions menu on a row to view, edit, or manage a package.",
+    benefits:
+      "See exactly how many sessions each client has left without checking their full history.\nCatch expired or soon-to-expire packages before a client shows up expecting a session.\nTrack Active, Completed, and Expired packages separately at a glance.\nSearch by client or package name to find any package in seconds.\nGet a business-wide view of total and active packages and remaining sessions from the summary cards.",
+    releaseDate: new Date().toISOString().slice(0, 10),
+    targetAudience: ["all"],
+    status: "published",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "spotlight-products",
+    featureName: "Products",
+    module: "Catalog → Products",
+    moduleRoute: "/dashboard/catalog/products",
+    shortDescription:
+      "Manage your entire product inventory — category, supplier, stock, and pricing — in one searchable list.",
+    whatIsThis:
+      "Products is your inventory catalog for everything you sell or use in-salon — retail products and consumables alike — with category, supplier, unit size, stock level, and retail price all visible together.",
+    howItWorks:
+      "Go to Catalog → Products.\nClick Add to create a new product, or Options for bulk actions.\nUse Search to find a product by name, SKU, or supplier.\nUse Filters or Category to narrow the list down.\nCheck Stock Left to spot low or out-of-stock items at a glance.\nUse the ⋮ actions menu on a row to edit, adjust stock, or remove a product.",
+    benefits:
+      "See stock levels for every product without opening each one individually.\nSpot out-of-stock items immediately with the Out of stock status badge.\nTell Retail and Consumable items apart at a glance with type tags.\nSearch by name, SKU, or supplier to find any product in seconds.\nKeep category, supplier, and pricing organized in a single view instead of scattered records.",
+    releaseDate: new Date().toISOString().slice(0, 10),
+    targetAudience: ["all"],
+    status: "published",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
+    id: "spotlight-enquiries",
+    featureName: "Enquiries",
+    module: "Enquiries",
+    moduleRoute: "/dashboard/enquiries",
+    shortDescription:
+      "Track every client enquiry from first contact to conversion, with reschedule reminders and status at a glance.",
+    whatIsThis:
+      "Enquiries is where every incoming lead lands — walk-ins, calls, or online interest — so you can log their details, follow up on time, and track whether they turned into a booking or a client, all from one list.",
+    howItWorks:
+      "Go to Enquiries from the sidebar.\nClick + Create Enquiry to log a new one with the client's name, phone number, and any notes.\nUse Search, All Time, or Status filters to find a specific enquiry quickly.\nClick Reschedule on any row to set or move a follow-up date and time.\nUpdate the Status as the enquiry progresses — New, Follow-up, or Converted.\nUse the ⋮ actions menu on a row to edit or remove an enquiry.",
+    benefits:
+      "Never lose track of a lead between first contact and conversion.\nSee every enquiry's status — New, Follow-up, Converted — at a glance.\nSet reschedule reminders so follow-ups happen on time instead of being forgotten.\nSearch and filter by name, phone, or status to find any enquiry fast.\nMeasure how many enquiries actually convert into bookings or clients.",
+    releaseDate: new Date().toISOString().slice(0, 10),
+    targetAudience: ["all"],
+    status: "published",
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  },
+  {
     id: "spotlight-help-support",
     featureName: "Help & Support",
     module: "Help",

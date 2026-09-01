@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import { Stars, PencilSquare, Trash, ImageFill, Plus, ArrowLeft } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Button from "../../../components/ui/Button";
-import ConfirmDialog from "../../../components/ui/ConfirmDialog";
+import Modal from "../../../components/ui/Modal";
+import Input from "../../../components/ui/Input";
 import SpotlightFormDrawer from "../components/SpotlightFormDrawer";
 import { selectSpotlightFeatures } from "../../../store/spotlightSlice";
 import {
@@ -29,6 +30,9 @@ export default function SpotlightAdminPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editing, setEditing] = useState<SpotlightFeature | null>(null);
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
   const [saveError, setSaveError] = useState("");
 
   useEffect(() => {
@@ -65,8 +69,18 @@ export default function SpotlightAdminPage() {
 
   const handleDelete = async () => {
     if (!pendingDeleteId) return;
-    await dispatch(deleteSpotlightFeatureThunk(pendingDeleteId));
+    setDeleteLoading(true);
+    const result = await dispatch(deleteSpotlightFeatureThunk(pendingDeleteId));
+    setDeleteLoading(false);
+
+    if (deleteSpotlightFeatureThunk.rejected.match(result)) {
+      setDeleteError(result.payload || "Failed to delete this feature. Please try again.");
+      return;
+    }
+
+    setDeleteError("");
     setPendingDeleteId(null);
+    setDeleteInput("");
   };
 
   return (
@@ -121,7 +135,12 @@ export default function SpotlightAdminPage() {
                 <Button variant="outline-dark" size="sm" iconLeft={<PencilSquare size={13} />} onClick={() => openEdit(feature)}>
                   Edit
                 </Button>
-                <Button variant="outline-danger" size="sm" iconLeft={<Trash size={13} />} onClick={() => setPendingDeleteId(feature.id)}>
+                <Button
+                  variant="outline-danger"
+                  size="sm"
+                  iconLeft={<Trash size={13} />}
+                  onClick={() => { setPendingDeleteId(feature.id); setDeleteInput(""); setDeleteError(""); }}
+                >
                   Delete
                 </Button>
               </div>
@@ -142,15 +161,42 @@ export default function SpotlightAdminPage() {
         />
       )}
 
-      {pendingDeleteId && (
-        <ConfirmDialog
-          title="Delete Spotlight feature?"
-          message="This will permanently remove the feature announcement. This action cannot be undone."
-          confirmLabel="Delete"
-          onConfirm={handleDelete}
-          onCancel={() => setPendingDeleteId(null)}
+      <Modal
+        show={!!pendingDeleteId}
+        onClose={() => { setPendingDeleteId(null); setDeleteInput(""); setDeleteError(""); }}
+        title="Delete Spotlight feature?"
+        footer={
+          <div className="d-flex flex-column gap-2 w-100">
+            <Button
+              variant="danger"
+              fullWidth
+              disabled={deleteInput !== "DELETE" || deleteLoading}
+              loading={deleteLoading}
+              onClick={handleDelete}
+            >
+              Delete
+            </Button>
+            <Button
+              variant="outline-dark"
+              fullWidth
+              onClick={() => { setPendingDeleteId(null); setDeleteInput(""); setDeleteError(""); }}
+            >
+              Cancel
+            </Button>
+          </div>
+        }
+      >
+        {deleteError && <div className="sf-error mb-3">{deleteError}</div>}
+        <p className="text-muted small mb-4">
+          This will permanently remove the feature announcement. This action cannot be undone.
+        </p>
+        <Input
+          label="Type DELETE to confirm"
+          placeholder="DELETE"
+          value={deleteInput}
+          onChange={(e) => setDeleteInput(e.target.value)}
         />
-      )}
+      </Modal>
     </div>
   );
 }

@@ -34,6 +34,33 @@ function tabFromPath(pathname: string): TabKey {
   return "new";
 }
 
+// Same order as the dashboard sidebar (DashboardSidebar.tsx) — "All
+// Features" has no inherent order of its own (unlike New/Recently Updated,
+// which are meaningfully time-based), so it's sorted to match the sidebar
+// sequence instead: Home first, then Quick Sale, Calendar, and so on.
+const MODULE_ORDER: RegExp[] = [
+  /home|dashboard overview/i,
+  /quick sale/i,
+  /calendar|appointment/i,
+  /client/i,
+  /catalog|service|product|package|membership/i,
+  /staff/i,
+  /cash/i,
+  /marketing|campaign/i,
+  /online booking/i,
+  /enquir/i,
+  /report/i,
+  /apps?\b/i,
+  /setting/i,
+  /help/i,
+];
+
+function moduleRank(feature: SpotlightFeature): number {
+  const haystack = `${feature.module} ${feature.moduleRoute ?? ""}`;
+  const rank = MODULE_ORDER.findIndex((re) => re.test(haystack));
+  return rank === -1 ? MODULE_ORDER.length : rank;
+}
+
 export default function SpotlightListPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
@@ -44,6 +71,7 @@ export default function SpotlightListPage() {
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
+  const timelineRef = useRef<HTMLDivElement>(null);
 
   const role = useAppSelector((s) => s.auth.role);
   const isOwner = role === "salon_owner" || role === "admin";
@@ -59,7 +87,7 @@ export default function SpotlightListPage() {
   const tabList = useMemo(() => {
     if (activeTab === "new") return newFeatures;
     if (activeTab === "recent") return recentlyUpdated;
-    return published;
+    return [...published].sort((a, b) => moduleRank(a) - moduleRank(b));
   }, [activeTab, newFeatures, recentlyUpdated, published]);
 
   const list = useMemo(() => {
@@ -76,6 +104,7 @@ export default function SpotlightListPage() {
   useEffect(() => {
     setActiveIndex(0);
     trackRef.current?.scrollTo({ left: 0 });
+    timelineRef.current?.scrollTo({ left: 0 });
   }, [activeTab, search]);
 
   // published is newest-first (new items are unshifted); spotlight numbers
@@ -115,6 +144,13 @@ export default function SpotlightListPage() {
     const card = track?.children[clamped] as HTMLElement | undefined;
     if (track && card) {
       track.scrollTo({ left: card.offsetLeft - track.offsetLeft, behavior: "smooth" });
+    }
+    // Timeline's first child is the connecting line, so dots start at index 1.
+    const timeline = timelineRef.current;
+    const dot = timeline?.children[clamped + 1] as HTMLElement | undefined;
+    if (timeline && dot) {
+      const target = dot.offsetLeft - timeline.offsetWidth / 2 + dot.offsetWidth / 2;
+      timeline.scrollTo({ left: target, behavior: "smooth" });
     }
     setActiveIndex(clamped);
   };
@@ -207,19 +243,24 @@ export default function SpotlightListPage() {
           </div>
         ) : (
           <>
-            <div className="spotlight-timeline">
-              <span className="spotlight-timeline__line" />
-              {list.map((feature, i) => (
-                <button
-                  key={feature.id}
-                  type="button"
-                  className={`spotlight-timeline__dot ${i === activeIndex ? "spotlight-timeline__dot--active" : ""}`}
-                  onClick={() => scrollToIndex(i)}
-                  aria-label={`Go to feature ${i + 1}`}
-                >
-                  <span className="spotlight-timeline__ring" />
-                </button>
-              ))}
+            <div className="spotlight-timeline-row">
+              <span className="spotlight-timeline-count">
+                <strong>{activeIndex + 1}</strong> / {list.length}
+              </span>
+              <div className="spotlight-timeline" ref={timelineRef}>
+                <span className="spotlight-timeline__line" />
+                {list.map((feature, i) => (
+                  <button
+                    key={feature.id}
+                    type="button"
+                    className={`spotlight-timeline__dot ${i === activeIndex ? "spotlight-timeline__dot--active" : ""}`}
+                    onClick={() => scrollToIndex(i)}
+                    aria-label={`Go to feature ${i + 1}`}
+                  >
+                    <span className="spotlight-timeline__ring" />
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="spotlight-carousel__track" ref={trackRef}>

@@ -2,7 +2,7 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import type { SpotlightFeature, SpotlightCreatePayload, SpotlightUpdatePayload } from "../../features/feature-spotlight/types";
 import {
   getAllFeatures,
-  saveFeatures,
+  saveFeaturesResilient,
   getReadIds,
   markIdRead,
 } from "../../features/feature-spotlight/utils/spotlightStorage";
@@ -38,10 +38,10 @@ export const createSpotlightFeatureThunk = createAsyncThunk<
       updatedAt: now,
     };
     const features = [feature, ...getAllFeatures()];
-    saveFeatures(features);
+    await saveFeaturesResilient(features);
     return feature;
-  } catch {
-    return rejectWithValue("Failed to create Spotlight feature");
+  } catch (err) {
+    return rejectWithValue(err instanceof Error ? err.message : "Failed to create Spotlight feature");
   }
 });
 
@@ -60,10 +60,10 @@ export const updateSpotlightFeatureThunk = createAsyncThunk<
       updatedAt: new Date().toISOString(),
     };
     features[idx] = updated;
-    saveFeatures(features);
+    await saveFeaturesResilient(features);
     return updated;
-  } catch {
-    return rejectWithValue("Failed to update Spotlight feature");
+  } catch (err) {
+    return rejectWithValue(err instanceof Error ? err.message : "Failed to update Spotlight feature");
   }
 });
 
@@ -74,10 +74,10 @@ export const deleteSpotlightFeatureThunk = createAsyncThunk<
 >("spotlight/delete", async (id, { rejectWithValue }) => {
   try {
     const features = getAllFeatures().filter((f) => f.id !== id);
-    saveFeatures(features);
+    await saveFeaturesResilient(features);
     return id;
-  } catch {
-    return rejectWithValue("Failed to delete Spotlight feature");
+  } catch (err) {
+    return rejectWithValue(err instanceof Error ? err.message : "Failed to delete Spotlight feature");
   }
 });
 

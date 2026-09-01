@@ -180,6 +180,7 @@ const ServicesListPage: React.FC = () => {
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string | number>>(new Set());
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
   const [deleteBulkLoading, setDeleteBulkLoading]     = useState(false);
+  const [deleteBulkInput, setDeleteBulkInput]         = useState("");
 
   const optMenuRef = useRef<HTMLDivElement>(null);
   const [showOptMenu, setShowOptMenu] = useState(false);
@@ -1168,33 +1169,50 @@ const ServicesListPage: React.FC = () => {
 
       {/* ── BULK DELETE MODAL ────────────────────────────────────────────── */}
       {showBulkDeleteModal && (
-        <div className="slp__overlay" onClick={() => setShowBulkDeleteModal(false)}>
-          <div className="slp__modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="slp__overlay"
+          onClick={() => { setShowBulkDeleteModal(false); setDeleteBulkInput(""); }}
+        >
+          <div
+            className="slp__modal"
+            style={{ maxWidth: 420 }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="slp__modal-header">
               <h4>Delete selected services</h4>
               <button
                 className="slp__modal-close"
-                onClick={() => setShowBulkDeleteModal(false)}
+                onClick={() => { setShowBulkDeleteModal(false); setDeleteBulkInput(""); }}
               >
                 <X size={20} />
               </button>
             </div>
             <div className="slp__modal-body">
-              <p style={{ margin: 0, color: "#374151" }}>
+              <p className="text-muted small mb-3">
                 Are you sure you want to delete <strong>{selectedServiceIds.size}</strong> selected service(s)?
                 This action cannot be undone.
               </p>
+              <div className="slp__field">
+                <label>Type DELETE to confirm</label>
+                <input
+                  className="slp__input"
+                  placeholder="DELETE"
+                  value={deleteBulkInput}
+                  onChange={(e) => setDeleteBulkInput(e.target.value)}
+                  autoFocus
+                />
+              </div>
             </div>
             <div className="slp__modal-footer">
               <button
                 className="slp__btn slp__btn--ghost"
-                onClick={() => setShowBulkDeleteModal(false)}
+                onClick={() => { setShowBulkDeleteModal(false); setDeleteBulkInput(""); }}
               >
                 Cancel
               </button>
               <button
                 className="slp__btn slp__btn--danger"
-                disabled={deleteBulkLoading}
+                disabled={deleteBulkInput !== "DELETE" || deleteBulkLoading}
                 onClick={async () => {
                   setDeleteBulkLoading(true);
                   const idsToDelete = Array.from(selectedServiceIds);
@@ -1203,6 +1221,7 @@ const ServicesListPage: React.FC = () => {
                   );
                   setDeleteBulkLoading(false);
                   setShowBulkDeleteModal(false);
+                  setDeleteBulkInput("");
                   setSelectedServiceIds(new Set());
                   fetchServices({
                     page: currentPage,
