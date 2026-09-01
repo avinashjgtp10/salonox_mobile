@@ -6,8 +6,8 @@ import type { ScheduledMessage, ScheduledMessagesListResponse } from "../../type
 
 export interface FetchScheduledMessagesParams {
   salonId:    string;
-  status?:    string;
-  eventType?: string;
+  status?:    string | string[];
+  eventType?: string | string[];
   clientId?:  string;
   dateFrom?:  string;
   dateTo?:    string;

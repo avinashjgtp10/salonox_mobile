@@ -115,8 +115,8 @@ export default function ScheduledTemplatesPage() {
     try {
       const result = await dispatch(fetchScheduledMessagesThunk({
         salonId,
-        status:    statusFilterIds[0] || undefined,
-        eventType: eventFilterIds[0] || undefined,
+        status:    statusFilterIds.length ? statusFilterIds : undefined,
+        eventType: eventFilterIds.length ? eventFilterIds : undefined,
         search:    debouncedSearch || undefined,
         dateFrom:  dateRange.startDate || undefined,
         dateTo:    dateRange.endDate || undefined,
@@ -153,12 +153,11 @@ export default function ScheduledTemplatesPage() {
   ];
   const filterMenuSelected = { status: statusFilterIds, event: eventFilterIds };
   const handleFiltersApply = (next: Record<string, string[]>) => {
-    // Single-select in practice — picking a new value replaces the old one,
-    // same convention as every other report's status/rating filter.
-    const status = next.status ?? [];
-    const event  = next.event ?? [];
-    setStatusFilterIds(status.length ? [status[status.length - 1]] : []);
-    setEventFilterIds(event.length ? [event[event.length - 1]] : []);
+    // Genuine multi-select — every ticked checkbox stays applied (an OR
+    // across all selected statuses/triggers), matching what the checkbox UI
+    // itself implies.
+    setStatusFilterIds(next.status ?? []);
+    setEventFilterIds(next.event ?? []);
   };
 
   const openKebab = (e: React.MouseEvent, row: ScheduledMessage) => {
