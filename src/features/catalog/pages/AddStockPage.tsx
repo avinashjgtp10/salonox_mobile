@@ -6,9 +6,11 @@ import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { fetchBranchesThunk } from "../../../middleware/salon/salon.thunk";
 import { searchProductsThunk } from "../../../middleware/catalog/products.thunk";
+import { fetchSuppliersThunk } from "../../../middleware/inventory/inventory.thunk";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import ProductSearchSelect, { type ProductSearchResult } from "../components/ProductSearchSelect";
+import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/ConsumableFormPage.scss";
 
 // One page serves both create and edit, same convention as ServiceFormPage/
@@ -25,10 +27,11 @@ interface FormState {
   reference: string;
   reason: string;
   notes: string;
+  supplierId: string;
 }
 
 const emptyForm = (branchId: string): FormState => ({
-  branchId, productId: "", qtyIn: "", unitCost: "", reference: "", reason: "Purchase Stock", notes: "",
+  branchId, productId: "", qtyIn: "", unitCost: "", reference: "", reason: "Purchase Stock", notes: "", supplierId: "",
 });
 
 const REASON_TO_TRANSACTION_TYPE: Record<string, string> = {
@@ -56,6 +59,7 @@ export default function AddStockPage() {
   const { branches } = useSelector((s: RootState) => s.salon);
   const currentSalon = useSelector(selectCurrentSalon);
   const { items: reduxProducts } = useSelector((s: RootState) => s.products);
+  const supplierList = useSelector((s: RootState) => s.inventory.suppliers) as { id: string; name: string }[];
 
   const products = useMemo(
     () => (Array.isArray(reduxProducts) ? reduxProducts : []).map((p: any) => ({
@@ -73,6 +77,7 @@ export default function AddStockPage() {
   useEffect(() => {
     if (currentSalon?.id) dispatch(fetchBranchesThunk(currentSalon.id));
     dispatch(searchProductsThunk({ pageSize: 200 }));
+    dispatch(fetchSuppliersThunk());
   }, [dispatch, currentSalon?.id]);
 
   useEffect(() => {
@@ -101,6 +106,7 @@ export default function AddStockPage() {
           reference: d.reference ?? "",
           reason: TRANSACTION_TYPE_TO_REASON[d.transaction_type] ?? d.reason ?? "Purchase Stock",
           notes: d.notes ?? "",
+          supplierId: d.supplier_id ?? "",
         });
         setSelectedProduct({ id: d.product_id, name: d.product_name });
       })
@@ -147,6 +153,7 @@ export default function AddStockPage() {
           reference: form.reference.trim(),
           reason: form.reason,
           notes: form.notes.trim() || undefined,
+          supplier_id: form.reason === "Purchase Stock" ? form.supplierId : "",
         });
       } else {
         await api.post(INVENTORY.STOCK_LEDGER, {
@@ -158,6 +165,7 @@ export default function AddStockPage() {
           reference: form.reference.trim(),
           reason: form.reason,
           notes: form.notes.trim() || undefined,
+          supplier_id: form.reason === "Purchase Stock" && form.supplierId ? form.supplierId : undefined,
         });
       }
       navigate(listPath);
@@ -259,10 +267,30 @@ export default function AddStockPage() {
 
           <div className="cf-field">
             <label>Reason</label>
-            <select value={form.reason} onChange={(e) => patch({ reason: e.target.value })}>
+            <select
+              value={form.reason}
+              onChange={(e) => patch({ reason: e.target.value, ...(e.target.value !== "Purchase Stock" ? { supplierId: "" } : {}) })}
+            >
               {REASON_OPTIONS.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
+
+          {form.reason === "Purchase Stock" && (
+            <div className="cf-field">
+              <label>Supplier</label>
+              <Dropdown
+                searchable
+                allowNone
+                placeholder="Select supplier (optional)"
+                value={form.supplierId}
+                options={supplierList.map((s) => ({ id: s.id, name: s.name }))}
+                onChange={(id) => patch({ supplierId: id })}
+              />
+              <span className="cf-hint cf-hint--inline">
+                Only set this if the stock actually came from a supplier delivery — it won't appear in Purchase History or that supplier's balance, it's just a note on this ledger entry.
+              </span>
+            </div>
+          )}
 
           <div className="cf-field">
             <label>Notes</label>

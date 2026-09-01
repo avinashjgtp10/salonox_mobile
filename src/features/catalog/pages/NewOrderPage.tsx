@@ -22,7 +22,7 @@ import UIInput from "../../../components/ui/Input";
 import { Dropdown } from "../../../components/ui/Dropdown";
 import { DatePicker } from "../../../components/ui";
 import ProductSearchSelect, { type ProductSearchResult } from "../components/ProductSearchSelect";
-import "../styles/PurchaseHistoryListPage.scss";
+import "../styles/PurchaseHistoryTable.scss";
 import "../styles/AddSupplierPage.scss";
 import "../styles/NewOrderPage.scss";
 

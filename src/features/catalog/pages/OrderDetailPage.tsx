@@ -11,7 +11,7 @@ import Button from "../../../components/ui/Button";
 import Modal from "../../../components/ui/Modal";
 import { formatDateDDMMYYYY as fmtDate } from "../../../utils/dateFormat";
 import "../styles/SuppliersListPage.scss";
-import "../styles/PurchaseHistoryListPage.scss";
+import "../styles/PurchaseHistoryTable.scss";
 import "../styles/SupplierDetailPage.scss";
 
 const STATUS_LABEL: Record<OrderStatus, string> = {

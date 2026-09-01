@@ -16,7 +16,7 @@ import EmptyState from "../../../components/ui/EmptyState";
 import CreatePayoutModal from "../components/CreatePayoutModal";
 import SupplierPaymentHistory from "../components/SupplierPaymentHistory";
 import AddSupplierPage from "./AddSupplierPage";
-import "../styles/PurchaseHistoryListPage.scss";
+import "../styles/PurchaseHistoryTable.scss";
 import "../styles/SuppliersListPage.scss";
 import "../styles/SupplierDetailPage.scss";
 

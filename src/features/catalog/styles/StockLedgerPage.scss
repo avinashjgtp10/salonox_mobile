@@ -484,3 +484,76 @@
   input { cursor: pointer; }
 }
 
+// ── Multi-product Stock Adjustment rows — same row-grid pattern as
+// PurchaseModal.scss's .pm-lines, kept as its own class since this page
+// doesn't share that stylesheet.
+.sl-input--sm {
+  padding: 7px 10px;
+  font-size: 13px;
+}
+
+.sl-adj-lines {
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+
+  &__head,
+  &__row {
+    display: grid;
+    grid-template-columns: 1.6fr 1.3fr 1fr 32px;
+    gap: 8px;
+    align-items: center;
+    padding: 8px 10px;
+  }
+
+  &__head {
+    background: #f9fafb;
+    font-size: 11px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    border-radius: 9px 9px 0 0;
+  }
+
+  &__row {
+    border-top: 1px solid #f3f4f6;
+
+    &:last-child { border-radius: 0 0 9px 9px; }
+  }
+}
+
+.sl-adj-line-err {
+  display: block;
+  font-size: 11.5px;
+  color: #d92d20;
+  margin-top: 4px;
+}
+
+.sl-adj-remove-line {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: #9ca3af;
+  cursor: pointer;
+
+  &:hover:not(:disabled) { color: #ef4444; }
+  &:disabled { opacity: 0.3; cursor: not-allowed; }
+}
+
+.sl-adj-add-line {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  background: none;
+  border: none;
+  color: #6941c6;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+
+  &:hover { text-decoration: underline; }
+}
+
