@@ -9,8 +9,9 @@ import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { api, getApiErrorMessage } from "@/services/api";
+import { getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
+import { supportService } from "@/services/support.service";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
@@ -128,10 +129,6 @@ export default function MoreScreen() {
     Constants.expoConfig?.android?.versionCode?.toString() ??
     "Unavailable";
 
-  const showUnavailable = (title: string, message: string) => {
-    Alert.alert(title, message);
-  };
-
   const openWebAppPage = async (path: string) => {
     await WebBrowser.openBrowserAsync(`${WEB_APP_URL}${path}`);
   };
@@ -152,7 +149,7 @@ export default function MoreScreen() {
     setIsSubmittingReport(true);
 
     try {
-      await api.post("/support", {
+      await supportService.submitRequest({
         category: "technical",
         message,
         priority: "medium",
@@ -281,13 +278,6 @@ export default function MoreScreen() {
       onPress: () => openWebAppPage("/terms"),
       title: "Terms & Conditions",
     },
-    {
-      description: "Coming Soon",
-      icon: "code-slash-outline" as const,
-      key: "licenses",
-      onPress: () => showUnavailable("Coming Soon", "Open source licenses will be available soon."),
-      title: "Open Source Licenses",
-    },
   ];
   const supportActions = [
     {
@@ -303,13 +293,6 @@ export default function MoreScreen() {
       key: "report-problem",
       onPress: () => setIsReportModalVisible(true),
       title: "Report a Problem",
-    },
-    {
-      description: "Coming Soon",
-      icon: "help-circle-outline" as const,
-      key: "faq",
-      onPress: () => showUnavailable("Coming Soon", "FAQ will be available soon."),
-      title: "FAQ",
     },
   ];
 

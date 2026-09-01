@@ -1,6 +1,5 @@
 import { isValidPhoneNumber } from "libphonenumber-js";
 
-import type { StaffMember } from "@/data/teamData";
 import type {
   EmergencyContactFormValues,
   StaffAddressFormValues,
@@ -42,8 +41,6 @@ const getMinAdultIsoDate = () => {
 
 export const validateStaffForm = (
   values: Partial<StaffProfileFormValues>,
-  staffMembers?: StaffMember[],
-  currentStaffId?: string | null,
 ): ValidationResult => {
   const errors: Record<string, string> = {};
 

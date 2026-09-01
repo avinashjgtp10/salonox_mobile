@@ -12,7 +12,6 @@ import {
   selectStaffCreating,
   selectStaffUpdateError,
   selectStaffUpdating,
-  selectStaffMembers,
 } from "@/store/staff/staff.slice";
 import type { StaffProfileFormValues, StaffRoleLevel } from "@/features/staff/types/staffFeature.types";
 import { mapStaffFormToRequest, mapStaffWagesToRequest } from "@/features/staff/utils/staffFormMappers";
@@ -61,7 +60,6 @@ export const useStaffForm = (staffId?: string | null) => {
   const dispatch = useAppDispatch();
   const toast = useAppToast();
   const staffMember = useAppSelector((state) => selectStaffById(state, staffId));
-  const staffMembers = useAppSelector(selectStaffMembers);
   const creating = useAppSelector(selectStaffCreating);
   const createError = useAppSelector(selectStaffCreateError);
   const updating = useAppSelector(selectStaffUpdating);
@@ -79,8 +77,8 @@ export const useStaffForm = (staffId?: string | null) => {
   const submitting = creating || updating;
 
   const validation = useMemo(
-    () => validateStaffForm(values, staffMembers, staffId),
-    [staffMembers, staffId, values],
+    () => validateStaffForm(values),
+    [values],
   );
 
   const visibleValidationErrors = useMemo(() => {

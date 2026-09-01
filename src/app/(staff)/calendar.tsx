@@ -1,4 +1,4 @@
-import { StaffCalendarScreen } from "@/features/appointments/screens";
+import { StaffCalendarScreen } from "@/features/appointments/screens/StaffCalendarScreen";
 
 export default function StaffCalendarRoute() {
   return <StaffCalendarScreen />;

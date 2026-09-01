@@ -1,0 +1,1 @@
+export { AppointmentHistoryScreen } from "./legacy";
