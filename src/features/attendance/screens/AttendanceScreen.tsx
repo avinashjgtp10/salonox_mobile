@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
-import { router } from "expo-router";
 import { useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -18,6 +17,7 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -28,7 +28,7 @@ import { AttendanceToast } from "@/features/attendance/components/AttendanceToas
 import { EditAttendanceModal } from "@/features/attendance/components/EditAttendanceModal";
 import { useAttendanceActions } from "@/features/attendance/hooks/useAttendanceActions";
 import { type AttendanceStaffRowData, useAttendanceScreen } from "@/features/attendance/hooks/useAttendanceScreen";
-import { getAttendanceAction } from "@/features/attendance/utils/attendanceStatus";
+import { formatAttendanceDate, getAttendanceAction } from "@/features/attendance/utils/attendanceStatus";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
@@ -71,6 +71,7 @@ export default function AttendanceScreen() {
   const [editStaffId, setEditStaffId] = useState<string | null>(null);
   const [checkModal, setCheckModal] = useState<CheckModalState>(null);
   const [isDatePickerVisible, setIsDatePickerVisible] = useState(false);
+  const selectedDateLabel = formatAttendanceDate(selectedDate);
 
   const modalRow = rows.find((row) => row.staffMember.id === editStaffId) ?? null;
   const checkModalRow = rows.find((row) => row.staffMember.id === checkModal?.staffId) ?? null;
@@ -142,9 +143,7 @@ export default function AttendanceScreen() {
   const listHeader = (
     <View>
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.84} onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
-        </TouchableOpacity>
+        <AppBackButton style={styles.headerButtonPosition} />
         <Text style={styles.headerTitle}>Staff Attendance</Text>
       </View>
 
@@ -160,7 +159,7 @@ export default function AttendanceScreen() {
           style={styles.datePickerButton}
         >
           <Ionicons name="calendar-outline" size={16} color={Colors.text2} />
-          <Text style={styles.datePickerText}>{selectedDate}</Text>
+          <Text style={styles.datePickerText}>{selectedDateLabel}</Text>
         </TouchableOpacity>
         <TouchableOpacity
           activeOpacity={0.84}
@@ -294,17 +293,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginTop: Spacing.md,
     position: "relative",
   },
-  headerButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
+  headerButtonPosition: {
     left: 0,
     position: "absolute",
-    width: AppLayout.headerActionSize,
   },
   headerTitle: {
     color: Colors.heading,

@@ -25,10 +25,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { ConfirmationModal } from "@/components/ui/ConfirmationModal";
 import { ChangeServiceModal } from "@/features/quickSale/components/ChangeServiceModal";
-import { CheckoutSheet } from "@/features/quickSale/components/CheckoutSheet";
+import {
+  CheckoutSheet,
+  type DiscountApplyTarget,
+} from "@/features/quickSale/components/CheckoutSheet";
 import { ClientPickerSheet } from "@/features/quickSale/components/ClientPickerSheet";
-import { CategoryChips, type CategoryChipOption } from "@/features/quickSale/components/CategoryChips";
+import { ClientOptionRow } from "@/features/quickSale/components/ClientOptionRow";
+import { CategoryChips } from "@/features/quickSale/components/CategoryChips";
 import { ErrorState } from "@/features/quickSale/components/StateViews";
 import { GlobalSearchBar } from "@/features/quickSale/components/GlobalSearchBar";
 import { MembershipCatalogTab } from "@/features/quickSale/components/MembershipCatalogTab";
@@ -36,22 +41,40 @@ import { MiniBillBar } from "@/features/quickSale/components/MiniBillBar";
 import { PackageCatalogTab } from "@/features/quickSale/components/PackageCatalogTab";
 import { ProductCatalogTab } from "@/features/quickSale/components/ProductCatalogTab";
 import { ServiceCatalogTab } from "@/features/quickSale/components/ServiceCatalogTab";
+import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
 import { useCart } from "@/features/quickSale/hooks/useCart";
 import { useCheckoutSubmissionController } from "@/features/quickSale/hooks/useCheckoutSubmissionController";
+import { useConsumableProductNames } from "@/features/quickSale/hooks/useConsumableProductNames";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
-import { WALK_IN_CLIENT, type CartItem, type QuickSaleClient } from "@/features/quickSale/types";
-import { calculateBillTotals, calculateCartTaxAmount } from "@/features/quickSale/utils/calculations";
+import { useQuickSalePricing } from "@/features/quickSale/hooks/useQuickSalePricing";
+import { useRedemptions } from "@/features/quickSale/hooks/useRedemptions";
+import {
+  WALK_IN_CLIENT,
+  type ClientPackageLoadState,
+  type ClientPackageLoadStatus,
+  type CheckoutInitialStep,
+  type PendingCheckoutPayment,
+  type QuickSaleClient,
+  type QuickSaleScreenProps,
+} from "@/features/quickSale/types";
+import { ITEM_TYPE_CHIPS, type CatalogTab } from "@/features/quickSale/constants";
+import { clientFromListItem } from "@/features/quickSale/utils/client";
+import { getActionError } from "@/features/quickSale/utils/errors";
+import {
+  mapDraftSaleToCartItems,
+  mapDraftSaleToClient,
+  mapDraftSaleToStaff,
+} from "@/features/quickSale/utils/draftHydration";
 import {
   EMPTY_QUICK_SALE_DIRTY_SIGNATURE,
   getQuickSaleDirtySignature,
 } from "@/features/quickSale/utils/dirtyState";
-import { parseAmount } from "@/features/quickSale/utils/money";
+import { amountsReconcile, formatCurrency, parseAmount } from "@/features/quickSale/utils/money";
 import {
   type ProductStockErrors,
   validateProductStock,
 } from "@/features/quickSale/utils/stock";
-import { getMissingStaffMessage } from "@/features/quickSale/utils/staffAssignment";
-import { fetchClientHistoryThunk, fetchClientsThunk, searchClientsThunk } from "@/middleware/client/client.thunk";
+import { fetchClientHistoryThunk } from "@/middleware/client/client.thunk";
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
 import {
@@ -75,14 +98,16 @@ import {
   getPackageCoveredQuantity,
   getPackageSessionConsumptions,
 } from "@/features/quickSale/utils/packageCoverage";
+import {
+  buildAppointmentPayload as mapAppointmentPayload,
+  buildPaymentPayload as mapPaymentPayload,
+  buildSaleDraftPayload as mapSaleDraftPayload,
+  getQuickSaleStaffId,
+} from "@/features/quickSale/utils/quickSalePayloads";
 import { paymentService } from "@/services/payment.service";
 import { productService } from "@/services/product.service";
+import { clientService } from "@/services/client.service";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
-import {
-  selectClients,
-  selectClientsError,
-  selectClientsLoading,
-} from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ClientListItem } from "@/types/client";
@@ -90,64 +115,19 @@ import type { Product } from "@/types/product";
 import type { ClientPackage, PackageListItem } from "@/types/package";
 import type { ValidateCouponResult } from "@/types/coupon";
 import type {
-  CheckoutSaleSplitEntry,
-  CreateSaleRequest,
+  PosStaffMember,
   SaleDetail,
-  SalePaymentMethod,
 } from "@/types/sales";
 import type { ServiceListItem } from "@/types/service";
-import type { CreateAppointmentRequest } from "@/types/appointment";
 import type { Membership } from "@/types/membership";
-import type { CreatePaymentRequest } from "@/types/payment";
 
-type CatalogTab = "services" | "products" | "packages" | "membership";
-type CheckoutInitialStep = "review" | "payment";
-type ClientPackageLoadStatus = "idle" | "loading" | "loaded" | "error";
+export type { QuickSaleSlot } from "@/features/quickSale/types";
 
-type ClientPackageLoadState = {
-  clientId: string;
-  error: string | null;
-  isRetrying: boolean;
-  status: ClientPackageLoadStatus;
-};
-
-const ITEM_TYPE_CHIPS: CategoryChipOption[] = [
-  { id: "services", label: "Services" },
-  { id: "products", label: "Products" },
-  { id: "packages", label: "Packages" },
-  { id: "membership", label: "Memberships" },
-];
-
-const clientFromListItem = (client: ClientListItem): QuickSaleClient => ({
-  avatarBg: "#F2EFE9",
-  avatarColor: "#726A63",
-  id: client.id,
-  initials: client.initials,
-  membership: client.membership,
-  name: client.fullName,
-  phone: client.phone,
-});
-
-const getClientInitials = (name: string) =>
-  name
-    .trim()
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part[0]?.toUpperCase() ?? "")
-    .join("") || "WI";
-
-const getActionError = (payload: unknown, fallback: string) => {
-  if (payload && typeof payload === "object" && "message" in payload) {
-    const message = (payload as { message?: unknown }).message;
-    if (typeof message === "string" && message.trim()) {
-      return message;
-    }
-  }
-
-  return fallback;
-};
-
-export default function QuickSaleScreen() {
+export default function QuickSaleScreen({
+  embedded = false,
+  initialSlot = null,
+  onRequestClose,
+}: QuickSaleScreenProps = {}) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
@@ -158,23 +138,30 @@ export default function QuickSaleScreen() {
   const initLoading = useAppSelector(selectSalesInitLoading);
   const initError = useAppSelector(selectSalesInitError);
   const salonId = useAppSelector(selectActiveBranchId);
-  const clients = useAppSelector(selectClients);
-  const clientsLoading = useAppSelector(selectClientsLoading);
-  const clientsError = useAppSelector(selectClientsError);
 
   const cart = useCart();
   const checkoutSubmission = useCheckoutSubmissionController();
+  const clearCart = cart.clearCart;
   const hydrateCart = cart.hydrateCart;
   const recalculatePackageCoverage = cart.recalculatePackageCoverage;
+  const resetCheckoutSubmission = checkoutSubmission.reset;
   const setProductStock = cart.setProductStock;
   const [activeTab, setActiveTab] = useState<CatalogTab>("services");
   const [globalSearchQuery, setGlobalSearchQuery] = useState("");
   const [isGlobalSearchLoading, setIsGlobalSearchLoading] = useState(false);
   const [selectedClient, setSelectedClient] = useState<QuickSaleClient>(WALK_IN_CLIENT);
-  const [isClientStepComplete, setIsClientStepComplete] = useState(Boolean(params.draftId));
+  const redemptions = useRedemptions(selectedClient.id, salonId);
+  const [isClientStepComplete, setIsClientStepComplete] = useState(Boolean(params.draftId) || embedded);
   const [hasClientStepSelection, setHasClientStepSelection] = useState(Boolean(params.draftId));
+  const [selectedQuickSaleStaff, setSelectedQuickSaleStaff] = useState<PosStaffMember | null>(null);
+  const [staffSearchQuery, setStaffSearchQuery] = useState("");
   const [clientSearchQuery, setClientSearchQuery] = useState("");
+  const [quickSaleClientOptions, setQuickSaleClientOptions] = useState<ClientListItem[]>([]);
+  const [quickSaleClientsLoading, setQuickSaleClientsLoading] = useState(false);
+  const [quickSaleClientsError, setQuickSaleClientsError] = useState<string | null>(null);
+  const [quickSaleClientsReloadKey, setQuickSaleClientsReloadKey] = useState(0);
   const [isClientPickerVisible, setIsClientPickerVisible] = useState(false);
+  const [isEmbeddedStaffPickerVisible, setIsEmbeddedStaffPickerVisible] = useState(false);
   const [clientPickerStartsInCreateMode, setClientPickerStartsInCreateMode] = useState(false);
   const [changeServiceLineId, setChangeServiceLineId] = useState<string | null>(null);
   const [activeClientPackages, setActiveClientPackages] = useState<ClientPackage[]>([]);
@@ -186,12 +173,22 @@ export default function QuickSaleScreen() {
     status: "loaded",
   });
   const [isCheckoutVisible, setIsCheckoutVisible] = useState(false);
+  const [pendingCheckoutPayment, setPendingCheckoutPayment] = useState<PendingCheckoutPayment | null>(null);
+  const [shouldResumeCheckoutAtCharges, setShouldResumeCheckoutAtCharges] = useState(false);
   const [checkoutInitialStep, setCheckoutInitialStep] = useState<CheckoutInitialStep>("payment");
+  const [shouldShowCheckoutStaffValidation, setShouldShowCheckoutStaffValidation] = useState(false);
   const [isDeletingDraft, setIsDeletingDraft] = useState(false);
   const [isLoadingDraft, setIsLoadingDraft] = useState(Boolean(params.draftId));
   const [draftLoadError, setDraftLoadError] = useState<string | null>(null);
   const [draftDiscountType, setDraftDiscountType] = useState<"flat" | "percentage">("percentage");
   const [draftDiscountPercent, setDraftDiscountPercent] = useState(0);
+  const [discountApplyTo, setDiscountApplyTo] = useState<DiscountApplyTarget[]>([
+    "service",
+    "product",
+    "package",
+    "membership",
+  ]);
+  const [isDiscardDialogVisible, setIsDiscardDialogVisible] = useState(false);
   const [undoNotice, setUndoNotice] = useState<{ item: import("@/features/quickSale/types").CartItem; index: number } | null>(null);
   const undoTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clientPickerOpenTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -201,6 +198,7 @@ export default function QuickSaleScreen() {
     params.draftId ? null : EMPTY_QUICK_SALE_DIRTY_SIGNATURE,
   );
   const discardDialogVisibleRef = useRef(false);
+  const pendingDiscardRef = useRef<(() => void) | null>(null);
   const allowExpectedExitRef = useRef(false);
   const couponValidationRequestRef = useRef(0);
   const lastValidatedCouponContextRef = useRef<string | null>(null);
@@ -222,11 +220,12 @@ export default function QuickSaleScreen() {
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [productStockErrors, setProductStockErrors] = useState<ProductStockErrors>({});
   const [isSaleFinalized, setIsSaleFinalized] = useState(false);
+  const { consumableProductNames, resetConsumableProductNames } = useConsumableProductNames(cart.items);
   const debouncedClientSearchQuery = useDebouncedValue(clientSearchQuery, 260);
   const trimmedClientSearchQuery = debouncedClientSearchQuery.trim();
   const visibleClientOptions = useMemo(
-    () => clients.slice(0, trimmedClientSearchQuery ? 8 : 3),
-    [clients, trimmedClientSearchQuery],
+    () => quickSaleClientOptions.slice(0, trimmedClientSearchQuery ? 8 : 3),
+    [quickSaleClientOptions, trimmedClientSearchQuery],
   );
   const dirtySignature = useMemo(
     () =>
@@ -241,6 +240,7 @@ export default function QuickSaleScreen() {
         otherChargesInput,
         overallDiscountInput,
         saleNotes,
+        selectedStaffId: selectedQuickSaleStaff?.id ?? "",
         selectedClientId: selectedClient.id,
         serviceChargeInput,
         tipInput,
@@ -257,6 +257,7 @@ export default function QuickSaleScreen() {
       otherChargesInput,
       overallDiscountInput,
       saleNotes,
+      selectedQuickSaleStaff?.id,
       selectedClient.id,
       serviceChargeInput,
       tipInput,
@@ -270,6 +271,20 @@ export default function QuickSaleScreen() {
   useEffect(() => {
     void dispatch(fetchSalesInitThunk());
   }, [dispatch]);
+
+  useEffect(() => {
+    if (!embedded || !initialSlot?.staffName || selectedQuickSaleStaff || !initData?.staff.length) {
+      return;
+    }
+
+    const normalizedName = initialSlot.staffName.trim().toLowerCase();
+    const matchingStaff = initData.staff.find(
+      (staffMember) => staffMember.name.trim().toLowerCase() === normalizedName,
+    );
+    if (matchingStaff) {
+      setSelectedQuickSaleStaff(matchingStaff);
+    }
+  }, [embedded, initData?.staff, initialSlot?.staffName, selectedQuickSaleStaff]);
 
   useEffect(
     () => () => {
@@ -315,41 +330,11 @@ export default function QuickSaleScreen() {
       return;
     }
 
-    const restoredItems: CartItem[] = sale.lineItems.map((item) => ({
-      availableStock: item.itemType === "product" ? 0 : undefined,
-      category: null,
-      discountAmount: item.discountAmount,
-      itemId: item.itemId ?? "",
-      itemType:
-        item.itemType === "gift_card"
-          ? "quick"
-          : item.itemType,
-      lineId: item.id,
-      name: item.name,
-      note: "",
-      originalUnitPrice: item.unitPrice,
-      quantity: item.quantity,
-      staffId: item.staffId,
-      staffName: item.staffName ?? null,
-      taxAmount: item.taxableAmount > 0 ? undefined : item.taxAmount,
-      taxRate: item.taxableAmount > 0 ? (item.taxAmount / item.taxableAmount) * 100 : undefined,
-      unitPrice: item.unitPrice,
-    }));
+    const restoredItems = mapDraftSaleToCartItems(sale);
 
     hydrateCart(restoredItems);
-    setSelectedClient(
-      sale.clientId
-        ? {
-            avatarBg: "#F2EFE9",
-            avatarColor: "#726A63",
-            id: sale.clientId,
-            initials: getClientInitials(sale.clientName),
-            membership: null,
-            name: sale.clientName,
-            phone: sale.clientPhone,
-          }
-        : WALK_IN_CLIENT,
-    );
+    setSelectedQuickSaleStaff(mapDraftSaleToStaff(sale));
+    setSelectedClient(mapDraftSaleToClient(sale) ?? WALK_IN_CLIENT);
     setIsClientStepComplete(true);
     setHasClientStepSelection(true);
     setTipInput(String(sale.tipAmount || ""));
@@ -428,17 +413,50 @@ export default function QuickSaleScreen() {
   }, [dirtySignature, draftLoadError, isLoadingDraft, params.draftId]);
 
   useEffect(() => {
+    let isSubscribed = true;
+
     if (isClientStepComplete || isClientPickerVisible) {
-      return;
+      return () => {
+        isSubscribed = false;
+      };
     }
 
-    if (trimmedClientSearchQuery) {
-      void dispatch(searchClientsThunk({ limit: 8, reset: true, search: trimmedClientSearchQuery }));
-      return;
-    }
+    const query = {
+      inactive: false,
+      limit: trimmedClientSearchQuery ? 8 : 3,
+      offset: 0,
+      search: trimmedClientSearchQuery,
+      sort_by: "created_at",
+      sort_order: "desc" as const,
+    };
 
-    void dispatch(fetchClientsThunk({ limit: 3, reset: true, sort_by: "created_at", sort_order: "desc" }));
-  }, [dispatch, isClientPickerVisible, isClientStepComplete, trimmedClientSearchQuery]);
+    setQuickSaleClientsLoading(true);
+    setQuickSaleClientsError(null);
+
+    const request = trimmedClientSearchQuery
+      ? clientService.searchClients(query, salonId)
+      : clientService.getClients(query, salonId);
+
+    request
+      .then((response) => {
+        if (!isSubscribed) return;
+        setQuickSaleClientOptions(response.clients);
+      })
+      .catch((error) => {
+        if (!isSubscribed) return;
+        setQuickSaleClientsError(error instanceof Error ? error.message : "Unable to load clients.");
+        setQuickSaleClientOptions([]);
+      })
+      .finally(() => {
+        if (isSubscribed) {
+          setQuickSaleClientsLoading(false);
+        }
+      });
+
+    return () => {
+      isSubscribed = false;
+    };
+  }, [isClientPickerVisible, isClientStepComplete, quickSaleClientsReloadKey, salonId, trimmedClientSearchQuery]);
 
   const loadClientPackages = useCallback(
     async (clientId: string, retry = false) => {
@@ -528,61 +546,110 @@ export default function QuickSaleScreen() {
     [activeClientPackages, activeClientPackagesClientId, selectedClient.id],
   );
 
+  const usesEntireBillDiscount = discountApplyTo.includes("entireBill");
+  const effectiveDiscountType = draftDiscountType === "percentage" && usesEntireBillDiscount
+    ? "percentage"
+    : "flat";
+  const {
+    isPricingLoading,
+    pricingError,
+    resetPricing,
+    totals,
+  } = useQuickSalePricing({
+    appliedCoupon,
+    buildPricingFlags: redemptions.buildPricingFlags,
+    cartItems: cart.items,
+    convenienceFeeInput,
+    discountPercent: draftDiscountPercent,
+    discountType: effectiveDiscountType,
+    includeGst,
+    otherChargesInput,
+    overallDiscountInput,
+    selectedClientId: selectedClient.id,
+    serviceChargeInput,
+    tipInput,
+  });
+
+  const resetQuickSaleSession = useCallback(() => {
+    if (undoTimeoutRef.current) {
+      clearTimeout(undoTimeoutRef.current);
+      undoTimeoutRef.current = null;
+    }
+
+    if (clientPickerOpenTimeoutRef.current) {
+      clearTimeout(clientPickerOpenTimeoutRef.current);
+      clientPickerOpenTimeoutRef.current = null;
+    }
+
+    clientPackageRequestIdRef.current += 1;
+    clientPackageRequestClientIdRef.current = null;
+    couponValidationRequestRef.current += 1;
+    lastValidatedCouponContextRef.current = null;
+    couponClientIdRef.current = null;
+    dirtyBaselineRef.current = EMPTY_QUICK_SALE_DIRTY_SIGNATURE;
+    discardDialogVisibleRef.current = false;
+    pendingDiscardRef.current = null;
+
+    clearCart();
+    resetCheckoutSubmission();
+    resetConsumableProductNames();
+    resetPricing();
+    setActiveTab("services");
+    setGlobalSearchQuery("");
+    setIsGlobalSearchLoading(false);
+    setSelectedClient(WALK_IN_CLIENT);
+    setIsClientStepComplete(false);
+    setHasClientStepSelection(false);
+    setClientSearchQuery("");
+    setIsClientPickerVisible(false);
+    setClientPickerStartsInCreateMode(false);
+    setChangeServiceLineId(null);
+    setActiveClientPackages([]);
+    setActiveClientPackagesClientId("");
+    setClientPackageLoadState({
+      clientId: "",
+      error: null,
+      isRetrying: false,
+      status: "loaded",
+    });
+    setIsCheckoutVisible(false);
+    setCheckoutInitialStep("payment");
+    setShouldShowCheckoutStaffValidation(false);
+    setDraftLoadError(null);
+    setDraftDiscountType("percentage");
+    setDraftDiscountPercent(0);
+    setDiscountApplyTo(["service", "product", "package", "membership"]);
+    setIsDiscardDialogVisible(false);
+    setUndoNotice(null);
+    setOverallDiscountInput("");
+    setTipInput("");
+    setSaleNotes("");
+    setCouponCode("");
+    setAppliedCoupon(null);
+    setCouponError(null);
+    setIsApplyingCoupon(false);
+    setIncludeGst(true);
+    setServiceChargeInput("");
+    setConvenienceFeeInput("");
+    setOtherChargesInput("");
+    setSubmitError(null);
+    setProductStockErrors({});
+    setIsSaleFinalized(false);
+  }, [
+    clearCart,
+    resetCheckoutSubmission,
+    resetConsumableProductNames,
+    resetPricing,
+  ]);
+
   // Matches the existing "New Sale" flow from the receipt screen, which
   // navigates back here with a fresh resetSale value to force a clean slate.
   useEffect(() => {
     if (params.resetSale) {
       allowExpectedExitRef.current = false;
-      discardDialogVisibleRef.current = false;
-      dirtyBaselineRef.current = EMPTY_QUICK_SALE_DIRTY_SIGNATURE;
-      setIsSaleFinalized(false);
-      couponValidationRequestRef.current += 1;
-      lastValidatedCouponContextRef.current = null;
-      couponClientIdRef.current = null;
-      cart.clearCart();
-      setSelectedClient(WALK_IN_CLIENT);
-      setIsClientStepComplete(false);
-      setHasClientStepSelection(false);
-      setClientSearchQuery("");
-      setOverallDiscountInput("");
-      setDraftDiscountType("percentage");
-      setDraftDiscountPercent(0);
-      setTipInput("");
-      setSaleNotes("");
-      setCouponCode("");
-      setAppliedCoupon(null);
-      setCouponError(null);
-      setIsApplyingCoupon(false);
-      setIncludeGst(true);
-      setServiceChargeInput("");
-      setConvenienceFeeInput("");
-      setOtherChargesInput("");
-      checkoutSubmission.reset();
+      resetQuickSaleSession();
     }
-    // Only ever react to the resetSale value changing.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.resetSale]);
-
-  // Computed straight from each cart item's own catalog tax rate — never
-  // typed in. Kept even while `includeGst` is off so the UI can still show
-  // the user what GST *would* be.
-  const gstPreviewAmount = useMemo(() => calculateCartTaxAmount(cart.items), [cart.items]);
-  const extraChargesTotal = useMemo(
-    () => parseAmount(serviceChargeInput) + parseAmount(convenienceFeeInput) + parseAmount(otherChargesInput),
-    [convenienceFeeInput, otherChargesInput, serviceChargeInput],
-  );
-
-  const totals = useMemo(
-    () =>
-      calculateBillTotals(cart.items, {
-        couponDiscount: appliedCoupon?.valid ? appliedCoupon.discountAmount : 0,
-        exCharges: extraChargesTotal,
-        overallDiscount: parseAmount(overallDiscountInput),
-        taxAmount: includeGst ? gstPreviewAmount : 0,
-        tipAmount: parseAmount(tipInput),
-      }),
-    [appliedCoupon, cart.items, extraChargesTotal, gstPreviewAmount, includeGst, overallDiscountInput, tipInput],
-  );
+  }, [params.resetSale, resetQuickSaleSession]);
   // The coupon API accepts only `orderAmount`. Tax, tips, and extra charges
   // are deliberately excluded because the backend cannot use them for
   // eligibility. An overall discount reduces the amount the coupon applies
@@ -592,10 +659,31 @@ export default function QuickSaleScreen() {
     [overallDiscountInput, totals.subtotal],
   );
 
-  // Staff assignment is per line item (matches web), never a silent
-  // fallback to "whoever's first in the branch." The one case that skips the
-  // picker is when there's truly nothing to choose between.
-  const singleEligibleStaff = initData?.staff.length === 1 ? initData.staff[0] : null;
+  const staffOptions = useMemo(() => initData?.staff ?? [], [initData?.staff]);
+  const singleEligibleStaff = staffOptions.length === 1 ? staffOptions[0] : null;
+  const defaultLineStaff = selectedQuickSaleStaff ?? singleEligibleStaff;
+  const trimmedStaffSearchQuery = staffSearchQuery.trim().toLowerCase();
+  const filteredStaffOptions = useMemo(
+    () =>
+      trimmedStaffSearchQuery
+        ? staffOptions.filter((staffMember) =>
+            [staffMember.name, staffMember.role, staffMember.status]
+              .filter(Boolean)
+              .some((value) => String(value).toLowerCase().includes(trimmedStaffSearchQuery)),
+          )
+        : staffOptions,
+    [staffOptions, trimmedStaffSearchQuery],
+  );
+
+  useEffect(() => {
+    if (
+      selectedQuickSaleStaff &&
+      staffOptions.length > 0 &&
+      !staffOptions.some((staffMember) => staffMember.id === selectedQuickSaleStaff.id)
+    ) {
+      setSelectedQuickSaleStaff(null);
+    }
+  }, [selectedQuickSaleStaff, staffOptions]);
 
   const selectedServiceIds = useMemo(
     () =>
@@ -619,13 +707,6 @@ export default function QuickSaleScreen() {
     }
   }, [cart.items.length, isCheckoutVisible]);
 
-  useEffect(() => {
-    if (isCheckoutVisible && !isClientPackageDataReliable) {
-      setIsCheckoutVisible(false);
-      setSubmitError("Package eligibility must be verified before checkout.");
-    }
-  }, [isCheckoutVisible, isClientPackageDataReliable]);
-
   const handleSelectProductResult = useCallback(
     (product: Product) => {
       if (product.stockQuantity <= 0) {
@@ -635,23 +716,23 @@ export default function QuickSaleScreen() {
       cart.addItem({
         availableStock: product.stockQuantity,
         category: product.category,
-        defaultStaffId: singleEligibleStaff?.id ?? null,
-        defaultStaffName: singleEligibleStaff?.name ?? null,
+        defaultStaffId: defaultLineStaff?.id ?? null,
+        defaultStaffName: defaultLineStaff?.name ?? null,
         itemId: product.id,
         itemType: "product",
         name: product.name,
         unitPrice: product.price,
       });
     },
-    [cart, singleEligibleStaff],
+    [cart, defaultLineStaff],
   );
 
   const handleSelectPackageResult = useCallback(
     (item: PackageListItem) => {
       cart.addItem({
         category: item.category,
-        defaultStaffId: singleEligibleStaff?.id ?? null,
-        defaultStaffName: singleEligibleStaff?.name ?? null,
+        defaultStaffId: defaultLineStaff?.id ?? null,
+        defaultStaffName: defaultLineStaff?.name ?? null,
         duration: item.durationMinutes ? `${item.durationMinutes} min` : undefined,
         itemId: item.id,
         itemType: "package",
@@ -659,15 +740,15 @@ export default function QuickSaleScreen() {
         unitPrice: item.basePrice,
       });
     },
-    [cart, singleEligibleStaff],
+    [cart, defaultLineStaff],
   );
 
   const handleSelectMembershipResult = useCallback(
     (item: Membership) => {
       cart.addItem({
         category: item.sessionType,
-        defaultStaffId: singleEligibleStaff?.id ?? null,
-        defaultStaffName: singleEligibleStaff?.name ?? null,
+        defaultStaffId: defaultLineStaff?.id ?? null,
+        defaultStaffName: defaultLineStaff?.name ?? null,
         itemId: item.id,
         itemType: "membership",
         name: item.name,
@@ -675,20 +756,61 @@ export default function QuickSaleScreen() {
         unitPrice: item.price,
       });
     },
-    [cart, singleEligibleStaff],
+    [cart, defaultLineStaff],
   );
 
   const handleSelectClientForStep = useCallback((client: ClientListItem | null) => {
+    resetCheckoutSubmission();
+    setIsCheckoutVisible(false);
+    setShouldShowCheckoutStaffValidation(false);
+    setSubmitError(null);
+
+    if (hasClientStepSelection && selectedClient.id === (client?.id ?? "")) {
+      setSelectedClient(WALK_IN_CLIENT);
+      setHasClientStepSelection(false);
+      setClientSearchQuery("");
+      return;
+    }
+
     setSelectedClient(client ? clientFromListItem(client) : WALK_IN_CLIENT);
     setHasClientStepSelection(true);
     setClientSearchQuery("");
-  }, []);
+  }, [hasClientStepSelection, resetCheckoutSubmission, selectedClient.id]);
 
   const handleClientPickerSelect = useCallback((client: ClientListItem | null) => {
+    resetCheckoutSubmission();
+    setIsCheckoutVisible(false);
+    setShouldShowCheckoutStaffValidation(false);
+    setSubmitError(null);
+
+    if (hasClientStepSelection && selectedClient.id === (client?.id ?? "")) {
+      setSelectedClient(WALK_IN_CLIENT);
+      setClientSearchQuery("");
+      setHasClientStepSelection(false);
+      return;
+    }
+
     setSelectedClient(client ? clientFromListItem(client) : WALK_IN_CLIENT);
     setClientSearchQuery("");
     setHasClientStepSelection(true);
-  }, []);
+  }, [hasClientStepSelection, resetCheckoutSubmission, selectedClient.id]);
+
+  const handleSelectQuickSaleStaff = useCallback(
+    (staffMember: PosStaffMember) => {
+      resetCheckoutSubmission();
+      setIsCheckoutVisible(false);
+      setShouldShowCheckoutStaffValidation(false);
+      setSubmitError(null);
+      setSelectedQuickSaleStaff(staffMember);
+      cart.items.forEach((item) => {
+        if (item.itemType !== "quick") {
+          cart.setStaff(item.lineId, staffMember.id, staffMember.name);
+        }
+      });
+      Keyboard.dismiss();
+    },
+    [cart, resetCheckoutSubmission],
+  );
 
   const handleApplyCoupon = useCallback(async () => {
     const trimmedCode = couponCode.trim();
@@ -914,26 +1036,37 @@ export default function QuickSaleScreen() {
     });
   }, [cart]);
 
-  const openCheckout = useCallback((step: CheckoutInitialStep) => {
-    if (!isClientPackageDataReliable) {
-      setSubmitError(
-        currentClientPackageLoadStatus === "error"
-          ? "Package eligibility could not be verified. Retry package loading before checkout."
-          : "Package eligibility is still being verified. Please wait.",
-      );
-      return;
-    }
+  const handleSetConsumableActualQty = useCallback(
+    (lineId: string, productId: string, actualQty: number) => {
+      cart.setConsumableActualQty(lineId, productId, actualQty);
+    },
+    [cart],
+  );
 
+  const openCheckout = useCallback((step: CheckoutInitialStep) => {
+    resetCheckoutSubmission();
     setSubmitError(null);
     setProductStockErrors({});
-    // A direct Checkout tap must land on Review when a service still needs
-    // staff so the affected lines and their assignment controls are visible.
-    setCheckoutInitialStep(step === "payment" && getMissingStaffMessage(cart.items) ? "review" : step);
+    if (selectedQuickSaleStaff) {
+      cart.items.forEach((item) => {
+        if (
+          item.itemType !== "quick" &&
+          (item.staffId !== selectedQuickSaleStaff.id || item.staffName !== selectedQuickSaleStaff.name)
+        ) {
+          cart.setStaff(item.lineId, selectedQuickSaleStaff.id, selectedQuickSaleStaff.name);
+        }
+      });
+    }
+    const hasServicesMissingStaff = !selectedQuickSaleStaff &&
+      cart.items.some((item) => item.itemType === "service" && !item.staffId);
+    setShouldShowCheckoutStaffValidation(hasServicesMissingStaff);
+    setCheckoutInitialStep(hasServicesMissingStaff ? "review" : step);
     setIsCheckoutVisible(true);
-  }, [cart.items, currentClientPackageLoadStatus, isClientPackageDataReliable]);
+  }, [cart, resetCheckoutSubmission, selectedQuickSaleStaff]);
 
   const closeCheckout = useCallback(() => {
     setIsCheckoutVisible(false);
+    setShouldShowCheckoutStaffValidation(false);
     setSubmitError(null);
     setProductStockErrors({});
   }, []);
@@ -949,8 +1082,9 @@ export default function QuickSaleScreen() {
 
       cart.addItem({
         category: service.category,
-        defaultStaffId: singleEligibleStaff?.id ?? null,
-        defaultStaffName: singleEligibleStaff?.name ?? null,
+        consumables: service.consumablesUsed,
+        defaultStaffId: defaultLineStaff?.id ?? null,
+        defaultStaffName: defaultLineStaff?.name ?? null,
         duration: service.durationMinutes ? `${service.durationMinutes} min` : undefined,
         itemId: service.id,
         itemType: "service",
@@ -968,7 +1102,7 @@ export default function QuickSaleScreen() {
       handleRemoveItem,
       isClientPackageDataReliable,
       recalculatePackageCoverage,
-      singleEligibleStaff,
+      defaultLineStaff,
       visibleActiveClientPackages,
     ],
   );
@@ -986,202 +1120,53 @@ export default function QuickSaleScreen() {
     }
   };
 
-  // The appointment's top-level staff_id mirrors the web Quick Sale: the
-  // first service's own assigned staff (falling back to the first assigned
-  // item when the sale has no services), never a silent "first staff in the
-  // branch" guess — every line is expected to already carry its own staffId
-  // by the time this is called (CheckoutSheet blocks checkout otherwise).
-  const getQuickSaleStaff = useCallback(() => {
-    const firstServiceStaff = cart.items.find((item) => item.itemType === "service" && item.staffId)?.staffId;
-    return firstServiceStaff ?? cart.items.find((item) => item.staffId)?.staffId ?? null;
-  }, [cart.items]);
+  const getQuickSaleStaff = useCallback(
+    () => getQuickSaleStaffId(cart.items, selectedQuickSaleStaff?.id),
+    [cart.items, selectedQuickSaleStaff?.id],
+  );
 
-  const getQuickSaleDurationMinutes = useCallback(() => {
-    const serviceDuration = cart.items.reduce((total, item) => {
-      if (item.itemType !== "service") {
-        return total;
-      }
-
-      const minutes = item.duration?.match(/\d+/)?.[0];
-      return total + (minutes ? Number(minutes) * item.quantity : 0);
-    }, 0);
-
-    return Math.max(1, serviceDuration || 30);
-  }, [cart.items]);
-
-  const validateServiceStaffAssignments = useCallback(() => {
-    const validationMessage = getMissingStaffMessage(cart.items);
-
-    if (validationMessage) {
-      setSubmitError(validationMessage);
-      return false;
-    }
-
-    return true;
-  }, [cart.items]);
-
-  const buildSaleDraftPayload = useCallback((): CreateSaleRequest | null => {
-    const staffId = getQuickSaleStaff();
-
-    if (!validateServiceStaffAssignments()) {
-      return null;
-    }
-
-    if (!isClientPackageDataReliable) {
-      setSubmitError(
-        currentClientPackageLoadStatus === "error"
-          ? "Package eligibility could not be verified. Retry package loading before saving."
-          : "Updating client package coverage. Please wait.",
-      );
-      return null;
-    }
-
-    if (!staffId) {
-      setSubmitError("Staff is required before saving or checkout.");
-      return null;
-    }
-
-    return {
-      clientId: selectedClient.id || (params.draftId ? null : undefined),
-      couponCode: appliedCoupon?.valid
-        ? appliedCoupon.couponCode
-        : params.draftId
-          ? null
-          : undefined,
-      discountAmount: totals.overallDiscount + totals.couponDiscount,
-      discountPercent: draftDiscountType === "percentage" ? draftDiscountPercent : undefined,
-      discountType: draftDiscountType,
-      exCharges: totals.exCharges,
+  const buildSaleDraftPayload = useCallback(() => {
+    return mapSaleDraftPayload({
+      appliedCoupon,
+      clientId: selectedClient.id,
+      discountPercent: draftDiscountPercent,
+      discountType: effectiveDiscountType,
+      draftId: params.draftId,
       items: cart.toSaleLineItemRequests(),
-      notes: saleNotes.trim() || (params.draftId ? null : undefined),
-      staffId,
-      status: "draft",
-      taxAmount: totals.taxAmount,
-      tipAmount: totals.tipAmount,
-    };
+      notes: saleNotes,
+      staffId: getQuickSaleStaff(),
+      totals,
+    });
   }, [
     appliedCoupon,
     cart,
     draftDiscountPercent,
-    draftDiscountType,
+    effectiveDiscountType,
     getQuickSaleStaff,
-    currentClientPackageLoadStatus,
-    isClientPackageDataReliable,
     params.draftId,
     saleNotes,
     selectedClient.id,
-    totals.couponDiscount,
-    totals.exCharges,
-    totals.overallDiscount,
-    totals.taxAmount,
-    totals.tipAmount,
-    validateServiceStaffAssignments,
+    totals,
   ]);
 
-  const buildAppointmentPayload = useCallback((): CreateAppointmentRequest | null => {
-    const staffId = getQuickSaleStaff();
-
-    if (!validateServiceStaffAssignments()) {
-      return null;
-    }
-
-    if (!isClientPackageDataReliable) {
-      setSubmitError(
-        currentClientPackageLoadStatus === "error"
-          ? "Package eligibility could not be verified. Retry package loading before checkout."
-          : "Updating client package coverage. Please wait.",
-      );
-      return null;
-    }
-
-    if (!staffId) {
-      setSubmitError("Staff is required before checkout.");
-      return null;
-    }
-
-    const durationMinutes = getQuickSaleDurationMinutes();
-    const startDate = new Date();
-    const endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
-    const serviceItems = cart.items.filter((item) => item.itemType === "service");
-    const packageItems = cart.items.filter((item) => item.itemType === "package");
-    const productItems = cart.items.filter((item) => item.itemType === "product");
-    const membershipItems = cart.items.filter((item) => item.itemType === "membership");
-    const firstService = serviceItems[0];
-
-    return {
-      ...(selectedClient.id ? { client_id: selectedClient.id } : {}),
-      discount_type: "flat",
-      discount_value: totals.overallDiscount + totals.couponDiscount,
-      duration_minutes: durationMinutes,
-      end_time: endDate.toISOString(),
-      ex_charges: totals.exCharges,
-      // Blended effective rate actually charged on this bill (real tax ÷ real
-      // taxable base), not a typed-in figure — 0 whenever GST is toggled off.
-      gst_percent: totals.subtotal > 0 ? Math.min(100, (totals.taxAmount / totals.subtotal) * 100) : 0,
-      notes: saleNotes.trim() || undefined,
-      package_items: packageItems.map((item) => ({
-        name: item.name,
-        package_id: item.itemId,
-        price: item.unitPrice,
-        quantity: item.quantity,
-        staff_id: item.staffId ?? undefined,
-        staff_name: item.staffName,
-        start_time: startDate.toISOString(),
-      })),
-      product_items: productItems.map((item) => ({
-        name: item.name,
-        price: item.unitPrice,
-        product_id: item.itemId,
-        quantity: item.quantity,
-        staff_id: item.staffId ?? undefined,
-        staff_name: item.staffName,
-        start_time: startDate.toISOString(),
-      })),
-      salon_id: salonId ?? undefined,
-      scheduled_at: startDate.toISOString(),
-      service_id: firstService?.itemId,
-      service_name: firstService?.name,
-      services: serviceItems.map((item) => ({
-        is_package_service: getPackageCoveredQuantity(item) === item.quantity || undefined,
-        name: item.name,
-        price: item.unitPrice,
-        quantity: item.quantity,
-        service_id: item.itemId,
-        staff_id: item.staffId ?? undefined,
-        staff_name: item.staffName,
-        time: startDate.toISOString(),
-        total: item.unitPrice * Math.max(0, item.quantity - getPackageCoveredQuantity(item)),
-      })),
-      membership_items: membershipItems.map((item) => ({
-        membership_id: item.itemId,
-        name: item.name,
-        price: item.unitPrice,
-        quantity: item.quantity,
-        staff_id: item.staffId ?? undefined,
-        staff_name: item.staffName,
-        start_time: startDate.toISOString(),
-      })),
-      staff_id: staffId,
-      start_time: startDate.toISOString(),
-      status: "booked",
-      tip_amount: totals.tipAmount,
-    };
+  const buildAppointmentPayload = useCallback(() => {
+    return mapAppointmentPayload({
+      cartItems: cart.items,
+      clientId: selectedClient.id,
+      initialSlot,
+      notes: saleNotes,
+      salonId,
+      staffId: getQuickSaleStaff(),
+      totals,
+    });
   }, [
     cart.items,
-    getQuickSaleDurationMinutes,
     getQuickSaleStaff,
-    currentClientPackageLoadStatus,
-    isClientPackageDataReliable,
+    initialSlot,
     saleNotes,
     salonId,
     selectedClient.id,
-    totals.couponDiscount,
-    totals.exCharges,
-    totals.overallDiscount,
-    totals.subtotal,
-    totals.taxAmount,
-    totals.tipAmount,
-    validateServiceStaffAssignments,
+    totals,
   ]);
 
   const createQuickSaleAppointment = useCallback(async () => {
@@ -1257,57 +1242,30 @@ export default function QuickSaleScreen() {
   );
 
   const buildPaymentPayload = useCallback(
-    (
-      appointmentId: string,
-      payment: { method: SalePaymentMethod; splitEntries?: CheckoutSaleSplitEntry[] },
-    ): CreatePaymentRequest => {
-      const methodLabel =
-        isFullyPackageCoveredSale
-          ? "Package"
-          : payment.method === "split"
-          ? "Split"
-          : payment.method === "upi"
-            ? "UPI"
-            : payment.method === "card"
-              ? "Card"
-              : "Cash";
-      const splitDetails =
-        isFullyPackageCoveredSale
-          ? { Package: packageCatalogTotal }
-          : payment.method === "split" && payment.splitEntries?.length
-          ? Object.fromEntries(
-              payment.splitEntries.map((entry) => [
-                entry.method === "upi" ? "UPI" : entry.method === "card" ? "Card" : "Cash",
-                entry.amount,
-              ]),
-            )
-          : { [methodLabel]: totals.grandTotal };
-
-      return {
-        appointment_id: appointmentId,
-        client_id: selectedClient.id || undefined,
-        coupon_code: appliedCoupon?.valid ? appliedCoupon.couponCode : undefined,
-        discount_amount: totals.overallDiscount + totals.couponDiscount,
-        due_amount: 0,
-        gross_amount: isFullyPackageCoveredSale ? packageCatalogTotal : totals.lineSubtotal,
-        net_amount: isFullyPackageCoveredSale ? 0 : totals.grandTotal,
-        paid_amount: isFullyPackageCoveredSale ? 0 : totals.grandTotal,
-        payment_method: methodLabel,
-        salon_id: salonId ?? undefined,
-        split_details: splitDetails,
-        status: "completed",
-      };
-    },
+    (appointmentId: string, payment: PendingCheckoutPayment) =>
+      mapPaymentPayload({
+        appointmentId,
+        appliedCoupon,
+        includeGst,
+        isFullyPackageCoveredSale,
+        notes: saleNotes,
+        packageCatalogTotal,
+        payment,
+        pricingFlags: redemptions.buildPricingFlags(),
+        salonId,
+        selectedClientId: selectedClient.id,
+        totals,
+      }),
     [
       appliedCoupon,
+      includeGst,
       isFullyPackageCoveredSale,
       packageCatalogTotal,
+      redemptions,
+      saleNotes,
       salonId,
       selectedClient.id,
-      totals.couponDiscount,
-      totals.grandTotal,
-      totals.lineSubtotal,
-      totals.overallDiscount,
+      totals,
     ],
   );
 
@@ -1359,10 +1317,6 @@ export default function QuickSaleScreen() {
     setSubmitError(null);
 
     try {
-      if (!validateServiceStaffAssignments()) {
-        return;
-      }
-
       if (!(await verifyAppliedCoupon())) {
         return;
       }
@@ -1412,7 +1366,15 @@ export default function QuickSaleScreen() {
     }
   };
 
-  const handleCompleteSale = async (payment: { method: SalePaymentMethod; splitEntries?: CheckoutSaleSplitEntry[] }) => {
+  const handleCompleteSale = async (payment: PendingCheckoutPayment) => {
+    if (embedded && !selectedClient.id) {
+      setPendingCheckoutPayment(payment);
+      setIsCheckoutVisible(false);
+      setClientPickerStartsInCreateMode(true);
+      setIsClientPickerVisible(true);
+      return;
+    }
+
     if (!checkoutSubmission.begin("checkingOut")) {
       return;
     }
@@ -1420,10 +1382,6 @@ export default function QuickSaleScreen() {
     setSubmitError(null);
 
     try {
-      if (!validateServiceStaffAssignments()) {
-        return;
-      }
-
       if (!(await verifyAppliedCoupon())) {
         return;
       }
@@ -1461,9 +1419,29 @@ export default function QuickSaleScreen() {
           return;
         }
 
+        const completedSale = checkoutAction.payload.sale;
+
+        // The backend independently recomputes and persists the sale total —
+        // /pricing/calculate-totals stays the single source of truth for what
+        // this bill SHOULD be, but if what actually got saved diverges from
+        // that (a sign the two disagree on line totals/discounts), the sale
+        // must not be presented as a normal success. Cent-based comparison
+        // absorbs ordinary independent-rounding drift without masking a real
+        // mismatch, which is always far larger than a single cent.
+        if (!amountsReconcile(completedSale.total, totals.grandTotal)) {
+          console.error("[Quick Sale] Backend/local total mismatch after draft checkout", {
+            backendTotal: completedSale.total,
+            localTotal: totals.grandTotal,
+            saleId: completedSale.id,
+          });
+          setSubmitError(
+            "This sale's saved total doesn't match what was shown here, so it wasn't marked complete. Check Sales History before retrying.",
+          );
+          return;
+        }
+
         await markPackageSessionsAfterCheckout();
 
-        const completedSale = checkoutAction.payload.sale;
         if (!checkoutSubmission.commitSuccess()) {
           return;
         }
@@ -1504,8 +1482,77 @@ export default function QuickSaleScreen() {
       }
 
       const appointmentId = appointment.appointment.id;
-      await paymentService.createPayment(buildPaymentPayload(appointmentId, payment));
-      const checkout = await appointmentService.checkoutAppointment(appointmentId);
+      const paymentBody = buildPaymentPayload(appointmentId, payment);
+      await paymentService.createPayment(paymentBody);
+      void redemptions.refreshBalances();
+
+      const finishAsIncomplete = (message: string) => {
+        if (!checkoutSubmission.commitSuccess()) {
+          return;
+        }
+        setIsSaleFinalized(true);
+        allowExpectedExitRef.current = true;
+        setIsCheckoutVisible(false);
+        cart.clearCart();
+        setSelectedClient(WALK_IN_CLIENT);
+        setIsClientStepComplete(false);
+        setHasClientStepSelection(false);
+        setClientSearchQuery("");
+        setSaleNotes("");
+        Alert.alert("Payment recorded", message);
+      };
+
+      // Web parity: a partial payment (due_amount > 0) only creates the
+      // payment record. Checkout is a separate step that only happens once
+      // the full amount has been collected.
+      if (paymentBody.status !== "completed") {
+        finishAsIncomplete(
+          `${formatCurrency(paymentBody.paid_amount)} collected. ${formatCurrency(paymentBody.due_amount)} remains due for this appointment.`,
+        );
+        return;
+      }
+
+      let checkout: Awaited<ReturnType<typeof appointmentService.checkoutAppointment>>;
+      try {
+        checkout = await appointmentService.checkoutAppointment(appointmentId);
+      } catch (checkoutError) {
+        // Payment already succeeded — do not report this as a payment
+        // failure. There is no retry-checkout surface yet, so we log for
+        // diagnosis and tell the operator where to follow up.
+        console.error("[Quick Sale] Checkout failed after a successful payment", {
+          appointmentId,
+          message: checkoutError instanceof Error ? checkoutError.message : "Unknown checkout error",
+        });
+        finishAsIncomplete(
+          "The payment was saved, but the sale could not be finalized automatically. Check Sales History for this client to finish it.",
+        );
+        return;
+      }
+
+      // The backend independently recomputes and persists the appointment
+      // total — /pricing/calculate-totals stays the single source of truth
+      // for what this bill SHOULD be, but if what actually got saved
+      // diverges from that, the sale must not be presented as a normal
+      // success. Cent-based comparison absorbs ordinary independent-rounding
+      // drift without masking a real mismatch, which is always far larger
+      // than a single cent.
+      if (!amountsReconcile(checkout.appointment.total, paymentBody.net_amount)) {
+        console.error("[Quick Sale] Backend/local total mismatch after checkout", {
+          appointmentId,
+          backendTotal: checkout.appointment.total,
+          localTotal: paymentBody.net_amount,
+          saleId: checkout.saleId,
+        });
+        // Unlike finishAsIncomplete above, this must NOT commit success —
+        // the payment/checkout already happened server-side, but the amount
+        // it recorded doesn't match what this screen showed, so the sale is
+        // deliberately left un-finalized (cart intact, checkout sheet open)
+        // until someone verifies it in Sales History.
+        setSubmitError(
+          "The payment was saved, but the finalized total didn't match what was shown here. Check Sales History before retrying — this sale was not marked complete.",
+        );
+        return;
+      }
 
       await markPackageSessionsAfterCheckout(appointmentId);
 
@@ -1555,6 +1602,29 @@ export default function QuickSaleScreen() {
     }
   };
 
+  useEffect(() => {
+    if (!pendingCheckoutPayment || !selectedClient.id || isClientPickerVisible) {
+      return;
+    }
+
+    const payment = pendingCheckoutPayment;
+    setPendingCheckoutPayment(null);
+    requestAnimationFrame(() => void handleCompleteSale(payment));
+    // `handleCompleteSale` is deliberately omitted: this effect is driven by
+    // the client/picker transition and uses the handler from that render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isClientPickerVisible, pendingCheckoutPayment, selectedClient.id]);
+
+  useEffect(() => {
+    if (!shouldResumeCheckoutAtCharges || !selectedClient.id || isClientPickerVisible) {
+      return;
+    }
+
+    setShouldResumeCheckoutAtCharges(false);
+    setCheckoutInitialStep("charges");
+    setIsCheckoutVisible(true);
+  }, [isClientPickerVisible, selectedClient.id, shouldResumeCheckoutAtCharges]);
+
   const handleDeleteDraft = useCallback(() => {
     const draftId = params.draftId;
     if (!draftId || isDeletingDraft) {
@@ -1603,37 +1673,24 @@ export default function QuickSaleScreen() {
       }
 
       discardDialogVisibleRef.current = true;
-      Alert.alert(
-        "Discard Quick Sale?",
-        "Leaving now will discard the current Quick Sale.",
-        [
-          {
-            onPress: () => {
-              discardDialogVisibleRef.current = false;
-            },
-            style: "cancel",
-            text: "Keep Editing",
-          },
-          {
-            onPress: () => {
-              discardDialogVisibleRef.current = false;
-              dirtyBaselineRef.current = dirtySignature;
-              onDiscard();
-            },
-            style: "destructive",
-            text: "Discard Sale",
-          },
-        ],
-        {
-          cancelable: true,
-          onDismiss: () => {
-            discardDialogVisibleRef.current = false;
-          },
-        },
-      );
+      pendingDiscardRef.current = onDiscard;
+      setIsDiscardDialogVisible(true);
     },
-    [dirtySignature, hasUnsavedQuickSale],
+    [hasUnsavedQuickSale],
   );
+
+  const closeDiscardDialog = useCallback(() => {
+    discardDialogVisibleRef.current = false;
+    pendingDiscardRef.current = null;
+    setIsDiscardDialogVisible(false);
+  }, []);
+
+  const handleConfirmDiscard = useCallback(() => {
+    const onDiscard = pendingDiscardRef.current;
+
+    resetQuickSaleSession();
+    onDiscard?.();
+  }, [resetQuickSaleSession]);
 
   const leaveQuickSaleRoute = useCallback(() => {
     allowExpectedExitRef.current = true;
@@ -1652,6 +1709,11 @@ export default function QuickSaleScreen() {
       return;
     }
 
+    if (embedded) {
+      confirmDiscardQuickSale(onRequestClose ?? (() => undefined));
+      return;
+    }
+
     if (isClientStepComplete && !params.draftId) {
       setIsClientStepComplete(false);
       return;
@@ -1660,14 +1722,20 @@ export default function QuickSaleScreen() {
     confirmDiscardQuickSale(leaveQuickSaleRoute);
   }, [
     confirmDiscardQuickSale,
+    embedded,
     globalSearchQuery,
     handleClearGlobalSearch,
     isClientStepComplete,
     leaveQuickSaleRoute,
     params.draftId,
+    onRequestClose,
   ]);
 
   useEffect(() => {
+    if (embedded) {
+      return;
+    }
+
     const unsubscribe = navigation.addListener("beforeRemove", (event) => {
       if (allowExpectedExitRef.current) {
         allowExpectedExitRef.current = false;
@@ -1686,7 +1754,7 @@ export default function QuickSaleScreen() {
     });
 
     return unsubscribe;
-  }, [confirmDiscardQuickSale, hasUnsavedQuickSale, navigation]);
+  }, [confirmDiscardQuickSale, embedded, hasUnsavedQuickSale, navigation]);
 
   useFocusEffect(
     useCallback(() => {
@@ -1712,49 +1780,68 @@ export default function QuickSaleScreen() {
     ]),
   );
 
+  const discardConfirmationModal = (
+    <ConfirmationModal
+      cancelLabel="Keep Editing"
+      confirmLabel="Discard Sale"
+      description={"Leaving now will discard the current Quick Sale.\n\nThis action cannot be undone."}
+      onCancel={closeDiscardDialog}
+      onConfirm={handleConfirmDiscard}
+      title="Discard Quick Sale?"
+      visible={isDiscardDialogVisible}
+    />
+  );
+
   if (params.draftId && isLoadingDraft) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <AppStatusBar />
-        <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Draft</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <View style={styles.initLoader}>
-          <ActivityIndicator color={Colors.primary} size="large" />
-          <Text style={styles.initLoaderText}>Loading saved sale...</Text>
-        </View>
-      </SafeAreaView>
+      <>
+        <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+          <AppStatusBar />
+          <View style={styles.header}>
+            <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Edit Draft</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+          <View style={styles.initLoader}>
+            <ActivityIndicator color={Colors.primary} size="large" />
+            <Text style={styles.initLoaderText}>Loading saved sale...</Text>
+          </View>
+        </SafeAreaView>
+        {discardConfirmationModal}
+      </>
     );
   }
 
   if (params.draftId && draftLoadError) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <AppStatusBar />
-        <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Edit Draft</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <ErrorState message={draftLoadError} onRetry={() => void loadDraft()} />
-      </SafeAreaView>
+      <>
+        <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+          <AppStatusBar />
+          <View style={styles.header}>
+            <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Edit Draft</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+          <ErrorState message={draftLoadError} onRetry={() => void loadDraft()} />
+        </SafeAreaView>
+        {discardConfirmationModal}
+      </>
     );
   }
 
   if (!isClientStepComplete) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <AppStatusBar />
+      <>
+        <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+          <AppStatusBar />
 
         <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+          <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
+            <Ionicons name="arrow-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Quick Sale</Text>
           <TouchableOpacity
@@ -1805,19 +1892,17 @@ export default function QuickSaleScreen() {
           </View>
 
           <View style={styles.recentClientsCard}>
-            {clientsError && visibleClientOptions.length === 0 ? (
+            {quickSaleClientsError && visibleClientOptions.length === 0 ? (
               <View style={styles.clientStateBlock}>
                 <Text style={styles.clientStateTitle}>Unable to load clients</Text>
                 <TouchableOpacity
                   activeOpacity={0.84}
-                  onPress={() =>
-                    void dispatch(fetchClientsThunk({ limit: 3, reset: true, sort_by: "created_at", sort_order: "desc" }))
-                  }
+                  onPress={() => setQuickSaleClientsReloadKey((current) => current + 1)}
                 >
                   <Text style={styles.clientSectionAction}>Try again</Text>
                 </TouchableOpacity>
               </View>
-            ) : clientsLoading && visibleClientOptions.length === 0 ? (
+            ) : quickSaleClientsLoading && visibleClientOptions.length === 0 ? (
               <View style={styles.clientStateBlock}>
                 <ActivityIndicator color={Colors.primary} size="small" />
                 <Text style={styles.clientStateText}>Loading clients...</Text>
@@ -1834,33 +1919,15 @@ export default function QuickSaleScreen() {
                 const isSelected = hasClientStepSelection && selectedClient.id === client.id;
 
                 return (
-                  <TouchableOpacity
+                  <ClientOptionRow
                     key={`quick-sale-client-${client.id}`}
-                    activeOpacity={0.84}
+                    initials={client.initials}
+                    isSelected={isSelected}
                     onPress={() => handleSelectClientForStep(client)}
-                    style={[
-                      styles.recentClientRow,
-                      index < visibleClientOptions.length - 1 && styles.recentClientRowBorder,
-                      isSelected && styles.clientOptionSelected,
-                    ]}
-                  >
-                    <View style={styles.clientAvatar}>
-                      <Text style={styles.clientAvatarText}>{client.initials}</Text>
-                    </View>
-                    <View style={styles.clientCopy}>
-                      <Text numberOfLines={1} style={styles.clientName}>
-                        {client.fullName}
-                      </Text>
-                      <Text numberOfLines={1} style={styles.clientPhone}>
-                        {client.phone}
-                      </Text>
-                    </View>
-                    <Ionicons
-                      name={isSelected ? "checkmark-circle" : "chevron-forward"}
-                      size={18}
-                      color={isSelected ? Colors.primary : Colors.text2}
-                    />
-                  </TouchableOpacity>
+                    phone={client.phone}
+                    title={client.fullName}
+                    withBorder={index < visibleClientOptions.length - 1}
+                  />
                 );
               })
             )}
@@ -1914,10 +1981,13 @@ export default function QuickSaleScreen() {
         <ClientPickerSheet
           onClose={() => setIsClientPickerVisible(false)}
           onSelect={handleClientPickerSelect}
+          selectedClientId={hasClientStepSelection ? selectedClient.id : null}
           startInCreateMode={clientPickerStartsInCreateMode}
           visible={isClientPickerVisible}
         />
-      </SafeAreaView>
+        </SafeAreaView>
+        {discardConfirmationModal}
+      </>
     );
   }
 
@@ -1925,33 +1995,47 @@ export default function QuickSaleScreen() {
   // Checkout/Choose Client/Change Service render above the working screen, so
   // the floating checkout card gets out of the way while any overlay is open.
   const isOverlayActive =
-    isCheckoutVisible || isClientPickerVisible || Boolean(changeServiceLineId);
+    isCheckoutVisible || isClientPickerVisible || isEmbeddedStaffPickerVisible || Boolean(changeServiceLineId);
 
   if (initError && !initData) {
     return (
-      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-        <AppStatusBar />
-        <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Quick Sale</Text>
-          <View style={styles.headerSpacer} />
-        </View>
-        <ErrorState message={initError} onRetry={() => void dispatch(fetchSalesInitThunk())} />
-      </SafeAreaView>
+      <>
+        <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+          <AppStatusBar />
+          <View style={styles.header}>
+            <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Quick Sale</Text>
+            <View style={styles.headerSpacer} />
+          </View>
+          <ErrorState message={initError} onRetry={() => void dispatch(fetchSalesInitThunk())} />
+        </SafeAreaView>
+        {discardConfirmationModal}
+      </>
     );
   }
 
   return (
-    <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
-      <AppStatusBar />
+    <>
+      <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
+        {!embedded ? <AppStatusBar /> : null}
 
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
-          <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+        <TouchableOpacity
+          activeOpacity={0.84}
+          hitSlop={12}
+          onPress={handleBack}
+          style={[styles.iconButton, embedded && styles.embeddedCloseButton]}
+        >
+          <Ionicons name={embedded ? "close" : "arrow-back"} size={20} color={Colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{params.draftId ? "Edit Draft" : "Select Services"}</Text>
+        <View style={styles.embeddedHeaderCopy}>
+          <Text style={styles.headerTitle}>{params.draftId ? "Edit Draft" : "Quick Sale"}</Text>
+          {embedded && initialSlot ? (
+            <Text style={styles.embeddedSlotLabel}>{initialSlot.date} at {initialSlot.time}</Text>
+          ) : null}
+        </View>
         {params.draftId ? (
           <TouchableOpacity
             activeOpacity={isDeletingDraft ? 1 : 0.84}
@@ -1968,11 +2052,11 @@ export default function QuickSaleScreen() {
         ) : (
           <TouchableOpacity
             activeOpacity={cart.items.length === 0 ? 1 : 0.84}
-            disabled={cart.items.length === 0 || !isClientPackageDataReliable}
+            disabled={cart.items.length === 0}
             onPress={() => openCheckout("review")}
             style={[
               styles.iconButton,
-              (cart.items.length === 0 || !isClientPackageDataReliable) && styles.iconButtonDisabled,
+              cart.items.length === 0 && styles.iconButtonDisabled,
             ]}
           >
             <Ionicons name="receipt-outline" size={17} color={Colors.primary} />
@@ -1986,6 +2070,58 @@ export default function QuickSaleScreen() {
       </View>
 
       <View style={styles.topSection}>
+        {embedded ? (
+          <View style={styles.embeddedClientSection}>
+            <View style={styles.embeddedSectionHeading}>
+              <Ionicons color={Colors.heading} name="person" size={16} />
+              <Text style={styles.embeddedSectionTitle}>Client</Text>
+            </View>
+            <View style={styles.embeddedClientRow}>
+              <TouchableOpacity
+                activeOpacity={0.84}
+                onPress={() => {
+                  setPendingCheckoutPayment(null);
+                  setShouldResumeCheckoutAtCharges(false);
+                  setClientPickerStartsInCreateMode(false);
+                  setIsClientPickerVisible(true);
+                }}
+                style={styles.embeddedClientSearch}
+              >
+                <Ionicons color={Colors.text2} name="search-outline" size={16} />
+                <Text numberOfLines={1} style={[styles.embeddedClientSearchText, hasClientStepSelection && styles.embeddedClientSelectedText]}>
+                  {hasClientStepSelection
+                    ? selectedClient.id
+                      ? `${selectedClient.name} · ${selectedClient.phone}`
+                      : "Walk-In"
+                    : "Search client by name or mobile number..."}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.84}
+                onPress={() => {
+                  setSelectedClient(WALK_IN_CLIENT);
+                  setHasClientStepSelection(true);
+                }}
+                style={styles.embeddedClientAction}
+              >
+                <Text style={styles.embeddedClientActionText}>Walk-In</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                activeOpacity={0.84}
+                onPress={() => {
+                  setPendingCheckoutPayment(null);
+                  setShouldResumeCheckoutAtCharges(false);
+                  setClientPickerStartsInCreateMode(true);
+                  setIsClientPickerVisible(true);
+                }}
+                style={styles.embeddedAddClientAction}
+              >
+                <Ionicons color={Colors.onPrimary} name="add" size={15} />
+                <Text style={styles.embeddedAddClientText}>Add Client</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        ) : null}
         <View style={styles.searchSpacing}>
           <GlobalSearchBar
             isActive={isGlobalSearchActive}
@@ -2005,73 +2141,139 @@ export default function QuickSaleScreen() {
         />
       </View>
 
-      {selectedClient.id ? (
+      {selectedClient.id && currentClientPackageLoadStatus === "error" ? (
         <View
           accessibilityLiveRegion="polite"
-          style={[
-            styles.packageStatus,
-            currentClientPackageLoadStatus === "error"
-              ? styles.packageStatusError
-              : currentClientPackageLoadStatus === "loaded"
-                ? styles.packageStatusLoaded
-                : styles.packageStatusLoading,
-          ]}
+          style={[styles.packageStatus, styles.packageStatusError]}
         >
-          {currentClientPackageLoadStatus === "loading" ? (
-            <ActivityIndicator color={Colors.warning} size="small" />
-          ) : (
-            <Ionicons
-              color={
-                currentClientPackageLoadStatus === "error"
-                  ? Colors.error
-                  : Colors.success
-              }
-              name={
-                currentClientPackageLoadStatus === "error"
-                  ? "alert-circle-outline"
-                  : "checkmark-circle-outline"
-              }
-              size={18}
-            />
-          )}
+          <Ionicons
+            color={Colors.error}
+            name="alert-circle-outline"
+            size={18}
+          />
           <View style={styles.packageStatusCopy}>
-            <Text style={styles.packageStatusTitle}>
-              {currentClientPackageLoadStatus === "error"
-                ? "Package eligibility unavailable"
-                : currentClientPackageLoadStatus === "loaded"
-                  ? "Package eligibility verified"
-                  : clientPackageLoadState.isRetrying
-                    ? "Retrying package verification"
-                    : "Checking package eligibility"}
-            </Text>
+            <Text style={styles.packageStatusTitle}>Package eligibility unavailable</Text>
             <Text style={styles.packageStatusMessage}>
-              {currentClientPackageLoadStatus === "error"
-                ? "Package pricing could not be verified. Checkout is blocked until you retry."
-                : currentClientPackageLoadStatus === "loaded"
-                  ? `${visibleActiveClientPackages.length} active package${
-                      visibleActiveClientPackages.length === 1 ? "" : "s"
-                    } available for this client.`
-                  : "Current totals are preserved until package data is available."}
+              Package pricing could not be verified. You can continue checkout or retry package loading.
             </Text>
-            {currentClientPackageLoadStatus === "error" && clientPackageLoadState.error ? (
+            {clientPackageLoadState.error ? (
               <Text numberOfLines={2} style={styles.packageStatusDetail}>
                 {clientPackageLoadState.error}
               </Text>
             ) : null}
           </View>
-          {currentClientPackageLoadStatus === "error" ? (
+          <TouchableOpacity
+            accessibilityLabel="Retry package verification"
+            activeOpacity={0.84}
+            onPress={() => void loadClientPackages(selectedClient.id, true)}
+            style={styles.packageRetryButton}
+          >
+            <Ionicons color={Colors.onPrimary} name="refresh" size={15} />
+            <Text style={styles.packageRetryText}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      ) : null}
+
+      <View style={styles.staffSection}>
+        <View style={styles.staffSectionHeader}>
+          <View>
+            <Text style={styles.staffSectionTitle}>3. Select Staff</Text>
+            {selectedQuickSaleStaff ? (
+              <Text numberOfLines={1} style={styles.staffSelectedSummary}>
+                {selectedQuickSaleStaff.name}
+              </Text>
+            ) : null}
+          </View>
+        </View>
+
+        {embedded ? (
+          <TouchableOpacity
+            accessibilityLabel="Select staff"
+            activeOpacity={0.84}
+            onPress={() => setIsEmbeddedStaffPickerVisible(true)}
+            style={styles.embeddedStaffDropdown}
+          >
+            <Ionicons color={Colors.text2} name="people-outline" size={17} />
+            <Text numberOfLines={1} style={[styles.embeddedStaffDropdownText, selectedQuickSaleStaff && styles.embeddedStaffDropdownSelected]}>
+              {selectedQuickSaleStaff?.name ?? "Select Staff"}
+            </Text>
+            <Ionicons color={Colors.text2} name="chevron-down" size={17} />
+          </TouchableOpacity>
+        ) : <>
+        <View style={styles.staffSearchWrap}>
+          <Ionicons name="search-outline" size={16} color={Colors.text2} />
+          <TextInput
+            autoCapitalize="none"
+            onChangeText={setStaffSearchQuery}
+            placeholder="Search staff"
+            placeholderTextColor={Colors.placeholder}
+            returnKeyType="search"
+            style={styles.staffSearchInput}
+            value={staffSearchQuery}
+          />
+          {staffSearchQuery ? (
             <TouchableOpacity
-              accessibilityLabel="Retry package verification"
-              activeOpacity={0.84}
-              onPress={() => void loadClientPackages(selectedClient.id, true)}
-              style={styles.packageRetryButton}
+              accessibilityLabel="Clear staff search"
+              activeOpacity={0.74}
+              onPress={() => setStaffSearchQuery("")}
             >
-              <Ionicons color={Colors.onPrimary} name="refresh" size={15} />
-              <Text style={styles.packageRetryText}>Retry</Text>
+              <Ionicons name="close-circle" size={16} color={Colors.text2} />
             </TouchableOpacity>
           ) : null}
         </View>
-      ) : null}
+
+        {initLoading && staffOptions.length === 0 ? (
+          <View style={styles.staffStateBlock}>
+            <ActivityIndicator color={Colors.primary} size="small" />
+            <Text style={styles.staffStateText}>Loading staff...</Text>
+          </View>
+        ) : filteredStaffOptions.length === 0 ? (
+          <View style={styles.staffStateBlock}>
+            <Text style={styles.staffStateTitle}>
+              {trimmedStaffSearchQuery ? "No matching staff" : "No staff members found."}
+            </Text>
+          </View>
+        ) : (
+          <ScrollView
+            horizontal
+            keyboardShouldPersistTaps="handled"
+            showsHorizontalScrollIndicator={false}
+            style={styles.staffList}
+          >
+            {filteredStaffOptions.map((staffMember) => {
+              const isSelected = selectedQuickSaleStaff?.id === staffMember.id;
+
+              return (
+                <TouchableOpacity
+                  accessibilityLabel={`Select staff ${staffMember.name}`}
+                  accessibilityRole="button"
+                  activeOpacity={0.84}
+                  key={`quick-sale-staff-${staffMember.id}`}
+                  onPress={() => handleSelectQuickSaleStaff(staffMember)}
+                  style={[styles.staffCard, isSelected && styles.staffCardSelected]}
+                >
+                  <View style={[styles.staffAvatar, { backgroundColor: staffMember.avatarBg }]}>
+                    <Text style={[styles.staffAvatarText, { color: staffMember.avatarColor }]}>
+                      {staffMember.initials}
+                    </Text>
+                  </View>
+                  <Text numberOfLines={1} style={styles.staffName}>
+                    {staffMember.name}
+                  </Text>
+                  <Text numberOfLines={1} style={styles.staffRole}>
+                    {staffMember.role ?? staffMember.status}
+                  </Text>
+                  {isSelected ? (
+                    <View style={styles.staffSelectedIcon}>
+                      <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
+                    </View>
+                  ) : null}
+                </TouchableOpacity>
+              );
+            })}
+          </ScrollView>
+        )}</>}
+      </View>
 
       <View style={styles.content}>
           <View style={styles.contentPane}>
@@ -2117,19 +2319,33 @@ export default function QuickSaleScreen() {
 
       {!isOverlayActive ? (
         <MiniBillBar
-          disabled={cart.items.length === 0 || !isClientPackageDataReliable}
+          disabled={cart.items.length === 0}
           grandTotal={totals.grandTotal}
           itemCount={cart.itemCount}
-          onCheckout={() => openCheckout("payment")}
-          onReview={() => openCheckout("review")}
+          onCheckout={() => openCheckout("review")}
         />
       ) : null}
 
       <ClientPickerSheet
         onClose={() => setIsClientPickerVisible(false)}
         onSelect={handleClientPickerSelect}
+        renderInline={embedded}
+        selectedClientId={hasClientStepSelection ? selectedClient.id : null}
         startInCreateMode={clientPickerStartsInCreateMode}
         visible={isClientPickerVisible}
+      />
+
+      <StaffPickerSheet
+        onClose={() => setIsEmbeddedStaffPickerVisible(false)}
+        onSelect={(staffId) => {
+          const staffMember = initData?.staff.find((item) => item.id === staffId);
+          if (staffMember) handleSelectQuickSaleStaff(staffMember);
+          setIsEmbeddedStaffPickerVisible(false);
+        }}
+        renderInline={embedded}
+        selectedStaffId={selectedQuickSaleStaff?.id ?? null}
+        staff={initData?.staff ?? []}
+        visible={embedded && isEmbeddedStaffPickerVisible}
       />
 
       <ChangeServiceModal
@@ -2138,6 +2354,7 @@ export default function QuickSaleScreen() {
           if (changeServiceLineId) {
             cart.replaceItem(changeServiceLineId, {
               category: service.category,
+              consumables: service.consumablesUsed,
               duration: service.durationMinutes ? `${service.durationMinutes} min` : undefined,
               itemId: service.id,
               itemType: "service",
@@ -2158,19 +2375,24 @@ export default function QuickSaleScreen() {
         appliedCoupon={appliedCoupon}
         couponCode={couponCode}
         couponError={couponError}
+        discountApplyTo={discountApplyTo}
         extraCharges={{
           convenienceFee: convenienceFeeInput,
           otherCharges: otherChargesInput,
           serviceCharge: serviceChargeInput,
         }}
-        gstPreviewAmount={gstPreviewAmount}
+        gstPreviewAmount={totals.taxAmount}
         hasItems={cart.items.length > 0}
         includeGst={includeGst}
         initialStep={checkoutInitialStep}
+        initialStaffValidationAttempted={shouldShowCheckoutStaffValidation}
         isApplyingCoupon={isApplyingCoupon}
         isCheckingOut={checkoutSubmission.isCheckingOut}
+        isPricingLoading={isPricingLoading}
+        pricingError={pricingError}
         isSaving={checkoutSubmission.isSaving}
         isSuccess={checkoutSubmission.isSuccess}
+        consumableProductNames={consumableProductNames}
         items={cart.items}
         onAddMore={closeCheckout}
         onApplyCoupon={() => void handleApplyCoupon()}
@@ -2179,6 +2401,7 @@ export default function QuickSaleScreen() {
           setCouponCode(value);
           setCouponError(null);
         }}
+        onChangeDiscountApplyTo={setDiscountApplyTo}
         onChangeCustomer={() => {
           closeCheckout();
           if (clientPickerOpenTimeoutRef.current) {
@@ -2204,12 +2427,23 @@ export default function QuickSaleScreen() {
         onCompleteSale={(payment) => void handleCompleteSale(payment)}
         onRemoveCoupon={handleRemoveCoupon}
         onRemoveItem={handleRemoveItem}
+        onRequireClientDetails={embedded
+          ? () => {
+              setShouldResumeCheckoutAtCharges(true);
+              setIsCheckoutVisible(false);
+              setClientPickerStartsInCreateMode(true);
+              setIsClientPickerVisible(true);
+            }
+          : undefined}
         onSavePending={() => void handleSavePending()}
+        onSetConsumableActualQty={handleSetConsumableActualQty}
         onSetQuantity={handleSetQuantity}
         onToggleIncludeGst={() => setIncludeGst((current) => !current)}
         overallDiscountInput={overallDiscountInput}
         overallDiscountPercent={draftDiscountPercent}
         overallDiscountType={draftDiscountType}
+        redemptions={redemptions}
+        renderInline={embedded}
         selectedClient={selectedClient}
         staffOptions={initData?.staff ?? []}
         productStockErrors={productStockErrors}
@@ -2218,7 +2452,9 @@ export default function QuickSaleScreen() {
         totals={totals}
         visible={isCheckoutVisible}
       />
-    </SafeAreaView>
+      </SafeAreaView>
+      {discardConfirmationModal}
+    </>
   );
 }
 
@@ -2276,6 +2512,20 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   headerSpacer: {
     height: AppLayout.headerActionSize,
     width: AppLayout.headerActionSize,
+  },
+  embeddedHeaderCopy: {
+    flex: 1,
+    marginLeft: 8,
+    minWidth: 0,
+  },
+  embeddedCloseButton: {
+    marginLeft: -8,
+  },
+  embeddedSlotLabel: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 2,
   },
   headerTitle: {
     color: Colors.heading,
@@ -2338,46 +2588,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowRadius: 16,
     elevation: 1,
   },
-  recentClientRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    gap: Spacing.sm,
-    minHeight: 62,
-    paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
-  },
-  recentClientRowBorder: {
-    borderBottomColor: Colors.border,
-    borderBottomWidth: 1,
-  },
   clientOptionSelected: {
     backgroundColor: Colors.bg2,
-  },
-  clientAvatar: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
-    height: 38,
-    justifyContent: "center",
-    width: 38,
-  },
-  clientAvatarText: {
-    color: Colors.primaryDark,
-    fontSize: 12,
-    fontWeight: "900",
-  },
-  clientCopy: {
-    flex: 1,
-  },
-  clientName: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  clientPhone: {
-    color: Colors.text2,
-    fontSize: 12,
-    marginTop: 2,
   },
   clientStateBlock: {
     alignItems: "center",
@@ -2480,6 +2692,83 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   searchSpacing: {
     zIndex: 25,
   },
+  embeddedClientSection: {
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    overflow: "hidden",
+  },
+  embeddedSectionHeading: {
+    alignItems: "center",
+    backgroundColor: Colors.bg2,
+    borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 38,
+    paddingHorizontal: 12,
+  },
+  embeddedSectionTitle: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  embeddedClientRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: 6,
+    padding: 8,
+  },
+  embeddedClientSearch: {
+    alignItems: "center",
+    borderColor: Colors.border,
+    borderRadius: 7,
+    borderWidth: 1,
+    flex: 1,
+    flexDirection: "row",
+    gap: 6,
+    minHeight: 40,
+    minWidth: 0,
+    paddingHorizontal: 9,
+  },
+  embeddedClientSearchText: {
+    color: Colors.placeholder,
+    flex: 1,
+    fontSize: 10,
+  },
+  embeddedClientSelectedText: {
+    color: Colors.heading,
+    fontWeight: "700",
+  },
+  embeddedClientAction: {
+    alignItems: "center",
+    borderColor: Colors.border,
+    borderRadius: 7,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 40,
+    paddingHorizontal: 9,
+  },
+  embeddedClientActionText: {
+    color: Colors.heading,
+    fontSize: 10,
+    fontWeight: "800",
+  },
+  embeddedAddClientAction: {
+    alignItems: "center",
+    backgroundColor: Colors.primaryDark,
+    borderRadius: 7,
+    flexDirection: "row",
+    gap: 2,
+    justifyContent: "center",
+    minHeight: 40,
+    paddingHorizontal: 8,
+  },
+  embeddedAddClientText: {
+    color: Colors.onPrimary,
+    fontSize: 10,
+    fontWeight: "800",
+  },
   packageStatus: {
     alignItems: "center",
     borderRadius: AppRadius.control,
@@ -2509,10 +2798,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     backgroundColor: Colors.successBg,
     borderColor: Colors.success,
   },
-  packageStatusLoading: {
-    backgroundColor: Colors.warningBg,
-    borderColor: Colors.warning,
-  },
   packageStatusMessage: {
     color: Colors.text2,
     fontSize: 11,
@@ -2538,6 +2823,151 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     color: Colors.onPrimary,
     fontSize: 11,
     fontWeight: "900",
+  },
+  staffSection: {
+    gap: Spacing.sm,
+    paddingHorizontal: AppLayout.contentHorizontalPadding,
+    paddingTop: Spacing.md,
+  },
+  embeddedStaffDropdown: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    minHeight: 44,
+    paddingHorizontal: 12,
+  },
+  embeddedStaffDropdownText: {
+    color: Colors.placeholder,
+    flex: 1,
+    fontSize: 13,
+  },
+  embeddedStaffDropdownSelected: {
+    color: Colors.heading,
+    fontWeight: "800",
+  },
+  staffSectionHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  staffSectionTitle: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  staffSelectedSummary: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 2,
+    maxWidth: 240,
+  },
+  staffSearchWrap: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: Spacing.sm,
+    minHeight: 46,
+    paddingHorizontal: Spacing.md,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.035,
+    shadowRadius: 14,
+    elevation: 1,
+  },
+  staffSearchInput: {
+    color: Colors.heading,
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+  },
+  staffList: {
+    marginHorizontal: -AppLayout.contentHorizontalPadding,
+    paddingHorizontal: AppLayout.contentHorizontalPadding,
+  },
+  staffCard: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.card,
+    borderWidth: 1,
+    marginRight: Spacing.sm,
+    minHeight: 120,
+    padding: Spacing.md,
+    position: "relative",
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.04,
+    shadowRadius: 16,
+    width: 136,
+    elevation: 1,
+  },
+  staffCardSelected: {
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.primary,
+    borderWidth: 2,
+  },
+  staffAvatar: {
+    alignItems: "center",
+    borderRadius: Radius.full,
+    height: 46,
+    justifyContent: "center",
+    marginBottom: Spacing.sm,
+    width: 46,
+  },
+  staffAvatarText: {
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  staffName: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "800",
+    textAlign: "center",
+    width: "100%",
+  },
+  staffRole: {
+    color: Colors.text2,
+    fontSize: 11,
+    fontWeight: "600",
+    marginTop: 3,
+    textAlign: "center",
+    width: "100%",
+  },
+  staffSelectedIcon: {
+    position: "absolute",
+    right: 8,
+    top: 8,
+  },
+  staffStateBlock: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.card,
+    borderWidth: 1,
+    gap: 6,
+    justifyContent: "center",
+    minHeight: 92,
+    padding: Spacing.lg,
+  },
+  staffStateTitle: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "800",
+    textAlign: "center",
+  },
+  staffStateText: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
   },
   content: {
     flex: 1,

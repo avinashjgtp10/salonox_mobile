@@ -42,10 +42,18 @@ export type ProductApiItem = {
   id?: string | number | null;
   is_active?: boolean | null;
   isActive?: boolean | null;
+  bottle_size?: number | string | null;
+  bottleSize?: number | string | null;
   low_stock_threshold?: number | string | null;
   lowStockThreshold?: number | string | null;
+  markup_percentage?: number | string | null;
+  markupPercentage?: number | string | null;
+  measure_unit?: string | null;
+  measureUnit?: string | null;
   name?: string | null;
   price?: number | string | null;
+  product_type?: string | null;
+  productType?: string | null;
   qty_alert?: number | string | null;
   qtyAlert?: number | string | null;
   retail_price?: number | string | null;
@@ -101,18 +109,25 @@ export type BrandListApiData =
     };
 
 export type Product = {
+  bottleSize?: number | null;
   brandId: string | null;
   brandName: string | null;
   category: string | null;
+  categoryId: string | null;
   createdAt: string | null;
   description: string | null;
   id: string;
   isActive: boolean;
   lowStockThreshold: number;
+  markupPercentage?: number | null;
+  measureUnit?: string | null;
   name: string;
   price: number;
+  productType?: string | null;
+  retailPrice?: number | null;
   sku: string | null;
   stockQuantity: number;
+  supplyPrice?: number | null;
 };
 
 export type ProductListItem = Product;
@@ -147,16 +162,34 @@ export type Brand = {
 };
 
 export type CreateProductRequest = {
+  barcode?: string;
+  bottle_size?: number;
   brand_id?: string | null;
   category?: string;
+  category_id?: string;
   description?: string;
+  expiry_date?: string;
+  hsn_sac?: string;
   is_active?: boolean;
+  lot_number?: string;
   low_stock_threshold?: number;
+  measure_unit?: string;
   name: string;
   price: number;
+  product_type?: "retail" | "consumable" | "both" | string;
+  qty_alert?: number;
+  remark?: string;
+  retail_price?: number;
   salon_id?: string;
   sku?: string;
   stock_quantity?: number;
+  supply_price?: number;
+  supplier_id?: string | null;
+  supplier_name?: string;
+  tax_group?: string;
+  tax_rate?: number;
+  tax_type?: string;
+  unit_conversions?: { conversion_to_base: number; unit_name: string }[];
 };
 
 export type UpdateProductRequest = Partial<CreateProductRequest>;

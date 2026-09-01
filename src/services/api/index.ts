@@ -10,7 +10,7 @@ import {
   type InternalAxiosRequestConfig,
 } from "axios";
 
-import { appEnv, environmentConfig } from "@/config/environment";
+import { environmentConfig } from "@/config/environment";
 import {
   getAuthErrorMessage,
   getAuthErrorStatus,
@@ -33,6 +33,7 @@ type RetryableRequestConfig = InternalAxiosRequestConfig & {
 };
 
 type ApiErrorPayload = {
+  code?: unknown;
   message?: unknown;
   error?: unknown;
   errors?: Record<string, string[] | string> | string[] | string;
@@ -58,32 +59,6 @@ export class ApiError extends Error {
     this.responseData = responseData;
     this.code = code;
   }
-}
-
-const redactDebugValue = (value: unknown): unknown => {
-  if (Array.isArray(value)) {
-    return value.map(redactDebugValue);
-  }
-
-  if (!value || typeof value !== "object") {
-    return value;
-  }
-
-  return Object.fromEntries(
-    Object.entries(value as Record<string, unknown>).map(([key, entry]) => [
-      key,
-      /authorization|password|refresh.?token|access.?token/i.test(key)
-        ? "[REDACTED]"
-        : redactDebugValue(entry),
-    ]),
-  );
-};
-
-if (__DEV__) {
-  console.log("[API Debug] Runtime configuration", {
-    appEnv,
-    apiBaseUrl: API_BASE_URL,
-  });
 }
 
 const refreshClient = create({
@@ -387,18 +362,6 @@ api.interceptors.request.use(async (config) => {
 
   await waitForOnlineIfNeeded(config);
 
-  if (__DEV__) {
-    console.log("[API Debug] Request", {
-      baseURL: config.baseURL,
-      fullUrl: api.getUri(config),
-      headers: redactDebugValue(config.headers),
-      method: config.method?.toUpperCase(),
-      params: redactDebugValue(config.params),
-      payload: redactDebugValue(config.data),
-      timeout: config.timeout,
-    });
-  }
-
   if (shouldSkipRefreshForRequest(requestUrl)) {
     return config;
   }
@@ -461,14 +424,6 @@ api.interceptors.response.use(
   (response) => {
     releaseProtectedRequest(response.config as RetryableRequestConfig);
 
-    if (__DEV__) {
-      console.log("[API Debug] Response", {
-        data: redactDebugValue(response.data),
-        status: response.status,
-        url: api.getUri(response.config),
-      });
-    }
-
     return response;
   },
   async (error: AxiosError<ApiErrorPayload>) => {
@@ -480,23 +435,6 @@ api.interceptors.response.use(
 
     if (isIntentionalLogoutCancellation(error)) {
       return Promise.reject(error);
-    }
-
-    if (__DEV__) {
-      console.error("[API Debug] Axios error", {
-        code: error.code,
-        error,
-        message: error.message,
-        request: error.request,
-        response: error.response
-          ? {
-              data: redactDebugValue(error.response.data),
-              headers: redactDebugValue(error.response.headers),
-              status: error.response.status,
-            }
-          : undefined,
-        url: originalRequest ? api.getUri(originalRequest) : requestUrl,
-      });
     }
 
     if (status === 401 && originalRequest && !originalRequest._retry && !shouldSkipRefresh) {

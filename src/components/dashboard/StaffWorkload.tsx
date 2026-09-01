@@ -64,42 +64,42 @@ const getAttendancePresentation = (
   };
 };
 
-const getAvailabilityPresentation = (member: StaffMember, jobs: number) => {
+const getAvailabilityPresentation = (member: StaffMember, jobs: number, Colors: ThemeColors) => {
   if (member.status === "Inactive" || member.status === "On Leave" || member.availability === "Offline") {
     return {
-      bg: "rgba(236, 127, 127, 0.15)",
-      color: "#FF9B9B",
+      bg: Colors.errorBg,
+      color: Colors.error,
       label: "Inactive",
     };
   }
 
   if (member.status === "Working") {
     return {
-      bg: "rgba(139, 199, 162, 0.14)",
-      color: "#91D68F",
+      bg: Colors.successBg,
+      color: Colors.success,
       label: "Working",
     };
   }
 
   if (member.status === "Busy" || member.availability === "Busy" || jobs >= 3) {
     return {
-      bg: "rgba(245, 191, 79, 0.15)",
-      color: "#F5C451",
+      bg: Colors.warningBg,
+      color: Colors.warning,
       label: "Busy",
     };
   }
 
   return {
-    bg: "rgba(139, 199, 162, 0.14)",
-    color: "#91D68F",
+    bg: Colors.successBg,
+    color: Colors.success,
     label: "Available",
   };
 };
 
-const getProgressColor = (pct: number) => {
-  if (pct >= 65) return "#91D68F";
-  if (pct >= 35) return "#F5C451";
-  return "#FF91A4";
+const getProgressColor = (pct: number, Colors: ThemeColors) => {
+  if (pct >= 65) return Colors.success;
+  if (pct >= 35) return Colors.warning;
+  return Colors.error;
 };
 
 export default function StaffWorkload() {
@@ -152,7 +152,7 @@ export default function StaffWorkload() {
             const slotsLeft = isOnLeave ? 0 : Math.max(0, totalSlots - jobs);
             const pct = isOnLeave ? 0 : Math.min(100, Math.round((jobs / totalSlots) * 100));
             const attendance = getAttendancePresentation(attendanceRecord, Colors);
-            const availability = getAvailabilityPresentation(member, jobs);
+            const availability = getAvailabilityPresentation(member, jobs, Colors);
             const initials =
               member.initials ||
               member.name
@@ -206,7 +206,7 @@ export default function StaffWorkload() {
                       style={[
                         styles.progressFill,
                         {
-                          backgroundColor: getProgressColor(pct),
+                          backgroundColor: getProgressColor(pct, Colors),
                           width: `${pct}%`,
                         },
                       ]}
@@ -228,10 +228,10 @@ export default function StaffWorkload() {
               </View>
             </View>
             <View style={styles.legendRow}>
-              <LegendItem color="#91D68F" label="Present" />
-              <LegendItem color="#F5C451" label="Late" />
-              <LegendItem color="#FF9B9B" label="Absent" />
-              <LegendItem color="#A9A9A9" label="Not Marked" />
+              <LegendItem color={Colors.success} label="Present" />
+              <LegendItem color={Colors.warning} label="Late" />
+              <LegendItem color={Colors.error} label="Absent" />
+              <LegendItem color={Colors.hint} label="Not Marked" />
             </View>
           </View>
         </View>
@@ -241,10 +241,12 @@ export default function StaffWorkload() {
 }
 
 function LegendItem({ color, label }: { color: string; label: string }) {
+  const Colors = useThemeColors();
+
   return (
     <View style={legendStyles.item}>
       <View style={[legendStyles.dot, { backgroundColor: color }]} />
-      <Text style={legendStyles.label}>{label}</Text>
+      <Text style={[legendStyles.label, { color: Colors.text2 }]}>{label}</Text>
     </View>
   );
 }
@@ -261,7 +263,6 @@ const legendStyles = StyleSheet.create({
     gap: 6,
   },
   label: {
-    color: "#B8AEA3",
     fontSize: 11,
     fontWeight: "600",
   },
@@ -309,9 +310,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   stateCard: {
     alignItems: "center",
-    backgroundColor: "rgba(32, 29, 26, 0.92)",
+    backgroundColor: Colors.dashboardCard,
     borderColor: Colors.border,
-    borderRadius: Radius.xxl,
+    borderRadius: 14,
     borderWidth: 1,
     justifyContent: "center",
     minHeight: 118,
@@ -327,14 +328,14 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   memberCard: {
     alignItems: "center",
-    backgroundColor: "rgba(32, 29, 26, 0.92)",
-    borderColor: "#2E2E2E",
-    borderRadius: 22,
+    backgroundColor: Colors.dashboardCard,
+    borderColor: Colors.border,
+    borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
     gap: Spacing.md,
-    minHeight: 150,
-    padding: 20,
+    minHeight: 134,
+    padding: 16,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 16 },
     shadowOpacity: 0.18,
@@ -343,19 +344,19 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   avatar: {
     alignItems: "center",
-    backgroundColor: "#F3EFE7",
-    borderRadius: 19,
-    height: 58,
+    backgroundColor: Colors.dashboardClientBg,
+    borderRadius: 18,
+    height: 52,
     justifyContent: "center",
-    shadowColor: "#FFFFFF",
+    shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.12,
+    shadowOpacity: 0.08,
     shadowRadius: 8,
-    width: 58,
+    width: 52,
   },
   avatarText: {
-    color: "#5B5249",
-    fontSize: 18,
+    color: Colors.dashboardClientAccent,
+    fontSize: 16,
     fontWeight: "900",
   },
   memberInfo: {
@@ -410,8 +411,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   timeChip: {
     alignItems: "center",
-    backgroundColor: "rgba(255,255,255,0.045)",
-    borderColor: "rgba(255,255,255,0.055)",
+    backgroundColor: Colors.dashboardCardMuted,
+    borderColor: Colors.border,
     borderRadius: Radius.full,
     borderWidth: 1,
     flexDirection: "row",
@@ -430,7 +431,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
   progressTrack: {
-    backgroundColor: "rgba(0,0,0,0.22)",
+    backgroundColor: Colors.backgroundElement,
     borderRadius: Radius.full,
     height: 6,
     overflow: "hidden",
@@ -441,9 +442,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minWidth: 8,
   },
   legendCard: {
-    backgroundColor: "rgba(32, 29, 26, 0.92)",
-    borderColor: "#2E2E2E",
-    borderRadius: 20,
+    backgroundColor: Colors.dashboardCard,
+    borderColor: Colors.border,
+    borderRadius: 14,
     borderWidth: 1,
     gap: Spacing.md,
     padding: Spacing.md,

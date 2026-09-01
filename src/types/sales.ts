@@ -123,6 +123,11 @@ export type SaleDetail = {
   clientName: string;
   clientPhone: string;
   couponCode: string | null;
+  // Real backend-computed split of discountAmount — manual_discount_amount /
+  // coupon_discount_amount are stored as distinct columns (sales.types.ts on
+  // the backend), not derived client-side.
+  couponDiscountAmount: number;
+  manualDiscountAmount: number;
   createdDateLabel: string;
   discountAmount: number;
   discountPercent: number;
@@ -133,6 +138,9 @@ export type SaleDetail = {
   notes: string | null;
   outstandingAmount: number;
   paymentMethod: string;
+  // Raw JSON string of { [method]: amount } when paymentMethod === "split"
+  // (see sales.service.ts's buildSaleRequestBody) — null otherwise.
+  paymentReference: string | null;
   receiptNumber: string;
   status: SaleStatus;
   subtotal: number;
@@ -192,6 +200,8 @@ export type SalesSummary = {
   totalSales: number;
   totalTransactions: number;
 };
+
+export type ExportFormat = "csv" | "excel" | "pdf";
 
 export type ExportSalesResponse = {
   message?: string;

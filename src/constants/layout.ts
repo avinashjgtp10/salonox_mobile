@@ -6,6 +6,7 @@ export const AppLayout = {
   contentHorizontalPadding: 22,
   floatingButtonBottom: BottomTabInset + 10,
   floatingButtonRight: 22,
+  headerActionHitSlop: 12,
   headerActionSize: 38,
   headerMarginBottom: 18,
   headerSubtitleFontSize: 11.5,
@@ -22,8 +23,8 @@ export const AppLayout = {
 };
 
 export const AppRadius = {
-  card: Radius.xl,
-  control: Radius.md,
+  card: 8,
+  control: 6,
   pill: Radius.full,
-  search: Radius.xl,
+  search: 8,
 };

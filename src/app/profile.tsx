@@ -2,20 +2,18 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router, type Href } from "expo-router";
-import { useEffect, useMemo, useState } from "react";
+import { type RefObject, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
-  Platform,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -25,6 +23,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { fetchSalonMeThunk } from "@/middleware/salon/salon.thunk";
 import {
   fetchProfileThunk,
   updateProfileThunk,
@@ -41,14 +40,16 @@ import {
   selectProfileUploadingAvatar,
 } from "@/store/profile/profile.slice";
 import { getApiErrorMessage } from "@/services/api";
+import { useAppToast } from "@/hooks/useAppToast";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import {
+  selectSalonById,
+  selectSalonDetailsLoading,
+  selectSalons,
+} from "@/store/salon/salon.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import type { UpdateProfileRequest, UserProfile } from "@/types/profile";
-
-const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
-
-const isValidDateOfBirth = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
 
 const getInitials = (fullName: string) =>
   fullName
@@ -63,53 +64,161 @@ const formatValue = (value: string | null | undefined) => {
   return trimmed ? trimmed : "-";
 };
 
-const formatGender = (value: string | null) => {
+const formatEmpty = (value: string | null | undefined, emptyText: string) => {
+  const trimmed = value?.trim();
+  return trimmed ? { isEmpty: false, text: trimmed } : { isEmpty: true, text: emptyText };
+};
+
+const formatMonthYear = (value: string | null | undefined) => {
   if (!value) {
     return "-";
   }
-  return value.charAt(0).toUpperCase() + value.slice(1).toLowerCase();
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "-";
+  }
+
+  return date.toLocaleDateString("en-IN", { month: "long", year: "numeric" });
+};
+
+const ALLOWED_AVATAR_MIME_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MAX_AVATAR_SIZE_BYTES = 999 * 1024;
+const PROFILE_PHOTO_SUCCESS = "Profile photo updated!";
+
+const getPickedFileName = (uri: string, fallback: string) => {
+  const fileName = uri.split("/").pop()?.split("?")[0];
+  return fileName && fileName.includes(".") ? fileName : fallback;
+};
+
+const getPickedMimeType = (asset: ImagePicker.ImagePickerAsset) => {
+  const fileName = asset.fileName?.trim() || getPickedFileName(asset.uri, "avatar.jpg");
+  const extension = fileName.split(".").pop()?.toLowerCase();
+
+  if (asset.mimeType?.trim()) {
+    return asset.mimeType.trim().toLowerCase();
+  }
+
+  if (extension === "png") return "image/png";
+  if (extension === "webp") return "image/webp";
+  return "image/jpeg";
+};
+
+const withAvatarCacheKey = (uri: string, cacheKey: number) => {
+  if (!cacheKey) {
+    return uri;
+  }
+
+  return `${uri}${uri.includes("?") ? "&" : "?"}v=${cacheKey}`;
 };
 
 type EditState = {
   address: string;
   businessName: string;
-  dateOfBirth: string;
   fullName: string;
-  gender: string;
   phone: string;
 };
 
 const toEditState = (profile: UserProfile): EditState => ({
   address: profile.address ?? "",
   businessName: profile.businessName ?? "",
-  dateOfBirth: profile.dateOfBirth ?? "",
   fullName: profile.fullName ?? "",
-  gender: profile.gender ?? "",
   phone: profile.phone ?? "",
 });
 
-function DetailRow({ label, value }: { label: string; value: string }) {
+function FieldBox({
+  badge,
+  empty,
+  icon,
+  label,
+  value,
+}: {
+  badge?: string;
+  empty?: boolean;
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+}) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
-    <View style={styles.detailRow}>
-      <Text style={styles.detailLabel}>{label}</Text>
-      <Text style={styles.detailValue}>{value}</Text>
+    <View style={styles.webField}>
+      <Text style={styles.webFieldLabel}>{label}</Text>
+      <View style={styles.webFieldValueRow}>
+        <Ionicons color={Colors.hint} name={icon} size={17} />
+        <Text
+          numberOfLines={2}
+          style={[styles.webFieldValue, empty && styles.webFieldValueEmpty]}
+        >
+          {value}
+        </Text>
+        {badge ? (
+          <View style={styles.systemBadge}>
+            <Text style={styles.systemBadgeText}>{badge}</Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
 
-function Section({ children, title }: { children: React.ReactNode; title: string }) {
+function WebCard({
+  children,
+  icon,
+  iconTone = "blue",
+  rightAction,
+  subtitle,
+  title,
+}: {
+  children: React.ReactNode;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconTone?: "blue" | "purple";
+  rightAction?: React.ReactNode;
+  subtitle: string;
+  title: string;
+}) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
-    <View style={styles.sectionCard}>
-      <Text style={styles.sectionTitle}>{title}</Text>
+    <View style={styles.webCard}>
+      <View style={styles.webCardHeader}>
+        <View style={styles.webCardHeaderLeft}>
+          <View style={[styles.webIconBadge, iconTone === "purple" && styles.webIconBadgePurple]}>
+            <Ionicons color={iconTone === "purple" ? Colors.purple : Colors.accentBlue} name={icon} size={18} />
+          </View>
+          <View style={styles.webCardTitleWrap}>
+            <Text style={styles.webCardTitle}>{title}</Text>
+            <Text style={styles.webCardSubtitle}>{subtitle}</Text>
+          </View>
+        </View>
+        {rightAction}
+      </View>
       {children}
     </View>
   );
+}
+
+function WebSubsection({ children, title }: { children: React.ReactNode; title: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  return (
+    <View style={styles.webSubsection}>
+      <Text style={styles.webSubsectionTitle}>{title}</Text>
+      <View style={styles.webSubsectionRule} />
+      {children}
+    </View>
+  );
+}
+
+function FieldGrid({ children }: { children: React.ReactNode }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  return <View style={styles.webFieldGrid}>{children}</View>;
 }
 
 function FormField({
@@ -117,14 +226,22 @@ function FormField({
   keyboardType,
   label,
   onChangeText,
+  onFocus,
+  onSubmitEditing,
   placeholder,
+  returnKeyType = "next",
+  inputRef,
   value,
 }: {
   editable?: boolean;
+  inputRef?: RefObject<TextInput | null>;
   keyboardType?: "default" | "phone-pad";
   label: string;
   onChangeText: (value: string) => void;
+  onFocus?: () => void;
+  onSubmitEditing?: () => void;
   placeholder: string;
+  returnKeyType?: "done" | "next";
   value: string;
 }) {
   const Colors = useThemeColors();
@@ -137,8 +254,13 @@ function FormField({
         editable={editable}
         keyboardType={keyboardType}
         onChangeText={onChangeText}
+        onFocus={onFocus}
+        onSubmitEditing={onSubmitEditing}
         placeholder={placeholder}
         placeholderTextColor={Colors.placeholder}
+        ref={inputRef}
+        returnKeyType={returnKeyType}
+        blurOnSubmit={returnKeyType === "done"}
         style={styles.textInput}
         value={value}
       />
@@ -150,7 +272,21 @@ export default function ProfileScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const currentUser = useAppSelector(selectCurrentUser);
+  const salons = useAppSelector(selectSalons);
+  const activeSalon = useAppSelector((state) => selectSalonById(state, currentUser?.salonId)) ?? salons[0] ?? null;
+  const isSalonLoading = useAppSelector(selectSalonDetailsLoading);
+  const fullNameInputRef = useRef<TextInput>(null);
+  const phoneInputRef = useRef<TextInput>(null);
+  const businessNameInputRef = useRef<TextInput>(null);
+  const addressInputRef = useRef<TextInput>(null);
+  const profileNavigationFields = useMemo(() => [
+    { ref: fullNameInputRef },
+    { ref: phoneInputRef },
+    { ref: businessNameInputRef },
+    { ref: addressInputRef },
+  ], []);
   const userId = currentUser?.id ?? "";
   const profile = useAppSelector(selectProfile);
   const isLoading = useAppSelector(selectProfileLoading);
@@ -165,10 +301,13 @@ export default function ProfileScreen() {
   const [editState, setEditState] = useState<EditState | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [selectedAvatarUri, setSelectedAvatarUri] = useState<string | null>(null);
+  const [avatarCacheKey, setAvatarCacheKey] = useState(0);
 
   useEffect(() => {
     if (userId) {
       void dispatch(fetchProfileThunk({ userId }));
+      void dispatch(fetchSalonMeThunk());
     }
   }, [dispatch, userId]);
 
@@ -183,6 +322,7 @@ export default function ProfileScreen() {
   const handleRefresh = () => {
     if (userId) {
       void dispatch(fetchProfileThunk({ refresh: true, userId }));
+      void dispatch(fetchSalonMeThunk());
     }
   };
 
@@ -213,8 +353,6 @@ export default function ProfileScreen() {
     }
 
     const trimmedName = editState.fullName.trim();
-    const trimmedDob = editState.dateOfBirth.trim();
-
     setFormError(null);
     setSuccessMessage(null);
 
@@ -223,21 +361,14 @@ export default function ProfileScreen() {
       return;
     }
 
-    if (trimmedDob && !isValidDateOfBirth(trimmedDob)) {
-      setFormError("Enter date of birth as YYYY-MM-DD.");
-      return;
-    }
-
     const updates: UpdateProfileRequest = {
       address: editState.address.trim(),
       businessName: editState.businessName.trim(),
-      dateOfBirth: trimmedDob,
       fullName: trimmedName,
-      gender: editState.gender.trim(),
       phone: editState.phone.trim(),
     };
 
-    const resultAction = await dispatch(updateProfileThunk({ updates }));
+    const resultAction = await dispatch(updateProfileThunk({ updates, userId }));
 
     if (updateProfileThunk.rejected.match(resultAction)) {
       setFormError(resultAction.payload?.message ?? "Unable to update profile.");
@@ -247,9 +378,6 @@ export default function ProfileScreen() {
     setSuccessMessage(resultAction.payload.message ?? "Profile updated successfully.");
     setIsEditing(false);
     setEditState(null);
-
-    // Refresh the Profile screen from GET /profile/:id after the successful update.
-    void dispatch(fetchProfileThunk({ refresh: true, userId }));
   };
 
   const uploadPickedAsset = async (result: ImagePicker.ImagePickerResult) => {
@@ -262,14 +390,45 @@ export default function ProfileScreen() {
     setFormError(null);
     setSuccessMessage(null);
 
-    const resultAction = await dispatch(
-      uploadAvatarThunk({
-        asset: { fileName: asset.fileName, mimeType: asset.mimeType, uri: asset.uri },
-      }),
-    );
+    const mimeType = getPickedMimeType(asset);
 
-    if (uploadAvatarThunk.fulfilled.match(resultAction)) {
-      setSuccessMessage(resultAction.payload.message ?? "Profile photo updated.");
+    if (!ALLOWED_AVATAR_MIME_TYPES.has(mimeType)) {
+      const message = "Only JPEG, PNG, or WebP images are supported.";
+      setFormError(message);
+      toast.showError(message);
+      return;
+    }
+
+    if (typeof asset.fileSize === "number" && asset.fileSize > MAX_AVATAR_SIZE_BYTES) {
+      const message = "Profile photo must be smaller than 999 KB.";
+      setFormError(message);
+      toast.showError(message);
+      return;
+    }
+
+    const fileName = asset.fileName?.trim() || getPickedFileName(asset.uri, "avatar.jpg");
+
+    setSelectedAvatarUri(asset.uri);
+
+    try {
+      const resultAction = await dispatch(
+        uploadAvatarThunk({
+          asset: { fileName, fileSize: asset.fileSize, mimeType, uri: asset.uri },
+        }),
+      );
+
+      if (uploadAvatarThunk.rejected.match(resultAction)) {
+        const message = resultAction.payload?.message ?? "Unable to upload photo.";
+        setFormError(message);
+        toast.showError(message);
+        return;
+      }
+
+      setAvatarCacheKey(Date.now());
+      setSuccessMessage(PROFILE_PHOTO_SUCCESS);
+      toast.showSuccess(PROFILE_PHOTO_SUCCESS);
+    } finally {
+      setSelectedAvatarUri(null);
     }
   };
 
@@ -310,7 +469,7 @@ export default function ProfileScreen() {
 
       await uploadPickedAsset(result);
     } catch (pickerError) {
-      Alert.alert("Something went wrong", getApiErrorMessage(pickerError));
+      toast.showError(getApiErrorMessage(pickerError));
     }
   };
 
@@ -333,11 +492,13 @@ export default function ProfileScreen() {
 
   const showInitialLoading = isLoading && !profile;
   const showErrorState = Boolean(error) && !profile && !showInitialLoading;
+  const profileAvatarUri = profile?.avatarUrl ? withAvatarCacheKey(profile.avatarUrl, avatarCacheKey) : null;
+  const displayedAvatarUri = selectedAvatarUri ?? profileAvatarUri;
 
   const renderHeader = (rightAction?: React.ReactNode) => (
     <View style={styles.headerRow}>
-      <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.headerButton}>
-        <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+      <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.headerButton}>
+        <Ionicons name="arrow-back" size={18} color={Colors.primary} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Profile</Text>
       {rightAction ?? <View style={styles.headerButton} />}
@@ -405,24 +566,42 @@ export default function ProfileScreen() {
       <Text style={styles.headerTextButtonLabel}>Cancel</Text>
     </TouchableOpacity>
   ) : (
-    <TouchableOpacity activeOpacity={0.8} onPress={handleStartEditing} style={styles.headerButton}>
+    <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleStartEditing} style={styles.headerButton}>
       <Ionicons name="create-outline" size={18} color={Colors.primary} />
     </TouchableOpacity>
   );
 
   const banner = formError ?? saveError ?? avatarError ?? successMessage;
   const bannerIsError = Boolean(formError ?? saveError ?? avatarError);
+  const memberSince = formatMonthYear(activeSalon?.createdAt);
+  const countryValue = profile.countryCode ?? profile.country;
+  const salonName = activeSalon?.businessName || activeSalon?.name || profile.businessName;
+  const salonEmail = activeSalon?.email || profile.email;
+  const salonPhone = activeSalon?.phone || profile.phone;
+  const salonAddress = activeSalon?.address || profile.address;
+  const website = formatEmpty(activeSalon?.websiteUrl, "No website set");
+  const gstin = formatEmpty(activeSalon?.gstin, "No gst number set");
+  const businessRegNo = formatEmpty(null, "No business reg. no. (pan) set");
+  const businessType = formatEmpty("Hair salon", "No business type set");
+  const businessCategory = formatEmpty(null, "No business category set");
+  const city = formatEmpty(activeSalon?.city, "No city set");
+  const state = formatEmpty(activeSalon?.state, "No state set");
+  const pincode = formatEmpty(activeSalon?.postalCode, "No pincode set");
+  const timezone = formatEmpty(activeSalon?.timezone || "Asia/Kolkata", "No timezone set");
+  const description = formatEmpty(null, "No description set");
+  const salonEditButton = (
+    <TouchableOpacity activeOpacity={0.84} onPress={handleStartEditing} style={styles.webEditButton}>
+      <Text style={styles.webEditButtonText}>Edit</Text>
+    </TouchableOpacity>
+  );
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.flex}
-      >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.content}
+        keyboardNavigation={isEditing ? { fields: profileNavigationFields, hideOnLast: true, onDone: handleSave, showAccessory: false } : undefined}
+        keyboardShouldPersistTaps="handled"
           refreshControl={
             isEditing ? undefined : (
               <RefreshControl
@@ -435,7 +614,7 @@ export default function ProfileScreen() {
           }
           showsVerticalScrollIndicator={false}
         >
-          {renderHeader(editRightAction)}
+          {renderHeader(isEditing ? editRightAction : undefined)}
 
           <View style={styles.heroCard}>
             <TouchableOpacity
@@ -445,8 +624,8 @@ export default function ProfileScreen() {
               onPress={handleChangePhoto}
               style={styles.avatarWrap}
             >
-              {profile.avatarUrl ? (
-                <Image contentFit="cover" source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
+              {displayedAvatarUri ? (
+                <Image contentFit="cover" source={{ uri: displayedAvatarUri }} style={styles.avatarImage} />
               ) : (
                 <View style={styles.avatar}>
                   <Text style={styles.avatarText}>{initials}</Text>
@@ -497,62 +676,45 @@ export default function ProfileScreen() {
 
           {isEditing && editState ? (
             <>
-              <Section title="Personal Information">
+              <WebCard icon="person-outline" subtitle="Your name, email and contact details" title="Personal Information">
                 <FormField
+                  inputRef={fullNameInputRef}
                   label="Full Name"
                   onChangeText={(value) => updateField("fullName", value)}
+                  onSubmitEditing={() => phoneInputRef.current?.focus()}
                   placeholder="Enter full name"
                   value={editState.fullName}
                 />
                 <FormField
+                  inputRef={phoneInputRef}
                   keyboardType="phone-pad"
                   label="Phone Number"
                   onChangeText={(value) => updateField("phone", value)}
+                  onSubmitEditing={() => businessNameInputRef.current?.focus()}
                   placeholder="Enter phone number"
                   value={editState.phone}
                 />
-                <View style={styles.inputGroup}>
-                  <Text style={styles.inputLabel}>Gender</Text>
-                  <View style={styles.genderRow}>
-                    {GENDER_OPTIONS.map((option) => {
-                      const isSelected = editState.gender.toLowerCase() === option.toLowerCase();
-                      return (
-                        <TouchableOpacity
-                          key={option}
-                          activeOpacity={0.82}
-                          onPress={() => updateField("gender", option)}
-                          style={[styles.genderChip, isSelected && styles.genderChipSelected]}
-                        >
-                          <Text style={[styles.genderChipText, isSelected && styles.genderChipTextSelected]}>
-                            {option}
-                          </Text>
-                        </TouchableOpacity>
-                      );
-                    })}
-                  </View>
-                </View>
-                <FormField
-                  label="Date of Birth"
-                  onChangeText={(value) => updateField("dateOfBirth", value)}
-                  placeholder="YYYY-MM-DD"
-                  value={editState.dateOfBirth}
-                />
-              </Section>
+              </WebCard>
 
-              <Section title="Business">
+              <WebCard icon="business-outline" iconTone="purple" subtitle="Your salon's business details and location" title="Salon Information">
                 <FormField
-                  label="Business Name"
+                  inputRef={businessNameInputRef}
+                  label="Salon Name"
                   onChangeText={(value) => updateField("businessName", value)}
-                  placeholder="Enter business name"
+                  onSubmitEditing={() => addressInputRef.current?.focus()}
+                  placeholder="Enter salon name"
                   value={editState.businessName}
                 />
                 <FormField
+                  inputRef={addressInputRef}
                   label="Address"
                   onChangeText={(value) => updateField("address", value)}
+                  onSubmitEditing={handleSave}
                   placeholder="Enter address"
+                  returnKeyType="done"
                   value={editState.address}
                 />
-              </Section>
+              </WebCard>
 
               <TouchableOpacity
                 activeOpacity={0.88}
@@ -570,28 +732,72 @@ export default function ProfileScreen() {
             </>
           ) : (
             <>
-              <Section title="Personal Information">
-                <DetailRow label="Full Name" value={formatValue(profile.fullName)} />
-                <DetailRow label="Email" value={formatValue(profile.email)} />
-                <DetailRow label="Phone" value={formatValue(profile.phone)} />
-                <DetailRow label="Gender" value={formatGender(profile.gender)} />
-                <DetailRow label="Date of Birth" value={formatValue(profile.dateOfBirth)} />
-                <DetailRow label="Role" value={formatValue(profile.role)} />
-              </Section>
+              <WebCard icon="person-outline" subtitle="Your name, email and contact details" title="Personal Information">
+                <FieldGrid>
+                  <FieldBox icon="person-outline" label="FULL NAME" value={formatValue(profile.fullName)} />
+                  <FieldBox icon="mail-outline" label="EMAIL ADDRESS" value={formatValue(profile.email)} />
+                  <FieldBox icon="call-outline" label="PHONE NUMBER" value={formatValue(profile.phone)} />
+                  <FieldBox icon="globe-outline" label="COUNTRY" value={formatValue(countryValue)} />
+                  <FieldBox icon="id-card-outline" label="ROLE" value={formatValue(profile.role)} badge="SYSTEM" />
+                  <FieldBox icon="checkmark-circle" label="MEMBER SINCE" value={memberSince} />
+                </FieldGrid>
+              </WebCard>
 
-              <Section title="Business">
-                <DetailRow label="Business Name" value={formatValue(profile.businessName)} />
-                <DetailRow label="Address" value={formatValue(profile.address)} />
-                <DetailRow label="Country" value={formatValue(profile.country)} />
-                <DetailRow
-                  label="Account Status"
-                  value={profile.isActive === false ? "Inactive" : "Active"}
-                />
-              </Section>
+              <WebCard
+                icon="business-outline"
+                iconTone="purple"
+                rightAction={salonEditButton}
+                subtitle="Your salon's business details and location"
+                title="Salon Information"
+              >
+                {isSalonLoading && !activeSalon ? (
+                  <View style={styles.webLoadingRow}>
+                    <ActivityIndicator color={Colors.primary} size="small" />
+                    <Text style={styles.webLoadingText}>Loading salon information...</Text>
+                  </View>
+                ) : null}
+                <WebSubsection title="BASIC DETAILS">
+                  <FieldGrid>
+                    <FieldBox icon="business-outline" label="SALON NAME" value={formatValue(salonName)} />
+                    <FieldBox icon="mail-outline" label="SALON EMAIL" value={formatValue(salonEmail)} />
+                    <FieldBox icon="call-outline" label="SALON PHONE" value={formatValue(salonPhone)} />
+                    <FieldBox empty={website.isEmpty} icon="globe-outline" label="WEBSITE" value={website.text} />
+                  </FieldGrid>
+                </WebSubsection>
+
+                <WebSubsection title="BUSINESS & TAX">
+                  <FieldGrid>
+                    <FieldBox empty={gstin.isEmpty} icon="pricetag-outline" label="GST NUMBER" value={gstin.text} />
+                    <FieldBox empty={businessRegNo.isEmpty} icon="card-outline" label="BUSINESS REG. NO. (PAN)" value={businessRegNo.text} />
+                    <FieldBox empty={businessType.isEmpty} icon="business-outline" label="BUSINESS TYPE" value={businessType.text} />
+                    <FieldBox empty={businessCategory.isEmpty} icon="ticket-outline" label="BUSINESS CATEGORY" value={businessCategory.text} />
+                  </FieldGrid>
+                </WebSubsection>
+
+                <WebSubsection title="LOCATION">
+                  <FieldGrid>
+                    <FieldBox icon="location-outline" label="ADDRESS" value={formatValue(salonAddress)} />
+                    <FieldBox empty={city.isEmpty} icon="map-outline" label="CITY" value={city.text} />
+                    <FieldBox empty={state.isEmpty} icon="map-outline" label="STATE" value={state.text} />
+                    <FieldBox empty={pincode.isEmpty} icon="pricetag-outline" label="PINCODE" value={pincode.text} />
+                  </FieldGrid>
+                </WebSubsection>
+
+                <WebSubsection title="REGIONAL SETTINGS">
+                  <FieldGrid>
+                    <FieldBox empty={timezone.isEmpty} icon="time-outline" label="TIMEZONE" value={timezone.text} />
+                  </FieldGrid>
+                </WebSubsection>
+
+                <WebSubsection title="DESCRIPTION">
+                  <FieldGrid>
+                    <FieldBox empty={description.isEmpty} icon="document-text-outline" label="DESCRIPTION" value={description.text} />
+                  </FieldGrid>
+                </WebSubsection>
+              </WebCard>
             </>
           )}
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
@@ -695,7 +901,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   avatarUploadingOverlay: {
     alignItems: "center",
-    backgroundColor: "rgba(20, 18, 16, 0.45)",
+    backgroundColor: "rgba(15, 23, 32, 0.45)",
     borderRadius: 36,
     bottom: 0,
     justifyContent: "center",
@@ -767,11 +973,11 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   bannerError: {
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(114, 106, 99, 0.18)",
+    borderColor: Colors.errorBorder,
   },
   bannerSuccess: {
     backgroundColor: Colors.successBg,
-    borderColor: "rgba(28, 25, 23, 0.12)",
+    borderColor: Colors.successBorder,
   },
   bannerText: {
     flex: 1,
@@ -784,6 +990,151 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   bannerTextSuccess: {
     color: Colors.success,
+  },
+  webCard: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.card,
+    borderWidth: 1,
+    marginTop: Spacing.lg,
+    padding: Spacing.lg,
+    shadowColor: Colors.shadow,
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.04,
+    shadowRadius: 18,
+    elevation: 1,
+  },
+  webCardHeader: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: Spacing.lg,
+  },
+  webCardHeaderLeft: {
+    alignItems: "center",
+    flex: 1,
+    flexDirection: "row",
+    minWidth: 0,
+  },
+  webIconBadge: {
+    alignItems: "center",
+    backgroundColor: Colors.accentBlueSoft,
+    borderRadius: Radius.lg,
+    height: 50,
+    justifyContent: "center",
+    marginRight: Spacing.md,
+    width: 50,
+  },
+  webIconBadgePurple: {
+    backgroundColor: Colors.purpleBg,
+  },
+  webCardTitleWrap: {
+    flex: 1,
+    minWidth: 0,
+  },
+  webCardTitle: {
+    color: Colors.heading,
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  webCardSubtitle: {
+    color: Colors.text2,
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 2,
+  },
+  webEditButton: {
+    alignItems: "center",
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 42,
+    paddingHorizontal: Spacing.lg,
+  },
+  webEditButtonText: {
+    color: Colors.text,
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  webFieldGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: Spacing.md,
+  },
+  webField: {
+    flexBasis: "47%",
+    flexGrow: 1,
+    minWidth: 250,
+  },
+  webFieldLabel: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "800",
+    letterSpacing: 1.1,
+    marginBottom: Spacing.sm,
+  },
+  webFieldValueRow: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.control,
+    borderWidth: 1,
+    flexDirection: "row",
+    minHeight: 54,
+    paddingHorizontal: Spacing.md,
+  },
+  webFieldValue: {
+    color: Colors.heading,
+    flex: 1,
+    fontSize: 15,
+    lineHeight: 20,
+    marginLeft: Spacing.sm,
+  },
+  webFieldValueEmpty: {
+    color: Colors.placeholder,
+    fontStyle: "italic",
+  },
+  systemBadge: {
+    backgroundColor: Colors.bg2,
+    borderColor: Colors.border,
+    borderRadius: Radius.sm,
+    borderWidth: 1,
+    marginLeft: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
+    paddingVertical: 4,
+  },
+  systemBadgeText: {
+    color: Colors.hint,
+    fontSize: 11,
+    fontWeight: "900",
+    letterSpacing: 0.7,
+  },
+  webSubsection: {
+    marginTop: Spacing.sm,
+  },
+  webSubsectionTitle: {
+    color: Colors.text2,
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1.1,
+  },
+  webSubsectionRule: {
+    backgroundColor: Colors.border,
+    height: StyleSheet.hairlineWidth,
+    marginBottom: Spacing.md,
+    marginTop: Spacing.sm,
+  },
+  webLoadingRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  webLoadingText: {
+    color: Colors.text2,
+    fontSize: 13,
+    fontWeight: "700",
   },
   sectionCard: {
     backgroundColor: Colors.card,
@@ -835,33 +1186,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 15,
     minHeight: 52,
     paddingHorizontal: AppLayout.searchBarPaddingX,
-  },
-  genderRow: {
-    flexDirection: "row",
-    gap: Spacing.sm,
-  },
-  genderChip: {
-    alignItems: "center",
-    backgroundColor: Colors.bg,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.pill,
-    borderWidth: 1,
-    flex: 1,
-    justifyContent: "center",
-    minHeight: 42,
-    paddingHorizontal: Spacing.md,
-  },
-  genderChipSelected: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  genderChipText: {
-    color: Colors.text2,
-    fontSize: 13,
-    fontWeight: "800",
-  },
-  genderChipTextSelected: {
-    color: "#FFFFFF",
   },
   submitButton: {
     alignItems: "center",

@@ -1,85 +1,62 @@
 import type { CartItem } from "@/features/quickSale/types";
 import { getPackageCoveredQuantity } from "@/features/quickSale/utils/packageCoverage";
+import type { CalculateTotalsResponse, TaxBreakdownEntry } from "@/types/pricing";
 
 export type BillTotals = {
+  appliedEWallet: number;
+  appliedMembershipDiscount: number;
+  appliedMembershipWallet: number;
+  appliedReferralCredit: number;
+  appliedRewardPointsValue: number;
   couponDiscount: number;
+  couponRejectedReason?: string;
   exCharges: number;
   grandTotal: number;
   itemDiscountTotal: number;
   lineSubtotal: number;
   overallDiscount: number;
+  referralCreditRejectedReason?: string;
   subtotal: number;
   taxAmount: number;
+  taxableAmount: number;
+  roundOff: number;
   tipAmount: number;
-};
-
-export type BillInputs = {
-  couponDiscount: number;
-  exCharges: number;
-  overallDiscount: number;
-  taxAmount: number;
-  tipAmount: number;
+  taxBreakdown: TaxBreakdownEntry[];
 };
 
 export const getCartItemBillableQuantity = (item: CartItem) =>
   Math.max(0, item.quantity - getPackageCoveredQuantity(item));
 
-// Mirrors the backend's own arithmetic exactly (sales.repository.ts `create`):
-//   per item:  total_price  = quantity * unit_price - item.discount_amount
-//   sale:      subtotal     = sum(total_price)
-//              total_amount = subtotal - discount_amount + tax_amount + ex_charges + tip_amount
-// `discount_amount` sent to the API is overallDiscount + couponDiscount
-// combined (the backend only has one bill-level discount field), which is
-// why the two are surfaced as separate summary rows here but folded into one
-// number before submission — see useCart's `toCreateSaleRequest`.
-export const calculateBillTotals = (items: CartItem[], inputs: BillInputs): BillTotals => {
-  const lineSubtotal = items.reduce((total, item) => total + item.unitPrice * getCartItemBillableQuantity(item), 0);
-  const itemDiscountTotal = items.reduce((total, item) => total + item.discountAmount, 0);
-  const subtotal = Math.max(0, lineSubtotal - itemDiscountTotal);
-
-  const overallDiscount = Math.max(0, inputs.overallDiscount);
-  const couponDiscount = Math.max(0, inputs.couponDiscount);
-  const taxAmount = Math.max(0, inputs.taxAmount);
-  const exCharges = Math.max(0, inputs.exCharges);
-  const tipAmount = Math.max(0, inputs.tipAmount);
-
-  const grandTotal = Math.max(0, subtotal - overallDiscount - couponDiscount + taxAmount + exCharges + tipAmount);
-
-  return {
-    couponDiscount,
-    exCharges,
-    grandTotal,
-    itemDiscountTotal,
-    lineSubtotal,
-    overallDiscount,
-    subtotal,
-    taxAmount,
-    tipAmount,
-  };
-};
-
-// Same per-item tax formula already used for appointment creation elsewhere
-// in the app (src/features/appointments/screens.tsx `getServiceTax`): a
-// percentage rate takes priority over a flat tax amount, both sourced from
-// the catalog item itself (Service/Membership `tax_rate` / `tax_amount`),
-// never a typed-in figure. Products/packages carry no tax fields today and
-// so contribute 0, matching what the catalog actually reports.
-const getLineTaxAmount = (item: CartItem, taxableAmount: number) => {
-  const taxRate = Math.max(item.taxRate ?? 0, 0);
-
-  if (taxRate > 0) {
-    return (taxableAmount * taxRate) / 100;
-  }
-
-  return Math.max(item.taxAmount ?? 0, 0);
-};
-
-export const calculateCartTaxAmount = (items: CartItem[]) =>
-  items.reduce((total, item) => {
-    const taxableAmount = Math.max(
-      0,
-      item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount,
-    );
-
-    return total + getLineTaxAmount(item, taxableAmount);
-  }, 0);
+/**
+ * Converts a response from POST /api/v1/pricing/calculate-totals into
+ * the UI's BillTotals structure.
+ */
+export const adaptPricingResponseToBillTotals = (
+  response: CalculateTotalsResponse,
+  inputs: {
+    couponDiscount?: number;
+    exCharges?: number;
+    overallDiscount?: number;
+    tipAmount?: number;
+  },
+): BillTotals => ({
+  appliedEWallet: response.appliedEWallet || 0,
+  appliedMembershipDiscount: response.appliedMembershipDiscount || 0,
+  appliedMembershipWallet: response.appliedMembershipWallet || 0,
+  appliedReferralCredit: response.appliedReferralCredit || 0,
+  appliedRewardPointsValue: response.appliedRewardPointsValue || 0,
+  couponDiscount: inputs.couponDiscount ?? 0,
+  couponRejectedReason: response.couponRejectedReason,
+  exCharges: response.catalogTotal ? (inputs.exCharges ?? 0) : 0,
+  grandTotal: response.grandTotal,
+  itemDiscountTotal: response.itemDiscountTotal,
+  lineSubtotal: response.catalogTotal,
+  overallDiscount: response.manualDiscount,
+  referralCreditRejectedReason: response.referralCreditRejectedReason,
+  subtotal: response.subtotal,
+  taxAmount: response.gstAmount,
+  taxableAmount: response.taxable,
+  roundOff: response.roundOff,
+  tipAmount: inputs.tipAmount ?? 0,
+  taxBreakdown: response.taxBreakdown || [],
+});

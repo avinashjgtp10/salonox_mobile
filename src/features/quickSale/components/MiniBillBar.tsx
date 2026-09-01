@@ -11,10 +11,9 @@ type MiniBillBarProps = {
   grandTotal: number;
   itemCount: number;
   onCheckout: () => void;
-  onReview: () => void;
 };
 
-function MiniBillBarComponent({ disabled, grandTotal, itemCount, onCheckout, onReview }: MiniBillBarProps) {
+function MiniBillBarComponent({ disabled, grandTotal, itemCount, onCheckout }: MiniBillBarProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const progress = useRef(new Animated.Value(itemCount > 0 ? 1 : 0)).current;
@@ -52,15 +51,6 @@ function MiniBillBarComponent({ disabled, grandTotal, itemCount, onCheckout, onR
           </Text>
           <Text style={styles.total}>{formatCurrency(grandTotal)}</Text>
         </View>
-
-        <Pressable
-          android_ripple={disabled ? undefined : { color: "rgba(28, 25, 23, 0.08)", borderless: false }}
-          disabled={disabled}
-          onPress={onReview}
-          style={({ pressed }) => [styles.reviewCta, pressed && !disabled && styles.cardPressed]}
-        >
-          <Text style={styles.reviewCtaText}>Review</Text>
-        </Pressable>
 
         <Pressable
           android_ripple={disabled ? undefined : { color: "rgba(255, 255, 255, 0.12)", borderless: false }}
@@ -134,23 +124,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 52,
     minWidth: 118,
     paddingHorizontal: 16,
-  },
-  reviewCta: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    justifyContent: "center",
-    marginRight: 8,
-    minHeight: 52,
-    minWidth: 86,
-    paddingHorizontal: 14,
-  },
-  reviewCtaText: {
-    color: Colors.primaryDark,
-    fontSize: 14,
-    fontWeight: "900",
   },
   ctaText: {
     color: Colors.onPrimary,

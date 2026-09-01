@@ -7,8 +7,10 @@ export type SalonApiItem = {
   country_code?: string | null;
   created_at?: string | null;
   email?: string | null;
+  gst_number?: string | null;
   id?: string | number | null;
   is_active?: boolean | string | null;
+  logo_url?: string | null;
   name?: string | null;
   owner_id?: string | number | null;
   phone?: string | null;
@@ -20,6 +22,7 @@ export type SalonApiItem = {
   status?: string | null;
   timezone?: string | null;
   updated_at?: string | null;
+  website_url?: string | null;
 };
 
 export type SalonApiPagination = {
@@ -58,8 +61,10 @@ export type SalonListItem = {
   countryCode: string;
   createdAt: string | null;
   email: string;
+  gstin: string;
   id: string;
   isActive: boolean;
+  logoUrl: string;
   name: string;
   ownerId: string | null;
   phone: string;
@@ -68,6 +73,7 @@ export type SalonListItem = {
   status: string;
   timezone: string;
   updatedAt: string | null;
+  websiteUrl: string;
 };
 
 export type SalonSortOrder = "ASC" | "DESC";

@@ -1,8 +1,9 @@
 import { api } from "@/services/api";
-import { APPOINTMENT } from "@/services/api/endpoints";
+import { APPOINTMENT, CLIENT } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import { normalizeSaleId } from "@/utils/apiNormalize";
 import type {
+  AppointmentApiClient,
   AppointmentApiItem,
   AppointmentDetailApiData,
   AppointmentDetailResponse,
@@ -22,6 +23,15 @@ import type {
 
 type AppointmentListApiResponse = ApiResponse<AppointmentListApiData>;
 type AppointmentDetailApiResponse = ApiResponse<AppointmentDetailApiData>;
+
+// The backend has no dedicated GET /appointments/history route (it 404s into
+// the /appointments/:id handler, which throws on a non-UUID "history" id).
+// The client-scoped history endpoint already returns each appointment's raw
+// API shape nested under `appointments`, so that's reused here instead.
+type ClientHistoryApiResponse = ApiResponse<{
+  appointments?: AppointmentApiItem[] | null;
+  client?: AppointmentApiClient | null;
+} | null>;
 
 const toSafeNumber = (value: unknown) => {
   if (typeof value === "number" && Number.isFinite(value)) {
@@ -123,20 +133,26 @@ const ACTIVE_APPOINTMENT_STATUSES: ReadonlySet<AppointmentStatus> = new Set([
   "In Progress",
 ]);
 
+// Values the backend actually accepts. Frontend-only statuses ("Confirmed",
+// "In Progress", "Checked In", "In Service") have no direct backend equivalent
+// so they are mapped to their closest accepted peer.
 const APPOINTMENT_STATUS_API_VALUE: Record<AppointmentStatus, string> = {
-  "Checked In": "in_progress",
+  "Checked In": "booked",
   "Cancelled": "cancelled",
-  "Confirmed": "confirmed",
+  "Confirmed": "booked",
   "Completed": "paid",
   "Deleted": "deleted",
-  "In Progress": "in_progress",
-  "In Service": "in_progress",
+  "In Progress": "booked",
+  "In Service": "booked",
   "Missed": "no-show",
   "Partial": "partial",
   "Unknown": "",
   "Upcoming": "booked",
   "Waiting": "booked",
 };
+
+// Statuses accepted by the backend POST /appointments and PATCH /appointments/:id.
+const BACKEND_VALID_STATUSES = new Set(["booked", "paid", "partial", "cancelled", "no-show", "deleted"]);
 
 export const isActiveAppointmentStatus = (status: AppointmentStatus) =>
   ACTIVE_APPOINTMENT_STATUSES.has(status);
@@ -375,7 +391,11 @@ export const normalizeAppointment = (
     durationLabel: formatDuration(durationMinutes),
     durationMinutes,
     endTime: toSafeString(appointment.end_time) || null,
-    id: toSafeString(appointment.id, `appointment-${index + 1}`),
+    id:
+      toSafeString(appointment.id) ||
+      toSafeString(appointment._id) ||
+      toSafeString(appointment.appointment_id) ||
+      `appointment-${index + 1}`,
     notes: toSafeString(appointment.notes),
     paidAmount: toSafeNumber(appointment.paid_amount),
     paymentMethod: titleCase(toSafeString(appointment.payment_method, "-")),
@@ -387,6 +407,7 @@ export const normalizeAppointment = (
       toSafeString(appointment.phone) ||
       toSafeString(appointment.mobile),
     raw: appointment,
+    saleId: toSafeString(appointment.sale_id ?? appointment.saleId ?? appointment.saleID),
     scheduledAt: toSafeString(appointment.scheduled_at) || toSafeString(appointment.start_time) || null,
     serviceId: service.id,
     serviceName: service.name,
@@ -481,6 +502,7 @@ export const appointmentService = {
       duration: _duration,
       durationMinutes: _durationMinutes,
       totalDuration: _totalDuration,
+      status: rawStatus,
       ...requestPayload
     } = payload as CreateAppointmentRequest & {
       duration?: unknown;
@@ -490,6 +512,13 @@ export const appointmentService = {
 
     if (!Number.isInteger(requestPayload.duration_minutes) || requestPayload.duration_minutes <= 0) {
       throw new Error("duration_minutes is required and must be a positive integer.");
+    }
+
+    // Only forward status to the backend if it is an accepted value.
+    // Frontend-only statuses (empty string, "in_progress", etc.) are stripped
+    // so the backend defaults to "booked" for new appointments.
+    if (rawStatus && BACKEND_VALID_STATUSES.has(rawStatus)) {
+      (requestPayload as typeof requestPayload & { status?: string }).status = rawStatus;
     }
 
     if (__DEV__) {
@@ -534,8 +563,9 @@ export const appointmentService = {
   async confirmAppointment(
     appointmentId: string,
   ): Promise<AppointmentMutationResponse> {
-    const response = await api.post<AppointmentDetailApiResponse>(
-      APPOINTMENT.CONFIRM(appointmentId),
+    const response = await api.patch<AppointmentDetailApiResponse>(
+      APPOINTMENT.UPDATE(appointmentId),
+      { status: "booked" },
     );
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
@@ -546,8 +576,9 @@ export const appointmentService = {
   async startAppointment(
     appointmentId: string,
   ): Promise<AppointmentMutationResponse> {
-    const response = await api.post<AppointmentDetailApiResponse>(
-      APPOINTMENT.START(appointmentId),
+    const response = await api.patch<AppointmentDetailApiResponse>(
+      APPOINTMENT.UPDATE(appointmentId),
+      { status: "booked" },
     );
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
@@ -558,8 +589,9 @@ export const appointmentService = {
   async completeAppointment(
     appointmentId: string,
   ): Promise<AppointmentMutationResponse> {
-    const response = await api.post<AppointmentDetailApiResponse>(
-      APPOINTMENT.COMPLETE(appointmentId),
+    const response = await api.patch<AppointmentDetailApiResponse>(
+      APPOINTMENT.UPDATE(appointmentId),
+      { status: "paid" },
     );
     return {
       appointment: normalizeAppointment(getAppointmentFromPayload(response.data.data)),
@@ -589,7 +621,7 @@ export const appointmentService = {
     payload: RescheduleAppointmentRequest,
   ): Promise<AppointmentMutationResponse> {
     const response = await api.patch<AppointmentDetailApiResponse>(
-      APPOINTMENT.RESCHEDULE(appointmentId),
+      APPOINTMENT.UPDATE(appointmentId),
       payload,
     );
     return {
@@ -599,12 +631,24 @@ export const appointmentService = {
   },
 
   async getAppointmentHistory(clientId?: string): Promise<AppointmentHistoryResponse> {
-    const response = await api.get<AppointmentListApiResponse>(APPOINTMENT.HISTORY, {
-      params: clientId ? { client_id: clientId } : undefined,
-    });
-    return {
-      appointments: getAppointmentArray(response.data.data).map(normalizeAppointment),
-      clientId,
-    };
+    if (!clientId) {
+      return { appointments: [], clientId };
+    }
+
+    const response = await api.get<ClientHistoryApiResponse>(`${CLIENT.DETAIL}/${clientId}/history`);
+    const payload = response.data.data;
+    const client = payload?.client ?? null;
+    const appointments = (payload?.appointments ?? []).map((appointment, index) =>
+      normalizeAppointment(
+        {
+          ...appointment,
+          client: appointment.client ?? client,
+          staff_name: appointment.staff_name ?? appointment.services?.[0]?.staff_name ?? null,
+        },
+        index,
+      ),
+    );
+
+    return { appointments, clientId };
   },
 };

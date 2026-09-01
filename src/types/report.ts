@@ -232,7 +232,34 @@ export type ProductInventoryReportResponse = {
   }[];
 };
 
-export type ConsumableUsageReportResponse = never;
+// Web-parity legacy report: the Web app's Consumable Usage Report calls the
+// legacy inventory reconciliation endpoint (GET /inventory/stock-reconciliation
+// ?branch_id=...) rather than a POST /api/report/* route — there is no
+// dedicated consumable-usage report endpoint on the backend. Mobile mirrors
+// that exact contract rather than inventing a modern one. Row shape and
+// field names verified against the Web source (ConsumableUsageReport.tsx).
+export type ConsumableUsageReportRequest = {
+  branch_id: string;
+};
+
+export type ConsumableUsageReportRow = {
+  actualConsumable: number;
+  actualStock: number;
+  adjustConsumable: number;
+  adjustStock: number;
+  categoryName: string;
+  consumableDifference: number;
+  itemName: string;
+  productId: string;
+  remark: string;
+  stockDifference: number;
+  stockValue: number;
+  unit: string;
+};
+
+export type ConsumableUsageReportResponse = {
+  rows: ConsumableUsageReportRow[];
+};
 
 export type WhatsAppCampaignReportType = "blocked" | "failed" | "successful";
 export type WhatsAppCampaignReportRequest = {

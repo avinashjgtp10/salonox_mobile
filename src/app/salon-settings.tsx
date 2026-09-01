@@ -3,16 +3,14 @@ import { router, type Href } from "expo-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
   RefreshControl,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -124,7 +122,7 @@ export default function SalonSettingsScreen() {
   const loadSalon = useCallback(async () => {
     const resultAction = await dispatch(fetchSalonMeThunk());
 
-    if (fetchSalonMeThunk.fulfilled.match(resultAction)) {
+    if (fetchSalonMeThunk.fulfilled.match(resultAction) && resultAction.payload) {
       setLoadedSalonId(resultAction.payload.id);
     }
   }, [dispatch]);
@@ -208,10 +206,11 @@ export default function SalonSettingsScreen() {
       <TouchableOpacity
         activeOpacity={0.8}
         disabled={isUpdating}
+        hitSlop={AppLayout.headerActionHitSlop}
         onPress={handleBack}
         style={styles.backButton}
       >
-        <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+        <Ionicons name="arrow-back" size={18} color={Colors.primary} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Salon Settings</Text>
       <View style={styles.backButtonPlaceholder} />
@@ -281,13 +280,9 @@ export default function SalonSettingsScreen() {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.flex}
-      >
-        <ScrollView
-          contentContainerStyle={styles.content}
-          keyboardShouldPersistTaps="handled"
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.content}
+        keyboardShouldPersistTaps="handled"
           refreshControl={
             <RefreshControl
               colors={[Colors.primary]}
@@ -391,8 +386,7 @@ export default function SalonSettingsScreen() {
             <DetailRow label="State" value={salon.state} />
             <DetailRow label="Timezone" value={salon.timezone} />
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
@@ -487,7 +481,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   errorContainer: {
     alignItems: "center",
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(114, 106, 99, 0.18)",
+    borderColor: Colors.errorBorder,
     borderRadius: AppRadius.control,
     borderWidth: 1,
     flexDirection: "row",
@@ -506,7 +500,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   successContainer: {
     alignItems: "center",
     backgroundColor: Colors.successBg,
-    borderColor: "rgba(28, 25, 23, 0.12)",
+    borderColor: Colors.successBorder,
     borderRadius: AppRadius.control,
     borderWidth: 1,
     flexDirection: "row",

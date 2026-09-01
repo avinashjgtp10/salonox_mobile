@@ -27,16 +27,16 @@ import {
 import { useThemeColors } from "@/theme/ThemeProvider";
 
 type BottomSheetProps = {
+  centered?: boolean;
   children: ReactNode;
   footer?: ReactNode;
   onClose: () => void;
+  renderInline?: boolean;
   scrollable?: boolean;
   subtitle?: string;
   title: string;
   visible: boolean;
 };
-
-const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 const OPEN_DURATION = 280;
 const CLOSE_DURATION = 220;
@@ -46,9 +46,11 @@ const OPEN_EASING = Easing.bezier(0.16, 1, 0.3, 1);
 const CLOSE_EASING = Easing.bezier(0.4, 0, 1, 1);
 
 export function BottomSheet({
+  centered = false,
   children,
   footer,
   onClose,
+  renderInline = false,
   scrollable = true,
   subtitle,
   title,
@@ -58,6 +60,8 @@ export function BottomSheet({
   const insets = useSafeAreaInsets();
   const styles = useMemo(() => createStyles(Colors, insets.bottom), [Colors, insets.bottom]);
   const { height: screenHeight } = useWindowDimensions();
+  const sheetMaxHeight = Math.round(screenHeight * 0.9);
+  const scrollMaxHeight = Math.round(screenHeight * 0.72);
   // 0 = fully closed/off-screen, 1 = fully open. This single value is the
   // only animation controller for the sheet — both the backdrop opacity and
   // the sheet's translateY are pure derivations of it via useAnimatedStyle,
@@ -115,19 +119,19 @@ export function BottomSheet({
     return null;
   }
 
-  return (
-    <Portal>
-      <Animated.View pointerEvents="auto" style={[styles.overlay, backdropStyle]}>
-        <Pressable onPress={onClose} style={styles.overlayPressable}>
+  const overlay = (
+      <Animated.View pointerEvents="auto" style={[styles.overlay, renderInline && styles.overlayInline, backdropStyle]}>
+        <Pressable onPress={onClose} style={StyleSheet.absoluteFill} />
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : undefined}
-            style={styles.keyboardAvoiding}
+            pointerEvents="box-none"
+            style={[styles.keyboardAvoiding, centered && styles.keyboardAvoidingCentered]}
           >
-            <AnimatedPressable
+            <Animated.View
               // No onPress of its own — Pressable still claims the touch
               // responder for taps that land on it, which is what stops them
               // bubbling up to the backdrop's onPress={onClose} above.
-              style={[styles.sheet, sheetStyle]}
+              style={[styles.sheet, centered && styles.sheetCentered, { maxHeight: sheetMaxHeight }, sheetStyle]}
             >
               <View style={styles.handle} />
               <View style={styles.header}>
@@ -144,7 +148,9 @@ export function BottomSheet({
                 <ScrollView
                   contentContainerStyle={styles.content}
                   keyboardShouldPersistTaps="handled"
-                  showsVerticalScrollIndicator={false}
+                  nestedScrollEnabled
+                  style={[styles.scroll, { maxHeight: scrollMaxHeight }]}
+                  showsVerticalScrollIndicator
                 >
                   {children}
                 </ScrollView>
@@ -153,12 +159,12 @@ export function BottomSheet({
               )}
 
               {footer ? <View style={styles.footer}>{footer}</View> : null}
-            </AnimatedPressable>
+            </Animated.View>
           </KeyboardAvoidingView>
-        </Pressable>
       </Animated.View>
-    </Portal>
   );
+
+  return renderInline ? overlay : <Portal>{overlay}</Portal>;
 }
 
 const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.create({
@@ -166,19 +172,24 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
     backgroundColor: "rgba(20, 18, 16, 0.42)",
     flex: 1,
   },
-  overlayPressable: {
-    flex: 1,
-    justifyContent: "flex-end",
+  overlayInline: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 100,
   },
   keyboardAvoiding: {
     flex: 1,
     justifyContent: "flex-end",
   },
+  keyboardAvoidingCentered: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 24,
+  },
   sheet: {
     backgroundColor: Colors.card,
     borderTopLeftRadius: Radius.xl,
     borderTopRightRadius: Radius.xl,
-    maxHeight: "90%",
     paddingBottom: Math.max(bottomInset, Spacing.lg),
     paddingHorizontal: AppLayout.contentHorizontalPadding,
     paddingTop: 10,
@@ -187,6 +198,11 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
     shadowOpacity: 0.12,
     shadowRadius: 28,
     elevation: 16,
+  },
+  sheetCentered: {
+    borderRadius: 12,
+    maxWidth: 520,
+    width: "100%",
   },
   handle: {
     alignSelf: "center",
@@ -228,6 +244,9 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
   },
   content: {
     paddingTop: Spacing.lg,
+  },
+  scroll: {
+    flexShrink: 1,
   },
   footer: {
     flexDirection: "row",

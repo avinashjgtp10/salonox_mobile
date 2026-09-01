@@ -15,6 +15,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   DashboardRadius as Radius,
@@ -23,8 +24,10 @@ import {
 } from "@/constants/theme";
 import { matchesTeamSearch, type StaffMember } from "@/data/teamData";
 import { getStaffDetailsPath } from "@/features/staff/utils/staffNavigation";
-import { deleteStaffThunk, fetchStaffThunk, updateStaffThunk } from "@/middleware/staff/staff.thunk";
+import { useAppToast } from "@/hooks/useAppToast";
+import { deleteStaffThunk, fetchStaffThunk, setStaffActiveStatusThunk } from "@/middleware/staff/staff.thunk";
 import {
+  selectStaffActiveStatusTogglingIds,
   selectStaffDeletingIds,
   selectStaffError,
   selectStaffLoading,
@@ -66,12 +69,14 @@ const matchesUserManagementQuery = (staffMember: StaffMember, query: string) => 
 function UserCard({
   canManageLifecycle,
   isDeleting,
+  isTogglingStatus,
   onDelete,
   onToggleStatus,
   staffMember,
 }: {
   canManageLifecycle: boolean;
   isDeleting: boolean;
+  isTogglingStatus: boolean;
   onDelete: () => void;
   onToggleStatus: () => void;
   staffMember: StaffMember;
@@ -125,15 +130,20 @@ function UserCard({
       {canManageLifecycle ? (
         <TouchableOpacity
           activeOpacity={0.8}
+          disabled={isTogglingStatus}
           hitSlop={{ bottom: 8, left: 8, right: 8, top: 8 }}
           onPress={onToggleStatus}
           style={styles.statusToggleButton}
         >
-          <Ionicons
-            name={isActive ? "pause-circle-outline" : "play-circle-outline"}
-            size={20}
-            color={isActive ? Colors.warning : Colors.success}
-          />
+          {isTogglingStatus ? (
+            <ActivityIndicator color={isActive ? Colors.warning : Colors.success} size="small" />
+          ) : (
+            <Ionicons
+              name={isActive ? "pause-circle-outline" : "play-circle-outline"}
+              size={20}
+              color={isActive ? Colors.warning : Colors.success}
+            />
+          )}
         </TouchableOpacity>
       ) : null}
 
@@ -221,6 +231,7 @@ export default function UsersScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const insets = useSafeAreaInsets();
   const currentUser = useAppSelector(selectCurrentUser);
   const canManageLifecycle = canManageStaffLifecycle(currentUser?.role);
@@ -233,6 +244,7 @@ export default function UsersScreen() {
   const staffQuery = useAppSelector(selectStaffQuery);
   const staffRefreshing = useAppSelector(selectStaffRefreshing);
   const deletingStaffIds = useAppSelector(selectStaffDeletingIds);
+  const activeStatusTogglingStaffIds = useAppSelector(selectStaffActiveStatusTogglingIds);
 
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
@@ -270,7 +282,7 @@ export default function UsersScreen() {
       return;
     }
 
-    Alert.alert("User deleted", resultAction.payload.message ?? `${staffMember.name} has been removed.`);
+    toast.showSuccess("User deleted successfully.");
   };
 
   const handleDeleteUser = (staffMember: StaffMember) => {
@@ -289,12 +301,19 @@ export default function UsersScreen() {
   };
 
   const handleConfirmToggleStatus = async (staffMember: StaffMember) => {
+    if (activeStatusTogglingStaffIds.includes(staffMember.id)) {
+      return;
+    }
+
     const nextStatus = isStaffActive(staffMember) ? "inactive" : "active";
     const resultAction = await dispatch(
-      updateStaffThunk({ staffId: staffMember.id, updates: { status: nextStatus } }),
+      setStaffActiveStatusThunk({ nextStatus, staffId: staffMember.id }),
     );
 
-    if (updateStaffThunk.rejected.match(resultAction)) {
+    // setStaffActiveStatusThunk only fulfills once the activate/deactivate
+    // call succeeds AND a refetch confirms the status actually changed —
+    // no path here reports success without a confirmed backend change.
+    if (setStaffActiveStatusThunk.rejected.match(resultAction)) {
       Alert.alert(
         "Unable to update user",
         getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
@@ -302,10 +321,8 @@ export default function UsersScreen() {
       return;
     }
 
-    Alert.alert(
-      nextStatus === "inactive" ? "User deactivated" : "User activated",
-      resultAction.payload.message ??
-        `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "activated"}.`,
+    toast.showSuccess(
+      nextStatus === "inactive" ? "User deactivated successfully." : "User activated successfully.",
     );
   };
 
@@ -364,11 +381,17 @@ export default function UsersScreen() {
         }
         ListFooterComponent={
           <View style={styles.footerWrap}>
-            {staffLoadingMore ? (
-              <View style={styles.loadingMoreWrap}>
-                <ActivityIndicator color={Colors.primary} size="small" />
-                <Text style={styles.loadingMoreText}>Loading more users...</Text>
-              </View>
+            {staffMembers.length > 0 ? (
+              <PaginationControls
+                currentPage={Math.max(1, Math.ceil(staffMembers.length / staffPagination.limit))}
+                hasNextPage={staffPagination.hasMore}
+                hasPreviousPage={false}
+                loading={staffLoadingMore}
+                onNext={staffPagination.hasMore ? handleLoadMore : undefined}
+                totalItems={staffPagination.totalCount}
+                totalPages={Math.max(1, Math.ceil(staffPagination.totalCount / staffPagination.limit))}
+                visibleItems={staffMembers.length}
+              />
             ) : null}
             <View style={{ height: 24 + insets.bottom }} />
           </View>
@@ -377,8 +400,8 @@ export default function UsersScreen() {
           <View>
             <View style={styles.header}>
               <View style={styles.headerRow}>
-                <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
-                  <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+                <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+                  <Ionicons name="arrow-back" size={18} color={Colors.primary} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>User Management</Text>
                 <View style={styles.backButtonPlaceholder} />
@@ -439,6 +462,7 @@ export default function UsersScreen() {
           <UserCard
             canManageLifecycle={canManageLifecycle}
             isDeleting={deletingStaffIds.includes(item.id)}
+            isTogglingStatus={activeStatusTogglingStaffIds.includes(item.id)}
             onDelete={() => handleDeleteUser(item)}
             onToggleStatus={() => handleToggleStatus(item)}
             staffMember={item}

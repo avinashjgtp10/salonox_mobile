@@ -1,5 +1,6 @@
 import type { ReportData } from "@/store/report/report.slice";
 import type { ReportSlug } from "@/features/reports/report-config";
+import { formatAppDateTime } from "@/utils/dateTime";
 import { formatInvoiceNumber } from "@/utils/receipt";
 
 export type ReportRow = Record<string, unknown>;
@@ -11,20 +12,13 @@ const asRows = (value: unknown): ReportRow[] =>
 
 export const getReportRows = (slug: ReportSlug, data: ReportData | null) => {
   if (!data) return [];
-  if (slug === "attendance") return asRows(data.records);
-  if (slug === "commission") return asRows(data.staff);
-  if (slug === "whatsapp-campaign") {
-    const contacts = asRows(data.contacts);
-    return contacts.length ? contacts : asRows(data.campaigns);
-  }
+  void slug;
   return asRows(data.rows);
 };
 
 export const getReportSummary = (slug: ReportSlug, data: ReportData | null) => {
   if (!data) return null;
-  if (slug === "commission" && data.summary && typeof data.summary === "object") {
-    return data.summary as ReportRow;
-  }
+  void slug;
   if (data.stats && typeof data.stats === "object") return data.stats as ReportRow;
   if (typeof data.totalAmount === "number") return { totalAmount: data.totalAmount };
   return null;
@@ -63,8 +57,19 @@ export const formatReportValue = (key: string, value: unknown): string => {
     }
     return value.toLocaleString("en-IN", { maximumFractionDigits: 2 });
   }
-  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}T/.test(value)) {
-    return new Date(value).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
+  if (typeof value === "string" && /^\d{4}-\d{2}-\d{2}(?:T| )/.test(value)) {
+    return formatAppDateTime(value, "—");
+  }
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (typeof record.name === "string") {
+      return typeof record.count === "number"
+        ? `${record.name} (${record.count.toLocaleString("en-IN")})`
+        : record.name;
+    }
+    if (typeof record.label === "string") return record.label;
+    if (typeof record.title === "string") return record.title;
+    return "â€”";
   }
   return String(value);
 };

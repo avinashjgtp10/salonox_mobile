@@ -50,6 +50,19 @@ export const canManageStaffLifecycle = (role?: string | null) => {
   return !NON_PRIVILEGED_STAFF_ROLES.includes(normalizedRole);
 };
 
+// Commission settlement (POST /staff/commissions/:staffId/mark-paid) is
+// gated server-side by roleMiddleware("salon_owner", "admin") only — there is
+// no custom-permission escape hatch for "staff" on that route, unlike the
+// granular requirePermission() checks used elsewhere. A staff-role user who
+// passes this check would still get a 403 from the backend, so this must
+// mirror the same owner/admin-only rule exactly rather than special-casing a
+// "commission.settle" custom permission that the backend doesn't recognize.
+export const canSettleCommission = (role?: string | null) => {
+  const normalizedRole = (role ?? "").trim().toLowerCase();
+
+  return normalizedRole === "salon_owner" || normalizedRole === "admin";
+};
+
 export const getUserInitials = (user: AuthUser | null) => {
   const nameSeed = getUserFullName(user);
   const initials = nameSeed

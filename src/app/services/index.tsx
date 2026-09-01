@@ -17,6 +17,7 @@ import {
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
   SERVICE_FILTERS,
@@ -29,6 +30,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { useAppToast } from "@/hooks/useAppToast";
 import { deleteServiceThunk, fetchServicesThunk } from "@/middleware/service/service.thunk";
 import {
   selectServiceDeletingIds,
@@ -214,6 +216,7 @@ export default function ServicesScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const insets = useSafeAreaInsets();
   const services = useAppSelector(selectServices);
   const servicesError = useAppSelector(selectServicesError);
@@ -297,7 +300,7 @@ export default function ServicesScreen() {
       return;
     }
 
-    Alert.alert("Service deleted", resultAction.payload.message ?? "Service deleted successfully.");
+    toast.showSuccess("Service deleted successfully.");
 
     void dispatch(
       fetchServicesThunk({
@@ -373,11 +376,17 @@ export default function ServicesScreen() {
         }
         ListFooterComponent={
           <View style={styles.footerWrap}>
-            {servicesLoadingMore ? (
-              <View style={styles.loadingMoreWrap}>
-                <ActivityIndicator color={Colors.primary} size="small" />
-                <Text style={styles.loadingMoreText}>Loading more services...</Text>
-              </View>
+            {services.length > 0 ? (
+              <PaginationControls
+                currentPage={Math.max(1, Math.ceil(services.length / servicesPagination.limit))}
+                hasNextPage={servicesPagination.hasMore}
+                hasPreviousPage={false}
+                loading={servicesLoadingMore}
+                onNext={servicesPagination.hasMore ? handleLoadMore : undefined}
+                totalItems={totalCount}
+                totalPages={Math.max(1, Math.ceil(totalCount / servicesPagination.limit))}
+                visibleItems={services.length}
+              />
             ) : null}
             <View style={{ height: 112 + insets.bottom }} />
           </View>
@@ -386,8 +395,8 @@ export default function ServicesScreen() {
           <View>
             <View style={styles.header}>
               <View style={styles.headerRow}>
-                <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
-                  <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+                <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+                  <Ionicons name="arrow-back" size={18} color={Colors.primary} />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Services</Text>
                 <View style={styles.backButtonPlaceholder} />
@@ -892,7 +901,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   modalOverlay: {
-    backgroundColor: "rgba(28, 25, 23, 0.12)",
+    backgroundColor: "rgba(15, 23, 32, 0.12)",
     flex: 1,
     justifyContent: "flex-end",
     padding: Spacing.lg,

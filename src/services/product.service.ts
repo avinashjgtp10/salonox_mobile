@@ -48,6 +48,11 @@ const toBooleanValue = (value: unknown, fallback = true): boolean => {
   return fallback;
 };
 
+const getCategoryRecord = (value: unknown): { id?: unknown; name?: unknown; category_id?: unknown; category_name?: unknown } | null =>
+  value && typeof value === "object" && !Array.isArray(value)
+    ? (value as { id?: unknown; name?: unknown; category_id?: unknown; category_name?: unknown })
+    : null;
+
 const normalizeBrand = (raw: BrandApiItem): Brand => ({
   createdAt: toStringValue(raw.created_at ?? raw.createdAt) || null,
   description: toStringValue(raw.description) || null,
@@ -59,10 +64,25 @@ const normalizeBrand = (raw: BrandApiItem): Brand => ({
 
 const normalizeProduct = (raw: ProductApiItem): Product => {
   const brand = raw.brand ?? undefined;
+  const retailPrice = raw.retail_price ?? raw.retailPrice;
+  const supplyPrice = raw.supply_price ?? raw.supplyPrice;
+  const markupPercentage = raw.markup_percentage ?? raw.markupPercentage;
+  const measureUnit = raw.measure_unit ?? raw.measureUnit;
+  const bottleSize = raw.bottle_size ?? raw.bottleSize;
+  const productType = raw.product_type ?? raw.productType;
+  const categoryRecord = getCategoryRecord(raw.category);
+
   return {
+    bottleSize: bottleSize != null ? toNumberValue(bottleSize) : null,
     brandId: toStringValue(raw.brand_id ?? raw.brandId ?? brand?.id) || null,
     brandName: toStringValue(brand?.name) || null,
-    category: toStringValue(raw.category) || null,
+    category:
+      toStringValue(categoryRecord?.name ?? categoryRecord?.category_name) ||
+      toStringValue(raw.category) ||
+      null,
+    categoryId:
+      toStringValue(raw.category_id ?? raw.categoryId ?? categoryRecord?.id ?? categoryRecord?.category_id) ||
+      null,
     createdAt: toStringValue(raw.created_at ?? raw.createdAt) || null,
     description: toStringValue(raw.description) || null,
     id: toStringValue(raw.id),
@@ -71,10 +91,15 @@ const normalizeProduct = (raw: ProductApiItem): Product => {
       raw.low_stock_threshold ?? raw.lowStockThreshold ?? raw.qty_alert ?? raw.qtyAlert,
       5,
     ),
+    markupPercentage: markupPercentage != null ? toNumberValue(markupPercentage) : null,
+    measureUnit: toStringValue(measureUnit) || null,
     name: toStringValue(raw.name, "Unnamed product"),
     price: toNumberValue(raw.price ?? raw.retail_price ?? raw.retailPrice ?? raw.supply_price ?? raw.supplyPrice),
+    productType: toStringValue(productType) || null,
+    retailPrice: retailPrice != null ? toNumberValue(retailPrice) : null,
     sku: toStringValue(raw.sku ?? raw.barcode) || null,
     stockQuantity: toNumberValue(raw.stock_quantity ?? raw.stockQuantity ?? raw.amount),
+    supplyPrice: supplyPrice != null ? toNumberValue(supplyPrice) : null,
   };
 };
 

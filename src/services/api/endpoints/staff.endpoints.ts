@@ -1,8 +1,11 @@
 export const STAFF = {
   ADDRESS: (staffId: string, recordId: string) => `/staff/${staffId}/addresses/${recordId}`,
   ADDRESSES: (staffId: string) => `/staff/${staffId}/addresses`,
+  ACTIVATE: (staffId: string) => `/staff/${staffId}/activate`,
   CREATE: "/staff",
+  DEACTIVATE: (staffId: string) => `/staff/${staffId}/deactivate`,
   DELETE: "/staff",
+  UPLOAD_AVATAR: "/staff/upload-avatar",
   EMERGENCY_CONTACT: (staffId: string, recordId: string) =>
     `/staff/${staffId}/emergency-contacts/${recordId}`,
   EMERGENCY_CONTACTS: (staffId: string) => `/staff/${staffId}/emergency-contacts`,
@@ -27,16 +30,13 @@ export const STAFF = {
     `/staff/${staffId}/blocked-times/${recordId}`,
   BLOCKED_TIMES: (staffId: string) => `/staff/${staffId}/blocked-times`,
 
-  // Commissions (per staff)
-  COMMISSIONS: (staffId: string) => `/staff/${staffId}/commissions`,
+  // Commissions (per staff) — rule creation/configuration is Web-only; Mobile
+  // only reads past commission transactions for display.
   COMMISSIONS_HISTORY: (staffId: string) => `/staff/${staffId}/commissions/history`,
-  COMMISSIONS_SLABS: (staffId: string) => `/staff/${staffId}/commissions/slabs`,
 
-  // Commissions (salon-wide)
-  COMMISSIONS_ALL: "/staff/commissions/all",
-  COMMISSIONS_BULK_CONFIGURE: "/staff/commissions/bulk-configure",
+  // Commissions (salon-wide) — list + settle only, per staff earnings computed
+  // from the Web-configured commission rules.
   COMMISSIONS_EARNED: "/staff/commissions/earned",
-  COMMISSIONS_EXPORT: "/staff/commissions/export",
   COMMISSIONS_MARK_PAID: (staffId: string) => `/staff/commissions/${staffId}/mark-paid`,
   COMMISSIONS_SUMMARY: "/staff/commissions/summary",
 

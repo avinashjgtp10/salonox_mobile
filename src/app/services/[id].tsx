@@ -11,6 +11,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { formatAppDate } from "@/utils/dateTime";
 import { fetchServiceByIdThunk } from "@/middleware/service/service.thunk";
 import {
   selectServiceById,
@@ -29,21 +30,7 @@ function formatDuration(durationMinutes: number | null) {
 }
 
 function formatCreatedDate(createdAt: string | null) {
-  if (!createdAt) {
-    return "-";
-  }
-
-  const parsedDate = new Date(createdAt);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return "-";
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    month: "short",
-    year: "numeric",
-  }).format(parsedDate);
+  return formatAppDate(createdAt, "-");
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -117,8 +104,8 @@ export default function ServiceDetailsScreen() {
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Service Details</Text>
             <View style={[styles.backButton, { opacity: 0 }]} />
@@ -137,8 +124,8 @@ export default function ServiceDetailsScreen() {
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Service Details</Text>
             <View style={[styles.backButton, { opacity: 0 }]} />
@@ -157,8 +144,8 @@ export default function ServiceDetailsScreen() {
       <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
         <AppStatusBar />
         <View style={styles.notFoundWrap}>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+          <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <View style={styles.notFoundCard}>
             <Text style={styles.notFoundTitle}>Service not found</Text>
@@ -176,8 +163,8 @@ export default function ServiceDetailsScreen() {
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+          <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Service Details</Text>
           <TouchableOpacity
@@ -299,10 +286,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 6,
   },
   statusBadgeActive: {
-    backgroundColor: "#F2EFE9",
+    backgroundColor: Colors.backgroundElement,
   },
   statusBadgeInactive: {
-    backgroundColor: "#F2EFE9",
+    backgroundColor: Colors.errorBg,
   },
   statusBadgeText: {
     fontSize: 11,

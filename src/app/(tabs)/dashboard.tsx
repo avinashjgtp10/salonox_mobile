@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "expo-router";
-import { useCallback, useEffect, useMemo, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   RefreshControl,
   ScrollView,
@@ -14,7 +14,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { AppLayout } from "@/constants/layout";
 import AppointmentsList from "@/components/dashboard/AppointmentsList";
 import DashboardHero from "@/components/dashboard/DashboardHero";
-import { DashboardFloatingActions } from "@/components/dashboard/DashboardFloatingActions";
+import { DashboardNotificationsModal } from "@/components/dashboard/DashboardNotificationsModal";
+import { DashboardSideDrawer } from "@/components/dashboard/DashboardSideDrawer";
 import DashboardStatTiles from "@/components/dashboard/DashboardStatTiles";
 import QuickActions from "@/components/dashboard/QuickActions";
 import StaffWorkload from "@/components/dashboard/StaffWorkload";
@@ -36,8 +37,10 @@ import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
 import { fetchNotificationsThunk, fetchUnreadCountThunk } from "@/middleware/notification/notification.thunk";
 import { fetchInventorySummaryThunk, fetchProductsThunk } from "@/middleware/product/product.thunk";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
+import { fetchClientsThunk } from "@/middleware/client/client.thunk";
 import { logStartupSince } from "@/services/startupPerformance";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { realtimeSocket } from "@/services/realtimeSocket";
 import {
   selectDashboardError,
   selectDashboardIsLoading,
@@ -64,6 +67,8 @@ export default function DashboardScreen() {
   const didLogNavigationRef = useRef(false);
   const didRunStartupFetchRef = useRef(false);
   const didHandleInitialFocusRef = useRef(false);
+  const [isQuickActionsDrawerOpen, setIsQuickActionsDrawerOpen] = useState(false);
+  const [isNotificationsModalOpen, setIsNotificationsModalOpen] = useState(false);
   const dashboardError = useAppSelector(selectDashboardError);
   const isDashboardLoading = useAppSelector(selectDashboardIsLoading);
   const isDashboardRefreshing = useAppSelector(selectDashboardRefreshing);
@@ -147,6 +152,7 @@ export default function DashboardScreen() {
       dispatch(fetchNotificationsThunk({ refresh: true })),
       dispatch(fetchProductsThunk({ offset: 0, reset: true })),
       dispatch(fetchStaffThunk({ page: 1, reset: true })),
+      dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true })),
     ]);
   }, [dispatch, isAuthenticated]);
 
@@ -219,6 +225,36 @@ export default function DashboardScreen() {
     fetchUnreadNotificationCount();
   });
 
+  // Real-time client updates: listen for new client creation from other devices/web app
+  useEffect(() => {
+    if (!isAuthenticated) {
+      return;
+    }
+
+    const socket = realtimeSocket.activeSocket;
+
+    if (!socket?.connected) {
+      return;
+    }
+
+    const handleClientCreated = () => {
+      // Refetch clients to get updated total count
+      dispatch(fetchClientsThunk({ offset: 0, reset: true, refresh: true }));
+    };
+
+    // Listen for client creation events from the backend
+    // Common event names: "client:created", "client_created", "new_client"
+    socket.on("client:created", handleClientCreated);
+    socket.on("client_created", handleClientCreated);
+    socket.on("new_client", handleClientCreated);
+
+    return () => {
+      socket.off("client:created", handleClientCreated);
+      socket.off("client_created", handleClientCreated);
+      socket.off("new_client", handleClientCreated);
+    };
+  }, [dispatch, isAuthenticated]);
+
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
@@ -264,7 +300,7 @@ export default function DashboardScreen() {
           </View>
         ) : (
           <>
-            <DashboardHero />
+            <DashboardHero onOpenNotifications={() => setIsNotificationsModalOpen(true)} onOpenQuickActions={() => setIsQuickActionsDrawerOpen(true)} />
             <View style={styles.summaryBlock}>
               <DashboardStatTiles />
             </View>
@@ -280,7 +316,11 @@ export default function DashboardScreen() {
           </>
         )}
       </ScrollView>
-      <DashboardFloatingActions />
+      <DashboardSideDrawer
+        onClose={() => setIsQuickActionsDrawerOpen(false)}
+        visible={isQuickActionsDrawerOpen}
+      />
+      <DashboardNotificationsModal onClose={() => setIsNotificationsModalOpen(false)} visible={isNotificationsModalOpen} />
       <AttendanceToast />
     </SafeAreaView>
   );
@@ -288,21 +328,21 @@ export default function DashboardScreen() {
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: {
-    backgroundColor: Colors.bg,
+    backgroundColor: Colors.dashboardSurface,
     flex: 1,
   },
   content: {
-    backgroundColor: Colors.bg,
+    backgroundColor: Colors.dashboardSurface,
     paddingBottom: AppLayout.contentBottomPadding,
   },
   sectionBlock: {
-    marginTop: 22,
+    marginTop: 16,
   },
   summaryBlock: {
-    marginTop: 8,
+    marginTop: 0,
   },
   stickyActions: {
-    backgroundColor: Colors.bg,
+    backgroundColor: Colors.dashboardSurface,
     zIndex: 10,
   },
   errorWrap: {

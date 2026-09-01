@@ -16,6 +16,7 @@ import { AppLayout } from "@/constants/layout";
 import { DashboardSpacing as Spacing } from "@/constants/theme";
 import { findAttendanceRecordForStaff } from "@/features/attendance/utils/attendanceMatching";
 import {
+  formatAttendanceDate,
   formatAttendanceTime,
   getAttendanceAction,
   getAttendanceBadgeConfig,
@@ -152,12 +153,7 @@ export function StaffAttendanceScreen() {
           <Text style={[styles.eyebrow, { color: Colors.text2 }]}>MY ATTENDANCE</Text>
           <Text style={[styles.title, { color: Colors.heading, fontSize: titleSize }]}>Today’s status</Text>
           <Text style={[styles.subtitle, { color: Colors.text2 }]}>
-            {new Intl.DateTimeFormat("en-IN", {
-              day: "numeric",
-              month: "short",
-              weekday: "long",
-              year: "numeric",
-            }).format(new Date())}
+            {formatAttendanceDate(todayKey)}
           </Text>
         </View>
 

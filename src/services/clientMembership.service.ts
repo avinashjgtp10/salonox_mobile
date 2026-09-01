@@ -4,10 +4,12 @@ import type { ApiResponse } from "@/types/auth";
 import type {
   CancelClientMembershipRequest,
   ChangeClientMembershipRequest,
+  ClientMembershipAppliesTo,
   ClientMembershipAssignment,
   ClientMembershipAssignmentRequest,
   ClientMembershipBenefit,
   ClientMembershipHistoryItem,
+  ClientMembershipPricingType,
   ClientMembershipStatus,
   RenewClientMembershipRequest,
 } from "@/types/clientMembership";
@@ -153,12 +155,28 @@ const normalizeAssignment = (raw: AnyRecord): ClientMembershipAssignment => {
       ? benefits.reduce((total, benefit) => total + Math.max(benefit.remaining ?? 0, 0), 0)
       : null);
 
+  const membershipPricingType =
+    firstValue(raw, ["pricingType", "pricing_type"]) ?? firstValue(membership, ["pricingType", "pricing_type"]);
+  const membershipAppliesTo =
+    firstValue(raw, ["appliesTo", "applies_to"]) ?? firstValue(membership, ["appliesTo", "applies_to"]);
+  const membershipCategoryIds =
+    firstValue(raw, ["categoryIds", "category_ids"]) ?? firstValue(membership, ["categoryIds", "category_ids"]);
+
   return {
+    appliesTo: normalizeAppliesTo(membershipAppliesTo),
     assignedAt: toNullableString(firstValue(raw, ["assignedAt", "assigned_at", "createdAt", "created_at"])),
     benefits,
     cancelledAt: toNullableString(firstValue(raw, ["cancelledAt", "cancelled_at", "canceledAt", "canceled_at"])),
+    categoryIds: toStringArray(membershipCategoryIds),
     clientId: toSafeString(firstValue(raw, ["clientId", "client_id"]) ?? firstValue(client, ["id", "_id"])),
     clientName: toSafeString(firstValue(raw, ["clientName", "client_name"]) ?? firstValue(client, ["fullName", "full_name", "name"]), "Client"),
+    discountBalanceRemaining: toNullableNumber(
+      firstValue(raw, ["discountBalanceRemaining", "discount_balance_remaining"]),
+    ),
+    discountPercent: toNullableNumber(
+      firstValue(raw, ["discountPercent", "discount_percent"]) ??
+        firstValue(membership, ["discountPercent", "discount_percent"]),
+    ),
     expiresAt,
     history: (Array.isArray(firstValue(raw, ["history", "membershipHistory", "membership_history"]))
       ? (firstValue(raw, ["history", "membershipHistory", "membership_history"]) as unknown[])
@@ -167,11 +185,43 @@ const normalizeAssignment = (raw: AnyRecord): ClientMembershipAssignment => {
     id: toSafeString(firstValue(raw, ["id", "_id", "assignmentId", "assignment_id"])),
     membershipId: toSafeString(firstValue(raw, ["membershipId", "membership_id"]) ?? firstValue(membership, ["id", "_id"])),
     membershipName: toSafeString(firstValue(raw, ["membershipName", "membership_name"]) ?? firstValue(membership, ["name", "title"]), "Membership"),
+    pricingType: normalizePricingType(membershipPricingType),
     remainingBenefits,
     renewedAt: toNullableString(firstValue(raw, ["renewedAt", "renewed_at"])),
     startsAt: toNullableString(firstValue(raw, ["startsAt", "starts_at", "startDate", "start_date"])),
     status: normalizeStatus(firstValue(raw, ["status", "state"]), expiresAt),
+    walletBalance: toNullableNumber(
+      firstValue(raw, ["walletBalance", "wallet_balance", "membershipWalletBalance", "membership_wallet_balance"]),
+    ),
   };
+};
+
+const normalizePricingType = (value: unknown): ClientMembershipPricingType | null => {
+  const raw = toSafeString(value).toLowerCase();
+
+  if (raw === "value" || raw === "percentage") {
+    return raw;
+  }
+
+  return null;
+};
+
+const normalizeAppliesTo = (value: unknown): ClientMembershipAppliesTo | null => {
+  const raw = toSafeString(value).toLowerCase();
+
+  if (raw === "services" || raw === "products" || raw === "both") {
+    return raw;
+  }
+
+  return null;
+};
+
+const toStringArray = (value: unknown): string[] => {
+  if (!Array.isArray(value)) return [];
+
+  return value
+    .map((entry) => (isRecord(entry) ? toSafeString(firstValue(entry, ["id", "_id"])) : toSafeString(entry)))
+    .filter(Boolean);
 };
 
 const normalizeAssignmentResponse = (payload: AssignmentEnvelope): ClientMembershipAssignment =>

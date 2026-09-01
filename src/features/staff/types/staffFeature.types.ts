@@ -34,18 +34,29 @@ export type StaffModuleSection = {
 
 export type StaffFormValues = Omit<CreateStaffRequest, "salon_id">;
 export type StaffUpdateFormValues = Omit<UpdateStaffRequest, "salon_id">;
+
+export type StaffRoleLevel = "Staff" | "Manager";
+
 export type StaffProfileFormValues = {
+  address: string;
+  avatarUrl: string;
+  confirmPassword: string;
+  designation: string;
+  dob: string;
   email: string;
+  fixedSalary: string;
   fullName: string;
   gender: string;
-  joining_date: string;
+  holidays: string;
+  hourlyRate: string;
+  isLoginEnabled: boolean;
+  joiningDate: string;
   notes: string;
+  password: string;
   phone: string;
-  role: string;
-  work_start_time: string;
-  work_end_time: string;
-  employeeCode: string;
-  isAutoGenerate: boolean;
+  phoneCountry: string;
+  roleLevel: StaffRoleLevel | "";
+  workingHoursPerDay: string;
 };
 export type StaffAddressFormValues = Omit<CreateStaffAddressRequest, "salon_id">;
 export type StaffAddressUpdateFormValues = Omit<UpdateStaffAddressRequest, "salon_id">;

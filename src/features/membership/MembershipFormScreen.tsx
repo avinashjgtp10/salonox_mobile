@@ -3,15 +3,13 @@ import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -214,11 +212,10 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false} style={styles.flex}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.84} disabled={isSubmitting} onPress={goBack} style={styles.iconButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            <TouchableOpacity activeOpacity={0.84} disabled={isSubmitting} hitSlop={12} onPress={goBack} style={styles.iconButton}>
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>{mode === "create" ? "New Membership" : "Edit Membership"}</Text>
             <View style={styles.iconButtonGhost} />
@@ -291,8 +288,7 @@ export function MembershipFormScreen({ membershipId, mode }: MembershipFormScree
               <Text style={styles.submitText}>{isSubmitting ? "Saving..." : "Save Membership"}</Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }

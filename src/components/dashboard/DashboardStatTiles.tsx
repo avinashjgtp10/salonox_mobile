@@ -1,14 +1,20 @@
-import { Ionicons } from "@expo/vector-icons";
+import { router, type Href } from "expo-router";
 import { useMemo } from "react";
-import { StyleSheet, Text, View, useWindowDimensions } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, useWindowDimensions, type DimensionValue } from "react-native";
 
-import { DashboardTypography as Typography, type ThemeColors } from "@/constants/theme";
+import { IconBadge } from "@/components/ui/IconBadge";
+import {
+  DashboardRadius as Radius,
+  DashboardSpacing as Spacing,
+  DashboardTypography as Typography,
+  type ThemeColors,
+} from "@/constants/theme";
 import { useAppSelector } from "@/store/hooks";
 import {
   selectDashboardIsLoading,
   selectDashboardMetrics,
 } from "@/store/dashboard/dashboard.slice";
-import { selectInventorySummary } from "@/store/product/product.slice";
+import { selectClientsTotalCount } from "@/store/client/client.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatDashboardRevenue } from "@/utils/dashboard";
 
@@ -32,6 +38,65 @@ const getRevenueComparison = (currentMonth: number, lastMonth: number, revenueCh
   return { detail: "No Change", indicator: "\u2014", status: "", tone: "neutral" as const };
 };
 
+const REVENUE_BAR_COLORS = {
+  current: "#2563EB",
+  last: "#16A34A",
+} as const;
+
+function RevenueComparisonBars({
+  currentMonthRevenue,
+  lastMonthRevenue,
+}: {
+  currentMonthRevenue: number;
+  lastMonthRevenue: number;
+}) {
+  const Colors = useThemeColors();
+  const { width } = useWindowDimensions();
+  const isCompact = width < 390;
+  const styles = useMemo(() => createStyles(Colors, isCompact), [Colors, isCompact]);
+  const maxRevenue = Math.max(currentMonthRevenue, lastMonthRevenue, 1);
+  const rows = [
+    {
+      barColor: REVENUE_BAR_COLORS.current,
+      label: "This Month",
+      value: currentMonthRevenue,
+    },
+    {
+      barColor: REVENUE_BAR_COLORS.last,
+      label: "Last Month",
+      value: lastMonthRevenue,
+    },
+  ];
+
+  return (
+    <View style={styles.horizontalChart}>
+      {rows.map((row) => {
+        const widthPercent = `${Math.max(row.value === 0 ? 0 : 8, (row.value / maxRevenue) * 100)}%` as DimensionValue;
+
+        return (
+          <View key={row.label} style={styles.horizontalBarRow}>
+            <View style={styles.horizontalBarTop}>
+              <Text style={styles.horizontalBarLabel}>{row.label}</Text>
+              <Text style={styles.horizontalBarValue}>{formatDashboardRevenue(row.value)}</Text>
+            </View>
+            <View style={styles.horizontalBarTrack}>
+              <View
+                style={[
+                  styles.horizontalBarFill,
+                  {
+                    backgroundColor: row.barColor,
+                    width: widthPercent,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 // Split out of DashboardHero ÃƒÂ¢Ã¢â€šÂ¬Ã¢â‚¬Â same selectors/derived values, moved
 // verbatim, now rendered as separate premium tiles below the hero instead of
 // an inline strip inside it.
@@ -42,7 +107,7 @@ export default function DashboardStatTiles() {
   const styles = useMemo(() => createStyles(Colors, isCompact), [Colors, isCompact]);
   const dashboardMetrics = useAppSelector(selectDashboardMetrics);
   const isDashboardLoading = useAppSelector(selectDashboardIsLoading);
-  const inventorySummary = useAppSelector(selectInventorySummary);
+  const totalClients = useAppSelector(selectClientsTotalCount);
   const revenueComparison = useMemo(
     () =>
       getRevenueComparison(
@@ -60,28 +125,46 @@ export default function DashboardStatTiles() {
   const ownerKpis = useMemo(
     () => [
       {
+        accent: "blue" as const,
+        bg: Colors.dashboardRevenueBg,
+        color: Colors.dashboardRevenueAccent,
         icon: "cash-outline" as const,
         label: "This Month Revenue",
+        route: "/sales" as Href,
         subtitle: "Current Calendar Month",
         value: formatDashboardRevenue(dashboardMetrics.monthlyRevenue),
       },
       {
+        accent: "sky" as const,
+        bg: Colors.dashboardAppointmentBg,
+        color: Colors.dashboardAppointmentAccent,
         icon: "trending-up-outline" as const,
         label: "Today's Revenue",
+        route: "/sales" as Href,
         value: formatDashboardRevenue(dashboardMetrics.todaysRevenue),
       },
       {
-        icon: "cube-outline" as const,
-        kind: "stock" as const,
-        label: "Stock",
-        stockMetrics: inventorySummary,
+        accent: "indigo" as const,
+        bg: Colors.dashboardClientBg,
+        color: Colors.dashboardClientAccent,
+        icon: "people-outline" as const,
+        label: "Total Clients",
+        route: "/clients" as Href,
+        value: String(totalClients),
       },
       {
+        accent: "green" as const,
+        bg: Colors.dashboardWarningBg,
+        color: Colors.dashboardWarningAccent,
         icon: "calendar-outline" as const,
         label: "Bookings",
+        route: "/bookings" as Href,
         value: String(dashboardMetrics.bookings),
       },
       {
+        accent: "blue" as const,
+        bg: Colors.dashboardCard,
+        color: Colors.dashboardRevenueAccent,
         currentMonthRevenue: dashboardMetrics.monthlyRevenue,
         icon: "analytics-outline" as const,
         kind: "revenueComparison" as const,
@@ -91,92 +174,65 @@ export default function DashboardStatTiles() {
       },
     ],
     [
+      Colors,
       dashboardMetrics.bookings,
       dashboardMetrics.lastMonthRevenue,
       dashboardMetrics.monthlyRevenue,
       dashboardMetrics.todaysRevenue,
-      inventorySummary,
+      totalClients,
       revenueComparison,
     ],
   );
 
   return (
     <View style={styles.row}>
-      {ownerKpis.map((stat) => (
-        <View
-          key={stat.label}
-          style={[
-            styles.tile,
-            stat.kind === "stock" && styles.stockTile,
-            stat.kind === "revenueComparison" && styles.comparisonTile,
-          ]}
-        >
-          {isDashboardLoading ? (
+      {ownerKpis.map((stat) => {
+        const tileStyle = [
+          styles.tile,
+          { backgroundColor: stat.bg, borderColor: stat.color },
+          "kind" in stat && stat.kind === "revenueComparison" && styles.comparisonTile,
+        ];
+
+        const tileContent = (
+          <>
+            {isDashboardLoading ? (
             <>
               <View style={styles.iconSkeleton} />
-              <View style={[styles.copy, stat.kind === "stock" && styles.stockCopy]}>
+              <View style={styles.copy}>
                 <View style={styles.valueSkeleton} />
                 <View style={styles.labelSkeleton} />
               </View>
             </>
           ) : (
             <>
-              <View style={[styles.iconWrap, isCompact && styles.iconWrapCompact]}>
-                <Ionicons name={stat.icon} size={22} color={Colors.heading} />
+              <View style={styles.tileTopRow}>
+                <IconBadge accent={stat.accent} icon={stat.icon} size={isCompact ? "sm" : "md"} />
+                <View style={[styles.accentBar, { backgroundColor: stat.color }]} />
               </View>
-              <View
-                style={[
-                  styles.copy,
-                  (stat.kind === "stock" || stat.kind === "revenueComparison") && styles.stockCopy,
-                ]}
-              >
-                {stat.kind === "stock" ? (
-                  <>
-                    <Text style={styles.stockTitle}>Stock</Text>
-                    <View style={styles.stockRows}>
-                      <View style={[styles.stockMetric, styles.stockMetricRaised]}>
-                        <Text numberOfLines={1} ellipsizeMode="tail" style={styles.stockValue}>
-                          {stat.stockMetrics.totalProducts}
-                        </Text>
-                        <Text style={styles.stockLabel}>
-                          Available
-                        </Text>
-                      </View>
-                      <View style={[styles.stockMetric, styles.stockMetricDivider]}>
-                        <Text numberOfLines={1} ellipsizeMode="tail" style={styles.stockValue}>
-                          {stat.stockMetrics.lowStockProducts}
-                        </Text>
-                        <Text style={styles.stockLabel}>
-                          Low Stock
-                        </Text>
-                      </View>
-                      <View style={[styles.stockMetric, styles.stockMetricDivider]}>
-                        <Text numberOfLines={1} ellipsizeMode="tail" style={styles.stockValue}>
-                          {stat.stockMetrics.outOfStockProducts}
-                        </Text>
-                        <Text style={styles.stockLabel}>
-                          Out of Stock
-                        </Text>
-                      </View>
-                    </View>
-                  </>
-                ) : stat.kind === "revenueComparison" ? (
+              <View style={styles.copy}>
+                {"kind" in stat && stat.kind === "revenueComparison" ? (
                   <>
                     <Text numberOfLines={1} style={styles.stockTitle}>
                       {stat.label}
                     </Text>
                     <View style={styles.titleDivider} />
+                    <View style={styles.comparisonChart}>
+                      <RevenueComparisonBars
+                        currentMonthRevenue={stat.currentMonthRevenue}
+                        lastMonthRevenue={stat.lastMonthRevenue}
+                      />
+                    </View>
                     <View style={styles.comparisonRows}>
                       <View style={styles.comparisonMetric}>
-                        <Text style={styles.comparisonLabel}>Current Month</Text>
-                        <Text style={styles.comparisonValue}>
-                          {formatDashboardRevenue(stat.currentMonthRevenue)}
-                        </Text>
-                      </View>
-                      <View style={[styles.comparisonMetric, styles.comparisonMetricDivider]}>
                         <Text style={styles.comparisonLabel}>Last Month</Text>
                         <Text style={styles.comparisonValue}>
                           {formatDashboardRevenue(stat.lastMonthRevenue)}
+                        </Text>
+                      </View>
+                      <View style={[styles.comparisonMetric, styles.comparisonMetricDivider]}>
+                        <Text style={styles.comparisonLabel}>Current Month</Text>
+                        <Text style={styles.comparisonValue}>
+                          {formatDashboardRevenue(stat.currentMonthRevenue)}
                         </Text>
                       </View>
                       <View style={[styles.comparisonMetric, styles.comparisonMetricDivider]}>
@@ -204,19 +260,43 @@ export default function DashboardStatTiles() {
                   </>
                 ) : (
                   <>
-                    <Text style={styles.label}>{stat.label}</Text>
-                    <View style={styles.titleDivider} />
+                    <Text style={[styles.label, { color: stat.color }]}>{stat.label}</Text>
                     <Text adjustsFontSizeToFit minimumFontScale={0.72} numberOfLines={1} style={styles.value}>
                       {stat.value}
                     </Text>
-                    {stat.subtitle ? <Text style={styles.subtitle}>{stat.subtitle}</Text> : null}
+                    <Text style={[styles.subtitle, !stat.subtitle && styles.subtitlePlaceholder]}>
+                      {stat.subtitle || " "}
+                    </Text>
                   </>
                 )}
               </View>
             </>
-          )}
-        </View>
-      ))}
+            )}
+          </>
+        );
+
+        const route = "route" in stat ? stat.route : undefined;
+
+        if (route) {
+          return (
+            <TouchableOpacity
+              accessibilityRole="button"
+              activeOpacity={0.86}
+              key={stat.label}
+              onPress={() => router.push(route)}
+              style={tileStyle}
+            >
+              {tileContent}
+            </TouchableOpacity>
+          );
+        }
+
+        return (
+          <View key={stat.label} style={tileStyle}>
+            {tileContent}
+          </View>
+        );
+      })}
     </View>
   );
 }
@@ -225,29 +305,41 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
   row: {
     flexWrap: "wrap",
     flexDirection: "row",
-    gap: 14,
-    paddingHorizontal: 20,
+    gap: 10,
+    paddingHorizontal: 14,
   },
   tile: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
+    alignItems: "flex-start",
+    backgroundColor: Colors.dashboardCard,
     borderColor: Colors.border,
-    borderRadius: 22,
+    borderRadius: 14,
     borderWidth: 1,
     flexBasis: "47%",
     flexGrow: 1,
     flexDirection: "column",
-    gap: isCompact ? 9 : 10,
-    justifyContent: "center",
-    minHeight: isCompact ? 156 : 170,
+    gap: isCompact ? 8 : 10,
+    justifyContent: "space-between",
+    minHeight: isCompact ? 118 : 128,
     minWidth: 0,
-    paddingHorizontal: isCompact ? 12 : 16,
-    paddingVertical: isCompact ? 16 : 20,
+    paddingHorizontal: isCompact ? 12 : 14,
+    paddingVertical: isCompact ? 13 : 15,
     shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.06,
-    shadowRadius: 18,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 14,
+    elevation: 2,
+  },
+  tileTopRow: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    width: "100%",
+  },
+  accentBar: {
+    borderRadius: 999,
+    height: 26,
+    opacity: 0.28,
+    width: 4,
   },
   stockTile: {
     alignItems: "center",
@@ -255,55 +347,38 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     justifyContent: "center",
   },
   comparisonTile: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flexBasis: "100%",
     flexDirection: "column",
     justifyContent: "center",
-    minHeight: isCompact ? 148 : 164,
-  },
-  iconWrap: {
-    alignItems: "center",
-    backgroundColor: Colors.backgroundElement,
-    borderRadius: 17,
-    height: isCompact ? 48 : 56,
-    justifyContent: "center",
-    width: isCompact ? 48 : 56,
-  },
-  iconWrapCompact: {
-    borderRadius: 14,
-    height: 40,
-    width: 40,
+    minHeight: isCompact ? 154 : 168,
   },
   copy: {
-    alignItems: "center",
+    alignItems: "flex-start",
     flex: 0,
     minWidth: 0,
     width: "100%",
   },
-  stockCopy: {
-    flex: 0,
-    width: "100%",
-  },
-  stockIconWrap: {
-    alignSelf: "center",
-  },
   value: {
     color: Colors.heading,
-    fontSize: isCompact ? 25 : 30,
-    fontWeight: "800",
+    fontSize: isCompact ? 23 : 27,
+    fontWeight: "900",
     includeFontPadding: false,
     lineHeight: isCompact ? 32 : 38,
-    marginTop: isCompact ? 4 : 6,
-    textAlign: "center",
+    marginTop: isCompact ? 8 : 10,
+    textAlign: "left",
   },
   label: {
-    color: Colors.heading,
-    fontSize: isCompact ? 14 : 16,
-    fontWeight: "800",
+    color: Colors.text2,
+    fontSize: isCompact ? 11 : 12,
+    fontWeight: "900",
     letterSpacing: 0,
     lineHeight: isCompact ? 18 : 20,
-    marginTop: isCompact ? 4 : 6,
-    textAlign: "center",
+    marginTop: isCompact ? 8 : 10,
+    minHeight: 0,
+    textAlign: "left",
+    textAlignVertical: "center",
+    textTransform: "uppercase",
   },
   subtitle: {
     color: Colors.text2,
@@ -311,14 +386,17 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     fontWeight: Typography.fontWeights.semibold,
     lineHeight: isCompact ? 14 : 16,
     marginTop: isCompact ? 5 : 6,
-    textAlign: "center",
+    textAlign: "left",
+  },
+  subtitlePlaceholder: {
+    opacity: 0,
   },
   titleDivider: {
     backgroundColor: Colors.border,
     height: 1,
     marginTop: isCompact ? 8 : 10,
     opacity: 0.85,
-    width: "86%",
+    width: "100%",
   },
   stockTitle: {
     color: Colors.heading,
@@ -336,6 +414,49 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
     marginTop: isCompact ? 16 : 18,
     minWidth: 0,
     width: "100%",
+  },
+  comparisonChart: {
+    marginTop: isCompact ? 14 : 16,
+    width: "100%",
+  },
+  horizontalChart: {
+    gap: isCompact ? 12 : 14,
+    width: "100%",
+  },
+  horizontalBarRow: {
+    width: "100%",
+  },
+  horizontalBarTop: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 7,
+  },
+  horizontalBarLabel: {
+    color: Colors.heading,
+    flexShrink: 0,
+    fontSize: isCompact ? 12 : 13,
+    fontWeight: "800",
+    marginRight: Spacing.md,
+  },
+  horizontalBarValue: {
+    color: Colors.heading,
+    flexShrink: 1,
+    fontSize: isCompact ? 12 : 13,
+    fontWeight: "900",
+    textAlign: "right",
+  },
+  horizontalBarTrack: {
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.full,
+    height: isCompact ? 18 : 22,
+    overflow: "hidden",
+    width: "100%",
+  },
+  horizontalBarFill: {
+    borderRadius: Radius.full,
+    height: "100%",
+    minWidth: 0,
   },
   comparisonRows: {
     flexDirection: "row",
@@ -377,39 +498,6 @@ const createStyles = (Colors: ThemeColors, isCompact: boolean) => StyleSheet.cre
   },
   comparisonStatusNegative: {
     color: Colors.error,
-  },
-  stockMetric: {
-    alignItems: "center",
-    flex: 1,
-    justifyContent: "center",
-    minWidth: 0,
-  },
-  stockMetricRaised: {
-    transform: [{ translateY: -2 }],
-  },
-  stockMetricDivider: {
-    borderLeftColor: Colors.border,
-    borderLeftWidth: 1,
-  },
-  stockLabel: {
-    color: Colors.text2,
-    fontSize: 10,
-    fontWeight: Typography.fontWeights.semibold,
-    lineHeight: 12,
-    marginTop: isCompact ? 5 : 6,
-    minWidth: 0,
-    textAlign: "center",
-    width: "100%",
-  },
-  stockValue: {
-    color: Colors.heading,
-    fontSize: isCompact ? 18 : 20,
-    fontWeight: "800",
-    includeFontPadding: false,
-    lineHeight: isCompact ? 22 : 24,
-    minWidth: 0,
-    textAlign: "center",
-    width: "100%",
   },
   valueSkeleton: {
     backgroundColor: Colors.bg2,

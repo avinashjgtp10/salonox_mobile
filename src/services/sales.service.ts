@@ -2,6 +2,7 @@ import { api } from "@/services/api";
 import { SALES } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import { normalizeSaleId } from "@/utils/apiNormalize";
+import { formatAppDateTime } from "@/utils/dateTime";
 import type {
   CheckoutSaleRequest,
   CheckoutSaleResponse,
@@ -25,6 +26,8 @@ import type {
   UpdateSaleRequest,
   UpdateSaleResponse,
 } from "@/types/sales";
+
+export type ExportFormat = "csv" | "excel" | "pdf";
 
 type SalesInitApiResponse = ApiResponse<SalesInitApiData>;
 
@@ -239,18 +242,7 @@ const formatSaleTime = (value: unknown): string => {
     return "-";
   }
 
-  const parsedDate = new Date(raw);
-
-  if (Number.isNaN(parsedDate.getTime())) {
-    return raw;
-  }
-
-  return new Intl.DateTimeFormat("en-IN", {
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    month: "short",
-  }).format(parsedDate);
+  return formatAppDateTime(raw, raw);
 };
 
 const isSaleEnvelope = (
@@ -384,6 +376,12 @@ const normalizeSaleDetail = (entry: UnknownRecord): SaleDetail => {
       "-",
     ),
     couponCode: toSafeString(firstValue(entry, ["coupon_code", "couponCode"])) || null,
+    couponDiscountAmount: toSafeNumber(
+      firstValue(entry, ["coupon_discount_amount", "couponDiscountAmount"]),
+    ),
+    manualDiscountAmount: toSafeNumber(
+      firstValue(entry, ["manual_discount_amount", "manualDiscountAmount"]),
+    ),
     createdDateLabel: formatSaleTime(firstValue(entry, ["created_at", "createdAt"])),
     discountAmount: toSafeNumber(firstValue(entry, ["discount_amount", "discountAmount"])),
     discountPercent: toSafeNumber(firstValue(entry, ["discount_percent", "discountPercent"])),
@@ -399,6 +397,8 @@ const normalizeSaleDetail = (entry: UnknownRecord): SaleDetail => {
       firstValue(entry, ["outstanding_amount", "outstandingAmount"]),
     ) || Math.max(0, total - amountPaid),
     paymentMethod: toSafeString(firstValue(entry, ["payment_method", "paymentMethod"]), "-"),
+    paymentReference:
+      toSafeString(firstValue(entry, ["payment_reference", "paymentReference"])) || null,
     receiptNumber: toSafeString(firstValue(entry, ["invoice_number", "invoiceNumber"])),
     status: toSafeString(firstValue(entry, ["status"]), "draft") as SaleDetail["status"],
     subtotal: toSafeNumber(firstValue(entry, ["subtotal"])),
@@ -605,8 +605,9 @@ export const salesService = {
     };
   },
 
-  async exportSales(query?: Partial<SalesListQuery>): Promise<ExportSalesResponse> {
-    const response = await api.get<ExportSalesApiResponse>(SALES.EXPORT, {
+  async exportSales(query?: Partial<SalesListQuery>, format: ExportFormat = "csv"): Promise<ExportSalesResponse> {
+    const endpoint = format === "csv" ? SALES.EXPORT_CSV : format === "excel" ? SALES.EXPORT_EXCEL : SALES.EXPORT_PDF;
+    const response = await api.get<ExportSalesApiResponse>(endpoint, {
       params: query,
     });
 

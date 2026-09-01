@@ -4,13 +4,10 @@ import { ApiError, getApiErrorMessage } from "@/services/api";
 import { salonCommissionsService } from "@/services/salonCommissions.service";
 import type { RootState } from "@/store";
 import type {
-  BulkConfigureCommissionsRequest,
-  BulkConfigureCommissionsResponse,
-  ExportCommissionsResponse,
-  MarkCommissionPaidResponse,
-  SalonCommissionListResponse,
   SalonCommissionSummary,
   SalonEarnedEntry,
+  SettleCommissionRequest,
+  SettleCommissionResponse,
 } from "@/types/salonCommissions";
 
 type RejectValue = {
@@ -33,7 +30,9 @@ export const fetchSalonCommissionSummaryThunk = createAsyncThunk<
   try {
     return await salonCommissionsService.getSummary();
   } catch (error) {
-    console.error("[SalonCommissions] Fetch summary failed", toRejectValue(error));
+    if (__DEV__) {
+      console.error("[SalonCommissions] Fetch summary failed", toRejectValue(error));
+    }
 
     return rejectWithValue(toRejectValue(error));
   }
@@ -47,84 +46,35 @@ export const fetchSalonCommissionEarnedThunk = createAsyncThunk<
   try {
     return await salonCommissionsService.getEarned();
   } catch (error) {
-    console.error("[SalonCommissions] Fetch earned failed", toRejectValue(error));
+    if (__DEV__) {
+      console.error("[SalonCommissions] Fetch earned failed", toRejectValue(error));
+    }
 
     return rejectWithValue(toRejectValue(error));
   }
 });
 
-export type FetchSalonCommissionsArgs = {
-  limit?: number;
-  offset?: number;
-  refresh?: boolean;
-  reset?: boolean;
-  search?: string;
-  status?: string;
-};
-
-export const fetchSalonCommissionsThunk = createAsyncThunk<
-  SalonCommissionListResponse,
-  FetchSalonCommissionsArgs | undefined,
+export const settleCommissionThunk = createAsyncThunk<
+  SettleCommissionResponse,
+  SettleCommissionRequest,
   { rejectValue: RejectValue; state: RootState }
->("salonCommissions/fetchAll", async (args, { getState, rejectWithValue }) => {
-  const currentQuery = getState().salonCommissions.query;
-  const nextQuery = {
-    limit: args?.limit ?? currentQuery.limit,
-    offset: args?.offset ?? currentQuery.offset,
-    search: args?.search ?? currentQuery.search,
-    status: args?.status ?? currentQuery.status,
-  };
-
+>("salonCommissions/settle", async ({ staffId, amount }, { dispatch, rejectWithValue }) => {
   try {
-    return await salonCommissionsService.getAll(nextQuery);
-  } catch (error) {
-    console.error("[SalonCommissions] Fetch all failed", toRejectValue(error));
+    const response = await salonCommissionsService.settleCommission(staffId, amount);
 
-    return rejectWithValue(toRejectValue(error));
-  }
-});
-
-export const markCommissionPaidThunk = createAsyncThunk<
-  MarkCommissionPaidResponse,
-  string,
-  { rejectValue: RejectValue; state: RootState }
->("salonCommissions/markPaid", async (staffId, { dispatch, rejectWithValue }) => {
-  try {
-    const response = await salonCommissionsService.markPaid(staffId);
-
-    void dispatch(fetchSalonCommissionSummaryThunk());
+    // Keep the settlement loading state active until both authoritative
+    // backend views have finished refreshing. Their reducers preserve the
+    // previous data if either refresh fails.
+    await Promise.all([
+      dispatch(fetchSalonCommissionSummaryThunk()),
+      dispatch(fetchSalonCommissionEarnedThunk()),
+    ]);
 
     return response;
   } catch (error) {
-    console.error("[SalonCommissions] Mark paid failed", { staffId, ...toRejectValue(error) });
-
-    return rejectWithValue(toRejectValue(error));
-  }
-});
-
-export const bulkConfigureCommissionsThunk = createAsyncThunk<
-  BulkConfigureCommissionsResponse,
-  BulkConfigureCommissionsRequest,
-  { rejectValue: RejectValue; state: RootState }
->("salonCommissions/bulkConfigure", async (payload, { rejectWithValue }) => {
-  try {
-    return await salonCommissionsService.bulkConfigure(payload);
-  } catch (error) {
-    console.error("[SalonCommissions] Bulk configure failed", toRejectValue(error));
-
-    return rejectWithValue(toRejectValue(error));
-  }
-});
-
-export const exportSalonCommissionsThunk = createAsyncThunk<
-  ExportCommissionsResponse,
-  void,
-  { rejectValue: RejectValue; state: RootState }
->("salonCommissions/export", async (_args, { rejectWithValue }) => {
-  try {
-    return await salonCommissionsService.exportCommissions();
-  } catch (error) {
-    console.error("[SalonCommissions] Export failed", toRejectValue(error));
+    if (__DEV__) {
+      console.error("[SalonCommissions] Settle commission failed", { staffId, amount, ...toRejectValue(error) });
+    }
 
     return rejectWithValue(toRejectValue(error));
   }

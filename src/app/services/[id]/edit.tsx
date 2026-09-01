@@ -3,15 +3,13 @@ import { router, useLocalSearchParams, type Href } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   ActivityIndicator,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -21,6 +19,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { ConsumablesSection } from "@/features/services/components/ConsumablesSection";
 import { fetchServiceByIdThunk, fetchServicesThunk, updateServiceThunk } from "@/middleware/service/service.thunk";
 import {
   selectServiceById,
@@ -32,6 +31,7 @@ import {
 } from "@/store/service/service.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import type { ConsumableRecipeItem } from "@/types/consumable";
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -59,6 +59,7 @@ export default function EditServiceScreen() {
   const servicesQuery = useAppSelector(selectServicesQuery);
 
   const [category, setCategory] = useState("");
+  const [consumables, setConsumables] = useState<ConsumableRecipeItem[]>([]);
   const [durationMinutes, setDurationMinutes] = useState("");
   const [formError, setFormError] = useState<string | null>(null);
   const [isFinishing, setIsFinishing] = useState(false);
@@ -82,6 +83,7 @@ export default function EditServiceScreen() {
       setPrice(String(liveService.price));
       setDurationMinutes(liveService.durationMinutes ? String(liveService.durationMinutes) : "");
       setCategory(liveService.category ?? "");
+      setConsumables(liveService.consumablesUsed ?? []);
       hasPrefilledRef.current = true;
     }
   }, [liveService]);
@@ -141,6 +143,11 @@ export default function EditServiceScreen() {
         serviceId: id,
         updates: {
           ...(trimmedCategory ? { category: trimmedCategory } : {}),
+          consumables_used: consumables.map((item) => ({
+            product_id: item.productId,
+            qty: item.qty,
+            unit: item.unit,
+          })),
           ...(typeof parsedDuration === "number" ? { duration_minutes: parsedDuration } : {}),
           name: trimmedName,
           price: parsedPrice,
@@ -182,8 +189,8 @@ export default function EditServiceScreen() {
         <AppStatusBar />
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
@@ -202,8 +209,8 @@ export default function EditServiceScreen() {
         <AppStatusBar />
         <View style={styles.centeredWrap}>
           <View style={styles.headerRow}>
-            <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+            <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
@@ -220,23 +227,21 @@ export default function EditServiceScreen() {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.flex}
-      >
-        <ScrollView
+      <KeyboardAwareScrollView
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          style={styles.flex}
         >
           <View style={styles.headerRow}>
             <TouchableOpacity
               activeOpacity={0.8}
               disabled={isSubmitting}
+              hitSlop={AppLayout.headerActionHitSlop}
               onPress={handleBack}
               style={styles.backButton}
             >
-              <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <Ionicons name="arrow-back" size={18} color={Colors.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Edit Service</Text>
             <View style={styles.backButtonPlaceholder} />
@@ -315,6 +320,11 @@ export default function EditServiceScreen() {
               </View>
             </View>
 
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Consumables</Text>
+              <ConsumablesSection disabled={isSubmitting} onChange={setConsumables} value={consumables} />
+            </View>
+
             {displayedError ? (
               <View style={styles.errorContainer} accessibilityRole="alert">
                 <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
@@ -345,8 +355,7 @@ export default function EditServiceScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </SafeAreaView>
   );
 }
@@ -452,7 +461,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   errorContainer: {
     alignItems: "center",
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(114, 106, 99, 0.18)",
+    borderColor: Colors.errorBorder,
     borderRadius: AppRadius.control,
     borderWidth: 1,
     flexDirection: "row",
@@ -471,7 +480,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   successContainer: {
     alignItems: "center",
     backgroundColor: Colors.successBg,
-    borderColor: "rgba(28, 25, 23, 0.12)",
+    borderColor: Colors.successBorder,
     borderRadius: AppRadius.control,
     borderWidth: 1,
     flexDirection: "row",

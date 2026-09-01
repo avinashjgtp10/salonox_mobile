@@ -1,4 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
+import DateTimePicker from "@react-native-community/datetimepicker";
 import { router, type Href } from "expo-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -9,7 +10,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Switch,
   Text,
   TextInput,
   TouchableOpacity,
@@ -18,11 +18,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { AppLayout, AppRadius } from "@/constants/layout";
-import {
-  DashboardSpacing as Spacing,
-  type ThemeColors,
-} from "@/constants/theme";
+import { DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
+import { CategorySelectModal } from "@/features/services/components/CategorySelectModal";
 import {
   createProductThunk,
   fetchBrandsThunk,
@@ -30,14 +29,45 @@ import {
   fetchProductsThunk,
   updateProductThunk,
 } from "@/middleware/product/product.thunk";
+import { fetchServicesThunk } from "@/middleware/service/service.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
-import {
-  clearProductMutationError,
-  selectProductById,
-} from "@/store/product/product.slice";
+import { clearProductMutationError, selectProductById } from "@/store/product/product.slice";
+import { selectServices } from "@/store/service/service.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import type { ServiceCategoryItem } from "@/types/service";
 
 type Props = { id?: string; mode: "create" | "edit" };
+type ProductType = "retail" | "consumable" | "both";
+type UnitConversionDraft = { conversion: string; name: string };
+
+const PRODUCT_TYPES: { label: string; value: ProductType }[] = [
+  { label: "Retail", value: "retail" },
+  { label: "Consumable", value: "consumable" },
+  { label: "Both (also sold retail)", value: "both" },
+];
+
+const TAX_TYPES = ["No tax", "GST 5%", "GST 12%", "GST 18%"];
+
+const formatDate = (value: Date | null) => {
+  if (!value) return "";
+  const day = String(value.getDate()).padStart(2, "0");
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  return `${day}-${month}-${value.getFullYear()}`;
+};
+
+const toIsoDate = (value: Date | null) => {
+  if (!value) return undefined;
+  const day = String(value.getDate()).padStart(2, "0");
+  const month = String(value.getMonth() + 1).padStart(2, "0");
+  return `${value.getFullYear()}-${month}-${day}`;
+};
+
+const parseNumber = (value: string) => {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const parsed = Number(trimmed);
+  return Number.isFinite(parsed) ? parsed : null;
+};
 
 const messageFrom = (payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -47,32 +77,77 @@ const messageFrom = (payload: unknown, fallback: string) => {
   return fallback;
 };
 
+const getTaxRate = (taxType: string) => {
+  const match = taxType.match(/\d+/);
+  return match ? Number(match[0]) : 0;
+};
+
 export default function ProductFormScreen({ id, mode }: Props) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
   const product = useAppSelector(selectProductById(id ?? ""));
-  const state = useAppSelector((root) => root.product);
-  const [brandId, setBrandId] = useState<string | null>(null);
-  const [brandModalOpen, setBrandModalOpen] = useState(false);
-  const [category, setCategory] = useState("");
-  const [description, setDescription] = useState("");
-  const [formError, setFormError] = useState<string | null>(null);
-  const [isActive, setIsActive] = useState(true);
-  const [lowStockThreshold, setLowStockThreshold] = useState("5");
-  const [name, setName] = useState("");
-  const [price, setPrice] = useState("");
-  const [sku, setSku] = useState("");
-  const [stockQuantity, setStockQuantity] = useState("0");
+  const productState = useAppSelector((root) => root.product);
+  const services = useAppSelector(selectServices);
   const prefilled = useRef(false);
 
-  const liveProduct = product ?? (state.currentProduct?.id === id ? state.currentProduct : null);
-  const chosenBrand = state.brands.find((brand) => brand.id === brandId);
-  const isSubmitting = state.mutationLoading;
-  const title = mode === "create" ? "New Product" : "Edit Product";
+  const [barcode, setBarcode] = useState("");
+  const [brandId, setBrandId] = useState<string | null>(null);
+  const [brandModalOpen, setBrandModalOpen] = useState(false);
+  const [categoryModalOpen, setCategoryModalOpen] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<ServiceCategoryItem | null>(null);
+  const [legacyCategoryName, setLegacyCategoryName] = useState("");
+  const [description, setDescription] = useState("");
+  const [expiryDate, setExpiryDate] = useState<Date | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [hsnSac, setHsnSac] = useState("");
+  const [lotNumber, setLotNumber] = useState("");
+  const [lowStockAlert, setLowStockAlert] = useState("");
+  const [name, setName] = useState("");
+  const [productQuantity, setProductQuantity] = useState("");
+  const [productType, setProductType] = useState<ProductType>("retail");
+  const [remark, setRemark] = useState("");
+  const [retailPrice, setRetailPrice] = useState("");
+  const [serviceSearch, setServiceSearch] = useState("");
+  const [selectedServiceIds, setSelectedServiceIds] = useState<string[]>([]);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [stockQuantity, setStockQuantity] = useState("");
+  const [supplierName, setSupplierName] = useState("");
+  const [supplyPrice, setSupplyPrice] = useState("");
+  const [taxGroup, setTaxGroup] = useState("");
+  const [taxType, setTaxType] = useState("No tax");
+  const [taxTypeOpen, setTaxTypeOpen] = useState(false);
+  const [unit, setUnit] = useState("ml");
+  const [unitConversions, setUnitConversions] = useState<UnitConversionDraft[]>([]);
+  const [unitSize, setUnitSize] = useState("");
+
+  const liveProduct = product ?? (productState.currentProduct?.id === id ? productState.currentProduct : null);
+  const chosenBrand = productState.brands.find((brand) => brand.id === brandId);
+  const isSubmitting = productState.mutationLoading;
+  const title = mode === "create" ? "Add Product" : "Edit Product";
+  const isRetail = productType === "retail";
+  const hasRetailSale = productType === "retail" || productType === "both";
+  const hasConsumableInventory = productType === "consumable" || productType === "both";
+  const quantityValue = parseNumber(productQuantity) ?? 0;
+  const unitSizeValue = parseNumber(unitSize) ?? 0;
+  const retailStockValue = parseNumber(stockQuantity) ?? 0;
+  const availableStock = hasConsumableInventory ? quantityValue * unitSizeValue : retailStockValue;
+  const selectedServices = useMemo(
+    () => services.filter((service) => selectedServiceIds.includes(service.id)),
+    [selectedServiceIds, services],
+  );
+  const filteredServices = useMemo(() => {
+    const trimmed = serviceSearch.trim().toLowerCase();
+    if (!trimmed) return [];
+    return services
+      .filter((service) => service.name.toLowerCase().includes(trimmed))
+      .filter((service) => !selectedServiceIds.includes(service.id))
+      .slice(0, 5);
+  }, [selectedServiceIds, serviceSearch, services]);
 
   useEffect(() => {
     void dispatch(fetchBrandsThunk(undefined));
+    void dispatch(fetchServicesThunk({ limit: 100, offset: 0, reset: true, search: "" }));
     if (mode === "edit" && id) void dispatch(fetchProductByIdThunk(id));
     return () => {
       dispatch(clearProductMutationError());
@@ -80,18 +155,22 @@ export default function ProductFormScreen({ id, mode }: Props) {
   }, [dispatch, id, mode]);
 
   useEffect(() => {
-    if (mode === "edit" && liveProduct && !prefilled.current) {
-      setBrandId(liveProduct.brandId);
-      setCategory(liveProduct.category ?? "");
-      setDescription(liveProduct.description ?? "");
-      setIsActive(liveProduct.isActive);
-      setLowStockThreshold(String(liveProduct.lowStockThreshold));
-      setName(liveProduct.name);
-      setPrice(String(liveProduct.price));
-      setSku(liveProduct.sku ?? "");
-      setStockQuantity(String(liveProduct.stockQuantity));
-      prefilled.current = true;
-    }
+    if (mode !== "edit" || !liveProduct || prefilled.current) return;
+    setBarcode(liveProduct.sku ?? "");
+    setBrandId(liveProduct.brandId);
+    setSelectedCategory(liveProduct.categoryId && liveProduct.category ? { id: liveProduct.categoryId, name: liveProduct.category } : null);
+    setLegacyCategoryName(liveProduct.category ?? "");
+    setDescription(liveProduct.description ?? "");
+    setLowStockAlert(String(liveProduct.lowStockThreshold));
+    setName(liveProduct.name);
+    setProductQuantity(String(liveProduct.stockQuantity));
+    setProductType((liveProduct.productType as ProductType) || "retail");
+    setRetailPrice(String(liveProduct.retailPrice ?? liveProduct.price));
+    setStockQuantity(String(liveProduct.stockQuantity));
+    setSupplyPrice(String(liveProduct.supplyPrice ?? ""));
+    setUnit(liveProduct.measureUnit ?? "ml");
+    setUnitSize(liveProduct.bottleSize ? String(liveProduct.bottleSize) : "");
+    prefilled.current = true;
   }, [liveProduct, mode]);
 
   const goBack = () => {
@@ -99,42 +178,88 @@ export default function ProductFormScreen({ id, mode }: Props) {
     else router.replace("/stock" as Href);
   };
 
+  const addUnitConversion = () => {
+    setUnitConversions((current) => [...current, { conversion: "", name: "" }]);
+  };
+
+  const updateUnitConversion = (index: number, patch: Partial<UnitConversionDraft>) => {
+    setUnitConversions((current) => current.map((item, itemIndex) => (itemIndex === index ? { ...item, ...patch } : item)));
+  };
+
+  const removeUnitConversion = (index: number) => {
+    setUnitConversions((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  };
+
   const submit = async () => {
-    const numericPrice = Number(price);
-    const numericStock = Number(stockQuantity);
-    const numericThreshold = Number(lowStockThreshold);
+    const numericRetailPrice = parseNumber(retailPrice);
+    const numericStockQuantity = parseNumber(stockQuantity);
+    const numericProductQuantity = parseNumber(productQuantity);
+    const numericUnitSize = parseNumber(unitSize);
+    const numericLowStock = lowStockAlert.trim() ? parseNumber(lowStockAlert) : 0;
+    const numericSupplyPrice = supplyPrice.trim() ? parseNumber(supplyPrice) : 0;
+    const categoryName = selectedCategory?.name ?? legacyCategoryName.trim();
+    const categoryId = selectedCategory?.id ?? liveProduct?.categoryId ?? "";
+
     setFormError(null);
 
-    if (!name.trim()) return setFormError("Product name is required.");
-    if (!price.trim() || !Number.isFinite(numericPrice) || numericPrice < 0) {
-      return setFormError("Enter a valid price.");
+    if (!name.trim()) return setFormError("Product Name is required.");
+    if (name.trim().length > 100) return setFormError("Product Name must be 100 characters or less.");
+    if (!categoryName) return setFormError("Category is required.");
+    if (isRetail && (numericStockQuantity === null || numericStockQuantity < 0)) {
+      return setFormError("Stock Quantity is required.");
     }
-    if (!Number.isInteger(numericStock) || numericStock < 0) {
-      return setFormError("Stock quantity must be a whole number of zero or more.");
+    if (hasConsumableInventory && (numericProductQuantity === null || numericProductQuantity < 0)) {
+      return setFormError("Product Quantity is required.");
     }
-    if (!Number.isInteger(numericThreshold) || numericThreshold < 0) {
-      return setFormError("Low stock threshold must be a whole number of zero or more.");
+    if (hasConsumableInventory && (numericUnitSize === null || numericUnitSize <= 0)) {
+      return setFormError("Unit Size is required.");
+    }
+    if (hasConsumableInventory && !unit.trim()) return setFormError("Unit is required.");
+    if (numericLowStock === null || numericLowStock < 0) return setFormError("Low Stock Alert must be zero or more.");
+    if (numericSupplyPrice === null || numericSupplyPrice < 0) return setFormError("Supply Price must be zero or more.");
+    if (hasRetailSale && (numericRetailPrice === null || numericRetailPrice < 0)) {
+      return setFormError("Retail Price is required.");
     }
 
+    const conversions = unitConversions
+      .map((item) => ({ conversion_to_base: parseNumber(item.conversion) ?? 0, unit_name: item.name.trim() }))
+      .filter((item) => item.unit_name && item.conversion_to_base > 0);
+    const stockForPayload = hasConsumableInventory ? numericProductQuantity ?? 0 : numericStockQuantity ?? 0;
+    const priceForPayload = hasRetailSale ? numericRetailPrice ?? 0 : numericSupplyPrice ?? 0;
+    const expiry = toIsoDate(expiryDate);
     const data = {
-      ...(mode === "edit" || brandId ? { brand_id: brandId } : {}),
-      ...(mode === "edit" || category.trim() ? { category: category.trim() } : {}),
-      ...(mode === "edit" || description.trim()
-        ? { description: description.trim() }
-        : {}),
-      is_active: isActive,
-      low_stock_threshold: numericThreshold,
+      ...(barcode.trim() ? { barcode: barcode.trim(), sku: barcode.trim() } : {}),
+      ...(brandId ? { brand_id: brandId } : {}),
+      category: categoryName,
+      ...(categoryId ? { category_id: categoryId } : {}),
+      ...(description.trim() ? { description: description.trim() } : {}),
+      ...(expiry ? { expiry_date: expiry } : {}),
+      ...(hsnSac.trim() ? { hsn_sac: hsnSac.trim() } : {}),
+      is_active: true,
+      ...(lotNumber.trim() ? { lot_number: lotNumber.trim() } : {}),
+      low_stock_threshold: numericLowStock ?? 0,
+      ...(hasConsumableInventory ? { measure_unit: unit.trim() } : {}),
       name: name.trim(),
-      price: numericPrice,
-      ...(mode === "edit" || sku.trim() ? { sku: sku.trim() } : {}),
-      stock_quantity: numericStock,
+      price: priceForPayload,
+      product_type: productType,
+      qty_alert: numericLowStock ?? 0,
+      ...(remark.trim() ? { remark: remark.trim() } : {}),
+      ...(hasRetailSale ? { retail_price: numericRetailPrice ?? 0 } : {}),
+      stock_quantity: stockForPayload,
+      ...(numericSupplyPrice !== null ? { supply_price: numericSupplyPrice } : {}),
+      ...(supplierName.trim() ? { supplier_name: supplierName.trim() } : {}),
+      ...(taxGroup.trim() ? { tax_group: taxGroup.trim() } : {}),
+      tax_rate: getTaxRate(taxType),
+      tax_type: taxType,
+      ...(conversions.length ? { unit_conversions: conversions } : {}),
+      ...(hasConsumableInventory ? { bottle_size: numericUnitSize ?? 0 } : {}),
     };
     const action = mode === "create"
       ? await dispatch(createProductThunk(data))
       : await dispatch(updateProductThunk({ data, id: id ?? "" }));
 
     if (createProductThunk.rejected.match(action) || updateProductThunk.rejected.match(action)) {
-      setFormError(messageFrom(action.payload, `Unable to ${mode} product.`));
+      setFormError(messageFrom(action.payload, `Unable to ${mode === "create" ? "create" : "update"} product.`));
       return;
     }
 
@@ -143,94 +268,532 @@ export default function ProductFormScreen({ id, mode }: Props) {
     router.replace((productId ? `/stock/${productId}` : "/stock") as Href);
   };
 
-  if (mode === "edit" && state.detailsLoading && !liveProduct) {
+  if (mode === "edit" && productState.detailsLoading && !liveProduct) {
     return <LoadingScreen title={title} onBack={goBack} />;
   }
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={styles.flex}>
-        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-          <Header title={title} onBack={goBack} />
-          {state.detailsError && mode === "edit" && !liveProduct ? (
-            <ErrorNotice message={state.detailsError} />
-          ) : (
-            <View style={styles.formCard}>
-              <Field icon="cube-outline" label="Product name" value={name} onChangeText={setName} placeholder="e.g. Repair shampoo" />
-              <Field icon="cash-outline" keyboardType="decimal-pad" label="Price" value={price} onChangeText={setPrice} placeholder="0.00" />
-              <TouchableOpacity activeOpacity={0.8} onPress={() => setBrandModalOpen(true)} style={styles.inputGroup}>
-                <Text style={styles.label}>Brand</Text>
-                <View style={styles.inputWrap}>
-                  <Ionicons name="ribbon-outline" size={18} color={Colors.text2} />
-                  <Text style={[styles.selectText, !chosenBrand && styles.placeholder]}>{chosenBrand?.name ?? "No brand"}</Text>
-                  <Ionicons name="chevron-down" size={18} color={Colors.text2} />
-                </View>
+      <KeyboardAvoidingView behavior="padding" keyboardVerticalOffset={0} style={styles.keyboardAvoidingView}>
+        <KeyboardAwareScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>{title}</Text>
+            <View style={styles.headerActions}>
+              <TouchableOpacity activeOpacity={0.84} onPress={goBack} style={styles.headerCloseButton}>
+                <Text style={styles.headerCloseText}>Close</Text>
               </TouchableOpacity>
-              <Field icon="barcode-outline" label="SKU" value={sku} onChangeText={setSku} placeholder="Optional" />
-              <Field icon="layers-outline" label="Category" value={category} onChangeText={setCategory} placeholder="Optional" />
-              <View style={styles.twoColumn}>
-                <View style={styles.column}><Field icon="archive-outline" keyboardType="number-pad" label="Stock" value={stockQuantity} onChangeText={setStockQuantity} placeholder="0" /></View>
-                <View style={styles.column}><Field icon="warning-outline" keyboardType="number-pad" label="Low stock at" value={lowStockThreshold} onChangeText={setLowStockThreshold} placeholder="5" /></View>
-              </View>
-              <Field icon="document-text-outline" label="Description" multiline value={description} onChangeText={setDescription} placeholder="Optional product notes" />
-              <View style={styles.switchRow}>
-                <View><Text style={styles.switchTitle}>Active product</Text><Text style={styles.switchHint}>Available to operational workflows</Text></View>
-                <Switch onValueChange={setIsActive} value={isActive} trackColor={{ false: Colors.border, true: Colors.secondary }} thumbColor="#FFFFFF" />
-              </View>
-              {formError ?? state.mutationError ? <ErrorNotice message={formError ?? state.mutationError ?? ""} /> : null}
-              <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void submit()} style={[styles.submit, isSubmitting && styles.disabled]}>
-                {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : <Ionicons name="checkmark-circle-outline" size={19} color="#FFFFFF" />}
-                <Text style={styles.submitText}>{isSubmitting ? "Saving..." : mode === "create" ? "Create Product" : "Save Changes"}</Text>
+              <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void submit()} style={[styles.headerSaveButton, isSubmitting && styles.disabled]}>
+                {isSubmitting ? <ActivityIndicator color="#FFFFFF" size="small" /> : null}
+                <Text style={styles.headerSaveText}>Save</Text>
               </TouchableOpacity>
             </View>
+          </View>
+
+          {productState.detailsError && mode === "edit" && !liveProduct ? (
+            <ErrorNotice message={productState.detailsError} />
+          ) : (
+            <>
+            <Section title="Basic Information">
+              <Field maxLength={100} label="Product Name *" onChangeText={setName} value={name} />
+              <Text style={styles.counter}>{name.length}/100</Text>
+              <Field label="Barcode (Optional)" onChangeText={setBarcode} value={barcode} />
+
+              <View style={styles.twoColumn}>
+                <SelectField
+                  label="Category *"
+                  onPress={() => setCategoryModalOpen(true)}
+                  placeholder="Search category..."
+                  value={selectedCategory?.name ?? legacyCategoryName}
+                />
+                <SelectField label="Brand" onPress={() => setBrandModalOpen(true)} placeholder="None" value={chosenBrand?.name} />
+              </View>
+              <View style={styles.inlineLinkRow}>
+                <TouchableOpacity activeOpacity={0.8} onPress={() => setCategoryModalOpen(true)} style={styles.inlineLinkCell}>
+                  <Text style={styles.inlineLink}>+ Add a category</Text>
+                </TouchableOpacity>
+                <TouchableOpacity activeOpacity={0.8} onPress={() => setBrandModalOpen(true)} style={styles.inlineLinkCell}>
+                  <Text style={styles.inlineLink}>+ Add a brand</Text>
+                </TouchableOpacity>
+              </View>
+
+              <SelectField label="Supplier" onPress={() => undefined} placeholder="None" value={supplierName || undefined} />
+              <TextInput
+                onChangeText={setSupplierName}
+                placeholder="+ Add a supplier"
+                placeholderTextColor={Colors.primary}
+                style={styles.linkInput}
+                value={supplierName}
+              />
+              <Field inputStyle={styles.textArea} label="Description" multiline onChangeText={setDescription} value={description} />
+              <Field inputStyle={styles.remarkArea} label="Remark" multiline onChangeText={setRemark} value={remark} />
+
+              <Text style={styles.label}>Product Type</Text>
+              <View style={styles.segmentRow}>
+                {PRODUCT_TYPES.map((item) => (
+                  <TouchableOpacity
+                    activeOpacity={0.84}
+                    key={item.value}
+                    onPress={() => setProductType(item.value)}
+                    style={[styles.segment, productType === item.value && styles.segmentActive]}
+                  >
+                    <Text style={[styles.segmentText, productType === item.value && styles.segmentTextActive]}>{item.label}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </Section>
+
+            <Section emphasized title="Inventory Setup">
+              {hasConsumableInventory ? (
+                <>
+                  <View style={styles.threeColumn}>
+                    <Field keyboardType="decimal-pad" label="Product Quantity *" onChangeText={setProductQuantity} value={productQuantity} />
+                    <Field keyboardType="decimal-pad" label="Unit Size *" onChangeText={setUnitSize} placeholder="e.g. 1000" value={unitSize} />
+                    <Field label="Unit" onChangeText={setUnit} value={unit} />
+                  </View>
+                  <View style={styles.stockPreview}>
+                    <Text style={styles.stockPreviewText}>
+                      Total Available Stock: <Text style={styles.bold}>{quantityValue} x {unitSizeValue} {unit} = {availableStock} {unit}</Text>
+                    </Text>
+                  </View>
+                  <Field keyboardType="decimal-pad" label="Low Stock Alert (in bottles/units)" onChangeText={setLowStockAlert} value={lowStockAlert} />
+                  <Field label="Lot Number" onChangeText={setLotNumber} value={lotNumber} />
+                </>
+              ) : (
+                <>
+                  <Field keyboardType="decimal-pad" label="Stock Quantity *" onChangeText={setStockQuantity} value={stockQuantity} />
+                  <Field keyboardType="decimal-pad" label="Low Stock Alert" onChangeText={setLowStockAlert} value={lowStockAlert} />
+                  <Field label="Lot Number" onChangeText={setLotNumber} value={lotNumber} />
+                </>
+              )}
+            </Section>
+
+            {hasConsumableInventory ? (
+              <>
+                <Section title="Unit Conversion">
+                  <Text style={styles.helperText}>
+                    Display units staff can log usage in (e.g. Bottle, Sachet) - inventory itself always stays in the base unit ({unit}) above. Only units in the same measurement family as the base unit are allowed (Volume: ml {"<->"} L).
+                  </Text>
+                  {unitConversions.map((item, index) => (
+                    <View key={`unit-${index}`} style={styles.conversionRow}>
+                      <Field label="Unit name" onChangeText={(value) => updateUnitConversion(index, { name: value })} value={item.name} />
+                      <Field keyboardType="decimal-pad" label={`In ${unit}`} onChangeText={(value) => updateUnitConversion(index, { conversion: value })} value={item.conversion} />
+                      <TouchableOpacity onPress={() => removeUnitConversion(index)} style={styles.removeButton}>
+                        <Ionicons color={Colors.error} name="trash-outline" size={18} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                  <TouchableOpacity activeOpacity={0.8} onPress={addUnitConversion}>
+                    <Text style={styles.inlineLink}>+ Add a unit</Text>
+                  </TouchableOpacity>
+                </Section>
+
+                <Section title="Service Assignment">
+                  <Text style={styles.helperText}>Assign this product to the services that consume it, with how much each one uses.</Text>
+                  <Field label="" onChangeText={setServiceSearch} placeholder="Search a service to assign..." value={serviceSearch} />
+                  {filteredServices.map((service) => (
+                    <TouchableOpacity
+                      key={service.id}
+                      onPress={() => {
+                        setSelectedServiceIds((current) => [...current, service.id]);
+                        setServiceSearch("");
+                      }}
+                      style={styles.optionRow}
+                    >
+                      <Text style={styles.optionText}>{service.name}</Text>
+                      <Ionicons color={Colors.primary} name="add-circle-outline" size={18} />
+                    </TouchableOpacity>
+                  ))}
+                  {selectedServices.map((service) => (
+                    <View key={service.id} style={styles.selectedServiceRow}>
+                      <Text style={styles.selectedServiceText}>{service.name}</Text>
+                      <TouchableOpacity onPress={() => setSelectedServiceIds((current) => current.filter((serviceId) => serviceId !== service.id))}>
+                        <Ionicons color={Colors.error} name="close-circle-outline" size={18} />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </Section>
+              </>
+            ) : null}
+
+            <Section title="Supply Information">
+              <View style={styles.twoColumn}>
+                <Field keyboardType="decimal-pad" label="Supply Price" onChangeText={setSupplyPrice} value={supplyPrice} />
+                <SelectField label="Tax Type" onPress={() => setTaxTypeOpen(true)} value={taxType} />
+              </View>
+              <Field label="Tax Group" onChangeText={setTaxGroup} value={taxGroup} />
+              <Field label="HSN/SAC" onChangeText={setHsnSac} value={hsnSac} />
+              <Text style={styles.label}>Expiry Date</Text>
+              <TouchableOpacity activeOpacity={0.84} onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
+                <Ionicons color={Colors.heading} name="calendar-outline" size={17} />
+                <Text style={[styles.dateText, !expiryDate && styles.placeholder]}>{formatDate(expiryDate) || "dd-mm-yyyy"}</Text>
+                <Ionicons color={Colors.text2} name="chevron-down" size={16} />
+              </TouchableOpacity>
+              {hasRetailSale ? <Field keyboardType="decimal-pad" label="Retail Price *" onChangeText={setRetailPrice} value={retailPrice} /> : null}
+            </Section>
+
+            {hasConsumableInventory ? (
+              <Section title="Inventory Preview">
+                <PreviewRow label="Stock" value={String(availableStock)} />
+                <PreviewRow label="Average Service Usage" value="No usage data yet" />
+                <PreviewRow label="Estimated Services" value={selectedServices.length ? String(selectedServices.length) : "-"} />
+                <PreviewRow label="Status" value={availableStock <= 0 ? "Out of Stock" : "In Stock"} warning={availableStock <= 0} />
+              </Section>
+            ) : null}
+
+            {formError ?? productState.mutationError ? <ErrorNotice message={formError ?? productState.mutationError ?? ""} /> : null}
+
+            <View style={styles.footer}>
+              <TouchableOpacity activeOpacity={0.84} onPress={goBack} style={styles.cancelButton}>
+                <Text style={styles.cancelText}>Close</Text>
+              </TouchableOpacity>
+              <TouchableOpacity activeOpacity={0.88} disabled={isSubmitting} onPress={() => void submit()} style={[styles.saveButton, isSubmitting && styles.disabled]}>
+                {isSubmitting ? <ActivityIndicator color="#FFFFFF" /> : null}
+                <Text style={styles.saveText}>{isSubmitting ? "Saving..." : "Save"}</Text>
+              </TouchableOpacity>
+            </View>
+            </>
           )}
-        </ScrollView>
+        </KeyboardAwareScrollView>
       </KeyboardAvoidingView>
+
       <Modal animationType="fade" transparent visible={brandModalOpen} onRequestClose={() => setBrandModalOpen(false)}>
-        <Pressable style={styles.overlay} onPress={() => setBrandModalOpen(false)}>
-          <Pressable style={styles.sheet}>
+        <Pressable onPress={() => setBrandModalOpen(false)} style={styles.overlay}>
+          <Pressable onPress={(event) => event.stopPropagation()} style={styles.sheet}>
             <Text style={styles.sheetTitle}>Select Brand</Text>
-            <ScrollView style={styles.brandList}>
-              {[{ id: "", name: "No brand" }, ...state.brands].map((brand) => (
-                <TouchableOpacity key={brand.id || "none"} onPress={() => { setBrandId(brand.id || null); setBrandModalOpen(false); }} style={styles.brandRow}>
-                  <Text style={styles.brandName}>{brand.name}</Text>
-                  {(brand.id || null) === brandId ? <Ionicons name="checkmark-circle" size={20} color={Colors.primary} /> : null}
+            <ScrollView style={styles.sheetList}>
+              {[{ id: "", name: "None" }, ...productState.brands].map((brand) => (
+                <TouchableOpacity
+                  key={brand.id || "none"}
+                  onPress={() => {
+                    setBrandId(brand.id || null);
+                    setBrandModalOpen(false);
+                  }}
+                  style={styles.sheetRow}
+                >
+                  <Text style={styles.sheetRowText}>{brand.name}</Text>
+                  {(brand.id || null) === brandId ? <Ionicons color={Colors.primary} name="checkmark-circle" size={20} /> : null}
                 </TouchableOpacity>
               ))}
             </ScrollView>
           </Pressable>
         </Pressable>
       </Modal>
+
+      <Modal animationType="fade" transparent visible={taxTypeOpen} onRequestClose={() => setTaxTypeOpen(false)}>
+        <Pressable onPress={() => setTaxTypeOpen(false)} style={styles.overlay}>
+          <Pressable onPress={(event) => event.stopPropagation()} style={styles.sheet}>
+            <Text style={styles.sheetTitle}>Tax Type</Text>
+            {TAX_TYPES.map((item) => (
+              <TouchableOpacity key={item} onPress={() => { setTaxType(item); setTaxTypeOpen(false); }} style={styles.sheetRow}>
+                <Text style={styles.sheetRowText}>{item}</Text>
+                {taxType === item ? <Ionicons color={Colors.primary} name="checkmark-circle" size={20} /> : null}
+              </TouchableOpacity>
+            ))}
+          </Pressable>
+        </Pressable>
+      </Modal>
+
+      {showDatePicker ? (
+        <DateTimePicker
+          mode="date"
+          onChange={(_event, date) => {
+            if (Platform.OS !== "ios") setShowDatePicker(false);
+            if (date) setExpiryDate(date);
+          }}
+          value={expiryDate ?? new Date()}
+        />
+      ) : null}
+
+      <CategorySelectModal
+        onClose={() => setCategoryModalOpen(false)}
+        onSelectCategory={(category) => {
+          setSelectedCategory(category);
+          setLegacyCategoryName("");
+        }}
+        selectedCategoryId={selectedCategory?.id}
+        type="product"
+        visible={categoryModalOpen}
+      />
     </SafeAreaView>
   );
-}
-
-function Header({ onBack, title }: { onBack: () => void; title: string }) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <View style={styles.header}><TouchableOpacity onPress={onBack} style={styles.iconButton}><Ionicons name="chevron-back" size={19} color={Colors.primary} /></TouchableOpacity><Text style={styles.headerTitle}>{title}</Text><View style={styles.iconButtonSpacer} /></View>;
 }
 
 function LoadingScreen({ onBack, title }: { onBack: () => void; title: string }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <SafeAreaView style={styles.safeArea}><View style={styles.content}><Header title={title} onBack={onBack} /><View style={styles.loading}><ActivityIndicator size="large" color={Colors.primary} /></View></View></SafeAreaView>;
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <AppStatusBar />
+      <View style={styles.content}>
+        <View style={styles.header}>
+          <Text style={styles.headerTitle}>{title}</Text>
+          <TouchableOpacity activeOpacity={0.84} onPress={onBack} style={styles.headerCloseButton}>
+            <Text style={styles.headerCloseText}>Close</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.loading}><ActivityIndicator size="large" color={Colors.primary} /></View>
+      </View>
+    </SafeAreaView>
+  );
 }
 
 function ErrorNotice({ message }: { message: string }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <View style={styles.error}><Ionicons name="alert-circle-outline" size={18} color={Colors.error} /><Text style={styles.errorText}>{message}</Text></View>;
+  return (
+    <View style={styles.errorBox}>
+      <Ionicons color={Colors.error} name="alert-circle-outline" size={18} />
+      <Text style={styles.errorText}>{message}</Text>
+    </View>
+  );
 }
 
-type FieldProps = React.ComponentProps<typeof TextInput> & { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string };
-function Field({ icon, label, multiline, ...props }: FieldProps) {
+function Section({ children, emphasized, title }: { children: React.ReactNode; emphasized?: boolean; title: string }) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  return <View style={styles.inputGroup}><Text style={styles.label}>{label}</Text><View style={[styles.inputWrap, multiline && styles.multilineWrap]}><Ionicons name={icon} size={18} color={Colors.text2} /><TextInput {...props} multiline={multiline} placeholderTextColor={Colors.placeholder} style={[styles.input, multiline && styles.multilineInput]} /></View></View>;
+  return (
+    <View style={[styles.section, emphasized && styles.sectionEmphasized]}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      {children}
+    </View>
+  );
+}
+
+function Field({ inputStyle, label, ...props }: React.ComponentProps<typeof TextInput> & { inputStyle?: object; label: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  return (
+    <View style={styles.field}>
+      {label ? <Text style={styles.label}>{label}</Text> : null}
+      <TextInput
+        {...props}
+        placeholderTextColor={Colors.placeholder}
+        style={[styles.input, props.multiline && styles.multilineInput, inputStyle]}
+      />
+    </View>
+  );
+}
+
+function SelectField({ label, onPress, placeholder, value }: { label: string; onPress: () => void; placeholder?: string; value?: string }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  return (
+    <TouchableOpacity activeOpacity={0.84} onPress={onPress} style={styles.field}>
+      <Text style={styles.label}>{label}</Text>
+      <View style={styles.selectInput}>
+        <Text numberOfLines={1} style={[styles.selectText, !value && styles.placeholder]}>{value || placeholder || "None"}</Text>
+        <Ionicons color={Colors.text2} name="chevron-down" size={16} />
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function PreviewRow({ label, value, warning }: { label: string; value: string; warning?: boolean }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  return (
+    <View style={styles.previewRow}>
+      <Text style={styles.previewLabel}>{label}</Text>
+      <Text style={[styles.previewValue, warning && styles.previewWarning]}>{value}</Text>
+    </View>
+  );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
-  safeArea:{flex:1,backgroundColor:Colors.bg},flex:{flex:1},content:{padding:Spacing.lg,paddingBottom:Spacing.xxl},header:{alignItems:"center",flexDirection:"row",justifyContent:"space-between",marginBottom:Spacing.lg},headerTitle:{color:Colors.heading,fontSize:22,fontWeight:"800"},iconButton:{alignItems:"center",backgroundColor:Colors.card,borderColor:Colors.border,borderRadius:AppRadius.control,borderWidth:1,height:AppLayout.headerActionSize,justifyContent:"center",width:AppLayout.headerActionSize},iconButtonSpacer:{width:AppLayout.headerActionSize},formCard:{backgroundColor:Colors.card,borderColor:Colors.border,borderRadius:AppRadius.card,borderWidth:1,padding:Spacing.lg},inputGroup:{marginBottom:Spacing.lg},label:{color:Colors.text2,fontSize:13,fontWeight:"700",marginBottom:Spacing.sm},inputWrap:{alignItems:"center",backgroundColor:Colors.bg,borderColor:Colors.border,borderRadius:AppRadius.control,borderWidth:1,flexDirection:"row",minHeight:52,paddingHorizontal:Spacing.md},input:{color:Colors.heading,flex:1,fontSize:15,marginLeft:Spacing.sm,minHeight:50},placeholder:{color:Colors.placeholder},selectText:{color:Colors.heading,flex:1,fontSize:15,marginLeft:Spacing.sm},multilineWrap:{alignItems:"flex-start",paddingTop:15},multilineInput:{minHeight:84,textAlignVertical:"top"},twoColumn:{flexDirection:"row",gap:Spacing.sm},column:{flex:1},switchRow:{alignItems:"center",backgroundColor:Colors.bg2,borderRadius:AppRadius.control,flexDirection:"row",justifyContent:"space-between",marginBottom:Spacing.lg,padding:Spacing.md},switchTitle:{color:Colors.heading,fontSize:14,fontWeight:"700"},switchHint:{color:Colors.text2,fontSize:11,marginTop:3},error:{alignItems:"center",backgroundColor:Colors.errorBg,borderRadius:AppRadius.control,flexDirection:"row",marginBottom:Spacing.lg,padding:Spacing.md},errorText:{color:Colors.error,flex:1,fontSize:13,fontWeight:"600",marginLeft:Spacing.sm},submit:{alignItems:"center",backgroundColor:Colors.primaryDark,borderRadius:AppRadius.pill,flexDirection:"row",gap:Spacing.sm,justifyContent:"center",minHeight:52},submitText:{color:"#FFFFFF",fontSize:14,fontWeight:"800"},disabled:{opacity:0.7},loading:{alignItems:"center",flex:1,justifyContent:"center",minHeight:300},overlay:{backgroundColor:"rgba(36,59,52,0.3)",flex:1,justifyContent:"flex-end",padding:Spacing.lg},sheet:{backgroundColor:Colors.card,borderRadius:AppRadius.card,maxHeight:"65%",padding:Spacing.lg},sheetTitle:{color:Colors.heading,fontSize:17,fontWeight:"800",marginBottom:Spacing.sm},brandList:{maxHeight:360},brandRow:{alignItems:"center",borderBottomColor:Colors.border,borderBottomWidth:1,flexDirection:"row",justifyContent:"space-between",minHeight:50},brandName:{color:Colors.heading,fontSize:14,fontWeight:"600"},
+  safeArea: { backgroundColor: Colors.bg, flex: 1 },
+  keyboardAvoidingView: { flex: 1 },
+  content: { padding: Spacing.lg, paddingBottom: AppLayout.contentBottomPadding },
+  header: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginHorizontal: -Spacing.lg,
+    marginTop: -Spacing.lg,
+    marginBottom: Spacing.xl,
+    minHeight: 74,
+    paddingHorizontal: Spacing.lg,
+  },
+  headerTitle: { color: Colors.heading, flex: 1, fontSize: 21, fontWeight: "800" },
+  headerActions: { alignItems: "center", flexDirection: "row", gap: Spacing.sm },
+  headerCloseButton: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: AppRadius.pill,
+    borderWidth: 1,
+    justifyContent: "center",
+    minHeight: 46,
+    paddingHorizontal: 20,
+  },
+  headerCloseText: { color: Colors.heading, fontSize: 14, fontWeight: "800" },
+  headerSaveButton: {
+    alignItems: "center",
+    backgroundColor: Colors.primaryDark,
+    borderRadius: AppRadius.pill,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 46,
+    paddingHorizontal: 24,
+  },
+  headerSaveText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  section: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    marginBottom: Spacing.lg,
+    padding: Spacing.lg,
+  },
+  sectionEmphasized: { borderColor: Colors.heading },
+  sectionTitle: { color: Colors.heading, fontSize: 17, fontWeight: "800", marginBottom: Spacing.md },
+  field: { flex: 1, marginBottom: Spacing.md },
+  label: { color: Colors.text2, fontSize: 13, fontWeight: "700", marginBottom: 8 },
+  input: {
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    color: Colors.heading,
+    fontSize: 15,
+    minHeight: 48,
+    paddingHorizontal: 13,
+    paddingVertical: 10,
+  },
+  multilineInput: { minHeight: 96, textAlignVertical: "top" },
+  textArea: { minHeight: 96 },
+  remarkArea: { minHeight: 72 },
+  counter: { alignSelf: "flex-end", color: Colors.text2, fontSize: 12, marginBottom: Spacing.md, marginTop: -Spacing.sm },
+  twoColumn: { flexDirection: "row", gap: Spacing.md },
+  threeColumn: { flexDirection: "row", gap: Spacing.sm },
+  inlineLinkRow: { flexDirection: "row", gap: Spacing.md },
+  inlineLinkCell: { flex: 1 },
+  inlineLink: { color: Colors.primary, fontSize: 14, fontWeight: "800", marginBottom: Spacing.md },
+  linkInput: { color: Colors.heading, fontSize: 15, fontWeight: "700", marginBottom: Spacing.lg, minHeight: 42 },
+  selectInput: {
+    alignItems: "center",
+    backgroundColor: Colors.card,
+    borderColor: Colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    minHeight: 48,
+    paddingHorizontal: 13,
+  },
+  selectText: { color: Colors.heading, flex: 1, fontSize: 15 },
+  placeholder: { color: Colors.placeholder },
+  segmentRow: { flexDirection: "row", gap: Spacing.sm },
+  segment: {
+    alignItems: "center",
+    borderColor: Colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 48,
+    paddingHorizontal: 8,
+  },
+  segmentActive: { backgroundColor: Colors.primaryDark, borderColor: Colors.primaryDark },
+  segmentText: { color: Colors.heading, fontSize: 13, fontWeight: "800", textAlign: "center" },
+  segmentTextActive: { color: "#FFFFFF" },
+  stockPreview: { backgroundColor: Colors.bg2, borderRadius: 8, marginBottom: Spacing.md, padding: Spacing.md },
+  stockPreviewText: { color: Colors.heading, fontSize: 14 },
+  bold: { fontWeight: "800" },
+  helperText: { color: Colors.text2, fontSize: 14, lineHeight: 21, marginBottom: Spacing.md },
+  conversionRow: { alignItems: "flex-end", flexDirection: "row", gap: Spacing.sm },
+  removeButton: { alignItems: "center", height: 48, justifyContent: "center", marginBottom: Spacing.md, width: 34 },
+  optionRow: {
+    alignItems: "center",
+    borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 46,
+  },
+  optionText: { color: Colors.heading, fontSize: 14, fontWeight: "700" },
+  selectedServiceRow: {
+    alignItems: "center",
+    backgroundColor: Colors.bg2,
+    borderRadius: 8,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: 8,
+    padding: Spacing.md,
+  },
+  selectedServiceText: { color: Colors.heading, flex: 1, fontSize: 14, fontWeight: "700" },
+  dateButton: {
+    alignItems: "center",
+    alignSelf: "flex-start",
+    borderColor: Colors.border,
+    borderRadius: 8,
+    borderWidth: 1,
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: Spacing.md,
+    minHeight: 46,
+    paddingHorizontal: 13,
+  },
+  dateText: { color: Colors.heading, fontSize: 14 },
+  previewRow: { alignItems: "center", flexDirection: "row", justifyContent: "space-between", paddingVertical: 8 },
+  previewLabel: { color: Colors.text2, fontSize: 14 },
+  previewValue: { color: Colors.heading, fontSize: 14, fontWeight: "800", maxWidth: "55%", textAlign: "right" },
+  previewWarning: {
+    backgroundColor: Colors.errorBg,
+    borderRadius: 14,
+    color: Colors.error,
+    overflow: "hidden",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  errorBox: {
+    alignItems: "center",
+    backgroundColor: Colors.errorBg,
+    borderRadius: 8,
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: Spacing.md,
+    padding: Spacing.md,
+  },
+  errorText: { color: Colors.error, flex: 1, fontSize: 13, fontWeight: "700" },
+  footer: { flexDirection: "row", gap: Spacing.md },
+  cancelButton: {
+    alignItems: "center",
+    borderColor: Colors.primary,
+    borderRadius: 8,
+    borderWidth: 1,
+    flex: 1,
+    justifyContent: "center",
+    minHeight: 50,
+  },
+  cancelText: { color: Colors.primary, fontSize: 14, fontWeight: "800" },
+  saveButton: {
+    alignItems: "center",
+    backgroundColor: Colors.primaryDark,
+    borderRadius: 8,
+    flex: 1,
+    flexDirection: "row",
+    gap: 8,
+    justifyContent: "center",
+    minHeight: 50,
+  },
+  saveText: { color: "#FFFFFF", fontSize: 14, fontWeight: "800" },
+  disabled: { opacity: 0.7 },
+  loading: { alignItems: "center", flex: 1, justifyContent: "center", minHeight: 300 },
+  overlay: { alignItems: "center", backgroundColor: "rgba(15,23,32,0.35)", flex: 1, justifyContent: "center", padding: Spacing.lg },
+  sheet: { backgroundColor: Colors.card, borderRadius: 8, maxHeight: "70%", padding: Spacing.lg, width: "100%" },
+  sheetTitle: { color: Colors.heading, fontSize: 18, fontWeight: "800", marginBottom: Spacing.md },
+  sheetList: { maxHeight: 360 },
+  sheetRow: {
+    alignItems: "center",
+    borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    minHeight: 50,
+  },
+  sheetRowText: { color: Colors.heading, fontSize: 15, fontWeight: "700" },
 });

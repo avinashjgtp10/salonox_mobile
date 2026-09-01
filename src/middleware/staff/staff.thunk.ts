@@ -20,6 +20,7 @@ import type {
   DeleteStaffAddressResponse,
   DeleteStaffResponse,
   EmergencyContactListResponse,
+  SetStaffWagesRequest,
   StaffAddressListQuery,
   StaffAddressListResponse,
   StaffListQuery,
@@ -111,11 +112,16 @@ type DeleteEmergencyContactRejectValue = {
   status?: number;
 };
 
+export type CreateStaffThunkArgs = {
+  staff: Omit<CreateStaffRequest, "salon_id">;
+  wages?: SetStaffWagesRequest | null;
+};
+
 export const createStaffThunk = createAsyncThunk<
   CreateStaffResponse,
-  Omit<CreateStaffRequest, "salon_id">,
+  CreateStaffThunkArgs,
   { rejectValue: CreateStaffRejectValue; state: RootState }
->("staff/createStaff", async (staffPayload, { dispatch, getState, rejectWithValue }) => {
+>("staff/createStaff", async ({ staff: staffPayload, wages }, { dispatch, getState, rejectWithValue }) => {
   try {
     const salonId = selectActiveBranchId(getState());
     const payload: CreateStaffRequest = {
@@ -124,6 +130,17 @@ export const createStaffThunk = createAsyncThunk<
     };
 
     const response = await staffService.createStaff(payload);
+
+    if (wages && response.staffMember.id) {
+      try {
+        await staffService.setStaffWages(response.staffMember.id, wages);
+      } catch (wageError) {
+        // Matches Web: a wage-save failure never blocks staff creation from
+        // reporting success — it's a secondary call against the just-created
+        // record, not part of the create transaction itself.
+        console.error("[Staff] Set wages after create failed", wageError);
+      }
+    }
 
     void dispatch(fetchStaffThunk({ ...getState().staff.query, page: 1, refresh: true, reset: true }));
     void dispatch(fetchDashboardThunk());
@@ -509,9 +526,13 @@ export const fetchEmergencyContactsThunk = createAsyncThunk<
 
 export const updateStaffThunk = createAsyncThunk<
   UpdateStaffResponse,
-  { staffId: string; updates: Omit<UpdateStaffRequest, "salon_id"> },
+  {
+    staffId: string;
+    updates: Omit<UpdateStaffRequest, "salon_id">;
+    wages?: SetStaffWagesRequest | null;
+  },
   { rejectValue: UpdateStaffRejectValue; state: RootState }
->("staff/updateStaff", async ({ staffId, updates }, { dispatch, getState, rejectWithValue }) => {
+>("staff/updateStaff", async ({ staffId, updates, wages }, { dispatch, getState, rejectWithValue }) => {
   try {
     const salonId = selectActiveBranchId(getState());
     const payload: UpdateStaffRequest = {
@@ -520,6 +541,14 @@ export const updateStaffThunk = createAsyncThunk<
     };
 
     const response = await staffService.updateStaff(staffId, payload);
+
+    if (wages) {
+      try {
+        await staffService.setStaffWages(staffId, wages);
+      } catch (wageError) {
+        console.error("[Staff] Set wages after update failed", wageError);
+      }
+    }
 
     void dispatch(fetchStaffByIdThunk(staffId));
     void dispatch(fetchStaffThunk({ ...getState().staff.query, page: 1, refresh: true, reset: true }));
@@ -542,6 +571,90 @@ export const updateStaffThunk = createAsyncThunk<
       status: error instanceof ApiError ? error.status : undefined,
     });
   }
+});
+
+type SetStaffActiveStatusRejectValue = {
+  message: string;
+  responseBody?: unknown;
+  status?: number;
+};
+
+// Activate/deactivate go through their own dedicated endpoints (see
+// staffService.activateStaff/deactivateStaff) rather than the generic
+// update endpoint — the staff table has no writable "status" field, so a
+// PATCH /staff/:id with { status: "inactive" } is silently dropped by the
+// backend and returns 200 without changing anything. That was the root
+// cause of the false "Staff deactivated" success message.
+//
+// Both endpoints return an empty body on success, so there is nothing in
+// the mutation response to verify against. To avoid reporting success on
+// trust alone, this thunk re-fetches the staff record afterward and only
+// resolves once the refetched status actually matches what was requested.
+export const setStaffActiveStatusThunk = createAsyncThunk<
+  StaffMember,
+  { nextStatus: "active" | "inactive"; staffId: string },
+  { rejectValue: SetStaffActiveStatusRejectValue; state: RootState }
+>("staff/setActiveStatus", async ({ nextStatus, staffId }, { dispatch, getState, rejectWithValue }) => {
+  try {
+    if (nextStatus === "inactive") {
+      await staffService.deactivateStaff(staffId);
+    } else {
+      await staffService.activateStaff(staffId);
+    }
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
+
+    console.error("[Staff] Set active status failed", {
+      message,
+      nextStatus,
+      responseBody: error instanceof ApiError ? error.responseData : undefined,
+      staffId,
+      status: error instanceof ApiError ? error.status : undefined,
+    });
+
+    return rejectWithValue({
+      message,
+      responseBody: error instanceof ApiError ? error.responseData : undefined,
+      status: error instanceof ApiError ? error.status : undefined,
+    });
+  }
+
+  let refreshed: StaffMember;
+
+  try {
+    refreshed = await staffService.getStaffMember(staffId);
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
+
+    console.error("[Staff] Refetch after active-status change failed", { message, nextStatus, staffId });
+
+    return rejectWithValue({
+      message: `The request to the server may have gone through, but we couldn't confirm it: ${message}`,
+      status: error instanceof ApiError ? error.status : undefined,
+    });
+  }
+
+  const expectedInactive = nextStatus === "inactive";
+  const actuallyInactive = refreshed.status === "Inactive";
+
+  if (expectedInactive !== actuallyInactive) {
+    console.error("[Staff] Active-status change did not take effect", {
+      actualStatus: refreshed.status,
+      nextStatus,
+      staffId,
+    });
+
+    return rejectWithValue({
+      message:
+        nextStatus === "inactive"
+          ? "Staff could not be confirmed as deactivated. Please try again."
+          : "Staff could not be confirmed as reactivated. Please try again.",
+    });
+  }
+
+  void dispatch(fetchStaffThunk({ ...getState().staff.query, page: 1, refresh: true, reset: true }));
+
+  return refreshed;
 });
 
 export const updateStaffAddressThunk = createAsyncThunk<

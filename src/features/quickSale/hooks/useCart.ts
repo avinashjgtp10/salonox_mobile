@@ -1,14 +1,20 @@
 import { useCallback, useMemo, useReducer } from "react";
 
 import type { CartItem, CartItemSource } from "@/features/quickSale/types";
+import { buildInitialConsumables, scaleConsumables } from "@/features/quickSale/utils/consumables";
 import { getPackageCoverageAllocations } from "@/features/quickSale/utils/packageCoverage";
 import { clampCartItemQuantity, normalizeAvailableStock } from "@/features/quickSale/utils/stock";
+import type { ConsumableRecipeItem } from "@/types/consumable";
 import type { ClientPackage } from "@/types/package";
 import type { SaleLineItemRequest } from "@/types/sales";
 
 export type AddItemInput = {
   availableStock?: number;
   category?: string | null;
+  // The service's standard recipe (Service.consumablesUsed) — only ever set
+  // when itemType is "service". Scaled/copied onto the cart line by the
+  // reducer, never used as-is.
+  consumables?: ConsumableRecipeItem[];
   defaultStaffId?: string | null;
   defaultStaffName?: string | null;
   duration?: string;
@@ -34,6 +40,7 @@ type CartAction =
   | { lineId: string; type: "duplicate" }
   | { unitPrice: number; lineId: string; type: "setPrice" }
   | { input: AddItemInput; lineId: string; type: "replace" }
+  | { actualQty: number; lineId: string; productId: string; type: "setConsumableActualQty" }
   | { stockByProductId: Record<string, number>; type: "setProductStock" }
   | { packages: ClientPackage[]; type: "recalculatePackageCoverage" }
   | { items: CartItem[]; type: "hydrate" }
@@ -44,6 +51,15 @@ const nextLineId = () => {
   lineIdCounter += 1;
   return `cart-line-${lineIdCounter}`;
 };
+
+// Applies a new quantity and rescales the line's consumables in lockstep —
+// every place quantity can change (add-merge, duplicate, restore-merge,
+// setQuantity) must keep the two in sync the same way.
+const withQuantity = (item: CartItem, quantity: number): CartItem => ({
+  ...item,
+  consumables: scaleConsumables(item.consumables, quantity),
+  quantity,
+});
 
 const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
   switch (action.type) {
@@ -68,10 +84,10 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
                 }
               : item;
 
-          return {
-            ...itemWithLatestStock,
-            quantity: clampCartItemQuantity(itemWithLatestStock, item.quantity + 1),
-          };
+          return withQuantity(
+            itemWithLatestStock,
+            clampCartItemQuantity(itemWithLatestStock, item.quantity + 1),
+          );
         });
       }
 
@@ -88,6 +104,7 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
             ? normalizeAvailableStock(action.input.availableStock ?? 0)
             : undefined,
         category: action.input.category ?? null,
+        consumables: buildInitialConsumables(action.input.consumables, 1),
         discountAmount: 0,
         duration: action.input.duration,
         itemId: action.input.itemId,
@@ -121,7 +138,7 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
       if (existing) {
         return state.map((item) =>
           item.lineId === existing.lineId
-            ? { ...item, quantity: clampCartItemQuantity(item, item.quantity + action.item.quantity) }
+            ? withQuantity(item, clampCartItemQuantity(item, item.quantity + action.item.quantity))
             : item,
         );
       }
@@ -151,7 +168,7 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
 
       return quantity === 0
         ? state.filter((item) => item.lineId !== action.lineId)
-        : state.map((item) => (item.lineId === action.lineId ? { ...item, quantity } : item));
+        : state.map((item) => (item.lineId === action.lineId ? withQuantity(item, quantity) : item));
     }
 
     case "setStaff":
@@ -188,7 +205,7 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
 
       return state.map((item) =>
         item.lineId === source.lineId
-          ? { ...item, quantity: clampCartItemQuantity(item, item.quantity + 1) }
+          ? withQuantity(item, clampCartItemQuantity(item, item.quantity + 1))
           : item,
       );
     }
@@ -212,7 +229,7 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
           .filter((item) => item.lineId !== action.lineId)
           .map((item) =>
             item.lineId === existing.lineId
-              ? { ...item, quantity: clampCartItemQuantity(item, item.quantity + target.quantity) }
+              ? withQuantity(item, clampCartItemQuantity(item, item.quantity + target.quantity))
               : item,
           );
       }
@@ -222,6 +239,7 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
           ? {
               ...item,
               category: action.input.category ?? null,
+              consumables: buildInitialConsumables(action.input.consumables, item.quantity),
               duration: action.input.duration,
               itemId: action.input.itemId,
               name: action.input.name,
@@ -236,6 +254,20 @@ const cartReducer = (state: CartItem[], action: CartAction): CartItem[] => {
           : item,
       );
     }
+
+    case "setConsumableActualQty":
+      return state.map((item) =>
+        item.lineId === action.lineId
+          ? {
+              ...item,
+              consumables: item.consumables?.map((consumable) =>
+                consumable.productId === action.productId
+                  ? { ...consumable, actualQty: Math.max(0, action.actualQty), isActualQtyManual: true }
+                  : consumable,
+              ),
+            }
+          : item,
+      );
 
     case "setProductStock":
       return state.map((item) =>
@@ -330,6 +362,12 @@ export const useCart = () => {
     [],
   );
 
+  const setConsumableActualQty = useCallback(
+    (lineId: string, productId: string, actualQty: number) =>
+      dispatch({ actualQty, lineId, productId, type: "setConsumableActualQty" }),
+    [],
+  );
+
   const setProductStock = useCallback(
     (stockByProductId: Record<string, number>) =>
       dispatch({ stockByProductId, type: "setProductStock" }),
@@ -378,6 +416,7 @@ export const useCart = () => {
     removeItem,
     replaceItem,
     restoreItem,
+    setConsumableActualQty,
     setDiscount,
     setNote,
     setPrice,

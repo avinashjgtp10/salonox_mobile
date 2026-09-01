@@ -129,27 +129,27 @@ function ServiceCardComponent({
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
-    <Reanimated.View entering={FadeInUp.duration(200)} layout={LinearTransition.duration(200)} style={styles.rowWrap}>
+    <Reanimated.View entering={FadeInUp.duration(200)} layout={LinearTransition.duration(200)} style={styles.tileWrap}>
       <TouchableOpacity
         activeOpacity={0.88}
         onPress={() => onSelect(service)}
-        style={[styles.row, selected && styles.rowSelected]}
+        style={[styles.tile, selected && styles.tileSelected]}
       >
-        <View style={[styles.rowIcon, selected && styles.rowIconSelected]}>
-          <Ionicons name="cut-outline" size={18} color={selected ? "#FFFFFF" : Colors.primary} />
-        </View>
-        <View style={styles.rowCopy}>
-          <Text numberOfLines={1} style={[styles.rowTitle, selected && styles.rowTitleSelected]}>
-            {service.name}
-          </Text>
-          <Text numberOfLines={1} style={[styles.rowMeta, selected && styles.rowMetaSelected]}>
-            {service.durationMinutes ? `${service.durationMinutes} min · ` : ""}
-            {formatCurrency(service.price)}
-          </Text>
-        </View>
-        <View style={[styles.addButton, selected && styles.addButtonSelected]}>
-          <Ionicons name={selected ? "checkmark" : "add"} size={16} color={selected ? "#FFFFFF" : Colors.primary} />
-        </View>
+        {selected ? (
+          <View style={styles.tileCheck}>
+            <Ionicons name="checkmark" size={13} color="#FFFFFF" />
+          </View>
+        ) : null}
+        <Text numberOfLines={2} style={[styles.tileTitle, selected && styles.tileTitleSelected]}>
+          {service.name}
+        </Text>
+        <Text numberOfLines={1} style={[styles.tileMeta, selected && styles.tileMetaSelected]}>
+          {service.durationMinutes ? `${service.durationMinutes} min · ` : ""}
+          {formatCurrency(service.price)}
+        </Text>
+        <Text style={[styles.tileHint, selected && styles.tileHintSelected]}>
+          {selected ? "Added" : "Tap to add"}
+        </Text>
       </TouchableOpacity>
     </Reanimated.View>
   );
@@ -303,14 +303,11 @@ export function ServiceCatalogTab({
       {error && visibleServices.length === 0 ? (
         <ErrorState message={error} onRetry={() => fetchFirstPage()} />
       ) : loading && visibleServices.length === 0 ? (
-        <View style={styles.skeletonStack}>
+        <View style={styles.skeletonGrid}>
           {SERVICE_SKELETON_KEYS.map((skeletonKey) => (
-            <View key={skeletonKey} style={styles.skeletonRow}>
-              <View style={styles.skeletonIcon} />
-              <View style={styles.skeletonCopy}>
-                <SkeletonBlock height={13} width="62%" />
-                <SkeletonBlock height={11} width="38%" />
-              </View>
+            <View key={skeletonKey} style={styles.skeletonTile}>
+              <SkeletonBlock height={13} width="72%" />
+              <SkeletonBlock height={11} width="48%" />
             </View>
           ))}
         </View>
@@ -318,10 +315,12 @@ export function ServiceCatalogTab({
         <EmptyState description="Try another search or category." icon="cut-outline" title="No services found" />
       ) : (
         <FlatList
+          columnWrapperStyle={styles.columnWrapper}
           contentContainerStyle={styles.listContent}
           data={renderedServices}
           initialNumToRender={SERVICE_BATCH_SIZE}
           keyExtractor={(item) => `service-card-${item.id}`}
+          numColumns={2}
           ListFooterComponent={
             hasMoreLocalServices ? (
               <View style={styles.loadMoreWrap}>
@@ -367,17 +366,20 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   listContent: {
     paddingBottom: 132,
   },
-  rowWrap: {
-    marginBottom: Spacing.sm,
+  columnWrapper: {
+    gap: Spacing.sm,
   },
-  row: {
-    alignItems: "center",
+  tileWrap: {
+    flex: 1,
+    marginBottom: Spacing.sm,
+    maxWidth: "50%",
+  },
+  tile: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
     borderRadius: AppRadius.card,
     borderWidth: 1,
-    flexDirection: "row",
-    gap: Spacing.sm,
+    minHeight: 104,
     padding: Spacing.md,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 8 },
@@ -385,7 +387,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowRadius: 14,
     elevation: 1,
   },
-  rowSelected: {
+  tileSelected: {
     backgroundColor: Colors.primary,
     borderColor: Colors.primary,
     shadowColor: Colors.shadow,
@@ -393,70 +395,57 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     shadowRadius: 18,
     elevation: 4,
   },
-  rowIcon: {
+  tileCheck: {
     alignItems: "center",
-    backgroundColor: Colors.bg2,
+    alignSelf: "flex-end",
+    backgroundColor: "rgba(255,255,255,0.22)",
     borderRadius: Radius.full,
-    height: 44,
+    height: 20,
     justifyContent: "center",
-    width: 44,
+    marginBottom: 4,
+    width: 20,
   },
-  rowIconSelected: {
-    backgroundColor: "rgba(255,255,255,0.2)",
-  },
-  rowCopy: {
-    flex: 1,
-  },
-  rowTitle: {
+  tileTitle: {
     color: Colors.heading,
     fontSize: 14,
     fontWeight: "700",
   },
-  rowTitleSelected: {
+  tileTitleSelected: {
     color: "#FFFFFF",
   },
-  rowMeta: {
+  tileMeta: {
     color: Colors.text2,
     fontSize: 12,
     fontWeight: "600",
-    marginTop: 3,
+    marginTop: 4,
   },
-  rowMetaSelected: {
+  tileMetaSelected: {
     color: "rgba(255,255,255,0.78)",
   },
-  addButton: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
-    height: 34,
-    justifyContent: "center",
-    width: 34,
+  tileHint: {
+    color: Colors.primary,
+    fontSize: 11,
+    fontWeight: "700",
+    marginTop: 8,
   },
-  addButtonSelected: {
-    backgroundColor: "rgba(255,255,255,0.22)",
+  tileHintSelected: {
+    color: "rgba(255,255,255,0.9)",
   },
-  skeletonStack: {
+  skeletonGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: Spacing.sm,
   },
-  skeletonRow: {
-    alignItems: "center",
+  skeletonTile: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
     borderRadius: AppRadius.card,
     borderWidth: 1,
-    flexDirection: "row",
-    gap: Spacing.sm,
-    padding: Spacing.md,
-  },
-  skeletonIcon: {
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
-    height: 44,
-    width: 44,
-  },
-  skeletonCopy: {
-    flex: 1,
+    flexBasis: "48%",
+    flexGrow: 1,
     gap: 8,
+    minHeight: 104,
+    padding: Spacing.md,
   },
   loadMoreWrap: {
     alignItems: "center",

@@ -1,4 +1,4 @@
-import { api } from "@/services/api";
+import { ApiError, api } from "@/services/api";
 import { PROFILE, USER } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
 import type {
@@ -22,7 +22,6 @@ const guessMimeType = (fileName: string) => {
   const extension = fileName.split(".").pop()?.toLowerCase();
 
   if (extension === "png") return "image/png";
-  if (extension === "heic") return "image/heic";
   if (extension === "webp") return "image/webp";
   return "image/jpeg";
 };
@@ -102,11 +101,9 @@ const normalizeProfile = (profile: UserProfileApiItem): UserProfile => {
     businessName: toOptionalString(profile.businessName ?? profile.business_name ?? profile.salon_name),
     country: toOptionalString(profile.country),
     countryCode: toOptionalString(profile.countryCode ?? profile.country_code),
-    dateOfBirth: toOptionalString(profile.dateOfBirth ?? profile.date_of_birth ?? profile.dob),
     email: toOptionalString(profile.email),
     firstName: toOptionalString(profile.firstName ?? profile.first_name),
     fullName,
-    gender: toOptionalString(profile.gender ?? profile.sex),
     id: toSafeString(profile.id ?? profile._id),
     isActive: toOptionalBoolean(profile.isActive ?? profile.is_active),
     isVerified: toOptionalBoolean(profile.isVerified ?? profile.is_verified),
@@ -136,15 +133,15 @@ const buildUpdatePayload = (payload: UpdateProfileRequest) => {
   }
 
   if (payload.phone !== undefined) {
-    requestBody.phone = payload.phone;
+    requestBody.phone = payload.phone.trim() || null;
   }
 
   if (payload.businessName !== undefined) {
-    requestBody.businessName = payload.businessName;
+    requestBody.businessName = payload.businessName.trim() || null;
   }
 
   if (payload.address !== undefined) {
-    requestBody.address = payload.address;
+    requestBody.address = payload.address.trim() || null;
   }
 
   return requestBody;
@@ -160,8 +157,8 @@ export const profileService = {
     return normalizeProfile(getProfileFromEnvelope(response.data.data));
   },
 
-  async updateProfile(payload: UpdateProfileRequest): Promise<UpdateProfileResponse> {
-    const response = await api.patch<ProfileApiResponse>(USER.ME, buildUpdatePayload(payload));
+  async updateProfile(userId: string, payload: UpdateProfileRequest): Promise<UpdateProfileResponse> {
+    const response = await api.put<ProfileApiResponse>(PROFILE.DETAIL(userId), buildUpdatePayload(payload));
 
     return {
       message: response.data.message,
@@ -182,7 +179,6 @@ export const profileService = {
     } as unknown as Blob);
 
     const response = await api.post<ProfileApiResponse>(`${USER.ME}/avatar`, formData, {
-      headers: { "Content-Type": "multipart/form-data" },
       transformRequest: (data) => data,
     });
 
@@ -190,6 +186,10 @@ export const profileService = {
     const normalizedProfile = normalizeProfile(apiProfile);
     // Prefer an avatar url found directly on the payload; fall back to the normalized profile.
     const avatarUrl = extractAvatarUrl(apiProfile) ?? normalizedProfile.avatarUrl;
+
+    if (!avatarUrl) {
+      throw new ApiError("The server did not return an uploaded image URL.", response.status);
+    }
 
     return {
       avatarUrl,

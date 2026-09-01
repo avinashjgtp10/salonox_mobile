@@ -3,10 +3,11 @@ import { Ionicons } from "@expo/vector-icons";
 import * as WebBrowser from "expo-web-browser";
 import { router, type Href } from "expo-router";
 import { useMemo, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from "react-native";
+import { ActivityIndicator, Alert, Linking, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View, useWindowDimensions } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { AppLayout, AppRadius } from "@/constants/layout";
@@ -16,7 +17,8 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import { useAuth } from "@/context/AuthContext";
-import { api, getApiErrorMessage } from "@/services/api";
+import { getApiErrorMessage } from "@/services/api";
+import { supportService } from "@/services/support.service";
 import { selectActiveBranch } from "@/store/branch/branch.slice";
 import { useAppSelector } from "@/store/hooks";
 import { selectCurrentStaff } from "@/store/staff/staff.slice";
@@ -162,7 +164,7 @@ export function StaffSettingsScreen() {
     setIsSubmittingReport(true);
 
     try {
-      await api.post("/support", {
+      await supportService.submitRequest({
         category: "technical",
         message,
         priority: "medium",
@@ -239,13 +241,6 @@ export function StaffSettingsScreen() {
       onPress: () => openWebAppPage("/terms"),
       title: "Terms & Conditions",
     },
-    {
-      description: "Coming Soon",
-      icon: "code-slash-outline",
-      key: "licenses",
-      onPress: () => showUnavailable("Coming Soon", "Open source licenses will be available soon."),
-      title: "Open Source Licenses",
-    },
   ];
   const supportItems: SettingsItem[] = [
     {
@@ -276,19 +271,12 @@ export function StaffSettingsScreen() {
       onPress: () => setIsReportModalVisible(true),
       title: "Report a Problem",
     },
-    {
-      description: "Coming Soon",
-      icon: "help-circle-outline",
-      key: "faq",
-      onPress: () => showUnavailable("Coming Soon", "FAQ will be available soon."),
-      title: "FAQ",
-    },
   ];
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <KeyboardAwareScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>Manage your staff account, preferences, security, and app info.</Text>
 
@@ -352,7 +340,7 @@ export function StaffSettingsScreen() {
           )}
           <Text style={styles.logoutButtonText}>{isLoggingOut ? "Logging out..." : "Logout"}</Text>
         </TouchableOpacity>
-      </ScrollView>
+      </KeyboardAwareScrollView>
       <Modal
         animationType="slide"
         onRequestClose={() => setIsReportModalVisible(false)}

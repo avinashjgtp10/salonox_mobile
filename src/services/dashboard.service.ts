@@ -1,5 +1,6 @@
 import { api } from "@/services/api";
 import { DASHBOARD } from "@/services/api/endpoints";
+import { formatAppTime } from "@/utils/dateTime";
 
 type DashboardSummaryResponse = {
   lastMonthRevenue?: number | null;
@@ -102,6 +103,19 @@ export type DashboardMetrics = {
   monthlyRevenue: number;
   revenueChange: number;
   todaysRevenue: number;
+};
+
+export type StaffRevenueRecord = {
+  id: string;
+  name: string;
+  role: string;
+  revenue: number;
+};
+
+export type StaffRevenueResponse = {
+  data?: StaffRevenueRecord[] | null;
+  message?: string;
+  success: boolean;
 };
 
 export type DashboardAppointment = {
@@ -266,15 +280,7 @@ const parseScheduledAtMs = (appointment: DashboardAppointmentResponse): number |
 // Formats an absolute instant using the device's local timezone (never the
 // backend server's timezone), matching the "H:MM AM/PM" shape the dashboard
 // UI already parses.
-const formatLocalTime = (scheduledAtMs: number) => {
-  const date = new Date(scheduledAtMs);
-  const hours24 = date.getHours();
-  const minutes = date.getMinutes();
-  const ampm = hours24 >= 12 ? "PM" : "AM";
-  const hours12 = hours24 % 12 || 12;
-
-  return `${hours12}:${String(minutes).padStart(2, "0")} ${ampm}`;
-};
+const formatLocalTime = (scheduledAtMs: number) => formatAppTime(scheduledAtMs, "--:--");
 
 const normalizeAppointment = (
   appointment: DashboardAppointmentResponse,
@@ -360,6 +366,29 @@ export const dashboardService = {
     };
   },
 
+  async getStaffRevenue(date = new Date(), salonId?: string | null) {
+    const params = this.getDashboardQueryParams(date);
+    const requestParams = {
+      ...params,
+      ...(salonId ? { salon_id: salonId } : {}),
+    };
+
+    const response = await api.get<StaffRevenueResponse>(DASHBOARD.STAFF_REVENUE, {
+      params: requestParams,
+    });
+
+    const staffRecords = response.data.data ?? [];
+    const totalRevenue = staffRecords.reduce(
+      (sum, record) => sum + (typeof record.revenue === "number" ? record.revenue : 0),
+      0,
+    );
+
+    return {
+      totalRevenue,
+      staffRecords,
+    };
+  },
+
   async getOwnerDashboard(date = new Date(), salonId?: string | null) {
     const params = this.getDashboardQueryParams(date);
     const requestParams = {
@@ -380,6 +409,7 @@ export const dashboardService = {
       revenueChange: toSafeNumber(summary?.revenueChange),
       todaysRevenue: toSafeNumber(summary?.todayRevenue),
     };
+
     // Ascending by scheduled start time; appointments with no parseable
     // scheduled datetime sort last rather than being dropped.
     const todayAppointments = (data?.todayAppointments ?? [])

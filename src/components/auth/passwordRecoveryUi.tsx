@@ -4,10 +4,8 @@ import { useMemo, type PropsWithChildren, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Image,
-  KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -15,6 +13,7 @@ import {
   type TextInputProps,
   View,
 } from "react-native";
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
 
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
@@ -62,8 +61,10 @@ const createRecoveryColors = (theme: ThemeColors, scheme: "light" | "dark") => (
   inputBorder: theme.border,
   error: theme.error,
   errorBg: theme.errorBg,
+  errorBorder: theme.errorBorder,
   success: theme.success,
   successBg: theme.successBg,
+  successBorder: theme.successBorder,
   statusBarStyle: scheme === "dark" ? ("light-content" as const) : ("dark-content" as const),
 });
 
@@ -134,19 +135,16 @@ export function PasswordRecoveryScaffold({
         />
       </View>
 
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      <KeyboardAwareScrollView
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
+        contentContainerStyle={styles.scrollContainer}
+        keyboardDismissMode="none"
+        keyboardShouldPersistTaps="always"
+        showsVerticalScrollIndicator={false}
         style={styles.keyboardView}
       >
-        <ScrollView
-          bounces={false}
-          alwaysBounceVertical={false}
-          overScrollMode="never"
-          contentContainerStyle={styles.scrollContainer}
-          keyboardDismissMode="none"
-          keyboardShouldPersistTaps="always"
-          showsVerticalScrollIndicator={false}
-        >
           <View style={styles.card}>
             <View style={styles.brandContainer}>
               <Image
@@ -162,8 +160,7 @@ export function PasswordRecoveryScaffold({
 
             {footer}
           </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+      </KeyboardAwareScrollView>
     </LinearGradient>
   );
 }
@@ -423,11 +420,11 @@ const createStyles = (Colors: RecoveryThemeColors) => StyleSheet.create({
   },
   errorContainer: {
     backgroundColor: Colors.errorBg,
-    borderColor: "rgba(114, 106, 99, 0.18)",
+    borderColor: Colors.errorBorder,
   },
   successContainer: {
     backgroundColor: Colors.successBg,
-    borderColor: "rgba(28, 25, 23, 0.12)",
+    borderColor: Colors.successBorder,
   },
   messageIcon: {
     marginRight: 8,

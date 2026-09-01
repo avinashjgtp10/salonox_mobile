@@ -37,12 +37,11 @@ import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ClientListItem } from "@/types/client";
 import type { Membership } from "@/types/membership";
+import { formatAppDate } from "@/utils/dateTime";
 
 const formatMoney = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 const formatDate = (value: string) => {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(parsed);
+  return formatAppDate(value, "-");
 };
 const getStatus = (membership: Membership) => membership.enableOnlineSales || membership.enableOnlineRedemption ? "Active" : "Inactive";
 const formatStatusLabel = (value: string) => value.replace(/[_-]+/g, " ").replace(/\b\w/g, (character) => character.toUpperCase());
@@ -487,7 +486,7 @@ function Header({ onBack, title }: { onBack: () => void; title: string }) {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   return (
     <View style={styles.headerRow}>
-      <TouchableOpacity activeOpacity={0.84} onPress={onBack} style={styles.headerButton}><Ionicons name="chevron-back" size={18} color={Colors.primary} /></TouchableOpacity>
+      <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={onBack} style={styles.headerButton}><Ionicons name="arrow-back" size={18} color={Colors.primary} /></TouchableOpacity>
       <Text style={styles.headerTitle}>{title}</Text>
       <View style={styles.headerButtonGhost} />
     </View>

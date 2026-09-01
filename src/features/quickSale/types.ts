@@ -1,4 +1,34 @@
-import type { SaleItemType } from "@/types/sales";
+import type { ConsumableUsageItem } from "@/types/consumable";
+import type { CheckoutSaleSplitEntry, SaleItemType, SalePaymentMethod } from "@/types/sales";
+
+export type CheckoutInitialStep = "review" | "charges" | "payment";
+
+export type PendingCheckoutPayment = {
+  method: SalePaymentMethod;
+  paidAmount?: number;
+  splitEntries?: CheckoutSaleSplitEntry[];
+};
+
+export type ClientPackageLoadStatus = "idle" | "loading" | "loaded" | "error";
+
+export type ClientPackageLoadState = {
+  clientId: string;
+  error: string | null;
+  isRetrying: boolean;
+  status: ClientPackageLoadStatus;
+};
+
+export type QuickSaleSlot = {
+  date: string;
+  staffName?: string;
+  time: string;
+};
+
+export type QuickSaleScreenProps = {
+  embedded?: boolean;
+  initialSlot?: QuickSaleSlot | null;
+  onRequestClose?: () => void;
+};
 
 // A cart line is always one of these three sources. "quick" is a free-typed
 // custom charge with no catalog id behind it (matches the backend's own
@@ -11,9 +41,20 @@ export type PackageCoverageAllocation = {
   serviceId: string;
 };
 
+export type CartConsumableItem = ConsumableUsageItem & {
+  // True once staff has overridden the recipe-scaled Actual Qty for this
+  // line — quantity changes stop auto-scaling it until the line is removed
+  // and the service is re-added.
+  isActualQtyManual?: boolean;
+};
+
 export type CartItem = {
   availableStock?: number;
   category: string | null;
+  // Copied from the service's recipe (Service.consumablesUsed) when the
+  // service is added to the cart. Usage metadata only — never billed, never
+  // sent anywhere except the appointment payload's services[].consumables[].
+  consumables?: CartConsumableItem[];
   discountAmount: number;
   duration?: string;
   itemId: string;

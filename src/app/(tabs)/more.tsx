@@ -9,8 +9,9 @@ import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { Badge } from "@/components/ui/Badge";
 import { InitialsAvatar } from "@/components/ui/InitialsAvatar";
 import { useAuth } from "@/context/AuthContext";
-import { api, getApiErrorMessage } from "@/services/api";
+import { getApiErrorMessage } from "@/services/api";
 import { authService } from "@/services/authService";
+import { supportService } from "@/services/support.service";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
@@ -20,6 +21,7 @@ import { AppLayout, AppRadius } from "@/constants/layout";
 import { useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
+import { canViewConsumableInventory } from "@/utils/permissions";
 import {
   getUserAddressLine,
   getUserBusinessName,
@@ -34,16 +36,16 @@ const SUPPORT_EMAIL = "support@salonox.com";
 
 const MENU_ITEMS = [
   {
-    description: "Explore sales, staff, inventory, membership, and marketing performance.",
-    icon: "stats-chart-outline" as const,
-    route: "/reports" as Href,
-    title: "Reports",
-  },
-  {
     description: "Search, segment, and manage salon clients with visit history and memberships.",
     icon: "people-outline" as const,
     route: "/clients" as Href,
     title: "Clients",
+  },
+  {
+    description: "Sync your phone contacts and import them as clients.",
+    icon: "person-add-outline" as const,
+    route: "/clients/import-contacts" as Href,
+    title: "Import Contacts",
   },
   {
     description: "Browse, search, and filter your salon's service menu.",
@@ -58,19 +60,13 @@ const MENU_ITEMS = [
     title: "Memberships",
   },
   {
-    description: "View and search every user across your organisation.",
-    icon: "person-circle-outline" as const,
-    route: "/users" as Href,
-    title: "User Management",
-  },
-  {
     description: "Search, filter, and export completed and draft sales.",
     icon: "receipt-outline" as const,
     route: "/sales" as Href,
     title: "Sales History",
   },
   {
-    description: "Track, mark paid, and bulk-configure staff commissions across your salon.",
+    description: "Track staff commissions and settle payments across your salon.",
     icon: "cash-outline" as const,
     route: "/team/commissions" as Href,
     title: "Commissions",
@@ -82,10 +78,22 @@ const MENU_ITEMS = [
     title: "Salon Settings",
   },
   {
+    description: "Switch between Light, Dark, or System Default theme.",
+    icon: "contrast-outline" as const,
+    route: "/appearance" as Href,
+    title: "Appearance",
+  },
+  {
     description: "Manage products, brands, pricing, and stock levels.",
     icon: "layers-outline" as const,
     route: "/stock" as Href,
     title: "Products",
+  },
+  {
+    description: "Track consumable stock, usage history, and service assignments.",
+    icon: "flask-outline" as const,
+    route: "/consumables" as Href,
+    title: "Consumables",
   },
 ];
 
@@ -100,6 +108,10 @@ export default function MoreScreen() {
   const initials = getUserInitials(currentUser);
   const addressLine = getUserAddressLine(currentUser);
   const isEmailVerified = currentUser?.isVerified !== false;
+  const visibleMenuItems = useMemo(
+    () => MENU_ITEMS.filter((item) => item.title !== "Consumables" || canViewConsumableInventory(currentUser)),
+    [currentUser],
+  );
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [isLoggingOutAll, setIsLoggingOutAll] = useState(false);
   const [isSendingOtp, setIsSendingOtp] = useState(false);
@@ -116,10 +128,6 @@ export default function MoreScreen() {
     Constants.expoConfig?.ios?.buildNumber ??
     Constants.expoConfig?.android?.versionCode?.toString() ??
     "Unavailable";
-
-  const showUnavailable = (title: string, message: string) => {
-    Alert.alert(title, message);
-  };
 
   const openWebAppPage = async (path: string) => {
     await WebBrowser.openBrowserAsync(`${WEB_APP_URL}${path}`);
@@ -141,7 +149,7 @@ export default function MoreScreen() {
     setIsSubmittingReport(true);
 
     try {
-      await api.post("/support", {
+      await supportService.submitRequest({
         category: "technical",
         message,
         priority: "medium",
@@ -254,15 +262,6 @@ export default function MoreScreen() {
       onPress: handleLogoutAll,
       title: "Log out of all devices",
     },
-    {
-      danger: false,
-      description: "How we collect, use, and protect your data.",
-      icon: "shield-checkmark-outline" as const,
-      key: "privacy-policy",
-      loading: false,
-      onPress: () => router.push("/privacy-policy" as Href),
-      title: "Privacy Policy",
-    },
   ];
   const aboutActions = [
     {
@@ -278,13 +277,6 @@ export default function MoreScreen() {
       key: "terms",
       onPress: () => openWebAppPage("/terms"),
       title: "Terms & Conditions",
-    },
-    {
-      description: "Coming Soon",
-      icon: "code-slash-outline" as const,
-      key: "licenses",
-      onPress: () => showUnavailable("Coming Soon", "Open source licenses will be available soon."),
-      title: "Open Source Licenses",
     },
   ];
   const supportActions = [
@@ -302,22 +294,15 @@ export default function MoreScreen() {
       onPress: () => setIsReportModalVisible(true),
       title: "Report a Problem",
     },
-    {
-      description: "Coming Soon",
-      icon: "help-circle-outline" as const,
-      key: "faq",
-      onPress: () => showUnavailable("Coming Soon", "FAQ will be available soon."),
-      title: "FAQ",
-    },
   ];
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-        <Text style={styles.title}>More</Text>
+        <Text style={styles.title}>Settings</Text>
         <Text style={styles.subtitle}>
-          Extra SalonOX tools, shortcuts, and front-desk utilities live here.
+          SalonOX · Manage your workspace
         </Text>
 
         <View style={styles.heroCard}>
@@ -354,12 +339,18 @@ export default function MoreScreen() {
         </View>
 
         <View style={styles.section}>
-          {MENU_ITEMS.map((item, index) => (
+          <Text style={styles.sectionLabel}>Tools</Text>
+          {visibleMenuItems.map((item, index) => (
             <TouchableOpacity
               key={item.title}
               activeOpacity={0.84}
               onPress={() => router.push(item.route)}
-              style={[styles.menuCard, index > 0 && styles.menuCardSpaced]}
+              style={[
+                styles.menuCard,
+                index === 0 && styles.menuCardFirst,
+                index === visibleMenuItems.length - 1 && styles.menuCardLast,
+                index > 0 && styles.menuCardSpaced,
+              ]}
             >
               <View style={styles.menuCardLeft}>
                 <View style={styles.menuIcon}>
@@ -385,6 +376,8 @@ export default function MoreScreen() {
               onPress={action.onPress}
               style={[
                 styles.menuCard,
+                index === 0 && styles.menuCardFirst,
+                index === accountActions.length - 1 && styles.menuCardLast,
                 index > 0 && styles.menuCardSpaced,
                 isBusy && styles.menuCardDisabled,
               ]}
@@ -432,7 +425,12 @@ export default function MoreScreen() {
               key={action.key}
               activeOpacity={0.84}
               onPress={action.onPress}
-              style={[styles.menuCard, index > 0 && styles.menuCardSpaced]}
+              style={[
+                styles.menuCard,
+                index === 0 && styles.menuCardFirst,
+                index === aboutActions.length - 1 && styles.menuCardLast,
+                index > 0 && styles.menuCardSpaced,
+              ]}
             >
               <View style={styles.menuCardLeft}>
                 <View style={styles.menuIcon}>
@@ -455,7 +453,12 @@ export default function MoreScreen() {
               key={action.key}
               activeOpacity={0.84}
               onPress={action.onPress}
-              style={[styles.menuCard, index > 0 && styles.menuCardSpaced]}
+              style={[
+                styles.menuCard,
+                index === 0 && styles.menuCardFirst,
+                index === supportActions.length - 1 && styles.menuCardLast,
+                index > 0 && styles.menuCardSpaced,
+              ]}
             >
               <View style={styles.menuCardLeft}>
                 <View style={styles.menuIcon}>
@@ -478,9 +481,9 @@ export default function MoreScreen() {
           style={[styles.logoutButton, (isLoggingOut || isBusy) && styles.logoutButtonDisabled]}
         >
           {isLoggingOut ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={Colors.error} size="small" />
           ) : (
-            <Ionicons name="log-out-outline" size={18} color="#FFFFFF" />
+            <Ionicons name="log-out-outline" size={18} color={Colors.error} />
           )}
           <Text style={styles.logoutButtonText}>
             {isLoggingOut ? "Logging out..." : "Logout"}
@@ -549,7 +552,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   content: {
     paddingBottom: AppLayout.contentBottomPadding,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
+    paddingHorizontal: 16,
   },
   title: {
     color: Colors.heading,
@@ -565,11 +568,11 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   heroCard: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: Radius.xxl,
+    borderRadius: 18,
     borderWidth: 1,
-    marginTop: AppLayout.headerMarginBottom,
-    paddingHorizontal: Spacing.xxxl,
-    paddingVertical: Spacing.xxxl,
+    marginTop: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 18,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.05,
@@ -602,9 +605,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   contactBlock: {
     borderTopColor: Colors.border,
     borderTopWidth: 1,
-    gap: 10,
-    marginTop: Spacing.lg,
-    paddingTop: Spacing.md,
+    gap: 9,
+    marginTop: 16,
+    paddingTop: 14,
   },
   contactRow: {
     alignItems: "center",
@@ -613,27 +616,30 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   contactText: {
     color: Colors.text2,
     flex: 1,
-    fontSize: 12,
+    fontSize: 12.5,
+    lineHeight: 18,
     marginLeft: 10,
   },
   section: {
-    marginTop: AppLayout.headerMarginBottom,
+    marginTop: 8,
   },
   logoutButton: {
     alignItems: "center",
-    backgroundColor: Colors.primaryDark,
-    borderRadius: Radius.full,
+    backgroundColor: Colors.errorBg,
+    borderColor: Colors.errorBorder,
+    borderRadius: 16,
+    borderWidth: 1,
     flexDirection: "row",
     justifyContent: "center",
-    marginTop: AppLayout.headerMarginBottom,
+    marginTop: 8,
     minHeight: 52,
-    paddingHorizontal: AppLayout.cardPadding,
+    paddingHorizontal: 16,
   },
   logoutButtonDisabled: {
     opacity: 0.72,
   },
   logoutButtonText: {
-    color: "#FFFFFF",
+    color: Colors.error,
     fontSize: 14,
     fontWeight: "800",
     marginLeft: 10,
@@ -641,15 +647,27 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   menuCard: {
     alignItems: "center",
     backgroundColor: Colors.card,
+    borderBottomColor: Colors.border,
+    borderBottomWidth: 1,
     borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
+    borderRadius: 0,
+    borderWidth: 0,
     flexDirection: "row",
     justifyContent: "space-between",
-    padding: AppLayout.cardPadding,
+    paddingHorizontal: 16,
+    paddingVertical: 13,
   },
   menuCardSpaced: {
-    marginTop: AppLayout.sectionGap,
+    marginTop: 0,
+  },
+  menuCardFirst: {
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+  },
+  menuCardLast: {
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    borderBottomWidth: 0,
   },
   menuCardLeft: {
     alignItems: "center",
@@ -660,10 +678,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   menuIcon: {
     alignItems: "center",
     backgroundColor: Colors.bg2,
-    borderRadius: Radius.lg,
-    height: 42,
+    borderRadius: 10,
+    height: 36,
     justifyContent: "center",
-    width: 42,
+    width: 36,
   },
   menuCopy: {
     flex: 1,
@@ -671,30 +689,32 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   menuTitle: {
     color: Colors.heading,
-    fontSize: 16,
-    fontWeight: "800",
+    fontSize: 14,
+    fontWeight: "600",
+    lineHeight: 18,
   },
   menuDescription: {
     color: Colors.text2,
     fontSize: 12,
-    lineHeight: 18,
-    marginTop: 4,
+    lineHeight: 16,
+    marginTop: 2,
   },
   sectionLabel: {
     color: Colors.text2,
     fontSize: 11,
     fontWeight: "700",
-    letterSpacing: 0,
-    marginBottom: Spacing.sm,
+    letterSpacing: 0.88,
+    marginBottom: 8,
+    paddingHorizontal: 4,
     textTransform: "uppercase",
   },
   versionCard: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
-    borderRadius: AppRadius.card,
+    borderRadius: 16,
     borderWidth: 1,
-    marginBottom: AppLayout.sectionGap,
-    padding: AppLayout.cardPadding,
+    marginBottom: 8,
+    padding: 16,
   },
   versionTitle: {
     color: Colors.heading,

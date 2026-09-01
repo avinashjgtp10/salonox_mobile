@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { PaginationControls } from "@/components/ui/PaginationControls";
 import { deleteMembershipThunk, fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
 import {
   selectDeletingMembershipIds,
@@ -36,6 +37,7 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Membership } from "@/types/membership";
+import { formatAppDate } from "@/utils/dateTime";
 
 type FilterKey = "All" | "Active" | "Expired" | "Expiring Soon";
 
@@ -44,9 +46,7 @@ const FILTERS: FilterKey[] = ["All", "Active", "Expired", "Expiring Soon"];
 const formatMoney = (value: number) => `Rs. ${value.toLocaleString("en-IN")}`;
 
 const formatDate = (value: string) => {
-  const parsed = new Date(value);
-  if (Number.isNaN(parsed.getTime())) return "-";
-  return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", year: "numeric" }).format(parsed);
+  return formatAppDate(value, "-");
 };
 
 const getStatus = (membership: Membership) => {
@@ -277,8 +277,8 @@ export default function MembershipsScreen() {
         ListHeaderComponent={
           <View>
             <View style={styles.headerRow}>
-              <TouchableOpacity activeOpacity={0.84} onPress={() => (router.canGoBack() ? router.back() : router.replace("/more" as Href))} style={styles.headerButton}>
-                <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+              <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={() => (router.canGoBack() ? router.back() : router.replace("/more" as Href))} style={styles.headerButton}>
+                <Ionicons name="arrow-back" size={18} color={Colors.primary} />
               </TouchableOpacity>
               <Text style={styles.title}>Memberships</Text>
               <View style={styles.headerButtonGhost} />
@@ -328,11 +328,17 @@ export default function MembershipsScreen() {
         }
         ListFooterComponent={
           <View style={{ paddingBottom: insets.bottom + 96 }}>
-            {loadingMore ? (
-              <View style={styles.loadingMore}>
-                <ActivityIndicator color={Colors.primary} />
-                <Text style={styles.loadingMoreText}>Loading more memberships...</Text>
-              </View>
+            {visibleItems.length > 0 ? (
+              <PaginationControls
+                currentPage={pagination.page}
+                hasNextPage={hasMore}
+                hasPreviousPage={false}
+                loading={loadingMore}
+                onNext={hasMore ? loadMore : undefined}
+                totalItems={total}
+                totalPages={Math.max(1, pagination.totalPages)}
+                visibleItems={visibleItems.length}
+              />
             ) : null}
           </View>
         }

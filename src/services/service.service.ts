@@ -1,12 +1,14 @@
 import { api } from "@/services/api";
 import { SERVICE } from "@/services/api/endpoints";
 import type { ApiResponse } from "@/types/auth";
+import type { ConsumableRecipeApiItem, ConsumableRecipeItem } from "@/types/consumable";
 import type {
   CreateServiceRequest,
   CreateServiceResponse,
   DeleteServiceResponse,
   ServiceApiItem,
   ServiceApiCategory,
+  ServiceCategoryItem,
   ServiceListApiData,
   ServiceListItem,
   ServiceListPagination,
@@ -14,6 +16,7 @@ import type {
   ServiceListResponse,
   UpdateServiceRequest,
   UpdateServiceResponse,
+  CategoryType,
 } from "@/types/service";
 
 type ServiceListApiResponse = ApiResponse<ServiceListApiData>;
@@ -90,6 +93,84 @@ const getCategoryId = (value: unknown) => {
         toSafeString(record._id) ||
         null
     : null;
+};
+
+const getOwnCategoryName = (value: unknown) => {
+  if (typeof value === "string") {
+    return toSafeString(value) || null;
+  }
+
+  const record = getCategoryRecord(value);
+
+  return record
+    ? toSafeString(record.name) ||
+        toSafeString(record.category_name) ||
+        toSafeString(record.service_category_name) ||
+        toSafeString(record.display_name) ||
+        toSafeString(record.title) ||
+        toSafeString(record.label) ||
+        null
+    : null;
+};
+
+const getOwnCategoryId = (value: unknown) => {
+  const record = getCategoryRecord(value);
+
+  return record
+    ? toSafeString(record.id) ||
+        toSafeString(record.uuid) ||
+        toSafeString(record.category_id) ||
+        toSafeString(record.service_category_id) ||
+        toSafeString(record._id) ||
+        null
+    : null;
+};
+
+const getNestedCategoryArray = (value: unknown): ServiceApiCategory[] => {
+  if (Array.isArray(value)) {
+    return value.filter((item): item is ServiceApiCategory => Boolean(getCategoryRecord(item)));
+  }
+
+  if (!value || typeof value !== "object") {
+    return [];
+  }
+
+  const record = value as Record<string, unknown>;
+  const candidateKeys = [
+    "categories",
+    "service_categories",
+    "serviceCategories",
+    "items",
+    "rows",
+    "results",
+    "data",
+  ];
+
+  for (const key of candidateKeys) {
+    const nested = getNestedCategoryArray(record[key]);
+
+    if (nested.length > 0) {
+      return nested;
+    }
+  }
+
+  return [];
+};
+
+const normalizeCategoryList = (payload: unknown): ServiceCategoryItem[] => {
+  const categoryMap = new Map<string, ServiceCategoryItem>();
+  const list = getNestedCategoryArray(payload);
+
+  for (const item of list) {
+    const id = getOwnCategoryId(item);
+    const name = getOwnCategoryName(item);
+
+    if (id && name) {
+      categoryMap.set(id, { id, name });
+    }
+  }
+
+  return Array.from(categoryMap.values()).sort((a, b) => a.name.localeCompare(b.name));
 };
 
 const getServiceCategory = (service: ServiceApiItem) => {
@@ -184,6 +265,35 @@ const getIsActive = (service: ServiceApiItem) => {
   return true;
 };
 
+const normalizeConsumablesUsed = (
+  value: ConsumableRecipeApiItem[] | null | undefined,
+): ConsumableRecipeItem[] | undefined => {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+
+  const items = value
+    .map((item): ConsumableRecipeItem | null => {
+      const productId = toSafeString(item?.product_id);
+
+      if (!productId) {
+        return null;
+      }
+
+      const productName = toSafeString(item?.product_name) || undefined;
+
+      return {
+        productId,
+        ...(productName ? { productName } : {}),
+        qty: toSafeNumber(item?.qty),
+        unit: toSafeString(item?.unit),
+      };
+    })
+    .filter((item): item is ConsumableRecipeItem => item !== null);
+
+  return items.length > 0 ? items : undefined;
+};
+
 const normalizeService = (service: ServiceApiItem, index: number): ServiceListItem => {
   const name =
     toSafeString(service.name) ||
@@ -192,10 +302,12 @@ const normalizeService = (service: ServiceApiItem, index: number): ServiceListIt
     `Service ${index + 1}`;
 
   const category = getServiceCategory(service);
+  const consumablesUsed = normalizeConsumablesUsed(service.consumables_used);
 
   return {
     category: category.category,
     categoryId: category.categoryId,
+    ...(consumablesUsed ? { consumablesUsed } : {}),
     createdAt: toSafeString(service.created_at) || null,
     ...(toSafeNumber(service.discount_amount) || toSafeNumber(service.discount)
       ? { discountAmount: toSafeNumber(service.discount_amount) || toSafeNumber(service.discount) }
@@ -331,6 +443,76 @@ export const serviceService = {
     return {
       message: response.data.message,
       serviceId,
+    };
+  },
+
+  async getCategories(type: CategoryType, _salonId?: string | null): Promise<ServiceCategoryItem[]> {
+    const params = {
+      type,
+    };
+
+    try {
+      const response = await api.get<ApiResponse<unknown>>("/categories", {
+        params,
+      });
+
+      return normalizeCategoryList(response.data?.data ?? response.data);
+    } catch {
+      const response = await api.get<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
+        params,
+      });
+
+      return normalizeCategoryList(response.data?.data ?? response.data);
+    }
+  },
+
+  async createCategory(
+    name: string,
+    type: CategoryType,
+    _salonId?: string | null,
+  ): Promise<ServiceCategoryItem> {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
+      throw new Error("Category name is required.");
+    }
+
+    let rawCategory: unknown = null;
+
+    try {
+      const response = await api.post<ApiResponse<unknown>>("/categories", {
+        name: trimmedName,
+        type,
+      });
+
+      rawCategory = response.data?.data ?? response.data;
+    } catch (primaryError) {
+      try {
+        const response = await api.post<ApiResponse<unknown>>(SERVICE.CATEGORIES, {
+          name: trimmedName,
+          type,
+        });
+
+        rawCategory = response.data?.data ?? response.data;
+      } catch {
+        throw primaryError;
+      }
+    }
+
+    const record = getCategoryRecord(rawCategory) ?? (rawCategory as ServiceApiCategory | null);
+    const categoryRecord =
+      record && typeof record === "object" && "category" in record
+        ? (record as { category: ServiceApiCategory }).category
+        : record;
+
+    const id =
+      getCategoryId(categoryRecord) ||
+      toSafeString((categoryRecord as { id?: unknown })?.id) ||
+      toSafeString((categoryRecord as { _id?: unknown })?._id);
+    const categoryName = getCategoryName(categoryRecord) || trimmedName;
+
+    return {
+      id: id || trimmedName.toLowerCase().replace(/\s+/g, "-"),
+      name: categoryName,
     };
   },
 };

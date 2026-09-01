@@ -11,6 +11,7 @@ import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
 import { StaffSectionCard } from "@/features/staff/components/StaffSectionCard";
 import { StaffStateView } from "@/features/staff/components/StaffStateView";
 import { StaffTextField } from "@/features/staff/components/StaffTextField";
+import { useAppToast } from "@/hooks/useAppToast";
 import {
   createBlockedTimeThunk,
   deleteBlockedTimeThunk,
@@ -18,6 +19,7 @@ import {
   updateBlockedTimeThunk,
 } from "@/middleware/staff/staffBlockedTimes.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { formatAppDateTime } from "@/utils/dateTime";
 import {
   selectBlockedTimeCreateError,
   selectBlockedTimeCreating,
@@ -66,7 +68,7 @@ function BlockedTimeRow({ blockedTime, canManage, onDelete, onEdit, staffId }: B
       <View style={styles.rowInfo}>
         <Text style={styles.reason}>{blockedTime.reason || "Blocked time"}</Text>
         <Text style={styles.dateRange}>
-          {blockedTime.startAt ?? "-"} — {blockedTime.endAt ?? "-"}
+          {formatAppDateTime(blockedTime.startAt, "-")} — {formatAppDateTime(blockedTime.endAt, "-")}
         </Text>
         {blockedTime.notes ? <Text style={styles.meta}>{blockedTime.notes}</Text> : null}
       </View>
@@ -100,6 +102,7 @@ export function StaffBlockedTimeSection({ staffId }: StaffBlockedTimeSectionProp
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const currentUser = useAppSelector(selectCurrentUser);
   const canManage = canManageStaffLifecycle(currentUser?.role);
   const blockedTimes = useAppSelector((state) => selectBlockedTimes(state, staffId));
@@ -196,6 +199,7 @@ export function StaffBlockedTimeSection({ staffId }: StaffBlockedTimeSectionProp
       createBlockedTimeThunk.fulfilled.match(action) || updateBlockedTimeThunk.fulfilled.match(action);
 
     if (succeeded) {
+      toast.showSuccess(editingEntry ? "Blocked time updated successfully." : "Blocked time created successfully.");
       closeForm();
     }
   };
@@ -231,7 +235,7 @@ export function StaffBlockedTimeSection({ staffId }: StaffBlockedTimeSectionProp
       return;
     }
 
-    Alert.alert("Blocked time deleted", resultAction.payload.message ?? "The blocked time has been removed.");
+    toast.showSuccess("Blocked time deleted successfully.");
   };
 
   const sortedEntries = useMemo(

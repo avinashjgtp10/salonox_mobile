@@ -5,6 +5,7 @@ import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, Touchabl
 import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { EmptyState, ErrorState } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
 import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
@@ -252,8 +253,8 @@ export default function NotificationsScreen({
       <AppStatusBar />
 
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.iconButton}>
-          <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+        <TouchableOpacity activeOpacity={0.84} hitSlop={12} onPress={handleBack} style={styles.iconButton}>
+          <Ionicons name="arrow-back" size={18} color={Colors.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
         <TouchableOpacity
@@ -288,39 +289,23 @@ export default function NotificationsScreen({
           ))}
         </View>
       ) : blockingError && notifications.length === 0 ? (
-        <View style={styles.stateCard}>
-          <View style={styles.stateIcon}>
-            <Ionicons name="cloud-offline-outline" size={26} color={Colors.error} />
-          </View>
-          <Text style={styles.stateTitle}>Unable to load notifications</Text>
-          <Text style={styles.stateDescription}>{blockingError}</Text>
-          <TouchableOpacity activeOpacity={0.85} onPress={() => refresh()} style={styles.retryButton}>
-            <Text style={styles.retryButtonText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorState message={blockingError} onRetry={() => refresh()} />
       ) : (
         <FlatList
           contentContainerStyle={styles.listContent}
           data={visibleNotifications}
           keyExtractor={(item) => item.id}
           ListEmptyComponent={
-            <View style={styles.stateCard}>
-              <View style={styles.stateIcon}>
-                <Ionicons
-                  name={filter === "unread" ? "checkmark-done-outline" : "notifications-off-outline"}
-                  size={26}
-                  color={Colors.primary}
-                />
-              </View>
-              <Text style={styles.stateTitle}>
-                {filter === "unread" ? "You're all caught up" : "No notifications yet"}
-              </Text>
-              <Text style={styles.stateDescription}>
-                {filter === "unread"
+            <EmptyState
+              accent={filter === "unread" ? "green" : "blue"}
+              description={
+                filter === "unread"
                   ? "There are no unread notifications right now."
-                  : "You'll see appointment, client, and sale updates here as they happen."}
-              </Text>
-            </View>
+                  : "You'll see appointment, client, and sale updates here as they happen."
+              }
+              icon={filter === "unread" ? "checkmark-done-outline" : "notifications-off-outline"}
+              title={filter === "unread" ? "You're all caught up" : "No notifications yet"}
+            />
           }
           refreshControl={
             <RefreshControl
@@ -482,45 +467,5 @@ const createStyles = (Colors: ThemeColors, width = 393) => StyleSheet.create({
   },
   skeletonLineShort: {
     width: "45%",
-  },
-  stateCard: {
-    alignItems: "center",
-    marginTop: Spacing.xxl,
-    paddingHorizontal: Spacing.xl,
-  },
-  stateIcon: {
-    alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderRadius: Radius.full,
-    height: 60,
-    justifyContent: "center",
-    marginBottom: Spacing.md,
-    width: 60,
-  },
-  stateTitle: {
-    color: Colors.heading,
-    fontSize: 16,
-    fontWeight: "800",
-  },
-  stateDescription: {
-    color: Colors.text2,
-    fontSize: 13,
-    lineHeight: 20,
-    marginTop: Spacing.sm,
-    textAlign: "center",
-  },
-  retryButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    justifyContent: "center",
-    marginTop: Spacing.lg,
-    minHeight: 46,
-    paddingHorizontal: Spacing.xl,
-  },
-  retryButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
-    fontWeight: "800",
   },
 });

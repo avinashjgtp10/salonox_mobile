@@ -33,6 +33,7 @@ export type ClientApiItem = {
   membership_name?: string | null;
   name?: string | null;
   phone?: string | null;
+  phone_country_code?: string | null;
   phone_number?: string | null;
   status?: string | null;
   total_visits?: number | string | null;
@@ -69,6 +70,7 @@ export type ClientListItem = {
   email: string;
   fullName: string;
   gender: string;
+  hasValidId: boolean;
   id: string;
   inactive: boolean;
   initials: string;
@@ -76,6 +78,7 @@ export type ClientListItem = {
   joinedDaysAgo: number | null;
   membership: string | null;
   phone: string;
+  phoneCountryCode: string | null;
   status: string;
   totalVisits: number;
 };
@@ -84,8 +87,9 @@ export type CreateClientRequest = {
   email?: string;
   first_name: string;
   gender?: string;
-  last_name: string;
-  phone: string;
+  last_name?: string;
+  phone_country_code?: string;
+  phone_number?: string;
   salon_id?: string;
 };
 
@@ -186,7 +190,7 @@ export type ClientHistoryItemApi = {
   description?: string | null;
   amount?: number | string | null;
   status?: string | null;
-  items?: { name?: string | null; type?: "service" | "product" | string | null; price?: number | string | null }[] | null;
+  items?: { name?: string | null; type?: "membership" | "package" | "service" | "product" | string | null; price?: number | string | null }[] | null;
   staff_name?: string | null;
   staffName?: string | null;
 };
@@ -194,12 +198,12 @@ export type ClientHistoryItemApi = {
 export type ClientHistoryItem = {
   id: string;
   date: string;
-  type: "appointment" | "sale" | "visit" | "note";
+  type: "appointment" | "sale" | "package" | "membership" | "visit" | "note";
   title: string;
   description: string;
   amount: number;
   status: string;
-  items: { name: string; type: "service" | "product"; price: number }[];
+  items: { name: string; type: "membership" | "package" | "product" | "service"; price: number }[];
   staffName: string;
   dateLabel: string;
 };
@@ -238,4 +242,33 @@ export type ClientWithHistoryStatsApi = ClientApiItem & {
 export type ClientWithHistoryStats = {
   client: ClientListItem;
   stats: ClientHistoryStats;
+};
+
+export type ClientHistorySummaryApi = {
+  wallet_balance?: number | string | null;
+  walletBalance?: number | string | null;
+  reward_points_balance?: number | string | null;
+  rewardPointsBalance?: number | string | null;
+  referral_balance?: number | string | null;
+  referralBalance?: number | string | null;
+  referral_code?: string | null;
+  referralCode?: string | null;
+  total_referral_earnings?: number | string | null;
+  totalReferralEarnings?: number | string | null;
+  total_successful_referrals?: number | string | null;
+  totalSuccessfulReferrals?: number | string | null;
+};
+
+export type ClientHistorySummary = {
+  walletBalance: number;
+  rewardPointsBalance: number;
+  referralBalance: number;
+  referralCode: string | null;
+  totalReferralEarnings: number;
+  totalSuccessfulReferrals: number;
+};
+
+export type ClientHistoryResult = {
+  history: ClientHistoryItem[];
+  summary: ClientHistorySummary;
 };

@@ -1,17 +1,31 @@
 import { createSlice } from "@reduxjs/toolkit";
 
 import {
+  createCategoryThunk,
   createServiceThunk,
   deleteServiceThunk,
+  fetchCategoriesThunk,
   fetchServiceByIdThunk,
   fetchServicesThunk,
   updateServiceThunk,
   type FetchServicesArgs,
 } from "@/middleware/service/service.thunk";
 import type { RootState } from "@/store";
-import type { ServiceListItem, ServiceListPagination, ServiceListQuery } from "@/types/service";
+import type {
+  CategoryType,
+  ServiceCategoryItem,
+  ServiceListItem,
+  ServiceListPagination,
+  ServiceListQuery,
+} from "@/types/service";
 
 type ServiceState = {
+  categories: Record<CategoryType, ServiceCategoryItem[]>;
+  categoriesError: Record<CategoryType, string | null>;
+  categoriesLoadedAt: Record<CategoryType, number | null>;
+  categoriesLoading: Record<CategoryType, boolean>;
+  createCategoryError: Record<CategoryType, string | null>;
+  creatingCategory: Record<CategoryType, boolean>;
   createError: string | null;
   creating: boolean;
   currentRequestId: string | null;
@@ -48,6 +62,12 @@ const initialPagination: ServiceListPagination = {
 };
 
 const initialState: ServiceState = {
+  categories: { product: [], service: [] },
+  categoriesError: { product: null, service: null },
+  categoriesLoadedAt: { product: null, service: null },
+  categoriesLoading: { product: false, service: false },
+  createCategoryError: { product: null, service: null },
+  creatingCategory: { product: false, service: false },
   createError: null,
   creating: false,
   currentRequestId: null,
@@ -203,6 +223,46 @@ const serviceSlice = createSlice({
         state.deletingServiceIds = state.deletingServiceIds.filter(
           (serviceId) => serviceId !== action.meta.arg,
         );
+      })
+      .addCase(fetchCategoriesThunk.pending, (state, action) => {
+        const type = action.meta.arg.type;
+        state.categoriesLoading[type] = true;
+        state.categoriesError[type] = null;
+      })
+      .addCase(fetchCategoriesThunk.fulfilled, (state, action) => {
+        const type = action.meta.arg.type;
+        state.categoriesLoading[type] = false;
+        state.categoriesError[type] = null;
+        state.categoriesLoadedAt[type] = Date.now();
+        state.categories[type] = action.payload;
+      })
+      .addCase(fetchCategoriesThunk.rejected, (state, action) => {
+        const type = action.meta.arg.type;
+        state.categoriesLoading[type] = false;
+        state.categoriesError[type] =
+          action.payload?.message ?? action.error.message ?? "Unable to load categories.";
+      })
+      .addCase(createCategoryThunk.pending, (state, action) => {
+        const type = action.meta.arg.type;
+        state.creatingCategory[type] = true;
+        state.createCategoryError[type] = null;
+      })
+      .addCase(createCategoryThunk.fulfilled, (state, action) => {
+        const type = action.meta.arg.type;
+        state.creatingCategory[type] = false;
+        state.createCategoryError[type] = null;
+        const exists = state.categories[type].some((cat) => cat.id === action.payload.id);
+        if (!exists) {
+          state.categories[type] = [...state.categories[type], action.payload].sort((a, b) =>
+            a.name.localeCompare(b.name),
+          );
+        }
+      })
+      .addCase(createCategoryThunk.rejected, (state, action) => {
+        const type = action.meta.arg.type;
+        state.creatingCategory[type] = false;
+        state.createCategoryError[type] =
+          action.payload?.message ?? action.error.message ?? "Unable to create category.";
       });
   },
 });
@@ -225,5 +285,27 @@ export const selectServiceUpdating = (state: RootState) => state.service.updatin
 export const selectServiceUpdateError = (state: RootState) => state.service.updateError;
 export const selectServiceDeletingIds = (state: RootState) => state.service.deletingServiceIds;
 export const selectServiceDeleteError = (state: RootState) => state.service.deleteError;
+export const selectCategoriesByType = (state: RootState, type: CategoryType) => state.service.categories[type];
+export const selectCategoriesLoadedAtByType = (state: RootState, type: CategoryType) =>
+  state.service.categoriesLoadedAt[type];
+export const selectCategoriesLoadingByType = (state: RootState, type: CategoryType) =>
+  state.service.categoriesLoading[type];
+export const selectCategoriesErrorByType = (state: RootState, type: CategoryType) =>
+  state.service.categoriesError[type];
+export const selectCreatingCategoryByType = (state: RootState, type: CategoryType) =>
+  state.service.creatingCategory[type];
+export const selectCreateCategoryErrorByType = (state: RootState, type: CategoryType) =>
+  state.service.createCategoryError[type];
+export const selectServiceCategories = (state: RootState) => selectCategoriesByType(state, "service");
+export const selectServiceCategoriesLoadedAt = (state: RootState) =>
+  selectCategoriesLoadedAtByType(state, "service");
+export const selectServiceCategoriesLoading = (state: RootState) =>
+  selectCategoriesLoadingByType(state, "service");
+export const selectServiceCategoriesError = (state: RootState) =>
+  selectCategoriesErrorByType(state, "service");
+export const selectServiceCreatingCategory = (state: RootState) =>
+  selectCreatingCategoryByType(state, "service");
+export const selectServiceCreateCategoryError = (state: RootState) =>
+  selectCreateCategoryErrorByType(state, "service");
 
 export default serviceSlice.reducer;

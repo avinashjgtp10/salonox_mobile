@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { useMemo } from "react";
-import { FlatList, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { FlatList, StyleSheet, Text, TouchableOpacity, View, useWindowDimensions } from "react-native";
 
 import { BottomSheet } from "@/components/ui/BottomSheet";
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -10,24 +10,28 @@ import type { PosStaffMember } from "@/types/sales";
 type StaffPickerSheetProps = {
   onClose: () => void;
   onSelect: (staffId: string, staffName: string) => void;
+  renderInline?: boolean;
   selectedStaffId: string | null;
   staff: PosStaffMember[];
   visible: boolean;
 };
 
-export function StaffPickerSheet({ onClose, onSelect, selectedStaffId, staff, visible }: StaffPickerSheetProps) {
+export function StaffPickerSheet({ onClose, onSelect, renderInline = false, selectedStaffId, staff, visible }: StaffPickerSheetProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const { height } = useWindowDimensions();
+  const listHeight = Math.min(420, Math.max(220, Math.round(height * 0.52)));
 
   return (
     <BottomSheet
       onClose={onClose}
+      renderInline={renderInline}
       scrollable={false}
       subtitle="Who performed this item?"
       title="Assign Staff"
       visible={visible}
     >
-      <View style={styles.listWrap}>
+      <View style={[styles.listWrap, { height: listHeight }]}>
         {staff.length === 0 ? (
           <View style={styles.emptyState}>
             <Ionicons name="people-outline" size={22} color={Colors.text2} />
@@ -37,7 +41,9 @@ export function StaffPickerSheet({ onClose, onSelect, selectedStaffId, staff, vi
           <FlatList
             contentContainerStyle={styles.listContent}
             data={staff}
+            keyboardShouldPersistTaps="handled"
             keyExtractor={(item) => `staff-picker-${item.id}`}
+            nestedScrollEnabled
             renderItem={({ item }) => {
               const isSelected = item.id === selectedStaffId;
 
@@ -62,6 +68,7 @@ export function StaffPickerSheet({ onClose, onSelect, selectedStaffId, staff, vi
                 </TouchableOpacity>
               );
             }}
+            showsVerticalScrollIndicator
             style={styles.list}
           />
         )}
@@ -73,10 +80,10 @@ export function StaffPickerSheet({ onClose, onSelect, selectedStaffId, staff, vi
 const createStyles = (Colors: ThemeColors) =>
   StyleSheet.create({
     listWrap: {
-      maxHeight: 420,
       minHeight: 200,
     },
     list: {
+      flex: 1,
       marginTop: 4,
     },
     listContent: {

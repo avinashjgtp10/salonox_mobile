@@ -11,6 +11,7 @@ import {
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
+import { useAppToast } from "@/hooks/useAppToast";
 import { deleteSaleThunk, fetchSaleByIdThunk } from "@/middleware/sales/sales.thunk";
 import {
   selectSaleDeletingIds,
@@ -86,6 +87,7 @@ export default function SaleDetailsScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { id } = useLocalSearchParams<{ id?: string }>();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
 
   const detail = useAppSelector(selectSaleDetail);
   const detailLoading = useAppSelector(selectSaleDetailLoading);
@@ -126,7 +128,7 @@ export default function SaleDetailsScreen() {
       return;
     }
 
-    Alert.alert("Sale deleted", resultAction.payload.message ?? "Sale deleted successfully.");
+    toast.showSuccess("Sale deleted successfully.");
     handleBack();
   };
 
@@ -147,8 +149,8 @@ export default function SaleDetailsScreen() {
 
   const renderHeader = (showActions = false) => (
     <View style={styles.headerRow}>
-      <TouchableOpacity activeOpacity={0.8} onPress={handleBack} style={styles.backButton}>
-        <Ionicons name="chevron-back" size={18} color={Colors.primary} />
+      <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+        <Ionicons name="arrow-back" size={18} color={Colors.primary} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>Sale Invoice</Text>
       {showActions ? (

@@ -6,6 +6,7 @@ import type {
   ManualAttendanceStatus,
 } from "@/types/attendance";
 import type { AttendanceErrorKind } from "@/middleware/attendance/attendance.thunk";
+import { formatAppTime } from "@/utils/dateTime";
 
 export type AttendanceStatusIconName =
   | "checkmark-circle"
@@ -205,12 +206,7 @@ export const parseAttendanceDateTime = (value: string | null | undefined): Date 
 // via Intl.DateTimeFormat whose AM/PM casing isn't guaranteed consistent
 // across the ICU data bundled with different JS engines.
 export const formatHourMinuteAmPm = (date: Date) => {
-  const hours24 = date.getHours();
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const ampm = hours24 >= 12 ? "PM" : "AM";
-  const hours12 = hours24 % 12 || 12;
-
-  return `${hours12}:${minutes} ${ampm}`;
+  return formatAppTime(date, "--:--");
 };
 
 export const formatAttendanceTime = (value: string | null | undefined): string => {
@@ -254,6 +250,22 @@ export const getTodayAttendanceDateKey = (): string => {
   const day = String(istDate.getUTCDate()).padStart(2, "0");
 
   return `${year}-${month}-${day}`;
+};
+
+export const formatAttendanceDate = (dateKey: string | null | undefined, fallback = "--") => {
+  if (!dateKey) {
+    return fallback;
+  }
+
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(dateKey.trim());
+
+  if (!match) {
+    return fallback;
+  }
+
+  const [, year, month, day] = match;
+
+  return `${day}-${month}-${year}`;
 };
 
 const ATTENDANCE_ERROR_MESSAGES: Record<AttendanceErrorKind, string> = {

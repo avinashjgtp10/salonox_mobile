@@ -26,8 +26,12 @@ import {
   StaffFutureSections,
   useStaffDetails,
 } from "@/features/staff";
-import { deleteStaffThunk, updateStaffThunk } from "@/middleware/staff/staff.thunk";
-import { selectStaffDeletingIds, selectStaffUpdating } from "@/store/staff/staff.slice";
+import { useAppToast } from "@/hooks/useAppToast";
+import { deleteStaffThunk, setStaffActiveStatusThunk } from "@/middleware/staff/staff.thunk";
+import {
+  selectStaffActiveStatusToggling,
+  selectStaffDeletingIds,
+} from "@/store/staff/staff.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
@@ -97,9 +101,10 @@ export default function StaffProfileScreen() {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const { detailsError, detailsLoading, staffMember } = useStaffDetails(id);
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
   const currentUser = useAppSelector(selectCurrentUser);
   const deletingStaffIds = useAppSelector(selectStaffDeletingIds);
-  const staffUpdating = useAppSelector(selectStaffUpdating);
+  const isTogglingActive = useAppSelector((state) => selectStaffActiveStatusToggling(state, id));
 
   const canManageLifecycle = canManageStaffLifecycle(currentUser?.role);
   const isDeleting = Boolean(id && deletingStaffIds.includes(id));
@@ -114,26 +119,26 @@ export default function StaffProfileScreen() {
   };
 
   const handleConfirmToggleActive = async (nextStatus: "active" | "inactive") => {
-    if (!id || !staffMember) {
+    if (!id || !staffMember || isTogglingActive) {
       return;
     }
 
-    const resultAction = await dispatch(
-      updateStaffThunk({ staffId: id, updates: { status: nextStatus } }),
-    );
+    const resultAction = await dispatch(setStaffActiveStatusThunk({ nextStatus, staffId: id }));
 
-    if (updateStaffThunk.rejected.match(resultAction)) {
+    // Only ever reaches here once the backend mutation succeeded AND a
+    // follow-up fetch confirmed the staff record's status actually changed
+    // — setStaffActiveStatusThunk rejects otherwise, so there is no path
+    // that shows this success message without a confirmed backend change.
+    if (setStaffActiveStatusThunk.rejected.match(resultAction)) {
       Alert.alert(
-        "Unable to update staff",
+        nextStatus === "inactive" ? "Unable to deactivate staff" : "Unable to reactivate staff",
         getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
       );
       return;
     }
 
-    Alert.alert(
-      nextStatus === "inactive" ? "Staff deactivated" : "Staff reactivated",
-      resultAction.payload.message ??
-        `${staffMember.name} has been ${nextStatus === "inactive" ? "deactivated" : "reactivated"}.`,
+    toast.showSuccess(
+      nextStatus === "inactive" ? "Staff deactivated successfully." : "Staff activated successfully.",
     );
   };
 
@@ -180,7 +185,7 @@ export default function StaffProfileScreen() {
       return;
     }
 
-    Alert.alert("Staff deleted", resultAction.payload.message ?? `${staffMember.name} has been removed.`);
+    toast.showSuccess("Staff deleted successfully.");
     handleBack();
   };
 
@@ -210,8 +215,8 @@ export default function StaffProfileScreen() {
         <AppStatusBar />
         <View style={styles.missingWrap}>
           <View style={styles.header}>
-            <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
+            <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Staff Profile</Text>
             <View style={[styles.headerAction, { opacity: 0 }]} />
@@ -230,8 +235,8 @@ export default function StaffProfileScreen() {
         <AppStatusBar />
         <View style={styles.missingWrap}>
           <View style={styles.header}>
-            <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
+            <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Staff Profile</Text>
             <View style={[styles.headerAction, { opacity: 0 }]} />
@@ -251,8 +256,8 @@ export default function StaffProfileScreen() {
         <AppStatusBar />
         <View style={styles.missingWrap}>
           <View style={styles.header}>
-            <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.backButton}>
-              <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
+            <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Staff Profile</Text>
             <View style={[styles.headerAction, { opacity: 0 }]} />
@@ -264,7 +269,7 @@ export default function StaffProfileScreen() {
             </View>
             <Text style={styles.missingTitle}>Staff member not found</Text>
             <Text style={styles.missingText}>
-              The selected profile is unavailable. Return to the Team screen and choose another staff member.
+              The selected profile is unavailable. Return to the Staff screen and choose another staff member.
             </Text>
           </View>
         </View>
@@ -281,11 +286,11 @@ export default function StaffProfileScreen() {
       <AppStatusBar />
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <TouchableOpacity activeOpacity={0.84} onPress={handleBack} style={styles.backButton}>
-            <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
+          <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={18} color={Colors.primaryDark} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Staff Profile</Text>
-          <TouchableOpacity activeOpacity={0.84} onPress={() => router.push(`/team/${id}/edit` as Href)} style={styles.headerAction}>
+          <TouchableOpacity activeOpacity={0.84} hitSlop={AppLayout.headerActionHitSlop} onPress={() => router.push(`/team/${id}/edit` as Href)} style={styles.headerAction}>
             <Ionicons name="create-outline" size={17} color={Colors.primaryDark} />
           </TouchableOpacity>
         </View>
@@ -315,9 +320,9 @@ export default function StaffProfileScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.85}
-              disabled={staffUpdating || isDeleting}
+              disabled={isTogglingActive || isDeleting}
               onPress={handleToggleActive}
-              style={[styles.quickAction, (staffUpdating || isDeleting) && styles.quickActionDisabled]}
+              style={[styles.quickAction, (isTogglingActive || isDeleting) && styles.quickActionDisabled]}
             >
               <Ionicons
                 name={isInactive ? "play-circle-outline" : "pause-circle-outline"}
@@ -328,9 +333,9 @@ export default function StaffProfileScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               activeOpacity={0.85}
-              disabled={staffUpdating || isDeleting}
+              disabled={isTogglingActive || isDeleting}
               onPress={handleDelete}
-              style={[styles.quickAction, (staffUpdating || isDeleting) && styles.quickActionDisabled]}
+              style={[styles.quickAction, (isTogglingActive || isDeleting) && styles.quickActionDisabled]}
             >
               <Ionicons name="trash-outline" size={16} color={Colors.error} />
               <Text style={styles.quickActionText}>Delete</Text>
@@ -413,11 +418,11 @@ export default function StaffProfileScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.86}
-            disabled={staffUpdating || isDeleting}
+            disabled={isTogglingActive || isDeleting}
             onPress={handleToggleActive}
-            style={[styles.secondaryButton, (staffUpdating || isDeleting) && styles.buttonDisabled]}
+            style={[styles.secondaryButton, (isTogglingActive || isDeleting) && styles.buttonDisabled]}
           >
-            {staffUpdating ? (
+            {isTogglingActive ? (
               <ActivityIndicator color={Colors.primaryDark} size="small" />
             ) : (
               <Text style={styles.secondaryButtonText}>
@@ -427,9 +432,9 @@ export default function StaffProfileScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.86}
-            disabled={staffUpdating || isDeleting}
+            disabled={isTogglingActive || isDeleting}
             onPress={handleDelete}
-            style={[styles.deleteButton, (staffUpdating || isDeleting) && styles.buttonDisabled]}
+            style={[styles.deleteButton, (isTogglingActive || isDeleting) && styles.buttonDisabled]}
           >
             {isDeleting ? (
               <ActivityIndicator color={Colors.error} size="small" />
@@ -439,7 +444,6 @@ export default function StaffProfileScreen() {
           </TouchableOpacity>
         </View>
       </ScrollView>
-
     </SafeAreaView>
   );
 }
@@ -797,7 +801,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     opacity: 0.55,
   },
   modalOverlay: {
-    backgroundColor: "rgba(17, 24, 20, 0.36)",
+    backgroundColor: "rgba(15, 23, 32, 0.36)",
     flex: 1,
     justifyContent: "flex-end",
   },

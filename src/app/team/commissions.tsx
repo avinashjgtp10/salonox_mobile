@@ -1,11 +1,10 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useDeferredValue, useEffect, useMemo, useState } from "react";
+import { useFocusEffect } from "expo-router";
+import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Linking,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -17,51 +16,40 @@ import {
 } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
+import { SettlementModal } from "@/components/ui/SettlementModal";
 import { AppLayout, AppRadius } from "@/constants/layout";
+import { useAppToast } from "@/hooks/useAppToast";
 import {
   DashboardRadius as Radius,
   DashboardSpacing as Spacing,
   type ThemeColors,
 } from "@/constants/theme";
-import { StaffBottomSheet } from "@/features/staff/components/StaffBottomSheet";
-import { StaffTextField } from "@/features/staff/components/StaffTextField";
+import { useThemeColors } from "@/theme/ThemeProvider";
 import {
-  bulkConfigureCommissionsThunk,
-  exportSalonCommissionsThunk,
   fetchSalonCommissionEarnedThunk,
   fetchSalonCommissionSummaryThunk,
-  fetchSalonCommissionsThunk,
-  markCommissionPaidThunk,
+  settleCommissionThunk,
 } from "@/middleware/staff/salonCommissions.thunk";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
-  selectBulkConfigureError,
-  selectBulkConfiguring,
-  selectCommissionMarkingPaid,
-  selectSalonCommissionEarned,
+  selectCommissionSettling,
   selectSalonCommissionEarnedError,
   selectSalonCommissionEarnedLoaded,
   selectSalonCommissionEarnedLoading,
-  selectSalonCommissionExportError,
-  selectSalonCommissionExporting,
-  selectSalonCommissionListError,
-  selectSalonCommissionListLoading,
-  selectSalonCommissionListLoadingMore,
-  selectSalonCommissionListRefreshing,
-  selectSalonCommissionPagination,
   selectSalonCommissionRecords,
   selectSalonCommissionSummary,
   selectSalonCommissionSummaryError,
   selectSalonCommissionSummaryLoading,
 } from "@/store/staff/salonCommissions.slice";
-import { useThemeColors } from "@/theme/ThemeProvider";
+import { selectCurrentUser } from "@/store/user/user.slice";
+import { selectCurrentStaff } from "@/store/staff/staff.slice";
+import { canSettleCommission } from "@/utils/userProfile";
 import type { SalonCommissionRecord } from "@/types/salonCommissions";
 
-const STATUS_FILTERS = ["All", "Pending", "Paid"] as const;
+const STATUS_FILTERS = ["All", "Pending", "Partial", "Paid"] as const;
 type StatusFilter = (typeof STATUS_FILTERS)[number];
-
-const COMMISSION_TYPES = ["percentage", "fixed"] as const;
 
 function formatCurrency(amount: number) {
   return `Rs. ${amount.toLocaleString("en-IN")}`;
@@ -83,52 +71,12 @@ function getStatusPalette(status: string, Colors: ThemeColors) {
   switch (status.toLowerCase()) {
     case "paid":
       return { backgroundColor: Colors.successBg, color: Colors.success };
+    case "partial":
+      return { backgroundColor: Colors.warningBg, color: Colors.warning };
     case "pending":
     default:
       return { backgroundColor: Colors.warningBg, color: Colors.warning };
   }
-}
-
-function CommissionRow({
-  onMarkPaid,
-  record,
-}: {
-  onMarkPaid: (record: SalonCommissionRecord) => void;
-  record: SalonCommissionRecord;
-}) {
-  const Colors = useThemeColors();
-  const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const marking = useAppSelector((state) => selectCommissionMarkingPaid(state, record.staffId));
-  const palette = getStatusPalette(record.status, Colors);
-
-  return (
-    <View style={styles.row}>
-      <View style={styles.rowInfo}>
-        <Text style={styles.staffName}>{record.staffName}</Text>
-        <Text style={styles.period}>{record.period ?? "-"}</Text>
-      </View>
-      <View style={styles.rowRight}>
-        <Text style={styles.amount}>{formatCurrency(record.amount)}</Text>
-        <View style={[styles.statusPill, { backgroundColor: palette.backgroundColor }]}>
-          <Text style={[styles.statusPillText, { color: palette.color }]}>{record.status}</Text>
-        </View>
-      </View>
-      {record.status.toLowerCase() === "pending" ? (
-        <TouchableOpacity
-          activeOpacity={0.84}
-          disabled={marking}
-          onPress={() => onMarkPaid(record)}
-          style={[styles.markPaidButton, marking && styles.buttonDisabled]}
-        >
-          {marking ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text style={styles.markPaidButtonText}>Mark Paid</Text>
-          )}
-        </TouchableOpacity>
-      ) : null}
-    </View>
-  );
 }
 
 export default function SalonCommissionsScreen() {
@@ -136,187 +84,180 @@ export default function SalonCommissionsScreen() {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
+  const toast = useAppToast();
+
+  const currentUser = useAppSelector(selectCurrentUser);
+  const currentStaff = useAppSelector(selectCurrentStaff);
+  const userRole = currentUser?.role ?? "";
+  const hasSettlePermission = canSettleCommission(userRole);
+  const isStaffUser = currentStaff && !hasSettlePermission;
+
+  const records = useAppSelector(selectSalonCommissionRecords);
+  const listError = useAppSelector(selectSalonCommissionEarnedError);
+  const listLoading = useAppSelector(selectSalonCommissionEarnedLoading);
+  const listLoaded = useAppSelector(selectSalonCommissionEarnedLoaded);
 
   const summary = useAppSelector(selectSalonCommissionSummary);
   const summaryLoading = useAppSelector(selectSalonCommissionSummaryLoading);
   const summaryError = useAppSelector(selectSalonCommissionSummaryError);
 
-  const earned = useAppSelector(selectSalonCommissionEarned);
-  const earnedLoaded = useAppSelector(selectSalonCommissionEarnedLoaded);
-  const earnedLoading = useAppSelector(selectSalonCommissionEarnedLoading);
-  const earnedError = useAppSelector(selectSalonCommissionEarnedError);
-
-  const records = useAppSelector(selectSalonCommissionRecords);
-  const listError = useAppSelector(selectSalonCommissionListError);
-  const listLoading = useAppSelector(selectSalonCommissionListLoading);
-  const listLoadingMore = useAppSelector(selectSalonCommissionListLoadingMore);
-  const listRefreshing = useAppSelector(selectSalonCommissionListRefreshing);
-  const pagination = useAppSelector(selectSalonCommissionPagination);
-
-  const exporting = useAppSelector(selectSalonCommissionExporting);
-  const exportError = useAppSelector(selectSalonCommissionExportError);
-
-  const bulkConfiguring = useAppSelector(selectBulkConfiguring);
-  const bulkConfigureError = useAppSelector(selectBulkConfigureError);
-
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("All");
-  const [isBulkSheetOpen, setIsBulkSheetOpen] = useState(false);
-  const [bulkRate, setBulkRate] = useState("");
-  const [bulkType, setBulkType] = useState<string>("percentage");
+  const [settlementRecord, setSettlementRecord] = useState<SalonCommissionRecord | null>(null);
+  const [isSettlementModalOpen, setIsSettlementModalOpen] = useState(false);
+  const settlementLoading = useAppSelector((state) =>
+    settlementRecord ? selectCommissionSettling(state, settlementRecord.staffId) : false,
+  );
   const deferredSearch = useDeferredValue(search);
 
-  useEffect(() => {
-    void dispatch(fetchSalonCommissionSummaryThunk());
-    void dispatch(fetchSalonCommissionEarnedThunk());
-    void dispatch(fetchSalonCommissionsThunk({ reset: true }));
-  }, [dispatch]);
+  useFocusEffect(
+    useCallback(() => {
+      if (!hasSettlePermission) {
+        return;
+      }
 
-  useEffect(() => {
-    const statusParam = statusFilter === "All" ? undefined : statusFilter.toLowerCase();
+      void dispatch(fetchSalonCommissionSummaryThunk());
+      void dispatch(fetchSalonCommissionEarnedThunk());
+    }, [dispatch, hasSettlePermission]),
+  );
 
-    void dispatch(
-      fetchSalonCommissionsThunk({
-        offset: 0,
-        reset: true,
-        search: deferredSearch,
-        status: statusParam,
-      }),
-    );
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [deferredSearch, statusFilter]);
+  // The commission-earned endpoint returns the full salon list in one shot
+  // (it does not support server-side search/status/pagination), so filtering
+  // for the Owner/Manager list view happens client-side over that result.
+  const filteredRecords = useMemo(() => {
+    const staffScoped =
+      isStaffUser && currentStaff
+        ? records.filter((record) => record.staffId === currentStaff.id)
+        : records;
 
-  const handleRefresh = () => {
-    void dispatch(fetchSalonCommissionSummaryThunk());
-    void dispatch(fetchSalonCommissionEarnedThunk());
-    void dispatch(
-      fetchSalonCommissionsThunk({
-        refresh: true,
-        search: deferredSearch,
-        status: statusFilter === "All" ? undefined : statusFilter.toLowerCase(),
-      }),
-    );
-  };
+    const statusMatched =
+      statusFilter === "All"
+        ? staffScoped
+        : staffScoped.filter((record) => record.status.toLowerCase() === statusFilter.toLowerCase());
 
-  const handleLoadMore = () => {
-    if (listLoading || listLoadingMore || listRefreshing || !pagination.hasMore) {
+    const query = deferredSearch.trim().toLowerCase();
+
+    if (!query) {
+      return statusMatched;
+    }
+
+    return statusMatched.filter((record) => record.staffName.toLowerCase().includes(query));
+  }, [records, isStaffUser, currentStaff, statusFilter, deferredSearch]);
+
+  const [refreshing, setRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    if (refreshing || !hasSettlePermission) {
       return;
     }
 
-    void dispatch(
-      fetchSalonCommissionsThunk({
-        limit: pagination.limit,
-        offset: pagination.nextOffset,
-        search: deferredSearch,
-        status: statusFilter === "All" ? undefined : statusFilter.toLowerCase(),
-      }),
-    );
-  };
-
-  const handleMarkPaid = (record: SalonCommissionRecord) => {
-    Alert.alert(
-      "Mark Commission Paid",
-      `Mark ${record.staffName}'s commission of ${formatCurrency(record.amount)} as paid?`,
-      [
-        { style: "cancel", text: "Cancel" },
-        { onPress: () => void handleConfirmMarkPaid(record), text: "Mark Paid" },
-      ],
-    );
-  };
-
-  const handleConfirmMarkPaid = async (record: SalonCommissionRecord) => {
-    const resultAction = await dispatch(markCommissionPaidThunk(record.staffId));
-
-    if (markCommissionPaidThunk.rejected.match(resultAction)) {
-      Alert.alert(
-        "Unable to mark as paid",
-        getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
-      );
-      return;
-    }
-
-    Alert.alert("Commission marked as paid", resultAction.payload.message ?? "Payment recorded.");
-  };
-
-  const handleExport = async () => {
-    const resultAction = await dispatch(exportSalonCommissionsThunk());
-
-    if (exportSalonCommissionsThunk.rejected.match(resultAction)) {
-      Alert.alert(
-        "Export failed",
-        getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
-      );
-      return;
-    }
-
-    const { url } = resultAction.payload;
-
-    if (!url) {
-      Alert.alert("Export unavailable", "No export file was returned by the server.");
-      return;
-    }
-
+    setRefreshing(true);
     try {
-      await Linking.openURL(url);
-    } catch {
-      Alert.alert("Unable to open export", "The export link could not be opened on this device.");
+      await Promise.all([
+        dispatch(fetchSalonCommissionSummaryThunk()),
+        dispatch(fetchSalonCommissionEarnedThunk()),
+      ]);
+    } finally {
+      setRefreshing(false);
     }
   };
 
-  const isBulkRateValid = bulkRate.trim().length > 0 && Number(bulkRate) >= 0;
+  const handleSettle = (record: SalonCommissionRecord) => {
+    setSettlementRecord(record);
+    setIsSettlementModalOpen(true);
+  };
 
-  const handleBulkConfigure = async () => {
-    if (!isBulkRateValid) {
+  const handleConfirmSettle = async (amount: number) => {
+    if (!settlementRecord) {
       return;
     }
 
-    const resultAction = await dispatch(
-      bulkConfigureCommissionsThunk({ rate: Number(bulkRate), type: bulkType }),
-    );
+    const resultAction = await dispatch(settleCommissionThunk({ staffId: settlementRecord.staffId, amount }));
 
-    if (bulkConfigureCommissionsThunk.rejected.match(resultAction)) {
+    if (settleCommissionThunk.rejected.match(resultAction)) {
       Alert.alert(
-        "Unable to bulk configure",
+        "Unable to settle commission",
         getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
       );
       return;
     }
 
-    setIsBulkSheetOpen(false);
-    setBulkRate("");
-    Alert.alert(
-      "Commissions configured",
-      resultAction.payload.message ??
-        `Updated commission settings for ${resultAction.payload.affectedCount} staff members.`,
-    );
+    setSettlementRecord(null);
+    setIsSettlementModalOpen(false);
+    toast.showSuccess("Commission settled successfully.");
   };
+
+  const handleSettlementModalClose = () => {
+    setSettlementRecord(null);
+    setIsSettlementModalOpen(false);
+  };
+
+  function CommissionRow({
+    onSettle,
+    record,
+    canSettle,
+  }: {
+    onSettle: (record: SalonCommissionRecord) => void;
+    record: SalonCommissionRecord;
+    canSettle: boolean;
+  }) {
+    const styles = useMemo(() => createStyles(Colors), []);
+    const settling = useAppSelector((state) => selectCommissionSettling(state, record.staffId));
+    const palette = getStatusPalette(record.status, Colors);
+    // unpaidAmount comes straight from the backend's pending payout for this
+    // staff member — never assume the full commission amount is unpaid.
+    const unpaidAmount = record.unpaidAmount ?? 0;
+
+    const isSettlable = canSettle && unpaidAmount > 0;
+
+    return (
+      <View style={styles.row}>
+        <View style={styles.rowInfo}>
+          <Text style={styles.staffName}>{record.staffName}</Text>
+          <Text style={styles.period}>{record.period ?? "-"}</Text>
+        </View>
+        <View style={styles.rowRight}>
+          <View style={styles.amountColumn}>
+            <Text style={styles.amountLabel}>Commission</Text>
+            <Text style={styles.amount}>{formatCurrency(record.amount)}</Text>
+          </View>
+          <View style={styles.amountColumn}>
+            <Text style={styles.amountLabel}>Unpaid</Text>
+            <Text style={styles.unpaidAmount}>{formatCurrency(unpaidAmount)}</Text>
+          </View>
+          <View style={[styles.statusPill, { backgroundColor: palette.backgroundColor }]}>
+            <Text style={[styles.statusPillText, { color: palette.color }]}>{record.status}</Text>
+          </View>
+        </View>
+        {isSettlable ? (
+          <TouchableOpacity
+            activeOpacity={0.84}
+            disabled={settling}
+            onPress={() => onSettle(record)}
+            style={[styles.settleButton, settling && styles.buttonDisabled]}
+          >
+            {settling ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Text style={styles.settleButtonText}>Settle</Text>
+            )}
+          </TouchableOpacity>
+        ) : null}
+      </View>
+    );
+  }
 
   const renderItem: ListRenderItem<SalonCommissionRecord> = ({ item }) => (
-    <CommissionRow onMarkPaid={handleMarkPaid} record={item} />
+    <CommissionRow onSettle={handleSettle} record={item} canSettle={hasSettlePermission} />
   );
 
   const listHeader = (
     <View>
       <View style={styles.header}>
-        <TouchableOpacity activeOpacity={0.84} onPress={() => router.back()} style={styles.headerButton}>
-          <Ionicons name="chevron-back" size={18} color={Colors.primaryDark} />
-        </TouchableOpacity>
+        <AppBackButton fallbackHref="/team" />
         <Text style={styles.headerTitle}>Commissions</Text>
-        <TouchableOpacity
-          activeOpacity={0.84}
-          disabled={exporting}
-          onPress={() => void handleExport()}
-          style={styles.headerButton}
-        >
-          {exporting ? (
-            <ActivityIndicator color={Colors.primaryDark} size="small" />
-          ) : (
-            <Ionicons name="download-outline" size={18} color={Colors.primaryDark} />
-          )}
-        </TouchableOpacity>
+        <AppBackButtonPlaceholder />
       </View>
-
-      {exportError ? <Text style={styles.errorText}>{exportError}</Text> : null}
 
       {summaryError ? (
         <Text style={styles.errorText}>{summaryError}</Text>
@@ -342,30 +283,12 @@ export default function SalonCommissionsScreen() {
           </View>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Staff</Text>
-            <Text style={styles.summaryValue}>{summaryLoading ? "-" : summary?.totalStaff ?? 0}</Text>
+            <Text style={styles.summaryValue}>
+              {summaryLoading ? "-" : summary?.totalStaff ?? 0}
+            </Text>
           </View>
         </View>
       )}
-
-      <View style={styles.sectionCard}>
-        <Text style={styles.sectionTitle}>Earned This Period</Text>
-        {earnedError ? (
-          <Text style={styles.errorText}>{earnedError}</Text>
-        ) : earnedLoading && !earnedLoaded ? (
-          <ActivityIndicator color={Colors.primary} size="small" />
-        ) : earned.length === 0 ? (
-          <Text style={styles.emptyText}>No commissions earned this period yet.</Text>
-        ) : (
-          <ScrollView showsVerticalScrollIndicator={false} style={styles.earnedList}>
-            {earned.map((entry) => (
-              <View key={entry.id} style={styles.earnedRow}>
-                <Text style={styles.earnedName}>{entry.staffName}</Text>
-                <Text style={styles.earnedAmount}>{formatCurrency(entry.earnedAmount)}</Text>
-              </View>
-            ))}
-          </ScrollView>
-        )}
-      </View>
 
       <View style={styles.searchWrap}>
         <Ionicons name="search-outline" size={18} color={Colors.text2} />
@@ -402,10 +325,10 @@ export default function SalonCommissionsScreen() {
       </ScrollView>
 
       {listError ? <Text style={styles.errorText}>{listError}</Text> : null}
-      {listLoading && records.length === 0 ? (
+      {listLoading && !listLoaded ? (
         <ActivityIndicator color={Colors.primary} size="large" style={styles.listLoading} />
       ) : null}
-      {!listLoading && !listError && records.length === 0 ? (
+      {!listLoading && !listError && filteredRecords.length === 0 ? (
         <Text style={styles.emptyText}>No commission records found.</Text>
       ) : null}
     </View>
@@ -415,22 +338,15 @@ export default function SalonCommissionsScreen() {
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <FlatList
-        contentContainerStyle={[styles.content, { paddingBottom: 120 + insets.bottom }]}
-        data={records}
+        contentContainerStyle={[styles.content, { paddingBottom: insets.bottom }]}
+        data={filteredRecords}
         keyExtractor={(item) => item.id}
-        ListFooterComponent={
-          listLoadingMore ? (
-            <ActivityIndicator color={Colors.primary} size="small" style={styles.footerLoading} />
-          ) : null
-        }
         ListHeaderComponent={listHeader}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.4}
         refreshControl={
           <RefreshControl
             colors={[Colors.primary]}
-            onRefresh={handleRefresh}
-            refreshing={listRefreshing}
+            onRefresh={() => void handleRefresh()}
+            refreshing={refreshing}
             tintColor={Colors.primary}
           />
         }
@@ -438,67 +354,14 @@ export default function SalonCommissionsScreen() {
         showsVerticalScrollIndicator={false}
       />
 
-      <View style={[styles.stickyFooter, { paddingBottom: Math.max(insets.bottom, 16) }]}>
-        <TouchableOpacity
-          activeOpacity={0.86}
-          onPress={() => setIsBulkSheetOpen(true)}
-          style={styles.bulkButton}
-        >
-          <Ionicons name="options-outline" size={18} color="#FFFFFF" />
-          <Text style={styles.bulkButtonText}>Bulk Configure</Text>
-        </TouchableOpacity>
-      </View>
-
-      <StaffBottomSheet
-        onClose={() => setIsBulkSheetOpen(false)}
-        subtitle="Applies a default commission rate across all staff."
-        title="Bulk Configure Commissions"
-        visible={isBulkSheetOpen}
-      >
-        <View style={styles.typeGrid}>
-          {COMMISSION_TYPES.map((commissionType) => {
-            const isActive = commissionType === bulkType;
-
-            return (
-              <TouchableOpacity
-                key={commissionType}
-                activeOpacity={0.84}
-                onPress={() => setBulkType(commissionType)}
-                style={[styles.typeChip, isActive && styles.typeChipActive]}
-              >
-                <Text style={[styles.typeChipText, isActive && styles.typeChipTextActive]}>
-                  {commissionType}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
-        <StaffTextField
-          keyboardType="numeric"
-          label={bulkType === "percentage" ? "Rate (%)" : "Rate (Rs.)"}
-          onChangeText={setBulkRate}
-          placeholder="e.g. 10"
-          value={bulkRate}
-        />
-
-        {bulkConfigureError ? <Text style={styles.errorText}>{bulkConfigureError}</Text> : null}
-
-        <TouchableOpacity
-          activeOpacity={0.84}
-          disabled={!isBulkRateValid || bulkConfiguring}
-          onPress={() => void handleBulkConfigure()}
-          style={[
-            styles.saveButton,
-            (!isBulkRateValid || bulkConfiguring) && styles.buttonDisabled,
-          ]}
-        >
-          {bulkConfiguring ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
-          ) : (
-            <Text style={styles.saveButtonText}>Apply to All Staff</Text>
-          )}
-        </TouchableOpacity>
-      </StaffBottomSheet>
+      <SettlementModal
+        visible={isSettlementModalOpen}
+        onClose={handleSettlementModalClose}
+        onSettle={handleConfirmSettle}
+        staffName={settlementRecord?.staffName ?? ""}
+        totalUnpaidCommission={settlementRecord?.unpaidAmount ?? 0}
+        isLoading={settlementLoading}
+      />
     </SafeAreaView>
   );
 }
@@ -518,16 +381,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: AppLayout.headerMarginBottom,
     marginTop: Spacing.md,
-  },
-  headerButton: {
-    alignItems: "center",
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.control,
-    borderWidth: 1,
-    height: AppLayout.headerActionSize,
-    justifyContent: "center",
-    width: AppLayout.headerActionSize,
   },
   headerTitle: {
     color: Colors.heading,
@@ -567,45 +420,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     marginTop: 6,
   },
-  sectionCard: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: AppRadius.card,
-    borderWidth: 1,
-    marginBottom: AppLayout.sectionGap,
-    padding: AppLayout.cardPadding,
-  },
-  sectionTitle: {
-    color: Colors.heading,
-    fontSize: 15,
-    fontWeight: "800",
-    marginBottom: Spacing.sm,
-  },
   emptyText: {
     color: Colors.text2,
     fontSize: 12,
     lineHeight: 18,
-  },
-  earnedList: {
-    maxHeight: 180,
-  },
-  earnedRow: {
-    alignItems: "center",
-    borderTopColor: Colors.border,
-    borderTopWidth: 1,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-  },
-  earnedName: {
-    color: Colors.heading,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  earnedAmount: {
-    color: Colors.primaryDark,
-    fontSize: 13,
-    fontWeight: "800",
   },
   searchWrap: {
     alignItems: "center",
@@ -652,9 +470,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   listLoading: {
     marginVertical: Spacing.xl,
   },
-  footerLoading: {
-    marginVertical: Spacing.lg,
-  },
   row: {
     backgroundColor: Colors.card,
     borderColor: Colors.border,
@@ -679,11 +494,26 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   rowRight: {
     alignItems: "center",
     flexDirection: "row",
+    gap: 12,
     justifyContent: "space-between",
+  },
+  amountColumn: {
+    alignItems: "flex-end",
+  },
+  amountLabel: {
+    color: Colors.text2,
+    fontSize: 10,
+    fontWeight: "700",
+    textTransform: "uppercase",
   },
   amount: {
     color: Colors.heading,
     fontSize: 15,
+    fontWeight: "800",
+  },
+  unpaidAmount: {
+    color: Colors.warning,
+    fontSize: 14,
     fontWeight: "800",
   },
   statusPill: {
@@ -696,7 +526,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
     textTransform: "capitalize",
   },
-  markPaidButton: {
+  settleButton: {
     alignItems: "center",
     backgroundColor: Colors.primary,
     borderRadius: Radius.full,
@@ -707,75 +537,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   buttonDisabled: {
     opacity: 0.55,
   },
-  markPaidButtonText: {
+  settleButtonText: {
     color: "#FFFFFF",
     fontSize: 12,
-    fontWeight: "800",
-  },
-  stickyFooter: {
-    bottom: 0,
-    left: 0,
-    paddingBottom: Spacing.lg,
-    paddingHorizontal: AppLayout.contentHorizontalPadding,
-    paddingTop: Spacing.sm,
-    position: "absolute",
-    right: 0,
-  },
-  bulkButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primaryDark,
-    borderRadius: Radius.full,
-    flexDirection: "row",
-    gap: 8,
-    justifyContent: "center",
-    minHeight: 52,
-    shadowColor: Colors.shadow,
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.18,
-    shadowRadius: 18,
-    elevation: 4,
-  },
-  bulkButtonText: {
-    color: "#FFFFFF",
-    fontSize: 14,
-    fontWeight: "800",
-  },
-  typeGrid: {
-    flexDirection: "row",
-    gap: 8,
-    marginBottom: Spacing.md,
-  },
-  typeChip: {
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-  },
-  typeChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  typeChipText: {
-    color: Colors.text2,
-    fontSize: 12,
-    fontWeight: "700",
-    textTransform: "capitalize",
-  },
-  typeChipTextActive: {
-    color: "#FFFFFF",
-  },
-  saveButton: {
-    alignItems: "center",
-    backgroundColor: Colors.primary,
-    borderRadius: Radius.full,
-    justifyContent: "center",
-    minHeight: 48,
-  },
-  saveButtonText: {
-    color: "#FFFFFF",
-    fontSize: 13,
     fontWeight: "800",
   },
 });

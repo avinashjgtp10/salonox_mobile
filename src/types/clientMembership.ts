@@ -1,5 +1,9 @@
 export type ClientMembershipStatus = "active" | "cancelled" | "expired" | "inactive";
 
+export type ClientMembershipPricingType = "percentage" | "value";
+
+export type ClientMembershipAppliesTo = "both" | "products" | "services";
+
 export type ClientMembershipBenefit = {
   remaining: number | null;
   serviceId: string;
@@ -19,20 +23,26 @@ export type ClientMembershipHistoryItem = {
 };
 
 export type ClientMembershipAssignment = {
+  appliesTo: ClientMembershipAppliesTo | null;
   assignedAt: string | null;
   benefits: ClientMembershipBenefit[];
   cancelledAt: string | null;
+  categoryIds: string[];
   clientId: string;
   clientName: string;
+  discountBalanceRemaining: number | null;
+  discountPercent: number | null;
   expiresAt: string | null;
   history: ClientMembershipHistoryItem[];
   id: string;
   membershipId: string;
   membershipName: string;
+  pricingType: ClientMembershipPricingType | null;
   remainingBenefits: number | null;
   renewedAt: string | null;
   startsAt: string | null;
   status: ClientMembershipStatus;
+  walletBalance: number | null;
 };
 
 export type ClientMembershipAssignmentRequest = {

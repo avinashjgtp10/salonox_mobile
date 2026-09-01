@@ -11,21 +11,13 @@ const getActions = (
 ): {
   icon: keyof typeof Ionicons.glyphMap;
   iconBg: string;
-  isAccent?: boolean;
   label: string;
   route: Href;
 }[] => [
-  { label: "Book", icon: "calendar-outline", iconBg: Colors.successBg, route: "/bookings" as Href },
-  { label: "Client", icon: "person-add-outline", iconBg: Colors.infoBg, route: "/clients/new" as Href },
-  {
-    label: "Quick Sale",
-    icon: "flash-outline",
-    iconBg: Colors.warningBg,
-    route: "/quick-sale" as Href,
-    isAccent: true,
-  },
-  { label: "Products", icon: "cube-outline", iconBg: Colors.purpleBg, route: "/stock" as Href },
-  { label: "Attendance", icon: "calendar-outline", iconBg: Colors.infoBg, route: "/team/attendance" as Href },
+  { label: "Appointment", icon: "calendar-outline", iconBg: Colors.dashboardAppointmentBg, route: "/bookings/new" as Href },
+  { label: "Client", icon: "person-add-outline", iconBg: Colors.dashboardClientBg, route: "/clients/new" as Href },
+  { label: "Reports", icon: "stats-chart-outline", iconBg: Colors.dashboardWarningBg, route: "/reports" as Href },
+  { label: "Attendance", icon: "checkmark-circle-outline", iconBg: Colors.dashboardAppointmentBg, route: "/team/attendance" as Href },
 ];
 
 export default function QuickActions() {
@@ -45,7 +37,12 @@ export default function QuickActions() {
           <View style={[styles.icon, { backgroundColor: action.iconBg }]}>
             <Ionicons name={action.icon} size={20} color={Colors.primary} />
           </View>
-          <Text style={[styles.label, action.isAccent && styles.labelAccent]}>
+          <Text
+            adjustsFontSizeToFit
+            minimumFontScale={0.82}
+            numberOfLines={1}
+            style={styles.label}
+          >
             {action.label}
           </Text>
         </TouchableOpacity>
@@ -57,44 +54,45 @@ export default function QuickActions() {
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   row: {
     flexDirection: "row",
-    gap: 10,
+    gap: 8,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 10,
   },
   btn: {
     alignItems: "center",
-    backgroundColor: Colors.card,
+    backgroundColor: Colors.dashboardCard,
     borderColor: Colors.border,
-    borderRadius: 18,
+    borderRadius: 12,
     borderWidth: 1,
-    elevation: 2,
+    elevation: 1,
     flex: 1,
     gap: 6,
     justifyContent: "center",
-    minHeight: 72,
+    minHeight: 66,
     paddingHorizontal: 4,
     paddingVertical: 10,
     shadowColor: Colors.shadow,
     shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.04,
     shadowRadius: 7,
   },
   icon: {
     alignItems: "center",
     borderColor: Colors.border,
-    borderRadius: 14,
-    borderWidth: 1,
-    height: 42,
+    borderRadius: 12,
+    borderWidth: 0,
+    height: 38,
     justifyContent: "center",
-    width: 42,
+    width: 38,
   },
   label: {
     color: Colors.text2,
     fontSize: 10,
     fontWeight: "500",
+    includeFontPadding: false,
+    lineHeight: 12,
+    minWidth: 0,
     textAlign: "center",
-  },
-  labelAccent: {
-    color: Colors.primary,
+    width: "100%",
   },
 });

@@ -1,9 +1,10 @@
+---
 # Intended branch: qa
-# Manual-only for now — no automatic trigger on push.
+# Manual-only for now - no automatic trigger on push.
 name: Build Mobile - QA
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: {}
 
 jobs:
   build:

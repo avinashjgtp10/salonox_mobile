@@ -12,6 +12,7 @@ import {
   fetchStaffByIdThunk,
   fetchStaffThunk,
   resolveCurrentStaffThunk,
+  setStaffActiveStatusThunk,
   updateEmergencyContactThunk,
   updateStaffAddressThunk,
   updateStaffThunk,
@@ -57,6 +58,8 @@ type EmergencyContactListState = {
 };
 
 type StaffState = {
+  activeStatusErrorsByStaffId: Record<string, string | null>;
+  activeStatusTogglingStaffIds: string[];
   addressCreateErrorsByStaffId: Record<string, string | null>;
   addressCreatingStaffIds: string[];
   addressDeleteErrorsByRecordKey: Record<string, string | null>;
@@ -125,6 +128,8 @@ const initialAddressPagination: StaffAddressListPagination = {
 };
 
 const initialState: StaffState = {
+  activeStatusErrorsByStaffId: {},
+  activeStatusTogglingStaffIds: [],
   addressCreateErrorsByStaffId: {},
   addressCreatingStaffIds: [],
   addressDeleteErrorsByRecordKey: {},
@@ -290,6 +295,37 @@ const staffSlice = createSlice({
       .addCase(createStaffThunk.rejected, (state, action) => {
         state.createError = action.payload?.message ?? action.error.message ?? "Unable to create staff.";
         state.creating = false;
+      })
+      .addCase(setStaffActiveStatusThunk.pending, (state, action) => {
+        const { staffId } = action.meta.arg;
+
+        state.activeStatusErrorsByStaffId[staffId] = null;
+        state.activeStatusTogglingStaffIds = [...state.activeStatusTogglingStaffIds, staffId];
+      })
+      .addCase(setStaffActiveStatusThunk.fulfilled, (state, action) => {
+        const { staffId } = action.meta.arg;
+        const updatedStaff = action.payload;
+
+        state.activeStatusErrorsByStaffId[staffId] = null;
+        state.activeStatusTogglingStaffIds = state.activeStatusTogglingStaffIds.filter(
+          (togglingStaffId) => togglingStaffId !== staffId,
+        );
+
+        const index = state.staffMembers.findIndex((staffMember) => staffMember.id === updatedStaff.id);
+        if (index !== -1) {
+          state.staffMembers[index] = updatedStaff;
+        } else {
+          state.staffMembers.push(updatedStaff);
+        }
+      })
+      .addCase(setStaffActiveStatusThunk.rejected, (state, action) => {
+        const { staffId } = action.meta.arg;
+
+        state.activeStatusErrorsByStaffId[staffId] =
+          action.payload?.message ?? action.error.message ?? "Unable to update staff status.";
+        state.activeStatusTogglingStaffIds = state.activeStatusTogglingStaffIds.filter(
+          (togglingStaffId) => togglingStaffId !== staffId,
+        );
       })
       .addCase(createStaffAddressThunk.pending, (state, action) => {
         const { staffId } = action.meta.arg;
@@ -732,6 +768,12 @@ export const selectCurrentStaffError = (state: RootState) => state.staff.current
 export const selectCurrentStaffLoading = (state: RootState) => state.staff.currentStaffLoading;
 export const selectStaffCreateError = (state: RootState) => state.staff.createError;
 export const selectStaffCreating = (state: RootState) => state.staff.creating;
+export const selectStaffActiveStatusToggling = (state: RootState, staffId?: string | null) =>
+  staffId ? state.staff.activeStatusTogglingStaffIds.includes(staffId) : false;
+export const selectStaffActiveStatusTogglingIds = (state: RootState) =>
+  state.staff.activeStatusTogglingStaffIds;
+export const selectStaffActiveStatusError = (state: RootState, staffId?: string | null) =>
+  staffId ? state.staff.activeStatusErrorsByStaffId[staffId] ?? null : null;
 export const selectStaffAddressCreateError = (state: RootState, staffId?: string | null) =>
   staffId ? state.staff.addressCreateErrorsByStaffId[staffId] ?? null : null;
 export const selectStaffAddressCreating = (state: RootState, staffId?: string | null) =>

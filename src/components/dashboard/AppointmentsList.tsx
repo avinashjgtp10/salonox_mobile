@@ -13,6 +13,7 @@ import { selectAppointments } from "@/store/appointment/appointment.slice";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { AppointmentListItem, AppointmentStatus as CalendarAppointmentStatus } from "@/types/appointment";
+import { formatAppTime } from "@/utils/dateTime";
 import { formatDashboardRevenue } from "@/utils/dashboard";
 
 type AppointmentStatus = "completed" | "in-progress" | "upcoming" | "cancelled";
@@ -110,19 +111,6 @@ const parseApiDateTime = (value: string | null | undefined): Date | null => {
   return Number.isNaN(parsedDate.getTime()) ? null : parsedDate;
 };
 
-// Deterministic 12-hour "H:MM AM/PM" formatting (e.g. "9:00 AM", "2:30 PM").
-// Built manually rather than via Intl.DateTimeFormat, whose AM/PM casing
-// isn't guaranteed consistent across the ICU data bundled with different JS
-// engines.
-const formatHourMinuteAmPm = (date: Date) => {
-  const hours24 = date.getHours();
-  const minutes = String(date.getMinutes()).padStart(2, "0");
-  const ampm = hours24 >= 12 ? "PM" : "AM";
-  const hours12 = hours24 % 12 || 12;
-
-  return `${hours12}:${minutes} ${ampm}`;
-};
-
 const getAppointmentStartMs = (appointment: AppointmentListItem) => {
   const rawStart = appointment.startTime ?? appointment.scheduledAt;
 
@@ -173,7 +161,7 @@ const formatAppointmentTime = (appointment: AppointmentListItem) => {
   const rawStart = appointment.startTime ?? appointment.scheduledAt;
   const parsedDate = parseApiDateTime(rawStart);
 
-  return parsedDate ? formatHourMinuteAmPm(parsedDate) : "--:--";
+  return parsedDate ? formatAppTime(parsedDate, "--:--") : "--:--";
 };
 
 // "completed" is included (not excluded) so Completed appointments still
@@ -446,9 +434,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   emptyState: {
     alignItems: "center",
-    backgroundColor: Colors.card,
+    backgroundColor: Colors.dashboardCard,
     borderColor: Colors.border,
-    borderRadius: Radius.lg,
+    borderRadius: 14,
     borderWidth: 1,
     justifyContent: "center",
     minHeight: 92,
@@ -463,9 +451,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   card: {
     alignItems: "center",
-    backgroundColor: Colors.card,
+    backgroundColor: Colors.dashboardCard,
     borderColor: Colors.border,
-    borderRadius: Radius.lg,
+    borderRadius: 14,
     borderWidth: 1,
     flexDirection: "row",
     gap: Spacing.sm,
@@ -477,14 +465,14 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   timePill: {
     alignItems: "center",
-    backgroundColor: Colors.primary,
+    backgroundColor: Colors.dashboardAppointmentAccent,
     borderRadius: Radius.sm,
     minWidth: 46,
     paddingHorizontal: 8,
     paddingVertical: 6,
   },
   timePillMuted: {
-    backgroundColor: Colors.bg2,
+    backgroundColor: Colors.dashboardCardMuted,
   },
   timeText: {
     color: "#FFFFFF",
@@ -530,8 +518,8 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   chip: {
     alignItems: "center",
-    backgroundColor: Colors.bg2,
-    borderColor: Colors.card,
+    backgroundColor: Colors.dashboardClientBg,
+    borderColor: Colors.dashboardCard,
     borderRadius: 10,
     borderWidth: 1.5,
     height: 20,

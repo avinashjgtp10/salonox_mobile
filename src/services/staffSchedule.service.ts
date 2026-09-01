@@ -17,7 +17,9 @@ import {
   type UnknownRecord,
 } from "@/utils/apiNormalize";
 
-const WEEK_DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"];
+const WEEK_DAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
+const DEFAULT_START_TIME = "09:00";
+const DEFAULT_END_TIME = "19:00";
 
 type ScheduleApiData =
   | UnknownRecord[]
@@ -89,21 +91,36 @@ const normalizeDayName = (value: unknown) => {
   const numericDay = Number(rawValue);
 
   if (Number.isInteger(numericDay)) {
-    if (numericDay === 0) {
-      return "sunday";
-    }
-
-    if (numericDay >= 1 && numericDay <= WEEK_DAYS.length) {
-      return WEEK_DAYS[numericDay - 1];
+    if (numericDay >= 0 && numericDay < WEEK_DAYS.length) {
+      return WEEK_DAYS[numericDay];
     }
   }
 
   return rawValue;
 };
 
-const normalizeDayEntry = (entry: UnknownRecord, day: string): ScheduleDayEntry => ({
-  day,
-  endTime:
+const normalizeDayEntry = (entry: UnknownRecord, day: string): ScheduleDayEntry => {
+  const startTime =
+    toSafeString(
+      firstValue(entry, [
+        "startTime",
+        "start_time",
+        "work_start_time",
+        "working_start_time",
+        "shiftStart",
+        "shift_end",
+        "shift_start",
+        "fromTime",
+        "from_time",
+        "start",
+        "open_time",
+        "opening_time",
+      ]),
+    ) ||
+    splitWorkingHours(firstValue(entry, ["workingHours", "working_hours", "hours"])).startTime ||
+    null;
+
+  const endTime =
     toSafeString(
       firstValue(entry, [
         "endTime",
@@ -120,59 +137,53 @@ const normalizeDayEntry = (entry: UnknownRecord, day: string): ScheduleDayEntry 
       ]),
     ) ||
     splitWorkingHours(firstValue(entry, ["workingHours", "working_hours", "hours"])).endTime ||
-    null,
-  isOff:
-    toLooseBoolean(firstValue(entry, ["isAvailable", "is_available", "available"])) === false ||
-    ((toLooseBoolean(
-        firstValue(entry, [
-          "isOff",
-          "is_off",
-          "isClosed",
-          "is_closed",
-          "closed",
-          "isHoliday",
-          "is_holiday",
-          "holiday",
-          "isDayOff",
-          "is_day_off",
-          "day_off",
-        ]),
-      ) ??
-        toOptionalBoolean(
-          firstValue(entry, [
-            "isOff",
-            "is_off",
-            "isClosed",
-            "is_closed",
-            "closed",
-            "isHoliday",
-            "is_holiday",
-            "holiday",
-            "isDayOff",
-            "is_day_off",
-            "day_off",
-          ]),
-        )) ||
-      toLooseBoolean(firstValue(entry, ["isWorking", "is_working", "working", "isOpen", "is_open"])) === false),
-  startTime:
-    toSafeString(
+    null;
+
+  const explicitIsAvailable = toLooseBoolean(firstValue(entry, ["isAvailable", "is_available", "available"]));
+  const explicitIsOff =
+    toLooseBoolean(
       firstValue(entry, [
-        "startTime",
-        "start_time",
-        "work_start_time",
-        "working_start_time",
-        "shiftStart",
-        "shift_start",
-        "fromTime",
-        "from_time",
-        "start",
-        "open_time",
-        "opening_time",
+        "isOff",
+        "is_off",
+        "isClosed",
+        "is_closed",
+        "closed",
+        "isHoliday",
+        "is_holiday",
+        "holiday",
+        "isDayOff",
+        "is_day_off",
+        "day_off",
       ]),
-    ) ||
-    splitWorkingHours(firstValue(entry, ["workingHours", "working_hours", "hours"])).startTime ||
-    null,
-});
+    ) ??
+    toOptionalBoolean(
+      firstValue(entry, [
+        "isOff",
+        "is_off",
+        "isClosed",
+        "is_closed",
+        "closed",
+        "isHoliday",
+        "is_holiday",
+        "holiday",
+        "isDayOff",
+        "is_day_off",
+        "day_off",
+      ]),
+    );
+  const explicitIsWorking = toLooseBoolean(
+    firstValue(entry, ["isWorking", "is_working", "working", "isOpen", "is_open"]),
+  );
+
+  const isOff = explicitIsAvailable === false || explicitIsOff === true || explicitIsWorking === false;
+
+  return {
+    day,
+    endTime: endTime || (!isOff ? DEFAULT_END_TIME : null),
+    isOff,
+    startTime: startTime || (!isOff ? DEFAULT_START_TIME : null),
+  };
+};
 
 const normalizeSchedule = (entry: UnknownRecord, staffId: string): StaffSchedule => {
   const apiDays = firstArray(entry, ["days", "schedule_days", "scheduleDays"]);

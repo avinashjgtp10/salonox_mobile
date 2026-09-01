@@ -1,3 +1,9 @@
+import type {
+  ConsumableRecipeApiItem,
+  ConsumableRecipeItem,
+  ConsumableRecipeRequestItem,
+} from "@/types/consumable";
+
 export type ServiceSortOrder = "asc" | "desc";
 
 export type ServiceListQuery = {
@@ -18,6 +24,7 @@ export type ServiceApiItem = {
   categoryId?: string | number | null;
   category_id?: string | number | null;
   category_name?: string | null;
+  consumables_used?: ConsumableRecipeApiItem[] | null;
   created_at?: string | null;
   duration?: number | string | null;
   duration_minutes?: number | string | null;
@@ -43,8 +50,13 @@ export type ServiceApiItem = {
 
 export type ServiceApiCategory = {
   _id?: string | number | null;
+  display_name?: string | null;
   category_id?: string | number | null;
   category_name?: string | null;
+  label?: string | null;
+  service_category_id?: string | number | null;
+  service_category_name?: string | null;
+  uuid?: string | number | null;
   id?: string | number | null;
   name?: string | null;
   parent?: ServiceApiCategory | string | null;
@@ -87,6 +99,7 @@ export type ServiceListApiData =
 export type ServiceListItem = {
   category: string | null;
   categoryId: string | null;
+  consumablesUsed?: ConsumableRecipeItem[];
   createdAt: string | null;
   durationMinutes: number | null;
   discountAmount?: number;
@@ -114,12 +127,25 @@ export type ServiceListResponse = {
   totalCount: number;
 };
 
+export type ServiceCategoryItem = {
+  id: string;
+  name: string;
+};
+
+export type CategoryType = "service" | "product";
+
 export type CreateServiceRequest = {
   category?: string;
+  category_id?: string;
+  consumables_used?: ConsumableRecipeRequestItem[];
+  description?: string;
   duration_minutes?: number;
+  is_active?: boolean;
+  is_online_booking?: boolean;
   name: string;
   price: number;
   salon_id?: string;
+  service_reminder_days?: number;
 };
 
 export type CreateServiceResponse = {
@@ -129,6 +155,8 @@ export type CreateServiceResponse = {
 
 export type UpdateServiceRequest = {
   category?: string;
+  category_id?: string;
+  consumables_used?: ConsumableRecipeRequestItem[];
   duration_minutes?: number;
   is_active?: boolean;
   name?: string;

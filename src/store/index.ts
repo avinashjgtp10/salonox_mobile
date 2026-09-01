@@ -10,6 +10,7 @@ import attendanceReducer from "@/store/attendance/attendance.slice";
 import branchReducer from "@/store/branch/branch.slice";
 import clientMembershipReducer from "@/store/clientMembership/clientMembership.slice";
 import clientReducer from "@/store/client/client.slice";
+import consumableReducer from "@/store/consumable/consumable.slice";
 import dashboardReducer from "@/store/dashboard/dashboard.slice";
 import membershipReducer from "@/store/membership/membership.slice";
 import networkReducer from "@/store/network/network.slice";
@@ -30,6 +31,7 @@ import staffLeavesReducer from "@/store/staff/staffLeaves.slice";
 import staffPayRunsReducer from "@/store/staff/staffPayRuns.slice";
 import staffScheduleReducer from "@/store/staff/staffSchedule.slice";
 import staffWagesReducer from "@/store/staff/staffWages.slice";
+import toastReducer from "@/store/toast/toast.slice";
 import userReducer from "@/store/user/user.slice";
 
 export const resetAppState = createAction("app/resetState");
@@ -40,6 +42,7 @@ const appReducer = combineReducers({
   branch: branchReducer,
   client: clientReducer,
   clientMembership: clientMembershipReducer,
+  consumable: consumableReducer,
   dashboard: dashboardReducer,
   membership: membershipReducer,
   network: networkReducer,
@@ -60,6 +63,7 @@ const appReducer = combineReducers({
   staffPayRuns: staffPayRunsReducer,
   staffSchedule: staffScheduleReducer,
   staffWages: staffWagesReducer,
+  toast: toastReducer,
   user: userReducer,
 });
 
