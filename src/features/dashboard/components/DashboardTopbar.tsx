@@ -262,6 +262,18 @@ export default function DashboardTopbar({ onLogout }: Props) {
     } catch { /* ignore */ }
   }, []);
 
+  // Clicking a notification in the dropdown list dismisses it from the panel
+  // immediately (same as "Mark all read" now clearing the whole list) rather
+  // than just flipping is_read and leaving it sitting there looking read —
+  // the sync to the server is fire-and-forget so the dismissal isn't blocked
+  // on (or undone by) a slow/failed request.
+  const handleNotifItemClick = useCallback((n: Notification) => {
+    setNotifs(prev => prev.filter(x => x.id !== n.id));
+    if (!n.is_read) {
+      api.patch(NOTIFICATIONS.MARK_ONE(n.id)).catch(() => { /* best-effort */ });
+    }
+  }, []);
+
   const handleLogoutClick = useCallback(() => {
     setShowProfile(false);
     disconnectSocket();
@@ -452,7 +464,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
                         <div
                           key={n.id}
                           className={`topbar-notif-item ${n.is_read ? "" : "topbar-notif-item--unread"}`}
-                          onClick={() => !n.is_read && handleMarkRead(n.id)}
+                          onClick={() => handleNotifItemClick(n)}
                           role="menuitem"
                         >
                           <span className="topbar-notif-icon" style={{ background: color + "18", color }}>
