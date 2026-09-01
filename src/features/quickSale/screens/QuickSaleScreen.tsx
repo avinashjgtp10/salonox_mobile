@@ -44,11 +44,12 @@ import { ServiceCatalogTab } from "@/features/quickSale/components/ServiceCatalo
 import { StaffPickerSheet } from "@/features/quickSale/components/StaffPickerSheet";
 import { useCart } from "@/features/quickSale/hooks/useCart";
 import { useCheckoutSubmissionController } from "@/features/quickSale/hooks/useCheckoutSubmissionController";
+import { useConsumableProductNames } from "@/features/quickSale/hooks/useConsumableProductNames";
 import { useDebouncedValue } from "@/features/quickSale/hooks/useDebouncedValue";
+import { useQuickSalePricing } from "@/features/quickSale/hooks/useQuickSalePricing";
 import { useRedemptions } from "@/features/quickSale/hooks/useRedemptions";
 import {
   WALK_IN_CLIENT,
-  type CartItem,
   type ClientPackageLoadState,
   type ClientPackageLoadStatus,
   type CheckoutInitialStep,
@@ -57,12 +58,13 @@ import {
   type QuickSaleScreenProps,
 } from "@/features/quickSale/types";
 import { ITEM_TYPE_CHIPS, type CatalogTab } from "@/features/quickSale/constants";
-import { clientFromListItem, getClientInitials } from "@/features/quickSale/utils/client";
+import { clientFromListItem } from "@/features/quickSale/utils/client";
 import { getActionError } from "@/features/quickSale/utils/errors";
-import { adaptPricingResponseToBillTotals, getCartItemBillableQuantity } from "@/features/quickSale/utils/calculations";
-import { toConsumableUsagePayload } from "@/features/quickSale/utils/consumables";
-import { pricingService } from "@/services/pricing.service";
-import type { CalculateTotalsResponse, LineItem as ApiLineItem } from "@/types/pricing";
+import {
+  mapDraftSaleToCartItems,
+  mapDraftSaleToClient,
+  mapDraftSaleToStaff,
+} from "@/features/quickSale/utils/draftHydration";
 import {
   EMPTY_QUICK_SALE_DIRTY_SIGNATURE,
   getQuickSaleDirtySignature,
@@ -96,6 +98,12 @@ import {
   getPackageCoveredQuantity,
   getPackageSessionConsumptions,
 } from "@/features/quickSale/utils/packageCoverage";
+import {
+  buildAppointmentPayload as mapAppointmentPayload,
+  buildPaymentPayload as mapPaymentPayload,
+  buildSaleDraftPayload as mapSaleDraftPayload,
+  getQuickSaleStaffId,
+} from "@/features/quickSale/utils/quickSalePayloads";
 import { paymentService } from "@/services/payment.service";
 import { productService } from "@/services/product.service";
 import { clientService } from "@/services/client.service";
@@ -107,16 +115,11 @@ import type { Product } from "@/types/product";
 import type { ClientPackage, PackageListItem } from "@/types/package";
 import type { ValidateCouponResult } from "@/types/coupon";
 import type {
-  CheckoutSaleSplitEntry,
-  CreateSaleRequest,
   PosStaffMember,
   SaleDetail,
-  SalePaymentMethod,
 } from "@/types/sales";
 import type { ServiceListItem } from "@/types/service";
-import type { CreateAppointmentRequest } from "@/types/appointment";
 import type { Membership } from "@/types/membership";
-import type { CreatePaymentRequest } from "@/types/payment";
 
 export type { QuickSaleSlot } from "@/features/quickSale/types";
 
@@ -217,11 +220,7 @@ export default function QuickSaleScreen({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [productStockErrors, setProductStockErrors] = useState<ProductStockErrors>({});
   const [isSaleFinalized, setIsSaleFinalized] = useState(false);
-  // Consumable recipe items only carry a productId — this fills in display
-  // names for the Actual Qty UI by reusing the existing product-by-id
-  // lookup (same call `verifyProductStock` already makes), not a new API.
-  const [consumableProductNames, setConsumableProductNames] = useState<Record<string, string>>({});
-  const requestedConsumableProductIdsRef = useRef<Set<string>>(new Set());
+  const { consumableProductNames, resetConsumableProductNames } = useConsumableProductNames(cart.items);
   const debouncedClientSearchQuery = useDebouncedValue(clientSearchQuery, 260);
   const trimmedClientSearchQuery = debouncedClientSearchQuery.trim();
   const visibleClientOptions = useMemo(
@@ -331,56 +330,11 @@ export default function QuickSaleScreen({
       return;
     }
 
-    const restoredItems: CartItem[] = sale.lineItems.map((item) => ({
-      availableStock: item.itemType === "product" ? 0 : undefined,
-      category: null,
-      discountAmount: item.discountAmount,
-      itemId: item.itemId ?? "",
-      itemType:
-        item.itemType === "gift_card"
-          ? "quick"
-          : item.itemType,
-      lineId: item.id,
-      name: item.name,
-      note: "",
-      originalUnitPrice: item.unitPrice,
-      quantity: item.quantity,
-      staffId: item.staffId,
-      staffName: item.staffName ?? null,
-      taxAmount: item.taxableAmount > 0 ? undefined : item.taxAmount,
-      taxRate: item.taxableAmount > 0 ? (item.taxAmount / item.taxableAmount) * 100 : undefined,
-      unitPrice: item.unitPrice,
-    }));
+    const restoredItems = mapDraftSaleToCartItems(sale);
 
     hydrateCart(restoredItems);
-    const restoredStaffId = sale.lineItems.find((item) => item.staffId)?.staffId ?? null;
-    const restoredStaffName = sale.lineItems.find((item) => item.staffName)?.staffName ?? null;
-    setSelectedQuickSaleStaff(
-      restoredStaffId
-        ? {
-            avatarBg: "#e4edf9",
-            avatarColor: "#7488a0",
-            id: restoredStaffId,
-            initials: getClientInitials(restoredStaffName ?? "Staff"),
-            name: restoredStaffName ?? "Selected staff",
-            role: null,
-            status: "Available",
-          }
-        : null,
-    );
-    setSelectedClient(
-      sale.clientId
-        ? {
-            avatarBg: "#e4edf9",
-            avatarColor: "#7488a0",
-            id: sale.clientId,
-            initials: getClientInitials(sale.clientName),
-            membership: null,
-            name: sale.clientName,
-            phone: sale.clientPhone,
-          }
-        : WALK_IN_CLIENT,
-    );
+    setSelectedQuickSaleStaff(mapDraftSaleToStaff(sale));
+    setSelectedClient(mapDraftSaleToClient(sale) ?? WALK_IN_CLIENT);
     setIsClientStepComplete(true);
     setHasClientStepSelection(true);
     setTipInput(String(sale.tipAmount || ""));
@@ -592,6 +546,30 @@ export default function QuickSaleScreen({
     [activeClientPackages, activeClientPackagesClientId, selectedClient.id],
   );
 
+  const usesEntireBillDiscount = discountApplyTo.includes("entireBill");
+  const effectiveDiscountType = draftDiscountType === "percentage" && usesEntireBillDiscount
+    ? "percentage"
+    : "flat";
+  const {
+    isPricingLoading,
+    pricingError,
+    resetPricing,
+    totals,
+  } = useQuickSalePricing({
+    appliedCoupon,
+    buildPricingFlags: redemptions.buildPricingFlags,
+    cartItems: cart.items,
+    convenienceFeeInput,
+    discountPercent: draftDiscountPercent,
+    discountType: effectiveDiscountType,
+    includeGst,
+    otherChargesInput,
+    overallDiscountInput,
+    selectedClientId: selectedClient.id,
+    serviceChargeInput,
+    tipInput,
+  });
+
   const resetQuickSaleSession = useCallback(() => {
     if (undoTimeoutRef.current) {
       clearTimeout(undoTimeoutRef.current);
@@ -614,6 +592,8 @@ export default function QuickSaleScreen({
 
     clearCart();
     resetCheckoutSubmission();
+    resetConsumableProductNames();
+    resetPricing();
     setActiveTab("services");
     setGlobalSearchQuery("");
     setIsGlobalSearchLoading(false);
@@ -655,12 +635,12 @@ export default function QuickSaleScreen({
     setSubmitError(null);
     setProductStockErrors({});
     setIsSaleFinalized(false);
-    setConsumableProductNames({});
-    requestedConsumableProductIdsRef.current = new Set();
-    setBackendTotalsResponse(null);
-    setIsPricingLoading(false);
-    setPricingError(null);
-  }, [clearCart, resetCheckoutSubmission]);
+  }, [
+    clearCart,
+    resetCheckoutSubmission,
+    resetConsumableProductNames,
+    resetPricing,
+  ]);
 
   // Matches the existing "New Sale" flow from the receipt screen, which
   // navigates back here with a fresh resetSale value to force a clean slate.
@@ -670,137 +650,6 @@ export default function QuickSaleScreen({
       resetQuickSaleSession();
     }
   }, [params.resetSale, resetQuickSaleSession]);
-
-  const [backendTotalsResponse, setBackendTotalsResponse] = useState<CalculateTotalsResponse | null>(null);
-  const [isPricingLoading, setIsPricingLoading] = useState(false);
-  const [pricingError, setPricingError] = useState<string | null>(null);
-  const usesEntireBillDiscount = discountApplyTo.includes("entireBill");
-  const effectiveDiscountType = draftDiscountType === "percentage" && usesEntireBillDiscount
-    ? "percentage"
-    : "flat";
-
-  const extraChargesTotal = useMemo(
-    () => parseAmount(serviceChargeInput) + parseAmount(convenienceFeeInput) + parseAmount(otherChargesInput),
-    [convenienceFeeInput, otherChargesInput, serviceChargeInput],
-  );
-
-  useEffect(() => {
-    let isSubscribed = true;
-
-    if (cart.items.length === 0) {
-      setBackendTotalsResponse(null);
-      setIsPricingLoading(false);
-      setPricingError(null);
-      return;
-    }
-
-    // Mark pricing as stale for the whole debounce + in-flight window (not
-    // just once the request starts) so a rapid redemption toggle followed by
-    // an immediate "Complete Sale" tap can't submit against a stale total.
-    setIsPricingLoading(true);
-    setPricingError(null);
-
-    const timer = setTimeout(async () => {
-      try {
-        const serviceRows: ApiLineItem[] = [];
-        const productRows: ApiLineItem[] = [];
-        const packageRows: ApiLineItem[] = [];
-        const membershipRows: ApiLineItem[] = [];
-
-        cart.items.forEach((item) => {
-          const qty = Math.max(1, item.quantity);
-          const line: ApiLineItem = {
-            price: item.unitPrice,
-            qty,
-            discount: item.discountAmount,
-            total: item.unitPrice * qty - item.discountAmount,
-          };
-          if (item.itemType === "service") serviceRows.push(line);
-          else if (item.itemType === "product") productRows.push(line);
-          else if (item.itemType === "package") packageRows.push(line);
-          else if (item.itemType === "membership") membershipRows.push(line);
-        });
-
-        const response = await pricingService.calculateTotals({
-          client_id: selectedClient.id || undefined,
-          serviceRows,
-          packageRows,
-          productRows,
-          membershipRows,
-          discountType: effectiveDiscountType,
-          discountValue:
-            effectiveDiscountType === "percentage"
-              ? draftDiscountPercent
-              : parseAmount(overallDiscountInput),
-          couponCode: appliedCoupon?.valid ? appliedCoupon.couponCode : undefined,
-          exCharges: extraChargesTotal,
-          tip: parseAmount(tipInput),
-          includeGst,
-          ...redemptions.buildPricingFlags(),
-        });
-
-        if (isSubscribed) {
-          setBackendTotalsResponse(response);
-          setIsPricingLoading(false);
-        }
-      } catch (err) {
-        if (isSubscribed) {
-          setPricingError(err instanceof Error ? err.message : "Unable to calculate pricing.");
-          setIsPricingLoading(false);
-        }
-      }
-    }, 500);
-
-    return () => {
-      isSubscribed = false;
-      clearTimeout(timer);
-    };
-    // redemptions is a fresh object every render; only its memoized
-    // buildPricingFlags identity matters for re-running this effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    cart.items,
-    selectedClient.id,
-    draftDiscountPercent,
-    effectiveDiscountType,
-    overallDiscountInput,
-    appliedCoupon,
-    extraChargesTotal,
-    tipInput,
-    includeGst,
-    redemptions.buildPricingFlags,
-  ]);
-
-  const totals = useMemo(() => {
-    if (backendTotalsResponse) {
-      return adaptPricingResponseToBillTotals(backendTotalsResponse, {
-        couponDiscount: appliedCoupon?.valid ? appliedCoupon.discountAmount : 0,
-        exCharges: extraChargesTotal,
-        overallDiscount: parseAmount(overallDiscountInput),
-        tipAmount: parseAmount(tipInput),
-      });
-    }
-
-    return {
-      appliedEWallet: 0,
-      appliedMembershipDiscount: 0,
-      appliedMembershipWallet: 0,
-      appliedReferralCredit: 0,
-      appliedRewardPointsValue: 0,
-      couponDiscount: appliedCoupon?.valid ? appliedCoupon.discountAmount : 0,
-      exCharges: extraChargesTotal,
-      grandTotal: 0,
-      itemDiscountTotal: 0,
-      lineSubtotal: 0,
-      overallDiscount: parseAmount(overallDiscountInput),
-      subtotal: 0,
-      taxAmount: 0,
-      taxableAmount: 0,
-      roundOff: 0,
-      tipAmount: parseAmount(tipInput),
-      taxBreakdown: [],
-    };
-  }, [backendTotalsResponse, appliedCoupon, extraChargesTotal, overallDiscountInput, tipInput]);
   // The coupon API accepts only `orderAmount`. Tax, tips, and extra charges
   // are deliberately excluded because the backend cannot use them for
   // eligibility. An overall discount reduces the amount the coupon applies
@@ -857,48 +706,6 @@ export default function QuickSaleScreen({
       setIsCheckoutVisible(false);
     }
   }, [cart.items.length, isCheckoutVisible]);
-
-  // Resolve consumable product names lazily as recipes appear in the cart —
-  // never blocks adding a service, and never refetches a name already seen.
-  useEffect(() => {
-    const missingIds = new Set<string>();
-
-    cart.items.forEach((item) => {
-      item.consumables?.forEach((consumable) => {
-        if (!requestedConsumableProductIdsRef.current.has(consumable.productId)) {
-          missingIds.add(consumable.productId);
-        }
-      });
-    });
-
-    if (missingIds.size === 0) {
-      return;
-    }
-
-    const idsToFetch = Array.from(missingIds);
-    idsToFetch.forEach((id) => requestedConsumableProductIdsRef.current.add(id));
-
-    let isSubscribed = true;
-
-    void Promise.allSettled(idsToFetch.map((id) => productService.fetchProductById(id))).then((results) => {
-      if (!isSubscribed) {
-        return;
-      }
-
-      setConsumableProductNames((current) => {
-        const next = { ...current };
-        results.forEach((result, index) => {
-          const id = idsToFetch[index];
-          next[id] = result.status === "fulfilled" ? result.value.name : id;
-        });
-        return next;
-      });
-    });
-
-    return () => {
-      isSubscribed = false;
-    };
-  }, [cart.items]);
 
   const handleSelectProductResult = useCallback(
     (product: Product) => {
@@ -1313,45 +1120,23 @@ export default function QuickSaleScreen({
     }
   };
 
-  const getQuickSaleStaff = useCallback(() => {
-    const firstServiceStaff = cart.items.find((item) => item.itemType === "service" && item.staffId)?.staffId;
-    return firstServiceStaff ?? cart.items.find((item) => item.staffId)?.staffId ?? selectedQuickSaleStaff?.id ?? null;
-  }, [cart.items, selectedQuickSaleStaff?.id]);
+  const getQuickSaleStaff = useCallback(
+    () => getQuickSaleStaffId(cart.items, selectedQuickSaleStaff?.id),
+    [cart.items, selectedQuickSaleStaff?.id],
+  );
 
-  const getQuickSaleDurationMinutes = useCallback(() => {
-    const serviceDuration = cart.items.reduce((total, item) => {
-      if (item.itemType !== "service") {
-        return total;
-      }
-
-      const minutes = item.duration?.match(/\d+/)?.[0];
-      return total + (minutes ? Number(minutes) * item.quantity : 0);
-    }, 0);
-
-    return Math.max(1, serviceDuration || 30);
-  }, [cart.items]);
-
-  const buildSaleDraftPayload = useCallback((): CreateSaleRequest | null => {
-    const staffId = getQuickSaleStaff();
-
-    return {
-      clientId: selectedClient.id || (params.draftId ? null : undefined),
-      couponCode: appliedCoupon?.valid
-        ? appliedCoupon.couponCode
-        : params.draftId
-          ? null
-          : undefined,
-      discountAmount: totals.overallDiscount + totals.couponDiscount,
-      discountPercent: effectiveDiscountType === "percentage" ? draftDiscountPercent : undefined,
+  const buildSaleDraftPayload = useCallback(() => {
+    return mapSaleDraftPayload({
+      appliedCoupon,
+      clientId: selectedClient.id,
+      discountPercent: draftDiscountPercent,
       discountType: effectiveDiscountType,
-      exCharges: totals.exCharges,
+      draftId: params.draftId,
       items: cart.toSaleLineItemRequests(),
-      notes: saleNotes.trim() || (params.draftId ? null : undefined),
-      staffId: staffId ?? undefined,
-      status: "draft",
-      taxAmount: totals.taxAmount,
-      tipAmount: totals.tipAmount,
-    };
+      notes: saleNotes,
+      staffId: getQuickSaleStaff(),
+      totals,
+    });
   }, [
     appliedCoupon,
     cart,
@@ -1361,107 +1146,27 @@ export default function QuickSaleScreen({
     params.draftId,
     saleNotes,
     selectedClient.id,
-    totals.couponDiscount,
-    totals.exCharges,
-    totals.overallDiscount,
-    totals.taxAmount,
-    totals.tipAmount,
+    totals,
   ]);
 
-  const buildAppointmentPayload = useCallback((): CreateAppointmentRequest | null => {
-    const staffId = getQuickSaleStaff();
-
-    const durationMinutes = getQuickSaleDurationMinutes();
-    const slotDate = initialSlot
-      ? new Date(`${initialSlot.date}T${initialSlot.time}:00`)
-      : null;
-    const startDate = slotDate && !Number.isNaN(slotDate.getTime()) ? slotDate : new Date();
-    const endDate = new Date(startDate.getTime() + durationMinutes * 60_000);
-    const serviceItems = cart.items.filter((item) => item.itemType === "service");
-    const packageItems = cart.items.filter((item) => item.itemType === "package");
-    const productItems = cart.items.filter((item) => item.itemType === "product");
-    const membershipItems = cart.items.filter((item) => item.itemType === "membership");
-    const firstService = serviceItems[0];
-
-    return {
-      ...(selectedClient.id ? { client_id: selectedClient.id } : {}),
-      discount_type: "flat",
-      discount_value: totals.overallDiscount + totals.couponDiscount,
-      duration_minutes: durationMinutes,
-      end_time: endDate.toISOString(),
-      ex_charges: totals.exCharges,
-      // Blended effective rate actually charged on this bill (real tax ÷ real
-      // taxable base), not a typed-in figure — 0 whenever GST is toggled off.
-      gst_percent: totals.subtotal > 0 ? Math.min(100, (totals.taxAmount / totals.subtotal) * 100) : 0,
-      notes: saleNotes.trim() || undefined,
-      package_items: packageItems.map((item) => ({
-        name: item.name,
-        package_id: item.itemId,
-        price: item.unitPrice,
-        quantity: item.quantity,
-        staff_id: item.staffId ?? undefined,
-        staff_name: item.staffName,
-        start_time: startDate.toISOString(),
-        total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
-      })),
-      product_items: productItems.map((item) => ({
-        name: item.name,
-        price: item.unitPrice,
-        product_id: item.itemId,
-        quantity: item.quantity,
-        staff_id: item.staffId ?? undefined,
-        staff_name: item.staffName,
-        start_time: startDate.toISOString(),
-        total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
-      })),
-      salon_id: salonId ?? undefined,
-      scheduled_at: startDate.toISOString(),
-      service_id: firstService?.itemId,
-      service_name: firstService?.name,
-      services: serviceItems.map((item) => ({
-        consumables: toConsumableUsagePayload(item.consumables),
-        is_package_service: getPackageCoveredQuantity(item) === item.quantity || undefined,
-        name: item.name,
-        price: item.unitPrice,
-        quantity: item.quantity,
-        service_id: item.itemId,
-        staff_id: item.staffId ?? undefined,
-        staff_name: item.staffName,
-        time: startDate.toISOString(),
-        // Billable qty already excludes package-covered sessions; the line's
-        // own discountAmount (Disc % / Disc ₹) still applies on top of that,
-        // same as discountEligibleSubtotal in CheckoutSheet.tsx.
-        total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
-      })),
-      membership_items: membershipItems.map((item) => ({
-        membership_id: item.itemId,
-        name: item.name,
-        price: item.unitPrice,
-        quantity: item.quantity,
-        staff_id: item.staffId ?? undefined,
-        staff_name: item.staffName,
-        start_time: startDate.toISOString(),
-        total: Math.max(0, item.unitPrice * getCartItemBillableQuantity(item) - item.discountAmount),
-      })),
-      ...(staffId ? { staff_id: staffId } : {}),
-      start_time: startDate.toISOString(),
-      status: "booked",
-      tip_amount: totals.tipAmount,
-    };
+  const buildAppointmentPayload = useCallback(() => {
+    return mapAppointmentPayload({
+      cartItems: cart.items,
+      clientId: selectedClient.id,
+      initialSlot,
+      notes: saleNotes,
+      salonId,
+      staffId: getQuickSaleStaff(),
+      totals,
+    });
   }, [
     cart.items,
-    getQuickSaleDurationMinutes,
     getQuickSaleStaff,
+    initialSlot,
     saleNotes,
     salonId,
     selectedClient.id,
-    totals.couponDiscount,
-    totals.exCharges,
-    totals.overallDiscount,
-    initialSlot,
-    totals.subtotal,
-    totals.taxAmount,
-    totals.tipAmount,
+    totals,
   ]);
 
   const createQuickSaleAppointment = useCallback(async () => {
@@ -1537,71 +1242,20 @@ export default function QuickSaleScreen({
   );
 
   const buildPaymentPayload = useCallback(
-    (
-      appointmentId: string,
-      payment: { method: SalePaymentMethod; paidAmount?: number; splitEntries?: CheckoutSaleSplitEntry[] },
-    ): CreatePaymentRequest => {
-      const paidAmount = isFullyPackageCoveredSale
-        ? 0
-        : Math.max(0, Math.min(payment.paidAmount ?? totals.grandTotal, totals.grandTotal));
-      const dueAmount = isFullyPackageCoveredSale ? 0 : Math.max(0, totals.grandTotal - paidAmount);
-      const methodLabel =
-        isFullyPackageCoveredSale
-          ? "Package"
-          : payment.method === "split"
-          ? "Split"
-          : payment.method === "upi"
-            ? "UPI"
-            : payment.method === "card"
-              ? "Card"
-              : "Cash";
-      const splitDetails =
-        isFullyPackageCoveredSale
-          ? { Package: packageCatalogTotal }
-          : payment.method === "split" && payment.splitEntries?.length
-          ? Object.fromEntries(
-              payment.splitEntries.map((entry) => [
-                entry.method === "upi" ? "UPI" : entry.method === "card" ? "Card" : "Cash",
-                entry.amount,
-              ]),
-            )
-          : { [methodLabel]: paidAmount };
-      const redemptionFlags = redemptions.buildPricingFlags();
-
-      return {
-        appointment_id: appointmentId,
-        ...(redemptionFlags.applyLoyaltyDiscount ? { apply_loyalty_discount: true } : {}),
-        ...(redemptionFlags.applyMembershipDiscount ? { apply_membership_discount: true } : {}),
-        ...(redemptionFlags.applyMembershipWallet
-          ? { apply_membership_wallet: true, membership_wallet_requested: redemptionFlags.membershipWalletRequested }
-          : {}),
-        client_id: selectedClient.id || undefined,
-        coupon_code: appliedCoupon?.valid ? appliedCoupon.couponCode : undefined,
-        coupon_discount_amount: totals.couponDiscount || undefined,
-        discount_amount: totals.overallDiscount + totals.couponDiscount,
-        due_amount: dueAmount,
-        ...(redemptionFlags.applyEwallet ? { ewallet_used: totals.appliedEWallet } : {}),
-        gross_amount: isFullyPackageCoveredSale ? packageCatalogTotal : totals.lineSubtotal,
-        include_gst: includeGst,
-        manual_discount_amount: totals.overallDiscount || undefined,
-        net_amount: isFullyPackageCoveredSale ? 0 : totals.grandTotal,
-        notes: saleNotes.trim() || undefined,
-        ...(isFullyPackageCoveredSale ? { package_covered_amount: packageCatalogTotal } : {}),
-        paid_amount: paidAmount,
-        payment_method: methodLabel,
-        ...(redemptionFlags.applyReferralCredit ? { referral_credit_used: totals.appliedReferralCredit } : {}),
-        ...(redemptionFlags.applyRewardPoints
-          ? {
-              reward_points_used: redemptionFlags.rewardPointsToRedeem,
-              reward_points_value: totals.appliedRewardPointsValue,
-            }
-          : {}),
-        salon_id: salonId ?? undefined,
-        split_details: splitDetails,
-        status: dueAmount > 0 ? "partial" : "completed",
-        tax_breakdown: totals.taxBreakdown.length > 0 ? totals.taxBreakdown : undefined,
-      };
-    },
+    (appointmentId: string, payment: PendingCheckoutPayment) =>
+      mapPaymentPayload({
+        appointmentId,
+        appliedCoupon,
+        includeGst,
+        isFullyPackageCoveredSale,
+        notes: saleNotes,
+        packageCatalogTotal,
+        payment,
+        pricingFlags: redemptions.buildPricingFlags(),
+        salonId,
+        selectedClientId: selectedClient.id,
+        totals,
+      }),
     [
       appliedCoupon,
       includeGst,
@@ -1611,14 +1265,7 @@ export default function QuickSaleScreen({
       saleNotes,
       salonId,
       selectedClient.id,
-      totals.appliedEWallet,
-      totals.appliedReferralCredit,
-      totals.appliedRewardPointsValue,
-      totals.couponDiscount,
-      totals.grandTotal,
-      totals.lineSubtotal,
-      totals.overallDiscount,
-      totals.taxBreakdown,
+      totals,
     ],
   );
 
