@@ -57,6 +57,7 @@ import BirthdayCampaignReport from "../reports/BirthdayCampaignReport";
 import { SlowMovingProductsReport, FastMovingProductsReport } from "../reports/ProductMovementReport";
 import ProductMarginReport from "../reports/ProductMarginReport";
 import SupplierReport from "../reports/SupplierReport";
+import PurchaseHistoryReport from "../reports/PurchaseHistoryReport";
 
 type CategoryKey = "sales" | "payments" | "customers" | "staff" | "appointments" | "inventory" | "packages" | "marketing";
 
@@ -124,6 +125,7 @@ const REPORTS: ReportDef[] = [
   { id: "purchase_vs_sales",      slug: "purchase-vs-sales",      name: "Purchase vs Sales Inventory Report",          description: "Purchase value, sales value and stock consumption per product, with net movement and turnover.",   category: "inventory",    icon: ArrowLeftRight, Component: PurchaseVsSalesReport },
   { id: "consumable_usage",       slug: "consumable-usage",       name: "Consumable Usage",                            description: "Products used up by staff during services (back-bar stock), separate from client sales.",       category: "inventory",    icon: Droplet,        Component: ConsumableUsageReport },
   { id: "supplier_report",        slug: "supplier-report",        name: "Supplier Report",                             description: "All suppliers on record, with contact details and location.",                                     category: "inventory",    icon: Truck,          Component: SupplierReport },
+  { id: "purchase_history",       slug: "purchase-history",       name: "Supplier Purchase History",                   description: "Every purchase recorded from Product Inventory, with its Supplier Number and line items.",       category: "inventory",    icon: ClockHistory,   Component: PurchaseHistoryReport },
   { id: "package_sale",           slug: "package-sale",           name: "Package Sale",                                description: "Packages purchased by clients, with amount paid and balance due.",                                  category: "packages",     icon: Tag,            Component: PackageSaleReport },
   { id: "package_history",        slug: "package-history",        name: "Package History",                             description: "Session-by-session usage history for every client package.",                                      category: "packages",     icon: ClockHistory,   Component: PackageHistoryReport },
   { id: "member_sale",            slug: "member-sale",            name: "Membership Sale",                             description: "Memberships purchased by clients and their current status.",                                       category: "packages",     icon: PersonBadge,    Component: MemberSaleReport },

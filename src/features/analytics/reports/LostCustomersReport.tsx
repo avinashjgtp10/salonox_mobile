@@ -9,8 +9,8 @@ import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
-import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -65,8 +65,6 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
   const role = useAppSelector((s) => s.auth.role);
   const canViewFullContact = role === "salon_owner" || role === "admin";
   const { currencySymbol, formatAmount } = useCurrency();
-  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
-  const { startDate: dateFrom, endDate: dateTo } = dateRange;
   // How many days without a visit before a client counts as "lost" — a
   // user-set cutoff, unlike Customer Frequency's fixed 90-day rule.
   const [lostDaysInput, setLostDaysInput] = useState(String(DEFAULT_LOST_DAYS));
@@ -85,10 +83,6 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
   const selection = useRowSelection();
   const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-
-  const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
-    ? "To Date must be greater than or equal to From Date"
-    : "";
 
   useEffect(() => {
     dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
@@ -115,14 +109,12 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
   };
 
   const fetchData = useCallback(async () => {
-    if (dateRangeError) return;
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
       const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
         lost_days: lostDays,
         page: currentPage, limit: pageSize,
       };
@@ -146,10 +138,10 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, lostDays, staffFilterIds, debouncedSearch, currentPage, pageSize]);
+  }, [lostDays, staffFilterIds, debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, lostDays, staffFilterIds, debouncedSearch]);
+  useEffect(() => { setCurrentPage(1); }, [lostDays, staffFilterIds, debouncedSearch]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "staff", label: "Staff", options: staffOptions, searchable: true },
@@ -180,11 +172,9 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
-              filename={`lost-customers-${dateFrom}-${dateTo}`}
+              filename={`lost-customers-${lostDays}d`}
               variant="button"
               csv
-              disabled={!!dateRangeError}
-              dateRangeLabel={`${formatDate(dateFrom)} - ${formatDate(dateTo)}`}
               filterLines={[
                 `Inactive for: ${lostDays}+ days`,
                 ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
@@ -199,7 +189,6 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
       </div>
 
       <div className="rp-detail-filters">
-        <DateRangeFilter value={dateRange} onChange={setDateRange} />
         <div className="rp-detail-filter-group" style={{ minWidth: 100 }}>
           <label htmlFor="lost-days-input" className="rp-detail-filter-label">Inactive for (days)</label>
           <input
