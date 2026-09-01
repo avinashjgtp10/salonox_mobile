@@ -5,8 +5,8 @@ import {
   fetchCampaignContactsThunk,
   pauseCampaignThunk,
   resumeCampaignThunk,
-  resendCampaignThunk,
 } from "../../../middleware/marketing/marketing.thunk";
+import ResendCampaignModal from "../components/ResendCampaignModal";
 import { Button, Badge, Input, DateRangeFilter, Pagination, JiraFilterMenu } from "../../../components/ui";
 import type { DateRangeFilterValue, JiraFilterField } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
@@ -117,8 +117,10 @@ export default function CampaignHistoryPage() {
   // ── Pause / Resume (no useOnce — per-campaign loading state) ─────────────
   const [pausingId,    setPausingId]    = useState<string | null>(null);
   const [resumingId,   setResumingId]   = useState<string | null>(null);
-  const [resendingId,  setResendingId]  = useState<string | null>(null);
   const [exportingId,  setExportingId]  = useState<string | null>(null);
+
+  // ── Resend modal (review clients / edit offer / preview before sending) ──
+  const [resendTarget, setResendTarget] = useState<{ id: string; name: string; totalContacts: number } | null>(null);
 
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
@@ -189,15 +191,8 @@ export default function CampaignHistoryPage() {
     setResumingId(null);
   };
 
-  const handleResend = async (id: string, name: string) => {
-    setResendingId(id);
-    const res = await dispatch(resendCampaignThunk(id));
-    if (resendCampaignThunk.rejected.match(res)) {
-      showError((res.payload as string) ?? "Failed to resend campaign");
-    } else {
-      showSuccess(`"${name}" resent to all contacts`);
-    }
-    setResendingId(null);
+  const handleResendClick = (id: string, name: string, totalContacts: number) => {
+    setResendTarget({ id, name, totalContacts });
   };
 
   // Export must fetch every contact, not just the current on-screen page —
@@ -382,9 +377,7 @@ export default function CampaignHistoryPage() {
                           <Button
                             variant="outline-primary"
                             size="sm"
-                            loading={resendingId === String(c.id)}
-                            disabled={!!resendingId}
-                            onClick={() => handleResend(String(c.id), c.name)}
+                            onClick={() => handleResendClick(String(c.id), c.name, c.total_contacts ?? c.totalContacts ?? 0)}
                           >
                             ↻ Resend
                           </Button>
@@ -530,6 +523,17 @@ export default function CampaignHistoryPage() {
             onPageSizeChange={setPageSize}
           />
         </>
+      )}
+
+      {resendTarget && (
+        <ResendCampaignModal
+          show={!!resendTarget}
+          onClose={() => setResendTarget(null)}
+          campaignId={resendTarget.id}
+          campaignName={resendTarget.name}
+          totalContacts={resendTarget.totalContacts}
+          onResent={() => dispatch(fetchCampaignsThunk())}
+        />
       )}
     </div>
   );

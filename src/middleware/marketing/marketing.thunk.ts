@@ -185,15 +185,32 @@ export const createCampaignThunk = createAsyncThunk<Campaign, CreateCampaignPayl
   }
 );
 
-export const resendCampaignThunk = createAsyncThunk<Campaign, string | number, { rejectValue: string }>(
+export const resendCampaignThunk = createAsyncThunk<
+  Campaign,
+  { id: string | number; variables?: Record<string, string> },
+  { rejectValue: string }
+>(
   "marketing/resendCampaign",
-  async (id, { rejectWithValue }) => {
+  async ({ id, variables }, { rejectWithValue }) => {
     try {
-      const res = await api.post<CampaignResponse>(MARKETING.CAMPAIGN_RESEND(id));
+      const res = await api.post<CampaignResponse>(MARKETING.CAMPAIGN_RESEND(id), { variables });
       return normalizeCampaign(res.data.data);
     } catch (err: any) {
       if (err instanceof ApiError) return rejectWithValue(err.message);
       return rejectWithValue("Failed to resend campaign");
+    }
+  }
+);
+
+export const fetchCampaignByIdThunk = createAsyncThunk<Campaign, string | number, { rejectValue: string }>(
+  "marketing/fetchCampaignById",
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await api.get<CampaignResponse>(MARKETING.CAMPAIGN_BY_ID(id));
+      return normalizeCampaign(res.data.data);
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to load campaign");
     }
   }
 );
