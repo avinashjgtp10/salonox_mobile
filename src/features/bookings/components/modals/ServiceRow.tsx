@@ -8,6 +8,8 @@ import Dropdown from "../../../../components/ui/Dropdown";
 import { Trash, Pencil } from "react-bootstrap-icons";
 import api from "../../../../services/api/axios";
 import { SERVICES } from "../../../../services/api/endpoints/services.endpoints";
+import { useAppDispatch } from "../../../../hooks/useAppRedux";
+import { updateServiceThunk } from "../../../../middleware/services/services.thunk";
 import { INVENTORY } from "../../../../services/api/endpoints/inventory.endpoints";
 import { getCompatibleUnits, resolveConversionRatio } from "../../../catalog/utils/unitFamilies";
 import { IconClock, IconBox, IconTag } from "../../../../components/shared/QuickSaleIcons";
@@ -209,6 +211,7 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   clientName,
 }) => {
   const { currencySymbol } = useCurrency();
+  const dispatch = useAppDispatch();
   const schedulerContext = useSchedulerContext();
 
   const interval = schedulerContext.interval;
@@ -269,12 +272,33 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
   // selectService() below, so its reminder pre-fill never runs for them —
   // backfill from the same cached catalog list once it's loaded, same
   // service_id-over-id preference as handleReminderSubmit uses below.
+  //
+  // Calendar/Quick Sale never dispatch fetchServicesThunk themselves (only
+  // Catalog/Client History/Enquiry/etc. do — see useServices.ts), so on a
+  // fresh session servicesList can still be empty when an appointment is
+  // reopened here, even though the service's reminder was saved correctly.
+  // `cached` undefined (service not in the list at all) is what signals
+  // that — as opposed to a real "no reminder configured" (cached.reminder_
+  // after_days === null) — so only that case falls back to fetching this
+  // one service directly, instead of trusting an empty/stale cache.
+  const reminderFetchedForRef = useRef<string | null>(null);
   useEffect(() => {
     if (savedReminderDays !== null || !row.service) return;
     const serviceId = (row as any).service_id || row.id;
     if (!serviceId) return;
     const cached = (servicesList || []).find((s) => String(s.id) === String(serviceId));
-    if (cached?.reminder_after_days != null) setSavedReminderDays(cached.reminder_after_days);
+    if (cached) {
+      if (cached.reminder_after_days != null) setSavedReminderDays(cached.reminder_after_days);
+      return;
+    }
+    if (reminderFetchedForRef.current === String(serviceId)) return;
+    reminderFetchedForRef.current = String(serviceId);
+    api.get(SERVICES.BY_ID(serviceId))
+      .then((res) => {
+        const days = (res.data as any)?.data?.reminder_after_days;
+        if (days != null) setSavedReminderDays(days);
+      })
+      .catch(() => { /* leave unset; user can still re-set it manually */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [row.id, (row as any).service_id, row.service, servicesList]);
 
@@ -970,13 +994,23 @@ const ServiceRow: React.FC<ServiceRowProps> = ({
     // `service_id` first, same as confirmAddConsumable below: on a row loaded
     // from a saved appointment, row.id is the appointment-service ROW id and
     // only service_id is the catalog service (see useAppointment.ts's
-    // buildServiceApiItems). Reading row.id alone PATCHed
-    // /services/<appointment-row-id>/reminder — a service that doesn't exist,
-    // silently swallowed by the catch below.
+    // buildServiceApiItems). Reading row.id alone PATCHed the wrong service.
+    //
+    // PATCH /services/:id (not a /reminder sub-route — the backend has no
+    // such route, so that always 404'd) with `reminder_after_days` (not
+    // `reminder_days` — that's the actual column/validator field name; the
+    // backend silently ignores unrecognized keys on this endpoint).
+    //
+    // Dispatched via updateServiceThunk (not a raw api.patch) so the
+    // fulfilled service also lands in state.services.items — useServices.ts
+    // re-derives scheduler.servicesList from that, which is exactly what
+    // the pre-fill effect above reads on reopen. A raw api.patch here left
+    // that cache holding the pre-edit value, so reopening the appointment
+    // showed the old reminder days again even though the save had worked.
     const serviceId = (row as any).service_id || row.id;
     if (serviceId) {
       try {
-        await api.patch(`${SERVICES.BY_ID(serviceId)}/reminder`, { reminder_days: days });
+        await dispatch(updateServiceThunk({ id: serviceId, data: { reminder_after_days: days } }) as any).unwrap();
       } catch {
         // API sync failed; local value is already saved and displayed
       }
