@@ -618,10 +618,10 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
                   <table className="cim-failed-table">
                     <thead>
                       <tr>
-                        {FIELDS.map((f) => <th key={f.key}>{f.label}</th>)}
                         <th>Status</th>
                         <th>Reason</th>
                         <th>Action</th>
+                        {FIELDS.map((f) => <th key={f.key}>{f.label}</th>)}
                       </tr>
                     </thead>
                     <tbody>
@@ -632,6 +632,14 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
                           <tr key={row.key} className={isEditing ? "cim-row--editing" : ""}>
                             {isEditing ? (
                               <>
+                                <td><span className={`cim-status-pill cim-status-pill--${row.status.toLowerCase()}`}>{row.status}</span></td>
+                                <td className="cim-reason-cell">{row.reason}</td>
+                                <td className="cim-action-cell">
+                                  <button className="cim-row-btn cim-row-btn--save" onClick={() => submitReimport(row)} disabled={isSubmitting}>
+                                    {isSubmitting ? "Saving…" : "Save & Retry"}
+                                  </button>
+                                  <button className="cim-row-btn" onClick={cancelEdit} disabled={isSubmitting}>Cancel</button>
+                                </td>
                                 {FIELDS.map((f) => (
                                   <td key={f.key}>
                                     {f.key === "gender" ? (
@@ -664,22 +672,9 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
                                     )}
                                   </td>
                                 ))}
-                                <td><span className={`cim-status-pill cim-status-pill--${row.status.toLowerCase()}`}>{row.status}</span></td>
-                                <td className="cim-reason-cell">{row.reason}</td>
-                                <td className="cim-action-cell">
-                                  <button className="cim-row-btn cim-row-btn--save" onClick={() => submitReimport(row)} disabled={isSubmitting}>
-                                    {isSubmitting ? "Saving…" : "Save & Retry"}
-                                  </button>
-                                  <button className="cim-row-btn" onClick={cancelEdit} disabled={isSubmitting}>Cancel</button>
-                                </td>
                               </>
                             ) : (
                               <>
-                                {FIELDS.map((f) => (
-                                  <td key={f.key} className={f.key === "address" || f.key === "sourceDescription" ? "cim-notes-cell" : undefined}>
-                                    {row[f.key] || "—"}
-                                  </td>
-                                ))}
                                 <td><span className={`cim-status-pill cim-status-pill--${row.status.toLowerCase()}`}>{row.status}</span></td>
                                 <td className="cim-reason-cell">{row.reason}</td>
                                 <td className="cim-action-cell">
@@ -687,6 +682,11 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
                                     <PencilSquare size={12} /> Re-import
                                   </button>
                                 </td>
+                                {FIELDS.map((f) => (
+                                  <td key={f.key} className={f.key === "address" || f.key === "sourceDescription" ? "cim-notes-cell" : undefined}>
+                                    {row[f.key] || "—"}
+                                  </td>
+                                ))}
                               </>
                             )}
                           </tr>

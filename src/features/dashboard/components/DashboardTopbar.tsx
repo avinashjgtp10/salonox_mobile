@@ -251,7 +251,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
   const handleMarkAllRead = useCallback(async () => {
     try {
       await api.patch(NOTIFICATIONS.MARK_ALL);
-      setNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
+      setNotifs([]);
     } catch { /* ignore */ }
   }, []);
 
