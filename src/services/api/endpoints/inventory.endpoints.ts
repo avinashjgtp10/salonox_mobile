@@ -48,6 +48,7 @@ export const INVENTORY = {
   ORDERS: "/api/v1/inventory/orders",
   ORDER_BY_ID: (id: string) => `/api/v1/inventory/orders/${id}`,
   ORDER_RECEIVE: (id: string) => `/api/v1/inventory/orders/${id}/receive`,
+  ORDER_CORRECT_RECEIVED: (id: string, itemId: string) => `/api/v1/inventory/orders/${id}/items/${itemId}/correct-received`,
   ORDER_CANCEL: (id: string) => `/api/v1/inventory/orders/${id}/cancel`,
   ORDER_DELETE: (id: string) => `/api/v1/inventory/orders/${id}/delete`,
   ORDER_UPDATE: (id: string) => `/api/v1/inventory/orders/${id}/update`,

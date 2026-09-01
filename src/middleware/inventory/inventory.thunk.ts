@@ -17,6 +17,7 @@ import type {
   Order,
   CreateOrderPayload,
   ReceiveOrderPayload,
+  CorrectReceivedQtyPayload,
   OrderSignature,
   ConsumableListFilters,
   ConsumableListRow,
@@ -269,7 +270,7 @@ export const updateOrderThunk = createAsyncThunk<
 
 export const fetchOrdersThunk = createAsyncThunk<
   { data: Order[]; total: number },
-  { search?: string; page?: number; limit?: number } | void,
+  { search?: string; status?: Order["status"]; page?: number; limit?: number } | void,
   { rejectValue: string }
 >("inventory/fetchOrders", async (filters, { rejectWithValue }) => {
   try {
@@ -311,6 +312,22 @@ export const receiveOrderThunk = createAsyncThunk<
   } catch (err: any) {
     console.error("receiveOrderThunk error:", err);
     return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to receive order");
+  }
+});
+
+// Corrects a mis-entered received_qty on one order line after the fact.
+// Does not create a new Purchase — just fixes stock + the order line + status.
+export const correctReceivedQtyThunk = createAsyncThunk<
+  Order,
+  { orderId: string; itemId: string; payload: CorrectReceivedQtyPayload },
+  { rejectValue: string }
+>("inventory/correctReceivedQty", async ({ orderId, itemId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_CORRECT_RECEIVED(orderId, itemId), payload);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("correctReceivedQtyThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to update received quantity");
   }
 });
 

@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BoxSeam, XCircle, Trash } from "react-bootstrap-icons";
+import { ArrowLeft, BoxSeam, XCircle, Trash, PencilSquare } from "react-bootstrap-icons";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
-import { fetchOrderByIdThunk, receiveOrderThunk, cancelOrderThunk, deleteOrderThunk } from "../../../middleware/inventory/inventory.thunk";
+import { fetchOrderByIdThunk, receiveOrderThunk, correctReceivedQtyThunk, cancelOrderThunk, deleteOrderThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Order, OrderStatus } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
@@ -41,6 +41,10 @@ const OrderDetailPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+
+  const [correctItem, setCorrectItem] = useState<{ id: string; product_name?: string; qty: number } | null>(null);
+  const [correctQty, setCorrectQty] = useState("");
+  const [correcting, setCorrecting] = useState(false);
 
   const handleDelete = async () => {
     if (!id) return;
@@ -126,6 +130,33 @@ const OrderDetailPage: React.FC = () => {
     }
   }
 
+  async function submitCorrectReceived() {
+    if (!order || !correctItem) return;
+    const newQty = parseFloat(correctQty);
+    if (!Number.isFinite(newQty) || newQty < 0) {
+      showError("Enter a valid received quantity");
+      return;
+    }
+    if (newQty > correctItem.qty) {
+      showError(`Received quantity can't exceed the ordered quantity (${correctItem.qty})`);
+      return;
+    }
+
+    setCorrecting(true);
+    try {
+      const updated = await dispatch(
+        correctReceivedQtyThunk({ orderId: order.id, itemId: correctItem.id, payload: { received_qty: newQty } }),
+      ).unwrap();
+      setOrder(updated);
+      setCorrectItem(null);
+      showSuccess("Received quantity updated");
+    } catch (err: any) {
+      showError(typeof err === "string" ? err : "Failed to update received quantity");
+    } finally {
+      setCorrecting(false);
+    }
+  }
+
   async function handleCancel() {
     if (!order) return;
     try {
@@ -169,7 +200,7 @@ const OrderDetailPage: React.FC = () => {
         <div>
           <h1>
             {order.order_number}{" "}
-            <span className={`supplier-status-badge supplier-status-badge--${order.status === "received" ? "paid" : order.status === "cancelled" ? "overdue" : "due"}`}>
+            <span className={`supplier-status-badge supplier-status-badge--${order.status === "received" ? "paid" : order.status === "cancelled" ? "overdue" : order.status === "partially_received" ? "partial" : "due"}`}>
               {STATUS_LABEL[order.status]}
             </span>
           </h1>
@@ -236,7 +267,22 @@ const OrderDetailPage: React.FC = () => {
                 <td>{item.product_name || "—"}</td>
                 <td>{item.product_code || "—"}</td>
                 <td className="phist-num">{item.qty}</td>
-                <td className="phist-num">{item.received_qty} / {item.qty}</td>
+                <td className="phist-num">
+                  {item.received_qty} / {item.qty}
+                  {order.status !== "cancelled" && item.received_qty > 0 && (
+                    <button
+                      type="button"
+                      className="phist-edit-received-btn"
+                      title="Edit received quantity"
+                      onClick={() => {
+                        setCorrectItem({ id: item.id, product_name: item.product_name, qty: item.qty });
+                        setCorrectQty(String(item.received_qty));
+                      }}
+                    >
+                      <PencilSquare size={12} />
+                    </button>
+                  )}
+                </td>
                 <td className="phist-num">{formatAmount(item.selling_price)}</td>
                 <td className="phist-num">{item.discount_percent}%</td>
                 <td className="phist-num">{formatAmount(item.cost_price)}</td>
@@ -311,6 +357,33 @@ const OrderDetailPage: React.FC = () => {
             <Button variant="outline-dark" onClick={() => setReceiveOpen(false)} disabled={submitting}>Cancel</Button>
             <Button variant="dark" onClick={submitReceive} disabled={submitting}>
               {submitting ? "Receiving…" : "Confirm Receive"}
+            </Button>
+          </div>
+        </Modal>
+      )}
+
+      {correctItem && (
+        <Modal show onClose={() => setCorrectItem(null)} title="Edit Received Quantity">
+          <p className="text-muted mb-3">
+            Corrects the received quantity for <strong>{correctItem.product_name || "this item"}</strong> and adjusts
+            stock to match. This does not change the original Purchase record.
+          </p>
+          <label className="form-label small text-muted">Received Quantity (of {correctItem.qty} ordered)</label>
+          <input
+            type="number"
+            min="0"
+            max={correctItem.qty}
+            step="any"
+            className="new-order-input--sm w-100"
+            value={correctQty}
+            onChange={(e) => setCorrectQty(e.target.value)}
+            onWheel={(e) => e.currentTarget.blur()}
+            autoFocus
+          />
+          <div className="d-flex justify-content-end gap-2 mt-4">
+            <Button variant="outline-dark" onClick={() => setCorrectItem(null)} disabled={correcting}>Cancel</Button>
+            <Button variant="dark" onClick={submitCorrectReceived} disabled={correcting}>
+              {correcting ? "Saving…" : "Save"}
             </Button>
           </div>
         </Modal>

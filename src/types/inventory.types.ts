@@ -457,6 +457,11 @@ export interface ReceiveOrderPayload {
   purchase_date?: string;
 }
 
+// New running total for the line, not a delta (unlike ReceiveOrderItemPayload).
+export interface CorrectReceivedQtyPayload {
+  received_qty: number;
+}
+
 export interface OrderSignature {
   id: string;
   salon_id: string;

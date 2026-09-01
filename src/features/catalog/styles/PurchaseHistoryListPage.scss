@@ -101,6 +101,26 @@
   }
 }
 
+.phist-edit-received-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 6px;
+  padding: 2px;
+  border: none;
+  background: transparent;
+  color: #98a2b3;
+  cursor: pointer;
+  border-radius: 4px;
+  vertical-align: middle;
+
+  &:hover,
+  &:focus {
+    background: #f2f4f7;
+    color: #101828;
+  }
+}
+
 .phist-row {
   cursor: pointer;
   &:hover { background: #f9fafb; }
