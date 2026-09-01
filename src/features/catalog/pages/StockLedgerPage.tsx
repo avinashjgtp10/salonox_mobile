@@ -30,7 +30,8 @@ import "../styles/StockLedgerPage.scss";
 
 type TxnType =
   | "opening_stock" | "purchase" | "usage" | "sale" | "return" | "damage"
-  | "expired" | "adjustment_in" | "adjustment_out" | "transfer_in" | "transfer_out";
+  | "expired" | "adjustment_in" | "adjustment_out" | "transfer_in" | "transfer_out"
+  | "sample" | "lost" | "internal_use";
 
 const TXN_LABELS: Record<TxnType, string> = {
   opening_stock: "Opening Stock",
@@ -44,9 +45,27 @@ const TXN_LABELS: Record<TxnType, string> = {
   adjustment_out: "Adjustment Out",
   transfer_in: "Transfer In",
   transfer_out: "Transfer Out",
+  sample: "Sample",
+  lost: "Lost / Missing",
+  internal_use: "Internal Use",
 };
 
 const IN_TYPES = new Set<TxnType>(["opening_stock", "purchase", "return", "adjustment_in", "transfer_in"]);
+
+// Badge color is mostly "in = green, out = red", except Sale — a stock-out
+// type by nature (drops products.amount, shows under the Out column) but
+// still revenue for the salon, so its badge reads green like the In types
+// rather than red like a loss (damage/expired/lost/etc).
+const badgeVariantFor = (type: TxnType): "success" | "danger" =>
+  type === "sale" || IN_TYPES.has(type) ? "success" : "danger";
+
+// Types offered in the manual Stock Adjustment modal — excludes
+// purchase/sale/usage, which are always system-generated from an actual
+// purchase/sale/consumption flow, never entered by hand here.
+const ADJUSTMENT_TXN_TYPES: TxnType[] = [
+  "adjustment_in", "adjustment_out", "damage", "expired",
+  "sample", "lost", "internal_use", "transfer_in", "transfer_out",
+];
 
 interface LedgerRow {
   id: string;
@@ -63,6 +82,8 @@ interface LedgerRow {
   balance_after: number;
   reason: string | null;
   notes: string | null;
+  supplier_id: string | null;
+  supplier_name: string | null;
   created_by: string | null;
   created_by_name: string | null;
 }
@@ -336,7 +357,7 @@ export default function StockLedgerPage() {
                         </button>
                       </td>
                       <td>
-                        <Badge variant={isIn ? "success" : "danger"}>{TXN_LABELS[r.transaction_type]}</Badge>
+                        <Badge variant={badgeVariantFor(r.transaction_type)}>{TXN_LABELS[r.transaction_type]}</Badge>
                       </td>
                       <td className="sl-ref">{r.reference || "—"}</td>
                       <td className="sl-num sl-num--in">{isIn ? fmtBalance(r.quantity, unit, r.bottle_size) : "—"}</td>
@@ -472,6 +493,9 @@ function TransactionDetailDrawer({ row, isOpen, onClose }: { row: LedgerRow | nu
             <div><span>Transaction</span><strong>{TXN_LABELS[row.transaction_type]}</strong></div>
             <div><span>Reference</span><strong>{row.reference || "—"}</strong></div>
             <div><span>Date</span><strong>{fmtDateTime(row.created_at)}</strong></div>
+            {row.supplier_name && (
+              <div><span>Supplier</span><strong>{row.supplier_name}</strong></div>
+            )}
           </div>
 
           <hr className="sl-detail-divider" />
@@ -567,6 +591,23 @@ function StockTimelineModal({
 }
 
 // ── Stock Adjustment modal ─────────────────────────────────────────────────────
+// One or more product rows, each with its own product/type/quantity — same
+// "one shared header (branch/notes), N independent line items" shape as
+// PurchaseModal.tsx. Saved as N sequential POSTs to the existing single-entry
+// endpoint (there's no batch endpoint) — sequential, not Promise.all, so a
+// mid-batch failure leaves a clear "rows before this one saved" boundary
+// rather than a partial set landing in an unpredictable order.
+interface AdjustmentLine {
+  key: string;
+  productId: string;
+  txnType: TxnType;
+  qty: string;
+}
+
+function emptyLine(defaultProductId: string): AdjustmentLine {
+  return { key: Math.random().toString(36).slice(2), productId: defaultProductId, txnType: "adjustment_out", qty: "" };
+}
+
 function StockAdjustmentModal({
   products, onClose, onSaved, onError,
 }: {
@@ -575,10 +616,7 @@ function StockAdjustmentModal({
   onSaved: () => void;
   onError: (msg: string) => void;
 }) {
-  const [productId, setProductId] = useState(products[0]?.id ?? "");
-  const [adjType, setAdjType] = useState<"increase" | "decrease">("decrease");
-  const [qty, setQty] = useState("");
-  const [reason, setReason] = useState("");
+  const [lines, setLines] = useState<AdjustmentLine[]>([emptyLine(products[0]?.id ?? "")]);
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
   const [branchId, setBranchId] = useState<string | null>(null);
@@ -591,21 +629,50 @@ function StockAdjustmentModal({
     }
   }, [branches, branchId]);
 
-  const product = products.find((p) => p.id === productId);
+  function patchLine(key: string, patch: Partial<AdjustmentLine>) {
+    setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
+  }
+
+  function removeLine(key: string) {
+    setLines((prev) => (prev.length > 1 ? prev.filter((l) => l.key !== key) : prev));
+  }
+
+  const validLines = lines.filter((l) => {
+    const qty = parseFloat(l.qty);
+    return l.productId && Number.isFinite(qty) && qty > 0;
+  });
+
+  const hasIncompleteLine = lines.some((l) => {
+    const qty = parseFloat(l.qty);
+    return l.productId && !(Number.isFinite(qty) && qty > 0);
+  });
+
+  const duplicateProductIds = useMemo(() => {
+    const seen = new Set<string>();
+    const dupes = new Set<string>();
+    lines.forEach((l) => {
+      if (!l.productId) return;
+      if (seen.has(l.productId)) dupes.add(l.productId);
+      seen.add(l.productId);
+    });
+    return dupes;
+  }, [lines]);
+
+  const canSave = !!branchId && validLines.length > 0 && !hasIncompleteLine && duplicateProductIds.size === 0;
 
   const submit = async () => {
-    const parsed = parseFloat(qty);
-    if (!productId || !Number.isFinite(parsed) || parsed <= 0 || !branchId) return;
+    if (!canSave || saving) return;
     setSaving(true);
     try {
-      await api.post(INVENTORY.STOCK_LEDGER, {
-        branch_id: branchId,
-        product_id: productId,
-        transaction_type: adjType === "increase" ? "adjustment_in" : "adjustment_out",
-        quantity: parsed,
-        reason: reason || undefined,
-        notes: notes || undefined,
-      });
+      for (const line of validLines) {
+        await api.post(INVENTORY.STOCK_LEDGER, {
+          branch_id: branchId,
+          product_id: line.productId,
+          transaction_type: line.txnType,
+          quantity: parseFloat(line.qty),
+          notes: notes || undefined,
+        });
+      }
       onSaved();
     } catch (err: any) {
       onError(err?.response?.data?.message || "Couldn't save stock adjustment");
@@ -618,48 +685,76 @@ function StockAdjustmentModal({
       show
       onClose={onClose}
       title="Stock Adjustment"
+      size="lg"
       footer={
         <div className="d-flex justify-content-end gap-2 w-100">
           <Button variant="outline-dark" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button variant="dark" onClick={submit} loading={saving}>Save Adjustment</Button>
+          <Button variant="dark" onClick={submit} disabled={saving || !canSave} loading={saving}>
+            Save Adjustment{validLines.length > 1 ? `s (${validLines.length})` : ""}
+          </Button>
         </div>
       }
     >
       <div className="sl-form-field">
-        <label>Product</label>
-        <Dropdown searchable value={productId} options={products} onChange={setProductId} />
-      </div>
-      <div className="sl-form-field">
-        <label>Adjustment Type</label>
-        <div className="sl-radio-row">
-          <label className="sl-radio">
-            <input type="radio" checked={adjType === "increase"} onChange={() => setAdjType("increase")} />
-            Increase
-          </label>
-          <label className="sl-radio">
-            <input type="radio" checked={adjType === "decrease"} onChange={() => setAdjType("decrease")} />
-            Decrease
-          </label>
+        <label>Products</label>
+        <div className="sl-adj-lines">
+          <div className="sl-adj-lines__head">
+            <span>Product</span>
+            <span>Transaction Type</span>
+            <span>Quantity</span>
+            <span />
+          </div>
+          {lines.map((line) => {
+            const product = products.find((p) => p.id === line.productId);
+            const isDuplicate = line.productId && duplicateProductIds.has(line.productId);
+            return (
+              <div className="sl-adj-lines__row" key={line.key}>
+                <div>
+                  <Dropdown
+                    searchable
+                    value={line.productId}
+                    options={products}
+                    onChange={(id) => patchLine(line.key, { productId: id })}
+                  />
+                  {isDuplicate && <span className="sl-adj-line-err">Already added above</span>}
+                </div>
+                <Dropdown
+                  searchable={false}
+                  value={line.txnType}
+                  options={ADJUSTMENT_TXN_TYPES.map((t) => ({ id: t, name: TXN_LABELS[t] }))}
+                  onChange={(id) => patchLine(line.key, { txnType: id as TxnType })}
+                />
+                <input
+                  className="sl-input sl-input--sm"
+                  type="number"
+                  min="0"
+                  step="any"
+                  placeholder={product?.measure_unit ? `Qty (${product.measure_unit})` : "Qty"}
+                  value={line.qty}
+                  onChange={(e) => patchLine(line.key, { qty: e.target.value })}
+                  onWheel={(e) => e.currentTarget.blur()}
+                />
+                <button
+                  type="button"
+                  className="sl-adj-remove-line"
+                  onClick={() => removeLine(line.key)}
+                  disabled={lines.length === 1}
+                  title="Remove product"
+                >
+                  <Trash size={14} />
+                </button>
+              </div>
+            );
+          })}
         </div>
-      </div>
-      <div className="sl-form-field">
-        <label>Quantity {product?.measure_unit ? `(${product.measure_unit})` : ""}</label>
-        <input className="sl-input" type="number" min="0" value={qty} onChange={(e) => setQty(e.target.value)} placeholder="20" />
-      </div>
-      <div className="sl-form-field">
-        <label>Reason</label>
-        <Dropdown
-          searchable={false}
-          value={reason}
-          placeholder="Damaged / Expired / Counting Error"
-          options={[
-            { id: "Damaged", name: "Damaged" },
-            { id: "Expired", name: "Expired" },
-            { id: "Counting Error", name: "Counting Error" },
-            { id: "Other", name: "Other" },
-          ]}
-          onChange={setReason}
-        />
+        <button
+          type="button"
+          className="sl-adj-add-line"
+          onClick={() => setLines((prev) => [...prev, emptyLine(products[0]?.id ?? "")])}
+        >
+          <PlusLg size={13} /> Add Product
+        </button>
+        {hasIncompleteLine && <span className="sl-adj-line-err d-block mt-2">Every product needs a quantity greater than 0</span>}
       </div>
       <div className="sl-form-field">
         <label>Notes</label>
