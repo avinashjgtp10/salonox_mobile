@@ -4996,6 +4996,78 @@ body.landing-page-active {
     }
   }
 
+  .demo-email-control {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+    align-items: stretch;
+
+    > input {
+      min-width: 0;
+    }
+  }
+
+  .demo-otp-action {
+    min-width: 104px;
+    min-height: 46px;
+    padding: 0 14px;
+    border: 1px solid rgba(67, 56, 202, 0.24);
+    border-radius: 9px;
+    background: rgba(238, 242, 255, 0.92);
+    color: #4338ca;
+    font-size: 12.5px;
+    font-weight: 800;
+    white-space: nowrap;
+    cursor: pointer;
+    transition: border-color 160ms ease, background 160ms ease, color 160ms ease;
+
+    &:hover:not(:disabled) {
+      border-color: rgba(67, 56, 202, 0.46);
+      background: #e0e7ff;
+    }
+
+    &.is-verified {
+      border-color: rgba(22, 163, 74, 0.3);
+      background: rgba(220, 252, 231, 0.92);
+      color: #15803d;
+    }
+
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.68;
+    }
+  }
+
+  .demo-otp-message,
+  .demo-otp-hint {
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+
+  .demo-otp-message.is-verified {
+    color: #15803d;
+    font-weight: 800;
+  }
+
+  .demo-otp-field {
+    padding: 12px;
+    border: 1px solid rgba(99, 102, 241, 0.16);
+    border-radius: 10px;
+    background: rgba(248, 250, 252, 0.72);
+  }
+
+  @media (max-width: 420px) {
+    .demo-email-control {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .demo-otp-action {
+      width: 100%;
+    }
+  }
+
   .demo-form .btn {
     min-height: 52px;
     margin-top: 8px;

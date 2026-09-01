@@ -22,6 +22,16 @@ type BookDemoProps = {
   nameError: string;
   emailTouched: boolean;
   emailError: string;
+  emailOtp: string;
+  emailOtpSent: boolean;
+  emailOtpVerified: boolean;
+  otpSending: boolean;
+  otpVerifying: boolean;
+  otpMessage: string;
+  otpError: string;
+  otpCooldown: number;
+  otpSecondsRemaining: number;
+  otpAttemptsRemaining: number;
   phoneCountry: import('react-phone-number-input').Country | undefined;
   phoneTouched: boolean;
   phoneError: string;
@@ -34,6 +44,9 @@ type BookDemoProps = {
   handleDemoChange: (field: keyof Omit<DemoForm, 'phone'>) => (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => void;
   handleNameBlur: () => void;
   handleEmailBlur: () => void;
+  handleSendEmailOtp: () => void;
+  handleEmailOtpChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  handleVerifyEmailOtp: () => void;
   handleSalonBlur: () => void;
   handleCityBlur: () => void;
   handleLocationsBlur: () => void;
@@ -52,6 +65,16 @@ const BookDemo: React.FC<BookDemoProps> = ({
   nameError,
   emailTouched,
   emailError,
+  emailOtp,
+  emailOtpSent,
+  emailOtpVerified,
+  otpSending,
+  otpVerifying,
+  otpMessage,
+  otpError,
+  otpCooldown,
+  otpSecondsRemaining,
+  otpAttemptsRemaining,
   phoneCountry,
   phoneTouched,
   phoneError,
@@ -64,6 +87,9 @@ const BookDemo: React.FC<BookDemoProps> = ({
   handleDemoChange,
   handleNameBlur,
   handleEmailBlur,
+  handleSendEmailOtp,
+  handleEmailOtpChange,
+  handleVerifyEmailOtp,
   handleSalonBlur,
   handleCityBlur,
   handleLocationsBlur,
@@ -212,23 +238,86 @@ const BookDemo: React.FC<BookDemoProps> = ({
                     <span className="demo-field-error" id="demo-name-error" role="alert">{nameError}</span>
                   )}
                 </label>
-                <label className="demo-field">
-                  <span>Work Email <span className="demo-required" aria-label="required">*</span></span>
-                  <input
-                    type="email"
-                    required
-                    placeholder="name@gmail.com"
-                    value={demoForm.email}
-                    onChange={handleDemoChange('email')}
-                    onBlur={handleEmailBlur}
-                    className={emailTouched && emailError ? 'is-invalid' : ''}
-                    aria-invalid={emailTouched && !!emailError}
-                    aria-describedby={emailTouched && emailError ? 'demo-email-error' : undefined}
-                  />
+                <div className="demo-field">
+                  <span id="demo-email-label">Work Email <span className="demo-required" aria-label="required">*</span></span>
+                  <div className="demo-email-control">
+                    <input
+                      type="email"
+                      required
+                      placeholder="name@gmail.com"
+                      value={demoForm.email}
+                      onChange={handleDemoChange('email')}
+                      onBlur={handleEmailBlur}
+                      className={emailTouched && emailError ? 'is-invalid' : ''}
+                      aria-labelledby="demo-email-label"
+                      aria-invalid={emailTouched && !!emailError}
+                      aria-describedby={emailTouched && emailError ? 'demo-email-error' : undefined}
+                    />
+                    <button
+                      type="button"
+                      className={`demo-otp-action${emailOtpVerified ? ' is-verified' : ''}`}
+                      onClick={handleSendEmailOtp}
+                      disabled={otpSending || emailOtpVerified || otpCooldown > 0}
+                    >
+                      {emailOtpVerified
+                        ? 'Verified'
+                        : otpSending
+                          ? 'Sending...'
+                          : otpCooldown > 0
+                            ? `Resend in ${otpCooldown}s`
+                            : emailOtpSent
+                              ? 'Resend OTP'
+                              : 'Send OTP'}
+                    </button>
+                  </div>
                   {emailTouched && emailError && (
                     <span className="demo-field-error" id="demo-email-error" role="alert">{emailError}</span>
                   )}
-                </label>
+                  {otpMessage && (
+                    <span className={`demo-otp-message${emailOtpVerified ? ' is-verified' : ''}`} role="status">
+                      {otpMessage}
+                    </span>
+                  )}
+                  {otpError && <span className="demo-field-error" role="alert">{otpError}</span>}
+                </div>
+                {emailOtpSent && !emailOtpVerified && (
+                  <div className="demo-field demo-otp-field">
+                    <span id="demo-otp-label">Email OTP</span>
+                    <div className="demo-email-control">
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        placeholder="6-digit OTP"
+                        value={emailOtp}
+                        onChange={handleEmailOtpChange}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter') {
+                            event.preventDefault();
+                            handleVerifyEmailOtp();
+                          }
+                        }}
+                        aria-labelledby="demo-otp-label"
+                        aria-invalid={!!otpError}
+                      />
+                      <button
+                        type="button"
+                        className="demo-otp-action"
+                        onClick={handleVerifyEmailOtp}
+                        disabled={otpVerifying || emailOtp.length !== 6 || otpSecondsRemaining <= 0 || otpAttemptsRemaining <= 0}
+                      >
+                        {otpVerifying ? 'Verifying...' : 'Verify OTP'}
+                      </button>
+                    </div>
+                    {otpSecondsRemaining > 0 && (
+                      <span className="demo-otp-hint">
+                        Expires in {Math.floor(otpSecondsRemaining / 60)}:{String(otpSecondsRemaining % 60).padStart(2, '0')}
+                        {otpAttemptsRemaining < 5 ? ` · ${otpAttemptsRemaining} attempts remaining` : ''}
+                      </span>
+                    )}
+                  </div>
+                )}
                 {/* A `<div>`, not a `<label>` — the country dropdown below contains a
                     search input and clickable options, and a wrapping `<label>` forwards
                     clicks that bubble up to it from elsewhere inside onto its implicit
@@ -316,7 +405,7 @@ const BookDemo: React.FC<BookDemoProps> = ({
                   )}
                 </label>
                 {demoError && <p className="demo-error" role="alert">{demoError}</p>}
-                <button type="submit" className="btn btn-primary btn-block" disabled={demoSubmitting}>
+                <button type="submit" className="btn btn-primary btn-block" disabled={demoSubmitting || !emailOtpVerified}>
                   {demoSubmitting ? 'Sending...' : 'Schedule Demo'}
                 </button>
                 <label className="demo-consent">
