@@ -321,6 +321,15 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
       )}
 
       <NavLink
+        to="/dashboard/spotlight"
+        className={({ isActive }) => navClass(isActive)}
+        onClick={(event) => handleRouteClick(event, "/dashboard/spotlight")}
+      >
+        <Stars size={22} />
+        <span className="nav-label">Spotlight</span>
+      </NavLink>
+
+      <NavLink
         to="/dashboard/help"
         className={({ isActive }) => navClass(isActive)}
         onClick={(event) => handleRouteClick(event, "/dashboard/help")}
