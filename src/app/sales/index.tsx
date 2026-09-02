@@ -431,7 +431,7 @@ export default function SalesHistoryScreen() {
                 <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
                   <Ionicons name="arrow-back" size={18} color={Colors.primary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Sales History</Text>
+                <Text style={styles.headerTitle}>Sales Summary</Text>
                 <TouchableOpacity
                   activeOpacity={0.8}
                   disabled={isExporting}
