@@ -774,6 +774,7 @@ const ServicesListPage: React.FC = () => {
                 <span>Category</span>
                 <span>Time</span>
                 <span>Staff</span>
+                <span className="slp__group-cols__center">Reminder</span>
                 <span className="slp__group-cols__center">Commission</span>
                 <span className="slp__group-cols__right">Price</span>
                 <span />
