@@ -28,7 +28,7 @@ export const getReportPagination = (data: ReportData | null) => {
   if (!data?.pagination || typeof data.pagination !== "object") return null;
   const pagination = data.pagination as Record<string, unknown>;
   return {
-    limit: typeof pagination.limit === "number" ? pagination.limit : 20,
+    limit: typeof pagination.limit === "number" ? pagination.limit : 10,
     page: typeof pagination.page === "number" ? pagination.page : 1,
     total: typeof pagination.total === "number" ? pagination.total : 0,
     totalPages: typeof pagination.totalPages === "number" ? pagination.totalPages : 1,

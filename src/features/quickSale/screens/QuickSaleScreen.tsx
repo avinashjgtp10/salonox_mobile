@@ -1529,17 +1529,32 @@ export default function QuickSaleScreen({
         return;
       }
 
-      // The backend independently recomputes and persists the appointment
-      // total — /pricing/calculate-totals stays the single source of truth
-      // for what this bill SHOULD be, but if what actually got saved
-      // diverges from that, the sale must not be presented as a normal
-      // success. Cent-based comparison absorbs ordinary independent-rounding
-      // drift without masking a real mismatch, which is always far larger
-      // than a single cent.
-      if (!amountsReconcile(checkout.appointment.total, paymentBody.net_amount)) {
+      // Appointment totals may represent the amount before payment-layer
+      // benefits such as membership discounts, wallets, package coverage,
+      // rewards, or referral credit. Verify the finalized sale/invoice total
+      // instead so valid benefits do not produce a false mismatch.
+      let finalizedSaleTotal: number | null = null;
+
+      if (checkout.saleId) {
+        const finalizedSaleAction = await dispatch(fetchSaleByIdThunk(checkout.saleId));
+
+        if (fetchSaleByIdThunk.fulfilled.match(finalizedSaleAction)) {
+          finalizedSaleTotal = finalizedSaleAction.payload.total;
+        } else {
+          console.warn("[Quick Sale] Unable to verify finalized sale total", {
+            appointmentId,
+            saleId: checkout.saleId,
+          });
+        }
+      }
+
+      if (
+        finalizedSaleTotal !== null &&
+        !amountsReconcile(finalizedSaleTotal, paymentBody.net_amount)
+      ) {
         console.error("[Quick Sale] Backend/local total mismatch after checkout", {
           appointmentId,
-          backendTotal: checkout.appointment.total,
+          backendTotal: finalizedSaleTotal,
           localTotal: paymentBody.net_amount,
           saleId: checkout.saleId,
         });

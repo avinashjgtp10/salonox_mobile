@@ -33,7 +33,7 @@ type SalonState = {
 };
 
 const initialQuery: SalonListQuery = {
-  limit: 20,
+  limit: 10,
   page: 1,
   search: "",
   sort_by: "created_at",
@@ -42,7 +42,7 @@ const initialQuery: SalonListQuery = {
 
 const initialPagination: SalonListPagination = {
   hasMore: true,
-  limit: 20,
+  limit: 10,
   nextPage: 1,
   page: 0,
   totalCount: 0,

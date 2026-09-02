@@ -47,7 +47,7 @@ type ProductState = {
 };
 
 const initialQuery: ProductListQuery = {
-  limit: 20,
+  limit: 10,
   offset: 0,
   search: "",
   sort_by: "name",
@@ -81,7 +81,7 @@ const initialState: ProductState = {
   loadingMore: false,
   mutationError: null,
   mutationLoading: false,
-  pagination: { hasMore: false, limit: 20, nextOffset: 0, offset: 0 },
+  pagination: { hasMore: false, limit: 10, nextOffset: 0, offset: 0 },
   products: [],
   query: initialQuery,
   refreshing: false,

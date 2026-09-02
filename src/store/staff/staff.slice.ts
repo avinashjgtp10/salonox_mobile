@@ -96,14 +96,14 @@ type StaffState = {
 };
 
 const initialQuery: StaffListQuery = {
-  limit: 20,
+  limit: 10,
   page: 1,
   sort_by: "created_at",
   sort_order: "DESC",
 };
 
 const initialAddressQuery: StaffAddressListQuery = {
-  limit: 20,
+  limit: 10,
   page: 1,
   sort_by: "created_at",
   sort_order: "DESC",
@@ -111,7 +111,7 @@ const initialAddressQuery: StaffAddressListQuery = {
 
 const initialPagination: StaffListPagination = {
   hasMore: true,
-  limit: 20,
+  limit: 10,
   nextPage: 1,
   page: 0,
   totalCount: 0,
@@ -120,7 +120,7 @@ const initialPagination: StaffListPagination = {
 
 const initialAddressPagination: StaffAddressListPagination = {
   hasMore: true,
-  limit: 20,
+  limit: 10,
   nextPage: 1,
   page: 0,
   totalCount: 0,

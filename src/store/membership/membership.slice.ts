@@ -49,7 +49,7 @@ type MembershipState = {
 };
 
 const initialQuery: MembershipListQuery = {
-  limit: 20,
+  limit: 10,
   page: 1,
 };
 
@@ -75,7 +75,7 @@ const initialState: MembershipState = {
   loadingMore: false,
   mutationError: null,
   mutationLoading: false,
-  pagination: { hasMore: false, limit: 20, page: 1, totalPages: 0 },
+  pagination: { hasMore: false, limit: 10, page: 1, totalPages: 0 },
   query: initialQuery,
   refreshing: false,
   total: 0,
@@ -115,7 +115,7 @@ const mergeMemberships = (existingItems: Membership[], incomingItems: Membership
 };
 
 const getPagination = (query: MembershipListQuery, total: number) => {
-  const limit = Math.max(1, query.limit ?? 20);
+  const limit = Math.max(1, query.limit ?? 10);
   const page = Math.max(1, query.page ?? 1);
   const totalPages = Math.ceil(total / limit);
 

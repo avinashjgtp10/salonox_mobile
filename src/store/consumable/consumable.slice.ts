@@ -54,7 +54,7 @@ type ConsumableState = {
 };
 
 const initialQuery: ConsumableListQuery = {
-  limit: 20,
+  limit: 10,
   page: 1,
   search: "",
   sortBy: "name",
@@ -63,7 +63,7 @@ const initialQuery: ConsumableListQuery = {
 
 const initialPagination: ConsumableListPagination = {
   hasMore: false,
-  limit: 20,
+  limit: 10,
   page: 1,
   totalPages: 0,
   totalRecords: 0,
@@ -78,7 +78,7 @@ const initialKpis: ConsumableKpis = {
 };
 
 const initialUsageHistoryQuery: ConsumableUsageHistoryQuery = {
-  limit: 20,
+  limit: 10,
   page: 1,
 };
 

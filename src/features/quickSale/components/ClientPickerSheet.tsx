@@ -61,7 +61,7 @@ export function ClientPickerSheet({
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pagination, setPagination] = useState({ hasMore: true, limit: 20, nextOffset: 0, offset: 0 });
+  const [pagination, setPagination] = useState({ hasMore: true, limit: 10, nextOffset: 0, offset: 0 });
   const [reloadKey, setReloadKey] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
   const [newFirstName, setNewFirstName] = useState("");
@@ -86,7 +86,7 @@ export function ClientPickerSheet({
     const search = trimmedQuery;
     const queryPayload = {
       inactive: false,
-      limit: 20,
+      limit: 10,
       offset,
       search,
       sort_by: "created_at",

@@ -51,7 +51,7 @@ type AppointmentState = {
 };
 
 const initialQuery: AppointmentListQuery = {
-  limit: 20,
+  limit: 10,
   page: 1,
   search: "",
   sort_by: "scheduled_at",
@@ -60,7 +60,7 @@ const initialQuery: AppointmentListQuery = {
 
 const initialPagination: AppointmentListPagination = {
   hasMore: true,
-  limit: 20,
+  limit: 10,
   nextPage: 1,
   page: 0,
   totalCount: 0,

@@ -43,7 +43,7 @@ export const useStaffDetails = (staffId?: string | null) => {
 
     void dispatch(
       fetchStaffAddressesThunk({
-        limit: addressListState?.query.limit ?? 20,
+        limit: addressListState?.query.limit ?? 10,
         page: 1,
         refresh: true,
         staffId,
@@ -51,7 +51,7 @@ export const useStaffDetails = (staffId?: string | null) => {
     );
     void dispatch(
       fetchEmergencyContactsThunk({
-        limit: emergencyContactListState?.query.limit ?? 20,
+        limit: emergencyContactListState?.query.limit ?? 10,
         page: 1,
         refresh: true,
         staffId,
@@ -71,7 +71,7 @@ export const useStaffDetails = (staffId?: string | null) => {
 
     void dispatch(
       fetchStaffAddressesThunk({
-        limit: addressListState?.query.limit ?? 20,
+        limit: addressListState?.query.limit ?? 10,
         page: 1,
         reset: true,
         staffId,
@@ -79,7 +79,7 @@ export const useStaffDetails = (staffId?: string | null) => {
     );
     void dispatch(
       fetchEmergencyContactsThunk({
-        limit: emergencyContactListState?.query.limit ?? 20,
+        limit: emergencyContactListState?.query.limit ?? 10,
         page: 1,
         reset: true,
         staffId,
