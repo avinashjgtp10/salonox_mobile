@@ -6,6 +6,7 @@ import { Pagination, Loader } from "../../../components/ui";
 import WalletBreakdownModal from "../components/WalletBreakdownModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/ClientLoyaltyPage.scss";
 
 interface LoyaltyClientRow {
@@ -161,7 +162,7 @@ export default function ClientLoyaltyPage() {
               <tr key={r.id} className="loyalty-row" onClick={() => setSelectedClientId(r.id)}>
                 <td className="fw-semibold">{r.name}</td>
                 <td>
-                  <div>{r.phone || "—"}</div>
+                  <div>{maskMobile(r.phone) || "—"}</div>
                   {r.email && <div className="loyalty-email">{r.email}</div>}
                 </td>
                 <td className="fw-semibold">{money(r.walletBalance)}</td>
