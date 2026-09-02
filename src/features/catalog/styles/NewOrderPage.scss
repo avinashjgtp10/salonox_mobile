@@ -6,8 +6,14 @@
 .new-order-page {
   // AddSupplierPage's body is capped at 640px and centered for a short
   // single-column form — this page needs real width for the line-items
-  // table plus room for the summary sidebar alongside it.
-  &__body {
+  // table plus room for the summary sidebar alongside it. Both classes live
+  // on the same element (see NewOrderPage.tsx), so this compound selector
+  // outranks .add-supplier-page__body's single-class one on specificity —
+  // a plain &__body here has equal specificity to that rule, and which one
+  // wins then depends on final bundled CSS order, which doesn't reliably
+  // follow this file's own import position once the stylesheet is shared
+  // across multiple pages (also imported by OrderDetailPage, SupplierDetailPage).
+  &__body.add-supplier-page__body {
     max-width: 1400px;
     display: flex;
     align-items: flex-start;
@@ -26,10 +32,19 @@
     color: #667085;
     font-size: 13.5px;
   }
+}
 
-  // Denser scale than AddSupplierPage's default form — this form has 6+
-  // sections plus a line-items table, so the roomier single-field spacing
-  // that suits a short supplier form reads as oversized here.
+// Denser scale than AddSupplierPage's default form — this form has 6+
+// sections plus a line-items table, so the roomier single-field spacing
+// that suits a short supplier form reads as oversized here.
+//
+// Compound selector (both classes — the root element carries both, see
+// NewOrderPage.tsx) rather than plain `.new-order-page`: a single-class
+// ancestor here would tie on specificity with AddSupplierPage.scss's own
+// `.add-supplier-page .form-section h3` etc., and the winner would then
+// depend on final bundled CSS order rather than deliberately overriding —
+// see the note on &__body above for the same issue.
+.new-order-page.add-supplier-page {
   .form-section h3 {
     font-size: 15px;
     margin-bottom: 16px;
