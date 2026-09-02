@@ -442,10 +442,6 @@ export default function MembershipDetailsScreen() {
       </ScrollView>
 
       <View style={[styles.stickyActions, { paddingBottom: insets.bottom + 12 }]}>
-        <TouchableOpacity activeOpacity={0.88} onPress={() => router.push(`/memberships/${membership.id}/edit` as Href)} style={styles.primaryAction}>
-          <Ionicons name="create-outline" size={17} color="#FFFFFF" />
-          <Text style={styles.primaryActionText}>Edit Membership</Text>
-        </TouchableOpacity>
         <TouchableOpacity activeOpacity={0.88} onPress={() => setConfirmDelete(true)} style={styles.dangerAction}>
           {deletingIds.includes(membership.id) ? <ActivityIndicator color={Colors.error} /> : <Ionicons name="trash-outline" size={17} color={Colors.error} />}
         </TouchableOpacity>
@@ -620,8 +616,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   stateTitle: { color: Colors.heading, fontSize: 19, fontWeight: "900", marginTop: Spacing.md, textAlign: "center" },
   stateText: { color: Colors.text2, fontSize: 13, lineHeight: 20, marginTop: Spacing.sm, textAlign: "center" },
   stickyActions: { alignItems: "center", backgroundColor: Colors.card, borderTopColor: Colors.border, borderTopWidth: 1, flexDirection: "row", gap: Spacing.sm, left: 0, paddingHorizontal: Spacing.lg, paddingTop: Spacing.md, position: "absolute", right: 0, bottom: 0 },
-  primaryAction: { alignItems: "center", backgroundColor: Colors.primary, borderRadius: Radius.full, flex: 1, flexDirection: "row", gap: 8, justifyContent: "center", minHeight: 50 },
-  primaryActionText: { color: "#FFFFFF", fontSize: 13, fontWeight: "900" },
   dangerAction: { alignItems: "center", backgroundColor: Colors.errorBg, borderRadius: Radius.full, height: 50, justifyContent: "center", width: 50 },
   secondaryAction: { alignItems: "center", backgroundColor: Colors.bg2, borderRadius: Radius.full, height: 50, justifyContent: "center", width: 50 },
   toast: { alignSelf: "center", backgroundColor: Colors.heading, borderRadius: Radius.full, paddingHorizontal: Spacing.lg, paddingVertical: 12, position: "absolute" },
