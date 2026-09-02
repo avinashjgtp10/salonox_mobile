@@ -183,7 +183,7 @@ export const checkoutSaleThunk = createAsyncThunk<
     const response = await salesService.checkoutSale(saleId, payload);
     const currentQuery = getState().sales.query;
 
-    // A checkout is a definitive completion event — keep the Sales History list
+    // A checkout is a definitive completion event — keep the Sales Summary list
     // and summary in sync even if that screen isn't currently mounted.
     void dispatch(
       fetchSalesThunk({
