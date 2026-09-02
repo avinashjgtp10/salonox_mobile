@@ -248,6 +248,7 @@ export interface ProductAuditItem {
   product_id: string;
   product_name: string;
   sku: string | null;
+  measure_unit: string | null;
   category: string | null;
   system_qty: number;
   physical_qty: number | null;
@@ -359,8 +360,8 @@ export interface Order {
   status: OrderStatus;
   supplier_id: string;
   supplier_name?: string;
-  bill_to_branch_id: string | null;
-  ship_to_branch_id: string | null;
+  delivery_address: string | null;
+  delivery_instructions: string | null;
   order_date: string;
   remark: string | null;
   ref_number: string | null;
@@ -391,8 +392,8 @@ export interface CreateOrderItemPayload {
 export interface CreateOrderPayload {
   status?: "draft" | "sent";
   supplier_id: string;
-  bill_to_branch_id?: string;
-  ship_to_branch_id?: string;
+  delivery_address?: string;
+  delivery_instructions?: string;
   order_date?: string;
   remark?: string;
   ref_number?: string;

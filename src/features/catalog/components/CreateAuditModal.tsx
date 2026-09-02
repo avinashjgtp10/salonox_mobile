@@ -10,11 +10,18 @@ import { selectAllStaff, selectUserProfile } from "../../../store/selectors/slic
 
 interface Props {
   defaultBranchId: string;
+  branches: { id: string; name: string }[];
   onClose: () => void;
   onCreate: (draft: { name: string; branch: string; notes: string; auditorId: string }) => void | Promise<void>;
 }
 
-export default function CreateAuditModal({ defaultBranchId, onClose, onCreate }: Props) {
+const todayLabel = () => {
+  const d = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
+};
+
+export default function CreateAuditModal({ defaultBranchId, branches, onClose, onCreate }: Props) {
   const dispatch = useDispatch<AppDispatch>();
   const staff = useSelector(selectAllStaff);
   const userProfile = useSelector(selectUserProfile);
@@ -22,6 +29,10 @@ export default function CreateAuditModal({ defaultBranchId, onClose, onCreate }:
   const [name, setName] = useState("");
   const [notes, setNotes] = useState("");
   const [auditorId, setAuditorId] = useState("");
+  // Which location this audit is being conducted at — defaults to the same
+  // branch ProductAuditPage was already silently using, just user-visible
+  // and changeable now instead of fixed.
+  const [branchId, setBranchId] = useState(defaultBranchId);
   const [touched, setTouched] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -43,14 +54,20 @@ export default function CreateAuditModal({ defaultBranchId, onClose, onCreate }:
     [staff],
   );
 
-  const error = useMemo(() => (name.trim() === "" ? "Enter an audit name" : null), [name]);
+  const branchOptions = useMemo(() => branches.map((b) => ({ id: b.id, name: b.name })), [branches]);
+
+  const error = useMemo(() => (
+    name.trim() === "" ? "Enter an audit name"
+      : !branchId ? "Select a location"
+      : null
+  ), [name, branchId]);
 
   const submit = async () => {
     setTouched(true);
     if (error) return;
     setSaving(true);
     try {
-      await onCreate({ name: name.trim(), branch: defaultBranchId, notes: notes.trim(), auditorId });
+      await onCreate({ name: name.trim(), branch: branchId, notes: notes.trim(), auditorId });
     } finally {
       setSaving(false);
     }
@@ -71,21 +88,54 @@ export default function CreateAuditModal({ defaultBranchId, onClose, onCreate }:
         </div>
       }
     >
-      <Input
-        label="Audit name"
-        placeholder="e.g. Monthly Audit — Hair Care"
-        value={name}
-        onChange={(e) => { setName(e.target.value); setTouched(true); }}
-      />
-      {touched && error && <div className="paudit-field-err">{error}</div>}
+      <h3 className="paudit-modal-section-title">Audit Details</h3>
 
-      <label className="paudit-label mt-3">Auditor</label>
-      <Dropdown
-        value={auditorId}
-        options={staffOptions}
-        placeholder="Select staff member"
-        onChange={setAuditorId}
-      />
+      <div className="paudit-field-row-2">
+        <div>
+          <Input
+            label="Audit name"
+            placeholder="e.g. Monthly Audit — Hair Care"
+            value={name}
+            onChange={(e) => { setName(e.target.value); setTouched(true); }}
+          />
+          {touched && name.trim() === "" && <div className="paudit-field-err">Enter an audit name</div>}
+        </div>
+        <div>
+          <label className="paudit-label">Audit date</label>
+          {/* Audits are conducted "now" — there's no separate as-of date to
+              set, this just mirrors what created_at will be. */}
+          <input className="paudit-textarea" style={{ resize: "none" }} value={todayLabel()} readOnly disabled />
+        </div>
+      </div>
+
+      <div className="paudit-field-row-2 mt-3">
+        <div>
+          <label className="paudit-label">Audit by</label>
+          <Dropdown
+            value={auditorId}
+            options={staffOptions}
+            placeholder="Select staff member"
+            onChange={setAuditorId}
+          />
+        </div>
+        <div>
+          <label className="paudit-label">Location <span className="paudit-req">*</span></label>
+          <Dropdown
+            value={branchId}
+            options={branchOptions}
+            placeholder="Select location"
+            onChange={setBranchId}
+          />
+          {touched && !branchId && <div className="paudit-field-err">Select a location</div>}
+        </div>
+      </div>
+
+      <div className="paudit-field-row-2 mt-3">
+        <div>
+          <label className="paudit-label">Status</label>
+          <span className="paudit-status-static">In Progress</span>
+        </div>
+      </div>
 
       <label className="paudit-label mt-3">Notes <span className="paudit-optional">(optional)</span></label>
       <textarea

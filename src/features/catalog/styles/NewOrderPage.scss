@@ -1,29 +1,81 @@
+// ── "+ Add Supplier" popup ──────────────────────────────────────────────────
+// Centered modal, not the right-edge slide-over Suppliers List/Detail use for
+// their own Add/Edit Supplier (.supplier-panel-overlay/.supplier-panel in
+// SuppliersListPage.scss) — deliberately a different treatment here.
+.supplier-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1800;
+  background: rgba(15, 23, 42, 0.32);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.supplier-modal-box {
+  width: 720px;
+  max-width: 100%;
+  height: 85vh;
+  max-height: 780px;
+  background: #fff;
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+  overflow: hidden;
+  animation: supplierModalPopIn 0.15s ease-out;
+}
+
+@keyframes supplierModalPopIn {
+  from { opacity: 0; transform: scale(0.97); }
+  to { opacity: 1; transform: scale(1); }
+}
+
 // Base topbar/body/form-section/field-group/input styling all comes from
 // .add-supplier-page (AddSupplierPage.scss, imported by NewOrderPage.tsx) —
 // this file only covers what's unique to the order form: the wider body
 // needed for the line-items table, the supplier-details readout, the locked
 // PO field, order summary, and the line-items table itself.
 .new-order-page {
-  // AddSupplierPage's body is capped at 640px and centered for a short
-  // single-column form — this page needs real width for the line-items
-  // table plus room for the summary sidebar alongside it. Both classes live
-  // on the same element (see NewOrderPage.tsx), so this compound selector
-  // outranks .add-supplier-page__body's single-class one on specificity —
-  // a plain &__body here has equal specificity to that rule, and which one
-  // wins then depends on final bundled CSS order, which doesn't reliably
-  // follow this file's own import position once the stylesheet is shared
-  // across multiple pages (also imported by OrderDetailPage, SupplierDetailPage).
+  // Went 1400 -> 1050 -> 960 -> 720px chasing "too big" complaints about the
+  // *field* sections (Supplier/Order Details/Shipping), back when this page
+  // still had a summary sidebar. Once the sidebar was removed and the fields
+  // moved to dense field-row-3 grids, 720px stopped being about the fields
+  // and started strangling the line-items table instead: at 720px the 6
+  // numeric columns (Qty/Unit Cost/Disc./Tax/Total/Action) get ~65-70px
+  // each, not enough room for a bordered number input plus a "%" suffix
+  // without everything looking crushed. A horizontal-scroll wrapper on just
+  // the table was the planned escape valve for that, but ProductSearchSelect's
+  // suggestion dropdown is position:absolute and gets clipped by any
+  // scrolling ancestor (see the note on .new-order-table-wrap below), so
+  // that's not actually usable here. 900px is the resolution: still well
+  // short of the old 1400px sidebar-era width and under Suppliers' own
+  // 960px form, but wide enough that the table's numeric columns land at a
+  // legible ~80-135px each instead of ~65px. Both classes live on the same
+  // element (see NewOrderPage.tsx), so this compound selector outranks
+  // .add-supplier-page__body's single-class one on specificity — a plain
+  // &__body here has equal specificity to that rule, and which one wins then
+  // depends on final bundled CSS order, which doesn't reliably follow this
+  // file's own import position once the stylesheet is shared across
+  // multiple pages (also imported by OrderDetailPage, SupplierDetailPage).
   &__body.add-supplier-page__body {
-    max-width: 1400px;
-    display: flex;
-    align-items: flex-start;
-    gap: 24px;
+    max-width: 900px;
     padding: 28px 24px 60px;
   }
 
+  // The form-section cards are children of __main, not __body directly (see
+  // NewOrderPage.tsx) — the flex/gap that spaces them apart has to live
+  // here, not on __body, or it has only one child (__main itself) to apply
+  // to and the cards stack with zero space between them.
   &__main {
-    flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    // Section-to-section spacing now comes from this gap instead of
+    // .section-divider lines, same reasoning as AddSupplierPage's own
+    // bordered-card sections — a divider between two already-bordered boxes
+    // is redundant. Tighter than Suppliers' 20px to suit this page's denser
+    // scale (6+ sections plus a line-items table).
+    gap: 16px;
   }
 
   &__loading {
@@ -45,13 +97,16 @@
 // depend on final bundled CSS order rather than deliberately overriding —
 // see the note on &__body above for the same issue.
 .new-order-page.add-supplier-page {
+  // Same bordered-card .form-section as AddSupplierPage now (border/
+  // background/radius from the base rule) — just a touch tighter padding to
+  // suit this page's denser scale (6+ sections plus a line-items table).
+  .form-section {
+    padding: 16px 20px;
+  }
+
   .form-section h3 {
     font-size: 15px;
     margin-bottom: 16px;
-  }
-
-  .section-divider {
-    margin: 20px 0;
   }
 
   .field-group {
@@ -74,87 +129,9 @@
     }
   }
 
-  .field-row-2 {
+  .field-row-2,
+  .field-row-3 {
     gap: 12px;
-  }
-}
-
-// ── Right-hand Order Summary sidebar ────────────────────────────────────────
-// Sticky so the running total/quick-info stays visible while the form
-// scrolls — this is the one part of the page that benefits from staying in
-// view the whole time the user is adding line items.
-.new-order-sidebar {
-  width: 260px;
-  flex-shrink: 0;
-  position: sticky;
-  top: 0;
-
-  h3 {
-    font-size: 13.5px;
-    font-weight: 700;
-    color: #111827;
-    margin: 0 0 12px;
-  }
-}
-
-.new-order-sidebar-card {
-  border: 1px solid #eaecf0;
-  border-radius: 10px;
-  padding: 16px;
-  background: #fff;
-  text-align: center;
-  margin-bottom: 14px;
-
-  .new-order-sidebar-illustration {
-    width: 44px;
-    height: 44px;
-    margin: 0 auto 10px;
-    border-radius: 12px;
-    background: #f3f0ff;
-    color: #6c27be;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  &--empty {
-    p {
-      font-size: 12.5px;
-      font-weight: 600;
-      color: #344054;
-      margin: 0 0 4px;
-    }
-    span {
-      font-size: 11px;
-      color: #98a2b3;
-    }
-  }
-}
-
-.new-order-quickinfo {
-  border: 1px solid #eaecf0;
-  border-radius: 10px;
-  padding: 14px 16px;
-  background: #fff;
-
-  h4 {
-    font-size: 11.5px;
-    font-weight: 700;
-    color: #344054;
-    margin: 0 0 10px;
-  }
-
-  &__row {
-    display: flex;
-    justify-content: space-between;
-    padding: 6px 0;
-    font-size: 12px;
-    color: #667085;
-    border-bottom: 1px solid #f3f4f6;
-
-    &:last-child { border-bottom: none; }
-
-    span:last-child { color: #101828; font-weight: 600; }
   }
 }
 
@@ -221,25 +198,6 @@
   color: #98a2b3;
 }
 
-// ── 3. Delivery details ─────────────────────────────────────────────────────
-.new-order-field-with-add {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-
-  > *:first-child { flex: 1; min-width: 0; }
-}
-
-// Rendered via the shared Button component (variant="outline-dark") — this
-// just pins it to a fixed square instead of Button's default padded shape,
-// since it's an icon-only "+" next to a Dropdown, not a labeled action.
-.new-order-add-btn.btn {
-  width: 38px;
-  height: 38px;
-  padding: 0;
-  flex-shrink: 0;
-}
-
 // ── 4. Order items table ────────────────────────────────────────────────────
 // No horizontal scroll wrapper here (unlike PurchaseHistoryListPage's
 // read-only table) — ProductSearchSelect's suggestion dropdown is
@@ -262,15 +220,19 @@
   th { white-space: nowrap; }
   td { vertical-align: middle; position: relative; }
 
-  // Product / SKU / Qty / Unit Cost / Discount / Tax / Total / (remove)
-  th:nth-child(1), td:nth-child(1) { width: 26%; }
-  th:nth-child(2), td:nth-child(2) { width: 12%; }
-  th:nth-child(3), td:nth-child(3) { width: 9%; }
-  th:nth-child(4), td:nth-child(4) { width: 13%; }
-  th:nth-child(5), td:nth-child(5) { width: 12%; }
-  th:nth-child(6), td:nth-child(6) { width: 9%; }
-  th:nth-child(7), td:nth-child(7) { width: 13%; }
-  th:nth-child(8), td:nth-child(8) { width: 6%; }
+  // Product / Qty / Unit Cost / Discount / Tax / Total / (remove) — SKU
+  // column removed; these are tied to column POSITION (nth-child), not name,
+  // so every rule after the removed column had to shift up one slot too.
+  // Percentages of the 900px body (see &__body.add-supplier-page__body
+  // above) — Qty/Disc./Tax land around 75-95px, enough for a number input
+  // plus its "%" suffix without the crushed look the old 720px page gave.
+  th:nth-child(1), td:nth-child(1) { width: 30%; }
+  th:nth-child(2), td:nth-child(2) { width: 9%; }
+  th:nth-child(3), td:nth-child(3) { width: 15%; }
+  th:nth-child(4), td:nth-child(4) { width: 11%; }
+  th:nth-child(5), td:nth-child(5) { width: 9%; }
+  th:nth-child(6), td:nth-child(6) { width: 16%; }
+  th:nth-child(7), td:nth-child(7) { width: 10%; }
 
   &__product { min-width: 0; }
   &__readonly { color: #475467; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -291,27 +253,19 @@
   }
 }
 
-.new-order-input-suffix {
-  font-size: 12px;
-  color: #98a2b3;
-  margin-left: 4px;
-}
+// The picked product's name, standing in for ProductSearchSelect's input
+// once a product is chosen — clicking it swaps back to the search box (see
+// editingProductKey in NewOrderPage.tsx) instead of a separate "Change" button.
+.new-order-product-name-clickable {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+  font-size: 13px;
+  color: #101828;
 
-.new-order-selected-product {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-
-  button {
-    background: none;
-    border: none;
-    color: #6366f1;
-    font-size: 12px;
-    cursor: pointer;
-    padding: 0;
-    white-space: nowrap;
-  }
+  &:hover { color: #6366f1; text-decoration: underline; }
 }
 
 .new-order-remove-line {

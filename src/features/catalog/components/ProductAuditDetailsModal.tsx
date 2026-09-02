@@ -341,13 +341,14 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                   <th className="paudit-num">System Qty</th>
                   <th className="paudit-num">Physical Qty</th>
                   <th className="paudit-num">Difference</th>
+                  <th>UOM</th>
                   <th>Reason</th>
                   {editable && <th style={{ width: 40 }} />}
                 </tr>
               </thead>
               <tbody>
                 {effectiveItems.length === 0 ? (
-                  <tr><td colSpan={editable ? 6 : 5} className="paudit-empty">No products added to this audit yet.</td></tr>
+                  <tr><td colSpan={editable ? 7 : 6} className="paudit-empty">No products added to this audit yet.</td></tr>
                 ) : (
                   effectiveItems.map((p) => {
                     const d = diffOf(p.system_qty, p.physical_qty);
@@ -387,6 +388,7 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
                             </span>
                           )}
                         </td>
+                        <td>{p.measure_unit || "—"}</td>
                         <td>
                           {editable ? (
                             <input

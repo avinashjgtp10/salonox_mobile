@@ -13,10 +13,19 @@ interface DatePickerPanelProps {
   /** "YYYY-MM-DD" bounds — days outside them are disabled, as is Today when it falls outside. */
   min?: string;
   max?: string;
-  /** Called after a pick, and on outside-click/Escape. Only meaningful for
-   *  the standalone panel — DatePicker handles its own dismissal. */
+  /** Called after a pick, and on outside-click/Escape (unless
+   *  manageDismissal is false). Only meaningful for the standalone panel —
+   *  DatePicker handles its own dismissal. */
   onClose?: () => void;
   className?: string;
+  /** Set false when a wrapping component already owns outside-click/Escape
+   *  dismissal (see DatePicker below) — otherwise this panel's own listener
+   *  and the wrapper's fire on the same click: mousedown closes it (the
+   *  panel sees the trigger button as "outside" itself), then the trigger's
+   *  own click handler immediately reopens it, so a second click on the
+   *  trigger can never actually close the panel. Defaults true so every
+   *  other (standalone) caller is unaffected. */
+  manageDismissal?: boolean;
 }
 
 interface DatePickerProps extends Omit<DatePickerPanelProps, "onClose"> {
@@ -60,7 +69,7 @@ function getGridDays(year: number, month0: number): { iso: string; outside: bool
  * which wraps this in a trigger + popover.
  */
 export function DatePickerPanel({
-  value, onChange, min, max, onClose, className = "",
+  value, onChange, min, max, onClose, className = "", manageDismissal = true,
 }: DatePickerPanelProps) {
   const today = toISO(new Date());
   const seed = value || today;
@@ -69,7 +78,7 @@ export function DatePickerPanel({
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!onClose) return;
+    if (!onClose || !manageDismissal) return;
     const onDocClick = (e: MouseEvent) => {
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) onClose();
     };
@@ -80,7 +89,7 @@ export function DatePickerPanel({
       document.removeEventListener("mousedown", onDocClick);
       document.removeEventListener("keydown", onEscape);
     };
-  }, [onClose]);
+  }, [onClose, manageDismissal]);
 
   // Wide enough to cover birthdays at one end and future expiries at the
   // other, then widened further if min/max reach past it.
@@ -243,6 +252,7 @@ export default function DatePicker({
           min={min}
           max={max}
           onClose={() => setOpen(false)}
+          manageDismissal={false}
           className={`dp-panel--anchored${alignRight ? " dp-panel--anchored-right" : ""}`}
         />
       )}

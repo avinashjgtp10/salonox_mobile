@@ -351,6 +351,7 @@ export default function ProductAuditPage() {
       {createOpen && defaultBranchId && (
         <CreateAuditModal
           defaultBranchId={defaultBranchId}
+          branches={branches}
           onClose={() => setCreateOpen(false)}
           onCreate={handleCreate}
         />

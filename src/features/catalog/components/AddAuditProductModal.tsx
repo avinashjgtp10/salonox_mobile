@@ -3,8 +3,10 @@ import { Search } from "react-bootstrap-icons";
 import Modal from "../../../components/ui/Modal";
 import Button from "../../../components/ui/Button";
 import Input from "../../../components/ui/Input";
+import { Dropdown } from "../../../components/ui/Dropdown";
 import api from "../../../services/api/axios";
 import { PRODUCTS } from "../../../services/api/endpoints/products.endpoints";
+import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 
 interface CatalogRow {
   id: string;
@@ -13,7 +15,10 @@ interface CatalogRow {
   product_type: string | null;
   amount: number | null;
   bottle_size: number | null;
+  measure_unit: string | null;
 }
+
+interface Option { id: string; name: string }
 
 interface Props {
   existingProductIds: string[];
@@ -36,6 +41,10 @@ const packQty = (p: CatalogRow) => {
 export default function AddAuditProductModal({ existingProductIds, onClose, onAdd }: Props) {
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [categoryId, setCategoryId] = useState("");
+  const [brandId, setBrandId] = useState("");
+  const [categories, setCategories] = useState<Option[]>([]);
+  const [brands, setBrands] = useState<Option[]>([]);
   const [rows, setRows] = useState<CatalogRow[]>([]);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -50,10 +59,22 @@ export default function AddAuditProductModal({ existingProductIds, onClose, onAd
     return () => clearTimeout(t);
   }, [search]);
 
-  // A new search term restarts pagination from page 1 — otherwise the
-  // infinite-scroll effect below would append page 2+ of the OLD term's
-  // results onto the new term's page 1.
-  useEffect(() => { setPage(1); }, [debouncedSearch]);
+  // Reuses Product Inventory's filter-options endpoint — scoped to retail
+  // products, so a consumable-only category/brand won't show up here, but
+  // it covers the common case without needing a new catalog-wide endpoint.
+  useEffect(() => {
+    api.get(INVENTORY.PRODUCT_INVENTORY_FILTER_OPTIONS)
+      .then((res) => {
+        setCategories(res.data?.data?.categories ?? []);
+        setBrands(res.data?.data?.brands ?? []);
+      })
+      .catch(() => { /* filters just stay empty — search-by-name still works */ });
+  }, []);
+
+  // A new search term/filter restarts pagination from page 1 — otherwise the
+  // infinite-scroll effect below would append page 2+ of the OLD results
+  // onto the new filter's page 1.
+  useEffect(() => { setPage(1); }, [debouncedSearch, categoryId, brandId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -61,7 +82,14 @@ export default function AddAuditProductModal({ existingProductIds, onClose, onAd
     // The full product catalog (all types — retail, consumable, both), not
     // the retail-only Product Inventory endpoint, so consumable-only
     // products like a colour tube are still reachable here.
-    api.get(PRODUCTS.LIST, { params: { search: debouncedSearch || undefined, page, pageSize: PAGE_SIZE } })
+    api.get(PRODUCTS.LIST, {
+      params: {
+        search: debouncedSearch || undefined,
+        category_id: categoryId || undefined,
+        brand_id: brandId || undefined,
+        page, pageSize: PAGE_SIZE,
+      },
+    })
       .then((res) => {
         if (cancelled) return;
         const data: CatalogRow[] = res.data?.data?.data ?? [];
@@ -71,7 +99,7 @@ export default function AddAuditProductModal({ existingProductIds, onClose, onAd
       .catch(() => { if (!cancelled && page === 1) setRows([]); })
       .finally(() => { if (!cancelled) { setLoading(false); setLoadingMore(false); } });
     return () => { cancelled = true; };
-  }, [debouncedSearch, page]);
+  }, [debouncedSearch, categoryId, brandId, page]);
 
   const available = useMemo(
     () => rows.filter((p) => !existingProductIds.includes(p.id)),
@@ -122,6 +150,28 @@ export default function AddAuditProductModal({ existingProductIds, onClose, onAd
         </div>
       }
     >
+      <div className="paudit-field-row-2 mb-3">
+        <div>
+          <label className="paudit-label">Select Category</label>
+          <Dropdown
+            value={categoryId}
+            options={categories}
+            placeholder="Select category..."
+            onChange={setCategoryId}
+            allowNone
+          />
+        </div>
+        <div>
+          <label className="paudit-label">Select Brand</label>
+          <Dropdown
+            value={brandId}
+            options={brands}
+            placeholder="Select brand..."
+            onChange={setBrandId}
+            allowNone
+          />
+        </div>
+      </div>
       <Input
         containerClass="mb-3"
         type="text"
@@ -144,6 +194,7 @@ export default function AddAuditProductModal({ existingProductIds, onClose, onAd
                   <span className="name">{p.name}</span>
                   <span className="sub">
                     {p.barcode || "—"} · {p.product_type || "—"} · System Qty: {packQty(p)}
+                    {p.measure_unit ? ` ${p.measure_unit}` : ""}
                   </span>
                 </div>
               </label>
