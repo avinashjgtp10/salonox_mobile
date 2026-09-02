@@ -1,0 +1,85 @@
+import { lazy, Suspense } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+import PermissionGuard from "../components/guards/PermissionGuard";
+
+const SuppliersListPage = lazy(
+  () => import("../features/catalog/pages/SuppliersListPage"),
+);
+const AddSupplierPage = lazy(
+  () => import("../features/catalog/pages/AddSupplierPage"),
+);
+const SupplierDetailPage = lazy(
+  () => import("../features/catalog/pages/SupplierDetailPage"),
+);
+const NewOrderPage = lazy(
+  () => import("../features/catalog/pages/NewOrderPage"),
+);
+const OrdersListPage = lazy(
+  () => import("../features/catalog/pages/OrdersListPage"),
+);
+const OrderDetailPage = lazy(
+  () => import("../features/catalog/pages/OrderDetailPage"),
+);
+const ConsumableInventoryPage = lazy(
+  () => import("../features/catalog/pages/ConsumableInventoryPage"),
+);
+// Retail-stock counterpart to Consumable Inventory above.
+const ProductInventoryPage = lazy(
+  () => import("../features/catalog/pages/ProductInventoryPage"),
+);
+const ConsumableUsageHistoryPage = lazy(
+  () => import("../features/catalog/pages/ConsumableUsageHistoryPage"),
+);
+// Same form used by Catalog's Products create/edit — see CatalogRoutes.
+const ProductFormPage = lazy(
+  () => import("../features/catalog/pages/ProductFormPage"),
+);
+const ProductAuditPage = lazy(
+  () => import("../features/catalog/pages/ProductAuditPage"),
+);
+const StockLedgerPage = lazy(
+  () => import("../features/catalog/pages/StockLedgerPage"),
+);
+const AddStockPage = lazy(
+  () => import("../features/catalog/pages/AddStockPage"),
+);
+
+import { PageLoader } from "../components/ui";
+
+export const InventoryRoutes = () => (
+  <Suspense fallback={<PageLoader />}>
+    <Routes>
+      {/* Default: inventory index → suppliers */}
+      <Route index element={<Navigate to="/dashboard/inventory/suppliers" replace />} />
+
+      {/* manage_inventory required for every inventory screen, read or write */}
+      <Route element={<PermissionGuard permKey="manage_inventory" />}>
+        {/* Orders is its own concept (a PO document, no stock movement) —
+            sibling to Purchase History rather than an alias for it. */}
+        <Route path="orders" element={<OrdersListPage />} />
+        <Route path="orders/new-order" element={<NewOrderPage />} />
+        <Route path="orders/:id/edit" element={<NewOrderPage />} />
+        <Route path="orders/:id" element={<OrderDetailPage />} />
+        <Route path="suppliers" element={<SuppliersListPage />} />
+        <Route path="suppliers/new" element={<AddSupplierPage />} />
+        <Route path="suppliers/edit/:id" element={<AddSupplierPage />} />
+        <Route path="suppliers/:id/edit" element={<AddSupplierPage />} />
+        <Route path="suppliers/:id" element={<SupplierDetailPage />} />
+        <Route path="products" element={<ProductInventoryPage />} />
+        <Route path="audit" element={<ProductAuditPage />} />
+        <Route path="consumables" element={<ConsumableInventoryPage />} />
+        <Route path="consumables/add" element={<ProductFormPage />} />
+        <Route path="consumables/edit/:id" element={<ProductFormPage />} />
+        <Route path="consumables/usage-history" element={<ConsumableUsageHistoryPage />} />
+        <Route path="ledger" element={<StockLedgerPage />} />
+        <Route path="ledger/add-stock" element={<AddStockPage />} />
+        <Route path="ledger/edit/:id" element={<AddStockPage />} />
+        {/* Redesigned as Consumable Inventory — old URL kept working */}
+        <Route path="stock-reconciliation" element={<Navigate to="/dashboard/inventory/consumables" replace />} />
+      </Route>
+
+      {/* Catch-all → suppliers */}
+      <Route path="*" element={<Navigate to="/dashboard/inventory/suppliers" replace />} />
+    </Routes>
+  </Suspense>
+);

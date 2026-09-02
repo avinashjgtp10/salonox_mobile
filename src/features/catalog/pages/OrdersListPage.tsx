@@ -145,7 +145,7 @@ const OrdersListPage: React.FC = () => {
 
   const handleClearSearch = () => setSearch("");
 
-  const goToNewOrder = () => navigate("/dashboard/catalog/inventory/orders/new-order");
+  const goToNewOrder = () => navigate("/dashboard/inventory/orders/new-order");
 
   const remainingByItem = useMemo(() => {
     const map = new Map<string, number>();
@@ -367,7 +367,7 @@ const OrdersListPage: React.FC = () => {
                             className="orders-kebab-item"
                             onClick={() => {
                               setOpenRowMenuId(null);
-                              navigate(`/dashboard/catalog/inventory/orders/${o.id}/edit`);
+                              navigate(`/dashboard/inventory/orders/${o.id}/edit`);
                             }}
                           >
                             <PencilSquare size={14} /> Edit

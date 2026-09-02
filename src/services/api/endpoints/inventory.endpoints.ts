@@ -7,11 +7,6 @@ export const INVENTORY = {
   STOCK_MOVEMENTS: "/api/v1/inventory/stock-movements",
   MOVEMENT_BY_ID: (id: string) => `/api/v1/inventory/stock-movements/${id}`,
 
-  STOCK_TAKES: "/api/v1/inventory/stock-takes",
-  STOCK_TAKE_BY_ID: (id: string) => `/api/v1/inventory/stock-takes/${id}`,
-
-  PROCESS_STOCK_TAKE: "/api/v1/inventory/stock-take",
-
   // Back-bar consumption totals per product — read-only, powers the
   // Consumable Usage report (the editable reconciliation page it was built
   // for is gone; that URL now redirects to Consumable Inventory).

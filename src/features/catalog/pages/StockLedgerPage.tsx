@@ -275,7 +275,7 @@ export default function StockLedgerPage() {
           <Button variant="outline-dark" iconLeft={<Sliders2Vertical size={14} />} onClick={() => setAdjustOpen(true)}>
             Stock Adjustment
           </Button>
-          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={() => navigate("/dashboard/catalog/inventory/ledger/add-stock")}>
+          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={() => navigate("/dashboard/inventory/ledger/add-stock")}>
             Add Stock
           </Button>
         </div>
@@ -375,7 +375,7 @@ export default function StockLedgerPage() {
                           </BsDropdown.Toggle>
                           <BsDropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "160px" }}>
                             <BsDropdown.Item
-                              onClick={() => navigate(`/dashboard/catalog/inventory/ledger/edit/${r.id}`)}
+                              onClick={() => navigate(`/dashboard/inventory/ledger/edit/${r.id}`)}
                               className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
                             >
                               <PencilSquare size={14} /> Edit
@@ -466,8 +466,8 @@ export default function StockLedgerPage() {
 
 // ── Transaction Detail drawer ─────────────────────────────────────────────────
 // Right-side slide-in panel — same overlay+slide structure as
-// OrderDetailsDrawer/StocktakeDetailsDrawer (this app's established pattern
-// for row-click detail views), rather than a centered modal.
+// OrderDetailsDrawer (this app's established pattern for row-click detail
+// views), rather than a centered modal.
 function TransactionDetailDrawer({ row, isOpen, onClose }: { row: LedgerRow | null; isOpen: boolean; onClose: () => void }) {
   if (!row) return null;
   const isIn = IN_TYPES.has(row.transaction_type);

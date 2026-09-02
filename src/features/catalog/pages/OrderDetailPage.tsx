@@ -52,7 +52,7 @@ const OrderDetailPage: React.FC = () => {
     try {
       await dispatch(deleteOrderThunk(id)).unwrap();
       showSuccess("Order deleted successfully");
-      navigate("/dashboard/catalog/inventory/orders");
+      navigate("/dashboard/inventory/orders");
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't delete order");
       setDeleting(false);

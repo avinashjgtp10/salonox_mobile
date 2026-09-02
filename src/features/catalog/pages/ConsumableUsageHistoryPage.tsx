@@ -95,7 +95,7 @@ const ConsumableUsageHistoryPage: React.FC = () => {
     <div className="ci-page">
       <div className="ci-header">
         <div>
-          <button className="ci-back-link" onClick={() => navigate("/dashboard/catalog/inventory/consumables")}>
+          <button className="ci-back-link" onClick={() => navigate("/dashboard/inventory/consumables")}>
             <ArrowLeft size={14} /> Back to Consumable Inventory
           </button>
           <h1 className="ci-header__title">Usage History</h1>
