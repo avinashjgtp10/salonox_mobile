@@ -21,7 +21,13 @@ import { KeyboardAwareScrollView, type KeyboardAwareScrollViewHandle } from "@/c
 import { COUNTRIES, CountryCodePickerModal, type Country } from "@/components/ui/PhoneInput";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, getApiErrorMessage } from "@/services/api";
-import { EMAIL_INVALID_MESSAGE, isValidEmail } from "@/utils/validation";
+import {
+  EMAIL_INVALID_MESSAGE,
+  isValidEmail,
+  PHONE_DIGIT_COUNT,
+  PHONE_INVALID_MESSAGE,
+  sanitizePhoneDigits,
+} from "@/utils/validation";
 import { resolveLoginRoute } from "@/utils/routeResolver";
 
 type LoginMode = "email" | "mobile";
@@ -92,7 +98,7 @@ export default function LoginScreen() {
   };
 
   const handleIdentifierChange = (value: string) => {
-    setIdentifier(mode === "mobile" ? value.replace(/\D/g, "").slice(0, 15) : value);
+    setIdentifier(mode === "mobile" ? sanitizePhoneDigits(value) : value);
     setFailedLoginAttempts(0);
     clearFeedback();
   };
@@ -107,8 +113,8 @@ export default function LoginScreen() {
       setFormError(EMAIL_INVALID_MESSAGE);
       return;
     }
-    if (mode === "mobile" && !isValidPhoneNumber(internationalMobile)) {
-      setFormError(`Please enter a valid ${selectedCountry.name} mobile number.`);
+    if (mode === "mobile" && (normalizedMobile.length !== PHONE_DIGIT_COUNT || !isValidPhoneNumber(internationalMobile))) {
+      setFormError(PHONE_INVALID_MESSAGE);
       return;
     }
 
@@ -181,6 +187,7 @@ export default function LoginScreen() {
                   autoComplete={mode === "email" ? "email" : "tel"}
                   autoCorrect={false}
                   keyboardType={mode === "email" ? "email-address" : "phone-pad"}
+                  maxLength={mode === "mobile" ? PHONE_DIGIT_COUNT : undefined}
                   onChangeText={handleIdentifierChange}
                   onFocus={() => setActiveKeyboardFieldRef(identifierInputRef)}
                   onSubmitEditing={() => passwordInputRef.current?.focus()}

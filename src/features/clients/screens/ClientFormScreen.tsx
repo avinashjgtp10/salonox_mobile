@@ -48,7 +48,7 @@ import {
 } from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
-import { EMAIL_INVALID_MESSAGE, isValidEmail, PHONE_INVALID_MESSAGE } from "@/utils/validation";
+import { EMAIL_INVALID_MESSAGE, isValidEmail, PHONE_DIGIT_COUNT, PHONE_INVALID_MESSAGE } from "@/utils/validation";
 import { splitFullName } from "@/utils/name";
 
 const GENDER_OPTIONS = ["Female", "Male", "Other"] as const;
@@ -248,7 +248,8 @@ export default function NewClientScreen() {
       return;
     }
 
-    if (!isValidPhoneNumber(trimmedPhone)) {
+    const parsedPhone = isValidPhoneNumber(trimmedPhone) ? parsePhoneNumber(trimmedPhone) : null;
+    if (!parsedPhone || parsedPhone.nationalNumber.length !== PHONE_DIGIT_COUNT) {
       setPhoneError(PHONE_INVALID_MESSAGE);
       return;
     }

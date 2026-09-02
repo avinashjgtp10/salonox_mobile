@@ -301,7 +301,7 @@ export default function CatalogScreen() {
 
         <View style={styles.summaryRow}>
           <View style={styles.summaryTile}><Text style={styles.summaryLabel}>Total {TABS.find((tab) => tab.key === activeTab)?.label}</Text><Text style={styles.summaryValue}>{itemsByTab[activeTab].length}</Text></View>
-          <View style={styles.summaryTile}><Text style={styles.summaryLabel}>Catalog Value</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.summaryValue}>{formatMoney(totalValue)}</Text></View>
+          <View style={styles.summaryTile}><Text style={styles.summaryLabel}>{activeTab === "memberships" ? "Membership Value" : "Catalog Value"}</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.summaryValue}>{formatMoney(totalValue)}</Text></View>
         </View>
 
         <View style={styles.toolbar}>

@@ -1,4 +1,4 @@
-import { isValidPhoneNumber } from "libphonenumber-js";
+import { isValidPhoneNumber, parsePhoneNumber } from "libphonenumber-js";
 
 import type {
   EmergencyContactFormValues,
@@ -18,6 +18,14 @@ import {
 
 const isPresent = (value: unknown) =>
   typeof value === "string" ? value.trim().length > 0 : value !== undefined && value !== null;
+
+const isValidTenDigitPhone = (value: string) => {
+  if (!isValidPhoneNumber(value)) {
+    return false;
+  }
+
+  return parsePhoneNumber(value).nationalNumber.length === 10;
+};
 
 const result = (errors: Record<string, string>): ValidationResult => ({
   errors,
@@ -56,7 +64,7 @@ export const validateStaffForm = (
 
   if (!isPresent(values.phone)) {
     errors.phone = "Contact number is required.";
-  } else if (!isValidPhoneNumber(values.phone!)) {
+  } else if (!isValidTenDigitPhone(values.phone!)) {
     errors.phone = PHONE_INVALID_MESSAGE;
   }
 

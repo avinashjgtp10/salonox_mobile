@@ -23,7 +23,9 @@ import {
   isValidPersonName,
   isValidPhoneDigits,
   PERSON_NAME_INVALID_MESSAGE,
+  PHONE_DIGIT_COUNT,
   PHONE_INVALID_MESSAGE,
+  sanitizePhoneDigits,
 } from "@/utils/validation";
 
 const normalizePhoneForCompare = (value: string) => value.replace(/\D/g, "");
@@ -247,9 +249,9 @@ export function ClientPickerSheet({
             <Text style={styles.inputLabel}>Phone Number*</Text>
             <TextInput
               keyboardType="phone-pad"
-              maxLength={16}
+              maxLength={PHONE_DIGIT_COUNT}
               onChangeText={(value) => {
-                setNewPhone(value);
+                setNewPhone(sanitizePhoneDigits(value));
                 setFormErrors((current) => ({ ...current, form: undefined, phone: undefined }));
               }}
               placeholder="Phone number"
