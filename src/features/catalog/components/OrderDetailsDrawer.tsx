@@ -93,7 +93,7 @@ const OrderDetailsDrawer: React.FC<OrderDetailsDrawerProps> = ({ orderId, isOpen
           <div className="header-actions">
             <button
               className="edit-btn"
-              onClick={() => { navigate(`/dashboard/catalog/inventory/orders/${orderId}/edit`); onClose(); }}
+              onClick={() => { navigate(`/dashboard/inventory/orders/${orderId}/edit`); onClose(); }}
             >
               <Pencil size={13} /> Edit
             </button>

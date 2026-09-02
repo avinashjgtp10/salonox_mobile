@@ -15,6 +15,7 @@ import DeploymentBanner from "./DeploymentBanner";
 import DashboardSidebar from "./DashboardSidebar";
 import OnlineBookingSubSidebar from "./OnlineBookingSubSidebar";
 import CatalogSubSidebar from "./CatalogSubSidebar";
+import InventorySubSidebar from "./InventorySubSidebar";
 import ClientsSubSidebar from "./ClientsSubSidebar";
 import MarketingSubSidebar from "./MarketingSubSidebar";
 import TeamSubSidebar from "./TeamSubSidebar";
@@ -24,6 +25,7 @@ import AutoOpenCounterForNewAccount from "../../cash-management/components/AutoO
 function detectOpenMenu(pathname: string): string | null {
   if (pathname.startsWith("/dashboard/clients")) return "clients";
   if (pathname.startsWith("/dashboard/catalog")) return "catalog";
+  if (pathname.startsWith("/dashboard/inventory")) return "inventory";
   if (pathname.startsWith("/dashboard/online-booking")) return "onlineBooking";
   if (pathname.startsWith("/dashboard/marketing")) return "marketing";
   if (pathname.startsWith("/dashboard/team")) return "team";
@@ -106,6 +108,9 @@ export default function DashboardLayout() {
         {openMenu === "catalog" && (
           <CatalogSubSidebar onClose={() => setOpenMenu(null)} />
         )}
+        {openMenu === "inventory" && (
+          <InventorySubSidebar onClose={() => setOpenMenu(null)} />
+        )}
         {openMenu === "onlineBooking" && (
           <OnlineBookingSubSidebar onClose={() => setOpenMenu(null)} />
         )}
@@ -116,7 +121,7 @@ export default function DashboardLayout() {
           <TeamSubSidebar onClose={() => setOpenMenu(null)} />
         )}
 
-        <main className={`main ${openMenu === "team" ? "shifted--team" : openMenu === "marketing" ? "shifted--marketing" : openMenu === "clients" ? "shifted--clients" : openMenu === "catalog" ? "shifted--catalog" : openMenu ? "shifted" : ""} ${location.pathname === "/dashboard/calendar" ? "main--calendar" : ""} ${location.pathname.startsWith("/dashboard/marketing/inbox") ? "main--inbox" : ""} ${location.pathname === "/dashboard/clients/history" ? "main--history" : ""} ${isFlushPage ? "main--flush" : ""}`}>
+        <main className={`main ${openMenu === "team" ? "shifted--team" : openMenu === "marketing" ? "shifted--marketing" : openMenu === "clients" ? "shifted--clients" : openMenu === "catalog" ? "shifted--catalog" : openMenu === "inventory" ? "shifted--inventory" : openMenu ? "shifted" : ""} ${location.pathname === "/dashboard/calendar" ? "main--calendar" : ""} ${location.pathname.startsWith("/dashboard/marketing/inbox") ? "main--inbox" : ""} ${location.pathname === "/dashboard/clients/history" ? "main--history" : ""} ${isFlushPage ? "main--flush" : ""}`}>
           <Suspense fallback={<PageLoader />}>
             <Outlet />
           </Suspense>

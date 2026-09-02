@@ -128,8 +128,8 @@ const SuppliersListPage: React.FC = () => {
 
   const handleClearSearch = () => setSearch("");
 
-  const goToAddSupplier = () => navigate("/dashboard/catalog/inventory/suppliers/new");
-  const goToEditSupplier = (id: string) => navigate(`/dashboard/catalog/inventory/suppliers/${id}/edit`);
+  const goToAddSupplier = () => navigate("/dashboard/inventory/suppliers/new");
+  const goToEditSupplier = (id: string) => navigate(`/dashboard/inventory/suppliers/${id}/edit`);
 
   const openPayout = (supplierId?: string) => {
     setPayoutSupplierId(supplierId);
@@ -256,7 +256,7 @@ const SuppliersListPage: React.FC = () => {
                 <tr
                   key={s.id}
                   style={{ cursor: "pointer" }}
-                  onClick={() => navigate(`/dashboard/catalog/inventory/suppliers/${s.id}`)}
+                  onClick={() => navigate(`/dashboard/inventory/suppliers/${s.id}`)}
                 >
                   <td className="supplier-name-cell">
                     <div className="supplier-icon"><Shop size={18} /></div>

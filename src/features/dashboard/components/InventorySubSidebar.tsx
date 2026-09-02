@@ -5,11 +5,11 @@ interface Props {
   onClose: () => void;
 }
 
-export default function CatalogSubSidebar({ onClose }: Props) {
+export default function InventorySubSidebar({ onClose }: Props) {
   return (
-    <div className="sub-sidebar sub-sidebar--catalog">
+    <div className="sub-sidebar sub-sidebar--inventory">
       <div className="sub-header">
-        <h3>Catalog</h3>
+        <h3>Inventory Management</h3>
 
         <button className="floating-close" onClick={onClose}>
           <ChevronLeft size={16} />
@@ -18,39 +18,52 @@ export default function CatalogSubSidebar({ onClose }: Props) {
 
       <div className="sub-sidebar-body">
         <NavLink
-          to="/dashboard/catalog/services"
+          to="/dashboard/inventory/suppliers"
           className={({ isActive }) =>
             isActive ? "sub-link active" : "sub-link"
           }
         >
-          Service menu
+          Suppliers
         </NavLink>
-
         <NavLink
-          to="/dashboard/catalog/products"
+          to="/dashboard/inventory/orders"
           className={({ isActive }) =>
             isActive ? "sub-link active" : "sub-link"
           }
         >
-          Products
+          Orders
         </NavLink>
-
         <NavLink
-          to="/dashboard/catalog/packages"
+          to="/dashboard/inventory/products"
           className={({ isActive }) =>
             isActive ? "sub-link active" : "sub-link"
           }
         >
-          Packages
+          Product Inventory
         </NavLink>
-
         <NavLink
-          to="/dashboard/catalog/memberships"
+          to="/dashboard/inventory/consumables"
           className={({ isActive }) =>
             isActive ? "sub-link active" : "sub-link"
           }
         >
-          Memberships
+          Consumable Inventory
+        </NavLink>
+        <NavLink
+          to="/dashboard/inventory/audit"
+          className={({ isActive }) =>
+            isActive ? "sub-link active" : "sub-link"
+          }
+        >
+          Product Audit
+        </NavLink>
+        <NavLink
+          to="/dashboard/inventory/ledger"
+          className={({ isActive }) =>
+            isActive ? "sub-link active" : "sub-link"
+          }
+        >
+          Stock Ledger
         </NavLink>
       </div>
     </div>

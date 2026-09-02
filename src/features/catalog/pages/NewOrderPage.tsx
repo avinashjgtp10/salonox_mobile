@@ -142,8 +142,7 @@ const NewOrderPage: React.FC = () => {
   const [signatures, setSignatures] = useState<{ id: string; url: string }[]>([]);
 
   // Quick-add-branch modal — Bill To/Ship To's "+" button. A lightweight
-  // form (not the full multi-step location picker AddStocktakePage.tsx
-  // uses), since here it's just a shortcut to avoid leaving the order form.
+  // form, since here it's just a shortcut to avoid leaving the order form.
   const [addBranchTarget, setAddBranchTarget] = useState<"billTo" | "shipTo" | null>(null);
   const [newBranchName, setNewBranchName] = useState("");
   const [newBranchAddress, setNewBranchAddress] = useState("");
@@ -380,7 +379,7 @@ const NewOrderPage: React.FC = () => {
             ? `Order ${order.order_number} saved as draft`
             : `Order ${order.order_number} created successfully`
       );
-      navigate("/dashboard/catalog/inventory/orders");
+      navigate("/dashboard/inventory/orders");
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't create order");
     } finally {
@@ -388,7 +387,7 @@ const NewOrderPage: React.FC = () => {
     }
   }
 
-  const handleClose = () => navigate("/dashboard/catalog/inventory/orders");
+  const handleClose = () => navigate("/dashboard/inventory/orders");
 
   if (loadingOrder) {
     return (

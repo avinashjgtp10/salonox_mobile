@@ -5,7 +5,7 @@ export const SPOTLIGHT_SEED_DATA: SpotlightFeature[] = [
     id: "spotlight-consumable-inventory",
     featureName: "Consumable Inventory",
     module: "Catalog → Inventory → Consumable Inventory",
-    moduleRoute: "/dashboard/catalog/inventory/consumables",
+    moduleRoute: "/dashboard/inventory/consumables",
     shortDescription:
       "Manage all consumable products used during salon services — stock, unit conversion, service assignment, and usage status.",
     whatIsThis:
@@ -24,7 +24,7 @@ export const SPOTLIGHT_SEED_DATA: SpotlightFeature[] = [
     id: "spotlight-purchase-history",
     featureName: "Purchase History",
     module: "Catalog → Inventory → Purchase History",
-    moduleRoute: "/dashboard/catalog/inventory/purchases",
+    moduleRoute: "/dashboard/inventory/purchases",
     shortDescription:
       "Every purchase recorded from Product Inventory, with its Supplier Number and line items, in one searchable list.",
     whatIsThis:
@@ -43,7 +43,7 @@ export const SPOTLIGHT_SEED_DATA: SpotlightFeature[] = [
     id: "spotlight-product-inventory",
     featureName: "Product Inventory",
     module: "Catalog → Inventory → Product Inventory",
-    moduleRoute: "/dashboard/catalog/inventory/products",
+    moduleRoute: "/dashboard/inventory/products",
     shortDescription:
       "Track retail stock and record new deliveries — purchased, sold, consumed, and available quantities in one view.",
     whatIsThis:
@@ -81,7 +81,7 @@ export const SPOTLIGHT_SEED_DATA: SpotlightFeature[] = [
     id: "spotlight-suppliers",
     featureName: "Suppliers",
     module: "Catalog → Inventory → Suppliers",
-    moduleRoute: "/dashboard/catalog/inventory/suppliers",
+    moduleRoute: "/dashboard/inventory/suppliers",
     shortDescription:
       "Add and manage supplier details — contact info, orders, and dues — all in one list.",
     whatIsThis:
@@ -100,7 +100,7 @@ export const SPOTLIGHT_SEED_DATA: SpotlightFeature[] = [
     id: "spotlight-purchase-orders",
     featureName: "Orders",
     module: "Catalog → Inventory → Orders",
-    moduleRoute: "/dashboard/catalog/inventory/orders",
+    moduleRoute: "/dashboard/inventory/orders",
     shortDescription:
       "Create and manage purchase orders sent to your suppliers, with status and quantity tracked in one list.",
     whatIsThis:

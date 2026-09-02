@@ -9,6 +9,7 @@ import { DashboardProviders } from "../providers/DashboardProviders";
 
 import { AppsRoutes } from "./AppsRoutes";
 import { CatalogRoutes } from "./CatalogRoutes";
+import { InventoryRoutes } from "./InventoryRoutes";
 import { ClientsRoutes } from "./ClientsRoutes";
 import { TeamRoutes } from "./TeamRoutes";
 import { SettingsRoutes } from "./SettingsRoutes";
@@ -98,6 +99,11 @@ export const DashboardRoutes = (
       {/* Catalog — requires view_catalog */}
       <Route element={<PermissionGuard permKey="view_catalog" />}>
         <Route path="catalog/*" element={<CatalogRoutes />} />
+      </Route>
+
+      {/* Inventory — requires view_inventory (moved out from under Catalog) */}
+      <Route element={<PermissionGuard permKey="view_inventory" />}>
+        <Route path="inventory/*" element={<InventoryRoutes />} />
       </Route>
 
       {/* Team — requires view_team */}
