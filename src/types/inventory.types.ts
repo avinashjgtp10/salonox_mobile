@@ -234,8 +234,11 @@ export interface UsageHistoryFilters {
 
 // ─── Product Audit ────────────────────────────────────────────────────────────
 // Count physical stock against system quantities and reconcile differences.
-// Read-only against real stock — this module never adjusts products.amount
-// or writes stock_movements; see product-audit.repository.ts on the backend.
+// Read-only against real stock right up until approval — Approve is the
+// moment the physical count becomes the official stock: the backend applies
+// every item's variance to products.amount and writes matching Stock Ledger
+// entries atomically with the status flip. See
+// product-audit.repository.ts#approveWithAdjustments on the backend.
 
 export type ProductAuditStatus = "in_progress" | "pending_review" | "complete" | "rejected";
 
@@ -362,7 +365,6 @@ export interface Order {
   remark: string | null;
   ref_number: string | null;
   payment_terms_days: number | null;
-  shipment_date: string | null;
   delivery_date: string | null;
   tax_type: OrderTaxType;
   tax_group: string | null;
@@ -395,7 +397,6 @@ export interface CreateOrderPayload {
   remark?: string;
   ref_number?: string;
   payment_terms_days?: number;
-  shipment_date?: string;
   delivery_date?: string;
   tax_type: OrderTaxType;
   tax_group?: string;

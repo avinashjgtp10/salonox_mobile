@@ -27,10 +27,9 @@ export const INVENTORY = {
   PRODUCT_INVENTORY: "/api/v1/inventory/product-inventory",
   PRODUCT_INVENTORY_FILTER_OPTIONS: "/api/v1/inventory/product-inventory/filter-options",
   PRODUCT_INVENTORY_HISTORY: "/api/v1/inventory/product-inventory/history",
-  PRODUCT_INVENTORY_STOCK_IN: (id: string) => `/api/v1/inventory/product-inventory/${id}/stock-in`,
 
   // Purchases — supplier deliveries recorded from the Product Inventory page's
-  // "Purchase" button. Saving hits PRODUCT_INVENTORY_PURCHASES once (supplier +
+  // "Receive Stock" button. Saving hits PRODUCT_INVENTORY_PURCHASES once (supplier +
   // every product line in one request); the response includes the generated
   // Supplier Number and the freshly recomputed inventory rows for the products
   // touched, so the table can patch itself without a follow-up GET.
