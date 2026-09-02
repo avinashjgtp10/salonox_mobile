@@ -2348,10 +2348,6 @@ function ServiceCatalogPicker({
             <Ionicons name="chevron-down" size={18} color={Colors.appointmentTextSecondary} />
           </TouchableOpacity>
           {staffError ? <Text style={styles.fieldError}>{staffError}</Text> : null}
-          <View style={styles.requestedStylistRow}>
-            <Text style={styles.requestedStylistLabel}>Requested Stylist</Text>
-            <Text style={styles.requestedStylistValue}>{selectedStaff?.name ?? "No Preferences"}</Text>
-          </View>
 
           <Text style={styles.servicePickerLabel}>Services</Text>
           <View style={styles.servicePickerSearch}>
@@ -7002,23 +6998,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   servicePickerSelectPlaceholder: {
     color: Colors.appointmentPlaceholder,
-  },
-  requestedStylistRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 20,
-    marginTop: 10,
-  },
-  requestedStylistLabel: {
-    color: Colors.appointmentTextSecondary,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  requestedStylistValue: {
-    color: Colors.appointmentAccent,
-    fontSize: 14,
-    fontWeight: "900",
-    textDecorationLine: "underline",
   },
   stylistModalBackdrop: {
     backgroundColor: "rgba(0,0,0,0.48)",

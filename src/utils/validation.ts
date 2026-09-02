@@ -30,13 +30,15 @@ export const CONFIRM_PASSWORD_MISMATCH_MESSAGE_GENERIC = "Confirm Password must 
 // (E.164's own max length), ignoring spaces/dashes the user may have typed.
 // This intentionally doesn't validate per-country rules; it only rejects
 // obviously-not-a-phone-number input (letters, too short/long strings).
-export const isValidPhoneDigits = (value: string) => {
-  const compact = value.trim().replace(/[\s-]/g, "");
+export const PHONE_DIGIT_COUNT = 10;
 
-  return /^\+?\d{7,15}$/.test(compact);
-};
+export const sanitizePhoneDigits = (value: string) =>
+  value.replace(/\D/g, "").slice(0, PHONE_DIGIT_COUNT);
 
-export const PHONE_INVALID_MESSAGE = "Please enter a valid phone number.";
+export const isValidPhoneDigits = (value: string) =>
+  new RegExp(`^\\d{${PHONE_DIGIT_COUNT}}$`).test(value.trim());
+
+export const PHONE_INVALID_MESSAGE = "Phone number must contain exactly 10 digits.";
 
 // Requires at least two letters (so single-initial or all-punctuation input
 // like "A" or "--" is rejected) and only allows characters real names use —

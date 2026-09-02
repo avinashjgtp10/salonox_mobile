@@ -98,6 +98,7 @@ import {
 
 import type { ThemeColors } from "@/constants/theme";
 import { useAppTheme } from "@/theme/ThemeProvider";
+import { PHONE_DIGIT_COUNT } from "@/utils/validation";
 
 const phoneExamples = require("libphonenumber-js/examples.mobile.json");
 
@@ -892,14 +893,15 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
     const parsed = parseE164(value);
     if (parsed) {
       setSelectedCountry(parsed.country);
-      setRawDigits(parsed.nationalDigits);
+      const nationalDigits = parsed.nationalDigits.slice(0, PHONE_DIGIT_COUNT);
+      setRawDigits(nationalDigits);
       // Format for display (we're not focused, safe to format).
       setDisplayValue(
-        formatNationalForDisplay(parsed.nationalDigits, parsed.country.code),
+        formatNationalForDisplay(nationalDigits, parsed.country.code),
       );
     } else {
       // Malformed E.164 — store digits anyway so data is not lost.
-      const fallbackDigits = digitsOnly(value);
+      const fallbackDigits = digitsOnly(value).slice(0, PHONE_DIGIT_COUNT);
       setRawDigits(fallbackDigits);
       setDisplayValue(fallbackDigits);
     }
@@ -938,22 +940,12 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
   const handleTextChange = useCallback(
     (text: string) => {
       // Accept text verbatim for display — no reformatting, no cursor interference.
-      setDisplayValue(text);
-
       // Derive pure digits for storage and E.164 computation.
       // Handles paste with spaces/dashes/brackets/country prefix.
       let digits = digitsOnly(text);
 
-      // If user pasted a full international number that starts with the dial code,
-      // strip the dial code so we store only the national part.
-      const dialDigits = digitsOnly(selectedCountry.dialCode);
-      if (
-        digits.startsWith(dialDigits) &&
-        digits.length > dialDigits.length
-      ) {
-        digits = digits.slice(dialDigits.length);
-      }
-
+      digits = digits.slice(0, PHONE_DIGIT_COUNT);
+      setDisplayValue(digits);
       setRawDigits(digits);
 
       const e164 = toE164(digits, selectedCountry);
@@ -1097,6 +1089,7 @@ export const PhoneInput = memo(forwardRef<TextInput, PhoneInputProps>(function P
           onFocus={handleFocus}
           onBlur={handleBlur}
           keyboardType="phone-pad"
+          maxLength={PHONE_DIGIT_COUNT}
           textContentType="telephoneNumber"
           autoComplete="tel"
           placeholder={placeholder}
