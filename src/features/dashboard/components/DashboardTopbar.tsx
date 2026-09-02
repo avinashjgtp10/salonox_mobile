@@ -14,7 +14,6 @@ import {
   ChevronRight,
   ChatDots,
   LockFill,
-  TelephoneFill,
   X,
   Wallet2,
   CashStack,
@@ -140,7 +139,10 @@ export default function DashboardTopbar({ onLogout }: Props) {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
-  const todayLabel = formatDateDDMMYYYY(now);
+  // Slash-separated, distinct from the app-wide dash-separated formatDateDDMMYYYY
+  // — this chip pairs the date with a time, so the dash would be ambiguous with
+  // the " / " joiner between them.
+  const todayLabel = formatDateDDMMYYYY(now).replace(/-/g, "/");
   const timeLabel = now.toLocaleTimeString("en-IN", {
     hour: "2-digit", minute: "2-digit", hour12: true,
   });
@@ -410,18 +412,14 @@ export default function DashboardTopbar({ onLogout }: Props) {
           <h2 className="brand">
             <img src={salonoxLogo} alt="SalonOX" className="brand-logo" width="122" height="61" />
           </h2>
-          <a href="tel:+919503302647" className="need-help-pill" title="Call for help">
-            <TelephoneFill size={12} className="need-help-icon" />
-            <span className="need-help-label">Need help?</span>
-            <span className="need-help-number">+91 95033 02647</span>
-          </a>
         </div>
 
         <div className="topbar-right">
 
           {/* Current date & time */}
-          <span className="topbar-date" title="Today's date">{todayLabel}</span>
-          <span className="topbar-time" title="Current time">{timeLabel}</span>
+          <span className="topbar-datetime" title="Today's date and time">
+            {todayLabel} . {timeLabel}
+          </span>
 
           {/* Notifications bell */}
           <div className="topbar-notif-wrap" ref={notifRef}>

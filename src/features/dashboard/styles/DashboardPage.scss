@@ -56,52 +56,9 @@ body {
 .topbar-left {
   display: flex;
   align-items: center;
-  // Zero gap here — .brand-logo's own PNG carries built-in right-side
-  // padding around the wordmark, so even a small flex gap reads as a large
-  // visual gap before .need-help-pill. Butting the two elements directly
-  // together (no gap, no margin) is what actually removes that space.
   gap: 0;
   min-width: 0;
   justify-content: flex-start;
-}
-
-// Compact helpline pill, next to the logo — same rounded-pill/border/shadow
-// language as .topbar-date and .topbar-time next to it on the right, so it
-// reads as an existing part of the topbar rather than a bolted-on banner.
-.need-help-pill {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1px solid $dashboard-border;
-  background: $dashboard-bg;
-  text-decoration: none;
-  white-space: nowrap;
-  flex-shrink: 0;
-  transition: border-color 0.15s ease, box-shadow 0.15s ease;
-
-  &:hover {
-    border-color: #14b8a6;
-    box-shadow: 0 2px 8px rgba(20, 184, 166, 0.12);
-  }
-
-  @media (max-width: 900px) {
-    display: none;
-  }
-}
-.need-help-icon { color: #14b8a6; flex-shrink: 0; }
-.need-help-label {
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  color: #14b8a6;
-  text-transform: uppercase;
-}
-.need-help-number {
-  font-size: 13px;
-  font-weight: 600;
-  color: $dashboard-primary;
 }
 
 .brand {
@@ -191,9 +148,8 @@ body {
   // intrinsic aspect ratio (1774x887, exactly 2:1) only needs ~122px of width
   // at this 61px height, so contain + object-position:left was leaving ~68px
   // of empty transparent space inside the box, to the right of the visible
-  // mark. That empty box space — not the flex gap next to it — was the real
-  // source of the large gap before .need-help-pill. Sizing to height + auto
-  // width makes the box match the rendered content exactly.
+  // mark. Sizing to height + auto width makes the box match the rendered
+  // content exactly.
   width: auto;
   max-width: 28vw;
   height: 61px;
@@ -228,22 +184,7 @@ body {
   }
 }
 
-.topbar-date {
-  font-size: 13px;
-  font-weight: 500;
-  color: #4b5563;
-  background: #f3f4f6;
-  padding: 4px 12px;
-  border-radius: 999px;
-  border: 1px solid #e5e7eb;
-  white-space: nowrap;
-
-  @media (max-width: 640px) {
-    display: none;
-  }
-}
-
-.topbar-time {
+.topbar-datetime {
   font-size: 13px;
   font-weight: 500;
   color: #4b5563;

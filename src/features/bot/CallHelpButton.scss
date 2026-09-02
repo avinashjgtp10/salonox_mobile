@@ -1,0 +1,115 @@
+$green: #1D9E75;
+$green-dark: #0F6E56;
+
+// ── Floating Button ───────────────────────────────────────────────────────────
+// Sits directly below .sbot-fab (which occupies bottom:86px / right:28px), same
+// right offset so the two stack in one column: 86 - 52 (fab height) - 12 (gap) = 22.
+.chelp-fab {
+  position: fixed;
+  bottom: 22px;
+  right: 28px;
+  z-index: 900; // matches .sbot-fab — kept below all modals (see SalonOxBot.scss)
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: $green;
+  color: #fff;
+  border: none;
+  cursor: grab;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.2s, background 0.2s;
+  box-shadow: 0 4px 20px rgba(29, 158, 117, 0.4);
+
+  &:active { cursor: grabbing; transform: scale(0.95); }
+
+  &:hover:not(:active) {
+    background: $green-dark;
+    transform: scale(1.06);
+  }
+
+  &--open {
+    background: #374151;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+    &:hover:not(:active) { background: #1f2937; }
+  }
+
+  &--dragged {
+    transition: background 0.2s;
+  }
+}
+
+// ── Expanded Panel ───────────────────────────────────────────────────────────
+// Opens to the left of .chelp-fab, not above it — the gap above the fab is
+// only 12px before it runs into .sbot-fab / .sbot-window stacked on top.
+.chelp-panel {
+  position: fixed;
+  bottom: 22px; // tracks .chelp-fab
+  right: 92px; // 28 (fab offset) + 52 (fab width) + 12 (gap)
+  z-index: 899;
+  width: 220px;
+  padding: 18px;
+  border-radius: 18px;
+  background: #ffffff;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15), 0 4px 16px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+
+  @media (max-width: 480px) {
+    right: 10px;
+    width: calc(100vw - 20px);
+  }
+}
+
+.chelp-panel-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1a202c;
+}
+
+.chelp-panel-sub {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+
+.chelp-panel-number {
+  font-size: 15px;
+  font-weight: 600;
+  color: $green-dark;
+  text-decoration: none;
+  margin-top: 12px;
+
+  &:hover {
+    color: $green-dark;
+    text-decoration: underline;
+  }
+}
+
+.chelp-panel-call {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  width: 100%;
+  margin-top: 14px;
+  padding: 9px 0;
+  border-radius: 24px;
+  background: $green;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s;
+
+  // Global `a:hover { color: #535bf2 }` in index.css outranks this on
+  // specificity (element+pseudo vs single class), so the label color must
+  // be re-asserted here or the text goes near-invisible on the green hover bg.
+  &:hover {
+    background: $green-dark;
+    color: #fff;
+  }
+}
