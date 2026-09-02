@@ -63,7 +63,7 @@ const MENU_ITEMS = [
     description: "Search, filter, and export completed and draft sales.",
     icon: "receipt-outline" as const,
     route: "/sales" as Href,
-    title: "Sales History",
+    title: "Sales Summary",
   },
   {
     description: "Track staff commissions and settle payments across your salon.",

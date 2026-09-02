@@ -26,7 +26,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 // screen owns local search/category filtering and reveals more of the
 // already-loaded array as the user scrolls, instead of using the generic
 // ReportScreen (which re-fetches from the network on every filter change).
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 const ALL_CATEGORY = "__all__";
 
 export default function ConsumableUsageReportScreen({ config }: { config: ReportConfig }) {

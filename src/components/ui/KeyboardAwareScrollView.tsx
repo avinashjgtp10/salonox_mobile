@@ -72,7 +72,7 @@ type FocusedInputFrame = {
 const FLOATING_BUTTON_SIZE = 44;
 const FLOATING_BUTTON_MARGIN = 12;
 const KEYBOARD_FOCUS_MEASURE_DELAYS_MS = [0, 80, 180];
-const KEYBOARD_NAVIGATION_MEASURE_DELAYS_MS = [45, 150];
+const KEYBOARD_NAVIGATION_MEASURE_DELAYS_MS = [0, 60, 160];
 
 const getCurrentlyFocusedInput = () =>
   (
@@ -157,18 +157,17 @@ export function useKeyboardAwareScrollView<
   const activeInputNodeRef = useRef<number | null>(null);
   const focusedInputFrameRef = useRef<FocusedInputFrame | null>(null);
   const activeInputRef = useRef<unknown>(null);
-  const isMeasuringRef = useRef(false);
+  const measurementRequestIdRef = useRef(0);
   const visibleNavigationFields = useMemo(
     () => keyboardNavigation?.fields.filter((field) => !field.disabled) ?? [],
     [keyboardNavigation?.fields],
   );
 
   const scrollToFocusedInput = useCallback(
-    (customKbHeight?: number) => {
-      const kbHeight = customKbHeight ?? keyboardHeightRef.current;
-      if (!scrollRef.current || kbHeight <= 0) return;
+    (customKbHeight?: number, inputOverride?: unknown) => {
+      if (!scrollRef.current) return;
 
-      const focusedInput = getFocusedNavigationInput(keyboardNavigation);
+      const focusedInput = inputOverride ?? getFocusedNavigationInput(keyboardNavigation);
 
       if (!focusedInput) return;
 
@@ -185,11 +184,26 @@ export function useKeyboardAwareScrollView<
       const inputNode = getInputNode(focusedInput);
 
       if (!inputNode) return;
+
       activeInputNodeRef.current = inputNode;
       setActiveInputNode(inputNode);
 
-      if (isMeasuringRef.current) return;
-      isMeasuringRef.current = true;
+      if (typeof (scrollResponder as any).scrollResponderScrollNativeHandleToKeyboard === "function") {
+        (scrollResponder as any).scrollResponderScrollNativeHandleToKeyboard(
+          inputNode,
+          extraScrollPadding,
+          true,
+        );
+      }
+
+      const reportedKeyboardHeight = customKbHeight ?? keyboardHeightRef.current;
+      const kbHeight = reportedKeyboardHeight > 0
+        ? reportedKeyboardHeight
+        : getKeyboardMetricsHeight();
+      if (kbHeight <= 0) return;
+
+      const measurementRequestId = measurementRequestIdRef.current + 1;
+      measurementRequestIdRef.current = measurementRequestId;
 
       const windowHeight = Dimensions.get("window").height;
 
@@ -267,7 +281,10 @@ export function useKeyboardAwareScrollView<
 
       Promise.all([measureScrollView, measureInput, measureContainer])
         .then(([{ sy, sh }, { ix, iy, iw, ih }, { cx, cy }]) => {
-          isMeasuringRef.current = false;
+          if (measurementRequestId !== measurementRequestIdRef.current) {
+            return;
+          }
+
           if (
             iy === undefined ||
             sy === undefined ||
@@ -320,9 +337,7 @@ export function useKeyboardAwareScrollView<
             }
           }
         })
-        .catch(() => {
-          isMeasuringRef.current = false;
-        });
+        .catch(() => undefined);
     },
     [extraScrollPadding, keyboardNavigation],
   );
@@ -395,7 +410,13 @@ export function useKeyboardAwareScrollView<
         setActiveInputNode(focusedNode);
 
         if (didFocusChange || !focusedInputFrameRef.current) {
-          scrollToFocusedInput();
+          KEYBOARD_NAVIGATION_MEASURE_DELAYS_MS.forEach((delay) => {
+            setTimeout(() => {
+              requestAnimationFrame(() => {
+                scrollToFocusedInput(undefined, focusedInput);
+              });
+            }, delay);
+          });
         }
         return;
       }
@@ -472,12 +493,27 @@ export function useKeyboardAwareScrollView<
 
   const handleKeyboardNavigationPress = useCallback(() => {
     if (nextNavigationField) {
-      nextNavigationField.ref.current?.focus();
+      const nextInput = nextNavigationField.ref.current;
+
+      if (!nextInput) {
+        return;
+      }
+
+      nextInput.focus();
+      activeInputRef.current = nextInput;
+      focusedInputFrameRef.current = null;
+
+      const nextInputNode = getInputNode(nextInput);
+      if (nextInputNode) {
+        activeInputNodeRef.current = nextInputNode;
+        setActiveInputNode(nextInputNode);
+        setFocusedInputFrame(null);
+      }
 
       KEYBOARD_NAVIGATION_MEASURE_DELAYS_MS.forEach((delay) => {
         setTimeout(() => {
           requestAnimationFrame(() => {
-            scrollToFocusedInput();
+            scrollToFocusedInput(undefined, nextInput);
           });
         }, delay);
       });

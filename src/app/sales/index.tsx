@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
-  Linking,
   Modal,
   Pressable,
   RefreshControl,
@@ -26,11 +25,10 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import { useAppToast } from "@/hooks/useAppToast";
-import { deleteSaleThunk, exportSalesThunk, fetchSalesSummaryThunk, fetchSalesThunk } from "@/middleware/sales/sales.thunk";
+import { deleteSaleThunk, fetchSalesSummaryThunk, fetchSalesThunk } from "@/middleware/sales/sales.thunk";
 import {
   selectSaleDeletingIds,
   selectSales,
-  selectSalesExporting,
   selectSalesListError,
   selectSalesListLoading,
   selectSalesListLoadingMore,
@@ -235,15 +233,12 @@ export default function SalesHistoryScreen() {
   const totalCount = useAppSelector(selectSalesTotalCount);
   const deletingSaleIds = useAppSelector(selectSaleDeletingIds);
   const summary = useAppSelector(selectSalesSummary);
-  const isExporting = useAppSelector(selectSalesExporting);
 
   const [activeFilter, setActiveFilter] = useState<SaleFilter>("All");
   const [isSortVisible, setIsSortVisible] = useState(false);
   const [query, setQuery] = useState("");
   const [sortOption, setSortOption] = useState<SaleSortOption>("Amount (High-Low)");
   const [debouncedQuery, setDebouncedQuery] = useState("");
-  const [isExportModalVisible, setIsExportModalVisible] = useState(false);
-  const [exportFormat, setExportFormat] = useState<"csv" | "excel" | "pdf">("csv");
   const sortQuery = useMemo(() => getSortQuery(sortOption), [sortOption]);
   const statusQuery = activeFilter === "All" ? undefined : activeFilter.toLowerCase();
 
@@ -258,7 +253,7 @@ export default function SalesHistoryScreen() {
   useEffect(() => {
     void dispatch(
       fetchSalesThunk({
-        limit: 20,
+        limit: 10,
         offset: 0,
         reset: true,
         search: debouncedQuery,
@@ -354,37 +349,6 @@ export default function SalesHistoryScreen() {
     );
   };
 
-  const handleExport = () => {
-    setIsExportModalVisible(true);
-  };
-
-  const handleConfirmExport = async () => {
-    const resultAction = await dispatch(
-      exportSalesThunk({ search: debouncedQuery, status: statusQuery, format: exportFormat }),
-    );
-
-    setIsExportModalVisible(false);
-
-    if (exportSalesThunk.rejected.match(resultAction)) {
-      Alert.alert(
-        "Unable to export sales",
-        getRejectedMessage(resultAction.payload, "Something went wrong. Please try again."),
-      );
-      return;
-    }
-
-    if (!resultAction.payload.url) {
-      Alert.alert("Export unavailable", resultAction.payload.message ?? "No export file was returned.");
-      return;
-    }
-
-    try {
-      await Linking.openURL(resultAction.payload.url);
-    } catch {
-      Alert.alert("Unable to open export", "The export link could not be opened on this device.");
-    }
-  };
-
   const isQueryActive = Boolean(query.trim()) || activeFilter !== "All";
   const showInitialLoading = salesLoading && sales.length === 0;
   const showErrorState = Boolean(salesError) && sales.length === 0 && !showInitialLoading;
@@ -431,19 +395,8 @@ export default function SalesHistoryScreen() {
                 <TouchableOpacity activeOpacity={0.8} hitSlop={AppLayout.headerActionHitSlop} onPress={handleBack} style={styles.backButton}>
                   <Ionicons name="arrow-back" size={18} color={Colors.primary} />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Sales History</Text>
-                <TouchableOpacity
-                  activeOpacity={0.8}
-                  disabled={isExporting}
-                  onPress={() => void handleExport()}
-                  style={styles.backButton}
-                >
-                  {isExporting ? (
-                    <ActivityIndicator color={Colors.primary} size="small" />
-                  ) : (
-                    <Ionicons name="download-outline" size={18} color={Colors.primary} />
-                  )}
-                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Sales Summary</Text>
+                <View style={styles.backButton} />
               </View>
               <View style={styles.summaryCard}>
                 <View style={styles.summaryMetric}>
@@ -568,46 +521,6 @@ export default function SalesHistoryScreen() {
                 </TouchableOpacity>
               );
             })}
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <Modal
-        animationType="fade"
-        onRequestClose={() => setIsExportModalVisible(false)}
-        transparent
-        visible={isExportModalVisible}
-      >
-        <Pressable onPress={() => setIsExportModalVisible(false)} style={styles.modalOverlay}>
-          <Pressable style={styles.exportSheet}>
-            <Text style={styles.exportSheetTitle}>Export Format</Text>
-            {[
-              { format: "csv" as const, label: "CSV", description: "Comma-separated values" },
-              { format: "excel" as const, label: "Excel", description: "Microsoft Excel spreadsheet" },
-              { format: "pdf" as const, label: "PDF", description: "Portable Document Format" },
-            ].map((option, index) => (
-              <TouchableOpacity
-                key={option.format}
-                activeOpacity={0.82}
-                onPress={() => {
-                  setExportFormat(option.format);
-                  handleConfirmExport();
-                }}
-                style={[styles.exportOptionRow, index > 0 && styles.exportOptionRowBorder]}
-              >
-                <View style={styles.exportOptionContent}>
-                  <Text style={[styles.exportOptionLabel, exportFormat === option.format && styles.exportOptionLabelActive]}>
-                    {option.label}
-                  </Text>
-                  <Text style={[styles.exportOptionDescription, exportFormat === option.format && styles.exportOptionDescriptionActive]}>
-                    {option.description}
-                  </Text>
-                </View>
-                {exportFormat === option.format ? (
-                  <Ionicons name="checkmark-circle" size={18} color={Colors.primary} />
-                ) : null}
-              </TouchableOpacity>
-            ))}
           </Pressable>
         </Pressable>
       </Modal>
@@ -992,47 +905,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "600",
   },
   sortOptionTextActive: {
-    color: Colors.primary,
-  },
-  exportSheet: {
-    backgroundColor: Colors.card,
-    borderRadius: Radius.xl,
-    paddingHorizontal: Spacing.lg,
-    paddingVertical: Spacing.md,
-  },
-  exportSheetTitle: {
-    color: Colors.heading,
-    fontSize: 16,
-    fontWeight: "800",
-    marginBottom: Spacing.sm,
-  },
-  exportOptionRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 14,
-  },
-  exportOptionRowBorder: {
-    borderTopColor: Colors.border,
-    borderTopWidth: 1,
-  },
-  exportOptionContent: {
-    flex: 1,
-  },
-  exportOptionLabel: {
-    color: Colors.heading,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  exportOptionLabelActive: {
-    color: Colors.primary,
-  },
-  exportOptionDescription: {
-    color: Colors.text2,
-    fontSize: 12,
-    marginTop: 2,
-  },
-  exportOptionDescriptionActive: {
     color: Colors.primary,
   },
 });

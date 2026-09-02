@@ -322,12 +322,10 @@ export const blockClientThunk = createAsyncThunk<
   BlockClientResponse,
   { clientId: string; reason?: string },
   { rejectValue: { message: string }; state: RootState }
->("client/blockClient", async ({ clientId, reason }, { dispatch, getState, rejectWithValue }) => {
+>("client/blockClient", async ({ clientId, reason }, { dispatch, rejectWithValue }) => {
   try {
     const response = await clientService.blockClient(clientId, reason);
 
-    void dispatch(fetchClientByIdThunk(clientId));
-    void dispatch(fetchClientsThunk({ ...getState().client.query, offset: 0, refresh: true, reset: true }));
     void dispatch(fetchDashboardThunk());
 
     return response;
@@ -341,12 +339,10 @@ export const updateBlockThunk = createAsyncThunk<
   BlockClientResponse,
   { clientId: string; reason: string },
   { rejectValue: { message: string }; state: RootState }
->("client/updateBlock", async ({ clientId, reason }, { dispatch, getState, rejectWithValue }) => {
+>("client/updateBlock", async ({ clientId, reason }, { dispatch, rejectWithValue }) => {
   try {
     const response = await clientService.updateBlockStatus(clientId, reason);
 
-    void dispatch(fetchClientByIdThunk(clientId));
-    void dispatch(fetchClientsThunk({ ...getState().client.query, offset: 0, refresh: true, reset: true }));
     void dispatch(fetchDashboardThunk());
 
     return response;
@@ -360,12 +356,10 @@ export const unblockClientThunk = createAsyncThunk<
   UnblockClientResponse,
   string,
   { rejectValue: { message: string }; state: RootState }
->("client/unblockClient", async (clientId, { dispatch, getState, rejectWithValue }) => {
+>("client/unblockClient", async (clientId, { dispatch, rejectWithValue }) => {
   try {
     const response = await clientService.unblockClient(clientId);
 
-    void dispatch(fetchClientByIdThunk(clientId));
-    void dispatch(fetchClientsThunk({ ...getState().client.query, offset: 0, refresh: true, reset: true }));
     void dispatch(fetchDashboardThunk());
 
     return response;

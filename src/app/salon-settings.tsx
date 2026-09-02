@@ -35,6 +35,7 @@ import {
   isValidEmail,
   isValidPhoneDigits,
   PHONE_INVALID_MESSAGE,
+  sanitizePhoneDigits,
 } from "@/utils/validation";
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
@@ -135,7 +136,7 @@ export default function SalonSettingsScreen() {
     if (!hasPrefilledRef.current && salon) {
       setBusinessName(salon.businessName || salon.name);
       setEmail(salon.email);
-      setPhone(salon.phone);
+      setPhone(sanitizePhoneDigits(salon.phone));
       setAddress(salon.address);
       setCity(salon.city);
       setPostalCode(salon.postalCode);
@@ -320,7 +321,7 @@ export default function SalonSettingsScreen() {
             <FormField
               keyboardType="phone-pad"
               label="Phone Number"
-              onChangeText={setPhone}
+              onChangeText={(value) => setPhone(sanitizePhoneDigits(value))}
               placeholder="Enter phone number"
               value={phone}
             />

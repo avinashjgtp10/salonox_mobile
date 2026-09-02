@@ -1435,7 +1435,7 @@ export default function QuickSaleScreen({
             saleId: completedSale.id,
           });
           setSubmitError(
-            "This sale's saved total doesn't match what was shown here, so it wasn't marked complete. Check Sales History before retrying.",
+            "This sale's saved total doesn't match what was shown here, so it wasn't marked complete. Check Sales Summary before retrying.",
           );
           return;
         }
@@ -1524,22 +1524,37 @@ export default function QuickSaleScreen({
           message: checkoutError instanceof Error ? checkoutError.message : "Unknown checkout error",
         });
         finishAsIncomplete(
-          "The payment was saved, but the sale could not be finalized automatically. Check Sales History for this client to finish it.",
+          "The payment was saved, but the sale could not be finalized automatically. Check Sales Summary for this client to finish it.",
         );
         return;
       }
 
-      // The backend independently recomputes and persists the appointment
-      // total — /pricing/calculate-totals stays the single source of truth
-      // for what this bill SHOULD be, but if what actually got saved
-      // diverges from that, the sale must not be presented as a normal
-      // success. Cent-based comparison absorbs ordinary independent-rounding
-      // drift without masking a real mismatch, which is always far larger
-      // than a single cent.
-      if (!amountsReconcile(checkout.appointment.total, paymentBody.net_amount)) {
+      // Appointment totals may represent the amount before payment-layer
+      // benefits such as membership discounts, wallets, package coverage,
+      // rewards, or referral credit. Verify the finalized sale/invoice total
+      // instead so valid benefits do not produce a false mismatch.
+      let finalizedSaleTotal: number | null = null;
+
+      if (checkout.saleId) {
+        const finalizedSaleAction = await dispatch(fetchSaleByIdThunk(checkout.saleId));
+
+        if (fetchSaleByIdThunk.fulfilled.match(finalizedSaleAction)) {
+          finalizedSaleTotal = finalizedSaleAction.payload.total;
+        } else {
+          console.warn("[Quick Sale] Unable to verify finalized sale total", {
+            appointmentId,
+            saleId: checkout.saleId,
+          });
+        }
+      }
+
+      if (
+        finalizedSaleTotal !== null &&
+        !amountsReconcile(finalizedSaleTotal, paymentBody.net_amount)
+      ) {
         console.error("[Quick Sale] Backend/local total mismatch after checkout", {
           appointmentId,
-          backendTotal: checkout.appointment.total,
+          backendTotal: finalizedSaleTotal,
           localTotal: paymentBody.net_amount,
           saleId: checkout.saleId,
         });
@@ -1547,9 +1562,9 @@ export default function QuickSaleScreen({
         // the payment/checkout already happened server-side, but the amount
         // it recorded doesn't match what this screen showed, so the sale is
         // deliberately left un-finalized (cart intact, checkout sheet open)
-        // until someone verifies it in Sales History.
+        // until someone verifies it in Sales Summary.
         setSubmitError(
-          "The payment was saved, but the finalized total didn't match what was shown here. Check Sales History before retrying — this sale was not marked complete.",
+          "The payment was saved, but the finalized total didn't match what was shown here. Check Sales Summary before retrying — this sale was not marked complete.",
         );
         return;
       }

@@ -378,7 +378,7 @@ export default function ClientsScreen() {
             : statusFilter === "Inactive"
               ? true
               : undefined,
-        limit: options.offset ? clientsPagination.limit : 20,
+        limit: options.offset ? clientsPagination.limit : 10,
         offset: options.offset ?? 0,
         refresh: options.refresh,
         reset: options.reset,

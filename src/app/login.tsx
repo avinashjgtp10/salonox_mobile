@@ -14,6 +14,7 @@ import {
   Text,
   TextInput,
   View,
+  findNodeHandle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -21,7 +22,13 @@ import { KeyboardAwareScrollView, type KeyboardAwareScrollViewHandle } from "@/c
 import { COUNTRIES, CountryCodePickerModal, type Country } from "@/components/ui/PhoneInput";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, getApiErrorMessage } from "@/services/api";
-import { EMAIL_INVALID_MESSAGE, isValidEmail } from "@/utils/validation";
+import {
+  EMAIL_INVALID_MESSAGE,
+  isValidEmail,
+  PHONE_DIGIT_COUNT,
+  PHONE_INVALID_MESSAGE,
+  sanitizePhoneDigits,
+} from "@/utils/validation";
 import { resolveLoginRoute } from "@/utils/routeResolver";
 
 type LoginMode = "email" | "mobile";
@@ -83,6 +90,33 @@ export default function LoginScreen() {
     clearError();
   };
 
+  const scrollLoginFieldIntoView = (input: TextInput | null) => {
+    const inputNode = input ? findNodeHandle(input) : null;
+    const scrollView = scrollViewRef.current as any;
+    const scrollResponder = scrollView?.getScrollResponder?.() ?? scrollView;
+
+    if (inputNode && typeof scrollResponder?.scrollResponderScrollNativeHandleToKeyboard === "function") {
+      scrollResponder.scrollResponderScrollNativeHandleToKeyboard(inputNode, 40, true);
+    }
+  };
+
+  const focusPasswordField = () => {
+    const passwordInput = passwordInputRef.current;
+
+    if (!passwordInput) {
+      return;
+    }
+
+    passwordInput.focus();
+    setActiveKeyboardFieldRef(passwordInputRef);
+
+    [0, 60, 160].forEach((delay) => {
+      setTimeout(() => {
+        requestAnimationFrame(() => scrollLoginFieldIntoView(passwordInput));
+      }, delay);
+    });
+  };
+
   const changeMode = (nextMode: LoginMode) => {
     setMode(nextMode);
     setIdentifier("");
@@ -92,7 +126,7 @@ export default function LoginScreen() {
   };
 
   const handleIdentifierChange = (value: string) => {
-    setIdentifier(mode === "mobile" ? value.replace(/\D/g, "").slice(0, 15) : value);
+    setIdentifier(mode === "mobile" ? sanitizePhoneDigits(value) : value);
     setFailedLoginAttempts(0);
     clearFeedback();
   };
@@ -107,8 +141,8 @@ export default function LoginScreen() {
       setFormError(EMAIL_INVALID_MESSAGE);
       return;
     }
-    if (mode === "mobile" && !isValidPhoneNumber(internationalMobile)) {
-      setFormError(`Please enter a valid ${selectedCountry.name} mobile number.`);
+    if (mode === "mobile" && (normalizedMobile.length !== PHONE_DIGIT_COUNT || !isValidPhoneNumber(internationalMobile))) {
+      setFormError(PHONE_INVALID_MESSAGE);
       return;
     }
 
@@ -180,15 +214,19 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                   autoComplete={mode === "email" ? "email" : "tel"}
                   autoCorrect={false}
+                  blurOnSubmit={false}
+                  enterKeyHint="next"
                   keyboardType={mode === "email" ? "email-address" : "phone-pad"}
+                  maxLength={mode === "mobile" ? PHONE_DIGIT_COUNT : undefined}
                   onChangeText={handleIdentifierChange}
                   onFocus={() => setActiveKeyboardFieldRef(identifierInputRef)}
-                  onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  onSubmitEditing={focusPasswordField}
                   placeholder={mode === "email" ? "Enter the registered email address" : "Enter the registered mobile number"}
                   placeholderTextColor="#A2A2A2"
                   ref={identifierInputRef}
                   returnKeyType="next"
                   style={styles.input}
+                  submitBehavior="submit"
                   textContentType={mode === "email" ? "emailAddress" : "telephoneNumber"}
                   value={identifier}
                 />
@@ -202,7 +240,10 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                   autoComplete="password"
                   onChangeText={(value) => { setPassword(value); clearFeedback(); }}
-                  onFocus={() => setActiveKeyboardFieldRef(passwordInputRef)}
+                  onFocus={() => {
+                    setActiveKeyboardFieldRef(passwordInputRef);
+                    requestAnimationFrame(() => scrollLoginFieldIntoView(passwordInputRef.current));
+                  }}
                   onSubmitEditing={handleLogin}
                   placeholder="Enter Password"
                   placeholderTextColor="#858585"

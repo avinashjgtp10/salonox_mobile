@@ -16,7 +16,6 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
-import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout } from "@/constants/layout";
 import { type ThemeColors } from "@/constants/theme";
 import { fetchConsumablesThunk } from "@/middleware/consumable/consumable.thunk";
@@ -161,7 +160,7 @@ export default function CatalogScreen() {
   const [packagesLoading, setPackagesLoading] = useState(false);
   const [packagesError, setPackagesError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [page, setPage] = useState(1);
+  const [visibleCount, setVisibleCount] = useState(CATALOG_PAGE_SIZE);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const loadPackages = useCallback(async () => {
@@ -204,19 +203,17 @@ export default function CatalogScreen() {
   }, [activeTab, itemsByTab, query]);
 
   useEffect(() => {
-    setPage(1);
+    setVisibleCount(CATALOG_PAGE_SIZE);
   }, [activeTab, query]);
 
-  const totalPages = Math.max(1, Math.ceil(visibleItems.length / CATALOG_PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const paginatedItems = useMemo(() => {
-    const start = (safePage - 1) * CATALOG_PAGE_SIZE;
-    return visibleItems.slice(start, start + CATALOG_PAGE_SIZE);
-  }, [safePage, visibleItems]);
+  const displayedItems = useMemo(
+    () => visibleItems.slice(0, visibleCount),
+    [visibleCount, visibleItems],
+  );
 
   const loading = activeTab === "services" ? servicesLoading : activeTab === "products" ? productState.loading : activeTab === "consumables" ? consumableState.loading : activeTab === "memberships" ? membershipsLoading : packagesLoading;
   const error = activeTab === "services" ? servicesError : activeTab === "products" ? productState.error : activeTab === "consumables" ? consumableState.error : activeTab === "memberships" ? membershipsError : packagesError;
-  const showPagination = !error && visibleItems.length > 0;
+  const showCatalog = !error && visibleItems.length > 0;
   const activeCount = itemsByTab[activeTab].filter((item) => item.isActive).length;
   const totalValue = itemsByTab[activeTab].reduce((total, item) => total + item.price, 0);
   const addRoute = activeTab === "consumables" ? "/consumables/new" : null;
@@ -251,7 +248,7 @@ export default function CatalogScreen() {
       }
 
       await loadCatalog(true);
-      setPage((current) => Math.min(current, Math.max(1, Math.ceil(Math.max(0, visibleItems.length - 1) / CATALOG_PAGE_SIZE))));
+      setVisibleCount((current) => Math.min(current, Math.max(CATALOG_PAGE_SIZE, visibleItems.length - 1)));
     } catch (error) {
       Alert.alert("Unable to delete", getApiErrorMessage(error));
     } finally {
@@ -275,7 +272,19 @@ export default function CatalogScreen() {
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
-      <ScrollView contentContainerStyle={styles.content} refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void refresh()} refreshing={refreshing} tintColor={Colors.primary} />} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={styles.content}
+        onScroll={({ nativeEvent }) => {
+          const distanceFromBottom = nativeEvent.contentSize.height - nativeEvent.layoutMeasurement.height - nativeEvent.contentOffset.y;
+
+          if (distanceFromBottom < 240 && visibleCount < visibleItems.length) {
+            setVisibleCount((current) => Math.min(current + CATALOG_PAGE_SIZE, visibleItems.length));
+          }
+        }}
+        refreshControl={<RefreshControl colors={[Colors.primary]} onRefresh={() => void refresh()} refreshing={refreshing} tintColor={Colors.primary} />}
+        scrollEventThrottle={200}
+        showsVerticalScrollIndicator={false}
+      >
         <View style={styles.header}>
           <AppBackButton onPress={goBack} />
           <Text style={styles.title}>Catalog</Text>
@@ -292,7 +301,7 @@ export default function CatalogScreen() {
 
         <View style={styles.summaryRow}>
           <View style={styles.summaryTile}><Text style={styles.summaryLabel}>Total {TABS.find((tab) => tab.key === activeTab)?.label}</Text><Text style={styles.summaryValue}>{itemsByTab[activeTab].length}</Text></View>
-          <View style={styles.summaryTile}><Text style={styles.summaryLabel}>Catalog Value</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.summaryValue}>{formatMoney(totalValue)}</Text></View>
+          <View style={styles.summaryTile}><Text style={styles.summaryLabel}>{activeTab === "memberships" ? "Membership Value" : "Catalog Value"}</Text><Text numberOfLines={1} adjustsFontSizeToFit style={styles.summaryValue}>{formatMoney(totalValue)}</Text></View>
         </View>
 
         <View style={styles.toolbar}>
@@ -310,33 +319,17 @@ export default function CatalogScreen() {
         {loading && itemsByTab[activeTab].length === 0 ? <View style={styles.state}><ActivityIndicator color={Colors.primary} size="large" /><Text style={styles.stateText}>Loading catalog...</Text></View> : null}
         {error && !loading ? <View style={styles.state}><Ionicons color={Colors.error} name="alert-circle-outline" size={32} /><Text style={styles.stateTitle}>Unable to load {activeTab}</Text><Text style={styles.stateText}>{error}</Text><TouchableOpacity onPress={() => void loadCatalog(true)} style={styles.retryButton}><Text style={styles.retryText}>Retry</Text></TouchableOpacity></View> : null}
         {!loading && !error && visibleItems.length === 0 ? <View style={styles.state}><Ionicons color={Colors.text2} name="file-tray-outline" size={34} /><Text style={styles.stateTitle}>No {activeTab} found</Text><Text style={styles.stateText}>Try another search or add an item from its management screen.</Text></View> : null}
-        {showPagination ? (
-          <>
-            <CatalogTable deletingId={deletingId} items={paginatedItems} onDelete={canDeleteActiveTab ? confirmDelete : undefined} />
-          </>
+        {showCatalog ? (
+          <CatalogTable deletingId={deletingId} items={displayedItems} onDelete={canDeleteActiveTab ? confirmDelete : undefined} />
         ) : null}
       </ScrollView>
-      {showPagination ? (
-        <View style={styles.paginationDock}>
-          <PaginationControls
-            currentPage={safePage}
-            hasNextPage={safePage < totalPages}
-            hasPreviousPage={safePage > 1}
-            onNext={() => setPage((current) => Math.min(totalPages, current + 1))}
-            onPrevious={() => setPage((current) => Math.max(1, current - 1))}
-            totalItems={visibleItems.length}
-            totalPages={totalPages}
-            visibleItems={paginatedItems.length}
-          />
-        </View>
-      ) : null}
     </SafeAreaView>
   );
 }
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   safeArea: { backgroundColor: Colors.bg, flex: 1 },
-  content: { paddingBottom: AppLayout.contentBottomPadding + 108 },
+  content: { paddingBottom: AppLayout.contentBottomPadding },
   header: { alignItems: "center", flexDirection: "row", minHeight: 66, paddingHorizontal: 16 },
   title: { color: Colors.heading, flex: 1, fontFamily: "serif", fontSize: 29, fontWeight: "800", marginLeft: 12 },
   tabsScroller: { borderBottomColor: Colors.border, borderBottomWidth: 1 },
@@ -374,18 +367,4 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   stateText: { color: Colors.text2, fontSize: 13, lineHeight: 20, marginTop: 8, textAlign: "center" },
   retryButton: { borderColor: Colors.primary, borderRadius: 8, borderWidth: 1, marginTop: 18, paddingHorizontal: 24, paddingVertical: 11 },
   retryText: { color: Colors.primary, fontSize: 14, fontWeight: "700" },
-  paginationDock: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderTopWidth: 1,
-    bottom: 0,
-    left: 0,
-    position: "absolute",
-    right: 0,
-    shadowColor: Colors.shadow,
-    shadowOffset: { height: -3, width: 0 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 8,
-  },
 });

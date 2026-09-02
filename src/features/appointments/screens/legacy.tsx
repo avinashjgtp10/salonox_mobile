@@ -53,6 +53,7 @@ import {
 } from "@/middleware/appointment/appointment.thunk";
 import { fetchClientByIdThunk, fetchClientsThunk } from "@/middleware/client/client.thunk";
 import { fetchDashboardThunk } from "@/middleware/dashboard/dashboard.thunk";
+import { fetchSaleByIdThunk } from "@/middleware/sales/sales.thunk";
 import { fetchStaffThunk } from "@/middleware/staff/staff.thunk";
 import { fetchStaffAvailabilityThunk } from "@/middleware/staff/staffAvailability.thunk";
 import { getApiErrorMessage } from "@/services/api";
@@ -82,6 +83,7 @@ import {
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { selectClients } from "@/store/client/client.slice";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { selectSaleDetail } from "@/store/sales/sales.slice";
 import {
   selectCurrentStaff,
   selectCurrentStaffError,
@@ -94,6 +96,7 @@ import {
   selectStaffAvailabilityLoading,
 } from "@/store/staff/staffAvailability.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { formatInvoiceNumber, type InvoiceSequence } from "@/utils/receipt";
 import {
   useAppointmentListFilters,
   useFetchAppointments,
@@ -2345,10 +2348,6 @@ function ServiceCatalogPicker({
             <Ionicons name="chevron-down" size={18} color={Colors.appointmentTextSecondary} />
           </TouchableOpacity>
           {staffError ? <Text style={styles.fieldError}>{staffError}</Text> : null}
-          <View style={styles.requestedStylistRow}>
-            <Text style={styles.requestedStylistLabel}>Requested Stylist</Text>
-            <Text style={styles.requestedStylistValue}>{selectedStaff?.name ?? "No Preferences"}</Text>
-          </View>
 
           <Text style={styles.servicePickerLabel}>Services</Text>
           <View style={styles.servicePickerSearch}>
@@ -3529,6 +3528,9 @@ const formatBusinessTime = (value: string | null) => {
   return formatAppTime(parseAppointmentDateTime(value), value ?? "-");
 };
 
+const toInvoiceSequence = (value: unknown): InvoiceSequence =>
+  typeof value === "string" || typeof value === "number" ? value : null;
+
 function DetailRow({ label, value }: { label: string; value?: string | number | null }) {
   const { styles } = useAppointmentStyles();
 
@@ -3554,6 +3556,7 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
   const appointmentId = params.id;
   const appointment = useAppSelector((state) => selectAppointmentById(state, appointmentId));
   const detailsState = useAppSelector((state) => selectAppointmentDetailsState(state, appointmentId));
+  const saleDetail = useAppSelector(selectSaleDetail);
   const currentStaff = useAppSelector(selectCurrentStaff);
   const currentStaffError = useAppSelector(selectCurrentStaffError);
   const currentStaffLoading = useAppSelector(selectCurrentStaffLoading);
@@ -3566,6 +3569,27 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
       void dispatch(fetchAppointmentByIdThunk(appointmentId));
     }
   }, [appointmentId, dispatch]);
+
+  const appointmentInvoiceNumber = formatInvoiceNumber(
+    toInvoiceSequence(
+      appointment?.raw.invoice_number ??
+        appointment?.raw.invoiceNumber ??
+        appointment?.raw.invoice_no ??
+        appointment?.raw.invoiceNo,
+    ),
+  );
+
+  useEffect(() => {
+    if (appointment?.saleId && !appointmentInvoiceNumber) {
+      void dispatch(fetchSaleByIdThunk(appointment.saleId));
+    }
+  }, [appointment?.saleId, appointmentInvoiceNumber, dispatch]);
+
+  const invoiceNumber =
+    appointmentInvoiceNumber ??
+    (saleDetail && saleDetail.id === appointment?.saleId
+      ? formatInvoiceNumber(saleDetail.receiptNumber)
+      : null);
 
   const displayName = appointment?.clientName?.trim() ? appointment.clientName.trim() : "Walk-in Client";
   const appointmentIsPaid = Boolean(appointment && (appointment.paymentStatus.toLowerCase() === "paid" || (appointment.total > 0 && appointment.paidAmount >= appointment.total)));
@@ -3618,10 +3642,10 @@ export function AppointmentDetailsScreen({ mode = "owner" }: { mode?: "owner" | 
       ) : null}
       {appointment && isStaffAppointment ? (
         <>
-          <View style={styles.detailBookingRow}>
+          <View style={styles.detailInvoiceRow}>
             <View>
-              <Text style={styles.detailBookingLabel}>Booking ID</Text>
-              <Text style={styles.detailBookingId}>#{appointment.id}</Text>
+              <Text style={styles.detailInvoiceLabel}>Invoice Number</Text>
+              <Text style={styles.detailInvoiceNumber}>{invoiceNumber ?? "Not generated"}</Text>
             </View>
             <View style={[styles.previewStatusBadge, appointmentIsPaid ? styles.previewPaidBadge : styles.previewUnpaidBadge]}>
               <Text style={[styles.previewStatusText, !appointmentIsPaid && styles.previewUnpaidText]}>{appointmentIsPaid ? "PAID" : appointment.paymentStatus}</Text>
@@ -5769,7 +5793,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginBottom: AppLayout.sectionGap,
     padding: AppLayout.cardPadding,
   },
-  detailBookingRow: {
+  detailInvoiceRow: {
     alignItems: "center",
     backgroundColor: Colors.appointmentSurface,
     borderBottomColor: Colors.appointmentDivider,
@@ -5779,13 +5803,13 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginBottom: 16,
     paddingBottom: 14,
   },
-  detailBookingLabel: {
+  detailInvoiceLabel: {
     color: Colors.appointmentTextSecondary,
     fontSize: 10,
     fontWeight: "600",
     textTransform: "uppercase",
   },
-  detailBookingId: {
+  detailInvoiceNumber: {
     color: Colors.appointmentText,
     fontSize: 13,
     fontWeight: "800",
@@ -6974,23 +6998,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   },
   servicePickerSelectPlaceholder: {
     color: Colors.appointmentPlaceholder,
-  },
-  requestedStylistRow: {
-    flexDirection: "row",
-    gap: 10,
-    marginBottom: 20,
-    marginTop: 10,
-  },
-  requestedStylistLabel: {
-    color: Colors.appointmentTextSecondary,
-    fontSize: 13,
-    fontWeight: "700",
-  },
-  requestedStylistValue: {
-    color: Colors.appointmentAccent,
-    fontSize: 14,
-    fontWeight: "900",
-    textDecorationLine: "underline",
   },
   stylistModalBackdrop: {
     backgroundColor: "rgba(0,0,0,0.48)",
