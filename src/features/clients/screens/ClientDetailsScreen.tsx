@@ -28,7 +28,7 @@ import {
   fetchClientByIdThunk,
   fetchClientHistoryThunk,
   fetchClientsWithHistoryStatsThunk,
-  updateBlockThunk,
+  blockClientThunk,
   unblockClientThunk,
 } from "@/middleware/client/client.thunk";
 import {
@@ -41,6 +41,7 @@ import {
   selectClientHistoryStats,
   selectClientBlockingIds,
 } from "@/store/client/client.slice";
+import { selectActiveBranchId } from "@/store/branch/branch.slice";
 import { useAppToast } from "@/hooks/useAppToast";
 import { fetchMembershipsThunk } from "@/middleware/membership/membership.thunk";
 import {
@@ -191,6 +192,7 @@ export default function ClientDetailsScreen() {
 
   const historyStats = useAppSelector(selectClientHistoryStats);
   const blockingIds = useAppSelector(selectClientBlockingIds);
+  const activeBranchId = useAppSelector(selectActiveBranchId);
   const memberships = useAppSelector(selectMemberships);
   const activeMembership = useAppSelector(selectActiveClientMembership(id));
   const membershipLoading = useAppSelector(selectClientMembershipsLoading(id));
@@ -200,6 +202,11 @@ export default function ClientDetailsScreen() {
   const isBlocking = id ? blockingIds.includes(id) : false;
   const [pickerVisible, setPickerVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<ClientTab>("summary");
+  const [blockedOverride, setBlockedOverride] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    setBlockedOverride(null);
+  }, [id]);
 
   useEffect(() => {
     if (id) {
@@ -221,11 +228,56 @@ export default function ClientDetailsScreen() {
     [dispatch, id],
   );
 
+  const liveClientFullName = liveClient?.fullName;
+  const liveClientPhone = liveClient?.phone;
+
   useEffect(() => {
-    if (id && liveClient) {
-      void dispatch(fetchClientsWithHistoryStatsThunk({ search: liveClient.fullName }));
+    if (!id || !liveClientFullName) {
+      return;
     }
-  }, [id, liveClient, dispatch]);
+
+    let cancelled = false;
+
+    const checkBlockedStatus = async () => {
+      try {
+        const search = liveClientPhone && liveClientPhone !== "-"
+          ? liveClientPhone
+          : liveClientFullName;
+        const result = await clientService.filterClients(
+          {
+            limit: 50,
+            offset: 0,
+            search,
+            sort_by: "created_at",
+            sort_order: "desc",
+          },
+          "blocked",
+          activeBranchId,
+          { status: "blocked" },
+        );
+
+        if (!cancelled) {
+          setBlockedOverride(result.clients.some((blockedClient) => blockedClient.id === id));
+        }
+      } catch (error) {
+        // Some deployments expose the state on the client-detail response but do
+        // not allow filtering. Keep that normalized detail state as the fallback.
+        console.warn("Unable to verify client blocked status", error);
+      }
+    };
+
+    void checkBlockedStatus();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBranchId, id, liveClientFullName, liveClientPhone]);
+
+  useEffect(() => {
+    if (id && liveClientFullName) {
+      void dispatch(fetchClientsWithHistoryStatsThunk({ search: liveClientFullName }));
+    }
+  }, [id, liveClientFullName, dispatch]);
 
   const client = useMemo(() => {
     if (!liveClient) {
@@ -233,7 +285,11 @@ export default function ClientDetailsScreen() {
     }
 
     const avatarTone = clientService.getAvatarTone(liveClient.id);
-    const isClientInactive = liveClient.inactive || liveClient.status.toLowerCase() === "blocked" || liveClient.status.toLowerCase() === "inactive";
+    const backendBlocked =
+      liveClient.inactive ||
+      liveClient.status.toLowerCase() === "blocked" ||
+      liveClient.status.toLowerCase() === "inactive";
+    const isClientInactive = blockedOverride ?? backendBlocked;
 
     return {
       avatarBg: avatarTone.background,
@@ -254,7 +310,7 @@ export default function ClientDetailsScreen() {
       isBlocked: isClientInactive,
       totalVisits: liveClient.totalVisits,
     };
-  }, [liveClient]);
+  }, [blockedOverride, liveClient]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -278,7 +334,7 @@ export default function ClientDetailsScreen() {
             onPress: async () => {
               const res = await dispatch(unblockClientThunk(client.id));
               if (unblockClientThunk.fulfilled.match(res)) {
-                void dispatch(fetchClientByIdThunk(client.id));
+                setBlockedOverride(false);
                 toast.showSuccess("Client unblocked successfully.");
               } else {
                 Alert.alert("Error", res.payload?.message ?? "Unable to unblock client.");
@@ -297,10 +353,10 @@ export default function ClientDetailsScreen() {
           {
             onPress: async () => {
               const res = await dispatch(
-                updateBlockThunk({ clientId: client.id, reason: "Blocked by staff action" })
+                blockClientThunk({ clientId: client.id, reason: "Blocked by staff action" })
               );
-              if (updateBlockThunk.fulfilled.match(res)) {
-                void dispatch(fetchClientByIdThunk(client.id));
+              if (blockClientThunk.fulfilled.match(res)) {
+                setBlockedOverride(true);
                 toast.showSuccess("Client blocked successfully.");
               } else {
                 Alert.alert("Error", res.payload?.message ?? "Unable to block client.");
@@ -425,11 +481,35 @@ export default function ClientDetailsScreen() {
         <View style={styles.tabsRow}>
           {CLIENT_TABS.map((tab) => (
             <TouchableOpacity activeOpacity={0.75} key={tab.key} onPress={() => setActiveTab(tab.key)} style={[styles.tabButton, activeTab === tab.key && styles.tabButtonActive]}>
-              <Text style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}>{tab.label}</Text>
+              <Text
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
+                numberOfLines={1}
+                style={[styles.tabText, activeTab === tab.key && styles.tabTextActive]}
+              >
+                {tab.label}
+              </Text>
             </TouchableOpacity>
           ))}
-          <TouchableOpacity accessibilityLabel="Client actions" activeOpacity={0.75} disabled={isBlocking} onPress={handleBlockToggle} style={styles.settingsButton}>
-            {isBlocking ? <ActivityIndicator color={Colors.primary} size="small" /> : <Ionicons color={Colors.primary} name="settings-outline" size={24} />}
+          <TouchableOpacity
+            accessibilityLabel={client.isBlocked ? "Unblock client" : "Block client"}
+            activeOpacity={0.75}
+            disabled={isBlocking}
+            onPress={handleBlockToggle}
+            style={[styles.blockButton, client.isBlocked && styles.unblockButton]}
+          >
+            {isBlocking ? (
+              <ActivityIndicator color={client.isBlocked ? Colors.success : Colors.error} size="small" />
+            ) : (
+              <Ionicons
+                color={client.isBlocked ? Colors.success : Colors.error}
+                name={client.isBlocked ? "checkmark-circle-outline" : "ban-outline"}
+                size={16}
+              />
+            )}
+            <Text style={[styles.blockButtonText, client.isBlocked && styles.unblockButtonText]}>
+              {client.isBlocked ? "Unblock" : "Block"}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -524,9 +604,12 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   tabsRow: { alignItems: "stretch", flexDirection: "row", marginHorizontal: -AppLayout.contentHorizontalPadding, paddingLeft: 6 },
   tabButton: { alignItems: "center", borderBottomColor: "transparent", borderBottomWidth: 3, flex: 1, justifyContent: "center", minHeight: 54, paddingHorizontal: 3 },
   tabButtonActive: { borderBottomColor: Colors.primary },
-  tabText: { color: Colors.heading, fontSize: 14 },
+  tabText: { color: Colors.heading, fontSize: 14, lineHeight: 22, paddingHorizontal: 1, textAlign: "center" },
   tabTextActive: { color: Colors.primary, fontWeight: "800" },
-  settingsButton: { alignItems: "center", justifyContent: "center", width: 46 },
+  blockButton: { alignItems: "center", alignSelf: "center", borderColor: Colors.error, borderRadius: AppRadius.pill, borderWidth: 1, flexDirection: "row", gap: 4, justifyContent: "center", marginHorizontal: 5, minHeight: 36, paddingHorizontal: 8 },
+  blockButtonText: { color: Colors.error, fontSize: 11, fontWeight: "800" },
+  unblockButton: { borderColor: Colors.success },
+  unblockButtonText: { color: Colors.success },
   tabContent: { paddingTop: 22 },
   metricsGrid: { borderColor: Colors.border, borderRadius: 8, borderWidth: 1, flexDirection: "row", flexWrap: "wrap", marginBottom: 28, overflow: "hidden" },
   metricCell: { borderBottomColor: Colors.border, borderBottomWidth: 1, borderRightColor: Colors.border, borderRightWidth: 1, minHeight: 112, padding: 12, width: "50%" },
