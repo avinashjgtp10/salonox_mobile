@@ -31,7 +31,7 @@ import "../styles/StockLedgerPage.scss";
 type TxnType =
   | "opening_stock" | "purchase" | "usage" | "sale" | "return" | "damage"
   | "expired" | "adjustment_in" | "adjustment_out" | "transfer_in" | "transfer_out"
-  | "sample" | "lost" | "internal_use";
+  | "sample" | "lost" | "internal_use" | "audit_adjustment_in" | "audit_adjustment_out";
 
 const TXN_LABELS: Record<TxnType, string> = {
   opening_stock: "Opening Stock",
@@ -48,9 +48,14 @@ const TXN_LABELS: Record<TxnType, string> = {
   sample: "Sample",
   lost: "Lost / Missing",
   internal_use: "Internal Use",
+  // Written only when an approved Product Audit's physical count differs
+  // from system stock — never a manual entry (see ADJUSTMENT_TXN_TYPES,
+  // which deliberately excludes these two).
+  audit_adjustment_in: "Audit Adjustment",
+  audit_adjustment_out: "Audit Adjustment",
 };
 
-const IN_TYPES = new Set<TxnType>(["opening_stock", "purchase", "return", "adjustment_in", "transfer_in"]);
+const IN_TYPES = new Set<TxnType>(["opening_stock", "purchase", "return", "adjustment_in", "transfer_in", "audit_adjustment_in"]);
 
 // Badge color is mostly "in = green, out = red", except Sale — a stock-out
 // type by nature (drops products.amount, shows under the Out column) but
@@ -60,8 +65,9 @@ const badgeVariantFor = (type: TxnType): "success" | "danger" =>
   type === "sale" || IN_TYPES.has(type) ? "success" : "danger";
 
 // Types offered in the manual Stock Adjustment modal — excludes
-// purchase/sale/usage, which are always system-generated from an actual
-// purchase/sale/consumption flow, never entered by hand here.
+// purchase/sale/usage (system-generated from an actual purchase/sale/
+// consumption flow) and audit_adjustment_in/out (system-generated only from
+// an approved Product Audit) — none of these are ever entered by hand here.
 const ADJUSTMENT_TXN_TYPES: TxnType[] = [
   "adjustment_in", "adjustment_out", "damage", "expired",
   "sample", "lost", "internal_use", "transfer_in", "transfer_out",

@@ -433,12 +433,6 @@
   }
 }
 
-.sl-form-row {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-}
-
 .sl-input {
   width: 100%;
   padding: 9px 12px;
@@ -456,32 +450,6 @@
 
 .sl-textarea {
   resize: vertical;
-}
-
-.sl-current-stock {
-  font-size: 14px;
-  font-weight: 700;
-  color: #101828;
-  background: #f9fafb;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  padding: 9px 12px;
-}
-
-.sl-radio-row {
-  display: flex;
-  gap: 20px;
-}
-
-.sl-radio {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 13.5px;
-  color: #344054;
-  cursor: pointer;
-
-  input { cursor: pointer; }
 }
 
 // ── Multi-product Stock Adjustment rows — same row-grid pattern as

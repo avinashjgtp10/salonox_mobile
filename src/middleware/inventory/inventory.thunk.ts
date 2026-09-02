@@ -407,19 +407,6 @@ export const createProductAuditThunk = createAsyncThunk<
   }
 });
 
-export const deleteProductAuditThunk = createAsyncThunk<
-  string,
-  string,
-  { rejectValue: string }
->("inventory/deleteProductAudit", async (id, { rejectWithValue }) => {
-  try {
-    await api.delete(INVENTORY.PRODUCT_AUDIT_BY_ID(id));
-    return id;
-  } catch (err: any) {
-    return rejectWithValue(auditErrorMessage(err, "Failed to delete product audit"));
-  }
-});
-
 export const addProductAuditItemsThunk = createAsyncThunk<
   ProductAuditWithDetail,
   { auditId: string; productIds: string[] },

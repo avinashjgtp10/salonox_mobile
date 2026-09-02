@@ -258,7 +258,6 @@
 .paudit-optional { font-weight: 400; color: #98a2b3; }
 .paudit-req { color: #d92d20; }
 
-.paudit-select,
 .paudit-textarea {
   width: 100%;
   border: 1px solid #d0d5dd;
@@ -267,6 +266,7 @@
   font-size: 13.5px;
   color: #101828;
   background: #fff;
+  resize: vertical;
 
   &:focus {
     outline: none;
@@ -274,8 +274,6 @@
     box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
   }
 }
-
-.paudit-textarea { resize: vertical; }
 
 .paudit-field-err {
   color: #d92d20;
