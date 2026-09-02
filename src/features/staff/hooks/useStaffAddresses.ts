@@ -81,7 +81,7 @@ export const useStaffAddresses = (staffId?: string | null): StaffAddressControll
 
     void dispatch(
       fetchStaffAddressesThunk({
-        limit: listState?.query.limit ?? 20,
+        limit: listState?.query.limit ?? 10,
         page: 1,
         refresh: true,
         staffId: validStaffId,

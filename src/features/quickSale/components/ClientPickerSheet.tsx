@@ -23,7 +23,9 @@ import {
   isValidPersonName,
   isValidPhoneDigits,
   PERSON_NAME_INVALID_MESSAGE,
+  PHONE_DIGIT_COUNT,
   PHONE_INVALID_MESSAGE,
+  sanitizePhoneDigits,
 } from "@/utils/validation";
 
 const normalizePhoneForCompare = (value: string) => value.replace(/\D/g, "");
@@ -61,7 +63,7 @@ export function ClientPickerSheet({
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [pagination, setPagination] = useState({ hasMore: true, limit: 20, nextOffset: 0, offset: 0 });
+  const [pagination, setPagination] = useState({ hasMore: true, limit: 10, nextOffset: 0, offset: 0 });
   const [reloadKey, setReloadKey] = useState(0);
   const [isCreating, setIsCreating] = useState(false);
   const [newFirstName, setNewFirstName] = useState("");
@@ -86,7 +88,7 @@ export function ClientPickerSheet({
     const search = trimmedQuery;
     const queryPayload = {
       inactive: false,
-      limit: 20,
+      limit: 10,
       offset,
       search,
       sort_by: "created_at",
@@ -247,9 +249,9 @@ export function ClientPickerSheet({
             <Text style={styles.inputLabel}>Phone Number*</Text>
             <TextInput
               keyboardType="phone-pad"
-              maxLength={16}
+              maxLength={PHONE_DIGIT_COUNT}
               onChangeText={(value) => {
-                setNewPhone(value);
+                setNewPhone(sanitizePhoneDigits(value));
                 setFormErrors((current) => ({ ...current, form: undefined, phone: undefined }));
               }}
               placeholder="Phone number"

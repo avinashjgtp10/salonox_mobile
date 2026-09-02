@@ -1,6 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { router } from "expo-router";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -14,6 +13,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { fetchNotificationsThunk, markNotificationReadThunk } from "@/middleware/notification/notification.thunk";
+import { SegmentedTabs } from "@/components/ui/SegmentedTabs";
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import {
   selectNotifications,
@@ -21,7 +21,6 @@ import {
   selectNotificationsListRefreshing,
 } from "@/store/notification/notification.slice";
 import type { NotificationItem } from "@/types/notification";
-import { resolveNotificationRoute } from "@/utils/notificationRouting";
 
 type DashboardNotificationsModalProps = {
   onClose: () => void;
@@ -34,10 +33,22 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
   const notifications = useAppSelector(selectNotifications);
   const loading = useAppSelector(selectNotificationsListLoading);
   const refreshing = useAppSelector(selectNotificationsListRefreshing);
+  const [filter, setFilter] = useState<"unread" | "all">("unread");
   const modalInsets = useMemo(() => ({ paddingBottom: Math.max(insets.bottom, 12) }), [insets.bottom]);
+  const unreadCount = useMemo(
+    () => notifications.filter((notification) => !notification.isRead).length,
+    [notifications],
+  );
+  const visibleNotifications = useMemo(
+    () => filter === "unread"
+      ? notifications.filter((notification) => !notification.isRead)
+      : notifications,
+    [filter, notifications],
+  );
 
   useEffect(() => {
     if (visible) {
+      setFilter("unread");
       void dispatch(fetchNotificationsThunk({ refresh: notifications.length > 0 }));
     }
   }, [dispatch, notifications.length, visible]);
@@ -46,9 +57,6 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
     if (!notification.isRead) {
       void dispatch(markNotificationReadThunk(notification.id));
     }
-
-    onClose();
-    requestAnimationFrame(() => router.push(resolveNotificationRoute(notification)));
   };
 
   return (
@@ -62,17 +70,32 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
             </TouchableOpacity>
           </View>
 
+          <View style={styles.tabs}>
+            <SegmentedTabs
+              activeKey={filter}
+              onChange={setFilter}
+              segments={[
+                { key: "unread", label: `Unread${unreadCount > 0 ? ` (${unreadCount})` : ""}` },
+                { key: "all", label: "All Notifications" },
+              ]}
+            />
+          </View>
+
           {loading && notifications.length === 0 ? (
             <View style={styles.centerState}><ActivityIndicator color="#BE5793" size="large" /></View>
           ) : (
             <FlatList
-              contentContainerStyle={notifications.length === 0 ? styles.emptyList : styles.list}
-              data={notifications}
+              contentContainerStyle={visibleNotifications.length === 0 ? styles.emptyList : styles.list}
+              data={visibleNotifications}
               keyExtractor={(item) => item.id}
               onRefresh={() => void dispatch(fetchNotificationsThunk({ refresh: true }))}
               refreshing={refreshing}
               renderItem={({ item }) => (
-                <TouchableOpacity activeOpacity={0.8} onPress={() => handleNotificationPress(item)} style={styles.row}>
+                <TouchableOpacity
+                  activeOpacity={0.8}
+                  onPress={() => handleNotificationPress(item)}
+                  style={[styles.row, !item.isRead && styles.rowUnread]}
+                >
                   <View style={styles.alertIcon}>
                     <View style={styles.alertTriangle}><Ionicons color="#FFFFFF" name="alert" size={17} /></View>
                   </View>
@@ -85,7 +108,18 @@ export function DashboardNotificationsModal({ onClose, visible }: DashboardNotif
                   </View>
                 </TouchableOpacity>
               )}
-              ListEmptyComponent={<View style={styles.centerState}><Ionicons color="#BE5793" name="notifications-off-outline" size={32} /><Text style={styles.emptyText}>No notifications yet</Text></View>}
+              ListEmptyComponent={
+                <View style={styles.centerState}>
+                  <Ionicons
+                    color="#BE5793"
+                    name={filter === "unread" ? "checkmark-done-outline" : "notifications-off-outline"}
+                    size={32}
+                  />
+                  <Text style={styles.emptyText}>
+                    {filter === "unread" ? "No unread notifications" : "No notifications yet"}
+                  </Text>
+                </View>
+              }
               showsVerticalScrollIndicator={false}
             />
           )}
@@ -136,6 +170,10 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     width: 40,
   },
+  tabs: {
+    paddingBottom: 6,
+    paddingHorizontal: 20,
+  },
   list: {
     paddingHorizontal: 20,
   },
@@ -146,6 +184,9 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 12,
     paddingVertical: 17,
+  },
+  rowUnread: {
+    backgroundColor: "#FCF4F9",
   },
   alertIcon: {
     alignItems: "center",

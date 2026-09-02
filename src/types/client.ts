@@ -19,6 +19,7 @@ export type ClientApiMembership =
   | null;
 
 export type ClientApiItem = {
+  blocked?: boolean | null;
   created_at?: string | null;
   email?: string | null;
   first_name?: string | null;
@@ -26,6 +27,8 @@ export type ClientApiItem = {
   gender?: string | null;
   id?: string | null;
   inactive?: boolean | null;
+  isBlocked?: boolean | null;
+  is_blocked?: boolean | null;
   is_inactive?: boolean | null;
   is_vip?: boolean | null;
   last_name?: string | null;

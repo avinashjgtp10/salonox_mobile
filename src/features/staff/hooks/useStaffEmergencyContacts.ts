@@ -77,7 +77,7 @@ export const useStaffEmergencyContacts = (
 
     void dispatch(
       fetchEmergencyContactsThunk({
-        limit: listState?.query.limit ?? 20,
+        limit: listState?.query.limit ?? 10,
         page: 1,
         refresh: true,
         staffId: validStaffId,

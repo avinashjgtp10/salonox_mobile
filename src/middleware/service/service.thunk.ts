@@ -75,7 +75,7 @@ export const fetchServicesThunk = createAsyncThunk<
   const nextQuery: ServiceListQuery = {
     category: args?.category ?? serviceState.query.category,
     categoryId: args?.categoryId ?? serviceState.query.categoryId,
-    isActive: args?.isActive ?? serviceState.query.isActive,
+    isActive: args && "isActive" in args ? args.isActive : serviceState.query.isActive,
     limit: args?.limit ?? serviceState.query.limit,
     // `reset` means "start over" — a fresh search or category switch must
     // never inherit whatever offset a previous "load more" scroll left

@@ -291,7 +291,16 @@ const formatCreatedDate = (createdAt: string | null) => {
   return formatAppDate(createdAt, "-");
 };
 
+const isClientBlocked = (client: ClientApiItem) =>
+  toOptionalBoolean(client.blocked) ||
+  toOptionalBoolean(client.isBlocked) ||
+  toOptionalBoolean(client.is_blocked);
+
 const getStatusLabel = (client: ClientApiItem) => {
+  if (isClientBlocked(client)) {
+    return "Blocked";
+  }
+
   const rawStatus = toSafeString(client.status);
 
   if (rawStatus) {
@@ -320,7 +329,10 @@ const normalizeClient = (client: ClientApiItem): ClientListItem => {
     gender: toSafeString(client.gender, "-"),
     hasValidId: Boolean(id),
     id,
-    inactive: toOptionalBoolean(client.inactive) || toOptionalBoolean(client.is_inactive),
+    inactive:
+      isClientBlocked(client) ||
+      toOptionalBoolean(client.inactive) ||
+      toOptionalBoolean(client.is_inactive),
     initials: getInitials(fullName),
     isVip: toOptionalBoolean(client.is_vip),
     joinedDaysAgo: getJoinedDaysAgo(createdAt),
@@ -815,38 +827,38 @@ export const clientService = {
 
   async blockClient(clientId: string, reason?: string): Promise<BlockClientResponse> {
     const response = await api.post<ApiResponse<any>>(CLIENT.BLOCK, {
-      client_id: clientId,
-      clientId,
+      client_ids: [clientId],
       reason,
     });
     const data = response.data.data || {};
+    const client = data.client ?? (Array.isArray(data.clients) ? data.clients[0] : undefined) ?? data;
     return {
-      client: normalizeClient(data.client || data),
+      client: normalizeClient(client),
       message: response.data.message,
     };
   },
 
   async updateBlockStatus(clientId: string, reason: string): Promise<BlockClientResponse> {
     const response = await api.patch<ApiResponse<any>>(CLIENT.BLOCK, {
-      client_id: clientId,
-      clientId,
+      client_ids: [clientId],
       reason,
     });
     const data = response.data.data || {};
+    const client = data.client ?? (Array.isArray(data.clients) ? data.clients[0] : undefined) ?? data;
     return {
-      client: normalizeClient(data.client || data),
+      client: normalizeClient(client),
       message: response.data.message,
     };
   },
 
   async unblockClient(clientId: string): Promise<UnblockClientResponse> {
     const response = await api.post<ApiResponse<any>>(CLIENT.UNBLOCK, {
-      client_id: clientId,
-      clientId,
+      client_ids: [clientId],
     });
     const data = response.data.data || {};
+    const client = data.client ?? (Array.isArray(data.clients) ? data.clients[0] : undefined) ?? data;
     return {
-      client: normalizeClient(data.client || data),
+      client: normalizeClient(client),
       message: response.data.message,
     };
   },

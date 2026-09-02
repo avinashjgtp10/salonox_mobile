@@ -50,6 +50,12 @@ import {
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import type { UpdateProfileRequest, UserProfile } from "@/types/profile";
+import {
+  isValidPhoneDigits,
+  PHONE_DIGIT_COUNT,
+  PHONE_INVALID_MESSAGE,
+  sanitizePhoneDigits,
+} from "@/utils/validation";
 
 const getInitials = (fullName: string) =>
   fullName
@@ -124,7 +130,7 @@ const toEditState = (profile: UserProfile): EditState => ({
   address: profile.address ?? "",
   businessName: profile.businessName ?? "",
   fullName: profile.fullName ?? "",
-  phone: profile.phone ?? "",
+  phone: sanitizePhoneDigits(profile.phone ?? ""),
 });
 
 function FieldBox({
@@ -225,6 +231,7 @@ function FormField({
   editable = true,
   keyboardType,
   label,
+  maxLength,
   onChangeText,
   onFocus,
   onSubmitEditing,
@@ -237,6 +244,7 @@ function FormField({
   inputRef?: RefObject<TextInput | null>;
   keyboardType?: "default" | "phone-pad";
   label: string;
+  maxLength?: number;
   onChangeText: (value: string) => void;
   onFocus?: () => void;
   onSubmitEditing?: () => void;
@@ -253,6 +261,7 @@ function FormField({
       <TextInput
         editable={editable}
         keyboardType={keyboardType}
+        maxLength={maxLength}
         onChangeText={onChangeText}
         onFocus={onFocus}
         onSubmitEditing={onSubmitEditing}
@@ -358,6 +367,11 @@ export default function ProfileScreen() {
 
     if (!trimmedName) {
       setFormError("Full name is required.");
+      return;
+    }
+
+    if (editState.phone && !isValidPhoneDigits(editState.phone)) {
+      setFormError(PHONE_INVALID_MESSAGE);
       return;
     }
 
@@ -689,7 +703,8 @@ export default function ProfileScreen() {
                   inputRef={phoneInputRef}
                   keyboardType="phone-pad"
                   label="Phone Number"
-                  onChangeText={(value) => updateField("phone", value)}
+                  maxLength={PHONE_DIGIT_COUNT}
+                  onChangeText={(value) => updateField("phone", sanitizePhoneDigits(value))}
                   onSubmitEditing={() => businessNameInputRef.current?.focus()}
                   placeholder="Enter phone number"
                   value={editState.phone}

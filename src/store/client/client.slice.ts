@@ -68,7 +68,7 @@ type ClientState = {
 
 const initialQuery: ClientListQuery = {
   inactive: false,
-  limit: 20,
+  limit: 10,
   offset: 0,
   search: "",
   sort_by: "created_at",
@@ -77,7 +77,7 @@ const initialQuery: ClientListQuery = {
 
 const initialPagination: ClientListPagination = {
   hasMore: true,
-  limit: 20,
+  limit: 10,
   nextOffset: 0,
   offset: 0,
 };
@@ -376,10 +376,13 @@ const clientSlice = createSlice({
       .addCase(blockClientThunk.fulfilled, (state, action) => {
         state.blockError = null;
         state.blockingClientIds = state.blockingClientIds.filter(id => id !== action.meta.arg.clientId);
-        const updatedClient = action.payload.client;
-        const index = state.clients.findIndex((client) => client.id === updatedClient.id);
+        const index = state.clients.findIndex((client) => client.id === action.meta.arg.clientId);
         if (index !== -1) {
-          state.clients[index] = updatedClient;
+          state.clients[index] = {
+            ...state.clients[index],
+            inactive: true,
+            status: "Blocked",
+          };
         }
       })
       .addCase(blockClientThunk.rejected, (state, action) => {
@@ -393,10 +396,13 @@ const clientSlice = createSlice({
       .addCase(updateBlockThunk.fulfilled, (state, action) => {
         state.blockError = null;
         state.blockingClientIds = state.blockingClientIds.filter(id => id !== action.meta.arg.clientId);
-        const updatedClient = action.payload.client;
-        const index = state.clients.findIndex((client) => client.id === updatedClient.id);
+        const index = state.clients.findIndex((client) => client.id === action.meta.arg.clientId);
         if (index !== -1) {
-          state.clients[index] = updatedClient;
+          state.clients[index] = {
+            ...state.clients[index],
+            inactive: true,
+            status: "Blocked",
+          };
         }
       })
       .addCase(updateBlockThunk.rejected, (state, action) => {
@@ -410,10 +416,13 @@ const clientSlice = createSlice({
       .addCase(unblockClientThunk.fulfilled, (state, action) => {
         state.blockError = null;
         state.blockingClientIds = state.blockingClientIds.filter(id => id !== action.meta.arg);
-        const updatedClient = action.payload.client;
-        const index = state.clients.findIndex((client) => client.id === updatedClient.id);
+        const index = state.clients.findIndex((client) => client.id === action.meta.arg);
         if (index !== -1) {
-          state.clients[index] = updatedClient;
+          state.clients[index] = {
+            ...state.clients[index],
+            inactive: false,
+            status: "Active",
+          };
         }
       })
       .addCase(unblockClientThunk.rejected, (state, action) => {
