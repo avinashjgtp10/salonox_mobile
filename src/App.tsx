@@ -9,6 +9,7 @@ import { SuperAdminRoutes } from "./routes/SuperAdminRoutes";
 import { PublicBookingRoutes } from "./routes/PublicBookingRoutes";
 import { FeedbackRoutes } from "./routes/FeedbackRoutes";
 import SalonOxBot from './features/bot/SalonOxBot';
+import CallHelpButton from './features/bot/CallHelpButton';
 import SubscriptionWall from "./features/billing/components/SubscriptionWall";
 import { useSubscriptionPoller } from "./hooks/useSubscriptionPoller";
 import { useAppSelector } from "./hooks/useAppRedux";
@@ -49,6 +50,7 @@ function App() {
         </Suspense>
       </ErrorBoundary>
       <SalonOxBot />
+      <CallHelpButton />
       {/* Full-screen subscription wall — renders over authenticated routes only */}
       {accessToken && subscriptionExpired && <SubscriptionWall />}
     </SubscriptionRefreshContext.Provider>
