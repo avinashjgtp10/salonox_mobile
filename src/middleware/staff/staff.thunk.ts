@@ -447,7 +447,7 @@ export const fetchStaffAddressesThunk = createAsyncThunk<
 >("staff/fetchStaffAddresses", async (args, { getState, rejectWithValue }) => {
   const addressState = getState().staff.addressListsByStaffId[args.staffId];
   const nextQuery: Pick<StaffAddressListQuery, "limit" | "page"> = {
-    limit: args.limit ?? addressState?.query.limit ?? 20,
+    limit: args.limit ?? addressState?.query.limit ?? 10,
     page: args.page ?? addressState?.query.page ?? 1,
   };
 
@@ -489,7 +489,7 @@ export const fetchEmergencyContactsThunk = createAsyncThunk<
 >("staff/fetchEmergencyContacts", async (args, { getState, rejectWithValue }) => {
   const contactState = getState().staff.emergencyContactListsByStaffId[args.staffId];
   const nextQuery = {
-    limit: args.limit ?? contactState?.query.limit ?? 20,
+    limit: args.limit ?? contactState?.query.limit ?? 10,
     page: args.page ?? contactState?.query.page ?? 1,
   };
 

@@ -235,7 +235,7 @@ export default function MembershipsScreen() {
   }, [query]);
 
   useEffect(() => {
-    void dispatch(fetchMembershipsThunk({ limit: 20, reset: true, search: debouncedQuery }));
+    void dispatch(fetchMembershipsThunk({ limit: 10, reset: true, search: debouncedQuery }));
   }, [debouncedQuery, dispatch]);
 
   const visibleItems = useMemo(() => filterMemberships(items, filter), [filter, items]);

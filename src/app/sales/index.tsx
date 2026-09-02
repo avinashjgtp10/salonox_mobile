@@ -258,7 +258,7 @@ export default function SalesHistoryScreen() {
   useEffect(() => {
     void dispatch(
       fetchSalesThunk({
-        limit: 20,
+        limit: 10,
         offset: 0,
         reset: true,
         search: debouncedQuery,

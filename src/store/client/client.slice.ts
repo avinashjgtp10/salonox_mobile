@@ -68,7 +68,7 @@ type ClientState = {
 
 const initialQuery: ClientListQuery = {
   inactive: false,
-  limit: 20,
+  limit: 10,
   offset: 0,
   search: "",
   sort_by: "created_at",
@@ -77,7 +77,7 @@ const initialQuery: ClientListQuery = {
 
 const initialPagination: ClientListPagination = {
   hasMore: true,
-  limit: 20,
+  limit: 10,
   nextOffset: 0,
   offset: 0,
 };

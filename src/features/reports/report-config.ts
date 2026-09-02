@@ -232,14 +232,14 @@ export const createDefaultReportFilters = (slug: ReportSlug): ReportFilters => {
   const start = new Date(today);
   start.setDate(start.getDate() - 30);
   const date = (value: Date) => value.toISOString().slice(0, 10);
-  const base = { start_date: date(start), end_date: date(today), page: 1, limit: 20 };
+  const base = { start_date: date(start), end_date: date(today), page: 1, limit: 10 };
 
-  if (slug === "daily-sheet") return { date: date(today), page: 1, limit: 20 };
+  if (slug === "daily-sheet") return { date: date(today), page: 1, limit: 10 };
   if (slug === "appointment-detail" || slug === "upcoming-appointments") {
-    return { from: date(start), to: date(today), page: 1, limit: 20 };
+    return { from: date(start), to: date(today), page: 1, limit: 10 };
   }
   if (slug === "reward" || slug === "ewallet" || slug === "supplier-report") {
-    return { page: 1, limit: 20 };
+    return { page: 1, limit: 10 };
   }
   if (slug === "staff-sales") return { ...base, period: "daily" };
   if (slug === "staff-item-sales") return { ...base, item_type: "service" };
