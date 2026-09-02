@@ -14,6 +14,7 @@ import {
   Text,
   TextInput,
   View,
+  findNodeHandle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -87,6 +88,33 @@ export default function LoginScreen() {
   const clearFeedback = () => {
     setFormError(null);
     clearError();
+  };
+
+  const scrollLoginFieldIntoView = (input: TextInput | null) => {
+    const inputNode = input ? findNodeHandle(input) : null;
+    const scrollView = scrollViewRef.current as any;
+    const scrollResponder = scrollView?.getScrollResponder?.() ?? scrollView;
+
+    if (inputNode && typeof scrollResponder?.scrollResponderScrollNativeHandleToKeyboard === "function") {
+      scrollResponder.scrollResponderScrollNativeHandleToKeyboard(inputNode, 40, true);
+    }
+  };
+
+  const focusPasswordField = () => {
+    const passwordInput = passwordInputRef.current;
+
+    if (!passwordInput) {
+      return;
+    }
+
+    passwordInput.focus();
+    setActiveKeyboardFieldRef(passwordInputRef);
+
+    [0, 60, 160].forEach((delay) => {
+      setTimeout(() => {
+        requestAnimationFrame(() => scrollLoginFieldIntoView(passwordInput));
+      }, delay);
+    });
   };
 
   const changeMode = (nextMode: LoginMode) => {
@@ -186,16 +214,19 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                   autoComplete={mode === "email" ? "email" : "tel"}
                   autoCorrect={false}
+                  blurOnSubmit={false}
+                  enterKeyHint="next"
                   keyboardType={mode === "email" ? "email-address" : "phone-pad"}
                   maxLength={mode === "mobile" ? PHONE_DIGIT_COUNT : undefined}
                   onChangeText={handleIdentifierChange}
                   onFocus={() => setActiveKeyboardFieldRef(identifierInputRef)}
-                  onSubmitEditing={() => passwordInputRef.current?.focus()}
+                  onSubmitEditing={focusPasswordField}
                   placeholder={mode === "email" ? "Enter the registered email address" : "Enter the registered mobile number"}
                   placeholderTextColor="#A2A2A2"
                   ref={identifierInputRef}
                   returnKeyType="next"
                   style={styles.input}
+                  submitBehavior="submit"
                   textContentType={mode === "email" ? "emailAddress" : "telephoneNumber"}
                   value={identifier}
                 />
@@ -209,7 +240,10 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                   autoComplete="password"
                   onChangeText={(value) => { setPassword(value); clearFeedback(); }}
-                  onFocus={() => setActiveKeyboardFieldRef(passwordInputRef)}
+                  onFocus={() => {
+                    setActiveKeyboardFieldRef(passwordInputRef);
+                    requestAnimationFrame(() => scrollLoginFieldIntoView(passwordInputRef.current));
+                  }}
                   onSubmitEditing={handleLogin}
                   placeholder="Enter Password"
                   placeholderTextColor="#858585"
