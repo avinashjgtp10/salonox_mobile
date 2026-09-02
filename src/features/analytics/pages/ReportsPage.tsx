@@ -4,7 +4,7 @@ import {
   Search, StarFill, Star, ChevronRight, ChevronDown, ClockHistory,
   GraphUpArrow, People, PersonBadge, CalendarCheck, BoxSeam, Tag, Tags, Megaphone,
   PieChartFill, Bag, Scissors, BarChartLine, Receipt, Award, Wallet2,
-  PersonCircle, PersonCheck, PeopleFill, Droplet, Whatsapp, FileEarmarkBarGraph,
+  PersonCircle, PersonCheck, PeopleFill, PersonLinesFill, Droplet, Whatsapp, FileEarmarkBarGraph,
   CashCoin, PersonCheckFill, Truck, ChatDots, PersonDash, ArrowRepeat, ArrowLeftRight,
   Gift, HourglassSplit, LightningChargeFill,
 } from "react-bootstrap-icons";
@@ -12,6 +12,7 @@ import "../styles/ReportsPage.scss";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { getTaxModuleConfig } from "../../settings/utils/taxModuleSettings";
+import { formatTimeAgo } from "../../../utils/dateFormat";
 
 import SalesSummaryReport from "../reports/SalesSummaryReport";
 import ProductSaleReport from "../reports/ProductSaleReport";
@@ -27,12 +28,14 @@ import ServiceSaleReport from "../reports/ServiceSaleReport";
 import RewardReport from "../reports/RewardReport";
 import EwalletReport from "../reports/EwalletReport";
 import ClientRevenueReport from "../reports/ClientRevenueReport";
+import AllClientsReport from "../reports/AllClientsReport";
 import CustomerFrequencyReport from "../reports/CustomerFrequencyReport";
 import LostCustomersReport from "../reports/LostCustomersReport";
 import ServiceFrequencyReport from "../reports/ServiceFrequencyReport";
 import CustomerSpendReport from "../reports/CustomerSpendReport";
 import ReferralReport from "../reports/ReferralReport";
 import PaymentCollectionReport from "../reports/PaymentCollectionReport";
+import PendingPaymentReport from "../reports/PendingPaymentReport";
 import CashManagementReport from "../reports/CashManagementReport";
 import ClientRatingReport from "../reports/ClientRatingReport";
 import StaffSalesReport from "../reports/StaffSalesReport";
@@ -40,6 +43,7 @@ import StaffPerformanceReport from "../reports/StaffPerformanceReport";
 import StaffItemSalesReport from "../reports/StaffItemSalesReport";
 import RebookingRateReport from "../reports/RebookingRateReport";
 import CommissionReport from "../reports/CommissionReport";
+import TipReport from "../reports/TipReport";
 import AttendanceReport from "../reports/AttendanceReport";
 import PayrollHistoryReport from "../reports/PayrollHistoryReport";
 import PackageHistoryReport from "../reports/PackageHistoryReport";
@@ -53,6 +57,7 @@ import BirthdayCampaignReport from "../reports/BirthdayCampaignReport";
 import { SlowMovingProductsReport, FastMovingProductsReport } from "../reports/ProductMovementReport";
 import ProductMarginReport from "../reports/ProductMarginReport";
 import SupplierReport from "../reports/SupplierReport";
+import PurchaseHistoryReport from "../reports/PurchaseHistoryReport";
 
 type CategoryKey = "sales" | "payments" | "customers" | "staff" | "appointments" | "inventory" | "packages" | "marketing";
 
@@ -93,7 +98,9 @@ const REPORTS: ReportDef[] = [
   { id: "reward",                 slug: "reward",                 name: "Reward",                                      description: "Reward points available and redeemed to date, per client.",                                        category: "sales",        icon: Award,          Component: RewardReport },
   { id: "ewallet",                slug: "ewallet",                name: "Ewallet",                                     description: "Client e-wallet top-ups, deductions and running balance.",                                         category: "sales",        icon: Wallet2,        Component: EwalletReport },
   { id: "payment_collection",     slug: "payment-collection",     name: "Payment Collection Report",                   description: "Outstanding balances per bill — amount billed, collected and still due, with pending totals and the oldest unpaid date.", category: "payments",     icon: CashCoin,       Component: PaymentCollectionReport },
+  { id: "pending_payment",        slug: "pending-payment",        name: "Pending Payment Report",                      description: "Every bill still carrying a due balance — amount due, days pending and the client, staff and method behind it.", category: "payments",     icon: HourglassSplit, Component: PendingPaymentReport },
   { id: "cash_management",        slug: "cash-management",        name: "Cash Management Report",                      description: "Cash counter sessions — opening/closing balances, cash revenue, expenses and reconciliation.", category: "payments",     icon: Wallet2,        Component: CashManagementReport },
+  { id: "all_clients",            slug: "all-clients",            name: "All Clients",                                 description: "Every client's profile details — contact, gender, birthday, address, source and status — with advanced filters. No revenue figures.", category: "customers",    icon: PersonLinesFill, Component: AllClientsReport },
   { id: "client_revenue",         slug: "client-revenue",         name: "Client Revenue",                              description: "Total spend, visit count, average ticket per client, and marketing feedback rating.",              category: "customers",    icon: PersonCircle,   Component: ClientRevenueReport },
   { id: "customer_frequency",     slug: "customer-frequency",     name: "Client Frequency",                            description: "New vs returning clients, with Most/Least Frequent, New, Old and Lost client filters.",           category: "customers",    icon: PeopleFill,     Component: CustomerFrequencyReport },
   { id: "lost_customers",         slug: "lost-customers",         name: "Lost Clients",                                description: "Clients who stopped visiting — set your own inactivity window and filter by last-visit date range.", category: "customers",    icon: PersonDash,     Component: LostCustomersReport },
@@ -105,6 +112,7 @@ const REPORTS: ReportDef[] = [
   { id: "staff_performance",      slug: "staff-performance",      name: "Staff Performance",                           description: "One row per staff member — invoices, items sold, revenue, commission, collected and due.",         category: "staff",        icon: GraphUpArrow,   Component: StaffPerformanceReport },
   { id: "staff_item_sales",       slug: "staff-item-sales",       name: "Service, Product, Membership & Package Sold by Staff", description: "What each staff member sold, broken down by item type.",                                 category: "staff",        icon: PeopleFill,     Component: StaffItemSalesReport },
   { id: "commission_report",      slug: "commission-report",      name: "Commission Report",                           description: "Commission earned by each staff member for a month — revenue, pending and paid payouts.",          category: "staff",        icon: CashCoin,       Component: CommissionReport },
+  { id: "tip_report",             slug: "tip-report",             name: "Tip Report",                                  description: "Tips earned by each staff member — transactions, pending and paid payouts.",                      category: "staff",        icon: Gift,           Component: TipReport },
   { id: "attendance_report",      slug: "attendance-report",      name: "Attendance Report",                           description: "Daily attendance for every staff member — status, check-in/out and hours worked.",                   category: "staff",        icon: PersonCheckFill, Component: AttendanceReport },
   { id: "payroll_history",        slug: "payroll-history",        name: "Payroll History Report",                      description: "Every payroll run per staff member — pay, deductions, net pay and payment status.",              category: "staff",        icon: CashCoin,       Component: PayrollHistoryReport },
   { id: "rebooking_rate",         slug: "rebooking-rate",         name: "Rebooking Rate Report",                       description: "How effectively each staff member retains clients — share of served visits where the client came back within your chosen window.", category: "staff", icon: ArrowRepeat, Component: RebookingRateReport },
@@ -117,6 +125,7 @@ const REPORTS: ReportDef[] = [
   { id: "purchase_vs_sales",      slug: "purchase-vs-sales",      name: "Purchase vs Sales Inventory Report",          description: "Purchase value, sales value and stock consumption per product, with net movement and turnover.",   category: "inventory",    icon: ArrowLeftRight, Component: PurchaseVsSalesReport },
   { id: "consumable_usage",       slug: "consumable-usage",       name: "Consumable Usage",                            description: "Products used up by staff during services (back-bar stock), separate from client sales.",       category: "inventory",    icon: Droplet,        Component: ConsumableUsageReport },
   { id: "supplier_report",        slug: "supplier-report",        name: "Supplier Report",                             description: "All suppliers on record, with contact details and location.",                                     category: "inventory",    icon: Truck,          Component: SupplierReport },
+  { id: "purchase_history",       slug: "purchase-history",       name: "Supplier Purchase History",                   description: "Every purchase recorded from Product Inventory, with its Supplier Number and line items.",       category: "inventory",    icon: ClockHistory,   Component: PurchaseHistoryReport },
   { id: "package_sale",           slug: "package-sale",           name: "Package Sale",                                description: "Packages purchased by clients, with amount paid and balance due.",                                  category: "packages",     icon: Tag,            Component: PackageSaleReport },
   { id: "package_history",        slug: "package-history",        name: "Package History",                             description: "Session-by-session usage history for every client package.",                                      category: "packages",     icon: ClockHistory,   Component: PackageHistoryReport },
   { id: "member_sale",            slug: "member-sale",            name: "Membership Sale",                             description: "Memberships purchased by clients and their current status.",                                       category: "packages",     icon: PersonBadge,    Component: MemberSaleReport },
@@ -149,16 +158,6 @@ function loadRecents(): { id: string; ts: number }[] {
   return [];
 }
 
-function timeAgo(ts: number): string {
-  const diffMin = Math.floor((Date.now() - ts) / 60000);
-  if (diffMin < 1) return "Just now";
-  if (diffMin < 60) return `${diffMin} min ago`;
-  const diffHr = Math.floor(diffMin / 60);
-  if (diffHr < 24) return `${diffHr} hour${diffHr > 1 ? "s" : ""} ago`;
-  const diffDay = Math.floor(diffHr / 24);
-  if (diffDay < 30) return `${diffDay} day${diffDay > 1 ? "s" : ""} ago`;
-  return new Date(ts).toLocaleDateString();
-}
 
 export default function ReportsPage() {
   const dispatch = useAppDispatch();
@@ -176,6 +175,20 @@ export default function ReportsPage() {
   const [showAllRecents, setShowAllRecents] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchParams] = useSearchParams();
+  // Id of the report last opened, so returning to the list can scroll that
+  // specific card back into view instead of resetting to the top — the
+  // .main element (DashboardLayout) is what actually scrolls, not this
+  // component's own root.
+  const lastOpenedIdRef = useRef<string | null>(null);
+  // Briefly highlights the report row scrolled back into view, so it's
+  // obvious which card you just returned from rather than just visible
+  // somewhere in an expanded category.
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  // Tracks which auto-expand target (see forcedExpandKey below) has already
+  // been applied to `expanded`, so a later manual collapse-click on that same
+  // category isn't immediately re-forced open again on the next render — the
+  // force should only fire once per navigation, not on every render.
+  const appliedForceKeyRef = useRef<CategoryKey | null>(null);
 
   useEffect(() => {
     dispatch(fetchSettingsThunk());
@@ -212,12 +225,20 @@ export default function ReportsPage() {
     });
   };
 
-  const toggleCategory = (key: CategoryKey) => {
+  const toggleCategory = (key: CategoryKey, e?: React.MouseEvent) => {
+    const wasOpen = effectiveExpanded.has(key);
     setExpanded(prev => {
       const next = new Set(prev);
       if (next.has(key)) next.delete(key); else next.add(key);
       return next;
     });
+    // Scrolls the row that was just expanded to the top of the viewport so
+    // its now-visible reports are actually on screen, instead of expanding
+    // in place and leaving the new rows below the fold.
+    if (!wasOpen) {
+      const row = (e?.currentTarget as HTMLElement | undefined)?.closest(".rp-cat-block");
+      requestAnimationFrame(() => row?.scrollIntoView({ block: "start", behavior: "smooth" }));
+    }
   };
 
   const markRecent = (id: string) => {
@@ -231,7 +252,12 @@ export default function ReportsPage() {
   const openReport = (id: string) => {
     const report = byId.get(id);
     if (!report) return;
+    lastOpenedIdRef.current = id;
     navigate(`/reports/${report.category}/${report.slug}`);
+  };
+
+  const goBackToList = () => {
+    navigate("/reports");
   };
 
   // Legacy deep-link support: /dashboard/analytics?report=<id> redirects to the
@@ -261,10 +287,81 @@ export default function ReportsPage() {
     if (active) markRecent(active.id);
   }, [active?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The category that must be expanded when we're back on the list — either
+  // the last-opened report's category, or the breadcrumb's ?expand=<key>
+  // (its link navigates to /reports?expand=<categoryKey> while ReportsPage
+  // stays mounted, so this can't be read via useState's lazy initializer,
+  // which only runs once on first mount). Computed at render time (not in an
+  // effect) so the very first paint after `active` becomes null already
+  // shows it expanded — an effect-driven update lands a commit late and
+  // flashes the collapsed list first.
+  const forcedExpandKey = useMemo<CategoryKey | null>(() => {
+    if (active) return null;
+    const expandParam = searchParams.get("expand");
+    const isValidCategory = (v: string | null): v is CategoryKey => CATEGORIES.some(c => c.key === v);
+    if (isValidCategory(expandParam)) return expandParam;
+    const id = lastOpenedIdRef.current;
+    const report = id ? byId.get(id) : undefined;
+    return report?.category ?? null;
+  }, [active, searchParams, byId]);
+
+  // Only force-expand a given key once per navigation — otherwise a manual
+  // collapse-click right after landing here (toggleCategory removes it from
+  // `expanded`) would be immediately overridden back open on the very next
+  // render, since `forcedExpandKey` itself hasn't changed.
+  const alreadyApplied = appliedForceKeyRef.current === forcedExpandKey;
+  if (forcedExpandKey && !alreadyApplied) {
+    appliedForceKeyRef.current = forcedExpandKey;
+  }
+
+  const effectiveExpanded = useMemo(() => {
+    if (!forcedExpandKey || alreadyApplied || expanded.has(forcedExpandKey)) return expanded;
+    return new Set(expanded).add(forcedExpandKey);
+  }, [expanded, forcedExpandKey, alreadyApplied]);
+
+  // Scroll the last-opened report's card back into view once we're back on
+  // the list, instead of resetting to the top of the page. `effectiveExpanded`
+  // above already renders the right category open on the very first paint,
+  // so this should find the card on its first attempt — the rAF poll is just
+  // a safety margin for slow/expensive renders (e.g. a huge visible list).
+  useEffect(() => {
+    if (active) return;
+    const id = lastOpenedIdRef.current;
+    if (!id) return;
+
+    let cancelled = false;
+    let attempts = 0;
+
+    const tryScroll = () => {
+      if (cancelled) return;
+      const el = document.querySelector(`[data-cat-report-id="${id}"]`);
+      const scrollEl = document.querySelector(".main");
+      if (el && scrollEl) {
+        const elRect = el.getBoundingClientRect();
+        const scrollRect = scrollEl.getBoundingClientRect();
+        const offset = elRect.top - scrollRect.top - (scrollRect.height / 2) + (elRect.height / 2);
+        scrollEl.scrollBy({ top: offset, behavior: "auto" });
+        setHighlightedId(id);
+        return;
+      }
+      attempts += 1;
+      if (attempts < 10) requestAnimationFrame(tryScroll);
+    };
+
+    requestAnimationFrame(tryScroll);
+    return () => { cancelled = true; };
+  }, [active]);
+
+  useEffect(() => {
+    if (!highlightedId) return;
+    const timer = setTimeout(() => setHighlightedId(null), 1800);
+    return () => clearTimeout(timer);
+  }, [highlightedId]);
+
   return (
     <div className="rp-page">
       {active ? (
-        <active.Component onBack={() => navigate("/reports")} category={activeCategoryLabel} categoryKey={active.category} />
+        <active.Component onBack={goBackToList} category={activeCategoryLabel} categoryKey={active.category} />
       ) : (
         <>
           <div className="rp-header">
@@ -301,7 +398,7 @@ export default function ReportsPage() {
                   ) : (
                     <div className="rp-search-results">
                       {searchResults.map(r => (
-                        <div key={r.id} className="rp-cat-report-row" onClick={() => openReport(r.id)}>
+                        <div key={r.id} data-report-id={r.id} className="rp-cat-report-row" onClick={() => openReport(r.id)}>
                           <div className={`rp-cat-report-icon rp-cat-report-icon--${r.category}`}><r.icon size={15} /></div>
                           <div className="rp-cat-report-info">
                             <div className="rp-cat-report-name">{r.name}</div>
@@ -335,7 +432,7 @@ export default function ReportsPage() {
                         {favoriteReports.map(r => {
                           const cat = CATEGORIES.find(c => c.key === r.category)!;
                           return (
-                            <div key={r.id} className="rp-fav-card" onClick={() => openReport(r.id)}>
+                            <div key={r.id} data-report-id={r.id} className="rp-fav-card" onClick={() => openReport(r.id)}>
                               <div className="rp-fav-card-top">
                                 <div className={`rp-fav-card-icon rp-cat-icon--${r.category}`}><r.icon size={15} /></div>
                                 <button
@@ -369,9 +466,9 @@ export default function ReportsPage() {
                     ) : (
                       <div className="rp-recent-row">
                         {(showAllRecents ? recentReports : recentReports.slice(0, 5)).map(r => (
-                          <div key={r.id} className="rp-recent-item" onClick={() => openReport(r.id)}>
+                          <div key={r.id} data-report-id={r.id} className="rp-recent-item" onClick={() => openReport(r.id)}>
                             <div className="rp-recent-name">{r.report!.name}</div>
-                            <div className="rp-recent-time">{timeAgo(r.ts)}</div>
+                            <div className="rp-recent-time">{formatTimeAgo(r.ts)}</div>
                           </div>
                         ))}
                       </div>
@@ -383,10 +480,10 @@ export default function ReportsPage() {
                     <div className="rp-cat-list">
                       {CATEGORIES.map(cat => {
                         const reports = visibleReports.filter(r => r.category === cat.key);
-                        const isOpen = expanded.has(cat.key);
+                        const isOpen = effectiveExpanded.has(cat.key);
                         return (
                           <div key={cat.key} className={`rp-cat-block ${isOpen ? "open" : ""}`}>
-                            <div className="rp-cat-row" onClick={() => toggleCategory(cat.key)}>
+                            <div className="rp-cat-row" onClick={(e) => toggleCategory(cat.key, e)}>
                               <div className={`rp-cat-icon rp-cat-icon--${cat.key}`}><cat.icon size={18} /></div>
                               <div className="rp-cat-info">
                                 <div className="rp-cat-name">{cat.label}</div>
@@ -398,7 +495,7 @@ export default function ReportsPage() {
                             {isOpen && (
                               <div className="rp-cat-report-list">
                                 {reports.map(r => (
-                                  <div key={r.id} className="rp-cat-report-row" onClick={() => openReport(r.id)}>
+                                  <div key={r.id} data-cat-report-id={r.id} className={`rp-cat-report-row ${highlightedId === r.id ? "rp-cat-report-row--highlight" : ""}`} onClick={() => openReport(r.id)}>
                                     <div className={`rp-cat-report-icon rp-cat-report-icon--${r.category}`}><r.icon size={15} /></div>
                                     <div className="rp-cat-report-info">
                                       <div className="rp-cat-report-name">{r.name}</div>

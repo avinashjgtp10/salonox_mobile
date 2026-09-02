@@ -138,6 +138,96 @@
   overflow-y: auto;
 }
 
+// No sidebar any more — Settings home is a full-width card grid, and a
+// section opens as a full-width page of its own (see .settings-back-link).
+.settings-root--full .settings-content {
+  padding-left: 0;
+  border-left: none;
+}
+
+.settings-back-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: none;
+  background: transparent;
+  padding: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: $dashboard-primary;
+  cursor: pointer;
+
+  &:hover { color: $info; }
+}
+
+/* ── Settings Home — DINGG-style category card grid ── */
+.settings-home {
+  padding-top: 4px;
+}
+
+.settings-home-group {
+  margin-bottom: 28px;
+
+  &:last-child { margin-bottom: 0; }
+}
+
+.settings-home-group-label {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: $dashboard-primary;
+  margin: 0 0 12px;
+}
+
+.settings-home-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+}
+
+.settings-home-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  text-align: left;
+  padding: 16px;
+  min-height: 108px;
+  background: $white;
+  border: 1px solid $dashboard-border;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s, box-shadow 0.15s, transform 0.15s;
+
+  &:hover {
+    border-color: $info;
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.12);
+    transform: translateY(-1px);
+  }
+}
+
+.settings-home-card-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: $info;
+  margin-bottom: 2px;
+}
+
+.settings-home-card-title {
+  font-size: 13.5px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: $info;
+}
+
+.settings-home-card-desc {
+  font-size: 12px;
+  line-height: 1.45;
+  color: $dashboard-secondary;
+}
+
 
 /* ── Page Header ── */
 .settings-page-header {
@@ -255,7 +345,8 @@
   img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
+    background: #fff;
     border-radius: 50%;
   }
 }

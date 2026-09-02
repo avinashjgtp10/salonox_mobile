@@ -7,6 +7,7 @@ const OverviewPage        = lazy(() => import("../features/super-admin/pages/Ove
 const SalonsPage          = lazy(() => import("../features/super-admin/pages/SalonsPage"));
 const BranchOwnersPage    = lazy(() => import("../features/super-admin/pages/BranchOwnersPage"));
 const SalonDetailPage     = lazy(() => import("../features/super-admin/pages/SalonDetailPage"));
+const DataCleanupPage     = lazy(() => import("../features/super-admin/pages/DataCleanupPage"));
 const VisitedPage         = lazy(() => import("../features/super-admin/pages/VisitedPage"));
 const PermissionsPage     = lazy(() => import("../features/super-admin/pages/PermissionsPage"));
 const SubscriptionPermissionsPage = lazy(() => import("../features/super-admin/pages/SubscriptionPermissionsPage"));
@@ -23,6 +24,7 @@ export const SuperAdminRoutes = (
         <Route path="salons"       element={<SalonsPage />} />
         <Route path="salons/:salonId" element={<SalonDetailPage />} />
         <Route path="branch-owners" element={<BranchOwnersPage />} />
+        <Route path="data-cleanup" element={<DataCleanupPage />} />
         <Route path="visited"      element={<VisitedPage />} />
         <Route path="permissions"  element={<PermissionsPage />} />
         <Route path="subscription-permissions" element={<SubscriptionPermissionsPage />} />

@@ -15,6 +15,7 @@ import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet
 import { useListClientPackagesQuery } from "../../../../services/api/endpoints/packages.endpoints";
 import { printReceipt } from "../../utils/receipt";
 import { buildClientWhatsAppLink } from "../../../../utils/whatsapp";
+import { maskMobile } from "../../../../utils/maskMobile";
 import { normalizePaymentStatus } from "../../utils/bookingMapper";
 import { useFocusTrap } from "../../../../hooks/useFocusTrap";
 import { computeBillBreakdown } from "../../../../components/shared/billBreakdown";
@@ -166,7 +167,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
             <div className="vbm-avatar">{booking.clientName?.charAt(0) || "?"}</div>
             <div className="vbm-client-name">{booking.clientName || "Walk-In"}</div>
             <div className="vbm-client-phone">
-              📞 {booking.clientPhone || client?.phone || "—"}
+              📞 {maskMobile(booking.clientPhone || client?.phone) || "—"}
             </div>
             <div className="vbm-client-phone" style={{ fontSize: 12 }}>
               ✉️ {(booking as any).clientEmail || client?.email || "—"}
@@ -241,9 +242,9 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
               (booking.rewardPointsValue || 0) > 0 ? ["🎁 Paid from Reward Points", `${currencySymbol}${(booking.rewardPointsValue || 0).toFixed(2)}`, "#7c3aed", false] : null,
               ["Paid",  `${currencySymbol}${(booking.payingNow || 0).toFixed(2)}`, "#111827", false],
               (booking.dueAmount || 0) > 0 ? ["Due", `${currencySymbol}${(booking.dueAmount || 0).toFixed(2)}`, "#ef4444", false] : null,
-              // Part of Total/Paid/Due above only when this bill was charged
-              // with "Add Tip to Salon" checked; otherwise display/record-only.
-              booking.tipAmount      ? [`Staff Tip${booking.tipAddedToSalon ? " (included above)" : ""}`, `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
+              // Already folded into Total/Paid/Due above — shown again here just
+              // to break out how much of that figure is tip vs. bill.
+              booking.tipAmount      ? ["Staff Tip (included above)", `${currencySymbol}${booking.tipAmount.toFixed(2)}`, "#374151", false] : null,
               ...((booking.tipAmount && (booking as any).tipBreakdown?.length)
                 ? (booking as any).tipBreakdown.map((t: any) => [t.staffName, `${currencySymbol}${Number(t.amount || 0).toFixed(2)}`, "#98a2b3", false, true])
                 : []),
@@ -356,7 +357,6 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                           taxes:          activeTaxes,
                           exCharges:      Number((booking as any).exCharges || 0),
                           tip:            Number((booking as any).tipAmount || 0),
-                          addTipToSalon:  !!(booking as any).tipAddedToSalon,
                           couponDiscount: Number((booking as any).couponDiscount || 0),
                           referralDiscount: Number((booking as any).referralDiscount || 0),
                           eWalletUsed:    0,
@@ -392,8 +392,12 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                         return;
                       }
 
-                      const blob: Blob = result.payload;
-                      const filename = `Receipt-${(booking as any).invoiceNumber || booking.id}.pdf`;
+                      const { blob, filename: serverFilename } = result.payload as { blob: Blob; filename: string | null };
+                      // Server's own filename (from the same lookup that
+                      // generated the PDF) is authoritative — only fall back
+                      // to the locally-known invoice number if that header
+                      // was somehow stripped in transit.
+                      const filename = serverFilename || `Receipt-${(booking as any).invoiceNumber || booking.id}.pdf`;
 
                       // Best-effort first: native share sheet attaches the PDF directly —
                       // see AppointmentModal.tsx's identical button for the full reasoning
@@ -485,6 +489,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                         <div>
                           <div className="vbm-service-card__name">{(s as any).name || s.service}</div>
                           <div className="vbm-service-card__sub">
+                            <span style={{ background: "#ede9fe", color: "#5b21b6", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 3 }}>SERVICE</span>
                             {svcStaffName && <span>{svcStaffName}</span>}
                             {s.time && <span>{svcStaffName ? " · " : ""}{s.time}</span>}
                           </div>
@@ -500,25 +505,6 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   );
                 })}
 
-                {(booking.packageItems || []).map((p, i) => (
-                  <div key={i} className="vbm-service-card">
-                    <div className="vbm-service-card__top">
-                      <div>
-                        <div className="vbm-service-card__name">{p.packageName || (p as any).name}</div>
-                        <div className="vbm-service-card__sub">
-                          <span style={{ background: "#fef3c7", color: "#92400e", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 3 }}>PACKAGE</span>
-                        </div>
-                      </div>
-                      <div className="vbm-service-card__total">{currencySymbol}{((p.total || p.price || 0) + ((p as any).tax || 0)).toFixed(2)}</div>
-                    </div>
-                    <div className="vbm-service-card__pills">
-                      {[["Qty", p.qty || 1], ["Price", `${currencySymbol}${(p.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((p as any).discount || 0).toFixed(2)}`], ["Tax", `${currencySymbol}${((p as any).tax || 0).toFixed(2)}`]].map(([lbl, val]) => (
-                        <span key={lbl as string} className="vbm-pill">{lbl}: {val}</span>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-
                 {((booking as any).productItems || (booking as any).products || []).map((p: any, i: number) => (
                   <div key={i} className="vbm-service-card">
                     <div className="vbm-service-card__top">
@@ -532,6 +518,25 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                     </div>
                     <div className="vbm-service-card__pills">
                       {[["Qty", p.qty || 1], ["Price", `${currencySymbol}${(p.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((p as any).discount || 0).toFixed(2)}`], ["Tax", `${currencySymbol}${(p.tax || 0).toFixed(2)}`]].map(([lbl, val]) => (
+                        <span key={lbl as string} className="vbm-pill">{lbl}: {val}</span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+
+                {(booking.packageItems || []).map((p, i) => (
+                  <div key={i} className="vbm-service-card">
+                    <div className="vbm-service-card__top">
+                      <div>
+                        <div className="vbm-service-card__name">{p.packageName || (p as any).name}</div>
+                        <div className="vbm-service-card__sub">
+                          <span style={{ background: "#fef3c7", color: "#92400e", fontSize: 10, fontWeight: 700, padding: "1px 6px", borderRadius: 3 }}>PACKAGE</span>
+                        </div>
+                      </div>
+                      <div className="vbm-service-card__total">{currencySymbol}{((p.total || p.price || 0) + ((p as any).tax || 0)).toFixed(2)}</div>
+                    </div>
+                    <div className="vbm-service-card__pills">
+                      {[["Qty", p.qty || 1], ["Price", `${currencySymbol}${(p.price || 0).toFixed(2)}`], ["Disc", `${currencySymbol}${((p as any).discount || 0).toFixed(2)}`], ["Tax", `${currencySymbol}${((p as any).tax || 0).toFixed(2)}`]].map(([lbl, val]) => (
                         <span key={lbl as string} className="vbm-pill">{lbl}: {val}</span>
                       ))}
                     </div>
@@ -599,11 +604,11 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                   {(booking.dueAmount || 0) > 0 && (
                     <div className="vbm-breakdown-row vbm-breakdown-row--due"><span>Balance Due</span><span>{currencySymbol}{(booking.dueAmount || 0).toFixed(2)}</span></div>
                   )}
-                  {/* Part of Grand Total/Paid/Due above only when this bill was
-                      charged with "Add Tip to Salon" checked. */}
+                  {/* Already folded into Grand Total/Paid/Due above — shown again
+                      here just to break out how much of that figure is tip. */}
                   {(booking.tipAmount || 0) > 0 && (
                     <div className="vbm-breakdown-row">
-                      <span>Staff Tip{booking.tipAddedToSalon ? " (included above)" : ""}</span>
+                      <span>Staff Tip (included above)</span>
                       <span>{currencySymbol}{(booking.tipAmount || 0).toFixed(2)}</span>
                     </div>
                   )}
@@ -620,7 +625,7 @@ const ViewBillModal: React.FC<Props> = ({ booking, onClose, onEdit, onCollectDue
                 <div className="vbm-activity-card__title">Activity Log</div>
                 {[
                   { icon: "📅", label: "Appointment Created", detail: `${formatDateDMY(booking.billDate || booking.date)} · ${formatTime12(booking.startTime)} – ${formatTime12(booking.endTime)}` },
-                  { icon: "👤", label: "Client", detail: [booking.clientName, booking.clientPhone, (booking as any).clientEmail].filter(Boolean).join(" · ") },
+                  { icon: "👤", label: "Client", detail: [booking.clientName, maskMobile(booking.clientPhone), (booking as any).clientEmail].filter(Boolean).join(" · ") },
                   { icon: "💼", label: "Staff", detail: staffName },
                   { icon: "💳", label: "Payment Status", detail: normalizePaymentStatus(booking.status) },
                   { icon: "📋", label: "Booking Status", detail: STATUS_PILL_STYLES[booking.status]?.text ?? booking.status },

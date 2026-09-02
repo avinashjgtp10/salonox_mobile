@@ -34,6 +34,9 @@ export interface CashDashboardSummary {
   openedAt: string | null;
   closedAt: string | null;
   remarks: string | null;
+  upiAmount: number;
+  cardAmount: number;
+  cashAmount: number;
 }
 
 export interface CashTransactionRecord {

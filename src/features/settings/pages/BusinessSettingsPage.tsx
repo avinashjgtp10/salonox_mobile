@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   Building2,
   Globe,
@@ -20,15 +20,20 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { getMySalonThunk, updateSalonThunk } from "../../../middleware/salon/salon.thunk";
 import Button from "../../../components/ui/Button";
+import api from "../../../services/api/axios";
 import type { Salon, UpdateSalonPayload } from "../../../types/salon.types";
 import { TAX_ID_MESSAGES } from "../../../constants/message";
 import { toTitleCase } from "../../../utils/titleCase";
+import { resolveMediaUrl } from "../../../utils/mediaUrl";
 
 const GSTIN_LENGTH = 15;
 const PAN_LENGTH = 10;
 // 2-digit state code + 10-char PAN + 1-digit entity code + "Z" + 1 checksum char.
 const GSTIN_FORMAT_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
 const PAN_FORMAT_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
+
+const MAX_LOGO_SIZE = 2 * 1024 * 1024;
+const ALLOWED_LOGO_TYPES = ["image/jpeg", "image/png"];
 
 type BusinessForm = Omit<UpdateSalonPayload, "phone" | "address">;
 type FormErrors = Partial<Record<"gst_number" | "pan_number", string>>;
@@ -81,9 +86,20 @@ export default function BusinessSettingsPage() {
   const [errors,    setErrors]    = useState<FormErrors>({});
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoPreviewUrl, setLogoPreviewUrl] = useState("");
+  const [logoLoadFailed, setLogoLoadFailed] = useState(false);
+  const logoFileRef = useRef<HTMLInputElement>(null);
+
   useEffect(() => {
     dispatch(getMySalonThunk());
   }, [dispatch]);
+
+  useEffect(() => {
+    return () => {
+      if (logoPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(logoPreviewUrl);
+    };
+  }, [logoPreviewUrl]);
 
   // Only re-sync from the server while NOT editing — otherwise a background
   // refetch (e.g. another tab saving) would silently overwrite in-progress
@@ -189,7 +205,7 @@ export default function BusinessSettingsPage() {
     const result = await dispatch(
       updateSalonThunk({
         id: currentSalon.id,
-        payload: { ...form, business_name: toTitleCase(form.business_name.trim()) },
+        payload: { ...form, business_name: toTitleCase((form.business_name ?? "").trim()) },
       })
     );
     setSaving(false);
@@ -203,6 +219,89 @@ export default function BusinessSettingsPage() {
     }
   };
 
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!ALLOWED_LOGO_TYPES.includes(file.type)) {
+      showError("Please upload a JPG or PNG image.");
+      if (logoFileRef.current) logoFileRef.current.value = "";
+      return;
+    }
+    if (file.size > MAX_LOGO_SIZE) {
+      showError("Logo must be under 2 MB.");
+      if (logoFileRef.current) logoFileRef.current.value = "";
+      return;
+    }
+
+    setLogoUploading(true);
+    const localPreviewUrl = URL.createObjectURL(file);
+    setLogoPreviewUrl((current) => {
+      if (current.startsWith("blob:")) URL.revokeObjectURL(current);
+      return localPreviewUrl;
+    });
+    const formData = new FormData();
+    formData.append("image", file);
+    try {
+      // Same upload endpoint the Online Booking marketplace profile uses for
+      // its logo (see MarketplaceProfilePage) — it writes the salon's own
+      // logo_url, which is what Business Settings reads, so this is a
+      // separate image from the owner's Personal Profile photo (uploaded via
+      // uploadAvatarThunk to /users/me/avatar) and updating one never touches
+      // the other.
+      const res = await api.post("/api/v1/marketplace/logo", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      const saved = res.data?.data ?? res.data ?? {};
+      const uploadedLogoUrl =
+        typeof saved.logo_url === "string" && saved.logo_url.trim()
+          ? resolveMediaUrl(saved.logo_url)
+          : localPreviewUrl;
+      setLogoPreviewUrl(uploadedLogoUrl);
+      setLogoLoadFailed(false);
+      void dispatch(getMySalonThunk());
+      showSuccess("Business logo updated!");
+    } catch (err: unknown) {
+      setLogoPreviewUrl((current) => (current === localPreviewUrl ? "" : current));
+      URL.revokeObjectURL(localPreviewUrl);
+      const msg =
+        err && typeof err === "object"
+          ? String((err as { response?: { data?: { message?: unknown } } }).response?.data?.message ?? "Logo upload failed.")
+          : "Logo upload failed.";
+      showError(msg);
+    } finally {
+      setLogoUploading(false);
+      if (logoFileRef.current) logoFileRef.current.value = "";
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    if (!currentSalon?.id || logoUploading) return;
+
+    const previousPreviewUrl = logoPreviewUrl;
+    if (previousPreviewUrl.startsWith("blob:")) URL.revokeObjectURL(previousPreviewUrl);
+    setLogoPreviewUrl("");
+    setLogoLoadFailed(false);
+    setLogoUploading(true);
+
+    const result = await dispatch(
+      updateSalonThunk({
+        id: currentSalon.id,
+        payload: { logo_url: "" },
+      }),
+    );
+
+    setLogoUploading(false);
+
+    if (updateSalonThunk.fulfilled.match(result)) {
+      showSuccess("Business logo removed.");
+      void dispatch(getMySalonThunk());
+      return;
+    }
+
+    setLogoPreviewUrl(previousPreviewUrl);
+    showError((result.payload as string) || "Failed to remove business logo.");
+  };
+
   // Derive initials for the logo placeholder
   const logoInitials = (form.business_name || "B")
     .split(" ")
@@ -210,6 +309,9 @@ export default function BusinessSettingsPage() {
     .join("")
     .toUpperCase()
     .slice(0, 2);
+  const displayLogoUrl = logoLoadFailed
+    ? ""
+    : logoPreviewUrl || resolveMediaUrl(currentSalon?.logo_url) || "";
 
   return (
     <>
@@ -268,15 +370,32 @@ export default function BusinessSettingsPage() {
         </div>
         <div className="settings-section-body">
           <div className="settings-avatar-row">
-            <div className="settings-avatar settings-avatar--square">
-              {currentSalon?.logo_url ? (
-                <img src={currentSalon.logo_url} alt="Business logo" />
+            <div
+              className="settings-avatar settings-avatar--square"
+              onClick={() => !logoUploading && logoFileRef.current?.click()}
+              style={{ cursor: logoUploading ? "default" : "pointer" }}
+            >
+              {displayLogoUrl ? (
+                <img
+                  src={displayLogoUrl}
+                  alt="Business logo"
+                  onLoad={() => setLogoLoadFailed(false)}
+                  onError={() => setLogoLoadFailed(true)}
+                />
               ) : (
                 <span>{logoInitials}</span>
               )}
               <div className="settings-avatar-overlay">
                 <Upload size={18} />
               </div>
+              <input
+                ref={logoFileRef}
+                type="file"
+                accept=".jpg,.jpeg,.png"
+                aria-label="Upload business logo"
+                style={{ display: "none" }}
+                onChange={handleLogoUpload}
+              />
             </div>
             <div className="settings-avatar-info">
               <p className="settings-avatar-name">
@@ -289,12 +408,19 @@ export default function BusinessSettingsPage() {
                 <Button
                   size="sm"
                   variant="outline-secondary"
-                  onClick={() => showError("Logo upload coming soon")}
+                  loading={logoUploading}
+                  onClick={() => logoFileRef.current?.click()}
                 >
                   Upload logo
                 </Button>
-                {currentSalon?.logo_url && (
-                  <Button size="sm" variant="ghost">
+                {displayLogoUrl && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    loading={logoUploading}
+                    disabled={logoUploading}
+                    onClick={handleLogoRemove}
+                  >
                     Remove
                   </Button>
                 )}

@@ -15,23 +15,33 @@ import {
   ChatDots,
   LockFill,
   X,
+  Wallet2,
+  CashStack,
+  JournalText,
+  Safe2,
+  CheckCircleFill,
+  XCircleFill,
+  ExclamationTriangleFill,
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
 import salonoxLogo from "../../../assets/salonox_full_logo.png";
-import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { formatDateDDMMYYYY, formatTimeAgo } from "../../../utils/dateFormat";
 import SearchOverlay from "./SearchOverlay";
 import api from "../../../services/api/axios";
 import { NOTIFICATIONS } from "../../../services/api/endpoints";
 import { connectSocket, disconnectSocket } from "../../../services/socket/socket";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { closeCashCounterThunk } from "../../../middleware/cashCounter/cashCounter.thunk";
+import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../../cash-management/cashManagement.api";
+import { useCurrency } from "../../../hooks/useCurrency";
 import { Button, Modal } from "../../../components/ui";
+import { onGlobalToast } from "../../../utils/globalToast";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Notification {
   id: string;
-  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info";
+  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info" | "success" | "error" | "warning";
   title: string;
   body: string | null;
   is_read: boolean;
@@ -52,6 +62,9 @@ const NOTIF_ICONS: Record<string, React.ReactNode> = {
   review: <StarFill size={14} />,
   whatsapp: <ChatDots size={16} />,
   info: <Bell size={15} />,
+  success: <CheckCircleFill size={15} />,
+  error: <XCircleFill size={15} />,
+  warning: <ExclamationTriangleFill size={14} />,
 };
 
 const NOTIF_COLORS: Record<string, string> = {
@@ -61,21 +74,12 @@ const NOTIF_COLORS: Record<string, string> = {
   review: "#f59e0b",
   whatsapp: "#25d366",
   info: "#6b7280",
+  success: "#10b981",
+  error: "#ef4444",
+  warning: "#f59e0b",
 };
 
 const TOAST_DURATION = 5000; // ms before auto-dismiss
-
-// ── Time helper ────────────────────────────────────────────────────────────────
-
-function timeAgo(isoDate: string): string {
-  const diff = Date.now() - new Date(isoDate).getTime();
-  const mins = Math.floor(diff / 60_000);
-  if (mins < 1) return "just now";
-  if (mins < 60) return `${mins} min ago`;
-  const hrs = Math.floor(mins / 60);
-  if (hrs < 24) return `${hrs} hr ago`;
-  return `${Math.floor(hrs / 24)} day ago`;
-}
 
 const getInitials = (name?: string) => {
   if (!name) return "U";
@@ -96,6 +100,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
   const navigate = useNavigate();
   const userProfile = useSelector((s: RootState) => s.user.profile);
   const salonId = useSelector((s: RootState) => s.auth.salonId);
+  const { formatAmount } = useCurrency();
 
   const [showSearch, setShowSearch] = useState(false);
   const [showNotif, setShowNotif] = useState(false);
@@ -110,6 +115,12 @@ export default function DashboardTopbar({ onLogout }: Props) {
   const isCashCounterOpen = cashDashboard?.status === "open" && Boolean(cashDashboard.cashManagementId);
   const [showCloseCounterConfirm, setShowCloseCounterConfirm] = useState(false);
   const [closingCounter, setClosingCounter] = useState(false);
+  const [paymentMethodCounts, setPaymentMethodCounts] = useState({
+    upi: 0,
+    card: 0,
+    cash: 0,
+    amounts: { upi: 0, card: 0, cash: 0 },
+  });
 
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
@@ -128,7 +139,10 @@ export default function DashboardTopbar({ onLogout }: Props) {
     const id = setInterval(() => setNow(new Date()), 60_000);
     return () => clearInterval(id);
   }, []);
-  const todayLabel = formatDateDDMMYYYY(now);
+  // Slash-separated, distinct from the app-wide dash-separated formatDateDDMMYYYY
+  // — this chip pairs the date with a time, so the dash would be ambiguous with
+  // the " / " joiner between them.
+  const todayLabel = formatDateDDMMYYYY(now).replace(/-/g, "/");
   const timeLabel = now.toLocaleTimeString("en-IN", {
     hour: "2-digit", minute: "2-digit", hour12: true,
   });
@@ -239,7 +253,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
   const handleMarkAllRead = useCallback(async () => {
     try {
       await api.patch(NOTIFICATIONS.MARK_ALL);
-      setNotifs(prev => prev.map(n => ({ ...n, is_read: true })));
+      setNotifs([]);
     } catch { /* ignore */ }
   }, []);
 
@@ -250,22 +264,68 @@ export default function DashboardTopbar({ onLogout }: Props) {
     } catch { /* ignore */ }
   }, []);
 
+  // Clicking a notification in the dropdown list dismisses it from the panel
+  // immediately (same as "Mark all read" now clearing the whole list) rather
+  // than just flipping is_read and leaving it sitting there looking read —
+  // the sync to the server is fire-and-forget so the dismissal isn't blocked
+  // on (or undone by) a slow/failed request.
+  const handleNotifItemClick = useCallback((n: Notification) => {
+    setNotifs(prev => prev.filter(x => x.id !== n.id));
+    if (!n.is_read) {
+      api.patch(NOTIFICATIONS.MARK_ONE(n.id)).catch(() => { /* best-effort */ });
+    }
+  }, []);
+
   const handleLogoutClick = useCallback(() => {
     setShowProfile(false);
     disconnectSocket();
     onLogout();
   }, [onLogout]);
 
+  // Cash counter close/email outcomes get the same floating toast card as
+  // any other live notification (e.g. "New Appointment Booked"), not just a
+  // silent add to the bell dropdown — a user-initiated action like Close
+  // Counter deserves the same visible confirmation as everything else.
   const showCashCounterToast = useCallback((title: string, body: string) => {
-    showToast({
+    const notification: Notification = {
       id: `cash-counter_${Date.now()}`,
       type: "info",
       title,
       body,
-      is_read: true,
+      is_read: false,
       created_at: new Date().toISOString(),
+    };
+    setNotifs(prev => [notification, ...prev]);
+    showToast(notification);
+  }, [showToast]);
+
+  // Lets components mounted outside this one (the cash-counter open/close
+  // flows in UnclosedCounterGate.tsx, AutoOpenCounterForNewAccount.tsx, and
+  // CashManagementPage.tsx) trigger this exact same toast via
+  // showGlobalToast(...) instead of each rolling its own notification UI.
+  useEffect(() => {
+    return onGlobalToast(({ type, title, body }) => {
+      showToast({
+        id: `global-toast_${Date.now()}`,
+        type,
+        title,
+        body: body ?? null,
+        is_read: false,
+        created_at: new Date().toISOString(),
+      });
     });
   }, [showToast]);
+
+  useEffect(() => {
+    if (!showCloseCounterConfirm) return;
+    let cancelled = false;
+    fetchTodaysPaymentMethodCounts().then((counts) => {
+      if (!cancelled) setPaymentMethodCounts(counts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showCloseCounterConfirm]);
 
   const handleConfirmCloseCounter = useCallback(async () => {
     if (!cashDashboard?.cashManagementId) {
@@ -275,7 +335,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
     setClosingCounter(true);
     try {
-      await dispatch(
+      const closedDashboard = await dispatch(
         closeCashCounterThunk({
           cash_management_id: cashDashboard.cashManagementId,
           in_store_cash: Number(cashDashboard.inStoreCash || cashDashboard.closingBalance || 0),
@@ -284,6 +344,20 @@ export default function DashboardTopbar({ onLogout }: Props) {
       ).unwrap();
       setShowCloseCounterConfirm(false);
       showCashCounterToast("Counter closed", "The cash counter was closed successfully.");
+
+      // Email the daily summary straight away, same as the stale-counter flow —
+      // the salon owner shouldn't have to go into Cash Management to trigger it.
+      // Sent silently: no notification either way, since the user only asked
+      // to be told the counter closed, not about the email's delivery status.
+      try {
+        await sendDailySummaryEmail(
+          cashDashboard.cashManagementId,
+          { ...(closedDashboard ?? cashDashboard), paymentCounts: paymentMethodCounts },
+          email,
+        );
+      } catch (emailErr: any) {
+        console.error("[DashboardTopbar] Daily summary email failed:", emailErr);
+      }
     } catch (err: any) {
       const message =
         err?.response?.data?.message ?? err?.response?.data?.error ?? err?.message ?? "Failed to close counter.";
@@ -291,7 +365,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
     } finally {
       setClosingCounter(false);
     }
-  }, [cashDashboard, dispatch, showCashCounterToast]);
+  }, [cashDashboard, dispatch, email, showCashCounterToast, paymentMethodCounts]);
 
   // ── Render ────────────────────────────────────────────────────────────────────
 
@@ -336,15 +410,16 @@ export default function DashboardTopbar({ onLogout }: Props) {
       <div className="topbar">
         <div className="topbar-left">
           <h2 className="brand">
-            <img src={salonoxLogo} alt="SalonOX" className="brand-logo" width="190" height="61" />
+            <img src={salonoxLogo} alt="SalonOX" className="brand-logo" width="122" height="61" />
           </h2>
         </div>
 
         <div className="topbar-right">
 
           {/* Current date & time */}
-          <span className="topbar-date" title="Today's date">{todayLabel}</span>
-          <span className="topbar-time" title="Current time">{timeLabel}</span>
+          <span className="topbar-datetime" title="Today's date and time">
+            {todayLabel} . {timeLabel}
+          </span>
 
           {/* Notifications bell */}
           <div className="topbar-notif-wrap" ref={notifRef}>
@@ -387,7 +462,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
                         <div
                           key={n.id}
                           className={`topbar-notif-item ${n.is_read ? "" : "topbar-notif-item--unread"}`}
-                          onClick={() => !n.is_read && handleMarkRead(n.id)}
+                          onClick={() => handleNotifItemClick(n)}
                           role="menuitem"
                         >
                           <span className="topbar-notif-icon" style={{ background: color + "18", color }}>
@@ -396,7 +471,7 @@ export default function DashboardTopbar({ onLogout }: Props) {
                           <div className="topbar-notif-content">
                             <p className="topbar-notif-item-title">{n.title}</p>
                             {n.body && <p className="topbar-notif-item-body">{n.body}</p>}
-                            <span className="topbar-notif-time">{timeAgo(n.created_at)}</span>
+                            <span className="topbar-notif-time">{formatTimeAgo(n.created_at)}</span>
                           </div>
                           {!n.is_read && <span className="topbar-notif-dot" />}
                         </div>
@@ -459,14 +534,17 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
                 <div className="topbar-profile-divider" />
 
-                {isCashCounterOpen && (
-                  <button
-                    className="topbar-profile-item"
-                    onClick={() => { setShowProfile(false); setShowCloseCounterConfirm(true); }}
-                  >
-                    <LockFill size={15} /> Close Counter
-                  </button>
-                )}
+                <button
+                  className="topbar-profile-item"
+                  disabled={!isCashCounterOpen}
+                  onClick={() => {
+                    if (!isCashCounterOpen) return;
+                    setShowProfile(false);
+                    setShowCloseCounterConfirm(true);
+                  }}
+                >
+                  <LockFill size={15} /> Close Counter
+                </button>
 
                 <button className="topbar-profile-item topbar-profile-item--danger" onClick={handleLogoutClick}>
                   <BoxArrowRight size={15} /> Logout
@@ -505,9 +583,88 @@ export default function DashboardTopbar({ onLogout }: Props) {
           </div>
         }
       >
-        <p className="topbar-confirm-copy">
-          Are you sure you want to close today's cash counter? You cannot reopen it again today.
-        </p>
+        <div className="d-flex flex-column gap-3">
+          <p className="topbar-confirm-copy mb-0">
+            Are you sure you want to close today's cash counter? You cannot reopen it again today. A copy of the
+            daily summary below will be emailed to {email || "the salon owner"} automatically.
+          </p>
+
+          {cashDashboard ? (
+            <div className="p-3 bg-light rounded-3 border">
+              <div className="row g-2">
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <Wallet2 size={13} className="text-primary" /> Opening Balance
+                    </div>
+                    <div className="fw-bold text-dark fs-6 mt-1">
+                      {formatAmount(cashDashboard.openingBalance ?? 0)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <CashStack size={13} className="text-success" /> Cash Revenue
+                    </div>
+                    <div className="fw-bold text-success fs-6 mt-1">
+                      {formatAmount(paymentMethodCounts.amounts.cash)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <JournalText size={13} className="text-warning" /> Cash Expense
+                    </div>
+                    <div className="fw-bold text-warning fs-6 mt-1">
+                      {formatAmount(cashDashboard.cashExpense ?? 0)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <Safe2 size={13} className="text-dark" /> Expected Closing
+                    </div>
+                    <div className="fw-bold text-dark fs-6 mt-1">
+                      {formatAmount(
+                        (cashDashboard.openingBalance ?? 0) +
+                          paymentMethodCounts.amounts.cash -
+                          (cashDashboard.cashExpense ?? 0)
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <CurrencyRupee size={13} className="text-primary" /> UPI Payments
+                    </div>
+                    <div className="fw-bold text-dark fs-6 mt-1">
+                      {formatAmount(paymentMethodCounts.amounts.upi)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <Wallet2 size={13} className="text-primary" /> Card Payments
+                    </div>
+                    <div className="fw-bold text-dark fs-6 mt-1">
+                      {formatAmount(paymentMethodCounts.amounts.card)}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
       </Modal>
     </>
   );

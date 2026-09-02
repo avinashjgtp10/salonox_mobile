@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
+  ArrowLeft,
   User,
   Building2,
   ShieldCheck,
@@ -32,14 +33,16 @@ import CouponsSettingsPage from "../pages/CouponsSettingsPage";
 import PackageSettingsPage from "../pages/PackageSettingsPage";
 import PrintSettingsPage from "../pages/PrintSettingsPage";
 import DataPrivacyPage from "../pages/DataPrivacyPage";
+import SettingsHomePage, { type SettingsHomeGroup } from "../pages/SettingsHomePage";
 import "../styles/SettingsPage.scss";
 
 interface NavItem {
   id: string;
   label: string;
+  description: string;
   icon: React.ReactNode;
   Component: React.ComponentType;
-  /** Routable and deep-linkable, but not listed in the sidebar. */
+  /** Routable and deep-linkable, but not listed on the Settings home grid. */
   hidden?: boolean;
 }
 
@@ -52,50 +55,53 @@ const navGroups: NavGroup[] = [
   {
     groupLabel: "Account",
     items: [
-      { id: "profile",  label: "Profile",             icon: <User size={15} />,        Component: ProfileSettingsPage },
-      { id: "business", label: "Business",            icon: <Building2 size={15} />,   Component: BusinessSettingsPage },
-      { id: "account",  label: "Account & Security",  icon: <ShieldCheck size={15} />, Component: AccountSettingsPage },
+      { id: "profile",  label: "Profile",             description: "Manage your personal details and profile photo.",                icon: <User size={18} />,        Component: ProfileSettingsPage },
+      { id: "business", label: "Business",            description: "Manage your salon's public profile, contact info, and hours.",    icon: <Building2 size={18} />,   Component: BusinessSettingsPage },
+      { id: "account",  label: "Account & Security",  description: "Update your password and manage account security.",               icon: <ShieldCheck size={18} />, Component: AccountSettingsPage },
     ],
   },
   {
     groupLabel: "Preferences",
     items: [
-      { id: "notifications", label: "Notifications",        icon: <Bell size={15} />,  Component: NotificationsPage },
-      { id: "roles",         label: "Roles & Permissions",  icon: <Users size={15} />, Component: RolesPermissionsPage },
+      { id: "notifications", label: "Notifications",        description: "Choose which alerts and updates you receive.",     icon: <Bell size={18} />,  Component: NotificationsPage },
+      { id: "roles",         label: "Roles & Permissions",  description: "Control what each staff role can see and do.",     icon: <Users size={18} />, Component: RolesPermissionsPage },
     ],
   },
   {
     groupLabel: "Tools",
     items: [
-      { id: "integrations", label: "Integrations",  icon: <Puzzle size={15} />,     Component: IntegrationsPage },
-      { id: "billing",      label: "Billing & Plans", icon: <CreditCard size={15} />, Component: BillingPage },
+      { id: "integrations", label: "Integrations",   description: "Connect third-party tools and services.",       icon: <Puzzle size={18} />,     Component: IntegrationsPage },
+      { id: "billing",      label: "Billing & Plans", description: "View and manage your subscription and billing.", icon: <CreditCard size={18} />, Component: BillingPage },
     ],
   },
   {
     groupLabel: "Configuration",
     items: [
-      { id: "currency",     label: "Currency",       icon: <CreditCard size={15} />,        Component: CurrencySettingsPage },
-      { id: "tax-mapping",  label: "Tax Mapping",    icon: <SlidersHorizontal size={15} />, Component: SettingsManagementPage },
-      { id: "reward-points", label: "Reward Points", icon: <Gift size={15} />,              Component: RewardsSettingsPage },
-      { id: "referral",     label: "Refer & Earn",   icon: <Share2 size={15} />,            Component: ReferralSettingsPage },
-      { id: "coupons",      label: "Coupons",        icon: <Tag size={15} />,               Component: CouponsSettingsPage },
-      { id: "packages",     label: "Packages",       icon: <PackageIcon size={15} />,       Component: PackageSettingsPage },
-      { id: "print",        label: "Print Settings", icon: <Printer size={15} />,           Component: PrintSettingsPage },
-      // Not shown in the sidebar (see SIDEBAR_HIDDEN_IDS) — it's the coupon
-      // management list, reached from the designer's "Manage coupons" link.
-      { id: "coupons-manage", label: "Manage Coupons", icon: <Tag size={15} />,             Component: CouponsSettingsPage, hidden: true },
+      { id: "currency",     label: "Currency",       description: "Set your business currency and country.",             icon: <CreditCard size={18} />,        Component: CurrencySettingsPage },
+      { id: "tax-mapping",  label: "Tax Mapping",    description: "Configure the GST module and manage tax mappings.",   icon: <SlidersHorizontal size={18} />, Component: SettingsManagementPage },
+      { id: "reward-points", label: "Reward Points", description: "Set up client reward points and redemption rules.",   icon: <Gift size={18} />,              Component: RewardsSettingsPage },
+      { id: "referral",     label: "Refer & Earn",   description: "Configure referral rewards for clients.",             icon: <Share2 size={18} />,            Component: ReferralSettingsPage },
+      { id: "coupons",      label: "Coupons",        description: "Create and manage discount coupons.",                 icon: <Tag size={18} />,               Component: CouponsSettingsPage },
+      { id: "packages",     label: "Packages",       description: "Configure service package settings.",                 icon: <PackageIcon size={18} />,       Component: PackageSettingsPage },
+      { id: "print",        label: "Print Settings", description: "Customize invoice and receipt print templates.",      icon: <Printer size={18} />,           Component: PrintSettingsPage },
+      // Not shown on the Settings home grid (see hidden below) — it's the
+      // coupon management list, reached from the designer's "Manage coupons" link.
+      { id: "coupons-manage", label: "Manage Coupons", description: "", icon: <Tag size={18} />, Component: CouponsSettingsPage, hidden: true },
     ],
   },
   {
     groupLabel: "Data",
     items: [
-      { id: "data-privacy", label: "Data & Privacy", icon: <Database size={15} />, Component: DataPrivacyPage },
+      { id: "data-privacy", label: "Data & Privacy", description: "Manage your data and privacy preferences.", icon: <Database size={18} />, Component: DataPrivacyPage },
     ],
   },
 ];
 
 const allItems: NavItem[] = navGroups.flatMap((g) => g.items);
-const DEFAULT_ID = allItems[0]?.id ?? "";
+const homeGroups: SettingsHomeGroup[] = navGroups.map((g) => ({
+  groupLabel: g.groupLabel,
+  items: g.items.filter((item) => !item.hidden),
+}));
 
 function sectionIdFromPath(pathname: string): string | null {
   const requested = pathname.split("/").filter(Boolean).pop();
@@ -106,15 +112,14 @@ export default function SettingsLayout() {
   const location = useLocation();
   const navigate = useNavigate();
   const contentRef = useRef<HTMLDivElement>(null);
-  const [activeId, setActiveId] = useState<string>(() => sectionIdFromPath(location.pathname) ?? DEFAULT_ID);
+  // null = show the Settings home grid; otherwise the active section's id.
+  const [activeId, setActiveId] = useState<string | null>(() => sectionIdFromPath(location.pathname));
 
   // Keep activeId in sync with the URL for browser back/forward and any
   // in-app link that navigates straight to a section (e.g. cross-links
-  // between sections), not just sidebar clicks.
+  // between sections), not just a card click on the home grid.
   useEffect(() => {
-    const match = sectionIdFromPath(location.pathname);
-    if (match && match !== activeId) setActiveId(match);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setActiveId(sectionIdFromPath(location.pathname));
   }, [location.pathname]);
 
   // Only one section is ever mounted at a time, so switching sections always
@@ -123,7 +128,7 @@ export default function SettingsLayout() {
     if (contentRef.current) contentRef.current.scrollTop = 0;
   }, [activeId]);
 
-  const handleNavClick = (id: string) => {
+  const handleSelect = (id: string) => {
     // Coupons is the one section that isn't a panel inside this shell — it
     // opens the full-screen Coupon Designer, which needs the whole viewport
     // for its three panels. Coupon management (list, Create New, Bulk Create)
@@ -132,12 +137,11 @@ export default function SettingsLayout() {
       navigate("/dashboard/settings/coupon-designer");
       return;
     }
-    if (id === activeId) return;
-    setActiveId(id);
-    navigate(`/dashboard/settings/${id}`, { replace: true });
+    navigate(`/dashboard/settings/${id}`);
   };
 
-  const ActiveComponent = allItems.find((i) => i.id === activeId)?.Component ?? allItems[0].Component;
+  const activeItem = activeId ? allItems.find((i) => i.id === activeId) : null;
+  const ActiveComponent = activeItem?.Component;
 
   return (
     <div className="settings-wrapper">
@@ -145,39 +149,21 @@ export default function SettingsLayout() {
           .settings-wrapper (see SettingsPage.scss). It physically cannot
           move on scroll since only .settings-content has a scrollbar. */}
       <div className="settings-sticky-header d-flex align-items-center gap-2">
-        <Settings size={20} color="#111827" />
-        <h1 className="settings-heading">Settings</h1>
+        {activeItem ? (
+          <button type="button" className="settings-back-link" onClick={() => navigate("/dashboard/settings")}>
+            <ArrowLeft size={16} /> Settings
+          </button>
+        ) : (
+          <>
+            <Settings size={20} color="#111827" />
+            <h1 className="settings-heading">Settings</h1>
+          </>
+        )}
       </div>
 
-      <div className="settings-root">
-        {/* ── Left Nav ── */}
-        <nav className="settings-nav">
-          {navGroups.map((group, gi) => (
-            <div className="settings-nav-group" key={gi}>
-              <p className="settings-nav-label">{group.groupLabel}</p>
-              {group.items.filter((item) => !item.hidden).map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className={`settings-nav-item ${activeId === item.id ? "active" : ""}`}
-                  onClick={() => handleNavClick(item.id)}
-                >
-                  <span className="settings-nav-icon">{item.icon}</span>
-                  {item.label}
-                </button>
-              ))}
-              {gi < navGroups.length - 1 && (
-                <hr className="settings-nav-divider" />
-              )}
-            </div>
-          ))}
-        </nav>
-
-        {/* ── Right Content — only the active section is rendered, and it's
-            the only thing that scrolls. Keyed by id so switching sections
-            unmounts the old one instead of leaving its state/scroll behind. ── */}
+      <div className="settings-root settings-root--full">
         <div className="settings-content" ref={contentRef}>
-          <ActiveComponent key={activeId} />
+          {ActiveComponent ? <ActiveComponent key={activeId} /> : <SettingsHomePage groups={homeGroups} onSelect={handleSelect} />}
         </div>
       </div>
     </div>

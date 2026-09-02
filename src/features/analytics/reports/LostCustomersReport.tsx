@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { LOST_CUSTOMERS_REPORT } from "../../../services/api/endpoints";
@@ -8,11 +9,15 @@ import type { AppDispatch } from "../../../store/store";
 import ReportRefreshButton from "./ReportRefreshButton";
 import Breadcrumb from "../../../components/ui/Breadcrumb";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
-import { Pagination, JiraFilterMenu, DateRangeFilter, getDateRangePresetValue } from "../../../components/ui";
-import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
+import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { maskMobile } from "../../../utils/maskMobile";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./ClientRevenueReport.scss";
 
 const REPORT_NAME = "Lost Clients";
@@ -54,9 +59,12 @@ function formatDate(input: string | null): string {
 
 export default function LostCustomersReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const { currencySymbol, formatAmount } = useCurrency();
-  const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
-  const { startDate: dateFrom, endDate: dateTo } = dateRange;
   // How many days without a visit before a client counts as "lost" — a
   // user-set cutoff, unlike Customer Frequency's fixed 90-day rule.
   const [lostDaysInput, setLostDaysInput] = useState(String(DEFAULT_LOST_DAYS));
@@ -72,11 +80,9 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
   const [currentPage,  setCurrentPage]  = useState(1);
   const [pageSize,     setPageSize]     = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
-
-  const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
-    ? "To Date must be greater than or equal to From Date"
-    : "";
 
   useEffect(() => {
     dispatch(fetchStaffThunk()).unwrap().then((list: any[]) => {
@@ -103,14 +109,12 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
   };
 
   const fetchData = useCallback(async () => {
-    if (dateRangeError) return;
     abortRef.current?.abort();
     const ctrl = new AbortController();
     abortRef.current = ctrl;
     setLoading(true);
     try {
       const body: Record<string, any> = {
-        start_date: dateFrom, end_date: dateTo,
         lost_days: lostDays,
         page: currentPage, limit: pageSize,
       };
@@ -134,10 +138,10 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, lostDays, staffFilterIds, debouncedSearch, currentPage, pageSize]);
+  }, [lostDays, staffFilterIds, debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, lostDays, staffFilterIds, debouncedSearch]);
+  useEffect(() => { setCurrentPage(1); }, [lostDays, staffFilterIds, debouncedSearch]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "staff", label: "Staff", options: staffOptions, searchable: true },
@@ -153,7 +157,7 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
 
   const HEADERS = ["Client Name", "Contact", "Total Visits", `Total Spend (${currencySymbol})`, "First Visit", "Last Visit", "Days Since Last Visit"];
   const exportRows = () => rows.map(r => [
-    r.clientName, r.contact, r.visits, r.totalSpend,
+    r.clientName, canViewFullContact ? r.contact : maskMobile(r.contact), r.visits, r.totalSpend,
     formatDate(r.firstVisit), formatDate(r.lastVisit),
     r.daysSinceLastVisit,
   ]);
@@ -168,11 +172,9 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
               title={REPORT_NAME}
               headers={HEADERS}
               rows={exportRows}
-              filename={`lost-customers-${dateFrom}-${dateTo}`}
+              filename={`lost-customers-${lostDays}d`}
               variant="button"
               csv
-              disabled={!!dateRangeError}
-              dateRangeLabel={`${formatDate(dateFrom)} - ${formatDate(dateTo)}`}
               filterLines={[
                 `Inactive for: ${lostDays}+ days`,
                 ...(debouncedSearch ? [`Search: "${debouncedSearch}"`] : []),
@@ -187,7 +189,6 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
       </div>
 
       <div className="rp-detail-filters">
-        <DateRangeFilter value={dateRange} onChange={setDateRange} />
         <div className="rp-detail-filter-group" style={{ minWidth: 100 }}>
           <label htmlFor="lost-days-input" className="rp-detail-filter-label">Inactive for (days)</label>
           <input
@@ -214,6 +215,8 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
         </div>
       )}
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -225,6 +228,14 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every((_r, i) => selection.selectedIds.has(String(i)))}
+                  onChange={() => selection.toggleAll(rows.map((_r, i) => String(i)))}
+                />
+              </th>
               <th>Client Name</th><th>Contact</th><th>Total Visits</th>
               <th>Total Spend ({currencySymbol})</th>
               <th>First Visit</th><th>Last Visit</th>
@@ -233,22 +244,29 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={7} />
+              <SkeletonTableRows columns={8} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="rp-detail-empty-cell">No lost clients found</td></tr>
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No lost clients found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.clientId ? "rp-appt-row" : undefined}
-                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
-                <td className="fw-semibold">{r.clientName}</td>
-                <td>{r.contact}</td>
-                <td>{r.visits}</td>
-                <td className="fw-semibold">{formatAmount(r.totalSpend)}</td>
-                <td>{formatDate(r.firstVisit)}</td>
-                <td>{formatDate(r.lastVisit)}</td>
-                <td>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(String(i))}
+                    onChange={() => selection.toggleOne(String(i))}
+                  />
+                </td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.clientName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{maskMobile(r.contact)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.visits}</td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.totalSpend)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatDate(r.firstVisit)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatDate(r.lastVisit)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>
                   <span className="rp-status-badge rp-status-cancelled">{r.daysSinceLastVisit}d</span>
                 </td>
               </tr>
@@ -263,6 +281,16 @@ export default function LostCustomersReport({ onBack, category, categoryKey }: {
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />
       )}
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter((r, i) => selection.selectedIds.has(String(i)) && r.contact && r.contact !== "—")
+          .map(r => ({ phone: r.contact, name: r.clientName }))}
+        defaultCampaignName="Lost Clients"
+        onSent={selection.clearSelection}
+      />
     </div>
   );
 }

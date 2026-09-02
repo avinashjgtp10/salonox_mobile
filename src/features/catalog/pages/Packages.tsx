@@ -39,6 +39,7 @@ import type { Service as ApiService } from "../types/catalog.types";
 
 import ClientSearchInput, { type ClientSearchResult } from "../../clients/components/ClientSearchInput";
 import { toTitleCase } from "../../../utils/titleCase";
+import { maskMobile } from "../../../utils/maskMobile";
 import { useCurrency } from "../../../hooks/useCurrency";
 import Dropdown from "../../../components/ui/Dropdown";
 import { DatePicker } from "../../../components/ui";
@@ -967,7 +968,7 @@ const CustomPackageView: React.FC<NavProps> = ({ onNavigate }) => {
                         <PersonFill /> {selectedGuest.firstName} {selectedGuest.lastName}
                       </div>
                       <div className="details">
-                        {selectedGuest.phone && `📞 ${selectedGuest.phone} `}
+                        {selectedGuest.phone && `📞 ${maskMobile(selectedGuest.phone)} `}
                         {selectedGuest.email && `✉️ ${selectedGuest.email}`}
                       </div>
                     </div>

@@ -691,14 +691,6 @@ const DayView: React.FC<DayViewProps> = ({
               })}
             </div>
 
-            {dayBookings.length === 0 && !isInteracting && (
-              <div className="dv-empty-state">
-                <div className="dv-empty-state__icon">📅</div>
-                <div className="dv-empty-state__title">No appointments today</div>
-                <div className="dv-empty-state__sub">Click any time slot to add one</div>
-              </div>
-            )}
-
             <div className="dv-grid" style={{ width: totalWidth }}>
             {visibleStaff.map((staff, staffIndex) => {
               const isDragTarget = dragging?.currentStaffId === staff.id && dragging.booking.staffId !== staff.id;
@@ -937,6 +929,19 @@ const DayView: React.FC<DayViewProps> = ({
           </div>
         </div>
       </div>
+
+      {dayBookings.length === 0 && !isInteracting && (
+        // Rendered as a sibling of .dv-scroll-body (the actual scrolling
+        // element), not inside it — its position:absolute needs to resolve
+        // against .dv-root (the fixed-size viewport), or it centers itself
+        // against the FULL scrollable content height instead of the visible
+        // area, drifting away as soon as the grid is scrolled.
+        <div className="dv-empty-state">
+          <div className="dv-empty-state__icon">📅</div>
+          <div className="dv-empty-state__title">No appointments today</div>
+          <div className="dv-empty-state__sub">Click any time slot to add one</div>
+        </div>
+      )}
 
       {hovered && (
         <BookingTooltipCard

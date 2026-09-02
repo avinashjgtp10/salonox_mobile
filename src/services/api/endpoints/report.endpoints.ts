@@ -100,6 +100,13 @@ export const CLIENT_REVENUE_REPORT = {
   SUMMARY: () => `/api/report/client-revenue`,
 } as const;
 
+// Independent All Clients reporting API — pure client-profile listing (no
+// revenue/visit figures), reads clients directly, never through the
+// Appointment API. Mounted at /api/report.
+export const ALL_CLIENTS_REPORT = {
+  SUMMARY: () => `/api/report/all-clients`,
+} as const;
+
 // Independent Customer Frequency reporting API — reads clients/sales
 // directly, never through the Appointment API. Mounted at /api/report.
 export const CUSTOMER_FREQUENCY_REPORT = {
@@ -142,6 +149,14 @@ export const MEMBERSHIP_HISTORY_REPORT = {
 // links by appointment_id (there is no sale_id). Mounted at /api/report.
 export const PAYMENT_COLLECTION_REPORT = {
   SUMMARY: () => `/api/report/payment-collection`,
+} as const;
+
+// Independent Pending Payment reporting API — one row per bill still carrying
+// a due balance (partial or unpaid). Reads appointments+payments directly,
+// never sales: an unpaid bill has no sales row at all, and payments links by
+// appointment_id (there is no sale_id). Mounted at /api/report.
+export const PENDING_PAYMENT_REPORT = {
+  SUMMARY: () => `/api/report/pending-payment`,
 } as const;
 
 // Independent Cash Management reporting API — one row per cash counter

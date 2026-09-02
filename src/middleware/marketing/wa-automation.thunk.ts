@@ -16,7 +16,7 @@ export const fetchPurchaseTemplatesThunk = createAsyncThunk<PurchaseTemplate[], 
       return res.data.data ?? [];
     } catch (err: any) {
       if (err instanceof ApiError) return rejectWithValue(err.message);
-      return rejectWithValue("Failed to fetch purchase templates");
+      return rejectWithValue("Failed to fetch trigger templates");
     }
   }
 );

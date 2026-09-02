@@ -8,6 +8,7 @@ import { DatePickerPanel } from "../../../../components/ui";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import api from "../../../../services/api/axios";
 import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
+import { maskMobile } from "../../../../utils/maskMobile";
 import "../../styles/TopBar.scss";
 
 interface TopBarProps {
@@ -213,7 +214,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime 
                   </span>
                   <span className="topbar__client-info">
                     <span className="topbar__client-name">{c.name}</span>
-                    {c.phone && <span className="topbar__client-phone">{c.phone}</span>}
+                    {c.phone && <span className="topbar__client-phone">{maskMobile(c.phone)}</span>}
                   </span>
                 </button>
               ))}

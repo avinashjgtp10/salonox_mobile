@@ -11,14 +11,14 @@
 //   (percentage)           GIVEN depletes an independently-configurable pool.
 //   Loyalty              — free/automatic; unlocks N% off once a client
 //                          crosses a visit-count threshold.
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   ChevronDown, X,
   AwardFill, Percent, Award,
   PlusLg, Trash3,
 } from "react-bootstrap-icons";
-import type { AppDispatch } from "../../../store/store";
+import type { AppDispatch, RootState } from "../../../store/store";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import { toTitleCase } from "../../../utils/titleCase";
@@ -27,10 +27,13 @@ import { createMembershipThunk, updateMembershipThunk } from "../../../middlewar
 import { selectMembershipsSubmitting, selectMembershipsError } from "../../../store/selectors/membership.selectors";
 import { clearMembershipError } from "../../../store/membershipSlice";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
-import { selectAllCategories, selectServiceCategories, selectProductCategories } from "../../../store/selectors/slices.selectors";
+import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
+import { fetchProductsThunk } from "../../../middleware/catalog/products.thunk";
+import { selectServiceCategories, selectProductCategories, selectAllServices } from "../../../store/selectors/slices.selectors";
 import type { MembershipPricingType, MembershipAppliesTo, LoyaltyTier } from "../../../services/api/endpoints/memberships.endpoints";
 import api from "../../../services/api/axios";
 import Dropdown from "../../../components/ui/Dropdown";
+import ItemRestrictionPicker from "./ItemRestrictionPicker";
 import "../styles/AddMembershipModal.scss";
 
 const DEFAULT_COLOUR = "#1a1a2e";
@@ -108,8 +111,17 @@ interface FormState {
   expiryDate: string;
   appliesTo: MembershipAppliesTo;
   /** Optional narrowing of appliesTo to specific service_categories ids —
-   *  empty means unrestricted (every category within appliesTo's scope). */
-  categoryIds: string[];
+   *  tracked independently per side: service_categories is one shared table
+   *  for both service and product categories (distinguished only by a
+   *  `type` column), so a category tagged 'both' is a valid pick on EITHER
+   *  side — picking it here for services must never silently also restrict/
+   *  allow products, or vice versa. Empty means unrestricted on that side. */
+  serviceCategoryIds: string[];
+  productCategoryIds: string[];
+  /** Further, additive narrowing to specific services/products within (or
+   *  independent of) the category ids above — empty means no individual-item narrowing. */
+  serviceIds: string[];
+  productIds: string[];
 }
 
 const emptyForm = (): FormState => ({
@@ -117,7 +129,10 @@ const emptyForm = (): FormState => ({
   loyaltyTiers: [emptyTier()],
   expiryDate: toIsoDate(addDays(todayMidnight(), 365)),
   appliesTo: "services",
-  categoryIds: [],
+  serviceCategoryIds: [],
+  productCategoryIds: [],
+  serviceIds: [],
+  productIds: [],
 });
 
 interface Props {
@@ -137,24 +152,59 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
   // offer depends on what it's redeemable against (form.appliesTo below), so
   // all three views are read here and the right one is picked once appliesTo
   // exists rather than always showing the full unscoped list.
-  const allCategories     = useSelector(selectAllCategories) as { id: string | number; name: string }[];
   const serviceCategories = useSelector(selectServiceCategories) as { id: string | number; name: string }[];
   const productCategories = useSelector(selectProductCategories) as { id: string | number; name: string }[];
+  // For the item-restriction picker below — not otherwise needed by this
+  // modal, so fetched only here rather than assumed already loaded.
+  const allServices = useSelector(selectAllServices) as { id: string | number; name: string; category_id: string | number | null }[];
+  const allProducts = useSelector((s: RootState) => s.products.items) as { id: string; name: string; category_id: string | null }[];
 
   useEffect(() => () => { dispatch(clearMembershipError()); }, [dispatch]);
   useEffect(() => { dispatch(fetchCategoriesThunk()); }, [dispatch]);
+  useEffect(() => {
+    dispatch(fetchServicesThunk());
+    dispatch(fetchProductsThunk({ pageSize: 200 }));
+  }, [dispatch]);
 
   const [pricingType, setPricingType] = useState<MembershipPricingType>("value");
   const [form, setForm] = useState<FormState>(emptyForm());
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // "Applies To" scopes what the membership can be spent on — the category
-  // picker below follows the same scope, so a Products-only membership isn't
-  // offering "Hair Coloring" as a narrowing option.
-  const categories =
-    form.appliesTo === "products" ? productCategories
-    : form.appliesTo === "services" ? serviceCategories
-    : allCategories;
+  // Scopes each picker's own `items` list to services/products actually
+  // belonging to a category of that type — unrelated to which array a
+  // selected category id is stored in (serviceCategoryIds/productCategoryIds
+  // below are now tracked independently, so this is purely "what's pickable
+  // under this picker", not a cross-filter of shared selection state).
+  const serviceCategoryIdSet = useMemo(() => new Set(serviceCategories.map((c) => String(c.id))), [serviceCategories]);
+  const productCategoryIdSet = useMemo(() => new Set(productCategories.map((c) => String(c.id))), [productCategories]);
+
+  // Scoped item lists for the two pickers below — memoized because
+  // allServices/allProducts can run into the thousands for a salon with a
+  // large catalog. Building these inline in JSX re-ran the filter+map over
+  // the FULL list on every render of this modal (every keystroke, every
+  // checkbox toggle triggers a patch() → re-render), which is what made
+  // selecting services feel slow — each click recomputed a multi-thousand-
+  // row array just to redraw a checkbox.
+  const serviceItemOptions = useMemo(
+    () => allServices
+      .filter((s) => s.category_id != null && serviceCategoryIdSet.has(String(s.category_id)))
+      .map((s) => ({ id: String(s.id), name: s.name, categoryId: String(s.category_id) })),
+    [allServices, serviceCategoryIdSet],
+  );
+  const productItemOptions = useMemo(
+    () => allProducts
+      .filter((p) => p.category_id != null && productCategoryIdSet.has(String(p.category_id)))
+      .map((p) => ({ id: String(p.id), name: p.name, categoryId: String(p.category_id) })),
+    [allProducts, productCategoryIdSet],
+  );
+  const serviceCategoryOptions = useMemo(
+    () => serviceCategories.map((c) => ({ id: String(c.id), name: c.name })),
+    [serviceCategories],
+  );
+  const productCategoryOptions = useMemo(
+    () => productCategories.map((c) => ({ id: String(c.id), name: c.name })),
+    [productCategories],
+  );
 
   const patch = (p: Partial<FormState>) => {
     setForm((prev) => ({ ...prev, ...p }));
@@ -198,7 +248,10 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
         loyaltyTiers,
         expiryDate: parseValidForToDate(d.validFor),
         appliesTo: d.appliesTo ?? "services",
-        categoryIds: Array.isArray(d.categoryIds) ? d.categoryIds : [],
+        serviceCategoryIds: Array.isArray(d.serviceCategoryIds) ? d.serviceCategoryIds : [],
+        productCategoryIds: Array.isArray(d.productCategoryIds) ? d.productCategoryIds : [],
+        serviceIds: Array.isArray(d.serviceIds) ? d.serviceIds : [],
+        productIds: Array.isArray(d.productIds) ? d.productIds : [],
       });
     }).catch(() => {});
   }, [editId]);
@@ -223,12 +276,6 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
       return changed ? next : prev;
     });
   };
-
-  const toggleCategory = (id: string) => patch({
-    categoryIds: form.categoryIds.includes(id)
-      ? form.categoryIds.filter((c) => c !== id)
-      : [...form.categoryIds, id],
-  });
 
   const validate = () => {
     const e: Record<string, string> = {};
@@ -297,7 +344,15 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
       enableOnlineRedemption: true,
       termsAndConditions: undefined,
       appliesTo: form.appliesTo,
-      categoryIds: form.categoryIds.length ? form.categoryIds : undefined,
+      // Always send the real array (even empty) — `undefined` gets dropped by
+      // JSON.stringify, and the backend's update only touches columns whose
+      // key is actually present in the body, so an omitted restriction array
+      // left an old one stuck in place forever on edit. An empty array
+      // reaches the backend and is normalized to "no restriction" there.
+      serviceCategoryIds: form.serviceCategoryIds,
+      productCategoryIds: form.productCategoryIds,
+      serviceIds: form.serviceIds,
+      productIds: form.productIds,
     };
 
     const result = editId
@@ -429,12 +484,13 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                         searchable={false}
                         value={form.appliesTo}
                         options={APPLIES_TO_OPTIONS.map((o) => ({ id: o.value, name: o.label }))}
-                        // Categories picked under the old scope may not exist
-                        // in the new one (e.g. a service category selected
-                        // while "Both" was active, now that appliesTo has
-                        // narrowed to Products) — clear rather than carry
-                        // over a selection the picker below can no longer show.
-                        onChange={(id) => patch({ appliesTo: id as MembershipAppliesTo, categoryIds: [] })}
+                        // Categories/services/products picked under the old
+                        // scope may not exist in the new one (e.g. a service
+                        // category selected while "Both" was active, now that
+                        // appliesTo has narrowed to Products) — clear rather
+                        // than carry over a selection the picker below can no
+                        // longer show.
+                        onChange={(id) => patch({ appliesTo: id as MembershipAppliesTo, serviceCategoryIds: [], productCategoryIds: [], serviceIds: [], productIds: [] })}
                       />
                       <ChevronDown size={13} className="amm__sel-icon" />
                     </div>
@@ -446,26 +502,33 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
                   </div>
                 </div>
 
-                {categories.length > 0 && (
+                {form.appliesTo !== "products" && serviceCategories.length > 0 && (
                   <div className="amm__field">
-                    <label className="amm__label">Categories</label>
-                    <div className="amm__sel-wrap">
-                      <Dropdown
-                        className="amm__select"
-                        searchable={false}
-                        multiple
-                        value={form.categoryIds}
-                        options={categories.map((c) => ({ id: String(c.id), name: c.name }))}
-                        onChange={toggleCategory}
-                        placeholder="All categories"
-                      />
-                      <ChevronDown size={13} className="amm__sel-icon" />
-                    </div>
-                    <p className="amm__hint">
-                      {form.categoryIds.length > 0
-                        ? "Only these categories get the benefit — leave none selected to cover every category."
-                        : "None selected — the benefit applies to every category within Applies To."}
-                    </p>
+                    <label className="amm__label">Services</label>
+                    <ItemRestrictionPicker
+                      label="Services"
+                      categories={serviceCategoryOptions}
+                      items={serviceItemOptions}
+                      categoryIds={form.serviceCategoryIds}
+                      itemIds={form.serviceIds}
+                      onChangeCategoryIds={(ids) => patch({ serviceCategoryIds: ids })}
+                      onChangeItemIds={(ids) => patch({ serviceIds: ids })}
+                    />
+                  </div>
+                )}
+
+                {form.appliesTo !== "services" && productCategories.length > 0 && (
+                  <div className="amm__field">
+                    <label className="amm__label">Products</label>
+                    <ItemRestrictionPicker
+                      label="Products"
+                      categories={productCategoryOptions}
+                      items={productItemOptions}
+                      categoryIds={form.productCategoryIds}
+                      itemIds={form.productIds}
+                      onChangeCategoryIds={(ids) => patch({ productCategoryIds: ids })}
+                      onChangeItemIds={(ids) => patch({ productIds: ids })}
+                    />
                   </div>
                 )}
               </div>

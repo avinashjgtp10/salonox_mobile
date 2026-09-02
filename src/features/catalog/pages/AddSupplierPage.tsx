@@ -26,10 +26,23 @@ const getCities = (countryCode: string, stateCode: string) =>
 const codeOf = (name: string) =>
   COUNTRIES.find((c) => c.name === name)?.code ?? "";
 
-const AddSupplierPage: React.FC = () => {
+interface AddSupplierPageProps {
+  supplierId?: string;
+  onClose?: () => void;
+  onSaved?: () => void;
+  panelMode?: boolean;
+}
+
+const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
+  supplierId,
+  onClose,
+  onSaved,
+  panelMode = false,
+}) => {
   const navigate = useNavigate();
   const { id } = useParams<{ id: string }>();
-  const isEdit = !!id;
+  const effectiveId = supplierId ?? id;
+  const isEdit = !!effectiveId;
   const dispatch = useAppDispatch();
   const { suppliers } = useAppSelector((state) => state.inventory);
 
@@ -145,7 +158,7 @@ const AddSupplierPage: React.FC = () => {
 
   React.useEffect(() => {
     if (isEdit && suppliers.length > 0) {
-      const s = suppliers.find((sup) => String(sup.id) === String(id));
+      const s = suppliers.find((sup) => String(sup.id) === String(effectiveId));
       if (s) {
         setName(s.name);
         setDescription(s.description || "");
@@ -172,7 +185,7 @@ const AddSupplierPage: React.FC = () => {
         }
       }
     }
-  }, [isEdit, id, suppliers]);
+  }, [isEdit, effectiveId, suppliers]);
 
   const handleSave = async () => {
     setEmailTouched(true);
@@ -210,12 +223,17 @@ const AddSupplierPage: React.FC = () => {
 
     try {
       setSaving(true);
-      if (isEdit && id) {
-        await dispatch(updateSupplierThunk({ id, data: payload })).unwrap();
+      if (isEdit && effectiveId) {
+        await dispatch(updateSupplierThunk({ id: effectiveId, data: payload })).unwrap();
       } else {
         await dispatch(createSupplierThunk(payload)).unwrap();
       }
-      navigate(-1);
+      onSaved?.();
+      if (onClose) {
+        onClose();
+      } else {
+        navigate(-1);
+      }
     } catch (err) {
       console.error("Failed to save supplier:", err);
     } finally {
@@ -224,11 +242,11 @@ const AddSupplierPage: React.FC = () => {
   };
 
   return (
-    <div className="add-supplier-page">
+    <div className={`add-supplier-page${panelMode ? " add-supplier-page--panel" : ""}`}>
       <div className="add-supplier-page__topbar">
         <h2>{isEdit ? "Edit supplier" : "Add a new supplier"}</h2>
         <div className="topbar-actions">
-          <button className="btn-close-top" onClick={() => navigate(-1)}>
+          <button className="btn-close-top" onClick={onClose ?? (() => navigate(-1))}>
             Close
           </button>
           <button className="btn-save" onClick={handleSave} disabled={saving}>

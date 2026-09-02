@@ -1,18 +1,19 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { CalendarEvent, CashStack, JournalText, Safe2, Wallet2 } from "react-bootstrap-icons";
-import toast from "react-hot-toast";
 import { Button, Modal } from "../../../components/ui";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
   closeCashCounterThunk,
   openCashCounterThunk,
 } from "../../../middleware/cashCounter/cashCounter.thunk";
 import { logout } from "../../../store/authSlice";
 import { disconnectSocket } from "../../../services/socket/socket";
-import { sendDailySummaryEmail } from "../cashManagement.api";
+import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
 import { OpenCounterModal } from "../pages/CashManagementModals";
+import { showGlobalToast } from "../../../utils/globalToast";
 
 import { selectUserProfile } from "../../../store/selectors/slices.selectors";
 
@@ -39,13 +40,21 @@ export default function UnclosedCounterGate() {
   const location = useLocation();
   const { formatAmount } = useCurrency();
   const dashboard = useAppSelector((state) => state.cashCounter.dashboard);
+  const cashCounterLoading = useAppSelector((state) => state.cashCounter.loading);
   const userProfile = useAppSelector(selectUserProfile);
   const userEmail = userProfile?.email;
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const [closing, setClosing] = useState(false);
   const [error, setError] = useState("");
   const [showOpenTodayModal, setShowOpenTodayModal] = useState(false);
   const [openingLoading, setOpeningLoading] = useState(false);
+  const [paymentMethodCounts, setPaymentMethodCounts] = useState({
+    upi: 0,
+    card: 0,
+    cash: 0,
+    amounts: { upi: 0, card: 0, cash: 0 },
+  });
 
   const today = formatDateInput(new Date());
   const openedDateKey = dashboard?.openedAt ? formatDateInput(new Date(dashboard.openedAt)) : null;
@@ -57,7 +66,51 @@ export default function UnclosedCounterGate() {
 
   const isOnCashManagementPage = location.pathname.startsWith(CASH_MANAGEMENT_PATH);
   const show = isStaleOpenCounter && !isOnCashManagementPage;
-  const showPendingModal = show && !showOpenTodayModal;
+  // `!overlay` matters right after opening today's counter: `dashboard` can
+  // briefly still reflect the old stale-counter state for one render before
+  // the just-opened counter's data lands, which would otherwise flash this
+  // modal back up directly on top of the "opened successfully" confirmation.
+  // It simply reappears once the overlay clears, if the stale counter is
+  // somehow still genuinely open.
+  const showPendingModal = show && !showOpenTodayModal && !overlay;
+
+  // Previous day's counter closed properly (or never opened) and today has
+  // no counter yet — distinct from the stale case above, which still has a
+  // counter left open from a prior day. CashManagementPage already prompts
+  // for this on its own page, so this only covers every other page, mirroring
+  // isOnCashManagementPage's exclusion above.
+  const dashboardLoaded = dashboard !== null;
+  const hasOpenCounterToday =
+    Boolean(dashboard?.cashManagementId) && dashboard?.status === "open" && !isStaleOpenCounter;
+  const closedToday =
+    Boolean(dashboard?.cashManagementId) &&
+    dashboard?.status === "closed" &&
+    openedDateKey !== null &&
+    openedDateKey === today;
+  const needsOpenCounterToday =
+    dashboardLoaded && !isStaleOpenCounter && !hasOpenCounterToday && !closedToday;
+
+  useEffect(() => {
+    if (cashCounterLoading || !dashboardLoaded || isOnCashManagementPage) return;
+    if (needsOpenCounterToday) {
+      setShowOpenTodayModal(true);
+    } else if (hasOpenCounterToday) {
+      // Counter is open for today (the normal case) — dismiss the forced
+      // modal so it doesn't stay stuck open once the real state arrives.
+      setShowOpenTodayModal(false);
+    }
+  }, [cashCounterLoading, dashboardLoaded, isOnCashManagementPage, needsOpenCounterToday, hasOpenCounterToday]);
+
+  useEffect(() => {
+    if (!showPendingModal || !openedDateKey) return;
+    let cancelled = false;
+    fetchTodaysPaymentMethodCounts(openedDateKey).then((counts) => {
+      if (!cancelled) setPaymentMethodCounts(counts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showPendingModal, openedDateKey]);
 
   const handleClosePreviousCounter = useCallback(async () => {
     setClosing(true);
@@ -96,16 +149,23 @@ export default function UnclosedCounterGate() {
         openedAt: new Date().toISOString(),
         closedAt: new Date().toISOString(),
         remarks: null,
+        upiAmount: 0,
+        cardAmount: 0,
+        cashAmount: 0,
       };
 
-      // 3. Send summary via email to Salon Owner's registered email address (no PDF attachment)
+      // 3. Send summary via email to Salon Owner's registered email address
+      // (no PDF attachment). Sent silently — no notification either way.
       try {
-        await sendDailySummaryEmail(dashboard?.cashManagementId ?? "", summaryData, userEmail);
-        toast.success(`Previous counter closed! Summary emailed to ${userEmail || "Salon Owner"}.`);
+        await sendDailySummaryEmail(
+          dashboard?.cashManagementId ?? "",
+          { ...summaryData, paymentCounts: paymentMethodCounts },
+          userEmail,
+        );
       } catch (emailErr: any) {
         console.error("[UnclosedCounterGate] Email delivery error:", emailErr);
-        toast.error(`Counter closed, but email status: ${emailErr?.response?.data?.message || emailErr?.message || "check SMTP connection"}`);
       }
+      showGlobalToast("success", "Previous counter closed", "The stale counter was closed successfully.");
 
       // 4. Directly display Open Today's Counter modal
       setShowOpenTodayModal(true);
@@ -119,7 +179,7 @@ export default function UnclosedCounterGate() {
     } finally {
       setClosing(false);
     }
-  }, [dashboard, dispatch, userEmail]);
+  }, [dashboard, dispatch, userEmail, paymentMethodCounts]);
 
   const handleLogout = useCallback(() => {
     disconnectSocket();
@@ -136,6 +196,7 @@ export default function UnclosedCounterGate() {
 
   return (
     <>
+      {overlay}
       <Modal
         show={showPendingModal}
         onClose={() => { }}
@@ -148,7 +209,7 @@ export default function UnclosedCounterGate() {
               Logout
             </Button>
             <Button
-              variant="dark"
+              variant="danger"
               loading={closing}
               disabled={closing}
               onClick={() => void handleClosePreviousCounter()}
@@ -214,6 +275,28 @@ export default function UnclosedCounterGate() {
                     </div>
                   </div>
                 </div>
+
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <CashStack size={13} className="text-primary" /> UPI Payments
+                    </div>
+                    <div className="fw-bold text-dark fs-6 mt-1">
+                      {formatAmount(paymentMethodCounts.amounts.upi)}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="col-6">
+                  <div className="p-2 bg-white rounded border">
+                    <div className="text-muted small d-flex align-items-center gap-1">
+                      <Wallet2 size={13} className="text-primary" /> Card Payments
+                    </div>
+                    <div className="fw-bold text-dark fs-6 mt-1">
+                      {formatAmount(paymentMethodCounts.amounts.card)}
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           ) : null}
@@ -230,18 +313,18 @@ export default function UnclosedCounterGate() {
         mandatory={true}
         onClose={() => setShowOpenTodayModal(false)}
         onNotify={(tone, message) => {
-          if (tone === "error") toast.error(message);
-          else toast.success(message);
+          if (tone === "error") showError(message);
+          else showSuccess(message);
         }}
         onSubmit={async (payload) => {
           setOpeningLoading(true);
           try {
             await dispatch(openCashCounterThunk(payload)).unwrap();
             setShowOpenTodayModal(false);
-            toast.success("Today's cash counter opened successfully!");
+            showGlobalToast("success", "Counter opened", "Today's cash counter opened successfully!");
           } catch (err: any) {
             const msg = err?.response?.data?.message ?? err?.message ?? "Failed to open today's counter.";
-            toast.error(msg);
+            showError(msg);
             throw err;
           } finally {
             setOpeningLoading(false);

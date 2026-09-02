@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SALES_REPORT } from "../../../services/api/endpoints";
@@ -19,6 +20,9 @@ import { formatPaymentMode } from "../../../utils/paymentMode";
 import SaleDetailModal from "./SaleDetailModal";
 import { useServices } from "../../catalog/hooks/useServices";
 import { servicesInCategories } from "./serviceCategoryFilter";
+import { maskMobile } from "../../../utils/maskMobile";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./SalesSummaryReport.scss";
 
 const REPORT_NAME = "Sales Summary";
@@ -160,6 +164,11 @@ function mapAppointment(row: any): SaleRow {
 
 export default function SalesSummaryReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const { formatAmount: money } = useCurrency();
   const today     = new Date().toISOString().slice(0, 10);
   const weekAgo   = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -189,6 +198,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const [currentPage,   setCurrentPage]   = useState(1);
   const [pageSize,      setPageSize]      = useState(10);
   const [selectedRow,   setSelectedRow]   = useState<{ saleId: string; appointmentId: string | null } | null>(null);
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -306,7 +316,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   };
 
   const HEADERS = ["Date", "Invoice No", "Name", "Contact", "Item Types", "Staff Name", "Discount", "Coupon Code", "Coupon Discount", "Referral Discount", "GST", "Grand Total", "Paid", "Membership", "Package", "E-Wallet", "Rewards", "Referral Credit", "Due Amount", "Modes", "Status", "Description"];
-  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.name, r.contact, r.itemTypes, r.staffName, r.discountAmount, r.couponCode, r.couponDiscount, r.referralDiscount, r.taxAmount, r.grandTotal, r.paid, r.membershipWalletUsed, r.packageUsed, r.ewalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.description]);
+  const exportRows = () => rows.map(r => [r.date, r.invoiceNo, r.name, canViewFullContact ? r.contact : maskMobile(r.contact), r.itemTypes, r.staffName, r.discountAmount, r.couponCode, r.couponDiscount, r.referralDiscount, r.taxAmount, r.grandTotal, r.paid, r.membershipWalletUsed, r.packageUsed, r.ewalletUsed, r.rewardPointsValue, r.referralCreditUsed, r.dueAmount, r.modes, r.status, r.description]);
   const paged = rows;
 
   return (
@@ -315,7 +325,15 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         <div className="rp-detail-back-row">
           <Breadcrumb current={REPORT_NAME} category={category} categoryKey={categoryKey} onBack={onBack} />
           <div className="rp-detail-view-icons">
-            <ReportExportButton title={REPORT_NAME} headers={HEADERS} rows={exportRows} filename={`sales-summary-${dateFrom}-${dateTo}`} variant="button" csv />
+            <ReportExportButton
+              title={REPORT_NAME}
+              headers={HEADERS}
+              rows={exportRows}
+              filename={`sales-summary-${dateFrom}-${dateTo}`}
+              variant="button"
+              csv
+              dateRangeLabel={dateFrom && dateTo ? `${formatDate(dateFrom)} to ${formatDate(dateTo)}` : undefined}
+            />
           </div>
         </div>
       </div>
@@ -362,6 +380,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       </div>
 
       <BulkDeleteBar count={bulkDelete.selectedIds.size} onDeleteClick={() => bulkDelete.setShowConfirm(true)} />
+      <SendCampaignBar count={bulkDelete.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
 
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
@@ -417,7 +436,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.date}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}><span className="rp-detail-link">{r.invoiceNo}</span></td>
                 <td className="fw-semibold" onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.name}</td>
-                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.contact}</td>
+                <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{maskMobile(r.contact)}</td>
                 <td className="rp-ss-item-types" title={r.itemTypes} onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.itemTypes}</td>
                 <td onClick={() => r.id && setSelectedRow({ saleId: r.id, appointmentId: r.appointmentId })}>{r.staffName}</td>
                 <td
@@ -477,6 +496,16 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
         error={bulkDelete.error}
         onCancel={() => { bulkDelete.setShowConfirm(false); bulkDelete.setError(null); }}
         onConfirm={bulkDelete.confirmDelete}
+      />
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter(r => r.appointmentId && bulkDelete.selectedIds.has(r.appointmentId) && r.contact && r.contact !== "—")
+          .map(r => ({ phone: r.contact, name: r.name }))}
+        defaultCampaignName="Sales Summary"
+        onSent={bulkDelete.clearSelection}
       />
 
     </div>

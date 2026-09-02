@@ -9,8 +9,16 @@ import type {
   StockTakeResult,
   InventoryResponse,
   Supplier,
+  SupplierWithBalance,
   CreateSupplierPayload,
   UpdateSupplierPayload,
+  CreateSupplierPaymentPayload,
+  SupplierPayment,
+  Order,
+  CreateOrderPayload,
+  ReceiveOrderPayload,
+  CorrectReceivedQtyPayload,
+  OrderSignature,
   ConsumableListFilters,
   ConsumableListRow,
   ConsumableKpis,
@@ -18,6 +26,11 @@ import type {
   AdjustStockPayload,
   UsageHistoryFilters,
   UsageHistoryRow,
+  ProductAuditWithDetail,
+  ProductAuditListRow,
+  ListProductAuditsFilters,
+  CreateProductAuditPayload,
+  UpdateAuditItemPayload,
 } from "../../types/inventory.types";
 
 // ── Fetch all stocktakes ──────────────────────────────────────────────────────
@@ -148,12 +161,12 @@ export const deleteStocktakeThunk = createAsyncThunk<
 
 // ─── Fetch all suppliers ──────────────────────────────────────────────────────
 export const fetchSuppliersThunk = createAsyncThunk<
-  Supplier[],
+  SupplierWithBalance[],
   void,
   { rejectValue: string }
 >("inventory/fetchSuppliers", async (_, { rejectWithValue }) => {
   try {
-    const res = await api.get<InventoryResponse<Supplier[]>>(INVENTORY.SUPPLIERS);
+    const res = await api.get<InventoryResponse<SupplierWithBalance[]>>(INVENTORY.SUPPLIERS);
     return res.data.data;
   } catch (err: any) {
     console.error("fetchSuppliersThunk error:", err);
@@ -203,6 +216,181 @@ export const deleteSupplierThunk = createAsyncThunk<
   } catch (err: any) {
     console.error("deleteSupplierThunk error:", err);
     return rejectWithValue(err?.response?.data?.error?.message || "Failed to delete supplier");
+  }
+});
+
+// ─── Create a supplier payout/payment ─────────────────────────────────────────
+export const createSupplierPaymentThunk = createAsyncThunk<
+  SupplierPayment,
+  { supplierId: string; data: CreateSupplierPaymentPayload },
+  { rejectValue: string }
+>("inventory/createSupplierPayment", async ({ supplierId, data }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<SupplierPayment>>(
+      INVENTORY.SUPPLIER_PAYMENTS(supplierId),
+      data,
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("createSupplierPaymentThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to record payment");
+  }
+});
+
+// ─── Orders (purchase-order documents — no stock movement) ────────────────────
+
+export const createOrderThunk = createAsyncThunk<
+  Order,
+  CreateOrderPayload,
+  { rejectValue: string }
+>("inventory/createOrder", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDERS, payload);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("createOrderThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to create order");
+  }
+});
+
+// POST, not PUT/PATCH — matches the backend route (see orders.controller.ts).
+export const updateOrderThunk = createAsyncThunk<
+  Order,
+  { id: string; payload: CreateOrderPayload },
+  { rejectValue: string }
+>("inventory/updateOrder", async ({ id, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_UPDATE(id), payload);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("updateOrderThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to update order");
+  }
+});
+
+export const fetchOrdersThunk = createAsyncThunk<
+  { data: Order[]; total: number },
+  { search?: string; status?: Order["status"]; page?: number; limit?: number } | void,
+  { rejectValue: string }
+>("inventory/fetchOrders", async (filters, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<{ data: Order[]; total: number }>>(INVENTORY.ORDERS, {
+      params: filters ?? undefined,
+    });
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchOrdersThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch orders");
+  }
+});
+
+export const fetchOrderByIdThunk = createAsyncThunk<
+  Order,
+  string,
+  { rejectValue: string }
+>("inventory/fetchOrderById", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<Order>>(INVENTORY.ORDER_BY_ID(id));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchOrderByIdThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch order");
+  }
+});
+
+// Records a delivery against this order — creates a linked Purchase (moves
+// products.amount + supplier balance the same way the standalone Purchase
+// flow does) and advances the order's status toward "received".
+export const receiveOrderThunk = createAsyncThunk<
+  Order,
+  { orderId: string; payload: ReceiveOrderPayload },
+  { rejectValue: string }
+>("inventory/receiveOrder", async ({ orderId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_RECEIVE(orderId), payload);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("receiveOrderThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to receive order");
+  }
+});
+
+// Corrects a mis-entered received_qty on one order line after the fact.
+// Does not create a new Purchase — just fixes stock + the order line + status.
+export const correctReceivedQtyThunk = createAsyncThunk<
+  Order,
+  { orderId: string; itemId: string; payload: CorrectReceivedQtyPayload },
+  { rejectValue: string }
+>("inventory/correctReceivedQty", async ({ orderId, itemId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_CORRECT_RECEIVED(orderId, itemId), payload);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("correctReceivedQtyThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to update received quantity");
+  }
+});
+
+export const cancelOrderThunk = createAsyncThunk<
+  Order,
+  string,
+  { rejectValue: string }
+>("inventory/cancelOrder", async (orderId, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<Order>>(INVENTORY.ORDER_CANCEL(orderId));
+    return res.data.data;
+  } catch (err: any) {
+    console.error("cancelOrderThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || err?.message || "Failed to cancel order");
+  }
+});
+
+// POST, not DELETE — matches the backend route (see orders.controller.ts).
+export const deleteOrderThunk = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("inventory/deleteOrder", async (id, { rejectWithValue }) => {
+  try {
+    await api.post(INVENTORY.ORDER_DELETE(id));
+    return id;
+  } catch (err: any) {
+    console.error("deleteOrderThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to delete order");
+  }
+});
+
+export const uploadOrderSignatureThunk = createAsyncThunk<
+  OrderSignature,
+  File,
+  { rejectValue: string }
+>("inventory/uploadOrderSignature", async (file, { rejectWithValue }) => {
+  try {
+    const formData = new FormData();
+    formData.append("signature", file);
+    const res = await api.post<InventoryResponse<OrderSignature>>(
+      INVENTORY.ORDER_UPLOAD_SIGNATURE,
+      formData,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return res.data.data;
+  } catch (err: any) {
+    console.error("uploadOrderSignatureThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to upload signature");
+  }
+});
+
+export const fetchOrderSignaturesThunk = createAsyncThunk<
+  OrderSignature[],
+  void,
+  { rejectValue: string }
+>("inventory/fetchOrderSignatures", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<OrderSignature[]>>(INVENTORY.ORDER_SIGNATURES);
+    return res.data.data;
+  } catch (err: any) {
+    console.error("fetchOrderSignaturesThunk error:", err);
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch signatures");
   }
 });
 
@@ -298,5 +486,166 @@ export const fetchUsageHistoryThunk = createAsyncThunk<
   } catch (err: any) {
     console.error("fetchUsageHistoryThunk error:", err?.response?.data || err?.message);
     return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch usage history");
+  }
+});
+
+// ─── Product Audit ────────────────────────────────────────────────────────────
+
+export interface ProductAuditListResult {
+  data: ProductAuditListRow[];
+  total: number;
+}
+
+const auditErrorMessage = (err: any, fallback: string) =>
+  err?.response?.data?.error?.message || err?.response?.data?.message || fallback;
+
+export const fetchProductAuditsThunk = createAsyncThunk<
+  ProductAuditListResult,
+  ListProductAuditsFilters,
+  { rejectValue: string }
+>("inventory/fetchProductAudits", async (filters, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<ProductAuditListResult>>(INVENTORY.PRODUCT_AUDITS, { params: filters });
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to fetch product audits"));
+  }
+});
+
+export const fetchProductAuditByIdThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  string,
+  { rejectValue: string }
+>("inventory/fetchProductAuditById", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<ProductAuditWithDetail>>(INVENTORY.PRODUCT_AUDIT_BY_ID(id));
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to fetch product audit"));
+  }
+});
+
+export const createProductAuditThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  CreateProductAuditPayload,
+  { rejectValue: string }
+>("inventory/createProductAudit", async (payload, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(INVENTORY.PRODUCT_AUDITS, payload);
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to create product audit"));
+  }
+});
+
+export const deleteProductAuditThunk = createAsyncThunk<
+  string,
+  string,
+  { rejectValue: string }
+>("inventory/deleteProductAudit", async (id, { rejectWithValue }) => {
+  try {
+    await api.delete(INVENTORY.PRODUCT_AUDIT_BY_ID(id));
+    return id;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to delete product audit"));
+  }
+});
+
+export const addProductAuditItemsThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  { auditId: string; productIds: string[] },
+  { rejectValue: string }
+>("inventory/addProductAuditItems", async ({ auditId, productIds }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(
+      INVENTORY.PRODUCT_AUDIT_ITEMS(auditId), { product_ids: productIds },
+    );
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to add products to audit"));
+  }
+});
+
+export const removeProductAuditItemThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  { auditId: string; itemId: string },
+  { rejectValue: string }
+>("inventory/removeProductAuditItem", async ({ auditId, itemId }, { rejectWithValue }) => {
+  try {
+    const res = await api.delete<InventoryResponse<ProductAuditWithDetail>>(INVENTORY.PRODUCT_AUDIT_ITEM_BY_ID(auditId, itemId));
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to remove product from audit"));
+  }
+});
+
+export const updateProductAuditItemThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  { auditId: string; itemId: string; payload: UpdateAuditItemPayload },
+  { rejectValue: string }
+>("inventory/updateProductAuditItem", async ({ auditId, itemId, payload }, { rejectWithValue }) => {
+  try {
+    const res = await api.patch<InventoryResponse<ProductAuditWithDetail>>(
+      INVENTORY.PRODUCT_AUDIT_ITEM_BY_ID(auditId, itemId), payload,
+    );
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to update audit item"));
+  }
+});
+
+export const submitProductAuditThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  string,
+  { rejectValue: string }
+>("inventory/submitProductAudit", async (auditId, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(INVENTORY.PRODUCT_AUDIT_SUBMIT(auditId));
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to submit audit for review"));
+  }
+});
+
+export const approveProductAuditThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  { auditId: string; reviewerId?: string },
+  { rejectValue: string }
+>("inventory/approveProductAudit", async ({ auditId, reviewerId }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(
+      INVENTORY.PRODUCT_AUDIT_APPROVE(auditId), reviewerId ? { reviewer_id: reviewerId } : undefined,
+    );
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to approve audit"));
+  }
+});
+
+export const rejectProductAuditThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  { auditId: string; reason: string; reviewerId?: string },
+  { rejectValue: string }
+>("inventory/rejectProductAudit", async ({ auditId, reason, reviewerId }, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(
+      INVENTORY.PRODUCT_AUDIT_REJECT(auditId), { reason, ...(reviewerId ? { reviewer_id: reviewerId } : {}) },
+    );
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to reject audit"));
+  }
+});
+
+export const reopenProductAuditThunk = createAsyncThunk<
+  ProductAuditWithDetail,
+  string,
+  { rejectValue: string }
+>("inventory/reopenProductAudit", async (auditId, { rejectWithValue }) => {
+  try {
+    const res = await api.post<InventoryResponse<ProductAuditWithDetail>>(INVENTORY.PRODUCT_AUDIT_REOPEN(auditId));
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(auditErrorMessage(err, "Failed to reopen audit"));
   }
 });

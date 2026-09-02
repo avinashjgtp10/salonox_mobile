@@ -1,17 +1,32 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSelector } from "react-redux";
-import { Search, PlusLg, X, Download, ClockHistory } from "react-bootstrap-icons";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useDispatch, useSelector } from "react-redux";
+import { useNavigate } from "react-router-dom";
+import {
+  Search, PlusLg, X, BoxSeam, ClockHistory, ThreeDotsVertical,
+  FileEarmarkExcel, FileEarmarkPdf, FiletypeCsv, PencilSquare, Trash,
+} from "react-bootstrap-icons";
+import { Dropdown } from "react-bootstrap";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
 import { selectCurrentSalon, selectUserProfile } from "../../../store/selectors/slices.selectors";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
-import { Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { AppDispatch } from "../../../store/store";
+import { deleteProductThunk } from "../../../middleware/catalog/products.thunk";
+import Pagination from "../../../components/ui/Pagination";
+import { JiraFilterMenu } from "../../../components/ui";
 import type { JiraFilterField } from "../../../components/ui";
+import Button from "../../../components/ui/Button";
+import Input from "../../../components/ui/Input";
+import Skeleton from "../../../components/ui/Skeleton";
+import Modal from "../../../components/ui/Modal";
+import Badge from "../../../components/ui/Badge";
+import EmptyState from "../../../components/ui/EmptyState";
 import {
   exportInventoryPDF,
   exportInventoryExcel,
   exportInventoryCSV,
 } from "../utils/productInventoryExport";
+import PurchaseModal from "../components/PurchaseModal";
 import "../styles/ProductInventoryPage.scss";
 
 // Product Inventory — stock position and stock-in for RETAIL products.
@@ -19,13 +34,15 @@ import "../styles/ProductInventoryPage.scss";
 // counterpart, and the backend scopes to product_type retail/both so the two
 // never show or write the same rows.
 
+type InventoryStatus = "in_stock" | "low_stock" | "out_of_stock" | "expired" | "expiring_soon";
+
 interface InventoryRow {
   id: string;
   name: string;
   sku: string | null;
   barcode: string | null;
   category: string | null;
-  brand: string | null;
+  supplier: string | null;
   measure_unit: string | null;
   bottle_size: number | null;
   amount: number;
@@ -34,8 +51,34 @@ interface InventoryRow {
   low_stock: boolean;
   retail_price: number | null;
   supply_price: number | null;
+  purchased: number;
+  sold: number;
+  consumed: number;
+  expiry_date: string | null;
+  status: InventoryStatus;
   last_updated: string | null;
 }
+
+const STATUS_LABELS: Record<InventoryStatus, string> = {
+  in_stock: "In Stock",
+  low_stock: "Low Stock",
+  out_of_stock: "Out of Stock",
+  expired: "Expired",
+  expiring_soon: "Expiring Soon",
+};
+
+const statusVariant = (s: InventoryStatus): "success" | "warning" | "danger" =>
+  s === "in_stock" ? "success"
+    : s === "low_stock" || s === "expiring_soon" ? "warning"
+    : "danger";
+
+const fmtDateShort = (value?: string | null) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return "—";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(d.getDate())}-${pad(d.getMonth() + 1)}-${d.getFullYear()}`;
+};
 
 interface HistoryRow {
   id: string;
@@ -72,6 +115,8 @@ const fmtDateTime = (value?: string | null) => {
 };
 
 export default function ProductInventoryPage() {
+  const navigate = useNavigate();
+  const dispatch = useDispatch<AppDispatch>();
   const currentSalon = useSelector(selectCurrentSalon);
   const userProfile = useSelector(selectUserProfile);
   const { showSuccess, showError, overlay } = useStatusOverlay();
@@ -93,8 +138,10 @@ export default function ProductInventoryPage() {
 
   const [stockInFor, setStockInFor] = useState<InventoryRow | null>(null);
   const [historyFor, setHistoryFor] = useState<InventoryRow | "all" | null>(null);
-  const [exportOpen, setExportOpen] = useState(false);
-  const exportRef = useRef<HTMLDivElement>(null);
+  const [purchaseOpen, setPurchaseOpen] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<InventoryRow | null>(null);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Debounced so typing a product name doesn't fire a request per keystroke
   // against a 5,000-row table.
@@ -142,15 +189,6 @@ export default function ProductInventoryPage() {
       .catch(() => { /* filters just stay empty — the list itself still works */ });
   }, []);
 
-  useEffect(() => {
-    if (!exportOpen) return;
-    const handler = (e: MouseEvent) => {
-      if (!exportRef.current?.contains(e.target as Node)) setExportOpen(false);
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [exportOpen]);
-
   const filterSummary = useMemo(() => {
     const parts: string[] = [];
     if (debouncedSearch) parts.push(`Search: "${debouncedSearch}"`);
@@ -177,7 +215,6 @@ export default function ProductInventoryPage() {
   }, [debouncedSearch, categoryId, brandId, lowOnly]);
 
   const runExport = useCallback(async (kind: "pdf" | "excel" | "csv") => {
-    setExportOpen(false);
     try {
       const all = await fetchAllForExport();
       if (all.length === 0) { showError("Nothing to export for the current filters"); return; }
@@ -194,10 +231,23 @@ export default function ProductInventoryPage() {
     }
   }, [fetchAllForExport, currentSalon, userProfile, filterSummary, showSuccess, showError]);
 
-  const clearFilters = () => {
-    setSearch(""); setCategoryId(""); setBrandId(""); setLowOnly(false);
+  const handleClearSearch = () => setSearch("");
+
+  const handleDeleteProduct = async () => {
+    if (!deleteTarget) return;
+    setIsDeleting(true);
+    try {
+      await dispatch(deleteProductThunk(deleteTarget.id)).unwrap();
+      showSuccess(`${deleteTarget.name} deleted`);
+      setDeleteTarget(null);
+      setDeleteInput("");
+      load();
+    } catch (err: any) {
+      showError(typeof err === "string" ? err : "Couldn't delete product");
+    } finally {
+      setIsDeleting(false);
+    }
   };
-  const hasFilters = !!(search || categoryId || brandId || lowOnly);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "category", label: "Category", searchable: true, options: categories.map((c) => ({ id: String(c.id), label: String(c.name) })) },
@@ -226,116 +276,221 @@ export default function ProductInventoryPage() {
     <div className="pinv-page">
       {overlay}
 
-      <div className="pinv-header">
+      <header className="pinv-page__header">
         <div>
-          <h1 className="pinv-title">
+          <h1>
             Product Inventory
-            {!loading && <span className="pinv-count">{total}</span>}
+            <span className="pinv-count">{total}</span>
           </h1>
-          <p className="pinv-subtitle">
-            Track retail stock and record new deliveries. Consumables are managed on their own page.
-          </p>
+          <p>Track retail stock and record new deliveries. Consumables are managed on their own page.</p>
         </div>
-        <div className="pinv-header-actions">
-          <button className="pinv-btn pinv-btn--ghost" onClick={() => setHistoryFor("all")}>
-            <ClockHistory size={14} /> History
-          </button>
-          <div className="pinv-export-wrap" ref={exportRef}>
-            <button className="pinv-btn pinv-btn--primary" onClick={() => setExportOpen((o) => !o)}>
-              <Download size={14} /> Export
+        <div className="header-actions">
+          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={() => setPurchaseOpen(true)}>
+            Purchase
+          </Button>
+          <Dropdown>
+            <Dropdown.Toggle
+              variant="outline-secondary"
+              className="btn-options bg-white border-subtle d-flex align-items-center fw-medium"
+              id="pinv-options-dropdown"
+            >
+              Options
+            </Dropdown.Toggle>
+            <Dropdown.Menu align="end" className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "220px" }}>
+              <Dropdown.Item onClick={() => setHistoryFor("all")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <ClockHistory size={16} /> Stock history
+              </Dropdown.Item>
+              <Dropdown.Divider className="my-2" />
+              <Dropdown.Header className="px-3 py-1 text-muted fw-bold" style={{ fontSize: "12px", textTransform: "uppercase" }}>
+                Export
+              </Dropdown.Header>
+              <Dropdown.Item onClick={() => runExport("pdf")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FileEarmarkPdf size={16} /> Download PDF
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => runExport("excel")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FileEarmarkExcel size={16} /> Download Excel
+              </Dropdown.Item>
+              <Dropdown.Item onClick={() => runExport("csv")} className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark">
+                <FiletypeCsv size={16} /> Download CSV
+              </Dropdown.Item>
+            </Dropdown.Menu>
+          </Dropdown>
+        </div>
+      </header>
+
+      <div className="pinv-page__controls">
+        <Input
+          containerClass="search-box mb-0"
+          type="text"
+          placeholder="Search by name, SKU or barcode"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          iconLeft={<Search size={16} />}
+          iconRight={search ? (
+            <button type="button" className="search-clear-btn" aria-label="Clear search" onClick={handleClearSearch}>
+              <X size={16} />
             </button>
-            {exportOpen && (
-              <div className="pinv-export-menu">
-                <button onClick={() => runExport("pdf")}>PDF (.pdf)</button>
-                <button onClick={() => runExport("excel")}>Excel (.xlsx)</button>
-                <button onClick={() => runExport("csv")}>CSV (.csv)</button>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="pinv-filters">
-        <div className="pinv-search">
-          <Search size={14} />
-          <input
-            placeholder="Search by name, SKU or barcode..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-          {search && <button className="pinv-search__clear" onClick={() => setSearch("")}><X size={14} /></button>}
-        </div>
-
+          ) : undefined}
+        />
         <JiraFilterMenu
           fields={filterFields}
           selected={filterMenuSelected}
           onApply={handleFiltersApply}
           triggerLabel="Filters"
         />
-
-        {hasFilters && (
-          <button className="pinv-clear" onClick={clearFilters}>Clear</button>
-        )}
       </div>
 
-      <div className="pinv-table-wrap">
-        <table className="pinv-table">
-          <thead>
-            <tr>
-              <th>Product</th>
-              <th>Category</th>
-              <th>Brand</th>
-              <th className="pinv-num">In Stock</th>
-              <th className="pinv-num">Reorder At</th>
-              <th>Last Updated</th>
-              <th className="pinv-actions-col">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {loading ? (
-              Array.from({ length: 6 }).map((_, i) => (
-                <tr key={i} className="pinv-skel-row">
-                  {Array.from({ length: 7 }).map((__, j) => (
-                    <td key={j}><span className="pinv-skel" /></td>
-                  ))}
-                </tr>
-              ))
-            ) : rows.length === 0 ? (
+      <main className="pinv-page__content">
+        {loading ? (
+          <table className="product-table">
+            <thead>
               <tr>
-                <td colSpan={7} className="pinv-empty">
-                  {hasFilters ? "No products match these filters." : "No retail products yet."}
-                </td>
+                <th className="pinv-col-product">Product</th>
+                <th className="pinv-col-barcode">Barcode</th>
+                <th>Category</th>
+                <th>Supplier</th>
+                <th className="pinv-num">Purchased</th>
+                <th className="pinv-num">Sold</th>
+                <th className="pinv-num">Consumed</th>
+                <th className="pinv-num">Available</th>
+                <th className="pinv-num">Purchase Price</th>
+                <th className="pinv-num">Selling Price</th>
+                <th>Expiry</th>
+                <th>Status</th>
+                <th className="actions-cell" style={{ width: "56px" }} />
               </tr>
-            ) : (
-              rows.map((r) => (
-                <tr key={r.id} className={r.low_stock ? "pinv-row--low" : ""}>
+            </thead>
+            <tbody>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <tr key={i}>
                   <td>
-                    <div className="pinv-name">{r.name}</div>
-                    {r.sku && <div className="pinv-sub">SKU: {r.sku}</div>}
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <Skeleton width={36} height={36} borderRadius={6} />
+                      <div style={{ flex: 1 }}>
+                        <Skeleton width="70%" height={13} style={{ marginBottom: 5 }} />
+                        <Skeleton width="40%" height={11} />
+                      </div>
+                    </div>
                   </td>
-                  <td>{r.category || "—"}</td>
-                  <td>{r.brand || "—"}</td>
-                  <td className="pinv-num">
-                    <span className={`pinv-stock${r.low_stock ? " pinv-stock--low" : ""}`}>
-                      {fmtQty(r.stock)}
-                    </span>
-                    {r.measure_unit && <span className="pinv-unit"> {r.measure_unit}</span>}
-                    {r.low_stock && <div className="pinv-low-tag">Low stock</div>}
-                  </td>
-                  <td className="pinv-num">{r.qty_alert ? fmtQty(r.qty_alert) : "—"}</td>
-                  <td className="pinv-date">{fmtDateTime(r.last_updated)}</td>
-                  <td className="pinv-actions-col">
-                    <button className="pinv-btn pinv-btn--sm" onClick={() => setStockInFor(r)}>
-                      <PlusLg size={12} /> Add Stock
-                    </button>
-                    <button className="pinv-link" onClick={() => setHistoryFor(r)}>History</button>
+                  <td><Skeleton width="60%" height={12} /></td>
+                  <td><Skeleton width="60%" height={12} /></td>
+                  <td><Skeleton width="60%" height={12} /></td>
+                  <td><Skeleton width="40%" height={12} /></td>
+                  <td><Skeleton width="40%" height={12} /></td>
+                  <td><Skeleton width="40%" height={12} /></td>
+                  <td><Skeleton width="40%" height={12} /></td>
+                  <td><Skeleton width="50%" height={12} /></td>
+                  <td><Skeleton width="50%" height={12} /></td>
+                  <td><Skeleton width="50%" height={12} /></td>
+                  <td><Skeleton width="50%" height={12} /></td>
+                  <td className="actions-cell" />
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : (
+          <table className="product-table">
+            <thead>
+              <tr>
+                <th className="pinv-col-product">Product</th>
+                <th className="pinv-col-barcode">Barcode</th>
+                <th>Category</th>
+                <th>Supplier</th>
+                <th className="pinv-num">Purchased</th>
+                <th className="pinv-num">Sold</th>
+                <th className="pinv-num">Consumed</th>
+                <th className="pinv-num">Available</th>
+                <th className="pinv-num">Purchase Price</th>
+                <th className="pinv-num">Selling Price</th>
+                <th>Expiry</th>
+                <th>Status</th>
+                <th className="actions-cell" style={{ width: "56px" }} />
+              </tr>
+            </thead>
+            <tbody>
+              {rows.length > 0 ? (
+                rows.map((r) => (
+                  <tr key={r.id} className={r.low_stock ? "pinv-row--low" : ""}>
+                    <td className="product-name-cell pinv-product-cell" title={r.name}>
+                      <div className="product-icon"><BoxSeam size={20} /></div>
+                      <div className="name-info">
+                        <span className="name pinv-name">{r.name}</span>
+                        {r.sku && <span className="sku pinv-sub">SKU: {r.sku}</span>}
+                      </div>
+                    </td>
+                    <td className="pinv-barcode-cell" title={r.barcode ?? undefined}>{r.barcode || "—"}</td>
+                    <td>{r.category || "—"}</td>
+                    <td>{r.supplier || "—"}</td>
+                    <td className="pinv-num">{fmtQty(r.purchased)}</td>
+                    <td className="pinv-num">{fmtQty(r.sold)}</td>
+                    <td className="pinv-num">{fmtQty(r.consumed)}</td>
+                    <td className="pinv-num">
+                      <span className={`pinv-stock${r.low_stock ? " pinv-stock--low" : ""}`}>
+                        {fmtQty(r.stock)}
+                      </span>
+                      {r.measure_unit && <span className="pinv-unit"> {r.measure_unit}</span>}
+                    </td>
+                    <td className="pinv-num">{r.supply_price != null ? fmtQty(r.supply_price) : "—"}</td>
+                    <td className="pinv-num">{r.retail_price != null ? fmtQty(r.retail_price) : "—"}</td>
+                    <td className="pinv-date">{fmtDateShort(r.expiry_date)}</td>
+                    <td>
+                      <Badge variant={statusVariant(r.status)}>{STATUS_LABELS[r.status]}</Badge>
+                    </td>
+                    <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
+                      <Dropdown align="end">
+                        <Dropdown.Toggle
+                          as="button"
+                          bsPrefix="row-actions-toggle"
+                          className="row-actions-toggle"
+                          id={`pinv-row-actions-${r.id}`}
+                        >
+                          <ThreeDotsVertical size={16} />
+                        </Dropdown.Toggle>
+                        <Dropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "170px" }}>
+                          <Dropdown.Item
+                            onClick={() => setStockInFor(r)}
+                            className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+                          >
+                            <PlusLg size={14} /> Add Stock
+                          </Dropdown.Item>
+                          <Dropdown.Item
+                            onClick={() => setHistoryFor(r)}
+                            className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+                          >
+                            <ClockHistory size={14} /> History
+                          </Dropdown.Item>
+                          <Dropdown.Divider className="my-2" />
+                          <Dropdown.Item
+                            onClick={() => navigate(`/dashboard/catalog/products/edit/${r.id}`)}
+                            className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
+                          >
+                            <PencilSquare size={14} /> Edit
+                          </Dropdown.Item>
+                          <Dropdown.Item
+                            onClick={() => { setDeleteTarget(r); setDeleteInput(""); }}
+                            className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger"
+                          >
+                            <Trash size={14} /> Delete
+                          </Dropdown.Item>
+                        </Dropdown.Menu>
+                      </Dropdown>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={13} className="pinv-empty-cell">
+                    <EmptyState
+                      icon={<BoxSeam size={36} />}
+                      title={(search || categoryId || brandId || lowOnly) ? "No products match these filters." : "No retail products yet."}
+                    />
                   </td>
                 </tr>
-              ))
-            )}
-          </tbody>
-        </table>
-      </div>
+              )}
+            </tbody>
+          </table>
+        )}
+      </main>
 
       {total > 0 && (
         <Pagination
@@ -345,6 +500,7 @@ export default function ProductInventoryPage() {
           onPageChange={setPage}
           onPageSizeChange={setPageSize}
           pageSizeOptions={PAGE_SIZES}
+          className="pinv-pagination"
         />
       )}
 
@@ -367,6 +523,57 @@ export default function ProductInventoryPage() {
           onClose={() => setHistoryFor(null)}
           onError={showError}
         />
+      )}
+
+      {purchaseOpen && (
+        <PurchaseModal
+          onClose={() => setPurchaseOpen(false)}
+          onError={showError}
+          onSaved={({ purchaseNumber, updatedProducts }) => {
+            setPurchaseOpen(false);
+            showSuccess(`Purchase ${purchaseNumber ?? ""} recorded`.trim());
+            // Patch in place from the save response — no second GET, per the
+            // single-API-call design (see PurchaseModal/inventory.endpoints.ts).
+            // Anything not currently on this page/filter simply isn't patched;
+            // it'll show the new figures whenever the user navigates to it.
+            const byId = new Map((updatedProducts as InventoryRow[]).map((r) => [r.id, r]));
+            setRows((prev) => prev.map((r) => byId.get(r.id) ?? r));
+          }}
+        />
+      )}
+
+      {deleteTarget && (
+        <Modal
+          show
+          onClose={() => setDeleteTarget(null)}
+          title="Delete product?"
+          footer={
+            <div className="d-flex flex-column gap-2 w-100">
+              <Button
+                variant="danger"
+                fullWidth
+                disabled={deleteInput !== "DELETE" || isDeleting}
+                loading={isDeleting}
+                onClick={handleDeleteProduct}
+              >
+                Delete
+              </Button>
+              <Button variant="outline-dark" fullWidth onClick={() => setDeleteTarget(null)} disabled={isDeleting}>
+                Cancel
+              </Button>
+            </div>
+          }
+        >
+          <p className="text-muted small mb-4">
+            Are you sure you want to delete <strong>{deleteTarget.name}</strong>? This operation can't be undone.
+          </p>
+          <Input
+            label="Type DELETE to confirm"
+            placeholder="DELETE"
+            value={deleteInput}
+            onChange={(e) => setDeleteInput(e.target.value)}
+          />
+        </Modal>
       )}
     </div>
   );
@@ -417,61 +624,55 @@ function StockInModal({
   };
 
   return (
-    <div className="pinv-modal-backdrop" onClick={onClose}>
-      <div className="pinv-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="pinv-modal__head">
-          <div>
-            <h2>Add Stock</h2>
-            <p>{product.name}</p>
-          </div>
-          <button className="pinv-modal__close" onClick={onClose}><X size={18} /></button>
+    <Modal
+      show
+      onClose={onClose}
+      title="Add Stock"
+      footer={
+        <div className="d-flex justify-content-end gap-2 w-100">
+          <Button variant="outline-dark" onClick={onClose} disabled={saving}>Cancel</Button>
+          <Button variant="dark" onClick={submit} disabled={saving || !!error} loading={saving}>
+            Add Stock
+          </Button>
         </div>
-
-        <div className="pinv-modal__body">
-          <div className="pinv-current">
-            <span>Current stock</span>
-            <strong>{fmtQty(product.stock)}{product.measure_unit ? ` ${product.measure_unit}` : ""}</strong>
-          </div>
-
-          <label className="pinv-label">
-            Quantity to add <span className="pinv-req">*</span>
-          </label>
-          <input
-            className={`pinv-input${error ? " pinv-input--err" : ""}`}
-            type="number"
-            min="0"
-            step="any"
-            autoFocus
-            placeholder="e.g. 12"
-            value={qty}
-            onChange={(e) => { setQty(e.target.value); setTouched(true); }}
-            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-            onWheel={(e) => e.currentTarget.blur()}
-          />
-          {error
-            ? <span className="pinv-err">{error}</span>
-            : projected != null && (
-              <span className="pinv-hint">New stock will be <strong>{fmtQty(projected)}</strong></span>
-            )}
-
-          <label className="pinv-label">Note <span className="pinv-optional">(optional)</span></label>
-          <input
-            className="pinv-input"
-            placeholder="e.g. Invoice #4821, delivery from supplier"
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-          />
-        </div>
-
-        <div className="pinv-modal__foot">
-          <button className="pinv-btn pinv-btn--ghost" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="pinv-btn pinv-btn--primary" onClick={submit} disabled={saving || !!error}>
-            {saving ? "Adding…" : "Add Stock"}
-          </button>
-        </div>
+      }
+    >
+      <p className="pinv-sub mb-3">{product.name}</p>
+      <div className="pinv-current">
+        <span>Current stock</span>
+        <strong>{fmtQty(product.stock)}{product.measure_unit ? ` ${product.measure_unit}` : ""}</strong>
       </div>
-    </div>
+
+      <label className="pinv-label">
+        Quantity to add <span className="pinv-req">*</span>
+      </label>
+      <input
+        className={`pinv-input${error ? " pinv-input--err" : ""}`}
+        type="number"
+        min="0"
+        step="any"
+        autoFocus
+        placeholder="e.g. 12"
+        value={qty}
+        onChange={(e) => { setQty(e.target.value); setTouched(true); }}
+        onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+        onWheel={(e) => e.currentTarget.blur()}
+      />
+      {error
+        ? <span className="pinv-err">{error}</span>
+        : projected != null && (
+          <span className="pinv-hint">New stock will be <strong>{fmtQty(projected)}</strong></span>
+        )}
+
+      <label className="pinv-label">Note <span className="pinv-optional">(optional)</span></label>
+      <input
+        className="pinv-input"
+        placeholder="e.g. Invoice #4821, delivery from supplier"
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
+      />
+    </Modal>
   );
 }
 
@@ -510,61 +711,57 @@ function HistoryModal({
   }, [product?.id, page, onError]);
 
   return (
-    <div className="pinv-modal-backdrop" onClick={onClose}>
-      <div className="pinv-modal pinv-modal--wide" onClick={(e) => e.stopPropagation()}>
-        <div className="pinv-modal__head">
-          <div>
-            <h2>Inventory History</h2>
-            <p>{product ? product.name : "All stock additions"}</p>
-          </div>
-          <button className="pinv-modal__close" onClick={onClose}><X size={18} /></button>
-        </div>
-
-        <div className="pinv-modal__body pinv-modal__body--table">
-          <table className="pinv-table pinv-table--compact">
-            <thead>
-              <tr>
-                <th>Date &amp; Time</th>
-                {!product && <th>Product</th>}
-                <th className="pinv-num">Added</th>
-                <th className="pinv-num">Before</th>
-                <th className="pinv-num">After</th>
-                <th>By</th>
-                <th>Note</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr><td colSpan={product ? 6 : 7} className="pinv-empty">Loading…</td></tr>
-              ) : rows.length === 0 ? (
-                <tr><td colSpan={product ? 6 : 7} className="pinv-empty">No stock additions recorded yet.</td></tr>
-              ) : (
-                rows.map((h) => (
-                  <tr key={h.id}>
-                    <td className="pinv-date">{fmtDateTime(h.created_at)}</td>
-                    {!product && <td>{h.product_name}</td>}
-                    <td className="pinv-num pinv-added">+{fmtQty(h.quantity)}</td>
-                    <td className="pinv-num">{h.before_stock == null ? "—" : fmtQty(h.before_stock)}</td>
-                    <td className="pinv-num">{h.after_stock == null ? "—" : fmtQty(h.after_stock)}</td>
-                    <td>{h.created_by_name || "—"}</td>
-                    <td className="pinv-note">{h.notes || "—"}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {total > pageSize && (
-          <div className="pinv-modal__foot pinv-modal__foot--pager">
-            <span>{(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}</span>
-            <div>
-              <button className="pinv-btn pinv-btn--ghost" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Previous</button>
-              <button className="pinv-btn pinv-btn--ghost" disabled={page * pageSize >= total} onClick={() => setPage((p) => p + 1)}>Next</button>
-            </div>
-          </div>
-        )}
+    <Modal
+      show
+      onClose={onClose}
+      title="Inventory History"
+      size="lg"
+    >
+      <p className="pinv-sub mb-3">{product ? product.name : "All stock additions"}</p>
+      <div className="pinv-history-table-wrap">
+        <table className="pinv-table--compact">
+          <thead>
+            <tr>
+              <th>Date &amp; Time</th>
+              {!product && <th>Product</th>}
+              <th className="pinv-num">Added</th>
+              <th className="pinv-num">Before</th>
+              <th className="pinv-num">After</th>
+              <th>By</th>
+              <th>Note</th>
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td colSpan={product ? 6 : 7} className="pinv-empty">Loading…</td></tr>
+            ) : rows.length === 0 ? (
+              <tr><td colSpan={product ? 6 : 7} className="pinv-empty">No stock additions recorded yet.</td></tr>
+            ) : (
+              rows.map((h) => (
+                <tr key={h.id}>
+                  <td className="pinv-date">{fmtDateTime(h.created_at)}</td>
+                  {!product && <td>{h.product_name}</td>}
+                  <td className="pinv-num pinv-added">+{fmtQty(h.quantity)}</td>
+                  <td className="pinv-num">{h.before_stock == null ? "—" : fmtQty(h.before_stock)}</td>
+                  <td className="pinv-num">{h.after_stock == null ? "—" : fmtQty(h.after_stock)}</td>
+                  <td>{h.created_by_name || "—"}</td>
+                  <td className="pinv-note">{h.notes || "—"}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
       </div>
-    </div>
+
+      {total > pageSize && (
+        <div className="pinv-history-pager">
+          <span>{(page - 1) * pageSize + 1}–{Math.min(page * pageSize, total)} of {total}</span>
+          <div>
+            <Button variant="outline-dark" size="sm" disabled={page === 1} onClick={() => setPage((p) => p - 1)}>Previous</Button>
+            <Button variant="outline-dark" size="sm" disabled={page * pageSize >= total} onClick={() => setPage((p) => p + 1)}>Next</Button>
+          </div>
+        </div>
+      )}
+    </Modal>
   );
 }

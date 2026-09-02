@@ -1,24 +1,31 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
-import { formatDateDDMMYYYY, formatDateTimeDDMMYYYY } from "../../../utils/dateFormat";
+import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 
 // Export helpers for the Product Inventory page. Kept separate from
 // productExport.ts: that one exports the product CATALOGUE (pricing, GST,
-// supplier), this one exports STOCK POSITION (on-hand, reorder point, last
-// updated). Same visual conventions as the catalogue PDF so the two read as
-// one family of documents.
+// supplier), this one exports the Product Inventory table's own 12 columns —
+// Product, Barcode, Category, Supplier, Purchased, Sold, Consumed, Available,
+// Purchase Price, Selling Price, Expiry, Status — so the export always
+// matches what's on screen.
+
+export type InventoryExportStatus = "in_stock" | "low_stock" | "out_of_stock" | "expired" | "expiring_soon";
 
 export interface InventoryExportRow {
   name: string;
-  sku?: string | null;
+  barcode?: string | null;
   category?: string | null;
-  brand?: string | null;
+  supplier?: string | null;
+  purchased?: number;
+  sold?: number;
+  consumed?: number;
   stock: number;
-  qty_alert?: number | null;
-  low_stock?: boolean;
+  supply_price?: number | null;
+  retail_price?: number | null;
+  expiry_date?: string | null;
+  status: InventoryExportStatus;
   measure_unit?: string | null;
-  last_updated?: string | null;
 }
 
 export interface InventoryExportOptions {
@@ -35,6 +42,14 @@ export interface InventoryExportOptions {
   filterSummary?: string;
 }
 
+const STATUS_LABELS: Record<InventoryExportStatus, string> = {
+  in_stock: "In Stock",
+  low_stock: "Low Stock",
+  out_of_stock: "Out of Stock",
+  expired: "Expired",
+  expiring_soon: "Expiring Soon",
+};
+
 // jsPDF's built-in Helvetica can't render ₹ (U+20B9) — it silently drops to a
 // blank glyph, so any rupee sign has to be transliterated before it's drawn.
 const sanitize = (v: string) => v.replace(/₹/g, "Rs.");
@@ -48,25 +63,36 @@ const fmtQty = (n: unknown) => {
   return Number.isInteger(num) ? String(num) : num.toFixed(2);
 };
 
-const fmtDateTime = (value?: string | null) => formatDateTimeDDMMYYYY(value);
+const fmtDate = (value?: string | null) => {
+  if (!value) return "—";
+  const d = new Date(value);
+  return isNaN(d.getTime()) ? "—" : formatDateDDMMYYYY(d);
+};
 
 const fileStamp = () => formatDateDDMMYYYY(new Date());
 
 const HEADERS = [
-  "#", "Product", "SKU", "Category", "Brand", "In Stock", "Reorder At", "Status", "Last Updated",
+  "#", "Product", "Barcode", "Category", "Supplier", "Purchased", "Sold", "Consumed",
+  "Available", "Purchase Price", "Selling Price", "Expiry", "Status",
 ];
 
 const toRow = (r: InventoryExportRow, i: number) => [
   String(i + 1),
   cell(r.name),
-  cell(r.sku),
+  cell(r.barcode),
   cell(r.category),
-  cell(r.brand),
+  cell(r.supplier),
+  fmtQty(r.purchased),
+  fmtQty(r.sold),
+  fmtQty(r.consumed),
   `${fmtQty(r.stock)}${r.measure_unit ? ` ${sanitize(r.measure_unit)}` : ""}`,
-  r.qty_alert == null || r.qty_alert === 0 ? "—" : fmtQty(r.qty_alert),
-  r.low_stock ? "Low stock" : "OK",
-  fmtDateTime(r.last_updated),
+  r.supply_price == null ? "—" : fmtQty(r.supply_price),
+  r.retail_price == null ? "—" : fmtQty(r.retail_price),
+  fmtDate(r.expiry_date),
+  STATUS_LABELS[r.status] ?? r.status,
 ];
+
+const STATUS_COL_INDEX = 12;
 
 // ── PDF ───────────────────────────────────────────────────────────────────────
 export const exportInventoryPDF = (
@@ -107,7 +133,7 @@ export const exportInventoryPDF = (
   }
   // Right-aligned so it can't collide with a long filter summary on the left.
   doc.text(
-    `Generated ${fmtDateTime(new Date().toISOString())}  |  By: ${sanitize(userName)}  |  ${rows.length} product(s)`,
+    `Generated ${fmtDate(new Date().toISOString())}  |  By: ${sanitize(userName)}  |  ${rows.length} product(s)`,
     pageWidth - margin,
     y + 8,
     { align: "right" },
@@ -118,20 +144,25 @@ export const exportInventoryPDF = (
     head: [HEADERS],
     body: rows.map(toRow),
     theme: "grid",
-    styles: { fontSize: 8, cellPadding: 2, lineColor: [229, 231, 235], textColor: [31, 41, 55] },
-    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: "bold", fontSize: 8.5 },
+    styles: { fontSize: 7.5, cellPadding: 2, lineColor: [229, 231, 235], textColor: [31, 41, 55] },
+    headStyles: { fillColor: [79, 70, 229], textColor: 255, fontStyle: "bold", fontSize: 8 },
     alternateRowStyles: { fillColor: [249, 250, 251] },
     columnStyles: {
-      0: { cellWidth: 10, halign: "right" },
+      0: { cellWidth: 8, halign: "right" },
       5: { halign: "right" },
       6: { halign: "right" },
+      7: { halign: "right" },
+      8: { halign: "right" },
+      9: { halign: "right" },
+      10: { halign: "right" },
     },
-    // Low-stock rows are tinted so the thing the report exists to surface is
-    // findable without reading the Status column on every line.
+    // Anything other than a clean "in stock" is tinted so the thing the report
+    // exists to surface (low stock, expired, expiring soon) is findable
+    // without reading the Status column on every line.
     didParseCell: (data) => {
-      if (data.section === "body" && rows[data.row.index]?.low_stock) {
+      if (data.section === "body" && rows[data.row.index]?.status !== "in_stock") {
         data.cell.styles.fillColor = [254, 242, 242];
-        if (data.column.index === 7) {
+        if (data.column.index === STATUS_COL_INDEX) {
           data.cell.styles.textColor = [185, 28, 28];
           data.cell.styles.fontStyle = "bold";
         }
@@ -151,19 +182,24 @@ export const exportInventoryExcel = (rows: InventoryExportRow[]) => {
     rows.map((r, i) => ({
       "#": i + 1,
       Product: r.name ?? "",
-      SKU: r.sku ?? "",
+      Barcode: r.barcode ?? "",
       Category: r.category ?? "",
-      Brand: r.brand ?? "",
-      "In Stock": Number(r.stock) || 0,
+      Supplier: r.supplier ?? "",
+      Purchased: Number(r.purchased) || 0,
+      Sold: Number(r.sold) || 0,
+      Consumed: Number(r.consumed) || 0,
+      Available: Number(r.stock) || 0,
       Unit: r.measure_unit ?? "",
-      "Reorder At": r.qty_alert ?? "",
-      Status: r.low_stock ? "Low stock" : "OK",
-      "Last Updated": fmtDateTime(r.last_updated),
+      "Purchase Price": r.supply_price ?? "",
+      "Selling Price": r.retail_price ?? "",
+      Expiry: fmtDate(r.expiry_date),
+      Status: STATUS_LABELS[r.status] ?? r.status,
     })),
   );
   sheet["!cols"] = [
-    { wch: 5 }, { wch: 34 }, { wch: 16 }, { wch: 18 }, { wch: 18 },
-    { wch: 10 }, { wch: 8 }, { wch: 11 }, { wch: 11 }, { wch: 20 },
+    { wch: 5 }, { wch: 30 }, { wch: 16 }, { wch: 16 }, { wch: 18 },
+    { wch: 10 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 8 },
+    { wch: 13 }, { wch: 13 }, { wch: 12 }, { wch: 13 },
   ];
   const book = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(book, sheet, "Product Inventory");

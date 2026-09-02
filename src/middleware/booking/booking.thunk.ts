@@ -126,11 +126,19 @@ export const checkoutBookingThunk = createAsyncThunk<any, { id: string | number;
 
 // Raw PDF bytes, not a link — the caller shares them locally (native share
 // sheet or a manual WhatsApp attach) instead of relying on any public URL.
-export const fetchReceiptPdfThunk = createAsyncThunk<Blob, string | number, { rejectValue: string }>(
+// filename comes straight off the response's own Content-Disposition header
+// (the backend's authoritative invoice-number filename, cors.middleware.ts
+// exposes it for exactly this) rather than being guessed client-side from
+// booking.invoiceNumber — that local value can be stale relative to what the
+// PDF itself was actually generated with, which showed up as a downloaded
+// file whose name didn't match the invoice number printed inside it.
+export const fetchReceiptPdfThunk = createAsyncThunk<{ blob: Blob; filename: string | null }, string | number, { rejectValue: string }>(
   "booking/fetchReceiptPdf", async (id, { rejectWithValue }) => {
     try {
       const res = await api.get(BOOKING.RECEIPT_PDF(id), { responseType: "blob" });
-      return res.data as Blob;
+      const disposition: string | undefined = res.headers?.["content-disposition"];
+      const match = disposition ? /filename="?([^";]+)"?/i.exec(disposition) : null;
+      return { blob: res.data as Blob, filename: match?.[1] ?? null };
     } catch (err: any) {
       if (err instanceof ApiError) return rejectWithValue(err.message);
       return rejectWithValue("Failed to get the receipt PDF");

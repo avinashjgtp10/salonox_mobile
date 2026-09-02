@@ -1,4 +1,5 @@
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useSelector } from "react-redux";
 import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import api from "../../../services/api/axios";
@@ -6,31 +7,34 @@ import { STAFF, COMMISSION_RULES } from "../../../services/api/endpoints";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import {
   Plus, X,
-  SquareFill, ListCheck,
+  ListCheck,
   People, Wallet, GraphUpArrow,
   PersonCheck, PersonX, Tools, Bag, Tag, Gift, BoxSeam,
-  StarFill, Gear, CheckCircleFill, XCircleFill,
-  Calculator, CreditCard2Front,
-  ChevronLeft, ChevronRight, ChevronDown, ClockHistory, Download,
-  FileEarmarkExcel, FiletypePdf,
+  StarFill, Gear,
+  Calculator,
+  Pencil, ToggleOn, Trash, ThreeDotsVertical,
+  ChevronDown, ClockHistory, Download,
+  FileEarmarkExcel, FiletypePdf, HeartFill,
 } from "react-bootstrap-icons";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { getCurrencyIcon } from "../../../utils/currencyIcon";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
 import "../styles/CommissionsPage.scss";
-import { SuccessOverlay } from "../../../components/ui";
-import RuleCard from "../components/commission/RuleCard";
+import { SuccessOverlay, Pagination, Button } from "../../../components/ui";
+import DateRangeFilter, {
+  type DateRangeFilterValue, DEFAULT_DATE_RANGE_FILTER_VALUE, getDateRangePresetValue,
+} from "../../../components/ui/DateRangeFilter";
 import RuleWizard from "../components/commission/RuleWizard";
 import RuleDetailModal from "../components/commission/RuleDetailModal";
 import SettleCommissionModal, { type CommissionSettlementPaymentMethod } from "../components/commission/SettleCommissionModal";
-import { SOURCE_META, groupCommissionRules } from "../components/commission/commissionRuleMeta";
+import { SOURCE_META, FREQUENCY_LABELS, groupCommissionRules } from "../components/commission/commissionRuleMeta";
 import { exportCommissionsPDF } from "../utils/commissionExport";
 import type { CommissionRule, CommissionRuleFormData, CommissionRuleSource, RuleGroup } from "../types/commissionRules.types";
+import TipSettleTab from "./TipSettleTab";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type CommissionCategory = "services" | "products" | "memberships" | "gift_cards" | "cancellation" | "packages";
-type TabKey             = "overview" | "rules";
 
 interface StaffMember {
   id: string;
@@ -69,11 +73,6 @@ interface EarningSummary {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  { key: "overview", label: "Overview",         icon: <SquareFill size={13} /> },
-  { key: "rules",    label: "Commission Rules", icon: <ListCheck  size={13} /> },
-];
-
 const CATEGORIES: {
   key: CommissionCategory;
   label: string;
@@ -89,33 +88,7 @@ const CATEGORIES: {
   { key: "cancellation", label: "Cancellation", icon: <StarFill size={16} />, bg: "#fef3c7", color: "#d97706" },
 ];
 
-const COLOR_MAP: Record<string, string> = {
-  light_blue: "#7dd3fc", blue: "#3b82f6", dark_blue: "#1d4ed8",
-  purple: "#a855f7", violet: "#7c3aed", pink: "#f472b6",
-  hot_pink: "#ec4899", rose: "#f43f5e", orange: "#f97316",
-  yellow: "#eab308", lime: "#84cc16", green: "#22c55e",
-  teal: "#14b8a6", cyan: "#06b6d4",
-};
-
-const GRADIENTS = [
-  "linear-gradient(135deg,#6366f1,#8b5cf6)",
-  "linear-gradient(135deg,#f59e0b,#ef4444)",
-  "linear-gradient(135deg,#10b981,#059669)",
-  "linear-gradient(135deg,#3b82f6,#06b6d4)",
-  "linear-gradient(135deg,#ec4899,#f43f5e)",
-  "linear-gradient(135deg,#8b5cf6,#6366f1)",
-  "linear-gradient(135deg,#f97316,#fbbf24)",
-];
-
-const STAFF_PAGE_SIZE = 5;
-
-function getAvatar(staff: StaffMember) {
-  const initials = `${staff.first_name?.[0] ?? ""}${staff.last_name?.[0] ?? ""}`.toUpperCase();
-  const bg = staff.calendar_color
-    ? (COLOR_MAP[staff.calendar_color] ?? GRADIENTS[0])
-    : GRADIENTS[Math.abs(staff.id.charCodeAt(0)) % GRADIENTS.length];
-  return { initials, bg };
-}
+const DEFAULT_TABLE_PAGE_SIZE = 10;
 
 function getCatMeta(cat: CommissionCategory) {
   return CATEGORIES.find((c) => c.key === cat) ?? CATEGORIES[0];
@@ -123,352 +96,359 @@ function getCatMeta(cat: CommissionCategory) {
 
 // ─── Overview Tab ─────────────────────────────────────────────────────────────
 
+// Commission Settle body — a compact stats bar (Membership-page style: one
+// bordered strip, icon + label + value per stat, no individual cards) over a
+// plain paginated table. Replaces what used to be a stat-card grid, a
+// second earnings-card row, and a card-list of staff rows with an avatar/
+// category-dot/pending-badge each — all real information, but spread across
+// far more visual furniture than a settle action needs. Rule-configuration
+// counts (Total Rules/Configured/etc.) moved to the Commission Rules tab,
+// which is what they actually describe.
 function OverviewTab({
-  commissionRules, staffList, onAddRule, commsFetching, earnSummary, earnedByStaff, summaryMonth, onMonthChange, onSettle, settlingId, onOpenHistory,
+  earnSummary, earnedByStaff, dateRange, onDateRangeChange, onSettle, settlingId, onOpenHistory,
 }: {
-  commissionRules: CommissionRule[];
-  staffList: StaffMember[];
-  onAddRule: (staff?: StaffMember) => void;
-  commsFetching: boolean;
   earnSummary: EarningSummary | null;
   earnedByStaff: EarnedByStaff[];
-  summaryMonth: string;
-  onMonthChange: (month: string) => void;
+  dateRange: DateRangeFilterValue;
+  onDateRangeChange: (v: DateRangeFilterValue) => void;
   onSettle: (staffId: string, name: string, amount: number) => void;
   settlingId: string | null;
   onOpenHistory: (staffId: string) => void;
 }): JSX.Element {
   const { formatAmount: fmt, currencyCode } = useCurrency();
   const CurrencyIcon = getCurrencyIcon(currencyCode);
-  // "Configured" = staff directly targeted by a rule (scope_type='staff', scope_id=their id).
-  // Salon-wide/role-scoped rules aren't attributed to individual staff here yet.
-  const staffWithComm     = new Set(commissionRules.filter((r) => r.scope_type === "staff").map((r) => r.scope_id));
-  const configuredStaff   = staffList.filter((s) => staffWithComm.has(s.id));
-  const unconfiguredStaff = staffList.filter((s) => !staffWithComm.has(s.id));
 
-  // Pagination for staff commission status
-  const [configPage, setConfigPage]     = useState(1);
-  const [unconfigPage, setUnconfigPage] = useState(1);
-
-  const configPages   = Math.ceil(configuredStaff.length / STAFF_PAGE_SIZE);
-  const unconfigPages = Math.ceil(unconfiguredStaff.length / STAFF_PAGE_SIZE);
-
-  const pagedConfigured   = configuredStaff.slice((configPage - 1) * STAFF_PAGE_SIZE, configPage * STAFF_PAGE_SIZE);
-  const pagedUnconfigured = unconfiguredStaff.slice((unconfigPage - 1) * STAFF_PAGE_SIZE, unconfigPage * STAFF_PAGE_SIZE);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
+  const pagedStaff = earnedByStaff.slice((page - 1) * pageSize, page * pageSize);
 
   return (
     <div className="cm-overview">
-
-      {/* ── Stat cards: Total Rules, Total Staff, Configured, No Commission ── */}
-      <div className="cm-ov-cards">
-        <div className="cm-ov-card">
-          <div className="cm-ov-card-icon" style={{ background: "#ede9fe", color: "#7c3aed" }}>
-            <ListCheck size={18} />
-          </div>
-          <div>
-            <div className="cm-ov-val">{groupCommissionRules(commissionRules).length}</div>
-            <div className="cm-ov-label">Total Rules</div>
-          </div>
+      <div className="tc-stats">
+        <div className="tc-stat">
+          <span className="tc-stat-icon tc-stat-icon--indigo"><GraphUpArrow size={16} /></span>
+          <span className="tc-stat-label">Total Revenue</span>
+          <strong className="tc-stat-val">{earnSummary ? fmt(earnSummary.total_revenue) : "—"}</strong>
         </div>
-        <div className="cm-ov-card">
-          <div className="cm-ov-card-icon" style={{ background: "#dbeafe", color: "#2563eb" }}>
-            <People size={18} />
-          </div>
-          <div>
-            <div className="cm-ov-val">{staffList.length}</div>
-            <div className="cm-ov-label">Total Staff</div>
-          </div>
+        <div className="tc-stat-div" />
+        <div className="tc-stat">
+          <span className="tc-stat-icon tc-stat-icon--green"><CurrencyIcon size={15} /></span>
+          <span className="tc-stat-label">Commission Paid</span>
+          <strong className="tc-stat-val">{earnSummary ? fmt(earnSummary.paid_out) : "—"}</strong>
         </div>
-        <div className="cm-ov-card">
-          <div className="cm-ov-card-icon" style={{ background: "#dcfce7", color: "#16a34a" }}>
-            <PersonCheck size={18} />
-          </div>
-          <div>
-            <div className="cm-ov-val">{configuredStaff.length}</div>
-            <div className="cm-ov-label">Configured</div>
-          </div>
+        <div className="tc-stat-div" />
+        <div className="tc-stat">
+          <span className="tc-stat-icon tc-stat-icon--amber"><Wallet size={15} /></span>
+          <span className="tc-stat-label">Pending Payout</span>
+          <strong className="tc-stat-val">{earnSummary ? fmt(earnSummary.pending_payout) : "—"}</strong>
         </div>
-        <div className="cm-ov-card">
-          <div className="cm-ov-card-icon" style={{ background: "#fef3c7", color: "#d97706" }}>
-            <PersonX size={18} />
-          </div>
-          <div>
-            <div className="cm-ov-val">{unconfiguredStaff.length}</div>
-            <div className="cm-ov-label">No Commission</div>
-          </div>
+        <div className="tc-stat-div" />
+        <div className="tc-stat">
+          <span className="tc-stat-icon tc-stat-icon--violet"><Calculator size={15} /></span>
+          <span className="tc-stat-label">Total Accrued</span>
+          <strong className="tc-stat-val">{earnSummary ? fmt(earnSummary.total_commission) : "—"}</strong>
         </div>
       </div>
 
-      {/* Background loading indicator */}
-      {commsFetching && (
-        <div className="cm-comms-loading-bar">
-          <div className="cm-comms-loading-inner" />
-          <span>Loading commission data…</span>
-        </div>
-      )}
+      <div className="tc-toolbar">
+        <span className="tc-toolbar-title">Commission Summary</span>
+        <DateRangeFilter value={dateRange} onChange={onDateRangeChange} />
+      </div>
 
-      {/* ── Earnings row ── */}
-      <div className="cm-ov-earn-header">
-        <span className="cm-ov-earn-title">This Month</span>
-        <input
-          type="month"
-          className="cm-month-picker"
-          value={summaryMonth}
-          max={new Date().toISOString().slice(0, 7)}
-          onChange={(e) => onMonthChange(e.target.value)}
+      <div className="tc-table-wrap">
+        {earnedByStaff.length === 0 ? (
+          <div className="cm-ov-empty">
+            <CurrencyIcon size={28} />
+            <p>No commissions earned in this date range</p>
+            <span className="cm-ov-empty-sub">Commissions appear here after checkouts</span>
+          </div>
+        ) : (
+          <table className="tc-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Staff Name</th><th>Total Sales ({currencyCode})</th>
+                <th>Commission Accrued ({currencyCode})</th><th>Commission Paid ({currencyCode})</th>
+                <th>Pending Payout ({currencyCode})</th><th>Status</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagedStaff.map((e, i) => {
+                const name = `${e.staff_first_name} ${e.staff_last_name ?? ""}`.trim();
+                const status = e.pending_payout > 0 && e.paid_out > 0 ? "Partial" : e.pending_payout > 0 ? "Pending" : "Settled";
+                return (
+                  <tr key={e.staff_id} onClick={() => onOpenHistory(e.staff_id)}>
+                    <td>{(page - 1) * pageSize + i + 1}</td>
+                    <td className="tc-table__name">{name}</td>
+                    <td>{fmt(e.total_revenue)}</td>
+                    <td>{fmt(e.total_earned)}</td>
+                    <td>{fmt(e.paid_out)}</td>
+                    <td>{fmt(e.pending_payout)}</td>
+                    <td><span className={`tc-status tc-status--${status.toLowerCase()}`}>{status}</span></td>
+                    <td onClick={(ev) => ev.stopPropagation()}>
+                      {e.pending_payout > 0 ? (
+                        <button
+                          className="tc-settle-btn"
+                          disabled={settlingId === e.staff_id}
+                          onClick={() => onSettle(e.staff_id, name, e.pending_payout)}
+                        >
+                          {settlingId === e.staff_id ? "Settling…" : "Settle"}
+                        </button>
+                      ) : (
+                        <span className="tc-view-btn" onClick={() => onOpenHistory(e.staff_id)}>View</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      <Pagination
+        currentPage={page}
+        pageSize={pageSize}
+        totalItems={earnedByStaff.length}
+        onPageChange={setPage}
+        onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
+      />
+    </div>
+  );
+}
+
+// Commission Rules body — same stats-bar + table + pagination shape as
+// OverviewTab above, replacing what used to be a card grid (RuleCard) plus a
+// purely decorative "How it works?" sidebar. Category filter pills are kept
+// (a real, used control) but row actions are now inline icon buttons instead
+// of a per-card floating menu.
+function RulesTable({
+  commissionRules, staffList, ruleGroups, filteredGroups, sourceFilter, setSourceFilter, sourceCounts,
+  rulesLoading, staffNamesForGroup, onOpenDetail, onEdit, onDelete, onToggleStatus, togglingRuleId, onAddFirstRule,
+}: {
+  commissionRules: CommissionRule[];
+  staffList: StaffMember[];
+  ruleGroups: RuleGroup[];
+  filteredGroups: RuleGroup[];
+  sourceFilter: CommissionRuleSource | "all";
+  setSourceFilter: (s: CommissionRuleSource | "all") => void;
+  sourceCounts: Record<string, number>;
+  rulesLoading: boolean;
+  staffNamesForGroup: (group: RuleGroup) => string[];
+  onOpenDetail: (group: RuleGroup) => void;
+  onEdit: (group: RuleGroup) => void;
+  onDelete: (group: RuleGroup) => void;
+  onToggleStatus: (group: RuleGroup) => void;
+  togglingRuleId: string | null;
+  onAddFirstRule: () => void;
+}): JSX.Element {
+  const { formatAmount: fmtMoney } = useCurrency();
+
+  // "Configured" = staff directly targeted by a rule (scope_type='staff', scope_id=their id).
+  // Salon-wide/role-scoped rules aren't attributed to individual staff here yet.
+  const staffWithComm   = new Set(commissionRules.filter((r) => r.scope_type === "staff").map((r) => r.scope_id));
+  const configuredCount = staffList.filter((s) => staffWithComm.has(s.id)).length;
+
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(DEFAULT_TABLE_PAGE_SIZE);
+  const pagedGroups = filteredGroups.slice((page - 1) * pageSize, page * pageSize);
+
+  // Row actions live behind a single kebab menu (Edit/Activate/Delete) —
+  // same portal-based pattern as MembershipsListPage's row menu, so it
+  // can't be clipped by this table's own horizontal scroll container.
+  // Position is computed from the trigger button's rect at open time,
+  // right-aligned to it via `right` so the menu's width doesn't need to be
+  // known up front.
+  const [openRowMenuId, setOpenRowMenuId] = useState<string | null>(null);
+  const [kebabPos, setKebabPos] = useState<{ top: number; right: number } | null>(null);
+  const kebabPortalRef = useRef<HTMLUListElement>(null);
+  const tableWrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!openRowMenuId) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.closest(".tc-kebab-trigger")) return;
+      if (kebabPortalRef.current?.contains(target)) return;
+      setOpenRowMenuId(null);
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [openRowMenuId]);
+
+  useEffect(() => {
+    if (!openRowMenuId) return;
+    const closeOnScroll = () => setOpenRowMenuId(null);
+    const wrap = tableWrapRef.current;
+    wrap?.addEventListener("scroll", closeOnScroll);
+    window.addEventListener("scroll", closeOnScroll, true);
+    return () => {
+      wrap?.removeEventListener("scroll", closeOnScroll);
+      window.removeEventListener("scroll", closeOnScroll, true);
+    };
+  }, [openRowMenuId]);
+
+  return (
+    <div className="cm-overview">
+      <div className="tc-stats">
+        <div className="tc-stat">
+          <span className="tc-stat-icon tc-stat-icon--indigo"><ListCheck size={16} /></span>
+          <span className="tc-stat-label">Total Rules</span>
+          <strong className="tc-stat-val">{ruleGroups.length}</strong>
+        </div>
+        <div className="tc-stat-div" />
+        <div className="tc-stat">
+          <span className="tc-stat-icon tc-stat-icon--indigo"><People size={16} /></span>
+          <span className="tc-stat-label">Total Staff</span>
+          <strong className="tc-stat-val">{staffList.length}</strong>
+        </div>
+        <div className="tc-stat-div" />
+        <div className="tc-stat">
+          <span className="tc-stat-icon tc-stat-icon--green"><PersonCheck size={16} /></span>
+          <span className="tc-stat-label">Configured</span>
+          <strong className="tc-stat-val">{configuredCount}</strong>
+        </div>
+        <div className="tc-stat-div" />
+        <div className="tc-stat">
+          <span className="tc-stat-icon tc-stat-icon--amber"><PersonX size={16} /></span>
+          <span className="tc-stat-label">No Commission</span>
+          <strong className="tc-stat-val">{staffList.length - configuredCount}</strong>
+        </div>
+      </div>
+
+      <div className="tc-toolbar tc-toolbar--wrap">
+        <span className="tc-toolbar-title">Commission Rules</span>
+        <div className="cm-cat-pills">
+          <button
+            className={`cm-pill ${sourceFilter === "all" ? "cm-pill--active" : ""}`}
+            title={`Show all commission rules (${ruleGroups.length})`}
+            onClick={() => setSourceFilter("all")}
+          >
+            All Rules <span className="cm-pill-count">({ruleGroups.length})</span>
+          </button>
+          {(Object.keys(SOURCE_META) as CommissionRuleSource[]).map((key) => (
+            <button
+              key={key}
+              className={`cm-pill ${sourceFilter === key ? "cm-pill--active" : ""}`}
+              title={`Filter by ${SOURCE_META[key].label} rules (${sourceCounts[key] ?? 0})`}
+              onClick={() => setSourceFilter(key)}
+            >
+              {SOURCE_META[key].label} <span className="cm-pill-count">({sourceCounts[key] ?? 0})</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="tc-table-wrap" ref={tableWrapRef}>
+        {rulesLoading ? (
+          <div className="cm-loading">
+            {[...Array(4)].map((_, i) => (
+              <div key={i} className="cm-skeleton-row">
+                <div className="cm-skel cm-skel--icon" />
+                <div className="cm-skel-info">
+                  <div className="cm-skel cm-skel--title" />
+                  <div className="cm-skel cm-skel--sub" />
+                </div>
+                <div className="cm-skel cm-skel--tag" />
+              </div>
+            ))}
+          </div>
+        ) : filteredGroups.length === 0 ? (
+          <div className="cm-ov-empty">
+            <Gear size={28} />
+            <p>No commission rules found</p>
+            <button className="cm-add-btn cm-add-btn--sm" onClick={onAddFirstRule}>
+              <Plus size={14} /> Add your first rule
+            </button>
+          </div>
+        ) : (
+          <table className="tc-table">
+            <thead>
+              <tr>
+                <th>#</th><th>Rule Name</th><th>Source</th><th>Frequency</th>
+                <th>Scope</th><th>Value</th><th>Status</th><th>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {pagedGroups.map((group, i) => {
+                const rule = group.primary;
+                const source = SOURCE_META[rule.source];
+                const names = staffNamesForGroup(group);
+                const scope =
+                  rule.scope_type === "salon" ? "Entire Salon"
+                  : rule.scope_type === "role" ? (rule.scope_id ?? "Role")
+                  : names.length === 0 ? "Staff member"
+                  : names.length === 1 ? names[0]
+                  : `${names.length} staff`;
+                const value = rule.type === "percentage" ? `${Number(rule.rate)}%` : fmtMoney(Number(rule.rate));
+                return (
+                  <tr key={group.key} onClick={() => onOpenDetail(group)}>
+                    <td>{(page - 1) * pageSize + i + 1}</td>
+                    <td className="tc-table__name">{rule.name}</td>
+                    <td>{source.label}</td>
+                    <td>{FREQUENCY_LABELS[rule.frequency]}</td>
+                    <td>{scope}</td>
+                    <td>{value}</td>
+                    <td><span className={`tc-status tc-status--${rule.status === "active" ? "settled" : "pending"}`}>{rule.status === "active" ? "Active" : "Inactive"}</span></td>
+                    <td onClick={(ev) => ev.stopPropagation()}>
+                      <button
+                        className="tc-icon-btn tc-kebab-trigger"
+                        title="Actions"
+                        onClick={(e) => {
+                          const isOpen = openRowMenuId === group.key;
+                          setOpenRowMenuId(isOpen ? null : group.key);
+                          if (!isOpen) {
+                            const r = e.currentTarget.getBoundingClientRect();
+                            setKebabPos({ top: r.bottom + 6, right: window.innerWidth - r.right });
+                          }
+                        }}
+                      >
+                        <ThreeDotsVertical size={16} />
+                      </button>
+                      {openRowMenuId === group.key && kebabPos && createPortal(
+                        <ul
+                          ref={kebabPortalRef}
+                          className="tc-kebab-menu"
+                          style={{ position: "fixed", top: kebabPos.top, right: kebabPos.right, zIndex: 9999 }}
+                        >
+                          <li>
+                            <button onClick={() => { setOpenRowMenuId(null); onEdit(group); }}>
+                              <Pencil size={13} /> Edit
+                            </button>
+                          </li>
+                          <li>
+                            <button
+                              disabled={togglingRuleId === group.key}
+                              onClick={() => { setOpenRowMenuId(null); onToggleStatus(group); }}
+                            >
+                              <ToggleOn size={14} /> {rule.status === "active" ? "Deactivate" : "Activate"}
+                            </button>
+                          </li>
+                          <li>
+                            <button className="tc-kebab-menu__danger" onClick={() => { setOpenRowMenuId(null); onDelete(group); }}>
+                              <Trash size={13} /> Delete
+                            </button>
+                          </li>
+                        </ul>,
+                        document.body
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+      </div>
+
+      {filteredGroups.length > 0 && (
+        <Pagination
+          currentPage={page}
+          pageSize={pageSize}
+          totalItems={filteredGroups.length}
+          onPageChange={setPage}
+          onPageSizeChange={(size) => { setPageSize(size); setPage(1); }}
         />
-      </div>
-      <div className="cm-ov-earnings">
-        <div className="cm-ov-earn-card">
-          <div className="cm-ov-earn-icon" style={{ background: "#ede9fe", color: "#7c3aed" }}>
-            <GraphUpArrow size={16} />
-          </div>
-          <div>
-            <div className="cm-ov-earn-label">Total Revenue Generated</div>
-            <div className="cm-ov-earn-val">
-              {earnSummary ? fmt(earnSummary.total_revenue) : <span className="cm-earn-dash">—</span>}
-            </div>
-            <div className="cm-ov-earn-sub">{earnSummary ? `${earnSummary.count} transactions` : "Loading…"}</div>
-          </div>
-        </div>
-        <div className="cm-ov-earn-card">
-          <div className="cm-ov-earn-icon" style={{ background: "#dcfce7", color: "#16a34a" }}>
-            <CurrencyIcon size={16} />
-          </div>
-          <div>
-            <div className="cm-ov-earn-label">Commission Paid</div>
-            <div className="cm-ov-earn-val">
-              {earnSummary ? fmt(earnSummary.paid_out) : <span className="cm-earn-dash">—</span>}
-            </div>
-            <div className="cm-ov-earn-sub" style={{ color: "#16a34a" }}>Settled</div>
-          </div>
-        </div>
-        <div className="cm-ov-earn-card">
-          <div className="cm-ov-earn-icon" style={{ background: "#fef3c7", color: "#d97706" }}>
-            <Wallet size={16} />
-          </div>
-          <div>
-            <div className="cm-ov-earn-label">Pending Payout</div>
-            <div className="cm-ov-earn-val">
-              {earnSummary ? fmt(earnSummary.pending_payout) : <span className="cm-earn-dash">—</span>}
-            </div>
-            <div className="cm-ov-earn-sub" style={{ color: "#d97706" }}>Awaiting payment</div>
-          </div>
-        </div>
-        <div className="cm-ov-earn-card">
-          <div className="cm-ov-earn-icon" style={{ background: "#dbeafe", color: "#2563eb" }}>
-            <Calculator size={16} />
-          </div>
-          <div>
-            <div className="cm-ov-earn-label">Total Commission Accrued</div>
-            <div className="cm-ov-earn-val">
-              {earnSummary ? fmt(earnSummary.total_commission) : <span className="cm-earn-dash">—</span>}
-            </div>
-            <div className="cm-ov-earn-sub">Paid + Pending</div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── Bottom two-col ── */}
-      <div className="cm-ov-bottom">
-
-        {/* Left — Commission Earned by staff */}
-        <div className="cm-ov-panel">
-          <div className="cm-ov-panel-header">
-            <div>
-              <div className="cm-ov-panel-title">Commission Earned</div>
-              <div className="cm-ov-panel-sub">
-                {earnedByStaff.length > 0
-                  ? `${earnedByStaff.length} staff earned this month`
-                  : "No commissions earned yet"}
-              </div>
-            </div>
-          </div>
-
-          {earnedByStaff.length === 0 ? (
-            <div className="cm-ov-empty">
-              <CurrencyIcon size={28} />
-              <p>No commissions earned this month</p>
-              <span className="cm-ov-empty-sub">Commissions appear here after checkouts</span>
-            </div>
-          ) : (
-            <div className="cm-earned-list">
-              {earnedByStaff.map((e) => {
-                const av = {
-                  initials: `${e.staff_first_name?.[0] ?? ""}${e.staff_last_name?.[0] ?? ""}`.toUpperCase(),
-                  bg: e.staff_calendar_color
-                    ? (COLOR_MAP[e.staff_calendar_color] ?? GRADIENTS[0])
-                    : GRADIENTS[Math.abs(e.staff_id.charCodeAt(0)) % GRADIENTS.length],
-                };
-                const cats = (e.categories ?? []).map((c: string) => getCatMeta(c as any));
-                const allPaid = e.pending_payout === 0 && e.total_earned > 0;
-
-                return (
-                  <div key={e.staff_id} className={`cm-earned-row ${allPaid ? "cm-earned-row--paid" : ""}`} onClick={() => onOpenHistory(e.staff_id)} style={{ cursor: "pointer" }}>
-                    <div className="cm-earned-av" style={{ background: av.bg }}>{av.initials}</div>
-
-                    <div className="cm-earned-info">
-                      <div className="cm-earned-name">
-                        {e.staff_first_name} {e.staff_last_name ?? ""}
-                        {allPaid && <span className="cm-paid-chip"><CheckCircleFill size={10} /> Paid</span>}
-                      </div>
-                      <div className="cm-earned-cats">
-                        {cats.map((c: ReturnType<typeof getCatMeta>) => (
-                          <span key={c.key} className="cm-earned-cat-dot"
-                            style={{ background: c.bg, color: c.color }} title={c.label}>
-                            {c.icon}
-                          </span>
-                        ))}
-                        <span className="cm-earned-txn">{e.transaction_count} transaction{e.transaction_count !== 1 ? "s" : ""}</span>
-                      </div>
-                      <div className="cm-earned-amounts">
-                        <span className="cm-earned-rev">Revenue {fmt(e.total_revenue)}</span>
-                        <span className="cm-earned-sep">·</span>
-                        <span className="cm-earned-total">Earned <strong>{fmt(e.total_earned)}</strong></span>
-                      </div>
-                      {/* Pending amount already shown in the badge beside "Settle" — only
-                          add this line when there's paid-so-far info not shown elsewhere. */}
-                      {e.pending_payout > 0 && e.paid_out > 0 && (
-                        <div className="cm-earned-pending">
-                          Paid so far: <strong>{fmt(e.paid_out)}</strong>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="cm-earned-row-end" onClick={(ev) => ev.stopPropagation()}>
-                      {e.pending_payout > 0 && (
-                        <>
-                          <span className="cm-pending-badge">
-                            <ClockHistory size={10} /> {fmt(e.pending_payout)} pending
-                          </span>
-                          <button
-                            className="cm-settle-btn"
-                            disabled={settlingId === e.staff_id}
-                            onClick={() => onSettle(
-                              e.staff_id,
-                              `${e.staff_first_name} ${e.staff_last_name ?? ""}`.trim(),
-                              e.pending_payout
-                            )}
-                          >
-                            {settlingId === e.staff_id ? "Settling…" : "Settle"}
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-
-        {/* Right — staff commission status with pagination */}
-        <div className="cm-ov-panel">
-          <div className="cm-ov-panel-header">
-            <div>
-              <div className="cm-ov-panel-title">Staff Commission Status</div>
-              <div className="cm-ov-panel-sub">
-                {configuredStaff.length} configured · {unconfiguredStaff.length} not set
-              </div>
-            </div>
-          </div>
-
-          {/* Configured staff */}
-          {configuredStaff.length > 0 && (
-            <>
-              <div className="cm-ov-staff-section-label">
-                <CheckCircleFill size={11} color="#16a34a" /> With commission rules
-              </div>
-              {pagedConfigured.map((s) => {
-                const av       = getAvatar(s);
-                const sRules   = commissionRules.filter((r) => r.scope_type === "staff" && r.scope_id === s.id);
-                const active   = sRules.filter((r) => r.status === "active").length;
-                const sources  = [...new Set(sRules.map((r) => r.source))];
-                return (
-                  <div key={s.id} className="cm-ov-staff-row cm-ov-staff-row--has">
-                    <div className="cm-ov-av" style={{ background: av.bg }}>{av.initials}</div>
-                    <div className="cm-ov-staff-info">
-                      <div className="cm-ov-staff-name">{s.first_name} {s.last_name ?? ""}</div>
-                      <div className="cm-ov-staff-meta">
-                        {sources.map((src) => {
-                          const m = SOURCE_META[src];
-                          return (
-                            <span key={src} className="cm-cat-dot"
-                              style={{ background: m.bg, color: m.color }} title={m.label}>
-                              {m.icon}
-                            </span>
-                          );
-                        })}
-                        <span className="cm-ov-staff-count">
-                          {active} active rule{active !== 1 ? "s" : ""}
-                        </span>
-                      </div>
-                    </div>
-                    <CheckCircleFill size={14} color="#16a34a" />
-                  </div>
-                );
-              })}
-              {configPages > 1 && (
-                <div className="cm-ov-pagination">
-                  <button className="cm-pg-btn" disabled={configPage === 1}
-                    onClick={() => setConfigPage((p) => p - 1)}>
-                    <ChevronLeft size={13} />
-                  </button>
-                  <span className="cm-pg-info">{configPage} / {configPages}</span>
-                  <button className="cm-pg-btn" disabled={configPage === configPages}
-                    onClick={() => setConfigPage((p) => p + 1)}>
-                    <ChevronRight size={13} />
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-
-          {/* Unconfigured staff */}
-          {unconfiguredStaff.length > 0 && (
-            <>
-              <div className="cm-ov-staff-section-label" style={{ marginTop: 14 }}>
-                <XCircleFill size={11} color="#dc2626" /> No commission set
-              </div>
-              {pagedUnconfigured.map((s) => {
-                const av = getAvatar(s);
-                return (
-                  <div key={s.id} className="cm-ov-staff-row cm-ov-staff-row--none">
-                    <div className="cm-ov-av" style={{ background: av.bg }}>{av.initials}</div>
-                    <div className="cm-ov-staff-info">
-                      <div className="cm-ov-staff-name">{s.first_name} {s.last_name ?? ""}</div>
-                      <div className="cm-ov-staff-role">{s.designation ?? "Staff"}</div>
-                    </div>
-                    <button className="cm-ov-add-btn" onClick={() => onAddRule(s)}>
-                      <Plus size={11} /> Add Rule
-                    </button>
-                  </div>
-                );
-              })}
-              {unconfigPages > 1 && (
-                <div className="cm-ov-pagination">
-                  <button className="cm-pg-btn" disabled={unconfigPage === 1}
-                    onClick={() => setUnconfigPage((p) => p - 1)}>
-                    <ChevronLeft size={13} />
-                  </button>
-                  <span className="cm-pg-info">{unconfigPage} / {unconfigPages}</span>
-                  <button className="cm-pg-btn" disabled={unconfigPage === unconfigPages}
-                    onClick={() => setUnconfigPage((p) => p + 1)}>
-                    <ChevronRight size={13} />
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-
-          {staffList.length === 0 && (
-            <div className="cm-ov-empty">
-              <People size={28} />
-              <p>No staff members found</p>
-            </div>
-          )}
-        </div>
-      </div>
+      )}
     </div>
   );
 }
@@ -476,11 +456,14 @@ function OverviewTab({
 // ─── Commission History Drawer ────────────────────────────────────────────────
 
 function CommissionHistoryDrawer({
-  staffId, staffName, summaryMonth, onClose,
+  staffId, staffName, month, onClose,
 }: {
   staffId: string;
   staffName: string;
-  summaryMonth: string;
+  // Still month-only — this backend endpoint (unlike Summary/Table above)
+  // was never extended to accept a date range, so it's fed the current
+  // range's start month rather than the range itself (see exportMonth).
+  month: string;
   onClose: () => void;
 }): JSX.Element {
   const { formatAmount: fmt, currencySymbol } = useCurrency();
@@ -494,7 +477,7 @@ function CommissionHistoryDrawer({
     setLoading(true);
     setLoadError(false);
 
-    const fetchOnce = () => api.get(`${STAFF.BY_ID(staffId)}/commissions/history?month=${summaryMonth}`);
+    const fetchOnce = () => api.get(`${STAFF.BY_ID(staffId)}/commissions/history?month=${month}`);
 
     // One silent auto-retry — the DB connection is prone to occasional
     // transient timeouts, and a single failed attempt would otherwise leave
@@ -506,7 +489,7 @@ function CommissionHistoryDrawer({
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [staffId, summaryMonth, retryTick]);
+  }, [staffId, month, retryTick]);
 
   const totalEarned  = history.reduce((s, h) => s + parseFloat(h.commission_amount), 0);
   const totalRevenue = history.reduce((s, h) => s + parseFloat(h.revenue_amount), 0);
@@ -520,7 +503,7 @@ function CommissionHistoryDrawer({
         <div className="cm-history-header">
           <div>
             <div className="cm-history-title">{staffName}</div>
-            <div className="cm-history-sub">Commission History · {summaryMonth}</div>
+            <div className="cm-history-sub">Commission History · {month}</div>
           </div>
           <button className="cm-modal-close" onClick={onClose}><X size={18} /></button>
         </div>
@@ -616,19 +599,35 @@ function CommissionHistoryDrawer({
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
-export default function CommissionsPage() {
+// `view` replaces what used to be an internal Overview/Rules sub-tab —
+// Commission Settle and Commission Rules are now peer top-level tabs (see
+// CommissionsPage below), so this component renders ONE view per mount and
+// is remounted (full refetch) when the outer tab switches, same as
+// TipSettleTab already does for its own tab. All the fetching/state/handlers
+// stay in this one component regardless of view — splitting those apart too
+// would mean either duplicating them or prop-drilling across two new files,
+// for a distinction that's purely about navigation UI, not data ownership.
+function CommissionSettleTab({ view }: { view: "settle" | "rules" }) {
   const currentSalon = useSelector(selectCurrentSalon);
   const salonId      = currentSalon?.id;
-  const { formatAmount, currencyCode } = useCurrency();
-  const CurrencyIcon = getCurrencyIcon(currencyCode);
+  const { formatAmount } = useCurrency();
 
-  const [activeTab,   setActiveTab]   = useState<TabKey>("overview");
   const [staffList,   setStaffList]   = useState<StaffMember[]>([]);
   const [loading,          setLoading]          = useState(true);
-  const [commsFetching,    setCommsFetching]    = useState(false);
   const [earnSummary,      setEarnSummary]      = useState<EarningSummary | null>(null);
   const [earnedByStaff,    setEarnedByStaff]    = useState<EarnedByStaff[]>([]);
-  const [summaryMonth,     setSummaryMonth]     = useState(() => new Date().toISOString().slice(0, 7)); // YYYY-MM
+  // The Summary/Table below fully support an arbitrary date range (the
+  // backend's summary/earned endpoints take start_date/end_date) — Export
+  // and the per-staff History drawer don't, they're still month-only on the
+  // backend, so exportMonth below derives a single YYYY-MM from whatever
+  // range is selected rather than silently pretending those two also
+  // support a real range.
+  const [dateRange, setDateRange] = useState<DateRangeFilterValue>(() => ({
+    ...DEFAULT_DATE_RANGE_FILTER_VALUE,
+    preset: "this_month",
+    ...getDateRangePresetValue("this_month"),
+  }));
+  const exportMonth = dateRange.startDate ? dateRange.startDate.slice(0, 7) : new Date().toISOString().slice(0, 7);
   const [historyStaffId,   setHistoryStaffId]   = useState<string | null>(null);
   const [settlingId,  setSettlingId]  = useState<string | null>(null);
   const [settleTarget, setSettleTarget] = useState<{ staffId: string; name: string; pending: number } | null>(null);
@@ -660,8 +659,8 @@ export default function CommissionsPage() {
 
       // Fetch earning summary + per-staff breakdown (non-blocking)
       Promise.all([
-        api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&month=${summaryMonth}`),
-        api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&month=${summaryMonth}`),
+        api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+        api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
       ]).then(([summaryRes, earnedRes]) => {
         setEarnSummary(summaryRes.data?.data ?? null);
         setEarnedByStaff(earnedRes.data?.data ?? []);
@@ -674,7 +673,6 @@ export default function CommissionsPage() {
       showError(err?.message ?? "Failed to load commissions");
     } finally {
       setLoading(false);
-      setCommsFetching(false);
     }
   }, [salonId]);
 
@@ -765,17 +763,17 @@ export default function CommissionsPage() {
     return acc;
   }, {} as Record<CommissionRuleSource, number>);
 
-  // Refetch summary when month picker changes
+  // Refetch summary when the date range filter changes
   useEffect(() => {
     if (!salonId) return;
     Promise.all([
-      api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&month=${summaryMonth}`),
-      api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&month=${summaryMonth}`),
+      api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+      api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
     ]).then(([summaryRes, earnedRes]) => {
       setEarnSummary(summaryRes.data?.data ?? null);
       setEarnedByStaff(earnedRes.data?.data ?? []);
     }).catch(() => {});
-  }, [summaryMonth, salonId]);
+  }, [dateRange.startDate, dateRange.endDate, salonId]);
 
   const handleSettle = async (
     staffId: string,
@@ -794,8 +792,8 @@ export default function CommissionsPage() {
       showSuccess(`${formatAmount(amount)} settled for ${name}`);
       setSettleTarget(null);
       const [summaryRes, earnedRes] = await Promise.all([
-        api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&month=${summaryMonth}`),
-        api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&month=${summaryMonth}`),
+        api.get(`${STAFF.BASE}/commissions/summary?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
+        api.get(`${STAFF.BASE}/commissions/earned?salon_id=${salonId}&start_date=${dateRange.startDate}&end_date=${dateRange.endDate}`),
       ]);
       setEarnSummary(summaryRes.data?.data ?? null);
       setEarnedByStaff(earnedRes.data?.data ?? []);
@@ -815,78 +813,73 @@ export default function CommissionsPage() {
 
       <div className="cm-header">
         <div>
-          <h2 className="cm-title">Commission Management</h2>
-          <p className="cm-subtitle">Create and manage commission rules for your staff</p>
+          <h2 className="cm-title">{view === "settle" ? "Commission Settle" : "Commission Rules"}</h2>
+          <p className="cm-subtitle">
+            {view === "settle" ? "Review and settle staff commission payouts" : "Create and manage commission rules for your staff"}
+          </p>
         </div>
         <div className="cm-header-actions">
-          <div className="cm-options-dropdown" onClick={(e) => e.stopPropagation()}>
-            <button className="cm-export-btn" onClick={() => setOptionsOpen((v) => !v)}>
-              Options <ChevronDown size={13} />
+          {view === "settle" ? (
+            <div className="cm-options-dropdown" onClick={(e) => e.stopPropagation()}>
+              <button className="cm-export-btn" onClick={() => setOptionsOpen((v) => !v)}>
+                Options <ChevronDown size={13} />
+              </button>
+              {optionsOpen && (
+                <div className="cm-options-menu">
+                  <div className="cm-option-label">Export</div>
+                  <button className="cm-option-item" onClick={async () => {
+                    setOptionsOpen(false);
+                    try {
+                      const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${exportMonth}`, { responseType: "blob" });
+                      const url = URL.createObjectURL(new Blob([res.data]));
+                      const a   = document.createElement("a");
+                      a.href    = url;
+                      a.download = `commissions_${exportMonth}.csv`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch { showError("Export failed"); }
+                  }}>
+                    <Download size={14} /> Export CSV
+                  </button>
+                  <button className="cm-option-item" onClick={async () => {
+                    setOptionsOpen(false);
+                    try {
+                      const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${exportMonth}&format=excel`, { responseType: "blob" });
+                      const url = URL.createObjectURL(new Blob([res.data]));
+                      const a   = document.createElement("a");
+                      a.href    = url;
+                      a.download = `commissions_${exportMonth}.xlsx`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch { showError("Export failed"); }
+                  }}>
+                    <FileEarmarkExcel size={14} /> Export Excel
+                  </button>
+                  <button className="cm-option-item" onClick={async () => {
+                    setOptionsOpen(false);
+                    try {
+                      const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${exportMonth}&format=json`);
+                      const rows = res.data?.data ?? [];
+                      const blob = exportCommissionsPDF(rows, exportMonth);
+                      const url  = URL.createObjectURL(blob);
+                      const a    = document.createElement("a");
+                      a.href     = url;
+                      a.download = `commissions_${exportMonth}.pdf`;
+                      a.click();
+                      URL.revokeObjectURL(url);
+                    } catch { showError("Export failed"); }
+                  }}>
+                    <FiletypePdf size={14} /> Export PDF
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            <button className="cm-add-btn" onClick={() => { setEditingGroup(null); setShowWizard(true); }}>
+              <Plus size={15} /> Add Commission Rule
             </button>
-            {optionsOpen && (
-              <div className="cm-options-menu">
-                <div className="cm-option-label">Export</div>
-                <button className="cm-option-item" onClick={async () => {
-                  setOptionsOpen(false);
-                  try {
-                    const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${summaryMonth}`, { responseType: "blob" });
-                    const url = URL.createObjectURL(new Blob([res.data]));
-                    const a   = document.createElement("a");
-                    a.href    = url;
-                    a.download = `commissions_${summaryMonth}.csv`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  } catch { showError("Export failed"); }
-                }}>
-                  <Download size={14} /> Export CSV
-                </button>
-                <button className="cm-option-item" onClick={async () => {
-                  setOptionsOpen(false);
-                  try {
-                    const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${summaryMonth}&format=excel`, { responseType: "blob" });
-                    const url = URL.createObjectURL(new Blob([res.data]));
-                    const a   = document.createElement("a");
-                    a.href    = url;
-                    a.download = `commissions_${summaryMonth}.xlsx`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  } catch { showError("Export failed"); }
-                }}>
-                  <FileEarmarkExcel size={14} /> Export Excel
-                </button>
-                <button className="cm-option-item" onClick={async () => {
-                  setOptionsOpen(false);
-                  try {
-                    const res = await api.get(`${STAFF.BASE}/commissions/export?salon_id=${salonId}&month=${summaryMonth}&format=json`);
-                    const rows = res.data?.data ?? [];
-                    const blob = exportCommissionsPDF(rows, summaryMonth);
-                    const url  = URL.createObjectURL(blob);
-                    const a    = document.createElement("a");
-                    a.href     = url;
-                    a.download = `commissions_${summaryMonth}.pdf`;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  } catch { showError("Export failed"); }
-                }}>
-                  <FiletypePdf size={14} /> Export PDF
-                </button>
-              </div>
-            )}
-          </div>
-          <button className="cm-add-btn" onClick={() => { setEditingGroup(null); setShowWizard(true); }}>
-            <Plus size={15} /> Add Commission Rule
-          </button>
+          )}
         </div>
-      </div>
-
-      <div className="cm-tabs">
-        {TABS.map(({ key, label, icon }) => (
-          <button key={key}
-            className={`cm-tab ${activeTab === key ? "cm-tab--active" : ""}`}
-            onClick={() => setActiveTab(key)}>
-            {icon} {label}
-          </button>
-        ))}
       </div>
 
       {loading ? (
@@ -902,101 +895,34 @@ export default function CommissionsPage() {
             </div>
           ))}
         </div>
-      ) : activeTab === "overview" ? (
+      ) : view === "settle" ? (
         <OverviewTab
-          commissionRules={commissionRules}
-          staffList={staffList}
-          onAddRule={() => { setEditingGroup(null); setShowWizard(true); }}
-          commsFetching={commsFetching}
           earnSummary={earnSummary}
           earnedByStaff={earnedByStaff}
-          summaryMonth={summaryMonth}
-          onMonthChange={(m) => { setSummaryMonth(m); }}
+          dateRange={dateRange}
+          onDateRangeChange={setDateRange}
           onSettle={(staffId, name, pending) => setSettleTarget({ staffId, name, pending })}
           settlingId={settlingId}
           onOpenHistory={(staffId) => setHistoryStaffId(staffId)}
         />
       ) : (
-        <div className="cm-body">
-          <div className="cm-main">
-            <div className="cm-section-header">
-              <h3 className="cm-section-title">Commission Rules</h3>
-              <p className="cm-section-sub">Set rules for services, products, memberships and packages</p>
-            </div>
-            <div className="cm-cat-pills">
-              <button
-                className={`cm-pill ${sourceFilter === "all" ? "cm-pill--active" : ""}`}
-                title={`Show all commission rules (${ruleGroups.length})`}
-                onClick={() => setSourceFilter("all")}
-              >
-                All Rules <span className="cm-pill-count">({ruleGroups.length})</span>
-              </button>
-              {(Object.keys(SOURCE_META) as CommissionRuleSource[]).map((key) => (
-                <button
-                  key={key}
-                  className={`cm-pill ${sourceFilter === key ? "cm-pill--active" : ""}`}
-                  title={`Filter by ${SOURCE_META[key].label} rules (${sourceCounts[key] ?? 0})`}
-                  onClick={() => setSourceFilter(key)}
-                >
-                  {SOURCE_META[key].label} <span className="cm-pill-count">({sourceCounts[key] ?? 0})</span>
-                </button>
-              ))}
-            </div>
-            {rulesLoading ? (
-              <div className="cm-loading">
-                {[...Array(4)].map((_, i) => (
-                  <div key={i} className="cm-skeleton-row">
-                    <div className="cm-skel cm-skel--icon" />
-                    <div className="cm-skel-info">
-                      <div className="cm-skel cm-skel--title" />
-                      <div className="cm-skel cm-skel--sub" />
-                    </div>
-                    <div className="cm-skel cm-skel--tag" />
-                  </div>
-                ))}
-              </div>
-            ) : filteredGroups.length === 0 ? (
-              <div className="cm-empty">
-                <Gear size={28} />
-                <p>No commission rules found</p>
-                <button className="cm-add-btn" onClick={() => { setEditingGroup(null); setShowWizard(true); }}>
-                  <Plus size={14} /> Add your first rule
-                </button>
-              </div>
-            ) : (
-              <div className="rc-grid">
-                {filteredGroups.map((group) => (
-                  <RuleCard key={group.key} group={group}
-                    staffNames={staffNamesForGroup(group)}
-                    onOpenDetail={setDetailGroup}
-                    onEdit={(g) => { setEditingGroup(g); setShowWizard(true); }}
-                    onDelete={handleDeleteRule}
-                    onToggleStatus={handleToggleRuleStatus}
-                    toggling={togglingRuleId === group.key} />
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="cm-sidebar">
-            <div className="cm-sidebar-block">
-              <div className="cm-sidebar-title"><CheckCircleFill size={13} /> How it works?</div>
-              {[
-                { icon: <Tools size={14} />,           bg: "#ede9fe", ic: "#7c3aed", t: "Set Rules",      d: "Create commission rules per staff member." },
-                { icon: <CurrencyIcon size={14} />,    bg: "#dcfce7", ic: "#16a34a", t: "Earn",           d: "Staff earns commission when they hit targets." },
-                { icon: <Calculator size={14} />,       bg: "#dbeafe", ic: "#2563eb", t: "Auto Calculate", d: "Commission is calculated automatically." },
-                { icon: <CreditCard2Front size={14} />, bg: "#fef3c7", ic: "#d97706", t: "Payout",         d: "Pay commissions with one click." },
-              ].map((s, i) => (
-                <div key={i} className="cm-step">
-                  <div className="cm-step-icon" style={{ "--icon-bg": s.bg, "--icon-color": s.ic } as React.CSSProperties}>{s.icon}</div>
-                  <div>
-                    <div className="cm-step-title">{s.t}</div>
-                    <div className="cm-step-desc">{s.d}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
+        <RulesTable
+          commissionRules={commissionRules}
+          staffList={staffList}
+          ruleGroups={ruleGroups}
+          filteredGroups={filteredGroups}
+          sourceFilter={sourceFilter}
+          setSourceFilter={setSourceFilter}
+          sourceCounts={sourceCounts}
+          rulesLoading={rulesLoading}
+          staffNamesForGroup={staffNamesForGroup}
+          onOpenDetail={setDetailGroup}
+          onEdit={(g) => { setEditingGroup(g); setShowWizard(true); }}
+          onDelete={handleDeleteRule}
+          onToggleStatus={handleToggleRuleStatus}
+          togglingRuleId={togglingRuleId}
+          onAddFirstRule={() => { setEditingGroup(null); setShowWizard(true); }}
+        />
       )}
 
       {/* History Drawer */}
@@ -1006,7 +932,7 @@ export default function CommissionsPage() {
           staffName={earnedByStaff.find((e) => e.staff_id === historyStaffId)
             ? `${earnedByStaff.find((e) => e.staff_id === historyStaffId)!.staff_first_name} ${earnedByStaff.find((e) => e.staff_id === historyStaffId)!.staff_last_name ?? ""}`
             : "Staff"}
-          summaryMonth={summaryMonth}
+          month={exportMonth}
           onClose={() => setHistoryStaffId(null)}
         />
       )}
@@ -1043,6 +969,70 @@ export default function CommissionsPage() {
           onSave={handleSaveRule}
         />
       )}
+    </div>
+  );
+}
+
+// ─── Tip & Commission — outer shell ────────────────────────────────────────
+// Two main tabs — Commission and Tip. Commission holds two sub-tabs
+// (Commission Settle / Commission Rule, both CommissionSettleTab mounted
+// with a different `view` — unchanged functionality, just regrouped under
+// one parent tab instead of sitting as peers of Tip). Tip has no sub-tabs
+// of its own — a tip has nothing like a rule or a category to configure,
+// just an amount to settle (see TipSettleTab.tsx) — so it renders directly.
+type MainTab = "commission" | "tip";
+type CommissionSubTab = "settle" | "rules";
+
+const MAIN_TABS: { key: MainTab; label: string; icon: React.ReactNode }[] = [
+  { key: "commission", label: "Commission", icon: <Calculator size={14} /> },
+  { key: "tip",         label: "Tip",        icon: <HeartFill  size={14} /> },
+];
+
+const COMMISSION_SUB_TABS: { key: CommissionSubTab; label: string; icon: React.ReactNode }[] = [
+  { key: "settle", label: "Commission Settle", icon: <Calculator size={13} /> },
+  { key: "rules",  label: "Commission Rule",   icon: <ListCheck  size={13} /> },
+];
+
+export default function CommissionsPage() {
+  const [mainTab, setMainTab] = useState<MainTab>("commission");
+  const [commissionSubTab, setCommissionSubTab] = useState<CommissionSubTab>("settle");
+
+  return (
+    <div className="tc-shell">
+      <div className="tc-main-tabs">
+        {MAIN_TABS.map(({ key, label, icon }) => (
+          <button
+            key={key}
+            type="button"
+            className={`tc-main-tab ${mainTab === key ? "tc-main-tab--active" : ""}`}
+            onClick={() => setMainTab(key)}
+          >
+            {icon}
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {mainTab === "commission" && (
+        <div className="tc-shell-tabs tc-shell-tabs--sub">
+          {COMMISSION_SUB_TABS.map(({ key, label, icon }) => (
+            <Button
+              key={key}
+              variant={commissionSubTab === key ? "dark" : "light"}
+              size="sm"
+              pill
+              iconLeft={icon}
+              onClick={() => setCommissionSubTab(key)}
+            >
+              {label}
+            </Button>
+          ))}
+        </div>
+      )}
+
+      {mainTab === "commission"
+        ? <CommissionSettleTab view={commissionSubTab === "settle" ? "settle" : "rules"} />
+        : <TipSettleTab />}
     </div>
   );
 }

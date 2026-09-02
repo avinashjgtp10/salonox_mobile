@@ -1,4 +1,5 @@
 import api from "../../services/api/axios";
+import { DAILY_SHEET_REPORT } from "../../services/api/endpoints";
 import type { DailySummaryData } from "./cashManagement.export";
 import type {
   CashDashboardSummary,
@@ -55,6 +56,9 @@ const normalizeDashboard = (raw: any): CashDashboardSummary => ({
   openedAt: raw?.opened_at ?? raw?.openedAt ?? null,
   closedAt: raw?.closed_at ?? raw?.closedAt ?? null,
   remarks: raw?.remarks ?? null,
+  upiAmount: asNumber(raw?.upi_amount ?? raw?.upiAmount),
+  cardAmount: asNumber(raw?.card_amount ?? raw?.cardAmount),
+  cashAmount: asNumber(raw?.cash_amount ?? raw?.cashAmount),
 });
 
 const normalizeTransaction = (raw: any): CashTransactionRecord => ({
@@ -213,6 +217,61 @@ export async function fetchTodaysRevenue() {
   return asNumber(data?.todayRevenue ?? data?.today_revenue);
 }
 
+// Counts how many of a given date's invoices were paid via UPI vs Card, for
+// display in the Close Counter popup and the daily summary email. No backend
+// aggregate exists for this, so it reads the Daily Sheet report (the same
+// API DailySheetReport.tsx uses) filtered to that date with a generous page
+// size, and counts raw payment_method values client-side. Defaults to today,
+// but the "close a stale previous-day counter" flow must pass that counter's
+// opened date instead — otherwise it would show today's counts against
+// yesterday's revenue figures.
+export async function fetchTodaysPaymentMethodCounts(date = new Date().toISOString().slice(0, 10)) {
+  try {
+    const response = await api.post(DAILY_SHEET_REPORT.SUMMARY(), {
+      date,
+      page: 1,
+      limit: 1000,
+    });
+    const rows: any[] = response?.data?.data?.rows ?? [];
+    const counts = { upi: 0, card: 0, cash: 0 };
+    const amounts = { upi: 0, card: 0, cash: 0 };
+    for (const row of rows) {
+      const method = String(row?.payment_method ?? "").trim().toLowerCase();
+      if (method === "split") {
+        // Split sales have no single payment_method — the per-method legs
+        // live inside payment_reference instead (e.g. {"Cash":200,"UPI":150}).
+        // Without this, split sales were silently excluded, undercounting
+        // UPI/Card totals for any salon that mixes payment methods.
+        let legs: Record<string, unknown> = {};
+        try {
+          legs = typeof row?.payment_reference === "string"
+            ? JSON.parse(row.payment_reference)
+            : (row?.payment_reference ?? {});
+        } catch {
+          legs = {};
+        }
+        for (const [legMethod, legAmount] of Object.entries(legs)) {
+          const key = String(legMethod).trim().toLowerCase();
+          const amount = asNumber(legAmount);
+          if (key === "upi") { counts.upi += 1; amounts.upi += amount; }
+          else if (key === "card") { counts.card += 1; amounts.card += amount; }
+          else if (key === "cash") { counts.cash += 1; amounts.cash += amount; }
+        }
+        continue;
+      }
+
+      const amount = asNumber(row?.paid_amount);
+      if (method === "upi") { counts.upi += 1; amounts.upi += amount; }
+      else if (method === "card") { counts.card += 1; amounts.card += amount; }
+      else if (method === "cash") { counts.cash += 1; amounts.cash += amount; }
+    }
+    return { ...counts, amounts };
+  } catch (err) {
+    console.error("[cash-management] Failed to load today's payment method counts:", err);
+    return { upi: 0, card: 0, cash: 0, amounts: { upi: 0, card: 0, cash: 0 } };
+  }
+}
+
 export async function sendDailySummaryEmail(
   cashManagementId: string,
   summaryData?: Partial<DailySummaryData>,
@@ -234,6 +293,8 @@ export async function sendDailySummaryEmail(
     in_store_cash: summaryData?.inStoreCash ?? 0,
     reconciliation_amount: summaryData?.reconciliationAmount ?? 0,
     remarks: summaryData?.remarks ?? "",
+    upi_payment_amount: summaryData?.upiAmount ?? summaryData?.paymentCounts?.amounts?.upi ?? 0,
+    card_payment_amount: summaryData?.cardAmount ?? summaryData?.paymentCounts?.amounts?.card ?? 0,
   };
 
   try {

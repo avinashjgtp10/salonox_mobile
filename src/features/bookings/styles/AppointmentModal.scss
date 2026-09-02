@@ -123,19 +123,55 @@ $item-field-text-inset: 9px;
 .qs-summary-row {
   display: flex;
   justify-content: space-between;
+  gap: 8px;
   font-size: 13px;
   color: $secondary;
   padding: 6px 0;
 
+  // Strict two-column layout for every row in this card, regardless of
+  // modifier (base/--sub/--subtotal/--total/--due/--staff all share this) —
+  // label on the left, amount on the right, and text length in either column
+  // must never shift where the amount lands. justify-content:space-between
+  // above provides the base left/right push; these two rules make it exact:
+  // the value column gets a fixed floor width and never shrinks, so its
+  // right-aligned text always lands at the same X position across every row
+  // in the card (short "₹500.00" or long "-₹1,025.00" alike), and the label
+  // column absorbs all remaining space and ellipsizes instead of wrapping or
+  // pushing the row wider than its siblings.
+  span:first-child {
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  span:last-child {
+    flex: 0 0 auto;
+    min-width: 90px;
+    text-align: right;
+    white-space: nowrap;
+  }
+
   &--discount span:last-child { color: $success; }
 
   // Per-staff tip breakdown row, nested under the "Staff Tip" total line
-  // (see StaffTipsModal.tsx) — same row shape, smaller/indented/muted so it
-  // reads as a sub-line rather than another bill total.
+  // (see StaffTipsModal.tsx) — smaller/muted so it reads as a sub-line rather
+  // than another bill total, but deliberately flush-left (no padding-left
+  // indent) so the staff name lines up with "Staff Tip" directly above it
+  // instead of staggering off to the right of it.
   &--sub {
-    padding: 3px 0 3px 14px;
+    padding: 3px 0;
     font-size: 11.5px;
     color: #98a2b3;
+  }
+
+  // What a staff member's tip is actually for (service name(s) + their
+  // combined amount) — a plain left-aligned line under their name row, not
+  // squeezed onto the name's own line where it fought the fixed value column.
+  &__items {
+    padding: 0 0 4px;
+    font-size: 10.5px;
+    color: #c2c8d1;
   }
 
   // Mid-weight running total (the "Total Bill" line at the tax boundary) —
@@ -276,7 +312,7 @@ $item-field-text-inset: 9px;
   }
 }
 
-// ── Item section headers (package / product / membership) ──────────────────────
+// ── Item section headers (service / product / package / membership) ────────────
 // All section headers share the same grid as .svc-row so columns align
 .item-section-header {
   display: grid;
@@ -292,8 +328,12 @@ $item-field-text-inset: 9px;
   // in the row beneath it, not with the input's border box.
   > span { padding-left: $item-field-text-inset; }
 
-  &--package    { background: #fef9c3; color: #92400e; }
+  // Same purple already used for the "SERVICE" badge on the bill/receipt
+  // (ViewBillModal.tsx, receipt.ts) — one consistent color for this type
+  // everywhere it's shown, not just here.
+  &--service    { background: #ede9fe; color: #5b21b6; }
   &--product    { background: #dbeafe; color: #1e3a8a; }
+  &--package    { background: #fef9c3; color: #92400e; }
   &--membership { background: #dcfce7; color: #14532d; }
 }
 
@@ -550,8 +590,9 @@ $item-field-text-inset: 9px;
 // ── Charges & Discounts ───────────────────────────────────────────────────────
 .charges-grid {
   display: grid;
-  // Five fields now: Ex Charges, Tip, Bill Discount, Disc. Type, Apply To.
-  grid-template-columns: 1fr 1fr 1fr 1.4fr 1.2fr;
+  // Four fields now: Ex Charges, Bill Discount, Disc. Type, Apply To — Tip
+  // moved out to its own dedicated "Staff Tips" flow (StaffTipsModal).
+  grid-template-columns: 1fr 1fr 1.4fr 1.2fr;
   gap: 12px;
   padding: 14px;
   // The Bill Discount cell can grow a hint/error line under its input; without
@@ -938,6 +979,30 @@ $item-field-text-inset: 9px;
       flex-shrink: 0;
       &:hover { background: #f3f4f6; border-color: #9ca3af; color: #374151; }
     }
+
+    // Staff Alert / Notes — same .pkg-info-btn ℹ button used for Reward/
+    // Package/Membership, just anchored in the header instead of inline
+    // next to a stat value.
+    .client-alert-wrap {
+      position: relative;
+      flex-shrink: 0;
+
+      // This button sits at the far right edge of the header row (unlike the
+      // Reward/Package/Membership ℹ buttons, which sit further left inside
+      // the grid) — the shared .info-popover's default `left: 0` grows the
+      // popover rightward from the button and pushes it off the edge of the
+      // panel/viewport. Anchor from the right instead so it grows leftward,
+      // staying inside the panel, and flip the pointer arrow to match.
+      .info-popover {
+        left: auto;
+        right: 0;
+
+        &::before {
+          left: auto;
+          right: 14px;
+        }
+      }
+    }
   }
 
   &__grid {
@@ -1050,6 +1115,24 @@ $item-field-text-inset: 9px;
     color: #7c3aed;
     background: #f5f3ff;
   }
+
+  // Staff Alert present (not just plain notes) — glows red so it's
+  // impossible to miss, instead of blending in as just another plain ℹ
+  // affordance sitting next to the edit button. Plain gray (the base
+  // .pkg-info-btn look above) when there's no alert, just notes.
+  &--warn {
+    border-color: #ef4444;
+    color: #dc2626;
+    background: #fef2f2;
+    animation: client-alert-glow 1.8s ease-in-out infinite;
+
+    &:hover { background: #fee2e2; border-color: #dc2626; }
+  }
+}
+
+@keyframes client-alert-glow {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.45); }
+  50%      { box-shadow: 0 0 7px 3px rgba(239, 68, 68, 0.45); }
 }
 
 // ── Package per-service scheduling panel ──────────────────────────────────────
@@ -1299,6 +1382,42 @@ $item-field-text-inset: 9px;
 
     &::before { border-bottom-color: #fff; }
   }
+}
+
+.client-alert-popover {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.client-alert-popover__row {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+
+  &:not(:last-child) { padding-bottom: 10px; border-bottom: 1px solid #f1f1f2; }
+}
+
+.client-alert-popover__label {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #9ca3af;
+
+  &--warn { color: #dc2626; }
+}
+
+.client-alert-popover__text {
+  font-size: 13px;
+  font-weight: 500;
+  color: $primary;
+  white-space: pre-wrap;
+}
+
+.client-alert-popover__date {
+  font-size: 11px;
+  color: #9ca3af;
 }
 
 .pkg-modal__cards {

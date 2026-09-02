@@ -68,6 +68,16 @@ const AddStocktakePage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
 
+  // Step 4 (Count) State — the actual physical count, per product. Defaults
+  // to the current system quantity as a starting point when the count screen
+  // is entered, but is genuinely editable: this is what gets sent as
+  // actual_qty, not silently re-derived from the system's own number (that
+  // was the bug — every stocktake used to "count" exactly what the system
+  // already believed, so it could never record a real variance).
+  const [countedQtys, setCountedQtys] = useState<Record<string, string>>({});
+  const [step4Errors, setStep4Errors] = useState<Record<string, string>>({});
+  const [processResult, setProcessResult] = useState<{ processed: number; variances: number } | null>(null);
+
   // Fetch products and branches on mount
   React.useEffect(() => {
     dispatch(fetchCatalogThunk());
@@ -151,18 +161,63 @@ const AddStocktakePage: React.FC = () => {
     }
   };
 
+  // The effective product set this stocktake covers — "all" means every
+  // catalog item, otherwise whatever was picked in Step 3 (category-scoped
+  // selection isn't separately implemented, so it falls into the same
+  // manual-selection path as "manual").
+  const stocktakeProducts = useMemo(
+    () => (selectionType === "all" ? catalogItems : catalogItems.filter((p: any) => selectedProductIds.includes(p.id))),
+    [selectionType, catalogItems, selectedProductIds],
+  );
+
+  // Seed the count inputs with the current system quantity as a starting
+  // point (fastest to just confirm if it's right) the moment the count step
+  // is reached — but every value stays freely editable from there, and it's
+  // that edited value which gets sent as the physical count.
+  useEffect(() => {
+    if (currentStep !== 4 || processResult) return;
+    setCountedQtys((prev) => {
+      const next = { ...prev };
+      stocktakeProducts.forEach((p: any) => {
+        if (next[p.id] === undefined) next[p.id] = String(Math.max(0, Math.round(Number(p.amount) || 0)));
+      });
+      return next;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, stocktakeProducts]);
+
   const handleStartStocktake = async () => {
     if (!currentSalon) return;
 
-    try {
-      // 1. Create the stocktake event record
-      const activeBranchId = selectedBranchId;
-      
-      if (!activeBranchId) {
-        showError("Please select a location first.");
-        return;
-      }
+    const activeBranchId = selectedBranchId;
+    if (!activeBranchId) {
+      showError("Please select a location first.");
+      return;
+    }
 
+    const errors: Record<string, string> = {};
+    const itemsToProcess = stocktakeProducts.map((p: any) => {
+      const raw = countedQtys[p.id] ?? "";
+      const qty = parseFloat(raw);
+      if (raw.trim() === "" || !Number.isFinite(qty) || qty < 0) {
+        errors[p.id] = "Enter a counted quantity";
+      }
+      return { product_id: p.id, actual_qty: Math.max(0, Math.round(qty || 0)) };
+    });
+
+    if (Object.keys(errors).length > 0) {
+      setStep4Errors(errors);
+      showError("Enter a counted quantity for every product before finishing");
+      return;
+    }
+    setStep4Errors({});
+
+    if (itemsToProcess.length === 0) {
+      showError("No products available to stocktake. Please add products to your catalog first.");
+      return;
+    }
+
+    try {
       const stocktakeEvent = await dispatch(createStocktakeThunk({
         branch_id: activeBranchId,
         name: stocktakeName,
@@ -170,27 +225,14 @@ const AddStocktakePage: React.FC = () => {
         selection_type: selectionType || undefined
       })).unwrap();
 
-      // 2. Process the actual quantities
-      // If "all" products, we'd need to send all IDs. For now, we process selected ones.
-      const itemsToProcess = (selectionType === "all" ? catalogItems : catalogItems.filter((p: any) => selectedProductIds.includes(p.id)))
-        .map((p: any) => ({
-          product_id: p.id,
-          actual_qty: Math.max(0, Math.round(Number(p.amount) || 0)),
-          notes: selectionType === "all" ? "Full stocktake" : "Manual selection"
-        }));
-
-      if (itemsToProcess.length === 0) {
-        throw new Error("No products available to stocktake. Please add products to your catalog first.");
-      }
-
-      await dispatch(processStockTakeThunk({
+      const result = await dispatch(processStockTakeThunk({
         stocktake_id: stocktakeEvent.id,
         branch_id: activeBranchId,
         items: itemsToProcess
       })).unwrap();
 
-      showSuccess("Stocktake started successfully");
-      navigate("/dashboard/catalog/inventory/stocktakes");
+      setProcessResult({ processed: result.processed, variances: result.movements?.length ?? 0 });
+      showSuccess("Stocktake completed — stock levels updated");
     } catch (error: any) {
       console.error("Failed to process stocktake:", error);
       showError(error?.message || "Failed to start stocktake. Please check your network connection.");
@@ -298,23 +340,29 @@ const AddStocktakePage: React.FC = () => {
             <div className="separator"></div>
             <div className={`step-item ${currentStep === 4 ? "active" : ""}`}>
               <span className="number">4</span>
-              <span>Review</span>
+              <span>Count</span>
             </div>
           </div>
 
           <div className="header-right">
-            <button className="btn-cancel" onClick={handleClose}>Cancel</button>
-            {currentStep < 4 ? (
-              <button
-                className="btn-next"
-                onClick={nextStep}
-              >
-                Next
-              </button>
+            {processResult ? (
+              <button className="btn-start" onClick={handleClose}>Done</button>
             ) : (
-              <button className="btn-start" onClick={handleStartStocktake} disabled={inventoryLoading}>
-                {inventoryLoading ? "Processing..." : "Start stocktake"}
-              </button>
+              <>
+                <button className="btn-cancel" onClick={handleClose}>Cancel</button>
+                {currentStep < 4 ? (
+                  <button
+                    className="btn-next"
+                    onClick={nextStep}
+                  >
+                    Next
+                  </button>
+                ) : (
+                  <button className="btn-start" onClick={handleStartStocktake} disabled={inventoryLoading}>
+                    {inventoryLoading ? "Processing..." : "Finish stocktake"}
+                  </button>
+                )}
+              </>
             )}
           </div>
         </div>
@@ -489,47 +537,80 @@ const AddStocktakePage: React.FC = () => {
             </div>
           )}
 
-          {/* STEP 4: REVIEW */}
+          {/* STEP 4: COUNT — the actual physical count, then the completed result */}
           {currentStep === 4 && (
-            <div className="step-card animated-in text-center">
-              <header>
-                <div className="mb-4 text-success"><CheckCircleFill size={64} /></div>
-                <h1>Ready to start?</h1>
-                <p>Review the details below before launching the stocktake.</p>
-              </header>
-
-              <div className="review-summary text-start bg-light p-4 rounded-4 border mt-4">
-                <div className="row g-4">
-                  <div className="col-6">
-                    <label className="small text-muted fw-bold text-uppercase">Stocktake Name</label>
-                    <p className="mb-0 fw-medium">{stocktakeName || "Untitled Stocktake"}</p>
-                  </div>
-                  <div className="col-6">
-                    <label className="small text-muted fw-bold text-uppercase">Location</label>
-                    <p className="mb-0 fw-medium">
-                      {branches.find(b => b.id === selectedBranchId)?.name || "Not selected"}
-                    </p>
-                  </div>
-                  <div className="col-6">
-                    <label className="small text-muted fw-bold text-uppercase">Scope</label>
-                    <p className="mb-0 fw-medium">
-                      {selectionType === "all" ? "All Products" :
-                        selectionType === "category" ? "Categorized Selection" : "Specific Products"}
-                    </p>
-                  </div>
-                  <div className="col-6">
-                    <label className="small text-muted fw-bold text-uppercase">Item Count</label>
-                    <p className="mb-0 fw-medium">
-                      {selectionType === "all" ? "Whole Inventory" : `${selectedProductIds.length} items`}
-                    </p>
+            processResult ? (
+              <div className="step-card animated-in text-center">
+                <header>
+                  <div className="mb-4 text-success"><CheckCircleFill size={64} /></div>
+                  <h1>Stocktake completed</h1>
+                  <p>Stock levels have been updated to match your counts.</p>
+                </header>
+                <div className="review-summary text-start bg-light p-4 rounded-4 border mt-4">
+                  <div className="row g-4">
+                    <div className="col-6">
+                      <label className="small text-muted fw-bold text-uppercase">Products Counted</label>
+                      <p className="mb-0 fw-medium">{processResult.processed}</p>
+                    </div>
+                    <div className="col-6">
+                      <label className="small text-muted fw-bold text-uppercase">Variances Found</label>
+                      <p className="mb-0 fw-medium">
+                        {processResult.variances === 0 ? "None — everything matched" : `${processResult.variances} product${processResult.variances === 1 ? "" : "s"} adjusted`}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
+            ) : (
+              <div className="step-card animated-in">
+                <header>
+                  <h1>Count stock</h1>
+                  <p>Enter what you physically counted for each product — pre-filled with the current system quantity, edit any that don't match.</p>
+                </header>
 
-              <p className="mt-5 text-muted small">
-                Once started, your current stock levels will be recorded. At the end of the stocktake, they will be updated based on your counts.
-              </p>
-            </div>
+                <div className="product-selection-table">
+                  <div className="table-container">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>Product</th>
+                          <th>System Qty</th>
+                          <th>Counted Qty</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {stocktakeProducts.map((p: any) => (
+                          <tr key={p.id}>
+                            <td>
+                              <div className="product-info">
+                                <span className="name">{p.name}</span>
+                                <span className="sku">{p.sku}</span>
+                              </div>
+                            </td>
+                            <td>{Math.max(0, Math.round(Number(p.amount) || 0))}</td>
+                            <td>
+                              <input
+                                type="number"
+                                min="0"
+                                step="1"
+                                className={`form-control${step4Errors[p.id] ? " is-invalid" : ""}`}
+                                style={{ maxWidth: 120 }}
+                                value={countedQtys[p.id] ?? ""}
+                                onChange={(e) => {
+                                  setCountedQtys((prev) => ({ ...prev, [p.id]: e.target.value }));
+                                  if (step4Errors[p.id]) setStep4Errors((prev) => { const n = { ...prev }; delete n[p.id]; return n; });
+                                }}
+                                onWheel={(e) => e.currentTarget.blur()}
+                              />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            )
           )}
 
         </div>

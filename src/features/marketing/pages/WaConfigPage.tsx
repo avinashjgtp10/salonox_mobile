@@ -3,18 +3,17 @@ import { Eye, EyeOff } from "lucide-react";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import {
-  saveWaConfigThunk,
   testWaConfigThunk,
   deleteWaConfigThunk,
   setAiReceptionistEnabledThunk,
 } from "../../../middleware/marketing/marketing.thunk";
-import { Button, Input, Modal } from "../../../components/ui";
+import { useWaCredentialsSave, type WaCredentialsForm } from "../hooks/useWaCredentialsSave";
+import { Button, Input, Modal, PageHeader } from "../../../components/ui";
 import { API_ORIGIN } from "../../../services/api/baseUrl";
-import type { SaveWaConfigPayload } from "../../../types/marketing.types";
 import "../styles/WaConfigPage.scss";
 
 const FIELDS: {
-  key:         keyof SaveWaConfigPayload;
+  key:         keyof WaCredentialsForm;
   label:       string;
   hint:        string;
   type:        string;
@@ -68,18 +67,21 @@ export default function WaConfigPage() {
   const dispatch = useAppDispatch();
   const { waConfig: config, loading, waConfigFetched } = useAppSelector((s) => s.marketing as any);
 
-  const [form, setForm] = useState<SaveWaConfigPayload>({
+  const [form, setForm] = useState<WaCredentialsForm>({
     phoneNumberId: "", wabaId: "", appId: "",
     appSecret: "", accessToken: "", webhookVerifyToken: "",
   });
 
-  const [saving,        setSaving]        = useState(false);
   const [testing,       setTesting]       = useState(false);
   const [editMode,      setEditMode]      = useState(false);
   const [deleting,      setDeleting]      = useState(false);
   const [confirmOpen,   setConfirmOpen]   = useState(false);
   const [visibleFields, setVisibleFields] = useState<Record<string, boolean>>({});
   const { showSuccess, showError, overlay } = useStatusOverlay();
+  const {
+    saving, fieldErrors, generalError, hasUnchecked, suggestedToken,
+    clearErrors, verifyAndSave, useSuggestedToken,
+  } = useWaCredentialsSave();
 
   const toggleVisible = (key: string) =>
     setVisibleFields((prev) => ({ ...prev, [key]: !prev[key] }));
@@ -104,20 +106,17 @@ export default function WaConfigPage() {
     }
   }, [config]);
 
-  const up = (k: keyof SaveWaConfigPayload, v: string) =>
+  const up = (k: keyof WaCredentialsForm, v: string) => {
     setForm((p) => ({ ...p, [k]: v }));
+    clearErrors();
+  };
 
   const handleSave = async () => {
-    setSaving(true);
-    try {
-      const result = await dispatch(saveWaConfigThunk(form));
-      if (saveWaConfigThunk.fulfilled.match(result)) {
-        showSuccess("WhatsApp config saved!");
-        setEditMode(false);
-      } else {
-        showError((result.payload as string) ?? "Failed to save config");
-      }
-    } finally { setSaving(false); }
+    const ok = await verifyAndSave(form);
+    if (ok) {
+      showSuccess("WhatsApp config saved!");
+      setEditMode(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -162,10 +161,10 @@ export default function WaConfigPage() {
   return (
     <div className="wac-page">
       {overlay}
-      <div className="wac-page-header">
-        <h1 className="wac-page-title">WhatsApp Configuration</h1>
-        <p className="wac-page-sub">Connect your Meta Cloud API credentials to enable WhatsApp messaging</p>
-      </div>
+      <PageHeader
+        title="WhatsApp Configuration"
+        subtitle="Connect your Meta Cloud API credentials to enable WhatsApp messaging"
+      />
 
       {/* ── Status banner ── */}
       <div className={`wac-banner ${config?.isVerified ? "verified" : "unverified"}`}>
@@ -220,32 +219,46 @@ export default function WaConfigPage() {
         <div className="wac-card">
           <div className="wac-card-title">📱 Meta Cloud API Credentials</div>
           <div className="wac-form">
-            {FIELDS.map((f) => (
-              <div key={f.key} className="wac-field">
-                <label className="wac-label">{f.label}</label>
-                <Input
-                  type={f.type === "password" && visibleFields[f.key] ? "text" : f.type}
-                  placeholder={f.placeholder}
-                  value={form[f.key]}
-                  containerClass="mb-0"
-                  onChange={(e) => up(f.key, e.target.value)}
-                  iconRight={
-                    f.type === "password" ? (
-                      <button
-                        type="button"
-                        className="wac-eye-toggle"
-                        tabIndex={-1}
-                        aria-label={visibleFields[f.key] ? `Hide ${f.label}` : `Show ${f.label}`}
-                        onClick={() => toggleVisible(f.key)}
-                      >
-                        {visibleFields[f.key] ? <EyeOff size={16} /> : <Eye size={16} />}
+            {FIELDS.map((f) => {
+              const hasError = !!fieldErrors[f.key];
+              return (
+                <div key={f.key} className="wac-field">
+                  <label className="wac-label">{f.label}</label>
+                  <Input
+                    type={f.type === "password" && visibleFields[f.key] ? "text" : f.type}
+                    placeholder={f.placeholder}
+                    value={form[f.key]}
+                    error={fieldErrors[f.key]}
+                    containerClass="mb-0"
+                    onChange={(e) => up(f.key, e.target.value)}
+                    iconRight={
+                      f.type === "password" ? (
+                        <button
+                          type="button"
+                          className="wac-eye-toggle"
+                          tabIndex={-1}
+                          aria-label={visibleFields[f.key] ? `Hide ${f.label}` : `Show ${f.label}`}
+                          onClick={() => toggleVisible(f.key)}
+                        >
+                          {visibleFields[f.key] ? <EyeOff size={16} /> : <Eye size={16} />}
+                        </button>
+                      ) : undefined
+                    }
+                  />
+                  {!hasError && <span className="wac-hint">📍 {f.hint}</span>}
+
+                  {f.key === "webhookVerifyToken" && hasError && (
+                    <div className="wac-token-suggestion">
+                      <span>💡 Suggested unique token:</span>
+                      <code>{suggestedToken}</code>
+                      <button type="button" onClick={() => up("webhookVerifyToken", useSuggestedToken())}>
+                        Use this →
                       </button>
-                    ) : undefined
-                  }
-                />
-                <span className="wac-hint">📍 {f.hint}</span>
-              </div>
-            ))}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
 
             {/* Webhook URL — read only, shown here so salon can copy */}
             <div className="wac-field">
@@ -277,6 +290,17 @@ export default function WaConfigPage() {
               </div>
             </div>
 
+            {generalError && (
+              <div className="wac-verify-error">❌ {generalError}</div>
+            )}
+
+            {hasUnchecked && (
+              <div className="wac-unchecked-banner">
+                ⚠️ Fix the errors above first, then click <strong>Save Configuration</strong> again —
+                we'll check the remaining credentials once these are correct.
+              </div>
+            )}
+
             <div className="wac-form-actions">
               <Button
                 variant="ghost"
@@ -292,7 +316,7 @@ export default function WaConfigPage() {
                 disabled={saving || testing}
                 onClick={handleSave}
               >
-                Save Configuration
+                {saving ? "Verifying with Meta…" : "Verify & Save"}
               </Button>
             </div>
           </div>

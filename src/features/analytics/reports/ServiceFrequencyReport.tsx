@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SERVICE_FREQUENCY_REPORT } from "../../../services/api/endpoints";
@@ -15,6 +16,10 @@ import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useServices } from "../../catalog/hooks/useServices";
 import { servicesInCategories } from "./serviceCategoryFilter";
+import { maskMobile } from "../../../utils/maskMobile";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./ClientRevenueReport.scss";
 import "./ServiceFrequencyReport.scss";
 
@@ -62,6 +67,11 @@ function formatDate(input: string | null): string {
 
 export default function ServiceFrequencyReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const { currencySymbol, formatAmount } = useCurrency();
   // Service/category options come from the catalog hook, not the report API —
   // same convention as ServiceSaleReport, so Reports and Catalog > Services
@@ -84,6 +94,8 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
@@ -179,7 +191,7 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
     "Days Since Last",
   ];
   const exportRows = () => rows.map(r => [
-    r.clientName, r.contact, r.serviceName, r.categoryName, r.visits,
+    r.clientName, canViewFullContact ? r.contact : maskMobile(r.contact), r.serviceName, r.categoryName, r.visits,
     r.totalSpend, formatDate(r.firstVisit), formatDate(r.lastVisit),
     r.daysSinceLastVisit,
   ]);
@@ -241,6 +253,8 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
         </div>
       )}
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -252,6 +266,14 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every((_r, i) => selection.selectedIds.has(String(i)))}
+                  onChange={() => selection.toggleAll(rows.map((_r, i) => String(i)))}
+                />
+              </th>
               <th>Client</th><th>Contact</th><th>Service</th><th>Category</th>
               <th>Visits</th>
               <th>Total Spend ({currencySymbol})</th>
@@ -261,24 +283,31 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={9} />
+              <SkeletonTableRows columns={10} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={9} className="rp-detail-empty-cell">No service history found</td></tr>
+              <tr><td colSpan={10} className="rp-detail-empty-cell">No service history found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.clientId ? "rp-appt-row" : undefined}
-                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
-                <td className="fw-semibold">{r.clientName}</td>
-                <td>{r.contact}</td>
-                <td className="rp-sf-service" title={r.serviceName}>{r.serviceName}</td>
-                <td>{r.categoryName}</td>
-                <td className="fw-semibold">{r.visits}</td>
-                <td>{formatAmount(r.totalSpend)}</td>
-                <td>{formatDate(r.firstVisit)}</td>
-                <td>{formatDate(r.lastVisit)}</td>
-                <td>{r.daysSinceLastVisit}</td>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(String(i))}
+                    onChange={() => selection.toggleOne(String(i))}
+                  />
+                </td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.clientName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{maskMobile(r.contact)}</td>
+                <td className="rp-sf-service" title={r.serviceName} onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.serviceName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.categoryName}</td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.visits}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.totalSpend)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatDate(r.firstVisit)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatDate(r.lastVisit)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.daysSinceLastVisit}</td>
               </tr>
             ))}
           </tbody>
@@ -291,6 +320,16 @@ export default function ServiceFrequencyReport({ onBack, category, categoryKey }
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />
       )}
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter((r, i) => selection.selectedIds.has(String(i)) && r.contact && r.contact !== "—")
+          .map(r => ({ phone: r.contact, name: r.clientName }))}
+        defaultCampaignName="Service Frequency"
+        onSent={selection.clearSelection}
+      />
     </div>
   );
 }

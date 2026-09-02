@@ -25,6 +25,11 @@ export default defineConfig(({ mode }) => {
     port: 5173,
     host: true,
     open: true,
+    // Vite blocks requests carrying a Host header it doesn't recognize
+    // (DNS-rebinding protection) — the ngrok tunnel used to expose this dev
+    // server publicly (WhatsApp document fetches, feedback links) sends the
+    // tunnel's own hostname, which 403s here without an explicit allow entry.
+    allowedHosts: ['.ngrok-free.dev', '.ngrok-free.app'],
     proxy: {
       '/api': {
         target: proxyTarget,

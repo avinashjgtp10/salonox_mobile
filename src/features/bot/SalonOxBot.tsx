@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useLocation } from 'react-router-dom';
+import api from '../../services/api/axios';
 import './SalonOxBot.scss';
 
 interface Message {
@@ -110,13 +111,9 @@ export default function SalonOxBot() {
     setLoading(true);
 
     try {
-      const res = await fetch('/api/v1/bot/ask', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ question: text }),
-      });
+      const res = await api.post('/api/v1/bot/ask', { question: text });
 
-      const data = await res.json();
+      const data = res.data;
 
       const chips = data.source === 'predefined' && data.category
         ? (CATEGORY_CHIPS[data.category] || [])

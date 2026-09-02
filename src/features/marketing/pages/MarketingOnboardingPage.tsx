@@ -1,52 +1,11 @@
 import React, { useState } from "react";
-import { useAppDispatch } from "../../../hooks/useAppRedux";
-import {
-  saveWaConfigThunk,
-  fetchWaConfigThunk,
-} from "../../../middleware/marketing/marketing.thunk";
 import { API_ORIGIN } from "../../../services/api/baseUrl";
-import api from "../../../services/api/axios";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { useWaCredentialsSave, type WaCredentialsForm } from "../hooks/useWaCredentialsSave";
 import "../styles/MarketingOnboardingPage.scss";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type Stage = "landing" | "requirements" | "setup";
-
-interface FormState {
-  phoneNumberId:      string;
-  wabaId:             string;
-  appId:              string;
-  appSecret:          string;
-  accessToken:        string;
-  webhookVerifyToken: string;
-}
-
-interface VerifyResult {
-  check: string;
-  valid: boolean;
-  info?:  string;
-  error?: string;
-}
-
-// Maps verify-all check name → per-field specific error messages
-const CHECK_TO_FIELD_ERRORS: Record<string, Partial<Record<keyof FormState, string>>> = {
-  "App Credentials": {
-    appId:     "Invalid App ID — check App Settings → Basic",
-    appSecret: "Invalid App Secret — check App Settings → Basic",
-  },
-  "Access Token": {
-    accessToken: "Invalid or expired token — must be a permanent System User token",
-  },
-  "Phone Number ID": {
-    phoneNumberId: "Invalid Phone Number ID or already registered to another account — each salon must have their own WhatsApp number",
-  },
-  "WhatsApp Business Account": {
-    wabaId: "Invalid WABA ID — check WhatsApp → API Setup",
-  },
-  "Webhook Verify Token": {
-    webhookVerifyToken: "This token is already used by another salon — use the suggested one below or create your own unique token",
-  },
-};
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 const FEATURES = [
@@ -169,7 +128,7 @@ const SETUP_STEPS = [
 ];
 
 const CREDENTIAL_FIELDS: {
-  key:         keyof FormState;
+  key:         keyof WaCredentialsForm;
   label:       string;
   placeholder: string;
   type:        string;
@@ -218,12 +177,6 @@ const CREDENTIAL_FIELDS: {
     hint:        "Must be unique per salon — must match exactly what you enter in Meta webhook settings",
   },
 ];
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-function generateSuggestedToken(): string {
-  const rand = Math.random().toString(36).slice(2, 7);
-  return `webhook_verify_salon_${rand}`;
-}
 
 // ── Landing Stage ─────────────────────────────────────────────────────────────
 function LandingStage({ onStart }: { onStart: () => void }) {
@@ -346,32 +299,35 @@ function RequirementsStage({ onNext, onBack }: { onNext: () => void; onBack: () 
 }
 
 // ── Setup Stage ───────────────────────────────────────────────────────────────
+// Verification + save behavior lives in useWaCredentialsSave, shared with
+// WaConfigPage — a salon gets the same live-validated experience whether
+// they arrive here (guided first-time setup) or edit credentials directly
+// later. Only the field UI and step-wizard shell stay local to this page.
 function SetupStage({ onBack }: { onBack: () => void }) {
-  const dispatch = useAppDispatch();
-
-  const [currentStep,    setCurrentStep]    = useState(0);
-  const [form,           setForm]           = useState<FormState>({
+  const [currentStep, setCurrentStep] = useState(0);
+  const [form,        setForm]        = useState<WaCredentialsForm>({
     phoneNumberId: "", wabaId: "", appId: "",
     appSecret: "", accessToken: "", webhookVerifyToken: "",
   });
-  const [saving,         setSaving]         = useState(false);
-  const [copied,         setCopied]         = useState(false);
-  const [fieldErrors,    setFieldErrors]    = useState<Partial<Record<keyof FormState, string>>>({});
-  const [generalError,   setGeneralError]   = useState<string | null>(null);
-  const [hasUnchecked,   setHasUnchecked]   = useState(false);
-  const [suggestedToken, setSuggestedToken] = useState(() => generateSuggestedToken());
+  const [copied,          setCopied]          = useState(false);
+  const [requiredErrors,  setRequiredErrors]  = useState<Partial<Record<keyof WaCredentialsForm, string>>>({});
   const { showSuccess, overlay } = useStatusOverlay();
+  const {
+    saving, fieldErrors, generalError, hasUnchecked, suggestedToken,
+    clearErrors, verifyAndSave, useSuggestedToken,
+  } = useWaCredentialsSave();
 
   const step       = SETUP_STEPS[currentStep];
   const isLastStep = currentStep === SETUP_STEPS.length - 1;
   const progress   = Math.round(((currentStep + 1) / SETUP_STEPS.length) * 100);
-const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`
+  const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`;
 
-  const up = (key: keyof FormState, val: string) => {
+  const allErrors = { ...requiredErrors, ...fieldErrors };
+
+  const up = (key: keyof WaCredentialsForm, val: string) => {
     setForm(prev => ({ ...prev, [key]: val }));
-    setFieldErrors(prev => ({ ...prev, [key]: undefined }));
-    setGeneralError(null);
-    setHasUnchecked(false);
+    setRequiredErrors(prev => ({ ...prev, [key]: undefined }));
+    clearErrors();
   };
 
   const handleCopyWebhook = () => {
@@ -386,9 +342,8 @@ const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`
       handleFinish();
     } else {
       setCurrentStep(s => s + 1);
-      setFieldErrors({});
-      setGeneralError(null);
-      setHasUnchecked(false);
+      setRequiredErrors({});
+      clearErrors();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
@@ -398,22 +353,21 @@ const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`
       onBack();
     } else {
       setCurrentStep(s => s - 1);
-      setFieldErrors({});
-      setGeneralError(null);
-      setHasUnchecked(false);
+      setRequiredErrors({});
+      clearErrors();
       window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
-  const validateForm = (): boolean => {
-    const errors: Partial<Record<keyof FormState, string>> = {};
+  const validateRequired = (): boolean => {
+    const errors: Partial<Record<keyof WaCredentialsForm, string>> = {};
     if (!form.phoneNumberId.trim())      errors.phoneNumberId      = "Phone Number ID is required";
     if (!form.wabaId.trim())             errors.wabaId             = "WABA ID is required";
     if (!form.appId.trim())              errors.appId              = "App ID is required";
     if (!form.appSecret.trim())          errors.appSecret          = "App Secret is required";
     if (!form.accessToken.trim())        errors.accessToken        = "Access Token is required";
     if (!form.webhookVerifyToken.trim()) errors.webhookVerifyToken = "Webhook Verify Token is required";
-    setFieldErrors(errors);
+    setRequiredErrors(errors);
     if (Object.keys(errors).length > 0) {
       setTimeout(() => {
         const firstError = document.querySelector(".mob-field-input--error");
@@ -425,81 +379,15 @@ const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`
   };
 
   const handleFinish = async () => {
-    if (!validateForm()) return;
-
-    setSaving(true);
-    setFieldErrors({});
-    setGeneralError(null);
-    setHasUnchecked(false);
-
-    try {
-      const res = await api.post("/api/v1/wa-config/verify-all", {
-        phone_number_id:      form.phoneNumberId,
-        waba_id:              form.wabaId,
-        app_id:               form.appId,
-        app_secret:           form.appSecret,
-        access_token:         form.accessToken,
-        webhook_verify_token: form.webhookVerifyToken,
-      });
-
-      const data: {
-        valid:    boolean;
-        results?: VerifyResult[];
-        error?:   string;
-      } = res.data?.data ?? res.data;
-
-      if (!data.valid) {
-        const results     = data.results ?? [];
-        const totalChecks = Object.keys(CHECK_TO_FIELD_ERRORS).length;
-        const checkedKeys = new Set(results.map(r => r.check));
-        const newFieldErrors: Partial<Record<keyof FormState, string>> = {};
-
-        for (const result of results) {
-          if (!result.valid) {
-            const fieldMap = CHECK_TO_FIELD_ERRORS[result.check];
-            if (fieldMap) {
-              Object.assign(newFieldErrors, fieldMap);
-            } else {
-              setGeneralError(result.error ?? "Verification failed");
-            }
-          }
-        }
-
-        setFieldErrors(newFieldErrors);
-
-        // Backend exited early — not all checks ran
-        if (checkedKeys.size < totalChecks) {
-          setHasUnchecked(true);
-        }
-
-        setSaving(false);
-        setTimeout(() => {
-          const firstError = document.querySelector(".mob-field-input--error");
-          if (firstError) firstError.scrollIntoView({ behavior: "smooth", block: "center" });
-        }, 100);
-        return;
-      }
-
-      // ✅ All passed — save config
-      const saveRes = await dispatch(saveWaConfigThunk(form) as any);
-      if (saveRes?.payload && !saveRes?.error) {
-        showSuccess("✅ WhatsApp configured successfully!");
-        await dispatch(fetchWaConfigThunk());
-      } else {
-        setGeneralError(
-          typeof saveRes?.payload === "string"
-            ? saveRes.payload
-            : "Failed to save config. Please try again."
-        );
-      }
-    } catch (err: any) {
-      setGeneralError(
-        err?.response?.data?.error ??
-        err?.message ??
-        "Verification failed. Check your internet connection and try again."
-      );
-    } finally {
-      setSaving(false);
+    if (!validateRequired()) return;
+    const ok = await verifyAndSave(form);
+    if (ok) {
+      showSuccess("✅ WhatsApp configured successfully!");
+    } else {
+      setTimeout(() => {
+        const firstError = document.querySelector(".mob-field-input--error");
+        if (firstError) firstError.scrollIntoView({ behavior: "smooth", block: "center" });
+      }, 100);
     }
   };
 
@@ -578,7 +466,7 @@ const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`
             {/* All 6 credential fields */}
             <div className="mob-field-group">
               {CREDENTIAL_FIELDS.map(f => {
-                const hasError = !!fieldErrors[f.key];
+                const hasError = !!allErrors[f.key];
                 return (
                   <div key={f.key} className="mob-field">
                     <label className="mob-field-label">{f.label}</label>
@@ -591,7 +479,7 @@ const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`
                       autoComplete="off"
                     />
                     {hasError
-                      ? <span className="mob-field-error">❌ {fieldErrors[f.key]}</span>
+                      ? <span className="mob-field-error">❌ {allErrors[f.key]}</span>
                       : <span className="mob-field-hint">📍 {f.hint}</span>
                     }
 
@@ -602,10 +490,7 @@ const webhookUrl = `${API_ORIGIN}/api/v1/webhooks/whatsapp`
                         <code className="mob-token-suggestion-value">{suggestedToken}</code>
                         <button
                           className="mob-token-suggestion-btn"
-                          onClick={() => {
-                            up("webhookVerifyToken", suggestedToken);
-                            setSuggestedToken(generateSuggestedToken());
-                          }}
+                          onClick={() => up("webhookVerifyToken", useSuggestedToken())}
                         >
                           Use this →
                         </button>

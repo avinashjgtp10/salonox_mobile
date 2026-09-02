@@ -58,6 +58,21 @@ const shouldSuppressCashCounterNotification = (message: string | null | undefine
   return message.trim().toLowerCase() === "no cash counter found for this salon";
 };
 
+const getApiErrorMessage = (err: unknown, fallback: string) => {
+  if (!err || typeof err !== "object") return fallback;
+
+  const apiError = err as {
+    response?: { data?: { message?: unknown; error?: unknown } };
+    message?: unknown;
+  };
+  const message =
+    apiError.response?.data?.message ??
+    apiError.response?.data?.error ??
+    apiError.message;
+
+  return typeof message === "string" && message.trim() ? message : fallback;
+};
+
 export function useCashManagement() {
   const dispatch = useAppDispatch();
   // The counter/dashboard itself lives in Redux (cashCounterSlice) — it's
@@ -117,24 +132,12 @@ export function useCashManagement() {
     return next;
   }, [runTask]);
 
-  const runBackgroundRefreshes = useCallback(
-    (tasks: Array<{ label: string; refresh: () => Promise<unknown> }>) => {
-      tasks.forEach(({ label, refresh }) => {
-        void refresh().catch((error) => {
-          logBackgroundRefreshError(label, error);
-        });
-      });
-    },
-    [],
-  );
-
   const refreshAll = useCallback(async () => {
     setError(null);
     try {
       await Promise.all([loadDashboard(), loadTransactions(), loadExpenses(), loadTodayRevenue()]);
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message ?? err?.message ?? "Failed to load cash management data";
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Failed to load cash management data");
       setError(shouldSuppressCashCounterNotification(message) ? null : message);
     }
   }, [loadDashboard, loadExpenses, loadTransactions, loadTodayRevenue]);
@@ -143,9 +146,8 @@ export function useCashManagement() {
     setError(null);
     try {
       await loadDashboard();
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message ?? err?.message ?? "Failed to load cash management dashboard";
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Failed to load cash management dashboard");
       setError(shouldSuppressCashCounterNotification(message) ? null : message);
       throw err;
     }
@@ -155,9 +157,8 @@ export function useCashManagement() {
     setError(null);
     try {
       await loadTransactions();
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message ?? err?.message ?? "Failed to load cash transactions";
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Failed to load cash transactions");
       setError(shouldSuppressCashCounterNotification(message) ? null : message);
       throw err;
     }
@@ -167,9 +168,8 @@ export function useCashManagement() {
     setError(null);
     try {
       await loadExpenses();
-    } catch (err: any) {
-      const message =
-        err?.response?.data?.message ?? err?.message ?? "Failed to load cash expenses";
+    } catch (err: unknown) {
+      const message = getApiErrorMessage(err, "Failed to load cash expenses");
       setError(shouldSuppressCashCounterNotification(message) ? null : message);
       throw err;
     }
@@ -178,7 +178,7 @@ export function useCashManagement() {
   const refreshTodayRevenue = useCallback(async () => {
     try {
       await loadTodayRevenue();
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Deliberately not surfaced via the shared `error`/notification banner —
       // this card should never look broken just because the cash counter
       // (a separate concern) has an issue.
@@ -190,32 +190,18 @@ export function useCashManagement() {
     void refreshAll();
   }, [refreshAll]);
 
-  // Cash payments taken from other modules (Quick Sale, Calendar checkout,
-  // another tab/device) don't push an update here — this page only ever
-  // refetches on mount or after its own actions. Without polling, Cash
-  // Revenue/In Store Cash/the transaction list can sit stale indefinitely
-  // while the page stays open, which reads as "the sync is broken" even
-  // though the backend already has the correct number. Paused while the tab
-  // isn't visible so it doesn't burn requests in a backgrounded tab.
-  useEffect(() => {
-    const POLL_INTERVAL_MS = 20000;
-    const id = window.setInterval(() => {
-      if (document.visibilityState !== "visible") return;
-      void refreshAll();
-    }, POLL_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [refreshAll]);
-
   const handleOpenCounter = useCallback(async (payload: OpenCounterPayload) => {
     const next = await runTask("openCounter", () => dispatch(openCashCounterThunk(payload)).unwrap());
-    runBackgroundRefreshes([
-      { label: "transactions", refresh: refreshTransactions },
-    ]);
+    const results = await Promise.allSettled([refreshTransactions()]);
+    results.forEach((result) => {
+      if (result.status === "rejected") {
+        logBackgroundRefreshError("transactions", result.reason);
+      }
+    });
 
     return next;
   }, [
     dispatch,
-    runBackgroundRefreshes,
     refreshTransactions,
     runTask,
   ]);
@@ -225,13 +211,15 @@ export function useCashManagement() {
   // CLose Counter
   const handleCloseCounter = useCallback(async (payload: CloseCounterPayload) => {
     const next = await runTask("closeCounter", () => dispatch(closeCashCounterThunk(payload)).unwrap());
-    runBackgroundRefreshes([
-      { label: "transactions", refresh: refreshTransactions },
-      { label: "expenses", refresh: refreshExpenses },
-    ]);
+    const results = await Promise.allSettled([refreshTransactions(), refreshExpenses()]);
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        logBackgroundRefreshError(index === 0 ? "transactions" : "expenses", result.reason);
+      }
+    });
 
     return next;
-  }, [dispatch, refreshExpenses, refreshTransactions, runBackgroundRefreshes, runTask]);
+  }, [dispatch, refreshExpenses, refreshTransactions, runTask]);
 
 
   const handleCreateExpense = useCallback(async (payload: CashExpensePayload) => {

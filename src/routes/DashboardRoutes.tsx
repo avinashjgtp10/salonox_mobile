@@ -4,6 +4,7 @@ import { Route } from "react-router-dom";
 import DashboardLayout from "../features/dashboard/components/DashboardLayout";
 import AuthGuard from "../components/guards/AuthGuard";
 import PermissionGuard from "../components/guards/PermissionGuard";
+import OwnerGuard from "../components/guards/OwnerGuard";
 import { DashboardProviders } from "../providers/DashboardProviders";
 
 import { AppsRoutes } from "./AppsRoutes";
@@ -13,6 +14,8 @@ import { TeamRoutes } from "./TeamRoutes";
 import { SettingsRoutes } from "./SettingsRoutes";
 import { MarketingRoutes } from "./MarketingRoutes";
 import { OnlineBookingRoutes } from "./OnlineBookingRoutes";
+import { SpotlightRoutes } from "./SpotlightRoutes";
+import { preloadCashManagementPage, preloadScheduler } from "./dashboardPreloaders";
 
 // Lazy-load the heavy dashboard-specific pages
 const DashboardPage = lazy(() =>
@@ -21,17 +24,13 @@ const DashboardPage = lazy(() =>
 
 const HelpPage = lazy(() => import("../features/help/pages/HelpPage"));
 
-const Scheduler = lazy(() =>
-  import("../features/bookings/components/calendar/Scheduler")
-);
+const Scheduler = lazy(preloadScheduler);
 
 const ReportsPage = lazy(() =>
   import("../features/analytics/pages/ReportsPage")
 );
 
-const CashManagementPage = lazy(() =>
-  import("../features/cash-management/pages/CashManagementPage")
-);
+const CashManagementPage = lazy(preloadCashManagementPage);
 
 const QuickSalePage = lazy(() =>
   import("../features/sales/pages/QuickSalePage")
@@ -51,6 +50,10 @@ const EnquiriesListPage = lazy(() =>
 
 const EnquiryAddPage = lazy(() =>
   import("../features/enquiries/pages/EnquiryAddPage")
+);
+
+const SpotlightAdminPage = lazy(() =>
+  import("../features/feature-spotlight/pages/SpotlightAdminPage")
 );
 
 export const DashboardRoutes = (
@@ -131,6 +134,14 @@ export const DashboardRoutes = (
 
       {/* Help & Support — accessible to all authenticated users */}
       <Route path="help" element={<HelpPage />} />
+
+      {/* Spotlight — accessible to all authenticated users */}
+      {SpotlightRoutes}
+
+      {/* Spotlight management — owner/admin only */}
+      <Route element={<OwnerGuard />}>
+        <Route path="spotlight/manage" element={<SpotlightAdminPage />} />
+      </Route>
     </Route>
 
     {/* Reports — top-level /reports/... (not under /dashboard), same layout/guards */}

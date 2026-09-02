@@ -278,12 +278,6 @@ const MembershipsListPage: React.FC = () => {
             {optOpen && (
               <ul className="msp__dd-menu msp__dd-menu--right">
                 <li>
-                  <button className="msp__dd-item" onClick={() => { setOptOpen(false); navigate("/dashboard/catalog/memberships/sold"); }}>
-                    View sold memberships
-                  </button>
-                </li>
-                <hr className="msp__dd-divider" />
-                <li>
                   <button className="msp__dd-item" onClick={() => handleExport("csv")} disabled={exporting !== null}>
                     <FiletypeCsv size={15} /> {exporting === "csv" ? "Exporting…" : "Download CSV"}
                   </button>

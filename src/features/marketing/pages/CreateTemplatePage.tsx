@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { createTemplateThunk } from "../../../middleware/marketing/marketing.thunk";
-import { Button, Input, Select } from "../../../components/ui";
+import { Button, Input, Select, PageHeader } from "../../../components/ui";
 import { useOnce } from "../../../hooks/useOnce";
 import type { HeaderType, ButtonType, TemplateButton } from "../../../types/marketing.types";
 import "../styles/CreateTemplatePage.scss";
@@ -167,16 +167,16 @@ export default function CreateTemplatePage() {
   return (
     <div className="ct-page">
       {overlay}
-      <div className="ct-topbar">
-        <div>
-          <h1 className="ct-title">Create Template</h1>
-          <p className="ct-sub">Design your WhatsApp message and submit to Meta for approval</p>
-        </div>
-        <div className="ct-meta-note">
-          Meta reviews templates within minutes to hours.
-          You'll be notified when approved or rejected.
-        </div>
-      </div>
+      <PageHeader
+        title="Create Template"
+        subtitle="Design your WhatsApp message and submit to Meta for approval"
+        actions={
+          <div className="ct-meta-note">
+            Meta reviews templates within minutes to hours.
+            You'll be notified when approved or rejected.
+          </div>
+        }
+      />
 
       <div className="ct-layout">
         <div className="ct-form-col">

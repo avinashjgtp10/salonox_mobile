@@ -170,6 +170,7 @@
               display: flex;
               align-items: center;
               gap: 12px;
+              max-width: 260px;
 
               .product-icon {
                 width: 40px;
@@ -180,19 +181,45 @@
                 align-items: center;
                 justify-content: center;
                 color: #667085;
+                flex-shrink: 0;
               }
 
+              // min-width: 0 overrides the flex item's default (its content's
+              // natural width), which is what let a long name/SKU push the
+              // column wider or wrap instead of respecting .name/.sku's own
+              // ellipsis below.
               .name-info {
+                min-width: 0;
+                overflow: hidden;
+
                 .name {
                   font-weight: 600;
                   display: block;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
                 }
 
                 .sku {
+                  display: block;
                   font-size: 12px;
                   color: #667085;
+                  overflow: hidden;
+                  text-overflow: ellipsis;
+                  white-space: nowrap;
                 }
               }
+            }
+
+            // Plain single-line text cells (Category, Supplier, Type, Unit
+            // Size, Stock Left, Retail price) — truncate instead of wrapping
+            // so a long category/supplier name can't blow out the row height
+            // and misalign the actions column.
+            &:not(.product-name-cell):not(.actions-cell):not(.checkbox-cell) {
+              max-width: 160px;
+              overflow: hidden;
+              text-overflow: ellipsis;
+              white-space: nowrap;
             }
 
             &.stock-cell {

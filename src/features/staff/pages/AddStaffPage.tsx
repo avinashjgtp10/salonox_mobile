@@ -350,6 +350,10 @@ const AddStaffPage: React.FC = () => {
 
       if (!isEdit) {
         payload.email_verified = shouldShowEmailOtp && emailVerifiedForCurrentAddress;
+        // New staff must be usable immediately (bookable in Calendar/Quick
+        // Sale, selectable in reports) — don't rely on the backend's own
+        // default, which currently creates staff as inactive.
+        payload.is_active = true;
       }
 
       if (staffLoginEnabled && form.password.trim()) {
@@ -369,6 +373,15 @@ const AddStaffPage: React.FC = () => {
         const res = await api.post(STAFF.BASE, payload);
         staffId = res.data?.data?.staffId || res.data?.staffId || res.data?.data?.id || res.data?.id;
         if (!staffId) throw new Error("Failed to retrieve new staff ID from server");
+
+        // The create endpoint doesn't reliably honor `is_active` in the
+        // payload (new staff still come back Inactive) — explicitly
+        // activate right after creation so the record is usable immediately.
+        try {
+          await api.patch(STAFF.ACTIVATE(staffId));
+        } catch (activateError) {
+          console.error("Error activating newly created staff:", activateError);
+        }
       }
 
       if (staffId && (form.hourlyRate || form.fixedSalary)) {

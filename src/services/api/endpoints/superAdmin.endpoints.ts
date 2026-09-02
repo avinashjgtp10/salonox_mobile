@@ -17,6 +17,7 @@ export const SUPER_ADMIN = {
   SALON_IMPERSONATE: (id: string) => `/api/v1/super-admin/salons/${id}/impersonate`,
   SALON_DELETE:      (id: string) => `/api/v1/super-admin/salons/${id}`,
   SALON_STAFF:       (id: string) => `/api/v1/super-admin/salons/${id}/staff`,
+  SALON_CLEAR_DATA:  (id: string) => `/api/v1/super-admin/salons/${id}/clear-data`,
   PAYMENTS:      "/api/v1/super-admin/payments",
   USERS:         "/api/v1/super-admin/users",
   USER_STATUS:   (id: string) => `/api/v1/super-admin/users/${id}/status`,

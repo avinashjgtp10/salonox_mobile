@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { Search, X, PersonFill } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
+import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/ClientSearchInput.scss";
 
 export interface ClientSearchResult {
@@ -324,9 +325,7 @@ export default function ClientSearchInput({
                       <div className="result-meta">
                         {client.phone_number && (
                           <span className="result-phone">
-                            {highlight
-                              ? <HighlightText text={client.phone_number} query={query} />
-                              : client.phone_number}
+                            {maskMobile(client.phone_number)}
                           </span>
                         )}
                         {client.email && (

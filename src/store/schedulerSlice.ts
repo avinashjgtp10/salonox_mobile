@@ -27,6 +27,10 @@ export interface SchedulerService {
   // about — see mergeServiceResults) doesn't silently serve a stale, empty
   // recipe for a service whose consumables were just configured.
   consumables_used?: { product_id: string; product_name?: string; qty: number; unit?: string }[];
+  // Days after which this service should be redone, as configured in the
+  // Service catalog (null = no reminder configured) — carried through so
+  // ServiceRow can auto-fill its reminder display without a separate fetch.
+  reminder_after_days?: number | null;
 }
 export interface SchedulerPackage {
   id: string;

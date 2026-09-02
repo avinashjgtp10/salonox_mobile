@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { EWALLET, EWALLET_REPORT } from "../../../services/api/endpoints";
@@ -9,6 +10,10 @@ import type { JiraFilterField, DateRangeFilterValue } from "../../../components/
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { maskMobile } from "../../../utils/maskMobile";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./EwalletReport.scss";
 
 const REPORT_NAME = "Ewallet";
@@ -55,6 +60,11 @@ function formatDate(input: string): string {
 }
 
 export default function EwalletReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const { currencySymbol, formatAmount } = useCurrency();
   const today = new Date().toISOString().slice(0, 10);
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "today", ...getDateRangePresetValue("today") });
@@ -75,6 +85,8 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const abortRef = useRef<AbortController | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
 
   const [selected,     setSelected]     = useState<ClientRow | null>(null);
   const [breakdown,    setBreakdown]    = useState<Breakdown>(EMPTY_BREAKDOWN);
@@ -185,7 +197,7 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
   }, []);
 
   const HEADERS = ["Client", "Phone", "Email", `Wallet Balance (${currencySymbol})`];
-  const exportRows = () => rows.map(r => [r.name, r.phone, r.email, r.balance]);
+  const exportRows = () => rows.map(r => [r.name, canViewFullContact ? r.phone : maskMobile(r.phone), r.email, r.balance]);
 
   return (
     <div className="rp-detail-view">
@@ -256,22 +268,42 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
         </div>
       </div>
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
-            <tr><th>Client</th><th>Phone</th><th>Email</th><th>Wallet Balance ({currencySymbol})</th></tr>
+            <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every(r => selection.selectedIds.has(r.id))}
+                  onChange={() => selection.toggleAll(rows.map(r => r.id))}
+                />
+              </th>
+              <th>Client</th><th>Phone</th><th>Email</th><th>Wallet Balance ({currencySymbol})</th>
+            </tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={4} />
+              <SkeletonTableRows columns={5} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={4} className="rp-detail-empty-cell">No clients found</td></tr>
+              <tr><td colSpan={5} className="rp-detail-empty-cell">No clients found</td></tr>
             ) : rows.map(r => (
-              <tr key={r.id} className="rp-appt-row" onClick={() => openDrawer(r)}>
-                <td className="fw-semibold"><span className="rp-detail-link">{r.name}</span></td>
-                <td>{r.phone}</td>
-                <td>{r.email}</td>
-                <td className={r.balance > 0 ? "rp-ew-credit fw-semibold" : "fw-semibold"}>{formatAmount(r.balance)}</td>
+              <tr key={r.id} className="rp-appt-row">
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(r.id)}
+                    onChange={() => selection.toggleOne(r.id)}
+                  />
+                </td>
+                <td className="fw-semibold" onClick={() => openDrawer(r)}><span className="rp-detail-link">{r.name}</span></td>
+                <td onClick={() => openDrawer(r)}>{maskMobile(r.phone)}</td>
+                <td onClick={() => openDrawer(r)}>{r.email}</td>
+                <td className={r.balance > 0 ? "rp-ew-credit fw-semibold" : "fw-semibold"} onClick={() => openDrawer(r)}>{formatAmount(r.balance)}</td>
               </tr>
             ))}
           </tbody>
@@ -280,6 +312,16 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter(r => selection.selectedIds.has(r.id) && r.phone && r.phone !== "—")
+          .map(r => ({ phone: r.phone, name: r.name }))}
+        defaultCampaignName="E-wallet"
+        onSent={selection.clearSelection}
+      />
 
       {selected && (
         <div className="rp-appt-drawer-overlay" onClick={() => setSelected(null)}>
@@ -290,7 +332,7 @@ export default function EwalletReport({ onBack, category, categoryKey }: { onBac
               <div className="rp-appt-drawer-avatar">{selected.name.charAt(0).toUpperCase()}</div>
               <div className="rp-appt-drawer-hero-info">
                 <div className="rp-appt-drawer-client">{selected.name}</div>
-                <span className="rp-ew-drawer-phone">{selected.phone}</span>
+                <span className="rp-ew-drawer-phone">{maskMobile(selected.phone)}</span>
               </div>
             </div>
 

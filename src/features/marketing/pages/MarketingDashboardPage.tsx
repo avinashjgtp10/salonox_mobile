@@ -8,8 +8,9 @@ import {
   fetchCampaignsThunk,
   syncTemplateThunk,
 } from "../../../middleware/marketing/marketing.thunk";
-import { Button, Badge, DateRangeFilter } from "../../../components/ui";
+import { Button, Badge, DateRangeFilter, PageHeader, EmptyState } from "../../../components/ui";
 import type { DateRangeFilterValue } from "../../../components/ui";
+import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/MarketingDashboardPage.scss";
 
 type CampaignStatusFilter = "ALL" | "RUNNING" | "COMPLETED" | "PAUSED" | "FAILED" | "SCHEDULED";
@@ -237,26 +238,26 @@ export default function MarketingDashboardPage() {
     return (
       <div className="mkt-page">
         {overlay}
-        <div className="mkt-page-header">
-          <div>
-            <h1 className="mkt-page-title">WhatsApp Marketing</h1>
-            <p className="mkt-page-sub">Send campaigns, track delivery and manage templates</p>
-          </div>
-        </div>
+        <PageHeader
+          title="WhatsApp Marketing"
+          subtitle="Send campaigns, track delivery and manage templates"
+        />
         <div className="mkt-empty-state">
-          <div className="mkt-empty-icon">📣</div>
-          <div className="mkt-empty-title">No campaigns yet</div>
-          <div className="mkt-empty-sub">
-            Get started by creating a WhatsApp template, then launch your first campaign.
-          </div>
-          <div className="mkt-empty-actions">
-            <Button variant="primary" onClick={() => navigate("/dashboard/marketing/templates/create")}>
-              + Create Template
-            </Button>
-            <Button variant="primary" onClick={() => navigate("/dashboard/marketing/campaigns/create")}>
-              + Launch Campaign
-            </Button>
-          </div>
+          <EmptyState
+            icon={<i className="ti ti-speakerphone" aria-hidden="true" />}
+            title="No campaigns yet"
+            description="Get started by creating a WhatsApp template, then launch your first campaign."
+            action={
+              <div className="mkt-empty-actions">
+                <Button variant="primary" onClick={() => navigate("/dashboard/marketing/templates/create")}>
+                  + Create Template
+                </Button>
+                <Button variant="primary" onClick={() => navigate("/dashboard/marketing/campaigns/create")}>
+                  + Launch Campaign
+                </Button>
+              </div>
+            }
+          />
           <div className="mkt-empty-steps">
             {[
               "Create a WhatsApp message template and get it approved by Meta",
@@ -280,29 +281,29 @@ export default function MarketingDashboardPage() {
       {overlay}
 
       {/* Header */}
-      <div className="mkt-page-header">
-        <div>
-          <h1 className="mkt-page-title">WhatsApp Marketing</h1>
-          <p className="mkt-page-sub">Monitor campaigns, delivery rates and messaging performance</p>
-        </div>
-        <div className="mkt-header-btns">
-          <button
-            className={`mkt-filter-btn${filtersOpen ? " mkt-filter-btn--active" : ""}${panelFilterCount > 0 ? " mkt-filter-btn--has" : ""}`}
-            onClick={() => setFiltersOpen((o) => !o)}
-          >
-            <i className="ti ti-adjustments-horizontal" />
-            Filters
-            {panelFilterCount > 0 && <span className="mkt-filter-dot" />}
-          </button>
-          <DateRangeFilter value={dateRange} onChange={setDateRange} />
-          <Button variant="primary" onClick={() => navigate("/dashboard/marketing/templates/create")}>
-            + Template
-          </Button>
-          <Button variant="primary" onClick={() => navigate("/dashboard/marketing/campaigns/create")}>
-            + Campaign
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="WhatsApp Marketing"
+        subtitle="Monitor campaigns, delivery rates and messaging performance"
+        actions={
+          <>
+            <button
+              className={`mkt-filter-btn${filtersOpen ? " mkt-filter-btn--active" : ""}${panelFilterCount > 0 ? " mkt-filter-btn--has" : ""}`}
+              onClick={() => setFiltersOpen((o) => !o)}
+            >
+              <i className="ti ti-adjustments-horizontal" />
+              Filters
+              {panelFilterCount > 0 && <span className="mkt-filter-dot" />}
+            </button>
+            <DateRangeFilter value={dateRange} onChange={setDateRange} />
+            <Button variant="primary" onClick={() => navigate("/dashboard/marketing/templates/create")}>
+              + Template
+            </Button>
+            <Button variant="primary" onClick={() => navigate("/dashboard/marketing/campaigns/create")}>
+              + Campaign
+            </Button>
+          </>
+        }
+      />
 
       {/* Connected WA number banner */}
       {isVerified && displayPhone && (
@@ -565,8 +566,8 @@ export default function MarketingDashboardPage() {
                         {(c.name ?? c.phone).slice(-2).toUpperCase()}
                       </div>
                       <div className="mkt-engaged-info">
-                        <div className="mkt-engaged-name">{c.name ?? c.phone}</div>
-                        <div className="mkt-engaged-phone">{c.name ? c.phone : ""}</div>
+                        <div className="mkt-engaged-name">{c.name ?? maskMobile(c.phone)}</div>
+                        <div className="mkt-engaged-phone">{c.name ? maskMobile(c.phone) : ""}</div>
                       </div>
                       <div className="mkt-engaged-stats">
                         <div className="mkt-engaged-stat">

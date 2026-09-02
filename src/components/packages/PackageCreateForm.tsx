@@ -14,6 +14,7 @@ import { useServices } from "../../features/catalog/hooks/useServices";
 import type { Service } from "../../features/catalog/types/catalog.types";
 import { PaymentMethodPicker, type PaymentSplitEntry } from "../shared/PaymentMethodPicker";
 import { useCurrency } from "../../hooks/useCurrency";
+import { toTitleCase } from "../../utils/titleCase";
 // Same date/time pickers Quick Sale and Calendar use for a package service's
 // scheduled appointment (ServicesPanel.tsx) — reused directly here instead of
 // this form's own native <input type="date"/"time">, so all three places
@@ -347,7 +348,7 @@ const PackageCreateForm: React.FC<Props> = ({
       if (validServices.length === 0)            { setApiError("Add at least one service."); return; }
       setApiError(null);
       onAddLineItem?.({
-        name:     pkgName.trim(),
+        name:     toTitleCase(pkgName.trim()),
         price:    afterDisc,
         discount: discountVal,
         staffId:  staffId || undefined,
@@ -411,9 +412,10 @@ const PackageCreateForm: React.FC<Props> = ({
         // account — always saves a reusable template. If a client was picked
         // (non-generic), fold their name in as a note for staff only; the
         // actual sale later happens normally via "+ Package" on a bill.
+        const titledPkgName = toTitleCase(pkgName.trim());
         const taggedName = !isGeneric && selectedClient
-          ? `${pkgName.trim()} (for ${clientFullName})`
-          : pkgName.trim();
+          ? `${titledPkgName} (for ${clientFullName})`
+          : titledPkgName;
         const templatePayload = {
           name:          taggedName,
           description:   pkgDescription.trim() || null,
@@ -455,7 +457,7 @@ const PackageCreateForm: React.FC<Props> = ({
 
       const pkg = await createClientPackage({
         clientId:      String(selectedClient!.id),
-        packageName:   pkgName.trim(),
+        packageName:   toTitleCase(pkgName.trim()),
         branch:        "",
         expiryDate:    neverExpires ? "2099-12-31" : expiry,
         expireAfterServices: expireAfterServicesVal,

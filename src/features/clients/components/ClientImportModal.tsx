@@ -1,15 +1,97 @@
 import { useRef, useState } from "react";
-import { CloudUpload, FiletypeCsv, FileEarmarkExcel, CheckCircleFill, ExclamationCircleFill, X, Download } from "react-bootstrap-icons";
+import * as XLSX from "xlsx";
+import {
+  CloudUpload,
+  FiletypeCsv,
+  FileEarmarkExcel,
+  CheckCircleFill,
+  ExclamationCircleFill,
+  X,
+  Download,
+  PencilSquare,
+} from "react-bootstrap-icons";
 import { Modal } from "../../../components/ui";
 import api from "../../../services/api/axios";
 import { CLIENT } from "../../../services/api/endpoints";
+
+// ── Field definitions ──────────────────────────────────────────────────────
+// Every field the Client Add/Edit form (AddClientPage.tsx) can save — this is
+// the single source of truth for the template, column matching, validation,
+// and the failed-rows re-import table below, so the import file always tracks
+// whatever that form supports instead of drifting to its own subset.
+
+type FieldKey =
+  | "firstName" | "lastName" | "email" | "mobile" | "hasWhatsapp" | "gender" | "clientSource"
+  | "birthday" | "anniversary"
+  | "gstNumber" | "state" | "address" | "zipCode" | "clientCode" | "identificationNumber"
+  | "smsMarketing" | "emailMarketing" | "whatsappMarketing"
+  | "smsNotifications" | "emailNotifications" | "whatsappNotifications"
+  | "leadSource" | "sourceDescription" | "referredByCode"
+  | "creditLimit" | "creditDuration"
+  | "additionalMobile";
+
+interface FieldDef {
+  key: FieldKey;
+  label: string;
+  required?: boolean;
+  type: "text" | "boolean";
+  hint: string;
+}
+
+// Same grouping AddClientPage.tsx uses (Details → Personal Dates →
+// Business/Identification → Communication Preferences → Lead/Referral →
+// Credit → Additional mobile).
+const FIELDS: FieldDef[] = [
+  { key: "firstName", label: "First name", required: true, type: "text", hint: "Required." },
+  { key: "lastName", label: "Last name", type: "text", hint: "" },
+  { key: "email", label: "Email", type: "text", hint: "" },
+  { key: "mobile", label: "Mobile number", required: true, type: "text", hint: "Required. 10 digits." },
+  { key: "hasWhatsapp", label: "Available on WhatsApp", type: "boolean", hint: "Yes/No — default Yes." },
+  { key: "gender", label: "Gender", required: true, type: "text", hint: "Required. Male / Female / Other." },
+  { key: "clientSource", label: "Client source", type: "text", hint: "e.g. Walk-in, Instagram, Google." },
+  { key: "birthday", label: "Birthday", type: "text", hint: "YYYY-MM-DD or DD-MM-YYYY." },
+  { key: "anniversary", label: "Anniversary", type: "text", hint: "YYYY-MM-DD or DD-MM-YYYY." },
+  { key: "gstNumber", label: "GST number", type: "text", hint: "15-character GSTIN, if applicable." },
+  { key: "state", label: "State", type: "text", hint: "" },
+  { key: "address", label: "Address", type: "text", hint: "" },
+  { key: "zipCode", label: "Zip code", type: "text", hint: "" },
+  { key: "clientCode", label: "Client code", type: "text", hint: "" },
+  { key: "identificationNumber", label: "Identification No.", type: "text", hint: "Resident No. or any ID." },
+  { key: "smsMarketing", label: "SMS marketing", type: "boolean", hint: "Yes/No — default Yes." },
+  { key: "emailMarketing", label: "Email marketing", type: "boolean", hint: "Yes/No — default Yes." },
+  { key: "whatsappMarketing", label: "WhatsApp marketing", type: "boolean", hint: "Yes/No — default Yes." },
+  { key: "smsNotifications", label: "SMS notifications", type: "boolean", hint: "Yes/No — default Yes." },
+  { key: "emailNotifications", label: "Email notifications", type: "boolean", hint: "Yes/No — default Yes." },
+  { key: "whatsappNotifications", label: "WhatsApp notifications", type: "boolean", hint: "Yes/No — default No." },
+  { key: "leadSource", label: "Lead source", type: "text", hint: "e.g. Referral, Website, Phone Enquiry." },
+  { key: "sourceDescription", label: "Source description", type: "text", hint: "" },
+  { key: "referredByCode", label: "Referred by code", type: "text", hint: "Existing client's referral code." },
+  { key: "creditLimit", label: "Credit limit", type: "text", hint: "Number ≥ 0." },
+  { key: "creditDuration", label: "Credit duration (days)", type: "text", hint: "Whole number of days ≥ 0." },
+  { key: "additionalMobile", label: "Additional mobile", type: "text", hint: "10 digits, different from Mobile number." },
+];
+
+type ImportRow = Record<FieldKey, string>;
+
+const EMPTY_ROW: ImportRow = FIELDS.reduce((acc, f) => ({ ...acc, [f.key]: "" }), {} as ImportRow);
+
+interface RawImportError {
+  row?: number;
+  message?: string;
+}
 
 interface ImportResult {
   total_rows: number;
   imported: number;
   updated: number;
   skipped: number;
-  errors: Array<string | { row?: number; message?: string }>;
+  errors: Array<string | RawImportError>;
+}
+
+interface FailedRow extends ImportRow {
+  key: string;
+  status: "Skipped" | "Failed";
+  reason: string;
 }
 
 interface Props {
@@ -18,15 +100,78 @@ interface Props {
   onSuccess: () => void;
 }
 
-// Columns the backend expects in the CSV/Excel file
-const SAMPLE_COLUMNS = ["firstName", "lastName", "email", "mobile", "gender", "birthday", "clientNotes"];
-const SAMPLE_ROWS = [
-  ["John", "Doe", "john@example.com", "9876543210", "Male", "15-06-1990", "Regular customer"],
-  ["Jane", "Smith", "jane@example.com", "8765432109", "Female", "22-03-1995", ""],
+// ── Constants ───────────────────────────────────────────────────────────────
+
+const SAMPLE_COLUMNS: FieldKey[] = FIELDS.map((f) => f.key);
+
+// Two example rows — the second leaves every optional field blank to make
+// clear only First name/Mobile/Gender are actually required.
+const SAMPLE_ROWS: Record<FieldKey, string>[] = [
+  {
+    firstName: "John", lastName: "Doe", email: "john@example.com", mobile: "9876543210",
+    hasWhatsapp: "Yes", gender: "Male", clientSource: "Walk-in",
+    birthday: "1990-06-15", anniversary: "",
+    gstNumber: "", state: "Maharashtra", address: "12 MG Road", zipCode: "400001",
+    clientCode: "", identificationNumber: "",
+    smsMarketing: "Yes", emailMarketing: "Yes", whatsappMarketing: "Yes",
+    smsNotifications: "Yes", emailNotifications: "Yes", whatsappNotifications: "No",
+    leadSource: "Referral", sourceDescription: "", referredByCode: "",
+    creditLimit: "0", creditDuration: "0", additionalMobile: "",
+  },
+  {
+    firstName: "Jane", lastName: "Smith", email: "jane@example.com", mobile: "8765432109",
+    hasWhatsapp: "", gender: "Female", clientSource: "",
+    birthday: "", anniversary: "",
+    gstNumber: "", state: "", address: "", zipCode: "",
+    clientCode: "", identificationNumber: "",
+    smsMarketing: "", emailMarketing: "", whatsappMarketing: "",
+    smsNotifications: "", emailNotifications: "", whatsappNotifications: "",
+    leadSource: "", sourceDescription: "", referredByCode: "",
+    creditLimit: "", creditDuration: "", additionalMobile: "",
+  },
 ];
 
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const GSTIN_FORMAT_RE = /^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/;
+
+// Recognized header spellings mapped to canonical FieldKeys, so files that use
+// "Mobile Number" / "mobile_number" / "Phone" etc. still parse.
+const HEADER_MAP: Record<string, FieldKey> = {
+  firstname: "firstName", "first name": "firstName", "first_name": "firstName",
+  lastname: "lastName", "last name": "lastName", "last_name": "lastName",
+  email: "email",
+  mobile: "mobile", "mobile number": "mobile", "mobile_number": "mobile", phone: "mobile", "phone number": "mobile",
+  haswhatsapp: "hasWhatsapp", "has whatsapp": "hasWhatsapp", "available on whatsapp": "hasWhatsapp",
+  gender: "gender",
+  clientsource: "clientSource", "client source": "clientSource",
+  birthday: "birthday", dob: "birthday", "date of birth": "birthday",
+  anniversary: "anniversary",
+  gstnumber: "gstNumber", "gst number": "gstNumber", gst: "gstNumber",
+  state: "state",
+  address: "address",
+  zipcode: "zipCode", "zip code": "zipCode", pincode: "zipCode",
+  clientcode: "clientCode", "client code": "clientCode",
+  identificationnumber: "identificationNumber", "identification no": "identificationNumber", "identification number": "identificationNumber",
+  smsmarketing: "smsMarketing", "sms marketing": "smsMarketing",
+  emailmarketing: "emailMarketing", "email marketing": "emailMarketing",
+  whatsappmarketing: "whatsappMarketing", "whatsapp marketing": "whatsappMarketing",
+  smsnotifications: "smsNotifications", "sms notifications": "smsNotifications",
+  emailnotifications: "emailNotifications", "email notifications": "emailNotifications",
+  whatsappnotifications: "whatsappNotifications", "whatsapp notifications": "whatsappNotifications",
+  leadsource: "leadSource", "lead source": "leadSource",
+  sourcedescription: "sourceDescription", "source description": "sourceDescription", "source desc": "sourceDescription",
+  referredbycode: "referredByCode", "referred by code": "referredByCode", "referral code": "referredByCode",
+  creditlimit: "creditLimit", "credit limit": "creditLimit",
+  creditduration: "creditDuration", "credit duration": "creditDuration", "credit duration days": "creditDuration",
+  additionalmobile: "additionalMobile", "additional mobile": "additionalMobile", "additional phone": "additionalMobile",
+};
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
 function downloadTemplate() {
-  const csv = [SAMPLE_COLUMNS, ...SAMPLE_ROWS].map((r) => r.join(",")).join("\n");
+  const csv = [SAMPLE_COLUMNS, ...SAMPLE_ROWS.map((r) => SAMPLE_COLUMNS.map((c) => r[c]))]
+    .map((r) => r.join(","))
+    .join("\n");
   const blob = new Blob([csv], { type: "text/csv" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -36,10 +181,130 @@ function downloadTemplate() {
   URL.revokeObjectURL(url);
 }
 
-function formatError(e: string | { row?: number; message?: string }): string {
+function formatError(e: string | RawImportError): string {
   if (typeof e === "string") return e;
   return e.row ? `Row ${e.row}: ${e.message}` : (e.message ?? "Unknown error");
 }
+
+function escapeCsvCell(v: string): string {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+function rowsToCsvFile(rows: ImportRow[], filename: string): File {
+  const lines = [SAMPLE_COLUMNS, ...rows.map((r) => SAMPLE_COLUMNS.map((c) => r[c] ?? ""))];
+  const csv = lines.map((line) => line.map(escapeCsvCell).join(",")).join("\n");
+  return new File([csv], filename, { type: "text/csv" });
+}
+
+function parseFile(file: File): Promise<ImportRow[]> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const wb = XLSX.read(e.target?.result, { type: "array" });
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: false });
+        const rows: ImportRow[] = raw.map((r) => {
+          const row: ImportRow = { ...EMPTY_ROW };
+          for (const [key, value] of Object.entries(r)) {
+            const canon = HEADER_MAP[key.trim().toLowerCase()];
+            if (canon) row[canon] = String(value ?? "").trim();
+          }
+          return row;
+        });
+        resolve(rows);
+      } catch {
+        reject(new Error("Could not read file. Make sure it is .csv, .xlsx, or .xls"));
+      }
+    };
+    reader.onerror = () => reject(new Error("Could not read file."));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// Accepts the same date shapes the backend does — the native date input's
+// "YYYY-MM-DD", or the more common spreadsheet format "DD-MM-YYYY" (also
+// "DD/MM/YYYY") — and normalizes to ISO for comparison. Returns null when the
+// cell is blank or doesn't match either shape.
+function parseDateToISO(raw: string): string | null {
+  const s = raw.trim();
+  if (!s) return null;
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+  const dmy = /^(\d{1,2})-(\d{1,2})-(\d{4})$/.exec(s) || /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(s);
+  let y: number, m: number, d: number;
+  if (iso) { y = Number(iso[1]); m = Number(iso[2]); d = Number(iso[3]); }
+  else if (dmy) { d = Number(dmy[1]); m = Number(dmy[2]); y = Number(dmy[3]); }
+  else return null;
+  if (m < 1 || m > 12 || d < 1 || d > 31) return null;
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
+// Validates the required-field/format rules the Client Add/Edit form itself
+// enforces (AddClientPage.tsx's handleSave) — first name, a 10-digit mobile,
+// gender, and (only when present) a valid email/GSTIN/birthday-not-in-future/
+// additional-mobile. Duplicates against existing clients in the database are
+// still caught by the backend and surfaced as "Failed" rows from its response.
+function validateRow(row: ImportRow, seenEmails?: Set<string>): string | null {
+  if (!row.firstName.trim()) return "First name is required.";
+  if (!row.mobile.trim()) return "Mobile number is required.";
+  const digits = row.mobile.replace(/\D/g, "");
+  if (!/^\d{10}$/.test(digits)) return "Enter a valid 10-digit mobile number.";
+  if (!row.gender.trim()) return "Gender is required.";
+
+  if (row.email.trim()) {
+    if (!EMAIL_REGEX.test(row.email.trim())) return "Enter a valid email address.";
+    if (seenEmails) {
+      const key = row.email.trim().toLowerCase();
+      if (seenEmails.has(key)) return "Duplicate email within this file.";
+      seenEmails.add(key);
+    }
+  }
+
+  const today = new Date().toISOString().slice(0, 10);
+  if (row.birthday.trim()) {
+    const iso = parseDateToISO(row.birthday.trim());
+    if (!iso) return "Birthday must be YYYY-MM-DD or DD-MM-YYYY.";
+    if (iso > today) return "Birthday cannot be in the future.";
+  }
+  if (row.anniversary.trim() && !parseDateToISO(row.anniversary.trim())) {
+    return "Anniversary must be YYYY-MM-DD or DD-MM-YYYY.";
+  }
+
+  if (row.gstNumber.trim() && !GSTIN_FORMAT_RE.test(row.gstNumber.trim().toUpperCase())) {
+    return "Enter a valid 15-character GSTIN.";
+  }
+
+  if (row.additionalMobile.trim()) {
+    const addlDigits = row.additionalMobile.replace(/\D/g, "");
+    if (!/^\d{10}$/.test(addlDigits)) return "Enter a valid 10-digit additional mobile number.";
+    if (addlDigits === digits) return "Additional mobile must be different from the primary mobile.";
+  }
+
+  if (row.creditLimit.trim()) {
+    const n = Number(row.creditLimit.trim());
+    if (!Number.isFinite(n) || n < 0) return "Credit limit must be a number >= 0.";
+  }
+  if (row.creditDuration.trim()) {
+    const n = Number(row.creditDuration.trim());
+    if (!Number.isInteger(n) || n < 0) return "Credit duration must be a whole number of days >= 0.";
+  }
+
+  return null;
+}
+
+async function postImport(rows: ImportRow[], filename: string): Promise<ImportResult> {
+  const uploadFile = rowsToCsvFile(rows, filename);
+  const formData = new FormData();
+  formData.append("file", uploadFile);
+  const res = await api.post(CLIENT.IMPORT, formData, {
+    headers: { "Content-Type": undefined },
+    timeout: 60_000,
+  });
+  return res.data?.data ?? res.data;
+}
+
+// ── Component ───────────────────────────────────────────────────────────────
 
 export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
   const fileRef = useRef<HTMLInputElement>(null);
@@ -47,14 +312,21 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
   const [dragging, setDragging] = useState(false);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ImportResult | null>(null);
+  const [failedRows, setFailedRows] = useState<FailedRow[]>([]);
   const [error, setError] = useState<string | null>(null);
+
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [editDraft, setEditDraft] = useState<ImportRow>(EMPTY_ROW);
+  const [rowSubmitting, setRowSubmitting] = useState<string | null>(null);
 
   const ACCEPTED = [".csv", ".xlsx", ".xls"];
 
   function handleClose() {
     setFile(null);
     setResult(null);
+    setFailedRows([]);
     setError(null);
+    setEditingKey(null);
     onClose();
   }
 
@@ -67,6 +339,7 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
     setFile(f);
     setError(null);
     setResult(null);
+    setFailedRows([]);
   }
 
   function onDrop(e: React.DragEvent) {
@@ -81,21 +354,131 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
     setLoading(true);
     setError(null);
     setResult(null);
+    setFailedRows([]);
     try {
-      const formData = new FormData();
-      formData.append("file", file);
-      const res = await api.post(CLIENT.IMPORT, formData, {
-        headers: { "Content-Type": undefined },
-        timeout: 60_000,
+      const rows = await parseFile(file);
+      if (!rows.length) {
+        setError("The file has no data rows.");
+        return;
+      }
+
+      const seenEmails = new Set<string>();
+      const validRows: ImportRow[] = [];
+      const localFailed: FailedRow[] = [];
+      rows.forEach((row, i) => {
+        const reason = validateRow(row, seenEmails);
+        if (reason) {
+          localFailed.push({ ...row, key: `local-${i}`, status: "Skipped", reason });
+        } else {
+          validRows.push(row);
+        }
       });
-      const data: ImportResult = res.data?.data ?? res.data;
-      setResult(data);
-      if ((data.imported ?? 0) > 0 || (data.updated ?? 0) > 0) onSuccess();
+
+      let serverResult: ImportResult | null = null;
+      const serverFailed: FailedRow[] = [];
+
+      if (validRows.length > 0) {
+        serverResult = await postImport(validRows, "clients_import.csv");
+
+        (serverResult.errors ?? []).forEach((e, i) => {
+          if (typeof e === "object" && e.row) {
+            const row = validRows[e.row - 1]; // 1-based row numbers in the file we sent
+            serverFailed.push({
+              ...(row ?? EMPTY_ROW),
+              key: `server-${e.row}`,
+              status: "Failed",
+              reason: e.message ?? "Import failed for this row.",
+            });
+          } else {
+            serverFailed.push({
+              ...EMPTY_ROW,
+              key: `server-generic-${i}`,
+              status: "Failed",
+              reason: formatError(e),
+            });
+          }
+        });
+      }
+
+      const allFailed = [...localFailed, ...serverFailed];
+      setFailedRows(allFailed);
+      setResult({
+        total_rows: rows.length,
+        imported: serverResult?.imported ?? 0,
+        updated: serverResult?.updated ?? 0,
+        skipped: allFailed.length,
+        errors: serverResult?.errors ?? [],
+      });
+      if ((serverResult?.imported ?? 0) > 0 || (serverResult?.updated ?? 0) > 0) onSuccess();
     } catch (err: any) {
       setError(err?.message || "Import failed. Please check your file and try again.");
     } finally {
       setLoading(false);
     }
+  }
+
+  function startEdit(row: FailedRow) {
+    setEditingKey(row.key);
+    const draft = { ...EMPTY_ROW };
+    FIELDS.forEach((f) => { draft[f.key] = row[f.key]; });
+    setEditDraft(draft);
+  }
+
+  function cancelEdit() {
+    setEditingKey(null);
+    setEditDraft(EMPTY_ROW);
+  }
+
+  async function submitReimport(row: FailedRow) {
+    const reason = validateRow(editDraft);
+    if (reason) {
+      setFailedRows((prev) => prev.map((r) => (r.key === row.key ? { ...r, ...editDraft, status: "Skipped", reason } : r)));
+      return;
+    }
+
+    setRowSubmitting(row.key);
+    try {
+      const data = await postImport([editDraft], "client_reimport.csv");
+      if ((data.imported ?? 0) > 0 || (data.updated ?? 0) > 0) {
+        setFailedRows((prev) => prev.filter((r) => r.key !== row.key));
+        setResult((prev) =>
+          prev
+            ? {
+                ...prev,
+                imported: prev.imported + (data.imported ?? 0),
+                updated: prev.updated + (data.updated ?? 0),
+                skipped: Math.max(0, prev.skipped - 1),
+              }
+            : prev
+        );
+        onSuccess();
+        cancelEdit();
+      } else {
+        const msg = data.errors?.[0] ? formatError(data.errors[0]) : "Still couldn't import this record.";
+        setFailedRows((prev) => prev.map((r) => (r.key === row.key ? { ...r, ...editDraft, status: "Failed", reason: msg } : r)));
+      }
+    } catch (err: any) {
+      const msg = err?.message || "Re-import failed.";
+      setFailedRows((prev) => prev.map((r) => (r.key === row.key ? { ...r, ...editDraft, status: "Failed", reason: msg } : r)));
+    } finally {
+      setRowSubmitting(null);
+    }
+  }
+
+  function exportFailedRows() {
+    const cols = [...SAMPLE_COLUMNS, "status", "reason"];
+    const lines = [
+      cols,
+      ...failedRows.map((r) => [...SAMPLE_COLUMNS.map((c) => r[c]), r.status, r.reason]),
+    ];
+    const csv = lines.map((line) => line.map(escapeCsvCell).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "clients_import_failed.csv";
+    a.click();
+    URL.revokeObjectURL(url);
   }
 
   const isCSV = file?.name.toLowerCase().endsWith(".csv");
@@ -105,7 +488,7 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
       show={show}
       onClose={handleClose}
       title="Import Clients"
-      size="lg"
+      size="xl"
       footer={
         result ? (
           <button className="cim-btn cim-btn--primary" onClick={handleClose}>Done</button>
@@ -132,8 +515,14 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
         <div className="cim-columns-wrap">
           <p className="cim-columns-title">Expected columns:</p>
           <div className="cim-columns-list">
-            {SAMPLE_COLUMNS.map((col) => (
-              <span key={col} className="cim-col-chip">{col}</span>
+            {FIELDS.map((f) => (
+              <span
+                key={f.key}
+                className={`cim-col-chip${f.required ? " cim-col-chip--required" : ""}`}
+                title={f.hint || undefined}
+              >
+                {f.label}{f.required ? " *" : ""}
+              </span>
             ))}
           </div>
         </div>
@@ -211,18 +600,101 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
                 <span className="cim-stat-label">Updated</span>
               </div>
               <div className="cim-stat cim-stat--warn">
-                <span className="cim-stat-value">{result.skipped}</span>
+                <span className="cim-stat-value">{failedRows.length}</span>
                 <span className="cim-stat-label">Skipped</span>
               </div>
             </div>
-            {result.errors?.length > 0 && (
-              <div className="cim-errors-wrap">
-                <p className="cim-errors-title">Errors ({result.errors.length})</p>
-                <ul className="cim-errors-list">
-                  {result.errors.map((e, i) => (
-                    <li key={i} className="cim-error-item">{formatError(e)}</li>
-                  ))}
-                </ul>
+
+            {failedRows.length > 0 && (
+              <div className="cim-failed-wrap">
+                <div className="cim-failed-header">
+                  <p className="cim-failed-title">Skipped / Failed records ({failedRows.length})</p>
+                  <button className="cim-template-btn" onClick={exportFailedRows}>
+                    <Download size={13} /> Export failed records
+                  </button>
+                </div>
+
+                <div className="cim-failed-table-wrap">
+                  <table className="cim-failed-table">
+                    <thead>
+                      <tr>
+                        <th>Status</th>
+                        <th>Reason</th>
+                        <th>Action</th>
+                        {FIELDS.map((f) => <th key={f.key}>{f.label}</th>)}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {failedRows.map((row) => {
+                        const isEditing = editingKey === row.key;
+                        const isSubmitting = rowSubmitting === row.key;
+                        return (
+                          <tr key={row.key} className={isEditing ? "cim-row--editing" : ""}>
+                            {isEditing ? (
+                              <>
+                                <td><span className={`cim-status-pill cim-status-pill--${row.status.toLowerCase()}`}>{row.status}</span></td>
+                                <td className="cim-reason-cell">{row.reason}</td>
+                                <td className="cim-action-cell">
+                                  <button className="cim-row-btn cim-row-btn--save" onClick={() => submitReimport(row)} disabled={isSubmitting}>
+                                    {isSubmitting ? "Saving…" : "Save & Retry"}
+                                  </button>
+                                  <button className="cim-row-btn" onClick={cancelEdit} disabled={isSubmitting}>Cancel</button>
+                                </td>
+                                {FIELDS.map((f) => (
+                                  <td key={f.key}>
+                                    {f.key === "gender" ? (
+                                      <select
+                                        className="cim-cell-input"
+                                        value={editDraft.gender}
+                                        onChange={(e) => setEditDraft((d) => ({ ...d, gender: e.target.value }))}
+                                      >
+                                        <option value="">—</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                      </select>
+                                    ) : f.type === "boolean" ? (
+                                      <select
+                                        className="cim-cell-input"
+                                        value={editDraft[f.key]}
+                                        onChange={(e) => setEditDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+                                      >
+                                        <option value="">Default</option>
+                                        <option value="Yes">Yes</option>
+                                        <option value="No">No</option>
+                                      </select>
+                                    ) : (
+                                      <input
+                                        className="cim-cell-input"
+                                        value={editDraft[f.key]}
+                                        onChange={(e) => setEditDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+                                      />
+                                    )}
+                                  </td>
+                                ))}
+                              </>
+                            ) : (
+                              <>
+                                <td><span className={`cim-status-pill cim-status-pill--${row.status.toLowerCase()}`}>{row.status}</span></td>
+                                <td className="cim-reason-cell">{row.reason}</td>
+                                <td className="cim-action-cell">
+                                  <button className="cim-row-btn cim-row-btn--reimport" onClick={() => startEdit(row)}>
+                                    <PencilSquare size={12} /> Re-import
+                                  </button>
+                                </td>
+                                {FIELDS.map((f) => (
+                                  <td key={f.key} className={f.key === "address" || f.key === "sourceDescription" ? "cim-notes-cell" : undefined}>
+                                    {row[f.key] || "—"}
+                                  </td>
+                                ))}
+                              </>
+                            )}
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>
@@ -239,8 +711,9 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
 
         .cim-columns-wrap { background:#f9fafb; border:1px solid #e5e7eb; border-radius:8px; padding:12px; }
         .cim-columns-title { font-size:12px; font-weight:600; color:#374151; margin:0 0 8px; }
-        .cim-columns-list { display:flex; flex-wrap:wrap; gap:6px; }
-        .cim-col-chip { background:#e0e7ff; color:#4338ca; font-size:11px; font-weight:500; padding:2px 8px; border-radius:999px; }
+        .cim-columns-list { display:flex; flex-wrap:wrap; gap:6px; max-height:110px; overflow-y:auto; }
+        .cim-col-chip { background:#e0e7ff; color:#4338ca; font-size:11px; font-weight:500; padding:2px 8px; border-radius:999px; cursor:default; }
+        .cim-col-chip--required { background:#fee2e2; color:#b91c1c; }
 
         .cim-dropzone { border:2px dashed #d1d5db; border-radius:12px; padding:32px; display:flex; flex-direction:column; align-items:center; gap:10px; cursor:pointer; transition:border-color .2s,background .2s; }
         .cim-dropzone:hover,.cim-dropzone--dragging { border-color:#4f46e5; background:#f5f3ff; }
@@ -274,10 +747,38 @@ export default function ClientImportModal({ show, onClose, onSuccess }: Props) {
         .cim-stat--info .cim-stat-value { color:#4f46e5; }
         .cim-stat--warn .cim-stat-value { color:#d97706; }
 
-        .cim-errors-wrap { background:#fef9c3; border:1px solid #fde68a; border-radius:8px; padding:12px; }
-        .cim-errors-title { font-size:12px; font-weight:600; color:#92400e; margin:0 0 8px; }
-        .cim-errors-list { margin:0; padding-left:16px; }
-        .cim-error-item { font-size:12px; color:#92400e; margin-bottom:4px; }
+        .cim-failed-wrap { margin-top:16px; }
+        .cim-failed-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+        .cim-failed-title { font-size:13px; font-weight:600; color:#92400e; margin:0; }
+
+        .cim-failed-table-wrap { background:#fff; border:1px solid #fde68a; border-radius:8px; overflow-x:auto; max-height:340px; overflow-y:auto; }
+        .cim-failed-table { width:100%; border-collapse:collapse; font-size:12px; white-space:nowrap; }
+        .cim-failed-table thead th {
+          position:sticky; top:0; background:#fffbeb; text-align:left; font-weight:600; color:#92400e;
+          padding:8px 10px; border-bottom:1px solid #fde68a; z-index:1;
+        }
+        .cim-failed-table td { padding:8px 10px; border-bottom:1px solid #f3f4f6; color:#374151; }
+        .cim-failed-table tbody tr:last-child td { border-bottom:none; }
+        .cim-failed-table tbody tr:hover { background:#fffdf5; }
+        .cim-row--editing { background:#fefce8; }
+
+        .cim-notes-cell { max-width:160px; overflow:hidden; text-overflow:ellipsis; }
+        .cim-reason-cell { max-width:220px; white-space:normal; color:#b91c1c; font-weight:500; }
+
+        .cim-status-pill { display:inline-block; padding:2px 9px; border-radius:999px; font-size:10.5px; font-weight:700; }
+        .cim-status-pill--skipped { background:#fef3c7; color:#92400e; }
+        .cim-status-pill--failed { background:#fee2e2; color:#b91c1c; }
+
+        .cim-action-cell { display:flex; gap:6px; }
+        .cim-row-btn { font-size:11.5px; font-weight:600; padding:5px 10px; border-radius:6px; border:1px solid #e5e7eb; background:#fff; color:#374151; cursor:pointer; display:flex; align-items:center; gap:4px; white-space:nowrap; }
+        .cim-row-btn:hover:not(:disabled) { background:#f9fafb; }
+        .cim-row-btn:disabled { opacity:.6; cursor:not-allowed; }
+        .cim-row-btn--reimport { color:#4f46e5; border-color:#c7d2fe; }
+        .cim-row-btn--save { background:#111827; color:#fff; border-color:#111827; }
+        .cim-row-btn--save:hover:not(:disabled) { background:#1f2937; }
+
+        .cim-cell-input { width:100%; min-width:90px; font-size:12px; padding:5px 7px; border:1px solid #d1d5db; border-radius:5px; font-family:inherit; }
+        .cim-cell-input:focus { outline:none; border-color:#4f46e5; }
 
         .cim-footer-btns { display:flex; gap:10px; justify-content:flex-end; width:100%; }
         .cim-btn { padding:9px 20px; border-radius:8px; font-size:14px; font-weight:500; cursor:pointer; border:none; transition:background .15s; }

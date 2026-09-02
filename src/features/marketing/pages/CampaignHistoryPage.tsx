@@ -5,11 +5,12 @@ import {
   fetchCampaignContactsThunk,
   pauseCampaignThunk,
   resumeCampaignThunk,
-  resendCampaignThunk,
 } from "../../../middleware/marketing/marketing.thunk";
-import { Button, Badge, Input, DateRangeFilter, Pagination } from "../../../components/ui";
-import type { DateRangeFilterValue } from "../../../components/ui";
+import ResendCampaignModal from "../components/ResendCampaignModal";
+import { Button, Badge, Input, DateRangeFilter, Pagination, JiraFilterMenu } from "../../../components/ui";
+import type { DateRangeFilterValue, JiraFilterField } from "../../../components/ui";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/CampaignHistoryPage.scss";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -55,6 +56,14 @@ const CONTACT_STATUS_HINT: Record<string, string> = {
 type ContactFilter = "ALL" | "SENT" | "DELIVERED" | "READ" | "FAILED" | "BLOCKED" | "PENDING";
 type StatusFilter  = "ALL" | "RUNNING" | "COMPLETED" | "PAUSED" | "FAILED" | "SCHEDULED";
 
+const STATUS_OPTIONS = [
+  { id: "RUNNING",   label: "Running" },
+  { id: "COMPLETED", label: "Completed" },
+  { id: "PAUSED",    label: "Paused" },
+  { id: "FAILED",    label: "Failed" },
+  { id: "SCHEDULED", label: "Scheduled" },
+];
+
 const DEFAULT_PAGE_SIZE = 10;
 const DEFAULT_CONTACT_PAGE_SIZE = 50;
 
@@ -68,10 +77,12 @@ interface ContactPageData {
 }
 // ── CSV Export ────────────────────────────────────────────────────────────────
 
-const exportCSV = (campaign: any, contacts: any[]) => {
+// Owner/admin exports carry the real number; staff/manager exports stay
+// masked, same as every other client-contact export in the app.
+const exportCSV = (campaign: any, contacts: any[], canViewFullContact: boolean) => {
   const header = "Phone,Name,Status,Sent At,Delivered At,Read At";
   const rows   = contacts.map(c => [
-    c.phone, c.name ?? "", c.status,
+    canViewFullContact ? c.phone : maskMobile(c.phone), c.name ?? "", c.status,
     c.sent_at ?? "", c.delivered_at ?? "", c.read_at ?? "",
   ].join(","));
   const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv" });
@@ -86,6 +97,8 @@ const exportCSV = (campaign: any, contacts: any[]) => {
 export default function CampaignHistoryPage() {
   const dispatch = useAppDispatch();
   const { campaigns, loading } = useAppSelector((s) => s.marketing);
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
 
   // ── Expanded contact state ────────────────────────────────────────────────
   const [expandedId,   setExpandedId]   = useState<string | null>(null);
@@ -98,15 +111,16 @@ export default function CampaignHistoryPage() {
   const [search,       setSearch]       = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("ALL");
   const [dateRange,    setDateRange]    = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
-  const [filtersOpen,  setFiltersOpen]  = useState(false);
   const [page,         setPage]         = useState(1);
   const [pageSize,     setPageSize]     = useState(DEFAULT_PAGE_SIZE);
 
   // ── Pause / Resume (no useOnce — per-campaign loading state) ─────────────
   const [pausingId,    setPausingId]    = useState<string | null>(null);
   const [resumingId,   setResumingId]   = useState<string | null>(null);
-  const [resendingId,  setResendingId]  = useState<string | null>(null);
   const [exportingId,  setExportingId]  = useState<string | null>(null);
+
+  // ── Resend modal (review clients / edit offer / preview before sending) ──
+  const [resendTarget, setResendTarget] = useState<{ id: string; name: string; totalContacts: number } | null>(null);
 
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
@@ -177,15 +191,8 @@ export default function CampaignHistoryPage() {
     setResumingId(null);
   };
 
-  const handleResend = async (id: string, name: string) => {
-    setResendingId(id);
-    const res = await dispatch(resendCampaignThunk(id));
-    if (resendCampaignThunk.rejected.match(res)) {
-      showError((res.payload as string) ?? "Failed to resend campaign");
-    } else {
-      showSuccess(`"${name}" resent to all contacts`);
-    }
-    setResendingId(null);
+  const handleResendClick = (id: string, name: string, totalContacts: number) => {
+    setResendTarget({ id, name, totalContacts });
   };
 
   // Export must fetch every contact, not just the current on-screen page —
@@ -206,7 +213,7 @@ export default function CampaignHistoryPage() {
       }) as any);
       const payload = res?.payload;
       if (payload?.contacts) {
-        exportCSV(campaign, payload.contacts);
+        exportCSV(campaign, payload.contacts, canViewFullContact);
       } else {
         showError("Failed to export contacts");
       }
@@ -233,10 +240,23 @@ export default function CampaignHistoryPage() {
   [filteredCampaigns, page, pageSize]);
 
   const hasActiveFilters = !!(search || statusFilter !== "ALL" || dateRange.preset !== "all_time");
-  // Just the fields still inside the collapsible Filters panel — date range
-  // is now a standalone always-visible control whose own trigger shows its
-  // state, so it isn't counted toward the Filters button's own badge.
-  const panelFilterCount = statusFilter !== "ALL" ? 1 : 0;
+
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "status", label: "Status", options: STATUS_OPTIONS },
+  ], []);
+
+  const filterMenuSelected = useMemo(
+    () => ({ status: statusFilter !== "ALL" ? [statusFilter] : [] }),
+    [statusFilter],
+  );
+
+  // Behaves as single-select even though the checkbox list is multi-capable —
+  // picking a second status replaces the first, same convention as Client
+  // Rating's minimum-rating filter.
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    const picked = next.status ?? [];
+    setStatusFilter((picked.length ? picked[picked.length - 1] : "ALL") as StatusFilter);
+  };
 
   const counts = {
     total:     campaigns.length,
@@ -249,14 +269,6 @@ export default function CampaignHistoryPage() {
   return (
     <div className="ch-page">
       {overlay}
-
-      {/* Header */}
-      <div className="ch-header">
-        <div>
-          <h1 className="ch-title">Campaign History</h1>
-          <p className="ch-sub">Click on a campaign to see contact-level delivery details</p>
-        </div>
-      </div>
 
       {/* Summary */}
       <div className="ch-summary">
@@ -276,19 +288,7 @@ export default function CampaignHistoryPage() {
 
       {/* Toolbar */}
       <div className="ch-toolbar">
-        <Input
-          placeholder="Search campaigns..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          containerClass="mb-0 ch-search"
-        />
-        <button
-          className={`ch-filter-btn${filtersOpen ? " ch-filter-btn--active" : ""}${panelFilterCount > 0 ? " ch-filter-btn--has" : ""}`}
-          onClick={() => setFiltersOpen(o => !o)}
-        >
-          ⚙ Filters
-          {panelFilterCount > 0 && <span className="ch-filter-dot" />}
-        </button>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
 
         <DateRangeFilter value={dateRange} onChange={setDateRange} />
 
@@ -299,29 +299,14 @@ export default function CampaignHistoryPage() {
             Clear
           </button>
         )}
-      </div>
 
-      {/* Filter panel */}
-      {filtersOpen && (
-        <div className="ch-filter-panel">
-          <div className="ch-filter-row">
-            <div className="ch-filter-group">
-              <label className="ch-filter-label">Status</label>
-              <div className="ch-pill-group">
-                {(["ALL","RUNNING","COMPLETED","PAUSED","FAILED","SCHEDULED"] as StatusFilter[]).map(s => (
-                  <button
-                    key={s}
-                    className={`ch-pill${statusFilter === s ? " ch-pill--active" : ""}`}
-                    onClick={() => setStatusFilter(s)}
-                  >
-                    {s === "ALL" ? "All" : s.charAt(0) + s.slice(1).toLowerCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        <Input
+          placeholder="Search campaigns..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          containerClass="mb-0 ch-search"
+        />
+      </div>
 
       {/* Content */}
       {loading.fetchCampaigns ? (
@@ -392,9 +377,7 @@ export default function CampaignHistoryPage() {
                           <Button
                             variant="outline-primary"
                             size="sm"
-                            loading={resendingId === String(c.id)}
-                            disabled={!!resendingId}
-                            onClick={() => handleResend(String(c.id), c.name)}
+                            onClick={() => handleResendClick(String(c.id), c.name, c.total_contacts ?? c.totalContacts ?? 0)}
                           >
                             ↻ Resend
                           </Button>
@@ -498,7 +481,7 @@ export default function CampaignHistoryPage() {
                             </div>
                             {cd.contacts.map((ct: any) => (
                               <div key={ct.id} className="ch-contact-row" title={CONTACT_STATUS_HINT[ct.status] ?? ""}>
-                                <span className="ch-contact-phone">📱 {ct.phone}</span>
+                                <span className="ch-contact-phone">📱 {maskMobile(ct.phone)}</span>
                                 <span>{ct.name ?? "—"}</span>
                                 <span className="ch-contact-status" style={{ color: CONTACT_STATUS_COLOR[ct.status] ?? "#9ca3af" }}>
                                   ● {ct.status}
@@ -540,6 +523,17 @@ export default function CampaignHistoryPage() {
             onPageSizeChange={setPageSize}
           />
         </>
+      )}
+
+      {resendTarget && (
+        <ResendCampaignModal
+          show={!!resendTarget}
+          onClose={() => setResendTarget(null)}
+          campaignId={resendTarget.id}
+          campaignName={resendTarget.name}
+          totalContacts={resendTarget.totalContacts}
+          onResent={() => dispatch(fetchCampaignsThunk())}
+        />
       )}
     </div>
   );

@@ -6,7 +6,7 @@
 // (.slp__group-cols) and every row (.slp__service-card) so the two can never
 // drift apart.
 //
-// Columns: checkbox | service | category | time | staff | commission | price | kebab
+// Columns: checkbox | service | category | time | staff | reminder | commission | price | kebab
 //
 // Category was moved out of grouping (services used to be sectioned by
 // category with a header per group) and into its own column here — category
@@ -27,7 +27,7 @@
   // The commission track is 100px because the "COMMISSION" heading needs ~95px
   // at 11px uppercase; a narrower track let the label overflow its own column.
   grid-template-columns:
-    20px minmax(0, 1fr) 130px 110px 90px 100px 104px 32px;
+    20px minmax(0, 1fr) 130px 110px 90px 100px 100px 104px 32px;
   align-items: center;
   column-gap: 14px;
 
@@ -35,7 +35,8 @@
   // matching labels through the same breakpoints via nth-child.
   @media (max-width: 1020px) {
     grid-template-columns: 20px minmax(0, 1fr) 130px 110px 90px 104px 32px;
-    > *:nth-child(6) { display: none; }   // commission
+    > *:nth-child(6) { display: none; }   // reminder
+    > *:nth-child(7) { display: none; }   // commission
   }
 
   @media (max-width: 820px) {
@@ -178,6 +179,14 @@
       color: #ef4444;
       &:hover { background: #fef2f2; }
     }
+  }
+
+  &__dd-item-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+
+    .slp__kebab { margin-right: 4px; }
   }
 
   &__dd-divider {
@@ -949,12 +958,16 @@
 }
 
 /* ── Pagination (shared ui component) ──────────────────────────── */
-// Mirrors .products-pagination so both catalog lists end with the same footer.
+// Mirrors .products-pagination: attached directly to the bottom of the table
+// card (no gap, no top border) so the table and pagination read as one
+// continuous card, rather than a separate box floating below it.
 .services-pagination {
-  margin-top: 24px;
+  margin-top: 0;
   border: 1px solid #eaecf0;
-  border-radius: 12px;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
   background: #fff;
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.04);
 
   .ui-pagination__info {
     color: #475467;
@@ -1065,10 +1078,82 @@
 // Small swatch grid — 5 per row (3 rows for 15 templates), each a compact
 // color-preview tile rather than a full-width description card, so this many
 // options fit without turning "choose a template" into its own scroll area.
+// Reused both here (inside the dropdown panel below) and formerly as the
+// permanently-open block this dropdown replaced.
 .pmc-templates {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
   gap: 6px;
+}
+
+// Collapses the swatch grid above into a closed-by-default dropdown, so
+// "Choose a template" no longer eats a fixed chunk of vertical space —
+// closed state shows just the selected template's swatch + name.
+.pmc-template-dd {
+  position: relative;
+
+  &__trigger {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    height: 40px;
+    padding: 0 10px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 0.15s;
+
+    &:hover { border-color: #98a2b3; }
+  }
+
+  &__swatch {
+    flex-shrink: 0;
+    width: 26px;
+    height: 20px;
+    border-radius: 5px;
+    padding: 4px 5px;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+    border: 1px solid rgba(0, 0, 0, 0.06);
+  }
+
+  &__swatch-bar {
+    height: 4px;
+    width: 100%;
+    border-radius: 2px;
+  }
+
+  &__label {
+    flex: 1;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    color: #101828;
+  }
+
+  &__chevron {
+    flex-shrink: 0;
+    color: #667085;
+    transition: transform 0.15s;
+
+    &--open { transform: rotate(180deg); }
+  }
+
+  &__panel {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    z-index: 20;
+    padding: 10px;
+    background: #fff;
+    border: 1px solid #eaecf0;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(16, 24, 40, 0.12);
+  }
 }
 
 .pmc-template {
@@ -1216,6 +1301,13 @@
   border: 1px solid #eaecf0;
   border-radius: 10px;
   padding: 4px 12px;
+  // Scrollbar on the LEFT edge of the list, not the browser default right
+  // edge — flipping the scroll container to RTL moves the scrollbar to the
+  // left in Chrome/Edge/Firefox; the child below flips back to LTR so the
+  // service names/checkboxes still read left-to-right as normal.
+  direction: rtl;
+
+  > * { direction: ltr; }
 }
 
 .pmc-cat-group {

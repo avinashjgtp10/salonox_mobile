@@ -10,6 +10,9 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./PackageSaleReport.scss";
 
 const REPORT_NAME = "Package Sale";
@@ -19,6 +22,7 @@ interface PackageSaleRow {
   invoiceNo: string;
   client: string;
   clientId: string;
+  clientPhone: string;
   staff: string;
   packageName: string;
   expiryDate: string;
@@ -72,6 +76,7 @@ function mapRow(row: any): PackageSaleRow {
     invoiceNo: row.invoice_no ?? "—",
     client: row.client_name || "—",
     clientId: row.client_id ? String(row.client_id) : "",
+    clientPhone: row.client_phone || "",
     staff: row.staff_name || "—",
     packageName: row.package_name || "—",
     expiryDate: row.expiry_date ? formatDate(row.expiry_date) : "—",
@@ -110,6 +115,8 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -235,6 +242,8 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
         </div>
       )}
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -246,6 +255,14 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every((_r, i) => selection.selectedIds.has(String(i)))}
+                  onChange={() => selection.toggleAll(rows.map((_r, i) => String(i)))}
+                />
+              </th>
               <th>Date</th><th>Invoice No</th><th>Client</th><th>Staff</th><th>Package Name</th><th>Expiry Date</th>
               <th>Total Amount ({currencySymbol})</th><th>GST ({currencySymbol})</th><th>Paid ({currencySymbol})</th>
               <th>Balance Due ({currencySymbol})</th><th>Payment Method</th><th>Status</th>
@@ -253,27 +270,34 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={12} />
+              <SkeletonTableRows columns={13} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={12} className="rp-detail-empty-cell">No package sales found</td></tr>
+              <tr><td colSpan={13} className="rp-detail-empty-cell">No package sales found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.clientId ? "rp-appt-row" : undefined}
-                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
-                <td>{r.date}</td>
-                <td><span className="rp-detail-link">{r.invoiceNo}</span></td>
-                <td className="fw-semibold">{r.client}</td>
-                <td>{r.staff}</td>
-                <td className="fw-semibold rp-pkg-name" title={r.packageName}>{r.packageName}</td>
-                <td>{r.expiryDate}</td>
-                <td>{formatAmount(r.totalAmount)}</td>
-                <td>{formatAmount(r.gstAmount)}</td>
-                <td>{formatAmount(r.paidAmount)}</td>
-                <td>{formatAmount(r.pendingAmount)}</td>
-                <td className="rp-pkg-payment">{r.paymentMethod}</td>
-                <td><span className={`rp-status-badge rp-status-${(r.status ?? "").toLowerCase()}`}>{r.status}</span></td>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(String(i))}
+                    onChange={() => selection.toggleOne(String(i))}
+                  />
+                </td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.date}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><span className="rp-detail-link">{r.invoiceNo}</span></td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.client}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.staff}</td>
+                <td className="fw-semibold rp-pkg-name" title={r.packageName} onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.packageName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.expiryDate}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.totalAmount)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.gstAmount)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.paidAmount)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.pendingAmount)}</td>
+                <td className="rp-pkg-payment" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.paymentMethod}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><span className={`rp-status-badge rp-status-${(r.status ?? "").toLowerCase()}`}>{r.status}</span></td>
               </tr>
             ))}
           </tbody>
@@ -282,6 +306,16 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter((r, i) => selection.selectedIds.has(String(i)) && r.clientPhone)
+          .map(r => ({ phone: r.clientPhone, name: r.client }))}
+        defaultCampaignName="Package Sale"
+        onSent={selection.clearSelection}
+      />
 
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="packages" />

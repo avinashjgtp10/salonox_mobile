@@ -8,12 +8,17 @@ import {
 } from "../../../middleware/feedback/feedback.thunk";
 import type { FeedbackContext } from "../../../middleware/feedback/feedback.thunk";
 
-const INK = "#1a1a1a";
-const MUTED = "#8a8a8a";
-const BORDER = "#eaeaea";
-const STAR = "#c9a24b";
-const SERIF = "'Georgia', 'Times New Roman', serif";
-const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+// Matches the main app's design tokens (src/styles/themes/_variables.scss)
+// so this public, unauthenticated page still reads as SalonOx, not a
+// separately-designed one-off.
+const INK = "#111827";      // $dashboard-primary
+const MUTED = "#6b7280";    // $dashboard-secondary
+const BORDER = "#e5e7eb";   // $dashboard-border
+const STAR = "#f59e0b";     // $warning
+const SUCCESS = "#10b981";  // $success
+const BTN = "#000000";      // $btn-primary
+const BTN_HOVER = "#333333"; // $btn-hover
+const SANS = "system-ui, Avenir, Helvetica, Arial, sans-serif";
 
 const IMPROVEMENT_TAGS = [
   "Waiting Time",
@@ -145,7 +150,7 @@ export default function FeedbackFormPage() {
         <style>{`
           .fb-error { display:flex; flex-direction:column; align-items:center; justify-content:center;
             min-height:100vh; gap:12px; font-family:${SANS}; padding:24px; text-align:center; background:#fff; }
-          .fb-error-title { margin:0; font-size:20px; color:${INK}; font-family:${SERIF}; }
+          .fb-error-title { margin:0; font-size:20px; color:${INK}; font-weight:700; }
           .fb-error-sub { margin:0; color:${MUTED}; font-size:14px; }
         `}</style>
       </div>
@@ -156,16 +161,23 @@ export default function FeedbackFormPage() {
     <div className="fb-page">
 
       <style>{`
-        .fb-page { min-height:100vh; display:flex; justify-content:center; background:#fdfdfc;
-          font-family:${SANS}; padding:36px 16px; box-sizing:border-box; }
-        .fb-sheet { width:100%; max-width:440px; background:#fff; border-radius:24px;
-          padding:40px 28px 32px; box-shadow:0 24px 70px rgba(20,20,20,0.08); }
+        /* The app shell locks html/body/#root to overflow:hidden (every
+           authenticated page manages its own internal scroll container) —
+           this page is public and unauthenticated (opened straight from a
+           WhatsApp link, no app shell around it), so it needs real page
+           scroll restored or content taller than the viewport is unreachable. */
+        html, body, #root { overflow: auto !important; height: auto !important; }
 
-        .fb-eyebrow { margin:0; text-align:center; font-size:11px; font-weight:600; letter-spacing:0.18em;
+        .fb-page { min-height:100vh; display:flex; justify-content:center; background:#f9fafb;
+          font-family:${SANS}; padding:36px 16px; box-sizing:border-box; }
+        .fb-sheet { width:100%; max-width:440px; background:#fff; border-radius:16px;
+          padding:32px 24px 28px; box-shadow:0 4px 10px rgba(0,0,0,0.05); border:1px solid ${BORDER}; }
+
+        .fb-eyebrow { margin:0; text-align:center; font-size:11px; font-weight:700; letter-spacing:0.14em;
           text-transform:uppercase; color:${MUTED}; }
-        .fb-headline { margin:8px 0 6px; text-align:center; font-family:${SERIF}; font-weight:400;
-          font-size:34px; color:${INK}; line-height:1.15; }
-        .fb-meta-line { margin:0 0 28px; text-align:center; font-size:12.5px; color:${MUTED}; }
+        .fb-headline { margin:8px 0 6px; text-align:center; font-weight:700;
+          font-size:26px; color:${INK}; line-height:1.25; }
+        .fb-meta-line { margin:0 0 24px; text-align:center; font-size:13px; color:${MUTED}; }
 
         .fb-block-center { text-align:center; margin-bottom:28px; }
         .fb-eyebrow-sm { margin:0 0 12px; text-align:center; font-size:11px; font-weight:600; letter-spacing:0.14em;
@@ -182,7 +194,7 @@ export default function FeedbackFormPage() {
         .fb-service-row { display:flex; align-items:center; justify-content:space-between; gap:16px;
           padding:20px 0; }
         .fb-service-info { min-width:0; }
-        .fb-service-name { margin:0; font-family:${SERIF}; font-size:19px; font-weight:400; color:${INK}; }
+        .fb-service-name { margin:0; font-size:15.5px; font-weight:600; color:${INK}; }
         .fb-service-staff { margin:2px 0 0; font-size:12.5px; color:${MUTED}; }
         .fb-service-row .fb-stars { flex-shrink:0; gap:4px; }
 
@@ -203,27 +215,27 @@ export default function FeedbackFormPage() {
 
         .fb-error-text { font-size:12.5px; color:#c0392b; margin:14px 0 0; text-align:center; }
 
-        .fb-btn { width:100%; border:none; cursor:pointer; font-weight:600; font-size:13px;
-          letter-spacing:0.12em; text-transform:uppercase; border-radius:10px;
-          padding:17px 20px; display:flex; align-items:center; justify-content:center; gap:8px; margin-top:32px;
-          transition: opacity 0.18s ease; background:#e5e5e5; color:${MUTED};
+        .fb-btn { width:100%; border:none; cursor:pointer; font-weight:600; font-size:14px;
+          border-radius:10px;
+          padding:14px 20px; display:flex; align-items:center; justify-content:center; gap:8px; margin-top:28px;
+          transition: background-color 0.15s ease; background:#e5e7eb; color:${MUTED};
         }
-        .fb-btn.enabled { background:${INK}; color:#fff; cursor:pointer; }
-        .fb-btn.enabled:hover { opacity:0.85; }
+        .fb-btn.enabled { background:${BTN}; color:#fff; cursor:pointer; }
+        .fb-btn.enabled:hover { background:${BTN_HOVER}; }
         .fb-btn:disabled { cursor:not-allowed; }
         .fb-btn-google { background:#fff; color:${INK}; border:1px solid ${BORDER}; margin-top:12px; }
-        .fb-btn-google:hover { border-color:${INK}; opacity:1; }
+        .fb-btn-google:hover { border-color:${INK}; background:#f9fafb; }
 
         .fb-success { display:flex; flex-direction:column; align-items:center; text-align:center; gap:14px; padding:12px 0 4px; }
-        .fb-success-icon { width:64px; height:64px; border-radius:50%; background:${INK};
+        .fb-success-icon { width:56px; height:56px; border-radius:50%; background:${SUCCESS};
           display:flex; align-items:center; justify-content:center; }
-        .fb-success-title { margin:0; font-family:${SERIF}; font-size:24px; font-weight:400; color:${INK}; }
+        .fb-success-title { margin:0; font-size:20px; font-weight:700; color:${INK}; }
         .fb-success-sub { margin:0; font-size:13.5px; color:${MUTED}; }
 
         @media (max-width: 480px) {
           .fb-page { padding:0; }
-          .fb-sheet { border-radius:0; min-height:100vh; padding:36px 22px 32px; }
-          .fb-headline { font-size:28px; }
+          .fb-sheet { border-radius:0; min-height:100vh; padding:28px 20px 28px; border:none; }
+          .fb-headline { font-size:22px; }
         }
       `}</style>
 

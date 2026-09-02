@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PAYMENT_COLLECTION_REPORT } from "../../../services/api/endpoints";
@@ -10,6 +11,7 @@ import type { JiraFilterField, DateRangeFilterValue } from "../../../components/
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import AppointmentDetailModal from "../../bookings/components/modals/AppointmentDetailModal";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { maskMobile } from "../../../utils/maskMobile";
 import "./PaymentCollectionReport.scss";
 
 const REPORT_NAME = "Payment Collection Report";
@@ -62,6 +64,11 @@ function formatDate(input: string | null): string {
 }
 
 export default function PaymentCollectionReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const { currencySymbol, formatAmount } = useCurrency();
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
   const { startDate: dateFrom, endDate: dateTo } = dateRange;
@@ -186,7 +193,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
     "Payment Method", "Status", "Staff",
   ];
   const exportRows = () => rows.map(r => [
-    formatDate(r.paymentDate), r.invoiceNumber, r.customerName, r.contact,
+    formatDate(r.paymentDate), r.invoiceNumber, r.customerName, canViewFullContact ? r.contact : maskMobile(r.contact),
     r.totalAmount, r.paidAmount, r.dueAmount,
     r.paymentMethod, r.paymentStatus === "partial" ? "Partial" : "Paid", r.staffName,
   ]);
@@ -288,7 +295,7 @@ export default function PaymentCollectionReport({ onBack, category, categoryKey 
                 <td>{formatDate(r.paymentDate)}</td>
                 <td><span className="rp-detail-link">{r.invoiceNumber}</span></td>
                 <td className="fw-semibold">{r.customerName}</td>
-                <td>{r.contact}</td>
+                <td>{maskMobile(r.contact)}</td>
                 <td>{formatAmount(r.totalAmount)}</td>
                 <td>{formatAmount(r.paidAmount)}</td>
                 <td className="fw-semibold">{formatAmount(r.dueAmount)}</td>

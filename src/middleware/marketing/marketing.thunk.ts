@@ -10,7 +10,6 @@ import type {
   CreateCampaignPayload,
   TemplatesListResponse,
   CampaignsListResponse,
-  WebhookEventsResponse,
   WaConfigResponse,
   TemplateResponse,
   CampaignResponse,
@@ -186,15 +185,32 @@ export const createCampaignThunk = createAsyncThunk<Campaign, CreateCampaignPayl
   }
 );
 
-export const resendCampaignThunk = createAsyncThunk<Campaign, string | number, { rejectValue: string }>(
+export const resendCampaignThunk = createAsyncThunk<
+  Campaign,
+  { id: string | number; variables?: Record<string, string> },
+  { rejectValue: string }
+>(
   "marketing/resendCampaign",
-  async (id, { rejectWithValue }) => {
+  async ({ id, variables }, { rejectWithValue }) => {
     try {
-      const res = await api.post<CampaignResponse>(MARKETING.CAMPAIGN_RESEND(id));
+      const res = await api.post<CampaignResponse>(MARKETING.CAMPAIGN_RESEND(id), { variables });
       return normalizeCampaign(res.data.data);
     } catch (err: any) {
       if (err instanceof ApiError) return rejectWithValue(err.message);
       return rejectWithValue("Failed to resend campaign");
+    }
+  }
+);
+
+export const fetchCampaignByIdThunk = createAsyncThunk<Campaign, string | number, { rejectValue: string }>(
+  "marketing/fetchCampaignById",
+  async (id, { rejectWithValue }) => {
+    try {
+      const res = await api.get<CampaignResponse>(MARKETING.CAMPAIGN_BY_ID(id));
+      return normalizeCampaign(res.data.data);
+    } catch (err: any) {
+      if (err instanceof ApiError) return rejectWithValue(err.message);
+      return rejectWithValue("Failed to load campaign");
     }
   }
 );
@@ -221,43 +237,6 @@ export const resumeCampaignThunk = createAsyncThunk<string | number, string | nu
     } catch (err: any) {
       if (err instanceof ApiError) return rejectWithValue(err.message);
       return rejectWithValue("Failed to resume campaign");
-    }
-  }
-);
-
-// ── Webhook Events ────────────────────────────────────────────────────────────
-
-export interface WebhookEventsQuery {
-  page?:       number;
-  limit?:      number;
-  status?:     string;
-  campaignId?: string;
-}
-
-export interface WebhookEventsResult {
-  events:       any[];
-  total:        number;
-  page:         number;
-  limit:        number;
-  statusCounts: Record<string, number>;
-}
-
-export const fetchWebhookEventsThunk = createAsyncThunk<WebhookEventsResult, WebhookEventsQuery | void, { rejectValue: string }>(
-  "marketing/fetchWebhookEvents",
-  async (query, { rejectWithValue }) => {
-    try {
-      const res = await api.get<WebhookEventsResponse>(MARKETING.WEBHOOK_EVENTS, { params: query ?? {} });
-      const data = (res.data.data ?? {}) as any;
-      return {
-        events:       Array.isArray(data) ? data : (data.events ?? []),
-        total:        data.total  ?? 0,
-        page:         data.page   ?? 1,
-        limit:        data.limit  ?? 10,
-        statusCounts: data.statusCounts ?? {},
-      };
-    } catch (err: any) {
-      if (err instanceof ApiError) return rejectWithValue(err.message);
-      return rejectWithValue("Failed to fetch webhook events");
     }
   }
 );

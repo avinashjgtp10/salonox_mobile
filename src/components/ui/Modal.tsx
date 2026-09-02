@@ -12,6 +12,19 @@ interface ModalProps {
    *  the user must complete rather than dismiss (e.g. a mandatory cash
    *  counter open/close). */
   hideCloseButton?: boolean;
+  /** Disables dismissal by clicking the backdrop, while still allowing the
+   *  header "x" (unless hideCloseButton is also set) and any footer actions
+   *  to close it — for forms where an accidental outside click shouldn't
+   *  discard in-progress input. */
+  disableBackdropClose?: boolean;
+  /** Bootstrap's modal-dialog-scrollable sets modal-content to overflow:
+   *  hidden so a tall body scrolls independently of the header/footer — but
+   *  that same overflow:hidden clips anything a child absolutely positions
+   *  outside its own box, e.g. the shared Dropdown component's option list.
+   *  Set false for short, non-scrolling content (a form with a dropdown)
+   *  so its popup isn't cut off. Default true preserves every existing
+   *  caller's behavior. */
+  scrollable?: boolean;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -23,23 +36,27 @@ const Modal: React.FC<ModalProps> = ({
   size = "md",
   centered = true,
   hideCloseButton = false,
+  disableBackdropClose = false,
+  scrollable = true,
 }) => {
   if (!show) return null;
+
+  const closeOnBackdrop = !hideCloseButton && !disableBackdropClose;
 
   return (
     <>
       <div
         className="modal-backdrop fade show"
-        onClick={hideCloseButton ? undefined : onClose}
+        onClick={closeOnBackdrop ? onClose : undefined}
       ></div>
       <div
         className="modal fade show d-block"
         tabIndex={-1}
         role="dialog"
-        onClick={hideCloseButton ? undefined : onClose}
+        onClick={closeOnBackdrop ? onClose : undefined}
       >
         <div
-          className={`modal-dialog modal-${size} ${centered ? "modal-dialog-centered" : ""}`}
+          className={`modal-dialog modal-${size} ${scrollable ? "modal-dialog-scrollable" : ""} ${centered ? "modal-dialog-centered" : ""}`}
           role="document"
           onClick={(e) => e.stopPropagation()}
         >

@@ -36,14 +36,23 @@ const StocktakesListPage = lazy(
 const AddStocktakePage = lazy(
   () => import("../features/catalog/pages/AddStocktakePage"),
 );
-const StockOrdersListPage = lazy(
-  () => import("../features/catalog/pages/StockOrdersListPage"),
-);
 const SuppliersListPage = lazy(
   () => import("../features/catalog/pages/SuppliersListPage"),
 );
 const AddSupplierPage = lazy(
   () => import("../features/catalog/pages/AddSupplierPage"),
+);
+const SupplierDetailPage = lazy(
+  () => import("../features/catalog/pages/SupplierDetailPage"),
+);
+const NewOrderPage = lazy(
+  () => import("../features/catalog/pages/NewOrderPage"),
+);
+const OrdersListPage = lazy(
+  () => import("../features/catalog/pages/OrdersListPage"),
+);
+const OrderDetailPage = lazy(
+  () => import("../features/catalog/pages/OrderDetailPage"),
 );
 const PackagesPage = lazy(
   () => import("../features/catalog/pages/Packages"),
@@ -54,9 +63,6 @@ const EditPackagePage = lazy(
 const PackageModule = lazy(
   () => import("../components/packages/PackageModule"),
 );
-const SoldMembershipsPage = lazy(
-  () => import("../features/catalog/pages/SoldMembershipsPage"),
-);
 const ConsumableInventoryPage = lazy(
   () => import("../features/catalog/pages/ConsumableInventoryPage"),
 );
@@ -66,6 +72,15 @@ const ProductInventoryPage = lazy(
 );
 const ConsumableUsageHistoryPage = lazy(
   () => import("../features/catalog/pages/ConsumableUsageHistoryPage"),
+);
+const ProductAuditPage = lazy(
+  () => import("../features/catalog/pages/ProductAuditPage"),
+);
+const StockLedgerPage = lazy(
+  () => import("../features/catalog/pages/StockLedgerPage"),
+);
+const AddStockPage = lazy(
+  () => import("../features/catalog/pages/AddStockPage"),
 );
 
 import { PageLoader } from "../components/ui";
@@ -82,7 +97,6 @@ export const CatalogRoutes = () => (
       <Route path="services" element={<ServicesListPage />} />
       <Route path="memberships" element={<MembershipsListPage />} />
       <Route path="memberships/list" element={<MembershipsListPage />} />
-      <Route path="memberships/sold" element={<SoldMembershipsPage />} />
       <Route path="packages" element={<PackageModule />} />
       <Route path="packages/legacy" element={<PackagesPage />} />
       <Route path="products" element={<ProductsListPage />} />
@@ -106,22 +120,26 @@ export const CatalogRoutes = () => (
         <Route path="inventory/stocktakes" element={<StocktakesListPage />} />
         <Route path="inventory/stocktakes/new" element={<AddStocktakePage />} />
         <Route path="inventory/stocktakes/edit/:id" element={<AddStocktakePage />} />
-        <Route path="inventory/stock-orders" element={<StockOrdersListPage />} />
-        <Route
-          path="inventory/orders"
-          element={
-            <Navigate to="/dashboard/catalog/inventory/stock-orders" replace />
-          }
-        />
+        {/* Orders is now its own concept (a PO document, no stock movement) —
+            sibling to Purchase History rather than an alias for it. */}
+        <Route path="inventory/orders" element={<OrdersListPage />} />
+        <Route path="inventory/orders/new-order" element={<NewOrderPage />} />
+        <Route path="inventory/orders/:id/edit" element={<NewOrderPage />} />
+        <Route path="inventory/orders/:id" element={<OrderDetailPage />} />
         <Route path="inventory/suppliers" element={<SuppliersListPage />} />
         <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
         <Route path="inventory/suppliers/edit/:id" element={<AddSupplierPage />} />
         <Route path="inventory/suppliers/:id/edit" element={<AddSupplierPage />} />
+        <Route path="inventory/suppliers/:id" element={<SupplierDetailPage />} />
         <Route path="inventory/products" element={<ProductInventoryPage />} />
+        <Route path="inventory/audit" element={<ProductAuditPage />} />
         <Route path="inventory/consumables" element={<ConsumableInventoryPage />} />
         <Route path="inventory/consumables/add" element={<ProductFormPage />} />
         <Route path="inventory/consumables/edit/:id" element={<ProductFormPage />} />
         <Route path="inventory/consumables/usage-history" element={<ConsumableUsageHistoryPage />} />
+        <Route path="inventory/ledger" element={<StockLedgerPage />} />
+        <Route path="inventory/ledger/add-stock" element={<AddStockPage />} />
+        <Route path="inventory/ledger/edit/:id" element={<AddStockPage />} />
         {/* Redesigned as Consumable Inventory — old URL kept working */}
         <Route path="inventory/stock-reconciliation" element={<Navigate to="/dashboard/catalog/inventory/consumables" replace />} />
       </Route>

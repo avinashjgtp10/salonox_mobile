@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { X, Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { OPEN_RATE_REPORT } from "../../../services/api/endpoints";
@@ -10,6 +11,7 @@ import {
   MESSAGE_STATUS_LABELS as STATUS_LABELS, formatDate,
   formatDateTime as fmtDateTime, fmtPct,
 } from "./campaignReportShared";
+import { maskMobile } from "../../../utils/maskMobile";
 
 interface CustomerRow {
   id: string;
@@ -54,6 +56,11 @@ const statusClass = (s: string) =>
   s === "READ" ? "ok" : s === "DELIVERED" ? "run" : s === "FAILED" || s === "BLOCKED" ? "fail" : "neutral";
 
 export default function OpenRateDetailModal({ campaign, onClose }: { campaign: OpenRateRow; onClose: () => void }) {
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const [detail, setDetail] = useState<Detail | null>(null);
   const [customers, setCustomers] = useState<CustomerRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -128,7 +135,7 @@ export default function OpenRateDetailModal({ campaign, onClose }: { campaign: O
 
   const HEADERS = ["Client Name", "Mobile", "Sent Date", "Delivered Date", "Opened Date", "Status"];
   const exportRows = () => customers.map((c) => [
-    c.name, c.phone, fmtDateTime(c.sentAt), fmtDateTime(c.deliveredAt), fmtDateTime(c.readAt),
+    c.name, canViewFullContact ? c.phone : maskMobile(c.phone), fmtDateTime(c.sentAt), fmtDateTime(c.deliveredAt), fmtDateTime(c.readAt),
     STATUS_LABELS[c.status] ?? c.status,
   ]);
 
@@ -219,7 +226,7 @@ export default function OpenRateDetailModal({ campaign, onClose }: { campaign: O
                 ) : customers.map((c) => (
                   <tr key={c.id}>
                     <td className="fw-semibold">{c.name}</td>
-                    <td>{c.phone}</td>
+                    <td>{maskMobile(c.phone)}</td>
                     <td>{fmtDateTime(c.sentAt)}</td>
                     <td>{fmtDateTime(c.deliveredAt)}</td>
                     <td>{fmtDateTime(c.readAt)}</td>

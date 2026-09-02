@@ -27,6 +27,18 @@ export interface ClientMembership {
   membershipWalletBalance: number;
   /** Denormalized from the membership plan at purchase time. */
   appliesTo: MembershipAppliesTo;
+  /** Optional narrowing of appliesTo to specific service_categories ids —
+   *  independent per side, empty means unrestricted on that side. Already
+   *  present on every API response (see client-memberships.repository.ts's
+   *  toClientMembership) — declared here so the client-side "how much could
+   *  this wallet cover" estimate (membershipEligibleTotal in
+   *  AppointmentModal.tsx) can filter by the SAME restriction checkout
+   *  actually enforces, instead of only the coarse appliesTo signal. */
+  serviceCategoryIds?: string[];
+  productCategoryIds?: string[];
+  /** Further, additive narrowing to specific services/products. */
+  serviceIds?: string[];
+  productIds?: string[];
   /** Denormalized plain-text description from the plan at purchase time. */
   description?: string;
   pricingType?: 'value' | 'percentage' | 'loyalty';

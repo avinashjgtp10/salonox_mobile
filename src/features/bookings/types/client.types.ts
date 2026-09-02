@@ -62,6 +62,22 @@ export interface ClientDetails {
   active_package_count?: number;
   active_membership_name?: string | null;
   active_membership_expires_at?: string | null;
+
+  // Already present on the raw GET /clients/:id response but previously
+  // undeclared here — added so QuickEditClientModal can read this client's
+  // edit-form fields straight off the profile ClientPanel already fetched,
+  // instead of firing its own redundant GET /clients/:id on every open.
+  email?: string | null;
+  phone_country_code?: string | null;
+  birthday_day_month?: string | null;
+  birthday_year?: number | null;
+  client_source?: string | null;
+
+  // Most recent non-empty staff_alert/notes across this client's appointments
+  // (?include=staffAlert) — picked independently, so an alert set two visits
+  // ago still surfaces even if the latest visit's own notes field is empty.
+  latest_staff_alert?: { text: string; date: string } | null;
+  latest_notes?: { text: string; date: string } | null;
 }
 
 // ─── Derived stat card values (computed in useClientDetails) ──────────────────
@@ -91,6 +107,9 @@ export interface ClientStats {
   activePackageCount: number;
   activeMembershipName: string | null;
   activeMembershipExpiresAt: string | null;
+
+  latestStaffAlert: { text: string; date: string } | null;
+  latestNotes: { text: string; date: string } | null;
 }
 
 // ─── History stats shape (from GET /api/v1/clients/:id/history) ──────────────

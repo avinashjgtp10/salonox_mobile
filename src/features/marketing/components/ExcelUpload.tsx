@@ -151,20 +151,6 @@ export default function ExcelUpload({ onContactsLoaded }: Props) {
         </div>
       )}
 
-      {/* ── Help text ── */}
-      {count === null && !error && (
-        <div className="eu-help">
-          <div className="eu-help-row">
-            <span className="eu-help-col">phone / mobile / number / whatsapp</span>
-            <span>→ Phone column (required)</span>
-          </div>
-          <div className="eu-help-row">
-            <span className="eu-help-col">name / customer_name</span>
-            <span>→ Name column (optional)</span>
-          </div>
-          <div className="eu-help-note">✅ 10-digit numbers get +91 prefix automatically</div>
-        </div>
-      )}
     </div>
   );
 }

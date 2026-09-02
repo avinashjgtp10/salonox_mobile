@@ -9,6 +9,7 @@ import type { ClientSearchResult } from "../../features/clients/components/Clien
 import { useGetClientPackages } from "../../hooks/packages/usePackages";
 import { useCurrency } from "../../hooks/useCurrency";
 import { getPackageServiceDisplayStatus, type PackageServiceDisplayStatus } from "../../features/bookings/utils/packageServiceStatus";
+import { maskMobile } from "../../utils/maskMobile";
 
 const SCHEDULE_STATUS_BADGE: Record<PackageServiceDisplayStatus, string> = {
   "Not Scheduled": "",
@@ -48,10 +49,10 @@ const PackageDashboard: React.FC<Props> = ({
   const { formatAmount } = useCurrency();
   const [activeTab,       setActiveTab]       = useState("");
 
-  // List is salon-wide now (like Sold Memberships) — no client selection
-  // gates it. `search` stays controlled for instant typing; the query only
-  // refetches off the debounced copy so it doesn't flash loading on every
-  // keystroke (same fix as SoldMembershipsPage.tsx / MembershipsListPage.tsx).
+  // List is salon-wide now — no client selection gates it. `search` stays
+  // controlled for instant typing; the query only refetches off the
+  // debounced copy so it doesn't flash loading on every keystroke (same fix
+  // as MembershipsListPage.tsx).
   const [search,          setSearch]          = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   useEffect(() => {
@@ -206,7 +207,7 @@ const PackageDashboard: React.FC<Props> = ({
             </div>
           </div>
         ) : (
-          <div className={styles.card} style={{ overflow: "hidden" }}>
+          <div className={styles.card} style={{ overflow: "hidden", marginBottom: 0, borderRadius: "12px 12px 0 0" }}>
             <div style={{ overflowX: "auto" }}>
             <table className={styles.table}>
               <thead>
@@ -230,7 +231,7 @@ const PackageDashboard: React.FC<Props> = ({
                     >
                       <td className={styles.tableTd}>
                         <div style={{ fontWeight: 600, color: "#111827" }}>{pkg.clientName}</div>
-                        {pkg.mobile && <div style={{ fontSize: 11, color: "#6b7280" }}>{pkg.mobile}</div>}
+                        {pkg.mobile && <div style={{ fontSize: 11, color: "#6b7280" }}>{maskMobile(pkg.mobile)}</div>}
                       </td>
                       <td className={styles.tableTd} style={{ fontWeight: 600, color: "#111827" }}>{pkg.packageName}</td>
                       <td className={styles.tableTd} style={{ whiteSpace: "nowrap" }}>{formatAmount(pkg.totalAmount)}</td>

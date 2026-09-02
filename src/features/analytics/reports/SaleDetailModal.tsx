@@ -6,6 +6,7 @@ import { Loader } from "../../../components/ui";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { formatPaymentMode } from "../../../utils/paymentMode";
 import { computeBillBreakdown } from "../../../components/shared/billBreakdown";
+import { maskMobile } from "../../../utils/maskMobile";
 import "./SaleDetailModal.scss";
 
 function formatDate(input: string): string {
@@ -63,7 +64,7 @@ export default function SaleDetailModal({ saleId, staffName, onClose }: { saleId
               <div>
                 <div className="sd-label">Client</div>
                 <div className="sd-value">{data.sale.client_name ?? "Walk-in"}</div>
-                <div className="sd-sub">{data.sale.client_phone ?? "—"}</div>
+                <div className="sd-sub">{maskMobile(data.sale.client_phone ?? "—")}</div>
               </div>
               <div>
                 <div className="sd-label">Staff</div>

@@ -50,3 +50,31 @@ export const FAMILY_HINT: Record<UnitFamily, string> = {
 export function getCompatibleUnits(baseUnit: string): CompatibleUnit[] {
   return FAMILY_UNITS[getUnitFamily(baseUnit)];
 }
+
+// Case-insensitive: "l"/"L", "Bottle"/"bottle" all valid input.
+export function findCompatibleUnit(baseUnit: string, unitName: string): CompatibleUnit | null {
+  const needle = unitName.trim().toLowerCase();
+  return getCompatibleUnits(baseUnit).find((u) => u.name.toLowerCase() === needle) ?? null;
+}
+
+// Mirrors the backend's unit-families.ts resolveConversionRatio — display
+// purposes only (the over-stock warning, Remaining Stock math) here; the
+// backend re-derives and enforces this independently at deduction time, so
+// a stale/mismatched frontend value here can never corrupt actual stock.
+export function resolveConversionRatio(
+  baseUnit: string,
+  enteredUnit: string | null | undefined,
+  productConversions: { unit_name: string; conversion_to_base: number }[]
+): number | null {
+  const entered = (enteredUnit ?? "").trim();
+  if (!entered || entered.toLowerCase() === baseUnit.trim().toLowerCase()) return 1;
+
+  const compatible = findCompatibleUnit(baseUnit, entered);
+  if (!compatible) return null;
+  if (compatible.fixedRatio !== undefined) return compatible.fixedRatio;
+
+  const match = productConversions.find(
+    (c) => c.unit_name.trim().toLowerCase() === entered.toLowerCase()
+  );
+  return match ? Number(match.conversion_to_base) : null;
+}

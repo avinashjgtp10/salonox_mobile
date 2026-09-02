@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import ReactDOM from "react-dom";
+import { ChevronLeft, ChevronRight } from "react-bootstrap-icons";
 import { useNavigate } from "react-router-dom";
 import type { ViewMode, IntervalOption } from "../../types/scheduler-types";
 import { useSchedulerContext } from "../../store/SchedulerContext";
@@ -8,6 +9,7 @@ import { DatePickerPanel } from "../../../../components/ui";
 import { useAppSelector } from "../../../../hooks/useAppRedux";
 import api from "../../../../services/api/axios";
 import { formatDateDDMMYYYY } from "../../../../utils/dateFormat";
+import { maskMobile } from "../../../../utils/maskMobile";
 import ClientHistoryModal from "../../../clients/components/ClientHistoryModal";
 import "../../styles/TopBar.scss";
 
@@ -207,7 +209,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
         </button>
 
         {/* Prev */}
-        <button className="topbar__nav-btn" onClick={() => navigate(-1)}>‹</button>
+        <button className="topbar__nav-btn" onClick={() => navigate(-1)}><ChevronLeft size={13} /></button>
 
         {/* Date picker trigger */}
         <button
@@ -220,7 +222,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
         </button>
 
         {/* Next */}
-        <button className="topbar__nav-btn" onClick={() => navigate(1)}>›</button>
+        <button className="topbar__nav-btn" onClick={() => navigate(1)}><ChevronRight size={13} /></button>
 
         {/* Today */}
         <button
@@ -283,7 +285,7 @@ const TopBar: React.FC<TopBarProps> = ({ onNewAppointment, onBlockTime, onRefres
                   </span>
                   <span className="topbar-client-drop__info">
                     <span className="topbar-client-drop__name">{c.name}</span>
-                    {c.phone && <span className="topbar-client-drop__phone">{c.phone}</span>}
+                    {c.phone && <span className="topbar-client-drop__phone">{maskMobile(c.phone)}</span>}
                   </span>
                   {/* Same "View History" action/popup as the client card on the
                       booking drawer — pops up in place instead of navigating

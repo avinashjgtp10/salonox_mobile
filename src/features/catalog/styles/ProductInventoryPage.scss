@@ -1,370 +1,281 @@
-// Product Inventory page. Layout mirrors the other Catalog list pages
-// (header + filter row + table + pagination) so it reads as part of the same
-// module rather than a bolt-on.
+// Product Inventory page. Header/controls/table/pagination now share the
+// exact classnames and tokens ProductsListPage.scss uses, so Products,
+// Product Inventory and Suppliers read as one consistent list-page pattern.
 
 .pinv-page {
-  padding: 4px 2px 24px;
-}
+  padding: 32px;
+  // Widened from the original 1200px (sized for the old 6-column table) so
+  // the remaining 10 auto-width columns (Category, Supplier, quantities,
+  // prices, Expiry, Status) have room now that Product/Barcode are
+  // deliberately narrow/compact (see .pinv-col-product/.pinv-col-barcode).
+  max-width: 1300px;
+  margin: 0 auto;
 
-// ── Header ────────────────────────────────────────────────────────────────────
-.pinv-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 18px;
-}
-
-.pinv-title {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0;
-  font-size: 22px;
-  font-weight: 700;
-  color: #111827;
-}
-
-.pinv-count {
-  background: #ede9fe;
-  color: #6d28d9;
-  font-size: 12px;
-  font-weight: 700;
-  border-radius: 999px;
-  padding: 2px 10px;
-}
-
-.pinv-subtitle {
-  margin: 4px 0 0;
-  font-size: 13px;
-  color: #6b7280;
-}
-
-.pinv-header-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-
-// ── Buttons ───────────────────────────────────────────────────────────────────
-.pinv-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  color: #374151;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 8px 14px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background .15s, border-color .15s, opacity .15s;
-
-  &:hover:not(:disabled) { background: #f9fafb; border-color: #d1d5db; }
-  &:disabled { opacity: .55; cursor: not-allowed; }
-
-  &--primary {
-    background: #4f46e5;
-    border-color: #4f46e5;
-    color: #fff;
-    &:hover:not(:disabled) { background: #4338ca; border-color: #4338ca; }
-  }
-
-  &--ghost { background: #fff; }
-
-  &--sm { padding: 5px 10px; font-size: 12px; }
-}
-
-.pinv-link {
-  background: none;
-  border: none;
-  padding: 0 0 0 10px;
-  font-size: 12px;
-  font-weight: 600;
-  color: #4f46e5;
-  cursor: pointer;
-  &:hover { text-decoration: underline; }
-}
-
-// ── Export menu ───────────────────────────────────────────────────────────────
-.pinv-export-wrap { position: relative; }
-
-.pinv-export-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  min-width: 170px;
-  background: #fff;
-  border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, .1);
-  overflow: hidden;
-  z-index: 30;
-
-  button {
-    display: block;
-    width: 100%;
-    text-align: left;
-    background: none;
-    border: none;
-    padding: 10px 14px;
-    font-size: 13px;
-    color: #374151;
-    cursor: pointer;
-    &:hover { background: #f5f3ff; color: #4f46e5; }
-  }
-}
-
-// ── Filters ───────────────────────────────────────────────────────────────────
-.pinv-filters {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-
-.pinv-search {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1 1 260px;
-  max-width: 340px;
-  border: 1px solid #e5e7eb;
-  border-radius: 8px;
-  background: #fff;
-  padding: 0 10px;
-  color: #9ca3af;
-
-  &:focus-within { border-color: #4f46e5; box-shadow: 0 0 0 3px rgba(79, 70, 229, .1); }
-
-  input {
-    flex: 1;
-    min-width: 0;
-    border: none;
-    outline: none;
-    background: transparent;
-    padding: 9px 0;
-    font-size: 13px;
-    color: #111827;
-  }
-
-  &__clear {
-    background: none;
-    border: none;
-    color: #9ca3af;
-    cursor: pointer;
+  &__header {
     display: flex;
-    padding: 0;
-    &:hover { color: #4b5563; }
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 32px;
+
+    h1 {
+      font-size: 28px;
+      font-weight: 700;
+      color: #101828;
+      margin: 0 0 4px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .pinv-count {
+      font-size: 13px;
+      font-weight: 500;
+      color: #6b7280;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 999px;
+      padding: 2px 10px;
+    }
+
+    p {
+      font-size: 13.5px;
+      color: #667085;
+      margin: 0;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+
+      .btn-options {
+        background: #fff;
+        border: 1px solid #d0d5dd;
+        color: #344054;
+        font-weight: 600;
+        padding: 10px 16px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+
+        &:hover { background: #f9fafb; }
+      }
+    }
+  }
+
+  &__controls {
+    display: flex;
+    gap: 16px;
+    margin-bottom: 32px;
+    align-items: center;
+
+    // Now the shared Input component (form-control + its own iconLeft/
+    // iconRight wrapper positioning) — this just constrains its width and
+    // styles the clear button nested inside Input's iconRight slot.
+    .search-box {
+      flex: 1;
+      max-width: 400px;
+
+      input {
+        border-radius: 8px;
+        border: 1px solid #d0d5dd;
+        font-size: 14px;
+
+        &:focus {
+          outline: none;
+          border-color: #3b82f6;
+          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        }
+      }
+
+      .search-clear-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: none;
+        border: none;
+        padding: 2px;
+        color: #667085;
+        cursor: pointer;
+        line-height: 0;
+
+        &:hover { color: #344054; }
+      }
+    }
+  }
+
+  &__content {
+    overflow-x: auto;
+
+    .product-table {
+      width: 100%;
+      // auto (not fixed): Category/Supplier/Purchased/Sold/Consumed/
+      // Available/Purchase Price/Selling Price/Expiry/Status each size to
+      // their own content/header instead of being forced into equal slices.
+      // Product/Barcode still truncate correctly under auto layout — that
+      // truncation comes from max-width+overflow:hidden directly on the
+      // cell/span (see .pinv-name and td.pinv-barcode-cell below), which
+      // caps a cell's width regardless of the table's layout algorithm.
+      table-layout: auto;
+      border-collapse: separate;
+      border-spacing: 0;
+      border: 1px solid #eaecf0;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+
+      thead {
+        background: #f9fafb;
+
+        th {
+          padding: 12px 16px;
+          text-align: left;
+          font-size: 12px;
+          font-weight: 500;
+          color: #667085;
+          text-transform: uppercase;
+          border-bottom: 1px solid #eaecf0;
+          white-space: nowrap;
+
+          &.pinv-num { text-align: right; }
+        }
+      }
+
+      tbody {
+        tr {
+          &:hover { background: #f9fafb; }
+          &.pinv-row--low { background: #fffaf5; }
+
+          td {
+            padding: 14px 16px;
+            border-bottom: 1px solid #eaecf0;
+            font-size: 13.5px;
+            color: #101828;
+
+            &.pinv-num { text-align: right; }
+            &.actions-cell { text-align: right; }
+          }
+
+          // Barcode is plain text filling the whole cell, so the td itself
+          // truncates. Product's cell also has an icon + stacked SKU sub-label
+          // (see .name-info below), so ITS truncation has to live on the name
+          // span instead — same "span-based" convention already used for
+          // stacked name+sub-label cells elsewhere (ConsumableInventoryPage,
+          // ServiceCard, MembershipsListPage).
+          td.pinv-barcode-cell {
+            max-width: 78px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+          }
+
+          // .product-name-cell/.product-icon/.name-info come from the shared
+          // ProductsListPage.scss convention this page reuses (same markup
+          // shape), but that shared rule never gives .name-info min-width: 0 —
+          // without it, a flex item's default min-width is its content's
+          // natural width, so the name would push the row wider (or get
+          // clipped by the column) instead of actually respecting .pinv-name's
+          // own max-width/ellipsis below. Scoped to this page's table only.
+          td.product-name-cell .name-info {
+            min-width: 0;
+            overflow: hidden;
+          }
+
+          &:last-child td { border-bottom: none; }
+        }
+      }
+
+      .row-actions-toggle {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: none;
+        background: transparent;
+        border-radius: 6px;
+        color: #667085;
+
+        &::after { display: none; }
+
+        &:hover,
+        &:focus {
+          background: #f2f4f7;
+          color: #101828;
+        }
+      }
+    }
   }
 }
 
-// Width floor so "All categories" doesn't wrap; the shared Dropdown supplies
-// the rest of the field styling.
-.pinv-select { min-width: 170px; }
-
-.pinv-chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid #e5e7eb;
-  background: #fff;
-  border-radius: 999px;
-  padding: 8px 14px;
-  font-size: 12.5px;
-  font-weight: 600;
-  color: #6b7280;
-  cursor: pointer;
+.pinv-name {
+  display: block;
+  // Column is 190px (.pinv-col-product) minus the cell's own padding (32px)
+  // and the shared .product-icon box + gap (40px + 12px) = ~106px left for
+  // the text itself — e.g. "Coconut Hair Oil" truncates to "Coconut Hair…".
+  max-width: 106px;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
-
-  &:hover { border-color: #d1d5db; }
-
-  &--on {
-    background: #fef2f2;
-    border-color: #fecaca;
-    color: #b91c1c;
-  }
-}
-
-.pinv-clear {
-  background: none;
-  border: none;
-  font-size: 12.5px;
   font-weight: 600;
-  color: #6b7280;
-  cursor: pointer;
-  &:hover { color: #111827; text-decoration: underline; }
+  color: #101828;
 }
-
-// ── Table ─────────────────────────────────────────────────────────────────────
-.pinv-table-wrap {
-  border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  background: #fff;
-  // Narrow screens scroll the table itself rather than the page — the shell
-  // is fixed-height and the page body must never scroll horizontally.
-  overflow-x: auto;
-  margin-bottom: 14px;
-}
-
-.pinv-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 13px;
-
-  th, td {
-    padding: 11px 14px;
-    text-align: left;
-    border-bottom: 1px solid #f3f4f6;
-    vertical-align: middle;
-  }
-
-  th {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .04em;
-    color: #6b7280;
-    background: #f9fafb;
-    white-space: nowrap;
-  }
-
-  tbody tr:last-child td { border-bottom: none; }
-  tbody tr:hover { background: #fafafa; }
-
-  &--compact {
-    th, td { padding: 9px 12px; }
-  }
-}
-
-.pinv-num { text-align: right; }
-.pinv-actions-col { text-align: right; white-space: nowrap; }
-
-.pinv-name { font-weight: 600; color: #111827; }
-.pinv-sub { font-size: 11.5px; color: #9ca3af; margin-top: 2px; }
-.pinv-unit { font-size: 11.5px; color: #9ca3af; }
-.pinv-date { color: #6b7280; white-space: nowrap; }
-.pinv-note { color: #6b7280; max-width: 260px; }
+.pinv-sub { font-size: 12px; color: #667085; margin-top: 2px; }
+.pinv-unit { font-size: 12px; color: #667085; }
+.pinv-date { color: #667085; white-space: nowrap; }
+.pinv-note { color: #667085; max-width: 260px; }
 .pinv-added { color: #059669; font-weight: 700; }
 
 .pinv-stock {
-  font-weight: 700;
-  color: #111827;
-  &--low { color: #b91c1c; }
+  font-weight: 600;
+  color: #101828;
+  &--low { color: #b54708; }
 }
 
 .pinv-low-tag {
   margin-top: 3px;
   font-size: 10.5px;
   font-weight: 700;
-  color: #b91c1c;
+  color: #b54708;
   text-transform: uppercase;
   letter-spacing: .03em;
 }
 
-.pinv-row--low { background: #fffbfb; }
+// Status is now the shared Badge component (success/warning/danger variants)
+// instead of a bespoke pill — no page-specific badge CSS needed anymore.
 
-.pinv-empty {
-  text-align: center;
-  padding: 34px 14px;
-  color: #9ca3af;
-  font-size: 13px;
+.pinv-empty-cell {
+  // Reset the default td padding so the shared EmptyState component (which
+  // brings its own generous inline padding) doesn't get double-padded.
+  padding: 0 !important;
 }
 
-// Loading placeholder — same shimmer language as the other list pages.
-.pinv-skel-row td { padding: 13px 14px; }
-.pinv-skel {
-  display: block;
-  height: 12px;
-  border-radius: 4px;
-  background: linear-gradient(90deg, #f3f4f6 25%, #e9eaee 37%, #f3f4f6 63%);
-  background-size: 400% 100%;
-  animation: pinvShimmer 1.3s ease infinite;
-}
+.pinv-pagination {
+  margin-top: 0;
+  border: 1px solid #e4e7ec;
+  border-top: 0;
+  border-radius: 0 0 12px 12px;
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.04);
 
-@keyframes pinvShimmer {
-  0%   { background-position: 100% 50%; }
-  100% { background-position: 0 50%; }
-}
+  .ui-pagination__info { color: #475467; font-weight: 500; }
 
-// ── Modal ─────────────────────────────────────────────────────────────────────
-.pinv-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(17, 24, 39, .45);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
-  z-index: 1200;
-}
+  .ui-pagination__btn {
+    border-color: #d0d5dd;
+    color: #344054;
 
-.pinv-modal {
-  width: 100%;
-  max-width: 440px;
-  max-height: 90vh;
-  background: #fff;
-  border-radius: 14px;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, .2);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+    &:disabled { background: #f8fafc; color: #98a2b3; opacity: 1; }
 
-  &--wide { max-width: 880px; }
-
-  &__head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 18px 20px 14px;
-    border-bottom: 1px solid #f3f4f6;
-
-    h2 { margin: 0; font-size: 16px; font-weight: 700; color: #111827; }
-    p  { margin: 3px 0 0; font-size: 12.5px; color: #6b7280; }
-  }
-
-  &__close {
-    background: none;
-    border: none;
-    color: #9ca3af;
-    cursor: pointer;
-    display: flex;
-    padding: 2px;
-    &:hover { color: #374151; }
-  }
-
-  &__body {
-    padding: 18px 20px;
-    overflow-y: auto;
-
-    // The history table brings its own padding via the table cells.
-    &--table { padding: 0; }
-  }
-
-  &__foot {
-    display: flex;
-    justify-content: flex-end;
-    gap: 10px;
-    padding: 14px 20px;
-    border-top: 1px solid #f3f4f6;
-
-    &--pager {
-      justify-content: space-between;
-      align-items: center;
-      font-size: 12.5px;
-      color: #6b7280;
-      div { display: flex; gap: 8px; }
+    &--active {
+      background: #101828;
+      border-color: #101828;
+      color: #fff;
     }
   }
 }
 
+// ── Modal (chrome now shared Modal component; these style the custom body
+// content — quantity/notes fields, history table — that lives inside it) ──────
 .pinv-current {
   display: flex;
   align-items: center;
@@ -426,4 +337,48 @@
   font-size: 11.5px;
   color: #6b7280;
   strong { color: #059669; }
+}
+
+.pinv-history-table-wrap {
+  border: 1px solid #eaecf0;
+  border-radius: 8px;
+  overflow: hidden;
+  margin: -4px;
+}
+
+.pinv-table--compact {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+
+  th, td {
+    padding: 9px 14px;
+    text-align: left;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  th {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    color: #6b7280;
+    background: #f9fafb;
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  .pinv-num { text-align: right; }
+}
+
+.pinv-history-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 12.5px;
+  color: #6b7280;
+  margin-top: 14px;
+
+  div { display: flex; gap: 8px; }
 }

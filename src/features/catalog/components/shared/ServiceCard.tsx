@@ -41,6 +41,10 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
     // null when no per-service override is set, in which case the row shows a
     // muted dash — the service still earns commission, just under the staff
     // member's own rules rather than a rate of its own.
+    // null/undefined means no reminder configured for this service.
+    const reminderDays = service.reminder_after_days;
+    const reminderLabel = reminderDays ? `${reminderDays}d` : null;
+
     const rate = service.commission_rate;
     const commissionLabel =
       rate === null || rate === undefined
@@ -101,6 +105,14 @@ const ServiceCard: React.FC<ServiceCardProps> = React.memo(
       </div>
 
       <div className="slp__svc-cell slp__svc-cell--staff">{staffLabel ?? "—"}</div>
+
+      <span
+        className={`slp__svc-cell slp__svc-cell--reminder${reminderLabel ? "" : " slp__svc-cell--muted"}`}
+        style={{ justifyContent: "center" }}
+        title={reminderLabel ? `Reminds to redo after ${reminderDays} days` : "No reminder set"}
+      >
+        {reminderLabel ?? "—"}
+      </span>
 
       {/* Commission, price and the kebab are each their own grid cell rather
           than one bundled cell — bundling made the final track size to its

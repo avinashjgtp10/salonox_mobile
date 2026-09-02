@@ -128,6 +128,13 @@ export interface DailySummaryData {
   inStoreCash?: number;
   reconciliationAmount?: number;
   remarks?: string | null;
+  // Split-payment-aware totals from the cash counter's own window (backend
+  // credits each leg of a Cash+UPI+Card split to its own method) — prefer
+  // these over paymentCounts.amounts below, which comes from the Daily
+  // Sheet report and collapses a split payment's whole amount onto
+  // whichever single method was recorded last.
+  upiAmount?: number;
+  cardAmount?: number;
   totalRevenue?: number;
   totalSales?: number;
   totalPaymentsCollected?: number;
@@ -136,6 +143,16 @@ export interface DailySummaryData {
     card?: number;
     upi?: number;
     other?: number;
+  };
+  paymentCounts?: {
+    cash?: number;
+    card?: number;
+    upi?: number;
+    amounts?: {
+      cash?: number;
+      card?: number;
+      upi?: number;
+    };
   };
   appointments?: {
     total?: number;

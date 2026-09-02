@@ -37,27 +37,36 @@ export interface Template {
   createdAt?:       string;
 }
 
-// ── Purchase Automation Templates ──────────────────────────────────────────────
+// ── Trigger (Automated) Templates ──────────────────────────────────────────────
+// Fires automatically off a real event (a sale, a booking, a lifecycle date) —
+// as opposed to Campaign Templates, which a salon manually blasts to a list.
 export type PurchaseEventType =
-  | "service_purchased"
-  | "product_purchased"
-  | "membership_purchased"
+  // Quick Sale + Calendar (shared)
+  | "client_welcome"
+  | "bill_receipt"
+  // Quick Sale
   | "package_purchased"
-  | "appointment_reminder_1h"
-  | "thank_you"
-  | "review_request"
-  | "package_expiring_soon"
-  | "sessions_remaining"
+  | "membership_purchased"
+  // Calendar
   | "appointment_confirmation"
-  | "appointment_reminder_24h"
   | "appointment_rescheduled"
-  // Reminders for an appointment booked out of a package sale. Separate from
-  // the generic appointment_reminder_* events so the copy can name the
-  // package and say the visit is already paid for; package-linked
-  // appointments are excluded from the generic sweeps server-side so a
-  // client never gets both for one visit.
-  | "package_appointment_reminder_2d"
-  | "package_appointment_reminder_1d";
+  | "appointment_cancelled"
+  | "payment_received"
+  // Other
+  | "package_expiring_7d"
+  | "package_expiring_24h"
+  | "membership_expiring_7d"
+  | "membership_expiring_24h"
+  | "package_session_used"
+  | "membership_session_used"
+  | "package_appointment_reminder_24h"
+  | "service_reminder_24h"
+  | "reward_points_earned"
+  | "referral_reward"
+  | "ewallet_used"
+  | "referral_credit_used"
+  | "reward_points_used";
+
 export type TemplateSubmissionStatus = "DRAFT" | "PENDING" | "APPROVED" | "REJECTED";
 
 // Matches backend AutomationTemplate rows scoped to a salon (wa_automation_templates)
@@ -76,6 +85,17 @@ export interface PurchaseTemplate {
   approved_at:      string | null;
   created_at:       string;
   updated_at:       string;
+  has_button?:        boolean;
+  button_text?:        string | null;
+  button_url_base?:    string | null;
+  // ── In-flight resubmission candidate ────────────────────────────────────
+  // Set only while status = "APPROVED" and the salon has edited + resubmitted
+  // new wording — the live fields above stay untouched and keep sending the
+  // whole time. See TriggerTemplatesPanel for how the two are shown together.
+  pending_body_text?:        string | null;
+  pending_status?:            "PENDING" | "REJECTED" | null;
+  pending_meta_template_id?:  string | null;
+  pending_rejection_reason?:  string | null;
 }
 
 export interface PurchaseTemplatesListResponse { data: PurchaseTemplate[]; }
@@ -123,25 +143,6 @@ export interface CreateCampaignPayload {
   batch_size:    number;        // FIX: was batchSize
   scheduled_at?: string | null;  // ISO string — if set, campaign is scheduled
   contacts:    { phone: string; name?: string; variables?: Record<string, any> }[];
-}
-
-// ── Webhook Event ─────────────────────────────────────────────────────────────
-export type WebhookStatus = "SENT" | "DELIVERED" | "READ" | "FAILED" | "BLOCKED";
-
-export interface WebhookEvent {
-  id:           EntityId;
-  phone:        string;
-  status:       WebhookStatus;
-  sent_at:      string | null;
-  delivered_at: string | null;
-  read_at:      string | null;
-  updated_at:   string;
-
-  // Convenience aliases
-  sentAt?:      string | null;
-  deliveredAt?: string | null;
-  readAt?:      string | null;
-  updatedAt?:   string;
 }
 
 // ── WhatsApp Config ───────────────────────────────────────────────────────────
@@ -205,11 +206,46 @@ export interface DashboardStats {
   dailyVolume:     DailyVolume[];
 }
 
+// ── Scheduled Templates ─────────────────────────────────────────────────────
+// Only the 12 events with a genuine schedule concept live here — the rest of
+// PurchaseEventType (bill_receipt, confirmations, purchases, session-used,
+// rewards, ewallet/referral/points-used) fire synchronously and never appear.
+export type ScheduledMessageStatus = "SCHEDULED" | "SENDING" | "SENT" | "FAILED" | "SKIPPED" | "CANCELLED";
+
+export interface ScheduledMessage {
+  id:                 string;
+  salon_id:           string;
+  client_id:          string | null;
+  phone_number:       string;
+  phone_country_code: string | null;
+  event_type:         string;
+  is_preview:         boolean;
+  reference_id:       string | null;
+  reference_type:     string | null;
+  scheduled_at:       string;
+  status:             ScheduledMessageStatus;
+  variables:          Record<string, string>;
+  message_preview:    string | null;
+  failure_reason:     string | null;
+  attempt_count:      number;
+  sent_at:            string | null;
+  cancelled_at:       string | null;
+  automation_log_id:  string | null;
+  created_at:         string;
+  updated_at:         string;
+}
+
+export interface ScheduledMessagesListResponse {
+  data: {
+    data:  ScheduledMessage[];
+    total: number;
+  };
+}
+
 // ── API Responses ─────────────────────────────────────────────────────────────
 export interface TemplateResponse        { data: Template;        }
 export interface TemplatesListResponse   { data: Template[];      }
 export interface CampaignResponse        { data: Campaign;        }
 export interface CampaignsListResponse   { data: Campaign[];      }
-export interface WebhookEventsResponse   { data: WebhookEvent[];  }
 export interface WaConfigResponse        { data: WaConfig;        }
 export interface DashboardStatsResponse  { data: DashboardStats;  }

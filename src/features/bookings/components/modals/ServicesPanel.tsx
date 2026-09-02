@@ -328,8 +328,12 @@ async function fetchProductSearchItems(searchValue: string, isNumericPriceSearch
   const collected: SearchableCatalogItem[] = [];
 
   if (!isNumericPriceSearch) {
+    // No limit sent — the backend already defaults to 20 when omitted
+    // (products.repository.ts), which is plenty for this scroll-capped
+    // (200px) live-search dropdown. limit=100 was overriding that sane
+    // default with 5x more rows than the dropdown ever needs to show.
     const response = await api.get("/api/v1/products", {
-      params: { search: searchValue, limit: 100 },
+      params: { search: searchValue },
     }).catch(() => null);
 
     filterSellableProducts(extractProductSearchResults(response))
@@ -1838,47 +1842,29 @@ export const ServicesPanel: React.FC<Props> = ({
 
   return (
   <div className="services-panel">
-    {serviceRows.map((row, i) => (
-      <ServiceRow
-        key={`svc-${(row as any).tempId || i}`}
-        row={{ ...row, tempId: (row as any).tempId || String(i) } as any}
-        disabled={frozen}
-        errorFields={svcErrors?.[i] ?? {}}
-        onClearError={(_id, field) => onClearSvcError?.(i, field)}
-        onChange={(_id: string, field: string, value: any) => {
-          onUpdateService(i, field, value);
-        }}
-        onRemove={() => onRemoveService(i)}
-        packageSessionsRemaining={packageRemainingByRow?.get((row as any).tempId || String(i)) ?? 0}
-        membershipWalletInfo={membershipWalletInfo?.get((row as any).tempId || String(i))}
-        taxAmount={serviceTaxByRow?.get((row as any).tempId || String(i))}
-        membershipDiscountAmount={serviceMembershipDiscountByRow?.get((row as any).tempId || String(i))}
-        consumableActuals={consumableActuals?.[(row as any).tempId || String(i)]}
-        onConsumableActualChange={(productId, actualQty) => onConsumableActualChange?.((row as any).tempId || String(i), productId, actualQty)}
-        clientName={clientName}
-      />
-    ))}
-
-    {packageRows.length > 0 && (
+    {serviceRows.length > 0 && (
       <>
-        <div className="item-section-header item-section-header--package">
-          <span>Package</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc %</span><span>Total</span><span /><span />
+        <div className="item-section-header item-section-header--service">
+          <span>Service</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc %</span><span>Total</span><span /><span />
         </div>
-        {packageRows.map((row, i) => (
-          <PackageRow
-            key={`pkg-${row.packageId || `new-${i}`}`}
-            row={row}
-            index={i}
-            frozen={frozen}
-            interval={interval}
-            staffList={staffList}
-            availablePackages={availablePackages}
-            serviceCatalog={serviceCatalog}
-            pkgError={pkgErrors?.[i]}
-            onClearError={(field) => onClearPkgError?.(i, field)}
-            onUpdatePackage={onUpdatePackage}
-            onRemovePackage={onRemovePackage}
-            taxAmount={packageTaxByRow?.get((row as any).tempId || String(i))}
+        {serviceRows.map((row, i) => (
+          <ServiceRow
+            key={`svc-${(row as any).tempId || i}`}
+            row={{ ...row, tempId: (row as any).tempId || String(i) } as any}
+            disabled={frozen}
+            errorFields={svcErrors?.[i] ?? {}}
+            onClearError={(_id, field) => onClearSvcError?.(i, field)}
+            onChange={(_id: string, field: string, value: any) => {
+              onUpdateService(i, field, value);
+            }}
+            onRemove={() => onRemoveService(i)}
+            packageSessionsRemaining={packageRemainingByRow?.get((row as any).tempId || String(i)) ?? 0}
+            membershipWalletInfo={membershipWalletInfo?.get((row as any).tempId || String(i))}
+            taxAmount={serviceTaxByRow?.get((row as any).tempId || String(i))}
+            membershipDiscountAmount={serviceMembershipDiscountByRow?.get((row as any).tempId || String(i))}
+            consumableActuals={consumableActuals?.[(row as any).tempId || String(i)]}
+            onConsumableActualChange={(productId, actualQty) => onConsumableActualChange?.((row as any).tempId || String(i), productId, actualQty)}
+            clientName={clientName}
           />
         ))}
       </>
@@ -1916,6 +1902,31 @@ export const ServicesPanel: React.FC<Props> = ({
             membershipWalletInfo={membershipWalletInfo?.get(`product:${(row as any).tempId || String(i)}`)}
             taxAmount={productTaxByRow?.get((row as any).tempId || String(i))}
             membershipDiscountAmount={productMembershipDiscountByRow?.get((row as any).tempId || String(i))}
+          />
+        ))}
+      </>
+    )}
+
+    {packageRows.length > 0 && (
+      <>
+        <div className="item-section-header item-section-header--package">
+          <span>Package</span><span>Staff</span><span>Time</span><span>Price</span><span>Qty</span><span>Disc %</span><span>Total</span><span /><span />
+        </div>
+        {packageRows.map((row, i) => (
+          <PackageRow
+            key={`pkg-${row.packageId || `new-${i}`}`}
+            row={row}
+            index={i}
+            frozen={frozen}
+            interval={interval}
+            staffList={staffList}
+            availablePackages={availablePackages}
+            serviceCatalog={serviceCatalog}
+            pkgError={pkgErrors?.[i]}
+            onClearError={(field) => onClearPkgError?.(i, field)}
+            onUpdatePackage={onUpdatePackage}
+            onRemovePackage={onRemovePackage}
+            taxAmount={packageTaxByRow?.get((row as any).tempId || String(i))}
           />
         ))}
       </>

@@ -1,5 +1,6 @@
 export const PRODUCTS = {
   LIST:           "/api/v1/products",
+  SEARCH:         "/api/v1/products/search",
   BY_ID:          (id: string) => `/api/v1/products/${id}`,
   CREATE:         "/api/v1/products",
   UPDATE:         (id: string) => `/api/v1/products/${id}`,

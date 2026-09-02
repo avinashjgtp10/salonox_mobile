@@ -9,6 +9,7 @@ import type { Membership } from "../../../services/api/endpoints/memberships.end
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
 import { selectAllCategories } from "../../../store/selectors/slices.selectors";
 import { getMembershipMeta, TYPE_LABEL, APPLIES_TO_LABEL } from "../utils/membershipMeta";
+import { maskMobile } from "../../../utils/maskMobile";
 import "../styles/MembershipDetailsDrawer.scss";
 
 interface MembershipDetailsDrawerProps {
@@ -89,8 +90,14 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
   const walletValue  = (Number(membership?.price) || 0) + bonusCredit;
   const type: "value" | "percentage" | "loyalty" = membership?.pricingType ?? "value";
   const appliesToLabel = APPLIES_TO_LABEL[membership?.appliesTo ?? "services"] ?? "Services";
-  const categoriesLabel = membership?.categoryIds?.length
-    ? membership.categoryIds.map((id) => categoryNameById.get(id) ?? id).join(", ")
+  // Merge both sides for display — deduped, since a plan can restrict
+  // services and products to different (or overlapping) category sets.
+  const restrictedCategoryIds = Array.from(new Set([
+    ...(membership?.serviceCategoryIds ?? []),
+    ...(membership?.productCategoryIds ?? []),
+  ]));
+  const categoriesLabel = restrictedCategoryIds.length
+    ? restrictedCategoryIds.map((id) => categoryNameById.get(id) ?? id).join(", ")
     : "All categories";
   if (!isOpen) return null;
 
@@ -133,7 +140,7 @@ const MembershipDetailsDrawer: React.FC<MembershipDetailsDrawerProps> = ({
                 <h4>Assigned Client</h4>
                 <div className="mdd__field-row"><span>Name</span><span>{assignedClient.name}</span></div>
                 {assignedClient.phone && (
-                  <div className="mdd__field-row"><span>Phone</span><span>{assignedClient.phone}</span></div>
+                  <div className="mdd__field-row"><span>Phone</span><span>{maskMobile(assignedClient.phone)}</span></div>
                 )}
               </section>
             )}

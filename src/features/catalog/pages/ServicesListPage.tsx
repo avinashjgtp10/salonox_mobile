@@ -8,6 +8,7 @@ import {
   deleteServiceThunk,
   fetchServiceByIdThunk,
 } from "../../../middleware/services/services.thunk";
+import { deleteCategoryThunk } from "../../../middleware/services/categories.thunk";
 import type { FetchServicesParams } from "../../../middleware/services/services.thunk";
 import { exportServicesPDF, exportServicesExcel, exportServicesCSV } from "../utils/serviceExport";
 import type { Service } from "../types/catalog.types";
@@ -164,7 +165,8 @@ const ServicesListPage: React.FC = () => {
   const [editCategoryName, setEditCategoryName]   = useState("");
   const [editCategoryDesc, setEditCategoryDesc]   = useState("");
   const [deletingCategory, setDeletingCategory]   = useState<{ id: string | number; name: string } | null>(null);
-  const [deleteCategoryInput, setDeleteCategoryInput] = useState("");
+  const [categoryDeleteBlocked, setCategoryDeleteBlocked] = useState<{ name: string; count: number } | null>(null);
+  const [categoryDeleteError, setCategoryDeleteError] = useState<string | null>(null);
   const [currentPage, setCurrentPage]             = useState(1);
   const [pageSize, setPageSize]                   = useState(25);
 
@@ -177,8 +179,8 @@ const ServicesListPage: React.FC = () => {
   // Bulk selection state
   const [selectedServiceIds, setSelectedServiceIds] = useState<Set<string | number>>(new Set());
   const [showBulkDeleteModal, setShowBulkDeleteModal] = useState(false);
-  const [deleteBulkInput, setDeleteBulkInput]         = useState("");
   const [deleteBulkLoading, setDeleteBulkLoading]     = useState(false);
+  const [deleteBulkInput, setDeleteBulkInput]         = useState("");
 
   const optMenuRef = useRef<HTMLDivElement>(null);
   const [showOptMenu, setShowOptMenu] = useState(false);
@@ -297,8 +299,7 @@ const ServicesListPage: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Reset the "type DELETE to confirm" fields whenever a delete target opens/closes
-  useEffect(() => { setDeleteCategoryInput(""); }, [deletingCategory]);
+  // Reset the "type DELETE to confirm" field whenever a delete target opens/closes
   useEffect(() => { setDeleteServiceInput(""); }, [deletingService]);
 
   // ── Download helpers — fetch ALL services then export client-side ────────────
@@ -620,25 +621,46 @@ const ServicesListPage: React.FC = () => {
                   </span>
                 </button>
               </li>
-              {!(categoriesLoading && categories.length === 0) && categories.map((cat: CategoryView) => (
-                <li key={cat.id}>
-                  <button
-                    className="slp__dd-item"
-                    onClick={() => { setSelectedCategory(String(cat.id)); setShowCategoryMenu(false); }}
-                  >
-                    {cat.color && (
-                      <span className="slp__group-dot" style={{ background: cat.color, width: 8, height: 8 }} />
-                    )}
-                    {cat.name}
-                    {/* service_count is the salon-wide total from the API; the
-                        derived serviceCount only counts the loaded page, so it's
-                        the fallback rather than the default. */}
-                    <span className="slp__group-count" style={{ marginLeft: "auto" }}>
-                      {(cat as { service_count?: number }).service_count ?? cat.serviceCount}
-                    </span>
-                  </button>
-                </li>
-              ))}
+              {!(categoriesLoading && categories.length === 0) && categories.map((cat: CategoryView) => {
+                const count = (cat as { service_count?: number }).service_count ?? cat.serviceCount ?? 0;
+                return (
+                  <li key={cat.id} className="slp__dd-item-row">
+                    <button
+                      className="slp__dd-item"
+                      style={{ flex: 1 }}
+                      onClick={() => { setSelectedCategory(String(cat.id)); setShowCategoryMenu(false); }}
+                    >
+                      {cat.color && (
+                        <span className="slp__group-dot" style={{ background: cat.color, width: 8, height: 8 }} />
+                      )}
+                      {cat.name}
+                      {/* service_count is the salon-wide total from the API; the
+                          derived serviceCount only counts the loaded page, so it's
+                          the fallback rather than the default. */}
+                      <span className="slp__group-count" style={{ marginLeft: "auto" }}>
+                        {count}
+                      </span>
+                    </button>
+                    <button
+                      className="slp__kebab"
+                      title="Delete category"
+                      style={{ color: "#ef4444", flexShrink: 0 }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setShowCategoryMenu(false);
+                        if (count > 0) {
+                          setCategoryDeleteBlocked({ name: cat.name, count });
+                        } else {
+                          setCategoryDeleteError(null);
+                          setDeletingCategory({ id: cat.id, name: cat.name });
+                        }
+                      }}
+                    >
+                      <Trash3 size={13} />
+                    </button>
+                  </li>
+                );
+              })}
               <li><hr className="slp__dd-divider" /></li>
               <li>
                 <button
@@ -684,10 +706,7 @@ const ServicesListPage: React.FC = () => {
             </button>
             <button
               className="slp__btn slp__btn--danger"
-              onClick={() => {
-                setDeleteBulkInput("");
-                setShowBulkDeleteModal(true);
-              }}
+              onClick={() => setShowBulkDeleteModal(true)}
             >
               <Trash3 size={14} /> Delete selected ({selectedServiceIds.size})
             </button>
@@ -755,6 +774,7 @@ const ServicesListPage: React.FC = () => {
                 <span>Category</span>
                 <span>Time</span>
                 <span>Staff</span>
+                <span className="slp__group-cols__center">Reminder</span>
                 <span className="slp__group-cols__center">Commission</span>
                 <span className="slp__group-cols__right">Price</span>
                 <span />
@@ -896,7 +916,15 @@ const ServicesListPage: React.FC = () => {
                         className="slp__kebab"
                         title="Delete category"
                         style={{ color: "#ef4444" }}
-                        onClick={() => setDeletingCategory({ id: cat.id, name: cat.name })}
+                        onClick={() => {
+                          const count = (cat as { service_count?: number }).service_count ?? cat.serviceCount ?? 0;
+                          if (count > 0) {
+                            setCategoryDeleteBlocked({ name: cat.name, count });
+                          } else {
+                            setCategoryDeleteError(null);
+                            setDeletingCategory({ id: cat.id, name: cat.name });
+                          }
+                        }}
                       >
                         <Trash3 size={14} />
                       </button>
@@ -998,22 +1026,14 @@ const ServicesListPage: React.FC = () => {
               </button>
             </div>
             <div className="slp__modal-body">
-              <p className="text-muted small mb-3">
-                Are you sure you want to delete{" "}
-                <strong>{deletingCategory.name}</strong>? Services in this
-                category will become uncategorised. This operation can't be
-                undone.
+              <p className="text-muted small mb-0">
+                Are you sure you want to delete this category?
               </p>
-              <div className="slp__field">
-                <label>Type DELETE to confirm</label>
-                <input
-                  className="slp__input"
-                  placeholder="DELETE"
-                  value={deleteCategoryInput}
-                  onChange={(e) => setDeleteCategoryInput(e.target.value)}
-                  autoFocus
-                />
-              </div>
+              {categoryDeleteError && (
+                <p className="small mb-0 mt-2" style={{ color: "#ef4444" }}>
+                  {categoryDeleteError}
+                </p>
+              )}
             </div>
             <div className="slp__modal-footer">
               <button
@@ -1024,14 +1044,58 @@ const ServicesListPage: React.FC = () => {
               </button>
               <button
                 className="slp__btn slp__btn--danger"
-                disabled={deleteCategoryInput !== "DELETE" || catLoading}
+                disabled={catLoading}
                 onClick={async () => {
-                  await deleteCategory(String(deletingCategory.id));
+                  setCategoryDeleteError(null);
+                  const result = await deleteCategory(String(deletingCategory.id));
+                  if (deleteCategoryThunk.rejected.match(result)) {
+                    setCategoryDeleteError(
+                      (result.payload as string) || "This category could not be deleted.",
+                    );
+                    return;
+                  }
                   setDeletingCategory(null);
                   fetchServices();
                 }}
               >
-                {catLoading ? "Deleting…" : "Delete category"}
+                {catLoading ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── CATEGORY DELETE BLOCKED (has services) ──────────────────────────── */}
+      {categoryDeleteBlocked && (
+        <div className="slp__overlay" onClick={() => setCategoryDeleteBlocked(null)}>
+          <div
+            className="slp__modal"
+            style={{ maxWidth: 420 }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="slp__modal-header">
+              <h4>Can't delete category</h4>
+              <button
+                className="slp__modal-close"
+                onClick={() => setCategoryDeleteBlocked(null)}
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="slp__modal-body">
+              <p className="text-muted small mb-0">
+                <strong>{categoryDeleteBlocked.name}</strong> is used by{" "}
+                {categoryDeleteBlocked.count} service
+                {categoryDeleteBlocked.count > 1 ? "s" : ""}. Reassign or remove
+                those services before deleting this category.
+              </p>
+            </div>
+            <div className="slp__modal-footer">
+              <button
+                className="slp__btn slp__btn--dark"
+                onClick={() => setCategoryDeleteBlocked(null)}
+              >
+                OK
               </button>
             </div>
           </div>
@@ -1106,29 +1170,34 @@ const ServicesListPage: React.FC = () => {
 
       {/* ── BULK DELETE MODAL ────────────────────────────────────────────── */}
       {showBulkDeleteModal && (
-        <div className="slp__overlay" onClick={() => setShowBulkDeleteModal(false)}>
-          <div className="slp__modal" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="slp__overlay"
+          onClick={() => { setShowBulkDeleteModal(false); setDeleteBulkInput(""); }}
+        >
+          <div
+            className="slp__modal"
+            style={{ maxWidth: 420 }}
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="slp__modal-header">
               <h4>Delete selected services</h4>
               <button
                 className="slp__modal-close"
-                onClick={() => setShowBulkDeleteModal(false)}
+                onClick={() => { setShowBulkDeleteModal(false); setDeleteBulkInput(""); }}
               >
                 <X size={20} />
               </button>
             </div>
             <div className="slp__modal-body">
-              <p style={{ margin: "0 0 12px", color: "#374151" }}>
+              <p className="text-muted small mb-3">
                 Are you sure you want to delete <strong>{selectedServiceIds.size}</strong> selected service(s)?
                 This action cannot be undone.
               </p>
               <div className="slp__field">
-                <label>
-                  Type <strong>DELETE</strong> to confirm:
-                </label>
+                <label>Type DELETE to confirm</label>
                 <input
                   className="slp__input"
-                  placeholder="Type DELETE"
+                  placeholder="DELETE"
                   value={deleteBulkInput}
                   onChange={(e) => setDeleteBulkInput(e.target.value)}
                   autoFocus
@@ -1138,7 +1207,7 @@ const ServicesListPage: React.FC = () => {
             <div className="slp__modal-footer">
               <button
                 className="slp__btn slp__btn--ghost"
-                onClick={() => setShowBulkDeleteModal(false)}
+                onClick={() => { setShowBulkDeleteModal(false); setDeleteBulkInput(""); }}
               >
                 Cancel
               </button>
@@ -1153,6 +1222,7 @@ const ServicesListPage: React.FC = () => {
                   );
                   setDeleteBulkLoading(false);
                   setShowBulkDeleteModal(false);
+                  setDeleteBulkInput("");
                   setSelectedServiceIds(new Set());
                   fetchServices({
                     page: currentPage,

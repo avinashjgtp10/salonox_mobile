@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { STAFF_SALES_REPORT } from "../../../services/api/endpoints";
@@ -16,6 +17,7 @@ import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { formatPaymentMode } from "../../../utils/paymentMode";
 import SaleDetailModal from "./SaleDetailModal";
+import { maskMobile } from "../../../utils/maskMobile";
 import "./StaffSalesReport.scss";
 
 const REPORT_NAME = "Staff Sales";
@@ -91,6 +93,11 @@ function mapRow(row: any): StaffSaleRow {
 
 export default function StaffSalesReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const { currencySymbol, formatAmount } = useCurrency();
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
   const { startDate: dateFrom, endDate: dateTo } = dateRange;
@@ -202,7 +209,7 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
   };
 
   const HEADERS = ["Staff Name", "Contact", "Item Type", "Description", `Total Sales (${currencySymbol})`, `Paid (${currencySymbol})`, `Due Amount (${currencySymbol})`, `Commission (${currencySymbol})`, "Payment Mode", "Status", "Date"];
-  const exportRows = () => rows.map(r => [r.staffName, r.contact, r.itemType, r.description, r.totalSales, r.paid, r.due, r.commission, r.paymentMode, r.status, r.date]);
+  const exportRows = () => rows.map(r => [r.staffName, canViewFullContact ? r.contact : maskMobile(r.contact), r.itemType, r.description, r.totalSales, r.paid, r.due, r.commission, r.paymentMode, r.status, r.date]);
 
   return (
     <div className="rp-detail-view">
@@ -300,7 +307,7 @@ export default function StaffSalesReport({ onBack, category, categoryKey }: { on
               >
                 <td className="rp-ss-idx">#{(currentPage - 1) * pageSize + i + 1}</td>
                 <td className="fw-semibold">{r.staffName}</td>
-                <td>{r.contact}</td>
+                <td>{maskMobile(r.contact)}</td>
                 <td>{r.itemType}</td>
                 <td className="rp-ss-description" title={r.description}>{r.description}</td>
                 <td>{formatAmount(r.totalSales)}</td>

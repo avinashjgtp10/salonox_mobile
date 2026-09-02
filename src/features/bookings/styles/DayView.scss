@@ -46,22 +46,26 @@
   // ever appears once staff columns don't fit. Scoped to just the horizontal
   // bar (WebKit's :horizontal/:vertical) so vertical time-slot scrolling
   // stays hidden like everywhere else in the app.
+  //
+  // !important is required here: src/index.css has an unscoped
+  // `::-webkit-scrollbar { display: none !important }` that otherwise wins
+  // over these rules regardless of selector specificity or source order.
   &::-webkit-scrollbar {
-    display: block;
-    height: 8px;
+    display: block !important;
+    height: 8px !important;
   }
   &::-webkit-scrollbar:vertical {
-    display: none;
+    display: none !important;
   }
   &::-webkit-scrollbar-track {
-    background: transparent;
+    background: transparent !important;
   }
   &::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 4px;
+    background: #cbd5e1 !important;
+    border-radius: 4px !important;
   }
   &::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8;
+    background: #94a3b8 !important;
   }
 }
 

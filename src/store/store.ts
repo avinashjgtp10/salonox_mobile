@@ -33,6 +33,7 @@ import superAdminReducer from "./superAdminSlice";
 import branchOwnerReducer from "./branchOwnerSlice";
 import supportReducer from "./supportSlice";
 import cashCounterReducer from "./cashCounterSlice";
+import spotlightReducer from "./spotlightSlice";
 
 const authPersistConfig = {
   key: "auth",
@@ -89,6 +90,7 @@ export const store = configureStore({
     branchOwner: branchOwnerReducer,
     support: supportReducer,
     cashCounter: cashCounterReducer,
+    spotlight: spotlightReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

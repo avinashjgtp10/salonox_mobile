@@ -78,6 +78,7 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
           name,
           initials: (data.first_name?.[0] || "?").toUpperCase(),
           avatarColor: data.calendar_color?.startsWith?.("#") ? data.calendar_color : "#111827",
+          avatarUrl: data.avatar_url || null,
           isActive: data.is_active !== false,
           email: data.email || null,
           mobile: (data.phone_number || data.phone)
@@ -90,7 +91,7 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
           joinedDate: formatJoined(data.joined_date),
           employmentType: data.employment_type || null,
           designation: data.designation || data.job_title || null,
-          staffMemberId: data.employee_code || data.id,
+          staffMemberId: data.staff_code || data.employee_code || data.id,
           workingHoursPerDay: data.working_hours_per_day != null ? `${data.working_hours_per_day} hrs/day` : null,
           weeklyHolidays: data.holidays != null ? String(data.holidays) : null,
           calendarColor: data.calendar_color || null,
@@ -149,7 +150,11 @@ const TeamMemberDrawer: React.FC<TeamMemberDrawerProps> = ({
             {/* Header */}
             <div className="tmd-header">
               <div className="tmd-avatar" style={{ "--avatar-bg": member.avatarColor } as React.CSSProperties}>
-                {member.initials}
+                {member.avatarUrl ? (
+                  <img src={member.avatarUrl} alt={member.name} className="tmd-avatar-img" />
+                ) : (
+                  member.initials
+                )}
               </div>
               <div className="tmd-identity">
                 <h3 className="tmd-name">{member.name}</h3>

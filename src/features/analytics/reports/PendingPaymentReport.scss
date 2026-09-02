@@ -1,0 +1,7 @@
+@use "../styles/reportDetailBase" as *;
+
+// "Oldest Pending Payment" holds a date, not a number — the numeric card
+// sizing would make it wrap awkwardly.
+.rp-pc-date-val {
+  font-size: 18px;
+}

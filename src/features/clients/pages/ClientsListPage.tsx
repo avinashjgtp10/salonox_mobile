@@ -14,8 +14,6 @@ import {
   ArrowRight,
   ArrowLeftRight,
   FileEarmarkExcel,
-  FiletypeCsv,
-  FiletypePdf,
   DashCircleFill,
   PersonPlus,
   ThreeDotsVertical,
@@ -32,6 +30,7 @@ import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import { useCurrency } from "../../../hooks/useCurrency";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { maskMobile } from "../../../utils/maskMobile";
 
 // UI Components
 import {
@@ -582,40 +581,6 @@ export default function ClientsListPage() {
                 >
                   Excel
                 </DownloadButton>
-                <DownloadButton
-                  filename="clients.csv"
-                  fetcher={async () => {
-                    const res = await api.get(CLIENT.EXPORT("csv"), {
-                      params: getExportParams(),
-                      responseType: "blob",
-                    });
-                    setOptionsOpen(false);
-                    return res.data;
-                  }}
-                  variant="ghost"
-                  size="sm"
-                  iconLeft={<FiletypeCsv size={14} className="me-2" />}
-                  className="option-item w-100 text-start p-2 small"
-                >
-                  CSV
-                </DownloadButton>
-                <DownloadButton
-                  filename="clients.pdf"
-                  fetcher={async () => {
-                    const res = await api.get(CLIENT.EXPORT("pdf"), {
-                      params: getExportParams(),
-                      responseType: "blob",
-                    });
-                    setOptionsOpen(false);
-                    return res.data;
-                  }}
-                  variant="ghost"
-                  size="sm"
-                  iconLeft={<FiletypePdf size={14} className="me-2" />}
-                  className="option-item w-100 text-start p-2 small"
-                >
-                  PDF
-                </DownloadButton>
               </div>
             )}
           </div>
@@ -886,8 +851,8 @@ export default function ClientsListPage() {
                       )}
                     </div>
 
-                    <div className="col-mobile" title={client.phone_number || "-"}>
-                      {client.phone_number || "-"}
+                    <div className="col-mobile" title={maskMobile(client.phone_number) || "-"}>
+                      {maskMobile(client.phone_number) || "-"}
                     </div>
                     <div className="col-reviews">
                       {client.reviews_count > 0
@@ -1164,7 +1129,7 @@ export default function ClientsListPage() {
                             {client?.first_name} {client?.last_name}
                           </div>
                           <div style={{ fontSize: "12px", color: "#6b7280" }}>
-                            {client?.email || client?.phone_number}
+                            {client?.email || maskMobile(client?.phone_number)}
                           </div>
                         </div>
                       </div>

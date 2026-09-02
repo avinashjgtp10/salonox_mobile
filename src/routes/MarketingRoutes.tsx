@@ -8,14 +8,11 @@ import MarketingOnboardingPage from "../features/marketing/pages/MarketingOnboar
 const MarketingDashboardPage = lazy(() => import("../features/marketing/pages/MarketingDashboardPage"));
 const AnalyticsPage          = lazy(() => import("../features/marketing/pages/AnalyticsPage"));
 const TemplatesListPage      = lazy(() => import("../features/marketing/pages/TemplatesListPage"));
+const ScheduledTemplatesPage = lazy(() => import("../features/marketing/pages/ScheduledTemplatesPage"));
 const CreateTemplatePage     = lazy(() => import("../features/marketing/pages/CreateTemplatePage"));
-const CreateCampaignPage     = lazy(() => import("../features/marketing/pages/CreateCampaignPage"));
-const CampaignHistoryPage    = lazy(() => import("../features/marketing/pages/CampaignHistoryPage"));
+const CampaignsPage          = lazy(() => import("../features/marketing/pages/CampaignsPage"));
 const InboxPage              = lazy(() => import("../features/marketing/pages/InboxPage"));
-const QuickWhatsAppPage      = lazy(() => import("../features/marketing/pages/QuickWhatsAppPage"));
-const WebhooksPage           = lazy(() => import("../features/marketing/pages/WebhooksPage"));
 const WaConfigPage           = lazy(() => import("../features/marketing/pages/WaConfigPage"));
-const WaAutomationPage       = lazy(() => import("../features/marketing/pages/WaAutomationPage"));
 
 export const MarketingRoutes = () => {
   const dispatch = useAppDispatch();
@@ -59,12 +56,10 @@ export const MarketingRoutes = () => {
         <Route path="analytics"         element={<AnalyticsPage />} />
         <Route path="templates"         element={<TemplatesListPage />} />
         <Route path="templates/create"  element={<CreateTemplatePage />} />
-        <Route path="campaigns/create"  element={<CreateCampaignPage />} />
-        <Route path="campaigns/history" element={<CampaignHistoryPage />} />
+        <Route path="scheduled-templates" element={<ScheduledTemplatesPage />} />
+        <Route path="campaigns/create"  element={<CampaignsPage />} />
+        <Route path="campaigns/history" element={<CampaignsPage />} />
         <Route path="inbox"             element={<InboxPage />} />
-        <Route path="quick-whatsapp"    element={<QuickWhatsAppPage />} />
-        <Route path="webhooks"          element={<WebhooksPage />} />
-        <Route path="wa-automation"     element={<WaAutomationPage />} />
         <Route path="config"            element={<WaConfigPage />} />
         <Route path="*"                 element={<Navigate to="/dashboard/marketing" replace />} />
       </Routes>

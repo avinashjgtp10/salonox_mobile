@@ -27,9 +27,11 @@ import {
   exportCashManagementExcel,
   exportCashManagementPDF,
 } from "../cashManagement.export";
-import { sendDailySummaryEmail } from "../cashManagement.api";
+import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../cashManagement.api";
 import { selectUserProfile } from "../../../store/selectors/slices.selectors";
 import { useAppSelector } from "../../../hooks/useAppRedux";
+import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { showGlobalToast } from "../../../utils/globalToast";
 import type { CashExpenseRecord } from "../cashManagement.types";
 import { useCashManagement } from "../useCashManagement";
 import CashManagementExpensesTab from "./CashManagementExpensesTab";
@@ -85,10 +87,22 @@ function isInDateRange(date?: string | null, sharedDateFrom?: string, sharedDate
   return true;
 }
 
+const getErrorMessage = (err: unknown, fallback: string) => {
+  if (!err || typeof err !== "object") return fallback;
+
+  const message = (err as { message?: unknown }).message;
+  return typeof message === "string" && message.trim() ? message : fallback;
+};
+
 export default function CashManagementPage() {
   const { formatAmount } = useCurrency();
   const userProfile = useAppSelector(selectUserProfile);
   const userEmail = userProfile?.email;
+  // Open/Close Counter use the shared success/error overlay (same as the
+  // rest of the app, e.g. Tax Settings) instead of the inline notification
+  // banner used by the other actions on this page.
+  const { showSuccess: showCounterSuccess, showError: showCounterError, overlay: counterStatusOverlay } =
+    useStatusOverlay();
   const {
     dashboard,
     dashboardLoaded,
@@ -112,6 +126,23 @@ export default function CashManagementPage() {
   const [activeTab, setActiveTab] = useState<ActiveTab>("transactions");
   const [showOpenModal, setShowOpenModal] = useState(false);
   const [showCloseModal, setShowCloseModal] = useState(false);
+  const [paymentMethodCounts, setPaymentMethodCounts] = useState({
+    upi: 0,
+    card: 0,
+    cash: 0,
+    amounts: { upi: 0, card: 0, cash: 0 },
+  });
+
+  useEffect(() => {
+    if (!showCloseModal) return;
+    let cancelled = false;
+    fetchTodaysPaymentMethodCounts().then((counts) => {
+      if (!cancelled) setPaymentMethodCounts(counts);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [showCloseModal]);
   const [showExpenseModal, setShowExpenseModal] = useState(false);
   const [editingExpense, setEditingExpense] = useState<CashExpenseRecord | null>(null);
   const [deletingExpense, setDeletingExpense] = useState<CashExpenseRecord | null>(null);
@@ -199,7 +230,12 @@ export default function CashManagementPage() {
   }, [hasOpenCounter, dashboard.openedAt]);
 
   const transactionTabCount = useMemo(() => {
-    return transactions.filter((item) => isInDateRange(item.updatedAt ?? item.date, dateRange.startDate, dateRange.endDate)).length;
+    return transactions.reduce((count, item) => {
+      const openedAt = item.openedAt ?? item.date;
+      const openCount = isInDateRange(openedAt, dateRange.startDate, dateRange.endDate) ? 1 : 0;
+      const closeCount = isInDateRange(item.closedAt, dateRange.startDate, dateRange.endDate) ? 1 : 0;
+      return count + openCount + closeCount;
+    }, 0);
   }, [transactions, dateRange.startDate, dateRange.endDate]);
 
   const expenseTabCount = useMemo(() => {
@@ -395,8 +431,8 @@ export default function CashManagementPage() {
         exportCashManagementCSV(options);
       }
       setIsExportMenuOpen(false);
-    } catch (err: any) {
-      showNotification("error", err?.message ?? "Failed to export report.");
+    } catch (err: unknown) {
+      showNotification("error", getErrorMessage(err, "Failed to export report."));
     } finally {
       setExportingFormat(null);
     }
@@ -427,6 +463,7 @@ export default function CashManagementPage() {
 
   return (
     <div className="cash-mgmt">
+      {counterStatusOverlay}
       <div className="cash-mgmt__content">
         <section className="cash-mgmt__header">
           <div className="cash-mgmt__header-copy">
@@ -650,16 +687,24 @@ export default function CashManagementPage() {
       </div>
 
       <OpenCounterModal
-        show={showOpenModal}
+        // Chained open-after-close (see the close-counter onSubmit below)
+        // calls setShowOpenModal(true) in the same tick as the "Counter
+        // closed" success confirmation — without this guard the Open Counter
+        // form would render directly on top of that message. It simply
+        // appears once the overlay clears instead.
+        show={showOpenModal && !counterStatusOverlay}
         loading={loading.openCounter}
         mandatory={needsOpenCounter}
         onClose={() => setShowOpenModal(false)}
         onSubmit={async (payload) => {
           await openCounter(payload);
           setShowOpenModal(false);
-          showNotification("success", "Counter opened successfully.");
+          showGlobalToast("success", "Counter opened", "Counter opened successfully.");
         }}
-        onNotify={showNotification}
+        onNotify={(tone, message) => {
+          if (tone === "error") showCounterError(message);
+          else showCounterSuccess(message);
+        }}
       />
 
       <ExpenseModal
@@ -741,15 +786,28 @@ export default function CashManagementPage() {
         onSubmit={async (payload) => {
           const closed = await closeCounter(payload);
           try {
-            await sendDailySummaryEmail(dashboard.cashManagementId, closed || dashboard, userEmail);
+            await sendDailySummaryEmail(
+              dashboard.cashManagementId,
+              { ...(closed || dashboard), paymentCounts: paymentMethodCounts },
+              userEmail,
+            );
           } catch (emailErr) {
             console.error("[CashManagementPage] Daily summary email error:", emailErr);
           }
           setShowCloseModal(false);
-          setShowOpenModal(true);
-          showNotification("success", "Counter closed. Daily summary emailed to Salon Owner.");
+          // Only chain straight into Open Counter when this close was clearing a
+          // stale counter left open from a previous day — that leaves today with
+          // no counter open yet, so immediately prompting to start today's is
+          // correct. A normal same-day close must NOT do this: the backend only
+          // allows one open per day, so re-showing Open Counter here would just
+          // dead-end the user on a form that fails every time they submit it.
+          if (isStaleOpenCounter) setShowOpenModal(true);
+          showGlobalToast("success", "Counter closed", "Counter closed. Daily summary emailed to Salon Owner.");
         }}
-        onNotify={showNotification}
+        onNotify={(tone, message) => {
+          if (tone === "error") showCounterError(message);
+          else showCounterSuccess(message);
+        }}
       />
     </div>
   );

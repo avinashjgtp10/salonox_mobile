@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search, StarFill, Star } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT_RATING_REPORT } from "../../../services/api/endpoints";
@@ -13,6 +14,10 @@ import type { JiraFilterField, DateRangeFilterValue } from "../../../components/
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { maskMobile } from "../../../utils/maskMobile";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./ClientRevenueReport.scss";
 
 const REPORT_NAME = "Client Rating";
@@ -25,6 +30,13 @@ const RATING_OPTIONS = [
   { id: "1", label: "1 Star" },
 ];
 
+interface ServiceRatingEntry {
+  service_name: string;
+  staff_name: string | null;
+  rating: number;
+  comment: string | null;
+}
+
 interface RatingRow {
   clientId: string;
   clientName: string;
@@ -32,9 +44,8 @@ interface RatingRow {
   staffId: string;
   staffName: string;
   rating: number;
-  staffRating: number | null;
-  serviceRating: number | null;
-  ambienceRating: number | null;
+  improvementTags: string[];
+  serviceRatings: ServiceRatingEntry[];
   reviewText: string;
   reviewDate: string | null;
   source: string;
@@ -49,9 +60,8 @@ function mapRow(row: any): RatingRow {
     staffId: row.staff_id ? String(row.staff_id) : "",
     staffName: row.staff_name || "—",
     rating: Number(row.rating) || 0,
-    staffRating: row.staff_rating != null ? Number(row.staff_rating) : null,
-    serviceRating: row.service_rating != null ? Number(row.service_rating) : null,
-    ambienceRating: row.ambience_rating != null ? Number(row.ambience_rating) : null,
+    improvementTags: Array.isArray(row.improvement_tags) ? row.improvement_tags : [],
+    serviceRatings: Array.isArray(row.service_ratings) ? row.service_ratings : [],
     reviewText: row.review_text || "—",
     reviewDate: row.review_date || null,
     source: row.source || "—",
@@ -83,6 +93,11 @@ function StarRating({ value }: { value: number }) {
 
 export default function ClientRatingReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
   const dispatch = useDispatch<AppDispatch>();
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const { currencySymbol, formatAmount } = useCurrency();
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
   const { startDate: dateFrom, endDate: dateTo } = dateRange;
@@ -98,6 +113,8 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
   const [currentPage,  setCurrentPage]  = useState(1);
   const [pageSize,     setPageSize]     = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
@@ -177,11 +194,14 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
     setMinRating(picked.length ? picked[picked.length - 1] : null);
   };
 
-  const HEADERS = ["Client Name", "Contact", `Total Spend (${currencySymbol})`, "Staff", "Rating", "Staff Rating", "Service Rating", "Ambience Rating", "Review", "Date"];
+  const servicesLabel = (r: RatingRow) =>
+    r.serviceRatings.map(sr => `${sr.service_name} (${sr.staff_name || "—"}) ${sr.rating}★`).join(", ") || "—";
+  const tagsLabel = (r: RatingRow) => r.improvementTags.join(", ") || "—";
+
+  const HEADERS = ["Client Name", "Contact", `Total Spend (${currencySymbol})`, "Staff", "Overall Rating", "Services Rated", "What Can We Improve", "Additional Comments", "Date"];
   const exportRows = () => rows.map(r => [
-    r.clientName, r.contact, formatAmount(r.totalSpend), r.staffName, r.rating,
-    r.staffRating ?? "—", r.serviceRating ?? "—", r.ambienceRating ?? "—",
-    r.reviewText, formatDate(r.reviewDate),
+    r.clientName, canViewFullContact ? r.contact : maskMobile(r.contact), formatAmount(r.totalSpend), r.staffName, r.rating,
+    servicesLabel(r), tagsLabel(r), r.reviewText, formatDate(r.reviewDate),
   ]);
 
   return (
@@ -231,6 +251,8 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
         </div>
       )}
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -242,9 +264,17 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
         <table className="rp-detail-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every((_r, i) => selection.selectedIds.has(String(i)))}
+                  onChange={() => selection.toggleAll(rows.map((_r, i) => String(i)))}
+                />
+              </th>
               <th>Client Name</th><th>Contact</th><th>Total Spend ({currencySymbol})</th><th>Staff</th>
-              <th>Rating</th><th>Staff</th><th>Service</th><th>Ambience</th>
-              <th>Review</th><th>Date</th>
+              <th>Overall Rating</th><th>Services Rated</th><th>What Can We Improve</th>
+              <th>Additional Comments</th><th>Date</th>
             </tr>
           </thead>
           <tbody>
@@ -256,18 +286,41 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
               <tr
                 key={i}
                 className={r.clientId ? "rp-appt-row" : undefined}
-                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
-                <td className="fw-semibold">{r.clientName}</td>
-                <td>{r.contact}</td>
-                <td className="fw-semibold">{formatAmount(r.totalSpend)}</td>
-                <td>{r.staffName}</td>
-                <td><StarRating value={r.rating} /></td>
-                <td>{r.staffRating != null ? <StarRating value={r.staffRating} /> : "—"}</td>
-                <td>{r.serviceRating != null ? <StarRating value={r.serviceRating} /> : "—"}</td>
-                <td>{r.ambienceRating != null ? <StarRating value={r.ambienceRating} /> : "—"}</td>
-                <td>{r.reviewText}</td>
-                <td>{formatDate(r.reviewDate)}</td>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(String(i))}
+                    onChange={() => selection.toggleOne(String(i))}
+                  />
+                </td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.clientName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{maskMobile(r.contact)}</td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.totalSpend)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.staffName}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}><StarRating value={r.rating} /></td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>
+                  {r.serviceRatings.length === 0 ? "—" : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                      {r.serviceRatings.map((sr, si) => (
+                        <div key={si} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span>{sr.service_name}{sr.staff_name ? ` (${sr.staff_name})` : ""}</span>
+                          <StarRating value={sr.rating} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </td>
+                <td
+                  onClick={() => r.clientId && setSelectedClientId(r.clientId)}
+                  title={tagsLabel(r)}
+                  style={{ maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
+                >
+                  {tagsLabel(r)}
+                </td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.reviewText}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatDate(r.reviewDate)}</td>
               </tr>
             ))}
           </tbody>
@@ -278,8 +331,18 @@ export default function ClientRatingReport({ onBack, category, categoryKey }: { 
         onPageChange={setCurrentPage} onPageSizeChange={size => { setPageSize(size); setCurrentPage(1); }} />
 
       {selectedClientId && (
-        <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />
+        <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} initialTab="feedback" />
       )}
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter((r, i) => selection.selectedIds.has(String(i)) && r.contact && r.contact !== "—")
+          .map(r => ({ phone: r.contact, name: r.clientName }))}
+        defaultCampaignName="Client Rating"
+        onSent={selection.clearSelection}
+      />
     </div>
   );
 }

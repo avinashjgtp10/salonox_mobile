@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { BIRTHDAY_CAMPAIGN_REPORT } from "../../../services/api/endpoints";
@@ -9,6 +10,10 @@ import { Pagination, JiraFilterMenu, DateRangeFilter } from "../../../components
 import type { JiraFilterField, DateRangeFilterValue } from "../../../components/ui";
 import ReportExportButton from "../../../components/ui/ReportExportButton";
 import { formatDate, formatDateTime, fmtPct } from "./campaignReportShared";
+import { maskMobile } from "../../../utils/maskMobile";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./CampaignReports.scss";
 
 const REPORT_NAME = "Birthday Campaign Performance Report";
@@ -55,6 +60,11 @@ function mapRow(row: any): BirthdayCampaignRow {
 }
 
 export default function BirthdayCampaignReport({ onBack, category, categoryKey }: { onBack: () => void; category: string; categoryKey: string }) {
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const [search, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "all_time", startDate: "", endDate: "" });
@@ -72,6 +82,8 @@ export default function BirthdayCampaignReport({ onBack, category, categoryKey }
   const [pageSize, setPageSize] = useState(10);
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   const dateRangeError = dateFrom && dateTo && dateTo < dateFrom
@@ -144,7 +156,7 @@ export default function BirthdayCampaignReport({ onBack, category, categoryKey }
   const HEADERS = ["Client", "Phone", "Template", "Status", "Sent", "Delivered", "Read"];
   const exportRows = () => rows.map((r) => [
     r.clientName,
-    r.phoneNumber ?? "—",
+    canViewFullContact ? (r.phoneNumber ?? "—") : maskMobile(r.phoneNumber ?? "—"),
     r.templateName ?? "—",
     STATUS_LABELS[r.status] ?? r.status,
     r.sentAt ? formatDateTime(r.sentAt) : "—",
@@ -214,6 +226,8 @@ export default function BirthdayCampaignReport({ onBack, category, categoryKey }
         </div>
       )}
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -231,6 +245,14 @@ export default function BirthdayCampaignReport({ onBack, category, categoryKey }
         <table className="rp-detail-table rp-camp-table">
           <thead>
             <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every(r => selection.selectedIds.has(r.id))}
+                  onChange={() => selection.toggleAll(rows.map(r => r.id))}
+                />
+              </th>
               <th className="rp-camp-sortable" onClick={() => toggleSort("client_name")}>Client{sortIndicator("client_name")}</th>
               <th>Phone</th>
               <th>Template</th>
@@ -242,13 +264,21 @@ export default function BirthdayCampaignReport({ onBack, category, categoryKey }
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={7} />
+              <SkeletonTableRows columns={8} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="rp-detail-empty-cell">No data available</td></tr>
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No data available</td></tr>
             ) : rows.map((r) => (
               <tr key={r.id}>
+                <td className="rp-row-checkbox-col">
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(r.id)}
+                    onChange={() => selection.toggleOne(r.id)}
+                  />
+                </td>
                 <td className="fw-semibold">{r.clientName}</td>
-                <td>{r.phoneNumber ?? "—"}</td>
+                <td>{maskMobile(r.phoneNumber ?? "—")}</td>
                 <td>{r.templateName ?? "—"}</td>
                 <td>
                   <span className={`rp-wac-status rp-wac-status--${statusClass(r.status)}`}>{STATUS_LABELS[r.status] ?? r.status}</span>
@@ -267,6 +297,16 @@ export default function BirthdayCampaignReport({ onBack, category, categoryKey }
 
       <Pagination currentPage={currentPage} pageSize={pageSize} totalItems={total}
         onPageChange={setCurrentPage} onPageSizeChange={(size) => { setPageSize(size); setCurrentPage(1); }} />
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter(r => selection.selectedIds.has(r.id) && r.phoneNumber)
+          .map(r => ({ phone: r.phoneNumber as string, name: r.clientName }))}
+        defaultCampaignName="Birthday Campaign"
+        onSent={selection.clearSelection}
+      />
     </div>
   );
 }

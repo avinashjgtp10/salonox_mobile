@@ -11,13 +11,13 @@ import { useCoupon }         from "../../hooks/useCoupon";
 import { useReferral }       from "../../hooks/useReferral";
 import { useServices }       from "../../hooks/useServices";
 import { useServices as useCatalogServices } from "../../../catalog/hooks/useServices";
-import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery, useListClientPackagesQuery, useCompleteClientPackageSessionMutation } from "../../../../services/api/endpoints/packages.endpoints";
-import { useClientMembershipWallet } from "../../hooks/useClientMembershipWallet";
-import { useLoyaltyEligibility } from "../../hooks/useLoyaltyEligibility";
+import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery, useCompleteClientPackageSessionMutation } from "../../../../services/api/endpoints/packages.endpoints";
+import { useClientDetails } from "../../hooks/useClientDetails";
 import { fetchProductsThunk } from "../../../../middleware/catalog/products.thunk";
 import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
 import { setPackagesList, patchPaymentStatus } from "../../../../store/schedulerSlice";
 import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
+import { checkoutBookingThunk } from "../../../../middleware/booking/booking.thunk";
 import { fetchReceiptPdfThunk } from "../../../../middleware/booking/booking.thunk";
 import { downloadBlob } from "../../../../utils/downloadBlob";
 import { fetchSettingsThunk } from "../../../../middleware/setting/setting.thunk";
@@ -78,6 +78,9 @@ import "../../styles/AppointmentModal.scss";
 // list the retail picker reads, and filtering it here would empty that picker.
 const PRODUCT_FETCH_PAGE_SIZE = 200;
 
+const STAFF_ALERT_MAX_LENGTH = 100;
+const NOTES_MAX_LENGTH = 200;
+
 import type {
   Booking, Client, ClientStats,
   ServiceItem, PackageItem, ProductItem, MembershipItem,
@@ -135,6 +138,49 @@ function timeToMins(t: string): number {
 // "empty". Accept either.
 function isRealServiceRow(r: any): boolean {
   return !!r.service?.trim() && !!(r.id || r.service_id);
+}
+
+// Client-side mirror of resolveCategoryRestriction/resolveItemRestriction
+// (client-memberships.repository.ts) — pools every active, spendable
+// membership's category/item restriction for one bucket into a single
+// "what's eligible" set, the same "unrestricted only when a covering
+// membership has BOTH lists empty" rule the backend uses. Used ONLY to seed
+// membershipEligibleTotal's default/max estimate below — the actual
+// per-row split staff and the bill total see once applied still comes
+// straight from the server (rowMembershipWalletPreview), never re-derived
+// locally. Without this, a wallet restricted to one specific service (e.g.
+// "Hair Cut" only) offered its FULL eligible amount against every service
+// row on the bill regardless of restriction, defaulting the input higher
+// than the wallet could actually cover.
+function poolMembershipRestriction(
+  memberships: { appliesTo: string; serviceCategoryIds?: string[]; productCategoryIds?: string[]; serviceIds?: string[]; productIds?: string[] }[],
+  bucket: "service" | "product",
+): { categoryIds: string[] | null; itemIds: string[] | null } {
+  const excludeSide = bucket === "service" ? "products" : "services";
+  const covering = memberships.filter((m) => m.appliesTo !== excludeSide);
+  const catsOf = (m: typeof covering[number]) => (bucket === "service" ? m.serviceCategoryIds : m.productCategoryIds) ?? [];
+  const itemsOf = (m: typeof covering[number]) => (bucket === "service" ? m.serviceIds : m.productIds) ?? [];
+  if (covering.some((m) => !catsOf(m).length && !itemsOf(m).length)) return { categoryIds: null, itemIds: null };
+  return {
+    categoryIds: Array.from(new Set(covering.flatMap(catsOf))),
+    itemIds: Array.from(new Set(covering.flatMap(itemsOf))),
+  };
+}
+
+// Mirrors matchesCategoryRestriction (pricing.service.ts/payments.service.ts)
+// — null/empty categoryIds+itemIds means unrestricted. rowItemId falls back
+// the same way the backend's row-id normalization now does (see
+// pricing.service.ts's serviceRows/productRows itemId fallback) — a freshly
+// picked, unsaved row's catalog id lives under `id`, not service_id/productId.
+function rowMatchesMembershipRestriction(
+  categoryId: string | undefined,
+  rowItemId: string | undefined,
+  categoryIds: string[] | null,
+  itemIds: string[] | null,
+): boolean {
+  if (!categoryIds?.length && !itemIds?.length) return true;
+  return (!!categoryIds?.length && !!categoryId && categoryIds.includes(categoryId))
+      || (!!itemIds?.length && !!rowItemId && itemIds.includes(rowItemId));
 }
 
 export const AppointmentModal: React.FC<Props> = ({
@@ -419,15 +465,15 @@ export const AppointmentModal: React.FC<Props> = ({
   const [discountType, setDiscountType]   = useState<DiscountType>(existingBooking?.discountType || "Percentage (%)");
   const [discountValue, setDiscountValue] = useState(existingBooking?.discount ?? 0);
   const [exCharges, setExCharges]         = useState(existingBooking?.exCharges ?? 0);
+  // Always record-only, passed straight to staff — there was previously an
+  // "Add Tip to Salon" toggle that let it opt into Grand Total/revenue; that
+  // control has been removed, so tip never affects a total (see
+  // totalsUtils.ts's withCharges).
   const [tip, setTip]                     = useState(existingBooking?.tipAmount ?? 0);
-  // "Add Tip to Salon" — checked: tip counts toward Grand Total/salon
-  // revenue (staff paid out separately, outside this transaction).
-  // Unchecked (default): tip stays record-only, passed straight to staff.
-  const [addTipToSalon, setAddTipToSalon] = useState((existingBooking as any)?.tipAddedToSalon ?? false);
-  // Optional per-staff split of `tip`, entered via StaffTipsModal — empty
-  // when the tip wasn't split (plain single Tip field). `tip` stays the one
-  // number the pricing engine/receipt/totals actually use; this is purely
-  // attribution ("who got what") kept in sync with it (see handleSaveStaffTips).
+  // Per-staff tip entries, entered via StaffTipsModal (the sole way to add a
+  // tip now — see onStaffTips below). `tip` stays the one number the pricing
+  // engine/receipt/totals actually use; this is purely attribution ("who got
+  // what") kept in sync with it (see handleSaveStaffTips).
   const [tipBreakdown, setTipBreakdown]   = useState<StaffTipEntry[]>((existingBooking as any)?.tipBreakdown ?? []);
 
   // Every distinct staff member currently assigned to a row on this bill —
@@ -435,18 +481,19 @@ export const AppointmentModal: React.FC<Props> = ({
   // staff name; package/product/membership rows only carry staffId, so
   // those fall back to a schedulerStaff lookup.
   const involvedStaff = useMemo(() => {
-    const byId = new Map<string, string>();
-    const add = (staffId?: string | null, staffName?: string | null) => {
+    const byId = new Map<string, { staffName: string; items: { label: string; amount: number }[] }>();
+    const add = (staffId: string | undefined | null, staffName: string | undefined | null, label: string, amount: number) => {
       if (!staffId) return;
-      if (byId.has(staffId)) return;
-      const name = staffName || schedulerStaff.find((st: any) => String(st.id) === String(staffId))?.name || "Staff";
-      byId.set(staffId, name);
+      const resolvedName = staffName || schedulerStaff.find((st: any) => String(st.id) === String(staffId))?.name || "Staff";
+      const entry = byId.get(staffId);
+      if (entry) entry.items.push({ label, amount });
+      else byId.set(staffId, { staffName: resolvedName, items: [{ label, amount }] });
     };
-    serviceRows.forEach((r: any) => add(r.staffId, r.staff));
-    packageRows.forEach((r: any) => add(r.staffId));
-    productRows.forEach((r: any) => add(r.staffId));
-    membershipRows.forEach((r: any) => add(r.staffId));
-    return Array.from(byId.entries()).map(([staffId, staffName]) => ({ staffId, staffName }));
+    serviceRows.forEach((r: any) => add(r.staffId, r.staff, r.service || "Service", Number(r.total) || 0));
+    packageRows.forEach((r: any) => add(r.staffId, undefined, r.packageName || "Package", Number(r.total) || 0));
+    productRows.forEach((r: any) => add(r.staffId, undefined, r.productName || "Product", Number(r.total) || 0));
+    membershipRows.forEach((r: any) => add(r.staffId, undefined, r.membershipName || "Membership", Number(r.total) || 0));
+    return Array.from(byId.entries()).map(([staffId, v]) => ({ staffId, staffName: v.staffName, items: v.items }));
   }, [serviceRows, packageRows, productRows, membershipRows, schedulerStaff]);
 
   const handleSaveStaffTips = useCallback((entries: StaffTipEntry[]) => {
@@ -469,7 +516,21 @@ export const AppointmentModal: React.FC<Props> = ({
       setTip(stillValid.reduce((sum, e) => sum + e.amount, 0));
     }
   }, [involvedStaff, tipBreakdown]);
-  const [focusedField, setFocusedField]   = useState<"exCharges" | "tip" | "discountValue" | null>(null);
+
+  // tipBreakdown itself (the saved/persisted shape) deliberately doesn't
+  // carry each staff member's service/amount — that's already owned by the
+  // bill's own rows and would just go stale if duplicated onto a separate
+  // saved field. This joins the two live, for the two places that display
+  // the full Staff/Service/Amount/Tip breakdown (the compact summary below
+  // and TotalsPanel), so both read from one derivation instead of two.
+  const tipBreakdownWithItems = useMemo(
+    () => tipBreakdown.map((t) => ({
+      ...t,
+      items: involvedStaff.find((s) => s.staffId === t.staffId)?.items ?? [],
+    })),
+    [tipBreakdown, involvedStaff],
+  );
+  const [focusedField, setFocusedField]   = useState<"exCharges" | "discountValue" | null>(null);
   const [discountValueWarning, setDiscountValueWarning] = useState<string | null>(null);
   // Raw text for the Bill Discount / Ex Charges / Tip fields WHILE FOCUSED.
   // These can't render their numeric state directly: typing "2." parses to 2,
@@ -590,24 +651,41 @@ export const AppointmentModal: React.FC<Props> = ({
   }, []);
 
   // ── Hooks ────────────────────────────────────────────────────────────────
-  const { save, isSaving, error: saveError, apiAppointmentId } = useAppointment();
+  const { save: saveAppointment, isSaving, error: saveError, apiAppointmentId } = useAppointment();
+  // clientRefreshKey exists specifically to make useClientDetails() below
+  // refetch (its ONE dependency for that), but nothing ever bumped it — so a
+  // saved Notes/Staff Alert edit never showed up in the client stat card
+  // popup unless the modal was closed and reopened. Wrapping every save call
+  // site here (there are several — handleSaveAndPay, handleUpdate, etc., all
+  // of which already call `save`) means none of them need to change.
+  const save = useCallback(async (payload: Parameters<typeof saveAppointment>[0]) => {
+    const id = await saveAppointment(payload);
+    if (id) setClientRefreshKey((k) => k + 1);
+    return id;
+  }, [saveAppointment]);
   const { completePayment, isProcessing, payError, paymentOverlay } = usePayment();
   const coupon = useCoupon(salonId);
   const referral = useReferral();
   const [completePackageSession] = useCompleteClientPackageSessionMutation();
 
-  // Fetch client's active packages to check which services are pre-paid (price = 0)
+  // Single consolidated fetch (POST /clients/:id/details) covering profile,
+  // packages, memberships, history, and loyalty eligibility for the selected
+  // client — replaces what used to be 4 independent hooks/queries here
+  // (useClientDetails-in-ClientPanel, useListClientPackagesQuery,
+  // useClientMembershipWallet, useLoyaltyEligibility) each firing their own
+  // request for the same client. The full result is handed to ClientPanel
+  // below as `clientDetailsResult` so it renders from this same call instead
+  // of running its own independent useClientDetails fetch.
   const clientIdForPkg = selectedClient?.id && selectedClient.id !== "walk-in" ? selectedClient.id : undefined;
-  const { data: clientPkgsData } = useListClientPackagesQuery(
-    { clientId: clientIdForPkg, status: "Active", limit: 50 },
-    // See ClientPanel.tsx's identical option for why this is needed — a
-    // package purchased outside this exact RTK Query cache entry (another
-    // tab, a backfill script, etc.) must not be masked by a stale cached hit.
-    { skip: !clientIdForPkg, refetchOnMountOrArgChange: true },
+  const clientDetailsResult = useClientDetails(clientIdForPkg, clientRefreshKey);
+  const { details: clientDetailsForModal } = clientDetailsResult;
+  const clientPkgsData = useMemo(
+    () => ({ items: (clientDetailsForModal as any)?.packages ?? [] }),
+    [clientDetailsForModal],
   );
-  // Backend "Active" filtering aside, also guard client-side against a
-  // package whose expiry date has passed but hasn't been flagged as such
-  // server-side yet — an expired package must never be selectable/applicable.
+  // Guard client-side against a package whose expiry date has passed but
+  // hasn't been flagged as such server-side yet — an expired package must
+  // never be selectable/applicable.
   // Sorted soonest-expiry-first (packages with no expiry sort last, since
   // there's no urgency to use them up) — when a client owns more than one
   // active package covering the same service, this makes the one closest to
@@ -616,8 +694,8 @@ export const AppointmentModal: React.FC<Props> = ({
   // whatever arbitrary order the API happened to return them in.
   const nonExpiredPackages = useMemo(
     () => (clientPkgsData?.items ?? [])
-      .filter((pkg) => !isPackageExpired(pkg.expiryDate))
-      .sort((a, b) => {
+      .filter((pkg: any) => pkg.status === "Active" && !isPackageExpired(pkg.expiryDate))
+      .sort((a: any, b: any) => {
         const aTime = a.expiryDate ? new Date(a.expiryDate).getTime() : Infinity;
         const bTime = b.expiryDate ? new Date(b.expiryDate).getTime() : Infinity;
         return aTime - bTime;
@@ -832,7 +910,26 @@ export const AppointmentModal: React.FC<Props> = ({
   // Display-only: the backend independently recomputes and applies the real
   // deduction at payment time (see payments.service.ts), gated on the same
   // flag sent with the payment — this is just a preview.
-  const { memberships: clientMemberships, primary: primaryMembership } = useClientMembershipWallet(clientIdForPkg, clientRefreshKey);
+  const allClientMemberships = useMemo(
+    () => ((clientDetailsForModal as any)?.memberships ?? []) as any[],
+    [clientDetailsForModal],
+  );
+  // Active + not-yet-expired — same filter useClientMembershipWallet used to
+  // apply itself (guards against a membership whose expiry date has passed
+  // but hasn't been flagged as such server-side yet; an expired membership
+  // must never contribute wallet balance to a booking).
+  const clientMemberships = useMemo(
+    () => allClientMemberships.filter((m: any) => m.status === "active" && !isPackageExpired(m.expiresAt)),
+    [allClientMemberships],
+  );
+  const primaryMembership = useMemo(
+    () => clientMemberships.reduce((best: any, m: any) => {
+      if (Number(m.membershipWalletBalance) <= 0) return best;
+      if (!best || Number(m.membershipWalletBalance) > Number(best.membershipWalletBalance)) return m;
+      return best;
+    }, null),
+    [clientMemberships],
+  );
   // Combined balance across ALL active memberships (not just the single
   // highest-balance one) — checkout now draws from multiple in sequence, see
   // deductWalletAcrossMemberships in client-memberships.repository.ts.
@@ -927,6 +1024,23 @@ export const AppointmentModal: React.FC<Props> = ({
     return map;
   }, [rowMembershipWalletPreview, productRows]);
 
+  // Restriction pool (category ids ∪ item ids, across every active
+  // membership with a spendable balance) — see poolMembershipRestriction's
+  // doc comment above for why membershipEligibleTotal needs this instead of
+  // just membershipCoversServices/membershipCoversProducts.
+  const membershipsWithBalance = useMemo(
+    () => clientMemberships.filter((m) => Number(m.membershipWalletBalance) > 0),
+    [clientMemberships],
+  );
+  const membershipServiceRestriction = useMemo(
+    () => poolMembershipRestriction(membershipsWithBalance, "service"),
+    [membershipsWithBalance],
+  );
+  const membershipProductRestriction = useMemo(
+    () => poolMembershipRestriction(membershipsWithBalance, "product"),
+    [membershipsWithBalance],
+  );
+
   // Most the membership wallet could ever usefully cover — capped by both the
   // wallet's own balance and by how much eligible service (+ product, when
   // enabled) value there is to apply it against, NET of any Discount
@@ -936,6 +1050,8 @@ export const AppointmentModal: React.FC<Props> = ({
     const serviceTotal = membershipCoversServices
       ? serviceRows.reduce((s, row, i) => {
           if (!row.service.trim() || (row as any).isPackageService) return s;
+          const rowItemId = (row as any).service_id || (row as any).id;
+          if (!rowMatchesMembershipRestriction((row as any).categoryId, rowItemId, membershipServiceRestriction.categoryIds, membershipServiceRestriction.itemIds)) return s;
           const tempId = (row as any).tempId || String(i);
           const alreadyDiscounted = serviceMembershipDiscountByRow.get(tempId) ?? 0;
           return s + Math.max(0, (Number(row.total) || 0) - alreadyDiscounted);
@@ -943,13 +1059,15 @@ export const AppointmentModal: React.FC<Props> = ({
       : 0;
     const productTotal = membershipCoversProducts
       ? productRows.reduce((s, row, i) => {
+          const rowItemId = (row as any).productId || (row as any).id;
+          if (!rowMatchesMembershipRestriction((row as any).categoryId, rowItemId, membershipProductRestriction.categoryIds, membershipProductRestriction.itemIds)) return s;
           const tempId = (row as any).tempId || String(i);
           const alreadyDiscounted = productMembershipDiscountByRow.get(tempId) ?? 0;
           return s + Math.max(0, (Number(row.total) || 0) - alreadyDiscounted);
         }, 0)
       : 0;
     return serviceTotal + productTotal;
-  }, [serviceRows, productRows, membershipCoversServices, membershipCoversProducts, serviceMembershipDiscountByRow, productMembershipDiscountByRow]);
+  }, [serviceRows, productRows, membershipCoversServices, membershipCoversProducts, serviceMembershipDiscountByRow, productMembershipDiscountByRow, membershipServiceRestriction, membershipProductRestriction]);
   const membershipMaxUsable = Math.min(membershipTotalBalance, membershipEligibleTotal);
 
   // How much of the membership wallet staff has chosen to apply — defaults to
@@ -1016,7 +1134,7 @@ export const AppointmentModal: React.FC<Props> = ({
     () => clientMemberships.find((m) => m.pricingType === "percentage" && (m.discountBalanceRemaining ?? 0) > 0),
     [clientMemberships],
   );
-  const { eligibility: loyaltyEligibility } = useLoyaltyEligibility(clientIdForPkg, clientRefreshKey);
+  const loyaltyEligibility = ((clientDetailsForModal as any)?.loyalty_eligibility ?? null) as any;
   const percentageDiscountSource = percentageMembership
     ? {
         name: percentageMembership.membershipName,
@@ -1237,7 +1355,16 @@ export const AppointmentModal: React.FC<Props> = ({
   useEffect(() => {
     setTotalsConfirmed(false);
     setTotalsError(false);
-    const hasAnyRowsNow = serviceRows.length + packageRows.length + productRows.length + membershipRows.length > 0;
+    // A brand-new Quick Sale/booking starts with one phantom serviceRows entry
+    // (see emptyService() at the top of this component) that has no service
+    // actually picked yet — service:"" , price:0. Counting it as "a row" made
+    // calculate-totals fire the moment ANY other pricing-relevant dependency
+    // changed (e.g. picking a client) even though there's nothing billable on
+    // the bill yet. Only a real, catalog-selected service row (isRealServiceRow)
+    // — or any package/product/membership row, none of which ever start with a
+    // placeholder — should count toward "there's something to price".
+    const hasAnyRowsNow = serviceRows.some(isRealServiceRow)
+      || packageRows.length + productRows.length + membershipRows.length > 0;
     if (!hasAnyRowsNow) {
       // No rows left on the bill — the pricing request below never even fires
       // for an empty bill, so falling through here used to leave `totals`
@@ -1271,7 +1398,7 @@ export const AppointmentModal: React.FC<Props> = ({
           discountValue,
           discountAppliesTo,
           couponCode: coupon.applied || undefined,
-          exCharges, tip, tipAddedToSalon: addTipToSalon,
+          exCharges, tip, tipAddedToSalon: false,
           includeGst,
           applyEwallet: useEWallet,
           eWalletRequested: useEWallet ? eWalletAmt : 0,
@@ -1324,7 +1451,7 @@ export const AppointmentModal: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     pricingRelevantSignature,
-    discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, includeGst,
+    discountType, discountValue, discountAppliesTo, exCharges, tip, includeGst,
     coupon.applied, coupon.discount,
     // referral.applied: linking a client to a referrer (the "Apply" button on
     // the referral-code field) is its own API call, separate from this bill's
@@ -1799,7 +1926,7 @@ export const AppointmentModal: React.FC<Props> = ({
         discountAppliesTo,
         exCharges,
         tipAmount:     tip,
-        tipAddedToSalon: addTipToSalon,
+        tipAddedToSalon: false,
         tipBreakdown,
         gst:           totals.taxable > 0 ? Number(((totals.gstAmount / totals.taxable) * 100).toFixed(4)) : 0,
         gstAmount:     totals.gstAmount,
@@ -1807,6 +1934,7 @@ export const AppointmentModal: React.FC<Props> = ({
       } as Partial<Booking>,
       serviceRows: serviceRowsForSave, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId,
+      source:               (quickSale ? "quick_sale" : "calendar") as "quick_sale" | "calendar",
       clientId:             selectedClient?.id ?? null,
       existingBooking:      existingBooking ?? null,
       isPackageAppointment: isPackageZero,
@@ -1841,7 +1969,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, dispatch, reconciledEffectiveTotal, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, tipBreakdown, activeTaxes, totals,
+      discountType, discountValue, discountAppliesTo, exCharges, tip, tipBreakdown, activeTaxes, totals,
       onRefresh, onClose]);
 
   const handleUpdate = useCallback(async () => {
@@ -1852,7 +1980,7 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [save, selectedClient, serviceRows, packageRows, productRows, membershipRows,
       calDate, defaultTime, notes, staffAlert, salonId, existingBooking, defaultStaffId,
-      discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, tipBreakdown, activeTaxes, totals,
+      discountType, discountValue, discountAppliesTo, exCharges, tip, tipBreakdown, activeTaxes, totals,
       onRefresh, onClose]);
 
   // Reveal the payment section only — does NOT persist anything. The
@@ -1970,7 +2098,7 @@ export const AppointmentModal: React.FC<Props> = ({
     // these; handlePay/handleQuickSaleCheckout must match.
     serviceRows, packageRows, productRows, membershipRows,
     calDate, defaultTime, notes, staffAlert, defaultStaffId,
-    discountType, discountValue, discountAppliesTo, exCharges, tip, addTipToSalon, tipBreakdown,
+    discountType, discountValue, discountAppliesTo, exCharges, tip, tipBreakdown,
     reconciledEffectiveTotal, remainingDue, applyMembershipDiscount, applyLoyaltyDiscount,
     includeGst, consumableActuals, isPackageZero,
     printClientExtras, showTaxBreakupOnInvoice, formatAmount,
@@ -2014,6 +2142,11 @@ export const AppointmentModal: React.FC<Props> = ({
         grandTotal: 0,
         paymentMode: "Package",
       }));
+      // See the identical comment in handleQuickSaleCheckout's isPackageZero
+      // branch — without this, a fully package-covered Calendar checkout
+      // never reaches appointments.service.ts's checkout(), silently
+      // skipping both staff commission and the PDF bill_receipt safety-net send.
+      dispatch(checkoutBookingThunk({ id: String(apptId), data: {} }));
       await markPackageSessions(String(apptId));
       setClientRefreshKey((k) => k + 1);
       finishWithPaidPopup();
@@ -2080,6 +2213,16 @@ export const AppointmentModal: React.FC<Props> = ({
           grandTotal: 0,
           paymentMode: "Package",
         }));
+        // Same "checkout the appointment so commission fires" step every other
+        // fully-paid path takes (see usePayment.ts's identical dispatch right
+        // after a payment with finalDue === 0) — this branch bypasses
+        // completePayment() entirely, so without this call a 100%
+        // package-covered visit never reached appointments.service.ts's
+        // checkout(), which is where staff commission gets calculated AND
+        // where the PDF bill_receipt safety-net send lives (payments.service.ts's
+        // own package-payment branch never sends it directly). Both were
+        // silently skipped for a fully package-covered checkout.
+        dispatch(checkoutBookingThunk({ id: String(id), data: {} }));
         await markPackageSessions(String(id));
         setClientRefreshKey((k) => k + 1);
         finishWithPaidPopup();
@@ -2199,12 +2342,14 @@ export const AppointmentModal: React.FC<Props> = ({
         defaultName={!existingBooking && !selectedClient ? defaultClientName : undefined}
         defaultPhone={!existingBooking && !selectedClient ? defaultClientPhone : undefined}
         openAddForm={triggerAddForm}
+        onAddFormCancelled={() => { setWalkInPayError(""); setTriggerAddForm(false); }}
         refreshKey={clientRefreshKey}
         rewardPointsConfig={rewardPointsConfig}
         onClientUpdated={() => setClientRefreshKey((k) => k + 1)}
         packages={nonExpiredPackages}
         memberships={clientMemberships}
         loyaltyEligibility={loyaltyEligibility}
+        clientDetailsResult={clientDetailsResult}
       />
     </div>
   );
@@ -2267,10 +2412,13 @@ export const AppointmentModal: React.FC<Props> = ({
           onUpdateProduct={(i, r) => setProductRows((rows) => rows.map((x, idx) => idx === i ? r : x))}
           onRemoveProduct={(i) => setProductRows((rows) => rows.filter((_, idx) => idx !== i))}
           onAddProduct={() => {
-            if (!prodRequested.current && availableProducts.length === 0) {
-              prodRequested.current = true;
-              dispatch(fetchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
-            }
+            // No bulk fetchProductsThunk here — ServicesPanel's own debounced
+            // GET /products?search=... (350ms, per keystroke) already
+            // resolves matches live as the user types. availableProducts was
+            // only ever used as a "local matches while the API call is in
+            // flight" fallback in that search, not a hard requirement — a
+            // 200-row prefetch just to seed that fallback cost more than it
+            // saved (the API's own results land within one debounce cycle).
             setProductRows((rows) => [...rows, { id: "", productId: "", productName: "", price: 0, qty: 1, discount: 0, total: 0, staffId: "", time: serviceRows[0]?.time || defaultTime || "" }]);
           }}
           membershipRows={membershipRows}
@@ -2666,21 +2814,6 @@ export const AppointmentModal: React.FC<Props> = ({
             }} />
         </div>
         <div className="field-group">
-          <label>Tip</label>
-          <input className="fg-input" type="text" inputMode="decimal"
-            readOnly={tipBreakdown.length > 0}
-            title={tipBreakdown.length > 0 ? "Split by staff — use \"+ Split Tip by Staff\" above to change" : undefined}
-            value={focusedField === "tip" ? decimalDraft : String(tip)}
-            onFocus={() => { if (tipBreakdown.length === 0) { setFocusedField("tip"); setDecimalDraft(tip > 0 ? String(tip) : ""); } }}
-            onBlur={() => setFocusedField(null)}
-            onChange={(e) => {
-              if (tipBreakdown.length > 0) return;
-              const cleaned = sanitizeDecimalInput(e.target.value);
-              setDecimalDraft(cleaned);
-              setTip(cleaned === "" ? 0 : Math.max(0, Number(cleaned) || 0));
-            }} />
-        </div>
-        <div className="field-group">
           <label>Bill Discount</label>
           <input className="fg-input" type="text" inputMode="decimal"
             value={focusedField === "discountValue" ? decimalDraft : String(discountValue)}
@@ -2773,12 +2906,20 @@ export const AppointmentModal: React.FC<Props> = ({
       <div className="field-group">
         <label><BellFill size={13} /> Staff Alert</label>
         <textarea className="fg-textarea" rows={2} placeholder="e.g. Client has allergy to chemicals"
+          maxLength={STAFF_ALERT_MAX_LENGTH}
           value={staffAlert} onChange={(e) => setStaffAlert(e.target.value)} />
+        <span className={`fg-field__${staffAlert.length >= STAFF_ALERT_MAX_LENGTH ? "err" : "hint"}`}>
+          {staffAlert.length}/{STAFF_ALERT_MAX_LENGTH}
+        </span>
       </div>
       <div className="field-group" style={{ marginTop: 10 }}>
         <label>Notes</label>
         <textarea className="fg-textarea" rows={3} placeholder="Enter appointment notes"
+          maxLength={NOTES_MAX_LENGTH}
           value={notes} onChange={(e) => setNotes(e.target.value)} />
+        <span className={`fg-field__${notes.length >= NOTES_MAX_LENGTH ? "err" : "hint"}`}>
+          {notes.length}/{NOTES_MAX_LENGTH}
+        </span>
       </div>
     </>
   );
@@ -2863,8 +3004,12 @@ export const AppointmentModal: React.FC<Props> = ({
                             return;
                           }
 
-                          const blob: Blob = result.payload;
-                          const filename = `Receipt-${(existingBooking as any).invoiceNumber || existingBooking.id}.pdf`;
+                          const { blob, filename: serverFilename } = result.payload as { blob: Blob; filename: string | null };
+                          // Server's own filename (from the same lookup that
+                          // generated the PDF) is authoritative — see
+                          // fetchReceiptPdfThunk / ViewBillModal.tsx's
+                          // identical handling for why.
+                          const filename = serverFilename || `Receipt-${(existingBooking as any).invoiceNumber || existingBooking.id}.pdf`;
 
                           // Best-effort first: the native share sheet actually attaches the
                           // PDF, ready to send — the user only has to pick WhatsApp and the
@@ -2966,7 +3111,7 @@ export const AppointmentModal: React.FC<Props> = ({
                 {availableBenefitsSectionEl}
                 {chargesSectionEl}
                 <div className="appt-section">
-                  <div className="appt-section__title"><FileText size={15} /> Payment &amp; Notes</div>
+                  <div className="appt-section__title"><FileText size={15} /> Staff Alert &amp; Notes</div>
                   <div className="pn-layout pn-layout--single">
                     {notesFieldsEl}
                   </div>
@@ -3055,22 +3200,32 @@ export const AppointmentModal: React.FC<Props> = ({
                       <span>{currencySymbol}{liveDueAmount.toFixed(2)}</span>
                     </div>
                   )}
-                  {/* Only part of Grand Total/Amount to Pay above when "Add Tip
-                      to Salon" is checked (see totalsUtils.ts's addTipToSalon) —
-                      otherwise display/record-only, passed straight to staff.
-                      Placed after every bill-total row so it reads as separate
-                      info, not part of the running total either way. The
-                      checkbox itself lives in PaymentPanel, next to Include GST. */}
+                  {/* Already folded into Grand Total/Amount to Pay above (see
+                      totalsUtils.ts's withCharges) — placed again here, after
+                      every bill-total row, just to break out how much of that
+                      total is tip vs. bill. */}
                   {tip > 0 && (
                     <div className="qs-summary-row">
-                      <span>Staff Tip{addTipToSalon ? " (included above)" : ""}</span>
+                      <span>Staff Tip</span>
                       <span>{currencySymbol}{tip.toFixed(2)}</span>
                     </div>
                   )}
-                  {tip > 0 && tipBreakdown.map((t) => (
-                    <div key={t.staffId} className="qs-summary-row qs-summary-row--sub">
-                      <span>{t.staffName}</span>
-                      <span>{currencySymbol}{t.amount.toFixed(2)}</span>
+                  {/* Name + Tip on the aligned two-column row, flush-left with
+                      "Staff Tip" above it (no indent — see .qs-summary-row--sub).
+                      Which service(s) they're handling is its own plain
+                      left-aligned line underneath, not squeezed onto the
+                      name's line. */}
+                  {tip > 0 && tipBreakdownWithItems.map((t) => (
+                    <div key={t.staffId}>
+                      <div className="qs-summary-row qs-summary-row--sub qs-summary-row--staff">
+                        <span>{t.staffName}</span>
+                        <span>Tip {currencySymbol}{t.amount.toFixed(2)}</span>
+                      </div>
+                      {t.items.length > 0 && (
+                        <div className="qs-summary-row__items">
+                          {t.items.map((it) => it.label).join(", ")} — {currencySymbol}{t.items.reduce((sum, it) => sum + it.amount, 0).toFixed(2)}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -3136,9 +3291,6 @@ export const AppointmentModal: React.FC<Props> = ({
                     includeGst={includeGst}
                     onToggleIncludeGst={setIncludeGst}
                     hasActiveTaxes={activeTaxes.length > 0}
-                    tip={tip}
-                    addTipToSalon={addTipToSalon}
-                    onToggleAddTipToSalon={setAddTipToSalon}
                     previewPoints={previewPoints}
                     previewWalletCredit={previewWalletCredit}
                     frozen={false}
@@ -3179,7 +3331,7 @@ export const AppointmentModal: React.FC<Props> = ({
               {/* 4. Payment & Notes */}
               {!showPaymentSection && (
                 <div className="appt-section">
-                  <div className="appt-section__title"><FileText size={15} /> Payment &amp; Notes</div>
+                  <div className="appt-section__title"><FileText size={15} /> Staff Alert &amp; Notes</div>
                   <div className="pn-layout">
                     <div className="pn-layout__left">
                       {notesFieldsEl}
@@ -3207,8 +3359,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         gstAmount={totals.gstAmount}
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
-                        addTipToSalon={addTipToSalon}
-                        tipBreakdown={tipBreakdown}
+                        tipBreakdown={tipBreakdownWithItems}
                         membershipWalletUsed={membershipWalletUsedTotal}
                         ewalletUsed={useEWallet ? eWalletAmt : 0}
                         rewardPointsValue={rewardPointsRedeemedValue}
@@ -3266,8 +3417,7 @@ export const AppointmentModal: React.FC<Props> = ({
                         gstAmount={totals.gstAmount}
                         taxBreakdown={totals.taxBreakdown}
                         tip={tip}
-                        addTipToSalon={addTipToSalon}
-                        tipBreakdown={tipBreakdown}
+                        tipBreakdown={tipBreakdownWithItems}
                         membershipWalletUsed={membershipWalletUsedTotal}
                         ewalletUsed={useEWallet ? eWalletAmt : 0}
                         rewardPointsValue={rewardPointsRedeemedValue}
@@ -3343,9 +3493,6 @@ export const AppointmentModal: React.FC<Props> = ({
                     includeGst={includeGst}
                     onToggleIncludeGst={setIncludeGst}
                     hasActiveTaxes={activeTaxes.length > 0}
-                    tip={tip}
-                    addTipToSalon={addTipToSalon}
-                    onToggleAddTipToSalon={setAddTipToSalon}
                     previewPoints={previewPoints}
                     previewWalletCredit={previewWalletCredit}
                     frozen={isPaymentFrozen}
@@ -3500,7 +3647,6 @@ export const AppointmentModal: React.FC<Props> = ({
         <StaffTipsModal
           staffOptions={involvedStaff}
           initialBreakdown={tipBreakdown}
-          tipTotal={tip}
           currencySymbol={currencySymbol}
           onClose={() => setShowStaffTipsModal(false)}
           onSave={handleSaveStaffTips}

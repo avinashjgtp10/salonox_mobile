@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useDispatch } from "react-redux";
+import { useAppSelector } from "../../../hooks/useAppRedux";
 import { Search, X, StarFill, Star } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { CLIENT_REVENUE_REPORT } from "../../../services/api/endpoints";
@@ -14,6 +15,10 @@ import Select from "../../../components/ui/Select";
 import { SkeletonStatCards, SkeletonTableRows } from "./ReportSkeleton";
 import ClientHistoryModal from "../../clients/components/ClientHistoryModal";
 import { useCurrency } from "../../../hooks/useCurrency";
+import { maskMobile } from "../../../utils/maskMobile";
+import { useRowSelection } from "./useRowSelection";
+import { SendCampaignBar } from "./SendCampaignBar";
+import { SendCampaignModal } from "../../marketing/components";
 import "./ClientRevenueReport.scss";
 
 const REPORT_NAME = "Client Revenue";
@@ -106,6 +111,13 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
   const [dateRange, setDateRange] = useState<DateRangeFilterValue>({ preset: "this_month", ...getDateRangePresetValue("this_month") });
   const { startDate: dateFrom, endDate: dateTo } = dateRange;
   const dispatch = useDispatch<AppDispatch>();
+  // On-screen the contact column is always masked; only the owner/admin role
+  // gets the real number in Excel/CSV/PDF exports (staff/manager exports stay
+  // masked too) — see maskMobile. Note: the contact field already has any
+  // +91 country code stripped by stripCountryCode() inside mapRow(), so this
+  // masks the already-stripped local number, not the raw +91-prefixed value.
+  const role = useAppSelector((s) => s.auth.role);
+  const canViewFullContact = role === "salon_owner" || role === "admin";
   const [genderFilter, setGenderFilter] = useState<string[]>([]);
   const [membershipFilter, setMembershipFilter] = useState<string[]>([]);
   const [staffFilterIds, setStaffFilterIds] = useState<string[]>([]);
@@ -125,6 +137,8 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize,    setPageSize]    = useState(10);
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
+  const selection = useRowSelection();
+  const [showCampaignModal, setShowCampaignModal] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
@@ -234,7 +248,7 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
   };
 
   const HEADERS = ["Client Name", "Contact", "Total Visits", `Total Spend (${currencySymbol})`, `Average Ticket Size (${currencySymbol})`, "Last Visit", "Marketing Feedback"];
-  const exportRows = () => rows.map(r => [r.client, r.contact, r.visits, r.totalSpend, r.avgTicket, r.lastVisit ? formatDate(r.lastVisit) : "—", r.avgRating != null ? `${r.avgRating} ★ (${r.reviewCount})` : "—"]);
+  const exportRows = () => rows.map(r => [r.client, canViewFullContact ? r.contact : maskMobile(r.contact), r.visits, r.totalSpend, r.avgTicket, r.lastVisit ? formatDate(r.lastVisit) : "—", r.avgRating != null ? `${r.avgRating} ★ (${r.reviewCount})` : "—"]);
 
   return (
     <div className="rp-detail-view">
@@ -295,6 +309,8 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
         </div>
       )}
 
+      <SendCampaignBar count={selection.selectedIds.size} onSendClick={() => setShowCampaignModal(true)} />
+
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
@@ -308,26 +324,42 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
       <div className="rp-detail-table-wrap">
         <table className="rp-detail-table">
           <thead>
-            <tr><th>Client Name</th><th>Contact</th><th>Total Visits</th><th>Total Spend ({currencySymbol})</th><th>Average Ticket Size ({currencySymbol})</th><th>Last Visit</th><th>Marketing Feedback</th></tr>
+            <tr>
+              <th className="rp-row-checkbox-col">
+                <input
+                  type="checkbox"
+                  className="rp-row-checkbox"
+                  checked={rows.length > 0 && rows.every((_r, i) => selection.selectedIds.has(String(i)))}
+                  onChange={() => selection.toggleAll(rows.map((_r, i) => String(i)))}
+                />
+              </th>
+              <th>Client Name</th><th>Contact</th><th>Total Visits</th><th>Total Spend ({currencySymbol})</th><th>Average Ticket Size ({currencySymbol})</th><th>Last Visit</th><th>Marketing Feedback</th></tr>
           </thead>
           <tbody>
             {loading ? (
-              <SkeletonTableRows columns={7} />
+              <SkeletonTableRows columns={8} />
             ) : rows.length === 0 ? (
-              <tr><td colSpan={7} className="rp-detail-empty-cell">No client revenue data found</td></tr>
+              <tr><td colSpan={8} className="rp-detail-empty-cell">No client revenue data found</td></tr>
             ) : rows.map((r, i) => (
               <tr
                 key={i}
                 className={r.clientId ? "rp-appt-row" : undefined}
-                onClick={() => r.clientId && setSelectedClientId(r.clientId)}
               >
-                <td className="fw-semibold">{r.client}</td>
-                <td>{r.contact}</td>
-                <td>{r.visits}</td>
-                <td className="fw-semibold">{formatAmount(r.totalSpend)}</td>
-                <td>{formatAmount(r.avgTicket)}</td>
-                <td>{r.lastVisit ? formatDate(r.lastVisit) : "—"}</td>
-                <td>
+                <td className="rp-row-checkbox-col" onClick={e => e.stopPropagation()}>
+                  <input
+                    type="checkbox"
+                    className="rp-row-checkbox"
+                    checked={selection.selectedIds.has(String(i))}
+                    onChange={() => selection.toggleOne(String(i))}
+                  />
+                </td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.client}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{maskMobile(r.contact)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.visits}</td>
+                <td className="fw-semibold" onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.totalSpend)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{formatAmount(r.avgTicket)}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>{r.lastVisit ? formatDate(r.lastVisit) : "—"}</td>
+                <td onClick={() => r.clientId && setSelectedClientId(r.clientId)}>
                   {r.avgRating != null ? (
                     <StarRating value={r.avgRating} />
                   ) : (
@@ -346,6 +378,16 @@ export default function ClientRevenueReport({ onBack, category, categoryKey }: {
       {selectedClientId && (
         <ClientHistoryModal clientId={selectedClientId} onClose={() => setSelectedClientId(null)} />
       )}
+
+      <SendCampaignModal
+        show={showCampaignModal}
+        onClose={() => setShowCampaignModal(false)}
+        contacts={rows
+          .filter((r, i) => selection.selectedIds.has(String(i)) && r.contact && r.contact !== "—")
+          .map(r => ({ phone: r.contact, name: r.client }))}
+        defaultCampaignName="Client Revenue"
+        onSent={selection.clearSelection}
+      />
 
     </div>
   );

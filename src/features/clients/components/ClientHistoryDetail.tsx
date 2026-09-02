@@ -13,6 +13,7 @@ import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import { getTaxModuleConfig } from "../../settings/utils/taxModuleSettings";
 import { getPaperProfile } from "../../settings/utils/printSettings";
 import { formatDateDDMMYYYY } from "../../../utils/dateFormat";
+import { maskMobile } from "../../../utils/maskMobile";
 import {
   Telephone,
   Whatsapp,
@@ -42,6 +43,7 @@ import TabToolbar from "./TabToolbar";
 import EwalletTab from "./EwalletTab";
 import ReferralsRewardsTab from "./ReferralsRewardsTab";
 import CommunicationTab from "./CommunicationTab";
+import FeedbackReviewTab from "./FeedbackReviewTab";
 import { useTableSearchSort } from "../hooks/useTableSearchSort";
 import "../styles/ClientHistoryPage.scss";
 
@@ -179,6 +181,20 @@ interface CommunicationEntry {
   created_at: string;
 }
 
+interface FeedbackEntry {
+  id: string;
+  appointment_id: string | null;
+  staff_name: string | null;
+  rating: number;
+  staff_rating: number | null;
+  service_rating: number | null;
+  ambience_rating: number | null;
+  improvement_tags: string[] | null;
+  additional_comments: string | null;
+  created_at: string;
+  service_ratings: Array<{ service_name: string; staff_name: string | null; rating: number; comment: string | null }>;
+}
+
 interface HistoryStats {
   total_appointments: number;
   completed_appointments: number;
@@ -234,7 +250,8 @@ export type TabKey =
   | "notes"
   | "ewallet"
   | "referrals"
-  | "communication";
+  | "communication"
+  | "feedback";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 const fmtDate = (iso: string, durationMinutes?: number) => {
@@ -320,6 +337,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "ewallet", label: "E-Wallet" },
   { key: "referrals", label: "Referrals & Rewards" },
   { key: "communication", label: "Communication" },
+  { key: "feedback", label: "Feedback & Review" },
 ];
 
 export interface ClientHistoryDetailProps {
@@ -404,6 +422,8 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   const [referralLedgerPageSize, setReferralLedgerPageSize] = useState(10);
   const [commPage, setCommPage] = useState(1);
   const [commPageSize, setCommPageSize] = useState(10);
+  const [feedbackPage, setFeedbackPage] = useState(1);
+  const [feedbackPageSize, setFeedbackPageSize] = useState(10);
 
   // Lazy-fetched per-tab data — each only loads the first time its own tab is
   // opened (not on initial mount), so viewing a client's history doesn't
@@ -425,6 +445,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
 
   const [communications, setCommunications] = useState<CommunicationEntry[]>([]);
   const [commLoaded, setCommLoaded] = useState(false);
+
+  const [feedbackEntries, setFeedbackEntries] = useState<FeedbackEntry[]>([]);
+  const [feedbackLoaded, setFeedbackLoaded] = useState(false);
 
   // Global filter — applies across all tabs
   const [showGlobalFilter, setShowGlobalFilter] = useState(false);
@@ -489,6 +512,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     setRewardsPage(1);
     setReferralLedgerPage(1);
     setCommPage(1);
+    setFeedbackPage(1);
     // Switching clients invalidates every lazy-loaded tab's cached data —
     // each tab's own effect (below) re-fetches the next time it's opened.
     setNotesLoaded(false);
@@ -496,6 +520,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
     setRewardLoaded(false);
     setReferralLoaded(false);
     setCommLoaded(false);
+    setFeedbackLoaded(false);
     setGlobalCalDay(null);
     setGlobalDatePreset("all");
     setGlobalServiceFilter("all");
@@ -550,7 +575,13 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
         .then((res) => setCommunications(res.data?.data ?? []))
         .catch(() => setCommunications([]));
     }
-  }, [activeTab, clientId, notesLoaded, ewalletLoaded, rewardLoaded, referralLoaded, commLoaded]);
+    if (activeTab === "feedback" && !feedbackLoaded) {
+      setFeedbackLoaded(true);
+      api.get(`/api/v1/clients/${clientId}/reviews`)
+        .then((res) => setFeedbackEntries(res.data?.data ?? []))
+        .catch(() => setFeedbackEntries([]));
+    }
+  }, [activeTab, clientId, notesLoaded, ewalletLoaded, rewardLoaded, referralLoaded, commLoaded, feedbackLoaded]);
 
   // ── Notes CRUD ─────────────────────────────────────────────────────────────
   const refetchNotes = useCallback(() => {
@@ -1246,7 +1277,9 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
   // maintaining a second, simpler bill layout here — one invoice design across
   // the app instead of two diverging ones.
   const printStaffList = staffList.map((s) => ({ id: s.id, name: s.full_name }));
-  const clientPhoneForPrint = [client?.phone_country_code, client?.phone_number].filter(Boolean).join(" ");
+  const clientPhoneForPrint = [client?.phone_country_code, client?.phone_number ? maskMobile(client.phone_number) : null]
+    .filter(Boolean)
+    .join(" ");
 
   const printAppointmentBill = (appt: AppointmentRecord, linkedSale: SaleRecord | undefined) => {
     const booking = buildPrintableBooking({
@@ -1441,7 +1474,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               <div className="chp-contact-row">
                 <Telephone size={11} />
                 <span>
-                  {client.phone_country_code} {client.phone_number}
+                  {client.phone_country_code} {maskMobile(client.phone_number)}
                 </span>
                 <button
                   type="button"
@@ -1596,7 +1629,7 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
               <div className="chp-overview-row">
                 <span className="chp-overview-row__label">Mobile Number</span>
                 <span className="chp-overview-row__value">
-                  {client.phone_number ? `${client.phone_country_code ?? ""} ${client.phone_number}` : "–"}
+                  {client.phone_number ? `${client.phone_country_code ?? ""} ${maskMobile(client.phone_number)}` : "–"}
                 </span>
               </div>
               <div className="chp-overview-row">
@@ -2419,6 +2452,16 @@ export default function ClientHistoryDetail({ clientId, onClose, initialTab }: C
             page={commPage} pageSize={commPageSize}
             onPageChange={setCommPage}
             onPageSizeChange={(sz) => { setCommPageSize(sz); setCommPage(1); }}
+          />
+        )}
+
+        {/* FEEDBACK & REVIEW tab */}
+        {activeTab === "feedback" && (
+          <FeedbackReviewTab
+            entries={feedbackEntries}
+            page={feedbackPage} pageSize={feedbackPageSize}
+            onPageChange={setFeedbackPage}
+            onPageSizeChange={(sz) => { setFeedbackPageSize(sz); setFeedbackPage(1); }}
           />
         )}
 
