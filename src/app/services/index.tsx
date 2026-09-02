@@ -20,9 +20,7 @@ import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { PaginationControls } from "@/components/ui/PaginationControls";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import {
-  SERVICE_FILTERS,
   SERVICE_SORT_OPTIONS,
-  type ServiceFilter,
   type ServiceSortOption,
 } from "@/data/serviceData";
 import {
@@ -104,24 +102,7 @@ function ServiceCard({
       </View>
 
       <View style={styles.serviceCopy}>
-        <View style={styles.nameRow}>
-          <Text style={styles.serviceName}>{service.name}</Text>
-          <View
-            style={[
-              styles.statusBadge,
-              service.isActive ? styles.statusBadgeActive : styles.statusBadgeInactive,
-            ]}
-          >
-            <Text
-              style={[
-                styles.statusBadgeText,
-                service.isActive ? styles.statusBadgeTextActive : styles.statusBadgeTextInactive,
-              ]}
-            >
-              {service.isActive ? "Active" : "Inactive"}
-            </Text>
-          </View>
-        </View>
+        <Text style={styles.serviceName}>{service.name}</Text>
 
         {service.category ? <Text style={styles.categoryText}>{service.category}</Text> : null}
 
@@ -205,7 +186,7 @@ function EmptyState({ queryActive }: { queryActive: boolean }) {
       <Text style={styles.emptyTitle}>No Services Found</Text>
       <Text style={styles.emptySubtitle}>
         {queryActive
-          ? "Try a different search, filter, or sort to find the right service."
+          ? "Try a different search or sort to find the right service."
           : "Services added to your salon menu will show up here."}
       </Text>
     </View>
@@ -228,18 +209,11 @@ export default function ServicesScreen() {
   const totalCount = useAppSelector(selectServicesTotalCount);
   const deletingServiceIds = useAppSelector(selectServiceDeletingIds);
 
-  const [activeFilter, setActiveFilter] = useState<ServiceFilter>("All");
   const [isSortVisible, setIsSortVisible] = useState(false);
   const [query, setQuery] = useState("");
   const [sortOption, setSortOption] = useState<ServiceSortOption>("Newest");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const sortQuery = useMemo(() => getSortQuery(sortOption), [sortOption]);
-  const isActiveQuery = useMemo(() => {
-    if (activeFilter === "Active") return true;
-    if (activeFilter === "Inactive") return false;
-    return undefined;
-  }, [activeFilter]);
-
   const activeCount = useMemo(
     () => services.filter((service) => service.isActive).length,
     [services],
@@ -256,7 +230,7 @@ export default function ServicesScreen() {
   useEffect(() => {
     void dispatch(
       fetchServicesThunk({
-        isActive: isActiveQuery,
+        isActive: undefined,
         limit: 20,
         offset: 0,
         reset: true,
@@ -265,7 +239,7 @@ export default function ServicesScreen() {
         sort_order: sortQuery.sort_order,
       }),
     );
-  }, [debouncedQuery, dispatch, isActiveQuery, sortQuery.sort_by, sortQuery.sort_order]);
+  }, [debouncedQuery, dispatch, sortQuery.sort_by, sortQuery.sort_order]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -279,7 +253,7 @@ export default function ServicesScreen() {
   const handleRefresh = () => {
     void dispatch(
       fetchServicesThunk({
-        isActive: isActiveQuery,
+        isActive: undefined,
         limit: servicesQuery.limit,
         refresh: true,
         search: debouncedQuery,
@@ -304,7 +278,7 @@ export default function ServicesScreen() {
 
     void dispatch(
       fetchServicesThunk({
-        isActive: isActiveQuery,
+        isActive: undefined,
         limit: servicesQuery.limit,
         offset: 0,
         reset: true,
@@ -342,7 +316,7 @@ export default function ServicesScreen() {
 
     void dispatch(
       fetchServicesThunk({
-        isActive: isActiveQuery,
+        isActive: undefined,
         limit: servicesPagination.limit,
         offset: servicesPagination.nextOffset,
         search: debouncedQuery,
@@ -352,7 +326,7 @@ export default function ServicesScreen() {
     );
   };
 
-  const isQueryActive = Boolean(query.trim()) || activeFilter !== "All";
+  const isQueryActive = Boolean(query.trim());
   const showInitialLoading = servicesLoading && services.length === 0;
   const showErrorState = Boolean(servicesError) && services.length === 0 && !showInitialLoading;
 
@@ -428,25 +402,6 @@ export default function ServicesScreen() {
                   <Ionicons name="close-circle" size={18} color={Colors.placeholder} />
                 </TouchableOpacity>
               ) : null}
-            </View>
-
-            <View style={styles.filterRow}>
-              {SERVICE_FILTERS.map((filter) => {
-                const isActive = filter === activeFilter;
-
-                return (
-                  <TouchableOpacity
-                    key={filter}
-                    activeOpacity={0.82}
-                    onPress={() => setActiveFilter(filter)}
-                    style={[styles.filterChip, isActive && styles.filterChipActive]}
-                  >
-                    <Text style={[styles.filterChipText, isActive && styles.filterChipTextActive]}>
-                      {filter}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
             </View>
 
             <View style={styles.sortRow}>
@@ -636,32 +591,6 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 14,
     minHeight: AppLayout.searchBarHeight,
   },
-  filterRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingBottom: 2,
-    paddingRight: 0,
-  },
-  filterChip: {
-    backgroundColor: Colors.card,
-    borderColor: Colors.border,
-    borderRadius: Radius.full,
-    borderWidth: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 9,
-  },
-  filterChipActive: {
-    backgroundColor: Colors.primary,
-    borderColor: Colors.primary,
-  },
-  filterChipText: {
-    color: Colors.text2,
-    fontSize: 11,
-    fontWeight: "700",
-  },
-  filterChipTextActive: {
-    color: "#FFFFFF",
-  },
   sortRow: {
     alignItems: "center",
     flexDirection: "row",
@@ -723,44 +652,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginLeft: Spacing.sm,
     width: 24,
   },
-  nameRow: {
-    alignItems: "center",
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
   serviceName: {
     color: Colors.heading,
-    flex: 1,
     fontSize: 15,
     fontWeight: "800",
-    marginRight: Spacing.sm,
   },
   categoryText: {
     color: Colors.text2,
     fontSize: 11,
     fontWeight: "600",
     marginTop: 4,
-  },
-  statusBadge: {
-    borderRadius: Radius.full,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  statusBadgeActive: {
-    backgroundColor: Colors.successBg,
-  },
-  statusBadgeInactive: {
-    backgroundColor: Colors.errorBg,
-  },
-  statusBadgeText: {
-    fontSize: 10,
-    fontWeight: "800",
-  },
-  statusBadgeTextActive: {
-    color: Colors.primaryDark,
-  },
-  statusBadgeTextInactive: {
-    color: Colors.error,
   },
   metaRow: {
     flexDirection: "row",

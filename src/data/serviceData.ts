@@ -1,5 +1,3 @@
-export const SERVICE_FILTERS = ["All", "Active", "Inactive"] as const;
-
 export const SERVICE_SORT_OPTIONS = [
   "Newest",
   "Name (A-Z)",
@@ -7,5 +5,4 @@ export const SERVICE_SORT_OPTIONS = [
   "Price (High-Low)",
 ] as const;
 
-export type ServiceFilter = (typeof SERVICE_FILTERS)[number];
 export type ServiceSortOption = (typeof SERVICE_SORT_OPTIONS)[number];
