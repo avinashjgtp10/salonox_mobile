@@ -164,7 +164,9 @@ const NewOrderPage: React.FC = () => {
   const [signatures, setSignatures] = useState<{ id: string; url: string }[]>([]);
 
   useEffect(() => {
-    dispatch(fetchSuppliersThunk());
+    // page_limit:100 — the Supplier dropdown here needs the full set, not
+    // the paginated Suppliers list page's default 10-per-page slice.
+    dispatch(fetchSuppliersThunk({ page_limit: 100 }));
     dispatch(fetchSettingsThunk());
   }, [dispatch]);
 
@@ -777,7 +779,7 @@ const NewOrderPage: React.FC = () => {
               panelMode
               onClose={() => setAddSupplierOpen(false)}
               onSaved={(supplier) => {
-                dispatch(fetchSuppliersThunk());
+                dispatch(fetchSuppliersThunk({ page_limit: 100 }));
                 setSupplierId(supplier.id);
               }}
             />

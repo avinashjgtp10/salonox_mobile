@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { Search, X } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { PRODUCTS } from "../../../services/api/endpoints";
@@ -50,6 +51,21 @@ export default function ProductSearchSelect({ onSelect, placeholder = "Search pr
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const dropRef = useRef<HTMLDivElement>(null);
+  // Portaled to document.body and positioned from the input's own
+  // getBoundingClientRect() instead of `position: absolute` anchored to
+  // .pss — this component lives inside table cells (NewOrderPage's line
+  // items, PurchaseModal), where an absolutely-positioned dropdown gets
+  // visually trapped behind/under the surrounding rows instead of floating
+  // above them. Same fix already used for DatePicker and the Suppliers/
+  // ConsumableInventoryPage row-actions menus.
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  const updateCoords = () => {
+    const rect = containerRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setCoords({ top: rect.bottom + 4, left: rect.left, width: rect.width });
+  };
 
   const search = useCallback(async (term: string) => {
     abortRef.current?.abort();
@@ -81,12 +97,26 @@ export default function ProductSearchSelect({ onSelect, placeholder = "Search pr
   }, [query, search]);
 
   useEffect(() => {
+    if (!open) return;
     function onOutside(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (containerRef.current?.contains(target) || dropRef.current?.contains(target)) return;
+      setOpen(false);
     }
+    const onReposition = () => updateCoords();
     document.addEventListener("mousedown", onOutside);
-    return () => document.removeEventListener("mousedown", onOutside);
-  }, []);
+    // capture:true — scroll doesn't bubble, but a capture-phase listener on
+    // window still sees scroll on any descendant container (the order
+    // table's own scroll, a modal body), keeping the dropdown glued to the
+    // input instead of drifting away from it.
+    window.addEventListener("scroll", onReposition, true);
+    window.addEventListener("resize", onReposition);
+    return () => {
+      document.removeEventListener("mousedown", onOutside);
+      window.removeEventListener("scroll", onReposition, true);
+      window.removeEventListener("resize", onReposition);
+    };
+  }, [open]);
 
   return (
     <div className="pss" ref={containerRef}>
@@ -97,8 +127,8 @@ export default function ProductSearchSelect({ onSelect, placeholder = "Search pr
           placeholder={placeholder}
           value={query}
           disabled={disabled}
-          onChange={(e) => { setQuery(e.target.value); setOpen(true); }}
-          onFocus={() => setOpen(true)}
+          onChange={(e) => { setQuery(e.target.value); updateCoords(); setOpen(true); }}
+          onFocus={() => { updateCoords(); setOpen(true); }}
         />
         {query && (
           <button type="button" className="pss__clear" onClick={() => { setQuery(""); setResults([]); }}>
@@ -106,8 +136,12 @@ export default function ProductSearchSelect({ onSelect, placeholder = "Search pr
           </button>
         )}
       </div>
-      {open && query.trim() && (
-        <div className="pss__drop">
+      {open && query.trim() && coords && createPortal(
+        <div
+          className="pss__drop"
+          ref={dropRef}
+          style={{ position: "fixed", top: coords.top, left: coords.left, width: coords.width }}
+        >
           {loading ? (
             <div className="pss__hint">Searching…</div>
           ) : results.length === 0 ? (
@@ -133,7 +167,8 @@ export default function ProductSearchSelect({ onSelect, placeholder = "Search pr
               </button>
             ))
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

@@ -329,9 +329,8 @@
 
 .add-supplier-page--panel {
   // 100% (not 100vh) so this fills whatever container it's placed in —
-  // SuppliersListPage/SupplierDetailPage's full-height right-edge slide-over
-  // (.supplier-panel, 100vh) and NewOrderPage's bounded centered popup
-  // (.supplier-modal-box, 85vh/780px) both work without a page-specific override.
+  // NewOrderPage's bounded centered popup (.supplier-modal-box, 85vh/780px)
+  // works without a page-specific override.
   height: 100%;
 
   .add-supplier-page__topbar {

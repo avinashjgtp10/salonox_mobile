@@ -63,7 +63,9 @@ const CreatePayoutModal: React.FC<CreatePayoutModalProps> = ({
       setNote("");
       setAmountTouched(false);
       if (needsPicker && suppliers.length === 0) {
-        dispatch(fetchSuppliersThunk());
+        // page_limit:100 — this is the supplier picker, not the paginated
+        // Suppliers list page, so it needs the full set.
+        dispatch(fetchSuppliersThunk({ page_limit: 100 }));
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

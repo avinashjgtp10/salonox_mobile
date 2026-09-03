@@ -1,6 +1,6 @@
-import React, { useState, useMemo, useEffect, useRef } from "react";
+import React, { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import {
   Search,
   Shop,
@@ -12,7 +12,7 @@ import {
   X,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchSuppliersThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
+import { fetchSuppliersThunk, fetchSupplierLocationsThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Supplier, SupplierWithBalance, SupplierPaymentStatus } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
@@ -134,10 +134,19 @@ const DEFAULT_FILTERS: FilterState = { city: "", state: "" };
 const SuppliersListPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { formatAmount } = useCurrency();
-  const { suppliers, loading } = useAppSelector((state) => state.inventory);
+  const {
+    suppliers, suppliersTotal, supplierCities, supplierStates, loading,
+  } = useAppSelector((state) => state.inventory);
 
   const [search, setSearch] = useState("");
+  // The input stays controlled by `search` for instant typing feedback, but
+  // the list only refetches off this debounced copy — the list is now a
+  // real server round-trip (POST, paginated), not a client-side filter over
+  // an already-loaded array, so firing it on every keystroke would hit the
+  // API constantly.
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [appliedFilters, setAppliedFilters] = useState<FilterState>(DEFAULT_FILTERS);
@@ -153,29 +162,69 @@ const SuppliersListPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
-    dispatch(fetchSuppliersThunk());
-  }, [dispatch]);
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
+    return () => clearTimeout(t);
+  }, [search]);
 
-  // Suppliers load in full (no server-side pagination for this list), so
-  // City/State options and filtering are derived client-side from whatever's
-  // already in the store — same reasoning ProductsListPage's Category/Brand
-  // quick-filters use their own loaded lists rather than a dedicated endpoint.
-  const cityOptions = useMemo(() => {
-    const set = new Set<string>();
-    suppliers.forEach((s) => { if (s.city?.trim()) set.add(s.city.trim()); });
-    return Array.from(set).sort();
-  }, [suppliers]);
+  // Re-fetch the currently-viewed page/pageSize/search/filters combination —
+  // used after any action that mutates the list (delete, payout) so it lands
+  // back on the same view instead of resetting to page 1.
+  const refetchCurrentPage = useCallback(() => {
+    dispatch(fetchSuppliersThunk({
+      page: currentPage,
+      page_limit: pageSize,
+      search: debouncedSearch || undefined,
+      city: appliedFilters.city || undefined,
+      state: appliedFilters.state || undefined,
+    }));
+  }, [dispatch, currentPage, pageSize, debouncedSearch, appliedFilters]);
 
-  const stateOptions = useMemo(() => {
-    const set = new Set<string>();
-    suppliers.forEach((s) => { if (s.state?.trim()) set.add(s.state.trim()); });
-    return Array.from(set).sort();
-  }, [suppliers]);
+  // Tracks whether we're past the initial mount, so the effect below doesn't
+  // also fire (redundantly) on first render — mirrors ServicesListPage.tsx.
+  const isMountedRef = useRef(false);
+
+  // Initial fetch on mount — skipped when the store already has data from a
+  // previous visit AND this mount wasn't triggered by a successful Add/Edit
+  // save. AddSupplierPage navigates back with location.state.refresh only
+  // after a save; a plain Close navigates back with no state at all, so
+  // returning from Close reuses what's already in the store instead of
+  // calling the API again.
+  useEffect(() => {
+    const justSaved = (location.state as { refresh?: boolean } | null)?.refresh;
+    if (suppliers.length === 0 || justSaved) {
+      dispatch(fetchSuppliersThunk({ page: 1, page_limit: pageSize }));
+    }
+    dispatch(fetchSupplierLocationsThunk());
+    const t = setTimeout(() => { isMountedRef.current = true; }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-fetch when page/pageSize/search/filters change (skip initial mount,
+  // already handled above). When search/filters change while not already on
+  // page 1, reset to page 1 without firing a second (stale-page) fetch in
+  // the same tick — the page-1 reset alone triggers this effect again with
+  // the corrected page, so fetching here too would fire twice, the first
+  // time against the wrong (pre-reset) page number.
+  const filtersKey = JSON.stringify({ debouncedSearch, appliedFilters });
+  const prevFiltersKeyRef = useRef(filtersKey);
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    if (prevFiltersKeyRef.current !== filtersKey) {
+      prevFiltersKeyRef.current = filtersKey;
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        return;
+      }
+    }
+    refetchCurrentPage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize, debouncedSearch, appliedFilters, filtersKey]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
-    { key: "city", label: "City", searchable: true, options: cityOptions.map((c) => ({ id: c, label: c })) },
-    { key: "state", label: "State", searchable: true, options: stateOptions.map((s) => ({ id: s, label: s })) },
-  ], [cityOptions, stateOptions]);
+    { key: "city", label: "City", searchable: true, options: supplierCities.map((c) => ({ id: c, label: c })) },
+    { key: "state", label: "State", searchable: true, options: supplierStates.map((s) => ({ id: s, label: s })) },
+  ], [supplierCities, supplierStates]);
 
   const filterMenuSelected = useMemo(() => ({
     city: appliedFilters.city ? [appliedFilters.city] : [],
@@ -185,29 +234,7 @@ const SuppliersListPage: React.FC = () => {
   const handleFiltersApply = (next: Record<string, string[]>) => {
     const one = (v?: string[]) => (v?.length ? v[v.length - 1] : "");
     setAppliedFilters({ city: one(next.city), state: one(next.state) });
-    setCurrentPage(1);
   };
-
-  const filtered = useMemo(
-    () =>
-      suppliers.filter((s) => {
-        const q = search.toLowerCase();
-        const matchesSearch = !q ||
-          s.name.toLowerCase().includes(q) ||
-          (s.first_name?.toLowerCase().includes(q) ?? false) ||
-          (s.last_name?.toLowerCase().includes(q) ?? false) ||
-          (s.email?.toLowerCase().includes(q) ?? false);
-        const matchesCity = !appliedFilters.city || s.city === appliedFilters.city;
-        const matchesState = !appliedFilters.state || s.state === appliedFilters.state;
-        return matchesSearch && matchesCity && matchesState;
-      }),
-    [search, suppliers, appliedFilters],
-  );
-
-  const paginated = filtered.slice(
-    (currentPage - 1) * pageSize,
-    currentPage * pageSize,
-  );
 
   const handleClearSearch = () => setSearch("");
 
@@ -230,7 +257,7 @@ const SuppliersListPage: React.FC = () => {
         <div>
           <h1>
             Suppliers
-            <span className="count-badge">{filtered.length}</span>
+            <span className="count-badge">{suppliersTotal}</span>
           </h1>
           <p>
             Add and manage details of your suppliers. <LearnMoreLink topic="suppliers">Learn more</LearnMoreLink>
@@ -252,10 +279,7 @@ const SuppliersListPage: React.FC = () => {
           type="text"
           placeholder="Search suppliers by name, contact or email"
           value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setCurrentPage(1);
-          }}
+          onChange={(e) => setSearch(e.target.value)}
           iconLeft={<Search size={16} />}
           iconRight={search ? (
             <button
@@ -311,7 +335,7 @@ const SuppliersListPage: React.FC = () => {
               ))}
             </tbody>
           </table>
-        ) : paginated.length > 0 ? (
+        ) : suppliers.length > 0 ? (
           <table className="supplier-table">
             <thead>
               <tr>
@@ -326,7 +350,7 @@ const SuppliersListPage: React.FC = () => {
               </tr>
             </thead>
             <tbody>
-              {paginated.map((s) => {
+              {suppliers.map((s) => {
                 const sb = s as SupplierWithBalance;
                 const status: SupplierPaymentStatus = sb.status ?? "paid";
                 return (
@@ -387,11 +411,11 @@ const SuppliersListPage: React.FC = () => {
         )}
       </main>
 
-      {filtered.length > 0 && (
+      {suppliersTotal > 0 && (
         <Pagination
           currentPage={currentPage}
           pageSize={pageSize}
-          totalItems={filtered.length}
+          totalItems={suppliersTotal}
           onPageChange={setCurrentPage}
           onPageSizeChange={(sz) => { setPageSize(sz); setCurrentPage(1); }}
           className="suppliers-pagination"
@@ -417,6 +441,11 @@ const SuppliersListPage: React.FC = () => {
                 setIsDeleting(false);
                 setDeletingSupplier(null);
                 setDeleteInput("");
+                // Corrects suppliersTotal and backfills this page from the
+                // server — the slice's own local .filter() on delete just
+                // shrinks the in-memory array, which would otherwise leave
+                // the page short a row and the pagination count stale.
+                refetchCurrentPage();
               }}
             >
               Delete
@@ -446,7 +475,7 @@ const SuppliersListPage: React.FC = () => {
         show={payoutOpen}
         onClose={closePayout}
         supplierId={payoutSupplierId}
-        onSuccess={() => dispatch(fetchSuppliersThunk())}
+        onSuccess={refetchCurrentPage}
       />
     </div>
   );
