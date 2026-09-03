@@ -91,6 +91,13 @@ export default function ReviewAuditModal({ mode, auditorId, busy, onClose, onCon
         Must be a different staff member than the auditor.
       </p>
 
+      {mode === "approve" && (
+        <p className="paudit-hint mt-2">
+          Approving updates stock to match the counted quantities and records
+          the adjustment in Stock Ledger. This can't be undone from here.
+        </p>
+      )}
+
       {mode === "reject" && (
         <>
           <label className="paudit-label mt-3">Rejection reason <span className="paudit-req">*</span></label>

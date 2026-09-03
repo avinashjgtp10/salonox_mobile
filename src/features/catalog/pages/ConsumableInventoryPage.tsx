@@ -381,7 +381,7 @@ const ConsumableInventoryPage: React.FC = () => {
             className="ci-btn ci-btn--primary"
             title="Add Consumable"
             aria-label="Add Consumable"
-            onClick={() => navigate("/dashboard/catalog/inventory/consumables/add")}
+            onClick={() => navigate("/dashboard/inventory/consumables/add")}
           >
             <PlusLg size={14} /> Add
           </button>
@@ -389,7 +389,7 @@ const ConsumableInventoryPage: React.FC = () => {
             className="ci-btn ci-btn--outline"
             title="Usage History"
             aria-label="Usage History"
-            onClick={() => navigate("/dashboard/catalog/inventory/consumables/usage-history")}
+            onClick={() => navigate("/dashboard/inventory/consumables/usage-history")}
           >
             Usage
           </button>
@@ -529,7 +529,7 @@ const ConsumableInventoryPage: React.FC = () => {
                     <RowActionsMenu
                       items={[
                         { label: "View Details", onClick: () => setSelectedProduct({ id: row.product_id, openAdjust: false }) },
-                        { label: "Edit Product", onClick: () => navigate(`/dashboard/catalog/inventory/consumables/edit/${row.product_id}`) },
+                        { label: "Edit Product", onClick: () => navigate(`/dashboard/inventory/consumables/edit/${row.product_id}`) },
                         { label: "Adjust Stock", onClick: () => setSelectedProduct({ id: row.product_id, openAdjust: true }) },
                         row.status === "deactivated"
                           ? { label: "Reactivate", onClick: () => handleReactivate(row.product_id) }
@@ -558,7 +558,7 @@ const ConsumableInventoryPage: React.FC = () => {
           openAdjustOnMount={selectedProduct.openAdjust}
           onClose={() => setSelectedProduct(null)}
           onAdjusted={refresh}
-          onEdit={() => navigate(`/dashboard/catalog/inventory/consumables/edit/${selectedProduct.id}`)}
+          onEdit={() => navigate(`/dashboard/inventory/consumables/edit/${selectedProduct.id}`)}
         />
       )}
 

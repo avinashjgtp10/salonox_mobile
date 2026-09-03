@@ -1,9 +1,5 @@
-import { createSlice, type PayloadAction } from "@reduxjs/toolkit";
+import { createSlice } from "@reduxjs/toolkit";
 import {
-  fetchStocktakesThunk,
-  createStocktakeThunk,
-  processStockTakeThunk,
-  deleteStocktakeThunk,
   fetchSuppliersThunk,
   createSupplierThunk,
   updateSupplierThunk,
@@ -12,14 +8,12 @@ import {
   fetchConsumableByIdThunk,
 } from "../middleware/inventory/inventory.thunk";
 import type {
-  Stocktake, SupplierWithBalance,
+  SupplierWithBalance,
   ConsumableListRow, ConsumableKpis, ConsumableDetail,
 } from "../types/inventory.types";
 
 interface InventoryState {
-  stocktakes: Stocktake[];
   suppliers: SupplierWithBalance[];
-  currentStocktake: Stocktake | null;
   loading: boolean;
   error: string | null;
 
@@ -37,9 +31,7 @@ interface InventoryState {
 }
 
 const initialState: InventoryState = {
-  stocktakes: [],
   suppliers: [],
-  currentStocktake: null,
   loading: false,
   error: null,
 
@@ -62,51 +54,11 @@ const inventorySlice = createSlice({
     clearInventoryError: (state) => {
       state.error = null;
     },
-    setCurrentStocktake: (state, action: PayloadAction<Stocktake | null>) => {
-      state.currentStocktake = action.payload;
-    },
     clearConsumableDetail: (state) => {
       state.consumableDetail = null;
     },
   },
   extraReducers: (builder) => {
-    // Fetch Stocktakes
-    builder.addCase(fetchStocktakesThunk.pending, (state) => {
-      state.loading = true;
-      state.error = null;
-    });
-    builder.addCase(fetchStocktakesThunk.fulfilled, (state, action) => {
-      state.loading = false;
-      state.stocktakes = action.payload;
-    });
-    builder.addCase(fetchStocktakesThunk.rejected, (state, action) => {
-      state.loading = false;
-      state.error = action.payload as string;
-    });
-
-    // Create Stocktake
-    builder.addCase(createStocktakeThunk.fulfilled, (state, action) => {
-      state.stocktakes.unshift(action.payload);
-      state.currentStocktake = action.payload;
-    });
-
-    // Process Stocktake
-    builder.addCase(processStockTakeThunk.pending, (state) => {
-      state.loading = true;
-    });
-    builder.addCase(processStockTakeThunk.fulfilled, (state) => {
-      state.loading = false;
-    });
-    builder.addCase(processStockTakeThunk.rejected, (state, action) => {
-      state.loading = false;
-      state.error = action.payload as string;
-    });
-    
-    // Delete Stocktake
-    builder.addCase(deleteStocktakeThunk.fulfilled, (state, action) => {
-      state.stocktakes = state.stocktakes.filter(s => s.id !== action.payload);
-    });
-
     // Fetch Suppliers
     builder.addCase(fetchSuppliersThunk.pending, (state) => {
       state.loading = true;
@@ -187,5 +139,5 @@ const inventorySlice = createSlice({
   },
 });
 
-export const { clearInventoryError, setCurrentStocktake, clearConsumableDetail } = inventorySlice.actions;
+export const { clearInventoryError, clearConsumableDetail } = inventorySlice.actions;
 export default inventorySlice.reducer;

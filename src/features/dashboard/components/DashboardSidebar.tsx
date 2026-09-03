@@ -6,6 +6,7 @@ import {
   Calendar,
   EmojiSmile,
   Book,
+  Boxes,
   Globe2,
   Megaphone,
   People,
@@ -26,6 +27,7 @@ import "../styles/ComingSoonModal.scss";
 type MenuKey =
   | "clients"
   | "catalog"
+  | "inventory"
   | "onlineBooking"
   | "marketing"
   | "team";
@@ -195,6 +197,26 @@ export default function DashboardSidebar({ openMenu, onMenuChange }: Props) {
         >
           <Book size={22} />
           <span className="nav-label">Catalog</span>
+        </button>
+      )}
+
+      {can("view_inventory") && (
+        <button
+          type="button"
+          className={menuClass("inventory")}
+          onClick={() => {
+            const opening = openMenu !== "inventory";
+            onMenuChange(opening ? "inventory" : null);
+            // Same pattern as Clients/Catalog above — jump to the section's
+            // default page (Suppliers) when entering it from elsewhere,
+            // instead of just opening the flyout submenu over the current page.
+            if (opening && !location.pathname.startsWith("/dashboard/inventory")) {
+              navigate("/dashboard/inventory/suppliers");
+            }
+          }}
+        >
+          <Boxes size={22} />
+          <span className="nav-label">Inventory Management</span>
         </button>
       )}
 

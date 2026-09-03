@@ -3,6 +3,7 @@ export * from "./OnboardingRoutes";
 export * from "./DashboardRoutes";
 export * from "./AppsRoutes";
 export * from "./CatalogRoutes";
+export * from "./InventoryRoutes";
 export * from "./ClientsRoutes";
 export * from "./TeamRoutes";
 export * from "./SettingsRoutes";

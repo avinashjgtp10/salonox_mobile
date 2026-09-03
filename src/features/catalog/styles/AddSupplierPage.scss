@@ -60,26 +60,51 @@
   &__body {
     flex: 1;
     overflow-y: auto;
-    max-width: 640px;
+    max-width: 960px;
     margin: 0 auto;
-    padding: 40px 24px 80px;
+    padding: 32px 24px 80px;
+    display: flex;
+    flex-direction: column;
+    // Section-to-section spacing now comes from this gap instead of
+    // .section-divider lines — each section is its own bordered card
+    // (matches ProductFormPage/ConsumableFormPage's .cf-card treatment), so
+    // a divider line between two already-bordered boxes would be redundant.
+    gap: 20px;
   }
 
+  // Same card treatment as the Add Product page's .cf-card — border,
+  // radius, own background and padding, rather than a borderless section
+  // separated only by a divider line.
   .form-section {
-    margin-bottom: 8px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    padding: 20px 24px;
 
     h3 {
-      font-size: 18px;
+      font-size: 15px;
       font-weight: 700;
       color: #111827;
-      margin-bottom: 24px;
+      margin-bottom: 20px;
     }
   }
 
-  .section-divider {
-    height: 1px;
-    background: #f3f4f6;
-    margin: 32px 0;
+  // Dense multi-field rows (Basic/Contact/Address details) — short fields
+  // flow 3 per row instead of stacking full-width one per row, matching the
+  // denser grid layout used across Basic Details/Contact Details/Payment
+  // Details style forms elsewhere in the app. Wraps to fewer columns on
+  // narrower viewports (e.g. the Supplier detail page's edit side-panel).
+  .field-row-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+
+    @media (max-width: 720px) {
+      grid-template-columns: 1fr 1fr;
+    }
+    @media (max-width: 480px) {
+      grid-template-columns: 1fr;
+    }
   }
 
   .field-group {
@@ -303,7 +328,11 @@
 }
 
 .add-supplier-page--panel {
-  height: 100vh;
+  // 100% (not 100vh) so this fills whatever container it's placed in —
+  // SuppliersListPage/SupplierDetailPage's full-height right-edge slide-over
+  // (.supplier-panel, 100vh) and NewOrderPage's bounded centered popup
+  // (.supplier-modal-box, 85vh/780px) both work without a page-specific override.
+  height: 100%;
 
   .add-supplier-page__topbar {
     padding: 12px 20px;
@@ -313,6 +342,7 @@
     max-width: none;
     width: 100%;
     padding: 22px 20px 64px;
+    gap: 14px;
     scrollbar-width: thin;
     scrollbar-color: #98a2b3 #f2f4f7;
 
@@ -336,22 +366,21 @@
   }
 
   .form-section {
+    padding: 16px 18px;
+
     h3 {
       font-size: 16px;
       margin-bottom: 18px;
     }
   }
 
-  .field-row-2 {
+  .field-row-2,
+  .field-row-3 {
     grid-template-columns: 1fr;
     gap: 0;
   }
 
   .field-group {
     margin-bottom: 16px;
-  }
-
-  .section-divider {
-    margin: 24px 0;
   }
 }

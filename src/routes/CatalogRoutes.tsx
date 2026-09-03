@@ -1,5 +1,5 @@
 import { lazy, Suspense } from "react";
-import { Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import PermissionGuard from "../components/guards/PermissionGuard";
 
 const ServicesListPage = lazy(
@@ -30,30 +30,6 @@ const ProductFormPage = lazy(
 const ImportProductsPage = lazy(
   () => import("../features/catalog/pages/ImportProductsPage"),
 );
-const StocktakesListPage = lazy(
-  () => import("../features/catalog/pages/StocktakesListPage"),
-);
-const AddStocktakePage = lazy(
-  () => import("../features/catalog/pages/AddStocktakePage"),
-);
-const SuppliersListPage = lazy(
-  () => import("../features/catalog/pages/SuppliersListPage"),
-);
-const AddSupplierPage = lazy(
-  () => import("../features/catalog/pages/AddSupplierPage"),
-);
-const SupplierDetailPage = lazy(
-  () => import("../features/catalog/pages/SupplierDetailPage"),
-);
-const NewOrderPage = lazy(
-  () => import("../features/catalog/pages/NewOrderPage"),
-);
-const OrdersListPage = lazy(
-  () => import("../features/catalog/pages/OrdersListPage"),
-);
-const OrderDetailPage = lazy(
-  () => import("../features/catalog/pages/OrderDetailPage"),
-);
 const PackagesPage = lazy(
   () => import("../features/catalog/pages/Packages"),
 );
@@ -63,35 +39,29 @@ const EditPackagePage = lazy(
 const PackageModule = lazy(
   () => import("../components/packages/PackageModule"),
 );
-const ConsumableInventoryPage = lazy(
-  () => import("../features/catalog/pages/ConsumableInventoryPage"),
-);
-// Retail-stock counterpart to Consumable Inventory above.
-const ProductInventoryPage = lazy(
-  () => import("../features/catalog/pages/ProductInventoryPage"),
-);
-const ConsumableUsageHistoryPage = lazy(
-  () => import("../features/catalog/pages/ConsumableUsageHistoryPage"),
-);
-const ProductAuditPage = lazy(
-  () => import("../features/catalog/pages/ProductAuditPage"),
-);
-const StockLedgerPage = lazy(
-  () => import("../features/catalog/pages/StockLedgerPage"),
-);
-const AddStockPage = lazy(
-  () => import("../features/catalog/pages/AddStockPage"),
-);
 
 import { PageLoader } from "../components/ui";
+
+// Inventory moved out from under Catalog to its own top-level section — see
+// InventoryRoutes.tsx. Old /dashboard/catalog/inventory/... links (bookmarks,
+// shared URLs) still work: this rewrites the prefix and hands off to the
+// new location instead of 404ing or bouncing to the Catalog service menu.
+function LegacyInventoryRedirect() {
+  const location = useLocation();
+  const target = location.pathname.replace(
+    /^\/dashboard\/catalog\/inventory/,
+    "/dashboard/inventory",
+  );
+  return <Navigate to={`${target}${location.search}`} replace />;
+}
 
 export const CatalogRoutes = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
       {/* Default: catalog index → service menu */}
       <Route index element={<Navigate to="/dashboard/catalog/services" replace />} />
-      {/* Inventory parent → stocktakes */}
-      <Route path="inventory" element={<Navigate to="/dashboard/catalog/inventory/stocktakes" replace />} />
+      {/* Inventory lives at /dashboard/inventory/* now — see InventoryRoutes.tsx */}
+      <Route path="inventory/*" element={<LegacyInventoryRedirect />} />
 
       {/* view_catalog (outer) — read-only screens */}
       <Route path="services" element={<ServicesListPage />} />
@@ -113,35 +83,6 @@ export const CatalogRoutes = () => (
         <Route path="products/create" element={<ProductFormPage />} />
         <Route path="products/edit/:id" element={<ProductFormPage />} />
         <Route path="products/import" element={<ImportProductsPage />} />
-      </Route>
-
-      {/* manage_inventory required for stock operations */}
-      <Route element={<PermissionGuard permKey="manage_inventory" />}>
-        <Route path="inventory/stocktakes" element={<StocktakesListPage />} />
-        <Route path="inventory/stocktakes/new" element={<AddStocktakePage />} />
-        <Route path="inventory/stocktakes/edit/:id" element={<AddStocktakePage />} />
-        {/* Orders is now its own concept (a PO document, no stock movement) —
-            sibling to Purchase History rather than an alias for it. */}
-        <Route path="inventory/orders" element={<OrdersListPage />} />
-        <Route path="inventory/orders/new-order" element={<NewOrderPage />} />
-        <Route path="inventory/orders/:id/edit" element={<NewOrderPage />} />
-        <Route path="inventory/orders/:id" element={<OrderDetailPage />} />
-        <Route path="inventory/suppliers" element={<SuppliersListPage />} />
-        <Route path="inventory/suppliers/new" element={<AddSupplierPage />} />
-        <Route path="inventory/suppliers/edit/:id" element={<AddSupplierPage />} />
-        <Route path="inventory/suppliers/:id/edit" element={<AddSupplierPage />} />
-        <Route path="inventory/suppliers/:id" element={<SupplierDetailPage />} />
-        <Route path="inventory/products" element={<ProductInventoryPage />} />
-        <Route path="inventory/audit" element={<ProductAuditPage />} />
-        <Route path="inventory/consumables" element={<ConsumableInventoryPage />} />
-        <Route path="inventory/consumables/add" element={<ProductFormPage />} />
-        <Route path="inventory/consumables/edit/:id" element={<ProductFormPage />} />
-        <Route path="inventory/consumables/usage-history" element={<ConsumableUsageHistoryPage />} />
-        <Route path="inventory/ledger" element={<StockLedgerPage />} />
-        <Route path="inventory/ledger/add-stock" element={<AddStockPage />} />
-        <Route path="inventory/ledger/edit/:id" element={<AddStockPage />} />
-        {/* Redesigned as Consumable Inventory — old URL kept working */}
-        <Route path="inventory/stock-reconciliation" element={<Navigate to="/dashboard/catalog/inventory/consumables" replace />} />
       </Route>
 
       {/* Catch-all → service menu */}

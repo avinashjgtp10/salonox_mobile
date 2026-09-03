@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { Trash, PlusLg, Upload, Images, Lock, ClipboardData } from "react-bootstrap-icons";
+import { Trash, PlusLg, Upload, Images, Lock } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchBranchesThunk, createBranchThunk } from "../../../middleware/salon/salon.thunk";
 import {
   fetchSuppliersThunk,
   createOrderThunk,
@@ -18,12 +17,17 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import Button from "../../../components/ui/Button";
 import Modal from "../../../components/ui/Modal";
-import UIInput from "../../../components/ui/Input";
 import { Dropdown } from "../../../components/ui/Dropdown";
 import { DatePicker } from "../../../components/ui";
 import ProductSearchSelect, { type ProductSearchResult } from "../components/ProductSearchSelect";
+import AddSupplierPage from "./AddSupplierPage";
 import "../styles/PurchaseHistoryTable.scss";
 import "../styles/AddSupplierPage.scss";
+// Pulled in for .cf-quick-add-link — the same "+ Add a category"-style
+// inline link used on the Product form (see QuickAdd.tsx), reused here for
+// visual consistency even though the click opens a full popup, not
+// QuickAdd's own inline name-only row.
+import "../styles/ConsumableFormPage.scss";
 import "../styles/NewOrderPage.scss";
 
 interface OrderLine {
@@ -74,11 +78,17 @@ function generateRefNumber(): string {
 }
 
 // New Purchase Order — redesigned into 7 numbered sections (Supplier, Order
-// Details, Delivery Details, Order Items, Order Summary, Additional
+// Details, Shipping & Delivery, Order Items, Order Summary, Additional
 // Information, Actions), built entirely from the app's existing shared
 // components (Dropdown, DatePicker, Button, Input, Modal, ProductSearchSelect)
 // rather than one-off inputs, and following AddSupplierPage's topbar/
 // form-section/field-group visual pattern.
+//
+// Shipping & Delivery is a plain free-text address + instructions, not a
+// branch picker — bill_to_branch_id/ship_to_branch_id never actually routed
+// stock (receive() always posts to purchasesRepository.create with no
+// branch_id at all), so this only changes what's captured on the document,
+// not how receiving works. See Migration/add_order_delivery_address.sql.
 //
 const NewOrderPage: React.FC = () => {
   const navigate = useNavigate();
@@ -90,40 +100,52 @@ const NewOrderPage: React.FC = () => {
   const [loadingOrder, setLoadingOrder] = useState(isEditMode);
   const [orderNumber, setOrderNumber] = useState("");
 
-  const { currentSalon, branches } = useAppSelector((s) => s.salon);
   const { suppliers } = useAppSelector((s) => s.inventory);
   const { items: settingItems } = useAppSelector((s) => s.setting);
 
   // ── 1. Supplier ──────────────────────────────────────────────────────────
   const [supplierId, setSupplierId] = useState("");
+  const [addSupplierOpen, setAddSupplierOpen] = useState(false);
   const selectedSupplier = useMemo(() => suppliers.find((s) => s.id === supplierId), [suppliers, supplierId]);
 
   // ── 2. Order details ─────────────────────────────────────────────────────
   // PO number is a client-side placeholder until save — the real
   // order_number (ORD-00001 etc) is generated server-side and only known
-  // once createOrderThunk resolves (see ordersRepository.create).
-  const [poNumberPreview] = useState(() => `PO-${Math.floor(100000 + Math.random() * 900000)}`);
+  // once createOrderThunk resolves (see ordersRepository.create). A fixed
+  // "PO-0001" reads as a format sample (it's locked + badged "Auto
+  // Generated" right next to it), where a random 6-digit number read as a
+  // broken/uninitialized value instead.
+  const poNumberPreview = "PO-0001";
   const [orderDate, setOrderDate] = useState(todayISO());
   const [deliveryDate, setDeliveryDate] = useState("");
   const [paymentTermsDays, setPaymentTermsDays] = useState("");
   const [refNumber, setRefNumber] = useState(() => generateRefNumber());
 
-  // ── 3. Delivery details ──────────────────────────────────────────────────
-  const [billToBranchId, setBillToBranchId] = useState("");
-  const [shipToBranchId, setShipToBranchId] = useState("");
-  const [sameAsBillTo, setSameAsBillTo] = useState(false);
-
-  useEffect(() => {
-    if (sameAsBillTo) setShipToBranchId(billToBranchId);
-  }, [sameAsBillTo, billToBranchId]);
+  // ── 3. Shipping & delivery ───────────────────────────────────────────────
+  const [deliveryAddress, setDeliveryAddress] = useState("");
+  const [deliveryInstructions, setDeliveryInstructions] = useState("");
 
   // ── 4. Order items ───────────────────────────────────────────────────────
   const [lines, setLines] = useState<OrderLine[]>([emptyLine()]);
+  // Which line's product cell is showing the search box instead of the
+  // picked product's name — clicking the name itself re-opens search
+  // in place (no separate "Change" button).
+  const [editingProductKey, setEditingProductKey] = useState<string | null>(null);
 
   // Tax — kept as one flat order-level rate (not per-line), sourced from the
-  // salon's existing tax settings, per product decision.
+  // salon's existing tax settings, per product decision. The rate itself is
+  // still editable though: picking a Tax Group seeds taxRatePercent with
+  // that group's rate, but the field is then freely typable — it's a plain
+  // controlled input bound straight to this state, not recomputed from the
+  // group on every render (that recompute is what made "0" seem stuck: as
+  // soon as you cleared it, the fallback rendered "0" right back before you
+  // could type). The backend already just trusts whatever tax_rate is sent
+  // (orders.repository.ts computes total_tax straight from data.tax_rate,
+  // it never re-derives it from tax_group server-side), so this needs no
+  // backend change.
   const [taxType, setTaxType] = useState<OrderTaxType>("exclusive");
   const [taxGroup, setTaxGroup] = useState("");
+  const [taxRatePercent, setTaxRatePercent] = useState("");
 
   // ── 5. Order summary ─────────────────────────────────────────────────────
   const [shippingCost, setShippingCost] = useState("0");
@@ -141,22 +163,10 @@ const NewOrderPage: React.FC = () => {
   const [signatureUrl, setSignatureUrl] = useState("");
   const [signatures, setSignatures] = useState<{ id: string; url: string }[]>([]);
 
-  // Quick-add-branch modal — Bill To/Ship To's "+" button. A lightweight
-  // form (not the full multi-step location picker AddStocktakePage.tsx
-  // uses), since here it's just a shortcut to avoid leaving the order form.
-  const [addBranchTarget, setAddBranchTarget] = useState<"billTo" | "shipTo" | null>(null);
-  const [newBranchName, setNewBranchName] = useState("");
-  const [newBranchAddress, setNewBranchAddress] = useState("");
-  const [newBranchCity, setNewBranchCity] = useState("");
-  const [newBranchState, setNewBranchState] = useState("");
-  const [newBranchPincode, setNewBranchPincode] = useState("");
-  const [savingBranch, setSavingBranch] = useState(false);
-
   useEffect(() => {
     dispatch(fetchSuppliersThunk());
     dispatch(fetchSettingsThunk());
-    if (currentSalon?.id) dispatch(fetchBranchesThunk(currentSalon.id));
-  }, [dispatch, currentSalon?.id]);
+  }, [dispatch]);
 
   // Edit mode: load the existing order and prefill every field with it.
   useEffect(() => {
@@ -173,11 +183,19 @@ const NewOrderPage: React.FC = () => {
         setDeliveryDate(order.delivery_date ? order.delivery_date.slice(0, 10) : "");
         setPaymentTermsDays(order.payment_terms_days != null ? String(order.payment_terms_days) : "");
         setRefNumber(order.ref_number || "");
-        setBillToBranchId(order.bill_to_branch_id || "");
-        setShipToBranchId(order.ship_to_branch_id || "");
-        setSameAsBillTo(!!order.bill_to_branch_id && order.bill_to_branch_id === order.ship_to_branch_id);
+        setDeliveryAddress(order.delivery_address || "");
+        setDeliveryInstructions(order.delivery_instructions || "");
         setTaxType(order.tax_type);
         setTaxGroup(order.tax_group || "");
+        // The order's actual saved tax_rate isn't its own column (see the
+        // note on taxRatePercent above) — only baked into each item's
+        // total_tax. Back-derive it from the first item that has a cost to
+        // tax, so re-opening an order shows the rate it was really saved
+        // with, not whatever the tax group's Settings rate is today.
+        const taxedItem = (order.items ?? []).find((item) => Number(item.total_cost_wo_tax) > 0);
+        setTaxRatePercent(
+          taxedItem ? String(Math.round((Number(taxedItem.total_tax) / Number(taxedItem.total_cost_wo_tax)) * 10000) / 100) : "",
+        );
         setShippingCost(String(order.shipping_cost ?? 0));
         setNotes(order.remark || "");
         setTermsConditions(order.terms_conditions || "");
@@ -207,12 +225,8 @@ const NewOrderPage: React.FC = () => {
     () => taxRows.map((t) => ({ id: t.tax_name, name: `${t.tax_name} (${t.tax_value}%)` })),
     [taxRows],
   );
-  const selectedTaxRate = useMemo(
-    () => taxRows.find((t) => t.tax_name === taxGroup)?.tax_value ?? 0,
-    [taxRows, taxGroup],
-  );
+  const selectedTaxRate = parseFloat(taxRatePercent) || 0;
 
-  const branchOptions = useMemo(() => branches.map((b) => ({ id: b.id, name: b.name })), [branches]);
   const supplierOptions = useMemo(() => suppliers.map((s) => ({ id: s.id, name: s.name })), [suppliers]);
 
   function patchLine(key: string, patch: Partial<OrderLine>) {
@@ -279,46 +293,6 @@ const NewOrderPage: React.FC = () => {
     }
   }
 
-  function closeAddBranch() {
-    setAddBranchTarget(null);
-    setNewBranchName("");
-    setNewBranchAddress("");
-    setNewBranchCity("");
-    setNewBranchState("");
-    setNewBranchPincode("");
-  }
-
-  async function handleSaveBranch() {
-    if (!currentSalon?.id) return;
-    if (!newBranchName.trim() || !newBranchAddress.trim() || !newBranchCity.trim() || !newBranchState.trim()) {
-      showError("Name, address, city, and state are required");
-      return;
-    }
-    setSavingBranch(true);
-    try {
-      const branch = await dispatch(
-        createBranchThunk({
-          salon_id: currentSalon.id,
-          name: newBranchName.trim(),
-          address_line1: newBranchAddress.trim(),
-          city: newBranchCity.trim(),
-          state: newBranchState.trim(),
-          pincode: newBranchPincode.trim(),
-          is_main: branches.length === 0,
-        }),
-      ).unwrap();
-
-      if (addBranchTarget === "billTo") setBillToBranchId(branch.id);
-      if (addBranchTarget === "shipTo") setShipToBranchId(branch.id);
-      showSuccess("Location added successfully");
-      closeAddBranch();
-    } catch (err: any) {
-      showError(typeof err === "string" ? err : "Failed to add location");
-    } finally {
-      setSavingBranch(false);
-    }
-  }
-
   async function openGallery() {
     setGalleryOpen(true);
     try {
@@ -353,8 +327,8 @@ const NewOrderPage: React.FC = () => {
       const payload = {
         status,
         supplier_id: supplierId,
-        bill_to_branch_id: billToBranchId || undefined,
-        ship_to_branch_id: shipToBranchId || undefined,
+        delivery_address: deliveryAddress.trim() || undefined,
+        delivery_instructions: deliveryInstructions.trim() || undefined,
         order_date: orderDate,
         ref_number: refNumber.trim() || undefined,
         payment_terms_days: paymentTermsDays ? Number(paymentTermsDays) : undefined,
@@ -380,7 +354,7 @@ const NewOrderPage: React.FC = () => {
             ? `Order ${order.order_number} saved as draft`
             : `Order ${order.order_number} created successfully`
       );
-      navigate("/dashboard/catalog/inventory/orders");
+      navigate("/dashboard/inventory/orders");
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't create order");
     } finally {
@@ -388,7 +362,7 @@ const NewOrderPage: React.FC = () => {
     }
   }
 
-  const handleClose = () => navigate("/dashboard/catalog/inventory/orders");
+  const handleClose = () => navigate("/dashboard/inventory/orders");
 
   if (loadingOrder) {
     return (
@@ -439,6 +413,10 @@ const NewOrderPage: React.FC = () => {
             {touched && !supplierId && <span className="field-error">Select a supplier</span>}
           </div>
 
+          <Button variant="link" className="cf-quick-add-link" onClick={() => setAddSupplierOpen(true)}>
+            + Add a supplier
+          </Button>
+
           {selectedSupplier && (
             <div className="new-order-supplier-details">
               <h4>Supplier Details</h4>
@@ -473,8 +451,6 @@ const NewOrderPage: React.FC = () => {
           )}
         </section>
 
-        <div className="section-divider" />
-
         {/* ============== 2. ORDER DETAILS ============== */}
         <section className="form-section">
           <h3>Order Details</h3>
@@ -488,16 +464,16 @@ const NewOrderPage: React.FC = () => {
               </div>
             </div>
             <div className="field-group">
-              <label>Order Date <span style={{ color: "red" }}>*</span></label>
-              <DatePicker value={orderDate} onChange={setOrderDate} />
-              <span className="new-order-date-label">{fmtDateLabel(orderDate)}</span>
+              <label>Reference Number</label>
+              <input type="text" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} />
             </div>
           </div>
 
-          <div className="field-row-2">
+          <div className="field-row-3">
             <div className="field-group">
-              <label>Expected Delivery Date</label>
-              <DatePicker value={deliveryDate} onChange={setDeliveryDate} min={orderDate || undefined} />
+              <label>Order Date <span style={{ color: "red" }}>*</span></label>
+              <DatePicker value={orderDate} onChange={setOrderDate} />
+              <span className="new-order-date-label">{fmtDateLabel(orderDate)}</span>
             </div>
             <div className="field-group">
               <label>Payment Terms</label>
@@ -510,79 +486,44 @@ const NewOrderPage: React.FC = () => {
                 allowNone
               />
             </div>
-          </div>
-
-          <div className="field-group">
-            <label>Reference Number</label>
-            <input type="text" value={refNumber} onChange={(e) => setRefNumber(e.target.value)} />
+            <div className="field-group">
+              <label>Expected Delivery Date</label>
+              <DatePicker value={deliveryDate} onChange={setDeliveryDate} min={orderDate || undefined} />
+            </div>
           </div>
         </section>
 
-        <div className="section-divider" />
-
-        {/* ============== 3. DELIVERY DETAILS ============== */}
+        {/* ============== 3. SHIPPING & DELIVERY ============== */}
         <section className="form-section">
-          <h3>Delivery Details</h3>
+          <h3>Shipping & Delivery</h3>
 
-          <div className="field-group">
-            <label>Bill To</label>
-            <div className="new-order-field-with-add">
-              <Dropdown
-                placeholder="Select Location"
-                value={billToBranchId}
-                options={branchOptions}
-                onChange={setBillToBranchId}
-                allowNone
+          <div className="field-row-2">
+            <div className="field-group">
+              <label>Delivery Address</label>
+              <textarea
+                placeholder="Where should this order be delivered?"
+                rows={3}
+                value={deliveryAddress}
+                onChange={(e) => setDeliveryAddress(e.target.value)}
               />
-              <Button
-                variant="outline-dark"
-                className="new-order-add-btn"
-                title="Add new location"
-                onClick={() => setAddBranchTarget("billTo")}
-                iconLeft={<PlusLg size={13} />}
+            </div>
+            <div className="field-group">
+              <label>Delivery Instructions</label>
+              <textarea
+                placeholder="e.g. Leave with front desk, deliver after 6pm (optional)"
+                rows={3}
+                value={deliveryInstructions}
+                onChange={(e) => setDeliveryInstructions(e.target.value)}
               />
             </div>
           </div>
-
-          <label className="checkbox-label">
-            <input
-              type="checkbox"
-              checked={sameAsBillTo}
-              onChange={(e) => setSameAsBillTo(e.target.checked)}
-            />
-            Same as Bill To
-          </label>
-
-          {!sameAsBillTo && (
-            <div className="field-group" style={{ marginTop: 16 }}>
-              <label>Ship To</label>
-              <div className="new-order-field-with-add">
-                <Dropdown
-                  placeholder="Select Location"
-                  value={shipToBranchId}
-                  options={branchOptions}
-                  onChange={setShipToBranchId}
-                  allowNone
-                />
-                <Button
-                  variant="outline-dark"
-                  className="new-order-add-btn"
-                  title="Add new location"
-                  onClick={() => setAddBranchTarget("shipTo")}
-                  iconLeft={<PlusLg size={13} />}
-                />
-              </div>
-            </div>
-          )}
         </section>
-
-        <div className="section-divider" />
 
         {/* ============== 4. ORDER ITEMS ============== */}
         <section className="form-section">
           <h3>Order Items</h3>
 
-          <div className="field-row-2">
+          <div className="field-row-3">
             <div className="field-group">
               <label>Tax Type</label>
               <Dropdown
@@ -601,8 +542,23 @@ const NewOrderPage: React.FC = () => {
                 placeholder="Select tax group"
                 value={taxGroup}
                 options={taxGroupOptions}
-                onChange={setTaxGroup}
+                onChange={(id) => {
+                  setTaxGroup(id);
+                  const rate = taxRows.find((t) => t.tax_name === id)?.tax_value;
+                  setTaxRatePercent(rate != null ? String(rate) : "");
+                }}
                 allowNone
+              />
+            </div>
+            <div className="field-group">
+              <label>Tax Rate (%)</label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                value={taxRatePercent}
+                onChange={(e) => setTaxRatePercent(e.target.value)}
+                onWheel={(e) => e.currentTarget.blur()}
               />
             </div>
           </div>
@@ -612,11 +568,10 @@ const NewOrderPage: React.FC = () => {
               <thead>
                 <tr>
                   <th>Product</th>
-                  <th>SKU</th>
                   <th>Qty</th>
                   <th>Unit Cost</th>
-                  <th>Discount</th>
-                  <th>Tax</th>
+                  <th>Disc %</th>
+                  <th>Tax %</th>
                   <th>Total</th>
                   <th />
                 </tr>
@@ -626,23 +581,35 @@ const NewOrderPage: React.FC = () => {
                   const m = lineMath(line);
                   return (
                     <tr key={line.key}>
-                      <td className="new-order-table__product">
-                        {line.product ? (
-                          <div className="new-order-selected-product">
-                            <span>{line.product.name}</span>
-                            <button type="button" onClick={() => patchLine(line.key, { product: null })}>Change</button>
-                          </div>
+                      <td
+                        className="new-order-table__product"
+                        onBlur={(e) => {
+                          if (editingProductKey === line.key && !e.currentTarget.contains(e.relatedTarget as Node)) {
+                            setEditingProductKey(null);
+                          }
+                        }}
+                      >
+                        {line.product && editingProductKey !== line.key ? (
+                          <span
+                            className="new-order-product-name-clickable"
+                            title={line.product.name}
+                            onClick={() => setEditingProductKey(line.key)}
+                          >
+                            {line.product.name}
+                          </span>
                         ) : (
                           <ProductSearchSelect
-                            onSelect={(p) => patchLine(line.key, {
-                              product: p,
-                              sku: p.barcode || p.sku || "",
-                              unitCost: p.supply_price != null ? String(p.supply_price) : line.unitCost,
-                            })}
+                            onSelect={(p) => {
+                              patchLine(line.key, {
+                                product: p,
+                                sku: p.barcode || p.sku || "",
+                                unitCost: p.supply_price != null ? String(p.supply_price) : line.unitCost,
+                              });
+                              setEditingProductKey(null);
+                            }}
                           />
                         )}
                       </td>
-                      <td>{line.sku || "—"}</td>
                       <td>
                         <input
                           type="number"
@@ -681,7 +648,6 @@ const NewOrderPage: React.FC = () => {
                           }}
                           onWheel={(e) => e.currentTarget.blur()}
                         />
-                        <span className="new-order-input-suffix">%</span>
                       </td>
                       <td className="new-order-table__readonly">{selectedTaxRate}%</td>
                       <td className="new-order-table__readonly">{formatAmount(m.lineTotal)}</td>
@@ -712,11 +678,9 @@ const NewOrderPage: React.FC = () => {
             className="new-order-add-product-btn"
             onClick={() => setLines((prev) => [...prev, emptyLine()])}
           >
-            Add Product
+            Add More
           </Button>
         </section>
-
-        <div className="section-divider" />
 
         {/* ============== 5. ORDER SUMMARY ============== */}
         <section className="form-section">
@@ -757,8 +721,6 @@ const NewOrderPage: React.FC = () => {
             </div>
           </div>
         </section>
-
-        <div className="section-divider" />
 
         {/* ============== 6. ADDITIONAL INFORMATION ============== */}
         <section className="form-section">
@@ -806,66 +768,22 @@ const NewOrderPage: React.FC = () => {
         </section>
 
       </div>
-
-      <aside className="new-order-sidebar">
-        <h3>Order Summary</h3>
-
-        <div className="new-order-sidebar-card new-order-sidebar-card--empty">
-          <div className="new-order-sidebar-illustration">
-            <ClipboardData size={26} />
-          </div>
-          {validLines.length === 0 ? (
-            <>
-              <p>No items added yet</p>
-              <span>Add products to see order summary</span>
-            </>
-          ) : (
-            <>
-              <p>{formatAmount(grandTotal)}</p>
-              <span>{validLines.length} product{validLines.length === 1 ? "" : "s"} added</span>
-            </>
-          )}
-        </div>
-
-        <div className="new-order-quickinfo">
-          <h4>Quick Info</h4>
-          <div className="new-order-quickinfo__row">
-            <span>Total Items</span>
-            <span>{validLines.length}</span>
-          </div>
-          <div className="new-order-quickinfo__row">
-            <span>Total Quantity</span>
-            <span>{validLines.reduce((sum, l) => sum + lineMath(l).qty, 0)}</span>
-          </div>
-          <div className="new-order-quickinfo__row">
-            <span>Estimated Delivery</span>
-            <span>{deliveryDate ? fmtDateLabel(deliveryDate) : "—"}</span>
-          </div>
-          <div className="new-order-quickinfo__row">
-            <span>Warehouse</span>
-            <span>{branchOptions.find((b) => b.id === (sameAsBillTo ? billToBranchId : shipToBranchId))?.name || "—"}</span>
-          </div>
-        </div>
-      </aside>
       </div>
 
-      <Modal
-        show={!!addBranchTarget}
-        onClose={closeAddBranch}
-        title="Add new location"
-        footer={
-          <div className="d-flex gap-2 w-100">
-            <Button variant="outline-dark" fullWidth onClick={closeAddBranch}>Cancel</Button>
-            <Button variant="dark" fullWidth loading={savingBranch} onClick={handleSaveBranch}>Save</Button>
+      {addSupplierOpen && (
+        <div className="supplier-modal-overlay" onClick={() => setAddSupplierOpen(false)}>
+          <div className="supplier-modal-box" onClick={(e) => e.stopPropagation()}>
+            <AddSupplierPage
+              panelMode
+              onClose={() => setAddSupplierOpen(false)}
+              onSaved={(supplier) => {
+                dispatch(fetchSuppliersThunk());
+                setSupplierId(supplier.id);
+              }}
+            />
           </div>
-        }
-      >
-        <UIInput label="Name" value={newBranchName} onChange={(e) => setNewBranchName(e.target.value)} />
-        <UIInput label="Address" value={newBranchAddress} onChange={(e) => setNewBranchAddress(e.target.value)} />
-        <UIInput label="City" value={newBranchCity} onChange={(e) => setNewBranchCity(e.target.value)} />
-        <UIInput label="State" value={newBranchState} onChange={(e) => setNewBranchState(e.target.value)} />
-        <UIInput label="Pincode" value={newBranchPincode} onChange={(e) => setNewBranchPincode(e.target.value)} />
-      </Modal>
+        </div>
+      )}
 
       <Modal show={galleryOpen} onClose={() => setGalleryOpen(false)} title="Signature Gallery" size="md">
         {signatures.length === 0 ? (

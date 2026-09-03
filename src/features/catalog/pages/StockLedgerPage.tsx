@@ -31,7 +31,7 @@ import "../styles/StockLedgerPage.scss";
 type TxnType =
   | "opening_stock" | "purchase" | "usage" | "sale" | "return" | "damage"
   | "expired" | "adjustment_in" | "adjustment_out" | "transfer_in" | "transfer_out"
-  | "sample" | "lost" | "internal_use";
+  | "sample" | "lost" | "internal_use" | "audit_adjustment_in" | "audit_adjustment_out";
 
 const TXN_LABELS: Record<TxnType, string> = {
   opening_stock: "Opening Stock",
@@ -48,9 +48,14 @@ const TXN_LABELS: Record<TxnType, string> = {
   sample: "Sample",
   lost: "Lost / Missing",
   internal_use: "Internal Use",
+  // Written only when an approved Product Audit's physical count differs
+  // from system stock — never a manual entry (see ADJUSTMENT_TXN_TYPES,
+  // which deliberately excludes these two).
+  audit_adjustment_in: "Audit Adjustment",
+  audit_adjustment_out: "Audit Adjustment",
 };
 
-const IN_TYPES = new Set<TxnType>(["opening_stock", "purchase", "return", "adjustment_in", "transfer_in"]);
+const IN_TYPES = new Set<TxnType>(["opening_stock", "purchase", "return", "adjustment_in", "transfer_in", "audit_adjustment_in"]);
 
 // Badge color is mostly "in = green, out = red", except Sale — a stock-out
 // type by nature (drops products.amount, shows under the Out column) but
@@ -60,8 +65,9 @@ const badgeVariantFor = (type: TxnType): "success" | "danger" =>
   type === "sale" || IN_TYPES.has(type) ? "success" : "danger";
 
 // Types offered in the manual Stock Adjustment modal — excludes
-// purchase/sale/usage, which are always system-generated from an actual
-// purchase/sale/consumption flow, never entered by hand here.
+// purchase/sale/usage (system-generated from an actual purchase/sale/
+// consumption flow) and audit_adjustment_in/out (system-generated only from
+// an approved Product Audit) — none of these are ever entered by hand here.
 const ADJUSTMENT_TXN_TYPES: TxnType[] = [
   "adjustment_in", "adjustment_out", "damage", "expired",
   "sample", "lost", "internal_use", "transfer_in", "transfer_out",
@@ -275,7 +281,7 @@ export default function StockLedgerPage() {
           <Button variant="outline-dark" iconLeft={<Sliders2Vertical size={14} />} onClick={() => setAdjustOpen(true)}>
             Stock Adjustment
           </Button>
-          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={() => navigate("/dashboard/catalog/inventory/ledger/add-stock")}>
+          <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={() => navigate("/dashboard/inventory/ledger/add-stock")}>
             Add Stock
           </Button>
         </div>
@@ -375,7 +381,7 @@ export default function StockLedgerPage() {
                           </BsDropdown.Toggle>
                           <BsDropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "160px" }}>
                             <BsDropdown.Item
-                              onClick={() => navigate(`/dashboard/catalog/inventory/ledger/edit/${r.id}`)}
+                              onClick={() => navigate(`/dashboard/inventory/ledger/edit/${r.id}`)}
                               className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
                             >
                               <PencilSquare size={14} /> Edit
@@ -466,8 +472,8 @@ export default function StockLedgerPage() {
 
 // ── Transaction Detail drawer ─────────────────────────────────────────────────
 // Right-side slide-in panel — same overlay+slide structure as
-// OrderDetailsDrawer/StocktakeDetailsDrawer (this app's established pattern
-// for row-click detail views), rather than a centered modal.
+// OrderDetailsDrawer (this app's established pattern for row-click detail
+// views), rather than a centered modal.
 function TransactionDetailDrawer({ row, isOpen, onClose }: { row: LedgerRow | null; isOpen: boolean; onClose: () => void }) {
   if (!row) return null;
   const isIn = IN_TYPES.has(row.transaction_type);

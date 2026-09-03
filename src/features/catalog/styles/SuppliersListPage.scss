@@ -1,3 +1,44 @@
+// Portaled to document.body and positioned inline per-instance from the
+// trigger's own getBoundingClientRect() — see SupplierRowActionsMenu in
+// SuppliersListPage.tsx. Top-level (not nested under .suppliers-list-page):
+// once portaled outside that subtree, a nested selector requiring it as an
+// ancestor would never match.
+.supplier-row-actions-menu {
+  position: fixed;
+  z-index: 1000;
+  min-width: 170px;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(17, 24, 39, 0.16);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+}
+
+.supplier-row-actions-menu__item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  text-align: left;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #101828;
+  cursor: pointer;
+
+  &:hover { background: #f9fafb; }
+
+  &--danger {
+    color: #d92d20;
+    &:hover { background: #fef3f2; }
+  }
+}
+
 // Mirrors ProductsListPage.scss's structure/tokens exactly (header, controls,
 // table, pagination) so Suppliers/Products/Product Inventory read as one
 // consistent list-page pattern instead of three independently-styled pages.
@@ -89,8 +130,8 @@
   }
 
   &__content {
-    // The table has 10 columns (name, contact, email, phone, 4 balance
-    // figures, status, actions) — on anything narrower than ~1200px its
+    // The table has 8 columns (name, phone, 4 balance figures, status,
+    // actions) — on anything narrower than ~1200px its
     // natural width exceeds the page container. Without this, the table
     // (overflow: visible below) just bled past the page/sidebar instead of
     // scrolling. Only the x-axis scrolls; the row-actions dropdown below
@@ -125,8 +166,6 @@
           position: relative;
 
           &:hover { background: #f9fafb; }
-
-          &.row-active { z-index: 100; }
 
           td {
             padding: 16px 24px;

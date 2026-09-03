@@ -136,7 +136,6 @@ export default function ProductInventoryPage() {
   const [categories, setCategories] = useState<Option[]>([]);
   const [brands, setBrands] = useState<Option[]>([]);
 
-  const [stockInFor, setStockInFor] = useState<InventoryRow | null>(null);
   const [historyFor, setHistoryFor] = useState<InventoryRow | "all" | null>(null);
   const [purchaseOpen, setPurchaseOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<InventoryRow | null>(null);
@@ -286,7 +285,7 @@ export default function ProductInventoryPage() {
         </div>
         <div className="header-actions">
           <Button variant="dark" iconLeft={<PlusLg size={14} />} onClick={() => setPurchaseOpen(true)}>
-            Purchase
+            Receive Stock
           </Button>
           <Dropdown>
             <Dropdown.Toggle
@@ -346,14 +345,11 @@ export default function ProductInventoryPage() {
             <thead>
               <tr>
                 <th className="pinv-col-product">Product</th>
-                <th className="pinv-col-barcode">Barcode</th>
-                <th>Category</th>
-                <th>Supplier</th>
-                <th className="pinv-num">Purchased</th>
+                <th className="pinv-num">Available</th>
                 <th className="pinv-num">Sold</th>
                 <th className="pinv-num">Consumed</th>
-                <th className="pinv-num">Available</th>
-                <th className="pinv-num">Purchase Price</th>
+                <th className="pinv-num">Purchased</th>
+                <th className="pinv-num">Cost</th>
                 <th className="pinv-num">Selling Price</th>
                 <th>Expiry</th>
                 <th>Status</th>
@@ -372,9 +368,6 @@ export default function ProductInventoryPage() {
                       </div>
                     </div>
                   </td>
-                  <td><Skeleton width="60%" height={12} /></td>
-                  <td><Skeleton width="60%" height={12} /></td>
-                  <td><Skeleton width="60%" height={12} /></td>
                   <td><Skeleton width="40%" height={12} /></td>
                   <td><Skeleton width="40%" height={12} /></td>
                   <td><Skeleton width="40%" height={12} /></td>
@@ -393,14 +386,11 @@ export default function ProductInventoryPage() {
             <thead>
               <tr>
                 <th className="pinv-col-product">Product</th>
-                <th className="pinv-col-barcode">Barcode</th>
-                <th>Category</th>
-                <th>Supplier</th>
-                <th className="pinv-num">Purchased</th>
+                <th className="pinv-num">Available</th>
                 <th className="pinv-num">Sold</th>
                 <th className="pinv-num">Consumed</th>
-                <th className="pinv-num">Available</th>
-                <th className="pinv-num">Purchase Price</th>
+                <th className="pinv-num">Purchased</th>
+                <th className="pinv-num">Cost</th>
                 <th className="pinv-num">Selling Price</th>
                 <th>Expiry</th>
                 <th>Status</th>
@@ -418,18 +408,15 @@ export default function ProductInventoryPage() {
                         {r.sku && <span className="sku pinv-sub">SKU: {r.sku}</span>}
                       </div>
                     </td>
-                    <td className="pinv-barcode-cell" title={r.barcode ?? undefined}>{r.barcode || "—"}</td>
-                    <td>{r.category || "—"}</td>
-                    <td>{r.supplier || "—"}</td>
-                    <td className="pinv-num">{fmtQty(r.purchased)}</td>
-                    <td className="pinv-num">{fmtQty(r.sold)}</td>
-                    <td className="pinv-num">{fmtQty(r.consumed)}</td>
                     <td className="pinv-num">
                       <span className={`pinv-stock${r.low_stock ? " pinv-stock--low" : ""}`}>
                         {fmtQty(r.stock)}
                       </span>
                       {r.measure_unit && <span className="pinv-unit"> {r.measure_unit}</span>}
                     </td>
+                    <td className="pinv-num">{fmtQty(r.sold)}</td>
+                    <td className="pinv-num">{fmtQty(r.consumed)}</td>
+                    <td className="pinv-num">{fmtQty(r.purchased)}</td>
                     <td className="pinv-num">{r.supply_price != null ? fmtQty(r.supply_price) : "—"}</td>
                     <td className="pinv-num">{r.retail_price != null ? fmtQty(r.retail_price) : "—"}</td>
                     <td className="pinv-date">{fmtDateShort(r.expiry_date)}</td>
@@ -447,12 +434,6 @@ export default function ProductInventoryPage() {
                           <ThreeDotsVertical size={16} />
                         </Dropdown.Toggle>
                         <Dropdown.Menu className="shadow-sm border-0 rounded-3 py-2" style={{ minWidth: "170px" }}>
-                          <Dropdown.Item
-                            onClick={() => setStockInFor(r)}
-                            className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
-                          >
-                            <PlusLg size={14} /> Add Stock
-                          </Dropdown.Item>
                           <Dropdown.Item
                             onClick={() => setHistoryFor(r)}
                             className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
@@ -479,7 +460,7 @@ export default function ProductInventoryPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan={13} className="pinv-empty-cell">
+                  <td colSpan={10} className="pinv-empty-cell">
                     <EmptyState
                       icon={<BoxSeam size={36} />}
                       title={(search || categoryId || brandId || lowOnly) ? "No products match these filters." : "No retail products yet."}
@@ -501,19 +482,6 @@ export default function ProductInventoryPage() {
           onPageSizeChange={setPageSize}
           pageSizeOptions={PAGE_SIZES}
           className="pinv-pagination"
-        />
-      )}
-
-      {stockInFor && (
-        <StockInModal
-          product={stockInFor}
-          onClose={() => setStockInFor(null)}
-          onDone={(added, after) => {
-            setStockInFor(null);
-            showSuccess(`Added ${fmtQty(added)} to ${stockInFor.name}. New stock: ${fmtQty(after)}`);
-            load();
-          }}
-          onError={showError}
         />
       )}
 
@@ -576,103 +544,6 @@ export default function ProductInventoryPage() {
         </Modal>
       )}
     </div>
-  );
-}
-
-// ── Stock-in ──────────────────────────────────────────────────────────────────
-function StockInModal({
-  product, onClose, onDone, onError,
-}: {
-  product: InventoryRow;
-  onClose: () => void;
-  onDone: (added: number, after: number) => void;
-  onError: (msg: string) => void;
-}) {
-  const [qty, setQty] = useState("");
-  const [notes, setNotes] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [touched, setTouched] = useState(false);
-
-  const parsed = parseFloat(qty);
-  // Derived rather than set on submit, so the message appears as the user
-  // types instead of only after they press Add.
-  const error =
-    qty.trim() === ""
-      ? (touched ? "Enter a quantity" : null)
-      : !Number.isFinite(parsed)
-        ? "Enter a valid number"
-        : parsed <= 0
-          ? "Quantity must be greater than zero"
-          : null;
-
-  const projected = error || !Number.isFinite(parsed) ? null : product.stock + parsed;
-
-  const submit = async () => {
-    setTouched(true);
-    if (error || !Number.isFinite(parsed) || parsed <= 0) return;
-    setSaving(true);
-    try {
-      const res = await api.post(INVENTORY.PRODUCT_INVENTORY_STOCK_IN(product.id), {
-        quantity: parsed,
-        notes: notes.trim() || null,
-      });
-      onDone(parsed, res.data?.data?.after ?? product.stock + parsed);
-    } catch (err: any) {
-      onError(err?.response?.data?.message || "Couldn't add stock");
-      setSaving(false);
-    }
-  };
-
-  return (
-    <Modal
-      show
-      onClose={onClose}
-      title="Add Stock"
-      footer={
-        <div className="d-flex justify-content-end gap-2 w-100">
-          <Button variant="outline-dark" onClick={onClose} disabled={saving}>Cancel</Button>
-          <Button variant="dark" onClick={submit} disabled={saving || !!error} loading={saving}>
-            Add Stock
-          </Button>
-        </div>
-      }
-    >
-      <p className="pinv-sub mb-3">{product.name}</p>
-      <div className="pinv-current">
-        <span>Current stock</span>
-        <strong>{fmtQty(product.stock)}{product.measure_unit ? ` ${product.measure_unit}` : ""}</strong>
-      </div>
-
-      <label className="pinv-label">
-        Quantity to add <span className="pinv-req">*</span>
-      </label>
-      <input
-        className={`pinv-input${error ? " pinv-input--err" : ""}`}
-        type="number"
-        min="0"
-        step="any"
-        autoFocus
-        placeholder="e.g. 12"
-        value={qty}
-        onChange={(e) => { setQty(e.target.value); setTouched(true); }}
-        onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-        onWheel={(e) => e.currentTarget.blur()}
-      />
-      {error
-        ? <span className="pinv-err">{error}</span>
-        : projected != null && (
-          <span className="pinv-hint">New stock will be <strong>{fmtQty(projected)}</strong></span>
-        )}
-
-      <label className="pinv-label">Note <span className="pinv-optional">(optional)</span></label>
-      <input
-        className="pinv-input"
-        placeholder="e.g. Invoice #4821, delivery from supplier"
-        value={notes}
-        onChange={(e) => setNotes(e.target.value)}
-        onKeyDown={(e) => { if (e.key === "Enter") submit(); }}
-      />
-    </Modal>
   );
 }
 

@@ -44,14 +44,6 @@ export const HELP_TOPICS: Record<string, HelpTopic> = {
     title: "Pay runs",
     description: "Calculate and settle what you owe your staff — tips, commissions, and wages — for a given pay period, then mark the run as paid.",
   },
-  stocktakes: {
-    title: "Stocktakes",
-    description: "Count and record the quantity and value of stock your business holds, and reconcile differences against your recorded inventory.",
-  },
-  "add-stocktake": {
-    title: "Starting a stocktake",
-    description: "A full inventory count helps keep your recorded stock levels accurate. Select the products to count, then enter the counted quantities.",
-  },
   suppliers: {
     title: "Suppliers",
     description: "Keep track of the suppliers you buy stock from, including contact details, so you can link them to stock orders.",
@@ -67,10 +59,6 @@ export const HELP_TOPICS: Record<string, HelpTopic> = {
   "repeating-shifts": {
     title: "Repeating shifts",
     description: "Set a weekly, biweekly, or custom shift pattern for a staff member. Changes you save apply to all upcoming shifts for the selected period.",
-  },
-  "stocktakes-landing": {
-    title: "Stocktakes",
-    description: "Count and record the quantity and value of stock your business holds, and reconcile differences against your recorded inventory.",
   },
   "products-landing": {
     title: "Products",

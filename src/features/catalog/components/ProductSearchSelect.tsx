@@ -11,7 +11,19 @@ export interface ProductSearchResult {
   sku?: string | null;
   supply_price?: number | null;
   retail_price?: number | null;
+  amount?: number | null;
+  bottle_size?: number | null;
 }
+
+// Whole packs from base units — same convention as
+// product-inventory.repository.ts's STOCK_IN_PACKS / AddAuditProductModal's
+// packQty. PRODUCTS.LIST returns raw amount/bottle_size, not a precomputed
+// pack count, so this has to happen client-side.
+const availableQty = (p: ProductSearchResult) => {
+  const amount = p.amount ?? 0;
+  const size = p.bottle_size ?? 0;
+  return size > 0 ? amount / size : amount;
+};
 
 interface Props {
   onSelect: (product: ProductSearchResult) => void;
@@ -115,7 +127,9 @@ export default function ProductSearchSelect({ onSelect, placeholder = "Search pr
                 }}
               >
                 <span className="pss__item-name">{p.name}</span>
-                {(p.barcode || p.sku) && <span className="pss__item-sub">{p.barcode || p.sku}</span>}
+                <span className="pss__item-sub">
+                  {[p.barcode || p.sku, `${availableQty(p)} available`].filter(Boolean).join(" · ")}
+                </span>
               </button>
             ))
           )}

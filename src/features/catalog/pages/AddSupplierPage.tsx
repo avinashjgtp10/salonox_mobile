@@ -6,6 +6,7 @@ import { createSupplierThunk, updateSupplierThunk, fetchSuppliersThunk } from ".
 import { SUPPLIER_MESSAGES } from "../../../constants/messages";
 import Dropdown from "../../../components/ui/Dropdown";
 import { toTitleCase } from "../../../utils/titleCase";
+import type { Supplier } from "../../../types/inventory.types";
 import "../styles/AddSupplierPage.scss";
 
 const COUNTRIES = Country.getAllCountries().map((c) => ({
@@ -29,7 +30,9 @@ const codeOf = (name: string) =>
 interface AddSupplierPageProps {
   supplierId?: string;
   onClose?: () => void;
-  onSaved?: () => void;
+  // Passed the created/updated supplier, so a caller embedding this in a
+  // popup (e.g. NewOrderPage's "+ Add Supplier") can auto-select it.
+  onSaved?: (supplier: Supplier) => void;
   panelMode?: boolean;
 }
 
@@ -223,12 +226,10 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
 
     try {
       setSaving(true);
-      if (isEdit && effectiveId) {
-        await dispatch(updateSupplierThunk({ id: effectiveId, data: payload })).unwrap();
-      } else {
-        await dispatch(createSupplierThunk(payload)).unwrap();
-      }
-      onSaved?.();
+      const saved = isEdit && effectiveId
+        ? await dispatch(updateSupplierThunk({ id: effectiveId, data: payload })).unwrap()
+        : await dispatch(createSupplierThunk(payload)).unwrap();
+      onSaved?.(saved);
       if (onClose) {
         onClose();
       } else {
@@ -257,7 +258,7 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
 
       <div className="add-supplier-page__body">
         <section className="form-section">
-          <h3>Supplier details</h3>
+          <h3>Basic Details</h3>
 
           <div className={`field-group${nameError ? " field-group--error" : ""}`}>
             <label>
@@ -281,19 +282,17 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
             <label>Supplier description</label>
             <textarea
               placeholder="e.g. Local provider of hair products"
-              rows={4}
+              rows={3}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
           </div>
         </section>
 
-        <div className="section-divider" />
-
         <section className="form-section">
-          <h3>Contact info</h3>
+          <h3>Contact Details</h3>
 
-          <div className="field-row-2">
+          <div className="field-row-3">
             <div className="field-group">
               <label>First name</label>
               <input
@@ -312,132 +311,133 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
                 onChange={(e) => setLastName(e.target.value)}
               />
             </div>
-          </div>
-
-          <div className={`field-group${mobileTouched && mobileError ? " field-group--error" : ""}`}>
-            <label>
-              Mobile number <span style={{ color: "red" }}>*</span>
-            </label>
-            <div className="phone-field">
-              <div
-                className="dial-selector"
-                onClick={() => {
-                  setMobileDropOpen((o) => !o);
-                  setMobileSearch("");
-                }}
-              >
-                <span>{mobileDialCode}</span>
-                <span className="chevron">▾</span>
-              </div>
+            <div className="field-group">
+              <label>Website</label>
               <input
-                type="tel"
-                placeholder="Mobile number"
-                value={mobileNumber}
-                maxLength={10}
-                onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
-                onBlur={() => setMobileTouched(true)}
+                type="url"
+                placeholder="www.google.com"
+                value={website}
+                onChange={(e) => setWebsite(e.target.value)}
               />
-              {mobileDropOpen && (
-                <div
-                  className="dial-dropdown"
-                  onMouseDown={(e) => e.preventDefault()}
-                >
-                  <input
-                    className="dial-search"
-                    type="text"
-                    placeholder="Search country or code..."
-                    value={mobileSearch}
-                    onChange={(e) => setMobileSearch(e.target.value)}
-                    autoFocus
-                  />
-                  <ul>
-                    {filteredMobile.map((c) => (
-                      <li
-                        key={c.code}
-                        className={mobileDialCode === c.dial ? "active" : ""}
-                        onClick={() => {
-                          setMobileDialCode(c.dial);
-                          setMobileDropOpen(false);
-                        }}
-                      >
-                        <span className="flag">{c.flag}</span>
-                        <span className="cname">{c.name}</span>
-                        <span className="cdial">{c.dial}</span>
-                      </li>
-                    ))}
-                    {filteredMobile.length === 0 && (
-                      <li className="no-result">No results</li>
-                    )}
-                  </ul>
-                </div>
-              )}
             </div>
-            {mobileTouched && mobileError && (
-              <span className="field-error">{mobileError}</span>
-            )}
-          </div>
-
-          <div className={`field-group${emailTouched && emailError ? " field-group--error" : ""}`}>
-            <label>
-              Email <span style={{ color: "red" }}>*</span>
-            </label>
-            <input
-              type="email"
-              placeholder="mail@example.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              onBlur={() => setEmailTouched(true)}
-            />
-            {emailTouched && emailError && (
-              <span className="field-error">{emailError}</span>
-            )}
-          </div>
-
-          <div className="field-group">
-            <label>Website</label>
-            <input
-              type="url"
-              placeholder="www.google.com"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-            />
-          </div>
-        </section>
-
-        <div className="section-divider" />
-
-        <section className="form-section">
-          <h3>Physical address</h3>
-
-          <div className="field-group">
-            <label>Street</label>
-            <input
-              type="text"
-              placeholder="e.g. 12 Main Street"
-              value={physStreet}
-              onChange={(e) => setPhysStreet(e.target.value)}
-            />
-          </div>
-
-          <div className="field-group">
-            <label>Suburb</label>
-            <input
-              type="text"
-              value={physSuburb}
-              onChange={(e) => setPhysSuburb(e.target.value)}
-            />
-          </div>
-
-          <div className="field-group">
-            <label>Country</label>
-            <Dropdown
-              value={physCountry}
-              options={COUNTRIES.map((c) => ({ id: c.name, name: `${c.flag} ${c.name}` }))}
-              onChange={handlePhysCountry}
-            />
           </div>
 
           <div className="field-row-2">
+            <div className={`field-group${mobileTouched && mobileError ? " field-group--error" : ""}`}>
+              <label>
+                Mobile number <span style={{ color: "red" }}>*</span>
+              </label>
+              <div className="phone-field">
+                <div
+                  className="dial-selector"
+                  onClick={() => {
+                    setMobileDropOpen((o) => !o);
+                    setMobileSearch("");
+                  }}
+                >
+                  <span>{mobileDialCode}</span>
+                  <span className="chevron">▾</span>
+                </div>
+                <input
+                  type="tel"
+                  placeholder="Mobile number"
+                  value={mobileNumber}
+                  maxLength={10}
+                  onChange={(e) => setMobileNumber(e.target.value.replace(/\D/g, "").slice(0, 10))}
+                  onBlur={() => setMobileTouched(true)}
+                />
+                {mobileDropOpen && (
+                  <div
+                    className="dial-dropdown"
+                    onMouseDown={(e) => e.preventDefault()}
+                  >
+                    <input
+                      className="dial-search"
+                      type="text"
+                      placeholder="Search country or code..."
+                      value={mobileSearch}
+                      onChange={(e) => setMobileSearch(e.target.value)}
+                      autoFocus
+                    />
+                    <ul>
+                      {filteredMobile.map((c) => (
+                        <li
+                          key={c.code}
+                          className={mobileDialCode === c.dial ? "active" : ""}
+                          onClick={() => {
+                            setMobileDialCode(c.dial);
+                            setMobileDropOpen(false);
+                          }}
+                        >
+                          <span className="flag">{c.flag}</span>
+                          <span className="cname">{c.name}</span>
+                          <span className="cdial">{c.dial}</span>
+                        </li>
+                      ))}
+                      {filteredMobile.length === 0 && (
+                        <li className="no-result">No results</li>
+                      )}
+                    </ul>
+                  </div>
+                )}
+              </div>
+              {mobileTouched && mobileError && (
+                <span className="field-error">{mobileError}</span>
+              )}
+            </div>
+
+            <div className={`field-group${emailTouched && emailError ? " field-group--error" : ""}`}>
+              <label>
+                Email <span style={{ color: "red" }}>*</span>
+              </label>
+              <input
+                type="email"
+                placeholder="mail@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onBlur={() => setEmailTouched(true)}
+              />
+              {emailTouched && emailError && (
+                <span className="field-error">{emailError}</span>
+              )}
+            </div>
+          </div>
+        </section>
+
+        <section className="form-section">
+          <h3>Physical Address</h3>
+
+          <div className="field-row-3">
+            <div className="field-group">
+              <label>Street</label>
+              <input
+                type="text"
+                placeholder="e.g. 12 Main Street"
+                value={physStreet}
+                onChange={(e) => setPhysStreet(e.target.value)}
+              />
+            </div>
+
+            <div className="field-group">
+              <label>Locality</label>
+              <input
+                type="text"
+                value={physSuburb}
+                onChange={(e) => setPhysSuburb(e.target.value)}
+              />
+            </div>
+
+            <div className="field-group">
+              <label>Country</label>
+              <Dropdown
+                value={physCountry}
+                options={COUNTRIES.map((c) => ({ id: c.name, name: `${c.flag} ${c.name}` }))}
+                onChange={handlePhysCountry}
+              />
+            </div>
+          </div>
+
+          <div className="field-row-3">
             <div className="field-group">
               <label>State</label>
               {physStates.length > 0 ? (
@@ -475,15 +475,15 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
                 />
               )}
             </div>
-          </div>
 
-          <div className="field-group" style={{ maxWidth: 260 }}>
-            <label>Zip / Postal Code</label>
-            <input
-              type="text"
-              value={physZip}
-              onChange={(e) => setPhysZip(e.target.value)}
-            />
+            <div className="field-group">
+              <label>Zip / Postal Code</label>
+              <input
+                type="text"
+                value={physZip}
+                onChange={(e) => setPhysZip(e.target.value)}
+              />
+            </div>
           </div>
 
           <label className="checkbox-label">
@@ -496,41 +496,41 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
           </label>
         </section>
 
-        <div className="section-divider" />
-
         {!sameAsPostal && (
           <section className="form-section">
-            <h3>Postal address</h3>
+            <h3>Postal Address</h3>
 
-            <div className="field-group">
-              <label>Street</label>
-              <input
-                type="text"
-                placeholder="e.g. 12 Main Street"
-                value={postalStreet}
-                onChange={(e) => setPostalStreet(e.target.value)}
-              />
+            <div className="field-row-3">
+              <div className="field-group">
+                <label>Street</label>
+                <input
+                  type="text"
+                  placeholder="e.g. 12 Main Street"
+                  value={postalStreet}
+                  onChange={(e) => setPostalStreet(e.target.value)}
+                />
+              </div>
+
+              <div className="field-group">
+                <label>Locality</label>
+                <input
+                  type="text"
+                  value={postalSuburb}
+                  onChange={(e) => setPostalSuburb(e.target.value)}
+                />
+              </div>
+
+              <div className="field-group">
+                <label>Country</label>
+                <Dropdown
+                  value={postalCountry}
+                  options={COUNTRIES.map((c) => ({ id: c.name, name: `${c.flag} ${c.name}` }))}
+                  onChange={handlePostalCountry}
+                />
+              </div>
             </div>
 
-            <div className="field-group">
-              <label>Suburb</label>
-              <input
-                type="text"
-                value={postalSuburb}
-                onChange={(e) => setPostalSuburb(e.target.value)}
-              />
-            </div>
-
-            <div className="field-group">
-              <label>Country</label>
-              <Dropdown
-                value={postalCountry}
-                options={COUNTRIES.map((c) => ({ id: c.name, name: `${c.flag} ${c.name}` }))}
-                onChange={handlePostalCountry}
-              />
-            </div>
-
-            <div className="field-row-2">
+            <div className="field-row-3">
               <div className="field-group">
                 <label>State</label>
                 {postalStates.length > 0 ? (
@@ -568,18 +568,16 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
                   />
                 )}
               </div>
-            </div>
 
-            <div className="field-group" style={{ maxWidth: 260 }}>
-              <label>Zip / Postal Code</label>
-              <input
-                type="text"
-                value={postalZip}
-                onChange={(e) => setPostalZip(e.target.value)}
-              />
+              <div className="field-group">
+                <label>Zip / Postal Code</label>
+                <input
+                  type="text"
+                  value={postalZip}
+                  onChange={(e) => setPostalZip(e.target.value)}
+                />
+              </div>
             </div>
-
-            <div className="section-divider" />
           </section>
         )}
       </div>

@@ -1,4 +1,5 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate } from "react-router-dom";
 import {
   Search,
@@ -10,7 +11,6 @@ import {
   CashCoin,
   X,
 } from "react-bootstrap-icons";
-import { Dropdown } from "react-bootstrap";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchSuppliersThunk, deleteSupplierThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Supplier, SupplierWithBalance, SupplierPaymentStatus } from "../../../types/inventory.types";
@@ -39,6 +39,89 @@ const STATUS_LABEL: Record<SupplierPaymentStatus, string> = {
   paid: "Paid",
   due: "Due",
   overdue: "Overdue",
+};
+
+interface RowActionItem {
+  label: string;
+  icon: React.ReactNode;
+  onClick: () => void;
+  danger?: boolean;
+}
+
+// "⋮" row-actions menu — portaled and hand-positioned rather than
+// react-bootstrap's Dropdown/Popper. The table wrapper needs overflow-x:auto
+// for horizontal scroll (which clips an in-place absolute dropdown), and
+// Popper's "fixed" strategy stops being relative to the true viewport the
+// moment any ancestor higher up the page has a transform (one does,
+// elsewhere in the app) — that's what made the menu open in the wrong spot
+// on first click. Same fix already used for ConsumableInventoryPage's
+// RowActionsMenu and CashMgmtRowActionsMenu; this one follows
+// CashMgmtRowActionsMenu's choice to reposition (not close) on scroll/
+// resize, so the menu stays open and tracks its row instead of vanishing.
+const SupplierRowActionsMenu: React.FC<{ items: RowActionItem[] }> = ({ items }) => {
+  const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; right: number } | null>(null);
+  const btnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const updateCoords = () => {
+    const rect = btnRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setCoords({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+  };
+
+  const toggle = () => {
+    if (!open) updateCoords();
+    setOpen((v) => !v);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const onDocClick = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (btnRef.current?.contains(target) || menuRef.current?.contains(target)) return;
+      setOpen(false);
+    };
+    const onEscape = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    const onReposition = () => updateCoords();
+    document.addEventListener("mousedown", onDocClick);
+    document.addEventListener("keydown", onEscape);
+    // capture:true — scroll doesn't bubble, but a capture-phase listener on
+    // window still sees scroll on any descendant container (the table's own
+    // overflow-x, or the page's own scroll region), keeping the menu glued
+    // to its trigger instead of drifting away while scrolling.
+    window.addEventListener("scroll", onReposition, true);
+    window.addEventListener("resize", onReposition);
+    return () => {
+      document.removeEventListener("mousedown", onDocClick);
+      document.removeEventListener("keydown", onEscape);
+      window.removeEventListener("scroll", onReposition, true);
+      window.removeEventListener("resize", onReposition);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <button type="button" ref={btnRef} className="row-actions-toggle" onClick={toggle}>
+        <ThreeDotsVertical size={16} />
+      </button>
+      {open && coords && createPortal(
+        <div ref={menuRef} className="supplier-row-actions-menu" style={{ top: coords.top, right: coords.right }}>
+          {items.map((item, i) => (
+            <button
+              type="button"
+              key={i}
+              className={`supplier-row-actions-menu__item${item.danger ? " supplier-row-actions-menu__item--danger" : ""}`}
+              onClick={() => { item.onClick(); setOpen(false); }}
+            >
+              {item.icon} {item.label}
+            </button>
+          ))}
+        </div>,
+        document.body,
+      )}
+    </>
+  );
 };
 
 interface FilterState {
@@ -128,8 +211,8 @@ const SuppliersListPage: React.FC = () => {
 
   const handleClearSearch = () => setSearch("");
 
-  const goToAddSupplier = () => navigate("/dashboard/catalog/inventory/suppliers/new");
-  const goToEditSupplier = (id: string) => navigate(`/dashboard/catalog/inventory/suppliers/${id}/edit`);
+  const goToAddSupplier = () => navigate("/dashboard/inventory/suppliers/new");
+  const goToEditSupplier = (id: string) => navigate(`/dashboard/inventory/suppliers/${id}/edit`);
 
   const openPayout = (supplierId?: string) => {
     setPayoutSupplierId(supplierId);
@@ -199,8 +282,6 @@ const SuppliersListPage: React.FC = () => {
             <thead>
               <tr>
                 <th>Supplier name</th>
-                <th>Contact person</th>
-                <th>Email</th>
                 <th>Phone</th>
                 <th>Total Amount</th>
                 <th>Pending Orders</th>
@@ -219,8 +300,6 @@ const SuppliersListPage: React.FC = () => {
                       <Skeleton width="60%" height={13} />
                     </div>
                   </td>
-                  <td><Skeleton width="50%" height={12} /></td>
-                  <td><Skeleton width="60%" height={12} /></td>
                   <td><Skeleton width="40%" height={12} /></td>
                   <td><Skeleton width="50%" height={12} /></td>
                   <td><Skeleton width="30%" height={12} /></td>
@@ -237,8 +316,6 @@ const SuppliersListPage: React.FC = () => {
             <thead>
               <tr>
                 <th>Supplier name</th>
-                <th>Contact person</th>
-                <th>Email</th>
                 <th>Phone</th>
                 <th>Total Amount</th>
                 <th>Pending Orders</th>
@@ -256,7 +333,7 @@ const SuppliersListPage: React.FC = () => {
                 <tr
                   key={s.id}
                   style={{ cursor: "pointer" }}
-                  onClick={() => navigate(`/dashboard/catalog/inventory/suppliers/${s.id}`)}
+                  onClick={() => navigate(`/dashboard/inventory/suppliers/${s.id}`)}
                 >
                   <td className="supplier-name-cell">
                     <div className="supplier-icon"><Shop size={18} /></div>
@@ -267,8 +344,6 @@ const SuppliersListPage: React.FC = () => {
                       )}
                     </div>
                   </td>
-                  <td>{[s.first_name, s.last_name].filter(Boolean).join(" ") || "—"}</td>
-                  <td>{s.email || "—"}</td>
                   <td>{s.mobile_number || s.telephone_number || "—"}</td>
                   <td>{formatAmount(sb.total_purchase_amount ?? 0)}</td>
                   <td>{sb.pending_order_count ?? 0}</td>
@@ -280,44 +355,18 @@ const SuppliersListPage: React.FC = () => {
                     </span>
                   </td>
                   <td className="actions-cell" onClick={(e) => e.stopPropagation()}>
-                    <Dropdown align="end">
-                      <Dropdown.Toggle
-                        as="button"
-                        bsPrefix="row-actions-toggle"
-                        className="row-actions-toggle"
-                        id={`supplier-row-actions-${s.id}`}
-                      >
-                        <ThreeDotsVertical size={16} />
-                      </Dropdown.Toggle>
-                      {/* strategy "fixed" — the table now scrolls horizontally
-                          (see SuppliersListPage.scss), and the default
-                          "absolute" popper strategy would get clipped by that
-                          scroll container instead of floating above it. */}
-                      <Dropdown.Menu
-                        className="shadow-sm border-0 rounded-3 py-2"
-                        style={{ minWidth: "160px" }}
-                        popperConfig={{ strategy: "fixed" }}
-                      >
-                        <Dropdown.Item
-                          onClick={() => goToEditSupplier(s.id)}
-                          className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
-                        >
-                          <PencilSquare size={14} /> Edit
-                        </Dropdown.Item>
-                        <Dropdown.Item
-                          onClick={() => openPayout(s.id)}
-                          className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-dark"
-                        >
-                          <CashCoin size={14} /> Payout
-                        </Dropdown.Item>
-                        <Dropdown.Item
-                          onClick={() => { setDeletingSupplier(s); setDeleteInput(""); }}
-                          className="py-2 px-3 fw-medium d-flex align-items-center gap-2 text-danger"
-                        >
-                          <Trash size={14} /> Delete
-                        </Dropdown.Item>
-                      </Dropdown.Menu>
-                    </Dropdown>
+                    <SupplierRowActionsMenu
+                      items={[
+                        { label: "Edit", icon: <PencilSquare size={14} />, onClick: () => goToEditSupplier(s.id) },
+                        { label: "Payout", icon: <CashCoin size={14} />, onClick: () => openPayout(s.id) },
+                        {
+                          label: "Delete",
+                          icon: <Trash size={14} />,
+                          onClick: () => { setDeletingSupplier(s); setDeleteInput(""); },
+                          danger: true,
+                        },
+                      ]}
+                    />
                   </td>
                 </tr>
               );})}

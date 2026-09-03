@@ -63,7 +63,7 @@ const ProductFormPage: React.FC = () => {
   // Catalog > Consumable Inventory) — where the user entered from decides
   // both the default Product Type and where Save/Close return to.
   const fromConsumables = location.pathname.includes("/inventory/consumables");
-  const listPath = fromConsumables ? "/dashboard/catalog/inventory/consumables" : "/dashboard/catalog/products";
+  const listPath = fromConsumables ? "/dashboard/inventory/consumables" : "/dashboard/catalog/products";
 
   // ── Basic info ──────────────────────────────────────────────────────────
   const [name, setName] = useState("");

@@ -54,7 +54,7 @@ export default function AddStockPage() {
   const { id } = useParams<{ id: string }>();
   const isEdit = !!id;
   const { showError } = useStatusOverlay();
-  const listPath = "/dashboard/catalog/inventory/ledger";
+  const listPath = "/dashboard/inventory/ledger";
 
   const { branches } = useSelector((s: RootState) => s.salon);
   const currentSalon = useSelector(selectCurrentSalon);

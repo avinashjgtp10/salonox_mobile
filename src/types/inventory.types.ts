@@ -1,42 +1,3 @@
-export type StocktakeStatus = "In progress" | "Paused" | "Review" | "Completed" | "Canceled";
-
-export interface Stocktake {
-  id: string;
-  branch_id: string;
-  name: string;
-  description: string | null;
-  status: StocktakeStatus;
-  started_by: string;
-  completed_at: string | null;
-  created_at: string;
-  updated_at: string;
-}
-
-export interface CreateStocktakePayload {
-  branch_id: string;
-  name?: string;
-  description?: string;
-  selection_type?: "all" | "category" | "manual";
-}
-
-export interface StockTakeItem {
-  product_id: string;
-  actual_qty: number;
-  notes?: string;
-}
-
-export interface ProcessStockTakePayload {
-  stocktake_id?: string;
-  branch_id: string;
-  notes?: string;
-  items: StockTakeItem[];
-}
-
-export interface StockTakeResult {
-  processed: number;
-  movements: any[];
-}
-
 export interface InventoryResponse<T> {
   success: boolean;
   message: string;
@@ -273,9 +234,11 @@ export interface UsageHistoryFilters {
 
 // ─── Product Audit ────────────────────────────────────────────────────────────
 // Count physical stock against system quantities and reconcile differences.
-// Read-only against real stock — this module never adjusts products.amount
-// or writes stock_movements (that's what Stock Take's /stock-take endpoint
-// is for); see product-audit.repository.ts on the backend.
+// Read-only against real stock right up until approval — Approve is the
+// moment the physical count becomes the official stock: the backend applies
+// every item's variance to products.amount and writes matching Stock Ledger
+// entries atomically with the status flip. See
+// product-audit.repository.ts#approveWithAdjustments on the backend.
 
 export type ProductAuditStatus = "in_progress" | "pending_review" | "complete" | "rejected";
 
@@ -285,6 +248,7 @@ export interface ProductAuditItem {
   product_id: string;
   product_name: string;
   sku: string | null;
+  measure_unit: string | null;
   category: string | null;
   system_qty: number;
   physical_qty: number | null;
@@ -396,13 +360,12 @@ export interface Order {
   status: OrderStatus;
   supplier_id: string;
   supplier_name?: string;
-  bill_to_branch_id: string | null;
-  ship_to_branch_id: string | null;
+  delivery_address: string | null;
+  delivery_instructions: string | null;
   order_date: string;
   remark: string | null;
   ref_number: string | null;
   payment_terms_days: number | null;
-  shipment_date: string | null;
   delivery_date: string | null;
   tax_type: OrderTaxType;
   tax_group: string | null;
@@ -429,13 +392,12 @@ export interface CreateOrderItemPayload {
 export interface CreateOrderPayload {
   status?: "draft" | "sent";
   supplier_id: string;
-  bill_to_branch_id?: string;
-  ship_to_branch_id?: string;
+  delivery_address?: string;
+  delivery_instructions?: string;
   order_date?: string;
   remark?: string;
   ref_number?: string;
   payment_terms_days?: number;
-  shipment_date?: string;
   delivery_date?: string;
   tax_type: OrderTaxType;
   tax_group?: string;
