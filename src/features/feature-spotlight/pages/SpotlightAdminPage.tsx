@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import type { ChangeEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { Stars, PencilSquare, Trash, ImageFill, Plus, ArrowLeft } from "react-bootstrap-icons";
+import { Stars, PencilSquare, Trash, ImageFill, Plus, ArrowLeft, Download, Upload } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Button from "../../../components/ui/Button";
 import Modal from "../../../components/ui/Modal";
@@ -13,6 +14,7 @@ import {
   updateSpotlightFeatureThunk,
   deleteSpotlightFeatureThunk,
 } from "../../../middleware/spotlight/spotlight.thunk";
+import { exportFeaturesJson, importFeaturesJson } from "../utils/spotlightStorage";
 import type { SpotlightFeature, SpotlightCreatePayload } from "../types";
 import { resolveMediaUrl } from "../../../utils/mediaUrl";
 import "../styles/Spotlight.scss";
@@ -34,6 +36,9 @@ export default function SpotlightAdminPage() {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [deleteError, setDeleteError] = useState("");
   const [saveError, setSaveError] = useState("");
+  const [importMessage, setImportMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [importing, setImporting] = useState(false);
+  const importInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     dispatch(fetchSpotlightFeaturesThunk());
@@ -65,6 +70,44 @@ export default function SpotlightAdminPage() {
     setSaveError("");
     setDrawerOpen(false);
     setEditing(null);
+  };
+
+  // Spotlight has no backend yet — localStorage is scoped per browser +
+  // origin, so an image uploaded on localhost never appears on a deployed
+  // environment. Export/Import moves the whole dataset (features + embedded
+  // images) between environments as one JSON file instead of re-uploading
+  // each image by hand on every environment.
+  const handleExport = () => {
+    const json = exportFeaturesJson();
+    const blob = new Blob([json], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `spotlight-features-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleImportClick = () => importInputRef.current?.click();
+
+  const handleImportFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    setImporting(true);
+    setImportMessage(null);
+    try {
+      const text = await file.text();
+      const imported = await importFeaturesJson(text);
+      await dispatch(fetchSpotlightFeaturesThunk());
+      setImportMessage({ type: "success", text: `Imported ${imported.length} feature(s) into this browser.` });
+    } catch (err) {
+      setImportMessage({ type: "error", text: err instanceof Error ? err.message : "Failed to import file." });
+    } finally {
+      setImporting(false);
+    }
   };
 
   const handleDelete = async () => {
@@ -101,13 +144,32 @@ export default function SpotlightAdminPage() {
         <Button variant="outline-dark" size="sm" iconLeft={<ArrowLeft size={14} />} onClick={() => navigate("/dashboard/spotlight")}>
           Back to Spotlight
         </Button>
-        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 12.5, color: "#667085" }}>{features.length} feature{features.length === 1 ? "" : "s"}</span>
+          <Button variant="outline-dark" size="sm" iconLeft={<Download size={13} />} onClick={handleExport}>
+            Export
+          </Button>
+          <Button variant="outline-dark" size="sm" iconLeft={<Upload size={13} />} onClick={handleImportClick} loading={importing}>
+            Import
+          </Button>
+          <input
+            ref={importInputRef}
+            type="file"
+            accept="application/json,.json"
+            style={{ display: "none" }}
+            onChange={handleImportFile}
+          />
           <Button variant="primary" iconLeft={<Plus size={16} />} onClick={openCreate}>
             New Feature
           </Button>
         </div>
       </div>
+
+      {importMessage && (
+        <div className={importMessage.type === "error" ? "sf-error" : "spotlight-import-success"} style={{ marginBottom: 16 }}>
+          {importMessage.text}
+        </div>
+      )}
 
       <div className="spotlight-admin__table-wrap">
         {features.length === 0 ? (

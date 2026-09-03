@@ -1326,6 +1326,15 @@
   margin-bottom: 14px;
 }
 
+.spotlight-import-success {
+  padding: 10px 14px;
+  background: #ecfdf3;
+  border: 1px solid #a7f3d0;
+  border-radius: 9px;
+  color: #027a48;
+  font-size: 12.5px;
+}
+
 // ── Accessibility: consistent keyboard-focus ring across interactive elements ──
 .spotlight-segmented__btn,
 .spotlight-carousel__nav-btn,

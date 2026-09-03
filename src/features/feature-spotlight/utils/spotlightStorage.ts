@@ -109,6 +109,31 @@ export async function saveFeaturesResilient(features: SpotlightFeature[]): Promi
   }
 }
 
+// Spotlight has no backend yet, so localStorage is scoped per browser +
+// origin — an image uploaded on localhost never appears on a deployed
+// environment because it was never sent anywhere. Export/Import moves the
+// whole dataset (features, including embedded images) between environments
+// as a single JSON file: export on one, import on another, done once instead
+// of re-uploading every image by hand each time.
+export function exportFeaturesJson(): string {
+  return JSON.stringify(getAllFeatures(), null, 2);
+}
+
+export async function importFeaturesJson(json: string): Promise<SpotlightFeature[]> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(json);
+  } catch {
+    throw new Error("That file isn't valid JSON.");
+  }
+  if (!Array.isArray(parsed)) {
+    throw new Error("Expected a Spotlight export file — a JSON array of features.");
+  }
+  const features = parsed as SpotlightFeature[];
+  await saveFeaturesResilient(features);
+  return features;
+}
+
 export function getReadIds(): string[] {
   try {
     const raw = localStorage.getItem(READ_IDS_KEY);
