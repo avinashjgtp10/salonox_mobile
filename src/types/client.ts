@@ -209,8 +209,21 @@ export type ClientHistoryItem = {
   items: { name: string; type: "membership" | "package" | "product" | "service"; price: number }[];
   staffName: string;
   dateLabel: string;
+  // Detail already present on the backend rows that flattening used to drop —
+  // surfaced on the Activity feed. Optional because the generic timeline
+  // fallback (a flat `history` array) carries none of it.
+  dueAmount?: number;
+  netAmount?: number | null;
+  paymentStatus?: string;
+  paymentMethod?: string;
+  invoiceNumber?: string;
 };
 
+// Field names mirror GET /api/v1/clients/:clientId/history's own `stats`
+// object exactly (see clients.controller.ts getHistory) — the legacy
+// camelCase/`total_visits`/`last_visit` aliases are kept only so the older
+// /clients/with-history-stats shape still parses, but the canonical names
+// are the snake_case ones the history endpoint actually returns.
 export type ClientHistoryStatsApi = {
   lifetime_spend?: number | string | null;
   lifetimeSpend?: number | string | null;
@@ -222,6 +235,14 @@ export type ClientHistoryStatsApi = {
   totalAppointments?: number | string | null;
   average_spend?: number | string | null;
   averageSpend?: number | string | null;
+  // Real field names returned by /clients/:clientId/history.
+  completed_appointments?: number | string | null;
+  no_shows?: number | string | null;
+  cancellations?: number | string | null;
+  total_sales?: number | string | null;
+  active_packages?: number | string | null;
+  active_memberships?: number | string | null;
+  last_visit_at?: string | null;
 };
 
 export type ClientHistoryStats = {
@@ -230,6 +251,12 @@ export type ClientHistoryStats = {
   lastVisit: string | null;
   totalAppointments: number;
   averageSpend: number;
+  completedAppointments: number;
+  noShows: number;
+  cancellations: number;
+  totalSales: number;
+  activePackages: number;
+  activeMemberships: number;
 };
 
 export type ClientWithHistoryStatsApi = ClientApiItem & {
@@ -271,7 +298,201 @@ export type ClientHistorySummary = {
   totalSuccessfulReferrals: number;
 };
 
+// ─── Structured records from GET /api/v1/clients/:clientId/history ──────────
+// The endpoint returns `client`, `stats`, `appointments`, `sales`, `packages`
+// and `memberships` side by side. The flattened `history` timeline below is
+// derived from those same four arrays for the Activity feed; these record
+// types preserve the per-row detail that flattening throws away (due/net
+// amounts, invoice numbers, item types, session counts, expiry dates), which
+// the Summary/Services/Products/Memberships/Packages sections need.
+
+export type ClientHistoryReferrerApi = {
+  id?: string | null;
+  full_name?: string | null;
+  phone_number?: string | null;
+};
+
+export type ClientHistoryReferrer = {
+  id: string;
+  fullName: string;
+  phoneNumber: string;
+};
+
+export type ClientHistoryClientApi = ClientHistorySummaryApi & {
+  id?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  full_name?: string | null;
+  email?: string | null;
+  phone_number?: string | null;
+  phone_country_code?: string | null;
+  avatar_url?: string | null;
+  is_active?: boolean | null;
+  created_at?: string | null;
+  gender?: string | null;
+  client_source?: string | null;
+  birthday_day_month?: string | null;
+  birthday_year?: number | string | null;
+  referred_by?: ClientHistoryReferrerApi | null;
+};
+
+export type ClientHistoryClient = {
+  id: string;
+  fullName: string;
+  email: string;
+  phoneNumber: string;
+  phoneCountryCode: string | null;
+  avatarUrl: string | null;
+  isActive: boolean;
+  createdAt: string | null;
+  gender: string;
+  clientSource: string | null;
+  birthdayDayMonth: string | null;
+  birthdayYear: number | null;
+  referredBy: ClientHistoryReferrer | null;
+  walletBalance: number;
+  rewardPointsBalance: number;
+  referralBalance: number;
+  referralCode: string | null;
+  totalReferralEarnings: number;
+  totalSuccessfulReferrals: number;
+};
+
+/** A `services` / `product_items` / `package_items` / `membership_items` entry on an appointment row. */
+export type ClientAppointmentLineItem = {
+  name: string;
+  price: number;
+  quantity: number;
+  serviceId: string | null;
+  staffId: string | null;
+};
+
+export type ClientAppointmentRecord = {
+  id: string;
+  scheduledAt: string | null;
+  status: string;
+  durationMinutes: number;
+  notes: string;
+  cancelReason: string;
+  staffId: string | null;
+  staffName: string;
+  amountPaid: number;
+  /** Authoritative remaining balance, already net of discount/eWallet/membership-wallet. */
+  dueAmount: number;
+  /** Net bill for a completed appointment. `null` (not 0) means "not billed yet". */
+  netAmount: number | null;
+  paymentStatus: string;
+  paymentMethod: string;
+  ewalletUsed: number;
+  membershipWalletUsed: number;
+  linkedMembershipName: string;
+  linkedPackageName: string;
+  services: ClientAppointmentLineItem[];
+  productItems: ClientAppointmentLineItem[];
+  packageItems: ClientAppointmentLineItem[];
+  membershipItems: ClientAppointmentLineItem[];
+};
+
+export type ClientSaleItem = {
+  name: string;
+  itemType: "service" | "product" | "package" | "membership" | "gift_card" | "quick" | "other";
+  quantity: number;
+  unitPrice: number;
+  totalPrice: number;
+  /** `null` when no sale_items row backs the entry, so the UI can show "–" rather than a misleading 0. */
+  discountAmount: number | null;
+  taxAmount: number | null;
+  staffId: string | null;
+};
+
+export type ClientSaleRecord = {
+  id: string;
+  invoiceNumber: string;
+  status: string;
+  subtotal: number;
+  discountAmount: number;
+  tipAmount: number;
+  taxAmount: number;
+  totalAmount: number;
+  paymentMethod: string;
+  paymentReference: string;
+  notes: string;
+  createdAt: string | null;
+  appointmentId: string | null;
+  couponCode: string;
+  manualDiscountAmount: number;
+  couponDiscountAmount: number;
+  referralDiscountAmount: number;
+  items: ClientSaleItem[];
+};
+
+export type ClientPackageServiceRecord = {
+  serviceName: string;
+  totalSessions: number;
+  completedSessions: number;
+};
+
+export type ClientPackageRecord = {
+  id: string;
+  packageName: string;
+  status: string;
+  totalAmount: number;
+  paidAmount: number;
+  pendingAmount: number;
+  paymentStatus: string;
+  expiryDate: string | null;
+  createdDate: string | null;
+  staffId: string | null;
+  saleId: string | null;
+  appointmentId: string | null;
+  services: ClientPackageServiceRecord[];
+  totalSessions: number;
+  completedSessions: number;
+  remainingSessions: number;
+};
+
+export type ClientMembershipRecord = {
+  id: string;
+  membershipName: string;
+  status: string;
+  pricePaid: number;
+  expiresAt: string | null;
+  purchasedAt: string | null;
+  totalSessions: number;
+  usedSessions: number;
+  remainingSessions: number;
+  membershipWalletBalance: number;
+  discountBalanceRemaining: number;
+  staffId: string | null;
+  saleId: string | null;
+  appointmentId: string | null;
+};
+
+/** A row from GET /api/v1/clients/:clientId/notes (`client_notes`). */
+export type ClientNoteApi = {
+  id?: string | null;
+  note?: string | null;
+  staff_id?: string | null;
+  staff_name?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
+
+export type ClientNote = {
+  id: string;
+  note: string;
+  staffName: string;
+  createdAt: string | null;
+};
+
 export type ClientHistoryResult = {
+  /** Flattened, date-sorted timeline used by the Activity feed. */
   history: ClientHistoryItem[];
   summary: ClientHistorySummary;
+  client: ClientHistoryClient | null;
+  stats: ClientHistoryStats;
+  appointments: ClientAppointmentRecord[];
+  sales: ClientSaleRecord[];
+  packages: ClientPackageRecord[];
+  memberships: ClientMembershipRecord[];
 };

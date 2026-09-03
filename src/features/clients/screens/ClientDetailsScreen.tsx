@@ -27,7 +27,7 @@ import {
 import {
   fetchClientByIdThunk,
   fetchClientHistoryThunk,
-  fetchClientsWithHistoryStatsThunk,
+  fetchClientNotesThunk,
   blockClientThunk,
   unblockClientThunk,
 } from "@/middleware/client/client.thunk";
@@ -36,9 +36,17 @@ import {
   selectClientDetailsError,
   selectClientDetailsLoading,
   selectClientHistory,
+  selectClientHistoryAppointments,
+  selectClientHistoryClient,
   selectClientHistoryLoading,
   selectClientHistoryError,
-  selectClientHistoryStats,
+  selectClientHistoryMemberships,
+  selectClientHistoryPackages,
+  selectClientHistorySales,
+  selectClientNotes,
+  selectClientNotesError,
+  selectClientNotesLoading,
+  selectClientProfileStats,
   selectClientBlockingIds,
 } from "@/store/client/client.slice";
 import { selectActiveBranchId } from "@/store/branch/branch.slice";
@@ -60,13 +68,26 @@ import {
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { Membership } from "@/types/membership";
 import { formatAppDate } from "@/utils/dateTime";
+import { buildClientProfileMetrics } from "@/features/clients/utils/clientProfile";
+import type { ClientProfileLineEntry } from "@/features/clients/utils/clientProfile";
+import type { ClientMembershipRecord, ClientPackageRecord } from "@/types/client";
 
 function formatCurrency(amount: number) {
-  return `Rs. ${amount.toLocaleString("en-IN")}`;
+  return `Rs. ${Math.round(amount).toLocaleString("en-IN")}`;
 }
 
 function formatCreatedDate(createdAt: string | null) {
   return formatAppDate(createdAt, "-");
+}
+
+// A value the backend genuinely has no figure for (no sale_items row behind an
+// appointment-derived line) renders as "–", never as a misleading 0.
+function formatOptionalCurrency(amount: number | null) {
+  return amount === null ? "–" : formatCurrency(amount);
+}
+
+function titleCase(value: string) {
+  return value ? value.charAt(0).toUpperCase() + value.slice(1) : "-";
 }
 
 function DetailRow({ label, value }: { label: string; value: string }) {
@@ -104,12 +125,149 @@ function EmptySummarySection({
 
   return (
     <View style={styles.summarySection}>
-      <Text style={styles.summarySectionTitle}>{title}</Text>
+      {title ? <Text style={styles.summarySectionTitle}>{title}</Text> : null}
       <View style={styles.emptySummaryBox}>
         <View style={styles.emptySummaryIcon}>
           <Ionicons color={Colors.text2} name={icon} size={28} />
         </View>
         <Text style={styles.emptySummaryText}>{label}</Text>
+      </View>
+    </View>
+  );
+}
+
+// The Summary tab is a plain ScrollView, and /history returns up to 200
+// appointments/sales — cap each section and show a "+N more" hint rather than
+// mounting every row up front.
+const SECTION_ROW_LIMIT = 5;
+
+function SummarySection({
+  children,
+  count,
+  title,
+}: {
+  children: React.ReactNode;
+  count?: number;
+  title: string;
+}) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  return (
+    <View style={styles.summarySection}>
+      <View style={styles.summarySectionHeader}>
+        <Text style={styles.summarySectionTitle}>{title}</Text>
+        {typeof count === "number" && count > 0 ? (
+          <Text style={styles.summarySectionCount}>{count}</Text>
+        ) : null}
+      </View>
+      <View style={styles.summaryList}>{children}</View>
+    </View>
+  );
+}
+
+function MoreRow({ remaining }: { remaining: number }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+
+  if (remaining <= 0) {
+    return null;
+  }
+
+  return <Text style={styles.summaryMoreText}>+{remaining} more</Text>;
+}
+
+function LineEntryRow({ entry }: { entry: ClientProfileLineEntry }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const meta = [
+    formatCreatedDate(entry.date),
+    entry.quantity > 1 ? `Qty ${entry.quantity} × ${formatCurrency(entry.unitPrice)}` : null,
+    entry.invoiceNumber ? `Inv ${entry.invoiceNumber}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  return (
+    <View style={styles.summaryRow}>
+      <View style={styles.summaryRowCopy}>
+        <Text numberOfLines={1} style={styles.summaryRowTitle}>{entry.name || "-"}</Text>
+        <Text numberOfLines={1} style={styles.summaryRowMeta}>{meta}</Text>
+        {entry.discountAmount !== null || entry.taxAmount !== null ? (
+          <Text numberOfLines={1} style={styles.summaryRowMeta}>
+            Discount {formatOptionalCurrency(entry.discountAmount)} · Tax{" "}
+            {formatOptionalCurrency(entry.taxAmount)}
+          </Text>
+        ) : null}
+      </View>
+      <Text style={styles.summaryRowAmount}>{formatCurrency(entry.totalPrice)}</Text>
+    </View>
+  );
+}
+
+function MembershipRow({ membership }: { membership: ClientMembershipRecord }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const meta = [
+    `Purchased ${formatCreatedDate(membership.purchasedAt)}`,
+    membership.expiresAt ? `Expires ${formatCreatedDate(membership.expiresAt)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const sessions =
+    membership.totalSessions > 0
+      ? `${membership.usedSessions}/${membership.totalSessions} sessions used · ${membership.remainingSessions} left`
+      : null;
+
+  return (
+    <View style={styles.summaryRow}>
+      <View style={styles.summaryRowCopy}>
+        <Text numberOfLines={1} style={styles.summaryRowTitle}>{membership.membershipName}</Text>
+        <Text numberOfLines={1} style={styles.summaryRowMeta}>{meta}</Text>
+        {sessions ? <Text numberOfLines={1} style={styles.summaryRowMeta}>{sessions}</Text> : null}
+        {membership.membershipWalletBalance > 0 ? (
+          <Text numberOfLines={1} style={styles.summaryRowMeta}>
+            Wallet {formatCurrency(membership.membershipWalletBalance)}
+          </Text>
+        ) : null}
+      </View>
+      <View style={styles.summaryRowTrailing}>
+        <Text style={styles.summaryRowAmount}>{formatCurrency(membership.pricePaid)}</Text>
+        <Text style={styles.summaryRowStatus}>{titleCase(membership.status)}</Text>
+      </View>
+    </View>
+  );
+}
+
+function PackageRow({ pkg }: { pkg: ClientPackageRecord }) {
+  const Colors = useThemeColors();
+  const styles = useMemo(() => createStyles(Colors), [Colors]);
+  const meta = [
+    `Created ${formatCreatedDate(pkg.createdDate)}`,
+    pkg.expiryDate ? `Expires ${formatCreatedDate(pkg.expiryDate)}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  const sessions =
+    pkg.totalSessions > 0
+      ? `${pkg.completedSessions}/${pkg.totalSessions} sessions used · ${pkg.remainingSessions} left`
+      : null;
+
+  return (
+    <View style={styles.summaryRow}>
+      <View style={styles.summaryRowCopy}>
+        <Text numberOfLines={1} style={styles.summaryRowTitle}>{pkg.packageName}</Text>
+        <Text numberOfLines={1} style={styles.summaryRowMeta}>{meta}</Text>
+        {sessions ? <Text numberOfLines={1} style={styles.summaryRowMeta}>{sessions}</Text> : null}
+        {pkg.pendingAmount > 0 ? (
+          <Text numberOfLines={1} style={styles.summaryRowMeta}>
+            Pending {formatCurrency(pkg.pendingAmount)}
+          </Text>
+        ) : null}
+      </View>
+      <View style={styles.summaryRowTrailing}>
+        <Text style={styles.summaryRowAmount}>{formatCurrency(pkg.totalAmount)}</Text>
+        <Text style={styles.summaryRowStatus}>{titleCase(pkg.status)}</Text>
       </View>
     </View>
   );
@@ -186,11 +344,23 @@ export default function ClientDetailsScreen() {
   const detailsError = useAppSelector(selectClientDetailsError);
 
   const rawHistory = useAppSelector(selectClientHistory);
-  const history = Array.isArray(rawHistory) ? rawHistory : [];
+  const history = useMemo(() => (Array.isArray(rawHistory) ? rawHistory : []), [rawHistory]);
   const historyLoading = useAppSelector(selectClientHistoryLoading);
   const historyError = useAppSelector(selectClientHistoryError);
 
-  const historyStats = useAppSelector(selectClientHistoryStats);
+  // Everything below comes from the one GET /clients/:id/history request fired
+  // when the profile opens — no per-section fetching.
+  const historyClient = useAppSelector(selectClientHistoryClient);
+  const profileStats = useAppSelector(selectClientProfileStats);
+  const historyAppointments = useAppSelector(selectClientHistoryAppointments);
+  const historySales = useAppSelector(selectClientHistorySales);
+  const historyPackages = useAppSelector(selectClientHistoryPackages);
+  const historyMemberships = useAppSelector(selectClientHistoryMemberships);
+
+  const notes = useAppSelector(selectClientNotes(id));
+  const notesLoading = useAppSelector(selectClientNotesLoading);
+  const notesError = useAppSelector(selectClientNotesError);
+
   const blockingIds = useAppSelector(selectClientBlockingIds);
   const activeBranchId = useAppSelector(selectActiveBranchId);
   const memberships = useAppSelector(selectMemberships);
@@ -198,7 +368,21 @@ export default function ClientDetailsScreen() {
   const membershipLoading = useAppSelector(selectClientMembershipsLoading(id));
   const membershipError = useAppSelector(selectClientMembershipsError(id));
   const membershipMutating = useAppSelector(selectClientMembershipMutating);
-  const clientStats = historyStats[id ?? ""];
+
+  // Web-parity derived figures (Total Visits / Spend / Due / Average / Last
+  // Visit / upcoming / services / products) — see clientProfile.ts.
+  const metrics = useMemo(
+    () =>
+      buildClientProfileMetrics({
+        stats: profileStats,
+        appointments: historyAppointments,
+        sales: historySales,
+        packages: historyPackages,
+        memberships: historyMemberships,
+      }),
+    [profileStats, historyAppointments, historySales, historyPackages, historyMemberships],
+  );
+
   const isBlocking = id ? blockingIds.includes(id) : false;
   const [pickerVisible, setPickerVisible] = useState(false);
   const [activeTab, setActiveTab] = useState<ClientTab>("summary");
@@ -207,6 +391,14 @@ export default function ClientDetailsScreen() {
   useEffect(() => {
     setBlockedOverride(null);
   }, [id]);
+
+  // Lazy, once per client — notes are not part of the /history payload, and
+  // most profile visits never open this tab (same rationale as Web).
+  useEffect(() => {
+    if (id && activeTab === "notes" && notes === null && !notesLoading) {
+      void dispatch(fetchClientNotesThunk(id));
+    }
+  }, [activeTab, dispatch, id, notes, notesLoading]);
 
   useEffect(() => {
     if (id) {
@@ -223,6 +415,9 @@ export default function ClientDetailsScreen() {
         if (id && (entity === "clientMemberships" || entity === "memberships" || entity === "clients")) {
           void dispatch(fetchClientByIdThunk(id));
           void dispatch(fetchClientMembershipsThunk(id));
+          // Keep the profile's summary/history in step with the change that
+          // just landed — still one history request, only on a real event.
+          void dispatch(fetchClientHistoryThunk(id));
         }
       }),
     [dispatch, id],
@@ -273,11 +468,12 @@ export default function ClientDetailsScreen() {
     };
   }, [activeBranchId, id, liveClientFullName, liveClientPhone]);
 
-  useEffect(() => {
-    if (id && liveClientFullName) {
-      void dispatch(fetchClientsWithHistoryStatsThunk({ search: liveClientFullName }));
-    }
-  }, [id, liveClientFullName, dispatch]);
+  // The profile's summary figures used to come from
+  // fetchClientsWithHistoryStatsThunk — a name search against the
+  // /clients/with-history-stats LIST endpoint, which returns no per-client
+  // stats object at all (so every figure resolved to 0) and could not
+  // reliably identify one client by name. /clients/:id/history, fetched by
+  // UUID above, is now the single source for all of it.
 
   const client = useMemo(() => {
     if (!liveClient) {
@@ -294,23 +490,29 @@ export default function ClientDetailsScreen() {
     return {
       avatarBg: avatarTone.background,
       avatarColor: avatarTone.color,
-      city: liveClient.gender === "-" ? "-" : "India",
-      createdLabel: liveClient.createdDateLabel,
-      email: liveClient.email,
-      favoriteService: liveClient.membership ?? "No preference added",
+      // "Joined on" — prefer the history payload's own created_at, falling
+      // back to the list/detail record's preformatted label.
+      createdLabel: historyClient?.createdAt
+        ? formatCreatedDate(historyClient.createdAt)
+        : liveClient.createdDateLabel,
+      email: historyClient?.email || liveClient.email,
       fullName: liveClient.fullName,
-      gender: liveClient.gender,
+      gender: historyClient?.gender || liveClient.gender,
       id: liveClient.id,
       initials: liveClient.initials,
       membership: liveClient.membership,
-      notes: isClientInactive ? "Client is blocked/inactive." : "No notes added.",
-      phone: liveClient.phone,
-      preferredStaff: "-",
+      phone: historyClient?.phoneNumber || liveClient.phone,
+      referredBy: historyClient?.referredBy?.fullName ?? null,
+      clientSource: historyClient?.clientSource ?? null,
+      referralCode: historyClient?.referralCode ?? null,
+      walletBalance: historyClient?.walletBalance ?? 0,
+      rewardPointsBalance: historyClient?.rewardPointsBalance ?? 0,
+      referralBalance: historyClient?.referralBalance ?? 0,
       status: liveClient.status,
       isBlocked: isClientInactive,
       totalVisits: liveClient.totalVisits,
     };
-  }, [blockedOverride, liveClient]);
+  }, [blockedOverride, historyClient, liveClient]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -445,10 +647,8 @@ export default function ClientDetailsScreen() {
     );
   }
 
-  const serviceCount = history.reduce((total, item) => total + item.items.filter((entry) => entry.type === "service").length, 0);
-  const productCount = history.reduce((total, item) => total + item.items.filter((entry) => entry.type === "product").length, 0);
-  const appointmentCount = history.filter((item) => item.type === "appointment").length;
-  const latestService = history.flatMap((item) => item.items).find((entry) => entry.type === "service")?.name ?? "-";
+  const serviceCount = metrics.services.length;
+  const productCount = metrics.products.length;
 
   return (
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
@@ -473,7 +673,7 @@ export default function ClientDetailsScreen() {
           <View style={styles.contactRow}><Ionicons color={Colors.primary} name="call-outline" size={19} /><Text selectable style={styles.contactText}>{client.phone}</Text></View>
           <View style={styles.contactRow}><Ionicons color={Colors.primary} name="mail-outline" size={20} /><Text numberOfLines={1} selectable style={styles.contactText}>{client.email || "-"}</Text></View>
           <View style={styles.walletRow}>
-            <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/quick-sale")} style={styles.walletPill}><Ionicons color="#FFFFFF" name="wallet-outline" size={23} /><Text style={styles.walletValue}>₹ 0</Text></TouchableOpacity>
+            <TouchableOpacity activeOpacity={0.82} onPress={() => router.push("/quick-sale")} style={styles.walletPill}><Ionicons color="#FFFFFF" name="wallet-outline" size={23} /><Text style={styles.walletValue}>{formatCurrency(client.walletBalance)}</Text></TouchableOpacity>
             <TouchableOpacity activeOpacity={0.75} onPress={() => router.push("/quick-sale")} style={styles.addMoneyButton}><Ionicons color={Colors.heading} name="add-circle-outline" size={20} /><Text style={styles.addMoneyText}>Add money</Text></TouchableOpacity>
           </View>
         </View>
@@ -517,14 +717,14 @@ export default function ClientDetailsScreen() {
           <View style={styles.tabContent}>
             <View style={styles.metricsGrid}>
               {[
-                { icon: "checkmark-circle-outline", label: "Total Visits", value: String(clientStats?.totalVisits ?? client.totalVisits) },
-                { icon: "wallet-outline", label: "Total Spend", value: formatCurrency(clientStats?.lifetimeSpend ?? 0) },
-                { icon: "receipt-outline", label: "Amount Due", value: "₹ 0" },
+                { icon: "checkmark-circle-outline", label: "Total Visits", value: String(metrics.totalVisits) },
+                { icon: "wallet-outline", label: "Total Spend", value: formatCurrency(metrics.totalSpend) },
+                { icon: "receipt-outline", label: "Amount Due", value: formatCurrency(metrics.amountDue) },
                 { icon: "briefcase-outline", label: "Total Services", value: serviceCount ? String(serviceCount) : "-" },
                 { icon: "cube-outline", label: "Total Products", value: productCount ? String(productCount) : "-" },
-                { icon: "server-outline", label: "Total Points", value: "0" },
-                { icon: "pie-chart-outline", label: "Average Spent", value: formatCurrency(clientStats?.averageSpend ?? 0) },
-                { icon: "time-outline", label: "Last Visited On", value: clientStats?.lastVisit ? formatCreatedDate(clientStats.lastVisit) : "-" },
+                { icon: "server-outline", label: "Total Points", value: String(client.rewardPointsBalance) },
+                { icon: "pie-chart-outline", label: "Average Spent", value: formatCurrency(metrics.averageSpend) },
+                { icon: "time-outline", label: "Last Visited On", value: metrics.lastVisit ? formatCreatedDate(metrics.lastVisit) : "-" },
               ].map((metric) => (
                 <View key={metric.label} style={styles.metricCell}>
                   <Ionicons color={Colors.primary} name={metric.icon as keyof typeof Ionicons.glyphMap} size={21} />
@@ -533,14 +733,100 @@ export default function ClientDetailsScreen() {
                 </View>
               ))}
             </View>
-            <EmptySummarySection label={appointmentCount ? `${appointmentCount} appointment${appointmentCount === 1 ? "" : "s"}` : "No Appointment"} title="Appointment" />
-            <EmptySummarySection icon="diamond-outline" label={activeMembership?.membershipName ?? "No membership"} title="Membership" />
+
+            {historyLoading && history.length === 0 ? (
+              <ActivityIndicator color={Colors.primary} style={styles.loader} />
+            ) : null}
+            {historyError ? <Text style={styles.errorText}>{historyError}</Text> : null}
+
+            {metrics.upcomingAppointments.length > 0 ? (
+              <SummarySection count={metrics.upcomingAppointments.length} title="Upcoming Appointments">
+                {metrics.upcomingAppointments.slice(0, SECTION_ROW_LIMIT).map((appointment) => (
+                  <View key={appointment.id} style={styles.summaryRow}>
+                    <View style={styles.summaryRowCopy}>
+                      <Text numberOfLines={1} style={styles.summaryRowTitle}>
+                        {appointment.services.map((service) => service.name).filter(Boolean).join(", ") || "Appointment"}
+                      </Text>
+                      <Text numberOfLines={1} style={styles.summaryRowMeta}>
+                        {formatCreatedDate(appointment.scheduledAt)}
+                        {appointment.staffName ? ` · ${appointment.staffName}` : ""}
+                      </Text>
+                      {appointment.dueAmount > 0 ? (
+                        <Text numberOfLines={1} style={styles.summaryRowMeta}>
+                          Due {formatCurrency(appointment.dueAmount)}
+                        </Text>
+                      ) : null}
+                    </View>
+                    <Text style={styles.summaryRowStatus}>{titleCase(appointment.status)}</Text>
+                  </View>
+                ))}
+                <MoreRow remaining={metrics.upcomingAppointments.length - SECTION_ROW_LIMIT} />
+              </SummarySection>
+            ) : (
+              <EmptySummarySection icon="calendar-outline" label="No upcoming appointments" title="Upcoming Appointments" />
+            )}
+
+            {metrics.activeMemberships.length + metrics.pastMemberships.length > 0 ? (
+              <SummarySection
+                count={metrics.activeMemberships.length + metrics.pastMemberships.length}
+                title="Memberships"
+              >
+                {[...metrics.activeMemberships, ...metrics.pastMemberships]
+                  .slice(0, SECTION_ROW_LIMIT)
+                  .map((membership) => (
+                    <MembershipRow key={membership.id} membership={membership} />
+                  ))}
+                <MoreRow
+                  remaining={metrics.activeMemberships.length + metrics.pastMemberships.length - SECTION_ROW_LIMIT}
+                />
+              </SummarySection>
+            ) : (
+              <EmptySummarySection icon="diamond-outline" label="No membership" title="Memberships" />
+            )}
+
+            {metrics.packages.length > 0 ? (
+              <SummarySection count={metrics.packages.length} title="Packages">
+                {metrics.packages.slice(0, SECTION_ROW_LIMIT).map((pkg) => (
+                  <PackageRow key={pkg.id} pkg={pkg} />
+                ))}
+                <MoreRow remaining={metrics.packages.length - SECTION_ROW_LIMIT} />
+              </SummarySection>
+            ) : (
+              <EmptySummarySection icon="cube-outline" label="No packages" title="Packages" />
+            )}
+
+            {/* Vouchers and Gift Cards have no backend data model or API — see
+                the investigation. `gift_card` exists only as a payment method
+                and a sale-item type; there is no per-client voucher or
+                gift-card entity to read, on mobile or web. These stay as
+                explicit placeholders until that scope is decided. */}
             <EmptySummarySection label="No vouchers" title="Vouchers" />
             <EmptySummarySection label="No Gift Card" title="Gift Cards" />
-            <EmptySummarySection icon="cut-outline" label={serviceCount ? `${serviceCount} service${serviceCount === 1 ? "" : "s"}` : "No Services"} title="Services" />
-            <EmptySummarySection icon="cube-outline" label={productCount ? `${productCount} product${productCount === 1 ? "" : "s"}` : "No Products"} title="Products" />
-            <View style={styles.clientMetaRow}><Text style={styles.clientMetaLabel}>Joined on</Text><Text style={styles.clientMetaValue}>{client.createdLabel}</Text><Text style={styles.clientMetaLabel}>Referred by</Text><Text style={styles.clientMetaValue}>-</Text></View>
-            <View style={styles.latestServiceRow}><Text style={styles.clientMetaLabel}>Latest Service Taken</Text><Text numberOfLines={1} style={styles.latestServiceValue}>{latestService}</Text></View>
+
+            {metrics.services.length > 0 ? (
+              <SummarySection count={metrics.services.length} title="Services">
+                {metrics.services.slice(0, SECTION_ROW_LIMIT).map((entry) => (
+                  <LineEntryRow entry={entry} key={entry.key} />
+                ))}
+                <MoreRow remaining={metrics.services.length - SECTION_ROW_LIMIT} />
+              </SummarySection>
+            ) : (
+              <EmptySummarySection icon="cut-outline" label="No Services" title="Services" />
+            )}
+
+            {metrics.products.length > 0 ? (
+              <SummarySection count={metrics.products.length} title="Products">
+                {metrics.products.slice(0, SECTION_ROW_LIMIT).map((entry) => (
+                  <LineEntryRow entry={entry} key={entry.key} />
+                ))}
+                <MoreRow remaining={metrics.products.length - SECTION_ROW_LIMIT} />
+              </SummarySection>
+            ) : (
+              <EmptySummarySection icon="cube-outline" label="No Products" title="Products" />
+            )}
+
+            <View style={styles.clientMetaRow}><Text style={styles.clientMetaLabel}>Joined on</Text><Text style={styles.clientMetaValue}>{client.createdLabel}</Text><Text style={styles.clientMetaLabel}>Referred by</Text><Text style={styles.clientMetaValue}>{client.referredBy ?? "-"}</Text></View>
+            <View style={styles.latestServiceRow}><Text style={styles.clientMetaLabel}>Latest Service Taken</Text><Text numberOfLines={1} style={styles.latestServiceValue}>{metrics.lastServiceTaken ?? "-"}</Text></View>
           </View>
         ) : null}
 
@@ -550,13 +836,40 @@ export default function ClientDetailsScreen() {
             {historyLoading ? <ActivityIndicator color={Colors.primary} style={styles.loader} /> : null}
             {historyError ? <Text style={styles.errorText}>{historyError}</Text> : null}
             {!historyLoading && !historyError && history.length === 0 ? <EmptySummarySection icon="time-outline" label="No activity" title="" /> : null}
-            {history.map((item) => (
-              <View key={item.id} style={styles.activityRow}>
-                <View style={styles.activityIcon}><Ionicons color={Colors.primary} name={item.type === "appointment" ? "calendar-outline" : item.type === "sale" ? "wallet-outline" : "time-outline"} size={19} /></View>
-                <View style={styles.activityCopy}><Text style={styles.activityTitle}>{item.title}</Text><Text style={styles.activityMeta}>{item.dateLabel}{item.staffName ? ` · ${item.staffName}` : ""}</Text></View>
-                {item.amount > 0 ? <Text style={styles.activityAmount}>{formatCurrency(item.amount)}</Text> : null}
-              </View>
-            ))}
+            {history.map((item) => {
+              // Detail already present on the backend rows — surfaced here
+              // rather than dropped during timeline flattening.
+              const meta = [
+                item.dateLabel,
+                item.staffName || null,
+                item.invoiceNumber ? `Inv ${item.invoiceNumber}` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              const payment = [
+                item.paymentStatus ? titleCase(item.paymentStatus) : titleCase(item.status),
+                item.paymentMethod ? titleCase(item.paymentMethod) : null,
+              ]
+                .filter(Boolean)
+                .join(" · ");
+              const lineItems = item.items.map((entry) => entry.name).filter(Boolean).join(", ");
+
+              return (
+                <View key={item.id} style={styles.activityRow}>
+                  <View style={styles.activityIcon}><Ionicons color={Colors.primary} name={item.type === "appointment" ? "calendar-outline" : item.type === "sale" ? "wallet-outline" : "time-outline"} size={19} /></View>
+                  <View style={styles.activityCopy}>
+                    <Text style={styles.activityTitle}>{item.title}</Text>
+                    <Text style={styles.activityMeta}>{meta}</Text>
+                    {lineItems ? <Text numberOfLines={2} style={styles.activityMeta}>{lineItems}</Text> : null}
+                    {payment ? <Text style={styles.activityMeta}>{payment}</Text> : null}
+                    {item.dueAmount ? (
+                      <Text style={styles.activityDue}>Due {formatCurrency(item.dueAmount)}</Text>
+                    ) : null}
+                  </View>
+                  {item.amount > 0 ? <Text style={styles.activityAmount}>{formatCurrency(item.amount)}</Text> : null}
+                </View>
+              );
+            })}
           </View>
         ) : null}
 
@@ -564,7 +877,17 @@ export default function ClientDetailsScreen() {
           <View style={styles.tabContent}>
             <Text style={styles.contentHeading}>Client Information</Text>
             <View style={styles.profileDetails}>
-              <DetailRow label="Email" value={client.email || "-"} /><DetailRow label="Gender" value={client.gender} /><DetailRow label="Membership" value={client.membership ?? "-"} /><DetailRow label="Status" value={client.status} /><DetailRow label="Created" value={client.createdLabel} />
+              <DetailRow label="Email" value={client.email || "-"} />
+              <DetailRow label="Gender" value={client.gender || "-"} />
+              <DetailRow label="Membership" value={client.membership ?? "-"} />
+              <DetailRow label="Status" value={client.status} />
+              <DetailRow label="Joined On" value={client.createdLabel} />
+              <DetailRow label="Source" value={client.clientSource ?? "-"} />
+              <DetailRow label="Referred By" value={client.referredBy ?? "-"} />
+              <DetailRow label="Referral Code" value={client.referralCode ?? "-"} />
+              <DetailRow label="E-Wallet Balance" value={formatCurrency(client.walletBalance)} />
+              <DetailRow label="Reward Points" value={String(client.rewardPointsBalance)} />
+              <DetailRow label="Referral Balance" value={formatCurrency(client.referralBalance)} />
             </View>
             <Text style={styles.contentHeading}>Membership</Text>
             <View style={styles.profileDetails}>
@@ -581,7 +904,35 @@ export default function ClientDetailsScreen() {
           </View>
         ) : null}
 
-        {activeTab === "notes" ? <View style={styles.tabContent}><Text style={styles.contentHeading}>Notes</Text><View style={styles.notesPanel}><Ionicons color={Colors.primary} name="document-text-outline" size={22} /><Text style={styles.notesText}>{client.notes}</Text></View></View> : null}
+        {activeTab === "notes" ? (
+          <View style={styles.tabContent}>
+            <Text style={styles.contentHeading}>Notes</Text>
+            {client.isBlocked ? <Text style={styles.blockedNoticeText}>Client is blocked/inactive.</Text> : null}
+            {notesLoading && notes === null ? <ActivityIndicator color={Colors.primary} style={styles.loader} /> : null}
+            {notesError ? <Text style={styles.errorText}>{notesError}</Text> : null}
+            {notes && notes.length > 0 ? (
+              <View style={styles.summaryList}>
+                {notes.map((note) => (
+                  <View key={note.id} style={styles.summaryRow}>
+                    <View style={styles.summaryRowCopy}>
+                      <Text style={styles.summaryRowTitle}>{note.note}</Text>
+                      <Text style={styles.summaryRowMeta}>
+                        {formatCreatedDate(note.createdAt)}
+                        {note.staffName ? ` · ${note.staffName}` : ""}
+                      </Text>
+                    </View>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+            {!notesLoading && !notesError && notes !== null && notes.length === 0 ? (
+              <View style={styles.notesPanel}>
+                <Ionicons color={Colors.primary} name="document-text-outline" size={22} />
+                <Text style={styles.notesText}>No notes added.</Text>
+              </View>
+            ) : null}
+          </View>
+        ) : null}
       </ScrollView>
       <MembershipPickerModal memberships={memberships} onClose={() => setPickerVisible(false)} onSelect={(membership) => void handleSelectMembership(membership)} saving={membershipMutating} visible={pickerVisible} />
     </SafeAreaView>
@@ -617,6 +968,18 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   metricValue: { color: Colors.heading, fontSize: 19, fontWeight: "700", marginTop: 7 },
   summarySection: { marginBottom: 28 },
   summarySectionTitle: { color: Colors.heading, fontSize: 19, fontWeight: "800", marginBottom: 14 },
+  summarySectionHeader: { alignItems: "center", flexDirection: "row", gap: 8 },
+  summarySectionCount: { backgroundColor: "#FCF7FB", borderRadius: AppRadius.pill, color: Colors.primary, fontSize: 13, fontWeight: "800", marginBottom: 14, overflow: "hidden", paddingHorizontal: 9, paddingVertical: 2 },
+  summaryList: { borderColor: Colors.border, borderRadius: 8, borderWidth: 1, overflow: "hidden" },
+  summaryRow: { alignItems: "center", borderBottomColor: Colors.border, borderBottomWidth: 1, flexDirection: "row", gap: 12, paddingHorizontal: 14, paddingVertical: 13 },
+  summaryRowCopy: { flex: 1, gap: 3 },
+  summaryRowTitle: { color: Colors.heading, fontSize: 16, fontWeight: "700" },
+  summaryRowMeta: { color: Colors.text2, fontSize: 13 },
+  summaryRowTrailing: { alignItems: "flex-end", gap: 3 },
+  summaryRowAmount: { color: Colors.heading, fontSize: 16, fontWeight: "700" },
+  summaryRowStatus: { color: Colors.text2, fontSize: 12, fontWeight: "700" },
+  summaryMoreText: { color: Colors.text2, fontSize: 13, fontWeight: "700", paddingHorizontal: 14, paddingVertical: 11 },
+  blockedNoticeText: { color: Colors.error, fontSize: 14, fontWeight: "700", marginBottom: 14 },
   emptySummaryBox: { alignItems: "center", backgroundColor: "#FAFAFA", borderRadius: 8, height: 168, justifyContent: "center" },
   emptySummaryIcon: { alignItems: "center", backgroundColor: "#FFFFFF", borderRadius: 38, height: 76, justifyContent: "center", width: 76 },
   emptySummaryText: { color: Colors.text2, fontSize: 17, marginTop: 13 },
@@ -628,6 +991,7 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   contentHeading: { color: Colors.heading, fontSize: 19, fontWeight: "800", marginBottom: 14 },
   loader: { marginVertical: 18 },
   activityRow: { alignItems: "center", borderBottomColor: Colors.border, borderBottomWidth: 1, flexDirection: "row", gap: 12, paddingVertical: 14 },
+  activityDue: { color: Colors.error, fontSize: 13, fontWeight: "700" },
   activityIcon: { alignItems: "center", backgroundColor: "#FCF7FB", borderRadius: 22, height: 44, justifyContent: "center", width: 44 },
   activityCopy: { flex: 1 },
   activityTitle: { color: Colors.heading, fontSize: 15, fontWeight: "700" },

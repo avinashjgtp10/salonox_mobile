@@ -20,13 +20,25 @@ import type {
   MergeAllDuplicatesResponse,
   BlockClientResponse,
   UnblockClientResponse,
+  ClientAppointmentLineItem,
+  ClientAppointmentRecord,
+  ClientHistoryClient,
+  ClientHistoryClientApi,
   ClientHistoryItem,
   ClientHistoryItemApi,
+  ClientHistoryReferrer,
   ClientHistoryResult,
   ClientHistoryStats,
   ClientHistoryStatsApi,
   ClientHistorySummary,
   ClientHistorySummaryApi,
+  ClientMembershipRecord,
+  ClientNote,
+  ClientNoteApi,
+  ClientPackageRecord,
+  ClientPackageServiceRecord,
+  ClientSaleItem,
+  ClientSaleRecord,
   ClientWithHistoryStats,
 } from "@/types/client";
 import { formatAppDate } from "@/utils/dateTime";
@@ -56,7 +68,7 @@ type ClientHistoryApiData =
       timeline?: ClientHistoryItemApi[] | null;
       // Some responses nest the client summary fields under `client` instead
       // of putting them flat alongside `history` — check both locations.
-      client?: ClientHistorySummaryApi | null;
+      client?: ClientHistoryClientApi | null;
     })
   | null
   | undefined;
@@ -606,13 +618,246 @@ const normalizeHistorySummary = (
   };
 };
 
+// `/clients/:id/history` names the paid/partial visit count
+// `completed_appointments` and the last-visit timestamp `last_visit_at`; the
+// older `/clients/with-history-stats` rows use `last_visit_at` too but carry
+// no counts at all. Both spellings are accepted so either response parses.
+//
+// `average_spend` is returned by no endpoint — Web derives it as
+// spend / visits, so it is derived here too rather than read off the wire.
 const normalizeHistoryStats = (stats: ClientHistoryStatsApi | null | undefined): ClientHistoryStats => {
+  const lifetimeSpend = toSafeNumber(stats?.lifetime_spend ?? stats?.lifetimeSpend);
+  const completedAppointments = toSafeNumber(stats?.completed_appointments);
+  const totalVisits = toSafeNumber(stats?.total_visits ?? stats?.totalVisits) || completedAppointments;
+  const explicitAverage = toSafeNumber(stats?.average_spend ?? stats?.averageSpend);
+
   return {
-    lifetimeSpend: toSafeNumber(stats?.lifetime_spend ?? stats?.lifetimeSpend),
-    totalVisits: toSafeNumber(stats?.total_visits ?? stats?.totalVisits),
-    lastVisit: stats?.last_visit ?? stats?.lastVisit ?? null,
+    lifetimeSpend,
+    totalVisits,
+    lastVisit: stats?.last_visit_at ?? stats?.last_visit ?? stats?.lastVisit ?? null,
     totalAppointments: toSafeNumber(stats?.total_appointments ?? stats?.totalAppointments),
-    averageSpend: toSafeNumber(stats?.average_spend ?? stats?.averageSpend),
+    averageSpend: explicitAverage || (totalVisits > 0 ? lifetimeSpend / totalVisits : 0),
+    completedAppointments,
+    noShows: toSafeNumber(stats?.no_shows),
+    cancellations: toSafeNumber(stats?.cancellations),
+    totalSales: toSafeNumber(stats?.total_sales),
+    activePackages: toSafeNumber(stats?.active_packages),
+    activeMemberships: toSafeNumber(stats?.active_memberships),
+  };
+};
+
+// ─── Structured record normalizers ─────────────────────────────────────────
+// These keep the per-row detail the flattened timeline drops. Field names read
+// here are exactly those returned by clients.controller.ts getHistory.
+
+const toNullableString = (value: unknown): string | null => toSafeString(value) || null;
+
+const normalizeAppointmentLineItem = (value: unknown): ClientAppointmentLineItem => {
+  const record = asRecord(value);
+
+  return {
+    name: toSafeString(firstValue(record, ["name", "service_name", "product_name", "package_name", "membership_name", "title"])),
+    price: toSafeNumber(firstValue(record, ["total", "price", "unit_price", "amount"])),
+    quantity: toSafeNumber(firstValue(record, ["quantity", "qty"])) || 1,
+    serviceId: toNullableString(firstValue(record, ["service_id", "product_id", "package_id", "membership_id"])),
+    staffId: toNullableString(firstValue(record, ["staff_id"])),
+  };
+};
+
+const normalizeAppointmentRecord = (value: unknown): ClientAppointmentRecord => {
+  const record = asRecord(value);
+  const rawNet = firstValue(record, ["net_amount"]);
+
+  return {
+    id: toSafeString(record.id),
+    scheduledAt: toNullableString(record.scheduled_at),
+    status: toSafeString(record.status),
+    durationMinutes: toSafeNumber(record.duration_minutes),
+    notes: toSafeString(record.notes),
+    cancelReason: toSafeString(record.cancel_reason),
+    staffId: toNullableString(record.staff_id),
+    staffName: getStaffNameFromRecord(record),
+    amountPaid: toSafeNumber(record.amount_paid),
+    dueAmount: toSafeNumber(record.due_amount),
+    // Preserve the null the backend deliberately sends for "not billed yet" —
+    // collapsing it to 0 would make an unbilled visit look genuinely free.
+    netAmount: rawNet === null || rawNet === undefined ? null : toSafeNumber(rawNet),
+    paymentStatus: toSafeString(record.payment_status),
+    paymentMethod: toSafeString(record.payment_method),
+    ewalletUsed: toSafeNumber(record.ewallet_used),
+    membershipWalletUsed: toSafeNumber(record.membership_wallet_used),
+    linkedMembershipName: toSafeString(record.linked_membership_name),
+    linkedPackageName: toSafeString(record.linked_package_name),
+    services: firstArray(record, ["services"]).map(normalizeAppointmentLineItem),
+    productItems: firstArray(record, ["product_items"]).map(normalizeAppointmentLineItem),
+    packageItems: firstArray(record, ["package_items"]).map(normalizeAppointmentLineItem),
+    membershipItems: firstArray(record, ["membership_items"]).map(normalizeAppointmentLineItem),
+  };
+};
+
+const SALE_ITEM_TYPES = new Set<ClientSaleItem["itemType"]>([
+  "service",
+  "product",
+  "package",
+  "membership",
+  "gift_card",
+  "quick",
+]);
+
+const normalizeSaleItem = (value: unknown): ClientSaleItem => {
+  const record = asRecord(value);
+  const rawType = toSafeString(record.item_type).toLowerCase() as ClientSaleItem["itemType"];
+  const rawDiscount = firstValue(record, ["discount_amount"]);
+  const rawTax = firstValue(record, ["tax_amount"]);
+
+  return {
+    name: toSafeString(record.name),
+    itemType: SALE_ITEM_TYPES.has(rawType) ? rawType : "other",
+    quantity: toSafeNumber(record.quantity) || 1,
+    unitPrice: toSafeNumber(record.unit_price),
+    totalPrice: toSafeNumber(record.total_price),
+    discountAmount: rawDiscount === null || rawDiscount === undefined ? null : toSafeNumber(rawDiscount),
+    taxAmount: rawTax === null || rawTax === undefined ? null : toSafeNumber(rawTax),
+    staffId: toNullableString(record.staff_id),
+  };
+};
+
+const normalizeSaleRecord = (value: unknown): ClientSaleRecord => {
+  const record = asRecord(value);
+
+  return {
+    id: toSafeString(record.id),
+    invoiceNumber: toSafeString(record.invoice_number),
+    status: toSafeString(record.status),
+    subtotal: toSafeNumber(record.subtotal),
+    discountAmount: toSafeNumber(record.discount_amount),
+    tipAmount: toSafeNumber(record.tip_amount),
+    taxAmount: toSafeNumber(record.tax_amount),
+    totalAmount: toSafeNumber(record.total_amount),
+    paymentMethod: toSafeString(record.payment_method),
+    paymentReference: toSafeString(record.payment_reference),
+    notes: toSafeString(record.notes),
+    createdAt: toNullableString(record.created_at),
+    appointmentId: toNullableString(record.appointment_id),
+    couponCode: toSafeString(record.coupon_code),
+    manualDiscountAmount: toSafeNumber(record.manual_discount_amount),
+    couponDiscountAmount: toSafeNumber(record.coupon_discount_amount),
+    referralDiscountAmount: toSafeNumber(record.referral_discount_amount),
+    items: firstArray(record, ["items"]).map(normalizeSaleItem),
+  };
+};
+
+const normalizePackageServiceRecord = (value: unknown): ClientPackageServiceRecord => {
+  const record = asRecord(value);
+
+  return {
+    serviceName: toSafeString(record.service_name),
+    totalSessions: toSafeNumber(record.total_sessions),
+    completedSessions: toSafeNumber(record.completed_sessions),
+  };
+};
+
+const normalizePackageRecord = (value: unknown): ClientPackageRecord => {
+  const record = asRecord(value);
+  const services = firstArray(record, ["services"]).map(normalizePackageServiceRecord);
+  // client_packages has no overall session pool of its own — it is the sum of
+  // its per-service rows (unlike client_memberships, which does).
+  const totalSessions = services.reduce((sum, service) => sum + service.totalSessions, 0);
+  const completedSessions = services.reduce((sum, service) => sum + service.completedSessions, 0);
+
+  return {
+    id: toSafeString(record.id),
+    packageName: toSafeString(record.package_name, "Package"),
+    status: toSafeString(record.status),
+    totalAmount: toSafeNumber(record.total_amount),
+    paidAmount: toSafeNumber(record.paid_amount),
+    pendingAmount: toSafeNumber(record.pending_amount),
+    paymentStatus: toSafeString(record.payment_status),
+    expiryDate: toNullableString(record.expiry_date),
+    createdDate: toNullableString(record.created_date),
+    staffId: toNullableString(record.staff_id),
+    saleId: toNullableString(record.sale_id),
+    appointmentId: toNullableString(record.appointment_id),
+    services,
+    totalSessions,
+    completedSessions,
+    remainingSessions: Math.max(0, totalSessions - completedSessions),
+  };
+};
+
+const normalizeMembershipRecord = (value: unknown): ClientMembershipRecord => {
+  const record = asRecord(value);
+  const totalSessions = toSafeNumber(record.total_sessions);
+  const usedSessions = toSafeNumber(record.used_sessions);
+
+  return {
+    id: toSafeString(record.id),
+    membershipName: toSafeString(record.membership_name, "Membership"),
+    status: toSafeString(record.status),
+    pricePaid: toSafeNumber(record.price_paid),
+    expiresAt: toNullableString(record.expires_at),
+    purchasedAt: toNullableString(record.purchased_at),
+    totalSessions,
+    usedSessions,
+    remainingSessions: Math.max(0, totalSessions - usedSessions),
+    membershipWalletBalance: toSafeNumber(record.membership_wallet_balance),
+    discountBalanceRemaining: toSafeNumber(record.discount_balance_remaining),
+    staffId: toNullableString(record.staff_id),
+    saleId: toNullableString(record.sale_id),
+    appointmentId: toNullableString(record.appointment_id),
+  };
+};
+
+const normalizeReferrer = (value: unknown): ClientHistoryReferrer | null => {
+  const record = asRecord(value);
+  const fullName = toSafeString(firstValue(record, ["full_name", "fullName", "name"]));
+
+  if (!fullName && !toSafeString(record.id)) {
+    return null;
+  }
+
+  return {
+    id: toSafeString(record.id),
+    fullName,
+    phoneNumber: toSafeString(firstValue(record, ["phone_number", "phoneNumber"])),
+  };
+};
+
+const normalizeHistoryClient = (
+  payload: ClientHistoryApiData,
+  summary: ClientHistorySummary,
+): ClientHistoryClient | null => {
+  if (!payload || Array.isArray(payload) || !payload.client) {
+    return null;
+  }
+
+  const client = payload.client;
+  const birthdayYear = toSafeNumber(client.birthday_year);
+
+  return {
+    id: toSafeString(client.id),
+    fullName:
+      toSafeString(client.full_name) ||
+      [toSafeString(client.first_name), toSafeString(client.last_name)].filter(Boolean).join(" "),
+    email: toSafeString(client.email),
+    phoneNumber: toSafeString(client.phone_number),
+    phoneCountryCode: toNullableString(client.phone_country_code),
+    avatarUrl: toNullableString(client.avatar_url),
+    isActive: client.is_active !== false,
+    createdAt: toNullableString(client.created_at),
+    gender: toSafeString(client.gender),
+    clientSource: toNullableString(client.client_source),
+    birthdayDayMonth: toNullableString(client.birthday_day_month),
+    birthdayYear: birthdayYear || null,
+    referredBy: normalizeReferrer(client.referred_by),
+    // Balances are already extracted by normalizeHistorySummary (which also
+    // handles the flat-vs-nested shapes) — reuse it rather than re-reading.
+    walletBalance: summary.walletBalance,
+    rewardPointsBalance: summary.rewardPointsBalance,
+    referralBalance: summary.referralBalance,
+    referralCode: summary.referralCode,
+    totalReferralEarnings: summary.totalReferralEarnings,
+    totalSuccessfulReferrals: summary.totalSuccessfulReferrals,
   };
 };
 
@@ -676,12 +921,92 @@ const getClientList = async (
   };
 };
 
+// Enriches the flattened timeline with the per-row detail the generic
+// normalizers drop, by joining each entry back to the structured record it
+// came from. Only entries that actually have a matching record gain the extra
+// fields — a plain `history` array response leaves them undefined.
+const enrichHistoryItems = (
+  items: ClientHistoryItem[],
+  appointments: ClientAppointmentRecord[],
+  sales: ClientSaleRecord[],
+): ClientHistoryItem[] => {
+  if (appointments.length === 0 && sales.length === 0) {
+    return items;
+  }
+
+  const appointmentsById = new Map(appointments.map((appointment) => [appointment.id, appointment]));
+  const salesById = new Map(sales.map((sale) => [sale.id, sale]));
+  const saleByAppointmentId = new Map(
+    sales.filter((sale) => sale.appointmentId).map((sale) => [sale.appointmentId as string, sale]),
+  );
+
+  return items.map((item) => {
+    const appointment = appointmentsById.get(item.id);
+
+    if (appointment) {
+      const linkedSale = saleByAppointmentId.get(appointment.id);
+
+      return {
+        ...item,
+        dueAmount: appointment.dueAmount,
+        netAmount: appointment.netAmount,
+        paymentStatus: appointment.paymentStatus,
+        paymentMethod: appointment.paymentMethod,
+        invoiceNumber: linkedSale?.invoiceNumber ?? "",
+        staffName: item.staffName || appointment.staffName,
+      };
+    }
+
+    const sale = salesById.get(item.id);
+
+    if (sale) {
+      return {
+        ...item,
+        dueAmount: 0,
+        netAmount: sale.totalAmount,
+        paymentStatus: sale.status,
+        paymentMethod: sale.paymentMethod,
+        invoiceNumber: sale.invoiceNumber,
+      };
+    }
+
+    return item;
+  });
+};
+
 const fetchClientHistory = async (clientId: string): Promise<ClientHistoryResult> => {
-  const response = await api.get<ApiResponse<ClientHistoryApiData>>(`${CLIENT.DETAIL}/${clientId}/history`);
+  const id = toSafeString(clientId);
+
+  // The profile is always opened with a real client UUID (route param). Guard
+  // here so a name/slug/index can never reach the endpoint — the backend
+  // rejects those with a 400 anyway, this just fails faster and louder.
+  if (!CLIENT_UUID_PATTERN.test(id)) {
+    throw new Error(`Invalid client id for history request: "${clientId}"`);
+  }
+
+  const response = await api.get<ApiResponse<ClientHistoryApiData>>(CLIENT.HISTORY(id));
+  const payload = response.data.data;
+  const record = Array.isArray(payload) ? {} : asRecord(payload);
+
+  const appointments = firstArray(record, ["appointments"]).map(normalizeAppointmentRecord);
+  const sales = firstArray(record, ["sales"]).map(normalizeSaleRecord);
+  const packages = firstArray(record, ["packages"]).map(normalizePackageRecord);
+  const memberships = firstArray(record, ["memberships"]).map(normalizeMembershipRecord);
+  const summary = normalizeHistorySummary(payload);
 
   return {
-    history: getClientHistoryArray(response.data.data).map(normalizeHistoryItem),
-    summary: normalizeHistorySummary(response.data.data),
+    history: enrichHistoryItems(
+      getClientHistoryArray(payload).map(normalizeHistoryItem),
+      appointments,
+      sales,
+    ),
+    summary,
+    client: normalizeHistoryClient(payload, summary),
+    stats: normalizeHistoryStats(Array.isArray(payload) ? null : payload?.stats),
+    appointments,
+    sales,
+    packages,
+    memberships,
   };
 };
 
@@ -863,17 +1188,38 @@ export const clientService = {
     };
   },
 
-  async getClientHistory(clientId: string): Promise<ClientHistoryItem[]> {
-    const result = await fetchClientHistory(clientId);
-    return result.history;
+  // Returns the complete /clients/:id/history payload — client, stats and the
+  // four record arrays alongside the flattened timeline. Previously this kept
+  // only `history` and discarded everything else, which is why the profile's
+  // spend/points/referral figures all rendered as zero.
+  async getClientHistory(clientId: string): Promise<ClientHistoryResult> {
+    return fetchClientHistory(clientId);
   },
 
-  // Same request as getClientHistory(), but also surfaces the top-level
-  // wallet/reward-points/referral summary fields the backend returns
-  // alongside the history array — used by Quick Sale so it doesn't need
-  // separate (nonexistent) balance endpoints per redemption type.
+  // Kept as a named alias for Quick Sale's redemption hook, which only needs
+  // the wallet/reward-points/referral `summary` half of the same response.
   async getClientHistoryWithSummary(clientId: string): Promise<ClientHistoryResult> {
     return fetchClientHistory(clientId);
+  },
+
+  // Its own endpoint (not part of /history) — fetched lazily when the Notes
+  // tab is first opened, same as Web.
+  async getClientNotes(clientId: string): Promise<ClientNote[]> {
+    const id = toSafeString(clientId);
+
+    if (!CLIENT_UUID_PATTERN.test(id)) {
+      throw new Error(`Invalid client id for notes request: "${clientId}"`);
+    }
+
+    const response = await api.get<ApiResponse<ClientNoteApi[] | null>>(CLIENT.NOTES(id));
+    const rows = Array.isArray(response.data.data) ? response.data.data : [];
+
+    return rows.map((row, index) => ({
+      id: toSafeString(row?.id, `note-${index}`),
+      note: toSafeString(row?.note),
+      staffName: toSafeString(row?.staff_name),
+      createdAt: toNullableString(row?.created_at),
+    }));
   },
 
   async getClientsWithHistoryStats(
