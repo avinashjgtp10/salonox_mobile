@@ -83,7 +83,7 @@ export const forceOnboardingThunk = createAsyncThunk<void, string, { rejectValue
   }
 );
 
-export const impersonateSalonThunk = createAsyncThunk<{ token: string }, string, { rejectValue: string }>(
+export const impersonateSalonThunk = createAsyncThunk<{ token: string; refreshToken?: string; isOnboardingComplete?: boolean }, string, { rejectValue: string }>(
   "superAdmin/impersonate",
   async (id, { rejectWithValue }) => {
     try {
@@ -223,7 +223,7 @@ export const createUserThunk = createAsyncThunk<any, { first_name: string; last_
   }
 );
 
-export const impersonateUserThunk = createAsyncThunk<{ token: string; isOnboardingComplete: boolean }, string, { rejectValue: string }>(
+export const impersonateUserThunk = createAsyncThunk<{ token: string; refreshToken?: string; isOnboardingComplete: boolean }, string, { rejectValue: string }>(
   "superAdmin/impersonateUser",
   async (id, { rejectWithValue }) => {
     try {

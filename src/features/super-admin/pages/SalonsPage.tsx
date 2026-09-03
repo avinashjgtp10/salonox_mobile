@@ -181,8 +181,12 @@ export default function SalonsPage() {
     setActionId(id);
     const r = await dispatch(impersonateSalonThunk(id));
     if (impersonateSalonThunk.fulfilled.match(r)) {
-      const { token, isOnboardingComplete = true } = (r.payload as any) ?? {};
-      if (token) window.open(`${window.location.origin}/oauth/success?token=${token}&isOnboardingComplete=${isOnboardingComplete}`, "_blank");
+      const { token, refreshToken, isOnboardingComplete = true } = (r.payload as any) ?? {};
+      if (token) {
+        const params = new URLSearchParams({ token, isOnboardingComplete: String(isOnboardingComplete) });
+        if (refreshToken) params.set("refreshToken", refreshToken);
+        window.open(`${window.location.origin}/oauth/success?${params.toString()}`, "_blank");
+      }
     } else { showToast("Impersonate failed.", false); }
     setActionId(null);
   }
