@@ -1,7 +1,20 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { Search, Building, CheckCircle, PersonFill, CashCoin } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchMySalonsThunk, enterSalonThunk, resetSalonOwnerPasswordThunk, deleteSalonThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
+import { JiraFilterMenu } from "../../../components/ui";
+import type { JiraFilterField } from "../../../components/ui";
 import { usePagination, BoPagination } from "../components/BranchOwnerUI";
+
+const STATUS_OPTIONS = [
+  { id: "active", label: "Active" },
+  { id: "inactive", label: "Inactive" },
+];
+
+const PLAN_OPTIONS = [
+  { id: "has_plan", label: "Has Active Plan" },
+  { id: "no_plan", label: "No Active Plan" },
+];
 
 function Badge({ status }: { status: string }) {
   const map: Record<string, { bg: string; text: string }> = {
@@ -14,6 +27,21 @@ function Badge({ status }: { status: string }) {
 
 function formatCurrency(amount: number): string {
   return `₹${Number(amount ?? 0).toLocaleString("en-IN")}`;
+}
+
+function KpiCard({ icon, bg, label, value, sub }: {
+  icon: React.ReactNode; bg: string; label: string; value: string | number; sub?: string;
+}) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 14, padding: "14px 16px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(15,23,42,0.04)", display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color: "#64748b", fontSize: 11.5, fontWeight: 500 }}>{label}</div>
+        <div style={{ color: "#0f172a", fontSize: 18, fontWeight: 800, lineHeight: 1.3 }}>{value}</div>
+        {sub && <div style={{ color: "#94a3b8", fontSize: 10.5, marginTop: 1 }}>{sub}</div>}
+      </div>
+    </div>
+  );
 }
 
 function ModalShell({ children }: { children: React.ReactNode }) {
@@ -89,9 +117,62 @@ export default function BranchOwnerSalonsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const [deleteLoading, setDeleteLoading] = useState(false);
 
-  const salonsPage = usePagination(salons, 10);
+  const [statusFilter, setStatusFilter] = useState<string[]>([]);
+  const [salonFilter, setSalonFilter] = useState<string[]>([]);
+  const [planFilter, setPlanFilter] = useState<string[]>([]);
+  const [search, setSearch] = useState("");
 
   useEffect(() => { dispatch(fetchMySalonsThunk()); }, [dispatch]);
+
+  // Salon name is always populated (unlike city, which most salons in this
+  // dataset never set), so it's a reliably useful multi-select filter.
+  const salonOptions = useMemo(
+    () => salons.map((s) => ({ id: s.id, label: s.name })),
+    [salons]
+  );
+
+  const filterFields: JiraFilterField[] = useMemo(() => [
+    { key: "status", label: "Status", options: STATUS_OPTIONS },
+    { key: "salon", label: "Salon", options: salonOptions, searchable: true },
+    { key: "plan", label: "Subscription", options: PLAN_OPTIONS },
+  ], [salonOptions]);
+
+  const filterMenuSelected = useMemo(() => ({ status: statusFilter, salon: salonFilter, plan: planFilter }), [statusFilter, salonFilter, planFilter]);
+
+  const handleFiltersApply = (next: Record<string, string[]>) => {
+    setStatusFilter(next.status ?? []);
+    setSalonFilter(next.salon ?? []);
+    setPlanFilter(next.plan ?? []);
+  };
+
+  const filteredSalons = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return salons.filter((s) => {
+      if (statusFilter.length && !statusFilter.includes(s.status)) return false;
+      if (salonFilter.length && !salonFilter.includes(s.id)) return false;
+      if (planFilter.length) {
+        const wantsPlan = planFilter.includes("has_plan");
+        const wantsNoPlan = planFilter.includes("no_plan");
+        if (wantsPlan && !wantsNoPlan && !s.has_active_plan) return false;
+        if (wantsNoPlan && !wantsPlan && s.has_active_plan) return false;
+      }
+      if (q) {
+        const haystack = `${s.name} ${s.owner_name ?? ""} ${s.owner_email ?? ""}`.toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
+  }, [salons, statusFilter, salonFilter, planFilter, search]);
+
+  const kpis = useMemo(() => {
+    const activeCount = salons.filter((s) => s.status === "active").length;
+    const totalStaff = salons.reduce((sum, s) => sum + (s.staff_count ?? 0), 0);
+    const revenueToday = salons.reduce((sum, s) => sum + (s.revenue_today ?? 0), 0);
+    const noPlanCount = salons.filter((s) => !s.has_active_plan).length;
+    return { total: salons.length, activeCount, totalStaff, revenueToday, noPlanCount };
+  }, [salons]);
+
+  const salonsPage = usePagination(filteredSalons, 10);
 
   async function handleEnter(salonId: string) {
     setEnteringId(salonId);
@@ -130,14 +211,36 @@ export default function BranchOwnerSalonsPage() {
     <div style={{ padding: "28px 28px 40px", fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.3px" }}>My Salons</h1>
-        <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: 13 }}>{salons.length} salon{salons.length !== 1 ? "s" : ""} assigned to you</p>
+        <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: 13 }}>{filteredSalons.length} salon{filteredSalons.length !== 1 ? "s" : ""} assigned to you</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 14, marginBottom: 20 }}>
+        <KpiCard icon={<Building size={16} color="#2563eb" />} bg="#eff6ff" label="Total Salons" value={kpis.total} />
+        <KpiCard icon={<CheckCircle size={16} color="#16a34a" />} bg="#f0fdf4" label="Active Salons" value={kpis.activeCount} sub={`${kpis.total - kpis.activeCount} inactive`} />
+        <KpiCard icon={<PersonFill size={16} color="#7c3aed" />} bg="#faf5ff" label="Total Staff" value={kpis.totalStaff} />
+        <KpiCard icon={<CashCoin size={16} color="#ea580c" />} bg="#fff7ed" label="Revenue Today" value={formatCurrency(kpis.revenueToday)} />
+        <KpiCard icon={<Building size={16} color="#dc2626" />} bg="#fef2f2" label="Without Active Plan" value={kpis.noPlanCount} />
+      </div>
+
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
+        <JiraFilterMenu fields={filterFields} selected={filterMenuSelected} onApply={handleFiltersApply} triggerLabel="Filters" />
+        <div style={{ position: "relative", flex: "1 1 240px", maxWidth: 320 }}>
+          <Search size={13} style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", color: "#94a3b8" }} />
+          <input
+            type="text"
+            placeholder="Search salon or owner"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ width: "100%", padding: "9px 12px 9px 32px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 13, outline: "none", boxSizing: "border-box", background: "#fff" }}
+          />
+        </div>
       </div>
 
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "auto", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 960 }}>
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-              {["Salon", "Location", "Owner", "Staff", "Customers", "Today's Appointments", "Revenue", "Status", "Actions"].map((h) => (
+              {["Salon", "Owner", "Staff", "Customers", "Today's Appointments", "Revenue", "Status", "Actions"].map((h) => (
                 <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
@@ -146,20 +249,19 @@ export default function BranchOwnerSalonsPage() {
             {loading ? (
               [...Array(4)].map((_, i) => (
                 <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
-                  {[...Array(9)].map((_, j) => (
+                  {[...Array(8)].map((_, j) => (
                     <td key={j} style={{ padding: "14px 16px" }}>
                       <div style={{ height: 13, borderRadius: 4, background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "200% 100%", animation: "bo-shimmer 1.4s infinite" }} />
                     </td>
                   ))}
                 </tr>
               ))
-            ) : salons.length === 0 ? (
-              <tr><td colSpan={9} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No salons assigned yet</td></tr>
+            ) : filteredSalons.length === 0 ? (
+              <tr><td colSpan={8} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>{salons.length === 0 ? "No salons assigned yet" : "No salons match these filters"}</td></tr>
             ) : (
               salonsPage.pageItems.map((s) => (
                 <tr key={s.id} style={{ borderTop: "1px solid #f1f5f9" }}>
                   <td style={{ padding: "13px 16px", color: "#0f172a", fontWeight: 700 }}>{s.name}</td>
-                  <td style={{ padding: "13px 16px", color: "#374151" }}>{s.location || "—"}</td>
                   <td style={{ padding: "13px 16px" }}>
                     <div style={{ color: "#374151", fontSize: 13 }}>{s.owner_name || "—"}</div>
                     <div style={{ color: "#94a3b8", fontSize: 11.5 }}>{s.owner_email}</div>

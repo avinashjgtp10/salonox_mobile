@@ -13,6 +13,7 @@ export interface BranchOwnerSalon {
   client_count?: number;
   appointments_today?: number;
   revenue_today?: number;
+  has_active_plan?: boolean;
 }
 
 export interface BranchOwnerStats {

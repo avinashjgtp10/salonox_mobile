@@ -1,10 +1,25 @@
 import { useEffect, useMemo, useState } from "react";
-import { Search } from "react-bootstrap-icons";
+import { Search, CashCoin, CheckCircle, ClockHistory, XCircle } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchBranchOwnerPaymentsThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
 import { DateRangeFilter, JiraFilterMenu, getDateRangePresetValue } from "../../../components/ui";
 import type { DateRangeFilterValue, JiraFilterField } from "../../../components/ui";
 import { usePagination, BoPagination } from "../components/BranchOwnerUI";
+
+function KpiCard({ icon, bg, label, value, sub }: {
+  icon: React.ReactNode; bg: string; label: string; value: string | number; sub?: string;
+}) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 14, padding: "14px 16px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(15,23,42,0.04)", display: "flex", alignItems: "center", gap: 12 }}>
+      <div style={{ width: 36, height: 36, borderRadius: 10, background: bg, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{icon}</div>
+      <div style={{ minWidth: 0 }}>
+        <div style={{ color: "#64748b", fontSize: 11.5, fontWeight: 500 }}>{label}</div>
+        <div style={{ color: "#0f172a", fontSize: 18, fontWeight: 800, lineHeight: 1.3 }}>{value}</div>
+        {sub && <div style={{ color: "#94a3b8", fontSize: 10.5, marginTop: 1 }}>{sub}</div>}
+      </div>
+    </div>
+  );
+}
 
 const statusStyle: Record<string, { bg: string; text: string }> = {
   paid:      { bg: "#f0fdf4", text: "#16a34a" },
@@ -78,6 +93,13 @@ export default function BranchOwnerPaymentsPage() {
 
   const total = filteredPayments.reduce((sum, p) => sum + (Number(p.amount) || 0), 0);
 
+  const kpis = useMemo(() => {
+    const paidCount = filteredPayments.filter((p) => p.status === "paid" || p.status === "completed").length;
+    const pendingCount = filteredPayments.filter((p) => p.status === "pending" || p.status === "partial").length;
+    const failedCount = filteredPayments.filter((p) => p.status === "failed").length;
+    return { count: filteredPayments.length, total, paidCount, pendingCount, failedCount };
+  }, [filteredPayments, total]);
+
   const paymentsPage = usePagination(filteredPayments, 10);
 
   return (
@@ -85,6 +107,13 @@ export default function BranchOwnerPaymentsPage() {
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.3px" }}>Payments</h1>
         <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: 13 }}>{filteredPayments.length} payment{filteredPayments.length !== 1 ? "s" : ""} · {fmt(total)} total</p>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 20 }}>
+        <KpiCard icon={<CashCoin size={16} color="#2563eb" />} bg="#eff6ff" label="Total Amount" value={fmt(kpis.total)} sub={`${kpis.count} payment${kpis.count !== 1 ? "s" : ""}`} />
+        <KpiCard icon={<CheckCircle size={16} color="#16a34a" />} bg="#f0fdf4" label="Paid" value={kpis.paidCount} />
+        <KpiCard icon={<ClockHistory size={16} color="#d97706" />} bg="#fffbeb" label="Pending" value={kpis.pendingCount} />
+        <KpiCard icon={<XCircle size={16} color="#dc2626" />} bg="#fef2f2" label="Failed" value={kpis.failedCount} />
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginBottom: 18 }}>
