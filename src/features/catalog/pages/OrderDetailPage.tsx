@@ -1,15 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BoxSeam, XCircle, Trash, PencilSquare } from "react-bootstrap-icons";
+import { useSelector } from "react-redux";
+import { ArrowLeft, BoxSeam, XCircle, Trash, PencilSquare, FileEarmarkPdf } from "react-bootstrap-icons";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { fetchOrderByIdThunk, receiveOrderThunk, correctReceivedQtyThunk, cancelOrderThunk, deleteOrderThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Order, OrderStatus } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
+import { selectCurrentSalon } from "../../../store/selectors/slices.selectors";
 import Skeleton from "../../../components/ui/Skeleton";
 import Button from "../../../components/ui/Button";
 import Modal from "../../../components/ui/Modal";
 import { formatDateDDMMYYYY as fmtDate } from "../../../utils/dateFormat";
+import { generateOrderBillPdf } from "../utils/orderBillPdf";
 import "../styles/SuppliersListPage.scss";
 import "../styles/PurchaseHistoryTable.scss";
 import "../styles/SupplierDetailPage.scss";
@@ -30,8 +33,9 @@ const OrderDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { formatAmount } = useCurrency();
+  const { formatAmount, currencySymbol } = useCurrency();
   const { showError, showSuccess, overlay } = useStatusOverlay();
+  const currentSalon = useSelector(selectCurrentSalon);
 
   const [order, setOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -157,6 +161,13 @@ const OrderDetailPage: React.FC = () => {
     }
   }
 
+  const canDownloadBill = order?.bill_payment_status === "paid" || order?.bill_payment_status === "partial";
+
+  function handleDownloadBill() {
+    if (!order) return;
+    generateOrderBillPdf(order, { salon: currentSalon, currencySymbol });
+  }
+
   async function handleCancel() {
     if (!order) return;
     try {
@@ -217,6 +228,11 @@ const OrderDetailPage: React.FC = () => {
               Receive
             </Button>
           )}
+          {canDownloadBill && (
+            <Button variant="outline-dark" iconLeft={<FileEarmarkPdf size={14} />} onClick={handleDownloadBill}>
+              Download Bill PDF
+            </Button>
+          )}
           <Button variant="outline-danger" size="sm" iconLeft={<Trash size={14} />} onClick={() => setDeleteOpen(true)}>
             Delete
           </Button>
@@ -244,6 +260,24 @@ const OrderDetailPage: React.FC = () => {
           <span className="stat-label">Delivery Date</span>
           <span className="stat-value">{fmtDate(order.delivery_date)}</span>
         </div>
+        {order.status !== "cancelled" && order.status !== "draft" && order.status !== "sent" && (
+          <>
+            <div className="stat-card">
+              <span className="stat-label">Paid Amount</span>
+              <span className="stat-value">{formatAmount(order.paid_amount ?? 0)}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Pending Amount</span>
+              <span className="stat-value">{formatAmount(order.pending_amount ?? 0)}</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-label">Payment Status</span>
+              <span className={`supplier-status-badge supplier-status-badge--${order.bill_payment_status === "paid" ? "paid" : order.bill_payment_status === "partial" ? "partial" : "due"}`}>
+                {order.bill_payment_status === "paid" ? "Paid" : order.bill_payment_status === "partial" ? "Partial" : "Unpaid"}
+              </span>
+            </div>
+          </>
+        )}
       </div>
 
       <div className="phist-page">
