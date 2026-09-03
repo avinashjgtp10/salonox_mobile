@@ -139,6 +139,13 @@ export const NO_SHOW_RECOVERY_REPORT = {
   SUMMARY: () => `/api/report/no-show-recovery`,
 } as const;
 
+// Independent Enquiry reporting API — reads the enquiries table directly
+// (same data the Add Enquiry form / EnquiriesListPage already manage), with
+// richer filters and KPI stats. Mounted at /api/report.
+export const ENQUIRY_REPORT = {
+  SUMMARY: () => `/api/report/enquiries`,
+} as const;
+
 // Independent Lost Customers reporting API — standalone report, separate
 // from Customer Frequency's fixed 90-day "lost" bucket; reads clients/sales
 // directly, never through the Appointment API. Mounted at /api/report.
