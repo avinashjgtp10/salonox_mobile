@@ -2,7 +2,6 @@ export type SalonCommissionSummary = {
   paidAmount: number;
   pendingAmount: number;
   totalAmount: number;
-  totalStaff: number;
 };
 
 export type SalonEarnedEntry = {
@@ -13,6 +12,7 @@ export type SalonEarnedEntry = {
   period: string | null;
   staffId: string;
   staffName: string;
+  transactionCount: number;
 };
 
 export type SalonCommissionRecord = {
