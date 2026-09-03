@@ -418,7 +418,8 @@ export default function DashboardTopbar({ onLogout }: Props) {
 
           {/* Current date & time */}
           <span className="topbar-datetime" title="Today's date and time">
-            {todayLabel} . {timeLabel}
+            <span className="topbar-datetime__date">{todayLabel}</span>
+            <span className="topbar-datetime__time">{timeLabel}</span>
           </span>
 
           {/* Notifications bell */}
