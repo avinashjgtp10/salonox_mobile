@@ -31,7 +31,6 @@ const normalizeSummary = (entry: UnknownRecord): SalonCommissionSummary => ({
   totalAmount: toSafeNumber(
     firstValue(entry, ["totalAmount", "total_amount", "total_commission", "totalCommission"]),
   ),
-  totalStaff: toSafeNumber(firstValue(entry, ["totalStaff", "total_staff", "staffCount", "staff_count"])),
 });
 
 const getEarnedArray = (payload: EarnedApiData): UnknownRecord[] => {
@@ -69,6 +68,9 @@ const normalizeEarnedEntry = (entry: UnknownRecord, index: number): SalonEarnedE
   period: toSafeString(firstValue(entry, ["period", "month"])) || null,
   staffId: toSafeString(firstValue(entry, ["staffId", "staff_id"])),
   staffName: getStaffName(entry),
+  transactionCount: toSafeNumber(
+    firstValue(entry, ["transactionCount", "transaction_count"]),
+  ),
 });
 
 // Web's commission Settle tab defaults its date filter to "This month"

@@ -23,6 +23,7 @@ import { useThemeColors } from "@/theme/ThemeProvider";
 import { selectCurrentUser } from "@/store/user/user.slice";
 import { canViewConsumableInventory } from "@/utils/permissions";
 import {
+  canSettleCommission,
   getUserAddressLine,
   getUserBusinessName,
   getUserFullName,
@@ -109,7 +110,14 @@ export default function MoreScreen() {
   const addressLine = getUserAddressLine(currentUser);
   const isEmailVerified = currentUser?.isVerified !== false;
   const visibleMenuItems = useMemo(
-    () => MENU_ITEMS.filter((item) => item.title !== "Consumables" || canViewConsumableInventory(currentUser)),
+    () =>
+      MENU_ITEMS.filter((item) => {
+        if (item.title === "Commissions") {
+          return canSettleCommission(currentUser?.role);
+        }
+
+        return item.title !== "Consumables" || canViewConsumableInventory(currentUser);
+      }),
     [currentUser],
   );
   const [isLoggingOut, setIsLoggingOut] = useState(false);
