@@ -153,7 +153,7 @@ const ConsumableInventoryPage: React.FC = () => {
   } = useSelector((s: RootState) => s.inventory);
 
   const [searchInput, setSearchInput] = useState("");
-  const [filters, setFilters] = useState<ConsumableListFilters>({ page: 1, limit: 20, sort_by: "newest" });
+  const [filters, setFilters] = useState<ConsumableListFilters>({ page: 1, limit: 10, sort_by: "newest" });
   // `openAdjust` distinguishes the "Adjust Stock" row action from plain
   // View Details — both open the same panel, but the former should land
   // straight on the Stock Adjustment modal.

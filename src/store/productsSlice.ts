@@ -36,7 +36,7 @@ interface ProductsState {
 const initialState: ProductsState = {
   items: [],
   page: 1,
-  pageSize: 20,
+  pageSize: 10,
   totalRecords: 0,
   totalPages: 1,
   brands: [],

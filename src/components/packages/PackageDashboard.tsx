@@ -27,7 +27,7 @@ interface Props {
   onCreateFromTemplate: (template: PackageTemplate) => void;
 }
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 function daysUntil(dateStr: string | null) {
   if (dateStr === null) return Infinity;

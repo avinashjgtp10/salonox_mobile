@@ -168,7 +168,7 @@ const ServicesListPage: React.FC = () => {
   const [categoryDeleteBlocked, setCategoryDeleteBlocked] = useState<{ name: string; count: number } | null>(null);
   const [categoryDeleteError, setCategoryDeleteError] = useState<string | null>(null);
   const [currentPage, setCurrentPage]             = useState(1);
-  const [pageSize, setPageSize]                   = useState(25);
+  const [pageSize, setPageSize]                   = useState(10);
 
   const [selectedService, setSelectedService]   = useState<Service | null>(null);
   const [deletingService, setDeletingService]   = useState<Service | null>(null);
@@ -301,6 +301,22 @@ const ServicesListPage: React.FC = () => {
 
   // Reset the "type DELETE to confirm" field whenever a delete target opens/closes
   useEffect(() => { setDeleteServiceInput(""); }, [deletingService]);
+
+  // Re-fetch the currently-viewed page/pageSize/search/filters combination —
+  // every action that mutates the list (delete, bulk delete, category
+  // add/edit/delete, import, reorder) needs to land back on the same page at
+  // the same limit, not fetchServices()'s own no-args fallback of limit=200,
+  // which would silently ignore the selected page size and re-paginate
+  // client-side against a larger-than-requested batch.
+  const refetchCurrentPage = useCallback(() => {
+    fetchServices({
+      page: currentPage,
+      limit: pageSize,
+      search: searchQuery || undefined,
+      categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
+      ...buildFilterParams(filters),
+    });
+  }, [fetchServices, currentPage, pageSize, searchQuery, selectedCategory, filters]);
 
   // ── Download helpers — fetch ALL services then export client-side ────────────
 
@@ -723,15 +739,7 @@ const ServicesListPage: React.FC = () => {
           ) : error ? (
             <ErrorState
               message={String(error)}
-              onRetry={() =>
-                fetchServices({
-                  page: currentPage,
-                  limit: pageSize,
-                  search: searchQuery || undefined,
-                  categoryId: selectedCategory !== "all" ? selectedCategory : undefined,
-                  ...buildFilterParams(filters),
-                })
-              }
+              onRetry={refetchCurrentPage}
             />
           ) : flatServices.length === 0 ? (
             <EmptyState
@@ -850,13 +858,13 @@ const ServicesListPage: React.FC = () => {
         <ManageOrderModal
           services={services}
           onClose={() => setShowManageOrder(false)}
-          onSave={() => { fetchServices(); setShowManageOrder(false); }}
+          onSave={() => { refetchCurrentPage(); setShowManageOrder(false); }}
         />
       )}
       <ServiceImportModal
         show={showImport}
         onClose={() => setShowImport(false)}
-        onSuccess={fetchServices}
+        onSuccess={refetchCurrentPage}
       />
       {showPrintMenuCard && (
         <PrintMenuCardModal onClose={() => setShowPrintMenuCard(false)} />
@@ -998,7 +1006,7 @@ const ServicesListPage: React.FC = () => {
                     description: editCategoryDesc.trim() || undefined,
                   });
                   setEditingCategory(null);
-                  fetchServices();
+                  refetchCurrentPage();
                 }}
               >
                 {catLoading ? "Saving…" : "Save changes"}
@@ -1055,7 +1063,7 @@ const ServicesListPage: React.FC = () => {
                     return;
                   }
                   setDeletingCategory(null);
-                  fetchServices();
+                  refetchCurrentPage();
                 }}
               >
                 {catLoading ? "Deleting…" : "Delete"}
@@ -1151,14 +1159,7 @@ const ServicesListPage: React.FC = () => {
                   await dispatch(deleteServiceThunk(deletingService.id));
                   setDeleteLoading(false);
                   setDeletingService(null);
-                  fetchServices({
-                    page: currentPage,
-                    limit: pageSize,
-                    search: searchQuery || undefined,
-                    categoryId:
-                      selectedCategory !== "all" ? selectedCategory : undefined,
-                    ...buildFilterParams(filters),
-                  });
+                  refetchCurrentPage();
                 }}
               >
                 {deleteLoading ? "Deleting…" : "Delete service"}
@@ -1224,14 +1225,7 @@ const ServicesListPage: React.FC = () => {
                   setShowBulkDeleteModal(false);
                   setDeleteBulkInput("");
                   setSelectedServiceIds(new Set());
-                  fetchServices({
-                    page: currentPage,
-                    limit: pageSize,
-                    search: searchQuery || undefined,
-                    categoryId:
-                      selectedCategory !== "all" ? selectedCategory : undefined,
-                    ...buildFilterParams(filters),
-                  });
+                  refetchCurrentPage();
                 }}
               >
                 {deleteBulkLoading ? "Deleting…" : `Delete ${selectedServiceIds.size} service(s)`}
@@ -1301,7 +1295,7 @@ const ServicesListPage: React.FC = () => {
                   });
                   setShowAddCategory(false);
                   resetCategoryForm();
-                  fetchServices();
+                  refetchCurrentPage();
                 }}
               >
                 {catLoading ? "Adding…" : "Add category"}

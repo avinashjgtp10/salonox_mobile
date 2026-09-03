@@ -38,7 +38,7 @@ import "../styles/MembershipsListPage.scss";
 
 // Starting page size only — the shared Pagination lets the user change it, so
 // the live value lives in state (see `pageSize` below) rather than this const.
-const DEFAULT_PAGE_SIZE = 20;
+const DEFAULT_PAGE_SIZE = 10;
 
 // Every field is multi-select, matching the shared JiraFilterMenu's contract
 // (Record<string, string[]>) — an empty array means "no restriction". Sent to
