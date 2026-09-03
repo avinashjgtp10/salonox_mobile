@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  Building, PersonPlusFill, CalendarPlus, CashCoin, People,
+  Building, PersonPlusFill, CalendarPlus, CashCoin, People, Gear, GraphUpArrow,
   ArrowUpRight, ArrowDownRight, X, ExclamationTriangleFill, ClockHistory, ReceiptCutoff, ChevronRight,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -166,7 +166,7 @@ export default function BranchOwnerDashboardPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const { stats, salons, revenueTrend: initialRevenueTrend, inventorySummary: inventory, attention, loading } = useAppSelector((s) => s.branchOwner);
-  const [pickerAction, setPickerAction] = useState<null | "booking" | "payment">(null);
+  const [pickerAction, setPickerAction] = useState<null | "payment">(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
 
   useEffect(() => {
@@ -237,9 +237,9 @@ export default function BranchOwnerDashboardPage() {
 
   const quickActions = [
     { key: "add-salon", label: "Add Salon", icon: <Building size={17} />, bg: "#eff6ff", color: "#2563eb", onClick: () => navigate("/branch-owner/settings/branches") },
-    { key: "add-staff", label: "Add Staff", icon: <PersonPlusFill size={17} />, bg: "#faf5ff", color: "#7c3aed", onClick: () => navigate("/branch-owner/staff-permissions") },
-    { key: "booking", label: "New Booking", icon: <CalendarPlus size={17} />, bg: "#f0fdf4", color: "#16a34a", onClick: () => setPickerAction("booking") },
     { key: "payment", label: "Record Payment", icon: <CashCoin size={17} />, bg: "#fff7ed", color: "#ea580c", onClick: () => setPickerAction("payment") },
+    { key: "settings", label: "Settings", icon: <Gear size={17} />, bg: "#f8fafc", color: "#475569", onClick: () => navigate("/branch-owner/settings") },
+    { key: "staff-performance", label: "Staff Performance", icon: <GraphUpArrow size={17} />, bg: "#faf5ff", color: "#7c3aed", onClick: () => navigate("/branch-owner/staff-performance") },
   ];
 
   // Needs Attention — matches the mockup's exact 4 cards, each backed by a
@@ -374,7 +374,7 @@ export default function BranchOwnerDashboardPage() {
       {pickerAction && (
         <SalonPickerModal
           salons={salons}
-          title={pickerAction === "booking" ? "New Booking — choose a salon" : "Record Payment — choose a salon"}
+          title="Record Payment — choose a salon"
           onSelect={handleEnterFromPicker}
           onClose={() => setPickerAction(null)}
         />
