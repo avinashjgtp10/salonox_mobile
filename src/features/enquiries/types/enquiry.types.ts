@@ -1,6 +1,9 @@
 export type EnquiryStatus = string;
 
-export const DEFAULT_ENQUIRY_STATUSES: string[] = ["New", "Follow-up", "Converted", "Closed"];
+// "Contacted" and "Lost" added for the Enquiry Report's status vocabulary —
+// "Closed" is kept alongside "Lost" (not replaced) so existing enquiries
+// already marked "Closed" keep displaying/filtering correctly here too.
+export const DEFAULT_ENQUIRY_STATUSES: string[] = ["New", "Contacted", "Follow-up", "Converted", "Lost", "Closed"];
 
 // Keep backward-compatible alias
 export const ENQUIRY_STATUSES = DEFAULT_ENQUIRY_STATUSES;
