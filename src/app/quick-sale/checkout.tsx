@@ -319,6 +319,10 @@ export default function QuickSaleCheckoutScreen() {
     });
   }, [params.draftId, replaceOnce]);
 
+  const handleExitToCalendar = useCallback(() => {
+    replaceOnce("/calendar" as Href);
+  }, [replaceOnce]);
+
   const handleExitToDashboard = useCallback(() => {
     replaceOnce("/dashboard" as Href);
   }, [replaceOnce]);
@@ -329,14 +333,14 @@ export default function QuickSaleCheckoutScreen() {
         if (isPreview) {
           handleBackToDraft();
         } else {
-          handleExitToDashboard();
+          handleExitToCalendar();
         }
 
         return true;
       });
 
       return () => subscription.remove();
-    }, [handleBackToDraft, handleExitToDashboard, isPreview]),
+    }, [handleBackToDraft, handleExitToCalendar, isPreview]),
   );
 
   return (
@@ -348,8 +352,8 @@ export default function QuickSaleCheckoutScreen() {
         <View style={styles.header}>
           <TouchableOpacity
             activeOpacity={0.86}
-            accessibilityLabel="Back to dashboard"
-            onPress={handleExitToDashboard}
+            accessibilityLabel={isPreview ? "Back to dashboard" : "Back to calendar"}
+            onPress={isPreview ? handleExitToDashboard : handleExitToCalendar}
             style={styles.headerIconButton}
           >
             <Ionicons name="close" size={20} color={Colors.heading} />
@@ -497,10 +501,12 @@ export default function QuickSaleCheckoutScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             activeOpacity={0.86}
-            onPress={handleExitToDashboard}
+            onPress={isPreview ? handleExitToDashboard : handleExitToCalendar}
             style={styles.secondaryButton}
           >
-            <Text style={styles.secondaryButtonText}>Back to Dashboard</Text>
+            <Text style={styles.secondaryButtonText}>
+              {isPreview ? "Back to Dashboard" : "Back to Calendar"}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>

@@ -1252,19 +1252,269 @@ export function StaffMyAppointmentsScreen() {
   );
 }
 
+// ── Calendar staff identity ────────────────────────────────────────────────
+// Staff are keyed by their unique `id`, never by name. Two active staff can
+// legitimately share a display name, and de-duplicating by name silently
+// dropped all but one of them from the Calendar (APP - Active Staff Not
+// Displaying Completely). `name` is kept purely as the display label and for
+// matching legacy appointments that carry a staff name but no staff id.
+type CalendarStaffOption = {
+  id: string;
+  /** Raw staff name — display label and legacy name-matching key. */
+  name: string;
+  /** `name`, suffixed only when another staff member shares that same name. */
+  label: string;
+};
+
+// An appointment can carry a staff name with no staff id (staff removed, or
+// the row predates staff assignment). Those still need a
+// column, so they get a synthetic option keyed off the name. The prefix keeps
+// synthetic ids from ever colliding with a real staff UUID.
+const SYNTHETIC_STAFF_ID_PREFIX = "name:";
+
+// The staff normalizer writes "-" where a field is absent, so it is not a
+// usable disambiguator.
+const isMeaningfulStaffDetail = (value?: string | null) => {
+  const trimmed = (value ?? "").trim();
+
+  return trimmed.length > 0 && trimmed !== "-";
+};
+
+// Shown after the name only when two staff members share it, so an operator
+// can tell them apart. Prefers a human-meaningful field, falling back to a
+// short id so the label is always unique.
+const getStaffDisambiguator = (staffMember: StaffMember | undefined) => {
+  const phoneDigits = staffMember?.phone?.replace(/\D/g, "") ?? "";
+  const candidates = [
+    staffMember?.designation,
+    staffMember?.employeeCode,
+    staffMember?.email?.split("@")[0],
+    phoneDigits.length >= 4 ? phoneDigits.slice(-4) : null,
+    staffMember?.role,
+  ];
+
+  return candidates.find(isMeaningfulStaffDetail)?.trim();
+};
+
+const normalizeCalendarStaffName = (name?: string | null) =>
+  (name ?? "").trim().toLocaleLowerCase();
+
+/** Maps every API alias for a staff record back to its single canonical id. */
+const buildCanonicalStaffIdByAlias = (
+  staffMembers: StaffMember[],
+  appointments: AppointmentListItem[],
+) => {
+  const canonicalIdByAlias = new Map<string, string>();
+  const staffIdsByName = new Map<string, string[]>();
+
+  staffMembers.forEach((staffMember) => {
+    if (!staffMember.id) return;
+
+    canonicalIdByAlias.set(staffMember.id, staffMember.id);
+    staffMember.staffIdAliases?.forEach((alias) => {
+      if (alias) canonicalIdByAlias.set(alias, staffMember.id);
+    });
+
+    const normalizedName = normalizeCalendarStaffName(staffMember.name);
+    if (normalizedName) {
+      staffIdsByName.set(normalizedName, [
+        ...(staffIdsByName.get(normalizedName) ?? []),
+        staffMember.id,
+      ]);
+    }
+  });
+
+  // Some appointment responses use a different staff identifier than the
+  // staff-list endpoint. A unique name match safely links that identifier to
+  // the existing record instead of creating a duplicate Calendar column.
+  appointments.forEach((appointment) => {
+    if (!appointment.staffId || canonicalIdByAlias.has(appointment.staffId)) return;
+
+    const matchingIds = staffIdsByName.get(normalizeCalendarStaffName(appointment.staffName)) ?? [];
+    const uniqueMatchingIds = [...new Set(matchingIds)];
+    if (uniqueMatchingIds.length === 1) {
+      canonicalIdByAlias.set(appointment.staffId, uniqueMatchingIds[0]);
+    }
+  });
+
+  return canonicalIdByAlias;
+};
+
+/**
+ * Every staff member the Calendar should offer, keyed by id. Records are never
+ * merged: same-named staff each keep their own entry and get a disambiguated
+ * label. Staff referenced only by an appointment (e.g. since removed) are
+ * included too, so their bookings keep a column.
+ */
+const buildCalendarStaffOptions = (
+  staffMembers: StaffMember[],
+  appointments: AppointmentListItem[],
+  canonicalIdByAlias: Map<string, string>,
+): CalendarStaffOption[] => {
+  const byId = new Map<string, { id: string; name: string; staffMember?: StaffMember }>();
+
+  staffMembers.forEach((staffMember) => {
+    if (!staffMember.id || byId.has(staffMember.id)) return;
+    byId.set(staffMember.id, { id: staffMember.id, name: staffMember.name, staffMember });
+  });
+
+  appointments.forEach((appointment) => {
+    const name = appointment.staffName?.trim() ?? "";
+
+    if (appointment.staffId) {
+      const canonicalId = canonicalIdByAlias.get(appointment.staffId) ?? appointment.staffId;
+      if (!byId.has(canonicalId)) {
+        byId.set(canonicalId, { id: canonicalId, name });
+      }
+      return;
+    }
+
+    if (!name) return;
+
+    const hasExistingName = [...byId.values()].some(
+      (option) => normalizeCalendarStaffName(option.name) === normalizeCalendarStaffName(name),
+    );
+    if (hasExistingName) return;
+
+    const syntheticId = `${SYNTHETIC_STAFF_ID_PREFIX}${normalizeCalendarStaffName(name)}`;
+
+    if (!byId.has(syntheticId)) {
+      byId.set(syntheticId, { id: syntheticId, name });
+    }
+  });
+
+  const nameCounts = new Map<string, number>();
+  byId.forEach((option) => nameCounts.set(option.name, (nameCounts.get(option.name) ?? 0) + 1));
+  const disambiguatorCounts = new Map<string, number>();
+
+  byId.forEach((option) => {
+    const detail = getStaffDisambiguator(option.staffMember);
+
+    if (detail) {
+      const key = `${option.name}\u0000${detail}`;
+      disambiguatorCounts.set(key, (disambiguatorCounts.get(key) ?? 0) + 1);
+    }
+  });
+  const duplicateOrdinalById = new Map<string, number>();
+  const duplicateGroups = new Map<string, string[]>();
+
+  byId.forEach((option) => {
+    if ((nameCounts.get(option.name) ?? 0) <= 1) return;
+    duplicateGroups.set(option.name, [...(duplicateGroups.get(option.name) ?? []), option.id]);
+  });
+  duplicateGroups.forEach((ids) => {
+    [...ids].sort().forEach((id, index) => duplicateOrdinalById.set(id, index + 1));
+  });
+
+  return [...byId.values()].map((option) => {
+    const hasDuplicateName = (nameCounts.get(option.name) ?? 0) > 1;
+    const detail = getStaffDisambiguator(option.staffMember);
+    const detailIsUnique = detail
+      ? disambiguatorCounts.get(`${option.name}\u0000${detail}`) === 1
+      : false;
+    const disambiguator = detailIsUnique
+      ? detail
+      : `#${duplicateOrdinalById.get(option.id) ?? 1}`;
+
+    return {
+      id: option.id,
+      name: option.name,
+      label: hasDuplicateName ? `${option.name} · ${disambiguator}` : option.name,
+    };
+  });
+};
+
+/** name → the id that owns it, for appointments that carry no staff id. */
+const buildFallbackStaffIdByName = (options: CalendarStaffOption[]) => {
+  const idsByName = new Map<string, string[]>();
+
+  options.forEach((option) => {
+    const normalizedName = normalizeCalendarStaffName(option.name);
+    if (!normalizedName) return;
+    idsByName.set(normalizedName, [...(idsByName.get(normalizedName) ?? []), option.id]);
+  });
+
+  const byName = new Map<string, string>();
+  idsByName.forEach((ids, name) => {
+    const uniqueIds = [...new Set(ids)].sort();
+    const syntheticId = uniqueIds.find((id) => id.startsWith(SYNTHETIC_STAFF_ID_PREFIX));
+    byName.set(name, syntheticId ?? uniqueIds[0]);
+  });
+
+  return byName;
+};
+
+/**
+ * Which staff option an appointment belongs to. Prefers the real staff id;
+ * falls back to a single, deterministic name owner so an appointment with no
+ * staff id lands in exactly one column instead of every same-named one.
+ */
+const resolveAppointmentStaffId = (
+  appointment: AppointmentListItem,
+  fallbackStaffIdByName: Map<string, string>,
+  canonicalIdByAlias: Map<string, string>,
+) =>
+  canonicalIdByAlias.get(appointment.staffId) ||
+  appointment.staffId ||
+  fallbackStaffIdByName.get(normalizeCalendarStaffName(appointment.staffName)) ||
+  "";
+
+/**
+ * Loads every staff member into the shared staff slice by walking the existing
+ * pagination, rather than capping at a single hardcoded page. Used by both
+ * Calendar and the appointment form so neither can leave the other with a
+ * truncated list (they share `state.staff.staffMembers`).
+ */
+function useAllStaffMembers() {
+  const dispatch = useAppDispatch();
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadAllPages = async () => {
+      let page = 1;
+      let limit: number | undefined;
+      let reset = true;
+
+      while (!cancelled) {
+        const result = await dispatch(fetchStaffThunk({ limit, page, reset }));
+
+        if (cancelled || !fetchStaffThunk.fulfilled.match(result)) return;
+
+        const nextPagination = result.payload.pagination;
+
+        if (!nextPagination.hasMore || nextPagination.nextPage <= page) return;
+
+        limit = nextPagination.limit;
+        page = nextPagination.nextPage;
+        reset = false;
+      }
+    };
+
+    void loadAllPages();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dispatch]);
+}
+
 function CalendarPreview({
   appointments,
   date,
   onRefresh,
   refreshing = false,
-  staffNames = [],
+  resolveStaffId,
+  staffColumns = [],
   viewMode = "week",
 }: {
   appointments: AppointmentListItem[];
   date: string;
   onRefresh?: () => void;
   refreshing?: boolean;
-  staffNames?: string[];
+  /** Maps an appointment to the staff option id owning it. */
+  resolveStaffId?: (appointment: AppointmentListItem) => string;
+  staffColumns?: CalendarStaffOption[];
   title?: string;
   viewMode?: "week" | "day" | "list";
 }) {
@@ -1287,9 +1537,13 @@ function CalendarPreview({
       label: new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "2-digit", month: "short" }).format(value),
     };
   }), [date]);
+  // One column per staff *id* — same-named staff each get their own column
+  // instead of being merged into one.
   const columns = useMemo(() => viewMode === "day"
-    ? (staffNames.length ? staffNames.map((name) => ({ key: date, label: name, staffName: name })) : [{ key: date, label: "All Staff", staffName: "" }])
-    : days.map((day) => ({ ...day, staffName: "" })), [date, days, staffNames, viewMode]);
+    ? (staffColumns.length
+      ? staffColumns.map((option) => ({ key: date, label: option.label, staffId: option.id, staffName: option.name }))
+      : [{ key: date, label: "All Staff", staffId: "", staffName: "" }])
+    : days.map((day) => ({ ...day, staffId: "", staffName: "" })), [date, days, staffColumns, viewMode]);
   const columnWidth = viewMode === "day" ? 132 : 118;
   const calendarContentWidth = 54 + columns.length * columnWidth;
   const now = new Date();
@@ -1356,9 +1610,9 @@ function CalendarPreview({
                 ))}
               </View>
               {columns.map((column, columnIndex) => {
-                const columnAppointments = appointments.filter((appointment) => getDateKey(appointment.scheduledAt) === column.key && (!column.staffName || appointment.staffName === column.staffName));
+                const columnAppointments = appointments.filter((appointment) => getDateKey(appointment.scheduledAt) === column.key && (!column.staffId || (resolveStaffId ? resolveStaffId(appointment) : appointment.staffId) === column.staffId));
                 return (
-                <View key={`${column.key}-${column.label}-${columnIndex}`} style={[styles.dinggDayColumn, viewMode === "day" && (columnIndex % 2 === 0 ? styles.dinggColumnAvailable : styles.dinggColumnUnavailable), { width: columnWidth }]}>
+                <View key={`${column.key}-${column.staffId || columnIndex}`} style={[styles.dinggDayColumn, viewMode === "day" && (columnIndex % 2 === 0 ? styles.dinggColumnAvailable : styles.dinggColumnUnavailable), { width: columnWidth }]}>
                   {timeSlots.map(({ hour, minute }, slotIndex) => (
                     <Pressable
                       accessibilityHint="Opens Quick Sale for this calendar slot"
@@ -2517,6 +2771,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const insets = useSafeAreaInsets();
   const dispatch = useAppDispatch();
+  useAllStaffMembers();
   const toast = useAppToast();
   const params = useLocalSearchParams<{ clientId?: string; id?: string }>();
   const appointmentId = params.id;
@@ -2724,9 +2979,11 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     setAvailabilityRefreshKey((current) => current + 1);
   }, []);
 
+  // Staff comes from useAllStaffMembers() below — a `limit: 50, page: 1`
+  // reset here would replace the fully paginated shared list with just the
+  // first page, re-truncating the Calendar (same `state.staff.staffMembers`).
   useEffect(() => {
     void dispatch(fetchClientsThunk({ limit: 50, offset: 0, reset: true }));
-    void dispatch(fetchStaffThunk({ limit: 50, page: 1, reset: true }));
   }, [dispatch]);
 
   useEffect(() => {
@@ -4156,23 +4413,43 @@ export function AppointmentHistoryScreen() {
 export function AppointmentCalendarScreen() {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
-  const dispatch = useAppDispatch();
   const appointments = useAppSelector(selectAppointments);
   const staffMembers = useAppSelector(selectStaffMembers);
   const refreshing = useAppSelector(selectAppointmentsRefreshing);
   const { date, search, setDate, setSearch, setStatus, status } = useAppointmentListFilters();
   const { fetchAppointments } = useFetchAppointments();
-  const [selectedStaffNames, setSelectedStaffNames] = useState<string[]>([]);
+  useAllStaffMembers();
+  // Selection is by staff id, so two staff sharing a name stay independently
+  // selectable.
+  const [selectedStaffIds, setSelectedStaffIds] = useState<string[]>([]);
   const [datePickerVisible, setDatePickerVisible] = useState(false);
   const [calendarSearchOpen, setCalendarSearchOpen] = useState(false);
   const [viewMode, setViewMode] = useState<"week" | "day" | "list">("day");
   const [viewMenuVisible, setViewMenuVisible] = useState(false);
   const [staffFilterVisible, setStaffFilterVisible] = useState(false);
-  const staffNames = useMemo(() => ["All Staff", ...Array.from(new Set([...staffMembers.map((staff) => staff.name), ...appointments.map((item) => item.staffName)].filter(Boolean)))], [appointments, staffMembers]);
-  const filteredStaffNames = useMemo(() => staffNames.filter((name) => name !== "All Staff"), [staffNames]);
+  const canonicalStaffIdByAlias = useMemo(
+    () => buildCanonicalStaffIdByAlias(staffMembers, appointments),
+    [appointments, staffMembers],
+  );
+  const staffOptions = useMemo(
+    () => buildCalendarStaffOptions(staffMembers, appointments, canonicalStaffIdByAlias),
+    [appointments, canonicalStaffIdByAlias, staffMembers],
+  );
+  const fallbackStaffIdByName = useMemo(
+    () => buildFallbackStaffIdByName(staffOptions),
+    [staffOptions],
+  );
+  const resolveStaffId = useCallback(
+    (appointment: AppointmentListItem) => resolveAppointmentStaffId(
+      appointment,
+      fallbackStaffIdByName,
+      canonicalStaffIdByAlias,
+    ),
+    [canonicalStaffIdByAlias, fallbackStaffIdByName],
+  );
   const visibleAppointments = useMemo(
     () => appointments.filter((item) => {
-      const matchesStaff = selectedStaffNames.length === 0 || selectedStaffNames.includes(item.staffName);
+      const matchesStaff = selectedStaffIds.length === 0 || selectedStaffIds.includes(resolveStaffId(item));
       const matchesStatus = status === "All"
         ? item.status !== "Unknown"
         : status === "Deleted"
@@ -4181,25 +4458,29 @@ export function AppointmentCalendarScreen() {
 
       return matchesStaff && matchesStatus;
     }),
-    [appointments, selectedStaffNames, status],
+    [appointments, resolveStaffId, selectedStaffIds, status],
   );
-  const selectedStaffLabel = selectedStaffNames.length === 0
+  const selectedStaffLabel = selectedStaffIds.length === 0
     ? "All Staff"
-    : selectedStaffNames.length === 1
-      ? selectedStaffNames[0]
-      : `${selectedStaffNames.length} Staff`;
+    : selectedStaffIds.length === 1
+      ? staffOptions.find((option) => option.id === selectedStaffIds[0])?.label ?? "1 Staff"
+      : `${selectedStaffIds.length} Staff`;
   const rangeEnd = useMemo(() => { const value = new Date(`${date}T00:00:00`); value.setDate(value.getDate() + (viewMode === "week" ? 6 : 0)); return value; }, [date, viewMode]);
   const rangeEndKey = `${rangeEnd.getFullYear()}-${String(rangeEnd.getMonth() + 1).padStart(2, "0")}-${String(rangeEnd.getDate()).padStart(2, "0")}`;
-  const selectedStaffId = selectedStaffNames.length === 1 ? staffMembers.find((staff) => staff.name === selectedStaffNames[0])?.id : undefined;
+  // Server-side staff filter — only a real staff id can be sent, never a
+  // synthetic name-derived one.
+  const selectedStaffId = selectedStaffIds.length === 1 && !selectedStaffIds[0].startsWith(SYNTHETIC_STAFF_ID_PREFIX)
+    ? selectedStaffIds[0]
+    : undefined;
   const changeDate = (amount: number) => { const value = new Date(`${date}T00:00:00`); value.setDate(value.getDate() + amount); setDate(`${value.getFullYear()}-${String(value.getMonth() + 1).padStart(2, "0")}-${String(value.getDate()).padStart(2, "0")}`); };
-  const toggleStaffFilter = (name: string) => {
-    if (name === "All Staff") {
-      setSelectedStaffNames([]);
+  const toggleStaffFilter = (staffId: string) => {
+    if (!staffId) {
+      setSelectedStaffIds([]);
       return;
     }
 
-    setSelectedStaffNames((current) =>
-      current.includes(name) ? current.filter((staffName) => staffName !== name) : [...current, name],
+    setSelectedStaffIds((current) =>
+      current.includes(staffId) ? current.filter((value) => value !== staffId) : [...current, staffId],
     );
   };
 
@@ -4208,10 +4489,6 @@ export function AppointmentCalendarScreen() {
       ? { fromDate: date, limit: 200, reset: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey }
       : { date, limit: 200, reset: true, search, staffId: selectedStaffId, status });
   }, [date, fetchAppointments, rangeEndKey, search, selectedStaffId, status, viewMode]);
-
-  useEffect(() => {
-    void dispatch(fetchStaffThunk({ limit: 50, page: 1, reset: true }));
-  }, [dispatch]);
 
   return (
     <ScreenShell
@@ -4276,11 +4553,14 @@ export function AppointmentCalendarScreen() {
         date={date}
         onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}
         refreshing={refreshing}
-        staffNames={selectedStaffNames.length ? selectedStaffNames : filteredStaffNames}
+        resolveStaffId={resolveStaffId}
+        staffColumns={selectedStaffIds.length
+          ? staffOptions.filter((option) => selectedStaffIds.includes(option.id))
+          : staffOptions}
         viewMode={viewMode}
       />
       <Modal animationType="fade" onRequestClose={() => setViewMenuVisible(false)} transparent visible={viewMenuVisible}><Pressable onPress={() => setViewMenuVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.calendarMenuCard}>{([['week','calendar-outline','Week view'],['day','today-outline','Day view'],['list','list-outline','List view']] as const).map(([value, icon, label]) => <TouchableOpacity key={value} onPress={() => { setViewMode(value); setViewMenuVisible(false); }} style={[styles.calendarMenuOption, viewMode === value && styles.calendarMenuOptionActive]}><Ionicons name={icon} size={18} color={Colors.appointmentText} /><Text style={styles.calendarMenuText}>{label}</Text>{viewMode === value ? <Ionicons name="radio-button-on" size={16} color={Colors.appointmentAccent} /> : null}</TouchableOpacity>)}</Pressable></Pressable></Modal>
-      <Modal animationType="fade" onRequestClose={() => setStaffFilterVisible(false)} transparent visible={staffFilterVisible}><Pressable onPress={() => setStaffFilterVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.staffFilterCard}><Text style={styles.staffFilterTitle}>By Staff</Text><ScrollView>{staffNames.map((name) => { const selected = name === "All Staff" ? selectedStaffNames.length === 0 : selectedStaffNames.includes(name); return <TouchableOpacity key={name} onPress={() => toggleStaffFilter(name)} style={styles.staffFilterOption}><Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? Colors.appointmentAccent : Colors.appointmentMuted} /><Text style={styles.staffFilterText}>{name}</Text></TouchableOpacity>; })}</ScrollView><View style={styles.staffFilterActions}><TouchableOpacity onPress={() => setSelectedStaffNames([])}><Text style={styles.staffFilterClear}>Clear</Text></TouchableOpacity><TouchableOpacity onPress={() => setStaffFilterVisible(false)} style={styles.staffFilterApply}><Text style={styles.staffFilterApplyText}>Apply</Text></TouchableOpacity></View></Pressable></Pressable></Modal>
+      <Modal animationType="fade" onRequestClose={() => setStaffFilterVisible(false)} transparent visible={staffFilterVisible}><Pressable onPress={() => setStaffFilterVisible(false)} style={styles.calendarMenuBackdrop}><Pressable style={styles.staffFilterCard}><Text style={styles.staffFilterTitle}>By Staff</Text><ScrollView>{[{ id: "", name: "All Staff", label: "All Staff" }, ...staffOptions].map((option) => { const selected = option.id === "" ? selectedStaffIds.length === 0 : selectedStaffIds.includes(option.id); return <TouchableOpacity key={option.id || "all-staff"} onPress={() => toggleStaffFilter(option.id)} style={styles.staffFilterOption}><Ionicons name={selected ? "checkbox" : "square-outline"} size={20} color={selected ? Colors.appointmentAccent : Colors.appointmentMuted} /><Text style={styles.staffFilterText}>{option.label}</Text></TouchableOpacity>; })}</ScrollView><View style={styles.staffFilterActions}><TouchableOpacity onPress={() => setSelectedStaffIds([])}><Text style={styles.staffFilterClear}>Clear</Text></TouchableOpacity><TouchableOpacity onPress={() => setStaffFilterVisible(false)} style={styles.staffFilterApply}><Text style={styles.staffFilterApplyText}>Apply</Text></TouchableOpacity></View></Pressable></Pressable></Modal>
     </ScreenShell>
   );
 }

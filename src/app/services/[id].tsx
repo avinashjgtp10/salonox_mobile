@@ -167,13 +167,7 @@ export default function ServiceDetailsScreen() {
             <Ionicons name="arrow-back" size={18} color={Colors.primary} />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Service Details</Text>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => router.push(`/services/${service.id}/edit` as Href)}
-            style={styles.backButton}
-          >
-            <Ionicons name="create-outline" size={18} color={Colors.primary} />
-          </TouchableOpacity>
+          <View style={styles.backButton} />
         </View>
 
         <View style={styles.heroCard}>

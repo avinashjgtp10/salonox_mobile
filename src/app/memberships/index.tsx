@@ -103,7 +103,6 @@ function MembershipCard({
   isDeleting,
   membership,
   onDelete,
-  onEdit,
   onToggleExpanded,
   onView,
 }: {
@@ -111,7 +110,6 @@ function MembershipCard({
   isDeleting: boolean;
   membership: Membership;
   onDelete: () => void;
-  onEdit: () => void;
   onToggleExpanded: () => void;
   onView: () => void;
 }) {
@@ -175,7 +173,6 @@ function MembershipCard({
           <Pressable style={styles.menuSheet}>
             <Text style={styles.menuTitle}>{membership.name}</Text>
             <MenuAction icon="eye-outline" label="View" onPress={() => { setMenuOpen(false); onView(); }} />
-            <MenuAction icon="create-outline" label="Edit" onPress={() => { setMenuOpen(false); onEdit(); }} />
             <MenuAction danger icon="trash-outline" label="Delete" onPress={() => { setMenuOpen(false); onDelete(); }} />
           </Pressable>
         </Pressable>
@@ -348,7 +345,6 @@ export default function MembershipsScreen() {
             isDeleting={deletingIds.includes(item.id)}
             membership={item}
             onDelete={() => setDeleteTarget(item)}
-            onEdit={() => router.push(`/memberships/${item.id}/edit` as Href)}
             onToggleExpanded={() => setExpandedIds((ids) => (ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id]))}
             onView={() => router.push(`/memberships/${item.id}` as Href)}
           />

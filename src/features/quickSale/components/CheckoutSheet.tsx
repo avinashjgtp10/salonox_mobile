@@ -353,6 +353,14 @@ function CheckoutSheetComponent({
   const dueAmount = Math.max(0, totals.grandTotal - amountToCollect);
   const partialAmountExceedsTotal = paymentType === "partial" && parseAmount(partialAmountInput) > totals.grandTotal;
   const splitTotal = splitEntries.reduce((total, entry) => total + entry.amount, 0);
+  const splitRemaining = Math.max(
+    0,
+    (Math.round(amountToCollect * 100) - Math.round(splitTotal * 100)) / 100,
+  );
+  const splitExcess = Math.max(
+    0,
+    (Math.round(splitTotal * 100) - Math.round(amountToCollect * 100)) / 100,
+  );
   const splitMismatch = paymentMethod === "split" && Math.round(splitTotal * 100) !== Math.round(amountToCollect * 100);
   const discountValue = parseAmount(discountDraft);
   const discountEligibleSubtotal = useMemo(() => {
@@ -1158,28 +1166,44 @@ function CheckoutSheetComponent({
                 <View style={styles.formCard}>
                   <Text style={styles.sectionTitle}>Split Payment</Text>
                   <View style={styles.paymentDetailCard}>
-                    {SPLIT_METHODS.map((method) => (
-                      <View key={`split-${method.value}`} style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>{method.label}</Text>
-                        <TextInput
-                          keyboardType="decimal-pad"
-                          onChangeText={(value) => setSplitAmounts((current) => ({ ...current, [method.value]: value }))}
-                          placeholder="0"
-                          placeholderTextColor={Colors.placeholder}
-                          style={styles.input}
-                          value={splitAmounts[method.value] ?? ""}
-                        />
-                      </View>
-                    ))}
+                    {SPLIT_METHODS.map((method) => {
+                      const methodValue = splitAmounts[method.value] ?? "";
+                      const methodAmount = parseAmount(methodValue);
+                      const isUnusedMethodDisabled = splitRemaining === 0 && methodAmount === 0;
+
+                      return (
+                        <View key={`split-${method.value}`} style={styles.inputGroup}>
+                          <Text style={styles.inputLabel}>{method.label}</Text>
+                          <TextInput
+                            accessibilityState={{ disabled: isUnusedMethodDisabled }}
+                            editable={!isUnusedMethodDisabled}
+                            keyboardType="decimal-pad"
+                            onChangeText={(value) => setSplitAmounts((current) => ({ ...current, [method.value]: value }))}
+                            placeholder={isUnusedMethodDisabled ? "Fully paid" : "0"}
+                            placeholderTextColor={Colors.placeholder}
+                            style={[styles.input, isUnusedMethodDisabled && styles.inputDisabled]}
+                            value={methodValue}
+                          />
+                        </View>
+                      );
+                    })}
                     <View style={styles.splitTotalRow}>
                       <Text style={styles.summaryLabel}>Total Paid</Text>
                       <Text style={[styles.splitTotalText, splitMismatch && styles.errorText]}>
                         {formatCurrency(splitTotal)} of {formatCurrency(amountToCollect)}
                       </Text>
                     </View>
+                    <View style={styles.splitRemainingRow}>
+                      <Text style={styles.splitRemainingLabel}>Remaining Amount</Text>
+                      <Text style={[styles.splitRemainingValue, splitExcess > 0 && styles.errorText]}>
+                        {formatCurrency(splitRemaining)}
+                      </Text>
+                    </View>
                     {splitMismatch ? (
                       <Text style={styles.errorText}>
-                        Split total must match the amount to collect ({formatCurrency(amountToCollect)}).
+                        {splitExcess > 0
+                          ? `Split amount exceeds the amount to collect by ${formatCurrency(splitExcess)}.`
+                          : `${formatCurrency(splitRemaining)} is still remaining.`}
                       </Text>
                     ) : null}
                   </View>
@@ -1447,6 +1471,7 @@ function CheckoutSheetComponent({
         }}
         renderInline={renderInline}
         selectedStaffId={activeStaffItem?.staffId ?? null}
+        stacked
         staff={staffOptions}
         visible={Boolean(staffPickerLineId)}
       />
@@ -1515,10 +1540,17 @@ function StaffAssignmentChip({
   if (staffName) {
     return (
       <View style={styles.staffChip}>
-        <View style={styles.staffChipBody}>
+        <TouchableOpacity
+          accessibilityHint="Opens the staff list"
+          accessibilityLabel={`Change assigned staff from ${staffName}`}
+          activeOpacity={0.82}
+          onPress={onPress}
+          style={styles.staffChipBody}
+        >
           <Ionicons name="person-outline" size={13} color={Colors.primaryDark} />
           <Text numberOfLines={1} style={styles.staffChipText}>{staffName}</Text>
-        </View>
+          <Ionicons name="chevron-down" size={12} color={Colors.text2} />
+        </TouchableOpacity>
       </View>
     );
   }
@@ -2704,6 +2736,26 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 11,
     fontWeight: "800",
     textAlign: "right",
+  },
+  splitRemainingRow: {
+    alignItems: "center",
+    backgroundColor: Colors.bg2,
+    borderRadius: Radius.md,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginTop: Spacing.sm,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 13,
+  },
+  splitRemainingLabel: {
+    color: Colors.heading,
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  splitRemainingValue: {
+    color: Colors.primaryDark,
+    fontSize: 17,
+    fontWeight: "900",
   },
   grandTotalRow: {
     alignItems: "center",
