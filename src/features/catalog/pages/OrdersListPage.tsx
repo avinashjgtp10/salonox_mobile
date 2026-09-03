@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Search, FileEarmarkText, PlusLg, X, ThreeDotsVertical, PencilSquare, Trash3, BoxSeam } from "react-bootstrap-icons";
 import { useAppDispatch } from "../../../hooks/useAppRedux";
 import { fetchOrdersThunk, deleteOrderThunk, fetchOrderByIdThunk, receiveOrderThunk } from "../../../middleware/inventory/inventory.thunk";
@@ -37,11 +37,12 @@ const STATUS_BADGE: Record<Order["status"], "paid" | "due" | "overdue" | "partia
 
 // Orders list — same list-page pattern as SuppliersListPage.tsx (header,
 // search, table, pagination, empty state) so Orders reads as part of the
-// same Inventory family rather than a one-off layout. Server-paginated
-// (unlike Suppliers' client-side list) since orders can grow unbounded.
+// same Inventory family rather than a one-off layout. Both are now
+// server-paginated.
 const OrdersListPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const { formatAmount } = useCurrency();
   const { showError, showSuccess, overlay } = useStatusOverlay();
 
@@ -96,8 +97,6 @@ const OrdersListPage: React.FC = () => {
     return () => clearTimeout(t);
   }, [search]);
 
-  useEffect(() => { setCurrentPage(1); }, [debouncedSearch, statusFilter, pageSize]);
-
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -120,7 +119,45 @@ const OrdersListPage: React.FC = () => {
     }
   }, [dispatch, debouncedSearch, statusFilter, currentPage, pageSize, showError]);
 
-  useEffect(() => { load(); }, [load]);
+  // Tracks whether we're past the initial mount, so the effect below doesn't
+  // also fire (redundantly) on first render — mirrors SuppliersListPage.tsx.
+  const isMountedRef = useRef(false);
+
+  // Initial fetch on mount — skipped when orders are already loaded (a plain
+  // Close navigates back with no signal) AND this mount wasn't triggered by
+  // a successful Add/Edit save. NewOrderPage navigates back with
+  // location.state.refresh only after a save; a plain Close navigates with
+  // no state at all, so returning from Close reuses what's already loaded
+  // instead of calling the API again.
+  useEffect(() => {
+    const justSaved = (location.state as { refresh?: boolean } | null)?.refresh;
+    if (orders.length === 0 || justSaved) {
+      load();
+    }
+    const t = setTimeout(() => { isMountedRef.current = true; }, 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-fetch when page/pageSize/search/filters change (skip initial mount,
+  // already handled above). When search/filters change while not already on
+  // page 1, reset to page 1 without firing a second (stale-page) fetch in
+  // the same tick — the page-1 reset alone triggers this effect again with
+  // the corrected page.
+  const filtersKey = JSON.stringify({ debouncedSearch, statusFilter });
+  const prevFiltersKeyRef = useRef(filtersKey);
+  useEffect(() => {
+    if (!isMountedRef.current) return;
+    if (prevFiltersKeyRef.current !== filtersKey) {
+      prevFiltersKeyRef.current = filtersKey;
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+        return;
+      }
+    }
+    load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage, pageSize, debouncedSearch, statusFilter, filtersKey]);
 
   useEffect(() => {
     if (!openRowMenuId) return;

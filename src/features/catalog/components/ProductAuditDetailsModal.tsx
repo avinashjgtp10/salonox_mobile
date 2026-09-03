@@ -51,7 +51,7 @@ const diffOf = (systemQty: number, physicalQty: number | null) => (physicalQty =
 
 export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }: Props) {
   const dispatch = useDispatch<AppDispatch>();
-  const { showError, overlay } = useStatusOverlay();
+  const { showSuccess, showError, overlay } = useStatusOverlay();
 
   const [audit, setAudit] = useState<ProductAuditWithDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -99,21 +99,40 @@ export default function ProductAuditDetailsModal({ auditId, onClose, onChanged }
     });
     if (ids.length === 0) return;
     const t = setTimeout(async () => {
+      let savedCount = 0;
+      const failedNames: string[] = [];
       for (const itemId of ids) {
         const edit = pendingEdits[itemId];
+        const item = audit?.items.find((i) => i.id === itemId);
         try {
           await dispatch(updateProductAuditItemThunk({
             auditId, itemId, payload: { physical_qty: edit.physicalQty, reason: edit.reason },
           })).unwrap();
+          savedCount++;
           setPendingEdits((prev) => {
             const next = { ...prev };
             delete next[itemId];
             return next;
           });
-        } catch {
-          // Left in pendingEdits so the value the user typed isn't lost —
-          // will retry once it becomes valid (see the filter above).
+        } catch (err: any) {
+          // Left in pendingEdits (not cleared) so the value the user typed
+          // isn't lost — retried the next time pendingEdits changes again
+          // (e.g. the user edits any row), since nothing else re-triggers
+          // this effect on its own. Previously this failure was swallowed
+          // completely — no error ever reached the user, so a save that
+          // kept failing (e.g. a permission or validation error) looked
+          // exactly like a save that silently wasn't happening at all.
+          failedNames.push(item?.product_name || "a product");
         }
+      }
+      if (failedNames.length > 0) {
+        showError(
+          failedNames.length === 1
+            ? `Couldn't save the reason for ${failedNames[0]} — it'll retry on your next edit.`
+            : `Couldn't save ${failedNames.length} items (${failedNames.join(", ")}) — they'll retry on your next edit.`
+        );
+      } else if (savedCount > 0) {
+        showSuccess(savedCount === 1 ? "Audit item updated" : `${savedCount} audit items updated`);
       }
       load(true);
     }, 500);

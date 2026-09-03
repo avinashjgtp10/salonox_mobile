@@ -148,6 +148,44 @@
 }
 
 // ── Purchase detail drawer ────────────────────────────────────────────────────
+// Header row of the "Order Details" modal (SupplierDetailPage.tsx) — three
+// label/value pairs side by side, not stacked. Previously unstyled: the
+// label and value spans rendered inline with no separator ("Supplier
+// NumberSUP-00022"), one pair per line.
+.phist-detail-head {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+
+  > div {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    background: #f9fafb;
+    border: 1px solid #eaecf0;
+    border-radius: 10px;
+    padding: 12px 14px;
+  }
+}
+
+.phist-detail-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #667085;
+  text-transform: uppercase;
+}
+
+.phist-detail-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #101828;
+}
+
+@media (max-width: 480px) {
+  .phist-detail-head { flex-direction: column; }
+}
+
 .phist-detail-loading {
   padding: 24px 0;
   text-align: center;

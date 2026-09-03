@@ -25,6 +25,7 @@ import Modal from "../../../components/ui/Modal";
 import Input from "../../../components/ui/Input";
 import EmptyState from "../../../components/ui/EmptyState";
 import CreatePayoutModal from "../components/CreatePayoutModal";
+import SupplierPendingDetailsModal from "../components/SupplierPendingDetailsModal";
 import "../styles/SuppliersListPage.scss";
 
 const fmtDate = (value?: string | null) => {
@@ -160,6 +161,10 @@ const SuppliersListPage: React.FC = () => {
   const [deletingSupplier, setDeletingSupplier] = useState<Supplier | null>(null);
   const [deleteInput, setDeleteInput] = useState("");
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Pending Amount modal — opened from the Due Amount cell, not the row
+  // itself (which still navigates to the full Supplier Detail page).
+  const [pendingDetailsSupplierId, setPendingDetailsSupplierId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
@@ -371,7 +376,15 @@ const SuppliersListPage: React.FC = () => {
                   <td>{s.mobile_number || s.telephone_number || "—"}</td>
                   <td>{formatAmount(sb.total_purchase_amount ?? 0)}</td>
                   <td>{sb.pending_order_count ?? 0}</td>
-                  <td>{formatAmount(sb.due_amount ?? 0)}</td>
+                  <td>
+                    <button
+                      type="button"
+                      className="supplier-due-amount-btn"
+                      onClick={(e) => { e.stopPropagation(); setPendingDetailsSupplierId(s.id); }}
+                    >
+                      {formatAmount(sb.due_amount ?? 0)}
+                    </button>
+                  </td>
                   <td>{fmtDate(sb.due_date)}</td>
                   <td>
                     <span className={`supplier-status-badge supplier-status-badge--${status}`}>
@@ -476,6 +489,12 @@ const SuppliersListPage: React.FC = () => {
         onClose={closePayout}
         supplierId={payoutSupplierId}
         onSuccess={refetchCurrentPage}
+      />
+
+      <SupplierPendingDetailsModal
+        show={!!pendingDetailsSupplierId}
+        onClose={() => setPendingDetailsSupplierId(undefined)}
+        supplierId={pendingDetailsSupplierId}
       />
     </div>
   );

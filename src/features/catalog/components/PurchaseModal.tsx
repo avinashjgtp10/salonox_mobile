@@ -188,6 +188,11 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
                     <ProductSearchSelect
                       onSelect={(p) => patchLine(line.key, {
                         product: p,
+                        // Defaults to 1 on every product pick (including
+                        // re-picking a different product into an existing
+                        // row via "Change") — still a plain editable input
+                        // afterward, this only seeds the initial value.
+                        quantity: "1",
                         purchasePrice: p.supply_price != null ? String(p.supply_price) : line.purchasePrice,
                       })}
                     />

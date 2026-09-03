@@ -185,6 +185,12 @@ body {
 }
 
 .topbar-datetime {
+  display: flex;
+  align-items: center;
+  // Date and time as two separate elements (see DashboardTopbar.tsx) instead
+  // of one text node joined with a literal " . " — gap replaces that
+  // separator's spacing instead of a dot character.
+  gap: 10px;
   font-size: 13px;
   font-weight: 500;
   color: #4b5563;
@@ -194,6 +200,11 @@ body {
   border: 1px solid #e5e7eb;
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
+
+  &__date,
+  &__time {
+    display: inline-block;
+  }
 
   @media (max-width: 640px) {
     display: none;
