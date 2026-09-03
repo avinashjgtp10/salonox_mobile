@@ -22,6 +22,8 @@ import {
   CheckCircleFill,
   XCircleFill,
   ExclamationTriangleFill,
+  BoxSeam,
+  CalendarX,
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
 import salonoxLogo from "../../../assets/salonox_full_logo.png";
@@ -46,6 +48,9 @@ interface Notification {
   body: string | null;
   is_read: boolean;
   created_at: string;
+  product_id?: string | null;
+  branch_id?: string | null;
+  alert_status?: "low_stock" | "out_of_stock" | "expiring_soon" | "expired" | null;
 }
 
 interface Toast extends Notification {
@@ -78,6 +83,26 @@ const NOTIF_COLORS: Record<string, string> = {
   error: "#ef4444",
   warning: "#f59e0b",
 };
+
+// Inventory alerts all arrive with type "warning" — alert_status picks a
+// more specific icon/color than the generic warning triangle so low stock,
+// out of stock, and expiry read as visually distinct at a glance.
+const ALERT_ICONS: Record<string, React.ReactNode> = {
+  low_stock: <BoxSeam size={15} />,
+  out_of_stock: <BoxSeam size={15} />,
+  expiring_soon: <CalendarX size={14} />,
+  expired: <CalendarX size={14} />,
+};
+
+const ALERT_COLORS: Record<string, string> = {
+  low_stock: "#f59e0b",
+  out_of_stock: "#ef4444",
+  expiring_soon: "#f59e0b",
+  expired: "#ef4444",
+};
+
+const notifIcon = (n: Notification) => (n.alert_status ? ALERT_ICONS[n.alert_status] : undefined) ?? NOTIF_ICONS[n.type] ?? NOTIF_ICONS.info;
+const notifColor = (n: Notification) => (n.alert_status ? ALERT_COLORS[n.alert_status] : undefined) ?? NOTIF_COLORS[n.type] ?? NOTIF_COLORS.info;
 
 const TOAST_DURATION = 5000; // ms before auto-dismiss
 
@@ -274,7 +299,11 @@ export default function DashboardTopbar({ onLogout }: Props) {
     if (!n.is_read) {
       api.patch(NOTIFICATIONS.MARK_ONE(n.id)).catch(() => { /* best-effort */ });
     }
-  }, []);
+    if (n.product_id) {
+      setShowNotif(false);
+      navigate(`/dashboard/inventory/products?highlight=${n.product_id}`);
+    }
+  }, [navigate]);
 
   const handleLogoutClick = useCallback(() => {
     setShowProfile(false);
@@ -374,8 +403,8 @@ export default function DashboardTopbar({ onLogout }: Props) {
       {/* ── TOAST CONTAINER ── */}
       <div className="notif-toast-container" aria-live="polite" aria-atomic="false">
         {toasts.map(toast => {
-          const color = NOTIF_COLORS[toast.type] ?? NOTIF_COLORS.info;
-          const icon = NOTIF_ICONS[toast.type] ?? NOTIF_ICONS.info;
+          const color = notifColor(toast);
+          const icon = notifIcon(toast);
           return (
             <div
               key={toast.toastId}
@@ -384,7 +413,11 @@ export default function DashboardTopbar({ onLogout }: Props) {
               onClick={() => {
                 handleMarkRead(toast.id);
                 dismissToast(toast.toastId);
-                setShowNotif(true);
+                if (toast.product_id) {
+                  navigate(`/dashboard/inventory/products?highlight=${toast.product_id}`);
+                } else {
+                  setShowNotif(true);
+                }
               }}
             >
               <span className="notif-toast-icon">{icon}</span>
@@ -457,8 +490,8 @@ export default function DashboardTopbar({ onLogout }: Props) {
                     <div className="topbar-notif-empty">No notifications</div>
                   ) : (
                     notifs.map(n => {
-                      const color = NOTIF_COLORS[n.type] ?? NOTIF_COLORS.info;
-                      const icon = NOTIF_ICONS[n.type] ?? NOTIF_ICONS.info;
+                      const color = notifColor(n);
+                      const icon = notifIcon(n);
                       return (
                         <div
                           key={n.id}
