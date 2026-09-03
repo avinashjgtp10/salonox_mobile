@@ -12,6 +12,7 @@ import { formatDateDDMMYYYY, formatTimeAgo } from "../../../utils/dateFormat";
 import api from "../../../services/api/axios";
 import { BRANCH_OWNER } from "../../../services/api/endpoints/branchOwner.endpoints";
 import salonoxLogo from "../../../assets/salonox_full_logo.png";
+import "../styles/BranchOwnerTopbar.scss";
 
 // Same shape as the main dashboard's Notification type (DashboardTopbar.tsx)
 // — the backend row is identical, only the fetch is scoped by an explicit
@@ -144,12 +145,9 @@ export default function BranchOwnerTopbar() {
 
         {salons.length > 0 && (
           <select
+            className="bot-branch-select"
             value={activeBranchId}
             onChange={(e) => setActiveBranchId(e.target.value)}
-            style={{
-              padding: "7px 10px", borderRadius: 999, border: "1px solid #e5e7eb",
-              background: "#f8fafc", fontSize: 13, fontWeight: 600, color: "#111827", cursor: "pointer",
-            }}
           >
             {salons.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
@@ -157,13 +155,8 @@ export default function BranchOwnerTopbar() {
 
         <button
           type="button"
+          className={`bot-all-branches-btn ${showAllBranches ? "bot-all-branches-btn--active" : ""}`}
           onClick={() => setShowAllBranches((v) => !v)}
-          style={{
-            padding: "7px 14px", borderRadius: 999, cursor: "pointer", fontSize: 13, fontWeight: 600,
-            border: showAllBranches ? "1px solid #6366f1" : "1px solid #e5e7eb",
-            background: showAllBranches ? "#eef2ff" : "#f8fafc",
-            color: showAllBranches ? "#6366f1" : "#111827",
-          }}
           title="All Branches Overview"
         >
           All Branches Overview

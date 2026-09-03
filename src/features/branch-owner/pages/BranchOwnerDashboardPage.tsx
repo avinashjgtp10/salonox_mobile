@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   Building, PersonPlusFill, CalendarPlus, CashCoin, People,
@@ -7,7 +7,23 @@ import {
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchBranchOwnerDashboardThunk, enterSalonThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
 import Dropdown from "../../../components/ui/Dropdown";
+import Tabs from "../../../components/ui/Tabs";
+import api from "../../../services/api/axios";
+import { BRANCH_OWNER } from "../../../services/api/endpoints/branchOwner.endpoints";
+import type { BranchOwnerRevenuePoint } from "../../../store/branchOwnerSlice";
 import "../styles/BranchOwnerDashboardPage.scss";
+
+type RevenuePeriod = "daily" | "weekly" | "monthly";
+const REVENUE_PERIOD_TABS = [
+  { key: "daily", label: "Daily" },
+  { key: "weekly", label: "Weekly" },
+  { key: "monthly", label: "Monthly" },
+];
+const REVENUE_PERIOD_SUBTITLE: Record<RevenuePeriod, string> = {
+  daily: "Last 14 days, across every salon you manage",
+  weekly: "Last 12 weeks, across every salon you manage",
+  monthly: "Last 12 months, across every salon you manage",
+};
 
 function Shimmer({ h = 110 }: { h?: number }) {
   return <div className="bod-shimmer" style={{ height: h }} />;
@@ -149,7 +165,7 @@ function AttentionRow({ icon, iconBg, iconColor, title, desc, count, onClick }: 
 export default function BranchOwnerDashboardPage() {
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const { stats, salons, revenueTrend, inventorySummary: inventory, attention, loading } = useAppSelector((s) => s.branchOwner);
+  const { stats, salons, revenueTrend: initialRevenueTrend, inventorySummary: inventory, attention, loading } = useAppSelector((s) => s.branchOwner);
   const [pickerAction, setPickerAction] = useState<null | "booking" | "payment">(null);
   const [openingId, setOpeningId] = useState<string | null>(null);
 
@@ -157,16 +173,56 @@ export default function BranchOwnerDashboardPage() {
     dispatch(fetchBranchOwnerDashboardThunk());
   }, [dispatch]);
 
-  // Trend badges compare this week's revenue total to the prior week within
-  // the 14-day window the backend already returns — real data, not a
-  // fabricated percentage.
+  // Revenue Overview's Daily/Weekly/Monthly toggle is served by its own
+  // endpoint (getRevenueTrend) so switching it doesn't refetch the whole
+  // dashboard — the initial "daily" view reuses what the dashboard call
+  // already loaded, and only a period change triggers a fresh request.
+  const [revenuePeriod, setRevenuePeriod] = useState<RevenuePeriod>("daily");
+  const [revenueTrend, setRevenueTrend] = useState<BranchOwnerRevenuePoint[]>(initialRevenueTrend);
+  const [priorPeriodRevenue, setPriorPeriodRevenue] = useState<number | null>(null);
+  const [revenueTrendLoading, setRevenueTrendLoading] = useState(false);
+
+  useEffect(() => { setRevenueTrend(initialRevenueTrend); }, [initialRevenueTrend]);
+
+  const fetchRevenueTrend = useCallback(async (period: RevenuePeriod) => {
+    try {
+      setRevenueTrendLoading(true);
+      const res = await api.get(BRANCH_OWNER.DASHBOARD_REVENUE_TREND(period));
+      const data = res.data?.data ?? { points: [], priorPeriodRevenue: 0 };
+      setRevenueTrend(data.points ?? []);
+      setPriorPeriodRevenue(Number(data.priorPeriodRevenue ?? 0));
+    } catch {
+      // non-critical — chart just shows whatever it had before
+    } finally {
+      setRevenueTrendLoading(false);
+    }
+  }, []);
+
+  function handleRevenuePeriodChange(key: string) {
+    const period = key as RevenuePeriod;
+    setRevenuePeriod(period);
+    fetchRevenueTrend(period);
+  }
+
+  // Real period-over-period comparison: current window's total vs. the prior
+  // window of the same length, both computed server-side. Daily's initial
+  // paint (before any toggle click) still uses the dashboard payload's own
+  // last-7-vs-prior-7 split so there's no need to wait on a second request
+  // just to show a comparison badge.
   const revenueTrendPct = useMemo(() => {
+    if (priorPeriodRevenue != null) {
+      const current = revenueTrend.reduce((s, p) => s + p.revenue, 0);
+      if (priorPeriodRevenue === 0) return null;
+      return ((current - priorPeriodRevenue) / priorPeriodRevenue) * 100;
+    }
     if (revenueTrend.length < 14) return null;
     const lastWeek = revenueTrend.slice(-7).reduce((s, p) => s + p.revenue, 0);
     const prevWeek = revenueTrend.slice(-14, -7).reduce((s, p) => s + p.revenue, 0);
     if (prevWeek === 0) return null;
     return ((lastWeek - prevWeek) / prevWeek) * 100;
-  }, [revenueTrend]);
+  }, [revenueTrend, priorPeriodRevenue]);
+
+  const revenueTrendComparisonLabel = revenuePeriod === "daily" ? "vs prior week" : revenuePeriod === "weekly" ? "vs prior 12 weeks" : "vs prior 12 months";
 
   async function handleEnterFromPicker(salonId: string) {
     setPickerAction(null);
@@ -256,16 +312,22 @@ export default function BranchOwnerDashboardPage() {
             <div className="bod-chart-head">
               <div>
                 <h3 className="bod-chart-title">Revenue Overview</h3>
-                <p className="bod-chart-subtitle">Last 14 days, across every salon you manage</p>
+                <p className="bod-chart-subtitle">{REVENUE_PERIOD_SUBTITLE[revenuePeriod]}</p>
               </div>
               {revenueTrendPct != null && (
                 <span className={`bod-chart-trend ${revenueTrendPct >= 0 ? "bod-chart-trend--up" : "bod-chart-trend--down"}`}>
                   {revenueTrendPct >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                  {Math.abs(revenueTrendPct).toFixed(0)}% vs prior week
+                  {Math.abs(revenueTrendPct).toFixed(0)}% {revenueTrendComparisonLabel}
                 </span>
               )}
             </div>
-            {loading.stats ? <Shimmer h={180} /> : revenueTrend.length === 0 ? (
+            <Tabs
+              tabs={REVENUE_PERIOD_TABS}
+              activeKey={revenuePeriod}
+              onChange={handleRevenuePeriodChange}
+              className="bod-chart-period-tabs"
+            />
+            {loading.stats || revenueTrendLoading ? <Shimmer h={180} /> : revenueTrend.length === 0 ? (
               <div className="bod-empty">No revenue recorded in this window yet.</div>
             ) : (
               <RevenueTrendChart points={revenueTrend} />

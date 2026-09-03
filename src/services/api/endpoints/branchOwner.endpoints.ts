@@ -1,5 +1,6 @@
 export const BRANCH_OWNER = {
   DASHBOARD:   "/api/v1/branch-owner/dashboard",
+  DASHBOARD_REVENUE_TREND: (period: "daily" | "weekly" | "monthly") => `/api/v1/branch-owner/dashboard/revenue-trend?period=${period}`,
   SALONS:      "/api/v1/branch-owner/salons",
   SALONS_LIST: "/api/v1/branch-owner/salons/list",
   SALON_ENTER: (id: string) => `/api/v1/branch-owner/salons/${id}/enter`,
