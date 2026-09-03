@@ -6,7 +6,7 @@ import {
   PieChartFill, Bag, Scissors, BarChartLine, Receipt, Award, Wallet2,
   PersonCircle, PersonCheck, PeopleFill, PersonLinesFill, Droplet, Whatsapp, FileEarmarkBarGraph,
   CashCoin, PersonCheckFill, Truck, ChatDots, PersonDash, ArrowRepeat, ArrowLeftRight,
-  Gift, HourglassSplit, LightningChargeFill,
+  Gift, HourglassSplit, LightningChargeFill, PersonPlusFill, CalendarX,
 } from "react-bootstrap-icons";
 import "../styles/ReportsPage.scss";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
@@ -54,6 +54,10 @@ import WaCampaignReport from "../reports/WaCampaignReport";
 import OpenRateReport from "../reports/OpenRateReport";
 import ReplyRateReport from "../reports/ReplyRateReport";
 import BirthdayCampaignReport from "../reports/BirthdayCampaignReport";
+import NewClientFollowUpReport from "../reports/NewClientFollowUpReport";
+import CancellationRecoveryReport from "../reports/CancellationRecoveryReport";
+import MembershipOpportunityReport from "../reports/MembershipOpportunityReport";
+import NoShowRecoveryReport from "../reports/NoShowRecoveryReport";
 import { SlowMovingProductsReport, FastMovingProductsReport } from "../reports/ProductMovementReport";
 import ProductMarginReport from "../reports/ProductMarginReport";
 import SupplierReport from "../reports/SupplierReport";
@@ -92,9 +96,11 @@ const REPORTS: ReportDef[] = [
   { id: "sales_summary",          slug: "sales-summary",          name: "Sales Summary",                               description: "View every bill raised for a period — totals, payments, balances and status.",                     category: "sales",        icon: PieChartFill,   Component: SalesSummaryReport },
   { id: "daily_sheet",            slug: "daily-sheet",            name: "Daily Sheet",                                 description: "A single day's transactions — tickets, services, staff and collections.",                           category: "sales",        icon: BarChartLine,   Component: DailySheetReport },
   { id: "product_sale",           slug: "product-retail",         name: "Product Retail",                              description: "Products sold directly to clients — quantity, price and the staff/client attached to the sale.", category: "sales",        icon: Bag,            Component: ProductSaleReport },
+  { id: "product_sale_inventory", slug: "product-retail",         name: "Product Retail",                              description: "Products sold directly to clients — quantity, price and the staff/client attached to the sale.", category: "inventory",   icon: Bag,            Component: ProductSaleReport },
   { id: "service_sale",           slug: "service-sale",           name: "Service Sale",                                description: "Every service sold, with count, revenue and average ticket per service.",                          category: "sales",        icon: Scissors,       Component: ServiceSaleReport },
   { id: "taxes",                  slug: "gst-report",             name: "GST Report",                                  description: "Tax collected per invoice, broken down by whatever taxes are configured in Tax Mapping.",       category: "sales",        icon: Receipt,        Component: TaxesReport },
   { id: "product_margin",         slug: "product-margin",         name: "Product Margin",                              description: "Profit margin per product — sale price against cost price.",                                       category: "sales",        icon: GraphUpArrow,   Component: ProductMarginReport },
+  { id: "product_margin_inventory", slug: "product-margin",       name: "Product Margin",                              description: "Profit margin per product — sale price against cost price.",                                       category: "inventory",   icon: GraphUpArrow,   Component: ProductMarginReport },
   { id: "reward",                 slug: "reward",                 name: "Reward",                                      description: "Reward points available and redeemed to date, per client.",                                        category: "sales",        icon: Award,          Component: RewardReport },
   { id: "ewallet",                slug: "ewallet",                name: "Ewallet",                                     description: "Client e-wallet top-ups, deductions and running balance.",                                         category: "sales",        icon: Wallet2,        Component: EwalletReport },
   { id: "payment_collection",     slug: "payment-collection",     name: "Payment Collection Report",                   description: "Outstanding balances per bill — amount billed, collected and still due, with pending totals and the oldest unpaid date.", category: "payments",     icon: CashCoin,       Component: PaymentCollectionReport },
@@ -118,6 +124,7 @@ const REPORTS: ReportDef[] = [
   { id: "rebooking_rate",         slug: "rebooking-rate",         name: "Rebooking Rate Report",                       description: "How effectively each staff member retains clients — share of served visits where the client came back within your chosen window.", category: "staff", icon: ArrowRepeat, Component: RebookingRateReport },
   { id: "appointment_detail",     slug: "appointment-detail",     name: "Detailed Appointment Reports",                description: "Every appointment for a period, with status, staff, service and payment detail.",                 category: "appointments", icon: CalendarCheck,  Component: AppointmentDetailReport },
   { id: "upcoming_appointments",  slug: "upcoming-appointments",  name: "Upcoming Appointments Report",                description: "Future appointments still booked — date, time, client, service and staff.",                       category: "appointments", icon: ClockHistory,   Component: UpcomingAppointmentsReport },
+  { id: "no_show_recovery",       slug: "no-show-recovery",       name: "No-Show Recovery",                            description: "Clients who booked but didn't show up — select rows and send a WhatsApp recovery template directly.", category: "appointments", icon: CalendarX, Component: NoShowRecoveryReport },
   { id: "product_inventory",      slug: "product-inventory",      name: "Product Inventory",                           description: "Current on-hand stock, reorder levels and stock value by product.",                                category: "inventory",    icon: BoxSeam,        Component: ProductInventoryReport },
   { id: "slow_moving_products",   slug: "slow-moving-products",   name: "Slow Moving Products Report",                 description: "Products that stay in stock the longest with the fewest or no sales, to help optimize inventory.", category: "inventory",    icon: HourglassSplit, Component: SlowMovingProductsReport },
   { id: "fast_moving_products",   slug: "fast-moving-products",   name: "Fast Moving Products Report",                 description: "Products with the highest sales volume in a selected period, to guide stock levels and purchase planning.", category: "inventory", icon: LightningChargeFill, Component: FastMovingProductsReport },
@@ -135,6 +142,9 @@ const REPORTS: ReportDef[] = [
   { id: "open_rate",              slug: "open-rate",              name: "Open Rate Report",                            description: "How many delivered campaign messages were actually opened — engagement per campaign, with recipient-level detail.", category: "marketing", icon: FileEarmarkBarGraph, Component: OpenRateReport },
   { id: "reply_rate",             slug: "reply-rate",             name: "Reply Rate Report",                           description: "How many recipients wrote back within 24 hours of a campaign reaching them, per campaign and per customer.", category: "marketing", icon: ChatDots,       Component: ReplyRateReport },
   { id: "birthday_campaign",      slug: "birthday-campaign",      name: "Birthday Campaign Performance Report",        description: "Delivery, read and failure rates for automated birthday WhatsApp wishes, one row per client send.", category: "marketing", icon: Gift, Component: BirthdayCampaignReport },
+  { id: "new_client_follow_up",   slug: "new-client-follow-up",   name: "New Client Follow-Up",                        description: "New clients from a chosen window who haven't had a completed visit yet — select rows and send a WhatsApp follow-up template directly.", category: "marketing", icon: PersonPlusFill, Component: NewClientFollowUpReport },
+  { id: "cancellation_recovery",  slug: "cancellation-recovery",  name: "Cancellation Recovery",                       description: "Clients whose most recent appointment was cancelled and never rebooked — select rows and send a WhatsApp recovery template directly.", category: "marketing", icon: ArrowRepeat, Component: CancellationRecoveryReport },
+  { id: "membership_opportunity", slug: "membership-opportunity", name: "Membership Opportunity",                      description: "Frequent visitors with no active membership yet — select rows and promote membership directly via WhatsApp.", category: "marketing", icon: PersonBadge, Component: MembershipOpportunityReport },
 ];
 
 const DEFAULT_FAVORITES = ["sales_summary", "staff_sales", "appointment_detail", "client_revenue", "daily_sheet"];

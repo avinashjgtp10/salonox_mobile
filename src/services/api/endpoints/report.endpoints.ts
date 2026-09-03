@@ -113,6 +113,32 @@ export const CUSTOMER_FREQUENCY_REPORT = {
   SUMMARY: () => `/api/report/customer-frequency`,
 } as const;
 
+// Independent New Client Follow-Up reporting API — clients who joined within
+// the trailing window and have no completed appointment yet. Mounted at
+// /api/report.
+export const NEW_CLIENT_FOLLOW_UP_REPORT = {
+  SUMMARY: () => `/api/report/new-client-follow-up`,
+} as const;
+
+// Independent Cancellation Recovery reporting API — clients whose most
+// recent appointment was cancelled within the trailing window, with no
+// rebooking since. Mounted at /api/report.
+export const CANCELLATION_RECOVERY_REPORT = {
+  SUMMARY: () => `/api/report/cancellation-recovery`,
+} as const;
+
+// Independent Membership Opportunity reporting API — frequent visitors with
+// no currently active membership. Mounted at /api/report.
+export const MEMBERSHIP_OPPORTUNITY_REPORT = {
+  SUMMARY: () => `/api/report/membership-opportunity`,
+} as const;
+
+// Independent No-Show Recovery reporting API — no-show appointments within
+// the filtered window. Mounted at /api/report.
+export const NO_SHOW_RECOVERY_REPORT = {
+  SUMMARY: () => `/api/report/no-show-recovery`,
+} as const;
+
 // Independent Lost Customers reporting API — standalone report, separate
 // from Customer Frequency's fixed 90-day "lost" bucket; reads clients/sales
 // directly, never through the Appointment API. Mounted at /api/report.
