@@ -1,8 +1,8 @@
 import React, { useState, useMemo } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Country, State, City } from "country-state-city";
-import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { createSupplierThunk, updateSupplierThunk, fetchSuppliersThunk } from "../../../middleware/inventory/inventory.thunk";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { createSupplierThunk, updateSupplierThunk, fetchSupplierByIdThunk } from "../../../middleware/inventory/inventory.thunk";
 import { SUPPLIER_MESSAGES } from "../../../constants/messages";
 import Dropdown from "../../../components/ui/Dropdown";
 import { toTitleCase } from "../../../utils/titleCase";
@@ -47,7 +47,6 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
   const effectiveId = supplierId ?? id;
   const isEdit = !!effectiveId;
   const dispatch = useAppDispatch();
-  const { suppliers } = useAppSelector((state) => state.inventory);
 
   // Supplier details
   const [name, setName] = useState("");
@@ -153,42 +152,42 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
     setPostalCity("");
   };
 
+  // Fetches the specific supplier being edited directly by id, rather than
+  // depending on it already being loaded — the Suppliers list is now
+  // server-paginated (fetchSuppliersThunk only ever holds one page), so the
+  // supplier being edited is no longer guaranteed to be in the store just
+  // because the list happened to load first.
   React.useEffect(() => {
-    if (suppliers.length === 0) {
-      dispatch(fetchSuppliersThunk());
-    }
-  }, [dispatch, suppliers.length]);
-
-  React.useEffect(() => {
-    if (isEdit && suppliers.length > 0) {
-      const s = suppliers.find((sup) => String(sup.id) === String(effectiveId));
-      if (s) {
-        setName(s.name);
-        setDescription(s.description || "");
-        setFirstName(s.first_name || "");
-        setLastName(s.last_name || "");
-        setMobileDialCode(s.mobile_country_code || INDIA.dial);
-        setMobileNumber(s.mobile_number || "");
-        setEmail(s.email || "");
-        setWebsite(s.website || "");
-        setPhysStreet(s.street || "");
-        setPhysSuburb(s.suburb || "");
-        setPhysCountry(s.country || "India");
-        setPhysState(s.state || "");
-        setPhysCity(s.city || "");
-        setPhysZip(s.zip_code || "");
-        setSameAsPostal(s.same_as_physical);
-        if (!s.same_as_physical) {
-          setPostalStreet(s.postal_street || "");
-          setPostalSuburb(s.postal_suburb || "");
-          setPostalCountry(s.postal_country || "India");
-          setPostalState(s.postal_state || "");
-          setPostalCity(s.postal_city || "");
-          setPostalZip(s.postal_zip_code || "");
-        }
+    if (!isEdit || !effectiveId) return;
+    let cancelled = false;
+    dispatch(fetchSupplierByIdThunk(effectiveId)).unwrap().then((s) => {
+      if (cancelled) return;
+      setName(s.name);
+      setDescription(s.description || "");
+      setFirstName(s.first_name || "");
+      setLastName(s.last_name || "");
+      setMobileDialCode(s.mobile_country_code || INDIA.dial);
+      setMobileNumber(s.mobile_number || "");
+      setEmail(s.email || "");
+      setWebsite(s.website || "");
+      setPhysStreet(s.street || "");
+      setPhysSuburb(s.suburb || "");
+      setPhysCountry(s.country || "India");
+      setPhysState(s.state || "");
+      setPhysCity(s.city || "");
+      setPhysZip(s.zip_code || "");
+      setSameAsPostal(s.same_as_physical);
+      if (!s.same_as_physical) {
+        setPostalStreet(s.postal_street || "");
+        setPostalSuburb(s.postal_suburb || "");
+        setPostalCountry(s.postal_country || "India");
+        setPostalState(s.postal_state || "");
+        setPostalCity(s.postal_city || "");
+        setPostalZip(s.postal_zip_code || "");
       }
-    }
-  }, [isEdit, effectiveId, suppliers]);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [isEdit, effectiveId, dispatch]);
 
   const handleSave = async () => {
     setEmailTouched(true);
@@ -233,7 +232,13 @@ const AddSupplierPage: React.FC<AddSupplierPageProps> = ({
       if (onClose) {
         onClose();
       } else {
-        navigate(-1);
+        // Explicit path + refresh flag (not navigate(-1)) — Add/Edit are only
+        // ever entered from the Suppliers list, so this always lands back
+        // there, and the flag is what tells SuppliersListPage's mount effect
+        // to actually re-fetch (a plain Close navigates with no state at
+        // all, and reuses what's already loaded instead of calling the API
+        // again — see the effect in SuppliersListPage.tsx).
+        navigate("/dashboard/inventory/suppliers", { state: { refresh: true } });
       }
     } catch (err) {
       console.error("Failed to save supplier:", err);

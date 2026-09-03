@@ -47,12 +47,13 @@
     &:hover { color: #4b5563; }
   }
 
+  // Portaled to document.body and positioned inline (position:fixed,
+  // top/left/width) from the input's own getBoundingClientRect() — see
+  // ProductSearchSelect.tsx. Not nested under .pss in the DOM once
+  // portaled, but this compiles to a plain `.pss__drop` class selector
+  // either way, so it still matches.
   &__drop {
-    position: absolute;
-    top: calc(100% + 4px);
-    left: 0;
-    right: 0;
-    z-index: 40;
+    z-index: 2000;
     max-height: 240px;
     overflow-y: auto;
     background: #fff;

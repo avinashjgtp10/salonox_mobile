@@ -1,6 +1,8 @@
 export const INVENTORY = {
   BASE: "/api/v1/inventory",
   SUPPLIERS: "/api/v1/inventory/suppliers",
+  SUPPLIERS_LIST: "/api/v1/inventory/suppliers/list",
+  SUPPLIER_LOCATIONS: "/api/v1/inventory/suppliers/locations",
   SUPPLIER_BY_ID: (id: string) => `/api/v1/inventory/suppliers/${id}`,
   SUPPLIER_PAYMENTS: (id: string) => `/api/v1/inventory/suppliers/${id}/payments`,
 

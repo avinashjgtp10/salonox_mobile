@@ -1,7 +1,6 @@
 // ── "+ Add Supplier" popup ──────────────────────────────────────────────────
-// Centered modal, not the right-edge slide-over Suppliers List/Detail use for
-// their own Add/Edit Supplier (.supplier-panel-overlay/.supplier-panel in
-// SuppliersListPage.scss) — deliberately a different treatment here.
+// Centered modal — deliberately a different treatment than the Suppliers
+// list's own Add/Edit flow (a full route, not a slide-over).
 .supplier-modal-overlay {
   position: fixed;
   inset: 0;

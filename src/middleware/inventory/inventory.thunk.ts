@@ -1,6 +1,7 @@
 import { createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../services/api/axios";
 import { INVENTORY } from "../../services/api/endpoints/inventory.endpoints";
+import type { RootState } from "../../store/store";
 import type {
   InventoryResponse,
   Supplier,
@@ -28,18 +29,89 @@ import type {
   UpdateAuditItemPayload,
 } from "../../types/inventory.types";
 
-// ─── Fetch all suppliers ──────────────────────────────────────────────────────
+// ─── Fetch suppliers (paginated) ───────────────────────────────────────────────
+export interface FetchSuppliersParams {
+  page?: number;
+  page_limit?: number;
+  search?: string;
+  city?: string;
+  state?: string;
+}
+
+export interface FetchSuppliersResult {
+  data: SupplierWithBalance[];
+  total: number;
+  page: number;
+  page_limit: number;
+}
+
+// POST, not GET — real server-side pagination (COUNT + LIMIT/OFFSET) so the
+// list page stops loading every supplier at once and paginating client-side.
+// salon_id is sent in the body to match the documented request shape, but
+// the backend derives the real scoping salon from the auth token regardless
+// (see inventory.controller.ts's listPost) — this is never what actually
+// secures the query.
 export const fetchSuppliersThunk = createAsyncThunk<
-  SupplierWithBalance[],
-  void,
-  { rejectValue: string }
->("inventory/fetchSuppliers", async (_, { rejectWithValue }) => {
+  FetchSuppliersResult,
+  FetchSuppliersParams | void,
+  { state: RootState; rejectValue: string }
+>("inventory/fetchSuppliers", async (params, { getState, rejectWithValue }) => {
   try {
-    const res = await api.get<InventoryResponse<SupplierWithBalance[]>>(INVENTORY.SUPPLIERS);
-    return res.data.data;
+    const salonId = getState().salon?.currentSalon?.id;
+    const page = params?.page ?? 1;
+    const page_limit = params?.page_limit ?? 10;
+    const res = await api.post<InventoryResponse<{ data: SupplierWithBalance[]; total: number }>>(
+      INVENTORY.SUPPLIERS_LIST,
+      {
+        salon_id: salonId,
+        page,
+        page_limit,
+        search: params?.search || undefined,
+        city: params?.city || undefined,
+        state: params?.state || undefined,
+      },
+    );
+    return { data: res.data.data.data, total: res.data.data.total, page, page_limit };
   } catch (err: any) {
     console.error("fetchSuppliersThunk error:", err);
     return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch suppliers");
+  }
+});
+
+// ─── Fetch one supplier by id ───────────────────────────────────────────────────
+// Used by AddSupplierPage's edit-mode prefill and SupplierDetailPage — with
+// the list now paginated (fetchSuppliersThunk only ever loads one page), a
+// specific supplier is no longer guaranteed to already be sitting in the
+// store the way it was when the list loaded everything at once.
+// GET /suppliers/:id already returns the same balance fields (status,
+// due_amount, etc.) as the list endpoint — see suppliersService.getById.
+export const fetchSupplierByIdThunk = createAsyncThunk<
+  SupplierWithBalance,
+  string,
+  { rejectValue: string }
+>("inventory/fetchSupplierById", async (id, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<SupplierWithBalance>>(INVENTORY.SUPPLIER_BY_ID(id));
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch supplier");
+  }
+});
+
+// ─── Supplier filter options (City/State dropdown) ─────────────────────────────
+// Distinct across every supplier, independent of whichever page is loaded —
+// see inventory.repository.ts's listDistinctLocations for why this can't
+// just be derived from the currently-loaded page anymore.
+export const fetchSupplierLocationsThunk = createAsyncThunk<
+  { cities: string[]; states: string[] },
+  void,
+  { rejectValue: string }
+>("inventory/fetchSupplierLocations", async (_, { rejectWithValue }) => {
+  try {
+    const res = await api.get<InventoryResponse<{ cities: string[]; states: string[] }>>(INVENTORY.SUPPLIER_LOCATIONS);
+    return res.data.data;
+  } catch (err: any) {
+    return rejectWithValue(err?.response?.data?.error?.message || "Failed to fetch supplier locations");
   }
 });
 

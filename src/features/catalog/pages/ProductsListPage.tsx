@@ -148,7 +148,9 @@ const ProductsListPage: React.FC = () => {
     setSelectedProducts([]);
     fetchBrands();
     fetchCategories();
-    dispatch(fetchSuppliersThunk());
+    // page_limit:100 — used here to build a full id->name lookup map for
+    // display (supplierMap below), not the paginated Suppliers list page.
+    dispatch(fetchSuppliersThunk({ page_limit: 100 }));
     const t = setTimeout(() => { isMountedRef.current = true; }, 0);
     return () => clearTimeout(t);
   }, []);
