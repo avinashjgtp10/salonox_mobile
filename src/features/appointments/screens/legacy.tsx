@@ -1284,14 +1284,60 @@ const isMeaningfulStaffDetail = (value?: string | null) => {
 // can tell them apart. Prefers a human-meaningful field, falling back to a
 // short id so the label is always unique.
 const getStaffDisambiguator = (staffMember: StaffMember | undefined) => {
+  const phoneDigits = staffMember?.phone?.replace(/\D/g, "") ?? "";
   const candidates = [
     staffMember?.designation,
-    staffMember?.role,
     staffMember?.employeeCode,
     staffMember?.email?.split("@")[0],
+    phoneDigits.length >= 4 ? phoneDigits.slice(-4) : null,
+    staffMember?.role,
   ];
 
   return candidates.find(isMeaningfulStaffDetail)?.trim();
+};
+
+const normalizeCalendarStaffName = (name?: string | null) =>
+  (name ?? "").trim().toLocaleLowerCase();
+
+/** Maps every API alias for a staff record back to its single canonical id. */
+const buildCanonicalStaffIdByAlias = (
+  staffMembers: StaffMember[],
+  appointments: AppointmentListItem[],
+) => {
+  const canonicalIdByAlias = new Map<string, string>();
+  const staffIdsByName = new Map<string, string[]>();
+
+  staffMembers.forEach((staffMember) => {
+    if (!staffMember.id) return;
+
+    canonicalIdByAlias.set(staffMember.id, staffMember.id);
+    staffMember.staffIdAliases?.forEach((alias) => {
+      if (alias) canonicalIdByAlias.set(alias, staffMember.id);
+    });
+
+    const normalizedName = normalizeCalendarStaffName(staffMember.name);
+    if (normalizedName) {
+      staffIdsByName.set(normalizedName, [
+        ...(staffIdsByName.get(normalizedName) ?? []),
+        staffMember.id,
+      ]);
+    }
+  });
+
+  // Some appointment responses use a different staff identifier than the
+  // staff-list endpoint. A unique name match safely links that identifier to
+  // the existing record instead of creating a duplicate Calendar column.
+  appointments.forEach((appointment) => {
+    if (!appointment.staffId || canonicalIdByAlias.has(appointment.staffId)) return;
+
+    const matchingIds = staffIdsByName.get(normalizeCalendarStaffName(appointment.staffName)) ?? [];
+    const uniqueMatchingIds = [...new Set(matchingIds)];
+    if (uniqueMatchingIds.length === 1) {
+      canonicalIdByAlias.set(appointment.staffId, uniqueMatchingIds[0]);
+    }
+  });
+
+  return canonicalIdByAlias;
 };
 
 /**
@@ -1303,6 +1349,7 @@ const getStaffDisambiguator = (staffMember: StaffMember | undefined) => {
 const buildCalendarStaffOptions = (
   staffMembers: StaffMember[],
   appointments: AppointmentListItem[],
+  canonicalIdByAlias: Map<string, string>,
 ): CalendarStaffOption[] => {
   const byId = new Map<string, { id: string; name: string; staffMember?: StaffMember }>();
 
@@ -1315,15 +1362,21 @@ const buildCalendarStaffOptions = (
     const name = appointment.staffName?.trim() ?? "";
 
     if (appointment.staffId) {
-      if (!byId.has(appointment.staffId)) {
-        byId.set(appointment.staffId, { id: appointment.staffId, name });
+      const canonicalId = canonicalIdByAlias.get(appointment.staffId) ?? appointment.staffId;
+      if (!byId.has(canonicalId)) {
+        byId.set(canonicalId, { id: canonicalId, name });
       }
       return;
     }
 
     if (!name) return;
 
-    const syntheticId = `${SYNTHETIC_STAFF_ID_PREFIX}${name}`;
+    const hasExistingName = [...byId.values()].some(
+      (option) => normalizeCalendarStaffName(option.name) === normalizeCalendarStaffName(name),
+    );
+    if (hasExistingName) return;
+
+    const syntheticId = `${SYNTHETIC_STAFF_ID_PREFIX}${normalizeCalendarStaffName(name)}`;
 
     if (!byId.has(syntheticId)) {
       byId.set(syntheticId, { id: syntheticId, name });
@@ -1373,12 +1426,19 @@ const buildCalendarStaffOptions = (
 
 /** name → the id that owns it, for appointments that carry no staff id. */
 const buildFallbackStaffIdByName = (options: CalendarStaffOption[]) => {
-  const byName = new Map<string, string>();
+  const idsByName = new Map<string, string[]>();
 
   options.forEach((option) => {
-    if (option.name && option.id.startsWith(SYNTHETIC_STAFF_ID_PREFIX)) {
-      byName.set(option.name, option.id);
-    }
+    const normalizedName = normalizeCalendarStaffName(option.name);
+    if (!normalizedName) return;
+    idsByName.set(normalizedName, [...(idsByName.get(normalizedName) ?? []), option.id]);
+  });
+
+  const byName = new Map<string, string>();
+  idsByName.forEach((ids, name) => {
+    const uniqueIds = [...new Set(ids)].sort();
+    const syntheticId = uniqueIds.find((id) => id.startsWith(SYNTHETIC_STAFF_ID_PREFIX));
+    byName.set(name, syntheticId ?? uniqueIds[0]);
   });
 
   return byName;
@@ -1392,9 +1452,11 @@ const buildFallbackStaffIdByName = (options: CalendarStaffOption[]) => {
 const resolveAppointmentStaffId = (
   appointment: AppointmentListItem,
   fallbackStaffIdByName: Map<string, string>,
+  canonicalIdByAlias: Map<string, string>,
 ) =>
+  canonicalIdByAlias.get(appointment.staffId) ||
   appointment.staffId ||
-  fallbackStaffIdByName.get(appointment.staffName?.trim() ?? "") ||
+  fallbackStaffIdByName.get(normalizeCalendarStaffName(appointment.staffName)) ||
   "";
 
 /**
@@ -4365,17 +4427,25 @@ export function AppointmentCalendarScreen() {
   const [viewMode, setViewMode] = useState<"week" | "day" | "list">("day");
   const [viewMenuVisible, setViewMenuVisible] = useState(false);
   const [staffFilterVisible, setStaffFilterVisible] = useState(false);
-  const staffOptions = useMemo(
-    () => buildCalendarStaffOptions(staffMembers, appointments),
+  const canonicalStaffIdByAlias = useMemo(
+    () => buildCanonicalStaffIdByAlias(staffMembers, appointments),
     [appointments, staffMembers],
+  );
+  const staffOptions = useMemo(
+    () => buildCalendarStaffOptions(staffMembers, appointments, canonicalStaffIdByAlias),
+    [appointments, canonicalStaffIdByAlias, staffMembers],
   );
   const fallbackStaffIdByName = useMemo(
     () => buildFallbackStaffIdByName(staffOptions),
     [staffOptions],
   );
   const resolveStaffId = useCallback(
-    (appointment: AppointmentListItem) => resolveAppointmentStaffId(appointment, fallbackStaffIdByName),
-    [fallbackStaffIdByName],
+    (appointment: AppointmentListItem) => resolveAppointmentStaffId(
+      appointment,
+      fallbackStaffIdByName,
+      canonicalStaffIdByAlias,
+    ),
+    [canonicalStaffIdByAlias, fallbackStaffIdByName],
   );
   const visibleAppointments = useMemo(
     () => appointments.filter((item) => {

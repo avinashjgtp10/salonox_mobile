@@ -12,11 +12,20 @@ type StaffPickerSheetProps = {
   onSelect: (staffId: string, staffName: string) => void;
   renderInline?: boolean;
   selectedStaffId: string | null;
+  stacked?: boolean;
   staff: PosStaffMember[];
   visible: boolean;
 };
 
-export function StaffPickerSheet({ onClose, onSelect, renderInline = false, selectedStaffId, staff, visible }: StaffPickerSheetProps) {
+export function StaffPickerSheet({
+  onClose,
+  onSelect,
+  renderInline = false,
+  selectedStaffId,
+  stacked = false,
+  staff,
+  visible,
+}: StaffPickerSheetProps) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const { height } = useWindowDimensions();
@@ -27,6 +36,7 @@ export function StaffPickerSheet({ onClose, onSelect, renderInline = false, sele
       onClose={onClose}
       renderInline={renderInline}
       scrollable={false}
+      stacked={stacked}
       subtitle="Who performed this item?"
       title="Assign Staff"
       visible={visible}
