@@ -111,8 +111,11 @@ const NewOrderPage: React.FC = () => {
   // ── 2. Order details ─────────────────────────────────────────────────────
   // PO number is a client-side placeholder until save — the real
   // order_number (ORD-00001 etc) is generated server-side and only known
-  // once createOrderThunk resolves (see ordersRepository.create).
-  const [poNumberPreview] = useState(() => `PO-${Math.floor(100000 + Math.random() * 900000)}`);
+  // once createOrderThunk resolves (see ordersRepository.create). A fixed
+  // "PO-0001" reads as a format sample (it's locked + badged "Auto
+  // Generated" right next to it), where a random 6-digit number read as a
+  // broken/uninitialized value instead.
+  const poNumberPreview = "PO-0001";
   const [orderDate, setOrderDate] = useState(todayISO());
   const [deliveryDate, setDeliveryDate] = useState("");
   const [paymentTermsDays, setPaymentTermsDays] = useState("");
