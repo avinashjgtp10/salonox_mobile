@@ -89,6 +89,16 @@
     min-width: 0;
     position: relative;
   }
+
+  // Expiry Date's DatePicker (see PurchaseModal.tsx) defaults to a 36px-tall
+  // trigger — taller than the compact .pm-input--sm number inputs beside it
+  // in this same row. Scoped here rather than in DatePicker.scss itself,
+  // since every other consumer of the shared component wants its normal size.
+  &__row .dp-trigger {
+    height: 30px;
+    padding: 0 8px;
+    font-size: 12.5px;
+  }
 }
 
 .pm-selected-product {

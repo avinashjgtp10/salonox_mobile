@@ -75,21 +75,6 @@
   &, & *, & *::before, & *::after {
     box-sizing: border-box;
   }
-
-  // Only when rendered inside DatePicker's own trigger wrapper.
-  &--anchored {
-    position: absolute;
-    top: calc(100% + 6px);
-    left: 0;
-    z-index: 40;
-  }
-
-  // Flipped to the trigger's right edge when a left-anchored panel would run
-  // off the right side of the viewport (see DatePicker.tsx's alignRight check).
-  &--anchored-right {
-    left: auto;
-    right: 0;
-  }
 }
 
 // ── Month / year dropdowns ──────────────────────────────────────────────────

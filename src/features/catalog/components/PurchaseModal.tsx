@@ -9,6 +9,7 @@ import { useCurrency } from "../../../hooks/useCurrency";
 import Modal from "../../../components/ui/Modal";
 import Button from "../../../components/ui/Button";
 import Dropdown from "../../../components/ui/Dropdown";
+import { DatePicker } from "../../../components/ui";
 import QuickAdd from "./form/QuickAdd";
 import ProductSearchSelect, { type ProductSearchResult } from "./ProductSearchSelect";
 import "../styles/PurchaseModal.scss";
@@ -153,12 +154,7 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
 
       <div className="pm-field">
         <label className="pm-label">Purchase Date <span className="pm-req">*</span></label>
-        <input
-          type="date"
-          className="pm-input"
-          value={purchaseDate}
-          onChange={(e) => setPurchaseDate(e.target.value)}
-        />
+        <DatePicker value={purchaseDate} onChange={setPurchaseDate} separator="-" className="dp--block" />
       </div>
 
       <div className="pm-field">
@@ -215,11 +211,11 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
                   onChange={(e) => patchLine(line.key, { purchasePrice: e.target.value })}
                   onWheel={(e) => e.currentTarget.blur()}
                 />
-                <input
-                  className="pm-input pm-input--sm"
-                  type="date"
+                <DatePicker
+                  className="dp--block"
                   value={line.expiryDate}
-                  onChange={(e) => patchLine(line.key, { expiryDate: e.target.value })}
+                  onChange={(v) => patchLine(line.key, { expiryDate: v })}
+                  separator="-"
                 />
                 <span className="pm-line-total">{formatAmount(lineTotal)}</span>
                 <button
