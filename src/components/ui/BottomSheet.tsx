@@ -33,6 +33,7 @@ type BottomSheetProps = {
   onClose: () => void;
   renderInline?: boolean;
   scrollable?: boolean;
+  stacked?: boolean;
   subtitle?: string;
   title: string;
   visible: boolean;
@@ -52,6 +53,7 @@ export function BottomSheet({
   onClose,
   renderInline = false,
   scrollable = true,
+  stacked = false,
   subtitle,
   title,
   visible,
@@ -120,7 +122,15 @@ export function BottomSheet({
   }
 
   const overlay = (
-      <Animated.View pointerEvents="auto" style={[styles.overlay, renderInline && styles.overlayInline, backdropStyle]}>
+      <Animated.View
+        pointerEvents="auto"
+        style={[
+          styles.overlay,
+          renderInline && styles.overlayInline,
+          renderInline && stacked && styles.overlayInlineStacked,
+          backdropStyle,
+        ]}
+      >
         <Pressable onPress={onClose} style={StyleSheet.absoluteFill} />
           <KeyboardAvoidingView
             behavior={Platform.OS === "ios" ? "padding" : undefined}
@@ -175,6 +185,10 @@ const createStyles = (Colors: ThemeColors, bottomInset: number) => StyleSheet.cr
   overlayInline: {
     ...StyleSheet.absoluteFillObject,
     zIndex: 100,
+  },
+  overlayInlineStacked: {
+    elevation: 60,
+    zIndex: 1200,
   },
   keyboardAvoiding: {
     flex: 1,

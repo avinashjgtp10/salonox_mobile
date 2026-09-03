@@ -15,6 +15,7 @@ import {
   updateBlockThunk,
   unblockClientThunk,
   fetchClientHistoryThunk,
+  fetchClientNotesThunk,
   fetchClientsWithHistoryStatsThunk,
   type FetchClientsArgs,
 } from "@/middleware/client/client.thunk";
@@ -25,8 +26,14 @@ import type {
   ClientListPagination,
   ClientListQuery,
   ClientDuplicateGroup,
+  ClientAppointmentRecord,
+  ClientHistoryClient,
   ClientHistoryItem,
   ClientHistoryStats,
+  ClientMembershipRecord,
+  ClientNote,
+  ClientPackageRecord,
+  ClientSaleRecord,
 } from "@/types/client";
 
 type ClientState = {
@@ -61,9 +68,23 @@ type ClientState = {
   historyLoading: boolean;
   historyError: string | null;
   historyClientId: string | null;
+  // Everything below is the /clients/:id/history payload for the client named
+  // by historyClientId — the single source of truth for the Client Profile.
+  historyClient: ClientHistoryClient | null;
+  historyProfileStats: ClientHistoryStats | null;
+  historyAppointments: ClientAppointmentRecord[];
+  historySales: ClientSaleRecord[];
+  historyPackages: ClientPackageRecord[];
+  historyMemberships: ClientMembershipRecord[];
+  // Populated only by the /clients/with-history-stats list endpoint, which
+  // returns no per-client stats object — list screens only.
   historyStats: Record<string, ClientHistoryStats>;
   historyStatsLoading: boolean;
   historyStatsError: string | null;
+  // Notes have their own endpoint and are loaded lazily, keyed by client id.
+  notes: Record<string, ClientNote[]>;
+  notesLoading: boolean;
+  notesError: string | null;
 };
 
 const initialQuery: ClientListQuery = {
@@ -114,9 +135,18 @@ const initialState: ClientState = {
   historyLoading: false,
   historyError: null,
   historyClientId: null,
+  historyClient: null,
+  historyProfileStats: null,
+  historyAppointments: [],
+  historySales: [],
+  historyPackages: [],
+  historyMemberships: [],
   historyStats: {},
   historyStatsLoading: false,
   historyStatsError: null,
+  notes: {},
+  notesLoading: false,
+  notesError: null,
 };
 
 const isAppendRequest = (args?: FetchClientsArgs) =>
@@ -429,19 +459,51 @@ const clientSlice = createSlice({
         state.blockError = action.payload?.message ?? action.error.message ?? "Unable to unblock client.";
         state.blockingClientIds = state.blockingClientIds.filter(id => id !== action.meta.arg);
       })
-      .addCase(fetchClientHistoryThunk.pending, (state) => {
+      .addCase(fetchClientHistoryThunk.pending, (state, action) => {
         state.historyLoading = true;
         state.historyError = null;
+
+        // Opening a different client must not leave the previous client's
+        // numbers on screen while the new request is in flight.
+        if (state.historyClientId !== action.meta.arg) {
+          state.historyClientId = action.meta.arg;
+          state.history = null;
+          state.historyClient = null;
+          state.historyProfileStats = null;
+          state.historyAppointments = [];
+          state.historySales = [];
+          state.historyPackages = [];
+          state.historyMemberships = [];
+        }
       })
       .addCase(fetchClientHistoryThunk.fulfilled, (state, action) => {
         state.historyLoading = false;
         state.historyError = null;
-        state.history = action.payload;
+        state.history = action.payload.history;
+        state.historyClient = action.payload.client;
+        state.historyProfileStats = action.payload.stats;
+        state.historyAppointments = action.payload.appointments;
+        state.historySales = action.payload.sales;
+        state.historyPackages = action.payload.packages;
+        state.historyMemberships = action.payload.memberships;
         state.historyClientId = action.meta.arg;
       })
       .addCase(fetchClientHistoryThunk.rejected, (state, action) => {
         state.historyLoading = false;
         state.historyError = action.payload?.message ?? action.error.message ?? "Unable to load client history.";
+      })
+      .addCase(fetchClientNotesThunk.pending, (state) => {
+        state.notesLoading = true;
+        state.notesError = null;
+      })
+      .addCase(fetchClientNotesThunk.fulfilled, (state, action) => {
+        state.notesLoading = false;
+        state.notesError = null;
+        state.notes[action.payload.clientId] = action.payload.notes;
+      })
+      .addCase(fetchClientNotesThunk.rejected, (state, action) => {
+        state.notesLoading = false;
+        state.notesError = action.payload?.message ?? action.error.message ?? "Unable to load client notes.";
       })
       .addCase(fetchClientsWithHistoryStatsThunk.pending, (state, action) => {
         const appendRequest = isAppendRequest(action.meta.arg);
@@ -514,6 +576,16 @@ export const selectClientHistory = (state: RootState) => state.client.history;
 export const selectClientHistoryLoading = (state: RootState) => state.client.historyLoading;
 export const selectClientHistoryError = (state: RootState) => state.client.historyError;
 export const selectClientHistoryClientId = (state: RootState) => state.client.historyClientId;
+export const selectClientHistoryClient = (state: RootState) => state.client.historyClient;
+export const selectClientProfileStats = (state: RootState) => state.client.historyProfileStats;
+export const selectClientHistoryAppointments = (state: RootState) => state.client.historyAppointments;
+export const selectClientHistorySales = (state: RootState) => state.client.historySales;
+export const selectClientHistoryPackages = (state: RootState) => state.client.historyPackages;
+export const selectClientHistoryMemberships = (state: RootState) => state.client.historyMemberships;
+export const selectClientNotes = (clientId?: string) => (state: RootState) =>
+  (clientId ? state.client.notes[clientId] : undefined) ?? null;
+export const selectClientNotesLoading = (state: RootState) => state.client.notesLoading;
+export const selectClientNotesError = (state: RootState) => state.client.notesError;
 export const selectClientHistoryStats = (state: RootState) => state.client.historyStats;
 export const selectClientHistoryStatsLoading = (state: RootState) => state.client.historyStatsLoading;
 export const selectClientHistoryStatsError = (state: RootState) => state.client.historyStatsError;

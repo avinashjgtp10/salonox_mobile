@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useFocusEffect } from "expo-router";
+import { Redirect, useFocusEffect } from "expo-router";
 import { useCallback, useDeferredValue, useMemo, useState } from "react";
 import {
   ActivityIndicator,
@@ -19,6 +19,7 @@ import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context"
 import { AppBackButton, AppBackButtonPlaceholder } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
 import { SettlementModal } from "@/components/ui/SettlementModal";
+import { EmptyState, ErrorState, InlineLoader } from "@/components/ui/StateViews";
 import { AppLayout, AppRadius } from "@/constants/layout";
 import { useAppToast } from "@/hooks/useAppToast";
 import {
@@ -162,6 +163,15 @@ export default function SalonCommissionsScreen() {
     }
   };
 
+  const handleRetry = () => {
+    if (!hasSettlePermission) {
+      return;
+    }
+
+    void dispatch(fetchSalonCommissionSummaryThunk());
+    void dispatch(fetchSalonCommissionEarnedThunk());
+  };
+
   const handleSettle = (record: SalonCommissionRecord) => {
     setSettlementRecord(record);
     setIsSettlementModalOpen(true);
@@ -284,7 +294,7 @@ export default function SalonCommissionsScreen() {
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Staff</Text>
             <Text style={styles.summaryValue}>
-              {summaryLoading ? "-" : summary?.totalStaff ?? 0}
+              {listLoading && !listLoaded ? "-" : records.length}
             </Text>
           </View>
         </View>
@@ -324,15 +334,30 @@ export default function SalonCommissionsScreen() {
         })}
       </ScrollView>
 
-      {listError ? <Text style={styles.errorText}>{listError}</Text> : null}
       {listLoading && !listLoaded ? (
-        <ActivityIndicator color={Colors.primary} size="large" style={styles.listLoading} />
+        <InlineLoader label="Loading current-month commissions..." />
+      ) : null}
+      {!listLoading && listError ? (
+        <ErrorState message={listError} onRetry={handleRetry} />
       ) : null}
       {!listLoading && !listError && filteredRecords.length === 0 ? (
-        <Text style={styles.emptyText}>No commission records found.</Text>
+        <EmptyState
+          accent="indigo"
+          description={
+            records.length > 0
+              ? "No commission records match the selected search or status."
+              : "Commission records will appear here after eligible current-month checkouts."
+          }
+          icon="cash-outline"
+          title={records.length > 0 ? "No matching commissions" : "No commissions this month"}
+        />
       ) : null}
     </View>
   );
+
+  if (!hasSettlePermission) {
+    return <Redirect href="/more" />;
+  }
 
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>

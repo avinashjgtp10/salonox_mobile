@@ -21,7 +21,8 @@ import type {
   MergeAllDuplicatesResponse,
   BlockClientResponse,
   UnblockClientResponse,
-  ClientHistoryItem,
+  ClientHistoryResult,
+  ClientNote,
   ClientWithHistoryStats,
 } from "@/types/client";
 
@@ -369,13 +370,31 @@ export const unblockClientThunk = createAsyncThunk<
   }
 });
 
+// Single source of truth for the Client Profile — one request per profile
+// open, carrying the client summary, stats and every history record the
+// screen needs. The arg is always the route's client UUID.
 export const fetchClientHistoryThunk = createAsyncThunk<
-  ClientHistoryItem[],
+  ClientHistoryResult,
   string,
   { rejectValue: { message: string } }
 >("client/fetchClientHistory", async (clientId, { rejectWithValue }) => {
   try {
     return await clientService.getClientHistory(clientId);
+  } catch (error) {
+    const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
+    return rejectWithValue({ message });
+  }
+});
+
+// Lazy — dispatched the first time the Notes tab is opened, not on profile
+// load, since notes live outside the /history payload.
+export const fetchClientNotesThunk = createAsyncThunk<
+  { clientId: string; notes: ClientNote[] },
+  string,
+  { rejectValue: { message: string } }
+>("client/fetchClientNotes", async (clientId, { rejectWithValue }) => {
+  try {
+    return { clientId, notes: await clientService.getClientNotes(clientId) };
   } catch (error) {
     const message = error instanceof ApiError ? error.message : getApiErrorMessage(error);
     return rejectWithValue({ message });

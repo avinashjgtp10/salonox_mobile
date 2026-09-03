@@ -1471,6 +1471,7 @@ function CheckoutSheetComponent({
         }}
         renderInline={renderInline}
         selectedStaffId={activeStaffItem?.staffId ?? null}
+        stacked
         staff={staffOptions}
         visible={Boolean(staffPickerLineId)}
       />
@@ -1539,10 +1540,17 @@ function StaffAssignmentChip({
   if (staffName) {
     return (
       <View style={styles.staffChip}>
-        <View style={styles.staffChipBody}>
+        <TouchableOpacity
+          accessibilityHint="Opens the staff list"
+          accessibilityLabel={`Change assigned staff from ${staffName}`}
+          activeOpacity={0.82}
+          onPress={onPress}
+          style={styles.staffChipBody}
+        >
           <Ionicons name="person-outline" size={13} color={Colors.primaryDark} />
           <Text numberOfLines={1} style={styles.staffChipText}>{staffName}</Text>
-        </View>
+          <Ionicons name="chevron-down" size={12} color={Colors.text2} />
+        </TouchableOpacity>
       </View>
     );
   }
