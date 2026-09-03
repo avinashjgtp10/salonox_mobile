@@ -1,11 +1,11 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, BoxSeam, CashCoin, PencilSquare } from "react-bootstrap-icons";
+import { ArrowLeft, BoxSeam, CashCoin } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { INVENTORY } from "../../../services/api/endpoints/inventory.endpoints";
-import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchSuppliersThunk } from "../../../middleware/inventory/inventory.thunk";
-import type { SupplierOrderRow, SupplierPaymentStatus } from "../../../types/inventory.types";
+import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { fetchSupplierByIdThunk } from "../../../middleware/inventory/inventory.thunk";
+import type { SupplierOrderRow, SupplierPaymentStatus, SupplierWithBalance } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
 import { useStatusOverlay } from "../../../hooks/useStatusOverlay";
 import Button from "../../../components/ui/Button";
@@ -15,7 +15,6 @@ import Skeleton from "../../../components/ui/Skeleton";
 import EmptyState from "../../../components/ui/EmptyState";
 import CreatePayoutModal from "../components/CreatePayoutModal";
 import SupplierPaymentHistory from "../components/SupplierPaymentHistory";
-import AddSupplierPage from "./AddSupplierPage";
 import "../styles/PurchaseHistoryTable.scss";
 import "../styles/SuppliersListPage.scss";
 import "../styles/SupplierDetailPage.scss";
@@ -56,17 +55,20 @@ const SupplierDetailPage: React.FC = () => {
   const dispatch = useAppDispatch();
   const { formatAmount } = useCurrency();
   const { showError } = useStatusOverlay();
-  const { suppliers } = useAppSelector((state) => state.inventory);
+  // Fetched directly by id rather than found in the (now paginated)
+  // suppliers list — see fetchSupplierByIdThunk for why.
+  const [supplier, setSupplier] = useState<SupplierWithBalance | null>(null);
+  const loadSupplier = useCallback(() => {
+    if (!id) return;
+    dispatch(fetchSupplierByIdThunk(id)).unwrap()
+      .then((s) => setSupplier(s))
+      .catch(() => {});
+  }, [dispatch, id]);
 
-  const supplier = useMemo(() => suppliers.find((s) => s.id === id), [suppliers, id]);
-
-  useEffect(() => {
-    if (suppliers.length === 0) dispatch(fetchSuppliersThunk());
-  }, [dispatch, suppliers.length]);
+  useEffect(() => { loadSupplier(); }, [loadSupplier]);
 
   const [tab, setTab] = useState<"orders" | "payments">("orders");
   const [payoutOpen, setPayoutOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
   const [paymentsRefreshKey, setPaymentsRefreshKey] = useState(0);
 
   // Orders tab state — mirrors PurchaseHistoryListPage's list+detail pattern.
@@ -140,9 +142,6 @@ const SupplierDetailPage: React.FC = () => {
           <p>{[supplier.first_name, supplier.last_name].filter(Boolean).join(" ") || supplier.email || "—"}</p>
         </div>
         <div className="d-flex gap-2">
-          <Button variant="outline-dark" iconLeft={<PencilSquare size={14} />} onClick={() => setEditOpen(true)}>
-            Edit
-          </Button>
           <Button variant="dark" iconLeft={<CashCoin size={14} />} onClick={() => setPayoutOpen(true)}>
             Create Payout
           </Button>
@@ -302,23 +301,10 @@ const SupplierDetailPage: React.FC = () => {
         onClose={() => setPayoutOpen(false)}
         supplierId={supplier.id}
         onSuccess={() => {
-          dispatch(fetchSuppliersThunk());
+          loadSupplier();
           setPaymentsRefreshKey((k) => k + 1);
         }}
       />
-
-      {editOpen && (
-        <div className="supplier-panel-overlay" onClick={() => setEditOpen(false)}>
-          <div className="supplier-panel" onClick={(e) => e.stopPropagation()}>
-            <AddSupplierPage
-              panelMode
-              supplierId={supplier.id}
-              onClose={() => setEditOpen(false)}
-              onSaved={() => dispatch(fetchSuppliersThunk())}
-            />
-          </div>
-        </div>
-      )}
     </div>
   );
 };

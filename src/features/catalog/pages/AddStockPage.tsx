@@ -77,7 +77,9 @@ export default function AddStockPage() {
   useEffect(() => {
     if (currentSalon?.id) dispatch(fetchBranchesThunk(currentSalon.id));
     dispatch(searchProductsThunk({ pageSize: 200 }));
-    dispatch(fetchSuppliersThunk());
+    // page_limit:100 — Supplier dropdown here needs the full set, not the
+    // paginated Suppliers list page's default 10-per-page slice.
+    dispatch(fetchSuppliersThunk({ page_limit: 100 }));
   }, [dispatch, currentSalon?.id]);
 
   useEffect(() => {

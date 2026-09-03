@@ -14,10 +14,17 @@ $dashboard-secondary: #6b7280;
 $dashboard-border: #e5e7eb;
 
 /* Sidebar */
-$sidebar-bg: #010102;
-$sidebar-text: #9ca3af;
+// Was near-pure black (#010102) with muted gray-400 (#9ca3af) icons/labels —
+// numerically passable contrast, but small icons/10px labels in dark gray on
+// near-black read as washed out in practice. Background lifted to a proper
+// dark charcoal and the resting (non-hover/active) color brightened well past
+// gray-400, while staying a step below $sidebar-active (#ffffff) so the
+// active/hover state is still visually distinct, not just contrast-boosted
+// text everywhere.
+$sidebar-bg: #1c1f24;
+$sidebar-text: #f0f1f3;
 $sidebar-active: #ffffff;
-$sidebar-hover: #1f2937;
+$sidebar-hover: #2e323a;
 
 /* Cards */
 $card-shadow: 0 4px 10px rgba(0, 0, 0, 0.05);

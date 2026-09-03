@@ -1,7 +1,7 @@
 // Reuses .phist-table / .phist-pagination (PurchaseHistoryListPage.scss) for
-// the Orders tab and .supplier-status-badge / .supplier-panel* (Suppliers
-// ListPage.scss) for the status pill and Edit slide-over — this file only
-// covers what's unique to the detail page: header, stat cards, tabs.
+// the Orders tab and .supplier-status-badge (SuppliersListPage.scss) for the
+// status pill — this file only covers what's unique to the detail page:
+// header, stat cards, tabs.
 .supplier-detail-page {
   padding: 32px;
   max-width: 1200px;

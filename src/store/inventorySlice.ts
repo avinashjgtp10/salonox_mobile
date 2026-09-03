@@ -1,6 +1,7 @@
 import { createSlice } from "@reduxjs/toolkit";
 import {
   fetchSuppliersThunk,
+  fetchSupplierLocationsThunk,
   createSupplierThunk,
   updateSupplierThunk,
   deleteSupplierThunk,
@@ -14,6 +15,11 @@ import type {
 
 interface InventoryState {
   suppliers: SupplierWithBalance[];
+  suppliersPage: number;
+  suppliersPageSize: number;
+  suppliersTotal: number;
+  supplierCities: string[];
+  supplierStates: string[];
   loading: boolean;
   error: string | null;
 
@@ -32,6 +38,11 @@ interface InventoryState {
 
 const initialState: InventoryState = {
   suppliers: [],
+  suppliersPage: 1,
+  suppliersPageSize: 10,
+  suppliersTotal: 0,
+  supplierCities: [],
+  supplierStates: [],
   loading: false,
   error: null,
 
@@ -66,11 +77,19 @@ const inventorySlice = createSlice({
     });
     builder.addCase(fetchSuppliersThunk.fulfilled, (state, action) => {
       state.loading = false;
-      state.suppliers = action.payload;
+      state.suppliers = action.payload.data;
+      state.suppliersTotal = action.payload.total;
+      state.suppliersPage = action.payload.page;
+      state.suppliersPageSize = action.payload.page_limit;
     });
     builder.addCase(fetchSuppliersThunk.rejected, (state, action) => {
       state.loading = false;
       state.error = action.payload as string;
+    });
+
+    builder.addCase(fetchSupplierLocationsThunk.fulfilled, (state, action) => {
+      state.supplierCities = action.payload.cities;
+      state.supplierStates = action.payload.states;
     });
 
     // Create Supplier — the create/update endpoints only echo back contact

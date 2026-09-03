@@ -56,7 +56,9 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
   const [saving, setSaving] = useState(false);
   const [touched, setTouched] = useState(false);
 
-  useEffect(() => { dispatch(fetchSuppliersThunk()); }, [dispatch]);
+  // page_limit:100 — this is the Supplier dropdown, not the paginated
+  // Suppliers list page, so it needs the full set.
+  useEffect(() => { dispatch(fetchSuppliersThunk({ page_limit: 100 })); }, [dispatch]);
 
   async function handleAddSupplier(name: string) {
     const result = await dispatch(createSupplierThunk({ name })).unwrap();

@@ -138,7 +138,9 @@ const ProductFormPage: React.FC = () => {
   useEffect(() => {
     dispatch(fetchCategoriesThunk());
     dispatch(fetchBrandsThunk());
-    dispatch(fetchSuppliersThunk());
+    // page_limit:100 — this is the Supplier dropdown, not the paginated
+    // Suppliers list page, so it needs the full set.
+    dispatch(fetchSuppliersThunk({ page_limit: 100 }));
   }, [dispatch]);
 
   useEffect(() => {

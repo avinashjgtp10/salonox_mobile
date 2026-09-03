@@ -170,7 +170,10 @@ const ConsumableInventoryPage: React.FC = () => {
   useEffect(() => {
     if (categories.length === 0) dispatch(fetchCategoriesThunk());
     if (brands.length === 0) dispatch(fetchBrandsThunk());
-    if (suppliers.length === 0) dispatch(fetchSuppliersThunk());
+    // page_limit:100 — this is a picker/reference list (product/consumable
+    // supplier field), not the paginated Suppliers list page, so it needs
+    // the full set rather than the default 10-per-page slice.
+    if (suppliers.length === 0) dispatch(fetchSuppliersThunk({ page_limit: 100 }));
     if (servicesList.length === 0) dispatch(fetchServicesThunk({ limit: 200, isActive: true } as any));
   }, [dispatch]); // eslint-disable-line react-hooks/exhaustive-deps
 
