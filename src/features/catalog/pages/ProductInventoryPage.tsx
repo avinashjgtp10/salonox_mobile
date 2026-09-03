@@ -131,7 +131,7 @@ export default function ProductInventoryPage() {
   const [brandId, setBrandId] = useState("");
   const [lowOnly, setLowOnly] = useState(false);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(20);
+  const [pageSize, setPageSize] = useState(10);
 
   const [categories, setCategories] = useState<Option[]>([]);
   const [brands, setBrands] = useState<Option[]>([]);

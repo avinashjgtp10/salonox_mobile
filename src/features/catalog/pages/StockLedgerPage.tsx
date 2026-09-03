@@ -148,7 +148,7 @@ export default function StockLedgerPage() {
   const [txnTypes, setTxnTypes] = useState<string[]>([]);
 
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(25);
+  const [pageSize, setPageSize] = useState(10);
 
   const [rows, setRows] = useState<LedgerRow[]>([]);
   const [total, setTotal] = useState(0);
