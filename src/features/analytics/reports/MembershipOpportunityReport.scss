@@ -1,0 +1,34 @@
+// "Visits" field body, rendered inside the shared Filters dropdown
+// (JiraFilterMenu's per-field `render` slot) alongside Membership/Gender/
+// Client Source — same precedent as CustomerSpendReport's own rp-cs-visits-
+// field, namespaced here as rp-mo-* since this report owns it independently.
+.rp-mo-visits-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+
+  label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+  }
+
+  input {
+    height: 34px;
+    padding: 0 10px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 13px;
+    color: #111827;
+    outline: none;
+
+    &:focus { border-color: #6c5ce7; }
+  }
+}
+
+.rp-mo-visits-field__hint {
+  margin: 2px 0 0;
+  font-size: 11.5px;
+  color: #9ca3af;
+  line-height: 1.4;
+}
