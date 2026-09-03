@@ -29,6 +29,7 @@ function toInputs(config: RewardPointsConfig): Record<FieldKey, string> {
     points_earned: String(config.points_earned),
     redeem_points: String(config.redeem_points),
     redeem_value: String(config.redeem_value),
+    max_redeem_percent: String(config.max_redeem_percent),
   };
 }
 
@@ -37,6 +38,7 @@ interface FormErrors {
   points_earned?: string;
   redeem_points?: string;
   redeem_value?: string;
+  max_redeem_percent?: string;
 }
 
 // Fixed example spend used for the "Live Preview" strip at the bottom —
@@ -95,8 +97,9 @@ export default function RewardsSettingsPage() {
     setConfig((c) => ({ ...c, [field]: Math.max(0, parseInt(digits, 10) || 0) }));
   }
 
-  function handleInputBlur(field: FieldKey, min: number) {
-    const parsed = Math.max(0, parseInt(inputs[field], 10) || 0);
+  function handleInputBlur(field: FieldKey, min: number, max?: number) {
+    let parsed = Math.max(0, parseInt(inputs[field], 10) || 0);
+    if (max != null) parsed = Math.min(parsed, max);
     setConfig((c) => ({ ...c, [field]: parsed }));
     setInputs((prev) => ({ ...prev, [field]: String(parsed) }));
     if (parsed < min) {
@@ -110,6 +113,8 @@ export default function RewardsSettingsPage() {
     if (config.points_earned < 1) errs.points_earned = "Must be at least 1";
     if (config.redeem_points < 1) errs.redeem_points = "Must be at least 1";
     if (config.redeem_value < 1) errs.redeem_value = "Must be at least 1";
+    if (config.max_redeem_percent < 1) errs.max_redeem_percent = "Must be at least 1";
+    if (config.max_redeem_percent > 100) errs.max_redeem_percent = "Cannot exceed 100";
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -275,6 +280,30 @@ export default function RewardsSettingsPage() {
               <span>
                 Example: <strong>{config.redeem_points} points</strong> can be redeemed for{" "}
                 <strong>{formatAmount(config.redeem_value)}</strong> in wallet
+              </span>
+            </div>
+
+            <div className="rp-row">
+              <div className="rp-field">
+                <label className="rp-field__label">Maximum % of bill payable using points</label>
+                <div className={`rp-input-wrap${errors.max_redeem_percent ? " rp-input-wrap--error" : ""}`}>
+                  <input
+                    type="text" inputMode="numeric"
+                    value={inputs.max_redeem_percent}
+                    onChange={(e) => handleInputChange("max_redeem_percent", e.target.value)}
+                    onBlur={() => handleInputBlur("max_redeem_percent", 1, 100)}
+                  />
+                  <span>%</span>
+                </div>
+                {errors.max_redeem_percent && <span className="settings-error">{errors.max_redeem_percent}</span>}
+              </div>
+            </div>
+            <div className="rp-banner rp-banner--green">
+              <Info size={14} />
+              <span>
+                Example: on a {formatAmount(PREVIEW_SPEND)} bill, a client can pay up to{" "}
+                <strong>{formatAmount(PREVIEW_SPEND * config.max_redeem_percent / 100)}</strong> using reward points
+                ({config.max_redeem_percent}%) — the rest must be paid another way, however many points they have.
               </span>
             </div>
           </div>

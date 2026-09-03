@@ -45,7 +45,11 @@
 
   &__stats {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    // OrderDetailPage.tsx conditionally adds 3 more cards (Paid/Pending/
+    // Status) on top of the usual 5 — auto-fit/minmax keeps both counts
+    // looking like even rows instead of hard-coding a column count that
+    // only fits one of them.
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     gap: 16px;
     margin-bottom: 24px;
 

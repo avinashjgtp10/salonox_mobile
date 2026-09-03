@@ -1701,8 +1701,15 @@ export const AppointmentModal: React.FC<Props> = ({
     const balance = clientStats?.rewardPoints ?? 0;
     if (balance <= 0 || rewardPointsConfig.redeem_points <= 0) return 0;
     const maxByBill = Math.floor((remainingAfterEWallet / rewardPointsConfig.redeem_value) * rewardPointsConfig.redeem_points);
-    return Math.max(0, Math.min(balance, maxByBill));
-  }, [clientStats, remainingAfterEWallet, rewardPointsConfig]);
+    // Salon-configured ceiling: reward points alone may never cover more
+    // than max_redeem_percent of the bill BEFORE any redemption (the same
+    // preRedemptionTotal basis membership wallet is capped against), no
+    // matter how large the client's points balance is. Matches the backend's
+    // own enforcement in payments.service.ts/pricing.service.ts.
+    const percentCapValue = totals.preRedemptionTotal * (rewardPointsConfig.max_redeem_percent / 100);
+    const maxByPercent = Math.floor((percentCapValue / rewardPointsConfig.redeem_value) * rewardPointsConfig.redeem_points);
+    return Math.max(0, Math.min(balance, maxByBill, maxByPercent));
+  }, [clientStats, remainingAfterEWallet, rewardPointsConfig, totals.preRedemptionTotal]);
 
   const rewardPointsIsCustomRef = useRef(false);
   useEffect(() => {
@@ -2648,7 +2655,9 @@ export const AppointmentModal: React.FC<Props> = ({
         variantClass: "benefit-card--reward",
         title: "Reward Points",
         value: `${rewardBal.toLocaleString("en-IN")} pts`,
-        subtitle: "Available Points",
+        subtitle: rewardPointsConfig.max_redeem_percent < 100
+          ? `Available Points · up to ${rewardPointsConfig.max_redeem_percent}% of bill`
+          : "Available Points",
         checked: useRewardPoints,
         onToggle: setUseRewardPoints,
         disabledReason: (!useRewardPoints && remainingAfterEWallet <= 0)
