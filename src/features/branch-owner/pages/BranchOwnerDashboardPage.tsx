@@ -1,192 +1,323 @@
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import {
+  Building, PersonPlusFill, CalendarPlus, CashCoin, People,
+  ArrowUpRight, ArrowDownRight, X, ExclamationTriangleFill, ClockHistory, ReceiptCutoff, ChevronRight,
+} from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchBranchOwnerDashboardThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
+import { fetchBranchOwnerDashboardThunk, enterSalonThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
+import Dropdown from "../../../components/ui/Dropdown";
+import "../styles/BranchOwnerDashboardPage.scss";
 
-function StatCard({ label, value, sub, icon, bg }: {
-  label: string; value: string | number; sub?: string;
-  icon: React.ReactNode; bg: string;
+function Shimmer({ h = 110 }: { h?: number }) {
+  return <div className="bod-shimmer" style={{ height: h }} />;
+}
+
+const fmt = (n: any) => n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—";
+const fmtCompact = (n: number) => (n >= 100000 ? `₹${(n / 100000).toFixed(1)}L` : n >= 1000 ? `₹${(n / 1000).toFixed(1)}K` : `₹${Math.round(n)}`);
+
+// KPI card with the premium navy-on-white treatment: white surface, a
+// colored icon chip, and a real trend badge (up/down) only when there's an
+// actual previous-period figure to compare against — never a fabricated %.
+// Icon background is the one legitimately per-instance color, so it stays inline.
+function KpiCard({ label, value, sub, icon, bg, trendPct }: {
+  label: string; value: string | number; sub?: string; icon: React.ReactNode; bg: string; trendPct?: number | null;
 }) {
   return (
-    <div style={{ background: "#fff", borderRadius: 14, padding: "20px 22px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", flexDirection: "column", gap: 14 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div style={{ width: 42, height: 42, borderRadius: 11, background: bg, display: "flex", alignItems: "center", justifyContent: "center" }}>
-          {icon}
-        </div>
-        {sub && <span style={{ fontSize: 11.5, color: "#10b981", fontWeight: 600, background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "2px 8px", borderRadius: 20 }}>↑ {sub}</span>}
+    <div className="bod-kpi-card">
+      <div className="bod-kpi-top">
+        <div className="bod-kpi-icon" style={{ background: bg }}>{icon}</div>
+        {trendPct != null && (
+          <span className={`bod-kpi-trend ${trendPct >= 0 ? "bod-kpi-trend--up" : "bod-kpi-trend--down"}`}>
+            {trendPct >= 0 ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+            {Math.abs(trendPct).toFixed(0)}%
+          </span>
+        )}
       </div>
       <div>
-        <div style={{ color: "#64748b", fontSize: 12.5, fontWeight: 500, marginBottom: 4 }}>{label}</div>
-        <div style={{ color: "#0f172a", fontSize: 26, fontWeight: 800, lineHeight: 1, letterSpacing: "-0.5px" }}>{value}</div>
+        <div className="bod-kpi-label">{label}</div>
+        <div className="bod-kpi-value">{value}</div>
+        {sub && <div className="bod-kpi-sub">{sub}</div>}
       </div>
     </div>
   );
 }
 
-function Shimmer({ h = 110 }: { h?: number }) {
-  return <div style={{ background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "200% 100%", animation: "bod-shimmer 1.4s infinite", borderRadius: 14, height: h }} />;
+// Plain SVG line chart — 14 points is far below where a charting library
+// earns its weight, and this keeps the bundle untouched.
+function RevenueTrendChart({ points }: { points: { day: string; revenue: number }[] }) {
+  const width = 640, height = 180, padX = 8, padY = 16;
+  const max = Math.max(1, ...points.map((p) => p.revenue));
+  const stepX = points.length > 1 ? (width - padX * 2) / (points.length - 1) : 0;
+
+  const coords = points.map((p, i) => {
+    const x = padX + i * stepX;
+    const y = height - padY - (p.revenue / max) * (height - padY * 2);
+    return { x, y, ...p };
+  });
+
+  const linePath = coords.map((c, i) => `${i === 0 ? "M" : "L"} ${c.x.toFixed(1)} ${c.y.toFixed(1)}`).join(" ");
+  const areaPath = `${linePath} L ${coords[coords.length - 1]?.x.toFixed(1)} ${height - padY} L ${coords[0]?.x.toFixed(1)} ${height - padY} Z`;
+
+  const [hover, setHover] = useState<number | null>(null);
+  const fmtDay = (d: string) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+
+  return (
+    <svg viewBox={`0 0 ${width} ${height + 20}`} width="100%" height={height + 20} style={{ display: "block", overflow: "visible" }}>
+      <defs>
+        <linearGradient id="bo-rev-fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.18" />
+          <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {[0.25, 0.5, 0.75].map((f) => (
+        <line key={f} x1={padX} x2={width - padX} y1={height - padY - f * (height - padY * 2)} y2={height - padY - f * (height - padY * 2)} stroke="#f1f5f9" strokeWidth={1} />
+      ))}
+      <path d={areaPath} fill="url(#bo-rev-fill)" stroke="none" />
+      <path d={linePath} fill="none" stroke="#6366f1" strokeWidth={2.5} strokeLinecap="round" strokeLinejoin="round" />
+      {coords.map((c, i) => (
+        <g key={c.day} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
+          <circle cx={c.x} cy={c.y} r={hover === i ? 5 : 3} fill="#fff" stroke="#6366f1" strokeWidth={2} />
+          <rect x={c.x - stepX / 2} y={0} width={stepX || width} height={height} fill="transparent" />
+          {(i === 0 || i === coords.length - 1 || i % 3 === 0) && (
+            <text x={c.x} y={height + 14} fill="#94a3b8" fontSize="9" textAnchor="middle">{fmtDay(c.day)}</text>
+          )}
+          {hover === i && (
+            <g>
+              <rect x={Math.min(Math.max(c.x - 38, 0), width - 76)} y={Math.max(c.y - 34, 0)} width={76} height={26} rx={6} fill="#0f172a" />
+              <text x={Math.min(Math.max(c.x - 38, 0), width - 76) + 38} y={Math.max(c.y - 34, 0) + 17} fill="#fff" fontSize="10.5" textAnchor="middle" fontWeight={700}>
+                {fmtCompact(c.revenue)}
+              </text>
+            </g>
+          )}
+        </g>
+      ))}
+    </svg>
+  );
 }
 
-const statusStyle: Record<string, { bg: string; text: string }> = {
-  active:    { bg: "#f0fdf4", text: "#16a34a" },
-  inactive:  { bg: "#f8fafc", text: "#64748b" },
-  paid:      { bg: "#f0fdf4", text: "#16a34a" },
-  completed: { bg: "#f0fdf4", text: "#16a34a" },
-  pending:   { bg: "#fffbeb", text: "#d97706" },
-  failed:    { bg: "#fef2f2", text: "#dc2626" },
-  partial:   { bg: "#eff6ff", text: "#2563eb" },
-};
+function SalonPickerModal({ salons, title, onSelect, onClose }: {
+  salons: { id: string; name: string }[]; title: string; onSelect: (id: string) => void; onClose: () => void;
+}) {
+  const [salonId, setSalonId] = useState(salons[0]?.id ?? "");
+  return (
+    <div className="bod-modal-overlay" onClick={onClose}>
+      <div className="bod-modal" onClick={(e) => e.stopPropagation()}>
+        <div className="bod-modal-head">
+          <div className="bod-modal-title">{title}</div>
+          <button className="bod-modal-close" onClick={onClose}><X size={18} /></button>
+        </div>
+        <label className="bod-modal-label">Select salon</label>
+        <Dropdown
+          value={salonId}
+          onChange={setSalonId}
+          options={salons.map((s) => ({ id: s.id, name: s.name }))}
+          searchable={false}
+          className="bod-modal-dropdown"
+        />
+        <div className="bod-modal-actions">
+          <button className="bod-btn-secondary" onClick={onClose}>Cancel</button>
+          <button
+            className="bod-btn-primary"
+            onClick={() => salonId && onSelect(salonId)}
+            disabled={!salonId}
+          >
+            Open Salon
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
-function Badge({ status }: { status: string }) {
-  const c = statusStyle[status] ?? { bg: "#f8fafc", text: "#64748b" };
-  return <span style={{ padding: "3px 9px", borderRadius: 20, fontSize: 11.5, fontWeight: 600, background: c.bg, color: c.text, textTransform: "capitalize" }}>{status}</span>;
+function AttentionRow({ icon, iconBg, iconColor, title, desc, count, onClick }: {
+  icon: React.ReactNode; iconBg: string; iconColor: string; title: string; desc: string; count: number; onClick: () => void;
+}) {
+  return (
+    <button className="bod-attention-row" onClick={onClick}>
+      <div className="bod-attention-icon" style={{ background: iconBg, color: iconColor }}>{icon}</div>
+      <div className="bod-attention-body">
+        <div className="bod-attention-title">{title}</div>
+        <div className="bod-attention-desc">{desc}</div>
+      </div>
+      <span className="bod-attention-count">{count}</span>
+      <ChevronRight size={14} className="bod-attention-chevron" />
+    </button>
+  );
 }
 
 export default function BranchOwnerDashboardPage() {
   const dispatch = useAppDispatch();
-  const { stats, salons, payments, loading } = useAppSelector((s) => s.branchOwner);
+  const navigate = useNavigate();
+  const { stats, salons, revenueTrend, inventorySummary: inventory, attention, loading } = useAppSelector((s) => s.branchOwner);
+  const [pickerAction, setPickerAction] = useState<null | "booking" | "payment">(null);
+  const [openingId, setOpeningId] = useState<string | null>(null);
 
   useEffect(() => {
     dispatch(fetchBranchOwnerDashboardThunk());
   }, [dispatch]);
 
-  const fmt = (n: any) => n != null ? `₹${Number(n).toLocaleString("en-IN")}` : "—";
-  const today = new Date().toLocaleDateString("en-IN", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  // Trend badges compare this week's revenue total to the prior week within
+  // the 14-day window the backend already returns — real data, not a
+  // fabricated percentage.
+  const revenueTrendPct = useMemo(() => {
+    if (revenueTrend.length < 14) return null;
+    const lastWeek = revenueTrend.slice(-7).reduce((s, p) => s + p.revenue, 0);
+    const prevWeek = revenueTrend.slice(-14, -7).reduce((s, p) => s + p.revenue, 0);
+    if (prevWeek === 0) return null;
+    return ((lastWeek - prevWeek) / prevWeek) * 100;
+  }, [revenueTrend]);
+
+  async function handleEnterFromPicker(salonId: string) {
+    setPickerAction(null);
+    setOpeningId(salonId);
+    const r = await dispatch(enterSalonThunk(salonId));
+    if (enterSalonThunk.fulfilled.match(r)) {
+      const { token, isOnboardingComplete = true } = r.payload as any;
+      window.open(`${window.location.origin}/oauth/success?token=${token}&isOnboardingComplete=${isOnboardingComplete}`, "_blank");
+    }
+    setOpeningId(null);
+  }
+
+  const quickActions = [
+    { key: "add-salon", label: "Add Salon", icon: <Building size={17} />, bg: "#eff6ff", color: "#2563eb", onClick: () => navigate("/branch-owner/settings/branches") },
+    { key: "add-staff", label: "Add Staff", icon: <PersonPlusFill size={17} />, bg: "#faf5ff", color: "#7c3aed", onClick: () => navigate("/branch-owner/staff-permissions") },
+    { key: "booking", label: "New Booking", icon: <CalendarPlus size={17} />, bg: "#f0fdf4", color: "#16a34a", onClick: () => setPickerAction("booking") },
+    { key: "payment", label: "Record Payment", icon: <CashCoin size={17} />, bg: "#fff7ed", color: "#ea580c", onClick: () => setPickerAction("payment") },
+  ];
+
+  // Needs Attention — matches the mockup's exact 4 cards, each backed by a
+  // real query (see getAttentionMetrics in branch-owner.repository.ts): no
+  // fabricated proxies, only genuinely queryable counts.
+  const attentionItems = [
+    attention && attention.unpaid_invoices_count > 0 && {
+      key: "unpaid-invoices", icon: <ReceiptCutoff size={15} />, iconBg: "#fef2f2", iconColor: "#dc2626",
+      title: "Unpaid Invoices", desc: `${fmt(attention.unpaid_invoices_amount)} outstanding across ${attention.unpaid_invoices_count} invoice${attention.unpaid_invoices_count !== 1 ? "s" : ""}`,
+      count: attention.unpaid_invoices_count, onClick: () => navigate("/branch-owner/payments"),
+    },
+    inventory && inventory.low_stock_count > 0 && {
+      key: "low-stock", icon: <ExclamationTriangleFill size={15} />, iconBg: "#fff7ed", iconColor: "#ea580c",
+      title: "Low Stock Items", desc: `${inventory.low_stock_count} product${inventory.low_stock_count !== 1 ? "s" : ""} running low`,
+      count: inventory.low_stock_count, onClick: () => navigate("/branch-owner/inventory"),
+    },
+    attention && attention.pending_bookings > 0 && {
+      key: "pending-bookings", icon: <ClockHistory size={15} />, iconBg: "#eff6ff", iconColor: "#2563eb",
+      title: "Pending Bookings", desc: `${attention.pending_bookings} booking${attention.pending_bookings !== 1 ? "s" : ""} awaiting confirmation`,
+      count: attention.pending_bookings, onClick: () => navigate("/branch-owner/salons"),
+    },
+    attention && attention.pending_staff_requests > 0 && {
+      key: "staff-requests", icon: <PersonPlusFill size={15} />, iconBg: "#faf5ff", iconColor: "#7c3aed",
+      title: "Staff Requests", desc: `${attention.pending_staff_requests} pending leave request${attention.pending_staff_requests !== 1 ? "s" : ""}`,
+      count: attention.pending_staff_requests, onClick: () => navigate("/branch-owner/staff-permissions"),
+    },
+  ].filter(Boolean) as { key: string; icon: React.ReactNode; iconBg: string; iconColor: string; title: string; desc: string; count: number; onClick: () => void }[];
 
   return (
-    <div style={{ padding: "28px 28px 40px", fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 28 }}>
+    <div className="bod-page">
+      <div className="bod-header">
         <div>
-          <h1 style={{ margin: 0, fontSize: 22, fontWeight: 800, color: "#0f172a", letterSpacing: "-0.3px" }}>Dashboard</h1>
-          <p style={{ margin: "4px 0 0", color: "#94a3b8", fontSize: 13 }}>{today}</p>
+          <h1 className="bod-title">Dashboard</h1>
         </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, background: "#fff", border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 14px" }}>
-          <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#10b981" }} />
-          <span style={{ color: "#64748b", fontSize: 12.5, fontWeight: 500 }}>{salons.length} salon{salons.length !== 1 ? "s" : ""} under you</span>
-        </div>
-      </div>
-
-      {/* Top KPI cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 14, marginBottom: 14 }}>
-        {loading.stats ? [...Array(4)].map((_, i) => <Shimmer key={i} />) : (<>
-          <StatCard label="Total Salons" value={stats?.total_salons ?? salons.length}
-            bg="#eff6ff"
-            icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>}
-          />
-          <StatCard label="Total Revenue" value={fmt(stats?.total_revenue)}
-            bg="#f0fdf4"
-            icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>}
-          />
-          <StatCard label="Total Staff" value={stats?.total_staff ?? "—"}
-            bg="#faf5ff"
-            icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>}
-          />
-          <StatCard label="Total Bookings" value={stats?.total_bookings ?? "—"}
-            sub={stats?.bookings_today ? `${stats.bookings_today} today` : undefined}
-            bg="#fff7ed"
-            icon={<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ea580c" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>}
-          />
-        </>)}
-      </div>
-
-      {/* Tables row */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
-        {/* Salons */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#0f172a" }}>My Salons</h3>
-            <span style={{ color: "#94a3b8", fontSize: 12 }}>{salons.length} total</span>
-          </div>
-          {loading.stats ? (
-            <div style={{ padding: 16 }}>{[...Array(4)].map((_, i) => <div key={i} style={{ marginBottom: 6 }}><Shimmer h={36} /></div>)}</div>
-          ) : salons.length === 0 ? (
-            <div style={{ padding: 32, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No salons assigned yet</div>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: "#f8fafc" }}>
-                  {["Name", "Owner", "Status"].map(h => <th key={h} style={{ padding: "9px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {salons.slice(0, 6).map((s) => (
-                  <tr key={s.id} style={{ borderTop: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "11px 16px", color: "#0f172a", fontWeight: 600, fontSize: 13 }}>{s.name}</td>
-                    <td style={{ padding: "11px 16px", color: "#64748b", fontSize: 12 }}>{s.owner_email}</td>
-                    <td style={{ padding: "11px 16px" }}><Badge status={s.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </div>
-
-        {/* Recent Payments */}
-        <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-          <div style={{ padding: "16px 20px", borderBottom: "1px solid #f1f5f9", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <h3 style={{ margin: 0, fontSize: 14, fontWeight: 700, color: "#0f172a" }}>Recent Payments</h3>
-            <span style={{ color: "#94a3b8", fontSize: 12 }}>{payments.length} total</span>
-          </div>
-          {loading.payments ? (
-            <div style={{ padding: 16 }}>{[...Array(4)].map((_, i) => <div key={i} style={{ marginBottom: 6 }}><Shimmer h={36} /></div>)}</div>
-          ) : payments.length === 0 ? (
-            <div style={{ padding: 32, textAlign: "center", color: "#94a3b8", fontSize: 13 }}>No payments yet</div>
-          ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-              <thead>
-                <tr style={{ background: "#f8fafc" }}>
-                  {["Salon", "Amount", "Status"].map(h => <th key={h} style={{ padding: "9px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em" }}>{h}</th>)}
-                </tr>
-              </thead>
-              <tbody>
-                {payments.slice(0, 6).map((p) => (
-                  <tr key={p.id} style={{ borderTop: "1px solid #f1f5f9" }}>
-                    <td style={{ padding: "11px 16px", color: "#0f172a", fontWeight: 600 }}>{p.salon_name}</td>
-                    <td style={{ padding: "11px 16px", color: "#16a34a", fontWeight: 700 }}>{fmt(p.amount)}</td>
-                    <td style={{ padding: "11px 16px" }}><Badge status={p.status} /></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
+        <div className="bod-salon-count">
+          <div className="bod-salon-count__dot" />
+          <span className="bod-salon-count__label">{salons.length} salon{salons.length !== 1 ? "s" : ""} under you</span>
         </div>
       </div>
 
-      {/* Bottom quick-stat row */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-        {loading.stats ? [...Array(3)].map((_, i) => <Shimmer key={i} h={84} />) : (<>
-          <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#faf5ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#7c3aed" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+      <div className="bod-grid">
+
+        {/* ── Main column ── */}
+        <div className="bod-main-col">
+          {/* Top KPI cards */}
+          <div className="bod-kpi-row bod-kpi-row--five">
+            {loading.stats ? [...Array(5)].map((_, i) => <Shimmer key={i} />) : (<>
+              <KpiCard label="Total Salons" value={stats?.total_salons ?? salons.length}
+                bg="#eff6ff" icon={<Building size={17} color="#2563eb" />}
+              />
+              <KpiCard label="Total Revenue" value={fmt(stats?.total_revenue)}
+                bg="#f0fdf4" trendPct={revenueTrendPct}
+                icon={<CashCoin size={17} color="#16a34a" />}
+              />
+              <KpiCard label="Total Staff" value={stats?.total_staff ?? "—"}
+                bg="#faf5ff" icon={<PersonPlusFill size={17} color="#7c3aed" />}
+              />
+              <KpiCard label="Total Bookings" value={stats?.total_bookings ?? "—"}
+                sub={stats?.bookings_today ? `${stats.bookings_today} today` : undefined}
+                bg="#fff7ed" icon={<CalendarPlus size={17} color="#ea580c" />}
+              />
+              <KpiCard label="Total Customers" value={stats?.total_clients ?? "—"}
+                bg="#ecfeff" icon={<People size={17} color="#0891b2" />}
+              />
+            </>)}
+          </div>
+
+          {/* Revenue trend */}
+          <div className="bod-card bod-card--padded">
+            <div className="bod-chart-head">
+              <div>
+                <h3 className="bod-chart-title">Revenue Overview</h3>
+                <p className="bod-chart-subtitle">Last 14 days, across every salon you manage</p>
+              </div>
+              {revenueTrendPct != null && (
+                <span className={`bod-chart-trend ${revenueTrendPct >= 0 ? "bod-chart-trend--up" : "bod-chart-trend--down"}`}>
+                  {revenueTrendPct >= 0 ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                  {Math.abs(revenueTrendPct).toFixed(0)}% vs prior week
+                </span>
+              )}
             </div>
-            <div>
-              <div style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>New Clients Today</div>
-              <div style={{ color: "#0f172a", fontSize: 20, fontWeight: 800 }}>{stats?.new_clients_today ?? 0}</div>
+            {loading.stats ? <Shimmer h={180} /> : revenueTrend.length === 0 ? (
+              <div className="bod-empty">No revenue recorded in this window yet.</div>
+            ) : (
+              <RevenueTrendChart points={revenueTrend} />
+            )}
+          </div>
+        </div>
+
+        {/* ── Right rail ── */}
+        <div className="bod-rail">
+          {/* Quick Actions — 2-column tile grid, matching the mockup exactly */}
+          <div className="bod-card bod-quick-actions-card">
+            <h3 className="bod-card-title bod-quick-actions-title">Quick Actions</h3>
+            <div className="bod-quick-actions-grid">
+              {quickActions.map((a) => (
+                <button key={a.key} className="bod-quick-action" onClick={a.onClick}>
+                  <div className="bod-quick-action-icon" style={{ background: a.bg, color: a.color }}>
+                    {a.icon}
+                  </div>
+                  <span className="bod-quick-action-label">{a.label}</span>
+                </button>
+              ))}
             </div>
           </div>
 
-          <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#f0fdf4", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#16a34a" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+          {/* Needs Attention */}
+          <div className="bod-card">
+            <div className="bod-attention-head">
+              <h3 className="bod-card-title">Needs Attention</h3>
+              {attentionItems.length > 0 && (
+                <button className="bod-attention-viewall" onClick={() => navigate("/branch-owner/payments")}>View all</button>
+              )}
             </div>
-            <div>
-              <div style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>Today's Revenue</div>
-              <div style={{ color: "#0f172a", fontSize: 20, fontWeight: 800 }}>{fmt(stats?.revenue_today)}</div>
-            </div>
+            {attentionItems.length === 0 ? (
+              <div className="bod-attention-empty">Nothing needs your attention right now.</div>
+            ) : (
+              <div className="bod-attention-list">
+                {attentionItems.map((item) => <AttentionRow key={item.key} {...item} />)}
+              </div>
+            )}
           </div>
-
-          <div style={{ background: "#fff", borderRadius: 14, padding: "16px 20px", border: "1px solid #e2e8f0", boxShadow: "0 1px 4px rgba(0,0,0,0.04)", display: "flex", alignItems: "center", gap: 14 }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: "#eff6ff", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#2563eb" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-            </div>
-            <div>
-              <div style={{ color: "#64748b", fontSize: 12, fontWeight: 500 }}>Active Subscriptions</div>
-              <div style={{ color: "#0f172a", fontSize: 20, fontWeight: 800 }}>{stats?.active_subscriptions ?? 0}</div>
-            </div>
-          </div>
-        </>)}
+        </div>
       </div>
 
-      <style>{`@keyframes bod-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
+      {pickerAction && (
+        <SalonPickerModal
+          salons={salons}
+          title={pickerAction === "booking" ? "New Booking — choose a salon" : "Record Payment — choose a salon"}
+          onSelect={handleEnterFromPicker}
+          onClose={() => setPickerAction(null)}
+        />
+      )}
+      {openingId && <div className="bod-toast">Opening salon…</div>}
     </div>
   );
 }

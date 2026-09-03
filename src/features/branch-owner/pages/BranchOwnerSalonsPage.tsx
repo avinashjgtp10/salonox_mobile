@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
-import { fetchMySalonsThunk, enterSalonThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
+import { fetchMySalonsThunk, enterSalonThunk, resetSalonOwnerPasswordThunk, deleteSalonThunk } from "../../../middleware/branchOwner/branchOwner.thunk";
+import { usePagination, BoPagination } from "../components/BranchOwnerUI";
 
 function Badge({ status }: { status: string }) {
   const map: Record<string, { bg: string; text: string }> = {
@@ -11,11 +12,84 @@ function Badge({ status }: { status: string }) {
   return <span style={{ padding: "3px 10px", borderRadius: 20, fontSize: 11.5, fontWeight: 600, background: c.bg, color: c.text, textTransform: "capitalize" }}>{status}</span>;
 }
 
+function formatCurrency(amount: number): string {
+  return `₹${Number(amount ?? 0).toLocaleString("en-IN")}`;
+}
+
+function ModalShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(15,23,42,0.45)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ background: "#fff", borderRadius: 14, padding: "28px 32px", maxWidth: 420, width: "90%", boxShadow: "0 20px 60px rgba(0,0,0,0.18)" }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
+function ResetPasswordModal({ salonName, onConfirm, onCancel, loading, error }: {
+  salonName: string; onConfirm: (password: string) => void; onCancel: () => void; loading: boolean; error: string;
+}) {
+  const [password, setPassword] = useState("");
+  return (
+    <ModalShell>
+      <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a", marginBottom: 4 }}>Reset Password</div>
+      <div style={{ color: "#64748b", fontSize: 12.5, marginBottom: 18 }}>Set a new password for the owner of <strong style={{ color: "#0f172a" }}>{salonName}</strong></div>
+      <input type="text" value={password} placeholder="New password (min 6 characters)" autoFocus
+        onChange={(e) => setPassword(e.target.value)}
+        style={{ width: "100%", padding: "10px 14px", borderRadius: 8, border: "1.5px solid #e2e8f0", fontSize: 14, outline: "none", boxSizing: "border-box", marginBottom: 8 }}
+      />
+      {error && <div style={{ color: "#dc2626", fontSize: 12.5, marginBottom: 8 }}>{error}</div>}
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
+        <button onClick={onCancel} disabled={loading}
+          style={{ padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, border: "1.5px solid #e2e8f0", background: "#fff", color: "#374151", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}>
+          Cancel
+        </button>
+        <button onClick={() => onConfirm(password)} disabled={loading}
+          style={{ padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, border: "none", background: "#6366f1", color: "#fff", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}>
+          {loading ? "Resetting…" : "Reset Password"}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
+function ConfirmDeleteSalonModal({ salonName, onConfirm, onCancel, loading }: {
+  salonName: string; onConfirm: () => void; onCancel: () => void; loading: boolean;
+}) {
+  return (
+    <ModalShell>
+      <div style={{ fontWeight: 700, fontSize: 15, color: "#0f172a", marginBottom: 4 }}>Delete Salon</div>
+      <p style={{ margin: "8px 0 20px", color: "#374151", fontSize: 13.5, lineHeight: 1.6 }}>
+        Are you sure you want to delete <strong style={{ color: "#0f172a" }}>{salonName}</strong>? All associated data will be permanently removed. This action cannot be undone.
+      </p>
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+        <button onClick={onCancel} disabled={loading}
+          style={{ padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, border: "1.5px solid #e2e8f0", background: "#fff", color: "#374151", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}>
+          Cancel
+        </button>
+        <button onClick={onConfirm} disabled={loading}
+          style={{ padding: "8px 18px", borderRadius: 8, fontSize: 13, fontWeight: 600, border: "none", background: "#dc2626", color: "#fff", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.7 : 1 }}>
+          {loading ? "Deleting…" : "Delete Salon"}
+        </button>
+      </div>
+    </ModalShell>
+  );
+}
+
 export default function BranchOwnerSalonsPage() {
   const dispatch = useAppDispatch();
   const { salons, loading: loadingState } = useAppSelector((s) => s.branchOwner);
   const loading = loadingState.salons;
   const [enteringId, setEnteringId] = useState<string | null>(null);
+
+  const [resetTarget, setResetTarget] = useState<{ id: string; name: string } | null>(null);
+  const [resetLoading, setResetLoading] = useState(false);
+  const [resetErr, setResetErr] = useState("");
+
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+
+  const salonsPage = usePagination(salons, 10);
 
   useEffect(() => { dispatch(fetchMySalonsThunk()); }, [dispatch]);
 
@@ -29,6 +103,29 @@ export default function BranchOwnerSalonsPage() {
     setEnteringId(null);
   }
 
+  async function handleResetPassword(password: string) {
+    if (!resetTarget) return;
+    if (password.length < 6) { setResetErr("Password must be at least 6 characters."); return; }
+    setResetErr(""); setResetLoading(true);
+    const r = await dispatch(resetSalonOwnerPasswordThunk({ salonId: resetTarget.id, password }));
+    setResetLoading(false);
+    if (resetSalonOwnerPasswordThunk.fulfilled.match(r)) {
+      setResetTarget(null);
+    } else {
+      setResetErr((r.payload as string) || "Failed to reset password.");
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setDeleteLoading(true);
+    const r = await dispatch(deleteSalonThunk(deleteTarget.id));
+    setDeleteLoading(false);
+    if (deleteSalonThunk.fulfilled.match(r)) {
+      setDeleteTarget(null);
+    }
+  }
+
   return (
     <div style={{ padding: "28px 28px 40px", fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
       <div style={{ marginBottom: 24 }}>
@@ -37,10 +134,10 @@ export default function BranchOwnerSalonsPage() {
       </div>
 
       <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "auto", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 600 }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 960 }}>
           <thead>
             <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
-              {["Salon", "Owner", "Status", "Actions"].map((h) => (
+              {["Salon", "Location", "Owner", "Staff", "Customers", "Today's Appointments", "Revenue", "Status", "Actions"].map((h) => (
                 <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
               ))}
             </tr>
@@ -49,7 +146,7 @@ export default function BranchOwnerSalonsPage() {
             {loading ? (
               [...Array(4)].map((_, i) => (
                 <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
-                  {[...Array(4)].map((_, j) => (
+                  {[...Array(9)].map((_, j) => (
                     <td key={j} style={{ padding: "14px 16px" }}>
                       <div style={{ height: 13, borderRadius: 4, background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "200% 100%", animation: "bo-shimmer 1.4s infinite" }} />
                     </td>
@@ -57,29 +154,64 @@ export default function BranchOwnerSalonsPage() {
                 </tr>
               ))
             ) : salons.length === 0 ? (
-              <tr><td colSpan={4} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No salons assigned yet</td></tr>
+              <tr><td colSpan={9} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No salons assigned yet</td></tr>
             ) : (
-              salons.map((s) => (
+              salonsPage.pageItems.map((s) => (
                 <tr key={s.id} style={{ borderTop: "1px solid #f1f5f9" }}>
                   <td style={{ padding: "13px 16px", color: "#0f172a", fontWeight: 700 }}>{s.name}</td>
+                  <td style={{ padding: "13px 16px", color: "#374151" }}>{s.location || "—"}</td>
                   <td style={{ padding: "13px 16px" }}>
                     <div style={{ color: "#374151", fontSize: 13 }}>{s.owner_name || "—"}</div>
                     <div style={{ color: "#94a3b8", fontSize: 11.5 }}>{s.owner_email}</div>
                   </td>
+                  <td style={{ padding: "13px 16px", color: "#374151" }}>{s.staff_count ?? 0}</td>
+                  <td style={{ padding: "13px 16px", color: "#374151" }}>{(s.client_count ?? 0).toLocaleString("en-IN")}</td>
+                  <td style={{ padding: "13px 16px", color: "#374151" }}>{s.appointments_today ?? 0}</td>
+                  <td style={{ padding: "13px 16px", color: "#374151" }}>{formatCurrency(s.revenue_today ?? 0)}</td>
                   <td style={{ padding: "13px 16px" }}><Badge status={s.status} /></td>
                   <td style={{ padding: "13px 16px" }}>
-                    <button onClick={() => handleEnter(s.id)} disabled={enteringId === s.id}
-                      style={{ padding: "5px 11px", borderRadius: 7, fontSize: 11.5, fontWeight: 600, border: "1.5px solid #6366f1", cursor: enteringId === s.id ? "not-allowed" : "pointer", background: "#eef2ff", color: "#6366f1", opacity: enteringId === s.id ? 0.5 : 1 }}>
-                      {enteringId === s.id ? "Opening…" : "Enter Salon"}
-                    </button>
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                      <button onClick={() => handleEnter(s.id)} disabled={enteringId === s.id}
+                        style={{ padding: "5px 11px", borderRadius: 7, fontSize: 11.5, fontWeight: 600, border: "1.5px solid #6366f1", cursor: enteringId === s.id ? "not-allowed" : "pointer", background: "#eef2ff", color: "#6366f1", opacity: enteringId === s.id ? 0.5 : 1 }}>
+                        {enteringId === s.id ? "Opening…" : "Enter Salon"}
+                      </button>
+                      <button onClick={() => { setResetErr(""); setResetTarget({ id: s.id, name: s.name }); }}
+                        style={{ padding: "5px 11px", borderRadius: 7, fontSize: 11.5, fontWeight: 600, border: "1.5px solid #d97706", cursor: "pointer", background: "#fffbeb", color: "#d97706" }}>
+                        Reset Password
+                      </button>
+                      <button onClick={() => setDeleteTarget({ id: s.id, name: s.name })}
+                        style={{ padding: "5px 11px", borderRadius: 7, fontSize: 11.5, fontWeight: 600, border: "1.5px solid #dc2626", cursor: "pointer", background: "#fef2f2", color: "#dc2626" }}>
+                        Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
+        <BoPagination {...salonsPage} />
       </div>
       <style>{`@keyframes bo-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
+
+      {resetTarget && (
+        <ResetPasswordModal
+          salonName={resetTarget.name}
+          loading={resetLoading}
+          error={resetErr}
+          onConfirm={handleResetPassword}
+          onCancel={() => setResetTarget(null)}
+        />
+      )}
+
+      {deleteTarget && (
+        <ConfirmDeleteSalonModal
+          salonName={deleteTarget.name}
+          loading={deleteLoading}
+          onConfirm={handleDelete}
+          onCancel={() => setDeleteTarget(null)}
+        />
+      )}
     </div>
   );
 }

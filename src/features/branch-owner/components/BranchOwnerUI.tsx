@@ -113,7 +113,7 @@ export function usePagination<T>(items: T[], initialPageSize = 5) {
 }
 
 export function BoPagination(props: ReturnType<typeof usePagination<unknown>>) {
-  if (props.totalItems <= props.pageSize) return null;
+  if (props.totalItems === 0) return null;
   return (
     <div style={{ padding: "8px 16px 14px" }}>
       <UIPagination

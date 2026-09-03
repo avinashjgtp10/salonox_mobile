@@ -1,8 +1,17 @@
 export const BRANCH_OWNER = {
   DASHBOARD:   "/api/v1/branch-owner/dashboard",
   SALONS:      "/api/v1/branch-owner/salons",
+  SALONS_LIST: "/api/v1/branch-owner/salons/list",
   SALON_ENTER: (id: string) => `/api/v1/branch-owner/salons/${id}/enter`,
+  SALON_RESET_PASSWORD: (id: string) => `/api/v1/branch-owner/salons/${id}/reset-password`,
+  SALON_DELETE: (id: string) => `/api/v1/branch-owner/salons/${id}`,
+  SALON_STAFF: (salonId: string) => `/api/v1/branch-owner/salons/${salonId}/staff`,
+  SALON_STAFF_PERMISSIONS: (salonId: string, staffId: string) => `/api/v1/branch-owner/salons/${salonId}/staff/${staffId}/permissions`,
+  SALON_SUBSCRIPTION: (salonId: string) => `/api/v1/branch-owner/salons/${salonId}/subscription`,
+  SALON_INVOICES: (salonId: string) => `/api/v1/branch-owner/salons/${salonId}/invoices`,
   PAYMENTS:    "/api/v1/branch-owner/payments",
+  PAYMENTS_LIST: "/api/v1/branch-owner/payments/list",
+  STAFF_LIST:  "/api/v1/branch-owner/staff/list",
   SALON_PRODUCTS: (salonId: string) => `/api/v1/branch-owner/salons/${salonId}/products`,
   SUGGEST_MATCH: "/api/v1/branch-owner/stock-transfer/suggest-match",
   STOCK_TRANSFER: "/api/v1/branch-owner/stock-transfer",
@@ -21,4 +30,11 @@ export const BRANCH_OWNER = {
   FINANCE_SETTLE_COMMISSION: (salonId: string) => `/api/v1/branch-owner/finance/salons/${salonId}/commissions/settle`,
 
   STAFF_PERFORMANCE: "/api/v1/branch-owner/staff-performance",
+  STAFF_PERFORMANCE_LIST: "/api/v1/branch-owner/staff-performance/list",
+  SUPPORT: "/api/v1/branch-owner/support",
+
+  NOTIFICATIONS: (salonId: string) => `/api/v1/branch-owner/notifications?salonId=${salonId}`,
+  NOTIFICATIONS_UNREAD_COUNT: (salonId: string) => `/api/v1/branch-owner/notifications/unread-count?salonId=${salonId}`,
+  NOTIFICATIONS_MARK_ALL: "/api/v1/branch-owner/notifications/read-all",
+  NOTIFICATIONS_MARK_ONE: (id: string) => `/api/v1/branch-owner/notifications/${id}/read`,
 } as const;

@@ -1,13 +1,18 @@
 import { createSlice } from "@reduxjs/toolkit";
-import { fetchMySalonsThunk, fetchBranchOwnerDashboardThunk, fetchBranchOwnerPaymentsThunk } from "../middleware/branchOwner/branchOwner.thunk";
+import { fetchMySalonsThunk, fetchBranchOwnerDashboardThunk, fetchBranchOwnerPaymentsThunk, deleteSalonThunk } from "../middleware/branchOwner/branchOwner.thunk";
 
 export interface BranchOwnerSalon {
   id: string;
   name: string;
+  location?: string | null;
   owner_email?: string;
   owner_name?: string;
   status: string;
   created_at: string;
+  staff_count?: number;
+  client_count?: number;
+  appointments_today?: number;
+  revenue_today?: number;
 }
 
 export interface BranchOwnerStats {
@@ -32,20 +37,48 @@ export interface BranchOwnerPayment {
   status: string;
   payment_method: string;
   created_at: string;
+  invoice_number?: string | null;
+}
+
+export interface BranchOwnerRevenuePoint {
+  day: string;
+  revenue: number;
+}
+
+export interface BranchOwnerInventorySummary {
+  total_products: number;
+  total_stock_value: number;
+  low_stock_count: number;
+  pending_transfers_count: number;
+}
+
+export interface BranchOwnerAttentionMetrics {
+  unpaid_invoices_count: number;
+  unpaid_invoices_amount: number;
+  pending_bookings: number;
+  pending_staff_requests: number;
 }
 
 // Shape of GET /api/v1/branch-owner/dashboard — one combined payload for
 // everything BranchOwnerDashboardPage needs, instead of separate calls.
+// inventorySummary was a second, separate GET from the dashboard page until
+// it was folded into this same response (see branch-owner.service.ts).
 export interface BranchOwnerDashboard {
   salons: BranchOwnerSalon[];
   stats: BranchOwnerStats;
   payments: BranchOwnerPayment[];
+  revenueTrend: BranchOwnerRevenuePoint[];
+  inventorySummary: BranchOwnerInventorySummary;
+  attention: BranchOwnerAttentionMetrics;
 }
 
 interface BranchOwnerState {
   salons: BranchOwnerSalon[];
   stats: BranchOwnerStats | null;
   payments: BranchOwnerPayment[];
+  revenueTrend: BranchOwnerRevenuePoint[];
+  inventorySummary: BranchOwnerInventorySummary | null;
+  attention: BranchOwnerAttentionMetrics | null;
   loading: {
     salons: boolean;
     stats: boolean;
@@ -58,6 +91,9 @@ const initialState: BranchOwnerState = {
   salons: [],
   stats: null,
   payments: [],
+  revenueTrend: [],
+  inventorySummary: null,
+  attention: null,
   loading: { salons: false, stats: false, payments: false },
   error: null,
 };
@@ -84,6 +120,9 @@ const branchOwnerSlice = createSlice({
         state.loading.payments = false;
         state.stats = payload.stats;
         state.payments = payload.payments;
+        state.revenueTrend = payload.revenueTrend ?? [];
+        state.inventorySummary = payload.inventorySummary ?? null;
+        state.attention = payload.attention ?? null;
         // The dashboard payload already includes the salon list — keep it in
         // sync here too so a page that only dispatches this thunk (not also
         // fetchMySalonsThunk) still has it.
@@ -99,6 +138,11 @@ const branchOwnerSlice = createSlice({
       .addCase(fetchBranchOwnerPaymentsThunk.pending,   (state) => { state.loading.payments = true; })
       .addCase(fetchBranchOwnerPaymentsThunk.fulfilled, (state, { payload }) => { state.loading.payments = false; state.payments = payload; })
       .addCase(fetchBranchOwnerPaymentsThunk.rejected,  (state, { payload }) => { state.loading.payments = false; state.error = payload ?? null; });
+
+    builder
+      .addCase(deleteSalonThunk.fulfilled, (state, { payload: salonId }) => {
+        state.salons = state.salons.filter((s) => s.id !== salonId);
+      });
   },
 });
 
