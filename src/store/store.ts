@@ -34,6 +34,25 @@ import supportReducer from "./supportSlice";
 import cashCounterReducer from "./cashCounterSlice";
 import spotlightReducer from "./spotlightSlice";
 
+// An impersonation/oauth-success tab (opened via window.open, e.g. Super
+// Admin's "Impersonate") shares localStorage with every other tab on this
+// origin — redux-persist would otherwise rehydrate whatever session was
+// persisted there (the super admin's own refreshToken) before that tab's
+// OAuthSuccessPage ever runs its own login() dispatch. GuestGuard then sees
+// that rehydrated super_admin session and redirects to /super-admin,
+// hijacking the impersonation before it can take effect. Wiping the
+// persisted auth key here — synchronously, before persistReducer/
+// persistStore below ever touch it — closes that race: this module is
+// imported (and evaluated) before any component renders, so this always
+// runs ahead of rehydration.
+if (window.location.pathname === "/oauth/success" || window.location.pathname === "/oauth-success") {
+  try {
+    window.localStorage.removeItem("persist:auth");
+  } catch {
+    // localStorage unavailable (private mode, etc.) — nothing to purge.
+  }
+}
+
 const authPersistConfig = {
   key: "auth",
   storage,
