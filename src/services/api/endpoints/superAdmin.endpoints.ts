@@ -11,6 +11,8 @@ export const SUPER_ADMIN = {
   SUBSCRIPTION_PERMISSIONS_PUT:       (id: string) => `/api/v1/super-admin/subscription-permissions/${id}`,
   SUBSCRIPTION_PERMISSIONS_AUDIT_LOG: (id: string) => `/api/v1/super-admin/subscription-permissions/${id}/audit-log`,
   SUBSCRIPTION_GRANT_DAYS: (id: string) => `/api/v1/super-admin/subscription-permissions/${id}/grant-days`,
+  SUBSCRIPTION_APPLY:  (id: string) => `/api/v1/super-admin/subscription-permissions/${id}/apply`,
+  SUBSCRIPTION_REMOVE: (id: string) => `/api/v1/super-admin/subscription-permissions/${id}/remove`,
   SALONS:        "/api/v1/super-admin/salons",
   SALON_STATUS:  (id: string) => `/api/v1/super-admin/salons/${id}/status`,
   SALON_ONBOARD: (id: string) => `/api/v1/super-admin/salons/${id}/onboarding`,

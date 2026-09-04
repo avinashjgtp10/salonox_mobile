@@ -313,6 +313,30 @@ export const updateSubscriptionPermissionsThunk = createAsyncThunk<any, { salonI
   }
 );
 
+export const applySubscriptionThunk = createAsyncThunk<any, { salonId: string; startDate: string; endDate: string }, { rejectValue: string }>(
+  "superAdmin/applySubscription",
+  async ({ salonId, startDate, endDate }, { rejectWithValue }) => {
+    try {
+      const res = await api.post(SUPER_ADMIN.SUBSCRIPTION_APPLY(salonId), { start_date: startDate, end_date: endDate });
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to apply subscription");
+    }
+  }
+);
+
+export const removeSubscriptionThunk = createAsyncThunk<any, string, { rejectValue: string }>(
+  "superAdmin/removeSubscription",
+  async (salonId, { rejectWithValue }) => {
+    try {
+      const res = await api.post(SUPER_ADMIN.SUBSCRIPTION_REMOVE(salonId), {});
+      return res.data?.data ?? res.data;
+    } catch (err: any) {
+      return rejectWithValue(err?.response?.data?.error?.message ?? err?.message ?? "Failed to remove subscription");
+    }
+  }
+);
+
 export const fetchSubscriptionPermissionAuditLogThunk = createAsyncThunk<any[], string, { rejectValue: string }>(
   "superAdmin/fetchSubscriptionPermissionAuditLog",
   async (salonId, { rejectWithValue }) => {
