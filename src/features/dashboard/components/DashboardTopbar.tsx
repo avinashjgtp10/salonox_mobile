@@ -24,6 +24,7 @@ import {
   ExclamationTriangleFill,
   BoxSeam,
   CalendarX,
+  Stars,
 } from "react-bootstrap-icons";
 import type { RootState } from "../../../store/store";
 import salonoxLogo from "../../../assets/salonox_full_logo.png";
@@ -38,12 +39,14 @@ import { sendDailySummaryEmail, fetchTodaysPaymentMethodCounts } from "../../cas
 import { useCurrency } from "../../../hooks/useCurrency";
 import { Button, Modal } from "../../../components/ui";
 import { onGlobalToast } from "../../../utils/globalToast";
+import { selectNewFeatures, selectSpotlightFetched } from "../../../store/spotlightSlice";
+import { fetchSpotlightFeaturesThunk } from "../../../middleware/spotlight/spotlight.thunk";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 interface Notification {
   id: string;
-  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info" | "success" | "error" | "warning";
+  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info" | "success" | "error" | "warning" | "spotlight";
   title: string;
   body: string | null;
   is_read: boolean;
@@ -51,6 +54,7 @@ interface Notification {
   product_id?: string | null;
   branch_id?: string | null;
   alert_status?: "low_stock" | "out_of_stock" | "expiring_soon" | "expired" | null;
+  spotlight_feature_id?: string | null;
 }
 
 interface Toast extends Notification {
@@ -70,6 +74,7 @@ const NOTIF_ICONS: Record<string, React.ReactNode> = {
   success: <CheckCircleFill size={15} />,
   error: <XCircleFill size={15} />,
   warning: <ExclamationTriangleFill size={14} />,
+  spotlight: <Stars size={14} />,
 };
 
 const NOTIF_COLORS: Record<string, string> = {
@@ -82,6 +87,7 @@ const NOTIF_COLORS: Record<string, string> = {
   success: "#10b981",
   error: "#ef4444",
   warning: "#f59e0b",
+  spotlight: "#8b5cf6",
 };
 
 // Inventory alerts all arrive with type "warning" — alert_status picks a
@@ -137,6 +143,8 @@ export default function DashboardTopbar({ onLogout }: Props) {
   // ── Cash counter: "Close Counter" navbar shortcut ────────────────────────────
   const dispatch = useAppDispatch();
   const cashDashboard = useAppSelector((s) => s.cashCounter.dashboard);
+  const newSpotlightFeatures = useAppSelector(selectNewFeatures);
+  const spotlightFetched = useAppSelector(selectSpotlightFetched);
   const isCashCounterOpen = cashDashboard?.status === "open" && Boolean(cashDashboard.cashManagementId);
   const [showCloseCounterConfirm, setShowCloseCounterConfirm] = useState(false);
   const [closingCounter, setClosingCounter] = useState(false);
@@ -220,6 +228,14 @@ export default function DashboardTopbar({ onLogout }: Props) {
     fetchNotifications();
   }, [fetchNotifications]);
 
+  // Powers the topbar's Spotlight icon — fetched once here (topbar is
+  // mounted on every dashboard page, unlike DashboardPage) so the "new
+  // feature available" indicator shows up regardless of which page the
+  // user lands on, not just the dashboard home.
+  useEffect(() => {
+    if (!spotlightFetched) dispatch(fetchSpotlightFeaturesThunk());
+  }, [dispatch, spotlightFetched]);
+
   // ── WebSocket: real-time notifications ───────────────────────────────────────
 
   useEffect(() => {
@@ -302,6 +318,9 @@ export default function DashboardTopbar({ onLogout }: Props) {
     if (n.product_id) {
       setShowNotif(false);
       navigate(`/dashboard/inventory/products?highlight=${n.product_id}`);
+    } else if (n.spotlight_feature_id) {
+      setShowNotif(false);
+      navigate(`/dashboard/spotlight/${n.spotlight_feature_id}`);
     }
   }, [navigate]);
 
@@ -415,6 +434,8 @@ export default function DashboardTopbar({ onLogout }: Props) {
                 dismissToast(toast.toastId);
                 if (toast.product_id) {
                   navigate(`/dashboard/inventory/products?highlight=${toast.product_id}`);
+                } else if (toast.spotlight_feature_id) {
+                  navigate(`/dashboard/spotlight/${toast.spotlight_feature_id}`);
                 } else {
                   setShowNotif(true);
                 }
@@ -454,6 +475,24 @@ export default function DashboardTopbar({ onLogout }: Props) {
             <span className="topbar-datetime__date">{todayLabel}</span>
             <span className="topbar-datetime__time">{timeLabel}</span>
           </span>
+
+          {/* New Spotlight feature indicator — only rendered once there's an
+              unexplored published feature (selectNewFeatures), same "new"
+              definition the bell/dashboard card use. Goes straight to that
+              feature's detail page and marks it explored on arrival
+              (SpotlightDetailPage's own mount effect, same as clicking
+              Explore anywhere else). */}
+          {newSpotlightFeatures.length > 0 && (
+            <button
+              className="topbar-icon-btn topbar-spotlight-btn"
+              title={`New feature available: ${newSpotlightFeatures[0].featureName}`}
+              onClick={() => navigate(`/dashboard/spotlight/${newSpotlightFeatures[0].id}`)}
+              aria-label="New feature available"
+            >
+              <Stars size={18} />
+              <span className="topbar-spotlight-dot" />
+            </button>
+          )}
 
           {/* Notifications bell */}
           <div className="topbar-notif-wrap" ref={notifRef}>

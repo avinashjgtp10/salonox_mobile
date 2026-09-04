@@ -4,7 +4,6 @@ import { Route } from "react-router-dom";
 import DashboardLayout from "../features/dashboard/components/DashboardLayout";
 import AuthGuard from "../components/guards/AuthGuard";
 import PermissionGuard from "../components/guards/PermissionGuard";
-import OwnerGuard from "../components/guards/OwnerGuard";
 import { DashboardProviders } from "../providers/DashboardProviders";
 
 import { AppsRoutes } from "./AppsRoutes";
@@ -51,10 +50,6 @@ const EnquiriesListPage = lazy(() =>
 
 const EnquiryAddPage = lazy(() =>
   import("../features/enquiries/pages/EnquiryAddPage")
-);
-
-const SpotlightAdminPage = lazy(() =>
-  import("../features/feature-spotlight/pages/SpotlightAdminPage")
 );
 
 export const DashboardRoutes = (
@@ -141,13 +136,10 @@ export const DashboardRoutes = (
       {/* Help & Support — accessible to all authenticated users */}
       <Route path="help" element={<HelpPage />} />
 
-      {/* Spotlight — accessible to all authenticated users */}
+      {/* Spotlight — accessible to all authenticated salon users; managing
+          (creating/publishing) features is superadmin-only, under
+          /super-admin/spotlight (see SuperAdminRoutes.tsx), not here. */}
       {SpotlightRoutes}
-
-      {/* Spotlight management — owner/admin only */}
-      <Route element={<OwnerGuard />}>
-        <Route path="spotlight/manage" element={<SpotlightAdminPage />} />
-      </Route>
     </Route>
 
     {/* Reports — top-level /reports/... (not under /dashboard), same layout/guards */}

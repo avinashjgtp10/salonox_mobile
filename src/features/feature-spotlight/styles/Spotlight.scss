@@ -861,14 +861,54 @@
   justify-content: center;
   min-height: 200px;
 
-  img, video {
+  img {
     width: 100%;
     display: block;
     max-height: 320px;
     object-fit: contain;
   }
 
+  // The embedded YouTube player, once Play is clicked — a real 16:9 box
+  // rather than the img/video max-height clamp above, since an iframe has
+  // no intrinsic size of its own to shrink-to-fit.
+  iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    display: block;
+    border: 0;
+  }
+
   @media (max-width: 860px) { flex: 1 1 auto; max-width: 100%; }
+}
+
+.spotlight-detail-hero__preview-img-btn {
+  position: relative;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  display: block;
+  cursor: default;
+
+  &--playable {
+    cursor: pointer;
+
+    &:hover .spotlight-detail-hero__play-overlay {
+      background: rgba(0, 0, 0, 0.55);
+      transform: scale(1.05);
+    }
+  }
+}
+
+.spotlight-detail-hero__play-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  transition: background 0.15s, transform 0.15s;
 }
 
 .spotlight-detail-hero__preview-empty {
@@ -982,6 +1022,33 @@
 
     &:last-child { margin-bottom: 0; }
   }
+}
+
+// ── "Sections" tab: named walkthrough blocks, each its own title + text + gallery ──
+.spotlight-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 40px;
+}
+
+.spotlight-sections__block {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 32px;
+  border-bottom: 1px solid #eaecf0;
+
+  &:last-child {
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+}
+
+.spotlight-sections__title {
+  font-size: 17px;
+  font-weight: 700;
+  color: #101828;
+  margin: 0;
 }
 
 .spotlight-highlight-card__icon {
@@ -1272,6 +1339,12 @@
   max-width: 220px;
 
   img, video { width: 100%; display: block; }
+
+  // The YouTube embed preview needs real width to be legible (16:9, not a
+  // thumbnail) — unlike the fixed-size image/video previews elsewhere in
+  // this panel that share this class.
+  iframe { width: 100%; display: block; }
+  &:has(iframe) { max-width: 420px; }
 }
 
 .sf-image-list {
@@ -1326,13 +1399,69 @@
   margin-bottom: 14px;
 }
 
-.spotlight-import-success {
-  padding: 10px 14px;
-  background: #ecfdf3;
-  border: 1px solid #a7f3d0;
-  border-radius: 9px;
-  color: #027a48;
-  font-size: 12.5px;
+// ── Superadmin: Walkthrough Sections editor ─────────────────────────────────
+.sf-sections-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 10px;
+}
+
+.sf-section-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  background: #fbfbfd;
+
+  .sf-field { margin: 0; }
+}
+
+.sf-section-editor__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.sf-section-editor__index {
+  font-size: 12px;
+  font-weight: 700;
+  color: #667085;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sf-section-editor__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    background: none;
+    border: 1px solid #e2e8f0;
+    border-radius: 7px;
+    padding: 5px 8px;
+    color: #475467;
+    cursor: pointer;
+    font-size: 11.5px;
+
+    &:hover:not(:disabled) { background: #f2f4f7; }
+    &:disabled { opacity: 0.4; cursor: not-allowed; }
+  }
+}
+
+.sf-section-editor__remove {
+  color: #dc2626 !important;
+  font-weight: 600;
+  border-color: #fecaca !important;
+
+  &:hover:not(:disabled) { background: #fef2f2 !important; }
 }
 
 // ── Accessibility: consistent keyboard-focus ring across interactive elements ──

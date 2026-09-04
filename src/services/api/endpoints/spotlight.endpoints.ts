@@ -1,16 +1,17 @@
-// Spotlight has no backend yet (see src/features/feature-spotlight — it runs
-// entirely on localStorage mock data). This is the one real endpoint the
-// backend team needs to add so Spotlight images stop being stored as base64
-// data URLs in localStorage:
-//
-//   POST /api/v1/spotlight/upload-image
-//   Content-Type: multipart/form-data
-//   Field: "image" (single file)
-//   Response: { data: { url: string } }  — a URL the frontend can store as-is
-//   and later pass straight into <img src>.
-//
-// Same shape as the existing staff/client/user avatar upload endpoints
-// (see staff.endpoints.ts UPLOAD_AVATAR) — mirror that implementation.
+// Real Spotlight backend — see src/modules/spotlight in the backend repo.
 export const SPOTLIGHT = {
   UPLOAD_IMAGE: "/api/v1/spotlight/upload-image",
+
+  // Salon-facing (any authenticated salon user: owner/admin/staff) — only
+  // published features, plus this user's own explored-feature ids.
+  LIST: "/api/v1/spotlight",
+  EXPLORE: (id: string) => `/api/v1/spotlight/${id}/explore`,
+
+  // Superadmin-only — sees draft/published/archived, full CRUD + publish.
+  ADMIN_LIST: "/api/v1/spotlight/admin",
+  ADMIN_BY_ID: (id: string) => `/api/v1/spotlight/admin/${id}`,
+  ADMIN_CREATE: "/api/v1/spotlight/admin",
+  ADMIN_UPDATE: (id: string) => `/api/v1/spotlight/admin/${id}`,
+  ADMIN_PUBLISH: (id: string) => `/api/v1/spotlight/admin/${id}/publish`,
+  ADMIN_DELETE: (id: string) => `/api/v1/spotlight/admin/${id}`,
 } as const;

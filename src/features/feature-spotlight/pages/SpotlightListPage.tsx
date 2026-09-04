@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { Stars, Gear, ChevronLeft, ChevronRight, Search, X, FileEarmarkText, Collection, Link45deg, Check2 } from "react-bootstrap-icons";
+import { Stars, Gear, ChevronLeft, ChevronRight, Search, X, FileEarmarkText, Collection } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Button from "../../../components/ui/Button";
 import SpotlightCard from "../components/SpotlightCard";
@@ -19,6 +19,13 @@ import {
 } from "../../../middleware/spotlight/spotlight.thunk";
 import type { SpotlightFeature } from "../types";
 import "../styles/Spotlight.scss";
+
+// Defensive guard before calling the explore/update API — every feature
+// this page can reach comes straight from the backend, so its id is always
+// a real UUID (Postgres gen_random_uuid()), but this stays cheap insurance
+// against ever calling those endpoints with something malformed.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isRealFeature = (feature: SpotlightFeature) => UUID_RE.test(feature.id);
 
 type TabKey = "new" | "recent" | "all";
 
@@ -69,12 +76,11 @@ export default function SpotlightListPage() {
   const [activeIndex, setActiveIndex] = useState(0);
   const [search, setSearch] = useState("");
   const [bannerDismissed, setBannerDismissed] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const timelineRef = useRef<HTMLDivElement>(null);
 
   const role = useAppSelector((s) => s.auth.role);
-  const isOwner = role === "salon_owner" || role === "admin";
+  const isSuperAdmin = role === "super_admin";
   const published = useAppSelector(selectPublishedFeatures);
   const newFeatures = useAppSelector(selectNewFeatures);
   const recentlyUpdated = useAppSelector(selectRecentlyUpdated);
@@ -118,10 +124,8 @@ export default function SpotlightListPage() {
   const bannerFeature = newFeatures[0];
   const activeFeature = list[activeIndex];
 
-  const shareLink = (feature: SpotlightFeature) => `${window.location.origin}/dashboard/spotlight/${feature.id}`;
-
   const markRead = (feature: SpotlightFeature) => {
-    if (!readIds.includes(feature.id)) {
+    if (isRealFeature(feature) && !readIds.includes(feature.id)) {
       dispatch(markSpotlightReadThunk(feature.id));
     }
   };
@@ -132,7 +136,17 @@ export default function SpotlightListPage() {
   };
 
   const handleImageUpload = async (feature: SpotlightFeature, dataUrl: string) => {
-    const result = await dispatch(updateSpotlightFeatureThunk({ id: feature.id, data: { imageDataUrl: dataUrl } }));
+    if (!isRealFeature(feature)) {
+      throw new Error("This is a sample feature and can't be edited — manage real features from Manage Features.");
+    }
+    // Appends to `images` (the real, DB-backed field) rather than the
+    // legacy flat `imageDataUrl` — the backend's update() only maps
+    // `images`, so writing imageDataUrl alone silently no-ops against the
+    // real API (it did nothing there before this backend existed either,
+    // since it was never a real column — this just makes the upload
+    // actually persist).
+    const nextImages = [...(feature.images ?? []), { imageDataUrl: dataUrl }];
+    const result = await dispatch(updateSpotlightFeatureThunk({ id: feature.id, data: { images: nextImages } }));
     if (updateSpotlightFeatureThunk.rejected.match(result)) {
       throw new Error(result.payload || "Couldn't save this image — try a smaller file.");
     }
@@ -155,18 +169,6 @@ export default function SpotlightListPage() {
     setActiveIndex(clamped);
   };
 
-  const handleCopyActiveLink = async () => {
-    if (!activeFeature) return;
-    try {
-      await navigator.clipboard.writeText(shareLink(activeFeature));
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 1500);
-    } catch {
-      // Clipboard API unavailable — no-op, nothing to surface for a
-      // non-critical convenience action.
-    }
-  };
-
   return (
     <div className="spotlight-shell">
       {bannerFeature && !bannerDismissed && (
@@ -183,9 +185,9 @@ export default function SpotlightListPage() {
       )}
 
       <div className="spotlight-page">
-        {isOwner && (
+        {isSuperAdmin && (
           <div className="spotlight-page__manage">
-            <Button variant="outline-dark" size="sm" iconLeft={<Gear size={14} />} onClick={() => navigate("/dashboard/spotlight/manage")}>
+            <Button variant="outline-dark" size="sm" iconLeft={<Gear size={14} />} onClick={() => navigate("/super-admin/spotlight")}>
               Manage Features
             </Button>
           </div>
@@ -271,7 +273,7 @@ export default function SpotlightListPage() {
                   index={spotlightNumber(feature)}
                   isUnread={!readIds.includes(feature.id)}
                   active={i === activeIndex}
-                  isOwner={isOwner}
+                  isOwner={isSuperAdmin}
                   onSelect={() => openFeature(feature)}
                   onImageUpload={(dataUrl) => handleImageUpload(feature, dataUrl)}
                 />
@@ -300,19 +302,9 @@ export default function SpotlightListPage() {
             </div>
 
             {activeFeature && (
-              <>
-                <div className="spotlight-linkbar">
-                  <span className="spotlight-linkbar__url">{shareLink(activeFeature)}</span>
-                  <button type="button" className="spotlight-linkbar__copy" onClick={handleCopyActiveLink}>
-                    {linkCopied ? <Check2 size={14} /> : <Link45deg size={14} />}
-                    {linkCopied ? "Copied" : "Copy link"}
-                  </button>
-                </div>
-
-                <div className="spotlight-active-preview">
-                  <SpotlightFeaturePreview feature={activeFeature} spotlightNumber={spotlightNumber(activeFeature)} />
-                </div>
-              </>
+              <div className="spotlight-active-preview">
+                <SpotlightFeaturePreview feature={activeFeature} spotlightNumber={spotlightNumber(activeFeature)} />
+              </div>
             )}
           </>
         )}
