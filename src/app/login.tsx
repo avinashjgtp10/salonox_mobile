@@ -20,11 +20,11 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { KeyboardAwareScrollView, type KeyboardAwareScrollViewHandle } from "@/components/ui/KeyboardAwareScrollView";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, getApiErrorMessage } from "@/services/api";
+import { resolveLoginRoute } from "@/utils/routeResolver";
 import {
   EMAIL_INVALID_MESSAGE,
   isValidEmail,
 } from "@/utils/validation";
-import { resolveLoginRoute } from "@/utils/routeResolver";
 
 const getRouteParam = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 
@@ -58,6 +58,13 @@ export default function LoginScreen() {
   const [cardOpacity] = useState(() => new Animated.Value(0));
   const [cardTranslate] = useState(() => new Animated.Value(16));
   const keyboardNavigationFields = useMemo(() => [{ ref: identifierInputRef }, { ref: passwordInputRef }], []);
+  const keyboardNavigation = useMemo(() => ({
+    activeFieldRef: activeKeyboardFieldRef,
+    fields: keyboardNavigationFields,
+    hideOnLast: true,
+    keyboardVisible: isKeyboardVisible,
+    showAccessory: false,
+  }), [activeKeyboardFieldRef, isKeyboardVisible, keyboardNavigationFields]);
   const canSubmit = Boolean(identifier.trim() && password);
 
   useEffect(() => {
@@ -109,6 +116,16 @@ export default function LoginScreen() {
     setIdentifier(value);
     setFailedLoginAttempts(0);
     clearFeedback();
+  };
+
+  const handlePasswordFocus = () => {
+    setActiveKeyboardFieldRef(passwordInputRef);
+
+    // Wait for the native focus/layout update, then perform one measured
+    // scroll. Repeating delayed scrolls makes the form jump while typing.
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => scrollLoginFieldIntoView(passwordInputRef.current));
+    });
   };
 
   const handleLogin = async () => {
@@ -166,7 +183,7 @@ export default function LoginScreen() {
           ref={scrollViewRef as any}
           contentContainerStyle={styles.scrollContent}
           keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
-          keyboardNavigation={{ activeFieldRef: activeKeyboardFieldRef, fields: keyboardNavigationFields, hideOnLast: true, keyboardVisible: isKeyboardVisible, onDone: handleLogin, showAccessory: false }}
+          keyboardNavigation={keyboardNavigation}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -205,10 +222,7 @@ export default function LoginScreen() {
                   autoCapitalize="none"
                   autoComplete="password"
                   onChangeText={(value) => { setPassword(value); clearFeedback(); }}
-                  onFocus={() => {
-                    setActiveKeyboardFieldRef(passwordInputRef);
-                    requestAnimationFrame(() => scrollLoginFieldIntoView(passwordInputRef.current));
-                  }}
+                  onFocus={handlePasswordFocus}
                   onSubmitEditing={handleLogin}
                   placeholder="Enter Password"
                   placeholderTextColor="#858585"
