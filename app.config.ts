@@ -97,7 +97,6 @@ export default ({ config }: ConfigContext): ExpoConfig => {
         backgroundColor: "#FAFBFA",
         foregroundImage: adaptiveIconForeground,
         backgroundImage: "./assets/images/android-launcher-background.png",
-        monochromeImage: "./assets/images/android-launcher-monochrome.png",
       },
       predictiveBackGestureEnabled: false,
       softwareKeyboardLayoutMode: "resize",
