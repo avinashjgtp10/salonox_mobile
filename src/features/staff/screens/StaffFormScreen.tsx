@@ -31,6 +31,8 @@ import { useStaffForm } from "@/features/staff/hooks/useStaffForm";
 import { STAFF_GENDER_OPTIONS, STAFF_ROLE_OPTIONS } from "@/features/staff/validation/staff.validation";
 import { getApiErrorMessage } from "@/services/api";
 import { useThemeColors } from "@/theme/ThemeProvider";
+import { useValidationScroll } from "@/hooks/useValidationScroll";
+import type { StaffProfileFormValues } from "@/features/staff/types/staffFeature.types";
 
 const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024;
 const AVATAR_SIZE_ERROR_MESSAGE = "Profile image must be 2 MB or smaller.";
@@ -43,6 +45,24 @@ const STAFF_LOGIN_HELPER_TEXT =
 type StaffFormScreenProps = {
   mode: "create" | "edit";
 };
+
+type StaffValidationField = keyof StaffProfileFormValues;
+const VALIDATION_FIELD_ORDER: StaffValidationField[] = [
+  "fullName",
+  "email",
+  "phone",
+  "dob",
+  "joiningDate",
+  "address",
+  "gender",
+  "designation",
+  "hourlyRate",
+  "fixedSalary",
+  "workingHoursPerDay",
+  "holidays",
+  "password",
+  "confirmPassword",
+];
 
 const sanitizeDecimalInput = (text: string) => {
   const cleaned = text.replace(/[^0-9.]/g, "");
@@ -139,6 +159,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
   const { id } = useLocalSearchParams<{ id?: string }>();
   const staffId = mode === "edit" ? id : null;
   const form = useStaffForm(staffId);
+  const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
 
   const [avatarValidationError, setAvatarValidationError] = useState<string | null>(null);
 
@@ -249,10 +270,16 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
 
   const avatarDisplayError = avatarValidationError ?? form.avatarError;
 
+  const handleSubmit = () => {
+    if (!form.isValid) scrollToFirstError(form.allValidationErrors);
+    void form.submit();
+  };
+
   return (
     <SafeAreaView edges={["top"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAwareScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.content}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -308,6 +335,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
         <View style={styles.card}>
           <SectionHeading title="Staff Details" />
           <StaffTextField
+            ref={(input) => setFieldRef("fullName", input)}
             autoCapitalize="words"
             error={form.validationErrors.fullName}
             label="Full Name *"
@@ -317,6 +345,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           />
 
           <StaffTextField
+            ref={(input) => setFieldRef("email", input)}
             autoCapitalize="none"
             error={form.validationErrors.email}
             keyboardType="email-address"
@@ -329,6 +358,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
 <View style={styles.fieldGroup}>
             <Text style={styles.fieldLabel}>Contact *</Text>
             <PhoneInput
+              ref={(input) => setFieldRef("phone", input)}
               country={form.values.phoneCountry as CountryCode}
               error={form.validationErrors.phone}
               onChange={(e164) => form.updateField("phone", e164)}
@@ -339,6 +369,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
 </View>
 
           <DateField
+            ref={(view) => setFieldRef("dob", view)}
             error={form.validationErrors.dob}
             label="Date of Birth"
             maximumDate={new Date()}
@@ -348,6 +379,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           />
 
           <DateField
+            ref={(view) => setFieldRef("joiningDate", view)}
             error={form.validationErrors.joiningDate}
             label="Date of Joining"
             maximumDate={new Date()}
@@ -357,6 +389,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           />
 
           <StaffTextField
+            ref={(input) => setFieldRef("address", input)}
             error={form.validationErrors.address}
             label="Address"
             multiline
@@ -365,7 +398,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             value={form.values.address}
           />
 
-          <View style={styles.fieldGroup}>
+          <View ref={(view) => setFieldRef("gender", view)} style={[styles.fieldGroup, form.validationErrors.gender && styles.fieldGroupError]}>
             <Text style={styles.fieldLabel}>Gender *</Text>
             <ChipRow
               onSelect={(option) => form.updateField("gender", option)}
@@ -378,6 +411,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           </View>
 
           <StaffTextField
+            ref={(input) => setFieldRef("designation", input)}
             autoCapitalize="words"
             error={form.validationErrors.designation}
             label="Designation"
@@ -398,6 +432,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           <View style={styles.timeRow}>
             <View style={{ flex: 1 }}>
               <StaffTextField
+                ref={(input) => setFieldRef("hourlyRate", input)}
                 error={form.validationErrors.hourlyRate}
                 keyboardType="decimal-pad"
                 label="Hourly Rate"
@@ -408,6 +443,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             </View>
             <View style={{ flex: 1 }}>
               <StaffTextField
+                ref={(input) => setFieldRef("fixedSalary", input)}
                 error={form.validationErrors.fixedSalary}
                 keyboardType="decimal-pad"
                 label="Fixed Salary"
@@ -421,6 +457,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           <View style={styles.timeRow}>
             <View style={{ flex: 1 }}>
               <StaffTextField
+                ref={(input) => setFieldRef("workingHoursPerDay", input)}
                 error={form.validationErrors.workingHoursPerDay}
                 keyboardType="decimal-pad"
                 label="Working Hours/Day"
@@ -431,6 +468,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
             </View>
             <View style={{ flex: 1 }}>
               <StaffTextField
+                ref={(input) => setFieldRef("holidays", input)}
                 error={form.validationErrors.holidays}
                 keyboardType="number-pad"
                 label="Holidays"
@@ -464,6 +502,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           {form.values.isLoginEnabled ? (
             <>
               <PasswordField
+                ref={(input) => setFieldRef("password", input)}
                 error={form.validationErrors.password}
                 label="Password"
                 onChangeText={(value) => form.updateField("password", value)}
@@ -471,6 +510,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
                 value={form.values.password}
               />
               <PasswordField
+                ref={(input) => setFieldRef("confirmPassword", input)}
                 error={form.validationErrors.confirmPassword}
                 label="Confirm Password"
                 onChangeText={(value) => form.updateField("confirmPassword", value)}
@@ -488,7 +528,7 @@ export function StaffFormScreen({ mode }: StaffFormScreenProps) {
           <TouchableOpacity
             activeOpacity={0.86}
             disabled={form.submitting}
-            onPress={form.submit}
+            onPress={handleSubmit}
             style={[styles.saveButton, form.submitting && styles.saveButtonDisabled]}
           >
             {form.submitting ? (
@@ -591,6 +631,12 @@ saveButtonDisabled: {
   },
   fieldGroup: {
     marginBottom: Spacing.md,
+  },
+  fieldGroupError: {
+    borderColor: Colors.error,
+    borderRadius: AppRadius.control,
+    borderWidth: 1.5,
+    padding: Spacing.sm,
   },
   fieldLabel: {
     color: Colors.heading,

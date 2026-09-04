@@ -40,6 +40,7 @@ import {
 import type { StaffMember } from "@/data/teamData";
 import { useAppForeground } from "@/hooks/useAppForeground";
 import { useAppToast } from "@/hooks/useAppToast";
+import { useValidationScroll } from "@/hooks/useValidationScroll";
 import {
   cancelAppointmentThunk,
   completeAppointmentThunk,
@@ -142,6 +143,7 @@ import {
   validateDate,
   validateTime,
 } from "@/features/appointments/utils/appointmentDateTime";
+
 import {
   appointmentServicesToSelectedServices,
   appointmentToForm,
@@ -179,6 +181,18 @@ import type { ServiceListItem } from "@/types/service";
 import type { StaffAvailabilitySlot } from "@/types/staffAvailability";
 import type { BlockedTimeEntry } from "@/types/staffBlockedTimes";
 import { formatAppDate, formatAppTime } from "@/utils/dateTime";
+
+const APPOINTMENT_VALIDATION_FIELD_ORDER: (keyof AppointmentFormState)[] = [
+  "clientId",
+  "serviceName",
+  "staffId",
+  "date",
+  "startTime",
+  "duration",
+  "discount",
+  "paymentMethod",
+  "notes",
+];
 
 const getResponsiveHorizontalPadding = (width = 393) => {
   if (width < 360) {
@@ -2798,6 +2812,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
   const clients = useAppSelector(selectClients);
   const staffMembers = useAppSelector(selectStaffMembers);
   const activeBranchId = useAppSelector(selectActiveBranchId);
+  const { scrollToField, scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(APPOINTMENT_VALIDATION_FIELD_ORDER);
   const [errors, setErrors] = useState<FormErrors>({});
   // Form-level submission errors (e.g. missing auth context) that aren't tied
   // to any single field — kept separate from `errors` (per-field) and the
@@ -3410,7 +3425,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
     setFormSubmitError(null);
 
     if (Object.keys(nextErrors).length > 0) {
-      setFormSubmitError("Please correct the highlighted appointment details and try again.");
+      scrollToFirstError(nextErrors);
       return;
     }
 
@@ -3426,6 +3441,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         ...current,
         startTime: "Select an available time slot.",
       }));
+      scrollToField("startTime");
       return;
     }
 
@@ -3451,7 +3467,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         ...current,
         duration: "Selected service duration is required.",
       }));
-      setFormSubmitError("Selected service duration is required before booking.");
+      scrollToField("duration");
       return;
     }
 
@@ -3581,6 +3597,7 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
         visible={servicePickerVisible}
       />
       <KeyboardAwareScrollView
+        ref={scrollViewRef}
         contentContainerStyle={[styles.content, styles.bookingContent]}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
@@ -3610,35 +3627,37 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
               />
             ) : null}
 
-            <BookingSection stackIndex={clientDropdownOpen ? 40 : 5} title="Client details">
-              <SearchableClientField
-                bookingMode={clientBookingMode}
-                dropdownOpen={clientDropdownOpen}
-                error={errors.clientId}
-                onDismiss={dismissClientDropdown}
-                onNewClient={handleNewClient}
-                onSearchChange={handleClientSearchChange}
-                onSelectClient={handleSelectClient}
-                onSelectExisting={handleSelectExistingClientMode}
-                onSelectWalkIn={handleSelectWalkInClient}
-                results={clientResults}
-                resultsError={clientResultsError}
-                resultsLoading={clientResultsLoading}
-                search={clientSearch}
-                searchInputRef={clientSearchInputRef}
-                selectedClient={selectedClient}
-                selectedClientId={form.clientId}
-              />
-            </BookingSection>
+            <View ref={(view) => setFieldRef("clientId", view)}>
+              <BookingSection stackIndex={clientDropdownOpen ? 40 : 5} title="Client details">
+                <SearchableClientField
+                  bookingMode={clientBookingMode}
+                  dropdownOpen={clientDropdownOpen}
+                  error={errors.clientId}
+                  onDismiss={dismissClientDropdown}
+                  onNewClient={handleNewClient}
+                  onSearchChange={handleClientSearchChange}
+                  onSelectClient={handleSelectClient}
+                  onSelectExisting={handleSelectExistingClientMode}
+                  onSelectWalkIn={handleSelectWalkInClient}
+                  results={clientResults}
+                  resultsError={clientResultsError}
+                  resultsLoading={clientResultsLoading}
+                  search={clientSearch}
+                  searchInputRef={clientSearchInputRef}
+                  selectedClient={selectedClient}
+                  selectedClientId={form.clientId}
+                />
+              </BookingSection>
+            </View>
 
             <View style={styles.appointmentCoreRow}>
-              <View style={styles.appointmentCoreField}>
+              <View ref={(view) => setFieldRef("date", view)} style={styles.appointmentCoreField}>
                 <AppointmentDateField error={errors.date} onChange={(value) => updateForm("date", value)} value={form.date} />
               </View>
-              <View style={styles.appointmentCoreField}>
+              <View ref={(view) => setFieldRef("startTime", view)} style={styles.appointmentCoreField}>
                 <TimeSlotSelector disabledReason={slotDisabledReason} error={errors.startTime} loading={schedulerLoading} onSelect={handleSelectSlot} selectedTime={form.startTime} slots={availableSlots} />
               </View>
-              <View style={[styles.appointmentCoreField, styles.compactStatusField]}>
+              <View ref={(view) => setFieldRef("status", view)} style={[styles.appointmentCoreField, styles.compactStatusField]}>
                 <AppointmentStatusDropdown
                   error={errors.status}
                   onSelect={(value) => updateForm("status", value)}
@@ -3647,8 +3666,16 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
               </View>
             </View>
 
-            <BookingSection
-              action={selectedServices.length > 0 ? (
+            <View
+              ref={(view) => {
+                setFieldRef("serviceName", view);
+                setFieldRef("staffId", view);
+                setFieldRef("duration", view);
+              }}
+              style={(errors.serviceName || errors.staffId || errors.duration) && styles.validationSectionError}
+            >
+              <BookingSection
+                action={selectedServices.length > 0 ? (
                 <TouchableOpacity
                   activeOpacity={0.8}
                   onPress={() => setServicePickerVisible(true)}
@@ -3658,15 +3685,15 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
                   <Text style={styles.bookingSectionAction}>Add more services</Text>
                 </TouchableOpacity>
               ) : undefined}
-              stackIndex={serviceDropdownOpen ? 40 : 4}
-              title={selectedServices.length === 0 ? "" : "Appointment services"}
-            >
-              {selectedServices.length === 0 ? (
+                stackIndex={serviceDropdownOpen ? 40 : 4}
+                title={selectedServices.length === 0 ? "" : "Appointment services"}
+              >
+                {selectedServices.length === 0 ? (
                 <TouchableOpacity activeOpacity={0.86} onPress={() => setServicePickerVisible(true)} style={styles.emptyAddServicesButton}>
                   <View style={styles.emptyAddServicesIcon}><Ionicons name="add" size={20} color="#FFFFFF" /></View>
                   <Text style={styles.emptyAddServicesText}>Add Services</Text>
                 </TouchableOpacity>
-              ) : (
+                ) : (
                 <SelectedServicesPanel
                   onRemove={handleRemoveSelectedService}
                   pricingTotals={servicePricingTotals}
@@ -3674,26 +3701,34 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
                   totalDuration={totalServiceDuration}
                   totalPrice={totalServicePrice}
                 />
-              )}
-            </BookingSection>
+                )}
+              </BookingSection>
+              {errors.serviceName ? <Text style={styles.fieldError}>{errors.serviceName}</Text> : null}
+              {errors.staffId ? <Text style={styles.fieldError}>{errors.staffId}</Text> : null}
+              {errors.duration ? <Text style={styles.fieldError}>{errors.duration}</Text> : null}
+            </View>
 
             {mode === "edit" ? (
               <>
-                <TextField
-                  error={errors.discount}
-                  keyboardType="decimal-pad"
-                  label="Discount"
-                  onChangeText={(value) => updateForm("discount", value)}
-                  placeholder="0"
-                  value={form.discount}
-                />
-                <SelectField
-                  error={errors.paymentMethod}
-                  label="Payment Method"
-                  onSelect={(value) => updateForm("paymentMethod", value)}
-                  options={PAYMENT_METHODS.map((method) => ({ label: method, value: method }))}
-                  value={form.paymentMethod}
-                />
+                <View ref={(view) => setFieldRef("discount", view)}>
+                  <TextField
+                    error={errors.discount}
+                    keyboardType="decimal-pad"
+                    label="Discount"
+                    onChangeText={(value) => updateForm("discount", value)}
+                    placeholder="0"
+                    value={form.discount}
+                  />
+                </View>
+                <View ref={(view) => setFieldRef("paymentMethod", view)}>
+                  <SelectField
+                    error={errors.paymentMethod}
+                    label="Payment Method"
+                    onSelect={(value) => updateForm("paymentMethod", value)}
+                    options={PAYMENT_METHODS.map((method) => ({ label: method, value: method }))}
+                    value={form.paymentMethod}
+                  />
+                </View>
               </>
             ) : null}
 
@@ -3746,14 +3781,16 @@ export function AppointmentFormScreen({ mode }: { mode: "create" | "edit" }) {
               </View>
             </View>
 
-            <TextField
-              error={errors.notes}
-              label="Notes"
-              multiline
-              onChangeText={(value) => updateForm("notes", value)}
-              placeholder="Appointment notes"
-              value={form.notes}
-            />
+            <View ref={(view) => setFieldRef("notes", view)}>
+              <TextField
+                error={errors.notes}
+                label="Notes"
+                multiline
+                onChangeText={(value) => updateForm("notes", value)}
+                placeholder="Appointment notes"
+                value={form.notes}
+              />
+            </View>
 
             {formSubmitError || mutationError ? (
               <View style={styles.inlineAlert}>
@@ -5942,6 +5979,13 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     paddingVertical: 18,
     shadowOpacity: 0,
     elevation: 0,
+  },
+  validationSectionError: {
+    borderColor: Colors.error,
+    borderRadius: AppRadius.control,
+    borderWidth: 1.5,
+    marginBottom: Spacing.sm,
+    paddingHorizontal: Spacing.sm,
   },
   bookingSectionActionButton: {
     alignItems: "center",

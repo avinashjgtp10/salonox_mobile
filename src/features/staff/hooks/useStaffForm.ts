@@ -232,6 +232,7 @@ export const useStaffForm = (staffId?: string | null) => {
     updateField,
     uploadAvatar,
     validationErrors: visibleValidationErrors,
+    allValidationErrors: validation.errors,
     values,
   };
 };

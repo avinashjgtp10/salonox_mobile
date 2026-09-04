@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { useMemo, useState } from "react";
+import { forwardRef, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 
 import { DashboardRadius as Radius, DashboardSpacing as Spacing, type ThemeColors } from "@/constants/theme";
@@ -14,7 +14,7 @@ type PasswordFieldProps = Omit<TextInputProps, "secureTextEntry" | "style"> & {
 // entirely inside this component, so two instances on the same screen (e.g.
 // Password + Confirm Password) are independent by construction — no shared
 // state to accidentally wire together.
-export function PasswordField({ error, label, ...inputProps }: PasswordFieldProps) {
+export const PasswordField = forwardRef<TextInput, PasswordFieldProps>(function PasswordField({ error, label, ...inputProps }, ref) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
   const [isVisible, setIsVisible] = useState(false);
@@ -24,6 +24,7 @@ export function PasswordField({ error, label, ...inputProps }: PasswordFieldProp
       <Text style={styles.label}>{label}</Text>
       <View style={[styles.inputRow, error ? styles.inputRowError : null]}>
         <TextInput
+          ref={ref}
           autoCapitalize="none"
           autoCorrect={false}
           placeholderTextColor={Colors.placeholder}
@@ -43,7 +44,7 @@ export function PasswordField({ error, label, ...inputProps }: PasswordFieldProp
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
-}
+});
 
 const createStyles = (Colors: ThemeColors) =>
   StyleSheet.create({

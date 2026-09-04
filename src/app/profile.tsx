@@ -56,6 +56,11 @@ import {
   PHONE_INVALID_MESSAGE,
   sanitizePhoneDigits,
 } from "@/utils/validation";
+import { useValidationScroll } from "@/hooks/useValidationScroll";
+
+type ProfileField = "fullName" | "phone";
+type ProfileFieldErrors = Partial<Record<ProfileField, string>>;
+const VALIDATION_FIELD_ORDER: ProfileField[] = ["fullName", "phone"];
 
 const getInitials = (fullName: string) =>
   fullName
@@ -229,6 +234,7 @@ function FieldGrid({ children }: { children: React.ReactNode }) {
 
 function FormField({
   editable = true,
+  error,
   keyboardType,
   label,
   maxLength,
@@ -241,6 +247,7 @@ function FormField({
   value,
 }: {
   editable?: boolean;
+  error?: string;
   inputRef?: RefObject<TextInput | null>;
   keyboardType?: "default" | "phone-pad";
   label: string;
@@ -270,9 +277,10 @@ function FormField({
         ref={inputRef}
         returnKeyType={returnKeyType}
         blurOnSubmit={returnKeyType === "done"}
-        style={styles.textInput}
+        style={[styles.textInput, error && styles.textInputError]}
         value={value}
       />
+      {error ? <Text style={styles.fieldErrorText}>{error}</Text> : null}
     </View>
   );
 }
@@ -290,6 +298,7 @@ export default function ProfileScreen() {
   const phoneInputRef = useRef<TextInput>(null);
   const businessNameInputRef = useRef<TextInput>(null);
   const addressInputRef = useRef<TextInput>(null);
+  const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
   const profileNavigationFields = useMemo(() => [
     { ref: fullNameInputRef },
     { ref: phoneInputRef },
@@ -308,6 +317,7 @@ export default function ProfileScreen() {
 
   const [isEditing, setIsEditing] = useState(false);
   const [editState, setEditState] = useState<EditState | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<ProfileFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [selectedAvatarUri, setSelectedAvatarUri] = useState<string | null>(null);
@@ -319,6 +329,12 @@ export default function ProfileScreen() {
       void dispatch(fetchSalonMeThunk());
     }
   }, [dispatch, userId]);
+
+  useEffect(() => {
+    if (!isEditing) return;
+    setFieldRef("fullName", fullNameInputRef.current);
+    setFieldRef("phone", phoneInputRef.current);
+  }, [isEditing, setFieldRef]);
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -341,6 +357,7 @@ export default function ProfileScreen() {
     }
     setEditState(toEditState(profile));
     setFormError(null);
+    setFieldErrors({});
     setSuccessMessage(null);
     setIsEditing(true);
   };
@@ -349,11 +366,15 @@ export default function ProfileScreen() {
     setIsEditing(false);
     setEditState(null);
     setFormError(null);
+    setFieldErrors({});
   };
 
   const updateField = (key: keyof EditState, value: string) => {
     setEditState((current) => (current ? { ...current, [key]: value } : current));
     setFormError(null);
+    if (key === "fullName" || key === "phone") {
+      setFieldErrors((current) => ({ ...current, [key]: undefined }));
+    }
   };
 
   const handleSave = async () => {
@@ -365,13 +386,15 @@ export default function ProfileScreen() {
     setFormError(null);
     setSuccessMessage(null);
 
-    if (!trimmedName) {
-      setFormError("Full name is required.");
-      return;
+    const nextErrors: ProfileFieldErrors = {};
+    if (!trimmedName) nextErrors.fullName = "Full name is required.";
+    if (editState.phone && !isValidPhoneDigits(editState.phone)) {
+      nextErrors.phone = PHONE_INVALID_MESSAGE;
     }
 
-    if (editState.phone && !isValidPhoneDigits(editState.phone)) {
-      setFormError(PHONE_INVALID_MESSAGE);
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      scrollToFirstError(nextErrors);
       return;
     }
 
@@ -613,6 +636,7 @@ export default function ProfileScreen() {
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAwareScrollView
+        ref={scrollViewRef}
         contentContainerStyle={styles.content}
         keyboardNavigation={isEditing ? { fields: profileNavigationFields, hideOnLast: true, onDone: handleSave, showAccessory: false } : undefined}
         keyboardShouldPersistTaps="handled"
@@ -692,6 +716,7 @@ export default function ProfileScreen() {
             <>
               <WebCard icon="person-outline" subtitle="Your name, email and contact details" title="Personal Information">
                 <FormField
+                  error={fieldErrors.fullName}
                   inputRef={fullNameInputRef}
                   label="Full Name"
                   onChangeText={(value) => updateField("fullName", value)}
@@ -700,6 +725,7 @@ export default function ProfileScreen() {
                   value={editState.fullName}
                 />
                 <FormField
+                  error={fieldErrors.phone}
                   inputRef={phoneInputRef}
                   keyboardType="phone-pad"
                   label="Phone Number"
@@ -1201,6 +1227,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontSize: 15,
     minHeight: 52,
     paddingHorizontal: AppLayout.searchBarPaddingX,
+  },
+  textInputError: {
+    borderColor: Colors.error,
+    borderWidth: 1.5,
+  },
+  fieldErrorText: {
+    color: Colors.error,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 6,
   },
   submitButton: {
     alignItems: "center",
