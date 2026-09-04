@@ -1,12 +1,11 @@
-import { useState } from "react";
 import {
   Google,
-  CheckCircleFill,
   ArrowUpRightSquare,
   InfoCircle,
   Shield,
   GraphUpArrow,
   CalendarCheck,
+  Hourglass,
 } from "react-bootstrap-icons";
 import LearnMoreLink from "../../../components/shared/LearnMoreLink";
 import "../styles/OnlineBooking.scss";
@@ -33,17 +32,6 @@ const BENEFITS = [
 ];
 
 export default function ReserveWithGooglePage() {
-  const [connected, setConnected] = useState(false);
-  const [connecting, setConnecting] = useState(false);
-
-  const handleConnect = () => {
-    setConnecting(true);
-    setTimeout(() => {
-      setConnecting(false);
-      setConnected(true);
-    }, 1800);
-  };
-
   return (
     <div className="ob-page">
       {/* ── Header ── */}
@@ -54,11 +42,9 @@ export default function ReserveWithGooglePage() {
             Let clients book appointments directly from Google Search and Maps.
           </p>
         </div>
-        {connected && (
-          <span className="ob-status ob-status--active">
-            <span className="ob-status-dot" /> Connected
-          </span>
-        )}
+        <span className="ob-status ob-status--inactive">
+          <Hourglass size={11} /> Coming soon
+        </span>
       </div>
 
       {/* ── Connection Card ── */}
@@ -71,88 +57,34 @@ export default function ReserveWithGooglePage() {
             <div>
               <p className="ob-card-title">Google Business Profile</p>
               <p className="ob-card-sub">
-                {connected
-                  ? "My Salon · Google listing connected"
-                  : "Not connected — click below to set up."}
+                This integration isn't live yet — we'll let you know as soon as it's ready to connect.
               </p>
             </div>
           </div>
-          {connected ? (
-            <button className="ob-btn-danger" onClick={() => setConnected(false)}>
-              Disconnect
-            </button>
-          ) : (
-            <button
-              className="ob-btn-primary"
-              onClick={handleConnect}
-              disabled={connecting}
-              style={{ minWidth: 140 }}
-            >
-              {connecting ? "Connecting…" : "Connect Google"}
-            </button>
-          )}
+          <button className="ob-btn-outline" disabled style={{ minWidth: 140, opacity: 0.6, cursor: "not-allowed" }}>
+            Coming soon
+          </button>
         </div>
-
-        {connected && (
-          <div className="ob-info-banner" style={{ background: "#f0fdf4", borderColor: "#bbf7d0" }}>
-            <CheckCircleFill size={16} style={{ color: "#16a34a", flexShrink: 0, marginTop: 1 }} />
-            <p className="ob-info-text" style={{ color: "#166534" }}>
-              <strong>All set!</strong> A "Book" button is now live on your Google Search and Maps
-              listing. New bookings coming from Google will appear in your Calendar automatically.
-            </p>
-          </div>
-        )}
       </div>
 
-      {/* ── Stats (only when connected) ── */}
-      {connected && (
-        <div className="ob-card">
-          <p className="ob-card-title" style={{ marginBottom: 16 }}>Booking stats from Google</p>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16 }}>
-            {[
-              { label: "Bookings this month", value: "0" },
-              { label: "Click-to-book rate",  value: "—" },
-              { label: "New clients via Google", value: "0" },
-            ].map((stat) => (
-              <div
-                key={stat.label}
-                style={{
-                  padding: "16px 20px",
-                  background: "#f9fafb",
-                  borderRadius: 12,
-                  border: "1px solid #e5e7eb",
-                }}
-              >
-                <p style={{ fontSize: 22, fontWeight: 700, color: "#111827", margin: "0 0 4px" }}>
-                  {stat.value}
-                </p>
-                <p style={{ fontSize: 12, color: "#6b7280", margin: 0 }}>{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* ── How it works ── */}
-      {!connected && (
-        <div className="ob-card">
-          <p className="ob-card-title" style={{ marginBottom: 4 }}>How it works</p>
-          <p className="ob-card-sub" style={{ marginBottom: 20 }}>
-            Three steps to get your "Book" button live on Google.
-          </p>
-          <div className="ob-steps">
-            {STEPS.map((step, i) => (
-              <div key={i} className="ob-step">
-                <div className="ob-step-num">{i + 1}</div>
-                <div className="ob-step-body">
-                  <p className="ob-step-title">{step.title}</p>
-                  <p className="ob-step-desc">{step.desc}</p>
-                </div>
+      <div className="ob-card">
+        <p className="ob-card-title" style={{ marginBottom: 4 }}>How it will work</p>
+        <p className="ob-card-sub" style={{ marginBottom: 20 }}>
+          Three steps to get your "Book" button live on Google, once this integration launches.
+        </p>
+        <div className="ob-steps">
+          {STEPS.map((step, i) => (
+            <div key={i} className="ob-step">
+              <div className="ob-step-num">{i + 1}</div>
+              <div className="ob-step-body">
+                <p className="ob-step-title">{step.title}</p>
+                <p className="ob-step-desc">{step.desc}</p>
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </div>
-      )}
+      </div>
 
       {/* ── Benefits ── */}
       <div className="ob-card">

@@ -23,12 +23,14 @@ const links = [
     icon: <Google size={15} />,
     label: "Reserve with Google",
     desc: "Book button on Search & Maps",
+    comingSoon: true,
   },
   {
     to: "/dashboard/online-booking/social",
     icon: <Facebook size={15} />,
     label: "Facebook & Instagram",
     desc: "Social media booking buttons",
+    comingSoon: true,
   },
   {
     to: "/dashboard/online-booking/links",
@@ -74,8 +76,14 @@ export default function OnlineBookingSubSidebar({ onClose }: Props) {
               {link.icon}
             </span>
             <span style={{ minWidth: 0 }}>
-              <span style={{ display: "block", fontSize: 13.5, fontWeight: 500, color: "#111827" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 13.5, fontWeight: 500, color: "#111827" }}>
                 {link.label}
+                {link.comingSoon && (
+                  <span style={{ fontSize: 9.5, fontWeight: 700, color: "#9ca3af", background: "#f3f4f6",
+                    borderRadius: 999, padding: "1px 7px", letterSpacing: "0.03em" }}>
+                    SOON
+                  </span>
+                )}
               </span>
               <span style={{ display: "block", fontSize: 11.5, color: "#9ca3af", lineHeight: 1.3 }}>
                 {link.desc}

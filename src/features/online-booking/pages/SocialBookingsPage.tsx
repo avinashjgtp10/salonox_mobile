@@ -1,12 +1,11 @@
-import { useState } from "react";
 import {
   Facebook,
   Instagram,
   CheckCircleFill,
-  ArrowUpRightSquare,
   People,
   HandThumbsUp,
   Repeat,
+  Hourglass,
 } from "react-bootstrap-icons";
 import "../styles/OnlineBooking.scss";
 
@@ -33,38 +32,15 @@ interface PlatformCardProps {
   icon: React.ReactNode;
   logoClass: string;
   description: string;
-  pageExample: string;
-  accentColor: string;
 }
 
-function PlatformCard({
-  name,
-  icon,
-  logoClass,
-  description,
-  pageExample,
-  accentColor,
-}: PlatformCardProps) {
-  const [connected, setConnected] = useState(false);
-  const [connecting, setConnecting] = useState(false);
-
-  const handleConnect = () => {
-    setConnecting(true);
-    setTimeout(() => {
-      setConnecting(false);
-      setConnected(true);
-    }, 1800);
-  };
-
+function PlatformCard({ name, icon, logoClass, description }: PlatformCardProps) {
   return (
-    <div className={`ob-integration-card ${connected ? "ob-integration-card--connected" : ""}`}>
+    <div className="ob-integration-card">
       <div className="ob-integration-top">
         <div className={`ob-integration-logo ${logoClass}`}>{icon}</div>
-        <span
-          className={`ob-status ob-status--${connected ? "active" : "inactive"}`}
-        >
-          <span className="ob-status-dot" />
-          {connected ? "Connected" : "Not connected"}
+        <span className="ob-status ob-status--inactive">
+          <Hourglass size={11} /> Coming soon
         </span>
       </div>
 
@@ -73,46 +49,9 @@ function PlatformCard({
         <p className="ob-integration-desc">{description}</p>
       </div>
 
-      {connected && (
-        <div
-          style={{
-            padding: "10px 14px",
-            background: "#f9fafb",
-            borderRadius: 8,
-            fontSize: 12.5,
-            color: "#374151",
-            border: "1px solid #e5e7eb",
-          }}
-        >
-          Connected as <strong>{pageExample}</strong>
-        </div>
-      )}
-
-      <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-        {connected ? (
-          <>
-            <button className="ob-btn-outline" style={{ flex: 1, justifyContent: "center" }}>
-              <ArrowUpRightSquare size={13} /> View page
-            </button>
-            <button
-              className="ob-btn-danger"
-              style={{ flex: 1, justifyContent: "center" }}
-              onClick={() => setConnected(false)}
-            >
-              Disconnect
-            </button>
-          </>
-        ) : (
-          <button
-            className="ob-btn-primary"
-            style={{ width: "100%", justifyContent: "center", background: accentColor }}
-            onClick={handleConnect}
-            disabled={connecting}
-          >
-            {connecting ? "Connecting…" : `Connect ${name}`}
-          </button>
-        )}
-      </div>
+      <button className="ob-btn-primary" style={{ width: "100%", justifyContent: "center", opacity: 0.6, cursor: "not-allowed" }} disabled>
+        Coming soon
+      </button>
     </div>
   );
 }
@@ -126,7 +65,7 @@ export default function SocialBookingsPage() {
           <h1 className="ob-page-title">Facebook & Instagram Bookings</h1>
           <p className="ob-page-sub">
             Add a "Book Now" button to your social media pages and let clients book without leaving
-            the app.
+            the app. This integration isn't live yet — we'll let you know as soon as it's ready.
           </p>
         </div>
       </div>
@@ -138,16 +77,12 @@ export default function SocialBookingsPage() {
           icon={<Facebook size={24} color="#1877f2" />}
           logoClass="ob-integration-logo--facebook"
           description="Add a Book Now button to your Facebook Business Page and reach clients on the world's largest social network."
-          pageExample="My Salon · Facebook"
-          accentColor="#1877f2"
         />
         <PlatformCard
           name="Instagram"
           icon={<Instagram size={24} color="#e1306c" />}
           logoClass="ob-integration-logo--instagram"
           description="Enable the Book button on your Instagram Business profile and turn followers into paying clients."
-          pageExample="@mysalon · Instagram"
-          accentColor="#e1306c"
         />
       </div>
 
@@ -194,37 +129,6 @@ export default function SocialBookingsPage() {
             </div>
           ))}
         </div>
-      </div>
-
-      {/* ── Post-booking Automation ── */}
-      <div className="ob-card">
-        <div className="ob-card-header">
-          <div>
-            <p className="ob-card-title">Post-booking automations</p>
-            <p className="ob-card-sub">
-              Automatically engage clients after they book through social media.
-            </p>
-          </div>
-        </div>
-
-        {[
-          { label: "Send confirmation via WhatsApp", hint: "Uses your connected WhatsApp channel." },
-          { label: "Send reminder 24 hours before", hint: "Reduces no-shows from social bookings." },
-          { label: "Request a review after visit",  hint: "Boosts your social proof and ratings." },
-        ].map((row) => (
-          <div key={row.label} className="ob-toggle-row">
-            <div className="ob-toggle-info">
-              <p className="ob-toggle-label">{row.label}</p>
-              <p className="ob-toggle-hint">{row.hint}</p>
-            </div>
-            <label className="ob-switch">
-              <input type="checkbox" defaultChecked />
-              <span className="ob-switch-track">
-                <span className="ob-switch-thumb" />
-              </span>
-            </label>
-          </div>
-        ))}
       </div>
     </div>
   );

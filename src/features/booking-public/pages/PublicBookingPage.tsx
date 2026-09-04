@@ -2,17 +2,19 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useSearchParams, useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 import {
-  ChevronRight, ChevronLeft, ChevronDown, StarFill, GeoAltFill, TelephoneFill, ShareFill, XLg,
-  Wifi, CarFrontFill, CreditCard2FrontFill, PeopleFill, Scissors,
-  Snow, ShieldCheck, PinMapFill, CashCoin, Search as SearchIcon,
+  ChevronRight, ChevronLeft, ChevronDown, StarFill, GeoAltFill, TelephoneFill, ShareFill,
+  Wifi, CarFrontFill, PeopleFill, Scissors,
+  Snow, ShieldCheck, PinMapFill, Search as SearchIcon,
 } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import api from "../../../services/api/axios";
+import { ONLINE_BOOKING } from "../../../services/api/endpoints";
 import {
   fetchPublicSalonBySlugThunk,
   createPublicBookingThunk,
 } from "../../../middleware/onlineBooking/onlineBooking.thunk";
 import {
-  C, GRADIENT, DAYS, MONTHS, staffName, initials, fmtDur, fmtPrice, nextDays, buildSlots, catMeta,
+  C, GRADIENT, DAYS, MONTHS, staffName, initials, fmtDur, fmtPrice, nextDays, catMeta, hashHue, fmtClock,
   StepBar, SectionHead, BackBtn, ServicesSummary, ServiceCard, StaffCard, TimeChip, SuccessScreen,
   type ServiceItem, type StaffMember,
 } from "../../online-booking/components/BookingFlow/shared";
@@ -21,23 +23,6 @@ import {
 
 // Shown as the hero background when a salon hasn't set a cover image yet.
 const DEFAULT_COVER_IMAGE = "https://images.unsplash.com/photo-1600948836101-f9ffda59d250?w=1600";
-
-// Staff ids are UUID strings — Number(id) is NaN, so hash the string into a hue instead.
-function hashHue(id: string): number {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-  return hash % 360;
-}
-
-function fmtClock(t?: string): string {
-  if (!t) return "";
-  const [hStr, mStr = "00"] = t.split(":");
-  let h = parseInt(hStr, 10);
-  if (isNaN(h)) return "";
-  const ampm = h >= 12 ? "PM" : "AM";
-  h = h % 12 || 12;
-  return `${h}:${mStr} ${ampm}`;
-}
 
 function getTodayHours(workingHours: any): { open: boolean; from?: string; to?: string } | null {
   if (!Array.isArray(workingHours) || workingHours.length === 0) return null;
@@ -58,33 +43,19 @@ function buildAddress(salon: any): string {
   return [addr, salon.city, salon.state, salon.pincode].filter(Boolean).join(", ");
 }
 
-const DEMO_REVIEWS = [
-  { name: "Priya Sharma", rating: 5, date: "2 weeks ago",
-    text: "Amazing experience! The staff was professional and the haircut turned out exactly how I wanted." },
-  { name: "Rahul Verma", rating: 5, date: "1 month ago",
-    text: "Best salon in town. Clean, punctual, and great attention to detail every single time." },
-  { name: "Ananya Iyer", rating: 4, date: "1 month ago",
-    text: "Loved the ambience and the service quality. Will definitely be booking again soon." },
-  { name: "Karan Mehta", rating: 5, date: "6 weeks ago",
-    text: "Booked a last-minute appointment and they still gave me their full attention. Highly recommend." },
-  { name: "Sneha Kulkarni", rating: 4, date: "2 months ago",
-    text: "Great value for the price. The facial left my skin glowing for days." },
-  { name: "Vikram Rao", rating: 5, date: "2 months ago",
-    text: "Consistent quality every visit. My go-to salon for the last year." },
-];
 const REVIEW_PREVIEW_COUNT = 3;
-const RATING_BREAKDOWN = [
-  { star: 5, pct: 78 }, { star: 4, pct: 15 }, { star: 3, pct: 5 }, { star: 2, pct: 1 }, { star: 1, pct: 1 },
-];
 
+// Matches the real Amenity enum (marketplace.types.ts) — only keys the
+// Marketplace Profile features editor can actually produce.
 function amenityMeta(key: string): { icon: JSX.Element; label: string } {
   const map: Record<string, { icon: JSX.Element; label: string }> = {
-    wifi:                  { icon: <Wifi size={14} />,              label: "Free WiFi" },
-    ac:                     { icon: <Snow size={14} />,              label: "Air Conditioned" },
-    parking:                { icon: <CarFrontFill size={14} />,      label: "Parking" },
     parking_available:      { icon: <CarFrontFill size={14} />,      label: "Parking" },
-    card_payment:           { icon: <CreditCard2FrontFill size={14} />, label: "Card Payment" },
     near_public_transport:  { icon: <GeoAltFill size={14} />,        label: "Near Transit" },
+    showers:                { icon: <Wifi size={14} />,              label: "Showers" },
+    lockers:                { icon: <ShieldCheck size={14} />,       label: "Lockers" },
+    bath_towels:            { icon: <ShieldCheck size={14} />,       label: "Bath Towels" },
+    swimming_pool:          { icon: <Snow size={14} />,              label: "Swimming Pool" },
+    sauna:                  { icon: <Snow size={14} />,              label: "Sauna" },
   };
   return map[key] ?? {
     icon: <ShieldCheck size={14} />,
@@ -119,9 +90,6 @@ export default function PublicBookingPage() {
   const [reviewSlide, setReviewSlide] = useState(0);
   const [catMenuOpen, setCatMenuOpen] = useState(false);
   const [showAllReviews, setShowAllReviews] = useState(false);
-  const [reviewsList, setReviewsList] = useState(DEMO_REVIEWS);
-  const [showReviewForm, setShowReviewForm] = useState(false);
-  const [reviewForm, setReviewForm] = useState({ name: "", rating: 5, text: "" });
 
   const serviceSectionRef = useRef<HTMLDivElement>(null);
   const pageRootRef = useRef<HTMLDivElement>(null);
@@ -178,12 +146,20 @@ export default function PublicBookingPage() {
   ).trim();
   const address   = buildAddress(salon);
   const phone     = salon?.phone || salon?.business_phone || salon?.contact_number || "";
-  const rating    = typeof salon?.rating === "number" ? salon.rating : 4.8;
-  const reviewCount = salon?.review_count ?? salon?.reviews_count ?? 120;
+  const rating    = typeof salon?.rating === "number" ? salon.rating : 0;
+  const reviewCount = typeof salon?.review_count === "number" ? salon.review_count : 0;
+  const ratingBreakdown: Record<number, number> = salon?.rating_breakdown ?? {};
+  const reviewsList: { name: string; rating: number; date: string; text: string }[] = Array.isArray(salon?.reviews)
+    ? salon.reviews.map((r: any) => ({
+        name: r.client_first_name || "Guest",
+        rating: r.rating,
+        date: new Date(r.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
+        text: r.review_text,
+      }))
+    : [];
   const todayHours = getTodayHours(salon?.working_hours ?? salon?.hours);
-  const amenities: string[] = Array.isArray(salon?.amenities) && salon.amenities.length
-    ? salon.amenities
-    : ["wifi", "ac", "parking", "card_payment"];
+  const amenities: string[] = Array.isArray(salon?.amenities) ? salon.amenities : [];
+  const cancellationNoticeHours: number = Number(salon?.cancellation_notice_hours) || 0;
   const heroSlides = useMemo(() => [
     {
       eyebrow: "Hair Styling",
@@ -226,11 +202,12 @@ export default function PublicBookingPage() {
       badge: "First Booking",
     },
   ], [coverUrl]);
-  const reviewCards = [
-    { title: "Amazing Experience!", text: "Very professional staff and premium ambience.", name: "Priya, Pune" },
-    { title: "Booked instantly.", text: "Loved the service.", name: "Rahul, Mumbai" },
-    { title: "Best salon booking app.", text: "The whole booking felt effortless.", name: "Sneha, Baramati" },
-  ];
+  // Real reviews only — up to 3 for the hero's floating card carousel.
+  const reviewCards = reviewsList.slice(0, 3).map((r) => ({
+    title: "★".repeat(r.rating),
+    text: r.text,
+    name: r.name,
+  }));
 
   useEffect(() => {
     const id = window.setInterval(() => setHeroSlide((s) => (s + 1) % heroSlides.length), 5000);
@@ -238,6 +215,7 @@ export default function PublicBookingPage() {
   }, [heroSlides.length]);
 
   useEffect(() => {
+    if (reviewCards.length === 0) return;
     const id = window.setInterval(() => setReviewSlide((s) => (s + 1) % reviewCards.length), 4200);
     return () => window.clearInterval(id);
   }, [reviewCards.length]);
@@ -266,7 +244,6 @@ export default function PublicBookingPage() {
   }, [preselected, loading, services, staffList, preselectServiceId, preselectStaffId]);
 
   const dates = useMemo(() => nextDays(8), []);
-  const slots = useMemo(() => buildSlots(selDate), [selDate]);
   const totalDuration = useMemo(
     () => selServices.reduce((sum, s) => sum + (Number(s.duration) || 0), 0),
     [selServices]
@@ -275,6 +252,35 @@ export default function PublicBookingPage() {
     () => selServices.reduce((sum, s) => sum + (typeof s.price === "string" ? parseFloat(s.price) || 0 : s.price), 0),
     [selServices]
   );
+
+  // Real availability — which staff (or which of "any" staff) are actually
+  // free for this date/duration, instead of a fake hash-of-the-date list.
+  const [slots, setSlots] = useState<{ morning: string[]; afternoon: string[] }>({ morning: [], afternoon: [] });
+  const [slotsLoading, setSlotsLoading] = useState(false);
+  useEffect(() => {
+    if (!salon?.id || totalDuration <= 0) { setSlots({ morning: [], afternoon: [] }); return; }
+    let cancelled = false;
+    setSlotsLoading(true);
+    const dateStr = `${selDate.getFullYear()}-${String(selDate.getMonth() + 1).padStart(2, "0")}-${String(selDate.getDate()).padStart(2, "0")}`;
+    api.get(ONLINE_BOOKING.AVAILABILITY(String(salon.id)), {
+      params: {
+        date: dateStr,
+        durationMinutes: totalDuration,
+        ...(selStaff && selStaff !== "any" ? { staffId: String((selStaff as StaffMember).id) } : {}),
+      },
+    })
+      .then((res) => {
+        if (cancelled) return;
+        const all: string[] = res.data?.data?.slots ?? [];
+        setSlots({
+          morning:   all.filter((t) => t.endsWith("AM")),
+          afternoon: all.filter((t) => t.endsWith("PM")),
+        });
+      })
+      .catch(() => { if (!cancelled) setSlots({ morning: [], afternoon: [] }); })
+      .finally(() => { if (!cancelled) setSlotsLoading(false); });
+    return () => { cancelled = true; };
+  }, [salon?.id, selDate, selStaff, totalDuration]);
 
   const categories = ["All", ...Array.from(new Set(services.map((s) => s.category_name ?? "Other")))];
   const VISIBLE_CAT_COUNT = 6;
@@ -290,21 +296,6 @@ export default function PublicBookingPage() {
     setSelServices((prev) =>
       prev.some((s) => s.id === svc.id) ? prev.filter((s) => s.id !== svc.id) : [...prev, svc]
     );
-  }
-
-  function handleAddReview() {
-    if (!reviewForm.name.trim() || !reviewForm.text.trim()) return;
-    setReviewsList((prev) => [
-      { name: reviewForm.name.trim(), rating: reviewForm.rating, date: "Just now", text: reviewForm.text.trim() },
-      ...prev,
-    ]);
-    setReviewForm({ name: "", rating: 5, text: "" });
-    setShowReviewForm(false);
-    setShowAllReviews(true);
-  }
-
-  function handleRemoveReview(index: number) {
-    setReviewsList((prev) => prev.filter((_, i) => i !== index));
   }
 
   async function handleSubmit() {
@@ -798,12 +789,14 @@ export default function PublicBookingPage() {
                 </div>
                 <h1>{salonName}</h1>
               </div>
-              <div className="pb-lux-rating">
-                {[1,2,3,4,5].map((i) => (
-                  <StarFill key={i} size={15} color={i <= Math.round(rating) ? "#F59E0B" : "rgba(255,255,255,0.35)"} />
-                ))}
-                <span>{rating.toFixed(1)} · {reviewCount} reviews</span>
-              </div>
+              {reviewCount > 0 && (
+                <div className="pb-lux-rating">
+                  {[1,2,3,4,5].map((i) => (
+                    <StarFill key={i} size={15} color={i <= Math.round(rating) ? "#F59E0B" : "rgba(255,255,255,0.35)"} />
+                  ))}
+                  <span>{rating.toFixed(1)} · {reviewCount} review{reviewCount === 1 ? "" : "s"}</span>
+                </div>
+              )}
               {(address || phone) && (
                 <div className="pb-lux-meta">
                   {address && <span><GeoAltFill size={13} /> {address}</span>}
@@ -846,12 +839,14 @@ export default function PublicBookingPage() {
                 <img src={heroSlides[heroSlide].image} alt={salonName} />
                 <div className="pb-lux-image-badge">{heroSlides[heroSlide].badge}</div>
               </div>
-              <div className="pb-review-float">
-                <div>{[1,2,3,4,5].map((i) => <StarFill key={i} size={13} color="#F59E0B" />)}</div>
-                <b>{reviewCards[reviewSlide].title}</b>
-                <p>{reviewCards[reviewSlide].text}</p>
-                <span>- {reviewCards[reviewSlide].name}</span>
-              </div>
+              {reviewCards.length > 0 && (
+                <div className="pb-review-float">
+                  <div>{[1,2,3,4,5].map((i) => <StarFill key={i} size={13} color="#F59E0B" />)}</div>
+                  <b>{reviewCards[reviewSlide % reviewCards.length].title}</b>
+                  <p>{reviewCards[reviewSlide % reviewCards.length].text}</p>
+                  <span>- {reviewCards[reviewSlide % reviewCards.length].name}</span>
+                </div>
+              )}
             </div>
           </div>
 
@@ -977,111 +972,77 @@ export default function PublicBookingPage() {
                     </div>
                   )}
 
-                  {/* ── Reviews ── */}
+                  {/* ── Reviews — real reviews only, sourced from completed, rated
+                      appointments. There's no open public review form: reviews
+                      here come verified from the post-visit feedback flow, not
+                      an anonymous form anyone browsing could flood. ── */}
                   <div className="pb-reviews">
                     <div className="pb-reviews-head">
                       <div className="pb-reviews-head-title">
                         <SectionHead title="Customer Reviews" sub="What clients are saying" />
-                        <button className="pb-write-review-btn" onClick={() => setShowReviewForm((v) => !v)}>
-                          {showReviewForm ? "Cancel" : "Write a Review"}
-                        </button>
                       </div>
-                      <div className="pb-rating-summary">
-                        <div>
-                          <div className="pb-rating-big">{rating.toFixed(1)}</div>
-                          <div className="pb-rating-stars">
-                            {[1,2,3,4,5].map((i) => (
-                              <StarFill key={i} size={13} color={i <= Math.round(rating) ? "#fbbf24" : C.border} />
+                      {reviewCount > 0 && (
+                        <div className="pb-rating-summary">
+                          <div>
+                            <div className="pb-rating-big">{rating.toFixed(1)}</div>
+                            <div className="pb-rating-stars">
+                              {[1,2,3,4,5].map((i) => (
+                                <StarFill key={i} size={13} color={i <= Math.round(rating) ? "#fbbf24" : C.border} />
+                              ))}
+                            </div>
+                            <div className="pb-rating-count">{reviewCount} review{reviewCount === 1 ? "" : "s"}</div>
+                          </div>
+                          <div className="pb-rating-bars">
+                            {[5, 4, 3, 2, 1].map((star) => (
+                              <div key={star} className="pb-rating-bar-row">
+                                <span>{star}★</span>
+                                <div className="pb-rating-bar-track">
+                                  <div className="pb-rating-bar-fill"
+                                    style={{ width: `${reviewCount ? ((ratingBreakdown[star] ?? 0) / reviewCount) * 100 : 0}%` }} />
+                                </div>
+                              </div>
                             ))}
                           </div>
-                          <div className="pb-rating-count">{reviewCount} reviews</div>
                         </div>
-                        <div className="pb-rating-bars">
-                          {RATING_BREAKDOWN.map((r) => (
-                            <div key={r.star} className="pb-rating-bar-row">
-                              <span>{r.star}★</span>
-                              <div className="pb-rating-bar-track">
-                                <div className="pb-rating-bar-fill" style={{ width:`${r.pct}%` }} />
+                      )}
+                    </div>
+
+                    {reviewsList.length === 0 ? (
+                      <div className="pb-empty-state">
+                        <p className="pb-empty-title">No reviews yet</p>
+                        <p className="pb-empty-sub">Be the first to book and share your experience.</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="pb-review-grid">
+                          {(showAllReviews ? reviewsList : reviewsList.slice(0, REVIEW_PREVIEW_COUNT)).map((rev, i) => (
+                            <div key={i} className="pb-review-card">
+                              <div className="pb-review-head">
+                                <div className="pb-review-avatar">
+                                  {initials(rev.name)}
+                                </div>
+                                <div className="pb-review-who">
+                                  <p className="pb-review-name">{rev.name}</p>
+                                  <p className="pb-review-date">{rev.date}</p>
+                                </div>
                               </div>
+                              <div className="pb-review-stars">
+                                {[1,2,3,4,5].map((i2) => (
+                                  <StarFill key={i2} size={11} color={i2 <= rev.rating ? "#fbbf24" : C.border} />
+                                ))}
+                              </div>
+                              <p className="pb-review-text">{rev.text}</p>
                             </div>
                           ))}
                         </div>
-                      </div>
-                    </div>
 
-                    {showReviewForm && (
-                      <div className="pb-review-form">
-                        <div className="pb-review-form-row">
-                          <label className="pb-field-label">Your Name</label>
-                          <input
-                            className="pb-field-input"
-                            placeholder="Jane Smith"
-                            value={reviewForm.name}
-                            onChange={(e) => setReviewForm((f) => ({ ...f, name: e.target.value }))}
-                          />
-                        </div>
-                        <div className="pb-review-form-row">
-                          <label className="pb-field-label">Rating</label>
-                          <div className="pb-review-form-stars">
-                            {[1,2,3,4,5].map((i) => (
-                              <button key={i} type="button" className="pb-review-star-btn"
-                                onClick={() => setReviewForm((f) => ({ ...f, rating: i }))}
-                                aria-label={`Rate ${i} star${i > 1 ? "s" : ""}`}>
-                                <StarFill size={20} color={i <= reviewForm.rating ? "#fbbf24" : C.border} />
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="pb-review-form-row">
-                          <label className="pb-field-label">Your Review</label>
-                          <textarea
-                            className="pb-field-input pb-field-textarea"
-                            placeholder="Tell others about your experience…"
-                            rows={3}
-                            value={reviewForm.text}
-                            onChange={(e) => setReviewForm((f) => ({ ...f, text: e.target.value }))}
-                          />
-                        </div>
-                        <button
-                          className="pb-review-submit-btn"
-                          disabled={!reviewForm.name.trim() || !reviewForm.text.trim()}
-                          onClick={handleAddReview}>
-                          Submit Review
-                        </button>
-                      </div>
-                    )}
-
-                    <div className="pb-review-grid">
-                      {(showAllReviews ? reviewsList : reviewsList.slice(0, REVIEW_PREVIEW_COUNT)).map((rev, i) => (
-                        <div key={i} className="pb-review-card">
-                          <button className="pb-review-remove-btn" onClick={() => handleRemoveReview(i)}
-                            aria-label={`Remove review from ${rev.name}`}>
-                            <XLg size={12} />
+                        {reviewsList.length > REVIEW_PREVIEW_COUNT && (
+                          <button className="pb-view-all-btn" onClick={() => setShowAllReviews((v) => !v)}>
+                            {showAllReviews ? "Show Less" : "View All Reviews"}
+                            <ChevronRight size={13} className={showAllReviews ? "pb-view-all-icon-up" : ""} />
                           </button>
-                          <div className="pb-review-head">
-                            <div className="pb-review-avatar">
-                              {initials(rev.name)}
-                            </div>
-                            <div className="pb-review-who">
-                              <p className="pb-review-name">{rev.name}</p>
-                              <p className="pb-review-date">{rev.date}</p>
-                            </div>
-                          </div>
-                          <div className="pb-review-stars">
-                            {[1,2,3,4,5].map((i2) => (
-                              <StarFill key={i2} size={11} color={i2 <= rev.rating ? "#fbbf24" : C.border} />
-                            ))}
-                          </div>
-                          <p className="pb-review-text">{rev.text}</p>
-                        </div>
-                      ))}
-                    </div>
-
-                    {reviewsList.length > REVIEW_PREVIEW_COUNT && (
-                      <button className="pb-view-all-btn" onClick={() => setShowAllReviews((v) => !v)}>
-                        {showAllReviews ? "Show Less" : "View All Reviews"}
-                        <ChevronRight size={13} className={showAllReviews ? "pb-view-all-icon-up" : ""} />
-                      </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -1116,6 +1077,7 @@ export default function PublicBookingPage() {
                     </a>
                   </div>
 
+                  {amenities.length > 0 && (
                   <div className="pb-sidebar-card">
                     <p className="pb-sidebar-title">Amenities</p>
                     <div className="pb-amenity-grid">
@@ -1129,20 +1091,14 @@ export default function PublicBookingPage() {
                       })}
                     </div>
                   </div>
-
-                  <div className="pb-sidebar-card">
-                    <p className="pb-sidebar-title">Payment Methods</p>
-                    <div className="pb-payment-row">
-                      <span className="pb-payment-chip"><CashCoin size={12} /> Cash</span>
-                      <span className="pb-payment-chip"><CreditCard2FrontFill size={12} /> Card</span>
-                      <span className="pb-payment-chip"><ShieldCheck size={12} /> UPI</span>
-                    </div>
-                  </div>
+                  )}
 
                   <div className="pb-sidebar-card">
                     <p className="pb-sidebar-title">Cancellation Policy</p>
                     <p className="pb-cancellation-text">
-                      Free cancellation up to 24 hours before your appointment. Late cancellations may incur a fee.
+                      {cancellationNoticeHours > 0
+                        ? `Free cancellation up to ${cancellationNoticeHours} hour${cancellationNoticeHours === 1 ? "" : "s"} before your appointment.`
+                        : "This salon accepts cancellations at any time before your appointment."}
                     </p>
                   </div>
                 </aside>
@@ -1160,7 +1116,7 @@ export default function PublicBookingPage() {
                     name="Any available" subtitle="Best match for your slot"
                     initials="?" bg={C.muted}
                     selected={selStaff === "any"}
-                    onClick={() => setSelStaff("any")} />
+                    onClick={() => { setSelStaff("any"); setSelTime(null); }} />
                   {staffList.map((s) => {
                     const n = staffName(s);
                     const hue = hashHue(String(s.id));
@@ -1170,7 +1126,7 @@ export default function PublicBookingPage() {
                         initials={initials(n)}
                         bg={`hsl(${hue},55%,52%)`}
                         selected={selStaff !== "any" && (selStaff as StaffMember)?.id === s.id}
-                        onClick={() => setSelStaff(s)} />
+                        onClick={() => { setSelStaff(s); setSelTime(null); }} />
                     );
                   })}
                 </div>
@@ -1196,20 +1152,28 @@ export default function PublicBookingPage() {
                   title="Available Times"
                   sub={`${DAYS[selDate.getDay()]}, ${MONTHS[selDate.getMonth()]} ${selDate.getDate()}`}
                 />
-                {slots.morning.length > 0 && (
+                {slotsLoading ? (
+                  <p className="pb-slot-label">Checking availability…</p>
+                ) : slots.morning.length === 0 && slots.afternoon.length === 0 ? (
+                  <p className="pb-slot-label">No times available on this date — try another day.</p>
+                ) : (
                   <>
-                    <p className="pb-slot-label">Morning</p>
-                    <div className="pb-slot-row">
-                      {slots.morning.map((t) => <TimeChip key={t} t={t} sel={selTime} onPick={setSelTime} />)}
-                    </div>
-                  </>
-                )}
-                {slots.afternoon.length > 0 && (
-                  <>
-                    <p className="pb-slot-label">Afternoon</p>
-                    <div className="pb-slot-row pb-slot-row--last">
-                      {slots.afternoon.map((t) => <TimeChip key={t} t={t} sel={selTime} onPick={setSelTime} />)}
-                    </div>
+                    {slots.morning.length > 0 && (
+                      <>
+                        <p className="pb-slot-label">Morning</p>
+                        <div className="pb-slot-row">
+                          {slots.morning.map((t) => <TimeChip key={t} t={t} sel={selTime} onPick={setSelTime} />)}
+                        </div>
+                      </>
+                    )}
+                    {slots.afternoon.length > 0 && (
+                      <>
+                        <p className="pb-slot-label">Afternoon</p>
+                        <div className="pb-slot-row pb-slot-row--last">
+                          {slots.afternoon.map((t) => <TimeChip key={t} t={t} sel={selTime} onPick={setSelTime} />)}
+                        </div>
+                      </>
+                    )}
                   </>
                 )}
 

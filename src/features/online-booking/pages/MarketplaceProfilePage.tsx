@@ -8,12 +8,16 @@ import Dropdown from "../../../components/ui/Dropdown";
 import "../styles/OnlineBooking.scss";
 import BookingPreviewModal from "../components/BookingPreviewModal";
 import api from "../../../services/api/axios";
-import { GALLERY } from "../../../services/api/endpoints/gallery.endpoints";
+import { MARKETPLACE } from "../../../services/api/endpoints/marketplace.endpoints";
+import { LINK_BUILDER } from "../../../services/api/endpoints/linkBuilder.endpoints";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
+import type { WorkingHoursDay } from "../../../types/marketplace.types";
 import {
   fetchMarketplaceProfileThunk,
   updateMarketplaceEssentialsThunk,
   updateMarketplaceAboutThunk,
+  updateMarketplaceWorkingHoursThunk,
+  updateMarketplaceBookingPolicyThunk,
   publishMarketplaceThunk,
   unpublishMarketplaceThunk,
 } from "../../../middleware/marketplace/marketplace.thunk";
@@ -45,6 +49,36 @@ const defaultHours: Record<string, DayHours> = {
   Sunday:    { open: false, from: "10:00", to: "16:00" },
 };
 
+// day_of_week: 0=Sun, 1=Mon ... 6=Sat (matches the backend's convention)
+const DAY_NAME_TO_NUM: Record<string, number> = {
+  Sunday: 0, Monday: 1, Tuesday: 2, Wednesday: 3, Thursday: 4, Friday: 5, Saturday: 6,
+};
+const NUM_TO_DAY_NAME: Record<number, string> =
+  Object.fromEntries(Object.entries(DAY_NAME_TO_NUM).map(([k, v]) => [v, k]));
+
+function hoursStateToApi(hours: Record<string, DayHours>): WorkingHoursDay[] {
+  return DAYS.map((day) => {
+    const h = hours[day];
+    const day_of_week = DAY_NAME_TO_NUM[day];
+    if (!h.open) return { day_of_week, is_open: false, slots: [] };
+    return { day_of_week, is_open: true, slots: [{ open_time: `${h.from}:00`, close_time: `${h.to}:00` }] };
+  });
+}
+
+function apiToHoursState(days: WorkingHoursDay[]): Record<string, DayHours> {
+  const next: Record<string, DayHours> = { ...defaultHours };
+  for (const d of days) {
+    const name = NUM_TO_DAY_NAME[d.day_of_week];
+    if (!name) continue;
+    if (!d.is_open || d.slots.length === 0) {
+      next[name] = { ...next[name], open: false };
+    } else {
+      next[name] = { open: true, from: d.slots[0].open_time.slice(0, 5), to: d.slots[0].close_time.slice(0, 5) };
+    }
+  }
+  return next;
+}
+
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_SIZE = 5 * 1024 * 1024; // 5 MB
 
@@ -66,7 +100,7 @@ function fmtSize(bytes: number): string {
 
 export default function MarketplaceProfilePage() {
   const dispatch = useAppDispatch();
-  const { profile, loading: profileLoading } = useAppSelector((state) => state.marketplace);
+  const { profile } = useAppSelector((state) => state.marketplace);
 
   // ── Existing state ──────────────────────────────────────────────────────────
   const [enabled,      setEnabled]      = useState(true);
@@ -78,13 +112,12 @@ export default function MarketplaceProfilePage() {
   const [hours,        setHours]        = useState(defaultHours);
   const [saved,        setSaved]        = useState(false);
   const [showPreview,  setShowPreview]  = useState(false);
-  // Booking-policy selects. These were static, unwired <select>s before —
-  // they now hold their selection locally so the controls behave, but there
-  // is still no endpoint persisting them, so nothing here survives a reload.
   const [maxAdvance,   setMaxAdvance]   = useState("30");
   const [minNotice,    setMinNotice]    = useState("0");
   const [cancelNotice, setCancelNotice] = useState("0");
   const [slotInterval, setSlotInterval] = useState("15");
+  const [bookingLink,  setBookingLink]  = useState<string | null>(null);
+  const [linkCopied,   setLinkCopied]   = useState(false);
   const { showSuccess, showError, overlay } = useStatusOverlay();
 
   // Load profile from Redux
@@ -96,12 +129,36 @@ export default function MarketplaceProfilePage() {
     if (profile) {
       setEnabled(profile.is_published);
       setBusinessName(profile.display_name || "");
+      setTagline(profile.tagline || "");
       setDescription(profile.venue_description || "");
+      setWebsite(profile.website || "");
       setPhone(profile.business_phone || "");
       setLogoUrl(toRelativeUrl((profile as any).logo_url));
       setCoverUrl(toRelativeUrl((profile as any).cover_url));
+      if (profile.working_hours?.length) setHours(apiToHoursState(profile.working_hours));
+      setMaxAdvance(String(profile.max_advance_days ?? 30));
+      setMinNotice(String(profile.min_notice_hours ?? 0));
+      setCancelNotice(String(profile.cancellation_notice_hours ?? 0));
+      setSlotInterval(String(profile.slot_interval_minutes ?? 15));
     }
   }, [profile]);
+
+  // Real booking link (same generator Link Builder uses) instead of a
+  // hardcoded placeholder URL.
+  useEffect(() => {
+    let cancelled = false;
+    api.post(LINK_BUILDER.GENERATE, { type: "any" })
+      .then((res) => { if (!cancelled) setBookingLink(res.data?.data?.bookingUrl ?? null); })
+      .catch(() => { if (!cancelled) setBookingLink(null); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const handleCopyBookingLink = () => {
+    if (!bookingLink) return;
+    navigator.clipboard.writeText(bookingLink).catch(() => {});
+    setLinkCopied(true);
+    setTimeout(() => setLinkCopied(false), 2000);
+  };
 
 
   // ── Gallery state ───────────────────────────────────────────────────────────
@@ -138,11 +195,24 @@ export default function MarketplaceProfilePage() {
     try {
       await dispatch(updateMarketplaceEssentialsThunk({
         display_name: businessName,
+        tagline,
+        website,
         business_phone: phone,
       })).unwrap();
 
       await dispatch(updateMarketplaceAboutThunk({
         venue_description: description,
+      })).unwrap();
+
+      await dispatch(updateMarketplaceWorkingHoursThunk({
+        days: hoursStateToApi(hours),
+      })).unwrap();
+
+      await dispatch(updateMarketplaceBookingPolicyThunk({
+        max_advance_days: Number(maxAdvance),
+        min_notice_hours: Number(minNotice),
+        cancellation_notice_hours: Number(cancelNotice),
+        slot_interval_minutes: Number(slotInterval),
       })).unwrap();
 
       if (enabled && !profile?.is_published) {
@@ -163,7 +233,7 @@ export default function MarketplaceProfilePage() {
   const fetchGallery = useCallback(async () => {
     setGalleryLoading(true);
     try {
-      const res = await api.get(GALLERY.BASE);
+      const res = await api.get(MARKETPLACE.IMAGES);
       const raw: Array<{ id: string; image_url?: string; url?: string; filename?: string; size?: number }> =
         res.data?.data ?? res.data ?? [];
       const toRelative = (u?: string) => {
@@ -224,7 +294,7 @@ export default function MarketplaceProfilePage() {
       formData.append("image", file);
 
       try {
-        const res = await api.post(GALLERY.BASE, formData, {
+        const res = await api.post(MARKETPLACE.IMAGES, formData, {
           headers: { "Content-Type": "multipart/form-data" },
           onUploadProgress: (e) => {
             if (e.total) {
@@ -263,7 +333,7 @@ export default function MarketplaceProfilePage() {
     if (!photo.saved) return;
 
     try {
-      await api.delete(GALLERY.BY_ID(photo.id));
+      await api.delete(MARKETPLACE.IMAGE_BY_ID(photo.id));
       showSuccess("Photo deleted.");
     } catch {
       setGallery((p) => [...p, photo]); // restore on failure
@@ -289,8 +359,8 @@ export default function MarketplaceProfilePage() {
 
       try {
         // Delete old, upload new
-        if (photo.saved) await api.delete(GALLERY.BY_ID(photo.id));
-        const res = await api.post(GALLERY.BASE, formData, {
+        if (photo.saved) await api.delete(MARKETPLACE.IMAGE_BY_ID(photo.id));
+        const res = await api.post(MARKETPLACE.IMAGES, formData, {
           headers: { "Content-Type": "multipart/form-data" },
           onUploadProgress: (e) => {
             if (e.total) {
@@ -424,26 +494,6 @@ export default function MarketplaceProfilePage() {
           </div>
           <label className="ob-switch">
             <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} />
-            <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
-          </label>
-        </div>
-        <div className="ob-toggle-row">
-          <div className="ob-toggle-info">
-            <p className="ob-toggle-label">Show on marketplace</p>
-            <p className="ob-toggle-hint">Your salon will appear in salonox marketplace search results.</p>
-          </div>
-          <label className="ob-switch">
-            <input type="checkbox" defaultChecked />
-            <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
-          </label>
-        </div>
-        <div className="ob-toggle-row">
-          <div className="ob-toggle-info">
-            <p className="ob-toggle-label">Instant confirmation</p>
-            <p className="ob-toggle-hint">Bookings are confirmed immediately without manual approval.</p>
-          </div>
-          <label className="ob-switch">
-            <input type="checkbox" defaultChecked />
             <span className="ob-switch-track"><span className="ob-switch-thumb" /></span>
           </label>
         </div>
@@ -970,8 +1020,14 @@ export default function MarketplaceProfilePage() {
         </div>
         <div className="ob-link-display">
           <Globe size={14} style={{ flexShrink: 0, color: "#6b7280" }} />
-          <span className="ob-link-url">https://book.salonox.com/my-salon</span>
-          <button className="ob-copy-btn">Copy</button>
+          <span className="ob-link-url">{bookingLink ?? "Generating…"}</span>
+          <button
+            className={`ob-copy-btn ${linkCopied ? "ob-copy-btn--copied" : ""}`}
+            onClick={handleCopyBookingLink}
+            disabled={!bookingLink}
+          >
+            {linkCopied ? "Copied!" : "Copy"}
+          </button>
         </div>
       </div>
 
@@ -983,6 +1039,7 @@ export default function MarketplaceProfilePage() {
         previewTagline={tagline}
         previewDescription={description}
         galleryPhotos={savedPhotos}
+        previewHours={DAYS.map((day) => ({ day, ...hours[day] }))}
       />
     </div>
   );
