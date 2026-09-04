@@ -42,6 +42,14 @@ export const MarketingRoutes = () => {
         <Routes>
           {/* Config page always accessible */}
           <Route path="config" element={<WaConfigPage />} />
+          {/* Templates hosts both Campaign Templates (WhatsApp-only, still
+              effectively blocked by TemplatesListPage defaulting to the
+              Trigger tab below) and Trigger Templates (SMS/Email + WhatsApp
+              per event) — SMS/Email don't need WhatsApp connected at all, so
+              a salon without WhatsApp shouldn't be locked out of them too.
+              templates/create stays gated: that's WhatsApp Campaign template
+              creation specifically, genuinely nothing to do without WA. */}
+          <Route path="templates" element={<TemplatesListPage />} />
           {/* Everything else → onboarding */}
           <Route path="*" element={<MarketingOnboardingPage />} />
         </Routes>
