@@ -202,12 +202,39 @@ const productSlice = createSlice({
         state.mutationError = null;
       })
       .addCase(deleteProductThunk.fulfilled, (state, action) => {
+        const deletedProduct = state.products.find((item) => item.id === action.payload.productId);
+        const wasLoaded = Boolean(deletedProduct);
+
         state.deletingProductIds = state.deletingProductIds.filter(
           (id) => id !== action.payload.productId,
         );
         state.products = state.products.filter((item) => item.id !== action.payload.productId);
         if (state.currentProduct?.id === action.payload.productId) state.currentProduct = null;
         state.totalCount = Math.max(0, state.totalCount - 1);
+        state.inventorySummary.totalProducts = Math.max(0, state.inventorySummary.totalProducts - 1);
+
+        if (deletedProduct && deletedProduct.stockQuantity <= 0) {
+          state.inventorySummary.outOfStockProducts = Math.max(
+            0,
+            state.inventorySummary.outOfStockProducts - 1,
+          );
+        }
+        if (deletedProduct && deletedProduct.stockQuantity <= deletedProduct.lowStockThreshold) {
+          state.inventorySummary.lowStockProducts = Math.max(
+            0,
+            state.inventorySummary.lowStockProducts - 1,
+          );
+        }
+
+        if (wasLoaded && state.pagination.nextOffset > state.pagination.offset) {
+          state.pagination.nextOffset = Math.max(
+            state.pagination.offset,
+            state.pagination.nextOffset - 1,
+          );
+        }
+        if (state.pagination.nextOffset >= state.totalCount) {
+          state.pagination.hasMore = false;
+        }
       })
       .addCase(deleteProductThunk.rejected, (state, action) => {
         state.deletingProductIds = state.deletingProductIds.filter((id) => id !== action.meta.arg);

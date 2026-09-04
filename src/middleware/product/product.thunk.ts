@@ -139,12 +139,13 @@ export const deleteProductThunk = createAsyncThunk<
   DeleteProductResponse,
   string,
   { rejectValue: RejectValue; state: RootState }
->("product/deleteProduct", async (id, { dispatch, getState, rejectWithValue }) => {
+>("product/deleteProduct", async (id, { dispatch, rejectWithValue }) => {
   try {
     const response = await productService.deleteProduct(id);
 
-    void dispatch(fetchProductsThunk({ ...getState().product.query, offset: 0, refresh: true, reset: true }));
-    void dispatch(fetchInventorySummaryThunk());
+    // The fulfilled reducer removes the product and updates product totals
+    // immediately. Reloading here races that reducer and can overwrite the
+    // corrected count with stale pagination/summary metadata.
     void dispatch(fetchDashboardThunk());
 
     return response;
