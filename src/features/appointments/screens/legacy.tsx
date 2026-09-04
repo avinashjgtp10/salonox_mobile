@@ -1786,10 +1786,26 @@ function AppointmentPreviewSheet({
               {appointment.status !== "Completed" ? <View style={styles.appointmentStatusControl}><View style={[styles.appointmentStatusDot, { backgroundColor: isPaid ? "#22C55E" : "#F59E0B" }]} /><Text numberOfLines={1} style={styles.appointmentStatusLabel}>{appointment.status}</Text><Ionicons name="chevron-down" size={18} color={Colors.appointmentTextSecondary} /></View> : null}
             </View>
             <View style={styles.appointmentTabs}>
-              <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: detailsTab === "appointment" }} onPress={() => setDetailsTab("appointment")}>
+              <TouchableOpacity
+                accessibilityLabel="Open appointment information"
+                accessibilityRole="tab"
+                accessibilityState={{ selected: detailsTab === "appointment" }}
+                activeOpacity={0.76}
+                hitSlop={6}
+                onPress={() => setDetailsTab("appointment")}
+                style={styles.appointmentTabButton}
+              >
                 <Text style={detailsTab === "appointment" ? styles.appointmentTabActive : styles.appointmentTab}>Appointment</Text>
               </TouchableOpacity>
-              <TouchableOpacity accessibilityRole="tab" accessibilityState={{ selected: detailsTab === "notes" }} onPress={() => setDetailsTab("notes")}>
+              <TouchableOpacity
+                accessibilityLabel="Open appointment notes"
+                accessibilityRole="tab"
+                accessibilityState={{ selected: detailsTab === "notes" }}
+                activeOpacity={0.76}
+                hitSlop={6}
+                onPress={() => setDetailsTab("notes")}
+                style={styles.appointmentTabButton}
+              >
                 <Text style={detailsTab === "notes" ? styles.appointmentTabActive : styles.appointmentTab}>Notes</Text>
               </TouchableOpacity>
             </View>
@@ -5412,9 +5428,15 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     borderBottomColor: Colors.appointmentDivider,
     borderBottomWidth: 1,
     flexDirection: "row",
-    gap: 36,
+    gap: 8,
     paddingHorizontal: 18,
     paddingTop: 18,
+  },
+  appointmentTabButton: {
+    alignItems: "center",
+    flex: 1,
+    justifyContent: "flex-end",
+    minHeight: 48,
   },
   appointmentTabActive: {
     borderBottomColor: Colors.appointmentAccent,
