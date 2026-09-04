@@ -1,3 +1,5 @@
+import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
+import QuickSaleScreen, { type QuickSaleSlot } from "@/features/quickSale/screens/QuickSaleScreen";
 import { Ionicons } from "@expo/vector-icons";
 import DateTimePicker, { type DateTimePickerEvent } from "@react-native-community/datetimepicker";
 import { LinearGradient } from "expo-linear-gradient";
@@ -22,8 +24,6 @@ import {
 } from "react-native";
 import Animated, { FadeIn, FadeOut, Layout } from "react-native-reanimated";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { KeyboardAwareScrollView } from "@/components/ui/KeyboardAwareScrollView";
-import QuickSaleScreen, { type QuickSaleSlot } from "@/features/quickSale/screens/QuickSaleScreen";
 
 import { AppBackButton } from "@/components/ui/AppBackButton";
 import { AppStatusBar } from "@/components/ui/AppStatusBar";
@@ -38,6 +38,51 @@ import {
   type ThemeColors,
 } from "@/constants/theme";
 import type { StaffMember } from "@/data/teamData";
+import {
+  AUTOCOMPLETE_DROPDOWN_GAP,
+  CALENDAR_STATUS_FILTERS,
+  CLIENT_SEARCH_DEBOUNCE_MS,
+  CLIENT_SEARCH_MIN_LETTERS,
+  CLIENT_SEARCH_RESULT_LIMIT,
+  FORM_STATUS_OPTIONS,
+  PAYMENT_METHODS,
+  STAFF_AVAILABILITY_REALTIME_ENTITIES,
+  STATUS_FILTERS,
+} from "@/features/appointments/constants/appointmentConstants";
+import {
+  useAppointmentListFilters,
+  useFetchAppointments,
+} from "@/features/appointments/hooks/useAppointmentList";
+import type {
+  AppointmentFormState,
+  AppointmentSelectedService,
+  ClientBookingMode,
+  FormErrors,
+} from "@/features/appointments/types/appointmentForm";
+import {
+  appointmentsOverlap,
+  getAppointmentRange,
+  getCalendarAppointmentTitle,
+  getCalendarTokenLabel,
+  getWebCalendarGradient,
+  hasCalendarInteractionFlag,
+  isReadonlyCalendarAppointment,
+} from "@/features/appointments/utils/appointmentCalendar";
+import {
+  addMinutesToTime,
+  combineDateTime,
+  formatTimeLabel,
+  getDateKey,
+  getDefaultTimeSlots,
+  minutesToDisplayTime,
+  parseAppointmentDateTime,
+  parseClockToMinutes,
+  todayIsoDate,
+  toInputDate,
+  toInputTime,
+  validateDate,
+  validateTime,
+} from "@/features/appointments/utils/appointmentDateTime";
 import { useAppForeground } from "@/hooks/useAppForeground";
 import { useAppToast } from "@/hooks/useAppToast";
 import { useValidationScroll } from "@/hooks/useValidationScroll";
@@ -98,51 +143,6 @@ import {
 } from "@/store/staff/staffAvailability.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import { formatInvoiceNumber, type InvoiceSequence } from "@/utils/receipt";
-import {
-  useAppointmentListFilters,
-  useFetchAppointments,
-} from "@/features/appointments/hooks/useAppointmentList";
-import {
-  AUTOCOMPLETE_DROPDOWN_GAP,
-  CALENDAR_STATUS_FILTERS,
-  CLIENT_SEARCH_DEBOUNCE_MS,
-  CLIENT_SEARCH_MIN_LETTERS,
-  CLIENT_SEARCH_RESULT_LIMIT,
-  FORM_STATUS_OPTIONS,
-  PAYMENT_METHODS,
-  STAFF_AVAILABILITY_REALTIME_ENTITIES,
-  STATUS_FILTERS,
-} from "@/features/appointments/constants/appointmentConstants";
-import type {
-  AppointmentFormState,
-  AppointmentSelectedService,
-  ClientBookingMode,
-  FormErrors,
-} from "@/features/appointments/types/appointmentForm";
-import {
-  appointmentsOverlap,
-  getAppointmentRange,
-  getCalendarAppointmentTitle,
-  getCalendarTokenLabel,
-  getWebCalendarGradient,
-  hasCalendarInteractionFlag,
-  isReadonlyCalendarAppointment,
-} from "@/features/appointments/utils/appointmentCalendar";
-import {
-  addMinutesToTime,
-  combineDateTime,
-  formatTimeLabel,
-  getDateKey,
-  getDefaultTimeSlots,
-  minutesToDisplayTime,
-  parseAppointmentDateTime,
-  parseClockToMinutes,
-  todayIsoDate,
-  toInputDate,
-  toInputTime,
-  validateDate,
-  validateTime,
-} from "@/features/appointments/utils/appointmentDateTime";
 
 import {
   appointmentServicesToSelectedServices,
@@ -159,16 +159,16 @@ import {
   sortBySchedule,
   sortWithActiveFirst,
 } from "@/features/appointments/utils/appointmentList";
-import {
-  isAssignedToStaff,
-  realtimePayloadMatchesStaff,
-  staffIdMatches,
-} from "@/features/appointments/utils/staffAssignment";
 import { fetchServiceCatalog } from "@/features/appointments/utils/serviceCatalog";
 import {
   buildStaffAppointmentRows,
   isSameDay,
 } from "@/features/appointments/utils/staffAppointmentRows";
+import {
+  isAssignedToStaff,
+  realtimePayloadMatchesStaff,
+  staffIdMatches,
+} from "@/features/appointments/utils/staffAssignment";
 import type {
   AppointmentListItem,
   AppointmentStatus,
@@ -5646,15 +5646,20 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     fontWeight: "800",
   },
   dinggLegend: {
-    backgroundColor: Colors.appointmentSurface,
+    backgroundColor: "transparent",
+    bottom: 0,
     flexGrow: 0,
+    left: 0,
+    position: "absolute",
+    right: 0,
+    zIndex: 10,
   },
   dinggLegendContent: {
     alignItems: "center",
     flexDirection: "row",
     gap: 8,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 6,
   },
   dinggLegendPill: {
     alignItems: "center",
