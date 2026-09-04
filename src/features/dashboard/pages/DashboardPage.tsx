@@ -7,6 +7,7 @@ import {
 } from "react";
 import "bootstrap/dist/css/bootstrap.min.css";
 import "../styles/DashboardPage.scss";
+import SpotlightHighlightCard from "../components/SpotlightHighlightCard";
 import { useNavigate } from "react-router-dom";
 import {
   AreaChart,
@@ -1516,6 +1517,8 @@ export default function DashboardPage() {
           </button>
         </div>
       </div>
+
+      <SpotlightHighlightCard />
 
       {/* ── KPI CARDS — only re-render when summary or dashLoading changes ── */}
       <KpiCardsGrid

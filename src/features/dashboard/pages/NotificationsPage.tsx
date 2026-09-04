@@ -14,6 +14,7 @@ import {
   ExclamationTriangle,
   BoxSeam,
   CalendarX,
+  Stars,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { NOTIFICATIONS } from "../../../services/api/endpoints";
@@ -24,7 +25,7 @@ import "../styles/NotificationsPage.scss";
 
 interface Notification {
   id: string;
-  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info" | "warning" | "success" | "error";
+  type: "appointment" | "payment" | "client" | "review" | "whatsapp" | "info" | "warning" | "success" | "error" | "spotlight";
   title: string;
   body: string | null;
   is_read: boolean;
@@ -32,6 +33,7 @@ interface Notification {
   product_id?: string | null;
   branch_id?: string | null;
   alert_status?: "low_stock" | "out_of_stock" | "expiring_soon" | "expired" | null;
+  spotlight_feature_id?: string | null;
 }
 
 // ── Maps ───────────────────────────────────────────────────────────────────────
@@ -44,6 +46,7 @@ const NOTIF_ICONS: Record<string, React.ReactNode> = {
   whatsapp:    <ChatDots     size={18} />,
   info:        <Bell         size={17} />,
   warning:     <ExclamationTriangle size={16} />,
+  spotlight:   <Stars size={16} />,
 };
 
 const NOTIF_COLORS: Record<string, string> = {
@@ -54,6 +57,7 @@ const NOTIF_COLORS: Record<string, string> = {
   whatsapp:    "#25d366",
   info:        "#6b7280",
   warning:     "#f59e0b",
+  spotlight:   "#8b5cf6",
 };
 
 const NOTIF_LABELS: Record<string, string> = {
@@ -64,6 +68,7 @@ const NOTIF_LABELS: Record<string, string> = {
   whatsapp:    "WhatsApp",
   info:        "Info",
   warning:     "Inventory",
+  spotlight:   "New Feature",
 };
 
 // Inventory alerts all arrive with type "warning" — alert_status picks a
@@ -142,6 +147,8 @@ export default function NotificationsPage() {
     if (!n.is_read) handleMarkRead(n.id);
     if (n.product_id) {
       navigate(`/dashboard/inventory/products?highlight=${n.product_id}`);
+    } else if (n.spotlight_feature_id) {
+      navigate(`/dashboard/spotlight/${n.spotlight_feature_id}`);
     }
   }, [handleMarkRead, navigate]);
 

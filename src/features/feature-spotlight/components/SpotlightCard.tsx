@@ -22,6 +22,8 @@ import {
 } from "react-bootstrap-icons";
 import type { SpotlightFeature } from "../types";
 import { uploadSpotlightImage } from "../utils/uploadImage";
+import { resolveMediaUrl } from "../../../utils/mediaUrl";
+import { youTubeThumbnailUrl } from "../utils/youtube";
 
 // Same icon set as the dashboard sidebar (DashboardSidebar.tsx) — matched by
 // module/route keyword so a card's module tag visually ties back to the
@@ -46,6 +48,17 @@ const MODULE_ICONS: { test: RegExp; icon: React.ReactNode }[] = [
 function moduleIcon(feature: SpotlightFeature): React.ReactNode {
   const haystack = `${feature.module} ${feature.moduleRoute ?? ""}`;
   return MODULE_ICONS.find((m) => m.test.test(haystack))?.icon ?? null;
+}
+
+// Cover image if one was uploaded/linked; otherwise falls back to the
+// YouTube thumbnail for a video-only feature — same precedence
+// SpotlightFeaturePreview uses, so a card and its own detail page never
+// disagree about what "the" thumbnail for a feature is.
+function coverImage(feature: SpotlightFeature): string | null {
+  const first = feature.images?.[0]?.imageDataUrl ?? feature.imageDataUrl;
+  if (first) return resolveMediaUrl(first);
+  if (feature.videoDataUrl?.trim()) return youTubeThumbnailUrl(feature.videoDataUrl.trim());
+  return null;
 }
 
 interface SpotlightCardProps {
@@ -106,7 +119,7 @@ const SpotlightCard: React.FC<SpotlightCardProps> = ({ feature, index, isUnread,
     setUploadError("");
     try {
       const url = await uploadSpotlightImage(file);
-      await onImageUpload(url);
+      await onImageUpload(url); // may throw for a sample/seed feature — caught below, same as any other save failure
     } catch (err: any) {
       setUploadError(err?.message || "Couldn't save this image — try a smaller file.");
       setTimeout(() => setUploadError(""), 4000);
@@ -126,7 +139,11 @@ const SpotlightCard: React.FC<SpotlightCardProps> = ({ feature, index, isUnread,
       <div className="spotlight-card__thumb">
         <span className="spotlight-card__index">#{index}</span>
         {isUnread && <span className="spotlight-card__new-dot" title="New" />}
-        <ImageFill size={26} />
+        {coverImage(feature) ? (
+          <img className="spotlight-card__thumb-img" src={coverImage(feature)!} alt={feature.featureName} />
+        ) : (
+          <ImageFill size={26} />
+        )}
         <span className="spotlight-card__play">
           <PlayFill size={20} />
         </span>

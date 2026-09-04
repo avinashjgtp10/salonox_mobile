@@ -3,8 +3,10 @@ import type { PayloadAction } from "@reduxjs/toolkit";
 import type { SpotlightFeature } from "../features/feature-spotlight/types";
 import {
   fetchSpotlightFeaturesThunk,
+  fetchAdminSpotlightFeaturesThunk,
   createSpotlightFeatureThunk,
   updateSpotlightFeatureThunk,
+  publishSpotlightFeatureThunk,
   deleteSpotlightFeatureThunk,
   markSpotlightReadThunk,
 } from "../middleware/spotlight/spotlight.thunk";
@@ -47,10 +49,32 @@ const spotlightSlice = createSlice({
         state.fetched = true;
         state.error = action.payload ?? "Failed to fetch Spotlight features";
       })
+      // Admin fetch (draft+published+archived) — same slice, since the
+      // manage page and the salon-facing browse page are never mounted at
+      // the same time (different routes/roles), so there's no risk of one
+      // clobbering the other's more-restricted list mid-session.
+      .addCase(fetchAdminSpotlightFeaturesThunk.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchAdminSpotlightFeaturesThunk.fulfilled, (state, action) => {
+        state.loading = false;
+        state.fetched = true;
+        state.features = action.payload;
+      })
+      .addCase(fetchAdminSpotlightFeaturesThunk.rejected, (state, action) => {
+        state.loading = false;
+        state.fetched = true;
+        state.error = action.payload ?? "Failed to fetch Spotlight features";
+      })
       .addCase(createSpotlightFeatureThunk.fulfilled, (state, action) => {
         state.features.unshift(action.payload);
       })
       .addCase(updateSpotlightFeatureThunk.fulfilled, (state, action: PayloadAction<SpotlightFeature>) => {
+        const idx = state.features.findIndex((f) => f.id === action.payload.id);
+        if (idx !== -1) state.features[idx] = action.payload;
+      })
+      .addCase(publishSpotlightFeatureThunk.fulfilled, (state, action: PayloadAction<SpotlightFeature>) => {
         const idx = state.features.findIndex((f) => f.id === action.payload.id);
         if (idx !== -1) state.features[idx] = action.payload;
       })
@@ -69,6 +93,7 @@ const selectSpotlightState = (state: RootState) => state.spotlight as SpotlightS
 
 export const selectSpotlightFeatures = (state: RootState) => selectSpotlightState(state).features;
 export const selectSpotlightReadIds = (state: RootState) => selectSpotlightState(state).readIds;
+export const selectSpotlightFetched = (state: RootState) => selectSpotlightState(state).fetched;
 
 export const selectPublishedFeatures = createSelector(selectSpotlightFeatures, (features) =>
   features.filter((f) => f.status === "published")

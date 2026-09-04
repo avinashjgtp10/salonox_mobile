@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Link45deg, Check2 } from "react-bootstrap-icons";
+import { ArrowLeft } from "react-bootstrap-icons";
 import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import Button from "../../../components/ui/Button";
 import SpotlightFeaturePreview from "../components/SpotlightFeaturePreview";
@@ -11,12 +11,17 @@ import {
 } from "../../../middleware/spotlight/spotlight.thunk";
 import "../styles/Spotlight.scss";
 
+// Defensive guard before calling the explore API — every feature this page
+// can reach comes straight from the backend, so its id is always a real
+// UUID (Postgres gen_random_uuid()), but this stays cheap insurance against
+// ever calling that endpoint with something malformed.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function SpotlightDetailPage() {
   const { id } = useParams<{ id: string }>();
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
   const location = useLocation();
-  const [linkCopied, setLinkCopied] = useState(false);
 
   // Whichever tab (New/Recently Updated/All) the person clicked in from has
   // its own route — going back to a hardcoded "/dashboard/spotlight" would
@@ -39,7 +44,7 @@ export default function SpotlightDetailPage() {
   }, [dispatch]);
 
   useEffect(() => {
-    if (feature && !readIds.includes(feature.id)) {
+    if (feature && UUID_RE.test(feature.id) && !readIds.includes(feature.id)) {
       dispatch(markSpotlightReadThunk(feature.id));
     }
   }, [dispatch, feature, readIds]);
@@ -66,19 +71,6 @@ export default function SpotlightDetailPage() {
   const prevFeature = idx > 0 ? published[idx - 1] : null;
   const nextFeature = idx !== -1 && idx < published.length - 1 ? published[idx + 1] : null;
 
-  const shareLink = `${window.location.origin}/dashboard/spotlight/${feature.id}`;
-
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(shareLink);
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 1500);
-    } catch {
-      // Clipboard API unavailable — no-op, nothing to surface for a
-      // non-critical convenience action.
-    }
-  };
-
   return (
     <div className="spotlight-page">
       <Button
@@ -89,14 +81,6 @@ export default function SpotlightDetailPage() {
       >
         Back to Spotlight
       </Button>
-
-      <div className="spotlight-linkbar" style={{ marginTop: 18 }}>
-        <span className="spotlight-linkbar__url">{shareLink}</span>
-        <button type="button" className="spotlight-linkbar__copy" onClick={handleCopyLink}>
-          {linkCopied ? <Check2 size={14} /> : <Link45deg size={14} />}
-          {linkCopied ? "Copied" : "Copy link"}
-        </button>
-      </div>
 
       <SpotlightFeaturePreview feature={feature} spotlightNumber={spotlightNumber} />
 

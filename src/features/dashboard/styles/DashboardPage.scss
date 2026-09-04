@@ -1603,6 +1603,30 @@ body {
   border: 1.5px solid $white;
 }
 
+/* ── SPOTLIGHT "NEW FEATURE" TOPBAR ICON ── */
+@keyframes topbar-spotlight-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.topbar-spotlight-btn {
+  color: #8b5cf6;
+
+  &:hover { background: #f5f3ff; border-color: #e0d9fb; }
+}
+
+.topbar-spotlight-dot {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 8px;
+  height: 8px;
+  background: #8b5cf6;
+  border-radius: 50%;
+  border: 1.5px solid $white;
+  animation: topbar-spotlight-pulse 1.8s ease-in-out infinite;
+}
+
 /* ── NOTIFICATION DROPDOWN ── */
 .topbar-notif-dropdown {
   position: absolute;
