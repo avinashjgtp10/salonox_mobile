@@ -10,6 +10,8 @@ import {
   TextInput,
   TouchableOpacity,
   View,
+  type StyleProp,
+  type ViewStyle,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
@@ -83,6 +85,16 @@ export default function NewServiceScreen() {
   const parsedHours = Math.max(0, parseNumber(durationHours) ?? 0);
   const parsedMinutes = Math.max(0, parseNumber(durationMinutes) ?? 0);
   const totalDuration = parsedHours * 60 + parsedMinutes;
+
+  const clearFieldError = (field: keyof FieldErrors) => {
+    setFieldErrors((current) => {
+      if (!current[field]) {
+        return current;
+      }
+
+      return { ...current, [field]: undefined };
+    });
+  };
 
   const handleBack = () => {
     if (router.canGoBack()) {
@@ -227,11 +239,15 @@ export default function NewServiceScreen() {
 
             <View style={styles.priceDurationRow}>
               <Field
+                containerStyle={styles.priceWrap}
                 editable={!isSubmitting}
                 error={fieldErrors.price}
                 keyboardType="decimal-pad"
                 label="Price *"
-                onChangeText={setPrice}
+                onChangeText={(value) => {
+                  setPrice(value);
+                  clearFieldError("price");
+                }}
                 value={price}
               />
               <View style={styles.durationWrap}>
@@ -240,14 +256,20 @@ export default function NewServiceScreen() {
                   <UnitInput
                     editable={!isSubmitting}
                     error={Boolean(fieldErrors.duration)}
-                    onChangeText={setDurationHours}
+                    onChangeText={(value) => {
+                      setDurationHours(value);
+                      clearFieldError("duration");
+                    }}
                     suffix="hr"
                     value={durationHours}
                   />
                   <UnitInput
                     editable={!isSubmitting}
                     error={Boolean(fieldErrors.duration)}
-                    onChangeText={setDurationMinutes}
+                    onChangeText={(value) => {
+                      setDurationMinutes(value);
+                      clearFieldError("duration");
+                    }}
                     suffix="min"
                     value={durationMinutes}
                   />
@@ -304,16 +326,22 @@ export default function NewServiceScreen() {
 }
 
 function Field({
+  containerStyle,
   error,
   inputStyle,
   label,
   ...props
-}: React.ComponentProps<typeof TextInput> & { error?: string; inputStyle?: object; label: string }) {
+}: React.ComponentProps<typeof TextInput> & {
+  containerStyle?: StyleProp<ViewStyle>;
+  error?: string;
+  inputStyle?: object;
+  label: string;
+}) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
   return (
-    <View style={styles.field}>
+    <View style={[styles.field, containerStyle]}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
         {...props}
@@ -351,7 +379,7 @@ function UnitInput({
         style={styles.unitTextInput}
         value={value}
       />
-      <Text style={styles.unitSuffix}>{suffix}</Text>
+      <Text numberOfLines={1} style={styles.unitSuffix}>{suffix}</Text>
     </View>
   );
 }
@@ -448,8 +476,9 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   selectText: { color: Colors.heading, flex: 1, fontSize: 15 },
   placeholder: { color: Colors.placeholder },
   inlineLink: { color: Colors.primary, fontSize: 14, fontWeight: "800", marginBottom: 24 },
-  priceDurationRow: { flexDirection: "row", gap: 14 },
-  durationWrap: { flex: 1, marginBottom: 18 },
+  priceDurationRow: { flexDirection: "row", flexWrap: "wrap", gap: 14 },
+  priceWrap: { flexBasis: 160, flexGrow: 1, minWidth: 0 },
+  durationWrap: { flexBasis: 160, flexGrow: 1, marginBottom: 18, minWidth: 0 },
   durationInputs: { flexDirection: "row", gap: 10 },
   durationTotal: { color: Colors.text2, fontSize: 13, marginTop: 8 },
   unitInput: {
@@ -461,10 +490,11 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flex: 1,
     flexDirection: "row",
     minHeight: 48,
-    paddingHorizontal: 10,
+    minWidth: 0,
+    paddingHorizontal: 8,
   },
-  unitTextInput: { color: Colors.heading, flex: 1, fontSize: 15, minHeight: 46, paddingVertical: 8 },
-  unitSuffix: { color: Colors.text2, fontSize: 15, marginLeft: 8 },
+  unitTextInput: { color: Colors.heading, flex: 1, fontSize: 15, minHeight: 46, minWidth: 0, paddingHorizontal: 0, paddingVertical: 8 },
+  unitSuffix: { color: Colors.text2, flexShrink: 0, fontSize: 15, marginLeft: 4 },
   helperText: { color: Colors.text2, fontSize: 14, lineHeight: 20, marginBottom: 20, marginTop: -10 },
   availabilityTitle: { color: Colors.text2, fontSize: 14, fontWeight: "800", marginBottom: 10 },
   checkboxRow: { alignItems: "center", flexDirection: "row", gap: 12, marginBottom: 14 },
