@@ -1,6 +1,6 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router, type Href } from "expo-router";
-import { useMemo, useState } from "react";
+import { forwardRef, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -29,6 +29,7 @@ import {
 } from "@/store/service/service.slice";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ServiceCategoryItem } from "@/types/service";
+import { useValidationScroll } from "@/hooks/useValidationScroll";
 
 type FieldErrors = {
   categoryId?: string;
@@ -37,6 +38,16 @@ type FieldErrors = {
   price?: string;
   reminderDays?: string;
 };
+
+type ServiceField = keyof FieldErrors;
+
+const VALIDATION_FIELD_ORDER: ServiceField[] = [
+  "name",
+  "categoryId",
+  "price",
+  "duration",
+  "reminderDays",
+];
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -64,6 +75,7 @@ export default function NewServiceScreen() {
   const serviceCreating = useAppSelector(selectServiceCreating);
   const serviceCreateError = useAppSelector(selectServiceCreateError);
   const servicesQuery = useAppSelector(selectServicesQuery);
+  const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
 
   const [active, setActive] = useState(true);
   const [categoryModalOpen, setCategoryModalOpen] = useState(false);
@@ -130,7 +142,10 @@ export default function NewServiceScreen() {
     setSuccessMessage(null);
 
     const errors = validate();
-    if (Object.keys(errors).length > 0) return;
+    if (Object.keys(errors).length > 0) {
+      scrollToFirstError(errors);
+      return;
+    }
 
     const reminder = reminderDays.trim() ? Number(reminderDays.trim()) : undefined;
     const resultAction = await dispatch(
@@ -180,6 +195,7 @@ export default function NewServiceScreen() {
       <AppStatusBar />
       <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={styles.flex}>
         <KeyboardAwareScrollView
+          ref={scrollViewRef}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -201,14 +217,18 @@ export default function NewServiceScreen() {
             <Text style={styles.sectionTitle}>Basic Details</Text>
 
             <Field
+              ref={(input) => setFieldRef("name", input)}
               editable={!isSubmitting}
               error={fieldErrors.name}
               label="Service Name *"
-              onChangeText={setName}
+              onChangeText={(value) => {
+                setName(value);
+                clearFieldError("name");
+              }}
               value={name}
             />
 
-            <View style={styles.field}>
+            <View ref={(view) => setFieldRef("categoryId", view)} style={styles.field}>
               <Text style={styles.label}>Category *</Text>
               <TouchableOpacity
                 activeOpacity={0.84}
@@ -239,6 +259,7 @@ export default function NewServiceScreen() {
 
             <View style={styles.priceDurationRow}>
               <Field
+                ref={(input) => setFieldRef("price", input)}
                 containerStyle={styles.priceWrap}
                 editable={!isSubmitting}
                 error={fieldErrors.price}
@@ -250,7 +271,7 @@ export default function NewServiceScreen() {
                 }}
                 value={price}
               />
-              <View style={styles.durationWrap}>
+              <View ref={(view) => setFieldRef("duration", view)} style={styles.durationWrap}>
                 <Text style={styles.label}>Duration *</Text>
                 <View style={styles.durationInputs}>
                   <UnitInput
@@ -280,11 +301,15 @@ export default function NewServiceScreen() {
             </View>
 
             <Field
+              ref={(input) => setFieldRef("reminderDays", input)}
               editable={!isSubmitting}
               error={fieldErrors.reminderDays}
               keyboardType="number-pad"
               label="Service Reminder (days)"
-              onChangeText={setReminderDays}
+              onChangeText={(value) => {
+                setReminderDays(value);
+                clearFieldError("reminderDays");
+              }}
               placeholder="e.g. 30"
               value={reminderDays}
             />
@@ -325,18 +350,12 @@ export default function NewServiceScreen() {
   );
 }
 
-function Field({
-  containerStyle,
-  error,
-  inputStyle,
-  label,
-  ...props
-}: React.ComponentProps<typeof TextInput> & {
+const Field = forwardRef<TextInput, React.ComponentProps<typeof TextInput> & {
   containerStyle?: StyleProp<ViewStyle>;
   error?: string;
   inputStyle?: object;
   label: string;
-}) {
+}>(function Field({ containerStyle, error, inputStyle, label, ...props }, ref) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -344,6 +363,7 @@ function Field({
     <View style={[styles.field, containerStyle]}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
+        ref={ref}
         {...props}
         placeholderTextColor={Colors.placeholder}
         style={[styles.input, props.multiline && styles.multilineInput, Boolean(error) && styles.inputError, inputStyle]}
@@ -351,7 +371,7 @@ function Field({
       {error ? <Text style={styles.fieldError}>{error}</Text> : null}
     </View>
   );
-}
+});
 
 function UnitInput({
   editable,

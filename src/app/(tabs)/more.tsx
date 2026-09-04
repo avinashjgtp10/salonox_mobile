@@ -30,7 +30,7 @@ import {
   getUserInitials,
   getUserRoleLabel,
 } from "@/utils/userProfile";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 
 const WEB_APP_URL = "https://www.salonox.com";
 const SUPPORT_EMAIL = "support@salonox.com";
@@ -127,6 +127,9 @@ export default function MoreScreen() {
   const [isSubmittingReport, setIsSubmittingReport] = useState(false);
   const [reportSubject, setReportSubject] = useState("");
   const [reportMessage, setReportMessage] = useState("");
+  const [reportErrors, setReportErrors] = useState<{ message?: string; subject?: string }>({});
+  const reportSubjectRef = useRef<TextInput>(null);
+  const reportMessageRef = useRef<TextInput>(null);
   const isBusy = isLoggingOut || isLoggingOutAll || isSendingOtp || isSubmittingReport;
   const appVersion =
     Constants.expoConfig?.version ??
@@ -149,8 +152,13 @@ export default function MoreScreen() {
     const subject = reportSubject.trim();
     const message = reportMessage.trim();
 
+    const nextErrors = {
+      ...(!message ? { message: "Description is required." } : {}),
+      ...(!subject ? { subject: "Subject is required." } : {}),
+    };
+    setReportErrors(nextErrors);
     if (!subject || !message) {
-      Alert.alert("Details required", "Add a subject and description before submitting.");
+      (subject ? reportMessageRef : reportSubjectRef).current?.focus();
       return;
     }
 
@@ -166,6 +174,7 @@ export default function MoreScreen() {
       setIsReportModalVisible(false);
       setReportSubject("");
       setReportMessage("");
+      setReportErrors({});
       Alert.alert("Report submitted", "Your report has been sent to SalonOX support.");
     } catch (error) {
       Alert.alert("Unable to submit report", getApiErrorMessage(error));
@@ -517,23 +526,27 @@ export default function MoreScreen() {
               </TouchableOpacity>
             </View>
             <TextInput
+              ref={reportSubjectRef}
               editable={!isSubmittingReport}
-              onChangeText={setReportSubject}
+              onChangeText={(value) => { setReportSubject(value); setReportErrors((current) => ({ ...current, subject: undefined })); }}
               placeholder="Subject"
               placeholderTextColor={Colors.text2}
-              style={styles.reportInput}
+              style={[styles.reportInput, reportErrors.subject && styles.reportInputError]}
               value={reportSubject}
             />
+            {reportErrors.subject ? <Text style={styles.reportFieldError}>{reportErrors.subject}</Text> : null}
             <TextInput
+              ref={reportMessageRef}
               editable={!isSubmittingReport}
               multiline
-              onChangeText={setReportMessage}
+              onChangeText={(value) => { setReportMessage(value); setReportErrors((current) => ({ ...current, message: undefined })); }}
               placeholder="Describe the problem"
               placeholderTextColor={Colors.text2}
-              style={[styles.reportInput, styles.reportMessageInput]}
+              style={[styles.reportInput, styles.reportMessageInput, reportErrors.message && styles.reportInputError]}
               textAlignVertical="top"
               value={reportMessage}
             />
+            {reportErrors.message ? <Text style={styles.reportFieldError}>{reportErrors.message}</Text> : null}
             <TouchableOpacity
               activeOpacity={0.84}
               disabled={isSubmittingReport}
@@ -768,6 +781,17 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     marginBottom: AppLayout.sectionGap,
     minHeight: 50,
     padding: AppLayout.cardPadding,
+  },
+  reportInputError: {
+    borderColor: Colors.error,
+    borderWidth: 1.5,
+  },
+  reportFieldError: {
+    color: Colors.error,
+    fontSize: 12,
+    fontWeight: "700",
+    marginBottom: 8,
+    marginTop: -4,
   },
   reportMessageInput: {
     minHeight: 140,

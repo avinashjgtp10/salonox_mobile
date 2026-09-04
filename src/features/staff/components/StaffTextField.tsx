@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { forwardRef, useMemo } from "react";
 import { StyleSheet, Text, TextInput, View, type TextInputProps } from "react-native";
 
 import {
@@ -13,7 +13,7 @@ type StaffTextFieldProps = TextInputProps & {
   label: string;
 };
 
-export function StaffTextField({ error, label, multiline, style, ...inputProps }: StaffTextFieldProps) {
+export const StaffTextField = forwardRef<TextInput, StaffTextFieldProps>(function StaffTextField({ error, label, multiline, style, ...inputProps }, ref) {
   const Colors = useThemeColors();
   const styles = useMemo(() => createStyles(Colors), [Colors]);
 
@@ -21,15 +21,16 @@ export function StaffTextField({ error, label, multiline, style, ...inputProps }
     <View style={styles.group}>
       <Text style={styles.label}>{label}</Text>
       <TextInput
+        ref={ref}
         multiline={multiline}
         placeholderTextColor={Colors.placeholder}
-        style={[styles.input, multiline ? styles.textArea : null, style]}
+        style={[styles.input, multiline ? styles.textArea : null, error ? styles.inputError : null, style]}
         {...inputProps}
       />
       {error ? <Text style={styles.error}>{error}</Text> : null}
     </View>
   );
-}
+});
 
 const createStyles = (Colors: ThemeColors) => StyleSheet.create({
   group: {
@@ -55,6 +56,10 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     minHeight: 86,
     paddingTop: 13,
     textAlignVertical: "top",
+  },
+  inputError: {
+    borderColor: Colors.error,
+    borderWidth: 1.5,
   },
   error: {
     color: Colors.error,

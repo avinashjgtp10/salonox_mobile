@@ -32,6 +32,11 @@ import {
 import { useAppDispatch, useAppSelector } from "@/store/hooks";
 import { useThemeColors } from "@/theme/ThemeProvider";
 import type { ConsumableRecipeItem } from "@/types/consumable";
+import { useValidationScroll } from "@/hooks/useValidationScroll";
+
+type ServiceEditField = "duration" | "name" | "price";
+type ServiceEditFieldErrors = Partial<Record<ServiceEditField, string>>;
+const VALIDATION_FIELD_ORDER: ServiceEditField[] = ["name", "price", "duration"];
 
 const getRejectedMessage = (payload: unknown, fallback: string) => {
   if (payload && typeof payload === "object" && "message" in payload) {
@@ -57,10 +62,12 @@ export default function EditServiceScreen() {
   const serviceUpdating = useAppSelector(selectServiceUpdating);
   const serviceUpdateError = useAppSelector(selectServiceUpdateError);
   const servicesQuery = useAppSelector(selectServicesQuery);
+  const { scrollToFirstError, scrollViewRef, setFieldRef } = useValidationScroll(VALIDATION_FIELD_ORDER);
 
   const [category, setCategory] = useState("");
   const [consumables, setConsumables] = useState<ConsumableRecipeItem[]>([]);
   const [durationMinutes, setDurationMinutes] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<ServiceEditFieldErrors>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [isFinishing, setIsFinishing] = useState(false);
   const [name, setName] = useState("");
@@ -110,22 +117,11 @@ export default function EditServiceScreen() {
     setFormError(null);
     setSuccessMessage(null);
 
-    if (!trimmedName) {
-      setFormError("Service name is required.");
-      return;
-    }
-
-    if (!trimmedPrice) {
-      setFormError("Price is required.");
-      return;
-    }
-
+    const nextErrors: ServiceEditFieldErrors = {};
+    if (!trimmedName) nextErrors.name = "Service name is required.";
     const parsedPrice = Number(trimmedPrice);
-
-    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
-      setFormError("Enter a valid price.");
-      return;
-    }
+    if (!trimmedPrice) nextErrors.price = "Price is required.";
+    else if (!Number.isFinite(parsedPrice) || parsedPrice < 0) nextErrors.price = "Enter a valid price.";
 
     let parsedDuration: number | undefined;
 
@@ -133,9 +129,14 @@ export default function EditServiceScreen() {
       parsedDuration = Number(trimmedDuration);
 
       if (!Number.isFinite(parsedDuration) || parsedDuration < 0) {
-        setFormError("Enter a valid duration in minutes.");
-        return;
+        nextErrors.duration = "Enter a valid duration in minutes.";
       }
+    }
+
+    setFieldErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      scrollToFirstError(nextErrors);
+      return;
     }
 
     const resultAction = await dispatch(
@@ -228,6 +229,7 @@ export default function EditServiceScreen() {
     <SafeAreaView edges={["top", "bottom"]} style={styles.safeArea}>
       <AppStatusBar />
       <KeyboardAwareScrollView
+          ref={scrollViewRef}
           contentContainerStyle={styles.content}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -254,12 +256,13 @@ export default function EditServiceScreen() {
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Service Name</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="pricetag-outline" size={18} color={Colors.text2} />
+              <View style={[styles.inputContainer, fieldErrors.name && styles.inputContainerError]}>
+                <Ionicons name="pricetag-outline" size={18} color={fieldErrors.name ? Colors.error : Colors.text2} />
                 <TextInput
+                  ref={(input) => setFieldRef("name", input)}
                   autoCapitalize="words"
                   editable={!isSubmitting}
-                  onChangeText={setName}
+                  onChangeText={(value) => { setName(value); setFieldErrors((current) => ({ ...current, name: undefined })); }}
                   placeholder="Enter service name"
                   placeholderTextColor={Colors.placeholder}
                   returnKeyType="next"
@@ -267,16 +270,18 @@ export default function EditServiceScreen() {
                   value={name}
                 />
               </View>
+              {fieldErrors.name ? <Text style={styles.fieldErrorText}>{fieldErrors.name}</Text> : null}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Price</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="cash-outline" size={18} color={Colors.text2} />
+              <View style={[styles.inputContainer, fieldErrors.price && styles.inputContainerError]}>
+                <Ionicons name="cash-outline" size={18} color={fieldErrors.price ? Colors.error : Colors.text2} />
                 <TextInput
+                  ref={(input) => setFieldRef("price", input)}
                   editable={!isSubmitting}
                   keyboardType="decimal-pad"
-                  onChangeText={setPrice}
+                  onChangeText={(value) => { setPrice(value); setFieldErrors((current) => ({ ...current, price: undefined })); }}
                   placeholder="Enter price"
                   placeholderTextColor={Colors.placeholder}
                   returnKeyType="next"
@@ -284,16 +289,18 @@ export default function EditServiceScreen() {
                   value={price}
                 />
               </View>
+              {fieldErrors.price ? <Text style={styles.fieldErrorText}>{fieldErrors.price}</Text> : null}
             </View>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Duration (minutes)</Text>
-              <View style={styles.inputContainer}>
-                <Ionicons name="time-outline" size={18} color={Colors.text2} />
+              <View style={[styles.inputContainer, fieldErrors.duration && styles.inputContainerError]}>
+                <Ionicons name="time-outline" size={18} color={fieldErrors.duration ? Colors.error : Colors.text2} />
                 <TextInput
+                  ref={(input) => setFieldRef("duration", input)}
                   editable={!isSubmitting}
                   keyboardType="number-pad"
-                  onChangeText={setDurationMinutes}
+                  onChangeText={(value) => { setDurationMinutes(value); setFieldErrors((current) => ({ ...current, duration: undefined })); }}
                   placeholder="Enter duration in minutes"
                   placeholderTextColor={Colors.placeholder}
                   returnKeyType="next"
@@ -301,6 +308,7 @@ export default function EditServiceScreen() {
                   value={durationMinutes}
                 />
               </View>
+              {fieldErrors.duration ? <Text style={styles.fieldErrorText}>{fieldErrors.duration}</Text> : null}
             </View>
 
             <View style={styles.inputGroup}>
@@ -450,6 +458,16 @@ const createStyles = (Colors: ThemeColors) => StyleSheet.create({
     flexDirection: "row",
     minHeight: 52,
     paddingHorizontal: AppLayout.searchBarPaddingX,
+  },
+  inputContainerError: {
+    borderColor: Colors.error,
+    borderWidth: 1.5,
+  },
+  fieldErrorText: {
+    color: Colors.error,
+    fontSize: 12,
+    fontWeight: "700",
+    marginTop: 6,
   },
   textInput: {
     color: Colors.heading,
