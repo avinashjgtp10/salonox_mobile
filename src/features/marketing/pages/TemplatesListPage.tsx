@@ -20,9 +20,14 @@ const POLL_INTERVAL = 60_000;
 export default function TemplatesListPage() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { templates, loading } = useAppSelector((s) => s.marketing);
+  const { templates, loading, waConfig } = useAppSelector((s) => s.marketing);
+  // WhatsApp Campaign templates need a connected WhatsApp account; Trigger
+  // Templates (SMS/Email included) don't — this page is now reachable
+  // without WhatsApp configured (see MarketingRoutes.tsx), so default to the
+  // tab that's actually usable instead of landing on an empty Campaign list.
+  const isWaConfigured = !!((waConfig as any)?.phoneNumberId ?? (waConfig as any)?.phone_number_id);
 
-  const [activeTab, setActiveTab] = useState<TemplateTab>("campaign");
+  const [activeTab, setActiveTab] = useState<TemplateTab>(isWaConfigured ? "campaign" : "trigger");
   const [search,   setSearch]   = useState("");
   const [status,   setStatus]   = useState<StatusFilter>("ALL");
   const [selected, setSelected] = useState<Set<string>>(new Set());

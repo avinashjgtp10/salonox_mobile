@@ -1,0 +1,41 @@
+@use './marketing-tokens' as *;
+
+.ch-section {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px; margin-top: 4px;
+  background: $gray-50; border: 0.5px solid $gray-200; border-radius: $radius-md;
+}
+
+.ch-label { font-size: 10.5px; font-weight: 600; color: $gray-500; margin-top: 2px; }
+
+.ch-textarea {
+  width: 100%; resize: vertical; font-family: inherit;
+  font-size: 13px; color: $black; background: #fff;
+  border: 0.5px solid $gray-200; border-radius: $radius-sm; padding: 8px 10px;
+  &:focus { outline: none; border-color: $black; }
+}
+
+.ch-counter {
+  display: flex; flex-direction: column; gap: 2px;
+  font-size: 10.5px; color: $gray-400; font-family: 'IBM Plex Mono', ui-monospace, monospace;
+}
+.ch-counter-warn { color: $amber; font-weight: 600; }
+.ch-counter-note { color: $amber; font-family: inherit; font-style: italic; }
+
+.ch-badge {
+  align-self: flex-start; font-size: 10.5px; color: $gray-600;
+  background: $gray-100; border-radius: 999px; padding: 3px 8px;
+}
+
+.ch-actions { display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-top: 2px; }
+
+.ch-test-row {
+  display: flex; align-items: center; gap: 6px;
+  margin-right: auto;
+}
+
+.ch-test-input {
+  width: 170px; font-size: 12.5px; color: $black; background: #fff;
+  border: 0.5px solid $gray-200; border-radius: $radius-sm; padding: 6px 8px;
+  &:focus { outline: none; border-color: $black; }
+}

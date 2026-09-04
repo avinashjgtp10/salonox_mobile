@@ -37,6 +37,7 @@ export * from "./demoRequests.endpoints";
 export * from "./deploymentAnnouncements.endpoints";
 export * from "./notifications.endpoints";
 export * from "./wa-automation.endpoints";
+export * from "./notification-channels.endpoints";
 export * from "./reviews.endpoints";
 export * from "./feedback.endpoints";
 export * from "./enquiries.endpoints";

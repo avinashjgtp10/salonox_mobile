@@ -101,6 +101,26 @@ export interface PurchaseTemplate {
 export interface PurchaseTemplatesListResponse { data: PurchaseTemplate[]; }
 export interface PurchaseTemplateResponse       { data: PurchaseTemplate;  }
 
+// ── Notification Channel Templates (SMS / Email) ────────────────────────────
+// Sibling to PurchaseTemplate (WhatsApp), same PurchaseEventType catalog, but
+// no Meta-approval lifecycle — "Save" is live immediately.
+export type NotificationChannel = "SMS" | "EMAIL";
+
+export interface NotificationChannelTemplate {
+  id:         EntityId;
+  salon_id:   string;
+  event_type: PurchaseEventType;
+  channel:    NotificationChannel;
+  enabled:    boolean;
+  subject:    string | null; // EMAIL only
+  body:       string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NotificationChannelTemplatesListResponse { data: NotificationChannelTemplate[]; }
+export interface NotificationChannelTemplateResponse       { data: NotificationChannelTemplate;  }
+
 // ── Campaign ──────────────────────────────────────────────────────────────────
 // FIX: Added DRAFT and SENDING which backend actually uses
 export type CampaignStatus = "DRAFT" | "SCHEDULED" | "SENDING" | "RUNNING" | "PAUSED" | "COMPLETED" | "FAILED" | "PENDING";
