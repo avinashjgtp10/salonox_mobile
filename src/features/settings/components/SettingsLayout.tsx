@@ -17,6 +17,7 @@ import {
   Tag,
   PackageIcon,
   Printer,
+  Smartphone,
 } from "lucide-react";
 import ProfileSettingsPage from "../pages/ProfileSettingsPage";
 import BusinessSettingsPage from "../pages/BusinessSettingsPage";
@@ -24,6 +25,7 @@ import AccountSettingsPage from "../pages/AccountSettingsPage";
 import NotificationsPage from "../pages/NotificationsPage";
 import RolesPermissionsPage from "../pages/RolesPermissionsPage";
 import IntegrationsPage from "../pages/IntegrationsPage";
+import PaymentMachineSettingsPage from "../pages/PaymentMachineSettingsPage";
 import BillingPage from "../pages/BillingPage";
 import CurrencySettingsPage from "../pages/CurrencySettingsPage";
 import SettingsManagementPage from "../pages/SettingsManagementPage";
@@ -71,6 +73,7 @@ const navGroups: NavGroup[] = [
     groupLabel: "Tools",
     items: [
       { id: "integrations", label: "Integrations",   description: "Connect third-party tools and services.",       icon: <Puzzle size={18} />,     Component: IntegrationsPage },
+      { id: "pos-payments", label: "POS / Payment Machine", description: "Connect a payment terminal so invoices can be paid — and marked PAID — directly on the machine.", icon: <Smartphone size={18} />, Component: PaymentMachineSettingsPage },
       { id: "billing",      label: "Billing & Plans", description: "View and manage your subscription and billing.", icon: <CreditCard size={18} />, Component: BillingPage },
     ],
   },

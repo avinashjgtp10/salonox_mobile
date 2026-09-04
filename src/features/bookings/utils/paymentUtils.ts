@@ -1,4 +1,3 @@
-import type { SingleMethod } from "../types";
 import { DEFAULT_REWARD_POINTS_CONFIG, type RewardPointsConfig } from "../../settings/utils/rewardPointsSettings";
 import { DEFAULT_REFERRAL_CONFIG, type ReferralConfig } from "../../settings/utils/referralSettings";
 
@@ -55,7 +54,10 @@ export function isRealId(id?: string | null): boolean {
 /** Builds a human-readable payment method label from methods map */
 export function buildMethodLabel(
   paymentMode: "single" | "split",
-  singleMethod: SingleMethod | null,
+  // string, not SingleMethod — also called for the async Payment Machine
+  // flow (buildPaymentPayload in usePayment.ts), which passes "Payment
+  // Machine" through as a genuine method value, not just Cash/Card/UPI.
+  singleMethod: string | null,
   methods: Record<string, number>,
 ): string {
   if (paymentMode === "split") {

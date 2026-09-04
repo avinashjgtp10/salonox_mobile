@@ -1,5 +1,5 @@
 import React from "react";
-import type { SingleMethod, SplitEntry } from "../../types";
+import type { PaymentMethodSelection, SplitEntry } from "../../types";
 import "../../styles/AppointmentModal.scss";
 import { SINGLE_METHODS } from "../../types";
 import { useCurrency } from "../../../../hooks/useCurrency";
@@ -45,11 +45,15 @@ interface Props {
   // Payment method
   paymentMode: "single" | "split";
   onSetPaymentMode: (m: "single" | "split") => void;
-  singleMethod: SingleMethod | null;
-  onSetSingleMethod: (m: SingleMethod) => void;
+  singleMethod: PaymentMethodSelection | null;
+  onSetSingleMethod: (m: PaymentMethodSelection) => void;
   splitEntries: SplitEntry[];
   onSetSplitEntries: (entries: SplitEntry[]) => void;
   payMethodError: boolean;
+  /** Single-mode method buttons. Defaults to SINGLE_METHODS (Cash/Card/UPI)
+   *  — pass a wider list (e.g. + "Payment Machine") to add options without
+   *  touching split mode, which always stays SINGLE_METHODS-only below. */
+  singleMethodOptions?: string[];
 
   // Partial amount (single mode)
   partialAmtInput: string;
@@ -92,6 +96,7 @@ export const PaymentPanel: React.FC<Props> = ({
   referralDiscount = 0, referralMinBillAmount = 0, referralRewardAmount = 0,
   paymentMode, onSetPaymentMode,
   singleMethod, onSetSingleMethod,
+  singleMethodOptions,
   splitEntries, onSetSplitEntries, payMethodError,
   partialAmtInput, onSetPartialAmt,
   priorDueAmt, priorDueBookings, selectedDueIds, isAllDueSelected, onToggleAllDue, onToggleOneDue,
@@ -267,11 +272,14 @@ export const PaymentPanel: React.FC<Props> = ({
       {/* Payment method */}
       {!frozen && (
         <PaymentMethodPicker
-          methods={SINGLE_METHODS}
+          // Split mode always stays Cash/Card/UPI only — a "Payment Machine"
+          // leg makes no sense in a divisible split (it's a whole-transaction
+          // async flow), so the wider option list only applies in single mode.
+          methods={paymentMode === "single" ? (singleMethodOptions ?? SINGLE_METHODS) : SINGLE_METHODS}
           paymentMode={paymentMode}
           onSetPaymentMode={onSetPaymentMode}
           singleMethod={singleMethod}
-          onSetSingleMethod={(m) => onSetSingleMethod(m as SingleMethod)}
+          onSetSingleMethod={(m) => onSetSingleMethod(m as PaymentMethodSelection)}
           splitEntries={splitEntries}
           onSetSplitEntries={(entries) => onSetSplitEntries(entries as SplitEntry[])}
           payMethodError={payMethodError}
