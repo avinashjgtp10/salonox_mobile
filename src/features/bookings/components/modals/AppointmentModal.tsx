@@ -6,7 +6,9 @@ import Dropdown from "../../../../components/ui/Dropdown";
 import { useCurrency } from "../../../../hooks/useCurrency";
 import { useAppSelector, useAppDispatch } from "../../../../hooks/useAppRedux";
 import { useAppointment }    from "../../hooks/useAppointment";
-import { usePayment }        from "../../hooks/usePayment";
+import { usePayment, buildPaymentPayload, buildPaymentStatusPatch } from "../../hooks/usePayment";
+import { usePosSettings }    from "../../hooks/usePosSettings";
+import POSPaymentModal       from "./POSPaymentModal";
 import { useCoupon }         from "../../hooks/useCoupon";
 import { useReferral }       from "../../hooks/useReferral";
 import { useServices }       from "../../hooks/useServices";
@@ -32,7 +34,7 @@ import { isPackageExpired } from "../../utils/packageStatus";
 import { sanitizeDecimalInput } from "../../utils/lineItemInput";
 import type { TotalsResult } from "../../utils/totalsUtils";
 import api from "../../../../services/api/axios";
-import { PRICING } from "../../../../services/api/endpoints";
+import { PRICING, PAYMENT } from "../../../../services/api/endpoints";
 import { computePointsEarned, computeEWalletCredit, computeMaxWalletUsable, EWALLET_REDEEM_MINIMUM } from "../../utils/paymentUtils";
 import {
   selectPackagesList, selectProductsList, selectMembershipsList, selectBookings,
@@ -84,8 +86,10 @@ const NOTES_MAX_LENGTH = 200;
 import type {
   Booking, Client, ClientStats,
   ServiceItem, PackageItem, ProductItem, MembershipItem,
-  DiscountType, DiscountBucket, DiscountScope, SingleMethod, SplitEntry,
+  DiscountType, DiscountBucket, DiscountScope, SplitEntry,
+  PaymentMethodSelection, PosPaymentRequest, CreatePosPaymentPayload,
 } from "../../types";
+import { POS_MACHINE_METHOD, SINGLE_METHODS } from "../../types";
 
 interface Props {
   isOpen: boolean;
@@ -590,7 +594,7 @@ export const AppointmentModal: React.FC<Props> = ({
   const [useReferralCredit, setUseReferralCredit] = useState(false);
   const [referralCreditAmt, setReferralCreditAmt] = useState(0);
   const [paymentMode, setPaymentMode]           = useState<"single" | "split">("single");
-  const [singleMethod, setSingleMethod]         = useState<SingleMethod | null>(null);
+  const [singleMethod, setSingleMethod]         = useState<PaymentMethodSelection | null>(null);
   const [splitEntries, setSplitEntries]         = useState<SplitEntry[]>([
     { method: "Cash", amount: "" }, { method: "Card", amount: "" },
   ]);
@@ -627,7 +631,7 @@ export const AppointmentModal: React.FC<Props> = ({
 
   // Selecting a method (or switching Single/Split) resolves the "no method selected"
   // error immediately — otherwise the red outline lingers after a valid selection.
-  const handleSelectSingleMethod = useCallback((m: SingleMethod) => {
+  const handleSelectSingleMethod = useCallback((m: PaymentMethodSelection) => {
     setSingleMethod(m);
     setPayMethodError(false);
   }, []);
@@ -666,6 +670,20 @@ export const AppointmentModal: React.FC<Props> = ({
   const { completePayment, isProcessing, payError, paymentOverlay } = usePayment();
   const coupon = useCoupon(salonId);
   const referral = useReferral();
+  // Payment Machine (POS terminal) state — hooks/derived values that don't
+  // depend on printClientExtras/other consts declared further down. The
+  // callbacks that DO (runPosSuccessTail, openPosPaymentForAppointment,
+  // handlePosModalClose) live just above handlePay instead, so their
+  // dependency arrays don't reference a const before its declaration.
+  const { enabledProvider: posProvider, terminals: posTerminals } = usePosSettings();
+  const posMethodOptions = useMemo(
+    () => (posProvider ? [...SINGLE_METHODS, POS_MACHINE_METHOD] : undefined),
+    [posProvider]
+  );
+  const [posCreatePayload, setPosCreatePayload] = useState<CreatePosPaymentPayload | null>(null);
+  const [posModalOpen, setPosModalOpen] = useState(false);
+  const posSucceededRef = useRef(false);
+  const posOnSuccessRef = useRef<((request: PosPaymentRequest) => void) | null>(null);
   const [completePackageSession] = useCompleteClientPackageSessionMutation();
 
   // Single consolidated fetch (POST /clients/:id/details) covering profile,
@@ -2020,6 +2038,80 @@ export const AppointmentModal: React.FC<Props> = ({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [totalsNotReady, selectedClient, serviceRows, packageRows, productRows, membershipRows]);
 
+  // ── Payment Machine (POS terminal) — success/dispatch callbacks ─────────
+  // Placed here (not up with the rest of the POS state above) because they
+  // close over printClientExtras/schedulerStaff/etc., which aren't declared
+  // yet at that earlier point in the component body.
+  //
+  // Same tail every synchronous payment already runs after completePayment()
+  // resolves true (see handlePay/handleQuickSaleCheckout below) — triggered
+  // here once the provider confirms instead of immediately after a POST,
+  // since the actual payments row was written server-side by the confirm
+  // handler, not by this tab. Fetches that saved record so the Redux patch
+  // reflects the server's real numbers, same reasoning completePayment uses.
+  const runPosSuccessTail = useCallback(async (
+    apptId: string | number,
+    paymentParams: Parameters<typeof completePayment>[0],
+    methodLabel: string,
+  ) => {
+    posSucceededRef.current = true;
+    try {
+      const res = await api.get(PAYMENT.BY_ID(String(apptId)));
+      const savedPayment = res.data?.data;
+      if (savedPayment) {
+        const { payload } = buildPaymentPayload(paymentParams);
+        dispatch(patchPaymentStatus(buildPaymentStatusPatch(savedPayment, paymentParams, methodLabel, payload)));
+      }
+    } catch {
+      // Best-effort — the POS modal's own success screen already confirmed
+      // the payment to staff regardless of whether this Redux refresh lands.
+    }
+    await markPackageSessions(String(apptId));
+    if (printAfterPayment) {
+      const freshBooking = store.getState().scheduler.bookings.find(
+        (b: any) => String(b.id) === String(apptId)
+      );
+      if (freshBooking) printReceipt(freshBooking as any, schedulerStaff, currentSalon, printClientExtras, { auto: true, showTaxBreakup: showTaxBreakupOnInvoice, formatAmount, paperProfile });
+    }
+    setClientRefreshKey((k) => k + 1);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dispatch, printAfterPayment, schedulerStaff, currentSalon, printClientExtras, showTaxBreakupOnInvoice, formatAmount, paperProfile]);
+
+  // Called from handlePay/handleQuickSaleCheckout instead of completePayment()
+  // when singleMethod === POS_MACHINE_METHOD — builds the exact same payload
+  // completePayment would have posted immediately, but hands it to the async
+  // waiting-screen flow instead of posting it right away.
+  const openPosPaymentForAppointment = useCallback((
+    paymentParams: Parameters<typeof completePayment>[0],
+    apptId: string | number,
+  ) => {
+    const { payload, methodLabel } = buildPaymentPayload(paymentParams);
+    const terminal = posTerminals.find((t) => t.provider === posProvider && t.is_active);
+    posSucceededRef.current = false;
+    posOnSuccessRef.current = () => { void runPosSuccessTail(apptId, paymentParams, methodLabel); };
+    setPosCreatePayload({
+      appointment_id: apptId,
+      client_id: (paymentParams.clientId && isRealId(paymentParams.clientId)) ? paymentParams.clientId : undefined,
+      terminal_id: terminal?.id,
+      provider: posProvider!,
+      amount: payload.paid_amount,
+      payload,
+    });
+    setPosModalOpen(true);
+  }, [posProvider, posTerminals, runPosSuccessTail]);
+
+  const handlePosModalClose = useCallback(() => {
+    setPosModalOpen(false);
+    setPosCreatePayload(null);
+    if (posSucceededRef.current) {
+      finishWithPaidPopup();
+    } else {
+      // Failed/cancelled — let staff pick a different method rather than
+      // silently leaving "Payment Machine" selected with a dead request.
+      setSingleMethod(null);
+    }
+  }, [finishWithPaidPopup]);
+
   // ── Pay ──────────────────────────────────────────────────────────────────
   const handlePay = useCallback(async () => {
     if (totalsNotReady) return;
@@ -2047,7 +2139,10 @@ export const AppointmentModal: React.FC<Props> = ({
     const apptId = await save(buildSavePayload());
     if (!apptId) return;
 
-    const ok = await completePayment({
+    // paymentParams below is the exact same object completePayment() would
+    // have posted immediately for Cash/Card/UPI — Payment Machine only
+    // differs in WHEN it's posted (after the terminal confirms, not now).
+    const paymentParams = {
       appointmentId: apptId,
       clientId:      selectedClient?.id,
       salonId,
@@ -2070,7 +2165,14 @@ export const AppointmentModal: React.FC<Props> = ({
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
       includeGst,
-    });
+    };
+
+    if (paymentMode === "single" && singleMethod === POS_MACHINE_METHOD) {
+      openPosPaymentForAppointment(paymentParams, apptId);
+      return;
+    }
+
+    const ok = await completePayment(paymentParams);
     if (ok) {
       await markPackageSessions(String(apptId));
       if (printAfterPayment) {
@@ -2109,6 +2211,7 @@ export const AppointmentModal: React.FC<Props> = ({
     reconciledEffectiveTotal, remainingDue, applyMembershipDiscount, applyLoyaltyDiscount,
     includeGst, consumableActuals, isPackageZero,
     printClientExtras, showTaxBreakupOnInvoice, formatAmount,
+    openPosPaymentForAppointment,
   ]);
 
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
@@ -2237,7 +2340,7 @@ export const AppointmentModal: React.FC<Props> = ({
       return;
     }
 
-    const ok = await completePayment({
+    const paymentParams = {
       appointmentId: id,
       clientId:      selectedClient?.id,
       salonId,
@@ -2260,7 +2363,14 @@ export const AppointmentModal: React.FC<Props> = ({
       gstAmount:         totals.gstAmount,
       taxBreakdown:      totals.taxBreakdown,
       includeGst,
-    });
+    };
+
+    if (paymentMode === "single" && singleMethod === POS_MACHINE_METHOD) {
+      openPosPaymentForAppointment(paymentParams, id);
+      return;
+    }
+
+    const ok = await completePayment(paymentParams);
     if (ok) {
       await markPackageSessions(String(id));
       if (printAfterPayment) {
@@ -2277,7 +2387,7 @@ export const AppointmentModal: React.FC<Props> = ({
       eWalletAmt, coupon, paymentMode, singleMethod, splitEntries, partialAmtInput,
       includeClearDue, priorDueAmt, useEWallet, selectedDueIds, applyMembership, membershipWalletAmt, printAfterPayment,
       useRewardPoints, rewardPointsToRedeem, useReferralCredit, referralCreditAmt,
-      schedulerStaff, currentSalon, finishWithPaidPopup]);
+      schedulerStaff, currentSalon, finishWithPaidPopup, openPosPaymentForAppointment]);
 
   if (!isOpen) return null;
 
@@ -3284,6 +3394,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     onSetPaymentMode={handleSetPaymentMode}
                     singleMethod={singleMethod}
                     onSetSingleMethod={handleSelectSingleMethod}
+                    singleMethodOptions={posMethodOptions}
                     splitEntries={splitEntries}
                     onSetSplitEntries={setSplitEntries}
                     payMethodError={payMethodError}
@@ -3486,6 +3597,7 @@ export const AppointmentModal: React.FC<Props> = ({
                     onSetPaymentMode={handleSetPaymentMode}
                     singleMethod={singleMethod}
                     onSetSingleMethod={handleSelectSingleMethod}
+                    singleMethodOptions={posMethodOptions}
                     splitEntries={splitEntries}
                     onSetSplitEntries={setSplitEntries}
                     payMethodError={payMethodError}
@@ -3610,6 +3722,15 @@ export const AppointmentModal: React.FC<Props> = ({
       )}
 
       {paymentOverlay}
+
+      <POSPaymentModal
+        isOpen={posModalOpen}
+        createPayload={posCreatePayload}
+        amount={posCreatePayload?.amount ?? 0}
+        currencySymbol={currencySymbol}
+        onClose={handlePosModalClose}
+        onSuccess={(r) => posOnSuccessRef.current?.(r)}
+      />
 
       {showTopupModal && isSellableClient && (
         <EwalletTopupModal

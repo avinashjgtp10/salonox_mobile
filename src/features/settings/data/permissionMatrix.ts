@@ -77,6 +77,7 @@ export const defaultPermissions: Permission[] = [
   // ── Settings ──────────────────────────────────────────────────────────────
   { key: "general_settings",    label: "General Settings",    desc: "Access and update business settings",  category: "Settings",       owner: true, staff: false, manager: true },
   { key: "permission_settings", label: "Permission Settings", desc: "Manage staff roles and permissions",   category: "Settings",       owner: true, staff: false, manager: true },
+  { key: "manage_pos_payments", label: "POS / Payment Machine", desc: "Connect payment terminals and merchant credentials", category: "Settings", owner: true, staff: false, manager: true },
 
   // ── Help ──────────────────────────────────────────────────────────────────
   { key: "access_help_center",  label: "Access Help Center",  desc: "Use the help center and support",      category: "Help",           owner: true, staff: true,  manager: true },
