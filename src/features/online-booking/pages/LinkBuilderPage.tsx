@@ -8,6 +8,8 @@ import {
   Globe,
   PersonCircle,
   Tag,
+  BookmarkPlus,
+  Trash3,
 } from "react-bootstrap-icons";
 import api from "../../../services/api/axios";
 import { SERVICES } from "../../../services/api/endpoints/services.endpoints";
@@ -39,6 +41,12 @@ const PRESETS = [
 
 type ServiceOption = { id: string; name: string };
 type StaffOption = { id: string; name: string };
+type SavedLink = {
+  id: string;
+  label: string;
+  booking_url: string;
+  link_type: "any" | "service" | "staff";
+};
 
 export default function LinkBuilderPage() {
   const [preset, setPreset]         = useState<"any" | "service" | "staff">("any");
@@ -54,6 +62,56 @@ export default function LinkBuilderPage() {
 
   const [copied, setCopied]         = useState(false);
   const [showQR, setShowQR]         = useState(false);
+
+  const [savedLinks, setSavedLinks]   = useState<SavedLink[]>([]);
+  const [savedLoading, setSavedLoading] = useState(true);
+  const [saving, setSaving]           = useState(false);
+
+  const fetchSavedLinks = async () => {
+    setSavedLoading(true);
+    try {
+      const res = await api.get(LINK_BUILDER.SAVED);
+      setSavedLinks(res.data?.data ?? []);
+    } catch {
+      // leave the list as-is — the empty state covers this gracefully
+    } finally {
+      setSavedLoading(false);
+    }
+  };
+
+  useEffect(() => { fetchSavedLinks(); }, []);
+
+  const handleSaveLink = async () => {
+    if (!link) return;
+    setSaving(true);
+    try {
+      const label =
+        preset === "service" ? `Service: ${services.find((s) => s.id === serviceId)?.name ?? "Service"}` :
+        preset === "staff"   ? `Staff: ${staff.find((s) => s.id === staffId)?.name ?? "Staff"}` :
+        "Any service";
+      await api.post(LINK_BUILDER.SAVED, {
+        label,
+        bookingUrl: link,
+        type: preset,
+        ...(preset === "service" ? { serviceId } : {}),
+        ...(preset === "staff" ? { staffId } : {}),
+      });
+      await fetchSavedLinks();
+    } catch {
+      // no dedicated error UI for this secondary action — the list simply won't update
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDeleteSavedLink = async (id: string) => {
+    setSavedLinks((prev) => prev.filter((l) => l.id !== id));
+    try {
+      await api.delete(LINK_BUILDER.SAVED_BY_ID(id));
+    } catch {
+      fetchSavedLinks(); // restore on failure
+    }
+  };
 
   // ── Load salon's real services & staff ──────────────────────────────────────
   useEffect(() => {
@@ -243,6 +301,9 @@ export default function LinkBuilderPage() {
           <button className="ob-btn-outline" disabled={!link} onClick={() => setShowQR(!showQR)}>
             <QrCode size={14} /> {showQR ? "Hide QR code" : "Generate QR code"}
           </button>
+          <button className="ob-btn-outline" disabled={!link || saving} onClick={handleSaveLink}>
+            <BookmarkPlus size={14} /> {saving ? "Saving…" : "Save this link"}
+          </button>
         </div>
 
         {showQR && link && (
@@ -285,15 +346,40 @@ export default function LinkBuilderPage() {
           </div>
         </div>
 
-        <div className="ob-empty">
-          <div className="ob-empty-icon">
-            <Link45deg size={36} color="#d1d5db" />
+        {savedLoading ? (
+          <p className="ob-card-sub">Loading saved links…</p>
+        ) : savedLinks.length === 0 ? (
+          <div className="ob-empty">
+            <div className="ob-empty-icon">
+              <Link45deg size={36} color="#d1d5db" />
+            </div>
+            <p className="ob-empty-title">No saved links yet</p>
+            <p className="ob-empty-desc">
+              Build and save custom booking links above to see them here.
+            </p>
           </div>
-          <p className="ob-empty-title">No saved links yet</p>
-          <p className="ob-empty-desc">
-            Build and save custom booking links above to see them here.
-          </p>
-        </div>
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+            {savedLinks.map((sl) => (
+              <div key={sl.id} className="ob-link-display">
+                <Link45deg size={15} style={{ color: "#6b7280", flexShrink: 0 }} />
+                <span className="ob-link-url" style={{ display: "flex", flexDirection: "column" }}>
+                  <span style={{ fontWeight: 600 }}>{sl.label}</span>
+                  <span style={{ fontSize: 11.5, color: "#9ca3af" }}>{sl.booking_url}</span>
+                </span>
+                <button
+                  className="ob-copy-btn"
+                  onClick={() => navigator.clipboard.writeText(sl.booking_url).catch(() => {})}
+                >
+                  <Clipboard size={13} /> Copy
+                </button>
+                <button className="ob-btn-danger" onClick={() => handleDeleteSavedLink(sl.id)} title="Delete">
+                  <Trash3 size={13} />
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* ── Tips ── */}

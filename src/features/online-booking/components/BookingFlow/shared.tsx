@@ -47,8 +47,29 @@ export const fmtPrice = (p: number | string, currencyCode?: string) => {
   return `${def.symbol}${n.toLocaleString(def.locale, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
+// Staff ids are UUID strings — `Number(id) * n` is NaN, so hash the string
+// into a hue instead. Shared so every place that colors a staff avatar by id
+// (public booking, the admin preview) uses the same safe logic.
+export function hashHue(id: string | number): number {
+  const s = String(id);
+  let hash = 0;
+  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
+  return hash % 360;
+}
+
 export const DAYS  = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
 export const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+// "09:00" / "09:00:00" -> "9:00 AM"
+export function fmtClock(t?: string): string {
+  if (!t) return "";
+  const [hStr, mStr = "00"] = t.split(":");
+  let h = parseInt(hStr, 10);
+  if (isNaN(h)) return "";
+  const ampm = h >= 12 ? "PM" : "AM";
+  h = h % 12 || 12;
+  return `${h}:${mStr} ${ampm}`;
+}
 
 export function nextDays(n: number) {
   return Array.from({ length: n }, (_, i) => {
