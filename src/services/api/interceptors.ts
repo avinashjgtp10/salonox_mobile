@@ -260,10 +260,16 @@ export const applyInterceptors = (instance: AxiosInstance) => {
           originalRequest.headers["Authorization"] = `Bearer ${newToken}`;
           return instance(originalRequest);
         } catch (refreshError) {
+          // Read role BEFORE logout() clears it, and route super admins back
+          // to their own login page — /login is the regular-user page and
+          // isn't where a super_admin session can re-authenticate, so this
+          // used to silently strand the History (and every other super-admin)
+          // page on an expired token instead of navigating anywhere useful.
+          const isSuperAdmin = storeRef?.getState()?.auth?.role === "super_admin";
           if (storeRef && authActionsRef) {
             storeRef.dispatch(authActionsRef.logout());
           }
-          window.location.replace("/login");
+          window.location.replace(isSuperAdmin ? "/super-admin/login" : "/login");
           return Promise.reject(
             new ApiError(401, "Session expired. Please log in again."),
           );
