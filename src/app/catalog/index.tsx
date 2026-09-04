@@ -229,6 +229,7 @@ export default function CatalogScreen() {
 
   const deleteItem = async (item: CatalogItem) => {
     setDeletingId(item.id);
+    let shouldReloadCatalog = true;
 
     try {
       if (activeTab === "services") {
@@ -238,6 +239,9 @@ export default function CatalogScreen() {
       } else if (activeTab === "products") {
         const action = await dispatch(deleteProductThunk(item.id));
         if (deleteProductThunk.rejected.match(action)) throw new Error(action.payload?.message ?? "Unable to delete product.");
+        // Redux already removes the deleted product and updates its count.
+        // An immediate list reload can restore stale server total metadata.
+        shouldReloadCatalog = false;
         toast.showSuccess("Product deleted successfully.");
       } else if (activeTab === "consumables") {
         await consumableService.deleteConsumable(item.id);
@@ -247,7 +251,7 @@ export default function CatalogScreen() {
         toast.showSuccess("Package deleted successfully.");
       }
 
-      await loadCatalog(true);
+      if (shouldReloadCatalog) await loadCatalog(true);
       setVisibleCount((current) => Math.min(current, Math.max(CATALOG_PAGE_SIZE, visibleItems.length - 1)));
     } catch (error) {
       Alert.alert("Unable to delete", getApiErrorMessage(error));
