@@ -17,15 +17,14 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-import {
-  KeyboardAwareScrollView,
-  type KeyboardAwareScrollViewHandle,
-  type KeyboardNavigationOptions,
-} from "@/components/ui/KeyboardAwareScrollView";
+import { KeyboardAwareScrollView, type KeyboardAwareScrollViewHandle } from "@/components/ui/KeyboardAwareScrollView";
 import { useAuth } from "@/context/AuthContext";
 import { ApiError, getApiErrorMessage } from "@/services/api";
-import { EMAIL_INVALID_MESSAGE, isValidEmail } from "@/utils/validation";
 import { resolveLoginRoute } from "@/utils/routeResolver";
+import {
+  EMAIL_INVALID_MESSAGE,
+  isValidEmail,
+} from "@/utils/validation";
 
 const getRouteParam = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 
@@ -59,7 +58,7 @@ export default function LoginScreen() {
   const [cardOpacity] = useState(() => new Animated.Value(0));
   const [cardTranslate] = useState(() => new Animated.Value(16));
   const keyboardNavigationFields = useMemo(() => [{ ref: identifierInputRef }, { ref: passwordInputRef }], []);
-  const keyboardNavigation = useMemo<KeyboardNavigationOptions>(() => ({
+  const keyboardNavigation = useMemo(() => ({
     activeFieldRef: activeKeyboardFieldRef,
     fields: keyboardNavigationFields,
     hideOnLast: true,
@@ -97,7 +96,20 @@ export default function LoginScreen() {
   };
 
   const focusPasswordField = () => {
-    passwordInputRef.current?.focus();
+    const passwordInput = passwordInputRef.current;
+
+    if (!passwordInput) {
+      return;
+    }
+
+    passwordInput.focus();
+    setActiveKeyboardFieldRef(passwordInputRef);
+
+    [0, 60, 160].forEach((delay) => {
+      setTimeout(() => {
+        requestAnimationFrame(() => scrollLoginFieldIntoView(passwordInput));
+      }, delay);
+    });
   };
 
   const handleIdentifierChange = (value: string) => {
