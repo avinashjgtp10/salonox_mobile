@@ -27,6 +27,7 @@ export const SUPER_ADMIN = {
   USER_DELETE:       (id: string) => `/api/v1/super-admin/users/${id}`,
   USER_CREATE:       "/api/v1/super-admin/users/create",
   DELETED_ACCOUNT_HISTORY: "/api/v1/super-admin/deleted-account-history",
+  SALON_CLEANUP_HISTORY:   "/api/v1/super-admin/salon-cleanup-history",
   DEMO_REQUESTS:        "/api/v1/super-admin/demo-requests",
   DEMO_REQUEST_STATUS:  (id: string) => `/api/v1/super-admin/demo-requests/${id}/status`,
 } as const;

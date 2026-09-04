@@ -16,6 +16,16 @@ interface DeletedAccountEntry {
   deleted_by_email: string | null;
 }
 
+interface SalonCleanupEntry {
+  id: string;
+  salon_id: string;
+  salon_name: string | null;
+  reason: string | null;
+  created_at: string;
+  cleared_by_name: string | null;
+  cleared_by_email: string | null;
+}
+
 const ACCOUNT_TYPE_OPTIONS = [
   { value: "", label: "All Types" },
   { value: "user", label: "User" },
@@ -36,12 +46,120 @@ function TypeBadge({ type }: { type: string }) {
   );
 }
 
-// One tab today (Delete Account History) — kept as a tab list rather than a
-// single page so future history types (e.g. login history, permission
-// changes) can be added here as additional tabs without another page/route.
+// Kept as a tab list rather than a single page so each history type is
+// self-contained and future ones (e.g. login history, permission changes)
+// can be added here as additional tabs without another page/route — each
+// tab component below owns its own fetch/loading/error/empty state and
+// doesn't depend on any other tab.
 const TABS = [
+  { key: "salon-cleanup",    label: "Clean Up Account History" },
   { key: "deleted-accounts", label: "Delete Account History" },
 ] as const;
+
+function SalonCleanupHistoryTab() {
+  const [items, setItems] = useState<SalonCleanupEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(20);
+
+  const load = useCallback(async () => {
+    setLoading(true);
+    setError("");
+    try {
+      const res = await api.get(SUPER_ADMIN.SALON_CLEANUP_HISTORY, {
+        params: {
+          search: search || undefined,
+          page,
+          per_page: perPage,
+        },
+      });
+      const data = res.data?.data;
+      setItems(data?.items ?? []);
+      setTotal(data?.total ?? 0);
+    } catch {
+      setItems([]);
+      setTotal(0);
+      setError("Failed to load cleanup history. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [search, page, perPage]);
+
+  useEffect(() => { load(); }, [load]);
+  useEffect(() => { setPage(1); }, [search]);
+
+  return (
+    <>
+      <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 16 }}>
+        <div style={{ position: "relative", flex: "1 1 260px" }}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ position: "absolute", left: 11, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+            <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search by salon name…"
+            style={{ width: "100%", boxSizing: "border-box", padding: "9px 14px 9px 34px", borderRadius: 9, border: "1.5px solid #e2e8f0", background: "#fff", color: "#0f172a", fontSize: 13, outline: "none" }}
+          />
+        </div>
+      </div>
+
+      {error && !loading && (
+        <div style={{ background: "#fef2f2", border: "1px solid #fecaca", borderRadius: 10, padding: "12px 16px", color: "#dc2626", fontSize: 13, fontWeight: 600, marginBottom: 16 }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ background: "#fff", borderRadius: 14, border: "1px solid #e2e8f0", overflow: "auto", boxShadow: "0 1px 4px rgba(0,0,0,0.04)" }}>
+        <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5, minWidth: 900 }}>
+          <thead>
+            <tr style={{ background: "#f8fafc", borderBottom: "1px solid #e2e8f0" }}>
+              {["Salon", "Cleared By", "Reason", "Cleared At"].map((h) => (
+                <th key={h} style={{ padding: "11px 16px", textAlign: "left", color: "#64748b", fontWeight: 600, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.04em", whiteSpace: "nowrap" }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              [...Array(6)].map((_, i) => (
+                <tr key={i} style={{ borderTop: "1px solid #f1f5f9" }}>
+                  {[...Array(4)].map((_, j) => (
+                    <td key={j} style={{ padding: "14px 16px" }}>
+                      <div style={{ height: 13, borderRadius: 4, background: "linear-gradient(90deg,#f1f5f9 25%,#e2e8f0 50%,#f1f5f9 75%)", backgroundSize: "200% 100%", animation: "dah-shimmer 1.4s infinite" }} />
+                    </td>
+                  ))}
+                </tr>
+              ))
+            ) : error ? null : items.length === 0 ? (
+              <tr><td colSpan={4} style={{ padding: "48px 0", textAlign: "center", color: "#94a3b8", fontSize: 13.5 }}>No cleanup history found</td></tr>
+            ) : (
+              items.map((entry) => (
+                <tr
+                  key={entry.id}
+                  style={{ borderTop: "1px solid #f1f5f9", transition: "background 0.1s" }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = "#f8fafc")}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = "#fff")}
+                >
+                  <td style={{ padding: "13px 16px", color: "#0f172a", fontWeight: 600, fontSize: 13 }}>{entry.salon_name || <span style={{ color: "#cbd5e1" }}>—</span>}</td>
+                  <td style={{ padding: "13px 16px" }}>
+                    <div style={{ color: "#0f172a", fontSize: 12.5, fontWeight: 600 }}>{entry.cleared_by_name || "—"}</div>
+                    <div style={{ color: "#94a3b8", fontSize: 11 }}>{entry.cleared_by_email}</div>
+                  </td>
+                  <td style={{ padding: "13px 16px", color: "#374151", fontSize: 12.5, maxWidth: 280 }}>{entry.reason || <span style={{ color: "#cbd5e1" }}>—</span>}</td>
+                  <td style={{ padding: "13px 16px", color: "#94a3b8", fontSize: 12, whiteSpace: "nowrap" }}>{new Date(entry.created_at).toLocaleString("en-IN")}</td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+        {!error && <Pagination total={total} page={page} perPage={perPage} onPageChange={setPage} onPerPageChange={setPerPage} itemLabel="cleanup records" />}
+      </div>
+    </>
+  );
+}
 
 function DeletedAccountHistoryTab() {
   const [items, setItems] = useState<DeletedAccountEntry[]>([]);
@@ -154,7 +272,7 @@ function DeletedAccountHistoryTab() {
 }
 
 export default function HistoryPage() {
-  const [tab, setTab] = useState<typeof TABS[number]["key"]>("deleted-accounts");
+  const [tab, setTab] = useState<typeof TABS[number]["key"]>("salon-cleanup");
 
   return (
     <div style={{ padding: "28px 28px 40px", fontFamily: "'Inter','Segoe UI',system-ui,sans-serif" }}>
@@ -187,6 +305,7 @@ export default function HistoryPage() {
         ))}
       </div>
 
+      {tab === "salon-cleanup" && <SalonCleanupHistoryTab />}
       {tab === "deleted-accounts" && <DeletedAccountHistoryTab />}
 
       <style>{`@keyframes dah-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
