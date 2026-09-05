@@ -357,8 +357,9 @@ export default function SalonsPage() {
                       ↻ Generate
                     </button>
                   </div>
-                  <div style={{ position: "relative" }}>
+                  <div style={{ position: "relative" }} className="sa-pw-field">
                     <input type={showFormPw ? "text" : "password"} value={form.password}
+                      autoComplete="new-password"
                       onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
                       style={{ ...inputStyle, fontFamily: showFormPw ? "inherit" : "monospace", paddingRight: 40 }}
                       onFocus={(e) => (e.target.style.borderColor = "#6366f1")}
@@ -498,7 +499,10 @@ export default function SalonsPage() {
           itemLabel="salons"
         />
       </div>
-      <style>{`@keyframes sa-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }`}</style>
+      <style>{`
+        @keyframes sa-shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+        .sa-pw-field input::-ms-reveal, .sa-pw-field input::-ms-clear { display: none; }
+      `}</style>
     </div>
   );
 }

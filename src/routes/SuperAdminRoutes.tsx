@@ -15,6 +15,7 @@ const SupportPage         = lazy(() => import("../features/super-admin/pages/Sup
 const DemoInquiriesPage   = lazy(() => import("../features/super-admin/pages/DemoInquiriesPage"));
 const DeploymentAnnouncementsPage = lazy(() => import("../features/super-admin/pages/DeploymentAnnouncementsPage"));
 const ChatbotQuestionHistoryPage  = lazy(() => import("../features/super-admin/pages/ChatbotQuestionHistoryPage"));
+const HistoryPage                 = lazy(() => import("../features/super-admin/pages/HistoryPage"));
 const SpotlightAdminPage          = lazy(() => import("../features/feature-spotlight/pages/SpotlightAdminPage"));
 
 export const SuperAdminRoutes = (
@@ -34,6 +35,7 @@ export const SuperAdminRoutes = (
         <Route path="demo-inquiries" element={<DemoInquiriesPage />} />
         <Route path="deployment-announcements" element={<DeploymentAnnouncementsPage />} />
         <Route path="chatbot-questions" element={<ChatbotQuestionHistoryPage />} />
+        <Route path="history"      element={<HistoryPage />} />
         <Route path="spotlight" element={<SpotlightAdminPage />} />
       </Route>
     </Route>
