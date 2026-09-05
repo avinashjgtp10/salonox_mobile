@@ -21,20 +21,20 @@ const MobileAppMark: React.FC = () => (
 
 const appScreens = [
   {
-    src: '/screenshots/mobile-app-quick-sale.jpg',
-    alt: 'SalonOX mobile app quick sale screen',
-  },
-  {
     src: '/screenshots/mobile-app-home.jpg',
     alt: 'SalonOX mobile app home dashboard screen',
   },
   {
-    src: '/screenshots/mobile-app-more.jpg',
-    alt: 'SalonOX mobile app more tools screen',
+    src: '/screenshots/mobile-app-calendar.jpg',
+    alt: 'SalonOX mobile app appointment calendar screen',
   },
   {
-    src: '/screenshots/mobile-app-team.jpg',
-    alt: 'SalonOX mobile app staff management screen',
+    src: '/screenshots/mobile-app-quick-sale.jpg',
+    alt: 'SalonOX mobile app quick sale review cart screen',
+  },
+  {
+    src: '/screenshots/mobile-app-reports.jpg',
+    alt: 'SalonOX mobile app reports screen',
   },
 ] as const;
 
