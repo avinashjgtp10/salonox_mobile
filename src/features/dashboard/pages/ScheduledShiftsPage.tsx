@@ -199,6 +199,11 @@ const ScheduledShiftsPage: React.FC = () => {
       .catch((err) => {
         console.error("[DEBUG] Save failed:", err);
         showError("Failed to save changes");
+        // The dispatch above already wrote the optimistic change into Redux
+        // state before the API call — on failure that phantom edit would
+        // otherwise sit there looking "saved" until the next full reload.
+        // Re-fetch the real server state for this week to undo it.
+        dispatch(fetchDailyShifts(weekStartKey));
       });
   };
 
@@ -218,6 +223,11 @@ const ScheduledShiftsPage: React.FC = () => {
       })
       .catch(() => {
         showError("Failed to copy schedule");
+        // Same reasoning as handleSaveAvailability's catch — applyCopySchedule.pending
+        // already wrote the optimistic copy into every target week's Redux state;
+        // on failure, re-sync the visible week from the server so it doesn't keep
+        // showing a copy that was never actually persisted.
+        dispatch(fetchDailyShifts(weekStartKey));
       });
   };
 
