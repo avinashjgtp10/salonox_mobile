@@ -55,6 +55,10 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
   const [lines, setLines] = useState<PurchaseLine[]>([emptyLine()]);
   const [saving, setSaving] = useState(false);
   const [touched, setTouched] = useState(false);
+  // Set whenever a Qty input's raw typed/pasted value contains a decimal
+  // point, so the validation message below can explain the strip rather
+  // than leaving the user wondering why "1.5" silently became "15".
+  const [decimalAttempted, setDecimalAttempted] = useState(false);
 
   // page_limit:100 — this is the Supplier dropdown, not the paginated
   // Suppliers list page, so it needs the full set.
@@ -76,7 +80,7 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
   const validLines = lines.filter((l) => {
     const qty = parseFloat(l.quantity);
     const price = parseFloat(l.purchasePrice);
-    return l.product && Number.isFinite(qty) && qty > 0 && Number.isFinite(price) && price >= 0;
+    return l.product && Number.isInteger(qty) && qty > 0 && Number.isFinite(price) && price >= 0;
   });
 
   const totalAmount = validLines.reduce(
@@ -90,7 +94,7 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
     if (!l.product) return false;
     const qty = parseFloat(l.quantity);
     const price = parseFloat(l.purchasePrice);
-    return !(Number.isFinite(qty) && qty > 0) || !(Number.isFinite(price) && price >= 0);
+    return !(Number.isInteger(qty) && qty > 0) || !(Number.isFinite(price) && price >= 0);
   });
 
   const canSave = !!supplierId && validLines.length > 0 && !hasIncompleteLine;
@@ -200,13 +204,15 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
                 </div>
                 <input
                   className="pm-input pm-input--sm"
-                  type="number"
-                  min="0"
-                  step="any"
+                  type="text"
+                  inputMode="numeric"
                   placeholder="Qty"
                   value={line.quantity}
-                  onChange={(e) => patchLine(line.key, { quantity: e.target.value })}
-                  onWheel={(e) => e.currentTarget.blur()}
+                  onChange={(e) => {
+                    const raw = e.target.value;
+                    if (raw.includes(".")) setDecimalAttempted(true);
+                    patchLine(line.key, { quantity: raw.replace(/[^0-9]/g, "") });
+                  }}
                 />
                 <input
                   className="pm-input pm-input--sm"
@@ -242,7 +248,8 @@ export default function PurchaseModal({ onClose, onSaved, onError }: Props) {
           <PlusLg size={13} /> Add Product
         </button>
         {touched && validLines.length === 0 && <span className="pm-err">Add at least one product</span>}
-        {touched && hasIncompleteLine && <span className="pm-err">Every product needs a quantity and purchase price</span>}
+        {touched && hasIncompleteLine && <span className="pm-err">Every product needs a whole-number quantity and purchase price</span>}
+        {decimalAttempted && <span className="pm-err">Add Qty must be a whole number — decimals aren't allowed</span>}
       </div>
     </Modal>
   );

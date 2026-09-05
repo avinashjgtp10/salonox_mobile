@@ -359,6 +359,13 @@ export default function ProductAuditPage() {
 
       {detailsId && (
         <ProductAuditDetailsModal
+          // Forces a fresh mount whenever a different audit is opened (the
+          // dropdown/row-click paths below can set a new detailsId directly,
+          // without detailsId ever passing through null) — without this, the
+          // modal's own pendingEdits/debounce-timer state from the PREVIOUS
+          // audit would survive into the new one, risking a save landing
+          // against the wrong audit/item id.
+          key={detailsId}
           auditId={detailsId}
           onClose={() => setDetailsId(null)}
           onChanged={load}
