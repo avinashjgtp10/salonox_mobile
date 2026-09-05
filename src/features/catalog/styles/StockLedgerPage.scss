@@ -467,7 +467,7 @@
   &__head,
   &__row {
     display: grid;
-    grid-template-columns: 1.6fr 1.3fr 1fr 32px;
+    grid-template-columns: 1.5fr 0.9fr 1.2fr 0.9fr 32px;
     gap: 8px;
     align-items: center;
     padding: 8px 10px;
@@ -488,6 +488,12 @@
 
     &:last-child { border-radius: 0 0 9px 9px; }
   }
+}
+
+.sl-adj-current-stock {
+  font-size: 13px;
+  font-weight: 500;
+  color: #374151;
 }
 
 .sl-adj-line-err {

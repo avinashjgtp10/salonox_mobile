@@ -7,10 +7,12 @@ import {
   deleteSupplierThunk,
   fetchConsumablesDashboardThunk,
   fetchConsumableByIdThunk,
+  fetchOrdersThunk,
 } from "../middleware/inventory/inventory.thunk";
 import type {
   SupplierWithBalance,
   ConsumableListRow, ConsumableKpis, ConsumableDetail,
+  Order,
 } from "../types/inventory.types";
 
 interface InventoryState {
@@ -22,6 +24,15 @@ interface InventoryState {
   supplierStates: string[];
   loading: boolean;
   error: string | null;
+
+  // Orders (Purchase Orders) — kept in Redux, not page-local state, so
+  // OrdersListPage's "skip refetch on a plain Close" check survives the
+  // component unmounting/remounting on every route navigation (local
+  // useState resets to empty on remount, which silently defeated that
+  // check — see OrdersListPage.tsx's mount effect).
+  orders: Order[];
+  ordersTotal: number;
+  ordersLoading: boolean;
 
   // Consumable Inventory
   consumables: ConsumableListRow[];
@@ -45,6 +56,10 @@ const initialState: InventoryState = {
   supplierStates: [],
   loading: false,
   error: null,
+
+  orders: [],
+  ordersTotal: 0,
+  ordersLoading: false,
 
   consumables: [],
   consumablesPage: 1,
@@ -90,6 +105,19 @@ const inventorySlice = createSlice({
     builder.addCase(fetchSupplierLocationsThunk.fulfilled, (state, action) => {
       state.supplierCities = action.payload.cities;
       state.supplierStates = action.payload.states;
+    });
+
+    // Fetch Orders
+    builder.addCase(fetchOrdersThunk.pending, (state) => {
+      state.ordersLoading = true;
+    });
+    builder.addCase(fetchOrdersThunk.fulfilled, (state, action) => {
+      state.ordersLoading = false;
+      state.orders = action.payload.data;
+      state.ordersTotal = action.payload.total;
+    });
+    builder.addCase(fetchOrdersThunk.rejected, (state) => {
+      state.ordersLoading = false;
     });
 
     // Create Supplier — the create/update endpoints only echo back contact
