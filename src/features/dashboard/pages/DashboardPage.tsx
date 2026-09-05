@@ -446,8 +446,13 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
   error: string | null;
   onRetry: () => void;
 }) {
-  const { formatAmount, currencyCode } = useCurrency();
+  const { formatAmount, currencySymbol, currencyCode } = useCurrency();
   const fmt = (n?: number) => (n != null ? formatAmount(n) : "—");
+  // Revenue KPI card only — a whole-rupee figure (no paise) reads cleaner on
+  // this tile than the paise-precise amount formatAmount() gives everywhere
+  // else (receipts, Sales Summary, etc., which must stay exact to the paisa).
+  const fmtRounded = (n?: number) =>
+    n != null ? `${currencySymbol}${Math.round(n).toLocaleString("en-IN")}` : "—";
   const CurrencyIcon = getCurrencyIcon(currencyCode);
   const cards = [
     {
@@ -456,13 +461,13 @@ const KpiCardsGrid = memo(function KpiCardsGrid({
       tabLabels: ["All Time", "This Month"] as [string, string],
       front: {
         label:  "Total Revenue",
-        value:  fmt(summary?.allTimeRevenue),
+        value:  fmtRounded(summary?.allTimeRevenue),
         change: null,
         sub:    "",
       },
       back: {
         label:  "This Month's Revenue",
-        value:  fmt(summary?.totalRevenue),
+        value:  fmtRounded(summary?.totalRevenue),
         change: null,
         sub:    "",
       },
