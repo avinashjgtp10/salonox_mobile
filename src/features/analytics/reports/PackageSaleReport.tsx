@@ -247,7 +247,7 @@ export default function PackageSaleReport({ onBack, category, categoryKey }: { o
       <div className="rp-detail-toolbar">
         <div className="rp-detail-search-wrap">
           <Search size={13} className="rp-detail-search-ic" />
-          <input type="text" className="rp-detail-search-input" placeholder="Client or package name" value={search} onChange={e => setSearchInput(e.target.value)} />
+          <input type="text" className="rp-detail-search-input" placeholder="Client, package name, or invoice no" value={search} onChange={e => setSearchInput(e.target.value)} />
         </div>
       </div>
 
