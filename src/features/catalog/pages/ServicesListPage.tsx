@@ -299,6 +299,19 @@ const ServicesListPage: React.FC = () => {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
+  // Close the per-service kebab menu on any outside click. Unlike the
+  // dropdowns above, each ServiceCard's menu has no shared ref to check
+  // against (there's one per row) — instead ServiceCard's own wrapper
+  // (.slp__dd-wrap) stops click propagation for anything inside it, so this
+  // document-level "click" listener only ever fires for genuine outside
+  // clicks. Same pattern ClientsListPage uses for its per-row menu.
+  useEffect(() => {
+    if (!openCardMenu) return;
+    const handler = () => setOpenCardMenu(null);
+    document.addEventListener("click", handler);
+    return () => document.removeEventListener("click", handler);
+  }, [openCardMenu]);
+
   // Reset the "type DELETE to confirm" field whenever a delete target opens/closes
   useEffect(() => { setDeleteServiceInput(""); }, [deletingService]);
 

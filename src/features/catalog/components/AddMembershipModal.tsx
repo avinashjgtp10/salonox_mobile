@@ -28,7 +28,7 @@ import { selectMembershipsSubmitting, selectMembershipsError } from "../../../st
 import { clearMembershipError } from "../../../store/membershipSlice";
 import { fetchCategoriesThunk } from "../../../middleware/services/categories.thunk";
 import { fetchServicesThunk } from "../../../middleware/services/services.thunk";
-import { fetchProductsThunk } from "../../../middleware/catalog/products.thunk";
+import { searchProductsThunk } from "../../../middleware/catalog/products.thunk";
 import { selectServiceCategories, selectProductCategories, selectAllServices } from "../../../store/selectors/slices.selectors";
 import type { MembershipPricingType, MembershipAppliesTo, LoyaltyTier } from "../../../services/api/endpoints/memberships.endpoints";
 import api from "../../../services/api/axios";
@@ -163,7 +163,10 @@ const AddMembershipModal: React.FC<Props> = ({ editId, onCancel, onSaved }) => {
   useEffect(() => { dispatch(fetchCategoriesThunk()); }, [dispatch]);
   useEffect(() => {
     dispatch(fetchServicesThunk());
-    dispatch(fetchProductsThunk({ pageSize: 200 }));
+    // searchProductsThunk (POST /products/search), not fetchProductsThunk
+    // (GET /products) — the GET route's validator caps pageSize at 100 and
+    // rejects 200 with "pageSize must not exceed 100".
+    dispatch(searchProductsThunk({ pageSize: 200 }));
   }, [dispatch]);
 
   const [pricingType, setPricingType] = useState<MembershipPricingType>("value");
