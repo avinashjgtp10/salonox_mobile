@@ -17,8 +17,7 @@ import {
   Cash,
   ChatSquareText,
   Stars,
-  ChevronLeft,
-  ChevronRight,
+  List,
 } from "react-bootstrap-icons";
 
 import { usePermissions } from "../../../hooks/usePermissions";
@@ -125,12 +124,13 @@ export default function DashboardSidebar({ openMenu, onMenuChange, collapsed, on
     <aside className="sidebar" ref={sidebarRef} onKeyDown={handleSidebarKeyDown}>
       <button
         type="button"
-        className="sidebar-collapse-btn"
+        className="nav-btn sidebar-collapse-btn"
         onClick={onToggleCollapsed}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       >
-        {collapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
+        <List size={18} />
+        <span className="nav-label">{collapsed ? "Expand" : "Collapse"}</span>
       </button>
 
       {can("view_dashboard") && (

@@ -263,9 +263,50 @@ const NewOrderPage: React.FC = () => {
     return m.qty > 0 && l.unitCost.trim() !== "" && m.unitCost >= 0;
   };
 
+  interface LineErrors {
+    product?: string;
+    qty?: string;
+    unitCost?: string;
+    discountPercent?: string;
+  }
+
+  // Per-field messages for one row, shown right under the offending cell —
+  // a fully blank row (the trailing "Add More" placeholder, most commonly)
+  // has nothing entered at all, so it's silently ignored rather than
+  // flagged, same as before this validation existed.
+  function getLineErrors(l: OrderLine): LineErrors {
+    const hasAnyInput = !!l.product || l.qty.trim() !== "" || l.unitCost.trim() !== "" || l.discountPercent.trim() !== "";
+    if (!hasAnyInput) return {};
+
+    const errors: LineErrors = {};
+    if (!l.product) errors.product = "Select a product";
+
+    const qty = parseFloat(l.qty);
+    if (l.qty.trim() === "" || !Number.isFinite(qty) || qty <= 0) {
+      errors.qty = "Enter a quantity greater than 0";
+    }
+
+    const unitCost = parseFloat(l.unitCost);
+    if (l.unitCost.trim() === "" || !Number.isFinite(unitCost) || unitCost < 0) {
+      errors.unitCost = "Enter a valid unit cost (0 or more)";
+    }
+
+    if (l.discountPercent.trim() !== "") {
+      const discount = parseFloat(l.discountPercent);
+      if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+        errors.discountPercent = "Must be between 0 and 100";
+      }
+    }
+
+    return errors;
+  }
+
   const validLines = lines.filter((l) => l.product && isLineComplete(l));
 
-  const hasIncompleteLine = lines.some((l) => l.product && !isLineComplete(l));
+  // Was `l.product && !isLineComplete(l)` — missed a row where the user
+  // typed a qty/cost but never actually picked a product, which just
+  // vanished silently instead of blocking Save with a clear reason.
+  const hasIncompleteLine = lines.some((l) => Object.keys(getLineErrors(l)).length > 0);
 
   const subtotal = validLines.reduce((sum, l) => sum + lineMath(l).subtotal, 0);
   const totalDiscount = validLines.reduce((sum, l) => sum + lineMath(l).discountAmount, 0);
@@ -273,7 +314,20 @@ const NewOrderPage: React.FC = () => {
   const shippingCostNumber = parseFloat(shippingCost) || 0;
   const grandTotal = subtotal - totalDiscount + totalTax + shippingCostNumber;
 
-  const canSave = !!supplierId && validLines.length > 0 && !hasIncompleteLine;
+  const isOrderDateValid = !!orderDate;
+
+  const isTaxRateValid = taxRatePercent.trim() === "" || (() => {
+    const n = parseFloat(taxRatePercent);
+    return Number.isFinite(n) && n >= 0 && n <= 100;
+  })();
+
+  const isShippingValid = shippingCost.trim() === "" || (() => {
+    const n = parseFloat(shippingCost);
+    return Number.isFinite(n) && n >= 0;
+  })();
+
+  const canSave = !!supplierId && isOrderDateValid && isTaxRateValid && isShippingValid
+    && validLines.length > 0 && !hasIncompleteLine;
 
   async function handleUploadClick() {
     fileInputRef.current?.click();
@@ -481,10 +535,11 @@ const NewOrderPage: React.FC = () => {
           </div>
 
           <div className="field-row-3">
-            <div className="field-group">
+            <div className={`field-group${touched && !isOrderDateValid ? " field-group--error" : ""}`}>
               <label>Order Date <span style={{ color: "red" }}>*</span></label>
               <DatePicker value={orderDate} onChange={setOrderDate} />
-              <span className="new-order-date-label">{fmtDateLabel(orderDate)}</span>
+              {orderDate && <span className="new-order-date-label">{fmtDateLabel(orderDate)}</span>}
+              {touched && !isOrderDateValid && <span className="field-error">Order date is required</span>}
             </div>
             <div className="field-group">
               <label>Payment Terms</label>
@@ -561,16 +616,18 @@ const NewOrderPage: React.FC = () => {
                 allowNone
               />
             </div>
-            <div className="field-group">
+            <div className={`field-group${touched && !isTaxRateValid ? " field-group--error" : ""}`}>
               <label>Tax Rate (%)</label>
               <input
                 type="number"
                 min="0"
+                max="100"
                 step="any"
                 value={taxRatePercent}
                 onChange={(e) => setTaxRatePercent(e.target.value)}
                 onWheel={(e) => e.currentTarget.blur()}
               />
+              {touched && !isTaxRateValid && <span className="field-error">Must be between 0 and 100</span>}
             </div>
           </div>
 
@@ -590,6 +647,7 @@ const NewOrderPage: React.FC = () => {
               <tbody>
                 {lines.map((line) => {
                   const m = lineMath(line);
+                  const errs = touched ? getLineErrors(line) : {};
                   return (
                     <tr key={line.key}>
                       <td
@@ -620,28 +678,31 @@ const NewOrderPage: React.FC = () => {
                             }}
                           />
                         )}
+                        {errs.product && <span className="new-order-cell-error">{errs.product}</span>}
                       </td>
                       <td>
                         <input
                           type="number"
                           min="0"
                           step="any"
-                          className="new-order-input--sm"
+                          className={`new-order-input--sm${errs.qty ? " new-order-input--error" : ""}`}
                           value={line.qty}
                           onChange={(e) => patchLine(line.key, { qty: e.target.value })}
                           onWheel={(e) => e.currentTarget.blur()}
                         />
+                        {errs.qty && <span className="new-order-cell-error">{errs.qty}</span>}
                       </td>
                       <td>
                         <input
                           type="number"
                           min="0"
                           step="any"
-                          className="new-order-input--sm"
+                          className={`new-order-input--sm${errs.unitCost ? " new-order-input--error" : ""}`}
                           value={line.unitCost}
                           onChange={(e) => patchLine(line.key, { unitCost: e.target.value })}
                           onWheel={(e) => e.currentTarget.blur()}
                         />
+                        {errs.unitCost && <span className="new-order-cell-error">{errs.unitCost}</span>}
                       </td>
                       <td>
                         <input
@@ -649,7 +710,7 @@ const NewOrderPage: React.FC = () => {
                           min="0"
                           max="100"
                           step="any"
-                          className="new-order-input--sm"
+                          className={`new-order-input--sm${errs.discountPercent ? " new-order-input--error" : ""}`}
                           value={line.discountPercent}
                           onChange={(e) => {
                             const raw = e.target.value;
@@ -659,6 +720,7 @@ const NewOrderPage: React.FC = () => {
                           }}
                           onWheel={(e) => e.currentTarget.blur()}
                         />
+                        {errs.discountPercent && <span className="new-order-cell-error">{errs.discountPercent}</span>}
                       </td>
                       <td className="new-order-table__readonly">{selectedTaxRate}%</td>
                       <td className="new-order-table__readonly">{formatAmount(m.lineTotal)}</td>
@@ -680,7 +742,7 @@ const NewOrderPage: React.FC = () => {
             </table>
           </div>
           {touched && validLines.length === 0 && <span className="field-error">Add at least one product</span>}
-          {touched && hasIncompleteLine && <span className="field-error">Every product needs a quantity and unit cost</span>}
+          {touched && hasIncompleteLine && <span className="field-error">Fix the highlighted line item(s) above before saving</span>}
 
           <Button
             variant="outline-dark"
@@ -697,7 +759,7 @@ const NewOrderPage: React.FC = () => {
         <section className="form-section">
           <h3>Order Summary</h3>
 
-          <div className="field-group" style={{ maxWidth: 260 }}>
+          <div className={`field-group${touched && !isShippingValid ? " field-group--error" : ""}`} style={{ maxWidth: 260 }}>
             <label>Shipping</label>
             <input
               type="number"
@@ -707,6 +769,7 @@ const NewOrderPage: React.FC = () => {
               onChange={(e) => setShippingCost(e.target.value)}
               onWheel={(e) => e.currentTarget.blur()}
             />
+            {touched && !isShippingValid && <span className="field-error">Shipping cost can't be negative</span>}
           </div>
 
           <div className="new-order-summary">

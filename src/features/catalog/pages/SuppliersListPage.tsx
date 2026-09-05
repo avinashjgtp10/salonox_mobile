@@ -199,7 +199,13 @@ const SuppliersListPage: React.FC = () => {
     if (suppliers.length === 0 || justSaved) {
       dispatch(fetchSuppliersThunk({ page: 1, page_limit: pageSize }));
     }
-    dispatch(fetchSupplierLocationsThunk());
+    // Same "don't refetch what's already loaded" reasoning as the list
+    // above — this was previously unconditional, so even a plain Close
+    // (no data change at all) still re-hit the locations endpoint on every
+    // return to this page.
+    if (supplierCities.length === 0 && supplierStates.length === 0) {
+      dispatch(fetchSupplierLocationsThunk());
+    }
     const t = setTimeout(() => { isMountedRef.current = true; }, 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
