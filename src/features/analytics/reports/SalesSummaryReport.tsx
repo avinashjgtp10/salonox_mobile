@@ -187,6 +187,11 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
   const [paymentStatuses,     setPaymentStatuses]     = useState<string[]>([]);
   const [itemTypes,           setItemTypes]           = useState<string[]>([]);
   const [serviceIds,          setServiceIds]          = useState<string[]>([]);
+  // GST toggle under Filter -> Other. On by default (Grand Total shown gross
+  // of GST); a single-element array ("1"/"0") reused so it still fits
+  // JiraFilterMenu's per-field string[] draft/Apply/Clear lifecycle.
+  const [gstFilter,           setGstFilter]           = useState<string[]>(["1"]);
+  const includeGst = gstFilter[0] !== "0";
   const [search,        setSearch]        = useState("");
   const [rows,          setRows]          = useState<SaleRow[]>([]);
   const [stats,         setStats]         = useState({
@@ -241,6 +246,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       if (itemTypes.length > 0) body.item_types = itemTypes;
       if (serviceIds.length > 0) body.service_ids = serviceIds;
       if (search.trim()) body.search = search.trim();
+      body.include_gst = includeGst;
       const res = await api.post(SALES_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
       const list: any[] = Array.isArray(data?.rows) ? data.rows : [];
@@ -270,7 +276,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [dateFrom, dateTo, staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, search, currentPage, pageSize]);
+  }, [dateFrom, dateTo, staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, includeGst, search, currentPage, pageSize]);
 
   const bulkDelete = useBulkAppointmentDelete(fetchData);
   // Only sale rows linked to a real appointment can be bulk-deleted — walk-in
@@ -281,7 +287,7 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
 
   // Filter/search changes go back to page 1 — page/pageSize changes
   // themselves should not reset back to page 1.
-  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, search]);
+  useEffect(() => { setCurrentPage(1); }, [dateFrom, dateTo, staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, includeGst, search]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "staff", label: "Staff", options: staffOptions, searchable: true },
@@ -295,6 +301,24 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
       dependsOn: "category",
       optionsFor: (catIds, ownIds) => servicesInCategories(services as any, catIds, ownIds),
     },
+    {
+      key: "other",
+      label: "Other",
+      options: [],
+      render: (draft, setDraft) => {
+        const checked = draft[0] !== "0";
+        return (
+          <label className="jfm-option">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => setDraft([checked ? "0" : "1"])}
+            />
+            <span>Include GST in Grand Total</span>
+          </label>
+        );
+      },
+    },
   ], [staffOptions, categories, paymentModeOptions, services]);
 
   const filterMenuSelected = useMemo(() => ({
@@ -304,7 +328,11 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     payment_status: paymentStatuses,
     item_type: itemTypes,
     service: serviceIds,
-  }), [staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds]);
+    // Only surfaced when GST is switched OFF (non-default) — otherwise the
+    // Filters button's applied-count badge would permanently read "1" even
+    // with no real filter active, since this field's draft is never empty.
+    other: includeGst ? [] : gstFilter,
+  }), [staffFilterIds, categoryIds, paymentModes, paymentStatuses, itemTypes, serviceIds, includeGst, gstFilter]);
 
   const handleFiltersApply = (next: Record<string, string[]>) => {
     setStaffFilterIds(next.staff ?? []);
@@ -313,6 +341,10 @@ export default function SalesSummaryReport({ onBack, category, categoryKey }: { 
     setPaymentStatuses(next.payment_status ?? []);
     setItemTypes(next.item_type ?? []);
     setServiceIds(next.service ?? []);
+    // "Other" (GST) isn't a multi-select list — an empty/missing draft here
+    // means "cleared", which for a single on/off toggle should fall back to
+    // the default (GST included), not read as "0 selected -> false".
+    setGstFilter(next.other && next.other.length > 0 ? next.other : ["1"]);
   };
 
   const HEADERS = ["Date", "Invoice No", "Name", "Contact", "Item Types", "Staff Name", "Discount", "Coupon Code", "Coupon Discount", "Referral Discount", "GST", "Grand Total", "Paid", "Membership", "Package", "E-Wallet", "Rewards", "Referral Credit", "Due Amount", "Modes", "Status", "Description"];

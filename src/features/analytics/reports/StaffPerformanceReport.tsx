@@ -86,6 +86,11 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
   const [itemTypeFilter, setItemTypeFilter] = useState<string[]>([]);
   const [packageFilter, setPackageFilter] = useState<string[]>([]);
   const [membershipFilter, setMembershipFilter] = useState<string[]>([]);
+  // GST toggle under Filter -> Other. On by default (revenue shown gross of
+  // GST); a single-element array ("1"/"0") is reused here so it still fits
+  // JiraFilterMenu's per-field string[] draft/Apply/Clear lifecycle.
+  const [gstFilter, setGstFilter] = useState<string[]>(["1"]);
+  const includeGst = gstFilter[0] !== "0";
 
   const [search, setSearchInput] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -129,6 +134,7 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
       if (itemTypeFilter.length > 0) body.item_types = itemTypeFilter;
       if (packageFilter.length > 0) body.package_ids = packageFilter;
       if (membershipFilter.length > 0) body.membership_ids = membershipFilter;
+      body.include_gst = includeGst;
 
       const res = await api.post(STAFF_PERFORMANCE_REPORT.SUMMARY(), body, { signal: ctrl.signal });
       const data = res.data?.data;
@@ -159,12 +165,12 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     } finally {
       if (!ctrl.signal.aborted) setLoading(false);
     }
-  }, [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, debouncedSearch, currentPage, pageSize]);
+  }, [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, includeGst, debouncedSearch, currentPage, pageSize]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
   useEffect(() => {
     setCurrentPage(1);
-  }, [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, debouncedSearch]);
+  }, [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, includeGst, debouncedSearch]);
 
   const filterFields: JiraFilterField[] = useMemo(() => [
     { key: "staff", label: "Staff", options: staffOptions, searchable: true },
@@ -173,6 +179,24 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     { key: "item_type", label: "Item Type", options: ITEM_TYPE_OPTIONS },
     { key: "package", label: "Package", options: packageOptions, searchable: true },
     { key: "membership", label: "Membership", options: membershipOptions, searchable: true },
+    {
+      key: "other",
+      label: "Other",
+      options: [],
+      render: (draft, setDraft) => {
+        const checked = draft[0] !== "0";
+        return (
+          <label className="jfm-option">
+            <input
+              type="checkbox"
+              checked={checked}
+              onChange={() => setDraft([checked ? "0" : "1"])}
+            />
+            <span>Include GST in revenue</span>
+          </label>
+        );
+      },
+    },
   ], [staffOptions, paymentModeOptions, packageOptions, membershipOptions]);
 
   const filterMenuSelected = useMemo(() => ({
@@ -182,7 +206,11 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     item_type: itemTypeFilter,
     package: packageFilter,
     membership: membershipFilter,
-  }), [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter]);
+    // Only surfaced when GST is switched OFF (non-default) — otherwise the
+    // Filters button's applied-count badge would permanently read "1" even
+    // with no real filter active, since this field's draft is never empty.
+    other: includeGst ? [] : gstFilter,
+  }), [staffFilterIds, paymentModeFilter, paymentStatusFilter, itemTypeFilter, packageFilter, membershipFilter, includeGst, gstFilter]);
 
   const handleFiltersApply = (next: Record<string, string[]>) => {
     setStaffFilterIds(next.staff ?? []);
@@ -191,6 +219,10 @@ export default function StaffPerformanceReport({ onBack, category, categoryKey }
     setItemTypeFilter(next.item_type ?? []);
     setPackageFilter(next.package ?? []);
     setMembershipFilter(next.membership ?? []);
+    // "Other" (GST) isn't a multi-select list — an empty/missing draft here
+    // means "cleared", which for a single on/off toggle should fall back to
+    // the default (GST included), not read as "0 selected -> false".
+    setGstFilter(next.other && next.other.length > 0 ? next.other : ["1"]);
   };
 
   const countRev = (count: number, revenue: number) => `${count} (${formatAmount(revenue)})`;
