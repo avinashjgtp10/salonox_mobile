@@ -15,7 +15,7 @@ import { useServices }       from "../../hooks/useServices";
 import { useServices as useCatalogServices } from "../../../catalog/hooks/useServices";
 import { useLazyListPackagesQuery, useLazyListPackageTemplatesQuery, useCompleteClientPackageSessionMutation } from "../../../../services/api/endpoints/packages.endpoints";
 import { useClientDetails } from "../../hooks/useClientDetails";
-import { fetchProductsThunk } from "../../../../middleware/catalog/products.thunk";
+import { searchProductsThunk } from "../../../../middleware/catalog/products.thunk";
 import { fetchMembershipsThunk } from "../../../../middleware/membership/membership.thunk";
 import { setPackagesList, patchPaymentStatus } from "../../../../store/schedulerSlice";
 import { postPaymentThunk } from "../../../../middleware/booking/payment.thunk";
@@ -257,7 +257,12 @@ export const AppointmentModal: React.FC<Props> = ({
     }
     if ((existingBooking as any)?.productItems?.length && !prodRequested.current && availableProducts.length === 0) {
       prodRequested.current = true;
-      dispatch(fetchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
+      // searchProductsThunk (POST /products/search), not fetchProductsThunk
+      // (GET /products) — the GET route's validator caps pageSize at 100 and
+      // rejects anything above with "pageSize must not exceed 100", which
+      // PRODUCT_FETCH_PAGE_SIZE's 200 always tripped. The POST route runs the
+      // same query with a 500 cap instead, with no search term required.
+      dispatch(searchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
     }
     if ((existingBooking as any)?.membershipItems?.length && !memRequested.current && availableMemberships.length === 0) {
       memRequested.current = true;
@@ -435,7 +440,9 @@ export const AppointmentModal: React.FC<Props> = ({
     const cachedIds = new Set(productsFromSelector.map((p: any) => String(p.id)));
     if (neededIds.every((id) => cachedIds.has(id))) return;
     prodRequested.current = true;
-    dispatch(fetchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
+    // See the other dispatch(searchProductsThunk(...)) above for why this
+    // isn't fetchProductsThunk — same 100-row GET cap would reject pageSize 200.
+    dispatch(searchProductsThunk({ pageSize: PRODUCT_FETCH_PAGE_SIZE }));
   }, [serviceRows, productsFromSelector, dispatch]);
 
   // Actual-qty edits for each row's consumables — deliberately a SIBLING

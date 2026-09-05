@@ -597,16 +597,55 @@ $shadow-focus: 0 0 0 3px rgba(99,102,241,.18);
   &--clickable { cursor:pointer; }
 }
 
-// Per-row "⋮" actions trigger — one row now equals one package (see
-// PackageDashboard.tsx), so this just reopens the same detail panel a row
-// click does; a plain icon button rather than a dropdown since there's only
-// the one action today.
+// Per-row "⋮" actions trigger — opens .actionsMenu below (Edit / Delete)
+// for that one package.
 .kebabBtn {
   display:inline-flex; align-items:center; justify-content:center;
   width:28px; height:28px; border-radius:6px; border:none;
   background:transparent; color:$muted; cursor:pointer;
   @include transition(background);
   &:hover { background:$bg; color:$primary; }
+}
+
+.actionsMenu {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 8px;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  box-shadow: 0 10px 32px rgba(0, 0, 0, 0.12);
+  padding: 6px;
+  z-index: 500;
+  min-width: 170px;
+  list-style: none;
+  margin: 0;
+}
+
+.actionsItem {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 9px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  color: #1e293b;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  @include transition(background);
+
+  &:hover:not(:disabled) { background: #f1f5f9; }
+  &:disabled { opacity: 0.6; cursor: not-allowed; }
+
+  &--danger {
+    color: #dc2626;
+    &:hover:not(:disabled) { background: #fef2f2; }
+  }
 }
 
 // ─── Responsive ───────────────────────────────────────────────────────────────

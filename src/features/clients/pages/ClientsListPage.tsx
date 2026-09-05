@@ -965,7 +965,7 @@ export default function ClientsListPage() {
         totalItems={total}
         onPageChange={(page) => fetchClients(page, selectedSort, selectedGender, pageSize)}
         onPageSizeChange={(sz) => fetchClients(1, selectedSort, selectedGender, sz)}
-        className="mt-4"
+        className="clients-pagination"
       />
 
       {/* ================= DELETE MODAL ================= */}

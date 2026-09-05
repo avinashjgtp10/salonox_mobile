@@ -326,7 +326,6 @@ export default function StockLedgerPage() {
       </div>
 
       <main className="sl-page__content">
-        <h2 className="sl-table-header">Stock Ledger</h2>
         <div className="sl-table-wrap">
           <table className="sl-table">
             <thead>
