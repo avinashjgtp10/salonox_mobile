@@ -1,6 +1,6 @@
 import { CalendarPreview } from "@/features/appointments/components/calendar/CalendarPreview";
+import { CalendarStatusFilter } from "@/features/appointments/components/calendar/CalendarStatusFilter";
 import { ScreenShell } from "@/features/appointments/components/shared/ScreenShell";
-import { CALENDAR_STATUS_FILTERS } from "@/features/appointments/constants/appointmentConstants";
 import { useAllStaffMembers } from "@/features/appointments/hooks/useAllStaffMembers";
 import { useAppointmentListFilters, useFetchAppointments } from "@/features/appointments/hooks/useAppointmentList";
 import { createStyles } from "@/features/appointments/styles/appointmentStyles";
@@ -100,33 +100,6 @@ export function AppointmentCalendarScreen() {
 
   return (
     <ScreenShell
-      footer={
-        <ScrollView
-          contentContainerStyle={styles.dinggLegendContent}
-          horizontal
-          nestedScrollEnabled
-          showsHorizontalScrollIndicator={false}
-          style={styles.dinggLegend}
-        >
-          {CALENDAR_STATUS_FILTERS.map((filter) => {
-            const selected = status === filter.status;
-
-            return (
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityState={{ selected }}
-                activeOpacity={0.8}
-                key={filter.label}
-                onPress={() => setStatus(filter.status)}
-                style={[styles.dinggLegendPill, selected && styles.dinggLegendActive]}
-              >
-                {filter.status !== "All" ? <View style={[styles.dinggLegendDot, { backgroundColor: selected ? "#FFFFFF" : filter.color }]} /> : null}
-                <Text style={[styles.dinggLegendText, selected && styles.dinggLegendTextActive]}>{filter.label}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-      }
       onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}
       refreshing={refreshing}
       hideHeader
@@ -156,7 +129,10 @@ export function AppointmentCalendarScreen() {
           </View>
         ) : null}
         {datePickerVisible ? <DateTimePicker mode="date" onChange={(event, selected) => { setDatePickerVisible(false); if (event.type !== "dismissed" && selected) setDate(`${selected.getFullYear()}-${String(selected.getMonth() + 1).padStart(2, "0")}-${String(selected.getDate()).padStart(2, "0")}`); }} value={new Date(`${date}T00:00:00`)} /> : null}
-        <TouchableOpacity onPress={() => setStaffFilterVisible(true)} style={styles.dinggStylistSummary}><Text style={styles.dinggStylistLabel}>Staff:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{selectedStaffLabel}</Text><Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /></TouchableOpacity>
+        <View style={styles.calendarFilterRow}>
+          <TouchableOpacity onPress={() => setStaffFilterVisible(true)} style={[styles.dinggStylistSummary, styles.calendarStaffFilter]}><Text style={styles.dinggStylistLabel}>Staff:</Text><Text numberOfLines={1} style={styles.dinggStylistValue}>{selectedStaffLabel}</Text><Ionicons name="chevron-down" size={15} color={Colors.appointmentTextSecondary} /></TouchableOpacity>
+          <CalendarStatusFilter status={status} onSelect={setStatus} />
+        </View>
       </View>
       <CalendarPreview
         appointments={visibleAppointments}
