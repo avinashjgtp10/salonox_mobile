@@ -1,4 +1,4 @@
-import { AppointmentDetailsScreen } from "./legacy";
+import { AppointmentDetailsScreen } from "./AppointmentDetailsContent";
 
 export { AppointmentDetailsScreen };
 
