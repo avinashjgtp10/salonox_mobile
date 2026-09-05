@@ -35,8 +35,21 @@ function detectOpenMenu(pathname: string): string | null {
 export default function DashboardLayout() {
   const location = useLocation();
   const [openMenu, setOpenMenu] = useState<string | null>(() => detectOpenMenu(location.pathname));
+  // Manually toggled via the sidebar's own collapse arrow, and also flipped
+  // on automatically whenever a flyout submenu opens (Catalog, Inventory,
+  // etc.) — that submenu panel already eats its own width, so shrinking the
+  // main sidebar down to icon-only alongside it keeps the combined
+  // sidebar+submenu footprint from overrunning the page content. It does
+  // NOT auto-expand back on close — same as the arrow itself, this only
+  // ever needs to actively fire the one way the user asked for.
+  const [collapsed, setCollapsed] = useState(false);
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
+
+  const handleMenuChange = (menu: string | null) => {
+    setOpenMenu(menu);
+    if (menu) setCollapsed(true);
+  };
 
   useEffect(() => {
     dispatch(getMySalonThunk());
@@ -99,8 +112,13 @@ export default function DashboardLayout() {
       <UnclosedCounterGate />
       <AutoOpenCounterForNewAccount />
 
-      <div className="dashboard-body">
-        <DashboardSidebar openMenu={openMenu} onMenuChange={setOpenMenu} />
+      <div className={`dashboard-body${collapsed ? " dashboard-body--collapsed" : ""}`}>
+        <DashboardSidebar
+          openMenu={openMenu}
+          onMenuChange={handleMenuChange}
+          collapsed={collapsed}
+          onToggleCollapsed={() => setCollapsed((c) => !c)}
+        />
 
         {openMenu === "clients" && (
           <ClientsSubSidebar onClose={() => setOpenMenu(null)} />

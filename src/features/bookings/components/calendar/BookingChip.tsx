@@ -101,10 +101,14 @@ const BookingChipComponent: React.FC<Props> = ({
 
   const isPartial   = bs === "partial";
   const isCancelled = bs === "cancelled";
-  // Cancelled and deleted appointments are locked from dragging — paid/
-  // no-show ones keep their normal chip styling but stay fully draggable, per
-  // explicit choice over the original locked-by-default design.
-  const isReadOnly  = isCancelled || !!b.isDeleted;
+  const isPaid      = bs === "paid";
+  // Cancelled, deleted, and paid appointments are locked from dragging/
+  // resizing — a paid bill is settled, so its time shouldn't move via a
+  // mouse drag on the grid; editing it (which still recalculates payment
+  // correctly, see appointments.service.ts's paid-edit reprice branch)
+  // remains the way to reschedule one. No-show ones keep their normal chip
+  // styling but stay fully draggable.
+  const isReadOnly  = isCancelled || isPaid || !!b.isDeleted;
 
   const statusClass = computeChipStatusClass(b, new Date(nowTs));
 

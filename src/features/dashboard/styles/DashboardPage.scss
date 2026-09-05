@@ -239,42 +239,60 @@ body {
 }
 
 /* ================= SIDEBAR ================= */
+// Scoped to this file — no shared brand token for it yet. Picked to read
+// clearly against $sidebar-bg (#1c1f24), distinct from the plain hover tint.
+$sidebar-nav-active: #14b8a6;
+
 .sidebar {
-  width: 90px;
+  width: 196px;
   background: $sidebar-bg;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   // Extra slack beyond what items need (--nav-item-h * count) is spread
-  // evenly between them as gaps, rather than each item stretching to fill it.
+  // evenly between them as gaps, rather than each item stretching to fill
+  // it. No overflow/scroll — DashboardSidebar.tsx's fit() effect sizes
+  // --nav-item-h so `count` items always fill the sidebar's real available
+  // height, floored so the row never gets too cramped for its label.
   justify-content: space-evenly;
-  padding: 6px 0;
+  padding: 6px 10px;
   height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
   position: fixed;
   left: 0;
   top: calc(var(--topbar-height, 56px) + var(--deployment-banner-height, 0px));
   z-index: 100;
+
+  // Not enough room for icon+label rows below tablet width — collapses
+  // back to the icon-only rail .main's own @media(max-width:768px) rule
+  // already assumes (margin-left: 64px), same idea as .sub-sidebar
+  // floating over content instead of pushing it on narrow viewports.
+  @media (max-width: 768px) {
+    width: 64px;
+    padding: 6px 4px;
+  }
 }
 
 .nav-btn {
-  width: 76px;
+  width: 100%;
   // Set by DashboardSidebar.tsx's fit() — sized so exactly `count` items
   // always fill the sidebar's real available height with no scrolling and
-  // nothing pushed past the bottom edge, regardless of screen height.
-  height: var(--nav-item-h, 52px);
-  border-radius: 14px;
+  // nothing pushed past the bottom edge, regardless of screen height. Only
+  // ever adjusts row height/padding — the label's own font size below is a
+  // fixed constant, never shrunk or hidden.
+  height: var(--nav-item-h, 38px);
+  border-radius: 8px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
-  gap: 3px;
+  justify-content: flex-start;
+  gap: 10px;
   color: $sidebar-text;
   cursor: pointer;
   transition: 0.2s ease;
   background: transparent;
   border: none;
   outline: none;
-  padding: 4px;
+  padding: 0 12px;
   position: relative;
   box-sizing: border-box;
   flex-shrink: 0;
@@ -284,46 +302,110 @@ body {
     outline-offset: 2px;
     z-index: 1;
   }
-  &.route-active { background: $btn-primary; color: $white; }
+  &.route-active,
   &.menu-active {
-    background: rgba(255, 255, 255, 0.14);
-    color: $sidebar-active;
-
-    &::before {
-      content: "";
-      position: absolute;
-      left: -8px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 4px;
-      height: 22px;
-      border-radius: 0 4px 4px 0;
-      background: $sidebar-active;
-    }
+    background: $sidebar-nav-active;
+    color: $white;
   }
 
   svg {
-    width: var(--nav-icon-size, 22px);
-    height: var(--nav-icon-size, 22px);
+    width: 17px;
+    height: 17px;
     flex-shrink: 0;
+  }
+
+  @media (max-width: 768px) {
+    justify-content: center;
+    padding: 0;
+    gap: 0;
   }
 }
 
 .nav-label {
-  font-size: var(--nav-label-size, 10px);
-  display: var(--nav-label-display, block);
-  font-weight: 600;
-  line-height: 1.15;
-  text-align: center;
+  font-size: 13px;
+  display: block;
+  font-weight: 500;
+  line-height: 1.2;
+  text-align: left;
   color: inherit;
-  max-width: 66px;
+  // Fills whatever room the row has instead of a fixed narrow box — the
+  // sidebar is wide enough now that a label never needs to wrap; ellipsis
+  // is a defensive fallback, not the expected case.
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   letter-spacing: 0.01em;
+
+  // No room for a label next to the icon once the sidebar collapses to an
+  // icon-only rail below tablet width (see .sidebar's own breakpoint above).
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
+// Small circular "<" / ">" toggle straddling the sidebar's right edge —
+// manually collapses/expands it independent of screen size. Hidden below
+// tablet width: the sidebar is already forced icon-only there by its own
+// media query, so there's nothing left for this to toggle.
+.sidebar-collapse-btn {
+  position: absolute;
+  top: 18px;
+  right: -12px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid $sidebar-hover;
+  background: $sidebar-bg;
+  color: $sidebar-text;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  padding: 0;
+  z-index: 101;
+  transition: 0.2s ease;
+
+  &:hover { background: $sidebar-hover; color: $sidebar-active; }
+
+  @media (max-width: 768px) { display: none; }
+}
+
+// Manually collapsed (via .sidebar-collapse-btn) or auto-collapsed when a
+// flyout submenu opens (see DashboardLayout.tsx) — same icon-only rail the
+// ≤768px breakpoint above already falls back to, just triggered by state
+// instead of viewport width. All of .main's shifted offsets below are
+// (sub-sidebar's own width) + 64px instead of + 196px, so the flyout panel
+// still sits flush against the now-narrower sidebar.
+//
+// Scoped to >768px on purpose: below that, the sidebar is already forced
+// icon-only by its own media query, .sub-sidebar/.main already have their
+// own mobile-specific values, and there's nothing left for these rules to
+// usefully change.
+@media (min-width: 769px) {
+  .dashboard-body--collapsed {
+    .sidebar { width: 64px; }
+    .nav-btn { justify-content: center; padding: 0; gap: 0; }
+    .nav-label { display: none; }
+    .sub-sidebar { left: 64px; }
+
+    .main {
+      margin-left: 64px;
+      &.shifted { margin-left: 384px; }
+      &.shifted--team { margin-left: 324px; }
+      &.shifted--marketing { margin-left: 334px; }
+      &.shifted--clients { margin-left: 314px; }
+      &.shifted--catalog { margin-left: 334px; }
+      &.shifted--inventory { margin-left: 334px; }
+    }
+  }
 }
 
 /* ================= SUB SIDEBAR ================= */
 .sub-sidebar {
   position: fixed;
-  left: 90px;
+  left: 196px;
   top: calc(var(--topbar-height, 56px) + var(--deployment-banner-height, 0px));
   width: 320px;
   height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
@@ -435,7 +517,7 @@ body {
 .main {
   flex: 1;
   min-width: 0; // lets a flex child actually shrink instead of forcing the row wider
-  margin-left: 90px;
+  margin-left: 196px;
   padding: 20px;
   background: #f9fafb;
   height: calc(100vh - var(--topbar-height, 56px) - var(--deployment-banner-height, 0px));
@@ -453,20 +535,20 @@ body {
   &:has(.cf-page) {
     padding: 0;
   }
-  &.shifted { margin-left: 410px; }
-  &.shifted--team { margin-left: 350px; }
-  &.shifted--marketing { margin-left: 360px; }
-  &.shifted--clients { margin-left: 340px; }
-  &.shifted--catalog { margin-left: 360px; }
-  &.shifted--inventory { margin-left: 360px; }
+  &.shifted { margin-left: 516px; }
+  &.shifted--team { margin-left: 456px; }
+  &.shifted--marketing { margin-left: 466px; }
+  &.shifted--clients { margin-left: 446px; }
+  &.shifted--catalog { margin-left: 466px; }
+  &.shifted--inventory { margin-left: 466px; }
 
   // Below this width (iPad portrait and smaller), pushing content over by
-  // 350-410px leaves almost nothing to work with. The sub-sidebars are
+  // 440-520px leaves almost nothing to work with. The sub-sidebars are
   // already `position: fixed` overlays, so on narrow viewports just let
   // them float on top of the content instead of shifting it — same pattern
   // as a mobile off-canvas nav.
   @media (max-width: 1024px) {
-    &.shifted, &.shifted--team, &.shifted--marketing, &.shifted--clients, &.shifted--catalog, &.shifted--inventory { margin-left: 90px; }
+    &.shifted, &.shifted--team, &.shifted--marketing, &.shifted--clients, &.shifted--catalog, &.shifted--inventory { margin-left: 196px; }
   }
 
   @media (max-width: 768px) {
