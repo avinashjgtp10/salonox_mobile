@@ -262,6 +262,7 @@ const maskPhone = (value: string) => {
 function ScreenShell({
   backFallback = "/dashboard" as Href,
   children,
+  contentBottomPadding = AppLayout.contentBottomPadding,
   footer,
   hideHeader = false,
   onRefresh,
@@ -273,6 +274,7 @@ function ScreenShell({
 }: {
   backFallback?: Href;
   children: React.ReactNode;
+  contentBottomPadding?: number;
   footer?: React.ReactNode;
   hideHeader?: boolean;
   onRefresh?: () => void;
@@ -350,7 +352,7 @@ function ScreenShell({
           {content}
         </ScrollView>
       ) : (
-        <View style={[styles.content, styles.fixedContent, contentStyle]}>{content}</View>
+        <View style={[styles.content, styles.fixedContent, contentStyle, { paddingBottom: contentBottomPadding }]}>{content}</View>
       )}
       {footer}
       <AppointmentSnackbar />
@@ -1538,6 +1540,11 @@ function CalendarPreview({
   const [quickSaleSlot, setQuickSaleSlot] = useState<QuickSaleSlot | null>(null);
   const startHour = 0;
   const hourHeight = 160;
+  const { width: viewportWidth, height: viewportHeight } = useWindowDimensions();
+  const [firstVisibleHour, setFirstVisibleHour] = useState(() => Math.max(0, new Date().getHours() - 1));
+  const [horizontalOffset, setHorizontalOffset] = useState(0);
+  const windowStartHour = Math.max(0, firstVisibleHour - 2);
+  const windowEndHour = Math.min(24, firstVisibleHour + Math.ceil(viewportHeight / hourHeight) + 2);
   const hours = useMemo(() => Array.from({ length: 24 }, (_, index) => startHour + index), []);
   const timeSlots = useMemo(() => Array.from({ length: hours.length * 4 }, (_, index) => {
     const totalMinutes = startHour * 60 + index * 15;
@@ -1560,6 +1567,9 @@ function CalendarPreview({
     : days.map((day) => ({ ...day, staffId: "", staffName: "" })), [date, days, staffColumns, viewMode]);
   const columnWidth = viewMode === "day" ? 132 : 118;
   const calendarContentWidth = 54 + columns.length * columnWidth;
+  const visibleHours = useMemo(() => hours.filter((hour) => hour >= windowStartHour && hour < windowEndHour), [hours, windowStartHour, windowEndHour]);
+  const visibleTimeSlots = useMemo(() => timeSlots.filter(({ hour }) => hour >= windowStartHour && hour < windowEndHour), [timeSlots, windowStartHour, windowEndHour]);
+  const appointmentsByColumn = useMemo(() => columns.map((column) => appointments.filter((appointment) => getDateKey(appointment.scheduledAt) === column.key && (!column.staffId || (resolveStaffId ? resolveStaffId(appointment) : appointment.staffId) === column.staffId))), [appointments, columns, resolveStaffId]);
   const now = new Date();
   const currentMinuteOffset = now.getHours() * 60 + now.getMinutes() - startHour * 60;
   const showCurrentTime = viewMode === "day" && date === todayIsoDate() && currentMinuteOffset >= 0 && currentMinuteOffset < hours.length * 60;
@@ -1602,7 +1612,13 @@ function CalendarPreview({
 
   return (
     <View style={styles.dinggCalendar}>
-      <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator style={styles.dinggHorizontalScroller}>
+      <ScrollView horizontal nestedScrollEnabled showsHorizontalScrollIndicator style={styles.dinggHorizontalScroller}
+        scrollEventThrottle={32}
+        onScroll={(event) => {
+          const next = Math.floor(event.nativeEvent.contentOffset.x / columnWidth) * columnWidth;
+          setHorizontalOffset((previous) => previous === next ? previous : next);
+        }}
+      >
         <View style={{ height: "100%", width: calendarContentWidth }}>
           <View style={styles.dinggCalendarHeader}>
             <View style={styles.dinggTimeHeader}>{viewMode === "day" ? <Text style={styles.dinggStaffHeader}>Staff</Text> : null}</View>
@@ -1611,23 +1627,32 @@ function CalendarPreview({
           <ScrollView
             nestedScrollEnabled
             ref={verticalScrollRef}
+            scrollEventThrottle={32}
+            onScroll={(event) => {
+              const next = Math.max(0, Math.floor(event.nativeEvent.contentOffset.y / hourHeight));
+              setFirstVisibleHour((previous) => previous === next ? previous : next);
+            }}
             refreshControl={onRefresh ? <RefreshControl colors={[Colors.primary]} onRefresh={onRefresh} refreshing={refreshing} tintColor={Colors.primary} /> : undefined}
             showsVerticalScrollIndicator
             style={styles.dinggVerticalScroller}
           >
             <View style={[styles.dinggGridBody, { height: hours.length * hourHeight }]}>
               <View style={styles.dinggTimeColumn}>
-                {timeSlots.map(({ hour, minute }) => (
-                  <View key={`${hour}-${minute}`} style={[styles.dinggTimeCell, { height: hourHeight / 4 }]}>
+                {visibleTimeSlots.map(({ hour, minute }) => (
+                  <View key={`${hour}-${minute}`} style={[styles.dinggTimeCell, { position: 'absolute', left: 0, right: 0, top: (hour + minute / 60) * hourHeight, height: hourHeight / 4 }]}>
                     <Text style={[styles.dinggTimeText, minute === 0 && styles.dinggHourText]}>{minute === 0 ? new Intl.DateTimeFormat("en-IN", { hour: "numeric", hour12: true }).format(new Date(2020, 0, 1, hour)) : `${String(hour % 12 || 12).padStart(2, "0")}:${String(minute).padStart(2, "0")}`}</Text>
                   </View>
                 ))}
               </View>
               {columns.map((column, columnIndex) => {
-                const columnAppointments = appointments.filter((appointment) => getDateKey(appointment.scheduledAt) === column.key && (!column.staffId || (resolveStaffId ? resolveStaffId(appointment) : appointment.staffId) === column.staffId));
+                const columnAppointments = appointmentsByColumn[columnIndex];
+                const columnLeft = 54 + columnIndex * columnWidth;
+                if (columnLeft + columnWidth < horizontalOffset - columnWidth || columnLeft > horizontalOffset + viewportWidth + columnWidth) {
+                  return <View key={`${column.key}-${column.staffId || columnIndex}`} style={{ width: columnWidth }} />;
+                }
                 return (
                 <View key={`${column.key}-${column.staffId || columnIndex}`} style={[styles.dinggDayColumn, viewMode === "day" && (columnIndex % 2 === 0 ? styles.dinggColumnAvailable : styles.dinggColumnUnavailable), { width: columnWidth }]}>
-                  {timeSlots.map(({ hour, minute }, slotIndex) => (
+                  {visibleTimeSlots.map(({ hour, minute }) => (
                     <Pressable
                       accessibilityHint="Opens Quick Sale for this calendar slot"
                       accessibilityLabel={`Quick Sale, ${column.label}, ${String(hour % 12 || 12)}:${String(minute).padStart(2, "0")}`}
@@ -1638,11 +1663,11 @@ function CalendarPreview({
                         staffName: column.staffName || undefined,
                         time: `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`,
                       })}
-                      style={[styles.dinggQuickSaleSlot, { height: hourHeight / 4, top: slotIndex * (hourHeight / 4) }]}
+                      style={[styles.dinggQuickSaleSlot, { height: hourHeight / 4, top: (hour + minute / 60) * hourHeight }]}
                     />
                   ))}
-                  {hours.map((hour) => (
-                    <View key={`${column.key}-${hour}`} style={[styles.dinggHourCell, { height: hourHeight }]}>
+                  {visibleHours.map((hour) => (
+                    <View key={`${column.key}-${hour}`} style={[styles.dinggHourCell, { position: 'absolute', left: 0, right: 0, top: hour * hourHeight, height: hourHeight }]}>
                       <View style={[styles.dinggQuarterLine, { top: "25%" }]} />
                       <View style={[styles.dinggQuarterLine, { top: "50%" }]} />
                       <View style={[styles.dinggQuarterLine, { top: "75%" }]} />
@@ -1659,6 +1684,7 @@ function CalendarPreview({
                       : appointment.durationMinutes ?? 30;
                     const height = Math.max((calendarDurationMinutes / 60) * hourHeight, 36);
                     const top = (offsetMinutes / 60) * hourHeight;
+                    if (top + height < windowStartHour * hourHeight || top > windowEndHour * hourHeight) return null;
                     const appointmentTitle = getCalendarAppointmentTitle(appointment);
                     const tokenLabel = getCalendarTokenLabel(appointment);
                     const endTimeLabel = appointment.endTime
@@ -4575,6 +4601,8 @@ export function AppointmentCalendarScreen() {
       onRefresh={() => void fetchAppointments(viewMode === "week" ? { fromDate: date, limit: 200, refresh: true, search, staffId: selectedStaffId, status, toDate: rangeEndKey } : { date, limit: 200, refresh: true, search, staffId: selectedStaffId, status })}
       refreshing={refreshing}
       hideHeader
+      contentBottomPadding={0}
+      safeAreaEdges={['top']}
       scrollable={viewMode === "list"}
       title="Calendar"
     >
