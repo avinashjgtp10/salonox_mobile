@@ -1,1 +1,0 @@
-export { CancelAppointmentScreen } from "./legacy";
