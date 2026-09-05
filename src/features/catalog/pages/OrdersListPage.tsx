@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { Search, FileEarmarkText, PlusLg, X, ThreeDotsVertical, PencilSquare, Trash3, BoxSeam } from "react-bootstrap-icons";
-import { useAppDispatch } from "../../../hooks/useAppRedux";
+import { useAppDispatch, useAppSelector } from "../../../hooks/useAppRedux";
 import { fetchOrdersThunk, deleteOrderThunk, fetchOrderByIdThunk, receiveOrderThunk } from "../../../middleware/inventory/inventory.thunk";
 import type { Order } from "../../../types/inventory.types";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -46,9 +46,11 @@ const OrdersListPage: React.FC = () => {
   const { formatAmount } = useCurrency();
   const { showError, showSuccess, overlay } = useStatusOverlay();
 
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(true);
+  // Kept in Redux (inventorySlice), not page-local state — this page
+  // unmounts/remounts on every navigation away and back (e.g. Close on
+  // NewOrderPage), which would otherwise reset local state to empty on
+  // every return and defeat the "skip refetch on a plain Close" check below.
+  const { orders, ordersTotal: total, ordersLoading: loading } = useAppSelector((s) => s.inventory);
   const [search, setSearch] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<Order["status"] | "">("");
@@ -98,9 +100,8 @@ const OrdersListPage: React.FC = () => {
   }, [search]);
 
   const load = useCallback(async () => {
-    setLoading(true);
     try {
-      const result = await dispatch(
+      await dispatch(
         fetchOrdersThunk({
           search: debouncedSearch || undefined,
           status: statusFilter || undefined,
@@ -108,14 +109,8 @@ const OrdersListPage: React.FC = () => {
           limit: pageSize,
         }),
       ).unwrap();
-      setOrders(result.data);
-      setTotal(result.total);
     } catch (err: any) {
       showError(typeof err === "string" ? err : "Couldn't load orders");
-      setOrders([]);
-      setTotal(0);
-    } finally {
-      setLoading(false);
     }
   }, [dispatch, debouncedSearch, statusFilter, currentPage, pageSize, showError]);
 

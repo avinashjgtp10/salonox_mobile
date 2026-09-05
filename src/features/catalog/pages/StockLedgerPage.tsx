@@ -635,6 +635,34 @@ function StockAdjustmentModal({
     }
   }, [branches, branchId]);
 
+  // Current Stock Qty — read-only reference so users can compare it against
+  // the quantity they're entering. Sourced from the same product timeline
+  // endpoint StockTimelineModal above uses for "Current Stock" (the latest
+  // row's balance_after already reflects every past movement). Fetched once
+  // per product and cached here; a ref (not state) tracks what's already
+  // in flight/fetched so re-renders don't refire the request.
+  const [currentStock, setCurrentStock] = useState<Record<string, { balance: number; unit: string | null; bottleSize: number | null }>>({});
+  const stockFetchedRef = useRef<Set<string>>(new Set());
+
+  useEffect(() => {
+    lines.forEach((line) => {
+      const pid = line.productId;
+      if (!pid || stockFetchedRef.current.has(pid)) return;
+      stockFetchedRef.current.add(pid);
+      api.get(INVENTORY.STOCK_LEDGER_PRODUCT_TIMELINE(pid))
+        .then((res) => {
+          const top = (res.data?.data ?? [])[0];
+          setCurrentStock((prev) => ({
+            ...prev,
+            [pid]: { balance: top?.balance_after ?? 0, unit: top?.measure_unit ?? null, bottleSize: top?.bottle_size ?? null },
+          }));
+        })
+        .catch(() => {
+          setCurrentStock((prev) => ({ ...prev, [pid]: { balance: 0, unit: null, bottleSize: null } }));
+        });
+    });
+  }, [lines]);
+
   function patchLine(key: string, patch: Partial<AdjustmentLine>) {
     setLines((prev) => prev.map((l) => (l.key === key ? { ...l, ...patch } : l)));
   }
@@ -706,6 +734,7 @@ function StockAdjustmentModal({
         <div className="sl-adj-lines">
           <div className="sl-adj-lines__head">
             <span>Product</span>
+            <span>Current Stock Qty</span>
             <span>Transaction Type</span>
             <span>Quantity</span>
             <span />
@@ -713,6 +742,7 @@ function StockAdjustmentModal({
           {lines.map((line) => {
             const product = products.find((p) => p.id === line.productId);
             const isDuplicate = line.productId && duplicateProductIds.has(line.productId);
+            const stock = line.productId ? currentStock[line.productId] : undefined;
             return (
               <div className="sl-adj-lines__row" key={line.key}>
                 <div>
@@ -723,6 +753,9 @@ function StockAdjustmentModal({
                     onChange={(id) => patchLine(line.key, { productId: id })}
                   />
                   {isDuplicate && <span className="sl-adj-line-err">Already added above</span>}
+                </div>
+                <div className="sl-adj-current-stock" title="Current stock — read-only">
+                  {!line.productId ? "—" : stock ? fmtBalance(stock.balance, stock.unit, stock.bottleSize) : <Skeleton height={14} />}
                 </div>
                 <Dropdown
                   searchable={false}

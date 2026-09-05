@@ -10,7 +10,7 @@ import {
   uploadOrderSignatureThunk,
   fetchOrderSignaturesThunk,
 } from "../../../middleware/inventory/inventory.thunk";
-import { fetchSettingsThunk, createSettingThunk } from "../../../middleware/setting/setting.thunk";
+import { fetchSettingsThunk } from "../../../middleware/setting/setting.thunk";
 import type { CreateOrderItemPayload, OrderTaxType } from "../../../types/inventory.types";
 import { getActiveTaxes } from "../../../features/settings/utils/taxSettings";
 import { useCurrency } from "../../../hooks/useCurrency";
@@ -37,21 +37,6 @@ interface OrderLine {
   qty: string;
   unitCost: string;
   discountPercent: string;
-}
-
-// "Save Default" reuses the generic salon_settings key/value store (the
-// same one tax/general settings already live in — see setting.thunk.ts) —
-// one row keyed by ORDER_DEFAULTS_SETTING_KEY, value is this shape
-// JSON.stringify'd. No new table/endpoint needed.
-const ORDER_DEFAULTS_SETTING_KEY = "order_defaults";
-interface OrderDefaults {
-  supplier_id?: string;
-  payment_terms_days?: string;
-  tax_type?: OrderTaxType;
-  tax_group?: string;
-  tax_rate_percent?: string;
-  delivery_address?: string;
-  delivery_instructions?: string;
 }
 
 const PAYMENT_TERMS_OPTIONS = [
@@ -170,7 +155,6 @@ const NewOrderPage: React.FC = () => {
   const [termsConditions, setTermsConditions] = useState("");
 
   const [saving, setSaving] = useState(false);
-  const [savingDefault, setSavingDefault] = useState(false);
   const [touched, setTouched] = useState(false);
 
   const [galleryOpen, setGalleryOpen] = useState(false);
@@ -185,30 +169,6 @@ const NewOrderPage: React.FC = () => {
     dispatch(fetchSuppliersThunk({ page_limit: 100 }));
     dispatch(fetchSettingsThunk());
   }, [dispatch]);
-
-  // Apply the saved "order defaults" (see handleSaveDefault below) once
-  // settings finish loading — new orders only; an order being edited already
-  // has its own real values coming from fetchOrderByIdThunk below, which
-  // must never be overwritten by a stored default.
-  useEffect(() => {
-    if (isEditMode) return;
-    const stored = settingItems.find((s: any) => s.key === ORDER_DEFAULTS_SETTING_KEY);
-    if (!stored) return;
-    try {
-      const raw = (stored as any).value;
-      const defaults: OrderDefaults = typeof raw === "string" ? JSON.parse(raw) : raw;
-      if (defaults.supplier_id) setSupplierId(defaults.supplier_id);
-      if (defaults.payment_terms_days) setPaymentTermsDays(defaults.payment_terms_days);
-      if (defaults.tax_type) setTaxType(defaults.tax_type);
-      if (defaults.tax_group) setTaxGroup(defaults.tax_group);
-      if (defaults.tax_rate_percent) setTaxRatePercent(defaults.tax_rate_percent);
-      if (defaults.delivery_address) setDeliveryAddress(defaults.delivery_address);
-      if (defaults.delivery_instructions) setDeliveryInstructions(defaults.delivery_instructions);
-    } catch {
-      // Malformed stored value — ignore rather than block the form.
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditMode, settingItems]);
 
   // Edit mode: load the existing order and prefill every field with it.
   useEffect(() => {
@@ -360,7 +320,12 @@ const NewOrderPage: React.FC = () => {
           // Cost) — selling_price is the product's own catalog retail price
           // when known, not a duplicate of the cost, so margin reporting
           // built on these two columns isn't comparing a number to itself.
-          selling_price: l.product!.retail_price ?? m.unitCost,
+          // retail_price comes back from the product search API as a string
+          // (Postgres NUMERIC, not cast to a real number server-side) even
+          // though its TS type claims `number | null` — Number(...) here
+          // avoids sending a string where the backend validator strictly
+          // requires typeof === "number" (see orders.validator.ts).
+          selling_price: l.product!.retail_price != null ? Number(l.product!.retail_price) : m.unitCost,
           discount_percent: m.discountPercent || undefined,
           cost_price: m.unitCost,
         };
@@ -408,35 +373,6 @@ const NewOrderPage: React.FC = () => {
     }
   }
 
-  // Saves the current Supplier/Order-settings fields as the default applied
-  // to future new orders (see the apply-defaults effect above) — reuses the
-  // existing generic settings upsert (createSettingThunk already upserts by
-  // key server-side, see settings.repository.ts), not a new endpoint.
-  async function handleSaveDefault() {
-    setSavingDefault(true);
-    try {
-      const defaults: OrderDefaults = {
-        supplier_id: supplierId || undefined,
-        payment_terms_days: paymentTermsDays || undefined,
-        tax_type: taxType,
-        tax_group: taxGroup || undefined,
-        tax_rate_percent: taxRatePercent || undefined,
-        delivery_address: deliveryAddress.trim() || undefined,
-        delivery_instructions: deliveryInstructions.trim() || undefined,
-      };
-      await dispatch(createSettingThunk({
-        key: ORDER_DEFAULTS_SETTING_KEY,
-        value: JSON.stringify(defaults),
-        description: "Default values applied when creating a new Purchase Order",
-      })).unwrap();
-      showSuccess("Default order settings saved");
-    } catch (err: any) {
-      showError(typeof err === "string" ? err : "Couldn't save default settings");
-    } finally {
-      setSavingDefault(false);
-    }
-  }
-
   const handleClose = () => navigate("/dashboard/inventory/orders");
 
   if (loadingOrder) {
@@ -460,9 +396,6 @@ const NewOrderPage: React.FC = () => {
         <h2>{isEditMode ? `Edit Purchase Order ${orderNumber}` : "New Purchase Order"}</h2>
         <div className="topbar-actions">
           <button className="btn-close-top" onClick={handleClose}>Close</button>
-          <Button variant="outline-dark" onClick={handleSaveDefault} disabled={savingDefault} loading={savingDefault}>
-            Save Default
-          </Button>
           {!isEditMode && (
             <Button variant="outline-dark" onClick={() => handleSave("draft")} disabled={saving || !canSave} loading={saving}>
               Save Draft
